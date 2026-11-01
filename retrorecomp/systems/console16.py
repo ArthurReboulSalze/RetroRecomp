@@ -70,7 +70,7 @@ class SnesProfile(SystemProfile):
     video_modes = ('ntsc', 'pal')
     cpus = (Cpu('65816', 'main', 'instructions'), Cpu('spc700', 'sound', 'instructions'))
     # Circuits counted apart from the CPUs (snes_chips.py).
-    cartridge_devices = ('superfx', 'dsp1', 'cx4')
+    cartridge_devices = ('superfx', 'dsp1', 'cx4', 'sa1', 'sdd1')
     quick_state_family = 'rr16'
     capabilities = Capabilities(guns=('super_scope',), battery=True)
     feedback_kinds = frozenset({8, 9})

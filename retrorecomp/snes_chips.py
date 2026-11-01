@@ -84,12 +84,16 @@ def identify(data):
     # HiROM DSP-1 boards: the DSP-1 sits at $00-$1F:$6000-$7FFF; type $05 adds battery RAM at $20-$3F:$6000-$7FFF, type $03 has none.
     if mode==0x31 and kind in (3,5) and mapping=='hirom':return 'dsp1-hi'
     if mode==0x20 and kind in SUPERFX_TYPES and mapping=='lorom':return 'superfx'
+    # SA-1 boards: map $23, type $34 (SA-1 and BW-RAM) or $35 (with battery). TRIAL 1.6.6.
+    if mode==0x23 and kind in (0x34,0x35) and mapping=='lorom':return 'sa1'
+    # S-DD1 boards: map $32 (ExLoROM), type $43 or $45 (with RAM and a battery): a decompression chip on the DMA path.
+    if mode==0x32 and kind in (0x43,0x45) and mapping=='lorom':return 'sdd1'
     family=({1:'Super FX',3:'SA-1',4:'S-DD1'}.get(kind>>4) or
             ('DSP-4' if mode==0x30 and kind==3 else
              'DSP-2' if mode==0x20 and kind==5 else
              'SPC7110' if mode==0x3a and kind in (0xf5,0xf9) else 'custom circuitry'))
     raise ConversionError(f'SNES enhancement chip {family} is not integrated yet (map ${mode:02X}, type ${kind:02X}). '
-                          'DSP-2/3/4, SA-1, S-DD1 and other custom chips remain unsupported.')
+                          'DSP-2/3/4, S-DD1, SPC7110 and other custom chips remain unsupported.')
 
 
 def cart_header(source):
@@ -447,9 +451,47 @@ static bool gsu_bus_wait(SuperFx *f) {
 '''
 
 
+def sa1(source):
+    """The SA-1's IRQ line is a level: it follows the flags.
+
+    The pinned `sa1_request_interrupt` latches `irqWanted` while a flag is set and never withdraws it. A handler clears
+    the flag with its first instructions, but the request latched while the handler started stays: at the `RTI` the core
+    takes a second IRQ that nothing asks for. That entry has no vector kind, so the vector is read from the ROM
+    ($FFEE: the S-CPU's), and the SA-1 runs the S-CPU's handler (found with an authored cartridge: the SA-1 never
+    returned to its loop after an IRQ from the S-CPU). Withdrawing the request when no flag is set gives the level.
+    """
+    return replace(source, '''  if (irq) {
+    sa1->interrupt_vector_kind = 2;
+    sa1->cpu->irqWanted = true;
+  }''', '''  sa1->cpu->irqWanted = irq;
+  if (irq) sa1->interrupt_vector_kind = 2;''')
+
+
+def sdd1(source):
+    """Count what the S-DD1 decompresses, so the report can say the chip worked.
+
+    A DMA session is counted when it is armed (with the bytes it asks for), a CPU-read block when it is decompressed.
+    The counters live in the engine file and are read by the backend; they are not part of any state.
+    """
+    source = replace(source, '#include "saveload.h"\n', '''#include "saveload.h"
+
+/* Retro-Recomp: what the chip has decompressed in this run (reported, never saved). */
+uint64_t rr_sdd1_dma_sessions, rr_sdd1_dma_bytes, rr_sdd1_cpu_blocks;
+''')
+    source = replace(source, '''    state->active = true;
+    state->src_addr = src_addr24 & 0xFFFFFF;''', '''    rr_sdd1_dma_sessions++;
+    rr_sdd1_dma_bytes += transfer_size ? transfer_size : 0x10000;
+    state->active = true;
+    state->src_addr = src_addr24 & 0xFFFFFF;''')
+    return replace(source, '''            sdd1->cpu_ch[i].buf = tmp;
+            sdd1->cpu_ch[i].buf_size = sz;''', '''            rr_sdd1_cpu_blocks++;
+            sdd1->cpu_ch[i].buf = tmp;
+            sdd1->cpu_ch[i].buf_size = sz;''')
+
+
 def adapt_engine(staged):
     for filename,adapt in (('cart.h',lambda source:cart_header_sync(cart_header(source))),('cart.c',cart),('snes_other.c',loader),
                             ('dsp1.c',dsp1),('cx4.c',cx4),('superfx.h',superfx_header),('superfx.c',superfx),
-                            ('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header)):
+                            ('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header),('sa1.c',sa1),('sdd1.c',sdd1)):
         path=staged/'runner/src/snes'/filename
         path.write_text(adapt(path.read_text(encoding='utf-8')),encoding='utf-8')

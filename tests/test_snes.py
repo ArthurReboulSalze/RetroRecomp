@@ -92,14 +92,50 @@ class SnesNativeTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             snes_codegen.native_source(source_fixture(), rom, mapping='exhirom')
 
+    # The two fast-forwards the pinned bridge carries for single cartridges, each with the text of its on/off switch.
+    D9FF_SWITCH = ('        const char *_e = getenv("SNESRECOMP_NO_D9FF");\n'
+                   "        s_d9ff = (_e && _e[0] && _e[0] != '0') ? 0 : 1;\n")
+    VFF_SWITCH = ('                const char *_e = getenv("SNESRECOMP_NO_VBLANK_FF");\n'
+                  "                s_vff_ok = (_e && _e[0] && _e[0] != '0') ? 0 : 1;\n")
+
+    def bridge_fixture(self):
+        return ('if (bounce_ok && has_body) { }\n'
+                'if (auto_quiescent && steps && !in.i && g_snes && irq) { }\n'
+                '        if (auto_quiescent && s_lle_master_deadline &&\n'
+                '            cpu->master_cycles >= s_lle_master_deadline) { }\n'
+                'if (auto_quiescent || yield_pc) {\n'
+                '                lle_resume_set(((uint32_t)in.k << 16) | in.pc, INTERP_RESUME_SITE_WAI, in.sp); }\n'
+                '        if (stop_on_rti && op == 0x40) {\n            sync_interp_to_cpu(&in, cpu); }\n'
+                + self.D9FF_SWITCH + self.VFF_SWITCH)
+
+    def test_the_per_game_fast_forwards_of_the_pinned_bridge_are_off_in_every_build(self):
+        # Arthur's decision of 1 November 2026: no per-game code. The pinned bridge fast-forwards a Super Mario RPG wait
+        # loop (SNESRECOMP_NO_D9FF) and a vblank wait at fixed addresses of Star Ocean and Super Mario RPG
+        # (SNESRECOMP_NO_VBLANK_FF); the adapter fixes both switches off, whatever the environment says.
+        adapted = snes_codegen.adapt_bridge(self.bridge_fixture())
+        self.assertIn('s_d9ff = 0;', adapted)
+        self.assertIn('s_vff_ok = 0;', adapted)
+        self.assertNotIn('SNESRECOMP_NO_D9FF', adapted)
+        self.assertNotIn('SNESRECOMP_NO_VBLANK_FF', adapted)
+        self.assertNotIn('getenv', adapted)
+        for switch in (self.D9FF_SWITCH, self.VFF_SWITCH):
+            with self.subTest(switch=switch[-40:]):
+                with self.assertRaises(ConversionError):
+                    snes_codegen.adapt_bridge(self.bridge_fixture().replace(switch, ''))
+
+    @unittest.skipUnless((PINNED / 'runner/src/snes/interp_bridge.c').is_file(), 'pinned engine checkout not present')
+    def test_the_pinned_bridge_has_the_switches_the_adapter_turns_off(self):
+        source = (self.PINNED / 'runner/src/snes/interp_bridge.c').read_text(encoding='utf-8')
+        self.assertEqual(source.count(self.D9FF_SWITCH), 1)
+        self.assertEqual(source.count(self.VFF_SWITCH), 1)
+        adapted = snes_codegen.adapt_bridge(source)
+        self.assertIn('s_d9ff = 0;', adapted)
+        self.assertIn('s_vff_ok = 0;', adapted)
+        self.assertNotIn('getenv("SNESRECOMP_NO_D9FF")', adapted)
+        self.assertNotIn('getenv("SNESRECOMP_NO_VBLANK_FF")', adapted)
+
     def test_interrupts_keep_the_armed_deadline_and_wai_scheduler_handoff(self):
-        bridge = ('if (bounce_ok && has_body) { }\n'
-                  'if (auto_quiescent && steps && !in.i && g_snes && irq) { }\n'
-                  '        if (auto_quiescent && s_lle_master_deadline &&\n'
-                  '            cpu->master_cycles >= s_lle_master_deadline) { }\n'
-                  'if (auto_quiescent || yield_pc) {\n'
-                  '                lle_resume_set(((uint32_t)in.k << 16) | in.pc, INTERP_RESUME_SITE_WAI, in.sp); }\n'
-                  '        if (stop_on_rti && op == 0x40) {\n            sync_interp_to_cpu(&in, cpu); }')
+        bridge = self.bridge_fixture()
         adapted = snes_codegen.adapt_bridge(bridge)
         self.assertIn('(auto_quiescent || stop_on_rti) && s_lle_master_deadline', adapted)
         self.assertIn('(stop_on_rti && s_lle_master_deadline)', adapted)

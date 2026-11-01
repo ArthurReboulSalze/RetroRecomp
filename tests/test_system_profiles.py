@@ -133,7 +133,7 @@ class ProfileDataTests(unittest.TestCase):
             self.assertTrue(all(cpu.unit in ('cycles', 'instructions') for cpu in profile.cpus), profile.id)
         self.assertEqual([(cpu.arch, cpu.role) for cpu in get_profile('snes').cpus],
                          [('65816', 'main'), ('spc700', 'sound')])
-        self.assertEqual(get_profile('snes').cartridge_devices, ('superfx', 'dsp1', 'cx4'))
+        self.assertEqual(get_profile('snes').cartridge_devices, ('superfx', 'dsp1', 'cx4', 'sa1', 'sdd1'))
         self.assertEqual([(cpu.arch, cpu.role) for cpu in get_profile('cps1').cpus],
                          [('m68000', 'main'), ('z80', 'sound')])
 
