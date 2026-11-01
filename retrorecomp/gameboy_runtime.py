@@ -99,6 +99,15 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {')
     source = replace_once(source, 'gb_tick(ctx, ctx->cgb_double_speed ? 64u : 32u);',
         '(gb_tick)(ctx, ctx->cgb_double_speed ? 64u : 32u);')
+    # With the LCD off there is no vblank, so no frame ever completed: a game that waits for a key with the screen off
+    # (The Ren & Stimpy Show: Veediots!) stopped every headless probe and every frame-anchored input script, since the
+    # frame counter and the script clock only advance at a completed frame. A frame lasts 70,224 cycles with the LCD
+    # off as well; the picture is the last one, as the PPU keeps it. gb_tick_fast.h does the same in its copy of
+    # gb_add_cycles.
+    source = replace_once(source,
+        '    if (ctx->lcd_off_active) {\n        ctx->frame_lcd_off_cycles += cycles;\n        ctx->total_lcd_off_cycles += cycles;\n    }\n}',
+        '    if (ctx->lcd_off_active) {\n        ctx->frame_lcd_off_cycles += cycles;\n        ctx->total_lcd_off_cycles += cycles;\n'
+        '        if (ctx->frame_cycles >= 70224u) ctx->frame_done = 1;\n    }\n}')
     source = replace_once(source,
         '''    /* Save RAM before destroying if available */
     if (ctx->eram && ctx->callbacks.save_battery_ram && !ctx->persistence_load_failed) {

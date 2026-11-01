@@ -207,7 +207,7 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
-## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5, in preparation)
+## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
 `[GameGear.Video] reduce_sprite_flicker`; the Game Gear VDP has the same eight-sprite line limit). The renderer change is in
@@ -217,7 +217,7 @@ ROM patch, collision and overflow flags keep using the original eight sprites, a
 renderer still agree on every scene (`tools/pixel_optimization_selftest.py`, `tools/video_selftest.py`).
 
 Stamps (computed with the tree of 1.6.4 and the tree of this change): the **game stamp of the Master System and the Game Gear moves**
-(renderer) and so does their **host stamp** (adapter), so their exports are rebuilt with the upgrade path. In the same change
+(renderer) and so does their **host stamp** (adapter); like every export of 1.6.4, they are converted again in full once. In the same change
 `native/video_mode4.inc` and `native/video_checks.c`, which only the Master System and the Game Gear use, move from the group
 owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`): the manifest of the seven other consoles loses
 two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
@@ -457,6 +457,49 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
+
+The 68000 now sees the grant of the Z80 bus (`$A11100` bit 0) at the end of the sound CPU's machine cycle in progress when it
+wrote BUSREQ, also when the sound CPU already stands ahead (its last instruction of a line retires beyond the line), and as soon as
+that date has passed, not only after the 68000 has caught up to the sound CPU's clock. Barkley Shut Up and Jam! (USA), which does
+not loop on the bit and stopped converting, now converts. The sound CPU resumes after the release as before. Details and the
+ROM-free reproducer: [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md#busack-after-a-line-end--2026-10-30-165).
+*Edited:* `native/md_z80_bus.inc`, `retrorecomp/megadrive_bus.py` and `native/md_boundary_checks.c` (its reproducer), all game
+inputs of the Mega Drive only. **The `md` game stamp moves**, and with the native files the Mega Drive quick-state key. A quick
+state now also carries the sound CPU's eight latest machine-cycle ends (72 bytes after the machine section's tail), so the first
+BUSACK after F9 is dated as in an uninterrupted run; the machine section grows by those bytes and a state of an earlier build is
+refused cleanly (quick states are not carried over in 1.6.5). Because a game that polls the bit can
+now see the grant one poll earlier, the Mega Drive exports of 1.6.4 are converted in full, not upgraded. **Cost:** one compare and
+one store per sound-CPU access, I/O cycle and instruction end, one condition per arbiter loop, and a scan of at most eight entries
+per BUSREQ write; nothing on the 68000's instructions or bus accesses; not timed.
+
+Checked by `tools/ab_conversion.py` on 13 games against the tree before the change. All 26 conversions succeed, keep 0 interpreted
+68000 instructions and 0 interpreted Z80 cycles on their final demo and play routes, and their native and reference runs agree.
+Blockout gives identical outputs (only the changed sources, the clang profile built from them and the packed size ratio differ).
+In the 12 others the sound, the Z80 and 68000 state and, for some, the picture sequence change. For each of them both executables
+were replayed with a per-frame trace and a per-frame hash of the arbiter's events: on both routes, the first frame that differs is
+the first frame whose arbiter events differ, and the first differing event is a 68000 read of `$A11100` that the previous rule
+answered "not granted" and that is now "granted", made after the end of the sound CPU's cycle following the request:
+
+| Game | Demo: frame, read / sound CPU (master clocks) | Play: frame, read / sound CPU |
+|---|---|---|
+| Sonic The Hedgehog 2 (USA) | 682, 637 / 615 | 1337, 1463 / 1440 |
+| Sonic The Hedgehog 3 (USA) | 279, 269 / 255 (ahead after the line end) | 279, same |
+| Gunstar Heroes (USA) | 808, 3525 / 3420 | 431, 638 / 615 |
+| Streets of Rage 2 (USA) | 153, 2726 / 2700 | 153, same |
+| Mortal Kombat II (USA) | 1178, 1665 / 1650 | 977, 2355 / 2355 |
+| Street Fighter II' Plus - Champion Edition (Japan) | 531, 3169 / 3150 | 332, 3184 / 3165 |
+| Super Street Fighter II (USA) | 471, 590 / 585 | 332, 745 / 720 |
+| Comix Zone (USA) | 49, 3157 / 3135 | 49, same |
+| Thunder Force IV (Japan) | 708, 3387 / 3360 | 346, 3520 / 3495 |
+| Contra - Hard Corps (USA) | 2759, 1886 / 1860 | 875, 2511 / 2490 |
+| Earthworm Jim (USA) | 1709, 3510 / 3420 | 1989, 218 / 225 (ahead after the line end) |
+| Ecco the Dolphin (USA) | 116, 2921 / 2895 | 116, same |
+
+The previous rule recorded the grant only once the 68000 had been run up to the sound CPU's clock, and that run can end one
+instruction later, so a poll made there was answered "not granted". These are differences of the bus model observed by the
+game, explained frame by frame; they are not measurements on a console and say nothing about play beyond these routes.
+
 ## Mega Drive: the supervisor RESET instruction is executed (1.6.5)
 
 A cartridge that executes the 68000 `RESET` instruction (opcode `$4E70`, supervisor mode) used to stop the conversion: the pinned
@@ -687,6 +730,40 @@ the inline path are caught. Because the runtime itself now uses the inline path,
 `runtime/include/gb_tick_fast.h` (new) and `runtime/src/gbrt.c`, and reports with identical cycles, interpreter and one-by-one counts and CPU
 comparison step counts; and the final executables of Tetris and Super Mario Land, run for 3,600 frames on three input scripts with
 `--dump-state`, write state files identical byte for byte (registers, cycles, WRAM, HRAM, PPU mode, RTC).
+
+## Game Boy: a frame lasts 70,224 cycles with the LCD off (1.6.5)
+
+With the LCD off the Game Boy has no vblank, and the runtime completed a frame only at vblank: a game that keeps the screen off
+while it waits for a key never completed another frame. In the windowed export the loop already ran in slices of 70,224 cycles and
+showed the last picture, but the frame counter, the clock of frame-anchored input scripts and the limit of headless runs advance only at a
+completed frame, so every headless probe and every scripted route stopped there. The Ren & Stimpy Show: Veediots! did so at the end
+of frame 215 of the probe (screen off at cycle 16,201,199, never on again, 30 million instructions without a frame).
+`gb_add_cycles` (and its copy in `native/gb_tick_fast.h`) now ends the frame when the frame's cycles reach 70,224 while the LCD is
+off; the host shows the picture the PPU kept. This is a **change of the frame count, not of the emulation**.
+
+*What moves.* The Game Boy **game stamp** only (it already moves in 1.6.5): `retrorecomp/gameboy_runtime.py` (one more
+`replace_once` on `gbrt.c`) and `native/gb_tick_fast.h`. No host or build stamp, no quick-state key. An export of 1.6.4 is converted
+again once, as at every release; a quick state can now be taken during an LCD-off span (the frame is complete there).
+
+*What it changes in a conversion.* The LCD-off span of the boot (several frames, 15 more in Tetris and 39 more in Super Mario Land over the
+first 3,600) used to count as one frame; it now counts as the frames it lasts. The probes of N frames therefore cover fewer cycles
+at the start, frame-anchored scripts meet other guest cycles, and the counts, the observed entries and the step counts of the reports move
+a little (Super Mario Land: 8,232 translated functions before, 8,211 after; nothing becomes interpreted). Existing observations stay valid.
+Outside the boot, a frame boundary moves only when the LCD is off at the instant the frame's cycles reach 70,224 (a span that starts
+at line n of a frame and lasts more than about 65,664 - 456 n cycles): the effect is one more host frame showing the same picture,
+never a change of the emulated state.
+
+*Hot path: modified (one comparison).* The test is made only while the LCD is off, in the function that adds the cycles of a tick,
+and in its inline copy. Not timed.
+
+*Proof.* `tools/gameboy_tick_selftest.py` checks that the real tick and the inline tick end the frame at the same cycle, for four tick
+sizes, and uses the frame reset of the host loop in its random streams (a mutation of the threshold is caught). At the same total of
+cycles the full `--dump-state` of Tetris (3,600 frames before, 3,615 after) and of Super Mario Land (3,600 and 3,639) is identical without
+`completed_frames`. Veediots now converts alone in 105 s with zero interpreter cycles and matching CPU comparisons (it stopped
+at the first input probe before); Tetris, Super Mario Land and Wario Land II convert on both sides with matching CPU comparisons and
+unchanged interpreter figures. Spiritual Warfare (an unlicensed cartridge whose header says ROM only, 32 KiB, for 256 KiB) now also
+completes its probes, with 1,029,772 interpreter cycles at four sites and the program running garbage: it is not a game that works,
+and a refusal for an inconsistent header would be a separate decision.
 
 ## Game Boy exports in 1.6.4 (writable-memory code)
 

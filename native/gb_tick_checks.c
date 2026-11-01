@@ -128,7 +128,9 @@ static void run_scenario(unsigned scenario, unsigned operations) {
             assert(gb_read8(a, reg) == gb_read8(b, reg));
         } else if (kind < 97u) {
             /* The host loop after a frame or an interrupt stop. */
-            a->stopped = b->stopped = 0; a->frame_done = b->frame_done = 0;
+            a->stopped = b->stopped = 0;
+            if (rnd() & 1u) { gb_reset_frame(a); gb_reset_frame(b); }   /* the frame loop of the host */
+            else { a->frame_done = b->frame_done = 0; }
         } else {
             const uint8_t ime = (uint8_t)(rnd() & 1u), pending = (uint8_t)(rnd() & 1u);
             a->ime = b->ime = ime; a->ime_pending = b->ime_pending = pending;
@@ -174,9 +176,50 @@ static void slow_condition_checks(void) {
     }
 }
 
+/* With the LCD off there is no vblank: a frame is 70,224 cycles. Both ticks must end the frame at the same cycle, and a
+ * frame that has not reached 70,224 cycles must not end. */
+static void lcd_off_frame_checks(void) {
+    for (unsigned flavour = 0; flavour < 4; ++flavour) {
+        GBContext* a = gb_context_create(NULL);
+        GBContext* b = gb_context_create(NULL);
+        assert(a && b);
+        audio_owner[0] = a; audio_owner[1] = b;
+        audio_hash[0] = audio_hash[1] = 1469598103934665603ull; audio_samples[0] = audio_samples[1] = 0;
+        a->callbacks.on_audio_sample = on_audio; b->callbacks.on_audio_sample = on_audio;
+        gb_write8(a, 0xFF40, 0x91); gb_write8(b, 0xFF40, 0x91);
+        (gb_tick)(a, 40); rr_gb_tick(b, 40);
+        gb_write8(a, 0xFF40, 0x11); gb_write8(b, 0xFF40, 0x11);   /* LCD off */
+        assert(a->lcd_off_active && b->lcd_off_active);
+        gb_reset_frame(a); gb_reset_frame(b);
+        const uint32_t step = flavour == 0 ? 4 : (flavour == 1 ? 12 : (flavour == 2 ? 7 : 456));
+        uint32_t cycles_done = 0;
+        while (!a->frame_done) {
+            (gb_tick)(a, step); rr_gb_tick(b, step);
+            cycles_done += step;
+            assert(a->frame_done == b->frame_done && a->frame_cycles == b->frame_cycles);
+            assert(a->frame_done == (a->frame_cycles >= 70224u));
+            assert(cycles_done < 200000u);
+        }
+        assert(b->frame_done && b->stopped && a->stopped);
+        compare_full(a, b, 2000 + flavour, cycles_done);
+        /* The next frame starts clean and ends 70,224 cycles later. */
+        gb_reset_frame(a); gb_reset_frame(b);
+        assert(!a->frame_done && !b->frame_done && a->frame_cycles == 0);
+        for (cycles_done = 0; !a->frame_done; cycles_done += step) {
+            a->stopped = b->stopped = 0;
+            (gb_tick)(a, step); rr_gb_tick(b, step);
+            assert(cycles_done < 200000u);
+        }
+        assert(a->frame_cycles >= 70224u && a->frame_cycles - step < 70224u);
+        compare_full(a, b, 2100 + flavour, cycles_done);
+        gb_context_destroy(a); gb_context_destroy(b);
+    }
+}
+
 int main(void) {
     for (unsigned scenario = 0; scenario < 48; ++scenario) run_scenario(scenario, 6000);
     slow_condition_checks();
+    lcd_off_frame_checks();
     fprintf(stderr, "inline path %lu calls, handed to gb_tick %lu\n", rr_gb_tick_fast_calls, rr_gb_tick_slow_calls);
     fprintf(stderr, "why slow: zero %lu dbl %lu dbg %lu force %lu rtc %lu dma %lu serial %lu reload %lu timer-on %lu\n",
             rr_gb_tick_why[0], rr_gb_tick_why[1], rr_gb_tick_why[2], rr_gb_tick_why[3], rr_gb_tick_why[4],

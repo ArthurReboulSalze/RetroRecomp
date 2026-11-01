@@ -97,6 +97,7 @@ static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
     if (ctx->lcd_off_active) {
         ctx->frame_lcd_off_cycles += cycles;
         ctx->total_lcd_off_cycles += cycles;
+        if (ctx->frame_cycles >= 70224u) ctx->frame_done = 1;   /* no vblank with the LCD off: a frame is 70,224 cycles */
     }
 
     /* Timer: no reload in progress and no input edge inside these cycles, so DIV advances by the cycle count. */

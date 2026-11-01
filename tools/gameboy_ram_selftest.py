@@ -42,12 +42,16 @@ target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)
     executable = build_executable(project / 'build', 'game')
     cpu = run([executable, '--differential', '--differential-frames', '1'], timeout=180)
     assert CPU_MATCH.search(cpu), cpu
-    native = run([executable, '--headless', '--limit-frames', '1',
+    # The fixture keeps the LCD off for the whole loop (4,522,088 cycles); with the LCD off a frame lasts 70,224 cycles (1.6.5),
+    # so the loop takes 63 frames and the 64th ends at the first vblank after the program turns the LCD on, with the state
+    # that the first and only frame had before that rule.
+    frames = '64'
+    native = run([executable, '--headless', '--limit-frames', frames,
                   '--dump-state', project / 'trampoline-state.json'], timeout=180)
-    assert '[LIMIT] Reached frame limit 1' in native, native
+    assert f'[LIMIT] Reached frame limit {frames}' in native, native
     # The summary line the probe reads carries all three counted pairs (stub, single instruction, high-memory stub);
     # the fixture runs ROM code only, so every one is zero.
-    probe = run([executable, '--headless', '--limit-frames', '1', '--report-interpreter-hotspots'], timeout=180)
+    probe = run([executable, '--headless', '--limit-frames', frames, '--report-interpreter-hotspots'], timeout=180)
     steps = RAM_STEPS.search(probe)
     assert steps and not any(map(int, steps.groups())), probe
     state = json.loads((project / 'trampoline-state.json').read_text(encoding='utf-8'))
