@@ -260,6 +260,17 @@ statements (it was two reads in one C expression, whose order is not defined); i
 banked engine are byte-identical on Bank Panic and Factory Panic apart from that header and the version resource. The game stamp of both
 consoles moves (`core` and `cpu` are in their group); the host stamp does not.
 
+Two more changes of the "functions" engine, learning and timing. (3) The counted interpreter records the targets of the CALL, RST and JP
+(HL)/(IX)/(IY) it takes (ROM only, once per address and slot bank, 4096 per run at most), so one pass learns the call tree a route reaches
+instead of one or two entries: a main loop entered through a dispatch miss no longer stays interpreted. Execution is unchanged and the
+banked runtime has nothing of it. (4) A repeating block instruction starts with `sms_tick(0)`, the sync every other instruction has, so
+an interrupt asserted at its start is accepted after its first iteration (it was one iteration later). From an empty learning state the
+15 games of the 1.6.4 batch all pass the comparison with the reference CPU (13 before these two, 9 in 1.6.4); the first pass is
+identical for every game, the last pass of each is at 5 % interpreter (cycles) or less against up to 98 % before (Sonic Spinball
+98.4 -> 0.19, Factory Panic 72.6 -> 0.0, Sonic Triple Trouble 46.3 -> 0.001, Super Columns 12.1 -> 0.0, Aladdin 85.5 -> 5.0); the play
+routes of Shinobi World and Factory Panic now equal the reference over 3600 frames. Banked sources: unchanged. Nothing is claimed for
+hardware fidelity, gameplay beyond those routes or latency.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

@@ -412,7 +412,12 @@ def patched_generator_source(generator_source: str) -> str:
     """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
     generator_source = replace_once(generator_source,
         '    fprintf(o,"        do {\\n");',
-        '''    fprintf(o,"        int sms_block_first = 1;\\n        uint16_t sms_block_pc = g_dbg_pc;\\n        do {\\n");
+        '''    /* A repeating block instruction has no pre-tick of its own (its iterations tick after their effect): without a sync before
+     * the first iteration the interrupt asserted at the start of the instruction was sampled one iteration late (Sonic Spinball:
+     * accepted after the second iteration of an LDIR, the reference accepts it after the first). sms_tick(0) is the sync every
+     * other instruction has at its start, with no cycles of its own. */
+    fprintf(o,"        sms_tick(0);\\n");
+    fprintf(o,"        int sms_block_first = 1;\\n        uint16_t sms_block_pc = g_dbg_pc;\\n        do {\\n");
     fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
     fprintf(o,"            sms_block_first = 0;\\n");''')
     # A repeating block instruction that goes on (BC or B not exhausted, no CPIR/CPDR match) leaves the flags of the NMOS repeat

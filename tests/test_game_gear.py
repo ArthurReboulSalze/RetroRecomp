@@ -93,6 +93,10 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
         block = text.index('static void emit_block(FILE *o, uint8_t op){')
         body = text[block:text.index('/* ---- ED group ---- */', block)]
+        # The loop starts with the sync every instruction has at its start (no cycles): the interrupt asserted at its start is
+        # accepted after the first iteration.
+        self.assertEqual(body.count('fprintf(o,"        sms_tick(0);\\n");'), 1)
+        self.assertLess(body.index('sms_tick(0);'), body.index('int sms_block_first = 1;'))
         # The address is recorded before the loop (the handler of an accepted interrupt changes g_dbg_pc).
         self.assertEqual(body.count('uint16_t sms_block_pc = g_dbg_pc;'), 1)
         self.assertEqual(body.count('((sms_block_pc >> 8) & 0x28)'), 1)
