@@ -306,6 +306,22 @@ file that was not replayed claiming nothing); the recorded behaviour of the prob
 `liveness` (`None` without the trace) and nothing else. One conversion of Tetris: the compressed copy matches on its four routes, the
 report says so, and the replay-hash equals the published hash.
 
+## Game Boy: the saves of the delivered file are proven (1.6.6, gate G7)
+
+`tools/gameboy_saves_check.py` converts six cartridges authored for the check (MBC1, MBC2, MBC3 with its clock, MBC5, a cartridge with RAM
+and no battery, a battery cartridge that never writes) and runs each delivered file twice, headless, in an empty folder. Nothing in the
+converter, the runtime or the generated C changes.
+
+*What moves.* Nothing: the tool and its test (`tests/test_gameboy_saves_tool.py`) are developer files, listed in the public files and in no
+stamp. An export of 1.6.5 plays and saves as before. No quick-state key.
+
+*Hot path: not touched.*
+
+*Proof.* The six cartridges pass on the 1.6.6 build: the first run leaves the `.sav` (and the `.rtc` on MBC3), the second reads the pattern
+back byte for byte, a run that writes nothing leaves every file as it was, a cartridge that keeps nothing creates no `datas` folder, and
+a damaged battery or clock file (short, long, empty, junk) is refused with the game starting normally and the file untouched
+([GAME_BOY.md](GAME_BOY.md#qualification)). No defect was found in the runtime.
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in

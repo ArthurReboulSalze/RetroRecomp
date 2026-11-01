@@ -261,8 +261,16 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
   1.6.3 export and the reverse ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)).
 - **Battery RAM and the real-time clock** use `datas/games/<game-title>-<ROM-SHA-prefix>/`, only when written. Battery RAM is flushed on
   exit only after a changed RAM value; a game's own automatic save can therefore create this folder without a manual state save.
-  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. MBC3 RTC persistence has no
-  independent regression test yet.
+  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. Since 1.6.6
+  `tools/gameboy_saves_check.py` (gate G7) exercises this on six cartridges authored for it (no original bytes): MBC1, MBC2, MBC3 with its
+  clock, MBC5, MBC1+RAM without a battery, and a battery cartridge whose program never writes. Each is converted and the delivered file is
+  run twice, headless, in an empty folder. The first run writes a magic and a pattern into its RAM and leaves `<title>-<sha>.sav` (8 KiB;
+  MBC3 also `<title>-<sha>.rtc`); the second finds the magic and reads the pattern back byte for byte (four bits per cell on MBC2; the
+  clock registers 17 s, 11 min, 7 h, day 42 with the halt bit come back on MBC3), and rewrites nothing. A cartridge without a battery, and
+  a battery cartridge that never writes, create no `datas` folder at all. A battery file or a clock file that is too short, too long, empty
+  or not a save is refused: the game starts with blank RAM (or a blank clock; the RAM still loads when only the clock file is damaged), the
+  log says "Rejected battery RAM …" and "Automatic persistence save suppressed", the file is left as it was, and the exit is normal. This
+  tests the files and the reload, not a commercial game's own save code.
 
 ## Qualification
 

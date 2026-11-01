@@ -217,6 +217,7 @@ native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/gb_tick_fast.h native/gb_tick_checks.c tools/gameboy_tick_selftest.py
 native/gb_wisdom_checks.c tools/gameboy_wisdom_selftest.py
 native/gb_frame_trace.h retrorecomp/gameboy_delivery.py tests/test_gameboy_delivery.py
+tools/gameboy_saves_check.py tests/test_gameboy_saves_tool.py
 native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
 native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
