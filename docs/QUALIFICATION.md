@@ -69,6 +69,45 @@ x68 = Sharp X68000.
   were reported in chat on 27 October 2026 and are not written in a document
   yet; they belong in the owner-acceptance table below when recorded.
 
+## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
+
+Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and the liveness record (G8) through one module, so a machine
+that joins them gives the same evidence in the same shape ([STANDARDS.md](STANDARDS.md) rules 1 and 7). The module
+reads rows a machine already writes; it never runs a game.
+
+- **Liveness.** `liveness_summary(rows)` takes one `FrameRow` per frame (picture hash; optionally the sound hash, an
+  audible flag, a RAM hash, a program counter) and returns the same nine keys for every machine. A key the machine
+  cannot give is `None`, never `0`. `frozen_route` is the one rule that refuses a route whose picture never changed (one
+  distinct picture or none); which routes must move stays the machine's call (CPS-1: every route; X68000: the main route
+  only, because a game that waits for a click or a key shows a still picture on the others).
+- **Report fields stay each machine's own.** The common keys are `frames`, `distinct_pictures`, `picture_changes`,
+  `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, `distinct_sound_blocks`, `distinct_ram_states` and
+  `distinct_program_counters`. CPS-1 reports the first six (`final_checks[].liveness`). The X68000 reports `frames`,
+  `distinct_pictures`, `distinct_audio_blocks` (= `distinct_sound_blocks`), `distinct_ram_states` and
+  `distinct_program_counters`, then `nonblack_frames` and `nonzero_samples` from its replay report (`liveness[]`). Frame
+  numbers are the machine's own: CPS-1 counts from 1, the X68000 from 0. Neo Geo has no liveness record yet.
+- **Packed replay.** `deliver_packed` compresses a copy of the build as publication does and takes its SHA-256 before any
+  replay; `replay_packed` (or `replay_routes` where the machine's callback compares by itself) replays that copy on every
+  route and compares it with the fresh reference. `native_validation.packed_reference_match` and
+  `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
+  refuses to be written before every route matched.
+
+Machines that do not use it yet, what each already writes per frame, and the smallest change to feed it (a plan, not a
+record: nothing below runs yet):
+
+| Machine | Per-frame data today | Missing | Smallest change |
+|---|---|---|---|
+| Master System, Game Gear | `--vdp-trace` (`vdp.csv`, pinned runner `glue.c`): frame, VRAM, CRAM and register hashes, RAM hash, SP; the probe compares native and `--interp` runs on it | An audible flag or a sound hash per frame (the PSG is drained per frame to a sink, nothing is recorded); the picture is the video state, not the rendered image | One column in the runner's trace (a hash of the frame's PSG block and its non-zero sample count), carried as our patch ([UPSTREAMS.md](UPSTREAMS.md)); an adapter `FrameRow(frame, (vram, cram, reg), sound=..., audible=..., ram=...)` in `core.py` |
+| Game Boy | Nothing per frame: the probe reads stdout (`[LIMIT]`, interpreter inventory) and `--trace-entries`; the CPU comparison is the upstream's `--differential` | A picture hash and a sound hash per frame | A `--frame-trace` flag added to the runtime in `gameboy_runtime.py` (one line per frame: frame, LCD framebuffer hash, APU block hash and non-zero count); adapter in `gameboy.py` |
+| NES | `--hash-out`: frame, CPU trace hash, memory hash, PC, registers, cycles, hardware-state hash; `--wav-out` for the whole run, compared native against reference | A rendered-picture hash and a per-frame audio hash (the WAV has no frame boundaries; the hardware-state hash may change every frame whatever the picture shows) | Two fields appended to `write_hash_line` through `nes_runtime.py` (`pic=` the framebuffer hash, `snd=` the hash and non-zero count of that frame's PCM); both runs write them, so the native/reference line comparison stays valid; `FrameRow(frame, pic, sound=snd, audible=..., ram=mem, pc=PC)` |
+| Mega Drive | `--trace` of the 16-bit host (`console16_main.c`, not passed by the conversion today): frame hash, native and interpreted counters, per-frame audio hash, PC, SR, SP, Z80 PC, bus lines, per-frame FM and PSG non-zero counts | The probe does not request the trace; no per-frame RAM hash (the RAM hash is final only) | Pass `--trace` on the delivered file's probe runs and read it in `megadrive_*` or `console16.py`: `FrameRow(frame, frame_hash, sound=audio_hash, audible=fm_nonzero + psg_nonzero > 0, pc=pc)` |
+| Super Nintendo | The same `--trace` without the Mega Drive columns (frame hash, counters, audio hash); the report already holds `last_picture_change_frame`, `last_audible_frame`, `last_device_frame`, `visible_frames`, `pcm_nonzero`, which `validate_device_liveness` reads for device cartridges only | The trace carries no audible flag and the conversion does not request it; the report has no counts of pictures or audible frames, so an ordinary cartridge has no liveness record | Pass `--trace`, add the non-zero count of the frame's PCM to the trace line (one column, shared with the Mega Drive adapter); keep `validate_device_liveness` and its windowed rule (picture, device and sound all quiet for the last quarter of the run) for the device cartridges and give an ordinary cartridge `frozen_route` on the same record |
+
+The packed replay (G5) needs, for each of these, a callback that starts the compressed copy with the same arguments as the
+probe that made the reference and compares the same fields (Mega Drive and Super Nintendo: `reference_differences`;
+Master System and Game Gear: `compare_execution`; NES: the `.hash` lines and the PCM; Game Boy: the `--differential`
+verdict), and the group `conversion_gates` in the machine's `stamp_groups`.
+
 ## Sharp X68000: evidence behind its column (29 October 2026)
 
 The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that

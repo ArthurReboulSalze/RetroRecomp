@@ -729,8 +729,11 @@ INPUTS = _resolve({
     'shares:megadrive_codegen': (
         'retrorecomp.megadrive_codegen',
     ),
+    # The gates and the evidence about the delivered file (liveness, packed replay) that the converters share;
+    # delivery_evidence calls the gates, so a machine that uses it joins this group.
     'shares:conversion_gates': (
         'retrorecomp.conversion_gates',
+        'retrorecomp.delivery_evidence',
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',
