@@ -11,6 +11,7 @@ sys.path.insert(0, str(TOOLS))
 SPEC = importlib.util.spec_from_file_location('gameboy_states_check', TOOLS / 'gameboy_states_check.py')
 states = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(states)
+from retrorecomp import gameboy_delivery as delivery  # noqa: E402
 
 
 class AuthoredStateCartridgeTests(unittest.TestCase):
@@ -41,8 +42,38 @@ class AuthoredStateCartridgeTests(unittest.TestCase):
         self.assertEqual(self.rom[0x153:0x157], bytes.fromhex('3e00e040'))      # LD A,0 ; LDH ($40),A after LD SP
 
     def test_the_state_header_layout_matches_the_runtime(self):
-        self.assertEqual(states.HEADER_FIELDS.size, 16)
-        self.assertEqual(struct.calcsize('<II'), 8)
+        # magic, version, ROM hash (8 bytes), ROM size, battery RAM size: the first 24 bytes of GBSavestateFileHeader
+        self.assertEqual(delivery.STATE_HEADER.size, 24)
+        self.assertEqual(struct.calcsize('<IIQ'), 16)
+
+
+class DamagedStateTests(unittest.TestCase):
+    def setUp(self):
+        self.state = delivery.STATE_HEADER.pack(0x47425353, 2, 0x1122334455667788, 65536, 8192) + bytes(range(256)) * 20
+
+    def test_every_defect_is_listed_and_differs_from_the_state(self):
+        cases = delivery.damaged_states(self.state)
+        self.assertEqual(set(cases), {'empty', 'cut inside the header', 'cut inside the body', 'one byte short', 'not a state',
+                                      'wrong magic', 'wrong version', 'another ROM', 'wrong ROM size', 'wrong memory size'})
+        self.assertTrue(set(delivery.CUT_STATES) <= set(cases))
+        for label, data in cases.items():
+            self.assertNotEqual(data, self.state, label)
+
+    def test_each_header_defect_changes_one_field_and_keeps_the_body(self):
+        cases = delivery.damaged_states(self.state)
+        good = delivery.STATE_HEADER.unpack_from(self.state, 0)
+        for label, index in (('wrong magic', 0), ('wrong version', 1), ('another ROM', 2), ('wrong ROM size', 3),
+                             ('wrong memory size', 4)):
+            fields = delivery.STATE_HEADER.unpack_from(cases[label], 0)
+            self.assertEqual([i for i in range(5) if fields[i] != good[i]], [index], label)
+            self.assertEqual(cases[label][delivery.STATE_HEADER.size:], self.state[delivery.STATE_HEADER.size:], label)
+
+    def test_a_state_too_short_for_a_header_only_gets_the_cut_defects(self):
+        self.assertEqual(set(delivery.damaged_states(b'abc')), {'empty', 'cut inside the header', 'cut inside the body',
+                                                                'one byte short', 'not a state'})
+
+    def test_dump_differences_name_the_fields(self):
+        self.assertEqual(delivery.dump_differences({'a': 1, 'b': [1]}, {'a': 1, 'b': [2], 'c': 0}), ['b', 'c'])
 
 
 class TraceReadingTests(unittest.TestCase):
@@ -54,7 +85,7 @@ class TraceReadingTests(unittest.TestCase):
             self.assertEqual(states.trace_rows(Path(folder) / 'missing.csv'), [])
 
     def test_differences_name_the_fields_that_differ(self):
-        self.assertEqual(states.differences({'a': 1, 'b': 2}, {'a': 1, 'b': 3, 'c': 4}), ['b', 'c'])
+        self.assertEqual(states.differences({"a": 1, "b": 2}, {"a": 1, "b": 3, "c": 4}), ["b", "c"])
 
 
 if __name__ == '__main__':

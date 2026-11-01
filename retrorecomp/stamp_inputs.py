@@ -400,6 +400,7 @@ INPUTS = _resolve({
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',
         'retrorecomp.gameboy_coverage',
+        'retrorecomp.gameboy_cartridge',
         'retrorecomp.gameboy_delivery',
         'retrorecomp.gameboy_hardware',
         'retrorecomp.gameboy_host',

@@ -24,17 +24,16 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import struct
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import gameboy_saves_check as saves                      # noqa: E402  (the assembler, the ROM builder and the conversion)
+from retrorecomp import gameboy_delivery as delivery     # noqa: E402  (the state functions the conversion itself uses)
 
 ROOT = saves.ROOT
 NAME = 'states'
-HEADER_FIELDS = struct.Struct('<IIQ')                    # magic, version, ROM hash: the start of the runtime's state header
 
 
 def ldh(a: saves.Assembler, address: int, value: int) -> None:
@@ -70,17 +69,10 @@ def authored_rom() -> bytes:
                                                                 0x200: handler, 0x210: timer})
 
 
-def launch(executable: Path, folder: Path, *args, timeout: int = 300) -> dict:
-    result = subprocess.run([str(executable), '--headless', *map(str, args)], env=saves.environment(), capture_output=True,
-                            text=True, timeout=timeout, cwd=folder)
-    return {'exit': result.returncode, 'output': result.stdout + result.stderr}
-
-
 def dump(executable: Path, folder: Path, tag: str, frames: int, *args) -> tuple[dict, dict | None]:
-    path = folder / f'dump-{tag}.json'
-    path.unlink(missing_ok=True)
-    result = launch(executable, folder, '--limit-frames', frames, '--dump-state', path, *args)
-    return result, json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
+    """`delivery.dump_run` with the exit code and the output in a dictionary."""
+    code, output, snapshot = delivery.dump_run(executable, folder, tag, frames, *args)
+    return {'exit': code, 'output': output}, snapshot
 
 
 def trace_rows(path: Path) -> list[list[str]]:
@@ -89,8 +81,7 @@ def trace_rows(path: Path) -> list[list[str]]:
     return [line.split(',')[1:] for line in lines]
 
 
-def differences(left: dict, right: dict) -> list[str]:
-    return [key for key in sorted(set(left) | set(right)) if left.get(key) != right.get(key)]
+differences = delivery.dump_differences
 
 
 def listing(folder: Path) -> dict[str, bytes]:
@@ -137,16 +128,7 @@ def run_checks(executable: Path, work: Path, frames: int, more: int, failures: l
 
     before = listing(folder)
     outcomes = {}
-    cases = {'cut at 0 bytes': state[:0], 'cut inside the header': state[:10], 'cut inside the body': state[:len(state) // 2],
-             'one byte short': state[:-1], 'not a state': b'this is not a state file\n' * 3000}
-    magic, version, rom_hash = HEADER_FIELDS.unpack_from(state, 0) if len(state) >= HEADER_FIELDS.size else (0, 0, 0)
-    for label, value in (('wrong magic', (magic ^ 1, version, rom_hash)), ('wrong version', (magic, version + 1, rom_hash)),
-                         ('another ROM', (magic, version, rom_hash ^ 0x100))):
-        cases[label] = HEADER_FIELDS.pack(*value) + state[HEADER_FIELDS.size:] if state else b''
-    if len(state) >= 28:
-        size_at = HEADER_FIELDS.size + 4                            # the ROM size field follows the hash
-        cases['wrong ROM size'] = state[:size_at] + struct.pack('<I', 12345) + state[size_at + 4:]
-    for label, data in cases.items():
+    for label, data in delivery.damaged_states(state).items():
         path = folder / 'damaged.state'
         path.write_bytes(data)
         result, snapshot = dump(game, folder, 'damaged', more, '--load-state-file', path)
@@ -168,6 +150,13 @@ def run_checks(executable: Path, work: Path, frames: int, more: int, failures: l
     check(result['exit'] != 0 and snapshot is None and not missing.exists() and not missing.parent.exists(),
           f'a state that does not exist is refused and nothing is created (exit {result["exit"]})')
     check(not (folder / 'datas').exists(), 'no data folder appears beside the game')
+
+    # The check the conversion itself runs on the compressed copy, here on the same file: it must reach the same verdict.
+    verdict = delivery.state_checks(game, work / 'scratch', lambda text: print('  ' + text, flush=True))
+    check(verdict['fresh_process_verified'] is True, f"the conversion's own state check agrees ({verdict['validation']['problems']})")
+    check(verdict['validation']['invalid_states_rejected'] == verdict['validation']['invalid_states_tried'] == 10,
+          'it refused all ten damaged states')
+    record['conversion_check'] = verdict['validation']
     return record
 
 

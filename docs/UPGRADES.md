@@ -337,6 +337,35 @@ stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No 
 Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
 need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
 
+## Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states (1.6.6, gates G2 and G6)
+
+*The report.* Beside the CPU, the Game Boy report (schema 2) now lists two units in `devices`, after the coprocessor entry if a machine has
+one: the cartridge's mapper (`kind: cartridge_mapper`: the header type, the mapper family, ROM banks, RAM size and cell width, battery,
+clock, rumble, and whether the runtime models that mapper at all) and the sound unit (`kind: audio_unit`). Both are C models of the
+runtime, not translated from the ROM and not interpreted, so they carry no counter: `fallback_present` is `None` ("not applicable"), not
+zero, and they take no part in the native-code verdict. `saves.cartridge_memory` gives the memory the cartridge keeps and the names of the
+files the delivered file writes. Hardware fidelity stays false and stated as such. Cartridge types the runtime does not model (MMM01,
+MBC6, MBC7, camera, TAMA5, HuC1, HuC3) say `not_modelled`; no conversion is refused because of it.
+
+*The states.* After the packed replay the conversion runs a state check on the same compressed copy, in an empty folder: a state taken after
+60 frames, loaded by a fresh process and run for 60 more, must give the dump of a continuous 120-frame run (registers, cycles, work and
+high RAM, LY and PPU mode); ten damaged copies of the state and a missing one must be refused and create nothing. The verdict is in
+`game_states.fresh_process_verified` and `game_states.validation` (the fields the Neo Geo, CPS-1 and X68000 reports already use); a failure
+is reported and does not stop the conversion. It costs about 1.2 s (Tetris).
+
+*What moves.* The Game Boy **game stamp** (`gameboy.py`, `gameboy_delivery.py`, the new `gameboy_cartridge.py`). No host or build stamp. The
+executable and every generated file are byte for byte the same (below), so a player's game plays and saves as before. Only
+`conversion-report.json` gains keys. Common code touched: `report_schema.py` (the `hardware_devices` reading, additive; `fallback_summary` and
+`tools/release_check.py` now take the cartridge coprocessor by its `kind` instead of `devices[0]`, same result for every other machine).
+
+*Hot path: not touched.*
+
+*Proof.* `tests/test_gameboy_cartridge.py` (header facts, the runtime's lists, Wisdom Tree detection, the devices read back through
+`read_report`, the native-code verdict and the summary unchanged by the new entries) and `tests/test_gameboy_states_tool.py`. A/B from the
+main checkout against the commit this branch left (`tools/ab_conversion.py`): on Tetris all 128 compared files are identical and the only
+differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
+`states` built from them; timings are not compared).
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in

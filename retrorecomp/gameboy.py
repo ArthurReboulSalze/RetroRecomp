@@ -18,7 +18,8 @@ from .core import ConversionError, dependencies, executable_name, run, serialize
 from .gameboy_runtime import adapt_generated_project
 from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch
 from .gameboy_boundary import adapt_bank_boundaries
-from .gameboy_delivery import liveness_record, replay_delivered, require_moving_main_route
+from .gameboy_cartridge import cartridge_memory, cartridge_record, device_entries
+from .gameboy_delivery import liveness_record, replay_delivered, require_moving_main_route, state_checks
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
@@ -321,7 +322,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     compile_jobs, cpu_workers = _gb_parallelism(gb_parallel_games)
     started = time.perf_counter()
     stage_seconds = dict(setup=0.0, discovery=0.0, translation=0.0, build=0.0,
-                         coverage_probes=0.0, cpu_validation=0.0, packed_replay=0.0)
+                         coverage_probes=0.0, cpu_validation=0.0, packed_replay=0.0, state_checks=0.0)
     rom = read_game_boy_rom(rom_path)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
     name = slug(title)
@@ -491,6 +492,13 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                                      {check['scenario']: check['result'] for check in cpu_checks}, _cpu_compare, emit,
                                      workers=cpu_workers if gb_deep_validation else 1)
     stage_seconds['packed_replay'] += time.perf_counter() - stage_started
+    # Gate G6: a state taken in one process of that same compressed copy continues the game in a fresh one, and damaged or missing
+    # states are refused. A failure is reported (`game_states.fresh_process_verified` false) and does not stop the conversion.
+    stage_started = time.perf_counter()
+    with timings.phase('state_checks'):
+        state_evidence = state_checks(delivered.path, project / 'state-checks', emit)
+    stage_seconds['state_checks'] += time.perf_counter() - stage_started
+    cartridge = cartridge_record(rom.data)
     remembered = project / 'remembered.trace'
     write_entries(remembered, _known_entries(rom, imported=False) | reached)
     _remember_trace(rom, remembered)
@@ -518,8 +526,11 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "hardware_accuracy_validated": False},
         "hardware_adaptations": {"apu": ["live_envelope_mix", "pulse_retrigger_duty_phase", "noise_shift_14_15_clock_stop"],
             "state_layout_changed": False, "independent_full_hardware_validation": False},
+        # Gate G2: the cartridge's mapper and the sound unit are C models of the runtime, listed apart from the CPU and uncounted;
+        # the cartridge's memory layout is what the delivered file keeps (saves.cartridge_memory).
+        "hardware_devices": device_entries(cartridge), "cartridge_memory": cartridge_memory(cartridge),
         "input_players": 1, "game_states": {"supported": True, "save_key": "F8", "load_key": "F9",
-            "slots": 1, "rom_identity": "sha256"},
+            "slots": 1, "rom_identity": "sha256", **state_evidence},
         "artwork": artwork, "windows_metadata": metadata,
         "game_tags": [], "peripheral": {"type": "joypad", "hardware_accuracy_validated": False},
         "runtime_learning": True, "runtime_feedback": gameplay_feedback, "library_identity": rom.sha256,

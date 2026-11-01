@@ -46,6 +46,12 @@ version information and optional box-art icon process as the Sega profiles ([BOX
 | Peripherals | Joypad only | No link cable, Camera, Printer or Super Game Boy |
 | Player shell | The host kit, `native/hostkit/adapters/rrhk_gb.inc` | Window, menus, bindings, controllers, sound device and pacing since 1.6.3 ([HOST_KIT.md](HOST_KIT.md)) |
 
+*In the report (since 1.6.6, gate G2).* The mapper and the sound unit are two entries of `devices` (`cartridge_mapper`, `audio_unit`),
+apart from the CPU, with no counter (`fallback_present` is `None`: there is no program of theirs to translate or interpret), the header
+facts (type, family, banks, RAM, battery, clock, rumble) and `mapper_modelled_by_runtime`, which is false for the types the runtime does
+not bank (MMM01, MBC6, MBC7, camera, TAMA5, HuC1, HuC3). `saves.cartridge_memory` names what the cartridge keeps. Hardware fidelity
+stays "not validated" for both.
+
 Where the five measures stand: **native code** is reported per scenario with the interpreter and the one-by-one executors shown
 apart; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
 [Qualification](#qualification)); **hardware fidelity**, **gameplay validation** and **physical latency** are not claimed.
@@ -267,7 +273,8 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
   counter on each of the 120 frames (`--frame-trace`); a second state taken after that load continues the same way. A state cut short
   (empty, inside the header, in the body, one byte short), not a state, with a wrong magic, version, ROM hash or ROM size, is refused
   before anything is applied (exit 1 and "Failed to load execution state", the file untouched); a state that does not exist is refused
-  and nothing is created. The F8 and F9 keys themselves (the path of slot 1) need a window and are not driven by the check. A byte
+  and nothing is created. Every conversion runs a shorter version of this on the compressed copy (60 + 60 frames, the dump only, ten
+  damaged states and a missing one) and records it in `game_states.validation`; a failure is reported, not fatal. The F8 and F9 keys themselves (the path of slot 1) need a window and are not driven by the check. A byte
   changed inside a state of the right length is not detected: the file has no checksum.
 - **Battery RAM and the real-time clock** use `datas/games/<game-title>-<ROM-SHA-prefix>/`, only when written. Battery RAM is flushed on
   exit only after a changed RAM value; a game's own automatic save can therefore create this folder without a manual state save.
