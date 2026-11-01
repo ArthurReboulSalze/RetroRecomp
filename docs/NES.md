@@ -92,6 +92,16 @@ that all positions are code or that every game executes without fallback.
   cartridge register to inspect an entry. Only the converter's explicit probe
   can write its bounded entry journal; ordinary exported-game launches create no
   learning log.
+- **Entries reached, not only executed (1.6.5).** At the end of each test run the converter completes the journal by
+  following every recorded RAM routine through the RAM image: the next instruction, a branch target, a `JSR` or
+  `JMP` target, over the documented opcodes only; an illegal opcode, an indirect jump, a return, an unconditional jump
+  and a window edge end a path. So a path the run did not take (the branch never taken, the code after a call) is
+  already a guarded entry when the game reaches it in play. This adds permissions only: the guard still checks the
+  opcode in RAM, the operands stay live, and an entry whose opcode the cartridge's native bodies do not contain stays
+  a counted fallback. `observed_ram_guards` in the report counts the executed entries and the ones reached. Of the
+  games checked, the routines in internal RAM were already complete (Battletoads, Minelvaton, Wizards & Warriors,
+  Kirby); the cartridge RAM routines gain entries (Batman 485 to 519 compiled guards, Zelda 186 to 230).
+  `tools/nes_ram_sweep_selftest.py` checks it on authored routines in both windows.
 - **Eligible windows.** Internal RAM and modelled plain cartridge RAM, including
   MMC5 mapped RAM, the enabled FME-7 work-RAM window, mapper 153's ordinary RAM
   mode, and accessible VRC2/VRC4 (21, 22, 23, 25), Taito X1-005 (80, 207) and
@@ -364,6 +374,7 @@ same engine's internal CPU and bus; they do not certify physical hardware.
 | `python tools/nes_windows_selftest.py` | Lower-ROM selection, protected cartridge RAM (mappers 40, 69, 21, 22, 23, 25, 80, 207, 82, 552), bank boundaries, DMC/OAM DMA, pending IRQ/NMI/reset; altered ROM fetches must keep visible fallback and must not pollute upper-address ROM seeds |
 | `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: three configurations (NTSC with Zapper, PAL with Zapper, NTSC without Zapper), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
 | `python tools/nes_static_mapper_selftest.py` | The machine with the cartridge's mapper number as a compile-time constant against the run-time number, 2,800 checkpoints for each of eight mappers, NTSC without the Zapper and PAL with it; also checks that a constant-mapper build refuses another mapper |
+| `python tools/nes_ram_sweep_selftest.py` | The end-of-run completion of RAM routines on authored code in internal RAM and in cartridge RAM: executed entries, the fall-through past a taken branch, a never-taken branch, `JSR`/`JMP` targets, and what must not be added (data after a jump or a return, an illegal opcode, an address outside the windows); a second sweep changes nothing |
 | `python tools/nes_mmc1_selftest.py` | The MMC1 with the PPU A12 table rebuild skipped against the original, step by step on 13 authored boards (bank tables, mirroring, work RAM bank and enables after each of 15,165 register writes and A12 changes) |
 | `python tools/nes_machine_selftest.py` | Authored NTSC/PAL fixtures: clock/APU behaviour, beam-driven Zapper detection, snapshot round trips, mapper audio, corrupted-state rejection without mutation |
 | `python tools/nes_audio_selftest.py` | The host kit's callback-ring output and authored PCM timelines, silently |

@@ -297,6 +297,41 @@ static void instruction_differential_checks(void) {
     assert(opcodes == 178 && cb_opcodes == 256);   /* 177 plain opcodes and the CB prefix with its 256 second bytes */
 }
 
+/* Every (HL) form of the CB prefix (rotates, shifts, SWAP, BIT, RES, SET: 32 opcodes) at every pointer of a fixed list,
+ * which includes the whole map around the echo of WRAM (0xE000-0xFDFF), OAM, the unusable area and the registers:
+ * deterministic, so no pointer or form depends on the random draw of the differential check above. */
+static void cb_memory_sweep_checks(void) {
+    static const uint16_t pointers[] = {0x8000, 0x9FFF, 0xA000, 0xC000, 0xC123, 0xDFFF, 0xE000, 0xE123, 0xFDFF, 0xFE00,
+                                        0xFE9F, 0xFEA0, 0xFF00, 0xFF04, 0xFF0F, 0xFF40, 0xFF46, 0xFF80, 0xFFFE, 0xFFFF};
+    static const uint16_t bases[] = {0xC030, 0xFF80};
+    unsigned forms = 0;
+    for (unsigned cb = 0; cb < 256; ++cb) {
+        if ((cb & 7u) != 6u) continue;
+        ++forms;
+        for (unsigned p = 0; p < sizeof(pointers) / sizeof(*pointers); ++p)
+        for (unsigned b = 0; b < sizeof(bases) / sizeof(*bases); ++b)
+        for (unsigned flags = 0; flags < 16; flags += 15) {
+            const uint8_t bytes[2] = {0xCB, (uint8_t)cb};
+            const uint16_t registers[5] = {(uint16_t)(instruction_random() << 8), 0x1234, 0x5678, pointers[p], 0xC800};
+            GBContext* native = gb_context_create(NULL);
+            GBContext* reference = gb_context_create(NULL);
+            assert(native && reference);
+            instruction_prepare(native, bases[b], 2, bytes, registers, flags, p & 3u, 0);
+            instruction_prepare(reference, bases[b], 2, bytes, registers, flags, p & 3u, 0);
+            GBDifferentialOptions options = {0};
+            options.max_steps = 1; options.compare_memory = true; options.fail_on_fallback = true;
+            GBDifferentialResult result;
+            if (!gb_run_differential(native, reference, &options, &result)) {
+                fprintf(stderr, "CB %02X (HL)=%04X base %04X: %s\n", cb, pointers[p], bases[b], result.message);
+                assert(0);
+            }
+            assert(result.steps_completed == 1 && native->total_interpreter_cycles == 0);
+            gb_context_destroy(native); gb_context_destroy(reference); ++checks;
+        }
+    }
+    assert(forms == 32);
+}
+
 static GBContext* instruction_declined_setup(uint16_t address, uint8_t opcode) {
     GBContext* ctx = gb_context_create(NULL); assert(ctx);
     gb_write8(ctx, address, opcode);
@@ -364,6 +399,21 @@ static void counter_checks(void) {
         assert(ctx->rr_ram_stub_instructions == stubs && ctx->rr_ram_stub_cycles == stub_cycles);
     }
     assert(ctx->hl == 0x1234 && ctx->a == 5);
+    /* The CB prefix is counted by the executor with the interpreter's cycle split: 8 on a register, 12 for BIT n,(HL),
+     * 16 for the other (HL) forms. */
+    static const struct { uint8_t second; uint64_t cycles; } cb_cases[] = {{0x7F, 8}, {0x46, 12}, {0xC6, 16}, {0x06, 16}};
+    ctx->hl = 0xC500;
+    for (unsigned i = 0; i < sizeof(cb_cases) / sizeof(*cb_cases); ++i) {
+        const uint16_t at = (uint16_t)(0xC310 + 2 * i);
+        gb_write8(ctx, at, 0xCB); gb_write8(ctx, (uint16_t)(at + 1), cb_cases[i].second);
+        const uint64_t before = ctx->total_cycles;
+        ctx->pc = at;
+        assert(rr_gb_try_ram_dispatch(ctx, at));
+        assert(ctx->pc == at + 2 && ctx->total_cycles - before == cb_cases[i].cycles);
+        ++single; single_cycles += cb_cases[i].cycles;
+        assert(ctx->rr_ram_single_step_instructions == single && ctx->rr_ram_single_step_cycles == single_cycles);
+        assert(ctx->rr_ram_stub_instructions == stubs && ctx->rr_ram_stub_cycles == stub_cycles);
+    }
     /* A guarded multi-instruction helper counts in neither pair; a declined opcode changes nothing. */
     GBContext* helper = setup(0xD09B, 0, 0xC100, 0, 0);
     assert(rr_gb_try_ram_dispatch(helper, 0xD09B));
@@ -372,7 +422,7 @@ static void counter_checks(void) {
     ctx->pc = 0xC400;
     assert(!rr_gb_try_ram_dispatch(ctx, 0xC400));
     assert(ctx->rr_ram_single_step_instructions == single && ctx->rr_ram_stub_instructions == stubs);
-    gb_context_destroy(helper); gb_context_destroy(ctx); checks += 12;
+    gb_context_destroy(helper); gb_context_destroy(ctx); checks += 12 + 4 * 4;
 }
 
 /* The upstream stub for code run from 0xFF00-0xFF7F is counted in its own pair, apart from the other two. The
@@ -444,7 +494,7 @@ int main(void) {
     counter_checks(); highmem_counter_checks(); interpreter_session_checks();
     guard_checks(); differential_checks(); dma_guard_checks(); dma_differential_checks();
     dma_sequence_checks(); copy_differential_checks(); dma_page_checks();
-    instruction_guard_checks(); instruction_differential_checks();
+    instruction_guard_checks(); instruction_differential_checks(); cb_memory_sweep_checks();
     printf("{\"checks\":%u,\"cpu_memory_timing_match\":true,\"live_guards\":true}\n", checks);
     return 0;
 }

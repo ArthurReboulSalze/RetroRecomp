@@ -23,6 +23,19 @@ static unsigned rr_bus_begin,rr_bus_fraction;
  * reuse a checkpoint across a raster slice, bus grant, or local bus control. */
 static int rr_z80_boundary_reusable;
 static int64_t rr_z80_boundary_time;
+/* BUSREQ is sampled at the end of the machine cycle in progress. Internal
+ * clocks lengthen the cycle they follow (the literal cases of
+ * md_bus_checks.c), so a cycle ends where the next access, I/O cycle or
+ * instruction starts: the clocks at which the arbiter meets the sound CPU.
+ * The sound CPU can be past several of them when the 68000 writes BUSREQ:
+ * the last instruction of a line retires beyond the line while the 68000
+ * stops at it. BUSACK is dated at the first cycle end at or after the
+ * request, from the latest ones kept here, not at where the sound CPU now
+ * stands. Only the 68000's view of BUSACK moves: the sound CPU resumes after
+ * the release exactly as before. */
+#define RR_Z80_CYCLE_ENDS 8u
+static int64_t rr_z80_cycle_end[RR_Z80_CYCLE_ENDS];
+static unsigned rr_z80_cycle_head,rr_z80_cycle_count;
 #ifndef RR_MD_REPEAT_Z80_BOUNDARIES
 #define RR_MD_REPEAT_Z80_BOUNDARIES 0
 #endif
@@ -83,6 +96,7 @@ extern uint32_t rr_md_cpu_transaction;
 int rr_md_cpu_lazy_safe(void);
 void rr_md_cpu_budget_until(uint32_t counter);
 static void rr_z80_run(void *unused);
+static void rr_z80_cycle_drop_after(int64_t time);
 static void rr_z80_rendezvous(void);
 static int rr_lazy_eligible(void) {
     /* While the VDP's Z80 interrupt line is due to change (VINT armed at the
@@ -179,6 +193,7 @@ static void rr_lazy_restore(unsigned index) {
     }
     if(rr_md_lazy_rollback_trace)rr_md_lazy_rollback_trace(s->time);
     g_machine.z80=s->cpu;rr_z80_time=s->time;s_z80_off=s->z80_off;rr_vdp_z80_wait=s->vdp_wait;
+    rr_z80_cycle_drop_after(s->time);
     rr_z80_boundary_time=s->boundary_time;rr_z80_boundary_reusable=s->boundary_reusable;
     rr_md_z80_evidence_load(&s->evidence);
     rr_z80_busy=rr_z80_retiring=rr_z80_checkpoint=rr_z80_checkpoint_advanced=0;
@@ -301,10 +316,47 @@ void rr_md_z80_bus_reset(void) {
     rr_local_request=rr_local_ack=g_machine.bus.z80_busreq;
     rr_local_reset=g_machine.bus.z80_reset_off;
     rr_local_request_time=rr_local_ack_time=0;
+    rr_z80_cycle_head=rr_z80_cycle_count=0;
 }
 static int64_t rr_bus_align(int64_t time,unsigned divisor) {
     int64_t remainder=time%(int64_t)divisor;
     return remainder>0?time+divisor-remainder:time-remainder;
+}
+static void rr_z80_cycle_mark(void) {
+    if(rr_z80_cycle_count && rr_z80_cycle_end[(rr_z80_cycle_head-1u)%RR_Z80_CYCLE_ENDS]==rr_z80_time)return;
+    rr_z80_cycle_end[rr_z80_cycle_head++%RR_Z80_CYCLE_ENDS]=rr_z80_time;
+    if(rr_z80_cycle_count<RR_Z80_CYCLE_ENDS)++rr_z80_cycle_count;
+}
+static void rr_z80_cycle_drop_after(int64_t time) {
+    /* A deferred replay restarts from this clock: later ends are not history. */
+    while(rr_z80_cycle_count && rr_z80_cycle_end[(rr_z80_cycle_head-1u)%RR_Z80_CYCLE_ENDS]>time) {
+        --rr_z80_cycle_head;--rr_z80_cycle_count;
+    }
+}
+void rr_md_z80_cycle_shift(int64_t master) {
+    for(unsigned i=0;i<RR_Z80_CYCLE_ENDS;++i)rr_z80_cycle_end[i]-=master;
+}
+/* Machine snapshot (megadrive_bus.py): the ring travels with a quick state. */
+void rr_md_z80_cycles_get(RrMdZ80Cycles *cycles) {
+    memcpy(cycles->end,rr_z80_cycle_end,sizeof cycles->end);
+    cycles->head=rr_z80_cycle_head;cycles->count=rr_z80_cycle_count;
+}
+int rr_md_z80_cycles_valid(const RrMdZ80Cycles *cycles) {
+    return cycles->count<=RR_Z80_CYCLE_ENDS; /* head is any value: it is read modulo the ring */
+}
+void rr_md_z80_cycles_set(const RrMdZ80Cycles *cycles) {
+    memcpy(rr_z80_cycle_end,cycles->end,sizeof rr_z80_cycle_end);
+    rr_z80_cycle_head=cycles->head;rr_z80_cycle_count=cycles->count;
+}
+static int64_t rr_z80_ack_time(int64_t request,int64_t boundary) {
+    /* Newest first; the ends grow with time, so stop below the request. */
+    int64_t found=boundary;
+    for(unsigned i=0;i<rr_z80_cycle_count;++i) {
+        int64_t end=rr_z80_cycle_end[(rr_z80_cycle_head-1u-i)%RR_Z80_CYCLE_ENDS];
+        if(end<request)break;
+        if(end<found)found=end;
+    }
+    return found;
 }
 bool machine_z80_bus_acknowledged(void) {
     return g_machine.bus.z80_busreq && rr_local_ack &&
@@ -370,12 +422,14 @@ static int rr_z80_on_fiber(void) {
 void machine_z80_boundary(void) {
     /* I/O and other cycles without a Z80 RAM address. */
     if(!rr_z80_on_fiber())return;
+    rr_z80_cycle_mark();
     rr_lazy_count();
     if(!rr_lazy_beyond()) { rr_lazy_settle();rr_z80_rendezvous(); }
     rr_lazy_close();
 }
 void machine_z80_access(uint16_t address) {
     if(!rr_z80_on_fiber())return;
+    rr_z80_cycle_mark();
     rr_lazy_count();
     if(address<0x4000u) {
         if(rr_lazy_private() || rr_lazy_beyond())return;
@@ -399,6 +453,7 @@ void machine_z80_fallback(void) {
 void machine_z80_instruction_boundary(void) {
     rr_z80_retiring=1;
     if(rr_z80_on_fiber()) {
+        rr_z80_cycle_mark();
         rr_lazy_count();
         if(!rr_lazy_private()) { rr_lazy_settle();rr_z80_rendezvous(); }
     }
@@ -585,6 +640,23 @@ rendezvous:
             if(rr_bus_control_event)continue;
             break;
         }
+        if(!rr_z80_blocked && (rr_z80_checkpoint || !rr_z80_busy) && m->bus.z80_busreq &&
+           rr_local_request_time<=rr_z80_time) {
+            /* The sound CPU stands on a completed cycle at or after a pending
+             * request (a rendezvous, or parked past the slice end). Date BUSACK
+             * before the 68000 catches up to that clock, which it then does as
+             * before: a poll between the date and the sound CPU's clock must
+             * see the grant. */
+            int64_t boundary=rr_z80_time;
+            rr_local_ack=1;rr_local_ack_time=rr_z80_ack_time(rr_local_request_time,boundary);
+            unsigned phase=boundary>(int64_t)begin?(unsigned)boundary:begin;
+            unsigned deadline=(phase+fraction+6)/7;
+            if(deadline>target)deadline=target;
+            if(!rr_z80_checkpoint_advanced)
+                rr_bus_cpu_until(m,deadline,before,phase<end?phase:end,fraction);
+            rr_z80_checkpoint_advanced=0;
+            continue;
+        }
         if(rr_z80_checkpoint) {
             int64_t boundary=rr_z80_time;
             unsigned phase=boundary>(int64_t)begin?(unsigned)boundary:begin;
@@ -597,7 +669,7 @@ rendezvous:
             if(m->bus.z80_busreq && rr_local_request_time<=boundary) {
                 /* Request sampled at the completed machine cycle; ACK is
                  * visible on this nominal Z80 rising edge, not at the write. */
-                rr_local_ack=1;rr_local_ack_time=boundary;
+                rr_local_ack=1;rr_local_ack_time=rr_z80_ack_time(rr_local_request_time,boundary);
                 continue;
             }
             if(boundary>=(int64_t)end && !rr_z80_retiring &&

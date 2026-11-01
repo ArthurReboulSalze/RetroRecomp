@@ -418,8 +418,8 @@ def patched_generator_source(generator_source: str) -> str:
     # A repeating block instruction that goes on (BC or B not exhausted, no CPIR/CPDR match) leaves the flags of the NMOS repeat
     # cycle: X and Y from the high byte of the instruction's address (the PC is wound back to it) and, for INIR/INDR/OTIR/OTDR, H
     # and P adjusted from B. An interrupt accepted between two iterations pushes AF with them. The banked emitter and the corrected
-    # reference (retrorecomp/cpu.py) already follow this rule, checked against independent vectors; the address is the one the
-    # generated function recorded before the loop, because the handler of an accepted interrupt changes g_dbg_pc.
+    # reference (retrorecomp/cpu.py) already follow this rule, checked against independent vectors; the address is read once
+    # from g_dbg_pc before the loop (the runner also restores g_dbg_pc after an accepted interrupt, see prepare_functions_irq).
     generator_source = replace_once(generator_source,
         "    /* post-body tick: this iteration's effect already ran (see sms_tick_post) */\n",
         '''    fprintf(o,"            if (%s) {\\n", contc);
@@ -430,6 +430,65 @@ def patched_generator_source(generator_source: str) -> str:
     fprintf(o,"            }\\n");
     /* post-body tick: this iteration's effect already ran (see sms_tick_post) */
 ''')
+    # A RET that pops a slot the function pushed itself ("push continuation; jump; ret", "push de; ret"): the generated RET was
+    # `sp += 2; return;`, which resumes the CALLER, while the Z80 continues at the popped address. Each function now keeps its entry
+    # SP (the slot of its own return address). A RET with SP below it pops a local address: the continuation runs as a nested call
+    # (a function entry, or the counted hybrid interpreter), whose own RET pops the real return address, then this function returns
+    # with the SP its caller expects. A RET at the entry SP is the ordinary return, one above it unwinds several frames (the call
+    # sites already propagate that). The nesting is bounded (256): beyond it the continuation goes to the counted hybrid interpreter
+    # (sms_dispatch_miss, counted in the [exec] summary as ret_nest_overflow), never silently back to the plain return.
+    generator_source = replace_once(generator_source,
+        '        "#include \\"%s_funcs.h\\"\\n\\n", pfx, pfx);',
+        '''        "#include \\"%s_funcs.h\\"\\n"
+        "static uint16_t rr_ret_nest;\\n"
+        "uint32_t rr_ret_deep;   /* continuations beyond the nesting bound, run by the counted interpreter */\\n"
+        "/* The Z80 continues at a popped address p that this function pushed itself: run it as a nested call; beyond 256 levels the\\n"
+        " * counted hybrid interpreter runs it (never a silent fallback to the plain return). */\\n"
+        "#define RR_LOCAL(p) do { if (rr_ret_nest < 256) { rr_ret_nest++; call_by_address(p); rr_ret_nest--; } "
+        "else { rr_ret_deep++; sms_dispatch_miss(p); } } while (0)\\n"
+        "/* A tail jump to another function: if the callee returned with SP below this function's own return slot, it consumed\\n"
+        " * a continuation this function pushed, so the Z80 continues there (the popped address) and not in the caller. */\\n"
+        "#define RR_TAIL(call) do { call; if ((int16_t)(g_z80.sp - _esp) < 2) { "
+        "uint16_t _p = sms_read16((uint16_t)(g_z80.sp - 2)); RR_LOCAL(_p); } return; } while (0)\\n\\n", pfx, pfx);''')
+    generator_source = replace_once(generator_source,
+        '        if (nm) fprintf(o,"%s(); return; }\\n", nm);\n        else    fprintf(o,"call_by_address(0x%04X); return; }\\n", T);',
+        '        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);\n        else    fprintf(o,"RR_TAIL(call_by_address(0x%04X)); }\\n", T);')
+    generator_source = replace_once(generator_source,
+        '        if (nm) fprintf(o,"        %s(); return;\\n", nm);\n        else    fprintf(o,"        call_by_address(0x%04X); return;\\n", T);',
+        '        if (nm) fprintf(o,"        RR_TAIL(%s());\\n", nm);\n        else    fprintf(o,"        RR_TAIL(call_by_address(0x%04X));\\n", T);')
+    generator_source = replace_once(generator_source,
+        '                    fprintf(o,"        call_by_address(%s); return;\\n", idx);            /* tail jump */',
+        '                    fprintf(o,"        RR_TAIL(call_by_address(%s));\\n", idx);            /* tail jump */')
+    # A jump that crosses a 16 KiB slot (a function that starts in one slot and continues in another) must not become a goto: the
+    # bank of the other slot may have changed since the static walk decoded it (Sonic Triple Trouble: `call $349A` pages slot 2, then
+    # `jp $B811`). It goes through the bank-checking dispatch, like the calls to paged addresses since 1.6.3. Jumps inside one slot
+    # stay direct, and so do jumps to the fixed first KiB ($0000-$03FF, never paged on the Sega mapper).
+    generator_source = replace_once(generator_source,
+        "static void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){\n    if (tr_has(T)){",
+        "static uint16_t rr_cf_addr;\nstatic void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){\n"
+        "    if (tr_has(T) && (T < 0x0400 || ((rr_cf_addr ^ T) & 0xC000) == 0)){")
+    # The labels of the targets that stay direct are the only ones emitted (a label no goto uses is a compiler warning).
+    generator_source = replace_once(generator_source,
+        "        if ((in->cf==Z80_CF_JUMP || in->cf==Z80_CF_JUMP_COND) && in->has_target){ lt=in->target; have=true; }",
+        "        if ((in->cf==Z80_CF_JUMP || in->cf==Z80_CF_JUMP_COND) && in->has_target){\n"
+        "            lt=in->target; have=(lt < 0x0400 || ((tr.insns[k].addr ^ lt) & 0xC000) == 0);\n        }")
+    generator_source = replace_once(generator_source,
+        "static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){\n    uint16_t next = (uint16_t)(addr + in->length);",
+        "static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){\n    uint16_t next = (uint16_t)(addr + in->length);\n    rr_cf_addr = addr;")
+    generator_source = replace_once(generator_source,
+        '    fprintf(o,"    sms_enter(0x%04X);\\n", fe->addr);',
+        '    fprintf(o,"    sms_enter(0x%04X);\\n    uint16_t _esp = s->sp; (void)_esp;\\n", fe->addr);')
+    generator_source = replace_once(generator_source,
+        '            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");',
+        '''            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
+                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }\\n");
+            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");''')
+    generator_source = replace_once(generator_source,
+        '            fprintf(o,"        if (%s) { s->cyc += 6; s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));',
+        '''            fprintf(o,"        if (%s) { s->cyc += 6; "
+                      "if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
+                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; } "
+                      "s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));''')
     generator_source = replace_once(generator_source,
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
@@ -582,6 +641,10 @@ void sms_set_sync_deadline(void){
             }
         }
 #endif''')
+    # The count of continuations of a RET that pops a local address beyond the nesting bound (run by the counted interpreter): it
+    # is printed with the other [exec] counters and read by probe().
+    glue = replace_once(glue, '\n    mmio_tally_dump();\n}',
+        '\n    { extern uint32_t rr_ret_deep; fprintf(stderr, "[exec] ret_nest_overflow: %u\\n", (unsigned)rr_ret_deep); }\n    mmio_tally_dump();\n}')
     return replace_once(glue, '    g_enter_pos = 0; g_dbg_pc = 0;', '    g_enter_pos = 0; g_dbg_pc = 0; g_irq_armed = false;')
 
 
@@ -994,6 +1057,9 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
     cycles = re.search(r"\[exec\] hybrid\(interp\): (\d+) calls, (\d+) of (\d+) Z80 cyc", text)
     if cycles:
         output.update(interpreter_calls=int(cycles[1]), interpreter_cycles=int(cycles[2]), total_cycles=int(cycles[3]))
+    overflow = re.search(r"\[exec\] ret_nest_overflow: (\d+)", text)
+    if overflow:
+        output["ret_nest_overflow"] = int(overflow[1])
     cpu = re.search(r"\[cpu\] (\{[^\n]+\})", text)
     if cpu:
         output["final_cpu"] = json.loads(cpu[1])

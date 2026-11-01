@@ -115,6 +115,20 @@ class NeoGeoNativeGates(unittest.TestCase):
                     self.assertTrue(0<=int(p1,16)<256 and 0<=int(p2,16)<256)
                     self.assertTrue(0<=int(coin,16)<4 and 0<=int(start,16)<16)
 
+    def test_every_cartridge_gets_an_attract_route_that_reaches_the_bios_restart(self):
+        """Without a credit the BIOS restarts after 4,200 to 5,400 attract frames and runs a routine it copies to work RAM, which
+        a 3,600-frame route and a game started at about 2,400 never reach (measured on six exports)."""
+        from retrorecomp.neogeo_validation import BIOS_RESTART_FRAMES,ROUTES,qualification_routes
+        self.assertGreater(BIOS_RESTART_FRAMES,6000)
+        self.assertNotIn('long-attract',qualification_routes('nam1975'))          # the NAM receipt keeps its historic routes
+        for name in ('authored-new-cart','breakrev','matrim','s1945p','rotd','twinspri','gururin','mslug','neodrift'):
+            frames,script=qualification_routes(name)['long-attract']
+            self.assertGreaterEqual(frames,BIOS_RESTART_FRAMES,name)
+            self.assertEqual(script,ROUTES['attract'][1],name)                      # attract only: no credit, no Start
+        for name,frames in (('mslug3',9000),('kof98',9000),('garou',9000)):         # longer routes already there are kept
+            self.assertEqual(qualification_routes(name)['long-attract'][0],frames,name)
+        self.assertEqual(qualification_routes('mslug')['long-attract'][0],BIOS_RESTART_FRAMES)
+
     def test_qualification_modes_keep_standard_aes_and_enhanced_separate(self):
         from retrorecomp.neogeo_validation import route_arguments
         self.assertEqual(route_arguments('two-player-explore'),[])

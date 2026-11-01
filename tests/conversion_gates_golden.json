@@ -2149,6 +2149,26 @@
       "--frames",
       "7200",
       "--script",
+      "<T>/good/project/native-discovery/long-attract.inputs",
+      "--rtc-seed",
+      "1760000000",
+      "--report",
+      "<T>/good/project/packed-checks/long-attract.json"
+     ],
+     "capture_output": true,
+     "env_changed": {},
+     "env_removed": [],
+     "other": [],
+     "text": null,
+     "timeout": 480.0
+    },
+    {
+     "args": [
+      "<T>/good/packed-game.exe",
+      "--headless",
+      "--frames",
+      "7200",
+      "--script",
       "<T>/good/project/native-discovery/actions.inputs",
       "--rtc-seed",
       "1760000000",
@@ -2206,6 +2226,22 @@
       "image_hash": "i",
       "interpreted_opcodes": 12,
       "interpreter_percent": 1.315789,
+      "name": "long-attract",
+      "native_entries": 900,
+      "pcm_hash": "p",
+      "ram_hash": "r",
+      "reference_match": true,
+      "z80_hash": "z"
+     },
+     {
+      "audio_interpreted_opcodes": 3,
+      "audio_native_opcodes": 400,
+      "cpu_hash": "c",
+      "frames": 7200,
+      "hardware_hash": "h",
+      "image_hash": "i",
+      "interpreted_opcodes": 12,
+      "interpreter_percent": 1.315789,
       "name": "actions",
       "native_entries": 900,
       "pcm_hash": "p",
@@ -2218,6 +2254,7 @@
    "reports": [
     "actions.json",
     "attract.json",
+    "long-attract.json",
     "play.json"
    ]
   },

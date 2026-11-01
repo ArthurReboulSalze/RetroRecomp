@@ -17,10 +17,8 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Machine | Game (set or title) | Kind | What happens | What was tried | Since |
 |---|---|---|---|---|---|
 | Game Boy | Spiritual Warfare (Unl) | Failing | The start-up probe never ends (100 % CPU); the export finishes frame 1 then runs into illegal code (thousands of `0xDD` opcodes) | Replayed alone on 29 October 2026: reproducible. The header says "ROM only, 32 KiB" for a 256 KiB file: an unlicensed custom mapper is likely, not proven | 10 October 2026 |
-| Game Boy | The Ren & Stimpy Show: Veediots! | Failing | The probe with inputs hangs between frames 215 and 216: the game turns the screen off and never back on, and a frame only ends at VBlank, so no frame ends again | Replayed alone on 29 October 2026: reproducible and deterministic. A general fix is planned: end a frame after 70,224 cycles while the screen is off | 10 October 2026 |
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
-| Mega Drive | Barkley Shut Up and Jam! (USA) | Failing (cause found) | After 42 frames the game jumps to `$0000`: at `$EB8` it requests the Z80 bus (`MOVE.W #$0100,$A11100`), tests the grant once (`BTST #0,$A11100`, `BNE.W` to `$0000`) and assumes it at once; our bus arbiter grants it one slice late (about 188 master clocks instead of at most about 90) | Real code, not data read as code; traced to the slice approximation of `native/md_z80_bus.inc` (not proven). A dedicated arbiter change is planned (authored reproducer first, then a 13-game A/B) | 24 October 2026, cause found 29 October 2026 |
 | NES | Famicom Disk System images | Refused by design | Disk images are not a supported medium ([NES.md](NES.md)) | Outside the machine's scope; the upstream's FDS work is deferred ([UPSTREAMS.md](UPSTREAMS.md#deferred)) | Always |
 | Super Nintendo | SA-1 cartridges, 15 (for example Super Mario RPG, Kirby Super Star, Kirby's Dream Land 3) | Refused by design | The SA-1 coprocessor is not handled; the converter names it and stops | Outside the current scope | Always |
 | Super Nintendo | S-DD1 cartridges, 3 (Star Ocean, Street Fighter Alpha 2) | Refused by design | S-DD1 decompression chip, not handled | Outside the current scope | Always |
@@ -28,7 +26,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Super Nintendo | DSP-2 and DSP-4 (Dungeon Master, Top Gear 3000) | Refused by design | Only the DSP-1 is modelled | Outside the current scope | Always |
 | Super Nintendo | Other chips, 4 (F1 ROC II, Metal Combat, Villgust) | Refused by design | Chip types `$F6` and `$25` and others, not handled | Outside the current scope | Always |
 | Super Nintendo | ExHiROM or more than 4 MiB, 4 (Dragon Quest III, Tales of Phantasia, Wizardry VI) | Refused by design | Map mode not handled | Outside the current scope | Always |
-| Super Nintendo | `.fig` copier dumps (4 seen) | Refused by design | The file type is not read (`.sfc`, `.smc`, `.bin` and `.rom` only) | Renaming to `.smc` after checking the dump is not interleaved should work; not tried | 29 October 2026 |
 | Super Nintendo | Headers with a zero checksum (Power Drive Europe and four prototypes) | Refused by design | The header check wants a non-zero checksum | A specific rule is possible, not made | 29 October 2026 |
 | Neo Geo | Fight Fever (`fightfev`) | Failing (bad input) | The conversion stops at once: the split cartridge needs a separate parent archive for `060-s1.s1` | The test archive's `060-s1.s1` has CRC `7f012104` instead of the expected `d62a72e9`, and the parent is absent: another dump should convert (not tried) | 24 October 2026, confirmed 29 October 2026 |
 | Capcom CPS-1 | QSound boards, 18 sets (`wof`, `dino`, `punisher`, `slammast`, `mbomberj` and their clones) | Refused by design | « not supported yet: qsound » (Kabuki-encrypted Z80 and QSound DSP not handled) | `wof` converted on 29 October 2026: refused with its reason; the others are refused by the catalogue | 24 October 2026 |
@@ -67,3 +64,11 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
   X68000 route is accepted and reported, and the game converts with zero interpreted opcodes.
 - **Game Boy, Paperboy 2** (29 October 2026). Replayed alone on the 1.6.5 tree, it converts in 152 seconds with zero interpreter
   cycles; the 600-second probe limit it hit in the October campaign no longer applies.
+- **Super Nintendo, `.fig` copier dumps** (30 October 2026). A `.fig` file whose size is whole 32 KiB blocks after a 512-byte
+  copier header is now read as a Super Nintendo cartridge (an interleaved image is refused with its reason); Mario no Super
+  Picross converts with zero interpreted instructions.
+- **Game Boy, The Ren & Stimpy Show: Veediots!** (30 October 2026). It turns the screen off and waits; a frame only ended at
+  vblank, so no frame ended again. While the LCD is off a frame now ends after 70,224 cycles (a host frame: the emulated
+  state does not change); it converts with zero interpreter cycles.
+- **Mega Drive, Barkley Shut Up and Jam!** (30 October 2026). It requests the sound CPU's bus and tests the grant once;
+  the grant is now dated at the end of the sound CPU's current machine cycle (it came one slice late), and it converts.

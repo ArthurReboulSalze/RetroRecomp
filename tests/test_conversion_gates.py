@@ -889,7 +889,7 @@ class ProcessContextTests(unittest.TestCase):
             neogeo_conversion.check_routes(self.root / 'game.exe', project, 'gururin', None, workers=1)
         self.assertEqual({(call['cwd'], call['creationflags']) for call in recorder.raw},
                          {(project / 'packed-checks', 'no_window_if_windows')})
-        self.assertEqual(len(recorder.raw), 3)
+        self.assertEqual(len(recorder.raw), len(extended_routes('gururin', None)))
 
 
 class AdoptionTests(unittest.TestCase):

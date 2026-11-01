@@ -13,6 +13,37 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Fallback measured on exports, and an attract route for the BIOS restart — 29 and 30 October 2026
+
+For 1.6.5. **Reports.** The 126 Neo Geo conversion reports (102 sets of the maintainer's Export, 24 under `.build`) show zero interpreted 68000
+and Z80 instructions on every route, status `completed`, no runtime fallback hints. 34 of the 102 reports have no executable any more
+(33 of 1.0.0 and one of 1.1.8); 68 executables exist.
+
+**Measure.** Copies of 20 executables (never the files of Export) ran headless on two pseudo-random routes of 18,000 frames (the routes of the
+extended scan level, `random_routes.long_routes`), standard clocks, a fixed RTC seed, two at a time. Thirteen sets gave 0 on both routes
+(Metal Slug 3, Samurai Shodown III, IV and V, Real Bout 2, KOF '94 to '97, Art of Fighting 3, Mutation Nation, The Last Blade, Waku Waku 7).
+Seven gave fallback, the Z80 never: Breakers Revenge, Rage of the Dragons, Matrimelee, Metal Slug 4, Prehistoric Isle 2 and Strikers 1945 Plus
+(2,319 instructions, 4,638 or 4,231 over two passes, nine sites each) and Twinkle Star Sprites (1,402,301 and 606,984, about 3,000 sites).
+
+- **Cause A, common to six sets.** The nine sites sit in work RAM (`0x100100` to `0x100c00`) and are the same instructions in every game
+  (LEA, CMPI.L, CMPI.B, TST.W (A0), TST.B and three Bcc: five sites run 463 times, four once). They are part of a routine the BIOS copies
+  into RAM when it restarts a game left without a credit: with no input at all the counter jumps from 0 to 2,319 and the RAM instructions from
+  a few dozen to 8.3 million between 4,800 and 6,000 frames (Metal Slug 3: at 4,200, with no fallback, because its 9,000-frame `long-attract`
+  already translated it). A screenshot sequence of Breakers Revenge shows the BIOS logo at that point. The routes of a conversion stop at
+  3,600 frames (attract) or enter a game at about 2,400 (play), so they never reached it. Fallback is 0.0007 % of the instructions there.
+- **The rule.** One attract route of at least 7,200 frames for every cartridge (`BIOS_RESTART_FRAMES`), described in
+  [UPGRADES.md](UPGRADES.md#neo-geo-an-attract-route-that-reaches-the-bios-restart-165). The NAM-1975 receipt keeps its routes.
+- **Proof.** `tools/ab_conversion.py` on nam1975, the tree before and after: identical. Matrimelee, Strikers 1945 Plus and Rage of the Dragons
+  converted alone with the new tree: zero interpreted opcodes on every route of the conversion, and on a 9,000-frame attract and the first
+  18,000-frame pseudo-random route run on the produced executables (the same 8.3 million RAM instructions, now native). The packed-replay
+  recording of the conversion-gates tests (`tests/conversion_gates_golden.json`) gained exactly one replay.
+- **Cause B, Twinkle Star Sprites, still there.** A conversion of the current tree gives zero fallback on its six routes and exactly the same
+  1,402,301 interpreted instructions and 3,043 sites on the first pseudo-random route as the 1.0.2 export. The sites are in the second
+  megabyte of its 2 MiB program ROM (PC `0x24e91c` to `0x262e94` in the window at `0x200000`, ROM offsets `0x14e91c` to `0x1602ec`), reached
+  from about frame 3,000 to 6,000 of that route (gameplay, not attract). The static scan covers the first megabyte only, and the routes never
+  play a versus game. 0.4 % of the instructions there. Not fixed: 1 set of 20 measured, and a per-set route is not the way (decision: general
+  rules only).
+
 ## Where a conversion spends its time, and the probes run side by side — 29 October 2026
 
 For 1.6.5. Read from the `timings` of 24 existing Neo Geo conversion reports (no new conversion for the reading; the PC was shared

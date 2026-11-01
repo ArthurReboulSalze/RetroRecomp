@@ -9,9 +9,9 @@ from retrorecomp.core import run
 from tools.megadrive_bus_selftest import executable
 
 
-def check(project, output,benchmark=False):
+def check(project, output,benchmark=False,busack=False,sweep=False):
     exe=executable(project,output,(ROOT/'native/md_boundary_checks.c').read_text())
-    result=json.loads(run([exe,*(['--benchmark'] if benchmark else [])]).strip().splitlines()[-1])
+    result=json.loads(run([exe,*(['--benchmark'] if benchmark else []),*(['--busack'] if busack else []),*(['--sweep'] if sweep else [])]).strip().splitlines()[-1])
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result
 
@@ -19,4 +19,6 @@ def check(project, output,benchmark=False):
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('project',type=Path);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--benchmark',action='store_true')
-    args=p.parse_args();print(json.dumps(check(args.project.resolve(),args.output.resolve(),args.benchmark)))
+    p.add_argument('--busack',action='store_true',help='only the BUSACK latency sweep')
+    p.add_argument('--sweep',action='store_true',help='only the scheduling comparison, without the BUSACK sweep')
+    args=p.parse_args();print(json.dumps(check(args.project.resolve(),args.output.resolve(),args.benchmark,args.busack,args.sweep)))

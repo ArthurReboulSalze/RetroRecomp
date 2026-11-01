@@ -118,8 +118,8 @@ int wmain(int argc,wchar_t **argv) {
 
 
 def check(project,output):
-    from retrorecomp import toolchain
-    if toolchain.active() != toolchain.MSVC:
+    from retrorecomp import toolchain as toolchain_module
+    if toolchain_module.active() != toolchain_module.MSVC:
         raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
     project=project.resolve();output.mkdir(parents=True,exist_ok=True)
     log=project/'build/game.dir/Release/game.tlog/link.command.1.tlog'

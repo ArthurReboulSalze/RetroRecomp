@@ -99,8 +99,68 @@ void rr_nes_ram_trace_merge(const char *path) {
     }
     fclose(file);
 }
+/* Instructions that follow from the observed ones. A routine copied into RAM runs along paths a run may not take: the
+ * branch that was never taken, the code after a call. At the end of a run, from every recorded entry whose opcode is
+ * still in RAM, the documented instructions it leads to are followed through the image (the next instruction, a branch
+ * target, a JSR or JMP target) and added as entry/opcode pairs. A pair is only a permission: the guard still checks the
+ * opcode in RAM when the entry is reached, and the operands stay live. Illegal and unknown opcodes, indirect jumps,
+ * returns and a window edge end a path; addresses outside internal RAM and $6000-$7FFF are not followed. */
+static const uint8_t rr_op_length[256] = {
+    1, 2, 0, 0, 0, 2, 2, 0, 1, 2, 1, 0, 0, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0,
+    3, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0,
+    1, 2, 0, 0, 0, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0,
+    1, 2, 0, 0, 0, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0,
+    0, 2, 0, 0, 2, 2, 2, 0, 1, 0, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 0, 3, 0, 0,
+    2, 2, 2, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0,
+    2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
+    2, 2, 0, 0, 0, 2, 2, 0, 1, 3, 0, 0, 0, 3, 3, 0
+};
+typedef struct { uint16_t *stack; uint8_t *seen; unsigned top; } RrSweep;
+static void rr_sweep_add(RrSweep *s, unsigned pc) {
+    uint8_t op;
+    if (pc >= 0x10000 || !(pc < 0x2000 || (pc >= 0x6000 && pc < 0x8000))) return;
+    if (s->seen[pc >> 3] & (1u << (pc & 7))) return;
+    if (!rr_nes_ram_peek((uint16_t)pc, &op) || !rr_op_length[op]) return;
+    s->seen[pc >> 3] |= (uint8_t)(1u << (pc & 7));
+    rr_ram_trace_add(pc, op);
+    s->stack[s->top++] = (uint16_t)pc;
+}
+void rr_nes_ram_sweep(void) {
+    if (!rr_ram_trace) return;
+    RrSweep s = { malloc(65536 * sizeof(uint16_t)), calloc(8192, 1), 0 };
+    if (!s.stack || !s.seen) { free(s.stack); free(s.seen); return; }
+    for (unsigned pc = 0; pc < 0x8000; pc++) {
+        uint8_t op;
+        if (!(pc < 0x2000 || pc >= 0x6000) || !rr_nes_ram_peek((uint16_t)pc, &op)) continue;
+        if ((rr_ram_trace[(size_t)pc * 32 + (op >> 3)] >> (op & 7)) & 1) {
+            s.seen[pc >> 3] |= (uint8_t)(1u << (pc & 7));
+            s.stack[s.top++] = (uint16_t)pc;
+        }
+    }
+    while (s.top) {
+        unsigned pc = s.stack[--s.top], length;
+        uint8_t op, a1 = 0, a2 = 0;
+        if (!rr_nes_ram_peek((uint16_t)pc, &op) || !(length = rr_op_length[op])) continue;
+        if (length > 1 && !rr_nes_ram_peek((uint16_t)(pc + 1), &a1)) continue;
+        if (length > 2 && !rr_nes_ram_peek((uint16_t)(pc + 2), &a2)) continue;
+        bool falls = op != 0x00 && op != 0x40 && op != 0x4C && op != 0x60 && op != 0x6C;
+        if (falls) rr_sweep_add(&s, (pc + length) & 0xFFFF);
+        if ((op & 0x1F) == 0x10) rr_sweep_add(&s, (pc + 2u + (unsigned)(int)(int8_t)a1) & 0xFFFF);
+        else if (op == 0x20 || op == 0x4C) rr_sweep_add(&s, (unsigned)a1 | (unsigned)a2 << 8);
+    }
+    free(s.stack); free(s.seen);
+}
 void rr_nes_ram_trace_write(void *output) {
     if (!rr_ram_trace) return;
+    rr_nes_ram_sweep();
     FILE *file = (FILE *)output;
     for (unsigned pc = 0; pc < 65536; pc++) for (unsigned byte = 0; byte < 32; byte++) {
         unsigned bits = rr_ram_trace[(size_t)pc * 32 + byte];

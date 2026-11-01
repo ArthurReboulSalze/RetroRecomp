@@ -11,6 +11,8 @@ ROUTES={
   'play':(5400,'0 00 00 0 0\n2400 00 00 1 0\n2408 00 00 0 0\n2460 00 00 0 1\n2468 00 00 0 0\n'
           '2700 10 00 0 0\n2710 00 00 0 0\n3000 18 00 0 0\n3120 14 00 0 0\n3240 18 00 0 0\n'
           '3360 10 00 0 0\n3600 14 00 0 0\n4200 18 00 0 0\n4800 00 00 0 0\n')}
+# Attract frames that reach the BIOS restart of a game left without a credit (measured: onset 4,200 to 5,400, complete by 6,000).
+BIOS_RESTART_FRAMES=7200
 # Authored late route: continue through game-over/card prompts using A presses.
 # It exposed additional BIOS/cartridge entries and an actual memory-card write.
 ROUTES['card-save']=(13800,ROUTES['play'][1]+''.join(
@@ -57,6 +59,10 @@ def qualification_routes(set_name: str = '') -> dict:
     # the first minute, beyond the short player-controlled opening sequence.
     if set_name=='mslug':routes['long-attract']=(5400,ROUTES['attract'][1])
     if set_name in ('fatfury2','kof98','kof99','mslug3','garou','kof2000','mslugx','mslug5','kof2003','svc'):routes['long-attract']=(9000,ROUTES['attract'][1])
+    # Without a credit the BIOS restarts after about 4,200 to 5,400 frames of attract and runs a routine it copies into work RAM (8.3 million
+    # instructions; the same nine instruction sites in every game that restarts, unseen by a 3,600-frame route and by a game started at about
+    # 2,400). Every cartridge gets one attract route that reaches it, so those RAM variants are observed and translated.
+    if routes.get('long-attract',(0,))[0]<BIOS_RESTART_FRAMES:routes['long-attract']=(BIOS_RESTART_FRAMES,ROUTES['attract'][1])
     if set_name in ('mslug','pbobblen','samsho2','fatfury2','kof98','kof99','mslug3','garou','kof2000','mslugx','mslug5','kof2003','svc',
                     'turfmast','blazstar','pulstar','shocktro','bstars2','magdrop3','spinmast','viewpoin','kof2002','lastbld2'):
         two={0:(0,0,0,0),2400:(0,0,3,0),2408:(0,0,0,0),2460:(0,0,0,5),2468:(0,0,0,0)}
