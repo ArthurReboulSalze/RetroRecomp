@@ -33,6 +33,8 @@ from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
 from .nes_catalog import zapper_game
 from .nes_ram import read_sites as ram_sites, shared_sites, trace_text
+from .nes_checks import check_states, route_liveness
+from .delivery_evidence import deliver_packed, replay_packed, require_moving_picture
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 
@@ -266,14 +268,17 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
     if script:
         command += ['--input', script]
     command += ['--miss-log', seed]
+    trace = work / f'{scenario}-native.hash'
+    # Every run keeps its per-frame trace: the liveness of the route (gate G8) is read from it.
+    trace.unlink(missing_ok=True)
+    command += ['--hash-out', trace]
     if differential:
         # Exercise synthesis as well as CPU state. Both runs start fresh and
         # use the same clock/rate; delivery to the sound device is separate.
         for kind in ('native', 'reference'):
             for suffix in ('hash', 'wav'):
                 (work / f'{scenario}-{kind}.{suffix}').unlink(missing_ok=True)
-        command += ['--hash-out', work / f'{scenario}-native.hash',
-                    '--wav-out', work / f'{scenario}-native.wav']
+        command += ['--wav-out', work / f'{scenario}-native.wav']
     output = _run_probe(command, work)
     summary, interpreted = SUMMARY.search(output), INTERPRETED.search(output)
     if not summary or int(summary[1]) != frames:
@@ -325,9 +330,26 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             'interpreter_percent': 100 * interpreter_cycles / total if total else 0,
             'non_dispatch_cycles': non_dispatch_cycles,
             'internal_differential': differential,
+            'liveness': route_liveness(trace),
             'audio_pcm_match': True if differential else None,
             'audio_samples': len(captures[0]) // 2 if differential else None,
             'audio_pcm_sha256': hashlib.sha256(captures[0]).hexdigest() if differential else None}
+
+
+def _ordinary_saves(rom: 'NesRom', title: str) -> dict:
+    """What the report says about the cartridge's battery RAM (gate G7). The game saves it beside its executable when it
+    changed, apart from the F8/F9 state. The conversion's own probes run on private copies and never touch it; the
+    persistence itself is checked on an authored cartridge by tools/nes_saves_check.py, not during a conversion."""
+    battery = bool(rom.data[6] & 2)
+    record = {'supported': battery,
+              'reason': 'cartridge battery RAM' if battery else 'the cartridge has no battery',
+              'scope': 'battery RAM, written when it changed and read at the next start; separate from F8/F9 states'}
+    if battery:
+        record['path'] = f'datas/games/{slug(title)}-{rom.sha256[:12]}.sav'
+        record['validation'] = {'method': 'authored battery cartridge, tools/nes_saves_check.py '
+                                         '(developer qualification, not run during conversion)',
+                                'probes_use_private_copies': True}
+    return record
 
 
 def _write_probe_scripts(project: Path, frames: int, *, advanced: bool = False, play_left: bool = True,
@@ -563,6 +585,12 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             break
         emit(f'NES: {len(new)} new ROM entries and {len(new_ram)} guarded RAM variants for the next pass.')
     timings.end_passes()
+    # The main route (the right-hand play run) must show a moving picture: a game stuck on one picture is not delivered.
+    # The boot and the other routes may rest on a title or a menu, which is the game's own business.
+    for check in final_checks:
+        if check['scenario'] == 'play_right':
+            require_moving_picture(check['liveness'], lambda: ConversionError(
+                'NES play_right: the picture never changed during the route; the game is stuck.'))
     # Validate the final generated code against the reference interpreter in
     # the same runtime. This is a CPU/runtime differential, not independent
     # hardware or full-game validation.
@@ -584,6 +612,38 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")
+    for check in final_checks:
+        compared = next((row for row in cpu_checks if row['scenario'] == check['scenario']), None)
+        # How many frames of this route were compared with the fresh reference (the whole route from the extended level on).
+        check['reference_frames'] = compared['frames'] if compared else None
+    # The delivered file is a compressed copy of the build. It is replayed on every route and must give the same
+    # per-frame trace (CPU, memory, hardware, picture and sound hashes) and the same samples as the fresh reference.
+    packed = project / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
+    delivered = deliver_packed(executable, packed, 'NES', emit)
+
+    def replay(route):
+        trace, sound = project / f"{route['scenario']}-packed.hash", project / f"{route['scenario']}-packed.wav"
+        trace.unlink(missing_ok=True)
+        sound.unlink(missing_ok=True)
+        command: list[str | Path] = [packed, '--frames', str(route['frames']), '--hash-out', trace, '--wav-out', sound]
+        if scripts[route['scenario']]:
+            command += ['--input', scripts[route['scenario']]]
+        _run_probe(command, project)
+        with wave.open(str(sound), 'rb') as stream:
+            pcm = hashlib.sha256(stream.readframes(stream.getnframes())).hexdigest()
+        sound.unlink()
+        return trace, pcm
+
+    with timings.phase('packed_replays'):
+        replay_packed(delivered, cpu_checks, replay,
+                      same=lambda route, result: (result[0].read_bytes() ==
+                                                  (project / f"{route['scenario']}-reference.hash").read_bytes() and
+                                                  result[1] == route['audio_pcm_sha256']),
+                      mismatch=lambda route: ConversionError(
+                          f"NES {route['scenario']}: the compressed executable differs from the fresh reference."))
+    emit('NES: checking F8/F9 in a fresh process on the delivered file.')
+    with timings.phase('state_checks'):
+        states = check_states(packed, 180, save_after=600, script=scripts.get('play_right'))
     _remember_seed(seed, previous, offered)
     created_utc = datetime.now(timezone.utc).isoformat()
     report = {'tool': 'Retro-Recomp', 'version': __version__,
@@ -602,6 +662,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                             'rom_address_positions': native_rom_positions[1] if native_rom_positions else None},
         'final_checks': final_checks, 'history': history, 'build_passes': build_passes,
         'native_validation': {'passed': True, 'method': 'internal interpreter frame hashes and exact PCM',
+                              **delivered.validation_fields(),
                               'scenarios': cpu_checks, 'independent_cpu_oracle': False,
                               'hardware_accuracy': False, 'full_game': False},
         'reference_vdp_trace_match': None,
@@ -609,7 +670,10 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                         'visible_pixels': [256, 240],
                         'hardware_accuracy_validated': False},
         'input_players': 2, 'zapper': gun,
-        'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
+        'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
+                        'compatibility': 'same ROM, region and runtime ABI', 'schema': 'RRNESST2',
+                        'machine': 'nes', 'rom_identity': True, 'fresh_process_verified': True, 'validation': states},
+        'ordinary_saves': _ordinary_saves(rom, title),
         'artwork': artwork, 'windows_metadata': metadata,
         'runtime_learning': True, 'runtime_feedback': gameplay_feedback, 'library_identity': rom.sha256,
         'advanced_scan': {'enabled': bool(nes_advanced_scan), 'level': level, 'scenarios': list(scripts),
@@ -619,7 +683,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'host_audio': {'sample_rate': 48000, 'callback_frames_requested': 256,
                        'startup': 'one_device_period_plus_30ms', 'native_s16_or_float': True,
                        'bounded_pcm_ring': True},
-        'physical_latency_measured': False,
+        'physical_latency_measured': False, **delivered.report_fields(),
         'build_executable': str(executable), 'executable': executable.name, 'toolchain': toolchain_description(),
         'build_directory': str(project),
         'conversion_wall_seconds': round(time.perf_counter() - started, 6)}
