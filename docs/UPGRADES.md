@@ -85,12 +85,17 @@ releases follow, newest first (1.6.5, then 1.6.4 and before).
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Master System and Game Gear: WZ in the functions engine](#master-system-and-game-gear-wz-in-the-functions-engine-ordered-word-reads-166) | all nine consoles (`retrorecomp.core` is an input of every console) | no host stamp (build not stated) | not stated |
+| [Master System and Game Gear: evidence about the delivered file](#master-system-and-game-gear-evidence-about-the-delivered-file-166) | all nine consoles (`retrorecomp.core`); both consoles join the `conversion_gates` group | not stated | not stated |
 | [Game Boy: the Wisdom Tree mapper](#game-boy-the-wisdom-tree-mapper-166) | Game Boy | none | no key moves |
 | [Game Boy: the packed replay and the liveness record](#game-boy-the-packed-replay-and-the-liveness-record-166-gates-g5-and-g8) | Game Boy | none | no key moves |
+| [Game Boy: the saves of the delivered file are proven](#game-boy-the-saves-of-the-delivered-file-are-proven-166-gate-g7) | none (developer files only) | none | no key moves |
+| [Game Boy: states in a fresh process are proven](#game-boy-states-in-a-fresh-process-are-proven-166-gate-g6) | none (developer files only) | none | no key moves |
+| [Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states](#game-boy-the-report-names-the-cartridge-and-the-sound-unit-and-every-conversion-checks-the-states-166-gates-g2-and-g6) | Game Boy | no host or build stamp | not stated |
 | [Mega Drive: 2,895 more independent 68000 vectors](#mega-drive-2895-more-independent-68000-vectors-166) | none (no export changes) | none | none |
 | [Mega Drive: the delivered file is replayed and its liveness recorded](#mega-drive-the-delivered-file-is-replayed-and-its-liveness-recorded-166) | Mega Drive and Super Nintendo | not stated | not stated |
 | [The 68000 decoding rules of the original chip](#the-68000-decoding-rules-of-the-original-chip-166) | Mega Drive, Neo Geo, CPS-1, X68000 | none | not stated |
 | [Neo Geo and CPS-1: the sound CPU's Z80 is corrected](#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166) | Neo Geo, CPS-1 | none | Neo Geo state of 1.6.5 refused; CPS-1 state of 1.6.5 still loads |
+| [CPS-1 leaves the experimental status](#cps-1-leaves-the-experimental-status-166) | CPS-1 (it already moves for the Z80 corrections: no extra conversion) | none | no key changes |
 | [Sharp X68000: D88 images, floppy format read from the content, fuller report](#sharp-x68000-d88-images-floppy-format-read-from-the-content-fuller-report-166) | Sharp X68000 | none | not stated |
 
 Taken together, the sections give the game stamp of **every console** a move between 1.6.5 and 1.6.6, through the first line (the
@@ -119,6 +124,25 @@ identical for every game, the last pass of each is at 5 % interpreter (cycles) o
 98.4 -> 0.19, Factory Panic 72.6 -> 0.0, Sonic Triple Trouble 46.3 -> 0.001, Super Columns 12.1 -> 0.0, Aladdin 85.5 -> 5.0); the play
 routes of Shinobi World and Factory Panic now equal the reference over 3600 frames. Banked sources: unchanged. Nothing is claimed for
 hardware fidelity, gameplay beyond those routes or latency.
+
+## Master System and Game Gear: evidence about the delivered file (1.6.6)
+
+Every conversion of the two consoles now records what the delivered file does, through the shared `delivery_evidence` module
+(`retrorecomp/sega_evidence.py` is their adapter). The runner's `--vdp-trace` gets two columns, `psg_h` and `psg_nz` (the hash and the
+non-zero count of the PSG's stereo samples of the frame); they are written, and the PSG is rendered for them, only when a trace is
+written (a probe run), never in the game the player runs. `final_checks[].liveness` carries, per route, the frames, the distinct and
+changed pictures, the audible frames and the last audible frame, the distinct sound blocks and RAM states (no program counter: that key
+is None, not 0). A conversion whose main (`play`) route never changes picture is refused and the previous export stays; a silent route
+is reported, not refused. With the banked engine the conversion also compresses a copy of the build as publication does and replays it
+on both routes against the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`); the "functions"
+engine records liveness only. What it does not say: nothing about hardware fidelity, latency, or play beyond the routes.
+
+`tools/sega_states_selftest.py` is the check of the quick states across processes (gate G6): with the harness build of an export it saves with F8, loads in a fresh process with F9 and compares every presented picture with the first process after its save, then checks that a state with a byte changed, a truncated one and one of another cartridge are refused (same pictures as a run that never pressed F9, file left as it was) and that F9 with nothing saved creates nothing. Run on Bank Panic (Master System) and Factory Panic (Game Gear), banked engine; no host or game file changes.
+
+Exports: the only generated source that changes is `runtime_glue.c` (the trace patch); on Bank Panic, Factory Panic and Action Fighter
+the other generated sources are byte-identical, the shared trace columns, the frame dumps and the RAM are identical, and only the dump
+of the PSG state (`frame.png.psg`, a probe output) differs because the PSG is now advanced during traced runs. The game stamp of all
+nine consoles moves with `core`, and both consoles join the `conversion_gates` group (their module `sega_evidence` is in their group).
 
 ## Game Boy: the Wisdom Tree mapper (1.6.6)
 
@@ -186,6 +210,66 @@ loop one per frame, both skipped unless the flag is given. Not timed.
 file that was not replayed claiming nothing); the recorded behaviour of the probe (`tests/conversion_common_golden.json`) gains the key
 `liveness` (`None` without the trace) and nothing else. One conversion of Tetris: the compressed copy matches on its four routes, the
 report says so, and the replay-hash equals the published hash.
+
+## Game Boy: the saves of the delivered file are proven (1.6.6, gate G7)
+
+`tools/gameboy_saves_check.py` converts six cartridges authored for the check (MBC1, MBC2, MBC3 with its clock, MBC5, a cartridge with RAM
+and no battery, a battery cartridge that never writes) and runs each delivered file twice, headless, in an empty folder. Nothing in the
+converter, the runtime or the generated C changes.
+
+*What moves.* Nothing: the tool and its test (`tests/test_gameboy_saves_tool.py`) are developer files, listed in the public files and in no
+stamp. An export of 1.6.5 plays and saves as before. No quick-state key.
+
+*Hot path: not touched.*
+
+*Proof.* The six cartridges pass on the 1.6.6 build: the first run leaves the `.sav` (and the `.rtc` on MBC3), the second reads the pattern
+back byte for byte, a run that writes nothing leaves every file as it was, a cartridge that keeps nothing creates no `datas` folder, and
+a damaged battery or clock file (short, long, empty, junk) is refused with the game starting normally and the file untouched
+([GAME_BOY.md](GAME_BOY.md#qualification)). No defect was found in the runtime.
+
+## Game Boy: states in a fresh process are proven (1.6.6, gate G6)
+
+`tools/gameboy_states_check.py` runs the headless state flags of the delivered file in separate processes: a state taken after N frames,
+loaded by a fresh process and run for M frames, must give the dump and the per-frame trace (picture, sound, RAM, program counter) of one
+continuous run of N + M frames; a state taken after that load must continue the same way; damaged states and a missing one are refused.
+
+*What moves.* Nothing: developer files only (`tools/gameboy_states_check.py`, `tests/test_gameboy_states_tool.py`), in the public files and in no
+stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No quick-state key.
+
+*Hot path: not touched.*
+
+*Proof.* 29 checks pass on a cartridge authored for the purpose (240 different pictures, 45 different sound hashes over the 240 frames) and on
+Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
+need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
+
+## Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states (1.6.6, gates G2 and G6)
+
+*The report.* Beside the CPU, the Game Boy report (schema 2) now lists two units in `devices`, after the coprocessor entry if a machine has
+one: the cartridge's mapper (`kind: cartridge_mapper`: the header type, the mapper family, ROM banks, RAM size and cell width, battery,
+clock, rumble, and whether the runtime models that mapper at all) and the sound unit (`kind: audio_unit`). Both are C models of the
+runtime, not translated from the ROM and not interpreted, so they carry no counter: `fallback_present` is `None` ("not applicable"), not
+zero, and they take no part in the native-code verdict. `saves.cartridge_memory` gives the memory the cartridge keeps and the names of the
+files the delivered file writes. Hardware fidelity stays false and stated as such. Cartridge types the runtime does not model (MMM01,
+MBC6, MBC7, camera, TAMA5, HuC1, HuC3) say `not_modelled`; no conversion is refused because of it.
+
+*The states.* After the packed replay the conversion runs a state check on the same compressed copy, in an empty folder: a state taken after
+60 frames, loaded by a fresh process and run for 60 more, must give the dump of a continuous 120-frame run (registers, cycles, work and
+high RAM, LY and PPU mode); ten damaged copies of the state and a missing one must be refused and create nothing. The verdict is in
+`game_states.fresh_process_verified` and `game_states.validation` (the fields the Neo Geo, CPS-1 and X68000 reports already use); a failure
+is reported and does not stop the conversion. It costs about 1.2 s (Tetris).
+
+*What moves.* The Game Boy **game stamp** (`gameboy.py`, `gameboy_delivery.py`, the new `gameboy_cartridge.py`). No host or build stamp. The
+executable and every generated file are byte for byte the same (below), so a player's game plays and saves as before. Only
+`conversion-report.json` gains keys. Common code touched: `report_schema.py` (the `hardware_devices` reading, additive; `fallback_summary` and
+`tools/release_check.py` now take the cartridge coprocessor by its `kind` instead of `devices[0]`, same result for every other machine).
+
+*Hot path: not touched.*
+
+*Proof.* `tests/test_gameboy_cartridge.py` (header facts, the runtime's lists, Wisdom Tree detection, the devices read back through
+`read_report`, the native-code verdict and the summary unchanged by the new entries) and `tests/test_gameboy_states_tool.py`. A/B from the
+main checkout against the commit this branch left (`tools/ab_conversion.py`): on Tetris all 128 compared files are identical and the only
+differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
+`states` built from them; timings are not compared).
 
 ## Mega Drive: 2,895 more independent 68000 vectors (1.6.6)
 
@@ -278,6 +362,24 @@ seven consoles, do not move **for this change**. A Neo Geo or CPS-1 export of 1.
 fingerprint of `neogeo_z80` (`neogeo_conversion.py`), so a Neo Geo state of 1.6.5 is refused cleanly; the CPS-1 key does not hash that module
 and the 34-byte Z80 block of its state did not change, so **a CPS-1 state of 1.6.5 still loads** (it continues with the corrected core, from the
 registers it saved).
+
+## CPS-1 leaves the experimental status (1.6.6)
+
+The CPS-1 profile is `supported` (owner's decision of 1 November 2026, on the evidence in [QUALIFICATION.md](QUALIFICATION.md); his own play
+trial of the 1.6.6 executable is still to do). What changes for a player and for the files:
+
+- **Reports.** A CPS-1 conversion whose final routes interpreted no 68000 and no Z80 instruction now writes `status: completed` (the
+  Neo Geo rule); one that interpreted some keeps `experimental` as its stage, and the window then says "Created · experimental". The
+  schema 2 field `knowledge.machine_status` says `supported`.
+- **Interface.** The CPS-1 note in Options no longer says "experimental", and the Knowledge pop-up lists CPS-1 with the shared consoles (its
+  paths still count only for the engine revision that validated them), in the eight languages. The X68000 keeps its experimental labels.
+- **Linux.** The profile is `witnessed` (three sets give the same route hashes on Debian 13), so the Linux converter no longer refuses CPS-1.
+  Interactive play, sound and pads on Linux were not witnessed.
+- **Shared base.** Nothing moves: CPS-1 stays in the experimental tier (schema 3 only, line 3 of the base, withdrawable with
+  `path_profiles.EXPERIMENTAL_SHARED`); the status label is not read by any sharing code.
+- **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
+  corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
+  just before this change). No quick-state key changes.
 
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 

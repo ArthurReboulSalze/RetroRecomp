@@ -106,8 +106,8 @@ CPU (Z80, 68000, 6502, SM83, 65816, SPC700...) and per cartridge device, plus
 named sources (ROM, BIOS, IPL, disks). One validator applies per-CPU bounds;
 the same limits are generated for the website's checks. Machines that share a
 CPU share its path kinds. *Schema 3 is `retrorecomp/path_profiles.py`; the seven
-older consoles still keep schema 1 banks, CPS-1 (experimental, shared since
-1.6.0) exists only as schema 3 documents with its own versioned record and
+older consoles still keep schema 1 banks, CPS-1 (shared since
+1.6.0, still the experimental tier of the base) exists only as schema 3 documents with its own versioned record and
 engine identity, and the X68000 has no paths yet. A machine still in
 development is listed in `path_profiles.EXPERIMENTAL_SHARED`: emptying that list
 withdraws it from the sharing in one move (see COMPILATION_LIBRARY.md).*

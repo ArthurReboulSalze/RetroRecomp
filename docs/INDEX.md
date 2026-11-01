@@ -4,7 +4,7 @@ Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Nine machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1 and Sharp X68000 (the last two are experimental).
+Geo, Capcom CPS-1 and Sharp X68000 (the last one is experimental).
 
 **Where to start**
 
@@ -104,7 +104,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **What the two 16-bit machines share** — [CONSOLES_16BIT.md](CONSOLES_16BIT.md) (game interface, scan levels, build and
   dependency contract) and [GUNS_16BIT.md](GUNS_16BIT.md) (Menacer, Justifier and Super Scope input).
 - **Neo Geo** — [NEOGEO.md](NEOGEO.md); log: [NEOGEO_LOG.md](NEOGEO_LOG.md).
-- **Capcom CPS-1** — [CPS1.md](CPS1.md) (experimental: conversion, controls, first qualified sets); log: [CPS1_LOG.md](CPS1_LOG.md).
+- **Capcom CPS-1** — [CPS1.md](CPS1.md) (supported since 1.6.6: conversion, controls, qualified sets); log: [CPS1_LOG.md](CPS1_LOG.md).
 - **Sharp X68000** — [X68000.md](X68000.md) (experimental: availability and licences).
 
 ## Running the project

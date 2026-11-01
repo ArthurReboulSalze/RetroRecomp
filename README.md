@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.5-d4a737" alt="Release version 1.6.5">
-  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
+  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -71,7 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Mega Drive](docs/MEGADRIVE.md) | Supported | Standard cartridges, PAL/NTSC, SRAM and EEPROM saves, quick states and Menacer |
 | [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges, LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
-| [Capcom CPS-1](docs/CPS1.md) | Experimental | MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
+| [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM/XDF disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
