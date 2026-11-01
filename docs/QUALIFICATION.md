@@ -311,6 +311,8 @@ owner fills it in.
 |---|---|---|---|---|
 |  |  |  |  |  |
 | 1 November 2026 | Capcom CPS-1 | none (decision on the evidence, no game played for this row) | Exit from the experimental status validated by Arthur on the basis of the 1.6.6 evidence | The play trial list of `CPS1_ACCEPTATION.md` is still to do on the 1.6.6 executable. The owner trials of 27 October 2026 were reported in chat and are not recorded here. |
+| 1 November 2026 | Mega Drive | none recorded (owner acceptance, no game list written) | accepted by the owner (Arthur), who uses these machines and validated them as supported; no written play checklist for this row | Recorded on 1 November 2026 at the maintainer's confirmation of the `Y` of the matrix. |
+| 1 November 2026 | Neo Geo | none recorded (owner acceptance, no game list written) | accepted by the owner (Arthur), who uses these machines and validated them as supported; no written play checklist for this row | Recorded on 1 November 2026 at the maintainer's confirmation of the `Y` of the matrix. |
 | _Draft, to fill (CPS-1 trial)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete on the 1.6.6 executable._ |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
