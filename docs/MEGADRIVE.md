@@ -183,6 +183,8 @@ Read the caveats there before quoting a letter. The panel is 24 + 8 cartridges.
 | Gameplay validation | Sampled routes and the owner's play tests, not complete playthroughs. |
 | Physical latency | Not measured. |
 
+**The delivered file (since 1.6.6).** The conversion compresses a copy of the build as publication does and replays it on every route against the fresh reference of the same route (`native_validation.packed_reference_match`, `packed_candidate_sha256`), then records the liveness of those runs per route (`final_checks[].liveness`: distinct pictures, picture changes, last picture change, audible frames, last audible frame, distinct sound blocks and program counters). A frozen `play` route stops the conversion; the attract and the long routes may show one picture. This says that the picture and the sound change on the routes run, nothing about what they show or how far into the game they go.
+
 **Reference and risk cases** (`tools/campaign-risk-cases.json`): Sonic The Hedgehog 2 (interlaced split screen, Z80
 timing), Ecco the Dolphin (68000 code in RAM through a `TRAP #0` stub), NBA Jam - Tournament Edition (Acclaim serial
 EEPROM), Super Street Fighter II (5 MiB, Sega 512 KiB bank mapper), Gunstar Heroes (heavy Z80 driver, Japan region

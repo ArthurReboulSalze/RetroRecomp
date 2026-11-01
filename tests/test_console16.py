@@ -318,15 +318,16 @@ class Console16Tests(unittest.TestCase):
             return executable
 
         def probe(executable, directory, frames, *, play=False, reference=False,
-                  gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None):
+                  gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None, trace=False):
             scenario = scenario or ('play' if play else 'demo')
-            events.append(('reference:' if reference else 'native:') + scenario
-                          + (f'<{Path(load_state).stem}' if load_state is not None else ''))
+            if not trace:   # the replay of the delivered file is not one of the conversion's own runs
+                events.append(('reference:' if reference else 'native:') + scenario
+                              + (f'<{Path(load_state).stem}' if load_state is not None else ''))
             if input_script is not None:
                 self.assertTrue(input_script.is_file())
                 if reference:
                     self.assertEqual(input_script.read_bytes(), scripts[scenario])
-                else:
+                elif not trace:
                     scripts[scenario] = input_script.read_bytes()
             # A chained route loads the end state the previous route saved in
             # the same run directory: the native export and the reference each
@@ -355,7 +356,14 @@ class Console16Tests(unittest.TestCase):
             failed_scenario = fail_reference if isinstance(fail_reference, str) else 'advanced'
             if fail_reference and reference and (not advanced or scenario == failed_scenario):
                 data['cpu_hash'] = 2
+            if trace:   # a picture that changes on every frame, as the host's --trace file would show
+                lines = ['frame,frame_hash,native,interpreted,audio_hash,pc,sr,sp,z80_pc,busreq,reset_off,fm_nonzero,psg_nonzero']
+                lines += [f'{n},{n:016x},1,0,{n:016x},{n},0,0,0,0,0,1,0' for n in range(1, 4)]
+                (Path(directory) / f'{scenario}.trace.csv').write_text(chr(10).join(lines) + chr(10), encoding='ascii')
             return data
+
+        def pack(built, target, emit):
+            Path(target).write_bytes(Path(built).read_bytes())
 
         def learn(rom, checks):
             events.append('learn')
@@ -363,6 +371,7 @@ class Console16Tests(unittest.TestCase):
 
         with patch('retrorecomp.console16.prepare16', side_effect=prepare), \
                 patch('retrorecomp.console16.probe16', side_effect=probe), \
+                patch('retrorecomp.delivery_evidence.pack_candidate', side_effect=pack), \
                 patch('retrorecomp.megadrive.learn_entries', side_effect=learn), \
                 patch('retrorecomp.megadrive_z80.learn_variants', return_value=0):
             if fail_reference:
@@ -464,6 +473,10 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual(report['status'], 'supported')
         self.assertEqual(report['cartridge_profile']['source'], 'cartridge')
         self.assertFalse(report['cartridge_profile']['catalogue_required'])
+        # The delivered (compressed) file was replayed on both routes and its liveness recorded (G5, G8).
+        self.assertTrue(report['native_validation']['packed_reference_match'])
+        self.assertEqual(len(report['packed_candidate_sha256']), 64)
+        self.assertEqual([check['liveness']['picture_changes'] for check in report['final_checks']], [2, 2])
 
     def test_standard_md_divergence_does_not_enter_the_memory_library(self):
         events, report = self.scan_conversion(advanced=False, fail_reference=True)

@@ -457,6 +457,36 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: the delivered file is replayed and its liveness recorded (1.6.6)
+
+The conversion of a Mega Drive game now does what Neo Geo, CPS-1 and the X68000 do (`retrorecomp/delivery_evidence.py`, the
+Mega Drive's part in `retrorecomp/megadrive_evidence.py`, called from `console16.convert16`):
+
+- **Packed replay (G5).** After the reference comparison, a copy of the build is compressed as publication does, and that copy is
+  replayed on every route (same arguments, same input scripts, chained routes from their own saved states) and compared with the
+  fresh reference of the same route by `reference_differences`, the comparison the build already passes. The report gains
+  `native_validation.packed_reference_match` and `packed_candidate_sha256`; the packing record says the compressed copy was replayed.
+  A difference stops the conversion and keeps the previous export.
+- **Liveness (G8).** The replays pass `--trace` (the 16-bit host already wrote it: picture hash, sound hash, program counter, FM and
+  PSG non-zero counts per frame), and each route's trace becomes `final_checks[].liveness`: frames, distinct pictures, picture changes,
+  last picture change, audible frames, last audible frame, distinct sound blocks and program counters. A frame is audible when the FM
+  or the PSG produced a non-zero sample in it. A key the trace cannot give is `null`, never 0. It is evidence that the picture and the
+  sound change on the route; it says nothing about what the picture shows, how deep the route goes, or latency.
+- **A frozen main route is refused.** A conversion whose `play` route never changed the picture stops (the game never started or is
+  stuck). The attract route presses no button and a game may wait for Start on one title picture, and the long and authored routes may
+  sit in a menu, so none of those is refused.
+
+*Edited:* `retrorecomp/console16.py` (the trace option of the probe, the fresh references kept, the replay and the report fields, all
+for the Mega Drive only), the new `retrorecomp/megadrive_evidence.py`, and `retrorecomp/systems/console16.py` (the Mega Drive joins the
+`conversion_gates` group, which `delivery_evidence` calls). **The `md` game stamp moves; so does the Super Nintendo's**, because
+`console16.py` is a game input of both 16-bit consoles; the Super Nintendo path is unchanged and does not run the new steps. No generated
+code changes: a Blockout, a Sonic The Hedgehog and a Gunstar Heroes (USA) conversion compared with the tree before the change by
+`tools/ab_conversion.py` differ only by the new keys and files (the liveness, the packed fields, `checks/packed/`), the profile data
+and the changes of the decoding rules of this release; every generated source, frame, audio and state hash is identical.
+**Cost:** one more run of each native route on the compressed copy (not the reference runs, which are the long ones) and one
+compression; not timed. A game whose `play` route is frozen would stop converting: none of the three does, and Arthur's collection has
+not been re-run for this.
+
 ## The 68000 decoding rules of the original chip (1.6.6)
 
 The decoder the converter uses is written for the 68010 and the 68020 as well and accepts more than a 68000 knows. Four machines hold a
