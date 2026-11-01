@@ -38,7 +38,7 @@ if str(ROOT) not in sys.path:
 if str(Path(__file__).parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent))
 
-from retrorecomp import timings, x68000_conversion as conversion  # noqa: E402
+from retrorecomp import delivery_evidence, timings, x68000_conversion as conversion  # noqa: E402
 from test_conversion_common import fake_phase_factory, flags, outcome, plain  # noqa: E402
 from tools import x68000_native, x68000_reference  # noqa: E402
 from tools.x68000_reference_check import HARDWARE_COLUMNS, TRACE_COLUMNS  # noqa: E402
@@ -424,7 +424,7 @@ class Scenario:
             patch.object(conversion, 'machine_sources', lambda base, emit: ('-DFAKE',)),
             patch.object(conversion, 'payload', lambda *a, **k: {}),
             patch.object(conversion, 'build_player', self.build_player),
-            patch.object(conversion, 'pack_candidate', self.pack_candidate),
+            patch.object(delivery_evidence, 'pack_candidate', self.pack_candidate),
             patch.object(conversion, 'route_liveness', self.route_liveness),
             patch.object(conversion, 'replay', self.replay),
             patch.object(conversion, 'write_report', lambda path, report: self.reports.append(report)),
