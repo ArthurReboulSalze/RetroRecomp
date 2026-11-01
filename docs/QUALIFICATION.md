@@ -7,6 +7,13 @@ short names for that checklist, numbered by the 27 October 2026 pipeline
 inventory. This page records the current status matrix and the
 owner-acceptance log. It makes no claim beyond them.
 
+## Leaving the experimental status
+
+The bar to leave `experimental` stays very high: every gate is proved, and no gate is relaxed to get there. The final decision is
+always the maintainer's own: he decides whether a machine leaves the experimental status, on the panel criterion (G12) and on his
+dated acceptance, worded as he gave it (G14). No tool and no agent fills G14, or moves a profile to `supported`, without his explicit
+yes.
+
 ## Gates
 
 | # | Gate | Defined by |

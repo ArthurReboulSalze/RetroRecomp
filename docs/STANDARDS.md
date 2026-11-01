@@ -158,6 +158,10 @@ its own measure category.
 | Honesty | hardware fidelity, full-game coverage and latency are never claimed without proof |
 | Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure |
 
+Leaving `experimental` keeps the bar very high (every gate proved, none relaxed) and is always the maintainer's own decision: no tool
+and no agent fills the owner-acceptance gate or sets a profile to `supported` without his explicit yes
+([QUALIFICATION.md](QUALIFICATION.md#leaving-the-experimental-status)).
+
 Per-console qualification record (gates G1-G16, status matrix, owner-acceptance
 log): [QUALIFICATION.md](QUALIFICATION.md).
 
