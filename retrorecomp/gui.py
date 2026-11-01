@@ -15,6 +15,7 @@ from tkinter import messagebox, ttk
 
 from . import __version__, online
 from .batch import BatchItem
+from .packing import compression_from_preferences
 from .paths import (
     ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, preferred_games_root, selected_bios_path,
     feedback_search_paths, console_options,
@@ -176,6 +177,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # player's new discoveries sent after it (both on unless turned off).
         self.use_shared_base = tk.BooleanVar(value=preferences.get('use_shared_base', True) is not False)
         self.send_after_batch = tk.BooleanVar(value=preferences.get('send_after_batch', True) is not False)
+        # Games are compressed with UPX unless the player turns it off (Windows Defender sometimes flags a
+        # freshly built compressed game: packing.py). It applies to the conversions started afterwards.
+        self.compress_games = tk.BooleanVar(value=compression_from_preferences(preferences))
         # Look for a new version of the software and of the base when the window
         # opens (on unless turned off); `last_update_check` spaces the looks.
         self.check_at_startup = tk.BooleanVar(value=preferences.get('startup_update_check', True) is not False)

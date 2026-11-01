@@ -549,6 +549,8 @@
     "tip_account_shop": "Le monete RR arrivano con i percorsi confermati, ma anche con le conversioni, la profondità di analisi, l'esplorazione e le segnalazioni utili. Spendile nel negozio della pagina del tuo account: titoli, stili del nome, distintivi delle console, spille, cornici del ritratto e temi dell'intestazione. Ciò che equipaggi appare qui e in classifica.",
     "use_shared_base": "Usa la base comune",
     "tip_use_shared_base": "Prima di ogni lotto, recupera i percorsi trovati dagli altri giocatori per queste ROM esatte. Guidano la scoperta e vengono sempre ricontrollati; se provengono da una scansione lunga almeno quanto la tua, un controllo rapido sostituisce la scoperta.",
+    "compress_games": "Comprimi i giochi",
+    "compress_games_note": "I giochi compressi sono più piccoli, ma Windows Defender a volte scambia per una minaccia un gioco compresso appena creato (un falso positivo). Disattiva questa opzione per pubblicare i giochi senza compressione: lo stesso programma, da 3 a 4 volte più grande. Vale per le prossime conversioni.",
     "send_after_batch": "Invia le mie nuove scoperte dopo i lotti (al massimo ogni 15 minuti)",
     "tip_send_after_batch": "Dopo un lotto, invia in background ciò che la base comune non ha ancora ricevuto da te: solo numeri, mai il contenuto di una ROM. Gli invii partono al massimo ogni 15 minuti; uno ancora in attesa parte alla chiusura della finestra o all'avvio successivo. Se non riesce, riprova dopo il lotto successivo.",
     "shared_received": "Base comune: percorsi di altri giocatori per {games} di questi giochi ({records} contributi, {observations} osservazioni). Ogni conversione li ricontrolla.",

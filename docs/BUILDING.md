@@ -170,6 +170,19 @@ the rest of the program, so a Linux game moved without its `datas/reports` is no
 content (like Master System, Game Gear and Game Boy games on Windows); it is
 then kept, never overwritten. Packing is a build input: changing it rebuilds
 exports without rediscovery ([compilation library](COMPILATION_LIBRARY.md)).
+**Compress games (1.6.6).** Windows Defender's machine-learning detection sometimes mistakes a
+freshly built, UPX-packed game for a threat (`Program:Win32/Contebrew.A!ml`, a false positive).
+The global option **Options > Common > Compress games** (preference `compress_games`, on by
+default) and the switch `--no-compress` of `convert` and `batch` (`--compress` forces it on for
+one run; without a switch the saved option applies) turn the compression off: UPX is not run,
+each game is published exactly as built and validated (3 to 4 times larger, the same program),
+and the conversion log says "Published uncompressed: the player turned the "Compress games"
+option off" for each game, with `packing.packed` false and `packing.unpacked_reason` in the
+report. The Neo Geo, CPS-1 and X68000 packed replay then replays that unpacked file against the
+reference (delivered file kind `unpacked`, the comparison line says "unpacked"). The option
+applies to the conversions started afterwards and does not enter a game's request signature: a
+game that is up to date is not rebuilt because it was switched; use **Force regeneration** or
+`--force` to publish it again.
 A NeoGeo BIOS selected by the user is required for Neo Geo; it is not downloaded.
 The UPX license and packed-executable exception are in
 [licenses/UPX.md](../licenses/UPX.md).
@@ -265,6 +278,7 @@ python RetroRecomp.py convert "ROMS/nam1975.zip" --ng-bios "D:/your-bios/neogeo.
 python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 8 --no-online-cover
 python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --system auto
 python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
+python RetroRecomp.py batch --rom-dir ROMS --no-compress
 ```
 
 `batch` applies the shared base before converting, as the window does: a game

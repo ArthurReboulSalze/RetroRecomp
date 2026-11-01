@@ -54,6 +54,33 @@ def upx_timeout(path: Path) -> int:
 # to stderr, once.
 _UNPACKED_REASONS: dict[str, str] = {}
 
+# The player's global option "Compress games" (preference `compress_games`, command line `--no-compress`). It exists
+# because of Windows Defender: its machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive)
+# sometimes flags a freshly built, UPX-packed game, and an unpacked game is 3 to 4 times larger but the same program.
+# On by default (today's behaviour). The window and the command line set it for the process before a conversion
+# starts (`set_compression`); a conversion never reads the preferences file itself, so tests and other tools that call
+# `compact_executable` get the default unless they say otherwise. When it is off, the executable is published exactly as
+# built and validated, UPX is not run, and the reason is the same kind of notice as a game UPX could not pack.
+_COMPRESSION = True
+UNCOMPRESSED_NOTICE = ('Published uncompressed: the player turned the "Compress games" option off. '
+                       'A larger file, the same program.')
+
+
+def set_compression(enabled: bool) -> None:
+    """Turn the UPX compression of published games on or off for this process (the player's option)."""
+    global _COMPRESSION
+    _COMPRESSION = bool(enabled)
+
+
+def compression_enabled() -> bool:
+    """Whether published games are compressed (True unless the player turned the option off)."""
+    return _COMPRESSION
+
+
+def compression_from_preferences(preferences: dict) -> bool:
+    """The option as saved in Retro-Recomp.json: on unless `compress_games` is explicitly false."""
+    return preferences.get('compress_games', True) is not False
+
 
 def file_identity(path: Path) -> dict:
     """Size and SHA-256 of one executable."""
@@ -82,7 +109,10 @@ def packing_record(unpacked: dict, published: Path, packed_replayed: bool = Fals
               'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
               'compared_on': 'unpacked build executable',
               'packed_validation': 'tools/snes_packed_check.py (developer qualification, not run during conversion)'}
-    if packed_replayed:
+    if packed_replayed and not packed:
+        record['compared_on'] = 'unpacked build executable and the delivered file, also unpacked, replayed against the reference'
+        record['packed_validation'] = 'delivered file replayed during conversion (native_validation.packed_reference_match); it is not compressed'
+    elif packed_replayed:
         record['compared_on'] = 'unpacked build executable and a packed copy replayed against the reference'
         record['packed_validation'] = 'packed copy replayed during conversion (native_validation.packed_reference_match)'
     reason = _UNPACKED_REASONS.get(unpacked.get('sha256'))
@@ -105,7 +135,18 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
     only a validated original that is gone too is an error. Returns None when the file was packed as usual or
     left as built on purpose, else {'notice': text}, the reason it stays unpacked. The
     text is passed to `emit` (the conversion log) when given, else printed on stderr:
-    never both, so a command line shows it once."""
+    never both, so a command line shows it once.
+
+    With the player's option "Compress games" off (`set_compression`), UPX is not run at all: the file stays as built and
+    validated and the notice says that the player chose it, which `packing_record` reports as `unpacked_reason`."""
+    if not _COMPRESSION:
+        _UNPACKED_REASONS[file_identity(path)['sha256']] = UNCOMPRESSED_NOTICE
+        outcome = {'notice': UNCOMPRESSED_NOTICE}
+        if emit is not None:
+            emit(outcome['notice'])
+        else:
+            print(outcome['notice'], file=sys.stderr, flush=True)
+        return outcome
     if os.name != 'nt':
         outcome = compact_linux(path)
         if outcome:
