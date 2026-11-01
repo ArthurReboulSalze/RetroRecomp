@@ -330,7 +330,7 @@ already did (X and Y from the high byte of the instruction's address, H and P fr
 shows when an interrupt is accepted between two iterations and pushes AF; Alex Kidd: High-Tech World passes the comparison with the
 reference CPU with it (CPU fidelity on the project's own tested routes, nothing about hardware, gameplay or latency). The default banked engine
 generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
-with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of both consoles moves with `core`.
+with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of all nine consoles moves with `core` (`retrorecomp.core` is an input of every console).
 
 A second change of the same engine: a `RET` that pops an address the routine pushed itself ("push continuation; jump; ret") now
 continues at that address, as the Z80 does, instead of resuming the caller (each generated function keeps its entry SP; a tail jump
@@ -347,6 +347,29 @@ Spinball, which fails later). From an empty learning state 12 of the 15 games tr
 (Game Gear) and Aladdin do not. Cost, functions engine only: a direct jump across slots becomes a dispatch call (a target that is not a function entry costs a few counted interpreter steps until the next pass learns it: Alex Kidd in Miracle World shows 0.154 % interpreted in its first pass against 0.0 % before).
 
 Interpreter share per pass (demo route, `main` before these changes -> this branch, from an empty learning state; native code is 100 minus this): the first pass is within 0.2 points for 14 of the 15 games (Lost Stars 61.9 -> 32.6 %); the last pass is equal or lower for every game that passes (Super Columns 59.6 -> 12.1, Action Fighter 34.1 -> 6.3, Shinobi World 19.0 -> 8.7; High-Tech World 0.222 -> 0.333). It is higher for the games that still fail (Aladdin, Sonic Spinball, Triple Trouble before it passed), where the run beyond the first divergence is no longer the same run. The main loop of Aladdin and Spinball is entered through a dispatch miss in the first pass (99 % interpreted, with or without this change).
+
+## Master System and Game Gear: WZ in the functions engine, ordered word reads (1.6.6, in preparation)
+
+Two changes of the Z80 code of the Master System and the Game Gear. (1) The "functions" engine keeps the internal WZ register as the
+banked engine does, and `BIT n,(HL)` takes its X and Y flags from it (they came from H): Alex Kidd: The Lost Stars passes the comparison
+with the reference CPU with it (13 of the 15 games tried pass from an empty learning state, 12 before; the other 14 give the same video
+trace and the same interpreter share, pass by pass). Cost, functions engine only: one `s->wz` store per memory, I/O, index, 16-bit
+arithmetic, jump, call and return instruction (a RET also reads the popped word once and keeps it for WZ and for the local transfer). (2) A word read of the shared runtime header reads the low byte, then the high byte, in two
+statements (it was two reads in one C expression, whose order is not defined); it applies to both engines. The generated sources of the
+banked engine are byte-identical on Bank Panic and Factory Panic apart from that header and the version resource. The game stamp of all
+nine consoles moves (`retrorecomp.core` is an input of every console; `retrorecomp.cpu` belongs to the Master System and the Game Gear
+only); no host stamp does.
+
+Two more changes of the "functions" engine, learning and timing. (3) The counted interpreter records the targets of the CALL, RST and JP
+(HL)/(IX)/(IY) it takes (ROM only, once per address and slot bank, 4096 per run at most), so one pass learns the call tree a route reaches
+instead of one or two entries: a main loop entered through a dispatch miss no longer stays interpreted. Execution is unchanged and the
+banked runtime has nothing of it. (4) A repeating block instruction starts with `sms_tick(0)`, the sync every other instruction has, so
+an interrupt asserted at its start is accepted after its first iteration (it was one iteration later). From an empty learning state the
+15 games of the 1.6.4 batch all pass the comparison with the reference CPU (13 before these two, 9 in 1.6.4); the first pass is
+identical for every game, the last pass of each is at 5 % interpreter (cycles) or less against up to 98 % before (Sonic Spinball
+98.4 -> 0.19, Factory Panic 72.6 -> 0.0, Sonic Triple Trouble 46.3 -> 0.001, Super Columns 12.1 -> 0.0, Aladdin 85.5 -> 5.0); the play
+routes of Shinobi World and Factory Panic now equal the reference over 3600 frames. Banked sources: unchanged. Nothing is claimed for
+hardware fidelity, gameplay beyond those routes or latency.
 
 ## Exports of 1.6.3 in 1.6.4
 
@@ -487,7 +510,7 @@ engine generates the same sources. These are CPU-fidelity corrections of our own
 the pin does not move. Alex Kidd in Miracle World, Factory Panic and seven more games now pass the comparison with the reference CPU
 with that engine; they converted with the banked engine before. That is an agreement with the project's own reference on the tested
 routes, not a statement about hardware fidelity, gameplay or physical latency, and the share of native code changes only where a game
-stopped at the first affected frame and goes on now. Interpreter fallback stays counted per CPU. The game stamp of both consoles
+stopped at the first affected frame and goes on now. Interpreter fallback stays counted per CPU. The game stamp of all nine consoles
 moves with `core`; the host stamp moves with the registry. Their quick states have no key of this kind, and none of these
 changes adds a field to a saved state.
 
