@@ -28,7 +28,8 @@ HASH_LINE = re.compile(r'^(\d+) .*?\bmem=([0-9A-F]+) PC=([0-9A-F]{4}) .*\bpic=([
 
 def hash_rows(trace: Path):
     """The per-frame rows of a `--hash-out` trace. A line without the picture and sound fields is a trace from an
-    older player: it has no rows, so the record is empty and its keys are None rather than 0."""
+    older player: it has no rows, so the record counts nothing (`frames`, `distinct_pictures`, `picture_changes` and
+    `last_picture_change_frame` are 0) and says nothing of sound, RAM or counters (those keys, and the audible ones, are None)."""
     for line in Path(trace).read_text(encoding='ascii').splitlines():
         match = HASH_LINE.match(line)
         if match:

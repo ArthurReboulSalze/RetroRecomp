@@ -21,7 +21,7 @@ def _pal_ticks() -> str:
 
     A dot falls on the ticks where (cycles * 16 + align + k) % 5 is 0 and a half dot where it is 2; since 16 % 5 is 1 the
     phase of a cycle is (cycles + align) % 5, and the ticks repeat with it. The edges are only counted, in the three runs
-    the two samples cut them into (the NMI sample at tick 5 and the IRQ sample at tick 9 come before the edge of their
+    the two samples cut them into (the NMI sample at tick 6 and the IRQ sample at tick 9 come before the edge of their
     own tick, as in run_tick), so what the CPU, the APU and the cartridge see is the same as tick by tick."""
     groups = ((1, 5), (6, 8), (9, 15))
     tables = [', '.join(str(sum(1 for k in range(first, last + 1) if (phase + k) % 5 in (0, 2)))

@@ -666,6 +666,11 @@ level and more at the thorough one (each route is replayed once more at native s
 A PAL game with its clock aligned one way sees an interrupt one CPU cycle later on every other frame; Asterix, Mr. Gimmick and
 Parodius give identical frame, audio and state evidence on their routes.
 
+One conversion of Asterix failed in an A/B run of this tree against `main` on 1 November (14:39) and passed when run again (14:43);
+the run's logs were not kept. The likely cause, not proved from those logs, is the one found on a Castlevania III conversion the
+same afternoon: Windows Defender deleting UPX's temporary file (a false positive), which `main` now answers by publishing such a
+game unpacked.
+
 Other changes of the NES in 1.6.6 that move the same stamp and are described in [NES.md](NES.md) and
 [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md): the cartridge's mapper number a constant on every toolchain, the MMC1
 A12 rebuild skipped when it cannot matter, the deferred PPU clock in PAL, and the completion of RAM routines at the end of a
