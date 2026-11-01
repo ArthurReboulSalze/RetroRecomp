@@ -302,6 +302,12 @@ each is the patched `hw_mapper.c` (and the new check file). The gain is not meas
 |---|---|---|---|
 | MMC1: a PPU A12 change rebuilds the bank tables only when CHR registers 0 and 1 differ in bits 2-4 in 4 KiB mode | nes | `nes_machine.py` (`_mmc1_a12`, applied to the staged `hw_mapper.c`) | nes |
 
+## Fixes carried as our own patches in 1.6.6
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| NES PAL: /NMI is sampled at tick 6 of the 16-tick CPU cycle, not 5 (the 2A07's M2 stays low 6.5 master clocks against the 2A03's 4.5, and both lines are polled during phi2; the IRQ sample was already moved by the same two clocks). Derived from the NESdev duty cycle and checked against the later PAL commit of the pinned upstream without copying it; no console measurement. Three PAL games give identical frame, audio and state evidence; the authored vblank sweep detects the NMI one cycle later in 2 of 16 cases | nes | `nes_machine.py` (`_machine`, `_pal_ticks`) | nes |
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

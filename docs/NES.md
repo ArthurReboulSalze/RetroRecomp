@@ -154,6 +154,23 @@ The palette remains an approximation. Timing references:
 [PPU variants](https://www.nesdev.org/wiki/PPU_variants),
 [APU frame counter](https://www.nesdev.org/wiki/APU_Frame_Counter).
 
+**PAL constants checked against NESdev (1 November 2026).** Our own reading of the NESdev pages (cycle reference chart, APU
+frame counter, DMC, noise, CPU variants, PPU OAM, PPU registers, CPU interrupts), compared with what the engine's later PAL
+commit states; nothing copied. Agrees: the 16:5 ratio, 312 lines of 341 dots and no odd-frame skip; the master clock
+(26.601712 MHz on the NESdev page; the half hertz of a derivation from the PAL subcarrier is inside its tolerance and is
+not worth moving the audio samples); the frame-counter steps (CPU cycles 8313, 16627, 24939, 33252 to 33254 for the 4-step
+frame interrupt, 41565 and 41566 for the 5-step sequence); the sixteen DMC and the sixteen noise periods; the OAM refresh
+from line 265 to 310; the swapped red and green emphasis bits; the register-read completion tick (9). One difference found
+and changed: **/NMI is sampled at tick 6 of the 16-tick CPU cycle**, not 5. The 2A07's M2 duty cycle is 19/32 against the
+2A03's 15/24, so M2 stays low 6.5 master clocks instead of 4.5, and both interrupt lines are polled during phi2; the IRQ
+sample had been moved by the same two clocks (tick 7 to 9), the NMI sample had only been scaled (4 x 16/12 = 5.33, taken
+as 5). In the authored vblank sweep of `tools/nes_ppu_selftest.py` this changes 2 of the 16 alignment and vblank cases (the
+NMI is seen one CPU cycle later), and nothing on three PAL games over their scenarios (Asterix, Mr. Gimmick, Parodius: frame,
+audio and state evidence identical). It is derived from the documented duty cycle, not measured on a console. Not settled by
+any source we have: the 2A07's DMA details (NESdev says only that it "fixes" the extra controller reads, and that the
+mechanism is not understood; ours removes the DMC halt-cycle re-reads on $4016/$4017), the PAL vblank-clear timing (NESdev
+lists it as unconfirmed on a PAL NES) and fine 2C07 register races.
+
 ### Linux runtime performance
 
 The settled PPU path caches only conditions invalidated by register accesses.
