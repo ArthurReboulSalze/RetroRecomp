@@ -89,7 +89,7 @@
   instructions on both routes, every check passed. The report records, per route,
   the number of different pictures and audible frames, and a conversion refuses a
   route whose picture never changes. The Z80 `IM 0` supplied opcode is counted as
-  interpreted, as on the Neo Geo. Independent vectors are replayed through the
+  interpreted, as already done on the SNK board. Independent vectors are replayed through the
   CPS-1 generator (3,787 68000 vectors, native steps agree; 51,328 Z80 vectors,
   native and interpreted identical, 98.2 % of the state agreeing with the oracle;
   the differences of the Z80 core are named). Against MAME, 24 of 26 sets are
@@ -98,7 +98,7 @@
   to `Y`; the play routes were inspected by the specialist agent, not by the
   owner.
 - **Sharp X68000 (experimental).** Every conversion now replays the compressed
-  player that is delivered against the reference (as Neo Geo and CPS-1 do), and
+  player that is delivered against the reference (as the arcade boards already do), and
   the report records the liveness of each route. A disk that cannot be the
   game's, or a changed host copy, is set aside (`<name>.unusable-N`, never
   deleted) and rewritten, so the game always starts; a game's written disk is

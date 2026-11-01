@@ -59,12 +59,12 @@ native/x68000_reference/timing_checks.h native/x68000_reference/video_checks.c
 native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
 native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
-tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py
+tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py tools/x68000_disk_rewrite.py tests/test_x68000_disk_rewrite.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py
-tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_check.py
+tests/test_x68000_media.py tests/test_x68000_media_formats.py tests/test_x68000_native.py tests/test_x68000_native_check.py
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_liveness.py tests/test_x68000_payload.py tests/x68000_payload_harness.c
@@ -165,8 +165,8 @@ retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
-tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
+retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/delivery_evidence.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py
@@ -261,6 +261,7 @@ native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
+native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py
 native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py

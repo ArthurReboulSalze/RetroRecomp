@@ -13,6 +13,7 @@ from .compiled_games import read_json, linked, MAX_GAMES, SKIP
 from .library import atomic_json
 from .paths import data_directory, export_directory
 from .systems import get_profile, profile_for_path
+from .x68000_media import DISK_EXTENSIONS
 
 
 # Multi-disk X68000 games named "(Disk 1 of 2)", "(Disk 2)" or "(Disk B)".
@@ -21,7 +22,7 @@ from .systems import get_profile, profile_for_path
 # lives here, outside the fingerprinted compiler modules, so it never changes
 # an exported game's stamp.
 DISK_TAG = re.compile(r'\(\s*dis[kc]\s+(\d{1,2}|[a-z])(?:\s+of\s+(\d{1,2}))?\s*\)', re.I)
-DISK_SUFFIXES = ('.dim', '.xdf')
+DISK_SUFFIXES = DISK_EXTENSIONS
 MAX_SET_DISKS = 10
 
 

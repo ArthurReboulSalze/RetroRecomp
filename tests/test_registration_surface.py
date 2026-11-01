@@ -203,8 +203,10 @@ class ExtensionSetTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             if profile.id in before:
                 self.assertEqual(tuple(profile.extensions)[:len(before[profile.id])], before[profile.id], profile.id)
-                if profile.id != 'snes':
+                # 1.6.6: the X68000 gained D88 and the other names of raw 2HD disks (after the three it had).
+                if profile.id not in ('snes', 'x68'):
                     self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
+        self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
 
 # --- the detection table ----------------------------------------------------------------------------

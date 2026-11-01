@@ -21,6 +21,7 @@ golden was recorded again: only `silent_player` changes (it now returns the play
 gain `native_validation.sound_heard`.
 """
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -38,7 +39,7 @@ if str(ROOT) not in sys.path:
 if str(Path(__file__).parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent))
 
-from retrorecomp import timings, x68000_conversion as conversion  # noqa: E402
+from retrorecomp import delivery_evidence, timings, x68000_conversion as conversion  # noqa: E402
 from test_conversion_common import fake_phase_factory, flags, outcome, plain  # noqa: E402
 from tools import x68000_native, x68000_reference  # noqa: E402
 from tools.x68000_reference_check import HARDWARE_COLUMNS, TRACE_COLUMNS  # noqa: E402
@@ -370,6 +371,10 @@ class Scenario:
         packed.write_bytes(Path(executable).read_bytes() + b' packed')
         return {'notice': 'X68000: compression unavailable.'} if self.knobs.get('unpacked') else None
 
+    def trace_digests(self, path):
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        return {name: name[:3] + '-' + digest[:16] for name in ('cpu_hash', 'ram_hash', 'image_hash', 'pcm_hash')}
+
     def route_liveness(self, folder, frames, result):
         self.log.append(f'liveness {folder.parent.name}/{folder.name} frames={frames}')
         pictures = 1 if self.knobs.get('static_picture') else 3
@@ -424,8 +429,9 @@ class Scenario:
             patch.object(conversion, 'machine_sources', lambda base, emit: ('-DFAKE',)),
             patch.object(conversion, 'payload', lambda *a, **k: {}),
             patch.object(conversion, 'build_player', self.build_player),
-            patch.object(conversion, 'pack_candidate', self.pack_candidate),
+            patch.object(delivery_evidence, 'pack_candidate', self.pack_candidate),
             patch.object(conversion, 'route_liveness', self.route_liveness),
+            patch.object(conversion, 'trace_digests', self.trace_digests),
             patch.object(conversion, 'replay', self.replay),
             patch.object(conversion, 'write_report', lambda path, report: self.reports.append(report)),
             patch.object(conversion, 'toolchain_description', lambda: {'kind': 'fake'}),
@@ -469,7 +475,7 @@ def collect_convert(root):
             'report': None if report is None else {key: report[key] for key in (
                 'scan_level', 'final_checks', 'exploration_checks', 'mouse_controls', 'status', 'system', 'executable',
                 'automatic_disk_requests', 'qualification_inputs_sha256', 'native_validation', 'game_states', 'video_model',
-                'liveness')
+                'liveness', 'ordinary_saves', 'peripheral', 'input_players')
                 if key in report},
             'library': library}
 

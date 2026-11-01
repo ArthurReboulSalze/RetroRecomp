@@ -325,7 +325,8 @@ def _scan(shape, data, rows):
     for name, entry in _dict(data.get('qualification_extra_routes')).items():
         routes.append(_route({'name': name, **_dict(entry)}, 'qualification_extra'))
     if shape.writer == 'x68000_conversion':
-        routes += [_route({'name': row.get('route'), 'frames': row.get('frames')}, 'exploration')
+        routes += [_route({'name': row.get('route'), 'frames': row.get('frames'), 'steps': row.get('steps'),
+                           'script_sha256': row.get('script_sha256')}, 'exploration')
                    for row in _dict_rows(data.get('exploration_checks'))]
     if shape.writer == 'cps1_conversion':
         routes += [_route(row, 'validation') for row in rows]

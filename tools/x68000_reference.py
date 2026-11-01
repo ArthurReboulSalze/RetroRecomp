@@ -72,7 +72,7 @@ def build_reference(build: Path, source: Path, sdl: Path, jobs: int = 4) -> Path
     return executable
 
 
-def _checked_copy(source: Path, destination: Path, expected: str, *, preserve=False):
+def _checked_copy(source: Path | bytes, destination: Path, expected: str, *, preserve=False):
     _safe_destination(destination)
     if destination.exists():
         if not destination.is_file():
@@ -86,10 +86,14 @@ def _checked_copy(source: Path, destination: Path, expected: str, *, preserve=Fa
     descriptor, name = tempfile.mkstemp(prefix='.' + destination.name + '.', dir=destination.parent)
     temporary = Path(name)
     try:
-        with os.fdopen(descriptor, 'wb') as dst, source.open('rb') as src:
-            shutil.copyfileobj(src, dst, length=65536)
+        with os.fdopen(descriptor, 'wb') as dst:
+            if isinstance(source, bytes):      # a disk stored as its raw equivalent (a standard D88)
+                dst.write(source)
+            else:
+                with source.open('rb') as src:
+                    shutil.copyfileobj(src, dst, length=65536)
         if digest(temporary) != expected:
-            raise ValueError(f'Source changed while copying: {source}')
+            raise ValueError(f'Source changed while copying: {destination.name}')
         temporary.replace(destination)
     finally:
         if temporary.exists():
@@ -185,9 +189,10 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
     staged = []
     for index, disk in enumerate(manifest.media):
         name = f'disk-{index + 1:02}.{disk.format}'
-        _checked_copy(disk.path, original_dir / name, disk.sha256)
+        stored = disk.path if disk.converted is None else disk.converted
+        _checked_copy(stored, original_dir / name, disk.sha256)
         # Keep guest writes in private copies between prototype launches.
-        _checked_copy(disk.path, media_dir / name, disk.sha256, preserve=True)
+        _checked_copy(stored, media_dir / name, disk.sha256, preserve=True)
         staged.append(name)
     for image, name in ((manifest.firmware.ipl, 'iplrom.dat'),
                         (manifest.firmware.cgrom, 'cgrom.dat')):

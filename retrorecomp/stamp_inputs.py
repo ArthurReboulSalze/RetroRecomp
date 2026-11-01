@@ -178,8 +178,9 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
-    # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py): never built into a game, so they move no stamp.
-    'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c')
+    # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py): never built
+    # into a game, so they move no stamp.
+    'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -729,8 +730,11 @@ INPUTS = _resolve({
     'shares:megadrive_codegen': (
         'retrorecomp.megadrive_codegen',
     ),
+    # The gates and the evidence about the delivered file (liveness, packed replay) that the converters share;
+    # delivery_evidence calls the gates, so a machine that uses it joins this group.
     'shares:conversion_gates': (
         'retrorecomp.conversion_gates',
+        'retrorecomp.delivery_evidence',
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',

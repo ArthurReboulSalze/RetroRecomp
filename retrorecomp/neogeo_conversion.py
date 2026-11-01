@@ -11,7 +11,7 @@ import time
 
 from . import __version__, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
-from .conversion_gates import comparison_notice, pack_candidate
+from .delivery_evidence import deliver_packed, replay_routes
 from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
 from .report_schema import write_report
@@ -47,11 +47,8 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'hardware_hash': native['extended_hardware_hash'], 'z80_hash': native['z80_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash']}
-    from concurrent.futures import ThreadPoolExecutor
     routes = extended_routes(set_name,qualification,aes=aes_available(project))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        checked = list(pool.map(verify,routes.items()))
-    return checked
+    return replay_routes(routes.items(),verify,workers=workers)
 
 
 def convert(path: Path, **options) -> Path:
@@ -183,11 +180,13 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     console_available='aes' in bios_info and console_capable
     if not console_capable:emit('Neo Geo: Arcade Only; AES is not a supported machine for this cartridge.')
     packed=project/'packed-game.exe'
-    notice=pack_candidate(executable,packed,emit)
+    delivered=deliver_packed(executable,packed,'Neo Geo',emit)
+    notice=delivered.notice
     timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
-    emit(comparison_notice('Neo Geo',notice))
     with stages.phase('packed_replays'):
         checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
+    # `verify` compared each route with its reference and raised on a difference.
+    delivered.record_match(row['name'] for row in checks)
     # The delivered, compressed executable is the native candidate. Compare
     # every route once against the fresh reference; an earlier uncompressed
     # replay of identical CPU code adds no coverage. Until this gate passes,
@@ -234,7 +233,7 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
         'rom':game.metadata(),'prepared_cartridge':manifest['prepared'],'bios':bios_info,
         'compiler':{'repository':'libretro/geolith-libretro','revision':GEOLITH_REV,
                     'loader_revision':LITHOGEN_REV,'native_cpu':'shared 68000 and guarded Z80'},
-        'final_checks':checks,'native_validation':{'passed':True,'packed_reference_match':True,
+        'final_checks':checks,'native_validation':{'passed':True,**delivered.validation_fields(),
             'reference_before_learning':True,'reference_kind':'internal Geolith hardware family',
             'cpu_agreement':True,'hardware_fidelity_validated':False,'full_game_validated':False},
         'video_model':{'standard':'mvs','region':'eu','visible_pixels':[320,224],'hz':59.185606},
@@ -250,7 +249,7 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
         'windows_metadata':game_metadata(title,False,standard='mvs',system_id='ng'),
         'executable':executable_name(title),'build_executable':str(executable),'toolchain':toolchain_description(),
         'build_directory':str(project),
-        'packed_candidate_sha256':hashlib.sha256(packed.read_bytes()).hexdigest(),
+        **delivered.report_fields(),
         'conversion_wall_seconds':round(time.perf_counter()-started,3)}
     report['conversion_phases_seconds']=timings
     report['validation_workers']=workers

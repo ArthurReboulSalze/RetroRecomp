@@ -56,7 +56,9 @@ class DerivedTablesTests(unittest.TestCase):
             'md': ('.md', '.gen', '.smd', '.bin', '.zip'),
             # 1.6.5: the Super Nintendo reads the Pro Fighter copier's .fig (the only entry that moved since 1.6.2).
             'snes': ('.sfc', '.smc', '.fig', '.zip'),
-            'ng': ('.zip',), 'cps1': ('.zip',), 'x68': ('.dim', '.xdf')})
+            'ng': ('.zip',), 'cps1': ('.zip',),
+            # 1.6.6: the Sharp X68000 also reads D88 images and the other names of raw 2HD disks.
+            'x68': ('.dim', '.xdf', '.d88', '.88d', '.hdm', '.2hd', '.dup')})
         self.assertEqual(set(campaign.REQUIRE_PACKED) & set(NINE), {'ng', 'cps1'})
         self.assertEqual(set(campaign.REQUIRE_STATES) & set(NINE), {'ng', 'cps1', 'x68'})
         self.assertEqual(set(campaign.ROMSET_CONSOLES) & set(NINE), {'ng', 'cps1'})

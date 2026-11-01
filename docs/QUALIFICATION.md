@@ -28,7 +28,7 @@ owner-acceptance log. It makes no claim beyond them.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000 column of 29 October 2026)
+## Status matrix (27 October 2026; the X68000 column of 1 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -38,14 +38,14 @@ x68 = Sharp X68000.
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
 |---|---|---|---|---|---|---|---|---|---|
 | G1 | P | P | P | Y | Y | P | Y | Y | Y |
-| G2 | P | P | P | P | P | Y | Y | Y | P |
+| G2 | P | P | P | P | P | Y | Y | Y | Y |
 | G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | Y |
 | G8 | ? | ? | ? | P | P | Y | Y | Y | Y |
-| G9 | P | P | P | P | Y | P | Y | Y | P |
+| G9 | P | P | P | P | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | P | P |
@@ -60,6 +60,9 @@ x68 = Sharp X68000.
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
   remain). G11 and G13 stay `P` with fresher evidence (1 November).
 
+- X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
+  four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
+
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
   cps1 and x68 run G6 inside every conversion. Read G5 and G6 as "met per
@@ -69,6 +72,45 @@ x68 = Sharp X68000.
   were reported in chat on 27 October 2026 and are not written in a document
   yet; they belong in the owner-acceptance table below when recorded.
 
+## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
+
+Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and the liveness record (G8) through one module, so a machine
+that joins them gives the same evidence in the same shape ([STANDARDS.md](STANDARDS.md) rules 1 and 7). The module
+reads rows a machine already writes; it never runs a game.
+
+- **Liveness.** `liveness_summary(rows)` takes one `FrameRow` per frame (picture hash; optionally the sound hash, an
+  audible flag, a RAM hash, a program counter) and returns the same nine keys for every machine. A key the machine
+  cannot give is `None`, never `0`. `frozen_route` is the one rule that refuses a route whose picture never changed (one
+  distinct picture or none); which routes must move stays the machine's call (CPS-1: every route; X68000: the main route
+  only, because a game that waits for a click or a key shows a still picture on the others).
+- **Report fields stay each machine's own.** The common keys are `frames`, `distinct_pictures`, `picture_changes`,
+  `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, `distinct_sound_blocks`, `distinct_ram_states` and
+  `distinct_program_counters`. CPS-1 reports the first six (`final_checks[].liveness`). The X68000 reports `frames`,
+  `distinct_pictures`, `distinct_audio_blocks` (= `distinct_sound_blocks`), `distinct_ram_states` and
+  `distinct_program_counters`, then `nonblack_frames` and `nonzero_samples` from its replay report (`liveness[]`). Frame
+  numbers are the machine's own: CPS-1 counts from 1, the X68000 from 0. Neo Geo has no liveness record yet.
+- **Packed replay.** `deliver_packed` compresses a copy of the build as publication does and takes its SHA-256 before any
+  replay; `replay_packed` (or `replay_routes` where the machine's callback compares by itself) replays that copy on every
+  route and compares it with the fresh reference. `native_validation.packed_reference_match` and
+  `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
+  refuses to be written before every route matched.
+
+Machines that do not use it yet, what each already writes per frame, and the smallest change to feed it (a plan, not a
+record: nothing below runs yet):
+
+| Machine | Per-frame data today | Missing | Smallest change |
+|---|---|---|---|
+| Master System, Game Gear | `--vdp-trace` (`vdp.csv`, pinned runner `glue.c`): frame, VRAM, CRAM and register hashes, RAM hash, SP; the probe compares native and `--interp` runs on it | An audible flag or a sound hash per frame (the PSG is drained per frame to a sink, nothing is recorded); the picture is the video state, not the rendered image | One column in the runner's trace (a hash of the frame's PSG block and its non-zero sample count), carried as our patch ([UPSTREAMS.md](UPSTREAMS.md)); an adapter `FrameRow(frame, (vram, cram, reg), sound=..., audible=..., ram=...)` in `core.py` |
+| Game Boy | Nothing per frame: the probe reads stdout (`[LIMIT]`, interpreter inventory) and `--trace-entries`; the CPU comparison is the upstream's `--differential` | A picture hash and a sound hash per frame | A `--frame-trace` flag added to the runtime in `gameboy_runtime.py` (one line per frame: frame, LCD framebuffer hash, APU block hash and non-zero count); adapter in `gameboy.py` |
+| NES | `--hash-out`: frame, CPU trace hash, memory hash, PC, registers, cycles, hardware-state hash; `--wav-out` for the whole run, compared native against reference | A rendered-picture hash and a per-frame audio hash (the WAV has no frame boundaries; the hardware-state hash may change every frame whatever the picture shows) | Two fields appended to `write_hash_line` through `nes_runtime.py` (`pic=` the framebuffer hash, `snd=` the hash and non-zero count of that frame's PCM); both runs write them, so the native/reference line comparison stays valid; `FrameRow(frame, pic, sound=snd, audible=..., ram=mem, pc=PC)` |
+| Mega Drive | `--trace` of the 16-bit host (`console16_main.c`, not passed by the conversion today): frame hash, native and interpreted counters, per-frame audio hash, PC, SR, SP, Z80 PC, bus lines, per-frame FM and PSG non-zero counts | The probe does not request the trace; no per-frame RAM hash (the RAM hash is final only) | Pass `--trace` on the delivered file's probe runs and read it in `megadrive_*` or `console16.py`: `FrameRow(frame, frame_hash, sound=audio_hash, audible=fm_nonzero + psg_nonzero > 0, pc=pc)` |
+| Super Nintendo | The same `--trace` without the Mega Drive columns (frame hash, counters, audio hash); the report already holds `last_picture_change_frame`, `last_audible_frame`, `last_device_frame`, `visible_frames`, `pcm_nonzero`, which `validate_device_liveness` reads for device cartridges only | The trace carries no audible flag and the conversion does not request it; the report has no counts of pictures or audible frames, so an ordinary cartridge has no liveness record | Pass `--trace`, add the non-zero count of the frame's PCM to the trace line (one column, shared with the Mega Drive adapter); keep `validate_device_liveness` and its windowed rule (picture, device and sound all quiet for the last quarter of the run) for the device cartridges and give an ordinary cartridge `frozen_route` on the same record |
+
+The packed replay (G5) needs, for each of these, a callback that starts the compressed copy with the same arguments as the
+probe that made the reference and compares the same fields (Mega Drive and Super Nintendo: `reference_differences`;
+Master System and Game Gear: `compare_execution`; NES: the `.hash` lines and the PCM; Game Boy: the `--differential`
+verdict), and the group `conversion_gates` in the machine's `stamp_groups`.
+
 ## Sharp X68000: evidence behind its column (29 October 2026)
 
 The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that
@@ -77,14 +119,14 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | Gate | X68000 | Evidence | What is missing |
 |---|---|---|---|
 | G1 | Y | `retrorecomp/systems/x68000.py` (status `experimental`), [X68000.md](X68000.md), `tests/test_system_profiles.py` | |
-| G2 | P | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`); the report carries `native_validation`, `final_checks`, `exploration_checks`, `liveness`, `packed_candidate_sha256` | Counters per device: the machine has no cartridge device, so one CPU section only; the old keys are still read by freshness and the library |
+| G2 | Y | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`, golden `tests/x68000_common_golden.json`). Since 1.6.6 the sections are filled from the conversion itself: `cpus` (one 68000, native and interpreted counts per route), `validation.cpu_fidelity` (digests of the CPU, RAM, image and PCM traces per route), `scan.routes` (frames, steps and script digest of each exploration route), `states.validation` (fresh process, compressed copy, the frame of the save and the 400 continued frames), `saves`, `input_players`, `peripheral`, `packed.replay` | `devices` is empty and there is no audio CPU section: the machine has no cartridge device and its sound is part of the reference machine, so a counter per device does not apply. `saves.validation.checked_in_this_conversion` is false (the proof is the test and the tool named there, not a step of the conversion) |
 | G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
 | G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
 | G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
 | G7 | Y | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts. `tools/x68000_saves_check.py` on a real game (below): the game wrote to its disk, a relaunch and a second conversion found it as it was | The writes found are file time stamps of 4 to 12 bytes (below): no game was seen saving a score or a position on purpose, which needs play beyond the routes |
 | G8 | Y | `liveness` in every report, per route and for the delivered file; captures looked at; the four risk cases below reach play, R-Type and Metal Sight on the standard routes, Lemmings and Super Hang-On on authored routes (`tools/x68000_play_routes.py`) | Scope: the four risk cases, not every set of the panel. 8 of the 84 reviewed mouse sets make no sound on any standard route and 15 show a still picture on the 4,000-frame main route, which a click or a key wakes on another route (Route rules, below) |
-| G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
+| G9 | Y | The four risk cases were converted at the extended level (main, mouse, keyboard and one 18,000-frame pseudo-random route), 0 interpreted opcodes on every route, the compressed copy matching the reference on the four routes (table below); play is reached on the delivered file for R-Type and Metal Sight (standard and long routes), for Super Hang-On (long route, and its authored route) and for Lemmings (authored route; its standard and long routes stay on the menu) | Inspected by the specialist agent, not by the owner; four games, not the 84 mouse sets; the thorough level (36,000 frames) was not run; not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
 | G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (it runs, but makes no sound in 4,000 frames, which the conversion refuses) |
@@ -104,6 +146,19 @@ The four risk cases, converted one at a time with the 1.6.5 tree (standard scan 
 | Lemmings, authored play route (4,000 frames, quick scan) | 1,238 / 911 | | | 0 | Level 1 ("Just dig!") with its lemmings walking out and the time running: play was reached |
 | Super Hang-On (Sharp / SPS) | 74 / 3,131 | 1,939 / 8,638 (10,000 frames) | 74 / 3,131 | 0, no automatic disk change | The title screens; the game was not reached |
 | Super Hang-On, authored play route (10,000 frames, quick scan) | 2,432 / 9,083 | | | 0 | The first stage, course Africa, the bike running (score 4,310, speed 93 km): play was reached |
+
+The same four games at the extended level (1.6.6 tree, `--scan-level extended`, an empty library, one conversion at a time; the long route is
+one pseudo-random route of 18,000 frames; "pictures / audio" as above; interpreted opcodes 0 on every route, `packed_reference_match` true):
+
+| Game | Long route (pictures / audio) | Native instructions on the long route | Seen on the last capture of the long route |
+|---|---|---|---|
+| R-Type (Irem) | 5,303 / 13,687 | 263,243,083 | The game's own menu (play, rank, demo, sound test) after the game over of the main route |
+| Metal Sight (System Sacom) | 3,843 / 17,186 | 245,481,575 | In play (a mech shooter screen), 2 automatic disk changes on the routes |
+| Lemmings (Imagineer) | 11,010 / 9 | 283,177,608 | The title menu: the standard routes do not enter a level, the authored route does (above) |
+| Super Hang-On (Sharp / SPS) | 8,042 / 17,130 | 268,313,547 | The first stage, course Africa, the bike running (score 10,170, speed 91 km) |
+
+The two authored routes were run again on the 1.6.6 tree: the same pictures and audio blocks as in 1.6.5 (Lemmings 1,238 / 911, Super Hang-On
+2,432 / 9,083), 0 interpreted, packed copy matching. The captures (commercial game pictures) stay outside the repository.
 
 What the games write (G7). A survey of 378 starts (the single-disk sets and the first disk of each other set, 3,000 frames of the
 qualification inputs, the fresh reference) found six sets that change their own disk: Cybermission (Login), Darius Dokomade
@@ -172,14 +227,38 @@ owner fills it in.
 |  |  |  |  |  |
 | _Draft, to fill (CPS-1)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete. The owner trials of 27 October 2026 were reported in chat and are not recorded here._ |
 
-### Draft for Arthur: Sharp X68000 play test (G14)
+### Checklist for Arthur: Sharp X68000 play test (G14)
 
-A draft, not a record: the verdict and the notes are yours. Suggested games, each on the delivered executable and not on a
-reconversion of the day: R-Type (single disk, the control), Metal Sight (five disks: the disk changes), Lemmings (the mouse is
-captured at launch, Ctrl+Alt+M releases it), Super Hang-On (two disks, ejected after loading). For each: it starts without a
-window of errors; the controls answer (arrows, W and X, Enter; the mouse for Lemmings); the sound is the game's; F8 then F9
-restores; a disk change happens by itself where the game asks for one; and for a game that saves on its disk, save, close, start
-again and find the save, then reconvert the game and start the new executable to find it again.
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging
+(not a reconversion of the day), with your own IPL and font ROM chosen in Options → Sharp X68000. Nothing here says exact hardware,
+complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+
+| | R-Type (Irem) | Metal Sight (System Sacom) | Lemmings (Imagineer) | Super Hang-On (Sharp / SPS) |
+|---|---|---|---|---|
+| Why it is here | one disk, the control | five disks: the disk changes | mouse game that drives the mouse chip itself | two disks, ejected after loading |
+| It starts without an error window | | | | |
+| Controls: arrows, **W** and **X** (A and B), **Enter** (Start) | | | The mouse is captured at launch (**Ctrl+Alt+M** releases it); the keyboard or a gamepad also moves the pointer and presses its buttons. Click "1 PLAYER", then play level 1 | The title counter counts down from 99 while the game loads (about two minutes of play time); hold **F5** for fast loading; nothing answers before it reaches 0 |
+| Sound is the game's (music and effects) | | | | |
+| The disk changes by itself, with no key from you | not applicable | at each "insert disk" request, until play | not applicable | none expected: it must run as if there were no policy |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | |
+| Close the window, start the executable again, **F9** loads the state saved before | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour | | | | |
+
+Then three checks on the machine itself, each on one game of your choice:
+
+1. **Save, relaunch, reconvert.** The game's disks are copied beside the player on the first start (`datas/games/x68-<identity>/media`)
+   and the game writes into its own copy. Pick a game you know writes to its disk (a save, a high score, a configuration), save in it,
+   close, start again and find the save; then convert the same game again, start the new executable and find the save once more.
+   None of the four games above is known to save on purpose (the only writes seen in 378 starts are file time stamps of 4 to 12 bytes,
+   above), so this check needs a game that does: tell me which one and I add it to the risk cases. If a disk was damaged, the player moves
+   it to `<name>.unusable-1` and writes the original again; it never deletes it.
+2. **A D88 image.** The collection holds only DIM files, so make a D88 of a disk you own with
+   `python tools/x68000_disk_rewrite.py "R-Type (Irem).dim" --format d88 R-Type.d88` (outside the repository: it holds the whole disk),
+   convert it into another output folder than the DIM's, and play it like the DIM. It is the same game: same identity, same saved data, the
+   same pictures and sound. A D88 from elsewhere with a copy-protection layout (deleted or failing sectors, 2DD) is refused with a reason,
+   on purpose.
+3. **A multi-disk set from a folder.** Add one disk of a numbered set (for example Metal Sight, disk 1 of 5) to the queue: the five disks
+   must join as one game. A set named with a gap (disk 3 missing) is queued with the disks found and the gap is reported in the log.
 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|

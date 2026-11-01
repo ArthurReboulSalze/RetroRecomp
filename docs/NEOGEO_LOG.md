@@ -13,6 +13,30 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Independent 68000 vectors replayed through the Neo Geo generator — 1 November 2026
+
+For 1.6.6 (gate G10, CPU evidence). The CPS-1 replay of 1.6.5 (`tools/cps1_vector_selftest.py`) already used the Neo Geo front end of
+the 68000 generator (`canonical_instruction`, `structural_body`, the shared bodies of `m68000.py`), so the question was whether the
+Neo Geo wrapper around it behaves the same. `tools/neogeo_vector_selftest.py` builds a synthetic cartridge (authored, no game) whose
+program ROM is the flat image holding the vectors' code (the same image as the CPS-1 replay: the fixtures and their reading are the
+CPS-1 tool's `cases_header`, `summary` and `problems`, not copied), runs the converter's own `prepare_project` and
+`neogeo_codegen.generate` on it (the patched Musashi, the static sweep of the first megabyte, the vectors' addresses as observed
+physical entries above it, region maps, steps and guards) and links `native/neogeo_vector_checks.c`: a flat 24-bit bus and the code view
+of the native layer read live from it. Every vector runs once through the Neo Geo native steps and once with `rr_ng_force_reference`
+(every instruction interpreted).
+
+- **Result (Windows, llvm-mingw, about five minutes).** 3,869 vectors (834 + 2,171 + 864): every one ran as a native step. Native
+  versus vector on registers, SR, PC and written bytes: 834/834, 2,169/2,171 and 864/864, and the same counts on clocks; the two
+  exceptions are the authored vectors that set the trace bit. Musashi versus vector on state: 834/834, 2,091/2,171 and 858/864; on
+  clocks 834/834, 2,151/2,171 and 838/864. The groups where the reference differs are the CPS-1 ones: `DIVU`, `DIVS`, `CHK`, one line-F
+  frame and 5 authored division cases. **These are the very numbers of the CPS-1 replay**, as expected from a shared translation: the
+  Neo Geo wrapper (code view, region maps, word guards, `ng_arithmetic`) adds no difference.
+- **Limits.** Flat bus: no board, no BIOS, no protection; vectors above the first megabyte are rooted as physical entries; Musashi's
+  clock table with prefetch disabled, so clocks are counted apart; the oracle is MAME, not hardware. The Z80 side has no such replay yet
+  (the CPS-1 one uses the Geolith core the Neo Geo shares; replaying it through `neogeo_z80.py` is the same kind of work).
+- **Files.** `tools/neogeo_vector_selftest.py`, `native/neogeo_vector_checks.c` (declared out of the stamps beside the CPS-1 harnesses),
+  `tests/test_neogeo_vectors.py` (cartridge, entries and the shared judging rules, no compiler).
+
 ## Fallback measured on exports, and an attract route for the BIOS restart — 29 and 30 October 2026
 
 For 1.6.5. **Reports.** The 126 Neo Geo conversion reports (102 sets of the maintainer's Export, 24 under `.build`) show zero interpreted 68000
