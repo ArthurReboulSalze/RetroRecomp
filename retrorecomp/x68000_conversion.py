@@ -13,8 +13,9 @@ import tempfile
 import time
 from . import __version__, timings
 from .conversion_common import check_exit, resolve_scan_level, spawn, write_if_changed
-from .conversion_gates import (comparison_notice, continuation_difference, pack_candidate, require, require_equal,
-                               require_same_file)
+from .conversion_gates import continuation_difference, require, require_equal, require_same_file
+from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields,
+                                require_moving_picture, same_trace)
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
@@ -300,14 +301,30 @@ def valid_qualification_events(events, count):
         type(e[4]) is not int or (not -32768<=e[4]<=32767 if e[2]=='mouse' else e[4] not in (0,1)) for e in events))
 
 
+# The report keys of a route's liveness, from the common record of delivery_evidence (the names the X68000 report has always
+# written; the picture changes and audible frames of the common record are not reported here: `nonzero_samples` comes from
+# the replay's own report).
+LIVENESS_FIELDS={'frames':'frames','distinct_pictures':'distinct_pictures','distinct_audio_blocks':'distinct_sound_blocks',
+                 'distinct_ram_states':'distinct_ram_states','distinct_program_counters':'distinct_program_counters'}
+
+
+def trace_rows(path):
+    """The rows of a trace that passed `validate_trace` (frame, video, pcm, ram, samples, width, height, PC, ...) for
+    `delivery_evidence`. The trace holds hashes of the audio block, not whether it was audible: that stays None."""
+    with path.open('r',encoding='ascii',newline='') as stream:
+        next(stream)
+        for line in stream:
+            values=line.rstrip('\r\n').split('\t')
+            yield FrameRow(int(values[0]),values[1],sound=values[2],ram=values[3],pc=values[7])
+
+
 def route_liveness(folder, frames, result):
     """What a replayed route shows of the machine being alive, read from its trace: how many different pictures,
     audio blocks, RAM states and program counters it went through, beside the counts its report gives. It says that
     the picture and the sound change on this route; it does not say how deep into the game the route goes."""
     from tools.x68000_reference_check import validate_trace
-    seen=validate_trace(folder/'trace.tsv',frames)['distinct_values']
-    return {'frames':frames,'distinct_pictures':seen['video'],'distinct_audio_blocks':seen['pcm'],
-            'distinct_ram_states':seen['ram'],'distinct_program_counters':seen['PC'],
+    validate_trace(folder/'trace.tsv',frames)
+    return {**report_fields(liveness_summary(trace_rows(folder/'trace.tsv')),LIVENESS_FIELDS),
             'nonblack_frames':result['nonblack_frames'],'nonzero_samples':result['nonzero_samples']}
 
 
@@ -533,8 +550,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         # The delivered file: a copy of the final build is compressed as it is published, and that compressed copy is replayed
         # on the main route and on every exploration route against the same fresh reference (Neo Geo and CPS-1 do the same).
         packed=work/('packed-game.exe' if os.name=='nt' else 'packed-game')
-        notice=pack_candidate(candidate,packed,emit)
-        emit(comparison_notice('X68000',notice))
+        delivered=deliver_packed(candidate,packed,'X68000',emit)
         packed_checks=checks/'packed';packed_runs=[]
         for name,frames_,inputs,reference_folder,extra in (
                 [('main',count,event_file,checks/'reference',['--state-save-at',str(state_frame)])]+
@@ -543,13 +559,15 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             target=folder/candidate.name;shutil.copy2(packed,target)
             if os.name!='nt':target.chmod(0o755)
             packed_runs.append((name,folder,reference_folder,(target,folder,frames_,inputs,dict(extra=extra))))
-        packed_results=run_routes((row[3] for row in packed_runs),workers,phase='packed_replays')
-        for (name,folder,reference_folder,_),result in zip(packed_runs,packed_results):
-            require_same_file(folder/'trace.tsv',reference_folder/'trace.tsv',
-                lambda:ConversionError('X68000 '+name+': the compressed executable differs from the fresh reference; existing export preserved.'))
+        with timings.phase('packed_replays'):
+            packed_results=replay_packed(delivered,packed_runs,
+                lambda run:replay(run[3][0],run[3][1],run[3][2],run[3][3],**run[3][4]),
+                same=lambda run,result:same_trace(run[1]/'trace.tsv',run[2]/'trace.tsv'),
+                mismatch=lambda run:ConversionError('X68000 '+run[0]+': the compressed executable differs from the fresh reference; existing export preserved.'),
+                workers=workers)
         liveness=[dict(route=name,**route_liveness(folder,frames_,result))
                   for (name,folder,_,job),result in zip(packed_runs,packed_results) for frames_ in [job[2]]]
-        require(liveness[0]['distinct_pictures']>1,lambda:ConversionError('X68000 main route: the picture never changed.'))
+        require_moving_picture(liveness[0],lambda:ConversionError('X68000 main route: the picture never changed.'))
         # Snapshot loading is checked in a genuinely fresh standalone process, on the delivered file.
         main_packed=packed_checks/'main'
         restart=checks/'restart';restart.mkdir(exist_ok=True);fresh=restart/candidate.name;shutil.copy2(packed,fresh)
@@ -592,9 +610,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
           'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
-          'native_validation':{'passed':True,'packed_reference_match':True,'sound_heard':sound_heard,'sound_routes':sound_routes,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
+          'native_validation':{'passed':True,**delivered.validation_fields(),'sound_heard':sound_heard,'sound_routes':sound_routes,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
-          'packed_candidate_sha256':digest(packed),'liveness':liveness,'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
+          **delivered.report_fields(),'liveness':liveness,'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,
           'mouse_controls':{'enabled':mouse_game,'listed':listed,'mouse_reads':mouse_calls,
                             'mouse_code_loaded':mouse_code,'remembered':remembered},

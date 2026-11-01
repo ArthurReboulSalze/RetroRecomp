@@ -20,9 +20,10 @@ import time
 
 from . import __version__, path_profiles, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
-from .conversion_gates import (comparison_notice, continuation_difference, pack_candidate, require,
-                               require_same_file)
+from .conversion_gates import continuation_difference, require, require_same_file
 from .core import ConversionError, executable_name
+from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields,
+                                require_moving_picture, same_trace)
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .paths import ROOT
@@ -40,33 +41,34 @@ def silent_sound_hash(samples: int) -> int:
     return value
 
 
-def route_liveness(trace: Path) -> dict:
-    """Picture and sound activity of one route, read from its per-frame trace (frame, cpu, ram, image, sound, samples).
+# The report keys of a route's liveness, from the common record of delivery_evidence (the names CPS-1 has always written).
+LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
+                   'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',
+                   'last_audible_frame': 'last_audible_frame'}
 
-    A picture change is a frame whose image hash differs from the previous frame's; a frame is audible when its sound hash
-    is not the hash of silence. This is evidence that the route reached a moving picture and sound (gate G8), nothing
-    more: it says nothing about what the picture shows or about play."""
-    silence, images, previous = {}, set(), None
-    row = {'frames': 0, 'distinct_pictures': 0, 'picture_changes': 0, 'last_picture_change_frame': 0,
-           'audible_frames': 0, 'last_audible_frame': 0}
+
+def trace_rows(trace: Path):
+    """The per-frame rows of a route's trace (frame, cpu, ram, image, sound, samples) for `delivery_evidence`.
+
+    A frame is audible when its sound hash is not the hash of silence for its number of samples."""
+    silence = {}
     for line in trace.read_text(encoding='ascii').splitlines():
         fields = line.split(',')
         if len(fields) != 6 or not fields[0].isdigit():   # the first line names the columns
             continue
         frame, image, sound, samples = int(fields[0]), fields[3], fields[4], int(fields[5])
-        row['frames'] += 1
-        images.add(image)
-        if previous is not None and image != previous:
-            row['picture_changes'] += 1
-            row['last_picture_change_frame'] = frame
-        previous = image
         if samples not in silence:
             silence[samples] = f'{silent_sound_hash(samples):016x}'
-        if sound != silence[samples]:
-            row['audible_frames'] += 1
-            row['last_audible_frame'] = frame
-    row['distinct_pictures'] = len(images)
-    return row
+        yield FrameRow(frame, image, sound=sound, audible=sound != silence[samples])
+
+
+def route_liveness(trace: Path) -> dict:
+    """Picture and sound activity of one route, read from its per-frame trace (frame, cpu, ram, image, sound, samples).
+
+    A picture change is a frame whose image hash differs from the previous frame's; a frame is audible when its sound hash
+    is not the hash of silence. This is evidence that the route reached a moving picture and sound (gate G8), nothing
+    more: it says nothing about what the picture shows or about play. The counting is `delivery_evidence.liveness_summary`."""
+    return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
 
 
 def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list[tuple[str, int, str]]:
@@ -279,8 +281,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     f'CPS-1 {name}: native and reference CPU/RAM/image/PCM traces differ; existing export preserved.'))
                 if not results[name]['nonuniform_frames']:
                     raise ConversionError(f'CPS-1 {name}: no picture was produced.')
-                if not route_liveness(Path(results[name]['trace']))['picture_changes']:
-                    raise ConversionError(f'CPS-1 {name}: the picture never changed during the route; the game is stuck.')
+                require_moving_picture(route_liveness(Path(results[name]['trace'])), lambda: ConversionError(
+                    f'CPS-1 {name}: the picture never changed during the route; the game is stuck.'))
             timings[f'routes_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
             fallback = sum(results[name]['interpreted_68000'] + results[name]['interpreted_z80'] for name, _, _ in plan)
             if not fallback:
@@ -297,15 +299,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             raise ConversionError('CPS-1 validation produced no sound on any route.')
         phase = time.perf_counter()
         packed = project / 'packed-game.exe' if os.name == 'nt' else project / 'packed-game'
-        notice = pack_candidate(executable, packed, emit)
-        emit(comparison_notice('CPS-1', notice))
-        final = {}
-        with stages.phase('packed_replays'), ThreadPoolExecutor(max_workers=workers) as pool:
-            for (name, _, _), result in zip(plan, pool.map(
-                    lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]]), plan)):
-                require_same_file(result['trace'], reference[name]['trace'], lambda: ConversionError(
-                    f'CPS-1 {name}: compressed executable differs from the reference.'))
-                final[name] = result
+        delivered = deliver_packed(executable, packed, 'CPS-1', emit)
+        with stages.phase('packed_replays'):
+            final = {row[0]: result for row, result in zip(plan, replay_packed(
+                delivered, plan, lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]]),
+                same=lambda row, result: same_trace(result['trace'], reference[row[0]]['trace']),
+                mismatch=lambda row: ConversionError(f'CPS-1 {row[0]}: compressed executable differs from the reference.'),
+                workers=workers))}
         timings['packed_replays'] = round(time.perf_counter() - phase, 3)
         phase = time.perf_counter()
         emit('CPS-1: checking F8/F9 in a fresh process and rejecting an invalid state.')
@@ -359,7 +359,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                                                               'guarded_ram_variants')},
                             'z80': {k: v for k, v in analysis['z80'].items() if isinstance(v, (int, str))}},
         'final_checks': checks_rows,
-        'native_validation': {'passed': True, 'packed_reference_match': True, 'reference_before_learning': True,
+        'native_validation': {'passed': True, **delivered.validation_fields(), 'reference_before_learning': True,
             'reference_kind': 'same board model with every instruction interpreted (Musashi, Z80 core)',
             'cpu_agreement': True, 'hardware_fidelity_validated': False, 'full_game_validated': False,
             'mame_comparison': 'board model compared with MAME on development sets only; not per conversion'},
@@ -374,7 +374,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'ordinary_saves': {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
-        'packed_candidate_sha256': file_sha256(packed), 'scan_level': level, 'validation_workers': workers,
+        **delivered.report_fields(), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
         'knowledge': knowledge_block(record, promotion, hints_used),
         'qualification_scope': {
