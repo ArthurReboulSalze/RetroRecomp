@@ -1785,8 +1785,9 @@ rest. A new format keeps a reader for the old one; the cores change with the eng
 collects, sends, fetches, imports nor reads CPS-1 paths (the side banks stay on disk, untouched, and come back with the name);
 a file that names it is read without it (`WITHDRAWN`: its games are left out one by one, the other games of the file stay);
 the web limits and the builder (`BASE_SYSTEMS`) read the same list, so the service stops accepting CPS-1 uploads and line 3
-stops listing its games, with no change to line 2, the other consoles or the banks. The label "experimental" is not read by
-any sharing code (tested) and stays in the report (`status`, `knowledge.machine_status`) and the interface.
+stops listing its games, with no change to line 2, the other consoles or the banks. The status label is not read by
+any sharing code (tested; CPS-1 is `supported` since 1.6.6 and still the experimental tier of the base) and stays in the report
+(`status`, `knowledge.machine_status`) and the interface.
 
 **Exchange and base.** CPS-1 has no schema 1 form, so it travels only in `.rrknowledge` **version 3** files and in the
 base (which is format 3 only since 1.6.1; before, line 3 alone, and 1.5.x converters never saw it). In the converter a CPS-1 "record" is the schema 3 document wherever a
@@ -1917,9 +1918,9 @@ disables both the bundled and imported knowledge.
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
 NES, Mega Drive, Super Nintendo and, since 1.5.4, Neo Geo (see *The shared
-base*): the experimental CPS-1 and X68000 are never sent and count for nothing
-on the leaderboard until they join the shared base in a later version (the
-converter says so when sending). The Knowledge menu and the closing card's *Send and close*
+base*): the X68000 (experimental) is never sent and counts for nothing
+on the leaderboard until it joins the shared base in a later version, and the CPS-1 sends only its numeric paths
+as the experimental tier of the base (the converter says so when sending). The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed
 sign-in code. They are marked as sent only once the server accepted them. A

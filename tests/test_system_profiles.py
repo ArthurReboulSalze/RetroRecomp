@@ -100,11 +100,7 @@ class RegistryTests(unittest.TestCase):
         from retrorecomp.core import ConversionError  # imported before os is replaced
         with patch.object(platforms, 'os', SimpleNamespace(name='posix')):
             for system in IDS:
-                if system == 'cps1':
-                    with self.assertRaises(ConversionError):
-                        platforms.require_backend(system)
-                else:
-                    platforms.require_backend(system)
+                platforms.require_backend(system)
             with self.assertRaises(ConversionError):
                 platforms.require_backend('zx')
         with patch.object(platforms, 'os', SimpleNamespace(name='nt')):
@@ -117,7 +113,7 @@ class ProfileDataTests(unittest.TestCase):
         statuses = {system: status for system, status in statuses.items() if system in IDS}
         self.assertEqual(statuses, {'sms': 'supported', 'gg': 'supported', 'gb': 'supported', 'nes': 'supported',
                                     'md': 'supported', 'snes': 'supported', 'ng': 'supported',
-                                    'cps1': 'experimental', 'x68': 'experimental'})
+                                    'cps1': 'supported', 'x68': 'experimental'})
         for profile in ALL_PROFILES:
             self.assertIn(profile.status, STATUSES)
             # Read-only compatibility with the former attribute.

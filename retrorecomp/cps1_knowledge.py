@@ -1,6 +1,6 @@
 """Numeric, ROM-free CPS-1 paths for one exact romset: no ROM byte, no RAM word, no code.
 
-CPS-1 is an experimental machine in development, and its paths are shared as such: a path is qualified only for
+CPS-1 is supported since 1.6.6 and still the experimental tier of the shared base, so its paths are shared as such: a path is qualified only for
 the engine revision (`cores`) that validated it, the record carries its own format number, and the whole
 sharing can be withdrawn with one line (`path_profiles.EXPERIMENTAL_SHARED`).
 
