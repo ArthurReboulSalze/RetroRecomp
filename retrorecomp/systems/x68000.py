@@ -7,7 +7,7 @@ from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 class X68000Profile(SystemProfile):
     id = 'x68'
     name = 'Sharp X68000'
-    extensions = ('.dim', '.xdf', '.m3u')
+    extensions = ('.dim', '.xdf', '.m3u', '.d88', '.88d', '.hdm', '.2hd', '.dup')
     export_folder = 'Sharp X68000'
     video_modes = ('native',)
     status = 'experimental'

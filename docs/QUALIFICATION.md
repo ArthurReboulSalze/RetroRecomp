@@ -28,7 +28,7 @@ owner-acceptance log. It makes no claim beyond them.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000 column of 29 October 2026)
+## Status matrix (27 October 2026; the X68000 column of 1 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -38,14 +38,14 @@ x68 = Sharp X68000.
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
 |---|---|---|---|---|---|---|---|---|---|
 | G1 | P | P | P | Y | Y | P | Y | Y | Y |
-| G2 | P | P | P | P | P | Y | Y | Y | P |
+| G2 | P | P | P | P | P | Y | Y | Y | Y |
 | G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | Y |
 | G8 | ? | ? | ? | P | P | Y | Y | Y | Y |
-| G9 | P | P | P | P | Y | P | Y | Y | P |
+| G9 | P | P | P | P | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | P | P |
@@ -59,6 +59,9 @@ x68 = Sharp X68000.
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 stays `P` (both CPUs now replay independent vectors; the
   Geolith Z80 core differs from the oracle on named behaviours). G11 and G13 stay `P` with fresher evidence (30 October).
+
+- X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
+  four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
@@ -116,14 +119,14 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | Gate | X68000 | Evidence | What is missing |
 |---|---|---|---|
 | G1 | Y | `retrorecomp/systems/x68000.py` (status `experimental`), [X68000.md](X68000.md), `tests/test_system_profiles.py` | |
-| G2 | P | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`); the report carries `native_validation`, `final_checks`, `exploration_checks`, `liveness`, `packed_candidate_sha256` | Counters per device: the machine has no cartridge device, so one CPU section only; the old keys are still read by freshness and the library |
+| G2 | Y | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`, golden `tests/x68000_common_golden.json`). Since 1.6.6 the sections are filled from the conversion itself: `cpus` (one 68000, native and interpreted counts per route), `validation.cpu_fidelity` (digests of the CPU, RAM, image and PCM traces per route), `scan.routes` (frames, steps and script digest of each exploration route), `states.validation` (fresh process, compressed copy, the frame of the save and the 400 continued frames), `saves`, `input_players`, `peripheral`, `packed.replay` | `devices` is empty and there is no audio CPU section: the machine has no cartridge device and its sound is part of the reference machine, so a counter per device does not apply. `saves.validation.checked_in_this_conversion` is false (the proof is the test and the tool named there, not a step of the conversion) |
 | G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
 | G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
 | G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
 | G7 | Y | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts. `tools/x68000_saves_check.py` on a real game (below): the game wrote to its disk, a relaunch and a second conversion found it as it was | The writes found are file time stamps of 4 to 12 bytes (below): no game was seen saving a score or a position on purpose, which needs play beyond the routes |
 | G8 | Y | `liveness` in every report, per route and for the delivered file; captures looked at; the four risk cases below reach play, R-Type and Metal Sight on the standard routes, Lemmings and Super Hang-On on authored routes (`tools/x68000_play_routes.py`) | Scope: the four risk cases, not every set of the panel. 8 of the 84 reviewed mouse sets make no sound on any standard route and 15 show a still picture on the 4,000-frame main route, which a click or a key wakes on another route (Route rules, below) |
-| G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
+| G9 | Y | The four risk cases were converted at the extended level (main, mouse, keyboard and one 18,000-frame pseudo-random route), 0 interpreted opcodes on every route, the compressed copy matching the reference on the four routes (table below); play is reached on the delivered file for R-Type and Metal Sight (standard and long routes), for Super Hang-On (long route, and its authored route) and for Lemmings (authored route; its standard and long routes stay on the menu) | Inspected by the specialist agent, not by the owner; four games, not the 84 mouse sets; the thorough level (36,000 frames) was not run; not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
 | G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (it runs, but makes no sound in 4,000 frames, which the conversion refuses) |
@@ -143,6 +146,19 @@ The four risk cases, converted one at a time with the 1.6.5 tree (standard scan 
 | Lemmings, authored play route (4,000 frames, quick scan) | 1,238 / 911 | | | 0 | Level 1 ("Just dig!") with its lemmings walking out and the time running: play was reached |
 | Super Hang-On (Sharp / SPS) | 74 / 3,131 | 1,939 / 8,638 (10,000 frames) | 74 / 3,131 | 0, no automatic disk change | The title screens; the game was not reached |
 | Super Hang-On, authored play route (10,000 frames, quick scan) | 2,432 / 9,083 | | | 0 | The first stage, course Africa, the bike running (score 4,310, speed 93 km): play was reached |
+
+The same four games at the extended level (1.6.6 tree, `--scan-level extended`, an empty library, one conversion at a time; the long route is
+one pseudo-random route of 18,000 frames; "pictures / audio" as above; interpreted opcodes 0 on every route, `packed_reference_match` true):
+
+| Game | Long route (pictures / audio) | Native instructions on the long route | Seen on the last capture of the long route |
+|---|---|---|---|
+| R-Type (Irem) | 5,303 / 13,687 | 263,243,083 | The game's own menu (play, rank, demo, sound test) after the game over of the main route |
+| Metal Sight (System Sacom) | 3,843 / 17,186 | 245,481,575 | In play (a mech shooter screen), 2 automatic disk changes on the routes |
+| Lemmings (Imagineer) | 11,010 / 9 | 283,177,608 | The title menu: the standard routes do not enter a level, the authored route does (above) |
+| Super Hang-On (Sharp / SPS) | 8,042 / 17,130 | 268,313,547 | The first stage, course Africa, the bike running (score 10,170, speed 91 km) |
+
+The two authored routes were run again on the 1.6.6 tree: the same pictures and audio blocks as in 1.6.5 (Lemmings 1,238 / 911, Super Hang-On
+2,432 / 9,083), 0 interpreted, packed copy matching. The captures (commercial game pictures) stay outside the repository.
 
 What the games write (G7). A survey of 378 starts (the single-disk sets and the first disk of each other set, 3,000 frames of the
 qualification inputs, the fresh reference) found six sets that change their own disk: Cybermission (Login), Darius Dokomade

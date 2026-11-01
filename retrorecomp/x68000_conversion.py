@@ -182,7 +182,7 @@ def payload(project, source, manifest, title, artwork, mouse_game=False):
     names=[]
     for n,disk in enumerate(manifest.media):
         name=f'disk-{n+1:02}.{disk.format}';names.append(name)
-        add('media/'+name,disk.path.read_bytes(),True)
+        add('media/'+name,disk.content(),True)
     add('media/game.m3u',('\n'.join(names)+'\n').encode())
     add('system/keropi/iplrom.dat',manifest.firmware.ipl.path.read_bytes())
     add('system/keropi/cgrom.dat',manifest.firmware.cgrom.path.read_bytes())
@@ -316,6 +316,18 @@ def trace_rows(path):
         for line in stream:
             values=line.rstrip('\r\n').split('\t')
             yield FrameRow(int(values[0]),values[1],sound=values[2],ram=values[3],pc=values[7])
+
+
+def trace_digests(path):
+    """One digest per kind of evidence of a route's trace, over its frames in order: the CPU registers, the RAM, the picture
+    and the sound (the report's `hashes`, the same four the other machines write). The trace is the one that the native
+    player, the compressed copy and the fresh reference all gave: they are equal, so the digests describe all three."""
+    rows=[line.split('\t') for line in Path(path).read_text(encoding='ascii').splitlines()]
+    header,body=rows[0],rows[1:]
+    registers=[i for i,name in enumerate(header) if name in ('PC','SR') or (name[:1] in ('D','A') and name[1:].isdigit())]
+    columns={'cpu_hash':registers,'ram_hash':[header.index('ram')],'image_hash':[header.index('video')],'pcm_hash':[header.index('pcm')]}
+    return {name:hashlib.sha256('\n'.join(' '.join(row[i] for i in indexes) for row in body).encode('ascii')).hexdigest()
+            for name,indexes in columns.items()}
 
 
 def route_liveness(folder, frames, result):
@@ -595,14 +607,17 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         fallback=actual['reference_ram']+actual['reference_ipl']
         check={'frames':count,'native_entries':total-fallback,'interpreted_opcodes':fallback,
                'interpreter_percent':100*fallback/max(1,total),'reference_match':True,'state_restart_match':True,
-               'state_frame':state_frame,'boot_frames':200,'boot_state_restart_match':True,'packed_reference_match':True}
+               'state_frame':state_frame,'boot_frames':200,'boot_state_restart_match':True,'packed_reference_match':True,
+               'trace_sha256':digest(main_packed/'trace.tsv'),**trace_digests(main_packed/'trace.tsv')}
         exploration_checks=[]
         for route,folder,result in additional:
+            script=next(inputs for other,_,inputs in extra_routes if other is route)
             native_count=result['native_ram']+result['native_ipl']
             interpreted=result['reference_ram']+result['reference_ipl']
             exploration_checks.append({'route':route.name,'frames':route.frames,'native_entries':native_count,
                 'interpreted_opcodes':interpreted,'interpreter_percent':100*interpreted/max(1,native_count+interpreted),
                 'reference_match':True,'packed_reference_match':True,'trace_sha256':digest(folder/'trace.tsv'),
+                **trace_digests(folder/'trace.tsv'),'steps':len(route.events),'script_sha256':digest(script),
                 'automatic_disk_changes':result.get('automatic_disk_changes',0),
                 'media_events':result.get('media_events',[])})
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
@@ -620,7 +635,17 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'media_events':actual.get('media_events',[]),
           # Null, like the shapes that run no VDP comparison: the key was a constant True that compared nothing.
           'reference_vdp_trace_match':None,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
-          'game_states':{'supported':True,'save_key':'F8','load_key':'F9','fresh_process_verified':True},
+          'game_states':{'supported':True,'save_key':'F8','load_key':'F9','fresh_process_verified':True,'slots':1,
+                         'compatibility':'the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases',
+                         'schema':'RRX68MS1','machine':'x68000','rom_identity':manifest.sha256,
+                         'validation':{'process':'fresh','compressed_copy':True,'saved_at_frame':state_frame,'continuation_frames':400,
+                                       'boot_saved_at_frame':120,'boot_continuation_frames':40,'continuation_matches':True}},
+          'ordinary_saves':{'supported':True,'scope':'the disks of the game: each is copied beside the player on the first start and the game writes into its own copy',
+                            'path':'datas/games/x68-'+manifest.sha256+'/media',
+                            'validation':{'checked_in_this_conversion':False,
+                                          'evidence':'tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py'}},
+          'input_players':2,'peripheral':{'joystick_ports':2,'keyboard':'guest keyboard on request (Ctrl+Alt+K)','mouse':bool(mouse_game),
+                                          'disk_drives':2,'media':'floppy disks only'},
           'video_model':{'standard':'native','frameskip':False,'fps':actual['fps']},
           'runtime_data':{'directory':'datas','shared_config':'datas/Retro-Recomp.ini','game_directory':'datas/games/x68-'+manifest.sha256},
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,

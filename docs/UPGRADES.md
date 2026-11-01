@@ -207,6 +207,21 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
+## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
+
+The converter now takes D88 floppy images and recognises DIM, XDF and D88 by their content rather than by their name
+([X68000.md](X68000.md#disk-image-formats)). A standard 2HD D88 is stored as the raw XDF it describes, so the player, the
+quick states and the saves are unchanged. **Identities do not move**: a DIM or an XDF has the manifest and the game key it had
+in 1.6.5 (the new `stored_from` field is written only for a D88), and a D88 of a disk has the same identity as its XDF. The
+conversion report also records more of what it checked (digests of the reference traces, the length and digest of each
+exploration route, the quick-state validation, ordinary saves, players and peripherals) under the common report v2; nothing
+reads them back to decide a game.
+
+Stamps (computed with the tree of 1.6.5 and the tree of this change): only the **Sharp X68000 game stamp moves**
+(`retrorecomp/x68000_media.py`, `retrorecomp/x68000_conversion.py` and `tools/x68000_reference.py` are game inputs of that
+console and nothing else); host and build stamps and the other eight consoles do not move. An X68000 export of 1.6.5 is converted
+again in full once, like the other experimental exports of a release that changes the converter.
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
