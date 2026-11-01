@@ -307,5 +307,117 @@ class ShiftFixtureClockTests(unittest.TestCase):
         self.assertGreater(counted, 400)
 
 
+class PinnedSoundCpuRecompilerIsNotBuiltTests(unittest.TestCase):
+    """The pinned z80-recomp-core header reads a 16-bit value with two reads in one C expression (sms_read16, used by the
+    engine's runner/z80_recomp.c for the IM 2 vector). The Mega Drive sound CPU never builds that code: its Z80 is the
+    private SuperZazu copy, whose 16-bit accesses are already two ordered reads. If the build ever compiles
+    z80_recomp.c or defines GENESIS_Z80_RECOMP, the two reads must be ordered like the Master System's first."""
+
+    def test_the_mega_drive_build_does_not_compile_the_pinned_z80_recompiler(self):
+        root = Path(__file__).resolve().parents[1] / 'retrorecomp'
+        for name in ('console16.py', 'console16_optimization.py', 'megadrive.py', 'megadrive_codegen.py', 'megadrive_runtime.py',
+                     'megadrive_z80.py', 'megadrive_z80_timing.py', 'megadrive_bus.py', 'systems/console16.py'):
+            text = (root / name).read_text(encoding='utf-8')
+            self.assertNotIn('z80_recomp.c', text, name)
+            self.assertNotIn('sms_runtime', text, name)
+            self.assertNotIn('-DGENESIS_Z80_RECOMP', text, name)
+            self.assertNotIn('GENESIS_Z80_RECOMP=', text, name)
+
+    def test_the_private_z80_reads_16_bits_as_two_ordered_reads(self):
+        from retrorecomp import megadrive_z80_timing
+        text = (Path(__file__).resolve().parents[1] / 'retrorecomp/megadrive_z80_timing.py').read_text(encoding='utf-8')
+        import re
+        self.assertRegex(text, r'uint8_t lo = rb\(z, addr\);\s+uint8_t hi = rb\(z, \(uint16_t\)\(addr \+ 1\)\);')
+        self.assertIn('uint8_t lo = nextb(z), hi = nextb(z);', text)
+        self.assertRegex(text, r'uint8_t lo = rb\(z, z->sp\+\+\);\s+uint8_t hi = rb\(z, z->sp\+\+\);')
+        self.assertTrue(callable(megadrive_z80_timing.adapt))
+
+
+class DeliveredFileEvidenceTests(unittest.TestCase):
+    """Liveness (G8) and the packed replay (G5) of the Mega Drive, on synthetic traces and a fake delivered file."""
+    HEADER = 'frame,frame_hash,native,interpreted,audio_hash,pc,sr,sp,z80_pc,busreq,reset_off,fm_nonzero,psg_nonzero'
+
+    def trace(self, rows, header=None):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / 'play.trace.csv'
+        path.write_text(chr(10).join([header or self.HEADER] + rows) + chr(10), encoding='ascii')
+        return path
+
+    def line(self, frame, picture, sound='aa', pc='000200', fm=0, psg=0):
+        return f'{frame},{picture},10,0,{sound},{pc},2700,fffffff0,0000,0,1,{fm},{psg}'
+
+    def test_a_moving_route_has_its_record(self):
+        from retrorecomp import megadrive_evidence as evidence
+        record = evidence.route_liveness(self.trace([
+            self.line(1, 'p1', 's1', '000200', 0, 0), self.line(2, 'p1', 's1', '000204', 5, 0),
+            self.line(3, 'p2', 's2', '000208', 0, 7), self.line(4, 'p2', 's2', '000208', 0, 0)]))
+        self.assertEqual(record, {'frames': 4, 'distinct_pictures': 2, 'picture_changes': 1, 'last_picture_change_frame': 3,
+                                  'audible_frames': 2, 'last_audible_frame': 3, 'distinct_sound_blocks': 2,
+                                  'distinct_program_counters': 3})
+
+    def test_a_column_the_trace_lacks_is_none_not_zero(self):
+        from retrorecomp import megadrive_evidence as evidence
+        record = evidence.route_liveness(self.trace(['1,pa', '2,pb', '3,pb'], header='frame,frame_hash'))
+        self.assertEqual((record['distinct_pictures'], record['picture_changes']), (2, 1))
+        self.assertIsNone(record['audible_frames'])
+        self.assertIsNone(record['last_audible_frame'])
+        self.assertIsNone(record['distinct_sound_blocks'])
+        self.assertIsNone(record['distinct_program_counters'])
+
+    def test_only_a_frozen_play_route_is_refused(self):
+        from retrorecomp import megadrive_evidence as evidence
+        frozen = evidence.route_liveness(self.trace([self.line(n, 'same', fm=1) for n in range(1, 6)]))
+        moving = evidence.route_liveness(self.trace([self.line(1, 'a'), self.line(2, 'b')]))
+        folder = Path('checks/packed')
+        evidence.require_main_route_moving('play', moving, folder)
+        for scenario in ('demo', 'advanced', 'early-start', 'menu-confirm', 'pseudo-random-1'):
+            evidence.require_main_route_moving(scenario, frozen, folder)   # a still title, a menu: accepted
+        with self.assertRaises(ConversionError) as error:
+            evidence.require_main_route_moving('play', frozen, folder)
+        self.assertIn('never changed', str(error.exception))
+
+    def delivered(self, differences):
+        """replay_delivered with the compression replaced by a fake delivered file and the replay by a synthetic trace."""
+        from retrorecomp import megadrive_evidence as evidence
+        from retrorecomp.delivery_evidence import DeliveredFile
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        root = Path(folder.name)
+        fake = DeliveredFile(root / 'packed-game.exe', None, 'f' * 64)
+        checks = [{'scenario': 'demo', 'frames': 3}, {'scenario': 'play', 'frames': 3}]
+        references = {check['scenario']: {'scenario': check['scenario']} for check in checks}
+        runs = []
+
+        def replay(candidate, directory, check):
+            runs.append((candidate, check['scenario']))
+            (directory / f"{check['scenario']}.trace.csv").write_text(
+                chr(10).join([self.HEADER] + [self.line(n, f"p{n}", fm=1) for n in (1, 2, 3)]) + chr(10), encoding='ascii')
+            return {'scenario': check['scenario']}
+
+        with patch.object(evidence, 'deliver_packed', return_value=fake):
+            outcome = evidence.replay_delivered(root / 'game.exe', root / 'packed-game.exe', root / 'packed', checks,
+                                                references, replay, lambda result, reference: differences(result), print)
+        return fake, outcome, runs
+
+    def test_the_delivered_file_matches_on_every_route(self):
+        fake, (delivered, results), runs = self.delivered(lambda result: [])
+        self.assertIs(delivered, fake)
+        self.assertEqual([scenario for _, scenario in runs], ['demo', 'play'])
+        self.assertEqual(fake.validation_fields(), {'packed_reference_match': True})
+        self.assertEqual(fake.report_fields(), {'packed_candidate_sha256': 'f' * 64})
+        self.assertEqual(results['play']['liveness']['picture_changes'], 2)
+
+    def test_a_difference_refuses_the_delivered_file(self):
+        from retrorecomp.delivery_evidence import DeliveredFile
+        with self.assertRaises(ConversionError) as error:
+            self.delivered(lambda result: ['frame_hash'] if result['scenario'] == 'play' else [])
+        self.assertIn('differs from the fresh reference', str(error.exception))
+        self.assertIn('frame_hash', str(error.exception))
+        fresh = DeliveredFile(Path('x.exe'), None, '0' * 64)
+        with self.assertRaises(ValueError):
+            fresh.validation_fields()   # a file nobody replayed cannot claim the match
+
+
 if __name__ == '__main__':
     unittest.main()

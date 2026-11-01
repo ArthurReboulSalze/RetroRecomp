@@ -938,7 +938,7 @@ class AdoptionTests(unittest.TestCase):
                     if 'retrorecomp.' + name in inputs.manifest_names(system)}
         owners = {system for system in inputs.SYSTEMS if 'retrorecomp.conversion_gates' in inputs.manifest_names(system)}
         self.assertEqual(owners, expected, importers)
-        self.assertEqual(owners & {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'}, {'gb', 'ng', 'cps1', 'x68'})
+        self.assertEqual(owners & {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'}, {'gb', 'md', 'ng', 'cps1', 'x68'})
         common = {system for system in inputs.SYSTEMS
                   if 'retrorecomp.conversion_common' in inputs.manifest_names(system)}
         self.assertEqual(common, set(inputs.SYSTEMS))  # every console, a machine registered later included

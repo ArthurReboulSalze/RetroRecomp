@@ -556,6 +556,71 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: the delivered file is replayed and its liveness recorded (1.6.6)
+
+The conversion of a Mega Drive game now does what Neo Geo, CPS-1 and the X68000 do (`retrorecomp/delivery_evidence.py`, the
+Mega Drive's part in `retrorecomp/megadrive_evidence.py`, called from `console16.convert16`):
+
+- **Packed replay (G5).** After the reference comparison, a copy of the build is compressed as publication does, and that copy is
+  replayed on every route (same arguments, same input scripts, chained routes from their own saved states) and compared with the
+  fresh reference of the same route by `reference_differences`, the comparison the build already passes. The report gains
+  `native_validation.packed_reference_match` and `packed_candidate_sha256`; the packing record says the compressed copy was replayed.
+  A difference stops the conversion and keeps the previous export.
+- **Liveness (G8).** The replays pass `--trace` (the 16-bit host already wrote it: picture hash, sound hash, program counter, FM and
+  PSG non-zero counts per frame), and each route's trace becomes `final_checks[].liveness`: frames, distinct pictures, picture changes,
+  last picture change, audible frames, last audible frame, distinct sound blocks and program counters. A frame is audible when the FM
+  or the PSG produced a non-zero sample in it. A key the trace cannot give is `null`, never 0. It is evidence that the picture and the
+  sound change on the route; it says nothing about what the picture shows, how deep the route goes, or latency.
+- **A frozen main route is refused.** A conversion whose `play` route never changed the picture stops (the game never started or is
+  stuck). The attract route presses no button and a game may wait for Start on one title picture, and the long and authored routes may
+  sit in a menu, so none of those is refused.
+
+*Edited:* `retrorecomp/console16.py` (the trace option of the probe, the fresh references kept, the replay and the report fields, all
+for the Mega Drive only), the new `retrorecomp/megadrive_evidence.py`, and `retrorecomp/systems/console16.py` (the Mega Drive joins the
+`conversion_gates` group, which `delivery_evidence` calls). **The `md` game stamp moves; so does the Super Nintendo's**, because
+`console16.py` is a game input of both 16-bit consoles; the Super Nintendo path is unchanged and does not run the new steps. No generated
+code changes: a Blockout, a Sonic The Hedgehog and a Gunstar Heroes (USA) conversion compared with the tree before the change by
+`tools/ab_conversion.py` differ only by the new keys and files (the liveness, the packed fields, `checks/packed/`), the profile data
+and the changes of the decoding rules of this release; every generated source, frame, audio and state hash is identical.
+**Cost:** one more run of each native route on the compressed copy (not the reference runs, which are the long ones) and one
+compression; not timed. A game whose `play` route is frozen would stop converting: none of the three does, and Arthur's collection has
+not been re-run for this.
+
+## The 68000 decoding rules of the original chip (1.6.6)
+
+The decoder the converter uses is written for the 68010 and the 68020 as well and accepts more than a 68000 knows. Four machines hold a
+68000 (Mega Drive, Neo Geo, CPS-1, X68000), and their offline decoding tools now apply the Motorola manual's rules, in one shared
+header (`native/md_exception_decode.h`, which already held the reserved words `$4AFA` and `$4AFB`):
+
+- `MOVEC` (`$4E7A`, `$4E7B`) and `BKPT` (`$4848` to `$484F`) are not 68000 instructions, and `JMP`, `JSR`, `LEA` and `PEA` accept
+  only a control addressing mode: (An), d16(An), d8(An,Xn), abs.W, abs.L, d16(PC), d8(PC,Xn). The 390 opcode words that break those
+  rules (`LEA` 288, `JSR` 36, `JMP` 36, `PEA` 20, `BKPT` 8, `MOVEC` 2; the 388 of the first four families plus `MOVEC`) were
+  translated as if they existed; they are now the illegal instruction exception (vector 4), one word, like `$4AFC`.
+- A branch whose 8-bit displacement is `$FF` (`$60FF` to `$6FFF`) is a one-word branch with the displacement -1, as on the 68000.
+  The decoder had read the 32-bit displacement of the 68020 and made it three words long. The validator still refuses it as
+  speculative code (the tools skip it), so no scan translates it; the change is the length and the target the reference path and
+  the X68000 table of instruction lengths see.
+  A `$6xFF` that a game really takes is not an address error here: the error is not modelled, and the reference path goes on
+  at the odd address, as it did before for any odd program counter (not a regression).
+
+*Edited:* `native/md_exception_decode.h` (moved to the 68000 family of the stamp manifest, so that it moves the stamps of all four
+machines, which it did not do for the Neo Geo, CPS-1 and X68000 before), `native/x68000_native/decode.c` (its table of lengths now
+applies the same rules), and the new check `native/m68000_decode_rules_checks.c` with `tools/m68000_decode_rules_selftest.py`.
+**The `md`, `ng`, `cps1` and `x68` game stamps move.** The generated code differs only where data was read as code: the Neo Geo
+sweeps every even address of its fixed apertures, and a speculative scan elsewhere can reach such a word; a word a game really
+executes is unchanged unless it is one of the 390. No host or build stamp moves.
+
+Checked on the 65,536 opcode words against an expectation written from the manual's addressing-mode tables (no other word changes
+its decoding), on 25 hand-written byte sequences, and on the four real decoding tools and the X68000 length table with the same
+bytes; every one of those fails on the previous header (`LEA D0,A0` came out as `LEA`, `MOVEC` as `MOVEC`, `BKPT #0` as `PEA`, the
+`$60FF` branch three words long). The Mega Drive, Neo Geo, CPS-1 and 68000 backend self-tests still pass. This is a CPU fidelity
+change of what the decoder accepts; it is not a statement about any game's behaviour.
+
+**Conversions compared (A/B, `tools/ab_conversion.py`):** around the header alone (Blockout, `ab-md-166.log`), the generated
+sources are identical; only `md_exception_decode.h` itself, the clang profile data and the compression ratio (0.2642 against
+0.2641) differ. On three games (Blockout, Sonic The Hedgehog, Gunstar Heroes) with the G5/G8 change added, the exports differ
+only by the profile data and the compression ratio, apart from the new evidence keys and files.
+
 ## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
 
 The 68000 now sees the grant of the Z80 bus (`$A11100` bit 0) at the end of the sound CPU's machine cycle in progress when it

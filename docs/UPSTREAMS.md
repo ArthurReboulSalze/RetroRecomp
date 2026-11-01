@@ -344,6 +344,20 @@ instruction and leaves 18 vectors different instead of 68, but only because it f
 for the documented `SCF` and `CCF` it is worse (18 vectors against 11 with X and Y of A alone, which are right whenever the previous instruction
 changed the flags). The Q latch itself would be exact but is not carried (a store per instruction, a field in the saved state).
 
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| 68000 decoding rules the pinned decoder (68010/68020-aware) does not apply: `MOVEC`, `BKPT` and a non-control addressing mode of `JMP`, `JSR`, `LEA`, `PEA` are the illegal instruction (390 words); `$xxFF` branches are one word with the displacement -1 | md, ng, cps1, x68 | `native/md_exception_decode.h` (read by the offline decoding tools of the four; the X68000 length table too), written from the Motorola manual | md, ng, cps1, x68 |
+
+The pinned `m68k-recomp-core` is not edited and no upstream change was copied: the revision `6df014b` of that repository was read only
+to find which opcodes differ, and the rules were written from the manual. Described in [UPGRADES.md](UPGRADES.md) and
+[CPU_68000.md](CPU_68000.md).
+
+**`sms_read16` of the pinned Z80 core, checked for the Mega Drive.** `external/z80-recomp-core/include/sms_runtime.h` reads a 16-bit value
+with two reads in one C expression, so their order is not defined; the Master System and Game Gear copy is split into low then high
+(`retrorecomp/cpu.py`). The Mega Drive does not compile that code: its sound CPU is the private SuperZazu copy, whose 16-bit accesses
+are already two ordered reads (`megadrive_z80_timing.py`), the pinned `runner/z80_recomp.c` is copied into the project but not in its
+sources, and `GENESIS_Z80_RECOMP` is never defined. Nothing to patch; `tests/test_megadrive.py` fails if the build starts compiling it.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
