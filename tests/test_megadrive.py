@@ -307,5 +307,31 @@ class ShiftFixtureClockTests(unittest.TestCase):
         self.assertGreater(counted, 400)
 
 
+class PinnedSoundCpuRecompilerIsNotBuiltTests(unittest.TestCase):
+    """The pinned z80-recomp-core header reads a 16-bit value with two reads in one C expression (sms_read16, used by the
+    engine's runner/z80_recomp.c for the IM 2 vector). The Mega Drive sound CPU never builds that code: its Z80 is the
+    private SuperZazu copy, whose 16-bit accesses are already two ordered reads. If the build ever compiles
+    z80_recomp.c or defines GENESIS_Z80_RECOMP, the two reads must be ordered like the Master System's first."""
+
+    def test_the_mega_drive_build_does_not_compile_the_pinned_z80_recompiler(self):
+        root = Path(__file__).resolve().parents[1] / 'retrorecomp'
+        for name in ('console16.py', 'console16_optimization.py', 'megadrive.py', 'megadrive_codegen.py', 'megadrive_runtime.py',
+                     'megadrive_z80.py', 'megadrive_z80_timing.py', 'megadrive_bus.py', 'systems/console16.py'):
+            text = (root / name).read_text(encoding='utf-8')
+            self.assertNotIn('z80_recomp.c', text, name)
+            self.assertNotIn('sms_runtime', text, name)
+            self.assertNotIn('-DGENESIS_Z80_RECOMP', text, name)
+            self.assertNotIn('GENESIS_Z80_RECOMP=', text, name)
+
+    def test_the_private_z80_reads_16_bits_as_two_ordered_reads(self):
+        from retrorecomp import megadrive_z80_timing
+        text = (Path(__file__).resolve().parents[1] / 'retrorecomp/megadrive_z80_timing.py').read_text(encoding='utf-8')
+        import re
+        self.assertRegex(text, r'uint8_t lo = rb\(z, addr\);\s+uint8_t hi = rb\(z, \(uint16_t\)\(addr \+ 1\)\);')
+        self.assertIn('uint8_t lo = nextb(z), hi = nextb(z);', text)
+        self.assertRegex(text, r'uint8_t lo = rb\(z, z->sp\+\+\);\s+uint8_t hi = rb\(z, z->sp\+\+\);')
+        self.assertTrue(callable(megadrive_z80_timing.adapt))
+
+
 if __name__ == '__main__':
     unittest.main()

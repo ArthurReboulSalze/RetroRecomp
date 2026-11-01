@@ -312,6 +312,12 @@ The pinned `m68k-recomp-core` is not edited and no upstream change was copied: t
 to find which opcodes differ, and the rules were written from the manual. Described in [UPGRADES.md](UPGRADES.md) and
 [CPU_68000.md](CPU_68000.md).
 
+**`sms_read16` of the pinned Z80 core, checked for the Mega Drive.** `external/z80-recomp-core/include/sms_runtime.h` reads a 16-bit value
+with two reads in one C expression, so their order is not defined; the Master System and Game Gear copy is split into low then high
+(`retrorecomp/cpu.py`). The Mega Drive does not compile that code: its sound CPU is the private SuperZazu copy, whose 16-bit accesses
+are already two ordered reads (`megadrive_z80_timing.py`), the pinned `runner/z80_recomp.c` is copied into the project but not in its
+sources, and `GENESIS_Z80_RECOMP` is never defined. Nothing to patch; `tests/test_megadrive.py` fails if the build starts compiling it.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
