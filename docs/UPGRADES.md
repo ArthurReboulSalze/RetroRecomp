@@ -91,29 +91,20 @@ releases follow, newest first (1.6.5, then 1.6.4 and before).
 | [Game Boy: the saves of the delivered file are proven](#game-boy-the-saves-of-the-delivered-file-are-proven-166-gate-g7) | none (developer files only) | none | no key moves |
 | [Game Boy: states in a fresh process are proven](#game-boy-states-in-a-fresh-process-are-proven-166-gate-g6) | none (developer files only) | none | no key moves |
 | [Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states](#game-boy-the-report-names-the-cartridge-and-the-sound-unit-and-every-conversion-checks-the-states-166-gates-g2-and-g6) | Game Boy | no host or build stamp | not stated |
+| [NES: the delivered file replayed, liveness, fresh-process states, saves in the report](#nes-the-delivered-file-replayed-liveness-fresh-process-states-saves-in-the-report-166) | NES | not stated | not stated |
 | [Mega Drive: 2,895 more independent 68000 vectors](#mega-drive-2895-more-independent-68000-vectors-166) | none (no export changes) | none | none |
 | [Mega Drive: the delivered file is replayed and its liveness recorded](#mega-drive-the-delivered-file-is-replayed-and-its-liveness-recorded-166) | Mega Drive and Super Nintendo | not stated | not stated |
 | [The 68000 decoding rules of the original chip](#the-68000-decoding-rules-of-the-original-chip-166) | Mega Drive, Neo Geo, CPS-1, X68000 | none | not stated |
+| [Super Nintendo: the SA-1 boards, and no Super Mario RPG shortcut](#super-nintendo-the-sa-1-boards-and-no-super-mario-rpg-shortcut-166) | Super Nintendo | not stated | states of 1.6.5 refused cleanly; cartridge saves kept |
 | [Neo Geo and CPS-1: the sound CPU's Z80 is corrected](#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166) | Neo Geo, CPS-1 | none | Neo Geo state of 1.6.5 refused; CPS-1 state of 1.6.5 still loads |
 | [CPS-1 leaves the experimental status](#cps-1-leaves-the-experimental-status-166) | CPS-1 (it already moves for the Z80 corrections: no extra conversion) | none | no key changes |
 | [Sharp X68000: D88 images, floppy format read from the content, fuller report](#sharp-x68000-d88-images-floppy-format-read-from-the-content-fuller-report-166) | Sharp X68000 | none | not stated |
 | [Windows: a game UPX cannot pack is published unpacked](#windows-a-game-upx-cannot-pack-is-published-unpacked-166) | none | build stamp of every console (`retrorecomp/packing.py`) | none |
 
 Taken together, the sections give the game stamp of **every console** a move between 1.6.5 and 1.6.6, through the first line (the
-shared `core`); the host stamps and the build stamps are unmoved by every section that states them. What the release does with
+shared `core`); no section that states its host stamps moves one, and the build stamp of every console moves through the packing
+change (last row). What the release does with
 `LEGACY_GAME_STAMPS` is the release procedure's decision (the rule above) and is not written here before the release exists.
-
-## Windows: a game UPX cannot pack is published unpacked (1.6.6)
-
-On Windows a failure of UPX stopped the whole conversion. Windows Defender's machine-learning detection
-(`Program:Win32/Contebrew.A!ml`, a false positive) has removed UPX's temporary output while it packed freshly built Neo Geo
-and NES games; UPX then ended with "IOException ... Invalid argument" after minutes of conversion work. Windows now does what
-Linux has done since 1.6.0 (`packing.compact_windows`): the validated executable is kept beside UPX's work, put back when UPX
-cannot pack and test the file, and published unpacked, exactly as built and validated (a larger file, the same program), with the
-reason in the conversion log and the report (`packing.packed` false, `packing.unpacked_reason`; the notice says when the antivirus
-most likely removed the file). A missing or altered UPX, or an original that cannot be put back, is still an error. Games that
-pack and pass are byte for byte what they were. `retrorecomp/packing.py` is a build input of every console: the build stamps move,
-no game stamp, no quick-state key.
 
 ## Master System and Game Gear: WZ in the functions engine, ordered word reads (1.6.6)
 
@@ -284,6 +275,35 @@ main checkout against the commit this branch left (`tools/ab_conversion.py`): on
 differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
 `states` built from them; timings are not compared).
 
+## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
+
+*The NES game stamp moves; exports are rebuilt from their learned paths. What a player's game does is the same, except in PAL
+(below).* The host file `cyc_host.c` that the converter writes for the game gains, in its headless mode only (`--hash-out`), a hash
+of the rendered picture, a hash of the frame's sound and an audible flag on each trace line, and turns the audio on when a
+trace is asked for. A game started normally does not run any of it. A/B on Balloon Fight, Asterix and The Legend of Zelda against
+the previous tree: every trace line is the same once those three fields are removed (CPU, memory, hardware, registers, cycles),
+the reports differ only by the new fields (`final_checks[].liveness`, `reference_frames`, `native_validation.packed_reference_match`,
+`packed_candidate_sha256`, `game_states` filled, `saves`).
+
+What a conversion now does that it did not: it compresses a copy of the build and replays it on every route against the fresh
+reference (a difference stops the conversion), reads a liveness record of each route and refuses a game whose main route never
+changes its picture, and checks F8/F9 in a fresh process on the delivered copy. Conversions take a few seconds more at the default
+level and more at the thorough one (each route is replayed once more at native speed).
+
+*PAL: /NMI is sampled at tick 6, not 5, of the 16-tick CPU cycle* (`nes_machine.py`; [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)).
+A PAL game with its clock aligned one way sees an interrupt one CPU cycle later on every other frame; Asterix, Mr. Gimmick and
+Parodius give identical frame, audio and state evidence on their routes.
+
+One conversion of Asterix failed in an A/B run of this tree against `main` on 1 November (14:39) and passed when run again (14:43);
+the run's logs were not kept. The likely cause, not proved from those logs, is the one found on a Castlevania III conversion the
+same afternoon: Windows Defender deleting UPX's temporary file (a false positive), which `main` now answers by publishing such a
+game unpacked.
+
+The NES speed-ups and the completion of RAM routines (the mapper number a constant on every toolchain, the MMC1 A12 rebuild
+skipped when it cannot matter, the deferred PPU clock in PAL, the RAM routines completed at the end of a run) are not changes of this
+release: they shipped in 1.6.5 (`git tag --contains` gives `v1.6.5` for each; see
+[Other machines whose game stamp moves in 1.6.5](#other-machines-whose-game-stamp-moves-in-165) and [NES.md](NES.md)).
+
 ## Mega Drive: 2,895 more independent 68000 vectors (1.6.6)
 
 A new fixture, `tests/fixtures/m68k-groups`, holds SingleStepTests vectors for 85 instruction groups the other fixtures do not
@@ -359,6 +379,25 @@ sources are identical; only `md_exception_decode.h` itself, the clang profile da
 0.2641) differ. On three games (Blockout, Sonic The Hedgehog, Gunstar Heroes) with the G5/G8 change added, the exports differ
 only by the profile data and the compression ratio, apart from the new evidence keys and files.
 
+## Super Nintendo: the SA-1 boards, and no Super Mario RPG shortcut (1.6.6)
+
+The Super Nintendo game stamp moves (`snes_codegen.py`, `snes_cart.py`, `snes_chips.py`, `supernintendo.py` and the native SNES
+files change), so every Super Nintendo export of 1.6.5 is converted again once, as at every release. Quick states of
+the previous release are refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge saves are kept. What changes for a player:
+
+- **The pinned engine's wait-loop shortcut for one title is off.** In a Super Mario RPG battle the loop at `$C0:84B2` is executed
+  instruction by instruction, as the interpreter would; the cycle count is the same, the host does more work there. No other
+  cartridge is affected (the shortcut checked that cartridge's bytes).
+- **The vblank-wait fast-forward at fixed addresses of Star Ocean and Super Mario RPG is off too** (no engagement seen in
+  the routes run; a second per-game shortcut of the same engine).
+- **SA-1 cartridges are accepted** (map `$23`, type `$34` or `$35`, up to 4 MiB); the SA-1 program is a counted interpreted
+  device, like the Super FX GSU, and its BW-RAM is the battery file (type `$35`) and part of the quick state. The S-CPU
+  reaches it at the clock of its own bus cycle and its IRQ follows its flags (only SA-1 boards run that code).
+- **S-DD1 cartridges are accepted up to 4 MiB** (map `$32`, type `$43` or `$45`; Street Fighter Alpha 2). Star Ocean (6 MiB)
+  stays refused. The report counts the chip's decompression sessions.
+- **Cost:** about 35-155 thousand SA-1 instructions are interpreted per frame in the three SA-1 titles proved; host time was
+  not measured (to be timed on a quiet PC).
+
 ## Neo Geo and CPS-1: the sound CPU's Z80 is corrected (1.6.6)
 
 The Z80 of Geolith, which plays the sound of the Neo Geo and of the CPS-1, is corrected in the converter's copy (19 strict replacements,
@@ -408,6 +447,18 @@ Stamps (computed with the tree of 1.6.5 and the tree of this change): only the *
 (`retrorecomp/x68000_media.py`, `retrorecomp/x68000_conversion.py` and `tools/x68000_reference.py` are game inputs of that
 console and nothing else); host and build stamps and the other eight consoles do not move **for this change**. An X68000 export of 1.6.5 is converted
 again in full once, like the other experimental exports of a release that changes the converter.
+
+## Windows: a game UPX cannot pack is published unpacked (1.6.6)
+
+On Windows a failure of UPX stopped the whole conversion. Windows Defender's machine-learning detection
+(`Program:Win32/Contebrew.A!ml`, a false positive) has removed UPX's temporary output while it packed freshly built Neo Geo
+and NES games; UPX then ended with "IOException ... Invalid argument" after minutes of conversion work. Windows now does what
+Linux has done since 1.6.0 (`packing.compact_windows`): the validated executable is kept beside UPX's work, put back when UPX
+cannot pack and test the file, and published unpacked, exactly as built and validated (a larger file, the same program), with the
+reason in the conversion log and the report (`packing.packed` false, `packing.unpacked_reason`; the notice says when the antivirus
+most likely removed the file). A missing or altered UPX, or an original that cannot be put back, is still an error. Games that
+pack and pass are byte for byte what they were. `retrorecomp/packing.py` is a build input of every console: the build stamps move,
+no game stamp, no quick-state key.
 
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
@@ -647,35 +698,6 @@ writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line d
 
 The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
 
-## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
-
-*The NES game stamp moves; exports are rebuilt from their learned paths. What a player's game does is the same, except in PAL
-(below).* The host file `cyc_host.c` that the converter writes for the game gains, in its headless mode only (`--hash-out`), a hash
-of the rendered picture, a hash of the frame's sound and an audible flag on each trace line, and turns the audio on when a
-trace is asked for. A game started normally does not run any of it. A/B on Balloon Fight, Asterix and The Legend of Zelda against
-the previous tree: every trace line is the same once those three fields are removed (CPU, memory, hardware, registers, cycles),
-the reports differ only by the new fields (`final_checks[].liveness`, `reference_frames`, `native_validation.packed_reference_match`,
-`packed_candidate_sha256`, `game_states` filled, `saves`).
-
-What a conversion now does that it did not: it compresses a copy of the build and replays it on every route against the fresh
-reference (a difference stops the conversion), reads a liveness record of each route and refuses a game whose main route never
-changes its picture, and checks F8/F9 in a fresh process on the delivered copy. Conversions take a few seconds more at the default
-level and more at the thorough one (each route is replayed once more at native speed).
-
-*PAL: /NMI is sampled at tick 6, not 5, of the 16-tick CPU cycle* (`nes_machine.py`; [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)).
-A PAL game with its clock aligned one way sees an interrupt one CPU cycle later on every other frame; Asterix, Mr. Gimmick and
-Parodius give identical frame, audio and state evidence on their routes.
-
-One conversion of Asterix failed in an A/B run of this tree against `main` on 1 November (14:39) and passed when run again (14:43);
-the run's logs were not kept. The likely cause, not proved from those logs, is the one found on a Castlevania III conversion the
-same afternoon: Windows Defender deleting UPX's temporary file (a false positive), which `main` now answers by publishing such a
-game unpacked.
-
-Other changes of the NES in 1.6.6 that move the same stamp and are described in [NES.md](NES.md) and
-[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md): the cartridge's mapper number a constant on every toolchain, the MMC1
-A12 rebuild skipped when it cannot matter, the deferred PPU clock in PAL, and the completion of RAM routines at the end of a
-run (more guarded entries for games that run code from cartridge RAM, never fewer).
-
 ## X68000: saved disks, the delivered file replayed, liveness (1.6.5)
 
 Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.md):
@@ -740,25 +762,6 @@ executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which m
 The time allowed to one UPX pass on Windows was a fixed 120 seconds. It stopped Dragon Warrior IV (a 512 KiB NES board, a large
 executable) after every check had passed, while other conversions shared the CPUs. The limit now grows with the file on Windows and
 Linux alike (`packing.upx_timeout`: 10 seconds per MB, never below 300); it only exists to stop a packer that hangs.
-
-## Super Nintendo: the SA-1 boards, and no Super Mario RPG shortcut (1.6.6)
-
-The Super Nintendo game stamp moves (`snes_codegen.py`, `snes_cart.py`, `snes_chips.py`, `supernintendo.py` and the native SNES
-files change), so every Super Nintendo export of 1.6.5 is converted again once, as at every release. Quick states of
-the previous release are refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge saves are kept. What changes for a player:
-
-- **The pinned engine's wait-loop shortcut for one title is off.** In a Super Mario RPG battle the loop at `$C0:84B2` is executed
-  instruction by instruction, as the interpreter would; the cycle count is the same, the host does more work there. No other
-  cartridge is affected (the shortcut checked that cartridge's bytes).
-- **The vblank-wait fast-forward at fixed addresses of Star Ocean and Super Mario RPG is off too** (no engagement seen in
-  the routes run; a second per-game shortcut of the same engine).
-- **SA-1 cartridges are accepted** (map `$23`, type `$34` or `$35`, up to 4 MiB); the SA-1 program is a counted interpreted
-  device, like the Super FX GSU, and its BW-RAM is the battery file (type `$35`) and part of the quick state. The S-CPU
-  reaches it at the clock of its own bus cycle and its IRQ follows its flags (only SA-1 boards run that code).
-- **S-DD1 cartridges are accepted up to 4 MiB** (map `$32`, type `$43` or `$45`; Street Fighter Alpha 2). Star Ocean (6 MiB)
-  stays refused. The report counts the chip's decompression sessions.
-- **Cost:** about 35-155 thousand SA-1 instructions are interpreted per frame in the three SA-1 titles proved; host time was
-  not measured (to be timed on a quiet PC).
 
 ## Other machines whose game stamp moves in 1.6.5
 

@@ -189,9 +189,9 @@ across releases: [GAME_STATES.md](GAME_STATES.md) and
 
 ## Qualification
 
-The gates are in [QUALIFICATION.md](QUALIFICATION.md). In its matrix, CPS-1 meets G1, G2, G4, G5, G6 and G15, is partial on G3, G8, G9,
-G10, G11, G12 and G13 (G8 and G10 since 29 October 2026, see below), unknown on
-G14, and G7 and G16 do not apply. Every
+The gates are in [QUALIFICATION.md](QUALIFICATION.md). In its matrix, CPS-1 meets G1 to G6, G8 to G10, G12 and G15, is partial on G11,
+G13, G14 and G16, and G7 does not apply (non-volatile memory is absent from the standard
+boards). Every
 conversion runs the fresh-reference comparison (G4), the packed replay (G5) and
 the fresh-process state check (G6) itself.
 
