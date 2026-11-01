@@ -18,6 +18,7 @@ from .core import ConversionError, dependencies, executable_name, run, serialize
 from .gameboy_runtime import adapt_generated_project
 from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch
 from .gameboy_boundary import adapt_bank_boundaries
+from .gameboy_delivery import liveness_record, replay_delivered, require_moving_main_route
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
@@ -116,10 +117,13 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
 
 
 def _probe(executable: Path, build: Path, frames: int, trace: Path,
-           scenario: ProbeScenario = ProbeScenario('boot')) -> dict:
+           scenario: ProbeScenario = ProbeScenario('boot'), frame_trace: Path | None = None) -> dict:
     trace.unlink(missing_ok=True)
     command = [executable, "--headless", "--limit-frames", str(frames),
                "--report-interpreter-hotspots", "--trace-entries", trace]
+    if frame_trace is not None:
+        frame_trace.unlink(missing_ok=True)
+        command += ['--frame-trace', frame_trace]
     if scenario.input_script:
         command += ['--input', scenario.input_script]
     output = run(command,
@@ -158,16 +162,19 @@ def _probe(executable: Path, build: Path, frames: int, trace: Path,
             "interpreter_cycles": cycles, "interpreter_percent": None,
             "fallback_sites": int(inventory.group(1)), "fallback_sites_dropped": int(inventory.group(2)),
             "fallback_details": sites,
-            "trace_entries_bytes": trace.stat().st_size if trace.is_file() else 0}
+            "trace_entries_bytes": trace.stat().st_size if trace.is_file() else 0,
+            # Gate G8: what the picture, the sound, the RAM and the program counter did over the frames of the probe
+            # (delivery_evidence.liveness_summary); None when the probe was run without the per-frame trace.
+            "liveness": liveness_record(frame_trace) if frame_trace is not None and frame_trace.is_file() else None}
 
 
 def _cpu_compare(executable: Path, build: Path, frames: int,
-                 scenario: ProbeScenario = ProbeScenario('boot')) -> str:
+                 scenario: ProbeScenario = ProbeScenario('boot'), tag: str = '') -> str:
     command = [executable, "--differential", "--differential-frames", str(frames)]
     if scenario.input_script:
         command += ['--input', scenario.input_script]
     output = run(command,
-                 cwd=build, log=build / f"validation-cpu-{scenario.name}.log", timeout=600)
+                 cwd=build, log=build / f"validation-cpu-{scenario.name}{'-' + tag if tag else ''}.log", timeout=600)
     match = CPU_MATCH.search(output)
     if not match or int(match.group(2)) != frames:
         raise ConversionError("Game Boy CPU comparison did not report a completed match.")
@@ -314,7 +321,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     compile_jobs, cpu_workers = _gb_parallelism(gb_parallel_games)
     started = time.perf_counter()
     stage_seconds = dict(setup=0.0, discovery=0.0, translation=0.0, build=0.0,
-                         coverage_probes=0.0, cpu_validation=0.0)
+                         coverage_probes=0.0, cpu_validation=0.0, packed_replay=0.0)
     rom = read_game_boy_rom(rom_path)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
     name = slug(title)
@@ -419,7 +426,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             scenario_trace = project / f'observed-{scenario.name}.trace'
             stage_started = time.perf_counter()
             with timings.phase('native_runs'):
-                check = _probe(executable, project, scenario.frames or frames, scenario_trace, scenario)
+                check = _probe(executable, project, scenario.frames or frames, scenario_trace, scenario,
+                               project / f'frames-{scenario.name}.csv')
             check['wall_seconds'] = round(time.perf_counter() - stage_started, 6)
             stage_seconds['coverage_probes'] += check['wall_seconds']
             check['pass'] = number
@@ -449,6 +457,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             break
         emit(f"Game Boy: adding {len(new_entries)} observed ROM entries to the next pass.")
     timings.end_passes()
+    require_moving_main_route(final_checks)
     validation_mode = 'deep' if gb_deep_validation else 'standard'
     emit(f"Comparing generated execution with the reference CPU ({validation_mode})…")
     comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation)
@@ -474,6 +483,14 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     stage_seconds['cpu_validation'] += time.perf_counter() - stage_started
     for check in cpu_checks:
         emit(f"Game Boy CPU {check['scenario']}: matching for {check['frames']} frames.")
+    # Gate G5: the compressed copy of the build, as publication delivers it, is replayed on the same routes and must give
+    # the verdict of the reference on each.
+    stage_started = time.perf_counter()
+    with timings.phase('packed_replays'):
+        delivered = replay_delivered(executable, project, comparison_scenarios,
+                                     {check['scenario']: check['result'] for check in cpu_checks}, _cpu_compare, emit,
+                                     workers=cpu_workers if gb_deep_validation else 1)
+    stage_seconds['packed_replay'] += time.perf_counter() - stage_started
     remembered = project / 'remembered.trace'
     write_entries(remembered, _known_entries(rom, imported=False) | reached)
     _remember_trace(rom, remembered)
@@ -490,9 +507,10 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                             "bank_boundaries": boundary, "reuse_identical_sources": True},
         "writable_native_helpers": {"guard": "live instruction signature per added instruction; data operands remain live",
             "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers (named routines, live signature); unknown/changed code keeps fallback. Other WRAM/HRAM code is executed one instruction at a time from its live bytes by two counted executors, the pinned runtime's RAM stub and a single-instruction executor (loads, 8/16-bit arithmetic, rotates, stack and the CB-prefixed rotates, shifts, BIT, RES and SET; checked against the reference CPU; not HALT, STOP, RST or illegal opcodes, which stay in the interpreter); code run from 0xFF00-0xFF7F goes through the pinned runtime's high-memory stub, also one instruction at a time and counted, and that stub does execute RST 00 to RST 38. That is neither native code nor an interpreter session: each scenario of final_checks reports its instructions and cycles apart (ram_stub_*, ram_single_step_*, highmem_stub_*), and the native-code claim of the report is false while they are not zero. The counts cover the generated dispatch only: the same stubs called by the pinned interpreter inside an interpreter session are part of that session and sit in its instruction and cycle figures (interpreter use, already shown). The pinned runtime's HRAM stub, which recognises the complete OAM-DMA wait routine by its bytes and runs it as one helper like the guarded helpers above, is not counted"},
+        **delivered.report_fields(),
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
-            "mode": validation_mode, "scenarios": cpu_checks,
+            "mode": validation_mode, "scenarios": cpu_checks, **delivered.validation_fields(),
             "frames": min(frames, 30), "hardware_accuracy": False, "full_game": False},
         "reference_vdp_trace_match": None,
         "video_model": {"standard": "dmg", "visible_pixels": [160, 144],

@@ -100,6 +100,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
+        ('gb_frame_trace.h', project / 'runtime/include/gb_frame_trace.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -121,6 +122,11 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */\n'
         '    uint64_t rr_highmem_stub_instructions; /**< 0xFF00-0xFF7F instructions run one by one by the upstream high-memory stub (host-only) */\n'
         '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */')
+    # `--frame-trace FILE` (native/gb_frame_trace.h): one line per completed frame, for the liveness record of the delivered file.
+    source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
+        'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
+        'void rr_gb_frame_trace_open(const char* path); /**< Start the per-frame trace of a headless run (host-only) */\n'
+        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -134,7 +140,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     # gbrt.c stays a real call too. The generated sources keep calling the real gb_tick: inlining it into every body adds
     # about 400 bytes at each of thousands of call sites.
     source = replace_once(source, '#include "gbrt.h"\n#include "gbrt_data_mod.h"',
-        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gbrt_data_mod.h"')
+        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gb_frame_trace.h"\n#include "gbrt_data_mod.h"')
+    source = replace_once(source, '    if (ctx && ctx->callbacks.on_audio_sample) {\n        ctx->callbacks.on_audio_sample(ctx, l, r);',
+        '    rr_gb_trace_sample(ctx, l, r);\n    if (ctx && ctx->callbacks.on_audio_sample) {\n        ctx->callbacks.on_audio_sample(ctx, l, r);')
     source = replace_once(source, 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;',
         '#undef gb_tick\nvoid gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;')
     source = replace_once(source, 'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {',
@@ -282,6 +290,7 @@ static void rr_gb_feedback(GBContext *ctx) {
         '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
         '    GBContext* ctx = gb_context_create(&runtime_config);')
     source = diagnostic_limit_snapshot(source)
+    source = adapt_frame_trace_main(source)
     # The counted one-by-one execution of writable code is printed with the interpreter summary, also when
     # no interpreter session happened (the probe reads this line in every case).
     source = replace_once(source, '''    fprintf(stderr,
@@ -405,6 +414,18 @@ def deduplicate_entry_trace(project: Path) -> None:
         fprintf((FILE*)ctx->trace_file, "%d:%04x\\n", (int)bank, (int)addr);
     }''')
     runtime.write_text(source, encoding='utf-8')
+
+
+def adapt_frame_trace_main(source: str) -> str:
+    """`--frame-trace FILE` in the generated main: one line per completed frame (native/gb_frame_trace.h), in both loops."""
+    source = replace_once(source, '        } else if (strcmp(argv[i], "--dump-state") == 0 && i + 1 < argc) {',
+        '        } else if (strcmp(argv[i], "--frame-trace") == 0 && i + 1 < argc) {\n'
+        '            rr_gb_frame_trace_open(argv[++i]);\n'
+        '        } else if (strcmp(argv[i], "--dump-state") == 0 && i + 1 < argc) {')
+    anchor = '            frame_index++;\n#ifdef GBRT_ENABLE_PORT_MODULE'
+    if source.count(anchor) != 2:   # the benchmark loop and the windowed loop
+        raise ValueError(f'Unexpected frame loops in the generated main: {source.count(anchor)} marks.')
+    return source.replace(anchor, '            frame_index++;\n            rr_gb_frame_trace(ctx, frame_index);\n#ifdef GBRT_ENABLE_PORT_MODULE')
 
 
 def diagnostic_limit_snapshot(source: str) -> str:
