@@ -30,6 +30,7 @@ class GameGearProfile(SystemProfile):
     input_layout = InputLayout(("a", "b"), (), None, 240, script_format="sega")
     shared_knowledge = SharedKnowledge("stable", site_builder=True)
     host_adapter = "adapters/rrhk_sms.c"
+    stamp_groups = ('conversion_gates',)   # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py)
 
     def refine_match(self, path: Path, data: bytes | None):
         return refine_by_header(self, path, data)

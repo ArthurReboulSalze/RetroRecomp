@@ -816,11 +816,38 @@ uint8_t sms_io_in(uint8_t p){
         raise ConversionError("L'interface de présentation vidéo du moteur a changé.")
     glue = glue.replace('vdp_render_frame(g_fb);', 'smsrecomp_video_present(g_fb);')
     glue = replace_once(glue, 'frame,vram_h,cram_h,reg_h,r8,r9,r0,r1\\n',
-        'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h\\n')
+        'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h,psg_h,psg_nz\\n')
     glue = replace_once(glue, '%02X,%02X,%02X,%02X,%04X\\n",',
-        '%02X,%02X,%02X,%02X,%04X,%016llx\\n",')
+        '%02X,%02X,%02X,%02X,%04X,%016llx,%016llx,%u\\n",')
     glue = replace_once(glue, 'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp);',
-        'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp, (unsigned long long)smsrecomp_video_hash());')
+        'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp, (unsigned long long)smsrecomp_video_hash(),\n'
+        '                (unsigned long long)psg_h, psg_nz);')
+    # Liveness evidence (gate G8): the trace also says what the PSG produced in the frame (a hash of its stereo samples and the count of
+    # non-zero ones). A headless run has no audio sink, so the PSG is rendered for the trace only when a trace is written; the samples
+    # are the ones the player would hear, and nothing else changes (no trace, no sink: nothing is rendered, as before).
+    glue = replace_once(glue, '''    if (g_audio_sink){
+        /* Drain this frame's PSG output to the sink (interleaved stereo). The
+         * PSG was advanced up to the current absolute cycle in advance_vdp(). */
+        int16_t buf[2048 * 2];
+        size_t n;
+        while ((n = psg_render(buf, 2048)) > 0) g_audio_sink(buf, n);
+    }''', '''    uint64_t psg_h = 14695981039346656037ull;
+    unsigned psg_nz = 0;
+    if (g_audio_sink || g_vdp_trace){
+        /* Drain this frame's PSG output to the sink (interleaved stereo) and to the trace's hash. The
+         * PSG was advanced up to the current absolute cycle in advance_vdp(). */
+        int16_t buf[2048 * 2];
+        size_t n;
+        while ((n = psg_render(buf, 2048)) > 0){
+            if (g_vdp_trace) for (size_t i = 0; i < n * 2; ++i){
+                uint16_t sample = (uint16_t)buf[i];
+                psg_h = (psg_h ^ (sample & 0xFFu)) * 1099511628211ull;
+                psg_h = (psg_h ^ (sample >> 8)) * 1099511628211ull;
+                psg_nz += buf[i] != 0;
+            }
+            if (g_audio_sink) g_audio_sink(buf, n);
+        }
+    }''')
     glue = replace_once(glue, 'static uint8_t   g_pad1, g_pad2;', '''static uint8_t   g_pad1, g_pad2;
 static void (*g_host_input_refresh)(void);
 void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh = refresh; }''')
@@ -989,10 +1016,10 @@ static void smsrecomp_state_service(void);
     # the eager timeline had reached before each PSG write, before the line
     # steps that drain it at the end of a frame, and before a quick state.
     glue = replace_once(glue, '    if (g_audio_sink && cyc > g_psg_cyc){',
-                        '    if (g_audio_sink && cyc > g_psg_cyc && cyc >= g_next_line_cyc){')
+                        '    if ((g_audio_sink || g_vdp_trace) && cyc > g_psg_cyc && cyc >= g_next_line_cyc){')
     glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){', '''static uint64_t smsrecomp_measured_guest_cycles;
 static void psg_catch_up(void){
-    if (g_audio_sink && smsrecomp_measured_guest_cycles > g_psg_cyc){
+    if ((g_audio_sink || g_vdp_trace) && smsrecomp_measured_guest_cycles > g_psg_cyc){
         psg_advance((uint32_t)(smsrecomp_measured_guest_cycles - g_psg_cyc));
         g_psg_cyc = smsrecomp_measured_guest_cycles;
     }
@@ -1440,6 +1467,13 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             emit(f"{added} nouvelles entrées repérées : recompilation à la passe suivante.")
     timings.end_passes()
     final_checks = history[-len(scenarios):]
+    # Liveness of each route (gate G8, retrorecomp/sega_evidence.py): read from the final pass's trace. The delivered file's own
+    # record replaces it below on the banked engine. A frozen main route is refused.
+    from .sega_evidence import require_main_route_moving, route_liveness
+    for (scenario, _, _), check in zip(scenarios, final_checks):
+        trace = game / "checks" / f"pass{len(history) // len(scenarios)}_{scenario}"
+        check["liveness"] = route_liveness(trace / "vdp.csv")
+        require_main_route_moving(scenario, check["liveness"], trace)
     if banked:
         profile_stop = ("zero_fallback_on_tested_scenarios" if all(c.get("interpreter_cycles") == 0 for c in final_checks)
             else "pass_budget" if patterns_added and len(profile_history) == passes else "no_new_patterns")
@@ -1494,6 +1528,29 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if not validation['passed']:
             failures = {c['scenario']: [key for key, ok in c['checks'].items() if not ok] for c in comparisons if not c['passed']}
             raise ConversionError(f'Native validation failed: {failures}. Previous export preserved. Details: {game / "checks/native-validation.json"}')
+    delivered = None
+    if banked:
+        # The file the player receives is a compressed copy of this build: replay it on every route against the fresh reference of
+        # the same route (gate G5, retrorecomp/sega_evidence.py). Its liveness is the one the report keeps.
+        from .sega_evidence import replay_delivered
+        packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
+        replay_checks = [{'scenario': scenario, 'press': inputs, 'frames': budget} for scenario, inputs, budget in scenarios]
+        references = {scenarios[index][0]: {**ref, 'directory': str(ref_dir)} for index, (ref, ref_dir) in enumerate(reference_runs)}
+
+        def replay_route(candidate, directory, check):
+            return probe(candidate, directory, check['frames'], press=check['press'])
+
+        def route_differences(result, reference):
+            checks = compare_execution(result, reference, Path(result['directory']), Path(reference['directory']))['checks']
+            return [key for key, ok in checks.items() if not ok]
+
+        with timings.phase('packed_replays'):
+            delivered, delivered_runs = replay_delivered(executable, packed, game / 'checks' / 'packed', replay_checks, references,
+                                                         replay_route, route_differences, emit)
+        for (scenario, _, _), check in zip(scenarios, final_checks):
+            check['liveness'] = delivered_runs[scenario]['liveness']
+        validation.update(delivered.validation_fields())
+        (game / 'checks/native-validation.json').write_text(json.dumps(validation, indent=2), encoding='utf-8')
     final_executable = destination / executable_name(title)
     # Publication merges again so observations appended during compilation are
     # retained. They will seed the next generation if they arrived too late.
@@ -1510,6 +1567,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         "backend": backend, "target": target_id(), "scan_level": level,
         "long_routes": [route.metadata() for route in long_routes],
         "native_coverage": coverage, "native_validation": validation,
+        **(delivered.report_fields() if delivered else {}),
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,
