@@ -46,6 +46,12 @@ version information and optional box-art icon process as the Sega profiles ([BOX
 | Peripherals | Joypad only | No link cable, Camera, Printer or Super Game Boy |
 | Player shell | The host kit, `native/hostkit/adapters/rrhk_gb.inc` | Window, menus, bindings, controllers, sound device and pacing since 1.6.3 ([HOST_KIT.md](HOST_KIT.md)) |
 
+*In the report (since 1.6.6, gate G2).* The mapper and the sound unit are two entries of `devices` (`cartridge_mapper`, `audio_unit`),
+apart from the CPU, with no counter (`fallback_present` is `None`: there is no program of theirs to translate or interpret), the header
+facts (type, family, banks, RAM, battery, clock, rumble) and `mapper_modelled_by_runtime`, which is false for the types the runtime does
+not bank (MMM01, MBC6, MBC7, camera, TAMA5, HuC1, HuC3). `saves.cartridge_memory` names what the cartridge keeps. Hardware fidelity
+stays "not validated" for both.
+
 Where the five measures stand: **native code** is reported per scenario with the interpreter and the one-by-one executors shown
 apart; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
 [Qualification](#qualification)); **hardware fidelity**, **gameplay validation** and **physical latency** are not claimed.
@@ -259,10 +265,29 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
   file under the game's folder. The Game Boy has its own codec ([GAME_STATES.md](GAME_STATES.md)); the APU corrections did not change its
   layout. There is no Game Boy quick-state key: the RAM counters are host-only context fields outside every state, and a state of a 1.6.2 export loads in a
   1.6.3 export and the reverse ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)).
+  Since 1.6.6 `tools/gameboy_states_check.py` (gate G6) drives the two functions the keys call (`gb_context_save_state_file` and
+  `gb_context_load_state_file`, through the headless flags `--save-state-file` and `--load-state-file`) in separate processes, on a
+  cartridge authored for it (screen on, a square channel playing, vertical-blank and timer interrupts, a foreground counter) and on
+  Super Mario Land: a state taken after 120 frames, loaded by a fresh process and run for 120 more, gives the dump of a continuous
+  240-frame run field by field (registers, cycles, work and high RAM, LY and PPU mode) and the same picture, sound, RAM and program
+  counter on each of the 120 frames (`--frame-trace`); a second state taken after that load continues the same way. A state cut short
+  (empty, inside the header, in the body, one byte short), not a state, with a wrong magic, version, ROM hash or ROM size, is refused
+  before anything is applied (exit 1 and "Failed to load execution state", the file untouched); a state that does not exist is refused
+  and nothing is created. Every conversion runs a shorter version of this on the compressed copy (60 + 60 frames, the dump only, ten
+  damaged states and a missing one) and records it in `game_states.validation`; a failure is reported, not fatal. The F8 and F9 keys themselves (the path of slot 1) need a window and are not driven by the check. A byte
+  changed inside a state of the right length is not detected: the file has no checksum.
 - **Battery RAM and the real-time clock** use `datas/games/<game-title>-<ROM-SHA-prefix>/`, only when written. Battery RAM is flushed on
   exit only after a changed RAM value; a game's own automatic save can therefore create this folder without a manual state save.
-  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. MBC3 RTC persistence has no
-  independent regression test yet.
+  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. Since 1.6.6
+  `tools/gameboy_saves_check.py` (gate G7) exercises this on six cartridges authored for it (no original bytes): MBC1, MBC2, MBC3 with its
+  clock, MBC5, MBC1+RAM without a battery, and a battery cartridge whose program never writes. Each is converted and the delivered file is
+  run twice, headless, in an empty folder. The first run writes a magic and a pattern into its RAM and leaves `<title>-<sha>.sav` (8 KiB;
+  MBC3 also `<title>-<sha>.rtc`); the second finds the magic and reads the pattern back byte for byte (four bits per cell on MBC2; the
+  clock registers 17 s, 11 min, 7 h, day 42 with the halt bit come back on MBC3), and rewrites nothing. A cartridge without a battery, and
+  a battery cartridge that never writes, create no `datas` folder at all. A battery file or a clock file that is too short, too long, empty
+  or not a save is refused: the game starts with blank RAM (or a blank clock; the RAM still loads when only the clock file is damaged), the
+  log says "Rejected battery RAM …" and "Automatic persistence save suppressed", the file is left as it was, and the exit is normal. This
+  tests the files and the reload, not a commercial game's own save code.
 
 ## Qualification
 

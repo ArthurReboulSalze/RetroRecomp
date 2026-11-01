@@ -147,7 +147,7 @@ def read_gate_data(report: dict, profile) -> dict | None:
         agreement_problems.append('no final checks')
     if fidelity['passed'] is not True:
         agreement_problems.append('native validation did not pass')
-    device = document['devices'][0] if document['devices'] else None
+    device = next((item for item in document['devices'] if item.get('kind') == 'cartridge_coprocessor'), None)
     replay = (document['packed'] or {}).get('replay')
     states = document['states'] or {}
     validation = states.get('validation') if isinstance(states.get('validation'), dict) else {}
