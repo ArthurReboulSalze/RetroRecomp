@@ -41,7 +41,7 @@ version information and optional box-art icon process as the Sega profiles ([BOX
 | Main CPU: Sharp SM83 (the Game Boy's Z80-like core), 4.19 MHz | [CPU_SM83.md](CPU_SM83.md) | Native code translated ahead of time from the ROM entries it finds; the pinned reference interpreter as a counted fallback; counted one-instruction executors for code in WRAM and HRAM ([below](#writable-memory-code-164)) |
 | Picture: DMG PPU, 160 × 144, four shades | `runtime/src/ppu.c` of the pinned runtime, compiled into the game | A C hardware model, not translated code. Hardware fidelity is not validated; the upstream PPU dot-timing check passes. The picture goes through the host kit (filters, display modes, palette) |
 | Sound: four-channel APU, 44.1 kHz stereo PCM | `runtime/src/audio.c`, with three corrections of ours ([below](#apu-corrections-11-october-2026)) | The wave channel behaviour, the exact timer low bits and the analogue output still need separate accuracy work. The host kit plays the PCM through its callback ring |
-| Cartridge: ROM banking and battery RAM | `runtime/src/gbrt.c` | MBC1 (the runtime also detects MBC1M multicart wiring), MBC2, MBC3 with its real-time clock, MBC5, and cartridges with no mapper. Cartridge types `0x01-0x03`, `0x05-0x06`, `0x0F-0x13` and `0x19-0x1E` are the ones the runtime banks. Battery RAM and the clock are written only when they changed |
+| Cartridge: ROM banking and battery RAM | `runtime/src/gbrt.c` | MBC1 (the runtime also detects MBC1M multicart wiring), MBC2, MBC3 with its real-time clock, MBC5, the Wisdom Tree mapper (since 1.6.6, below), and cartridges with no mapper. Cartridge types `0x01-0x03`, `0x05-0x06`, `0x0F-0x13` and `0x19-0x1E` are the ones the runtime banks. Battery RAM and the clock are written only when they changed |
 | Timer, interrupts, OAM DMA, joypad | The pinned runtime | Run by the pinned runtime in step with the CPU's cycle counts; the HRAM sprite-DMA wait routine is a guarded helper (below). Input is sampled by the host kit's pad word |
 | Peripherals | Joypad only | No link cable, Camera, Printer or Super Game Boy |
 | Player shell | The host kit, `native/hostkit/adapters/rrhk_gb.inc` | Window, menus, bindings, controllers, sound device and pacing since 1.6.3 ([HOST_KIT.md](HOST_KIT.md)) |
@@ -279,9 +279,24 @@ all gameplay, certify hardware fidelity or measure physical latency.
   resolves 14 of the 17 failed identities. The current snapshot holds **793,352 ROM entry hints for 606 exact cartridges**; 500
   identities have zero fallback in their checked scenarios and 106 retain reported fallback. These are cumulative qualification results,
   not a fresh full-collection run.
-- **Still unqualified:** Paperboy 2, Spiritual Warfare and The Ren & Stimpy Show: Veediots!. Their probes hit the unchanged
-  600-second timeout, so their observations are not added to shared knowledge; a timeout is kept as a symptom, not labelled as a
-  proven CPU or mapper bug. Max passes the CPU comparison but retains writable-code fallback.
+- **The three cartridges that were unqualified** (Paperboy 2, Spiritual Warfare, The Ren & Stimpy Show: Veediots!, probes at the
+  600-second timeout in the October campaign) are resolved on the 1.6.6 tree. Paperboy 2 converts alone (152 s, zero interpreter
+  cycles; the timeout was not reproduced). Veediots stopped every probe because no frame completes with the LCD off; a frame now
+  lasts 70,224 cycles then (1.6.5, [UPGRADES.md](UPGRADES.md)). Spiritual Warfare is a Wisdom Tree cartridge (below). Max passes the CPU
+  comparison but retains writable-code fallback.
+- **Wisdom Tree cartridges (1.6.6).** Five cartridges of the collection (Spiritual Warfare, Exodus, Joshua & the Battle of Jericho,
+  the King James Bible, the NIV Bible & the 20 Lost Levels of Joshua) have a header of type 00, a size code of 00 and 128 KiB to 2 MiB
+  of ROM, with the words WISDOM and TREE inside. Their mapper is a latch that switches the whole 32 KiB window by the **address** of a
+  write to `0000-7FFF` (the low eight lines; the value is ignored; no RAM; bank 0 at power-on is our choice, the latch being undefined
+  in hardware), described by [Pan Docs](https://gbdev.io/pandocs/othermbc.html) and detected as mGBA does; the runtime models it
+  (`gameboy_runtime.adapt_wisdom_tree`). Converted one at a time on the 1.6.6 tree, the five pass the CPU comparisons with zero interpreter
+  cycles on the final scenarios (Spiritual Warfare: 96 cycles at one site on the varied route; King James Bible and NIV Bible
+  also run 271,745 and 388,361 work-RAM instructions one by one, counted apart), and a capture of each shows a real screen. Check:
+  `tools/gameboy_wisdom_selftest.py`, on a cartridge authored for it. Hardware fidelity and gameplay beyond the probes are not
+  validated for them.
+- **The delivered file (1.6.6).** The compressed copy of the build is replayed on the four comparison routes against the reference
+  verdict (gate G5), and each probe keeps a liveness record from the per-frame trace `--frame-trace` (gate G8), refused when the
+  `varied` route never changes its picture: [UPGRADES.md](UPGRADES.md), `tests/test_gameboy_delivery.py`.
 - **Sharing rule.** Only exact-ROM observations backed by successful CPU qualification are promoted into the ROM-free compilation
   snapshot; previous console records are kept; source ROMs and private RAM dumps are never part of it
   ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)). The observations stay local in `Export/datas/library/gb`.

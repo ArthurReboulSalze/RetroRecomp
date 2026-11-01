@@ -239,6 +239,73 @@ fingerprint of `neogeo_z80` (`neogeo_conversion.py`), so a Neo Geo state of 1.6.
 and the 34-byte Z80 block of its state did not change, so **a CPS-1 state of 1.6.5 still loads** (it continues with the corrected core, from the
 registers it saved).
 
+## Game Boy: the Wisdom Tree mapper (1.6.6)
+
+Five unlicensed cartridges of the collection (Spiritual Warfare, Exodus, Joshua & the Battle of Jericho, the King James Bible, the NIV
+Bible & the 20 Lost Levels of Joshua) say "ROM only, 32 KiB" in their header, a size code of 00, and are 128 KiB to 2 MiB long: they are
+Wisdom Tree cartridges, whose mapper is a single 74LS377 latch next to the ROM chip ([Pan Docs](https://gbdev.io/pandocs/othermbc.html)).
+It switches the whole 32 KiB window, both halves together, and takes the bank from the low eight address lines of a write to
+`0000-7FFF`; the data is ignored; there is no RAM; the latch is undefined at power-on, so the cartridges repeat the header and the
+switching code in every bank. The pinned runtime treated a header of type 00 as a ROM with a fixed second 16 KiB bank, so these
+cartridges never saw their other banks: Spiritual Warfare ran off into illegal opcodes (1,029,772 interpreted cycles at four sites in
+1.6.5), and the four others "converted" in 0.23.0 with 2 to 72 million interpreted cycles per scenario.
+
+`gameboy_runtime.adapt_wisdom_tree` adds the mapper to the private copy of `gbrt.c`: a cartridge whose header type is 00, whose size is
+a whole number of 32 KiB banks larger than 32 KiB and which holds the words WISDOM and TREE (the detection of mGBA) is a Wisdom Tree
+cartridge; `gb_resolve_rom_bank` gives 16 KiB banks `2n` and `2n+1` for the two windows, a write below `8000` sets `n`, and a reset
+puts bank 0 (a choice: the latch is undefined). The bank is the existing `rom_bank` field, so the format of the quick states does not
+change; the flag is host-only and derived from the ROM.
+
+*What moves.* The Game Boy **game stamp**, through `retrorecomp/gameboy_runtime.py` (and `native/gb_wisdom_checks.c`, a check): no host
+stamp, no build stamp, no quick-state key. A cartridge that is not a Wisdom Tree one is untouched: the generated sources and the reports
+of Tetris, Super Mario Land and Wario Land II are identical, the final executables of Tetris and Super Mario Land write identical
+`--dump-state` files on three input scripts, and only `gbrt.h` and `gbrt.c` of the kept build differ. An export of 1.6.5 is converted again
+once, as at every release; the exports of these five cartridges made without the mapper are replaced when they are converted again.
+
+*Hot path: touched, by one test.* `gb_resolve_rom_bank` (called by the dispatch of the generated code and by every ROM read) tests the
+flag first, and a write below `8000` tests it once. Not timed.
+
+*Proof.* `tools/gameboy_wisdom_selftest.py` builds a cartridge authored for the check (eight banks, no original bytes): 205 checks of the
+mapper (the address chooses the bank and the value does not, either half of `0000-7FFF`, wrap on an eight-bank ROM, state save and
+load, reset, and four cartridges that must not be detected), then a program that switches to each bank with a value that means another bank
+on any other mapper, calls a routine of each window of each bank and keeps the results in work RAM: the generated code gives the right
+bytes and matches the pinned interpreter in lockstep over 17,497 steps. The whole conversion of that cartridge gives zero interpreted
+cycles. Converted one at a time with this tree (standard level, empty library), the five real cartridges pass the CPU comparisons with
+zero interpreter cycles on every final scenario, except Spiritual Warfare (one site, 96 cycles on the varied route); King James Bible and
+NIV Bible run 271,745 and 388,361 instructions one by one from work RAM on the varied route, counted apart. A capture of each shows a real
+screen (Enter your NAME and a field of play, the instruction screen of Exodus, the title of Joshua, the text of Genesis in two
+translations). That says the mapper works for these cartridges; it says nothing about the rest of each game, about the hardware or about
+latency.
+
+## Game Boy: the packed replay and the liveness record (1.6.6, gates G5 and G8)
+
+The Game Boy now gives the same two pieces of evidence as the Neo Geo, CPS-1 and X68000, through `retrorecomp/delivery_evidence.py`
+(`retrorecomp/gameboy_delivery.py` holds what is the Game Boy's own).
+
+*Liveness (G8).* The generated main takes a flag, `--frame-trace FILE`, that writes one line per completed frame
+(`native/gb_frame_trace.h`, included by the private `gbrt.c`): the hash of the 160 x 144 picture, of the stereo samples of the frame,
+the count of non-zero samples, a hash of work RAM and high RAM, and the program counter. Each probe keeps its liveness record in
+`final_checks[].liveness` (the nine common keys; a key the trace cannot give is `None`). A conversion is refused when its `varied` route (menu,
+movement and buttons) never changes its picture; the other routes are reported, since a game may wait for a key their script does not give.
+
+*Packed replay (G5).* After the lockstep comparisons, a compressed copy of the build, packed as publication does, is replayed on the same
+routes with the same frame counts and must give the same verdict line as the build on every one: `native_validation.packed_reference_match`
+and `packed_candidate_sha256` (equal to the hash of the published file) are written only then. It costs about as much as the CPU validation
+(Tetris: 21 s after 19 s), and the Game Boy takes the group `conversion_gates` of the stamps.
+
+*What moves.* The Game Boy **game stamp** (`gameboy_runtime.py`, `gameboy.py`, the new `gameboy_delivery.py`, `native/gb_frame_trace.h` and the
+shared gates the Game Boy now imports). No host or build stamp, no quick-state key, nothing in the generated C changes unless the flag is
+given, so a player's game plays the same.
+
+*Hot path: touched.* The audio callback of the runtime adds one test of a static pointer per stereo sample (44,100 a second) and the frame
+loop one per frame, both skipped unless the flag is given. Not timed.
+
+*Proof.* `tests/test_gameboy_delivery.py` (eleven tests on synthetic traces and a faked compressor: the reading of a line, the nine keys,
+`None` against zero, the main route refused only when frozen, a replay on every route, one different verdict refusing the file, and a
+file that was not replayed claiming nothing); the recorded behaviour of the probe (`tests/conversion_common_golden.json`) gains the key
+`liveness` (`None` without the trace) and nothing else. One conversion of Tetris: the compressed copy matches on its four routes, the
+report says so, and the replay-hash equals the published hash.
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in

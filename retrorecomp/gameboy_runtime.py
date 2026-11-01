@@ -14,6 +14,48 @@ from .paths import ASSETS
 from . import __version__
 
 
+def adapt_wisdom_tree(source: str) -> str:
+    """The Wisdom Tree mapper in the pinned runtime (gbrt.c).
+
+    Sources: Pan Docs ("Wisdom Tree": a 74LS377 latch, the 32 KiB ROM window switched as a whole, the bank taken from the low
+    eight address lines of a write to 0000-7FFF, the data ignored, no RAM) and the detection of mGBA (the words WISDOM and TREE
+    in a ROM whose header says ROM only). No code of either is used. The cartridges are header type 00 with more than 32 KiB,
+    so the pinned runtime kept them on a fixed second bank. The latch is undefined at power-on; bank 0 is the choice here, and
+    the cartridges repeat the header and the switching code in every bank.
+    """
+    source = replace_once(source, 'bool gb_context_load_rom(GBContext* ctx, const uint8_t* data, size_t size) {',
+        '/* Header type 00, a ROM of whole 32 KiB banks larger than 32 KiB, and both words in it: a Wisdom Tree cartridge. */\n'
+        'static bool rr_gb_detect_wisdom_tree(const uint8_t* rom, size_t size) {\n'
+        '    if (!rom || size <= 0x8000u || (size & 0x7FFFu) != 0 || rom[0x147] != 0x00) return false;\n'
+        '    bool wisdom = false, tree = false;\n'
+        '    for (size_t i = 0; i + 4 <= size && !(wisdom && tree); ++i) {\n'
+        '        if (!wisdom && i + 6 <= size && memcmp(rom + i, "WISDOM", 6) == 0) wisdom = true;\n'
+        '        if (!tree && memcmp(rom + i, "TREE", 4) == 0) tree = true;\n'
+        '    }\n'
+        '    return wisdom && tree;\n'
+        '}\n\n'
+        'bool gb_context_load_rom(GBContext* ctx, const uint8_t* data, size_t size) {')
+    source = replace_once(source, '    /* Parse Header for RAM/Battery info */',
+        '    ctx->rr_wisdom_tree = size > 0x149 && rr_gb_detect_wisdom_tree(ctx->rom, size) ? 1 : 0;\n'
+        '    /* Parse Header for RAM/Battery info */')
+    source = replace_once(source,
+        '    if (ctx->mbc_type >= 0x01 && ctx->mbc_type <= 0x03) {\n        const uint8_t raw_low = ctx->rom_bank_low & 0x1F;',
+        '    if (ctx->rr_wisdom_tree) {\n'
+        '        /* The latch holds a 32 KiB bank: both windows change together (16 KiB banks 2n and 2n+1). */\n'
+        '        const uint32_t banks = (uint32_t)(ctx->rom_size / 0x8000u);\n'
+        '        return banks ? (uint16_t)(((uint32_t)ctx->rom_bank % banks) * 2u + (addr >= 0x4000 ? 1u : 0u)) : 0;\n'
+        '    }\n'
+        '    if (ctx->mbc_type >= 0x01 && ctx->mbc_type <= 0x03) {\n        const uint8_t raw_low = ctx->rom_bank_low & 0x1F;')
+    source = replace_once(source, '    /* MBC Write Handling */\n    if (addr < 0x8000) {',
+        '    /* MBC Write Handling */\n    if (addr < 0x8000) {\n'
+        '        if (ctx->rr_wisdom_tree) {\n'
+        '            ctx->rom_bank = (uint16_t)(addr & 0xFFu);   /* the address selects the bank, the value is ignored */\n'
+        '            return;\n'
+        '        }')
+    return replace_once(source, '    ctx->rom_bank = 1;\n    ctx->ram_bank = 0;',
+        '    ctx->rom_bank = 1;\n    if (ctx->rr_wisdom_tree) ctx->rom_bank = 0;\n    ctx->ram_bank = 0;')
+
+
 def adapt_differential(project: Path) -> None:
     """Keep byte-exact checks while making their common equal case fast."""
     path = project / 'runtime/src/differential.c'
@@ -58,6 +100,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
+        ('gb_frame_trace.h', project / 'runtime/include/gb_frame_trace.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -67,7 +110,8 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = header.read_text(encoding="utf-8")
     source = replace_once(source,
         'bool persistence_load_failed; /**< Invalid persisted data was rejected; automatic overwrite is suppressed */',
-        'bool persistence_load_failed; /**< Invalid persisted data was rejected; automatic overwrite is suppressed */\n    bool eram_dirty; /**< Battery RAM changed since load/save; host-only state */\n    bool rtc_dirty; /**< RTC advanced or was written since load/save */')
+        'bool persistence_load_failed; /**< Invalid persisted data was rejected; automatic overwrite is suppressed */\n    bool eram_dirty; /**< Battery RAM changed since load/save; host-only state */\n    bool rtc_dirty; /**< RTC advanced or was written since load/save */\n'
+        '    uint8_t rr_wisdom_tree; /**< Wisdom Tree mapper: the ROM is switched by 32 KiB, by the address of a write; derived from the ROM, host-only */')
     # Counters of the writable-code executors (rr_gb_try_ram_dispatch): host-only, outside every saved state.
     source = replace_once(source,
         '    uint64_t total_interpreter_cycles; /**< Total cycles executed in interpreter sessions */',
@@ -78,6 +122,11 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */\n'
         '    uint64_t rr_highmem_stub_instructions; /**< 0xFF00-0xFF7F instructions run one by one by the upstream high-memory stub (host-only) */\n'
         '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */')
+    # `--frame-trace FILE` (native/gb_frame_trace.h): one line per completed frame, for the liveness record of the delivered file.
+    source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
+        'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
+        'void rr_gb_frame_trace_open(const char* path); /**< Start the per-frame trace of a headless run (host-only) */\n'
+        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -91,7 +140,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     # gbrt.c stays a real call too. The generated sources keep calling the real gb_tick: inlining it into every body adds
     # about 400 bytes at each of thousands of call sites.
     source = replace_once(source, '#include "gbrt.h"\n#include "gbrt_data_mod.h"',
-        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gbrt_data_mod.h"')
+        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gb_frame_trace.h"\n#include "gbrt_data_mod.h"')
+    source = replace_once(source, '    if (ctx && ctx->callbacks.on_audio_sample) {\n        ctx->callbacks.on_audio_sample(ctx, l, r);',
+        '    rr_gb_trace_sample(ctx, l, r);\n    if (ctx && ctx->callbacks.on_audio_sample) {\n        ctx->callbacks.on_audio_sample(ctx, l, r);')
     source = replace_once(source, 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;',
         '#undef gb_tick\nvoid gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;')
     source = replace_once(source, 'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {',
@@ -161,6 +212,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = replace_once(source,
         '    return ram_result && rtc_result;\n}',
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
+    source = adapt_wisdom_tree(source)
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have
@@ -238,6 +290,7 @@ static void rr_gb_feedback(GBContext *ctx) {
         '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
         '    GBContext* ctx = gb_context_create(&runtime_config);')
     source = diagnostic_limit_snapshot(source)
+    source = adapt_frame_trace_main(source)
     # The counted one-by-one execution of writable code is printed with the interpreter summary, also when
     # no interpreter session happened (the probe reads this line in every case).
     source = replace_once(source, '''    fprintf(stderr,
@@ -361,6 +414,18 @@ def deduplicate_entry_trace(project: Path) -> None:
         fprintf((FILE*)ctx->trace_file, "%d:%04x\\n", (int)bank, (int)addr);
     }''')
     runtime.write_text(source, encoding='utf-8')
+
+
+def adapt_frame_trace_main(source: str) -> str:
+    """`--frame-trace FILE` in the generated main: one line per completed frame (native/gb_frame_trace.h), in both loops."""
+    source = replace_once(source, '        } else if (strcmp(argv[i], "--dump-state") == 0 && i + 1 < argc) {',
+        '        } else if (strcmp(argv[i], "--frame-trace") == 0 && i + 1 < argc) {\n'
+        '            rr_gb_frame_trace_open(argv[++i]);\n'
+        '        } else if (strcmp(argv[i], "--dump-state") == 0 && i + 1 < argc) {')
+    anchor = '            frame_index++;\n#ifdef GBRT_ENABLE_PORT_MODULE'
+    if source.count(anchor) != 2:   # the benchmark loop and the windowed loop
+        raise ValueError(f'Unexpected frame loops in the generated main: {source.count(anchor)} marks.')
+    return source.replace(anchor, '            frame_index++;\n            rr_gb_frame_trace(ctx, frame_index);\n#ifdef GBRT_ENABLE_PORT_MODULE')
 
 
 def diagnostic_limit_snapshot(source: str) -> str:
