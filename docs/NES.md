@@ -334,6 +334,14 @@ Queued host audio is discarded; fallback counters remain cumulative.
 States written before 1.6.5 (`RRNESST1`, a raw copy of the structures) are
 refused cleanly, not misread: the layout and the key both changed.
 
+Since 1.6.6 every conversion also checks F8/F9 in a fresh process on the file it delivers, and says so in its report
+(`game_states.fresh_process_verified` and `validation`): a start and a missing load create no file, two saves of one run are
+identical, a state loaded in another process continues with the same CPU, memory, hardware, picture and sound for 180 frames, and
+six damaged states are refused without touching either file. A cartridge whose first frames change its battery RAM may leave its
+battery file after a start (the one file a start may create); the check removes it between processes so that each starts from a
+new cartridge. The report's `ordinary_saves` says whether the cartridge has a battery and where the game keeps it; that the file
+is written, read back and kept across a launch and a rebuild is checked on an authored cartridge by `tools/nes_saves_check.py`.
+
 Invalid magic, ABI, ROM identity, region, payload and truncated states are
 rejected without rewriting the valid or rejected file. Opening/closing a game or
 attempting F9 with no state creates no directory. Only edited settings, F8, or
@@ -389,13 +397,15 @@ same engine's internal CPU and bus; they do not certify physical hardware.
 | `python tools/nes_native_selftest.py` | All 256 opcodes of authored fixtures across CPU slots, mapper modes (default 0, 1, 2, 3, 4, 5, 7, 9, 11, 26, 66, 69, 71, 78: fourteen families), PAL and NTSC, flag/alignment variants, page crossings, boundary operands, wrapping PC, NMI and IRQ |
 | `python tools/nes_guarded_selftest.py` | Authored RAM guards and PPU-driven mapper fetch comparisons (mappers 0, 5, 69, 1, 153, 155): all 256 opcodes, changed operands, RAM mirrors, RAM/ROM and RAM/register boundaries, NMI/IRQ, OAM and DMC DMA, pending reset, changed-opcode rejection |
 | `python tools/nes_windows_selftest.py` | Lower-ROM selection, protected cartridge RAM (mappers 40, 69, 21, 22, 23, 25, 80, 207, 82, 552), bank boundaries, DMC/OAM DMA, pending IRQ/NMI/reset; altered ROM fetches must keep visible fallback and must not pollute upper-address ROM seeds |
-| `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: three configurations (NTSC with Zapper, PAL with Zapper, NTSC without Zapper), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
+| `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: four configurations (NTSC and PAL, each with and without the Zapper; the PAL one without it runs the deferred clock), the CPU's interrupt state, and four vblanks from each alignment (where the NMI is sampled), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
 | `python tools/nes_static_mapper_selftest.py` | The machine with the cartridge's mapper number as a compile-time constant against the run-time number, 2,800 checkpoints for each of eight mappers, NTSC without the Zapper and PAL with it; also checks that a constant-mapper build refuses another mapper |
 | `python tools/nes_ram_sweep_selftest.py` | The end-of-run completion of RAM routines on authored code in internal RAM and in cartridge RAM: executed entries, the fall-through past a taken branch, a never-taken branch, `JSR`/`JMP` targets, and what must not be added (data after a jump or a return, an illegal opcode, an address outside the windows); a second sweep changes nothing |
 | `python tools/nes_mmc1_selftest.py` | The MMC1 with the PPU A12 table rebuild skipped against the original, step by step on 13 authored boards (bank tables, mirroring, work RAM bank and enables after each of 15,165 register writes and A12 changes) |
 | `python tools/nes_machine_selftest.py` | Authored NTSC/PAL fixtures: clock/APU behaviour, beam-driven Zapper detection, snapshot round trips, mapper audio, corrupted-state rejection without mutation |
 | `python tools/nes_audio_selftest.py` | The host kit's callback-ring output and authored PCM timelines, silently |
-| `python tools/nes_state_selftest.py <game.exe>` | Needs a generated game. Saves, closes, relaunches and compares continued CPU/memory/video/hardware hashes and PCM; checks lazy file creation; opens no game window. `--save-after 1800 --frames 180 --input <schedule.input>` resumes a held two-player input schedule in a fresh process |
+| `python tools/nes_saves_check.py` | Battery saves on an authored cartridge (MMC1, battery RAM, a program that counts its launches): the first launch saves 1, the second 2, a second conversion over the same export keeps the file, the new build saves 3; the conversion's probes leave no file beside the export |
+| `python tools/nes_route_captures.py ROM EXE` | The last picture of each route of a converted game (the routes are written again from the ROM at the same scan level), to see whether a route reached play; headless |
+| `python tools/nes_state_selftest.py <game.exe>` | The check a conversion runs on the file it delivers (`retrorecomp/nes_checks.py`). Needs a generated game. Saves, closes, relaunches and compares continued CPU/memory/video/hardware hashes and PCM; checks lazy file creation; opens no game window. `--save-after 1800 --frames 180 --input <schedule.input>` resumes a held two-player input schedule in a fresh process |
 | `python tools/nes_state_cross.py A.exe B.exe` | Needs two builds of one game. A quick state written by one build must continue identically in the other (for example Visual Studio and portable-toolchain builds) |
 
 The Python suite (`tests/test_nes*.py` and the rest of `python -B -m unittest discover -s tests -q`)

@@ -604,6 +604,30 @@ writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line d
 
 The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
 
+## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
+
+*The NES game stamp moves; exports are rebuilt from their learned paths. What a player's game does is the same, except in PAL
+(below).* The host file `cyc_host.c` that the converter writes for the game gains, in its headless mode only (`--hash-out`), a hash
+of the rendered picture, a hash of the frame's sound and an audible flag on each trace line, and turns the audio on when a
+trace is asked for. A game started normally does not run any of it. A/B on Balloon Fight, Asterix and The Legend of Zelda against
+the previous tree: every trace line is the same once those three fields are removed (CPU, memory, hardware, registers, cycles),
+the reports differ only by the new fields (`final_checks[].liveness`, `reference_frames`, `native_validation.packed_reference_match`,
+`packed_candidate_sha256`, `game_states` filled, `saves`).
+
+What a conversion now does that it did not: it compresses a copy of the build and replays it on every route against the fresh
+reference (a difference stops the conversion), reads a liveness record of each route and refuses a game whose main route never
+changes its picture, and checks F8/F9 in a fresh process on the delivered copy. Conversions take a few seconds more at the default
+level and more at the thorough one (each route is replayed once more at native speed).
+
+*PAL: /NMI is sampled at tick 6, not 5, of the 16-tick CPU cycle* (`nes_machine.py`; [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)).
+A PAL game with its clock aligned one way sees an interrupt one CPU cycle later on every other frame; Asterix, Mr. Gimmick and
+Parodius give identical frame, audio and state evidence on their routes.
+
+Other changes of the NES in 1.6.6 that move the same stamp and are described in [NES.md](NES.md) and
+[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md): the cartridge's mapper number a constant on every toolchain, the MMC1
+A12 rebuild skipped when it cannot matter, the deferred PPU clock in PAL, and the completion of RAM routines at the end of a
+run (more guarded entries for games that run code from cartridge RAM, never fewer).
+
 ## X68000: saved disks, the delivered file replayed, liveness (1.6.5)
 
 Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.md):

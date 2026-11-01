@@ -62,8 +62,8 @@ x68 = Sharp X68000.
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
-  cps1 and x68 run G6 inside every conversion. Read G5 and G6 as "met per
-  conversion" only for those three.
+  cps1 and x68 run G6 inside every conversion; the NES joins them for both in 1.6.6.
+  Read G5 and G6 as "met per conversion" only for those four.
 - G14 for NES, SNES, SMS, GG, GB, CPS-1 and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
@@ -92,6 +92,11 @@ reads rows a machine already writes; it never runs a game.
   `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
   refuses to be written before every route matched.
 
+The NES uses it since 1.6.6 (`retrorecomp/nes_checks.py`, `retrorecomp/nes.py`): the headless `--hash-out` line of the exported
+game carries `pic=` (the hash of the rendered 256 x 240 picture), `snd=` (the hash of the frame's sound) and `aud=` (1 when a
+sample was not zero), the liveness record of each route is read from it, the delivered copy is replayed on every route and its
+trace and PCM compared with the fresh reference, and the machine is in the `conversion_gates` group.
+
 Machines that do not use it yet, what each already writes per frame, and the smallest change to feed it (a plan, not a
 record: nothing below runs yet):
 
@@ -99,7 +104,6 @@ record: nothing below runs yet):
 |---|---|---|---|
 | Master System, Game Gear | `--vdp-trace` (`vdp.csv`, pinned runner `glue.c`): frame, VRAM, CRAM and register hashes, RAM hash, SP; the probe compares native and `--interp` runs on it | An audible flag or a sound hash per frame (the PSG is drained per frame to a sink, nothing is recorded); the picture is the video state, not the rendered image | One column in the runner's trace (a hash of the frame's PSG block and its non-zero sample count), carried as our patch ([UPSTREAMS.md](UPSTREAMS.md)); an adapter `FrameRow(frame, (vram, cram, reg), sound=..., audible=..., ram=...)` in `core.py` |
 | Game Boy | Nothing per frame: the probe reads stdout (`[LIMIT]`, interpreter inventory) and `--trace-entries`; the CPU comparison is the upstream's `--differential` | A picture hash and a sound hash per frame | A `--frame-trace` flag added to the runtime in `gameboy_runtime.py` (one line per frame: frame, LCD framebuffer hash, APU block hash and non-zero count); adapter in `gameboy.py` |
-| NES | `--hash-out`: frame, CPU trace hash, memory hash, PC, registers, cycles, hardware-state hash; `--wav-out` for the whole run, compared native against reference | A rendered-picture hash and a per-frame audio hash (the WAV has no frame boundaries; the hardware-state hash may change every frame whatever the picture shows) | Two fields appended to `write_hash_line` through `nes_runtime.py` (`pic=` the framebuffer hash, `snd=` the hash and non-zero count of that frame's PCM); both runs write them, so the native/reference line comparison stays valid; `FrameRow(frame, pic, sound=snd, audible=..., ram=mem, pc=PC)` |
 | Mega Drive | `--trace` of the 16-bit host (`console16_main.c`, not passed by the conversion today): frame hash, native and interpreted counters, per-frame audio hash, PC, SR, SP, Z80 PC, bus lines, per-frame FM and PSG non-zero counts | The probe does not request the trace; no per-frame RAM hash (the RAM hash is final only) | Pass `--trace` on the delivered file's probe runs and read it in `megadrive_*` or `console16.py`: `FrameRow(frame, frame_hash, sound=audio_hash, audible=fm_nonzero + psg_nonzero > 0, pc=pc)` |
 | Super Nintendo | The same `--trace` without the Mega Drive columns (frame hash, counters, audio hash); the report already holds `last_picture_change_frame`, `last_audible_frame`, `last_device_frame`, `visible_frames`, `pcm_nonzero`, which `validate_device_liveness` reads for device cartridges only | The trace carries no audible flag and the conversion does not request it; the report has no counts of pictures or audible frames, so an ordinary cartridge has no liveness record | Pass `--trace`, add the non-zero count of the frame's PCM to the trace line (one column, shared with the Mega Drive adapter); keep `validate_device_liveness` and its windowed rule (picture, device and sound all quiet for the last quarter of the run) for the device cartridges and give an ordinary cartridge `frozen_route` on the same record |
 
@@ -192,6 +196,57 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 | G14 | ? | No recorded owner decision (draft row below) | Arthur's play test |
 | G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
 | G16 | - | No CPS-1 path is qualified; the sharing can be withdrawn | |
+
+## Nintendo NES: evidence behind its column (1 November 2026)
+
+The NES is **supported within its validated cartridge and peripheral scope**. This is what each gate rests on, with the file or
+measure that shows it and what is still missing. `Y` here is the letter the evidence supports; the status matrix above keeps
+the letters of 27 October until the lead changes them. Nothing here says exact hardware, gameplay coverage or latency.
+
+Two trees gave the evidence. The campaign (G3, G4, G9) ran on the 1.6.6 tree before the delivered-file checks existed
+(the converter of 30 October plus the PAL NMI change); the delivered-file checks (G5 to G8) ran on the tree that has them, on
+the games named in each row.
+
+| Gate | NES | Evidence | What is missing |
+|---|---|---|---|
+| G1 | Y | `retrorecomp/systems/nes.py` (status `supported`), [NES.md](NES.md), `tools/status_lint.py` | |
+| G2 | Y | Common report v2 (`report_schema.py`): the main 6502's counters per route in cycles (native, interpreted in ROM, in RAM, elsewhere), `native_validation`, `final_checks[].liveness`, `game_states` with its fresh-process check, `ordinary_saves`, `packed` with its replay. The 2A03's APU is part of the CPU and no cartridge device runs instructions, so there is no device or audio-CPU section | Counts are in cycles, not instructions (the generated code does not count them: that would be a cost in the hot path); freshness, the library and the website still read the old keys |
+| G3 | Y | 1 November 2026, campaign of eight games at the thorough level (below): 0 interpreted cycles on all 64 routes (8 games, 8 routes each). Ballblazer, the one old report that showed fallback (32,283 RAM cycles, 0.22), converts with 0 on the current tree after one RAM entry is learned | Only on the routes run. Of 45 library traces, 9 games run code from RAM (one to 486 entries each); the others have none |
+| G4 | Y at the extended and thorough levels | A fresh interpreter reference per route in every conversion: the CPU trace, the memory and hardware hashes and, since 1.6.6, the hash of every picture and every frame's sound, then the exact PCM. At the thorough level every route is compared whole: 57,600 frames per game, **460,800 frame pairs** over the eight campaign games, all equal. At the default level the reference covers 120 or 600 frames of each 3,600-frame route (`final_checks[].reference_frames` says how many) | The reference is the engine's own interpreter, so this is agreement between two executions of the same machine model, not an independent oracle (that is G10) |
+| G5 | Y per conversion | Since 1.6.6 the conversion compresses a copy of the build as publication does, replays it on every route and compares each per-frame trace and the PCM with the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/delivery_evidence.py`). Balloon Fight, Asterix, The Legend of Zelda, Mr. Gimmick, Gumshoe and Castlevania III matched on their three default routes (for Balloon Fight the SHA-256 of the published file equals the replayed candidate's) | Replayed on the routes of the conversion's level, not on every game of the library |
+| G6 | Y per conversion | Since 1.6.6 F8/F9 are checked in a fresh process on the delivered file (`retrorecomp/nes_checks.py`, `game_states.validation`): a start and a missing load create no file, two saves of one run are identical, a state loaded in another process continues with the same CPU, memory, hardware, picture and sound (180 frames after a save at frame 600 of the play route), and six damaged states (magic, ABI, ROM identity, region, payload, truncation) are refused without touching either file | |
+| G7 | Y | `tools/nes_saves_check.py` on a cartridge written for the check (MMC1, battery RAM, a program that counts its launches): the first launch saves 1, the second finds it and saves 2, a second conversion over the same export leaves the file as it was, and the new build saves 3; the conversion's own probes left no file beside the export. The report says what a game saves (`ordinary_saves`: battery or none, the file's path) | No real game was seen saving a score or a position on purpose: that needs play beyond the routes. The check is a developer tool, not run during a conversion |
+| G8 | Y | Every route of every conversion carries a liveness record (`final_checks[].liveness`: distinct pictures, picture changes, last picture change, audible frames, last audible frame, distinct sound blocks, RAM states and program counters) read from the per-frame trace, and the conversion refuses a game whose main route (the right-hand play run) never changes its picture. End-of-route pictures of the eight campaign games were looked at (G9) | A route may rest on a title or a menu. The main route moves, but the record shows how little on some games at the default level: the right-hand run of The Legend of Zelda has 124 different pictures in 3,600 frames, and that of Mr. Gimmick has no sound after frame 181 |
+| G9 | Y | The thorough level runs six authored routes of 3,600 frames (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run) and two pseudo-random routes of 18,000 frames seeded from the exact ROM, 57,600 frames per game. `tools/nes_route_captures.py` replays them on the delivered files and takes the last picture: **all eight games reached play on at least one route**. The Legend of Zelda (the overworld, Link in the field), Mr. Gimmick (the first stage, score 130), Esper Dream 2 (rooms and a dialogue), Gumshoe (a water stage with a score), Front Line (the road, score 300), Commando (the field, then the title with a score of 450: a game over), Castlevania III (stage 1-02) and Kirby's Adventure (Vegetable Valley) | First stages only, not full games. The pictures were looked at by the specialist agent, not by the owner. Kirby stays on its first level on both long routes; Gumshoe's second long route ends on a plain blue picture |
+| G10 | Y | The separate TriCNES-derived software oracle on NTSC routes (see the validation sections of [NES.md](NES.md)) | PAL has no independent oracle |
+| G11 | P | Authored fixtures of the clock, the APU, the Zapper and the mappers ([NES.md](NES.md#self-tests)) | No external emulator or hardware comparison; fine 2C07 register races and the PAL vblank-clear timing are unconfirmed (NESdev lists it as such) |
+| G12 | P | The eight games below, the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
+| G13 | P | Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | No campaign on Debian for the NES in 1.6.6 |
+| G14 | ? | No recorded owner decision | Arthur's play test |
+| G15 | P | The five measures stay separate in the report and in [NES.md](NES.md) | The older documents have not all been read for this |
+| G16 | Y | Numeric hints, rechecked and retried without hints on a failed conversion; the RAM entries a conversion adds are permissions the guard checks | |
+
+The campaign (`tools/campaign.py`, thorough level, one conversion at a time, seed 166): the five risk cases of
+`tools/campaign-risk-cases.json` plus Kirby's Adventure for the MMC3 family (a file kept outside the repository for this run) and two
+games drawn at random. Each was chosen for a reason written before the run:
+
+| Game | Mapper | Why | Interpreted cycles | Conversion |
+|---|---|---|---|---|
+| Castlevania III: Dracula's Curse (USA) | MMC5 | Mapped RAM and extra mapper state | 0 | 970 s |
+| The Legend of Zelda (USA) | MMC1 | Battery RAM; code runs from cartridge RAM (1,470 guarded entries at this level) | 0 | 813 s |
+| Mr. Gimmick (Europe) | FME-7, PAL | PAL timing and a CPU-clocked IRQ counter | 0 | 1,161 s |
+| Esper Dream 2 (Japan, translated) | VRC6 | Extra mapper audio | 0 | 843 s |
+| Gumshoe (USA, Europe) | 66 | Zapper input | 0 | 797 s |
+| Kirby's Adventure (USA) | MMC3 | The most common board; its PPU-address IRQ counter keeps the direct PPU clock | 0 | 861 s |
+| Front Line (Japan) | 0 | Drawn at random | 0 | 403 s |
+| Commando (USA) | 2 | Drawn at random | 0 | 399 s |
+
+Eight of eight passed the gates of `tools/release_check.py` (conversion, native and reference agreement, fallback limit). Times
+are those of one run on the Windows build PC while other sessions were working: they say how long a thorough conversion takes,
+not how fast anything runs.
+
+The checks themselves are run by `tools/campaign.py`, `tools/nes_route_captures.py`, `tools/nes_saves_check.py` and
+`tools/nes_state_selftest.py`; none of them needs a ROM in the repository.
 
 ## Panel sizes
 
