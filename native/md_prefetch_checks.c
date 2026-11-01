@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
 #include "md_native_steps.h"
 #include "md_prefetch.h"
 static unsigned paid;
@@ -65,10 +66,17 @@ uint32_t m68k_read32(uint32_t a) {uint32_t hi=m68k_read16(a);uint32_t lo=m68k_re
 void m68k_write8(uint32_t a,uint8_t v) {rr_md_prefetch_before_write();log_tx('w',a,v,1);flat_bus[a&0xffffffu]=v;}
 void m68k_write16(uint32_t a,uint16_t v) {rr_md_prefetch_before_write();log_tx('w',a,v,2);flat_bus[a&0xffffffu]=v>>8;flat_bus[(a+1)&0xffffffu]=v;}
 void m68k_write32(uint32_t a,uint32_t v) {m68k_write16(a,v>>16);m68k_write16(a+2,v);}
+/* RR_MD_COLLECT_FAILURES=1 (maintainer's exploration of a new fixture): a failing case is listed and the next one runs,
+ * and the exit status is 1 at the end. Without it the first failure ends the run, as the self-test always did. */
+static int collecting;
+static jmp_buf case_failed;
+static unsigned failed_cases;
 static void fail(const CorpusCase *test, const char *field, uint32_t expected, uint32_t got) {
     fprintf(stderr, "FAIL %s %s %s expected=%08x actual=%08x\n",
             test->name, force_reference ? "reference" : "native", field, expected, got);
-    exit(1);
+    if (!collecting) exit(1);
+    ++failed_cases;
+    longjmp(case_failed, 1);
 }
 static void run_case(const CorpusCase *test) {
     memset(&g_cpu, 0, sizeof g_cpu); memset(flat_bus, 0, sizeof flat_bus);
@@ -179,9 +187,14 @@ static void changing_move_extension(void) {
        g_cpu.PC!=0xff1006 || g_audio_cycle_counter!=20 || fallback!=(unsigned)force_reference)abort();
 }
 int main(void) {
+    collecting = getenv("RR_MD_COLLECT_FAILURES") != NULL;
     unsigned count = sizeof corpus_cases / sizeof *corpus_cases;
     for (force_reference = 0; force_reference <= 1; ++force_reference)
-        for (unsigned i = 0; i < count; ++i) run_case(&corpus_cases[i]);
+        for (unsigned i = 0; i < count; ++i) { if (!setjmp(case_failed)) run_case(&corpus_cases[i]); }
+    if (failed_cases) {
+        printf("{\"corpus_cases\":%u,\"failed_cases\":%u,\"passed\":false}\n", count, failed_cases);
+        return 1;
+    }
     for(force_reference=0;force_reference<2;++force_reference) {stale_queue();exception_phases();changing_move_extension();}
     printf("{\"corpus_cases\":%u,\"native_checks\":%u,\"reference_checks\":%u,\"stale_ram_and_self_modifying_pipeline\":true,\"authored_trace_and_autovector\":true,\"concurrent_MOVE_extension\":true,\"passed\":true}\n", count, count, count);
     return 0;
