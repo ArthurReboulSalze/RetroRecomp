@@ -92,6 +92,29 @@ def main():
     assert native[0] == reference[0] == 0x7C, (native[0], reference[0])
     assert wz_report["reference_final_ram_match"] is True and wz_report["reference_vdp_trace_match"] is True
     print("PASS: BIT n,(HL) after a RET takes X and Y from WZ (native flags equal the reference).")
+    # 4. Learning from the counted interpreter: the routine at $0200 is reached by a computed jump the static walk cannot follow
+    #    (HL is loaded from RAM), so it runs in the interpreter; the routines it CALLs ($0300, $0320) used to stay unknown until the
+    #    next pass found them one by one. They are now recorded in the same pass.
+    learn_data = bytearray([0xC9] * 8192)
+    learn_data[:3] = bytes.fromhex("C3 00 01")
+    # DI; LD SP,$DFF0; XOR A; LD ($C100),A; LD A,2; LD ($C101),A; LD HL,($C100); JP (HL)
+    learn_data[0x100:0x112] = bytes.fromhex("F3 31 F0 DF AF 32 00 C1 3E 02 32 01 C1 2A 00 C1 E9 00")
+    # $0200: CALL $0300; CALL $0320; HALT; JP $0209    $0300: LD A,1; LD ($C000),A; RET    $0320: LD A,2; LD ($C001),A; RET
+    learn_data[0x200:0x20C] = bytes.fromhex("CD 00 03 CD 20 03 76 C3 09 02 00 00")
+    learn_data[0x300:0x306] = bytes.fromhex("3E 01 32 00 C0 C9")
+    learn_data[0x320:0x326] = bytes.fromhex("3E 02 32 01 C0 C9")
+    learn_rom = directory / "Interpreter_call_targets_test.sms"
+    learn_rom.write_bytes(learn_data)
+    learn_exe = convert(learn_rom, title="CPU_Learn_Targets_Test", output=directory / "learn-output", backend="functions", passes=1, frames=3, online_cover=False)
+    learn_report = json.loads((learn_exe.parent / "conversion-report.json").read_text())
+    learn_build = Path(learn_report["build_directory"])
+    # What the first pass itself observed (its learning journal), before any later pass or the static walk could find the callees.
+    journal = next((learn_build / "checks/pass1_demo/learning").glob("*/observations.log"))
+    learned = {int(line.split()[0], 16) for line in journal.read_text().splitlines() if line.strip()}
+    assert {0x0200, 0x0300, 0x0320} <= learned, sorted(hex(a) for a in learned)
+    native = (learn_build / "checks/pass1_demo/frame.png.ram").read_bytes()
+    assert native[0:2] == bytes([1, 2]), native[0:2]
+    print("PASS: the call targets run by the interpreter are learned in the same (only) pass ($0200, $0300, $0320).")
     # Execute an authored RAM loop that cannot be compiled from ROM. A frame
     # limit exits from inside its interpreter call, exercising the in-flight
     # tally and strict rejection rather than only completed fallback routines.

@@ -204,6 +204,15 @@ class FunctionsInterruptContractTests(unittest.TestCase):
         # The count of RET continuations beyond the nesting bound is printed with the other [exec] counters (functions only).
         self.assertEqual(text.count('[exec] ret_nest_overflow: %u'), 1)
         self.assertNotIn('ret_nest_overflow', glue['banked'])
+        # Learning from the counted interpreter: taken CALL/RST and JP (HL)/(IX)/(IY) targets are recorded (ROM only, once per address
+        # and slot bank, 4096 at most); the execution path is unchanged and the banked runtime does not have it.
+        self.assertEqual(text.count('static void hyb_record_target(uint16_t target){'), 1)
+        self.assertIn('#define HYB_RECORD_MAX 4096u', text)
+        self.assertIn('if (target >= 0xC000u || g_hyb_recorded >= HYB_RECORD_MAX) return;', text)
+        self.assertIn('if (cls == 2) hyb_record_target(g_hz.pc);', text)
+        self.assertIn('else if (cls == 1 && dsp == -2){ depth++; hyb_record_target(g_hz.pc); }', text)
+        self.assertIn('if (b == 0xE9)          return +2;', text)
+        self.assertNotIn('hyb_record_target', glue['banked'])
         # A RET that unwinds every generated frame continues at the address it popped, with a guard.
         self.assertIn('next = sms_read16((uint16_t)(g_z80.sp - 2));', text)
         self.assertIn('else if (++idle > 100000) break;', text)

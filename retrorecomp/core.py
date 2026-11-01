@@ -689,6 +689,32 @@ void sms_set_sync_deadline(void){
             }
         }
 #endif''')
+    # Learning only: a miss runs the whole call tree below it in the counted interpreter, and only the missed address used to be
+    # recorded, so a main loop entered by a miss stayed interpreted and each pass learned one or two entries more. The targets of
+    # the CALL, RST and JP (HL)/(IX)/(IY) the interpreter takes are now recorded too, as function-entry candidates, with the manifest's
+    # own record (address, the three slot banks, code CRC), once per address and slot bank, at most 4096 per run, ROM addresses only.
+    # What runs is unchanged. They are executed addresses: they decode, and the static walk and the code CRC check them as any seed.
+    glue = replace_once(glue, 'static int hyb_cf_class(uint16_t pc){',
+        '''static uint16_t g_hyb_seen[0x10000];   /* slot bank + 1 of the last record of an address, 0 = none */
+static unsigned g_hyb_recorded;
+#define HYB_RECORD_MAX 4096u
+static void hyb_record_target(uint16_t target){
+    if (target >= 0xC000u || g_hyb_recorded >= HYB_RECORD_MAX) return;      /* RAM code has its own windows */
+    uint16_t bank = (uint16_t)(g_bank[target >> 14] + 1);
+    if (g_hyb_seen[target] == bank) return;
+    g_hyb_seen[target] = bank;
+    g_hyb_recorded++;
+    manifest_record(target);
+}
+static int hyb_cf_class(uint16_t pc){''')
+    glue = replace_once(glue, '    if (b == 0xC9)          return -1;   /* RET        */',
+        '    if (b == 0xE9)          return +2;   /* JP (HL): a computed jump */\n'
+        '    if ((b == 0xDD || b == 0xFD) && sms_read8((uint16_t)(pc+1)) == 0xE9) return +2;   /* JP (IX)/(IY) */\n'
+        '    if (b == 0xC9)          return -1;   /* RET        */')
+    glue = replace_once(glue, '        int dsp = (int16_t)(g_hz.sp - sp0);\n',
+        '        int dsp = (int16_t)(g_hz.sp - sp0);\n        if (cls == 2) hyb_record_target(g_hz.pc);          /* computed jump: learn its target */\n')
+    glue = replace_once(glue, '        else if (cls > 0 && dsp == -2) depth++;           /* taken CALL/RST           */',
+        '        else if (cls == 1 && dsp == -2){ depth++; hyb_record_target(g_hz.pc); }   /* taken CALL/RST */')
     # An accepted interrupt is an RST $38 for the CPU: WZ becomes $0038 (the reference's mem_ptr does).
     glue = replace_once(glue, '    sms_write16(g_z80.sp, g_dbg_pc);\n',
         '    sms_write16(g_z80.sp, g_dbg_pc);\n    g_z80.wz = 0x0038;                   /* RST $38: WZ follows, as in the reference CPU */\n')
