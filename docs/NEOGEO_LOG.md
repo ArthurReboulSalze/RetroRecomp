@@ -1316,6 +1316,15 @@ the SFIX, SM1 and LO components used by this hardware profile. A future bundled
 replacement must check all four components and retain their applicable notices
 and source obligations. Do not include the current private BIOS in a release.
 
+## The sound CPU's Z80 corrected, 1 November 2026 (1.6.6)
+
+The Geolith Z80 shared with the CPS-1 is corrected in the converter's copy (`neogeo_z80.FIXES`, 19 replacements; see
+[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)). Conversions of `nam1975` and `mslug3` before and after
+(`tools/ab_conversion.py`, same empty library): picture and sound hashes identical on every route; the Z80, RAM and hardware hashes of the AES
+play route of `nam1975` differ from frame 2380 (cause: `LD A,R`, which the game reads, now leaves the X and Y bits of the result in F, and an
+interrupt pushes that F into the Z80 RAM), and the per-frame state checks of `mslug3` from row 506 (WZ of `LD IX,(nn)`, then `IN r,(C)`).
+The Neo Geo game stamp and quick-state key move ([UPGRADES.md](UPGRADES.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)).
+
 ## Scan levels
 
 **Options → Neo Geo → Discovery scan**: the qualification routes of each

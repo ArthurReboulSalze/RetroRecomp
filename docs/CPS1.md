@@ -268,12 +268,13 @@ and 864 exception vectors, MIT, generated with MAME) are replayed through the CP
 clocks, and the Musashi reference differs from the vectors in a few named groups (division and `CHK` flags, `CHK` clocks,
 one line-F frame). The numbers, the two authored trace vectors that neither path delivers and the limits are in
 [CPU_68000.md](CPU_68000.md#tests-and-vectors). **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
-Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The
-native and the interpreted path agree on every vector; both agree with the oracle on 98.2 percent of them for the state and 99.7
-percent for the clock. The differences are named in [CPU_Z80.md](CPU_Z80.md#tests-and-vectors) (flags, WZ, the port address of the block
-output instructions, a few undocumented opcodes): they are the Geolith core's, not the translation's, and they are the reason G10 stays
-partial. Carrying our own corrections, as the Mega Drive and the Master System do, would change generated code and the stamps of the
-machines that share this core: it has not been done.
+Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The native
+and the interpreted path agree on every vector. The pinned core disagreed with the oracle on 899 vectors (flags, WZ, the port address of the
+block output instructions, a few undocumented opcodes): since 1.6.6 the converter carries its own corrections of its copy of the core
+([UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)), and **51,260 vectors (99.87 percent) agree on the state and all on the
+clock**. What remains is the X and Y flags of `SCF` and `CCF`, which need the Q latch of the chip ([CPU_Z80.md](CPU_Z80.md#tests-and-vectors)).
+The same core is the Neo Geo's sound core: its conversions were compared before and after (`nam1975`, `mslug3`), with unchanged picture and
+sound hashes.
 
 **Liveness (G8).** Since 1.6.5 each route of the conversion report carries `final_checks[].liveness`, read from the route's
 per-frame trace: `distinct_pictures`, `picture_changes` and `last_picture_change_frame` (frames whose image hash differs from
@@ -339,10 +340,10 @@ first stage and `1941` looping through play and its title.
 | G7 saves | no non-volatile memory on the standard boards | not applicable |
 | G8 liveness | the table above (26 sets) | met |
 | G9 route depth | the credited play route reaches play on 26 of 26 sets (captures inspected by the specialist); the 18,000-frame route ran on 3 sets | met for the routes run; the owner has not inspected the captures |
-| G10 independent CPU evidence | 68000: 3,787 of 3,787 vectors; Z80: 51,328 vectors, 98.2 percent of the state, differences named | partial |
-| G11 independent hardware evidence | MAME 0.289, picture, repeated on the 1.6.5 tree (30 October): 23 sets identical on every compared frame of both routes, one slips; sound not repeated | partial |
+| G10 independent CPU evidence | 68000: 3,787 of 3,787 vectors; Z80: 51,328 vectors, 99.87 percent of the state and all clocks after the 1.6.6 corrections, the `SCF`/`CCF` flags named | met, with that named exception |
+| G11 independent hardware evidence | MAME 0.289, picture and sound, repeated on the 1.6.5 tree (30 October and 1 November): 23 sets identical on every compared frame of both routes, one slips; sound within 0.42 dB (median level) and 0.99 (averaged spectra) on 24 sets | partial |
 | G12 panel | 26 sets, all measured on 29 October; the policy for a common panel size is not decided | the owner's call |
-| G13 cross-OS witness | Final Fight (27 October) and Street Fighter II' Champion Edition (30 October, 1.6.5 tree): the same route hashes on Windows and Debian 13 | partial: two sets of 26 |
+| G13 cross-OS witness | Final Fight (27 October), Street Fighter II' Champion Edition (30 October) and 1941 (1 November): the same route hashes on Windows and Debian 13 | partial: three sets of 26 |
 | G14 owner acceptance | owner trials of 27 October reported in chat, not recorded; a draft row is in QUALIFICATION.md | open |
 | G15 honesty | the five measures separate everywhere; "zero" means the routes run | met |
 | G16 shared knowledge | no CPS-1 path is qualified; the sharing is withdrawable | not applicable |
@@ -386,6 +387,14 @@ pixel (details in [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors
   0.998 to 0.99998 (cosine similarity); differences of up to about 18 dB in
   single windows between 5 and 10 kHz, from the OKI interpolation. Physical
   audio and latency are not measured.
+
+**Sound repeated on the 1.6.5 tree (1 November 2026)** with `tools/cps1_mame_compare.py --sound`: MAME's WAV at the YM2151 rate against the
+game's own samples, same credited play route, one-second windows with sound on both sides (windows silent on one side are counted, not
+compared). On the 24 comparable sets the median difference of level is at most 0.42 dB (0.41 for `sf2hf`, the set that slips by a frame, 0.37 for `pokonyan`; the others 0.006 to 0.14 dB), no
+single window differs by more than 1 dB except Street Fighter II' Hyper Fighting (5.4 dB, the set that slips by a frame), the averaged
+magnitude spectra agree to a cosine of 0.991 or more (0.986 for `sf2hf`), and every third-octave band of the averaged spectrum agrees within
+1.1 dB below 4 kHz and 2 dB from 5 kHz to 16 kHz (1.4 and 1.6 dB for `sf2hf`). The waveform correlation is lower (0.22 to 0.86): the OKI is
+interpolated linearly here and filtered differently by MAME, so waveforms are not claimed equal. Per set: [CPS1_LOG.md](CPS1_LOG.md#1-november-2026-166-tree-z80-corrections-sound-against-mame-and-a-third-linux-witness).
 
 ## Known limits
 
@@ -435,6 +444,8 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
 - 29 October 2026 (1.6.5): the Z80 interrupt mode 0 opcode is counted; eleven sets requalified; independent 68000 vectors
   replayed through the CPS-1 generator; route liveness fields in the report; the whole panel of 26 sets requalified, play-route captures
   inspected and the 18,000-frame route run on three sets.
+- 1 November 2026 (1.6.6 tree): the Z80 core corrected in the converter's copy (51,260 of 51,328 vectors, all clocks), the comparison with MAME
+  extended to the sound, a third Linux witness (1941).
 - 30 October 2026 (1.6.5): independent Z80 vectors replayed through the CPS-1 path, the comparison with MAME repeated on the 26
   sets with a tool kept in the repository, and a Linux witness (Street Fighter II' Champion Edition, identical route hashes).
 - 1.6.4: code run from graphics RAM is guarded natively (`sf2ce` goes to zero

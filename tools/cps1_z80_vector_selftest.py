@@ -36,12 +36,15 @@ FIELDS = 'pc sp a f b c d e h l i r ix iy wz af_ bc_ de_ hl_ im iff1 iff2'.split
 IMAGE_BYTES = 0x8000
 SLOT = 4
 NO_SLOT = 0xffffffff
-# Geolith's Z80 differs from the oracle on a few behaviours the original core never modelled; both paths share them, so they are
-# pinned (corpus revision, 32 vectors per family, Geolith pin) and any change, better or worse, fails until the page is updated:
-# 899 of 51,328 vectors differ on state (flags 535, WZ 480, IM 38, IFF1 16, ports 128; a vector can differ on several), 128 on the clock.
+# The corrections of `neogeo_z80.FIXES` leave one family of differences, pinned here with the corpus revision, the sample size and the
+# Geolith pin (any change, better or worse, fails the tool until the pages are updated): 68 vectors of 51,328 differ on the state, all of
+# them the X and Y flags of SCF and CCF (and their DD/FD duplicates), which need the Q latch of the original chip (the flags the previous
+# instruction left): carrying Q costs a store per Z80 instruction and a state field, and has not been done. The clock agrees on all.
 BASELINE = {'corpus_revision': 'ebe1875d48f374bcfd4b505d8eb8ee751568b5f7', 'samples_per_family': 32, 'cases': 51328,
-            'native_state': 50429, 'native_clock': 51200,
-            'field_failures': {'f': 535, 'wz': 480, 'im': 38, 'iff1': 16, 'memory': 0, 'ports': 128}}
+            'native_state': 51260, 'native_clock': 51328,
+            'field_failures': {'f': 68, 'memory': 0, 'ports': 0},
+            # the families that still differ, with their number of vectors: all of them SCF and CCF and their DD/FD duplicates
+            'families': {'37': 4, '3f': 7, 'dd 37': 12, 'dd 3f': 17, 'fd 37': 11, 'fd 3f': 17}}
 
 
 def window(case: dict) -> bytes:
@@ -148,7 +151,9 @@ def problems(result: dict) -> list[str]:
         found.append(f"the native and interpreted paths differ on {cases - totals['paths_equal']} vector(s) of state and {cases - totals['paths_clock_equal']} of clock")
     if (result['corpus_revision'], result['samples_per_family'], cases) == (BASELINE['corpus_revision'], BASELINE['samples_per_family'],
                                                                          BASELINE['cases']):
-        if totals['native_state'] != BASELINE['native_state'] or totals['native_clock'] != BASELINE['native_clock']                 or result['field_failures']['native'] != BASELINE['field_failures']:
+        differing = {f['family']: f['cases'] - f['native_state'] for f in result['families'] if f['native_state'] != f['cases']}
+        if (totals['native_state'] != BASELINE['native_state'] or totals['native_clock'] != BASELINE['native_clock']
+                or result['field_failures']['native'] != BASELINE['field_failures'] or differing != BASELINE['families']):
             found.append('the differences with the vectors changed from the pinned baseline '
                          f"(state {totals['native_state']}, clock {totals['native_clock']}, fields {result['field_failures']['native']}); "
                          'review them, then update BASELINE and the CPU_Z80.md page')

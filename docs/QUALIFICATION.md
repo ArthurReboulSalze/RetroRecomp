@@ -46,7 +46,7 @@ x68 = Sharp X68000.
 | G7 | - | - | P | P | Y | P | Y | - | Y |
 | G8 | ? | ? | ? | P | P | Y | Y | Y | Y |
 | G9 | P | P | P | P | Y | P | Y | Y | Y |
-| G10 | Y | Y | P | Y | P | P | P | P | P |
+| G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | P | P |
 | G13 | P | P | P | P | P | P | P | P | Y |
@@ -57,8 +57,8 @@ x68 = Sharp X68000.
 ### Caveats
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
-  rests on captures inspected by the specialist agent, not by the owner. G10 stays `P` (both CPUs now replay independent vectors; the
-  Geolith Z80 core differs from the oracle on named behaviours). G11 and G13 stay `P` with fresher evidence (30 October).
+  rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
+  remain). G11 and G13 stay `P` with fresher evidence (1 November).
 
 - X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
   four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
@@ -201,10 +201,10 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 | G7 | - | No non-volatile memory on the standard boards | |
 | G8 | Y | `final_checks[].liveness` per route (pictures, last picture change, audible frames, last audible frame) for the 26 sets; a route whose picture never changes is refused | Four attract routes are silent (`dynwar`, `ghouls`, `mtwins`, `unsquad`); every set is audible on its play route |
 | G9 | Y | The credited play route of each of the 26 sets reaches play (six captures per set, replayed on the delivered file, inspected); the 18,000-frame route ran on `sf2ce`, `ffight` and `1941` | Inspected by the specialist agent, not by the owner; not full games |
-| G10 | P | 68000: the three SingleStepTests fixtures through the CPS-1 generator, the native steps agree with 3,787 of 3,787 vectors and 80 of 82 authored cases (`tools/cps1_vector_selftest.py`). Z80: 51,328 vectors through the CPS-1 Z80 bodies and the patched Geolith core, native and interpreted identical, 98.2 percent of the state and 99.7 percent of the clock agree with the oracle (`tools/cps1_z80_vector_selftest.py`) | The Geolith Z80 differs from the oracle on flags, WZ, the port address of `OUTI/OUTD/OTIR/OTDR`, IM and IFF1 of a few opcodes (named in [CPU_Z80.md](CPU_Z80.md#tests-and-vectors)); the CPS-1 Musashi reference differs from the 68000 vectors in a few groups; no corrections carried yet |
-| G11 | P | MAME 0.289, picture, repeated on the 1.6.5 tree on 26 sets (`tools/cps1_mame_compare.py`, 30 October): 24 comparable, the attract route identical on all of them, the credited play route identical on 23 | `sf2hf` slips by a frame; two sets need PAL dumps the romsets lack; sound not repeated since 27 October (three sets); MAME is not hardware |
+| G10 | Y | 68000: the three SingleStepTests fixtures through the CPS-1 generator, the native steps agree with 3,787 of 3,787 vectors and 80 of 82 authored cases (`tools/cps1_vector_selftest.py`). Z80: 51,328 vectors through the CPS-1 Z80 bodies and the Geolith core corrected in the converter's copy since 1.6.6, native and interpreted identical, 51,260 states (99.87 percent) and all 51,328 clocks agree with the oracle (`tools/cps1_z80_vector_selftest.py`, `neogeo_z80.FIXES`) | The X and Y flags of `SCF`/`CCF` (the Q latch is not carried: a store per Z80 instruction and a state field); the CPS-1 Musashi reference differs from the 68000 vectors in a few groups (division and `CHK` flags, trace), where the translated steps follow the vectors |
+| G11 | P | MAME 0.289 on the 1.6.5 tree (`tools/cps1_mame_compare.py`, 30 October and 1 November): 24 sets comparable, the picture of the attract route identical on all of them, of the credited play route on 23; the sound within 0.42 dB (median level) and 0.99 (averaged spectra) on the 24 | `sf2hf` slips by a frame; two sets need PAL dumps the romsets lack; MAME is not hardware; the waveforms are not claimed equal (OKI interpolation) |
 | G12 | P | 26 sets, all measured on one tree | The panel size policy is not decided |
-| G13 | P | Final Fight (27 October) and Street Fighter II' Champion Edition (30 October, 1.6.5 tree) give the same CPU, RAM, image, sound and trace hashes on Windows and Debian 13 | Two sets of 26 |
+| G13 | P | Final Fight (27 October), Street Fighter II' Champion Edition (30 October) and 1941 (1 November) give the same CPU, RAM, image, sound and trace hashes on Windows and Debian 13 | Three sets of 26 |
 | G14 | ? | No recorded owner decision (draft row below) | Arthur's play test |
 | G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
 | G16 | - | No CPS-1 path is qualified; the sharing can be withdrawn | |

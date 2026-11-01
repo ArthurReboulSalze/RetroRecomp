@@ -15,14 +15,107 @@ from .neogeo import parse_neo
 from .library import atomic_json
 
 
+# Corrections of the pinned Geolith Z80 (SuperZazu derived), applied to the text at conversion time like every adaptation of
+# a pinned engine: strict replacements that refuse a changed pin. Each one is checked against the independent vectors
+# (SingleStepTests/z80, tools/cps1_z80_vector_selftest.py); the pinned result of that run is in the tool.
+BLOCK_REPEAT = (
+    '// the state a repeating block instruction leaves while it repeats (PC already points back at it)\n'
+    'static inline void block_repeat(z80* const z, bool io) {\n'
+    '  z->mem_ptr = z->pc + 1;\n'
+    '  flag_set(z, xf, GET_BIT(11, z->pc));\n'
+    '  flag_set(z, yf, GET_BIT(13, z->pc));\n'
+    '  if (io) {\n'
+    '    uint8_t b = z->b;\n'
+    '    if (flag_get(z, cf)) {\n'
+    '      flag_set(z, hf, (b & 15) == (flag_get(z, nf) ? 0 : 15));\n'
+    '      b += flag_get(z, nf) ? -1 : 1;\n'
+    '    }\n'
+    '    flag_set(z, pf, flag_get(z, pf) ^ !parity(b & 7));\n'
+    '  }\n'
+    '}\n\n')
+OUTD = (
+    'static void outd(z80* const z) {\n'
+    '  unsigned tmp = rb(z, z->hl), tmp2;\n'
+    '  z->b -= 1;\n'
+    '  z->port_out(z, z->bc, tmp);\n'
+    '  --z->hl;\n'
+    '  z->f = f_szpxy[z->b];\n'
+    '  flag_set(z, nf, GET_BIT(7, tmp));\n'
+    '  tmp2 = tmp + z->l;\n'
+    '  flag_set(z, pf, parity((tmp2 & 7) ^ z->b));\n'
+    '  flag_set(z, hf, tmp2 > 255);\n'
+    '  flag_set(z, cf, tmp2 > 255);\n'
+    '  z->mem_ptr = z->bc - 1;\n'
+    '}')
+
+
+def _repeat(name, io, tail):
+    return (f'{name} repeats with the block repeat state',
+            f'      z->mem_ptr = z->pc + 1;\n    }}\n{tail} // {name}',
+            f'      block_repeat(z, {io});\n    }}\n{tail} // {name}')
+
+
+FIXES = (
+    ('WZ of LD IX/IY,(nn) and LD (nn),IX/IY',
+     '  case 0x2A: cyc += 20; *iz = rw(z, nextw(z)); break; // ld iz,(**)\n'
+     '  case 0x22: cyc += 20; ww(z, nextw(z), *iz); break; // ld (**),iz',
+     '  case 0x2A: { cyc += 20; const uint16_t addr = nextw(z); *iz = rw(z, addr); z->mem_ptr = addr + 1; } break; // ld iz,(**)\n'
+     '  case 0x22: { cyc += 20; const uint16_t addr = nextw(z); ww(z, addr, *iz); z->mem_ptr = addr + 1; } break; // ld (**),iz'),
+    ('JP (IX) and JP (IY) leave WZ alone, like JP (HL)',
+     '  case 0xE9: cyc += 8; jump(z, *iz); break; // jp iz',
+     '  case 0xE9: cyc += 8; z->pc = *iz; break; // jp iz'),
+    ('IN r,(C): WZ is BC + 1 and X and Y follow the value read',
+     'static void in_r_c(z80* const z, uint8_t* r) {\n  *r = z->port_in(z, z->bc);',
+     'static void in_r_c(z80* const z, uint8_t* r) {\n  z->mem_ptr = z->bc + 1;\n  *r = z->port_in(z, z->bc);\n'
+     '  flag_set(z, xf, GET_BIT(3, *r));\n  flag_set(z, yf, GET_BIT(5, *r));'),
+    ('OUTI puts the decremented B on the address bus',
+     '  unsigned tmp = rb(z, z->hl), tmp2;\n  z->port_out(z, z->bc, tmp);\n  ++z->hl;\n  z->b -= 1;',
+     '  unsigned tmp = rb(z, z->hl), tmp2;\n  z->b -= 1;\n  z->port_out(z, z->bc, tmp);\n  ++z->hl;'),
+    ('OUTD is OUTI with its own L, WZ and decrement',
+     'static void outd(z80* const z) {\n  outi(z);\n  z->hl -= 2;\n  z->mem_ptr = z->bc - 2;\n}', OUTD),
+    ('LD A,I copies X and Y from A',
+     '    flag_set(z, pf, z->iff2);\n    break; // ld a,i',
+     '    flag_set(z, pf, z->iff2);\n    flag_set(z, xf, GET_BIT(3, z->a));\n    flag_set(z, yf, GET_BIT(5, z->a));\n    break; // ld a,i'),
+    ('LD A,R copies X and Y from A',
+     '    flag_set(z, pf, z->iff2);\n    break; // ld a,r',
+     '    flag_set(z, pf, z->iff2);\n    flag_set(z, xf, GET_BIT(3, z->a));\n    flag_set(z, yf, GET_BIT(5, z->a));\n    break; // ld a,r'),
+    ('RETI restores IFF1 like RETN',
+     '  case 0x4D: cyc += 14; ret(z); break; // reti',
+     '  case 0x4D: cyc += 14; z->iff1 = z->iff2; ret(z); break; // reti'),
+    ('the undocumented ED 4E and ED 6E are IM 0',
+     '  case 0x46:\n  case 0x66: cyc += 8; z->interrupt_mode = 0; break; // im 0',
+     '  case 0x46:\n  case 0x4E:\n  case 0x66:\n  case 0x6E: cyc += 8; z->interrupt_mode = 0; break; // im 0'),
+    ('the other undocumented ED encodings are 8 T-state NOPs',
+     '  default: break;\n  //fprintf(stderr, "unknown ED opcode: %02X\\n", opcode); break;',
+     '  default: cyc += 8; break;   /* undocumented ED encodings are two-byte NOPs */'),
+    ('a repeating block instruction: WZ is PC + 1, X and Y come from the high byte of the rewound PC, and the repeating input and output forms adjust H and P',
+     'static inline void ldi(z80* const z) {', BLOCK_REPEAT + 'static inline void ldi(z80* const z) {'),
+    _repeat('ldir', 0, '  } break;'),
+    _repeat('lddr', 0, '  } break;'),
+    _repeat('otir', 1, '  } break;'),
+    _repeat('otdr', 1, '  } break;'),
+    _repeat('inir', 1, '    break;'),
+    _repeat('indr', 1, '    break;'),
+    ('cpir repeats with the block repeat state; its last pass moves WZ once, in cpi',
+     '      z->mem_ptr = z->pc + 1;\n    } else {\n      z->mem_ptr += 1;\n    }\n  } break; // cpir',
+     '      block_repeat(z, 0);\n    }\n  } break; // cpir'),
+    ('cpdr repeats with the block repeat state; its last pass moves WZ once, in cpd',
+     '      cyc += 5;\n    } else {\n      z->mem_ptr += 1;\n    }\n  } break; // cpdr',
+     '      cyc += 5;\n      block_repeat(z, 0);\n    }\n  } break; // cpdr'),
+)
+
+
 def adapt_source(source: str) -> str:
-    """Sequence architectural word reads independently of C evaluation order."""
+    """Sequence architectural word reads independently of C evaluation order, then apply `FIXES`."""
     from .gun16_runtime import replace
-    return replace(source,'  return (Z80_READ_BYTE(z->userdata, addr + 1) << 8) |\n'
+    source = replace(source,'  return (Z80_READ_BYTE(z->userdata, addr + 1) << 8) |\n'
         '         Z80_READ_BYTE(z->userdata, addr);',
         '  uint8_t low=Z80_READ_BYTE(z->userdata,addr);\n'
         '  uint8_t high=Z80_READ_BYTE(z->userdata,(uint16_t)(addr+1));\n'
         '  return ((uint16_t)high<<8)|low;')
+    for _, before, after in FIXES:
+        source = replace(source, before, after)
+    return source
 
 
 def function_body(source: str,name: str) -> str:

@@ -216,14 +216,22 @@ the clock count with the vector, and the two paths with each other. P and Q are 
 
 - 38,433 vectors lie in the sound ROM windows and 1,615 in sound RAM: each ran as exactly one native step. 11,280 lie where the
   board has no native step (program counter from `0xC000`, outside sound RAM): each ran interpreted and was counted once.
-- The native and the interpreted path agree with each other on all 51,328 vectors, state and clock. Against the vectors, both
-  agree on 50,429 (98.2 percent) for the state and on 51,200 (99.7 percent) for the clock. The differences are the Geolith core's,
-  shared by both paths, and are pinned in the tool (any change fails it until this page is updated): flags (535 vectors: `SCF` and `CCF`,
-  the block instructions, `LD A,I` and `LD A,R`, the flags after `IN r,(C)`), WZ (480: `IN r,(C)`, `LD (nn),IX/IY`, `LD IX/IY,(nn)`,
-  `JP (IX/IY)`), the port address of `OUTI`, `OUTD`, `OTIR` and `OTDR` (128), IM of the undocumented `ED 4E` and `ED 6E` (38), IFF1
-  after `RETI` (16), and the clock of the undocumented `ED 4E`, `ED 6E`, `ED 77` and `ED 7F`. The table per family is in
-  [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness). Interrupt acceptance, the
-  YM2151 and OKI lines and the board are not covered. The oracle is JSMoo, not silicon.
+- The native and the interpreted path agree with each other on all 51,328 vectors, state and clock. The pinned Geolith core did
+  not agree with the oracle on 899 of them (50,429 matched on the state, 51,200 on the clock): the flags and WZ of `IN r,(C)`, the
+  X and Y flags of `LD A,I`, `LD A,R` and of the repeating block instructions, WZ of `LD IX/IY,(nn)`, `LD (nn),IX/IY` and `JP (IX/IY)`,
+  the port address and flags of `OUTI`, `OUTD`, `OTIR` and `OTDR`, IFF1 after `RETI`, and the undocumented `ED` encodings. Since 1.6.6
+  the converter carries corrections of its own copy of the core (`neogeo_z80.FIXES`: 19 strict replacements that refuse a changed pin,
+  written from the Zilog manual and these vectors, listed in
+  [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)). With them, **51,260 vectors (99.87 percent) agree with the
+  oracle on the state and all 51,328 on the clock**, native and interpreted alike. The core is also the Neo Geo's sound core.
+- 68 vectors remain: the X and Y flags of `SCF` and `CCF` and of their `DD`/`FD` duplicates, which on the original chip come from the
+  flags the previous instruction left (the Q latch). Carrying Q would add a store after every Z80 instruction, on a hot path, and a
+  field to the saved state: it has not been done. The classic approximation (X and Y of A or F) was measured: it fixes the `DD`/`FD`
+  duplicates but is worse for the documented opcodes (18 vectors against 11), so it is not taken. The tool pins these figures and the six
+  families concerned (any change fails it until this page is updated).
+  The table per family is in
+  [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness) (figures before the corrections).
+  Interrupt acceptance, the YM2151 and OKI lines and the board are not covered. The oracle is JSMoo, not silicon.
 
 **Differential checks in every conversion.** Each conversion also runs its routes twice and compares the native run with a
 reference that interprets every Z80 instruction: the corrected SuperZazu in lockstep on the Master System and the Game Gear

@@ -302,6 +302,48 @@ each is the patched `hw_mapper.c` (and the new check file). The gain is not meas
 |---|---|---|---|
 | MMC1: a PPU A12 change rebuilds the bank tables only when CHR registers 0 and 1 differ in bits 2-4 in 4 KiB mode | nes | `nes_machine.py` (`_mmc1_a12`, applied to the staged `hw_mapper.c`) | nes |
 
+## Fixes carried as our own patches in 1.6.6
+
+The Z80 of Geolith (SuperZazu derived: the sound CPU of the Neo Geo and of the CPS-1) is corrected in the converter's copy of its text.
+The corrections are strict replacements in `retrorecomp/neogeo_z80.py` (`FIXES`, applied by `adapt_source`), so the interpreter used as
+the reference and the translated bodies take them together, and a changed pin refuses the adaptation. The pin does not move. They were
+written from the instruction behaviours in the Zilog manual, from the public research on the behaviours the manual leaves out and from the
+51,328 independent SingleStepTests/z80 vectors. The rules for X, Y, H and P of the repeating block instructions and for the high byte of PC
+they take come from the research of Patrik Rak (2012), and the Q latch that SCF and CCF depend on (not carried) from the research of Banks
+(2022), as relayed in the maintainer's review of these corrections; neither author's code was read. No other emulator's code was read either, and
+the corrections of our own Master System reference (`retrorecomp/cpu.py`), written earlier from the same sources, served as the checklist. Each
+rule was then checked against the vectors, which are the only authority this page claims. Reproducers: `tools/cps1_z80_vector_selftest.py` (matching states go from 50,429 to 51,260 of 51,328,
+matching clocks from 51,200 to 51,328; only the X and Y flags of `SCF`/`CCF` remain) and `tests/test_z80_fixes.py` (each replacement
+applies once, a changed pin fails).
+
+| Fix | Consoles | Our file | Game stamps that move |
+|---|---|---|---|
+| WZ of `LD IX/IY,(nn)` and `LD (nn),IX/IY` is the address plus one; `JP (IX/IY)` leaves WZ alone, like `JP (HL)` | ng, cps1 | `neogeo_z80.py` (`FIXES`) | ng, cps1 |
+| `IN r,(C)`: WZ is BC plus one and X and Y follow the value read | ng, cps1 | same | ng, cps1 |
+| `LD A,I` and `LD A,R` copy X and Y from A | ng, cps1 | same | ng, cps1 |
+| A repeating block instruction (`LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `INDR`, `OTIR`, `OTDR`): WZ is PC plus one, X and Y come from the high byte of the rewound PC, the repeating input and output forms adjust H and P; the last pass of `CPIR`/`CPDR` moves WZ once | ng, cps1 | same | ng, cps1 |
+| `OUTI` and `OUTD` put the decremented B on the address bus; `OUTD` has its own L, WZ and flags | ng, cps1 | same | ng, cps1 |
+| `RETI` restores IFF1; `ED 4E` and `ED 6E` are `IM 0`; the other undocumented `ED` encodings are two-byte NOPs of 8 T-states | ng, cps1 | same | ng, cps1 |
+
+`GENERATOR_REVISION` of the CPS-1 goes to 9 (the file is a pinned generator source), so a CPS-1 path qualified by the old code waits again;
+none was qualified. Real conversions with `tools/ab_conversion.py` (tree before against tree after, same empty library; `sf2ce` and `ffight`
+on the CPS-1, `nam1975` and `mslug3` on the Neo Geo): the CPS-1 sets give identical generated sources except the Z80 core and its translated
+bodies, and identical reports and evidence (CPU, RAM, picture and sound hashes of every route) except the knowledge record (engine revision) and
+the size of the compressed executable. On the Neo Geo the picture and sound hashes are identical on every route; the Z80 and hardware hashes
+(registers and memory of the sound CPU) differ in the AES play route of `nam1975` from frame 2380 and in the per-frame state checks of
+`mslug3` from row 506. The causes were found by converting again with the corrections switched off one at a time (a control run with all of
+them off reproduces the hashes of 1.6.5 exactly). In `nam1975`, `LD A,R` alone reproduces all three changed hashes of the AES play route
+(`z80_hash`, `hardware_hash` and `ram_hash`): the game reads R, and the X and Y bits of F are now those of the result. The `ram_hash` of the
+Neo Geo covers the main RAM up to the palette RAM and the Z80 RAM, where that F is pushed by the interrupt handler (the saved state at frame 2380
+differs in one byte, F, `0x2c` against `0x04`); nothing else in the route changed. In `mslug3` the WZ of `LD IX,(nn)` and `LD (nn),IX` is the
+first cause (row 506), then the X and Y bits and WZ of `IN r,(C)` (row 3113 alone). These are internal registers and flag bits that the picture
+and the sound never show (their hashes are identical over the whole routes).
+
+One more correction was measured and **not taken**: for `SCF` and `CCF` the classic approximation "X and Y are those of A or F" costs nothing per
+instruction and leaves 18 vectors different instead of 68, but only because it fixes the undocumented `DD`/`FD` duplicates (0 instead of 57);
+for the documented `SCF` and `CCF` it is worse (18 vectors against 11 with X and Y of A alone, which are right whenever the previous instruction
+changed the flags). The Q latch itself would be exact but is not carried (a store per instruction, a field in the saved state).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
