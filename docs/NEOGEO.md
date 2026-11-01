@@ -160,6 +160,8 @@ Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
   (`host`), 68000 ABI, dynamic cycles, IRQ and guards (`m68000`), Z80 ABI and guards (`z80`),
   ordinary saves in fresh processes (`persistence`), and `neogeo_state_selftest.py`
   for a converted game; LSPC, timer, sound-latch and YM2610 fixtures are in the same C checks.
+- **Independent vectors**: `tools/neogeo_vector_selftest.py` with `native/neogeo_vector_checks.c` (a developer harness that builds no
+  game, about five minutes) and `tests/test_neogeo_vectors.py` (no compiler).
 - **Campaign and developer tools**: `tools/neogeo_campaign.py` and
   `neogeo_campaign_review.py` (finite qualification campaign and replay review),
   `neogeo_qualification.py`, `neogeo_prototype.py` (developer entry), `neogeo_state_cross.py`
@@ -264,6 +266,14 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   [68k/Z80 communication](https://wiki.neogeodev.org/index.php/68k/Z80_communication),
   [YM2610 timers](https://wiki.neogeodev.org/index.php/YM2610_timers). These
   qualify the named behaviours, not electrical bus phases.
+- **Independent 68000 vectors (G10, CPU evidence)**: the three SingleStepTests/m68000 fixtures of the repository (834 shift, 2,089
+  prefetch and 864 exception vectors, plus 82 authored cases; MIT, generated with MAME, not recorded from hardware) are replayed by
+  `tools/neogeo_vector_selftest.py` through the Neo Geo generator (`neogeo_codegen.generate` on a synthetic cartridge) and the same
+  Musashi interpreting every instruction, on a flat bus. All 3,869 vectors ran as native steps; the native steps agree with 3,867
+  of them on registers, SR, PC, written bytes and clocks (the two others set the trace bit, which neither path delivers); the
+  Musashi reference agrees with 3,783 on state and 3,823 on clocks and differs in named groups (division flags, `CHK` flags and
+  clocks, one line-F stack byte). It shows CPU behaviour against an oracle neither was written from; it shows nothing of the board, of
+  hardware fidelity or of gameplay, and the clocks are Musashi's table with prefetch disabled ([log](NEOGEO_LOG.md)).
 - **Release check game**: NAM-1975 (`nam1975`), zero interpreted instructions on the
   main and sound CPUs.
 - **Risk cases** (`tools/campaign-risk-cases.json`): Metal Slug 3 (state-ABI
