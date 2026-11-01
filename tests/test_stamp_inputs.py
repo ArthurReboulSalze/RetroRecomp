@@ -133,7 +133,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(used, stamp_inputs.SHARED_GROUPS, 'a profile names a group nobody defines, or a group has no machine')
         # The reuse chains of the nine consoles of 1.6.2, now stated by the profiles.
         self.assertEqual(stamp_inputs.sharing('megadrive_codegen')[:3], ('md', 'x68', 'cps1'))
-        self.assertEqual(stamp_inputs.sharing('conversion_gates')[:3], ('ng', 'x68', 'cps1'))
+        self.assertEqual(stamp_inputs.sharing('conversion_gates')[:4], ('md', 'ng', 'x68', 'cps1'))
         self.assertEqual(stamp_inputs.sharing('guns16')[:2], ('md', 'snes'))
         self.assertEqual(stamp_inputs.RR16_FAMILY[:4], ('md', 'snes', 'ng', 'cps1'))
         self.assertEqual(stamp_inputs.HOST_KIT_FAMILY[:8], ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'))

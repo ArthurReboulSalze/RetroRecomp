@@ -225,7 +225,7 @@ native/nes_machine_checks.c tools/nes_machine_selftest.py
 native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
 tools/nes_state_selftest.py
 retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
-retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/systems/console16.py
+retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/megadrive_evidence.py retrorecomp/systems/console16.py
 retrorecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
 native/m68000_decode_rules_checks.c tools/m68000_decode_rules_selftest.py
