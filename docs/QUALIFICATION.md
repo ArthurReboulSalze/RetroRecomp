@@ -227,14 +227,38 @@ owner fills it in.
 |  |  |  |  |  |
 | _Draft, to fill (CPS-1)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete. The owner trials of 27 October 2026 were reported in chat and are not recorded here._ |
 
-### Draft for Arthur: Sharp X68000 play test (G14)
+### Checklist for Arthur: Sharp X68000 play test (G14)
 
-A draft, not a record: the verdict and the notes are yours. Suggested games, each on the delivered executable and not on a
-reconversion of the day: R-Type (single disk, the control), Metal Sight (five disks: the disk changes), Lemmings (the mouse is
-captured at launch, Ctrl+Alt+M releases it), Super Hang-On (two disks, ejected after loading). For each: it starts without a
-window of errors; the controls answer (arrows, W and X, Enter; the mouse for Lemmings); the sound is the game's; F8 then F9
-restores; a disk change happens by itself where the game asks for one; and for a game that saves on its disk, save, close, start
-again and find the save, then reconvert the game and start the new executable to find it again.
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging
+(not a reconversion of the day), with your own IPL and font ROM chosen in Options → Sharp X68000. Nothing here says exact hardware,
+complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+
+| | R-Type (Irem) | Metal Sight (System Sacom) | Lemmings (Imagineer) | Super Hang-On (Sharp / SPS) |
+|---|---|---|---|---|
+| Why it is here | one disk, the control | five disks: the disk changes | mouse game that drives the mouse chip itself | two disks, ejected after loading |
+| It starts without an error window | | | | |
+| Controls: arrows, **W** and **X** (A and B), **Enter** (Start) | | | The mouse is captured at launch (**Ctrl+Alt+M** releases it); the keyboard or a gamepad also moves the pointer and presses its buttons. Click "1 PLAYER", then play level 1 | The title counter counts down from 99 while the game loads (about two minutes of play time); hold **F5** for fast loading; nothing answers before it reaches 0 |
+| Sound is the game's (music and effects) | | | | |
+| The disk changes by itself, with no key from you | not applicable | at each "insert disk" request, until play | not applicable | none expected: it must run as if there were no policy |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | |
+| Close the window, start the executable again, **F9** loads the state saved before | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour | | | | |
+
+Then three checks on the machine itself, each on one game of your choice:
+
+1. **Save, relaunch, reconvert.** The game's disks are copied beside the player on the first start (`datas/games/x68-<identity>/media`)
+   and the game writes into its own copy. Pick a game you know writes to its disk (a save, a high score, a configuration), save in it,
+   close, start again and find the save; then convert the same game again, start the new executable and find the save once more.
+   None of the four games above is known to save on purpose (the only writes seen in 378 starts are file time stamps of 4 to 12 bytes,
+   above), so this check needs a game that does: tell me which one and I add it to the risk cases. If a disk was damaged, the player moves
+   it to `<name>.unusable-1` and writes the original again; it never deletes it.
+2. **A D88 image.** The collection holds only DIM files, so make a D88 of a disk you own with
+   `python tools/x68000_disk_rewrite.py "R-Type (Irem).dim" --format d88 R-Type.d88` (outside the repository: it holds the whole disk),
+   convert it into another output folder than the DIM's, and play it like the DIM. It is the same game: same identity, same saved data, the
+   same pictures and sound. A D88 from elsewhere with a copy-protection layout (deleted or failing sectors, 2DD) is refused with a reason,
+   on purpose.
+3. **A multi-disk set from a folder.** Add one disk of a numbered set (for example Metal Sight, disk 1 of 5) to the queue: the five disks
+   must join as one game. A set named with a gap (disk 3 missing) is queued with the disks found and the gap is reported in the log.
 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
