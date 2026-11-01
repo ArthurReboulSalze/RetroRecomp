@@ -1,43 +1,158 @@
-# RetroRecomp v1.6.6 (in preparation) — Capcom CPS-1 is no longer experimental, the delivered file is replayed on more machines, Game Boy and Z80 corrections
+# RetroRecomp v1.6.6 — Capcom CPS-1 is supported, SA-1 Super Nintendo games and the Wisdom Tree Game Boy cartridges convert, the delivered file is replayed on more machines
 
-Not published: this section lists only what is already in the tree, and is completed at the release.
-
-- **Capcom CPS-1 is supported.** The owner decided on 1 November 2026, on the evidence in
-  [QUALIFICATION.md](QUALIFICATION.md): the 26 sets he owns are converted and validated (gate G12), and his own play trial of
-  the 1.6.6 executable is still to do (gate G14). A CPS-1 report is `completed` when its final routes interpreted no 68000 and
-  no Z80 instruction, as on the SNK board. The Options note and the Knowledge pop-up no longer call it experimental, in
-  the eight languages. The Linux converter no longer refuses it (three sets give the same route hashes on Debian 13; interactive
-  play, sound and pads on Linux were not witnessed). The shared base does not change: CPS-1 paths stay in their own tier and
-  can still be withdrawn. Nothing here says hardware fidelity, gameplay coverage or latency.
-- **Sound Z80 of the Neo Geo and the CPS-1.** The Z80 of the converter's copy of Geolith is corrected (`IN r,(C)`, the flags of
-  `LD A,I`, `LD A,R` and of the repeating block instructions, `OUTI`/`OUTD`, IFF1 after `RETI`, undocumented `ED` encodings).
-  Against 51,328 independent vectors, 51,260 states and all clocks agree now (50,429 states and 51,200 clocks before). On four
-  Neo Geo and CPS-1 games the pictures and the sound are identical before and after. A Neo Geo quick state of 1.6.5 is
-  refused; a CPS-1 one still loads.
-- **The 68000 decoding rules of the original chip.** `MOVEC`, `BKPT` and the non-control addressing modes of `JMP`, `JSR`,
-  `LEA` and `PEA` (390 opcode words) are now the illegal instruction, and a `$6xFF` branch is one word, in the decoding
-  tools of the Mega Drive, Neo Geo, CPS-1 and X68000. The generated code differs only where data was read as code.
-- **Delivered file replayed and liveness recorded: Mega Drive, Game Boy, Master System and Game Gear.** After the reference
-  comparison, a compressed copy of the build is replayed on every route and must match (Mega Drive, Game Boy, and the Master System
-  and Game Gear with the default engine). Each route records how many pictures and sounds it showed; a conversion whose main
-  route never changes its picture is refused and keeps the previous export. This is evidence that the picture and the sound
-  change, not gameplay validation.
-- **Mega Drive.** 2,895 more independent 68000 vectors from 85 instruction groups are replayed through the generator: 2,315 agree
-  and 580 differ in the ways [CPU_68000.md](CPU_68000.md) lists. No export changes for this.
-- **Game Boy.** Five Wisdom Tree cartridges (Spiritual Warfare, Exodus, Joshua & the Battle of Jericho, the King James Bible,
-  the NIV Bible & the 20 Lost Levels of Joshua), which say "ROM only" in their header, are given their bank latch and now
-  run their other banks. The report lists the cartridge's mapper and the sound unit as devices (with no counter: they are not
-  translated code), and every conversion checks the quick states in a fresh process. Two developer tools prove the saves and
+- **Games that did not convert and now do.** Each was investigated, its cause
+  found and fixed in the converter, and taken off the
+  [KNOWN_FAILURES.md](KNOWN_FAILURES.md) list. "Converts" means the conversion
+  and its checks against the reference pass, with the interpreter counts the
+  report shows; it says nothing about gameplay.
+  - Game Boy: the five Wisdom Tree cartridges (Spiritual Warfare, Exodus,
+    Joshua & the Battle of Jericho, the King James Bible, the NIV Bible & the 20
+    Lost Levels of Joshua). Their header says "ROM only", so their other banks
+    were never seen; the converter now models their bank latch (see Game Boy
+    below).
+  - Super Nintendo: the SA-1 cartridges (map `$23`, chip type `$34` or `$35`, up
+    to 4 MiB) and Street Fighter Alpha 2, whose S-DD1 chip (map `$32`, type
+    `$43` or `$45`, up to 4 MiB) was refused. Only three SA-1 cartridges have
+    been played (Super Mario RPG, Kirby Super Star, Super Bomberman: Panic Bomber
+    W); the others are recognised, not proved. Star Ocean (6 MiB) stays refused:
+    it converts, then stays on a blank screen, for a reason not yet understood.
+  The other entries of that page stay open, with what was tried.
+- **Capcom CPS-1 is supported.** It is no longer experimental, on the
+  owner's decision of 1 November 2026, taken on the evidence of
+  [QUALIFICATION.md](QUALIFICATION.md). Gate G12 (criterion 1): every set of the
+  perimeter that he owns is converted and validated, 26 of 26 (the perimeter has
+  129 sets). Gate G14 is partial: the owner has accepted the change of status;
+  his own play trial of the 1.6.6 executable is still to do. A CPS-1
+  report is `completed` when its final routes interpreted no 68000 and no Z80
+  instruction, as on the SNK board. The Options note and the Knowledge pop-up say
+  it is supported, in the eight languages. The Linux converter no
+  longer refuses it: three sets (Final Fight, Street Fighter II' Champion
+  Edition, 1941) give the same CPU, RAM, image, sound and trace hashes on
+  Windows and on Debian 13 (interactive play, sound and pads on Linux were not
+  witnessed). The shared base does not change: CPS-1 paths stay in their own tier
+  and can still be withdrawn. Nothing here says hardware fidelity, gameplay
+  coverage or latency.
+- **One helper for the delivered-file evidence (gates G5 and G8).**
+  `retrorecomp/delivery_evidence.py` gives every machine that uses it the same
+  two records: the replay of the compressed copy that is delivered against the
+  fresh reference (`native_validation.packed_reference_match` and
+  `packed_candidate_sha256`), and a liveness record per route
+  (`final_checks[].liveness`: pictures, picture changes, audible frames, distinct
+  sound blocks, RAM states and program counters; a figure a machine cannot give
+  is `null`, never 0). A conversion whose main route never changes its picture is
+  refused and keeps the previous export. The Neo Geo, the CPS-1 and the X68000
+  already used it; the Mega Drive, the Game Boy, the NES and the Master System
+  and Game Gear join in this release. This is evidence that the picture and the
+  sound change and that the delivered file is the one tested; it is not gameplay
+  validation.
+- **Master System and Game Gear.** Every conversion records the liveness of each
+  route and refuses a game whose main route never changes its picture; with the
+  default banked engine it also replays the compressed copy on both routes (the
+  optional "functions" engine records liveness only). The "functions" engine
+  keeps the Z80's internal WZ register, learns the targets of the calls it
+  interprets and starts a repeating block instruction with the same sync as the
+  other instructions: from an empty learning state the 15 games of the 1.6.4
+  batch all pass the comparison with the reference CPU (12 in 1.6.5, 9 in
+  1.6.4), and the last pass of each interprets 5 % of its cycles or less. A word
+  read of the runtime header is now two ordered statements, in both engines.
+  The default engine's generated sources are otherwise the same.
+- **Game Boy.** The five Wisdom Tree cartridges run their other banks. The
+  report lists the cartridge's mapper and the sound unit as devices (with no
+  counter: they are not translated code). Every conversion now replays the
+  compressed copy against the reference, records the liveness of each route
+  (refusing a game whose `varied` route never changes its picture) and checks
+  the quick states in a fresh process. Two developer tools prove the saves and
   the states of a delivered file on authored cartridges.
-- **Master System and Game Gear.** The "functions" engine keeps the Z80's internal WZ register, learns the targets of the
-  calls it interprets and starts a repeating block instruction with the same sync as the other instructions: from an empty
-  learning state the 15 games of the 1.6.4 batch pass the comparison with the reference CPU (13 before these two changes, 9 in 1.6.4), and the last pass
-  of each interprets 5 % of its cycles or less. The default banked engine generates the same sources.
-- **Sharp X68000 (experimental).** The converter takes D88 floppy images and recognises DIM, XDF and D88 by their content; a
-  D88 of a standard disk has the identity of its XDF. The report records more of what the conversion checked.
+- **NES.** In PAL, /NMI is now sampled at tick 6, not 5, of the 16-tick CPU
+  cycle, from the 2A07's documented M2 duty cycle (derived, not measured on a
+  console): on authored vblank sweeps 2 of 16 alignment cases see the interrupt
+  one CPU cycle later, and Asterix, Mr. Gimmick and Parodius give identical frame,
+  audio and state evidence on their routes. Every conversion replays the
+  compressed copy on every route against the fresh reference, records the liveness
+  of each route (refusing a game whose main route never changes its picture),
+  checks F8/F9 in a fresh process on the delivered file, and says in the report
+  what the cartridge saves. A campaign of eight games at the thorough level
+  (Castlevania III, The Legend of Zelda, Mr. Gimmick, Esper Dream 2, Gumshoe,
+  Kirby's Adventure, Front Line, Commando) ran with 0 interpreted cycles on all 64
+  routes, 460,800 frame pairs equal; all eight reached play on at least one route
+  (first stages, not full games). Conversions take a few seconds more at the
+  default level and more at the thorough one.
+- **Mega Drive.** The delivered file is replayed on every route and each route
+  records its liveness (a frozen `play` route is refused). 2,895 more independent
+  68000 vectors from 85 instruction groups are replayed through the generator:
+  2,315 agree and 580 differ in the ways [CPU_68000.md](CPU_68000.md) lists. No
+  export changes for the vectors.
+- **Super Nintendo.** SA-1 and S-DD1 cartridges convert (see above). The SA-1
+  program is a counted interpreted device, like the Super FX GSU: its
+  instructions are never in the 65816 percentage, and its battery RAM is the
+  save file and part of the quick state. Three SA-1 titles replayed on two
+  pseudo-random routes of 6,000 frames each interpret no 65816 or SPC700
+  instruction after one learning pass, with about 35,000 to 155,000 SA-1 instructions interpreted per
+  frame (host time was not measured). Three defects of the pinned engine's SA-1
+  are fixed in our copy: the S-CPU reaches the coprocessor at the clock of its own
+  bus cycle, its IRQ request follows its flags, and its NMI is an edge. Two
+  fast-forwards that the pinned engine carries for single cartridges (a Super
+  Mario RPG battle wait loop, a vblank wait of Star Ocean and Super Mario RPG)
+  are off in every build: that battle loop now runs instruction by instruction,
+  with the same cycle count. Hardware fidelity of the SA-1 and the S-DD1, and
+  the other 12 SA-1 cartridges, are not proved.
+- **Neo Geo and CPS-1: the sound CPU.** The Z80 of the converter's copy of
+  Geolith is corrected (`IN r,(C)`, the flags of `LD A,I`, `LD A,R` and of the
+  repeating block instructions, `OUTI`/`OUTD`, IFF1 after `RETI`, undocumented
+  `ED` encodings). Against 51,328 independent vectors, 51,260 states and all
+  clocks agree now (50,429 states and 51,200 clocks before). On four Neo Geo and
+  CPS-1 games the pictures and the sound are identical before and after.
+- **The 68000 decoding rules of the original chip.** `MOVEC`, `BKPT` and the
+  non-control addressing modes of `JMP`, `JSR`, `LEA` and `PEA` (390 opcode
+  words) are now the illegal instruction, and a `$6xFF` branch is one word, in
+  the decoding tools of the Mega Drive, Neo Geo, CPS-1 and X68000. The generated
+  code differs only where data was read as code.
+- **Sharp X68000 (experimental).** The converter takes D88 floppy images and
+  recognises DIM, XDF and D88 by their content; a D88 of a standard disk has the
+  identity of its XDF. The report records more of what the conversion checked.
+- **Conversion on Windows.** If UPX cannot compress and test a game's
+  executable, the game is now published unpacked, exactly as built and
+  validated (a larger file, the same program), with the reason in the conversion
+  log and the report (`packing.unpacked_reason`), instead of the whole
+  conversion failing, as Linux has done since 1.6.0. Windows Defender's
+  machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive)
+  had removed UPX's temporary file while it packed freshly built Neo Geo and NES
+  games. A missing or altered UPX is still an error; games that pack and pass are
+  byte for byte what they were.
 
-Stamps: the game stamp of every console moves from 1.6.5 (the shared `core` for the Master System and Game Gear change); see
-[UPGRADES.md](UPGRADES.md#exports-of-165-in-166-in-development) for each change, its host and build stamps and its quick states.
+**Speed.** No comparison of the host time per frame of 1.6.6 with 1.6.5 is
+recorded yet, and the host time of the SA-1 titles was not measured.
+
+These are native-code and CPU-fidelity changes, evidence about the delivered
+file, and evidence for the "supported" gates; none of them is a measure of
+hardware fidelity, gameplay validation or physical latency.
+
+**Your exports and quick states.** 1.6.6 moves the game stamp of every console
+(the shared `core` that the Master System and Game Gear change belongs to all
+nine), so every export of 1.6.5 is rebuilt once on its next conversion; a game
+the shared base knows still starts from its qualified paths with the quick
+check. No host stamp moves; the build stamp of every console moves with the
+packing change. Quick states are refused cleanly, with a message, where the key
+moved: a Neo Geo and a Super Nintendo state of 1.6.5 are refused; a CPS-1 state
+of 1.6.5 still loads (nothing is lost but the state). The other sections of
+[UPGRADES.md](UPGRADES.md) state no change of key. Cartridge saves (battery
+SRAM, EEPROM, memory cards) are kept; a save the new export cannot use is set
+aside and never crashes or blocks the game. Exports older than 1.6.5 are
+converted in full. The details and the evidence are in
+[UPGRADES.md](UPGRADES.md#exports-of-165-in-166-in-development).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+If an antivirus removes the temporary file of the executable compressor (UPX)
+while a game is being converted, that game is delivered unpacked: larger, and the
+same program.
+
+---
 
 # RetroRecomp v1.6.5 — More games convert, stricter CPS-1 and X68000 checks, speed-ups with identical outputs
 
