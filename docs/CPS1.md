@@ -1,6 +1,6 @@
 # Capcom CPS-1
 
-**Experimental** machine profile (`cps1`): the standard CPS-1 arcade boards at 10
+**Supported** machine profile (`cps1`, since 1.6.6): the standard CPS-1 arcade boards at 10
 and 12 MHz (68000, Z80 sound CPU, YM2151 and OKI MSM6295). QSound boards,
 CPS-1.5/CPS-2, bootlegs and a few special boards are outside this scope. The
 sources and licences of the board model are in
@@ -26,12 +26,12 @@ Processors: [CPU_68000.md](CPU_68000.md) (main CPU) and [CPU_Z80.md](CPU_Z80.md)
 
 | | |
 |---|---|
-| Status | Experimental (the report says `experimental` for every CPS-1 conversion) |
+| Status | Supported since 1.6.6, on the owner's decision of 1 November 2026 and the evidence in [QUALIFICATION.md](QUALIFICATION.md); the owner's play trial of the 1.6.6 executable is still to do. The report says `completed` when no 68000 or Z80 instruction was interpreted on the final routes, `experimental` when some was (as for the Neo Geo) |
 | Accepted | MAME or FBNeo romset `.zip` files, chosen with **Automatic** detection or **Capcom CPS-1** |
 | Scope | 129 of the 233 sets of the catalogue, derived from MAME's CPS-1 driver; for a set outside the scope the converter names the reason (QSound, rotary dial, serial EEPROM, timekeeper RAM, CPS Changer cartridge, bootleg or hack, special start-up, incomplete dump, not working) |
 | Firmware | None: no BIOS is needed |
 | Output | `Games/CPS-1` |
-| Linux | The profile is marked `pending` (not yet "converted and played on Linux"); a Final Fight conversion on Debian 13 gave the same route hashes as on Windows |
+| Linux | The profile is marked `witnessed` since 1.6.6 on three conversions (Final Fight, Street Fighter II' Champion Edition, 1941) that gave the same route hashes on Debian 13 as on Windows; interactive play, sound and pads on Linux were not witnessed |
 
 Sets are recognised by the CRC of their program ROMs, never by name, then every
 file is checked against the catalogue's SHA-1, so renamed members and both
@@ -105,7 +105,7 @@ game stamp and possibly the quick-state key.
 
 ### Paths shared between players
 
-CPS-1 takes part in the shared base of paths as an experimental machine whose
+CPS-1 takes part in the shared base of paths in its experimental tier (schema 3 only), because its
 engine will still change. The 68000 program and the Z80 sound ROM are
 translated whole, so a CPS-1 path is an instruction the game ran from RAM
 (work RAM or sound RAM). After a conversion that passed every check, those the
@@ -128,8 +128,8 @@ is counted in the conversion report (`knowledge`).
   base only. The shared paths are stored apart
   (`datas/knowledge/qualified-v3.json.gz` and `imported-v3.json.gz`); the other
   consoles' banks are untouched.
-- The report still says **experimental**; sharing does not change that, nor
-  does it claim anything about hardware fidelity or play.
+- The experimental tier of the base does not change the machine's status (supported since 1.6.6), and
+  sharing claims nothing about hardware fidelity or play.
 - Feedback kind 14 (a program-ROM instruction left interpreted) is recorded and
   read by nobody: the ROM is swept whole. It is diagnostic only and never
   shared. Kinds 15 and 16 (work-RAM and sound-RAM code met while playing) are
@@ -268,12 +268,13 @@ and 864 exception vectors, MIT, generated with MAME) are replayed through the CP
 clocks, and the Musashi reference differs from the vectors in a few named groups (division and `CHK` flags, `CHK` clocks,
 one line-F frame). The numbers, the two authored trace vectors that neither path delivers and the limits are in
 [CPU_68000.md](CPU_68000.md#tests-and-vectors). **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
-Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The
-native and the interpreted path agree on every vector; both agree with the oracle on 98.2 percent of them for the state and 99.7
-percent for the clock. The differences are named in [CPU_Z80.md](CPU_Z80.md#tests-and-vectors) (flags, WZ, the port address of the block
-output instructions, a few undocumented opcodes): they are the Geolith core's, not the translation's, and they are the reason G10 stays
-partial. Carrying our own corrections, as the Mega Drive and the Master System do, would change generated code and the stamps of the
-machines that share this core: it has not been done.
+Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The native
+and the interpreted path agree on every vector. The pinned core disagreed with the oracle on 899 vectors (flags, WZ, the port address of the
+block output instructions, a few undocumented opcodes): since 1.6.6 the converter carries its own corrections of its copy of the core
+([UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)), and **51,260 vectors (99.87 percent) agree on the state and all on the
+clock**. What remains is the X and Y flags of `SCF` and `CCF`, which need the Q latch of the chip ([CPU_Z80.md](CPU_Z80.md#tests-and-vectors)).
+The same core is the Neo Geo's sound core: its conversions were compared before and after (`nam1975`, `mslug3`), with unchanged picture and
+sound hashes.
 
 **Liveness (G8).** Since 1.6.5 each route of the conversion report carries `final_checks[].liveness`, read from the route's
 per-frame trace: `distinct_pictures`, `picture_changes` and `last_picture_change_frame` (frames whose image hash differs from
@@ -332,20 +333,20 @@ first stage and `1941` looping through play and its title.
 
 | Gate | Evidence for CPS-1 | State |
 | --- | --- | --- |
-| G1 status | profile, README, COMPATIBILITY and interface all say experimental | met |
+| G1 status | profile, README, COMPATIBILITY, INDEX and interface all say supported (`tools/status_lint.py`: 0 contradictions) | met |
 | G2 report | the common report (v2) with separate 68000 and Z80 counters, [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-selective-requalification) | met |
 | G3 native coverage | zero interpreted 68000 and Z80 instructions on both routes of the 26 sets (29 Oct), counted per CPU in each report | met |
 | G4, G5, G6 | `final_checks[].reference_match`, `packed.replay.match`, `game_states.validation` in every conversion | met |
 | G7 saves | no non-volatile memory on the standard boards | not applicable |
 | G8 liveness | the table above (26 sets) | met |
 | G9 route depth | the credited play route reaches play on 26 of 26 sets (captures inspected by the specialist); the 18,000-frame route ran on 3 sets | met for the routes run; the owner has not inspected the captures |
-| G10 independent CPU evidence | 68000: 3,787 of 3,787 vectors; Z80: 51,328 vectors, 98.2 percent of the state, differences named | partial |
-| G11 independent hardware evidence | MAME 0.289, picture, repeated on the 1.6.5 tree (30 October): 23 sets identical on every compared frame of both routes, one slips; sound not repeated | partial |
-| G12 panel | 26 sets, all measured on 29 October; the policy for a common panel size is not decided | the owner's call |
-| G13 cross-OS witness | Final Fight (27 October) and Street Fighter II' Champion Edition (30 October, 1.6.5 tree): the same route hashes on Windows and Debian 13 | partial: two sets of 26 |
-| G14 owner acceptance | owner trials of 27 October reported in chat, not recorded; a draft row is in QUALIFICATION.md | open |
+| G10 independent CPU evidence | 68000: 3,787 of 3,787 vectors; Z80: 51,328 vectors, 99.87 percent of the state and all clocks after the 1.6.6 corrections, the `SCF`/`CCF` flags named | met, with that named exception |
+| G11 independent hardware evidence | MAME 0.289, picture and sound, repeated on the 1.6.5 tree (30 October and 1 November): 23 sets identical on every compared frame of both routes, one slips; sound within 0.42 dB (median level) and 0.99 (averaged spectra) on 24 sets | partial |
+| G12 panel | the 26 sets of the perimeter that the test collection holds, all converted and validated (the owner chose criterion 1, "every set of the perimeter you own", on 1 November 2026); what the panel does not cover is listed under [Panel coverage](#panel-coverage) | met on that criterion |
+| G13 cross-OS witness | Final Fight (27 October), Street Fighter II' Champion Edition (30 October) and 1941 (1 November): the same route hashes on Windows and Debian 13 | partial: three sets of 26 |
+| G14 owner acceptance | exit from the experimental status accepted by the owner on 1 November 2026 on the evidence of 1.6.6; the play trial list is still to do on the 1.6.6 executable ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)) | partial |
 | G15 honesty | the five measures separate everywhere; "zero" means the routes run | met |
-| G16 shared knowledge | no CPS-1 path is qualified; the sharing is withdrawable | not applicable |
+| G16 shared knowledge | numeric paths only, rechecked by every conversion, a conversion that fails with shared paths starts again without them; experimental tier of the base, sharing withdrawable in one line; no CPS-1 path is qualified yet | partial |
 
 ### Reference games and risk cases
 
@@ -387,11 +388,31 @@ pixel (details in [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors
   single windows between 5 and 10 kHz, from the OKI interpolation. Physical
   audio and latency are not measured.
 
+**Sound repeated on the 1.6.5 tree (1 November 2026)** with `tools/cps1_mame_compare.py --sound`: MAME's WAV at the YM2151 rate against the
+game's own samples, same credited play route, one-second windows with sound on both sides (windows silent on one side are counted, not
+compared). On the 24 comparable sets the median difference of level is at most 0.42 dB (0.41 for `sf2hf`, the set that slips by a frame, 0.37 for `pokonyan`; the others 0.006 to 0.14 dB), no
+single window differs by more than 1 dB except Street Fighter II' Hyper Fighting (5.4 dB, the set that slips by a frame), the averaged
+magnitude spectra agree to a cosine of 0.991 or more (0.986 for `sf2hf`), and every third-octave band of the averaged spectrum agrees within
+1.1 dB below 4 kHz and 2 dB from 5 kHz to 16 kHz (1.4 and 1.6 dB for `sf2hf`). The waveform correlation is lower (0.22 to 0.86): the OKI is
+interpolated linearly here and filtered differently by MAME, so waveforms are not claimed equal. Per set: [CPS1_LOG.md](CPS1_LOG.md#1-november-2026-166-tree-z80-corrections-sound-against-mame-and-a-third-linux-witness).
+
+## Panel coverage
+
+The panel is every set of the perimeter (129 sets) that the test collection holds: 26. It covers 18 of the 20 board configurations
+(CPS-B) and 25 of the 45 graphics mappers of the catalogue. What it does **not** cover, noted here and not added to the panel:
+
+- two boards: `CPS_B_17` (the clones of Street Fighter II such as `sf2ua`) and `CPS_B_21_BT5` (`varthj`);
+- 20 mappers that appear only in sets the collection lacks, mostly clones. Their code is the same table in the catalogue as the code of the
+  mappers that were seen, but "same code" is not "same result": no claim is made for them beyond the shared board model.
+
+A player who owns one of those sets gets the same checks as any other conversion (fresh reference, 0-interpreted accounting, states); the
+sets are simply not part of the qualification evidence.
+
 ## Known limits
 
-- **Experimental**: the report says `experimental`; no CPS-1 path is qualified
-  yet. The 26 sets of the table were requalified on the 1.6.5 tree (29 October
-  2026).
+- **Supported, with open items**: the owner's play trial of the 1.6.6 executable is still to do, no CPS-1 path is qualified yet, and
+  the shared base keeps CPS-1 in its experimental tier. The 26 sets of the table were requalified on the 1.6.5 tree (29 October
+  2026) and measured again on the 1.6.6 tree where the CPUs changed.
 - **Out of scope**: QSound boards, CPS-1.5/CPS-2, rotary-dial, serial-EEPROM and
   timekeeper boards, CPS Changer cartridges, bootlegs and hacks, sets that
   need board-specific start-up, and sets with a never-dumped part.
@@ -418,7 +439,7 @@ pixel (details in [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors
 - **Gameplay and hardware**: complete playthroughs, fidelity against original
   boards and physical latency are not measured. "Zero interpreted" always means
   that the measured routes met no interpreted instruction, not that none exists.
-- **Linux**: the profile is marked `pending`; interactive play, sound and pads
+- **Linux**: three sets give the same route hashes on Debian 13 as on Windows; interactive play, sound and pads
   on Linux were not witnessed.
 - **Quick-state writer**: no test of its own beyond the magic pinned by
   `tests/test_legacy_compat.py`.
@@ -435,6 +456,10 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
 - 29 October 2026 (1.6.5): the Z80 interrupt mode 0 opcode is counted; eleven sets requalified; independent 68000 vectors
   replayed through the CPS-1 generator; route liveness fields in the report; the whole panel of 26 sets requalified, play-route captures
   inspected and the 18,000-frame route run on three sets.
+- 1 November 2026 (1.6.6): CPS-1 leaves the experimental status on the owner's decision, taken on the evidence of the 1.6.6 tree and
+  before his own play trial (still to do); the profile is `supported`, the Linux gate is lifted, the interface no longer calls it experimental.
+- 1 November 2026 (1.6.6 tree): the Z80 core corrected in the converter's copy (51,260 of 51,328 vectors, all clocks), the comparison with MAME
+  extended to the sound, a third Linux witness (1941).
 - 30 October 2026 (1.6.5): independent Z80 vectors replayed through the CPS-1 path, the comparison with MAME repeated on the 26
   sets with a tool kept in the repository, and a Linux witness (Street Fighter II' Champion Edition, identical route hashes).
 - 1.6.4: code run from graphics RAM is guarded natively (`sf2ce` goes to zero

@@ -133,7 +133,7 @@ def norm_path(path) -> str:
 
 def normalize_title(text: str) -> str:
     """A file name or a title reduced to its words: no extension, no (tags) or [tags], 'X, The' as 'The X'."""
-    stem = re.sub(r'\.(?:zip|7z|sms|gg|gb|gbc|nes|md|gen|smd|bin|sfc|smc|dim|xdf|m3u)$', '', text, flags=re.I)
+    stem = re.sub(r'\.(?:zip|7z|sms|gg|gb|gbc|nes|md|gen|smd|bin|sfc|smc|dim|xdf|d88|88d|hdm|2hd|dup|m3u)$', '', text, flags=re.I)
     stem = re.sub(r'\s*[\(\[][^\)\]]*[\)\]]', ' ', stem).strip()
     moved = re.match(r'^(.*?),\s*(the|a|an)$', stem, re.I)
     if moved:

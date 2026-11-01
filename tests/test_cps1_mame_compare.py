@@ -43,5 +43,53 @@ class UnrotateTests(unittest.TestCase):
         self.assertEqual(list(compare.unrotate(rotated).getdata()), list(source.getdata()))
 
 
+class SoundTests(unittest.TestCase):
+    RATE = compare.AUDIO_RATE
+
+    def files(self, mame, ours, rate=None):
+        import tempfile
+        import wave
+        import numpy
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        wav, pcm = Path(folder.name) / 'mame.wav', Path(folder.name) / 'game.pcm'
+        with wave.open(str(wav), 'wb') as stream:
+            stream.setnchannels(2)
+            stream.setsampwidth(2)
+            stream.setframerate(rate or self.RATE)
+            stream.writeframes(numpy.repeat(mame.astype('<i2'), 2).tobytes())
+        pcm.write_bytes(ours.astype('<i2').tobytes())
+        return wav, pcm
+
+    def tone(self, seconds, frequency=440.0, level=8000, shift=0):
+        import numpy
+        t = numpy.arange(seconds * self.RATE + shift) / self.RATE
+        return (level * numpy.sin(2 * numpy.pi * frequency * t) + 300 * numpy.sin(2 * numpy.pi * 3100 * t))
+
+    def test_the_same_sound_agrees_exactly(self):
+        signal = self.tone(8)
+        result = compare.compare_sound(*self.files(signal, signal))
+        self.assertTrue(result['compared'])
+        self.assertAlmostEqual(result['level_difference_db_max'], 0.0, places=6)
+        self.assertGreater(result['averaged_spectrum_cosine'], 0.999999)
+        self.assertEqual(result['lag_samples'], 0)
+
+    def test_a_louder_game_shows_its_level_difference_and_a_small_lag_is_found(self):
+        signal = self.tone(8)
+        louder = self.tone(8, level=16000)
+        result = compare.compare_sound(*self.files(signal, louder))
+        self.assertAlmostEqual(result['level_difference_db_median'], 6.0, delta=0.2)
+        import numpy
+        delayed = compare.compare_sound(*self.files(signal, numpy.concatenate([numpy.zeros(200), signal])))
+        self.assertEqual(abs(delayed['lag_samples']), 200)
+        self.assertGreater(delayed['averaged_spectrum_cosine'], 0.999)
+
+    def test_a_silent_side_and_a_wrong_rate_are_reported_not_compared(self):
+        import numpy
+        silent = numpy.zeros(8 * self.RATE)
+        self.assertFalse(compare.compare_sound(*self.files(self.tone(8), silent))['compared'])
+        self.assertFalse(compare.compare_sound(*self.files(self.tone(8), self.tone(8), rate=48000))['compared'])
+
+
 if __name__ == '__main__':
     unittest.main()

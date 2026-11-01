@@ -24,8 +24,9 @@ def state_literal(state, pc_offset=4):
     values = [state[key] if key != 'pc' else (state[key] - pc_offset) & 0xffffff for key in REGS]
     return '{' + ','.join(f'{v}u' for v in values) + '}'
 
-def main(fixture_name='md-prefetch'):
-    """Replay a SingleStepTests fixture; `m68k-shifts` is the shift/rotate corpus, without authored cases."""
+def build(fixture_name='md-prefetch'):
+    """Generate and build the replay of a SingleStepTests fixture; `m68k-shifts` is the shift/rotate corpus, without authored
+    cases. Returns the project folder, the checks executable, the fixture and the counts of its external and authored cases."""
     project = ROOT / ('.build/megadrive-prefetch-selftest' if fixture_name == 'md-prefetch'
                       else f'.build/megadrive-prefetch-selftest-{fixture_name}')
     project.mkdir(parents=True, exist_ok=True)
@@ -101,9 +102,15 @@ endif()
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()], log=project / 'build.log')
-    output = run([build_executable(project / 'build','checks')])
+    return project, build_executable(project / 'build', 'checks'), fixture, external_count, len(authored['tests'])
+
+
+def main(fixture_name='md-prefetch'):
+    """Replay a SingleStepTests fixture on the native and the reference paths; the first difference ends the run."""
+    project, checks, fixture, external_count, authored_count = build(fixture_name)
+    output = run([checks])
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
-    result.update(corpus_cases=external_count,authored_cases=len(authored['tests']))
+    result.update(corpus_cases=external_count, authored_cases=authored_count)
     result.update(source=fixture['source'], revision=fixture['revision'], scope=fixture['scope'],
                   excluded=fixture['excluded'])
     (project / 'results.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')

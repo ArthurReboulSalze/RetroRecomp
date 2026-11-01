@@ -35,7 +35,7 @@ class MegaDriveProfile(SystemProfile):
     input_layout = InputLayout(('a', 'b', 'c'), ('x', 'y', 'z'), None, 240, script_format='console16')
     shared_knowledge = SharedKnowledge('stable', site_builder=True)
     host_adapter = 'adapters/rrhk_md.c'
-    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'md_prefetch', 'guns16')
+    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'md_prefetch', 'guns16', 'conversion_gates')
     identify = Identify(content_order=2)
 
     def identify_content(self, data: bytes):

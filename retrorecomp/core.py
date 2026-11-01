@@ -412,7 +412,12 @@ def patched_generator_source(generator_source: str) -> str:
     """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
     generator_source = replace_once(generator_source,
         '    fprintf(o,"        do {\\n");',
-        '''    fprintf(o,"        int sms_block_first = 1;\\n        uint16_t sms_block_pc = g_dbg_pc;\\n        do {\\n");
+        '''    /* A repeating block instruction has no pre-tick of its own (its iterations tick after their effect): without a sync before
+     * the first iteration the interrupt asserted at the start of the instruction was sampled one iteration late (Sonic Spinball:
+     * accepted after the second iteration of an LDIR, the reference accepts it after the first). sms_tick(0) is the sync every
+     * other instruction has at its start, with no cycles of its own. */
+    fprintf(o,"        sms_tick(0);\\n");
+    fprintf(o,"        int sms_block_first = 1;\\n        uint16_t sms_block_pc = g_dbg_pc;\\n        do {\\n");
     fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
     fprintf(o,"            sms_block_first = 0;\\n");''')
     # A repeating block instruction that goes on (BC or B not exhausted, no CPIR/CPDR match) leaves the flags of the NMOS repeat
@@ -423,7 +428,7 @@ def patched_generator_source(generator_source: str) -> str:
     generator_source = replace_once(generator_source,
         "    /* post-body tick: this iteration's effect already ran (see sms_tick_post) */\n",
         '''    fprintf(o,"            if (%s) {\\n", contc);
-    fprintf(o,"                s->f = (uint8_t)((s->f & ~0x28) | ((sms_block_pc >> 8) & 0x28));\\n");
+    fprintf(o,"                s->f = (uint8_t)((s->f & ~0x28) | ((sms_block_pc >> 8) & 0x28)); s->wz = (uint16_t)(sms_block_pc + 1);\\n");
     if (grp >= 2) fprintf(o,"                { uint8_t b = s->b; if (s->f & Z80_FLAG_C) { int neg = (s->f & Z80_FLAG_N) != 0; "
         "z80f_set(s, Z80_FLAG_H, (b & 15) == (neg ? 0 : 15)); b = (uint8_t)(b + (neg ? -1 : 1)); } "
         "if (!z80_parity8(b & 7)) s->f ^= Z80_FLAG_P; }\\n");
@@ -480,15 +485,61 @@ def patched_generator_source(generator_source: str) -> str:
         '    fprintf(o,"    sms_enter(0x%04X);\\n    uint16_t _esp = s->sp; (void)_esp;\\n", fe->addr);')
     generator_source = replace_once(generator_source,
         '            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");',
-        '''            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
-                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }\\n");
-            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");''')
+        '''            fprintf(o,"        { uint16_t _p = sms_read16(s->sp); s->wz = _p;\\n");
+            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }\\n");
+            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return; }\\n");''')
     generator_source = replace_once(generator_source,
         '            fprintf(o,"        if (%s) { s->cyc += 6; s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));',
-        '''            fprintf(o,"        if (%s) { s->cyc += 6; "
-                      "if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
-                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; } "
+        '''            fprintf(o,"        if (%s) { s->cyc += 6; uint16_t _p = sms_read16(s->sp); s->wz = _p; "
+                      "if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; } "
                       "s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));''')
+    # WZ (the Z80's internal MEMPTR) in the functions engine. The only reader is BIT n,(HL), which takes its X and Y flags from the high
+    # byte of WZ (the banked engine and the corrected reference do); the generator passed H. WZ is now kept as the banked emitter keeps
+    # it: banked_wz() for the memory, I/O, index and 16-bit arithmetic instructions (one store each), the target for jumps, calls and
+    # returns (conditional ones as the Z80 does: a taken RET cc or JR cc, always for JP cc and CALL cc), the instruction address + 1
+    # while a block instruction repeats. An accepted interrupt sets it to $0038 (see prepare_functions_irq).
+    generator_source = replace_once(generator_source,
+        '#include <stdlib.h>\n#include <string.h>\n',
+        '#include <stdlib.h>\n#include <string.h>\n'
+        'static void banked_wz(FILE *o, const Z80Insn *in);   /* defined with the banked emitter, appended below */\n'
+        'static int rr_wz_taken;   /* the jump being emitted sets WZ only when taken (JR cc, DJNZ) */\n'
+        'static void rr_block_wz(FILE *o, uint8_t op) { Z80Insn t; memset(&t, 0, sizeof t); t.prefix = Z80_PFX_ED; t.opcode = op; banked_wz(o, &t); }\n')
+    generator_source = replace_once(generator_source,
+        '        if (z==6) fprintf(o,"        z80_bit(s, %d, sms_read8(ea), (uint8_t)(z80_hl(s) >> 8));\\n", y);',
+        '        if (z==6) fprintf(o,"        z80_bit(s, %d, sms_read8(ea), (uint8_t)(s->wz >> 8));\\n", y);')
+    generator_source = replace_once(generator_source,
+        '        if (in->cf==Z80_CF_NONE){\n            fprintf(o,"    {\\n");\n            emit_op(o,in);',
+        '        if (in->cf==Z80_CF_NONE){\n'
+        '            if (!(in->prefix == Z80_PFX_ED && (in->opcode & 0xF4) == 0xB0)) banked_wz(o, in);   /* repeating block ops: per iteration */\n'
+        '            fprintf(o,"    {\\n");\n            emit_op(o,in);')
+    generator_source = replace_once(generator_source,
+        '    emit_block_body(o, op, "            ");\n',
+        '    rr_block_wz(o, op);\n    emit_block_body(o, op, "            ");\n')
+    generator_source = replace_once(generator_source,
+        '            } else emit_jump_target(o, in->target, NULL, 0);',
+        '            } else { fprintf(o,"        s->wz = 0x%04X;\\n", in->target); emit_jump_target(o, in->target, NULL, 0); }')
+    generator_source = replace_once(generator_source,
+        '                emit_jump_target(o, in->target, "s->b != 0", 5);',
+        '                rr_wz_taken = 1; emit_jump_target(o, in->target, "s->b != 0", 5); rr_wz_taken = 0;')
+    generator_source = replace_once(generator_source,
+        '                emit_jump_target(o, in->target, cond((in->opcode>>3)&3), 5);',
+        '                rr_wz_taken = 1; emit_jump_target(o, in->target, cond((in->opcode>>3)&3), 5); rr_wz_taken = 0;')
+    generator_source = replace_once(generator_source,
+        '                emit_jump_target(o, in->target, cond((in->opcode>>3)&7), 0);',
+        '                fprintf(o,"        s->wz = 0x%04X;\\n", in->target);\n'
+        '                emit_jump_target(o, in->target, cond((in->opcode>>3)&7), 0);')
+    generator_source = replace_once(generator_source,
+        '            if (extra) fprintf(o,"s->cyc += %d; ", extra);\n            fprintf(o,"goto L_%04X; }\\n", T);',
+        '            if (extra) fprintf(o,"s->cyc += %d; ", extra);\n            if (rr_wz_taken) fprintf(o,"s->wz = 0x%04X; ", T);\n            fprintf(o,"goto L_%04X; }\\n", T);')
+    generator_source = replace_once(generator_source,
+        '        if (extra) fprintf(o,"s->cyc += %d; ", extra);\n        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);',
+        '        if (extra) fprintf(o,"s->cyc += %d; ", extra);\n        if (rr_wz_taken) fprintf(o,"s->wz = 0x%04X; ", T);\n        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);')
+    generator_source = replace_once(generator_source,
+        '            emit_call_target(o, in->target, next, NULL, 0);',
+        '            fprintf(o,"        s->wz = 0x%04X;\\n", in->target);\n            emit_call_target(o, in->target, next, NULL, 0);')
+    generator_source = replace_once(generator_source,
+        '            emit_call_target(o, in->target, next, cond(cc), 7);',
+        '            fprintf(o,"        s->wz = 0x%04X;\\n", in->target);\n            emit_call_target(o, in->target, next, cond(cc), 7);')
     generator_source = replace_once(generator_source,
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
@@ -641,6 +692,35 @@ void sms_set_sync_deadline(void){
             }
         }
 #endif''')
+    # Learning only: a miss runs the whole call tree below it in the counted interpreter, and only the missed address used to be
+    # recorded, so a main loop entered by a miss stayed interpreted and each pass learned one or two entries more. The targets of
+    # the CALL, RST and JP (HL)/(IX)/(IY) the interpreter takes are now recorded too, as function-entry candidates, with the manifest's
+    # own record (address, the three slot banks, code CRC), once per address and slot bank, at most 4096 per run, ROM addresses only.
+    # What runs is unchanged. They are executed addresses: they decode, and the static walk and the code CRC check them as any seed.
+    glue = replace_once(glue, 'static int hyb_cf_class(uint16_t pc){',
+        '''static uint16_t g_hyb_seen[0x10000];   /* slot bank + 1 of the last record of an address, 0 = none */
+static unsigned g_hyb_recorded;
+#define HYB_RECORD_MAX 4096u
+static void hyb_record_target(uint16_t target){
+    if (target >= 0xC000u || g_hyb_recorded >= HYB_RECORD_MAX) return;      /* RAM code has its own windows */
+    uint16_t bank = (uint16_t)(g_bank[target >> 14] + 1);
+    if (g_hyb_seen[target] == bank) return;
+    g_hyb_seen[target] = bank;
+    g_hyb_recorded++;
+    manifest_record(target);
+}
+static int hyb_cf_class(uint16_t pc){''')
+    glue = replace_once(glue, '    if (b == 0xC9)          return -1;   /* RET        */',
+        '    if (b == 0xE9)          return +2;   /* JP (HL): a computed jump */\n'
+        '    if ((b == 0xDD || b == 0xFD) && sms_read8((uint16_t)(pc+1)) == 0xE9) return +2;   /* JP (IX)/(IY) */\n'
+        '    if (b == 0xC9)          return -1;   /* RET        */')
+    glue = replace_once(glue, '        int dsp = (int16_t)(g_hz.sp - sp0);\n',
+        '        int dsp = (int16_t)(g_hz.sp - sp0);\n        if (cls == 2) hyb_record_target(g_hz.pc);          /* computed jump: learn its target */\n')
+    glue = replace_once(glue, '        else if (cls > 0 && dsp == -2) depth++;           /* taken CALL/RST           */',
+        '        else if (cls == 1 && dsp == -2){ depth++; hyb_record_target(g_hz.pc); }   /* taken CALL/RST */')
+    # An accepted interrupt is an RST $38 for the CPU: WZ becomes $0038 (the reference's mem_ptr does).
+    glue = replace_once(glue, '    sms_write16(g_z80.sp, g_dbg_pc);\n',
+        '    sms_write16(g_z80.sp, g_dbg_pc);\n    g_z80.wz = 0x0038;                   /* RST $38: WZ follows, as in the reference CPU */\n')
     # The count of continuations of a RET that pops a local address beyond the nesting bound (run by the counted interpreter): it
     # is printed with the other [exec] counters and read by probe().
     glue = replace_once(glue, '\n    mmio_tally_dump();\n}',
@@ -736,11 +816,38 @@ uint8_t sms_io_in(uint8_t p){
         raise ConversionError("L'interface de présentation vidéo du moteur a changé.")
     glue = glue.replace('vdp_render_frame(g_fb);', 'smsrecomp_video_present(g_fb);')
     glue = replace_once(glue, 'frame,vram_h,cram_h,reg_h,r8,r9,r0,r1\\n',
-        'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h\\n')
+        'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h,psg_h,psg_nz\\n')
     glue = replace_once(glue, '%02X,%02X,%02X,%02X,%04X\\n",',
-        '%02X,%02X,%02X,%02X,%04X,%016llx\\n",')
+        '%02X,%02X,%02X,%02X,%04X,%016llx,%016llx,%u\\n",')
     glue = replace_once(glue, 'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp);',
-        'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp, (unsigned long long)smsrecomp_video_hash());')
+        'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp, (unsigned long long)smsrecomp_video_hash(),\n'
+        '                (unsigned long long)psg_h, psg_nz);')
+    # Liveness evidence (gate G8): the trace also says what the PSG produced in the frame (a hash of its stereo samples and the count of
+    # non-zero ones). A headless run has no audio sink, so the PSG is rendered for the trace only when a trace is written; the samples
+    # are the ones the player would hear, and nothing else changes (no trace, no sink: nothing is rendered, as before).
+    glue = replace_once(glue, '''    if (g_audio_sink){
+        /* Drain this frame's PSG output to the sink (interleaved stereo). The
+         * PSG was advanced up to the current absolute cycle in advance_vdp(). */
+        int16_t buf[2048 * 2];
+        size_t n;
+        while ((n = psg_render(buf, 2048)) > 0) g_audio_sink(buf, n);
+    }''', '''    uint64_t psg_h = 14695981039346656037ull;
+    unsigned psg_nz = 0;
+    if (g_audio_sink || g_vdp_trace){
+        /* Drain this frame's PSG output to the sink (interleaved stereo) and to the trace's hash. The
+         * PSG was advanced up to the current absolute cycle in advance_vdp(). */
+        int16_t buf[2048 * 2];
+        size_t n;
+        while ((n = psg_render(buf, 2048)) > 0){
+            if (g_vdp_trace) for (size_t i = 0; i < n * 2; ++i){
+                uint16_t sample = (uint16_t)buf[i];
+                psg_h = (psg_h ^ (sample & 0xFFu)) * 1099511628211ull;
+                psg_h = (psg_h ^ (sample >> 8)) * 1099511628211ull;
+                psg_nz += buf[i] != 0;
+            }
+            if (g_audio_sink) g_audio_sink(buf, n);
+        }
+    }''')
     glue = replace_once(glue, 'static uint8_t   g_pad1, g_pad2;', '''static uint8_t   g_pad1, g_pad2;
 static void (*g_host_input_refresh)(void);
 void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh = refresh; }''')
@@ -909,10 +1016,10 @@ static void smsrecomp_state_service(void);
     # the eager timeline had reached before each PSG write, before the line
     # steps that drain it at the end of a frame, and before a quick state.
     glue = replace_once(glue, '    if (g_audio_sink && cyc > g_psg_cyc){',
-                        '    if (g_audio_sink && cyc > g_psg_cyc && cyc >= g_next_line_cyc){')
+                        '    if ((g_audio_sink || g_vdp_trace) && cyc > g_psg_cyc && cyc >= g_next_line_cyc){')
     glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){', '''static uint64_t smsrecomp_measured_guest_cycles;
 static void psg_catch_up(void){
-    if (g_audio_sink && smsrecomp_measured_guest_cycles > g_psg_cyc){
+    if ((g_audio_sink || g_vdp_trace) && smsrecomp_measured_guest_cycles > g_psg_cyc){
         psg_advance((uint32_t)(smsrecomp_measured_guest_cycles - g_psg_cyc));
         g_psg_cyc = smsrecomp_measured_guest_cycles;
     }
@@ -1360,6 +1467,13 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             emit(f"{added} nouvelles entrées repérées : recompilation à la passe suivante.")
     timings.end_passes()
     final_checks = history[-len(scenarios):]
+    # Liveness of each route (gate G8, retrorecomp/sega_evidence.py): read from the final pass's trace. The delivered file's own
+    # record replaces it below on the banked engine. A frozen main route is refused.
+    from .sega_evidence import require_main_route_moving, route_liveness
+    for (scenario, _, _), check in zip(scenarios, final_checks):
+        trace = game / "checks" / f"pass{len(history) // len(scenarios)}_{scenario}"
+        check["liveness"] = route_liveness(trace / "vdp.csv")
+        require_main_route_moving(scenario, check["liveness"], trace)
     if banked:
         profile_stop = ("zero_fallback_on_tested_scenarios" if all(c.get("interpreter_cycles") == 0 for c in final_checks)
             else "pass_budget" if patterns_added and len(profile_history) == passes else "no_new_patterns")
@@ -1414,6 +1528,29 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if not validation['passed']:
             failures = {c['scenario']: [key for key, ok in c['checks'].items() if not ok] for c in comparisons if not c['passed']}
             raise ConversionError(f'Native validation failed: {failures}. Previous export preserved. Details: {game / "checks/native-validation.json"}')
+    delivered = None
+    if banked:
+        # The file the player receives is a compressed copy of this build: replay it on every route against the fresh reference of
+        # the same route (gate G5, retrorecomp/sega_evidence.py). Its liveness is the one the report keeps.
+        from .sega_evidence import replay_delivered
+        packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
+        replay_checks = [{'scenario': scenario, 'press': inputs, 'frames': budget} for scenario, inputs, budget in scenarios]
+        references = {scenarios[index][0]: {**ref, 'directory': str(ref_dir)} for index, (ref, ref_dir) in enumerate(reference_runs)}
+
+        def replay_route(candidate, directory, check):
+            return probe(candidate, directory, check['frames'], press=check['press'])
+
+        def route_differences(result, reference):
+            checks = compare_execution(result, reference, Path(result['directory']), Path(reference['directory']))['checks']
+            return [key for key, ok in checks.items() if not ok]
+
+        with timings.phase('packed_replays'):
+            delivered, delivered_runs = replay_delivered(executable, packed, game / 'checks' / 'packed', replay_checks, references,
+                                                         replay_route, route_differences, emit)
+        for (scenario, _, _), check in zip(scenarios, final_checks):
+            check['liveness'] = delivered_runs[scenario]['liveness']
+        validation.update(delivered.validation_fields())
+        (game / 'checks/native-validation.json').write_text(json.dumps(validation, indent=2), encoding='utf-8')
     final_executable = destination / executable_name(title)
     # Publication merges again so observations appended during compilation are
     # retained. They will seed the next generation if they arrived too late.
@@ -1430,6 +1567,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         "backend": backend, "target": target_id(), "scan_level": level,
         "long_routes": [route.metadata() for route in long_routes],
         "native_coverage": coverage, "native_validation": validation,
+        **(delivered.report_fields() if delivered else {}),
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,

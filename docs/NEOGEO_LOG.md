@@ -13,6 +13,50 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Independent Z80 vectors replayed through the Neo Geo generator — 1 November 2026
+
+For 1.6.6 (gate G10, CPU evidence), on the tree after the 19 corrections of the Geolith Z80 core (`neogeo_z80.FIXES`, from the CPS-1 work). The
+CPS-1 replay already used the Neo Geo Z80 adaptation (`neogeo_z80.adapt_source`), so the core is the same; what is specific to the Neo Geo is the
+generator of the translated bodies (`neogeo_z80.generate`: one guarded body per opcode form found in the M1 and SM1 ROMs, lookups by physical
+offset, observed variants for the sound RAM at `0xf800`) and its dispatch. `tools/neogeo_z80_vector_selftest.py` builds a synthetic cartridge
+(authored, no game) whose M1 ROM is the image holding one 4-byte slot per opcode form of the vectors, runs `prepare_project` and the generator on
+it, and links `native/neogeo_z80_vector_checks.c` (a flat 64 KiB bus, ports answered from the vector, `rr_ng_force_z80_reference` for the interpreted
+path). Corpus, vectors file, report and judging rules, with the pinned baseline, are the CPS-1 tool's, imported.
+
+- **Result (Windows, llvm-mingw, about two minutes).** 51,328 vectors: 49,685 ran as native steps below `0xf800`, 1,643 through RAM variants,
+  0 outside; every one ran as exactly one native step. Native versus vector: 51,260 on state and 51,328 on clocks; reference versus vector the
+  same; native versus reference: 51,328 on state and on clocks. The 68 vectors that differ are the CPS-1 ones: the X and Y flags of `SCF` and
+  `CCF` and their `DD`/`FD` duplicates (4, 7, 12, 17, 11 and 17 vectors), which need the Q latch of the original chip. The tool's pinned baseline
+  (corpus revision, 32 vectors per family, field failures, the six families) passes unchanged.
+- **Limits.** Flat bus: no board, no YM2610, no command latch or NMI mask; vectors in the sound RAM window run through an observed variant created
+  for them; P and Q are not compared; the oracle is JSMoo, not hardware.
+- **Files.** `tools/neogeo_z80_vector_selftest.py`, `native/neogeo_z80_vector_checks.c` (declared out of the stamps beside the other harnesses),
+  `tests/test_neogeo_z80_vectors.py` (the cartridge, the slots and variants, the shared baseline, no compiler).
+
+## Independent 68000 vectors replayed through the Neo Geo generator — 1 November 2026
+
+For 1.6.6 (gate G10, CPU evidence). The CPS-1 replay of 1.6.5 (`tools/cps1_vector_selftest.py`) already used the Neo Geo front end of
+the 68000 generator (`canonical_instruction`, `structural_body`, the shared bodies of `m68000.py`), so the question was whether the
+Neo Geo wrapper around it behaves the same. `tools/neogeo_vector_selftest.py` builds a synthetic cartridge (authored, no game) whose
+program ROM is the flat image holding the vectors' code (the same image as the CPS-1 replay: the fixtures and their reading are the
+CPS-1 tool's `cases_header`, `summary` and `problems`, not copied), runs the converter's own `prepare_project` and
+`neogeo_codegen.generate` on it (the patched Musashi, the static sweep of the first megabyte, the vectors' addresses as observed
+physical entries above it, region maps, steps and guards) and links `native/neogeo_vector_checks.c`: a flat 24-bit bus and the code view
+of the native layer read live from it. Every vector runs once through the Neo Geo native steps and once with `rr_ng_force_reference`
+(every instruction interpreted).
+
+- **Result (Windows, llvm-mingw, about five minutes).** 3,869 vectors (834 + 2,171 + 864): every one ran as a native step. Native
+  versus vector on registers, SR, PC and written bytes: 834/834, 2,169/2,171 and 864/864, and the same counts on clocks; the two
+  exceptions are the authored vectors that set the trace bit. Musashi versus vector on state: 834/834, 2,091/2,171 and 858/864; on
+  clocks 834/834, 2,151/2,171 and 838/864. The groups where the reference differs are the CPS-1 ones: `DIVU`, `DIVS`, `CHK`, one line-F
+  frame and 5 authored division cases. **These are the very numbers of the CPS-1 replay**, as expected from a shared translation: the
+  Neo Geo wrapper (code view, region maps, word guards, `ng_arithmetic`) adds no difference.
+- **Limits.** Flat bus: no board, no BIOS, no protection; vectors above the first megabyte are rooted as physical entries; Musashi's
+  clock table with prefetch disabled, so clocks are counted apart; the oracle is MAME, not hardware. The Z80 side has no such replay yet
+  (the CPS-1 one uses the Geolith core the Neo Geo shares; replaying it through `neogeo_z80.py` is the same kind of work).
+- **Files.** `tools/neogeo_vector_selftest.py`, `native/neogeo_vector_checks.c` (declared out of the stamps beside the CPS-1 harnesses),
+  `tests/test_neogeo_vectors.py` (cartridge, entries and the shared judging rules, no compiler).
+
 ## Fallback measured on exports, and an attract route for the BIOS restart — 29 and 30 October 2026
 
 For 1.6.5. **Reports.** The 126 Neo Geo conversion reports (102 sets of the maintainer's Export, 24 under `.build`) show zero interpreted 68000
@@ -1291,6 +1335,15 @@ here. Replacing the main 68000 BIOS alone does not settle the source/licence of
 the SFIX, SM1 and LO components used by this hardware profile. A future bundled
 replacement must check all four components and retain their applicable notices
 and source obligations. Do not include the current private BIOS in a release.
+
+## The sound CPU's Z80 corrected, 1 November 2026 (1.6.6)
+
+The Geolith Z80 shared with the CPS-1 is corrected in the converter's copy (`neogeo_z80.FIXES`, 19 replacements; see
+[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)). Conversions of `nam1975` and `mslug3` before and after
+(`tools/ab_conversion.py`, same empty library): picture and sound hashes identical on every route; the Z80, RAM and hardware hashes of the AES
+play route of `nam1975` differ from frame 2380 (cause: `LD A,R`, which the game reads, now leaves the X and Y bits of the result in F, and an
+interrupt pushes that F into the Z80 RAM), and the per-frame state checks of `mslug3` from row 506 (WZ of `LD IX,(nn)`, then `IN r,(C)`).
+The Neo Geo game stamp and quick-state key move ([UPGRADES.md](UPGRADES.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)).
 
 ## Scan levels
 

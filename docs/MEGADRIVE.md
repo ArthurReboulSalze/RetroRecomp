@@ -178,10 +178,12 @@ Read the caveats there before quoting a letter. The panel is 24 + 8 cartridges.
 | Measure | What stands behind it |
 |---|---|
 | Native code | Zero interpreted 68000 and Z80 instructions on the final tested routes of the qualified cartridges (demo, play, a 6,000-frame varied-input replay, early-start and menu replays, a 24,000-frame attract scan at the thorough level). A scenario that is not tested may still use the fallback. |
-| CPU fidelity | Native and reference agree on registers, memory, VDP, FM/PSG samples and Z80 state before anything is learned; authored fixtures (thousands of instruction/state comparisons) and independent vectors: 864 exception cases and 2,089 prefetch/transaction cases from SingleStepTests/m68000 plus 55 authored timing cases, the Z80 vectors, the shift vectors. The vectors come from MAME, not from silicon. |
+| CPU fidelity | Native and reference agree on registers, memory, VDP, FM/PSG samples and Z80 state before anything is learned; authored fixtures (thousands of instruction/state comparisons) and independent vectors: 864 exception cases and 2,089 prefetch/transaction cases from SingleStepTests/m68000 plus 55 authored timing cases, the Z80 vectors, the shift vectors, and since 1.6.6 2,895 vectors of 85 more instruction groups, of which 2,315 agree on every check and 580 differ in listed ways (state in 51, total clocks in 83, bus layout in 446; [CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)). The vectors come from MAME, not from silicon. |
 | Hardware fidelity | Independent fixtures for the VDP FIFO, DMA, read prefetch, counters, the EEPROM wire model, the bank mapper and the interrupt collision. Not claimed: board electrical timing, refresh, exact interlace fields. |
 | Gameplay validation | Sampled routes and the owner's play tests, not complete playthroughs. |
 | Physical latency | Not measured. |
+
+**The delivered file (since 1.6.6).** The conversion compresses a copy of the build as publication does and replays it on every route against the fresh reference of the same route (`native_validation.packed_reference_match`, `packed_candidate_sha256`), then records the liveness of those runs per route (`final_checks[].liveness`: distinct pictures, picture changes, last picture change, audible frames, last audible frame, distinct sound blocks and program counters). A frozen `play` route stops the conversion; the attract and the long routes may show one picture. This says that the picture and the sound change on the routes run, nothing about what they show or how far into the game they go.
 
 **Reference and risk cases** (`tools/campaign-risk-cases.json`): Sonic The Hedgehog 2 (interlaced split screen, Z80
 timing), Ecco the Dolphin (68000 code in RAM through a `TRAP #0` stub), NBA Jam - Tournament Edition (Acclaim serial
@@ -200,7 +202,7 @@ observations, not a compatibility score of the catalogue.
 - **Hardware**: 68000 address and bus errors, electrical interrupt acknowledge (VPA/E-clock), BR/BG/BGACK phases,
   refresh and blanking slots, VDP port collisions and physical interlace field timing are not qualified. The shift clocks
   follow the manual (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`, see [CPU_68000.md](CPU_68000.md)).
-  Supervisor `RESET` only takes its clocks (the cartridge-port reset pulse is not modelled); unknown decoder patterns and later-CPU operations remain explicit limitations.
+  Supervisor `RESET` only takes its clocks (the cartridge-port reset pulse is not modelled); unknown decoder patterns remain explicit limitations. Words the 68000 does not define (`MOVEC`, `BKPT`, undefined addressing modes of `JMP`/`JSR`/`LEA`/`PEA`) are the illegal instruction since 1.6.6.
 - **Sound**: no complete YM2612 fidelity is claimed (BUSY and timer-driven CSM are missing); the checks inspect digital
   samples, not loudspeakers or listening quality.
 - **Cartridges**: SVP, 32X, Pico, lock-on and unrelated licensed or unlicensed mappers are refused; serial EEPROM boards

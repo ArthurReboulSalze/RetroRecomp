@@ -59,12 +59,12 @@ native/x68000_reference/timing_checks.h native/x68000_reference/video_checks.c
 native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
 native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
-tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py
+tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py tools/x68000_disk_rewrite.py tests/test_x68000_disk_rewrite.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py
-tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_check.py
+tests/test_x68000_media.py tests/test_x68000_media_formats.py tests/test_x68000_native.py tests/test_x68000_native_check.py
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_liveness.py tests/test_x68000_payload.py tests/x68000_payload_harness.c
@@ -165,7 +165,7 @@ retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/delivery_evidence.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/delivery_evidence.py retrorecomp/sega_evidence.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
 tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
@@ -215,6 +215,11 @@ docs/RUNTIME_PERFORMANCE.md
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/gb_tick_fast.h native/gb_tick_checks.c tools/gameboy_tick_selftest.py
+native/gb_wisdom_checks.c tools/gameboy_wisdom_selftest.py
+native/gb_frame_trace.h retrorecomp/gameboy_delivery.py tests/test_gameboy_delivery.py
+tools/gameboy_saves_check.py tests/test_gameboy_saves_tool.py
+tools/gameboy_states_check.py tests/test_gameboy_states_tool.py
+retrorecomp/gameboy_cartridge.py tests/test_gameboy_cartridge.py
 native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
 native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
@@ -225,9 +230,10 @@ native/nes_machine_checks.c tools/nes_machine_selftest.py
 native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
 tools/nes_state_selftest.py
 retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
-retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/systems/console16.py
+retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/megadrive_evidence.py retrorecomp/systems/console16.py
 retrorecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
+native/m68000_decode_rules_checks.c tools/m68000_decode_rules_selftest.py
 retrorecomp/neogeo.py retrorecomp/neogeo_build.py retrorecomp/systems/neogeo.py
 retrorecomp/neogeo_catalogue.py retrorecomp/neogeo_conversion.py
 retrorecomp/neogeo_state_checks.py retrorecomp/neogeo_knowledge.py
@@ -261,7 +267,9 @@ native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
-native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py
+native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py
+native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test_neogeo_z80_vectors.py
+native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py tests/test_z80_fixes.py
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
@@ -276,7 +284,7 @@ native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit
 native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
-native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
+native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
@@ -343,6 +351,8 @@ native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
+tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py
+tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE
 docs/MEGADRIVE_PREFETCH.md
 native/md_bus_checks.c tools/megadrive_bus_selftest.py
 native/md_boundary_checks.c tools/megadrive_boundary_selftest.py

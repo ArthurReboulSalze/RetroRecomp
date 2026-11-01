@@ -5,7 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 from .paths import ROOT, ASSETS, selected_bios_path
-from .x68000_media import identify_disk as read_disk, build_manifest, MachineConfig
+from .x68000_media import DISK_EXTENSIONS, identify_disk as read_disk, build_manifest, MachineConfig
 
 
 def developer_available():
@@ -52,7 +52,7 @@ class X68000Input:
 
 def read_input(path):
     path = Path(path).resolve(strict=True)
-    if path.suffix.casefold() in ('.dim', '.xdf'):
+    if path.suffix.casefold() in DISK_EXTENSIONS:
         disk = read_disk(path)
         return X68000Input(path, (path,), disk.sha256, disk.size, path.stem)
     if path.suffix.casefold() != '.m3u':

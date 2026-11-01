@@ -41,10 +41,16 @@ version information and optional box-art icon process as the Sega profiles ([BOX
 | Main CPU: Sharp SM83 (the Game Boy's Z80-like core), 4.19 MHz | [CPU_SM83.md](CPU_SM83.md) | Native code translated ahead of time from the ROM entries it finds; the pinned reference interpreter as a counted fallback; counted one-instruction executors for code in WRAM and HRAM ([below](#writable-memory-code-164)) |
 | Picture: DMG PPU, 160 × 144, four shades | `runtime/src/ppu.c` of the pinned runtime, compiled into the game | A C hardware model, not translated code. Hardware fidelity is not validated; the upstream PPU dot-timing check passes. The picture goes through the host kit (filters, display modes, palette) |
 | Sound: four-channel APU, 44.1 kHz stereo PCM | `runtime/src/audio.c`, with three corrections of ours ([below](#apu-corrections-11-october-2026)) | The wave channel behaviour, the exact timer low bits and the analogue output still need separate accuracy work. The host kit plays the PCM through its callback ring |
-| Cartridge: ROM banking and battery RAM | `runtime/src/gbrt.c` | MBC1 (the runtime also detects MBC1M multicart wiring), MBC2, MBC3 with its real-time clock, MBC5, and cartridges with no mapper. Cartridge types `0x01-0x03`, `0x05-0x06`, `0x0F-0x13` and `0x19-0x1E` are the ones the runtime banks. Battery RAM and the clock are written only when they changed |
+| Cartridge: ROM banking and battery RAM | `runtime/src/gbrt.c` | MBC1 (the runtime also detects MBC1M multicart wiring), MBC2, MBC3 with its real-time clock, MBC5, the Wisdom Tree mapper (since 1.6.6, below), and cartridges with no mapper. Cartridge types `0x01-0x03`, `0x05-0x06`, `0x0F-0x13` and `0x19-0x1E` are the ones the runtime banks. Battery RAM and the clock are written only when they changed |
 | Timer, interrupts, OAM DMA, joypad | The pinned runtime | Run by the pinned runtime in step with the CPU's cycle counts; the HRAM sprite-DMA wait routine is a guarded helper (below). Input is sampled by the host kit's pad word |
 | Peripherals | Joypad only | No link cable, Camera, Printer or Super Game Boy |
 | Player shell | The host kit, `native/hostkit/adapters/rrhk_gb.inc` | Window, menus, bindings, controllers, sound device and pacing since 1.6.3 ([HOST_KIT.md](HOST_KIT.md)) |
+
+*In the report (since 1.6.6, gate G2).* The mapper and the sound unit are two entries of `devices` (`cartridge_mapper`, `audio_unit`),
+apart from the CPU, with no counter (`fallback_present` is `None`: there is no program of theirs to translate or interpret), the header
+facts (type, family, banks, RAM, battery, clock, rumble) and `mapper_modelled_by_runtime`, which is false for the types the runtime does
+not bank (MMM01, MBC6, MBC7, camera, TAMA5, HuC1, HuC3). `saves.cartridge_memory` names what the cartridge keeps. Hardware fidelity
+stays "not validated" for both.
 
 Where the five measures stand: **native code** is reported per scenario with the interpreter and the one-by-one executors shown
 apart; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
@@ -259,10 +265,29 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
   file under the game's folder. The Game Boy has its own codec ([GAME_STATES.md](GAME_STATES.md)); the APU corrections did not change its
   layout. There is no Game Boy quick-state key: the RAM counters are host-only context fields outside every state, and a state of a 1.6.2 export loads in a
   1.6.3 export and the reverse ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)).
+  Since 1.6.6 `tools/gameboy_states_check.py` (gate G6) drives the two functions the keys call (`gb_context_save_state_file` and
+  `gb_context_load_state_file`, through the headless flags `--save-state-file` and `--load-state-file`) in separate processes, on a
+  cartridge authored for it (screen on, a square channel playing, vertical-blank and timer interrupts, a foreground counter) and on
+  Super Mario Land: a state taken after 120 frames, loaded by a fresh process and run for 120 more, gives the dump of a continuous
+  240-frame run field by field (registers, cycles, work and high RAM, LY and PPU mode) and the same picture, sound, RAM and program
+  counter on each of the 120 frames (`--frame-trace`); a second state taken after that load continues the same way. A state cut short
+  (empty, inside the header, in the body, one byte short), not a state, with a wrong magic, version, ROM hash or ROM size, is refused
+  before anything is applied (exit 1 and "Failed to load execution state", the file untouched); a state that does not exist is refused
+  and nothing is created. Every conversion runs a shorter version of this on the compressed copy (60 + 60 frames, the dump only, ten
+  damaged states and a missing one) and records it in `game_states.validation`; a failure is reported, not fatal. The F8 and F9 keys themselves (the path of slot 1) need a window and are not driven by the check. A byte
+  changed inside a state of the right length is not detected: the file has no checksum.
 - **Battery RAM and the real-time clock** use `datas/games/<game-title>-<ROM-SHA-prefix>/`, only when written. Battery RAM is flushed on
   exit only after a changed RAM value; a game's own automatic save can therefore create this folder without a manual state save.
-  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. MBC3 RTC persistence has no
-  independent regression test yet.
+  An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. Since 1.6.6
+  `tools/gameboy_saves_check.py` (gate G7) exercises this on six cartridges authored for it (no original bytes): MBC1, MBC2, MBC3 with its
+  clock, MBC5, MBC1+RAM without a battery, and a battery cartridge whose program never writes. Each is converted and the delivered file is
+  run twice, headless, in an empty folder. The first run writes a magic and a pattern into its RAM and leaves `<title>-<sha>.sav` (8 KiB;
+  MBC3 also `<title>-<sha>.rtc`); the second finds the magic and reads the pattern back byte for byte (four bits per cell on MBC2; the
+  clock registers 17 s, 11 min, 7 h, day 42 with the halt bit come back on MBC3), and rewrites nothing. A cartridge without a battery, and
+  a battery cartridge that never writes, create no `datas` folder at all. A battery file or a clock file that is too short, too long, empty
+  or not a save is refused: the game starts with blank RAM (or a blank clock; the RAM still loads when only the clock file is damaged), the
+  log says "Rejected battery RAM …" and "Automatic persistence save suppressed", the file is left as it was, and the exit is normal. This
+  tests the files and the reload, not a commercial game's own save code.
 
 ## Qualification
 
@@ -279,9 +304,24 @@ all gameplay, certify hardware fidelity or measure physical latency.
   resolves 14 of the 17 failed identities. The current snapshot holds **793,352 ROM entry hints for 606 exact cartridges**; 500
   identities have zero fallback in their checked scenarios and 106 retain reported fallback. These are cumulative qualification results,
   not a fresh full-collection run.
-- **Still unqualified:** Paperboy 2, Spiritual Warfare and The Ren & Stimpy Show: Veediots!. Their probes hit the unchanged
-  600-second timeout, so their observations are not added to shared knowledge; a timeout is kept as a symptom, not labelled as a
-  proven CPU or mapper bug. Max passes the CPU comparison but retains writable-code fallback.
+- **The three cartridges that were unqualified** (Paperboy 2, Spiritual Warfare, The Ren & Stimpy Show: Veediots!, probes at the
+  600-second timeout in the October campaign) are resolved on the 1.6.6 tree. Paperboy 2 converts alone (152 s, zero interpreter
+  cycles; the timeout was not reproduced). Veediots stopped every probe because no frame completes with the LCD off; a frame now
+  lasts 70,224 cycles then (1.6.5, [UPGRADES.md](UPGRADES.md)). Spiritual Warfare is a Wisdom Tree cartridge (below). Max passes the CPU
+  comparison but retains writable-code fallback.
+- **Wisdom Tree cartridges (1.6.6).** Five cartridges of the collection (Spiritual Warfare, Exodus, Joshua & the Battle of Jericho,
+  the King James Bible, the NIV Bible & the 20 Lost Levels of Joshua) have a header of type 00, a size code of 00 and 128 KiB to 2 MiB
+  of ROM, with the words WISDOM and TREE inside. Their mapper is a latch that switches the whole 32 KiB window by the **address** of a
+  write to `0000-7FFF` (the low eight lines; the value is ignored; no RAM; bank 0 at power-on is our choice, the latch being undefined
+  in hardware), described by [Pan Docs](https://gbdev.io/pandocs/othermbc.html) and detected as mGBA does; the runtime models it
+  (`gameboy_runtime.adapt_wisdom_tree`). Converted one at a time on the 1.6.6 tree, the five pass the CPU comparisons with zero interpreter
+  cycles on the final scenarios (Spiritual Warfare: 96 cycles at one site on the varied route; King James Bible and NIV Bible
+  also run 271,745 and 388,361 work-RAM instructions one by one, counted apart), and a capture of each shows a real screen. Check:
+  `tools/gameboy_wisdom_selftest.py`, on a cartridge authored for it. Hardware fidelity and gameplay beyond the probes are not
+  validated for them.
+- **The delivered file (1.6.6).** The compressed copy of the build is replayed on the four comparison routes against the reference
+  verdict (gate G5), and each probe keeps a liveness record from the per-frame trace `--frame-trace` (gate G8), refused when the
+  `varied` route never changes its picture: [UPGRADES.md](UPGRADES.md), `tests/test_gameboy_delivery.py`.
 - **Sharing rule.** Only exact-ROM observations backed by successful CPU qualification are promoted into the ROM-free compilation
   snapshot; previous console records are kept; source ROMs and private RAM dumps are never part of it
   ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)). The observations stay local in `Export/datas/library/gb`.

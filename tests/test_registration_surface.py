@@ -203,8 +203,10 @@ class ExtensionSetTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             if profile.id in before:
                 self.assertEqual(tuple(profile.extensions)[:len(before[profile.id])], before[profile.id], profile.id)
-                if profile.id != 'snes':
+                # 1.6.6: the X68000 gained D88 and the other names of raw 2HD disks (after the three it had).
+                if profile.id not in ('snes', 'x68'):
                     self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
+        self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
 
 # --- the detection table ----------------------------------------------------------------------------
@@ -389,7 +391,7 @@ class DetectionTableTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as empty, patch('retrorecomp.x68000.ASSETS', Path(empty)):
             self.assertEqual([profile.id for profile in systems.available_profiles() if profile.id in CONSOLES],
                              ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
-            self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['cps1'])
+            self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], [])
             self.assertNotIn('x68', [profile.id for profile in systems.available_profiles()])
             for selected in (None, 'x68', 'sms'):
                 with self.assertRaises(UnsupportedConsoleError) as caught:
@@ -397,7 +399,7 @@ class DetectionTableTests(unittest.TestCase):
                 self.assertIs(type(caught.exception), UnsupportedConsoleError)
                 self.assertIn('unavailable in this installation', str(caught.exception))
             self.assertEqual(systems.get_profile('x68').id, 'x68')  # still readable for an existing export
-        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['cps1', 'x68'])
+        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['x68'])
 
     def test_the_documented_orders_of_the_lists_are_kept(self):
         self.assertEqual(systems.system_ids()[:len(CONSOLES)], CONSOLES)

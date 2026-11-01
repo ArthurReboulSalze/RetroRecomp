@@ -165,7 +165,7 @@ class CoverageTests(unittest.TestCase):
                 (project / 'game_metadata.json').write_text('{"functions": []}')
             return ''
 
-        def fake_probe(exe, build, frames, trace, scenario):
+        def fake_probe(exe, build, frames, trace, scenario, frame_trace=None):
             probes.append((len(generations), scenario.name))
             discovered = {(2, 0x4567)} if scenario.name == 'play_r' else {(0, 0x150)}
             write_entries(trace, discovered)
@@ -174,18 +174,32 @@ class CoverageTests(unittest.TestCase):
                         ram_stub_instructions=0, ram_stub_cycles=0, ram_single_step_instructions=0,
                         ram_single_step_cycles=0, highmem_stub_instructions=0, highmem_stub_cycles=0)
 
-        def fake_compare(exe, build, frames, scenario):
-            comparisons.append((scenario.name, frames))
+        packed_replays = []
+
+        def fake_compare(exe, build, frames, scenario, tag=''):
+            (packed_replays if tag == 'packed' else comparisons).append((scenario.name, frames))
             return 'matched'
+
+        state_checked = []
+
+        def fake_states(delivered, scratch, emit):
+            state_checked.append(Path(delivered))
+            return {'fresh_process_verified': True, 'validation': {'invalid_states_rejected': 10, 'invalid_states_tried': 10,
+                                                                   'truncated_state_rejected': True, 'problems': []}}
+
+        def fake_deliver(executable, packed, label, emit):
+            from retrorecomp.delivery_evidence import DeliveredFile
+            return DeliveredFile(Path(executable), None, 'ef' * 32)
 
         with ExitStack() as stack:
             patches = {'ROOT': self.root,
                        '_dependencies': lambda emit: (self.root, self.root/'compiler', self.root, self.root/'cmake', 'generator'),
                        'write_game_metadata': lambda *a, **k: {}, 'adapt_generated_project': lambda *a: None,
                        '_verified_trace': lambda rom: prior, 'run': fake_command, '_probe': fake_probe,
-                       '_cpu_compare': fake_compare, '_remember_trace': lambda *a: None}
+                       '_cpu_compare': fake_compare, '_remember_trace': lambda *a: None, 'state_checks': fake_states}
             for name, value in patches.items():
                 stack.enter_context(patch('retrorecomp.gameboy.' + name, value))
+            stack.enter_context(patch('retrorecomp.gameboy_delivery.deliver_packed', fake_deliver))
             # The icon preparation lives in the shared conversion helpers.
             stack.enter_context(patch('retrorecomp.conversion_common.prepare_icon', lambda *a, **k: {'embedded': False}))
             for deep in (False, True):
@@ -193,6 +207,8 @@ class CoverageTests(unittest.TestCase):
                     generations.clear()
                     probes.clear()
                     comparisons.clear()
+                    packed_replays.clear()
+                    state_checked.clear()
                     messages = []
                     options = {} if deep else {'gb_deep_validation': False}  # Exercise the actual default.
                     convert_game_boy(path, output=self.root/'report', passes=3, frames=360,
@@ -202,9 +218,16 @@ class CoverageTests(unittest.TestCase):
                     self.assertIn((1, 0x4000), generations[1])
                     self.assertEqual(probes, [(i, s) for i in (1, 2) for s in ('boot', 'play_r', 'play_l')])
                     self.assertCountEqual(comparisons, [('boot', 30)] + ([('play_r', 240), ('play_l', 240)] if deep else []))
+                    self.assertCountEqual(packed_replays, comparisons)   # the compressed copy runs the same routes
                     self.assertEqual(any('add conversion time' in message for message in messages), deep)
                     report = json.loads((self.root/'report/conversion-report.json').read_text())
                     self.assertEqual(report['native_validation']['mode'], 'deep' if deep else 'standard')
+                    self.assertIs(report['native_validation']['packed_reference_match'], True)
+                    self.assertEqual(report['packed_candidate_sha256'], 'ef' * 32)
+                    self.assertEqual(len(state_checked), 1)       # the states are checked once, on the delivered copy
+                    self.assertIs(report['game_states']['fresh_process_verified'], True)
+                    self.assertEqual(report['game_states']['validation']['invalid_states_rejected'], 10)
+                    self.assertEqual([item['kind'] for item in report['hardware_devices']], ['cartridge_mapper', 'audio_unit'])
                     self.assertEqual(len(report['final_checks']), 3)
                     self.assertTrue(all(check['interpreter_cycles'] == 0 for check in report['final_checks']))
                     self.assertTrue(all(value >= 0 for value in report['stage_seconds'].values()))
@@ -216,6 +239,9 @@ class CoverageTests(unittest.TestCase):
                     self.assertIn('target', report)
                     self.assertEqual(document['scan']['level'], report['scan_level'])
                     self.assertEqual(document['cpus'][0]['arch'], 'sm83')
+                    self.assertEqual([item['kind'] for item in document['devices']], ['cartridge_mapper', 'audio_unit'])
+                    self.assertIs(document['states']['fresh_process_verified'], True)
+                    self.assertIn('battery_ram', document['saves']['cartridge_memory'])
 
 
 class WritableCodeHookTests(unittest.TestCase):

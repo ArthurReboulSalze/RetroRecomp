@@ -1,6 +1,6 @@
 """CPS-1 in the shared base: numeric records from fresh reference runs, side banks, exchange, base, switch.
 
-CPS-1 is experimental and still being developed, so the paths it shares are tied to the engine revision that
+CPS-1 is still the experimental tier of the shared base, so the paths it shares are tied to the engine revision that
 validated them, carry their own format number, and can be withdrawn with one line. Numbers only: no ROM byte,
 no RAM word, no code.
 """
@@ -859,9 +859,11 @@ class ReportTests(unittest.TestCase):
 
 
 class LabelTests(unittest.TestCase):
-    def test_the_experimental_label_stays_and_does_not_gate_the_sharing(self):
+    def test_the_status_label_does_not_gate_the_sharing(self):
         from retrorecomp.systems.cps1 import CPS1
-        self.assertEqual(CPS1.status, 'experimental')
+        # CPS-1 left the experimental status in 1.6.6; it is still the experimental tier of the shared base.
+        self.assertEqual(CPS1.status, 'supported')
+        self.assertEqual(CPS1.shared_knowledge.tier, 'experimental')
         self.assertIn('cps1', pp.EXPERIMENTAL_SHARED)
         self.assertIn('cps1', pp.SHARED_SYSTEMS)
         # Sharing code reads no status: the label is not an input of the collection or of the promotion.

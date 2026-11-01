@@ -178,8 +178,10 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
-    # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py): never built into a game, so they move no stamp.
-    'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c')
+    # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
+    # tools/neogeo_z80_vector_selftest.py): never built into a game, so they move no stamp.
+    'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
+    'native/neogeo_z80_vector_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -391,12 +393,16 @@ INPUTS = _resolve({
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
+        'native/gb_frame_trace.h',
         'native/gb_tick_checks.c',
+        'native/gb_wisdom_checks.c',
         'native/gb_tick_fast.h',
         'retrorecomp.gameboy',
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',
         'retrorecomp.gameboy_coverage',
+        'retrorecomp.gameboy_cartridge',
+        'retrorecomp.gameboy_delivery',
         'retrorecomp.gameboy_hardware',
         'retrorecomp.gameboy_host',
         'retrorecomp.gameboy_runtime',
@@ -453,7 +459,6 @@ INPUTS = _resolve({
         'native/md_eeprom.h',
         'native/md_eeprom_checks.c',
         'native/md_exception_checks.c',
-        'native/md_exception_decode.h',
         'native/md_fifo_checks.c',
         'native/md_mapper_checks.c',
         'native/md_native_checks.c',
@@ -488,6 +493,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_bus',
         'retrorecomp.megadrive_cart',
         'retrorecomp.megadrive_dma',
+        'retrorecomp.megadrive_evidence',
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
@@ -703,6 +709,7 @@ INPUTS = _resolve({
         'native/video_mode4.inc',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
+        'retrorecomp.sega_evidence',
         'retrorecomp.systems.game_gear',
         'retrorecomp.systems.master_system',
         'retrorecomp.validation',
@@ -763,7 +770,9 @@ INPUTS = _resolve({
         'native/m68000_backend.c',
         'native/m68000_backend.h',
         'native/m68000_backend_checks.c',
+        'native/m68000_decode_rules_checks.c',
         'native/m68000_state_helpers.h',
+        'native/md_exception_decode.h',
         'retrorecomp.m68000',
     ),
 })

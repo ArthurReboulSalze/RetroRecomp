@@ -446,6 +446,11 @@ Super Nintendo keys move because `native/video_mode4.inc` and `native/video_chec
 (their serialized bytes did not change), the NES state becomes `RRNESST2`, the CPS-1 key moves with its generator, and
 the Neo Geo key moves with `neogeo_build` (the Windows 1.6.3 compatibility key `STATE_ABI_163` is removed).
 
+In 1.6.6 the Neo Geo and CPS-1 sound CPU is corrected (`retrorecomp/neogeo_z80.py`,
+[UPGRADES.md](UPGRADES.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)). The Neo Geo key hashes the fingerprint of that module, so a
+Neo Geo state of 1.6.5 is refused cleanly; the CPS-1 key does not, and the 34-byte block that holds the Z80 registers did not change, so a
+CPS-1 state of 1.6.5 still loads. Nothing else moves any key.
+
 ## States written by release 1.6.3
 
 1.6.4 does not move every quick-state key, and where it moves one it does not always mean the same thing. What a key hashes is

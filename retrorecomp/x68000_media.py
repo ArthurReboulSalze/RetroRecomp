@@ -5,13 +5,22 @@ games are bootable. Originals are only opened in binary read mode. Local source
 paths are deliberately kept out of the shareable identity, and no source bytes
 are serialized. A runtime must use private working copies for guest disk writes.
 
-DIM geometry and its compacted track map are checked against the format used by
-PX68k's disk_dim.c at 0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6. This is an
-independent parser, not an imported disk emulator.
+The format of a floppy image is read from its content, never from its name: a D88 image by its header and
+sector records, a DIM image by its 256-byte header (a media type, 170 track flags and, optionally, a
+"DIFC HEADER" signature), a raw 2HD image (XDF) by its exact size. The layouts are the public descriptions of
+these formats: the DIM media types and track counts (the table below) agree with the loader of the pinned
+hissorii/px68k (74ddbb3, `x68k/disk_dim.c`, which the machine runtime compiles), and the D88 header and sector
+record are the commonly published ones. Nothing here was taken from the source of px68k-libretro (GPL), and this is
+an independent parser, not an imported disk emulator.
+
+A D88 image of the standard 2HD layout (77 cylinders, 2 heads, 8 sectors of 1,024 bytes, no error or deleted mark)
+is stored as the equivalent raw XDF, so that the machine and its saved states see the one format they know: it is
+the same game as an XDF dump of the same disk. Any other D88 layout (a protection, another geometry) is refused
+with its reason.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 import os
@@ -21,6 +30,12 @@ from typing import Sequence
 
 
 SCHEMA = 'retrorecomp.x68000.sources.v1'
+# Names a floppy image may carry; the content decides what it is.
+DISK_EXTENSIONS = ('.dim', '.xdf', '.d88', '.88d', '.hdm', '.2hd', '.dup')
+D88_HEADER_BYTES = 0x2B0
+D88_TRACKS = 164
+D88_MEDIA = {0x00: '2D', 0x10: '2DD', 0x20: '2HD', 0x30: '1D', 0x40: '1DD'}
+D88_SECTOR_HEADER_BYTES = 16
 XDF_BYTES = 77 * 2 * 8 * 1024
 DIM_HEADER_BYTES = 256
 DIM_TRACKS = 170
@@ -68,6 +83,12 @@ class DiskImage:
     present_tracks: tuple[int, ...]
     dim_type: int | None = None
     overtrack: bool = False
+    # The stored bytes of an image that is not kept as it is (a standard D88, stored as its raw XDF equivalent).
+    converted: bytes | None = field(default=None, repr=False, compare=False)
+
+    def content(self) -> bytes:
+        """The bytes the machine stores for this disk: the file itself, or its raw equivalent."""
+        return self.converted if self.converted is not None else self.path.read_bytes()
 
     def identity_record(self) -> dict:
         record = {'format': self.format, 'bytes': self.size, 'sha256': self.sha256,
@@ -79,7 +100,10 @@ class DiskImage:
         return record
 
     def local_record(self) -> dict:
-        return dict(self.identity_record(), path=str(self.path))
+        record = dict(self.identity_record(), path=str(self.path))
+        if self.converted is not None:
+            record['stored_from'] = 'd88'
+        return record
 
 
 @dataclass(frozen=True)
@@ -155,9 +179,11 @@ def _stamp(info: os.stat_result) -> tuple:
     return identity + ((info.st_ctime_ns,) if os.name != 'nt' else ())
 
 
-def _inspect(path: str | Path, *, max_bytes: int, exact_bytes: int | None = None
+def _inspect(path: str | Path, *, max_bytes: int, exact_bytes: int | None = None, keep: bool = False
              ) -> tuple[Path, int, str, bytes]:
-    """Hash a bounded regular file, detecting normal concurrent replacement/write."""
+    """Hash a bounded regular file, detecting normal concurrent replacement/write.
+
+    The last item is the first DIM_HEADER_BYTES of the file, or the whole file when `keep` (floppy images are small)."""
     try:
         resolved = Path(path).expanduser().resolve(strict=True)
         initial = resolved.stat()
@@ -170,6 +196,7 @@ def _inspect(path: str | Path, *, max_bytes: int, exact_bytes: int | None = None
         digest = hashlib.sha256()
         total = 0
         header = b''
+        kept = bytearray()
         with resolved.open('rb') as source:
             opened = os.fstat(source.fileno())
             if not stat.S_ISREG(opened.st_mode) or _stamp(opened) != _stamp(initial):
@@ -180,50 +207,117 @@ def _inspect(path: str | Path, *, max_bytes: int, exact_bytes: int | None = None
                     raise ValueError('X68000 source exceeds its size limit.')
                 if not header:
                     header = chunk[:DIM_HEADER_BYTES]
+                if keep:
+                    kept += chunk
                 digest.update(chunk)
             if (total != initial.st_size or _stamp(os.fstat(source.fileno())) != _stamp(initial)
                     or _stamp(resolved.stat()) != _stamp(initial)):
                 raise ValueError('X68000 source changed while reading.')
-        return resolved, total, digest.hexdigest(), header
+        return resolved, total, digest.hexdigest(), bytes(kept) if keep else header
     except OSError as exc:
         raise ValueError(f'Cannot read X68000 source: {exc}') from exc
 
 
-def identify_disk(path: str | Path) -> DiskImage:
-    """Identify exact standard XDF or track-mapped DIM without extracting data.
+class _NotThisFormat(ValueError):
+    """The content does not look like the format a reader handles; the next reader may."""
 
-    XDF has no signature: extension plus the exact 77-cylinder layout are
-    required. DIM accepts the legacy header variant without a DIFC signature
-    when its media type, track map and payload length agree exactly, as PX68k
-    does. Unknown trailing data, truncated tracks and unsupported formats fail.
-    """
-    suffix = Path(path).suffix.casefold()
-    if suffix not in ('.xdf', '.dim'):
-        raise ValueError('X68000 prototype supports .xdf and .dim disks only; command files are not executed.')
-    resolved, size, digest, header = _inspect(
-        path, max_bytes=MAX_DISK_BYTES,
-        exact_bytes=XDF_BYTES if suffix == '.xdf' else None)
-    if suffix == '.xdf':
-        return DiskImage(resolved, 'xdf', size, digest, 1024, 8, tuple(range(154)))
+
+def _u16(data: bytes, at: int) -> int:
+    return int.from_bytes(data[at:at + 2], 'little')
+
+
+def _u32(data: bytes, at: int) -> int:
+    return int.from_bytes(data[at:at + 4], 'little')
+
+
+def _read_d88(resolved: Path, size: int, digest: str, data: bytes) -> DiskImage:
+    """A D88 image: a 0x2B0-byte header (name, write protect, media type, disk size, 164 track offsets), then the sector
+    records of each track, a 16-byte header (C, H, R, N, sectors in the track, density, deleted mark, status, data size)
+    followed by the data. Stored as its raw XDF equivalent when it is a standard 2HD disk."""
+    looks = (size >= D88_HEADER_BYTES and data[0x1A] in (0x00, 0x10) and data[0x1B] in D88_MEDIA
+             and not any(data[0x11:0x1A]) and _u32(data, 0x1C) == size)
+    offsets = [_u32(data, 0x20 + 4 * track) for track in range(D88_TRACKS)] if looks else []
+    stored = [track for track, offset in enumerate(offsets) if offset]
+    if not looks or not stored or min(offsets[track] for track in stored) < D88_HEADER_BYTES:
+        raise _NotThisFormat('Not a D88 image.')
+    if data[0x1B] != 0x20:
+        raise ValueError(f'X68000 D88 image is a {D88_MEDIA[data[0x1B]]} disk; only 2HD is supported.')
+    if stored != list(range(154)):
+        raise ValueError('X68000 D88 image does not store the 154 tracks of a 77-cylinder two-sided disk.')
+    record = D88_SECTOR_HEADER_BYTES + 1024
+    track_bytes = 8 * record
+    if D88_HEADER_BYTES + 154 * track_bytes != size:
+        raise ValueError('X68000 D88 image is not the standard 2HD layout (8 sectors of 1,024 bytes on each of 154 tracks).')
+    content = bytearray()
+    for track in range(154):
+        if offsets[track] != D88_HEADER_BYTES + track * track_bytes:
+            raise ValueError(f'X68000 D88 track {track} is not stored in order.')
+        sectors = {}
+        for index in range(8):
+            at = offsets[track] + index * record
+            cylinder, head, number, shift = data[at:at + 4]
+            count, density, deleted, status, length = _u16(data, at + 4), data[at + 6], data[at + 7], data[at + 8], _u16(data, at + 14)
+            standard = (cylinder, head, shift, count, length) == (track // 2, track % 2, 3, 8, 1024)
+            if not standard or density not in (0x00, 0x01) or deleted or status or not 1 <= number <= 8 or number in sectors:
+                raise ValueError(f'X68000 D88 track {track} sector {index + 1} is not a standard 2HD sector '
+                                 '(a protected or unusual disk is not supported).')
+            sectors[number] = data[at + D88_SECTOR_HEADER_BYTES:at + record]
+        content += b''.join(sectors[number] for number in range(1, 9))
+    content = bytes(content)
+    return DiskImage(resolved, 'xdf', len(content), hashlib.sha256(content).hexdigest(), 1024, 8, tuple(range(154)), converted=content)
+
+
+def _read_dim(resolved: Path, size: int, digest: str, data: bytes) -> DiskImage:
+    """A DIM image: 256-byte header (media type, 170 track flags, an optional signature, the overtrack byte), then the
+    stored tracks in order. The track map must agree with the length exactly."""
+    header = data[:DIM_HEADER_BYTES]
     if len(header) != DIM_HEADER_BYTES:
-        raise ValueError('Truncated X68000 DIM header.')
+        raise _NotThisFormat('Truncated X68000 DIM header.')
     kind = header[0]
     if kind not in DIM_GEOMETRIES:
-        raise ValueError(f'Unsupported X68000 DIM media type {kind}.')
+        raise _NotThisFormat(f'Unsupported X68000 DIM media type {kind}.')
     sector_bytes, sectors_per_track, _normal_tracks = DIM_GEOMETRIES[kind]
     present = tuple(i for i, flag in enumerate(header[1:171]) if flag)
     if not present:
-        raise ValueError('X68000 DIM has no stored tracks.')
+        raise _NotThisFormat('X68000 DIM has no stored tracks.')
     overtrack = bool(header[255])
-    # The track map is authoritative, including padded 170-track dumps whose
-    # legacy overtrack byte is zero. The pinned DIM_SetFD reads all 170 map
-    # entries independently of that byte. Preserve it as metadata, but do not
-    # reject a complete image merely because the dumper left it unset.
+    # The track map is authoritative, including padded 170-track dumps whose legacy overtrack byte is zero: the pinned
+    # hissorii loader reads all 170 map entries whatever that byte says. Preserve it as metadata, but do not reject a
+    # complete image merely because the dumper left it unset.
     expected = DIM_HEADER_BYTES + len(present) * sector_bytes * sectors_per_track
     if size != expected:
-        raise ValueError(f'X68000 DIM track map requires {expected} bytes; found {size}.')
-    return DiskImage(resolved, 'dim', size, digest, sector_bytes,
-                     sectors_per_track, present, kind, overtrack)
+        raise _NotThisFormat(f'X68000 DIM track map requires {expected} bytes; found {size}.')
+    return DiskImage(resolved, 'dim', size, digest, sector_bytes, sectors_per_track, present, kind, overtrack)
+
+
+def _read_raw(resolved: Path, size: int, digest: str, data: bytes) -> DiskImage:
+    """A raw 2HD image (XDF, HDM, 2HD, DUP): no header, 77 cylinders of 2 heads of 8 sectors of 1,024 bytes."""
+    if size != XDF_BYTES:
+        raise _NotThisFormat(f'X68000 source must contain exactly {XDF_BYTES} bytes.')
+    return DiskImage(resolved, 'xdf', size, digest, 1024, 8, tuple(range(154)))
+
+
+def identify_disk(path: str | Path) -> DiskImage:
+    """Identify a floppy image from its content: D88, DIM (with or without its signature) or raw 2HD.
+
+    The name only has to be one a floppy image may carry (DISK_EXTENSIONS); it never decides the format, so a raw image
+    named .dim, a DIM named .xdf or a D88 with any of them is read for what it is. A file that is none of them fails with
+    the reason of the format its name suggests. Unknown trailing data, truncated tracks and unsupported formats fail.
+    """
+    suffix = Path(path).suffix.casefold()
+    if suffix not in DISK_EXTENSIONS:
+        raise ValueError('X68000 supports DIM, XDF and D88 floppy images only (%s); command files are not executed.'
+                         % ', '.join(DISK_EXTENSIONS))
+    resolved, size, digest, data = _inspect(path, max_bytes=MAX_DISK_BYTES, keep=True)
+    reasons = {}
+    for name, reader in (('d88', _read_d88), ('dim', _read_dim), ('xdf', _read_raw)):
+        try:
+            return reader(resolved, size, digest, data)
+        except _NotThisFormat as reason:
+            reasons[name] = str(reason)
+    preferred = {'.dim': 'dim', '.d88': 'd88', '.88d': 'd88'}.get(suffix, 'xdf')
+    raise ValueError(reasons[preferred] if preferred != 'd88' else
+                     'X68000 D88 image is not recognised (its header does not describe this file).')
 
 
 def validate_firmware(ipl: str | Path, cgrom: str | Path) -> FirmwareSet:

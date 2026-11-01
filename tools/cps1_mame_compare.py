@@ -100,8 +100,88 @@ def unrotate(image):
     return image.transpose(Image.FLIP_TOP_BOTTOM).transpose(Image.TRANSPOSE)
 
 
+AUDIO_RATE = 55930    # the YM2151 rate, CPS1_AUDIO_RATE in native/cps1_machine.h: both sides are brought to it
+
+
+def read_wav(path: Path):
+    """Mono float samples of a 16-bit PCM WAV (channels averaged) and its rate."""
+    import numpy
+    import wave
+    with wave.open(str(path), 'rb') as stream:
+        channels, rate, count = stream.getnchannels(), stream.getframerate(), stream.getnframes()
+        data = numpy.frombuffer(stream.readframes(count), dtype='<i2').astype(numpy.float64)
+    return data.reshape(-1, channels).mean(axis=1), rate
+
+
+def compare_sound(wav: Path, pcm: Path, seconds: int | None = None) -> dict:
+    """Agreement of MAME's sound with the game's, in one-second windows.
+
+    Both are mono at the YM2151 rate. The game's samples start with its first frame and MAME's with its first frame, so the
+    lag is searched within one frame (936 samples). Per window: the RMS levels in dB, and the cosine similarity of the
+    magnitude spectra. Reported apart: the waveform correlation, which the interpolation of the OKI and MAME's own filter keep
+    below what the spectra suggest. Windows where either side is silent are counted, not compared."""
+    import numpy
+    mame, rate = read_wav(wav)
+    ours = numpy.frombuffer(pcm.read_bytes(), dtype='<i2').astype(numpy.float64)
+    if rate != AUDIO_RATE:
+        return {'compared': False, 'reason': f'MAME wrote {rate} Hz, expected {AUDIO_RATE}'}
+    # the waveform lag within one frame, from the first seconds with sound
+    usable = min(len(mame), len(ours))
+    best_lag, best_value = 0, -2.0
+    probe = slice(AUDIO_RATE, min(usable, 6 * AUDIO_RATE))
+    for lag in range(-940, 941, 4):
+        a = mame[probe.start + max(lag, 0):probe.stop + min(lag, 0)] if lag >= 0 else mame[probe.start:probe.stop + lag]
+        b = ours[probe.start:probe.stop - max(lag, 0)] if lag >= 0 else ours[probe.start - lag:probe.stop]
+        n = min(len(a), len(b))
+        if n and a[:n].std() and b[:n].std():
+            value = float(numpy.corrcoef(a[:n], b[:n])[0, 1])
+            if value > best_value:
+                best_lag, best_value = lag, value
+    if best_lag >= 0:
+        mame, ours = mame[best_lag:], ours
+    else:
+        mame, ours = mame, ours[-best_lag:]
+    windows = min(len(mame), len(ours)) // AUDIO_RATE
+    if seconds:
+        windows = min(windows, seconds)
+    levels, cosines, silent = [], [], 0
+    total_a = total_b = 0.0
+    for index in range(windows):
+        a = mame[index * AUDIO_RATE:(index + 1) * AUDIO_RATE]
+        b = ours[index * AUDIO_RATE:(index + 1) * AUDIO_RATE]
+        ra, rb = float(numpy.sqrt((a ** 2).mean())), float(numpy.sqrt((b ** 2).mean()))
+        if ra < 1.0 or rb < 1.0:
+            silent += 1
+            continue
+        levels.append(20 * numpy.log10(ra / rb))
+        fa, fb = numpy.abs(numpy.fft.rfft(a * numpy.hanning(len(a)))), numpy.abs(numpy.fft.rfft(b * numpy.hanning(len(b))))
+        cosines.append(float(fa @ fb / (numpy.linalg.norm(fa) * numpy.linalg.norm(fb))))
+        total_a, total_b = total_a + fa ** 2, total_b + fb ** 2
+    if not levels:
+        return {'compared': False, 'reason': 'no window with sound on both sides', 'windows': windows, 'silent_windows': silent}
+    # the spectra averaged over all the windows with sound, and their third-octave bands (power in dB)
+    averaged = float(numpy.sqrt(total_a) @ numpy.sqrt(total_b) / (numpy.linalg.norm(numpy.sqrt(total_a)) * numpy.linalg.norm(numpy.sqrt(total_b))))
+    frequencies = numpy.fft.rfftfreq(AUDIO_RATE, 1.0 / AUDIO_RATE)
+    low, high = [], []
+    edge = 125.0
+    while edge * 2 ** (1 / 3) <= 16000:
+        upper = edge * 2 ** (1 / 3)
+        band = (frequencies >= edge) & (frequencies < upper)
+        if band.any() and total_a[band].sum() > 0 and total_b[band].sum() > 0:
+            difference = abs(10 * numpy.log10(total_a[band].sum() / total_b[band].sum()))
+            (low if upper <= 4000 else high if edge >= 5000 else []).append(float(difference))
+        edge = upper
+    correlation = float(numpy.corrcoef(mame[:windows * AUDIO_RATE][:len(ours)], ours[:windows * AUDIO_RATE][:len(mame)])[0, 1])
+    return {'compared': True, 'windows': windows, 'silent_windows': silent, 'lag_samples': best_lag,
+            'level_difference_db_median': float(numpy.median(numpy.abs(levels))), 'level_difference_db_max': float(numpy.max(numpy.abs(levels))),
+            'spectrum_cosine_min': float(min(cosines)), 'spectrum_cosine_median': float(numpy.median(cosines)),
+            'averaged_spectrum_cosine': averaged,
+            'third_octave_max_db_below_4khz': max(low) if low else None, 'third_octave_max_db_5_to_16khz': max(high) if high else None,
+            'waveform_correlation': correlation}
+
+
 def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int, route: str, work: Path, offset: int,
-            phase: int = 22) -> dict:
+            phase: int = 22, sound: bool = False) -> dict:
     from PIL import Image, ImageChops
     game = cps1_catalogue.by_set()[name]
     six = any(n in ('button4', 'button5', 'button6') for port in game['inputs'].values() for _, n, _ in port.get('inputs', ()))
@@ -126,12 +206,14 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
                           'in2': ports[0], 'in3': ports[1],
                           'events': '{' + ','.join('{%d,%d,%d,%d,%d}' % e for e in events) + '}'}, encoding='utf-8')
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
+    extra_game = ['--pcm', str(work / 'game.pcm')] if sound else []
+    extra_mame = ['-wavwrite', str(work / 'mame.wav'), '-samplerate', str(AUDIO_RATE)] if sound else []
     subprocess.run([str(exe), '--headless', '--frames', str(frames + 8), '--script', str(work / 'route.inputs'), '--capture',
-                    str(work / 'game'), '--capture-every', str(step)], env=environment, check=True, capture_output=True, timeout=900,
-                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                    str(work / 'game'), '--capture-every', str(step), *extra_game], env=environment, check=True, capture_output=True,
+                   timeout=900, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     mame_run = subprocess.run([str(mame), name, '-rompath', str(roms), '-video', 'none', '-sound', 'none', '-nothrottle',
                                '-skip_gameinfo', '-nomouse', '-autoboot_script', str(lua), '-cfg_directory', str(work / 'cfg'),
-                               '-nvram_directory', str(work / 'nvram')], capture_output=True, text=True, timeout=1800,
+                               '-nvram_directory', str(work / 'nvram'), *extra_mame], capture_output=True, text=True, timeout=1800,
                               cwd=mame.parent, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     captures = sorted((work / 'mame').glob('*.raw'))
     if mame_run.returncode or not captures:
@@ -158,6 +240,9 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
     first = next((r['mame_frame'] for r in results if r['different_pixels']), None)
     summary = {'set': name, 'route': route, 'comparable': True, 'offset': offset, 'compared': len(results), 'identical': identical,
                'first_difference_frame': first, 'frames_run': frames}
+    if sound:
+        summary['sound'] = (compare_sound(work / 'mame.wav', work / 'game.pcm') if (work / 'mame.wav').is_file()
+                            else {'compared': False, 'reason': 'MAME wrote no sound file'})
     (work / 'report.json').write_text(json.dumps({**summary, 'frames': results}, indent=1), encoding='utf-8')
     return summary
 
@@ -173,12 +258,13 @@ def main() -> int:
     parser.add_argument('--route', choices=('attract', 'play'), default='play')
     parser.add_argument('--offset', type=int, default=0, help='game frame = MAME frame + offset (calibrate on the attract route)')
     parser.add_argument('--phase', type=int, default=22, help='lines between the start of the vertical blank in MAME and line 0 of the game')
+    parser.add_argument('--sound', action='store_true', help='also compare the sound: the WAV MAME writes against the PCM of the game')
     parser.add_argument('--work', type=Path, default=ROOT / '.build' / 'cps1-mame-compare')
     options = parser.parse_args()
     if not options.mame or not options.roms:
         parser.error('--mame and --roms (or RETRO_RECOMP_MAME and RETRO_RECOMP_MAME_ROMS) are required')
     summary = compare(options.set, options.exe, options.mame, options.roms, options.frames, options.step, options.route, options.work,
-                      options.offset, options.phase)
+                      options.offset, options.phase, options.sound)
     print(json.dumps(summary))
     return 0 if summary.get('comparable') else 3
 

@@ -35,7 +35,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -88,7 +88,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -144,7 +144,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -205,14 +205,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -246,7 +251,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -273,22 +278,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -319,6 +344,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -369,7 +410,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -443,14 +484,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -490,7 +536,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -519,26 +565,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -546,46 +604,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -638,6 +728,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -695,14 +801,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -742,7 +853,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -771,26 +882,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -798,46 +921,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -890,6 +1045,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -948,14 +1119,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -998,7 +1174,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-1 frames=18000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -1029,38 +1205,56 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-3e5e7b255f240fb8",
       "frames": 18000,
+      "image_hash": "ima-3e5e7b255f240fb8",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-3e5e7b255f240fb8",
+      "ram_hash": "ram-3e5e7b255f240fb8",
       "reference_match": true,
       "route": "long-1",
+      "script_sha256": "7d6deb74b1809f2c469f7307a63e99e8c4730d667336f921bbf5cb24d48b0745",
+      "steps": 320,
       "trace_sha256": "3e5e7b255f240fb8cef5ac3ac96a7aebc65f72592175f85e37ea4649c5913ea6"
      }
     ],
@@ -1068,58 +1262,96 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-3e5e7b255f240fb8",
       "frames": 18000,
+      "image_hash": "ima-3e5e7b255f240fb8",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-3e5e7b255f240fb8",
+      "ram_hash": "ram-3e5e7b255f240fb8",
       "reference_match": true,
       "route": "long-1",
+      "script_sha256": "7d6deb74b1809f2c469f7307a63e99e8c4730d667336f921bbf5cb24d48b0745",
+      "steps": 320,
       "trace_sha256": "3e5e7b255f240fb8cef5ac3ac96a7aebc65f72592175f85e37ea4649c5913ea6"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -1184,6 +1416,22 @@
       "long-1"
      ]
     },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
+    },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "extended",
     "status": "experimental",
@@ -1233,7 +1481,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1283,7 +1531,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1338,14 +1586,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -1379,7 +1632,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1406,22 +1659,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -1452,6 +1725,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -1502,7 +1791,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1564,14 +1853,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -1616,7 +1910,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1643,22 +1937,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -1689,6 +2003,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -1758,14 +2088,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -1821,7 +2156,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -1848,22 +2183,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -1894,6 +2249,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -1951,14 +2322,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -1992,7 +2368,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -2019,22 +2395,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -2065,6 +2461,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2120,14 +2532,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-fc9d91d9be232eb9",
       "frames": 5000,
+      "image_hash": "ima-fc9d91d9be232eb9",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-fc9d91d9be232eb9",
+      "ram_hash": "ram-fc9d91d9be232eb9",
       "reference_match": true,
       "state_frame": 4200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "fc9d91d9be232eb96f8299914bbbe97a86fbd6ce8b20bae49855c87e0edb5c56"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -2161,7 +2578,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=5000 events=inputs.tsv observe=False extra=['--state-save-at', '4200'] binary=player.exe",
     "exit packed_replays",
@@ -2188,22 +2605,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-fc9d91d9be232eb9",
       "frames": 5000,
+      "image_hash": "ima-fc9d91d9be232eb9",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-fc9d91d9be232eb9",
+      "ram_hash": "ram-fc9d91d9be232eb9",
       "reference_match": true,
       "state_frame": 4200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "fc9d91d9be232eb96f8299914bbbe97a86fbd6ce8b20bae49855c87e0edb5c56"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 4200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -2234,6 +2671,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2289,14 +2742,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-23cc8fa8f5ab739c",
       "frames": 10000,
+      "image_hash": "ima-23cc8fa8f5ab739c",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-23cc8fa8f5ab739c",
+      "ram_hash": "ram-23cc8fa8f5ab739c",
       "reference_match": true,
       "state_frame": 9200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "23cc8fa8f5ab739c478105100b6161e65d329be041befbe99682745e430be373"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -2330,7 +2788,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=10000 events=inputs.tsv observe=False extra=['--state-save-at', '9200'] binary=player.exe",
     "exit packed_replays",
@@ -2357,22 +2815,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-23cc8fa8f5ab739c",
       "frames": 10000,
+      "image_hash": "ima-23cc8fa8f5ab739c",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-23cc8fa8f5ab739c",
+      "ram_hash": "ram-23cc8fa8f5ab739c",
       "reference_match": true,
       "state_frame": 9200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "23cc8fa8f5ab739c478105100b6161e65d329be041befbe99682745e430be373"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 9200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -2403,6 +2881,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2458,14 +2952,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -2499,7 +2998,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -2526,22 +3025,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -2572,6 +3091,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2642,7 +3177,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -2735,14 +3270,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -2782,7 +3322,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -2811,26 +3351,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -2838,46 +3390,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -2931,6 +3515,22 @@
       "keyboard"
      ]
     },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
+    },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
@@ -2980,7 +3580,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays"
@@ -3034,7 +3634,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -3100,14 +3700,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -3152,7 +3757,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -3179,22 +3784,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -3225,6 +3850,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3349,14 +3990,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -3489,7 +4135,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -3516,22 +4162,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -3562,6 +4228,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3623,14 +4305,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -3664,7 +4351,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -3691,22 +4378,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -3737,6 +4444,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3792,14 +4515,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -3833,7 +4561,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -3860,22 +4588,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -3906,6 +4654,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3981,14 +4745,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -4022,7 +4791,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -4049,22 +4818,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -4095,6 +4884,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -4202,14 +5007,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -4275,7 +5085,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -4304,26 +5114,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 3,
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 3,
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -4331,46 +5153,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 3,
-      "interpreter_percent": 2.4390243902439024,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 3,
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 3,
+      "interpreter_percent": 2.4390243902439024,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -4423,6 +5277,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -4539,14 +5409,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -4580,7 +5455,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -4607,22 +5482,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -4651,6 +5546,22 @@
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
      "sound_heard": false,
      "sound_routes": []
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -4708,14 +5619,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -4755,7 +5671,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -4784,26 +5700,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -4811,46 +5739,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -4902,6 +5862,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -4958,14 +5934,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -4999,7 +5980,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -5026,22 +6007,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -5070,6 +6071,22 @@
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
      "sound_heard": false,
      "sound_routes": []
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -5128,14 +6145,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -5175,7 +6197,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -5204,26 +6226,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -5231,46 +6265,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -5323,6 +6389,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -5380,14 +6462,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -5427,7 +6514,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -5456,26 +6543,38 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
@@ -5483,46 +6582,78 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
-     },
-     {
-      "automatic_disk_changes": 0,
-      "frames": 4000,
-      "interpreted_opcodes": 0,
-      "interpreter_percent": 0.0,
-      "media_events": [],
-      "native_entries": 120,
-      "packed_reference_match": true,
-      "reference_match": true,
-      "route": "mouse",
+      "state_restart_match": true,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
+      "reference_match": true,
+      "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
+      "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -5575,6 +6706,22 @@
       "mouse",
       "keyboard"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -5630,14 +6777,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -5671,7 +6823,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -5698,22 +6850,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -5744,6 +6916,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -5815,14 +7003,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -5871,7 +7064,7 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-2 frames=36000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-3 frames=36000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
@@ -5906,62 +7099,92 @@
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-1",
+      "script_sha256": "10c6030a56ea3a37c6ba9899f4b924a740c5844d68c09d3e0971283ac1ce9528",
+      "steps": 637,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-2",
+      "script_sha256": "eba91466daa2b86994ac5e8a748fa99d5406e774e6f45e8d391bc04ced1d887d",
+      "steps": 633,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-3",
+      "script_sha256": "ea9268e45e03107e59d30aad9142db874ce7a48664f4d2d357efd110d6c75f2a",
+      "steps": 651,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      }
     ],
@@ -5969,82 +7192,132 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "mouse",
+      "script_sha256": "335ea4e431456125ce1b548873841b1b5a7ad69d63a3479b05eaee04a4fae392",
+      "steps": 49,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "route": "keyboard",
+      "script_sha256": "c9db227e4d1aeebc4c5bcfba4fb86bd2bf354e2e3b42d9903459b599aa4ab403",
+      "steps": 30,
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-1",
+      "script_sha256": "10c6030a56ea3a37c6ba9899f4b924a740c5844d68c09d3e0971283ac1ce9528",
+      "steps": 637,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-2",
+      "script_sha256": "eba91466daa2b86994ac5e8a748fa99d5406e774e6f45e8d391bc04ced1d887d",
+      "steps": 633,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      },
      {
       "automatic_disk_changes": 0,
+      "cpu_hash": "cpu-d24a0b53467f7de2",
       "frames": 36000,
+      "image_hash": "ima-d24a0b53467f7de2",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-d24a0b53467f7de2",
+      "ram_hash": "ram-d24a0b53467f7de2",
       "reference_match": true,
       "route": "long-3",
+      "script_sha256": "ea9268e45e03107e59d30aad9142db874ce7a48664f4d2d357efd110d6c75f2a",
+      "steps": 651,
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -6131,6 +7404,22 @@
       "long-3"
      ]
     },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
+    },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "thorough",
     "status": "experimental",
@@ -6185,14 +7474,19 @@
      "check": {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
      "observations_sha256": "<sha256>",
@@ -6226,7 +7520,7 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
-    "pack_candidate player.exe -> packed-game.exe",
+    "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays",
@@ -6253,22 +7547,42 @@
      {
       "boot_frames": 200,
       "boot_state_restart_match": true,
+      "cpu_hash": "cpu-1574201cbb0c07f4",
       "frames": 4000,
+      "image_hash": "ima-1574201cbb0c07f4",
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
       "packed_reference_match": true,
+      "pcm_hash": "pcm-1574201cbb0c07f4",
+      "ram_hash": "ram-1574201cbb0c07f4",
       "reference_match": true,
       "state_frame": 3200,
-      "state_restart_match": true
+      "state_restart_match": true,
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
      }
     ],
     "game_states": {
+     "compatibility": "the exact machine (disks, IPL, font ROM, RAM size) and the build that wrote the state; refused between releases",
      "fresh_process_verified": true,
      "load_key": "F9",
+     "machine": "x68000",
+     "rom_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
      "save_key": "F8",
-     "supported": true
+     "schema": "RRX68MS1",
+     "slots": 1,
+     "supported": true,
+     "validation": {
+      "boot_continuation_frames": 40,
+      "boot_saved_at_frame": 120,
+      "compressed_copy": true,
+      "continuation_frames": 400,
+      "continuation_matches": true,
+      "process": "fresh",
+      "saved_at_frame": 3200
+     }
     },
+    "input_players": 2,
     "liveness": [
      {
       "distinct_audio_blocks": 2,
@@ -6299,6 +7613,22 @@
      "sound_routes": [
       "main"
      ]
+    },
+    "ordinary_saves": {
+     "path": "datas/games/x68-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm/media",
+     "scope": "the disks of the game: each is copied beside the player on the first start and the game writes into its own copy",
+     "supported": true,
+     "validation": {
+      "checked_in_this_conversion": false,
+      "evidence": "tests/test_x68000_payload.py (kept across starts and a second build, an unusable disk set aside) and tools/x68000_saves_check.py"
+     }
+    },
+    "peripheral": {
+     "disk_drives": 2,
+     "joystick_ports": 2,
+     "keyboard": "guest keyboard on request (Ctrl+Alt+K)",
+     "media": "floppy disks only",
+     "mouse": false
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",

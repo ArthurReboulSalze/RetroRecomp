@@ -60,7 +60,7 @@ Two costs the numbers still hide:
 
 ## Experimental, then supported
 
-A machine enters as `experimental` and may stay incomplete for a long time (CPS-1 has work left, the X68000 much more).
+A machine enters as `experimental` and may stay incomplete for a long time (the X68000 has much work left; CPS-1 stayed experimental until 1.6.6).
 The profile's `status` says so; nothing else may contradict it (`tools/status_lint.py`).
 
 | | Experimental (minimum to add it) | Supported |

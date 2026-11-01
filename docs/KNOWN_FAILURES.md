@@ -16,7 +16,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 
 | Machine | Game (set or title) | Kind | What happens | What was tried | Since |
 |---|---|---|---|---|---|
-| Game Boy | Spiritual Warfare (Unl) | Failing | The start-up probe never ends (100 % CPU); the export finishes frame 1 then runs into illegal code (thousands of `0xDD` opcodes) | Replayed alone on 29 October 2026: reproducible. The header says "ROM only, 32 KiB" for a 256 KiB file: an unlicensed custom mapper is likely, not proven | 10 October 2026 |
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
 | NES | Famicom Disk System images | Refused by design | Disk images are not a supported medium ([NES.md](NES.md)) | Outside the machine's scope; the upstream's FDS work is deferred ([UPSTREAMS.md](UPSTREAMS.md#deferred)) | Always |
@@ -36,7 +35,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Capcom CPS-1 | Street Fighter II World 910228 (`sf2ee`, `sf2ue`) | Refused by design | This revision needs a board-specific start-up, not handled | Refused by the catalogue; `sf2`, `sf2hf` and `sf2ce` convert | 24 October 2026 |
 | Capcom CPS-1 | Gamushara Battle! Puchi Monster (`pmonster`) | Refused by design | Marked not working in the reference description | Refused by the catalogue | 24 October 2026 |
 | Capcom CPS-1 | Bootlegs and hacks, 65 sets (for example `sf2ebbl`, `sf2rb`, `3wondersb`, `dinohunt`) | Refused by design | « Bootleg and modified sets are outside the supported CPS-1 scope » | Refused by the catalogue; the originals convert | 24 October 2026 |
-| Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
+| Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.d88`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
 
 ## Taken off this page
@@ -72,3 +71,5 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
   state does not change); it converts with zero interpreter cycles.
 - **Mega Drive, Barkley Shut Up and Jam!** (30 October 2026). It requests the sound CPU's bus and tests the grant once;
   the grant is now dated at the end of the sound CPU's current machine cycle (it came one slice late), and it converts.
+- **Game Boy, Spiritual Warfare** (1 November 2026). Its unlicensed Wisdom Tree mapper (one latch switching the whole
+  32 KiB window, the bank taken from the write address) is now modelled; the five Wisdom Tree cartridges convert.

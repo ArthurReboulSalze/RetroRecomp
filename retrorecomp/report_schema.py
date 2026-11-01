@@ -62,6 +62,10 @@ missing, because the old readers take a null for a value)::
                                                        neither native nor interpreted)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
+                  The coprocessor comes first. After it a writer may list units that have no counter
+                  ({'kind': 'cartridge_mapper' | 'audio_unit', 'unit': None, 'fallback_present': None,
+                  'scenarios': [], 'details': {...}}, from the writer's ``hardware_devices``; Game Boy: the mapper
+                  and the sound unit, C models of the runtime). They are not part of the native-code verdict.
     validation    {'native_code', 'cpu_fidelity', 'hardware_fidelity',
                    'gameplay', 'latency'}
     honesty       the writer's own claim flags, as stored (None when absent)
@@ -92,6 +96,8 @@ REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'targe
                  'cpus', 'devices', 'validation', 'honesty', 'packed', 'states', 'saves', 'runtime',
                  'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
+# The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own.
+HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit')
 
 
 class ReportShapeError(ValueError):
@@ -309,6 +315,24 @@ def _device(data, rows):
     return device
 
 
+def _hardware_devices(data):
+    """The units a writer names with `hardware_devices` ([{'id', 'kind', 'mode', 'details'}], Game Boy: the cartridge's mapper and the
+    sound unit, both C models in the runtime). They have no scenario and no counter: `fallback_present` is None (not applicable, not
+    zero), and `details` is the writer's own record. An entry of another shape is dropped."""
+    entries = data.get('hardware_devices')
+    if not isinstance(entries, list):
+        return []
+    return [{'id': entry['id'], 'kind': entry['kind'], 'unit': None, 'mode': entry.get('mode'), 'failed': None,
+             'fallback_present': None, 'scenarios': [], 'details': _copy(_dict(entry.get('details')))}
+            for entry in entries
+            if isinstance(entry, dict) and isinstance(entry.get('id'), str) and entry.get('kind') in HARDWARE_KINDS]
+
+
+def _coprocessor(report):
+    """The cartridge coprocessor of a schema-2 report (None when it has none): the first device of that kind."""
+    return next((device for device in report['devices'] if device.get('kind') == 'cartridge_coprocessor'), None)
+
+
 # ---------------------------------------------------------------- scan
 
 def _route(entry, kind):
@@ -325,7 +349,8 @@ def _scan(shape, data, rows):
     for name, entry in _dict(data.get('qualification_extra_routes')).items():
         routes.append(_route({'name': name, **_dict(entry)}, 'qualification_extra'))
     if shape.writer == 'x68000_conversion':
-        routes += [_route({'name': row.get('route'), 'frames': row.get('frames')}, 'exploration')
+        routes += [_route({'name': row.get('route'), 'frames': row.get('frames'), 'steps': row.get('steps'),
+                           'script_sha256': row.get('script_sha256')}, 'exploration')
                    for row in _dict_rows(data.get('exploration_checks'))]
     if shape.writer == 'cps1_conversion':
         routes += [_route(row, 'validation') for row in rows]
@@ -611,8 +636,11 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         raise ReportShapeError(f'The {system["id"]} report does not have the shape of the {shape.writer} writer '
                                f'(no {shape.marker!r}).')
     cpus, device = _cpus(shape, data, rows), _device(data, rows)
-    devices = [device] if device else []
-    validation = _validation(shape, data, rows, cpus, devices)
+    coprocessors = [device] if device else []
+    # The units that are not a CPU or a coprocessor and carry no counter (Game Boy: the mapper and the sound unit) are listed after
+    # it and take no part in the native-code verdict.
+    devices = [*coprocessors, *_hardware_devices(data)]
+    validation = _validation(shape, data, rows, cpus, coprocessors)
     return {
         'schema': {'name': SCHEMA_NAME, 'version': SCHEMA_VERSION},
         'read_from': {'schema_version': schema_version, 'writer': shape.writer},
@@ -803,7 +831,7 @@ def fallback_summary(report, *, lenient=False) -> dict:
     main, audio = _cpu(report, 'main'), _cpu(report, 'audio')
     scenarios = main['scenarios'] if main else []
     percents = [s['interpreted_percent'] for s in scenarios if s['interpreted_percent'] is not None]
-    device = report['devices'][0] if report['devices'] else None
+    device = _coprocessor(report)
     summary = {
         'conversion_stage': report['system'].get('status'),
         'main_interpreted_opcodes': max((s['interpreted'] or 0 for s in scenarios), default=0),

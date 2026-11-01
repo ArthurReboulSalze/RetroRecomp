@@ -559,11 +559,13 @@ def _md_menu_confirm_script(directory: Path, frames: int) -> Path:
 
 
 def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False,
-            gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None) -> dict:
+            gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None, trace=False) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
     scenario = scenario or ('play' if play else 'demo')
     report = directory / f'{scenario}{"-reference" if reference else ""}.json'
     command = [executable, '--frames', str(frames), '--report', report]
+    if trace:
+        command.extend(('--trace', directory / f'{scenario}.trace.csv'))
     if input_script is not None:
         command.extend(('--input-script', Path(input_script).resolve()))
     # Chained scenarios: restore the previous scenario's end state before the
@@ -807,9 +809,12 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     history, comparisons = [], []
     reference_before_learning = True
 
+    references = {}
+
     def compare(checks, directory, scripts):
         directory.mkdir(exist_ok=True)
         comparisons = []
+        references.clear()
         for native in checks:
             scenario = native['scenario']
             options = dict(play=scenario != 'demo', reference=True, gun_menu=gun_menu, scenario=scenario)
@@ -817,6 +822,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                 options['input_script'] = scripts[scenario]
                 options.update(route_states(scenario, directory))
             reference = probe16(executable, directory, native['frames'], **options)
+            references[scenario] = reference
             comparisons.append({'scenario': native['scenario'], 'frames': native['frames'],
                                 'differences': reference_differences(system_id, native, reference)})
         if any(result['differences'] for result in comparisons):
@@ -909,6 +915,28 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         from .snes_spc import learn as learn_spc
         learn_spc(rom, checks)
     emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
+    delivered = None
+    if system_id == 'md':
+        # The file the player receives is a compressed copy of this build: replay it on every route against the fresh
+        # reference of the same route, and record its liveness (gates G5 and G8; retrorecomp/megadrive_evidence.py).
+        from .megadrive_evidence import replay_delivered
+        packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
+
+        def replay(candidate, directory, check):
+            scenario = check['scenario']
+            options = dict(play=scenario != 'demo', gun_menu=gun_menu, scenario=scenario, trace=True)
+            if scenario in scripts:
+                options['input_script'] = scripts[scenario]
+                options.update(route_states(scenario, directory))
+            return probe16(candidate, directory, check['frames'], **options)
+
+        with timings.phase('packed_replays'):
+            delivered, delivered_runs = replay_delivered(
+                executable, packed, checks_dir / 'packed', checks, references, replay,
+                lambda result, reference: reference_differences(system_id, result, reference), emit)
+        for check in checks:
+            check['liveness'] = delivered_runs[check['scenario']]['liveness']
+        emit('Mega Drive: the compressed executable matches the fresh reference on every route.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': stage,
         'created_utc': datetime.now(timezone.utc).isoformat(),
         'system': {'id': system_id, 'name': name}, 'scan_level': level, 'rom': rom.metadata(),
@@ -919,6 +947,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
+        **(delivered.report_fields() if delivered else {}),
         'advanced_scan': {'enabled': advanced, 'level': level,
                           'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
                                                 + menu_confirm_frames + long_frames),
@@ -939,7 +968,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                               'reference_kind': 'internal_shared_semantics',
                               'reference_before_learning': reference_before_learning,
                               'cpu_fidelity_validated': False,
-                              'hardware_fidelity_validated': False, 'full_game_validated': False},
+                              'hardware_fidelity_validated': False, 'full_game_validated': False,
+                              **(delivered.validation_fields() if delivered else {})},
         'video_model': {'standard': standard, 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256,
                         checks[-1].get('visible_height', 224)],
                         'console_version': checks[-1].get('console_version') if system_id == 'md' else None},

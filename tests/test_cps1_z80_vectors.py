@@ -74,6 +74,13 @@ class ProblemTests(unittest.TestCase):
         result['totals'] = {'paths_equal': pinned['cases'], 'paths_clock_equal': pinned['cases'],
                             'native_state': pinned['native_state'], 'native_clock': pinned['native_clock']}
         result['field_failures'] = {'native': dict(pinned['field_failures']), 'reference': dict(pinned['field_failures'])}
+        result['families'] = [{'family': name, 'cases': 32, 'native_state': 32 - count} for name, count in pinned['families'].items()]
+        self.assertEqual(selftest.problems(result), [])
+        result['families'][0]['native_state'] -= 1      # a vector of another count in a pinned family, same totals
+        result['families'][1]['native_state'] += 1
+        self.assertTrue(selftest.problems(result))
+        result['families'][0]['native_state'] += 1
+        result['families'][1]['native_state'] -= 1
         self.assertEqual(selftest.problems(result), [])
         result['totals']['native_state'] += 1
         self.assertTrue(selftest.problems(result))

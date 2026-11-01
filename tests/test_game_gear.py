@@ -93,6 +93,10 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
         block = text.index('static void emit_block(FILE *o, uint8_t op){')
         body = text[block:text.index('/* ---- ED group ---- */', block)]
+        # The loop starts with the sync every instruction has at its start (no cycles): the interrupt asserted at its start is
+        # accepted after the first iteration.
+        self.assertEqual(body.count('fprintf(o,"        sms_tick(0);\\n");'), 1)
+        self.assertLess(body.index('sms_tick(0);'), body.index('int sms_block_first = 1;'))
         # The address is recorded before the loop (the handler of an accepted interrupt changes g_dbg_pc).
         self.assertEqual(body.count('uint16_t sms_block_pc = g_dbg_pc;'), 1)
         self.assertEqual(body.count('((sms_block_pc >> 8) & 0x28)'), 1)
@@ -113,7 +117,10 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         # interpreter, never the plain return).
         cf = text.index('static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){')
         body = text[cf:text.index('case Z80_CF_JUMP:', cf)]
-        self.assertEqual(body.count('(int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); '), 2)
+        # The popped word is read once: RET and RET cc keep it in _p (also WZ) and use it for the local transfer.
+        self.assertEqual(body.count('uint16_t _p = sms_read16(s->sp);'), 2)
+        self.assertEqual(body.count('sms_read16(s->sp)'), 2)
+        self.assertEqual(body.count('if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }'), 2)
         self.assertEqual(body.count('RR_LOCAL(_p); return;'), 2)
         self.assertEqual(text.count('#define RR_LOCAL(p)'), 1)
         self.assertIn('else { rr_ret_deep++; sms_dispatch_miss(p); }', text)
@@ -128,6 +135,23 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertEqual(text.count('RR_TAIL(call_by_address(%s))'), 1)
 
     @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_bit_hl_reads_wz_and_wz_is_kept_like_the_banked_emitter(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        # BIT n,(HL): X and Y from the high byte of WZ, not H.
+        self.assertIn('z80_bit(s, %d, sms_read8(ea), (uint8_t)(s->wz >> 8));', text)
+        self.assertNotIn('z80_bit(s, %d, sms_read8(ea), (uint8_t)(z80_hl(s) >> 8));', text)
+        # The banked emitter's WZ rules run for every instruction but the repeating block operations (per iteration).
+        self.assertEqual(text.count('static void banked_wz(FILE *o, const Z80Insn *in);'), 1)
+        self.assertIn('if (!(in->prefix == Z80_PFX_ED && (in->opcode & 0xF4) == 0xB0)) banked_wz(o, in);', text)
+        self.assertEqual(text.count('rr_block_wz(o, op);'), 1)   # the repeating loop only: the banked emitter shares emit_block
+        # Jumps, calls and returns: JP/CALL and JP cc/CALL cc always, JR cc / DJNZ / RET cc only when taken, RET pops it.
+        self.assertEqual(text.count('rr_wz_taken = 1; emit_jump_target('), 2)
+        self.assertEqual(text.count('fprintf(o,"        s->wz = 0x%04X;\\n", in->target);'), 4)
+        self.assertEqual(text.count('s->wz = _p;'), 2)
+        # A repeating block instruction sets WZ to its address + 1 while it goes on.
+        self.assertIn('s->wz = (uint16_t)(sms_block_pc + 1);', text)
+
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
     def test_a_jump_across_a_slot_is_dispatched_not_a_goto(self):
         text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
         function = text.index('static void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){')
@@ -138,6 +162,25 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         # A label is emitted only for the targets that stay direct (a label nothing jumps to is a compiler warning).
         self.assertEqual(text.count('have=(lt < 0x0400 || ((tr.insns[k].addr ^ lt) & 0xC000) == 0);'), 1)
         self.assertLess(text.index('static uint16_t rr_cf_addr;'), function)
+
+
+class WordReadOrderTests(unittest.TestCase):
+    """A word bus read is two statements, low byte first (C leaves two reads in one expression unordered)."""
+
+    engine = ROOT / '.deps/smsggrecomp'
+
+    @unittest.skipUnless((engine / 'external/z80-recomp-core/include/sms_runtime.h').is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_the_staged_header_reads_the_low_byte_first(self):
+        from retrorecomp.cpu import prepare_cpu_headers
+        with tempfile.TemporaryDirectory() as temp:
+            game = Path(temp)
+            prepare_cpu_headers(game, self.engine)
+            text = (game / 'sms_runtime.h').read_text(encoding='utf-8')
+        function = text[text.index('static inline uint16_t sms_read16(uint16_t a){'):]
+        function = function[:function.index('\n}')]
+        self.assertLess(function.index('uint8_t lo = sms_read8(a);'), function.index('uint8_t hi = sms_read8((uint16_t)(a + 1u));'))
+        self.assertEqual(function.count('sms_read8('), 2)
+        self.assertNotIn('sms_read8(a) |', function)
 
 
 class FunctionsInterruptContractTests(unittest.TestCase):
@@ -168,6 +211,15 @@ class FunctionsInterruptContractTests(unittest.TestCase):
         # The count of RET continuations beyond the nesting bound is printed with the other [exec] counters (functions only).
         self.assertEqual(text.count('[exec] ret_nest_overflow: %u'), 1)
         self.assertNotIn('ret_nest_overflow', glue['banked'])
+        # Learning from the counted interpreter: taken CALL/RST and JP (HL)/(IX)/(IY) targets are recorded (ROM only, once per address
+        # and slot bank, 4096 at most); the execution path is unchanged and the banked runtime does not have it.
+        self.assertEqual(text.count('static void hyb_record_target(uint16_t target){'), 1)
+        self.assertIn('#define HYB_RECORD_MAX 4096u', text)
+        self.assertIn('if (target >= 0xC000u || g_hyb_recorded >= HYB_RECORD_MAX) return;', text)
+        self.assertIn('if (cls == 2) hyb_record_target(g_hz.pc);', text)
+        self.assertIn('else if (cls == 1 && dsp == -2){ depth++; hyb_record_target(g_hz.pc); }', text)
+        self.assertIn('if (b == 0xE9)          return +2;', text)
+        self.assertNotIn('hyb_record_target', glue['banked'])
         # A RET that unwinds every generated frame continues at the address it popped, with a guard.
         self.assertIn('next = sms_read16((uint16_t)(g_z80.sp - 2));', text)
         self.assertIn('else if (++idle > 100000) break;', text)

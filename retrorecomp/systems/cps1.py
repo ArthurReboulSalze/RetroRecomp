@@ -10,9 +10,9 @@ class Cps1Profile(SystemProfile):
     extensions = ('.zip',)
     export_folder = 'CPS-1'
     video_modes = ('arcade',)
-    # Each conversion compares native code with the interpreted reference;
-    # the board model was compared with MAME on development sets only.
-    status = 'experimental'
+    # Left the experimental status in 1.6.6 on the owner's decision, with the evidence in docs/QUALIFICATION.md
+    # (26 sets of the perimeter converted and validated, board model compared with MAME on picture, sound and input).
+    status = 'supported'
     cpus = (Cpu('m68000', 'main', 'instructions'), Cpu('z80', 'sound', 'instructions'))
     media_kinds = ('romset',)
     quick_state_family = 'rr16'
@@ -23,7 +23,7 @@ class Cps1Profile(SystemProfile):
     default_frames = 3600
     quick_frames = 2400
     title_from_romset = True
-    linux = 'pending'
+    linux = 'witnessed'
     # The paths schema lists CPS-1 (7) before the X68000 (8); the documents list them the other way round.
     path_spec = PathSpec(order=7, sections=(('m68k', 'cps1'), ('z80', 'cps1-sound')),
                          source_bounds=(('maincpu', (0x1000, 0x400000)), ('audiocpu', (0x8000, 0x100000))),
@@ -42,6 +42,7 @@ class Cps1Profile(SystemProfile):
     library_layout = LibraryLayout(folder='cps1')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
                                script_suffix='.inputs')
+    # Still the experimental tier of the shared base (schema 3 only, no schema 1 form, no site builder); see docs/CPS1.md.
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True)
     host_adapter = 'adapters/rrhk_cps1.c'
     stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build')
