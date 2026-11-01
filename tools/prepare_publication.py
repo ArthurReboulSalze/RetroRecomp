@@ -64,7 +64,7 @@ retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py
-tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_check.py
+tests/test_x68000_media.py tests/test_x68000_media_formats.py tests/test_x68000_native.py tests/test_x68000_native_check.py
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_liveness.py tests/test_x68000_payload.py tests/x68000_payload_harness.c
