@@ -47,7 +47,7 @@ from tools.x68000_reference_check import HARDWARE_COLUMNS, TRACE_COLUMNS  # noqa
 GOLDEN_FILE = Path(__file__).with_name('x68000_common_golden.json')
 
 
-PER_SYSTEM_DIGESTS = ('qualification_inputs_sha256', 'observations_sha256')
+PER_SYSTEM_DIGESTS = ('qualification_inputs_sha256', 'observations_sha256', 'script_sha256')
 
 
 def scrub(value, key=None):

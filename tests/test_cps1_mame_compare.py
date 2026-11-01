@@ -43,6 +43,7 @@ class UnrotateTests(unittest.TestCase):
         self.assertEqual(list(compare.unrotate(rotated).getdata()), list(source.getdata()))
 
 
+@unittest.skipUnless(importlib.util.find_spec('numpy'), 'the sound comparison needs numpy, a maintainer tool dependency')
 class SoundTests(unittest.TestCase):
     RATE = compare.AUDIO_RATE
 
