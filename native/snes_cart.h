@@ -7,7 +7,7 @@ static inline int32_t rr_snes_cart_ram_offset(const Cart *cart, uint8_t bank, ui
         bank==0x7e || bank==0x7f) return -1;
     if (cart->type==CART_DSP1_HIROM && cart_is_dsp1_sram_window(cart,bank,address))
         return (address&0x1fffu)&(cart->ramSize-1);
-    if (cart->type==CART_LOROM || cart->type==CART_DSP1) {
+    if (cart->type==CART_LOROM || cart->type==CART_DSP1 || cart->type==CART_SDD1) {
         bool full=cart->romImageSize<=0x200000 && cart->ramSize<=0x8000;
         if (((bank>=0x70 && bank<0x7e) || bank>=0xf0) && (address<0x8000 || full))
             return (((bank&15u)<<15) | (address&0x7fffu)) & (cart->ramSize-1);

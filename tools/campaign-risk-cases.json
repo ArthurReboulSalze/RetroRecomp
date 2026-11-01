@@ -40,7 +40,7 @@
       {"title": "Super Mario World 2 - Yoshi's Island", "category": "superfx", "reason": "GSU-2 with 2 MiB ROM and battery RAM", "source": "docs/SNES_SUPERFX.md"},
       {"title": "Pilotwings", "category": "dsp1", "reason": "DSP-1 board; exposed the missing raster and projection commands", "source": "docs/SNES.md"},
       {"title": "Mega Man X2", "category": "cx4", "reason": "CX4 board; CX4 instructions stay interpreted and are reported on their own device line", "source": "docs/SNES.md"},
-      {"title": "Super Mario RPG - Legend of the Seven Stars", "category": "sa-1", "reason": "SA-1 board: recognised and refused with an explicit circuit-support error", "source": "docs/SNES.md", "expect": "refusal"}
+      {"title": "Super Mario RPG - Legend of the Seven Stars", "category": "sa-1", "reason": "SA-1 board (second 65816, BW-RAM, mailbox and IRQ with the S-CPU): a counted interpreted device since 1.6.6; the reference case of the SA-1 work", "source": "docs/SNES.md"}
     ],
     "ng": [
       {"title": "Metal Slug 3", "set": "mslug3", "category": "state-abi-reference", "reason": "Its crab-scene state is the reference for the Neo Geo state-ABI migration", "source": "docs/GAME_STATES.md"},

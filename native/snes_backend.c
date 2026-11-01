@@ -23,6 +23,9 @@
 #include "snes/cx4.h"
 #include "snes/superfx.h"
 #include "snes/dsp1.h"
+#include "snes/sa1.h"
+#include "snes/sdd1.h"
+extern uint64_t rr_sdd1_dma_sessions, rr_sdd1_dma_bytes, rr_sdd1_cpu_blocks;
 
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
 static uint32_t raster[RR16_WIDTH * RR16_HEIGHT];
@@ -46,6 +49,22 @@ static struct { uint32_t pc; uint8_t bytes[4]; } ram_variants[RR_SN_RAM_VARIANT_
 static uint16_t ram_observation_slots[RR_SN_RAM_VARIANT_LIMIT*2];
 static uint64_t ram_observation_overflows;
 static unsigned ram_variant_count;
+/* SA-1 board: how far behind the S-CPU the coprocessor stood (master clocks) each time the S-CPU reached it. */
+static uint64_t sa1_sync_samples;
+static int64_t sa1_behind_max, sa1_ahead_max, sa1_synced_behind_max;
+/* Samples by lateness: not late, 1-32, 33-512, 513-8192, over 8192 master clocks. */
+static uint64_t sa1_behind_bucket[5];
+/* Before the synchronisation: how far the SA-1 had fallen behind since the last one (the catch-up the S-CPU's access
+ * forces); after it: how far it stands ahead (it runs whole instructions) and, by construction never, behind. */
+void rr_snes_sa1_before(int64_t behind) {
+    ++sa1_sync_samples;
+    ++sa1_behind_bucket[behind <= 0 ? 0 : behind <= 32 ? 1 : behind <= 512 ? 2 : behind <= 8192 ? 3 : 4];
+    if (behind > sa1_behind_max) sa1_behind_max = behind;
+}
+void rr_snes_sa1_after(int64_t behind) {
+    if (behind > sa1_synced_behind_max) sa1_synced_behind_max = behind;
+    if (-behind > sa1_ahead_max) sa1_ahead_max = -behind;
+}
 void debug_on_wram_write_byte(uint32_t addr, uint8_t old_val, uint8_t val) {}
 void debug_on_wram_write_word(uint32_t addr, uint16_t old_val, uint16_t val) {}
 void debug_on_block_enter(uint32_t pc, uint32_t a, uint32_t x, uint32_t y) {}
@@ -103,6 +122,8 @@ static void start_audio_timeline(void) {
 bool rr16_init(bool headless) {
     headless_mode = headless;
     ram_variant_count=0;ram_observation_overflows=0;
+    rr_sdd1_dma_sessions=rr_sdd1_dma_bytes=rr_sdd1_cpu_blocks=0;
+    sa1_sync_samples=0;sa1_behind_max=sa1_ahead_max=sa1_synced_behind_max=0;memset(sa1_behind_bucket,0,sizeof sa1_behind_bucket);
     memset(ram_observation_slots,0,sizeof ram_observation_slots);
     const char *reference = getenv("RR_SNES_FORCE_INTERP");
     bool native = !reference || reference[0] != '1';
@@ -194,7 +215,8 @@ int rr16_raster_height(void) { return raster_height; }
 static uint64_t chip_interpreted(void) {
     return !g_snes ? 0 : cx4_instructions_executed(g_snes->cart->cx4)+
         dsp1_instructions_executed(g_snes->cart->dsp1)+
-        (g_snes->cart->superfx ? g_snes->cart->superfx->instruction_count : 0);
+        (g_snes->cart->superfx ? g_snes->cart->superfx->instruction_count : 0)+
+        (g_snes->cart->sa1 ? sa1_instructions_executed(g_snes->cart->sa1) : 0);
 }
 /* Main 65816 only. Cartridge-device instructions (GSU, CX4, DSP-1) are counted
  * and reported on their own line so they can neither hide nor swamp these. */
@@ -227,15 +249,31 @@ void rr16_report_details(FILE *file) {
     if(cart->cx4) { cx4_saveload(cart->cx4,&chip.stream);cx4_saveload_clock(cart->cx4,&chip.stream); }
     if(cart->dsp1)dsp1_saveload(cart->dsp1,&chip.stream);
     if(cart->superfx)superfx_saveload(cart->superfx,&chip.stream);
+    if(cart->sa1)sa1_saveload(cart->sa1,&chip.stream);
+    if(cart->sdd1)sdd1_saveload(cart->sdd1,&chip.stream);
     uint64_t commands=0;
     if(cart->dsp1)for(unsigned n=0;n<256;n++)commands+=dsp1_command_count(cart->dsp1,n);
     fprintf(file,",\"cartridge_chip\":\"%s\",\"coprocessor_mode\":\"%s\","
         "\"coprocessor_state_hash\":\"%016llx\",\"coprocessor_instructions\":%llu,"
         "\"coprocessor_failed\":%u,\"main_interpreted_opcodes\":%llu",
-        cart->cx4 ? "cx4" : cart->dsp1 ? "dsp1" : cart->superfx ? "superfx" : "none",
-        cart->cx4 || cart->superfx ? "interpreted" : cart->dsp1 ? "command_model" : "not_run",chip.hash,
+        cart->cx4 ? "cx4" : cart->dsp1 ? "dsp1" : cart->superfx ? "superfx" : cart->sa1 ? "sa1" : cart->sdd1 ? "sdd1" : "none",
+        cart->cx4 || cart->superfx || cart->sa1 ? "interpreted" : cart->dsp1 || cart->sdd1 ? "command_model" : "not_run",chip.hash,
         chip_interpreted(),cart->cx4 ? cx4_locked(cart->cx4) : cart->dsp1 ? dsp1_hle_failed(cart->dsp1) : 0,
         interpreted);
+    if(cart->sa1)fprintf(file,",\"sa1_sync_samples\":%llu,\"sa1_behind_max\":%lld,\"sa1_synced_behind_max\":%lld,"
+        "\"sa1_ahead_max\":%lld,\"sa1_behind_buckets\":[%llu,%llu,%llu,%llu,%llu]",
+        (unsigned long long)sa1_sync_samples,(long long)sa1_behind_max,(long long)sa1_synced_behind_max,
+        (long long)sa1_ahead_max,
+        (unsigned long long)sa1_behind_bucket[0],(unsigned long long)sa1_behind_bucket[1],
+        (unsigned long long)sa1_behind_bucket[2],(unsigned long long)sa1_behind_bucket[3],
+        (unsigned long long)sa1_behind_bucket[4]);
+    if(cart->sdd1) {
+        /* The chip is a decompressor, not a processor: its "commands" are the blocks it has decompressed. */
+        commands=rr_sdd1_dma_sessions+rr_sdd1_cpu_blocks;
+        fprintf(file,",\"sdd1_dma_sessions\":%llu,\"sdd1_dma_bytes\":%llu,\"sdd1_cpu_blocks\":%llu",
+            (unsigned long long)rr_sdd1_dma_sessions,(unsigned long long)rr_sdd1_dma_bytes,
+            (unsigned long long)rr_sdd1_cpu_blocks);
+    }
     fprintf(file,",\"coprocessor_commands\":%llu,\"coprocessor_failed_command\":%u",commands,
         cart->dsp1 ? dsp1_hle_failed_command(cart->dsp1) : 0);
     fprintf(file,",\"sram_bytes\":%u,\"sram_battery\":%u,\"sram_mapping\":%u,\"sram_hash\":\"%016llx\"",

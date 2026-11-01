@@ -27,8 +27,10 @@ new samples do not imply full playthroughs or a new hardware-fidelity measuremen
 The **Super Nintendo standard profile is no longer experimental**: ordinary
 LoROM/HiROM up to 4 MiB, PAL/NTSC, quick states, battery saves and Super Scope.
 DSP-1, CX4 and Super FX boards are also qualified within [their circuit scope](SNES.md)
-([Super FX](SNES_SUPERFX.md)). CX4 and GSU instruction interpretation stays visible. Other enhancement circuits,
-extended maps and DSP-1 firmware-dump commands remain unsupported.
+([Super FX](SNES_SUPERFX.md)). SA-1 boards (map `$23`, type `$34` or `$35`) and S-DD1 boards up to 4 MiB (map `$32`, type `$43` or
+`$45`) convert since 1.6.6; the SA-1 program is a counted interpreted device, and only three SA-1 titles and Street Fighter
+Alpha 2 have been played (the other cartridges are recognised, not proved). CX4, GSU and SA-1 instruction interpretation stays
+visible. Other enhancement circuits, extended maps and DSP-1 firmware-dump commands remain unsupported.
 
 The bundled ROM-free bank includes **1,609 exact revisions**, including
 **227 Mega Drive and 314 Super Nintendo records** (counted in `assets/compilation-knowledge.json.gz` on 29 October 2026). Unknown eligible cartridges

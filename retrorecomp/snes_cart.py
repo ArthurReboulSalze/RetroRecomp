@@ -24,6 +24,15 @@ def layout_bytes(data, mapping):
         size=1<<(10+extended) if 1<=extended<=8 else 0x10000
         return {'bytes': size, 'battery': chip in (0x15,0x1a),
                 'mapping': detected, 'rom_bytes': len(data), 'chip': circuit}
+    if circuit=='sa1':
+        # BW-RAM: the size is the header's RAM exponent; the board keeps it in a battery when the type says so ($35).
+        size=(1 << (10+exponent)) if exponent else 0
+        return {'bytes': size, 'battery': chip==0x35 and bool(size),
+                'mapping': detected, 'rom_bytes': len(data), 'chip': circuit}
+    if circuit=='sdd1':
+        size=(1 << (10+exponent)) if exponent else 0
+        return {'bytes': size, 'battery': chip==0x45 and bool(size),
+                'mapping': detected, 'rom_bytes': len(data), 'chip': circuit}
     size = (1 << (10+exponent)) if chip in (1, 2, 3, 5) and exponent else 0
     return {'bytes': size, 'battery': chip in (2,5) and bool(size),
             'mapping': detected, 'rom_bytes': len(data),'chip':circuit}
@@ -35,7 +44,7 @@ def layout(rom):
 
 def ram_offset(memory, address):
     if (not isinstance(address, int) or not 0 <= address <= 0xffffff or not memory['bytes']
-            or memory.get('chip')=='superfx'):
+            or memory.get('chip') in ('superfx','sa1')):
         # Game Pak RAM shared with the GSU is never a guarded 65816 code window.
         return None
     bank, adr = address >> 16, address & 0xffff
@@ -56,7 +65,36 @@ def ram_offset(memory, address):
 
 
 def adapt_cart(source):
-    source = replace(source, '#include "cart.h"', '#include "cart.h"\n#include "snes_cart.h"\n#include "cpu_state.h"')
+    source = replace(source, '#include "cart.h"', '#include "cart.h"\n#include "snes_cart.h"\n#include "cpu_state.h"\n'
+                     '#include "snes_native_steps.h"')
+    # SA-1 board: how far behind the S-CPU the coprocessor stands when the S-CPU reaches it, before and after the
+    # synchronisation (reported per run).
+    source = replace(source, '''    case CART_SA1:
+      cart_sync_coprocessors(cart, cart_master_clock(cart));
+      return sa1_cpu_read(cart->sa1, bank, adr, 0xff);''', '''    case CART_SA1:
+      /* The S-CPU reaches the SA-1 at the master clock of THIS bus cycle (cart_master_clock is the clock of
+       * the end of the previous instruction: the SA-1 stood up to thousands of clocks behind). */
+#if RR_SN_SA1
+      rr_snes_sa1_before((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
+      cart_sync_coprocessors(cart, g_cpu.master_cycles);
+#if RR_SN_SA1
+      rr_snes_sa1_after((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
+      return sa1_cpu_read(cart->sa1, bank, adr, 0xff);''')
+    source = replace(source, '''    case CART_SA1:
+      cart_sync_coprocessors(cart, cart_master_clock(cart));
+      sa1_cpu_write(cart->sa1, bank, adr, val);''', '''    case CART_SA1:
+      /* The S-CPU reaches the SA-1 at the master clock of THIS bus cycle (cart_master_clock is the clock of
+       * the end of the previous instruction: the SA-1 stood up to thousands of clocks behind). */
+#if RR_SN_SA1
+      rr_snes_sa1_before((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
+      cart_sync_coprocessors(cart, g_cpu.master_cycles);
+#if RR_SN_SA1
+      rr_snes_sa1_after((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
+      sa1_cpu_write(cart->sa1, bank, adr, val);''')
     old = '''      if ((((bank >= 0x70 && bank < 0x7e) || bank >= 0xf0)) &&
           adr < 0x8000 && cart->ramSize > 0) return NULL;'''
     source = replace(source, old, '      if (rr_snes_cart_ram_offset(cart,bank,adr)>=0) return NULL;')

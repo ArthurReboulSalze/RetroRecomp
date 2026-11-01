@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from retrorecomp.snes_chips import identify
 from retrorecomp.snes_cart import layout_bytes,ram_offset
 from retrorecomp.snes_codegen import native_source
@@ -31,7 +32,7 @@ class ChipTests(unittest.TestCase):
                     self.assertEqual(support_stage(self.rom(mode,kind,ram=int(kind!=0))),'supported')
         for mode,kind,sub in ((0x20,3,0),(0x31,5,0),(0x31,3,0),(0x20,0xf3,0x10)):
             self.assertEqual(support_stage(self.rom(mode,kind,sub)),'supported')
-        for mode,kind in ((0x23,0x35),(0x20,0x16),(0x20,0x43)):
+        for mode,kind in ((0x20,0x16),(0x20,0x43),(0x23,0x33),(0x23,0x36),(0x33,0x35),(0x21,0x35)):
             with self.assertRaises(ConversionError):support_stage(self.rom(mode,kind))
     def test_exlorom_mode_byte_without_a_chip_is_an_ordinary_lorom_but_no_circuit_board_is(self):
         # Duel: Test Drive II and a Popeye translation carry $32 with chip type 0 and no RAM.
@@ -40,9 +41,9 @@ class ChipTests(unittest.TestCase):
                 rom = self.rom(0x32, kind, ram=int(kind != 0))
                 self.assertEqual(identify(rom.data), 'none')
                 self.assertEqual((rom.mapping, support_stage(rom)), ('lorom', 'supported'))
-        # The S-DD1 boards (Star Ocean $45, Street Fighter Alpha 2 $43) and every other chip type stay refused,
+        # Every other chip type stays refused under mode $32 (the S-DD1 types $43/$45 are boards of their own, below),
         # as does an image above 4 MiB.
-        for kind in (0x43, 0x45, 0x03, 0x05, 0x13, 0x35, 0xf6, 0xf9, 0xe3):
+        for kind in (0x03, 0x05, 0x13, 0x35, 0xf6, 0xf9, 0xe3, 0x44, 0x46, 0x53):
             with self.subTest(kind=kind):
                 with self.assertRaises(ConversionError):
                     support_stage(self.rom(0x32, kind))
@@ -55,6 +56,25 @@ class ChipTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 with self.assertRaises(ConversionError):
                     support_stage(self.rom(mode, 0))
+    def test_sdd1_boards_are_recognised_by_map_and_type_and_stay_within_4_mib(self):
+        # Street Fighter Alpha 2 ($32 / $43, no RAM) and Star Ocean ($32 / $45, RAM and a battery).
+        for kind,battery,ram in ((0x43,False,0),(0x45,True,3)):
+            with self.subTest(kind=kind):
+                rom=self.rom(0x32,kind,ram=ram)
+                self.assertEqual(identify(rom.data),'sdd1')
+                self.assertEqual(support_stage(rom),'supported')
+                memory=layout_bytes(rom.data,rom.mapping)
+                self.assertEqual((memory['bytes'],memory['battery'],memory['chip']),((0x2000 if ram else 0),battery,'sdd1'))
+        # Another mode byte with an S-DD1 type, or another type with the ExLoROM byte, is not an S-DD1 board.
+        for mode,kind in ((0x31,0x45),(0x20,0x43),(0x32,0x44),(0x32,0x46)):
+            with self.subTest(mode=mode,kind=kind):
+                with self.assertRaises(ConversionError):
+                    support_stage(self.rom(mode,kind))
+        # Star Ocean is 6 MiB: it converts but stays on a blank screen, so images above 4 MiB stay refused.
+        big=self.rom(0x32,0x45,ram=3)
+        big.data=big.data+bytes(0x500000)
+        with self.assertRaisesRegex(ConversionError,'4 MiB'):
+            support_stage(big)
     def test_hirom_dsp1_board_without_ram_has_the_dsp_window_and_no_battery_window(self):
         # Lock On, Suzuka 8 Hours, Super Air Diver 2... carry $31 / $03: the HiROM DSP-1 board of Super Mario Kart
         # ($31 / $05) without its battery RAM.
@@ -95,9 +115,57 @@ class ChipTests(unittest.TestCase):
         self.assertIn('rr_sn_rom_ptr',source)
         self.assertNotIn('cart_getRomPtr',source)
         self.assertIn('fetched==operation->opcode',source)
-    def test_sa1_header_is_identified_before_explicit_hardware_refusal(self):
-        rom=self.rom(0x23,0x35)
-        self.assertEqual(snes_header(rom.data),(0x7fc0,'lorom'))
-        with self.assertRaisesRegex(ConversionError,'SA-1'):
-            validate_cartridge(rom)
+    def test_sa1_boards_are_recognised_by_map_and_type_and_the_other_sa1_types_stay_refused(self):
+        # Map $23 with type $34 (SA-1 and BW-RAM) or $35 (with a battery): the 15 SA-1 cartridges of the library.
+        for kind,battery in ((0x34,False),(0x35,True)):
+            with self.subTest(kind=kind):
+                rom=self.rom(0x23,kind,ram=5)
+                self.assertEqual(snes_header(rom.data),(0x7fc0,'lorom'))
+                self.assertEqual(identify(rom.data),'sa1')
+                self.assertEqual(support_stage(rom),'supported')
+                memory=layout_bytes(rom.data,rom.mapping)
+                # BW-RAM: the header exponent gives its size; it is never a guarded 65816 code window.
+                self.assertEqual((memory['bytes'],memory['battery'],memory['chip']),(0x8000,battery,'sa1'))
+                for addr in (0x006000,0x406000,0x400000,0x606000,0x7e0000):self.assertIsNone(ram_offset(memory,addr))
+        # A board without BW-RAM size in the header has no RAM; type $33 (SA-1 alone) and the other map bytes are refused.
+        self.assertEqual(layout_bytes(self.rom(0x23,0x35).data,'lorom')['bytes'],0)
+        for mode,kind in ((0x23,0x33),(0x23,0x36),(0x33,0x35),(0x21,0x35)):
+            with self.subTest(mode=mode,kind=kind):
+                with self.assertRaisesRegex(ConversionError,'SA-1|custom'):
+                    validate_cartridge(self.rom(mode,kind))
+    PINNED_CART = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/cart.c'
+    @unittest.skipUnless(PINNED_CART.is_file(), 'pinned engine checkout not present')
+    def test_the_s_cpu_reaches_the_sa1_at_the_clock_of_its_own_bus_cycle(self):
+        # The pinned cart_read/cart_write synchronise the SA-1 to the clock of the end of the previous instruction;
+        # the S-CPU then saw the coprocessor up to thousands of master clocks behind. The adapter uses the clock of
+        # the bus cycle itself and records how late the SA-1 still is (reported per run).
+        from retrorecomp.snes_cart import adapt_cart
+        adapted = adapt_cart(self.PINNED_CART.read_text(encoding='utf-8'))
+        sa1 = adapted[adapted.index('case CART_SA1:'):]
+        self.assertEqual(adapted.count('cart_sync_coprocessors(cart, g_cpu.master_cycles);'), 2)
+        # The lateness is measured before the synchronisation (the catch-up the access forces) and the lead after it.
+        self.assertEqual(adapted.count('rr_snes_sa1_before('), 2)
+        self.assertEqual(adapted.count('rr_snes_sa1_after('), 2)
+        for body in (sa1[:sa1.index('sa1_cpu_read')], sa1[sa1.index('case CART_SA1:', 10):]):
+            self.assertLess(body.index('rr_snes_sa1_before('), body.index('cart_sync_coprocessors(cart, g_cpu.master_cycles)'))
+        self.assertIn('sa1_cpu_read(cart->sa1, bank, adr, 0xff)', sa1)
+    PINNED_SA1 = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/sa1.c'
+    @unittest.skipUnless(PINNED_SA1.is_file(), 'pinned engine checkout not present')
+    def test_the_sa1_irq_request_follows_its_flags_like_a_level(self):
+        # The pinned core latched irqWanted and never withdrew it: after the handler cleared the flag, the RTI
+        # took a second IRQ with no vector kind, read from the ROM ($FFEE, the S-CPU's), and the SA-1 ran the S-CPU's
+        # handler. Found with the authored cartridge of tools/snes_sa1_selftest.py.
+        from retrorecomp.snes_chips import sa1
+        source = self.PINNED_SA1.read_text(encoding='utf-8')
+        adapted = sa1(source)
+        self.assertIn('sa1->cpu->irqWanted = irq;', adapted)
+        self.assertIn('if (irq) sa1->interrupt_vector_kind = 2;', adapted)
+        self.assertEqual(adapted.count('irqWanted = true'), 0)
+        # The NMI is an edge: requested when the (enabled, flagged) line rises, flagged when CCNT bit 4 rises.
+        self.assertIn('rr_nmi_edge = rr_nmi_line && !sa1->io.rr_nmi_line;', adapted)
+        self.assertIn('if (sa1->io.sa1_nmi && !rr_was_nmi) sa1->io.sa1_nmi_flag = true;', adapted)
+        self.assertIn('bool rr_nmi_line;', adapted)
+        self.assertEqual(adapted.count('nmiWanted = true'), 1)
+        with self.assertRaises(ConversionError):
+            sa1(source.replace('sa1->cpu->irqWanted = true;', 'changed'))
 if __name__=='__main__':unittest.main()

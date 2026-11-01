@@ -71,7 +71,7 @@ def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',r
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     from .snes_chips import identify
     cart_type={'none':cart_type,'dsp1-lo':'CART_DSP1','dsp1-hi':'CART_DSP1_HIROM',
-               'cx4':'CART_CX4','superfx':'CART_SUPERFX'}[identify(rom)]
+               'cx4':'CART_CX4','superfx':'CART_SUPERFX','sa1':'CART_SA1','sdd1':'CART_SDD1'}[identify(rom)]
     rom_mapping=mapping
     bodies, cycles = operation_bodies(source), cycle_costs(source)
     functions = []
@@ -162,6 +162,19 @@ static void rr_sn_wram_fill(void) {{
         return rr_sn_ram_search(pc, fetched);
     }''' if ram else 'if (!mapped) return NULL;'
     fill = 'rr_sn_wram_fill();' if ram else ''
+    if cart_type == 'CART_SA1':
+        # The SA-1 board's memory pointer may aim at its I-RAM or its BW-RAM, which are other objects than the ROM:
+        # the range is checked before the subtraction (subtracting pointers of two objects is undefined).
+        offset_code = f'''uintptr_t rr_base = (uintptr_t)rr_sn_cart->rom, rr_at = (uintptr_t)mapped;
+    if (rr_at < rr_base || rr_at - rr_base >= {len(bus_rom)}u) return NULL;
+    size_t offset = (size_t)(rr_at - rr_base);'''
+    else:
+        offset_code = f'''size_t offset = (size_t)(mapped - rr_sn_cart->rom);
+    if (offset >= {len(bus_rom)}u) return NULL;'''
+    # The SA-1 core is the same Interp816 with the coprocessor as its memory: the main CPU's hooks must skip it.
+    sa1_cpu = ('bool rr_snes_is_sa1_cpu(const Interp816 *cpu) {\n'
+               '    return g_snes && g_snes->cart && g_snes->cart->sa1 && cpu->mem == (void *)g_snes->cart->sa1;\n'
+               '}\n') if cart_type == 'CART_SA1' else ''
     if cart_type == 'CART_SUPERFX':
         rom_ptr = '''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
      * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
@@ -179,7 +192,7 @@ static void rr_sn_wram_fill(void) {{
         '#include <string.h>\n#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
         '#include "snes/cart.h"\n#include "snes_cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
         '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + f'''
-{ram_search}static bool rr_sn_enabled, rr_sn_bound, rr_sn_active;
+{sa1_cpu}{ram_search}static bool rr_sn_enabled, rr_sn_bound, rr_sn_active;
 static Cart *rr_sn_cart;
 /* The cartridge is loaded once, before the first instruction: its board, storage and image
  * length are checked here, once, not at every instruction. Call again after any change. */
@@ -215,8 +228,7 @@ static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_active) return NULL;
     uint8_t *mapped = rr_sn_rom_ptr((uint8_t)(pc>>16), (uint16_t)pc);
     {ram_lookup}
-    size_t offset = (size_t)(mapped - rr_sn_cart->rom);
-    if (offset >= {len(bus_rom)}u) return NULL;
+    {offset_code}
     const RrSnesNativeOp *operation = rr_sn_pages[offset >> 8][offset & 255u];
     /* A modified cartridge byte never selects another compiled operation. */
     return *mapped == operation->opcode && (fetched<0 || fetched==operation->opcode) ? operation : NULL;
@@ -282,18 +294,25 @@ def adapt_core(source: str) -> str:
     if source.count(context) != 1:
         raise ConversionError('Pinned 65816 fetched-opcode context changed.')
     source = source.replace(context, context+'''
-  const RrSnesNativeOp *native = rr_snes_native_lookup_fetched(_pcb,opcode);
+  /* The SA-1 runs on this same core with its own memory: its instructions are the cartridge device's,
+   * never the main CPU's native lookups, observations or counters. Compiled out on every other board. */
+#if RR_SN_SA1
+  const bool rr_sa1_cpu = rr_snes_is_sa1_cpu(cpu);
+#else
+  const bool rr_sa1_cpu = false;
+#endif
+  const RrSnesNativeOp *native = rr_sa1_cpu ? NULL : rr_snes_native_lookup_fetched(_pcb,opcode);
   if (native) {
     native->execute(cpu);
     rr16_snes_note_native();
     return cpu->cyclesUsed;
   }
-  rr16_snes_observe_fallback(_pcb);
+  if (!rr_sa1_cpu) rr16_snes_observe_fallback(_pcb);
 ''', 1)
     marker = '  s_interp816_insns++;'
     if source.count(marker) != 1:
         raise ConversionError('Pinned 65816 retirement boundary changed.')
-    source = source.replace(marker, '  rr16_snes_note_interpreted(_pcb);\n' + marker, 1)
+    source = source.replace(marker, '  if (!rr_sa1_cpu) rr16_snes_note_interpreted(_pcb);\n' + marker, 1)
     return source + '\n#include "snes_native_ops.inc"\n'
 
 
@@ -328,6 +347,19 @@ def adapt_bridge(source: str) -> str:
     # RTI may restore a different PC/stack: cartridges use architectural
     # interrupt frames to switch guest threads. The host must resume the
     # popped destination, not the PC it suspended before the interrupt.
+    # The pinned bridge carries two fast-forwards written for single cartridges, each on unless its environment
+    # variable is set: a Super Mario RPG wait loop ($C0:84B2, SNESRECOMP_NO_D9FF) and a vblank-wait skip at fixed
+    # addresses of Star Ocean and Super Mario RPG (SNESRECOMP_NO_VBLANK_FF). Retro-Recomp ships no per-game code:
+    # both are off in every build, whatever the environment says (docs/SNES.md, UPSTREAMS.md).
+    for name, variable, test in (
+            ('Super Mario RPG wait-loop', 'd9ff', ('        const char *_e = getenv("SNESRECOMP_NO_D9FF");\n'
+                                                   "        s_d9ff = (_e && _e[0] && _e[0] != '0') ? 0 : 1;\n")),
+            ('vblank-wait', 'vff_ok', ('                const char *_e = getenv("SNESRECOMP_NO_VBLANK_FF");\n'
+                                       "                s_vff_ok = (_e && _e[0] && _e[0] != '0') ? 0 : 1;\n"))):
+        if source.count(test) != 1:
+            raise ConversionError(f'Pinned SNES {name} fast-forward switch changed.')
+        indent = test[:len(test) - len(test.lstrip())]
+        source = source.replace(test, f'{indent}s_{variable} = 0; /* Retro-Recomp: no per-game fast-forward */\n', 1)
     returned = '        if (stop_on_rti && op == 0x40) {\n            sync_interp_to_cpu(&in, cpu);'
     if source.count(returned) != 1:
         raise ConversionError('Pinned SNES architectural RTI boundary changed.')

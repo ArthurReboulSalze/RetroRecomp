@@ -726,6 +726,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         chip=identify(rom.data)
         if chip=='cx4':emit('CX4 device uses its counted instruction interpreter; main/audio native coverage is measured separately.')
         elif chip=='superfx':emit('Super FX (GSU) uses its counted instruction interpreter; main/audio native coverage is measured separately.')
+        elif chip=='sa1':emit('SA-1 (second 65816 and its peripherals) uses its counted instruction interpreter; main/audio native coverage is measured separately.')
+        elif chip=='sdd1':emit('S-DD1 uses a command model of its decompression (sessions and CPU blocks are counted); main/audio native coverage is measured separately.')
         elif chip.startswith('dsp1'):emit('DSP-1 uses a firmware-free command model; unsupported commands stop validation.')
     for limitation in cartridge_profile.get('limitations', ()):
         emit('Limitation: ' + limitation)

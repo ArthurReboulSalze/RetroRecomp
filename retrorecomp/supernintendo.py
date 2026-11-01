@@ -89,7 +89,9 @@ def validate_cartridge(rom):
     offset, mapping = header
     mode, chip = rom.data[offset + 21], rom.data[offset + 22]
     from .snes_chips import identify
-    identify(rom.data)
+    circuit = identify(rom.data)
+    # The S-DD1's 1 MiB pages reach 8 MiB, but the only cartridge above 4 MiB seen (Star Ocean, 6 MiB) converts and then
+    # stays on a blank screen after the translation's splash (docs/KNOWN_FAILURES.md): it stays refused until that is understood.
     if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
         raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
                               'are not supported by the native runtime yet.')
@@ -97,7 +99,7 @@ def validate_cartridge(rom):
     # LoROM header with no chip (type 0, 1 or 2: nothing, RAM, RAM and battery) it is a mastering quirk of an ordinary
     # LoROM cartridge, which the pinned loader maps as LoROM (Duel: Test Drive II, 1 MiB).
     ordinary_exlorom = mode == 0x32 and mapping == 'lorom' and chip in (0, 1, 2)
-    if mode not in (0x20, 0x21, 0x30, 0x31) and not ordinary_exlorom and not (mode>>4 not in (2,3) and chip in (0,1,2)):
+    if circuit not in ('sa1', 'sdd1') and mode not in (0x20, 0x21, 0x30, 0x31) and not ordinary_exlorom and not (mode>>4 not in (2,3) and chip in (0,1,2)):
         raise ConversionError(f'This SNES cartridge uses an unsupported enhancement chip or mapping '
                               f'(map ${mode:02X}, cartridge type ${chip:02X}). '
                               'The native runtime currently supports ordinary LoROM/HiROM cartridges, '
@@ -196,7 +198,8 @@ def write_profile(project: Path, rom, title: str) -> None:
         f'#define RR_SN_HIROM {int(rom.mapping=="hirom")}\n'
         f'#define RR_SN_PAL {int(video_standard(rom) == "pal")}\n', encoding='ascii')
     with (project / 'retro_snes_game.h').open('a', encoding='ascii') as file:
-        file.write(f'#define RR_SN_RAM_BYTES {memory["bytes"]}u\n'
+        file.write(f'#define RR_SN_SA1 {int(memory.get("chip") == "sa1")}\n'
+                   f'#define RR_SN_RAM_BYTES {memory["bytes"]}u\n'
                    f'#define RR_SN_BATTERY {int(memory["battery"])}\n')
     if profile['legacy_functions']:
         return
