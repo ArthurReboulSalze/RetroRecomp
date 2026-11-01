@@ -485,15 +485,13 @@ def patched_generator_source(generator_source: str) -> str:
         '    fprintf(o,"    sms_enter(0x%04X);\\n    uint16_t _esp = s->sp; (void)_esp;\\n", fe->addr);')
     generator_source = replace_once(generator_source,
         '            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");',
-        '''            fprintf(o,"        s->wz = sms_read16(s->sp);\\n");
-            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
-                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }\\n");
-            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");''')
+        '''            fprintf(o,"        { uint16_t _p = sms_read16(s->sp); s->wz = _p;\\n");
+            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }\\n");
+            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return; }\\n");''')
     generator_source = replace_once(generator_source,
         '            fprintf(o,"        if (%s) { s->cyc += 6; s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));',
-        '''            fprintf(o,"        if (%s) { s->cyc += 6; s->wz = sms_read16(s->sp); "
-                      "if ((int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); "
-                      "s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; } "
+        '''            fprintf(o,"        if (%s) { s->cyc += 6; uint16_t _p = sms_read16(s->sp); s->wz = _p; "
+                      "if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; } "
                       "s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));''')
     # WZ (the Z80's internal MEMPTR) in the functions engine. The only reader is BIT n,(HL), which takes its X and Y flags from the high
     # byte of WZ (the banked engine and the corrected reference do); the generator passed H. WZ is now kept as the banked emitter keeps

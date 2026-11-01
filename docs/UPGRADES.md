@@ -231,7 +231,7 @@ already did (X and Y from the high byte of the instruction's address, H and P fr
 shows when an interrupt is accepted between two iterations and pushes AF; Alex Kidd: High-Tech World passes the comparison with the
 reference CPU with it (CPU fidelity on the project's own tested routes, nothing about hardware, gameplay or latency). The default banked engine
 generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
-with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of both consoles moves with `core`.
+with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of all nine consoles moves with `core` (`retrorecomp.core` is an input of every console).
 
 A second change of the same engine: a `RET` that pops an address the routine pushed itself ("push continuation; jump; ret") now
 continues at that address, as the Z80 does, instead of resuming the caller (each generated function keeps its entry SP; a tail jump
@@ -255,10 +255,11 @@ Two changes of the Z80 code of the Master System and the Game Gear. (1) The "fun
 banked engine does, and `BIT n,(HL)` takes its X and Y flags from it (they came from H): Alex Kidd: The Lost Stars passes the comparison
 with the reference CPU with it (13 of the 15 games tried pass from an empty learning state, 12 before; the other 14 give the same video
 trace and the same interpreter share, pass by pass). Cost, functions engine only: one `s->wz` store per memory, I/O, index, 16-bit
-arithmetic, jump, call and return instruction. (2) A word read of the shared runtime header reads the low byte, then the high byte, in two
+arithmetic, jump, call and return instruction (a RET also reads the popped word once and keeps it for WZ and for the local transfer). (2) A word read of the shared runtime header reads the low byte, then the high byte, in two
 statements (it was two reads in one C expression, whose order is not defined); it applies to both engines. The generated sources of the
-banked engine are byte-identical on Bank Panic and Factory Panic apart from that header and the version resource. The game stamp of both
-consoles moves (`core` and `cpu` are in their group); the host stamp does not.
+banked engine are byte-identical on Bank Panic and Factory Panic apart from that header and the version resource. The game stamp of all
+nine consoles moves (`retrorecomp.core` is an input of every console; `retrorecomp.cpu` belongs to the Master System and the Game Gear
+only); no host stamp does.
 
 Two more changes of the "functions" engine, learning and timing. (3) The counted interpreter records the targets of the CALL, RST and JP
 (HL)/(IX)/(IY) it takes (ROM only, once per address and slot bank, 4096 per run at most), so one pass learns the call tree a route reaches
@@ -410,7 +411,7 @@ engine generates the same sources. These are CPU-fidelity corrections of our own
 the pin does not move. Alex Kidd in Miracle World, Factory Panic and seven more games now pass the comparison with the reference CPU
 with that engine; they converted with the banked engine before. That is an agreement with the project's own reference on the tested
 routes, not a statement about hardware fidelity, gameplay or physical latency, and the share of native code changes only where a game
-stopped at the first affected frame and goes on now. Interpreter fallback stays counted per CPU. The game stamp of both consoles
+stopped at the first affected frame and goes on now. Interpreter fallback stays counted per CPU. The game stamp of all nine consoles
 moves with `core`; the host stamp moves with the registry. Their quick states have no key of this kind, and none of these
 changes adds a field to a saved state.
 

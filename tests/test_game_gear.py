@@ -117,7 +117,10 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         # interpreter, never the plain return).
         cf = text.index('static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){')
         body = text[cf:text.index('case Z80_CF_JUMP:', cf)]
-        self.assertEqual(body.count('(int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); '), 2)
+        # The popped word is read once: RET and RET cc keep it in _p (also WZ) and use it for the local transfer.
+        self.assertEqual(body.count('uint16_t _p = sms_read16(s->sp);'), 2)
+        self.assertEqual(body.count('sms_read16(s->sp)'), 2)
+        self.assertEqual(body.count('if ((int16_t)(s->sp - _esp) < 0) { s->sp = (uint16_t)(s->sp + 2); RR_LOCAL(_p); return; }'), 2)
         self.assertEqual(body.count('RR_LOCAL(_p); return;'), 2)
         self.assertEqual(text.count('#define RR_LOCAL(p)'), 1)
         self.assertIn('else { rr_ret_deep++; sms_dispatch_miss(p); }', text)
@@ -144,7 +147,7 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         # Jumps, calls and returns: JP/CALL and JP cc/CALL cc always, JR cc / DJNZ / RET cc only when taken, RET pops it.
         self.assertEqual(text.count('rr_wz_taken = 1; emit_jump_target('), 2)
         self.assertEqual(text.count('fprintf(o,"        s->wz = 0x%04X;\\n", in->target);'), 4)
-        self.assertEqual(text.count('s->wz = sms_read16(s->sp);'), 2)
+        self.assertEqual(text.count('s->wz = _p;'), 2)
         # A repeating block instruction sets WZ to its address + 1 while it goes on.
         self.assertIn('s->wz = (uint16_t)(sms_block_pc + 1);', text)
 
