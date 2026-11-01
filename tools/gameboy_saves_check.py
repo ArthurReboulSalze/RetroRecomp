@@ -136,20 +136,27 @@ CARTRIDGES = {
 }
 
 
-def authored_rom(name: str) -> bytes:
-    header_type, ram_code, kind, writes, _kept = CARTRIDGES[name]
+def build_rom(title: str, header_type: int, ram_code: int, code: bytes, extra: dict[int, bytes] | None = None) -> bytes:
+    """A 32 KiB cartridge with a valid header whose program is `code` at 0150 (`extra` puts more bytes at given addresses,
+    for interrupt vectors)."""
     rom = bytearray(0x8000)
     rom[0x100:0x104] = bytes.fromhex('00 c3 50 01')               # NOP ; JP 0150
-    title = f'RRSAVE {name}'.upper().encode('ascii')[:15]
-    rom[0x134:0x134 + len(title)] = title
+    name = title.upper().encode('ascii')[:15]
+    rom[0x134:0x134 + len(name)] = name
     rom[0x147], rom[0x148], rom[0x149] = header_type, 0x00, ram_code
     checksum = 0
     for index in range(0x134, 0x14D):
         checksum = (checksum - rom[index] - 1) & 0xFF
     rom[0x14D] = checksum
-    code = program(kind, writes)
     rom[0x150:0x150 + len(code)] = code
+    for address, data in (extra or {}).items():
+        rom[address:address + len(data)] = data
     return bytes(rom)
+
+
+def authored_rom(name: str) -> bytes:
+    header_type, ram_code, kind, writes, _kept = CARTRIDGES[name]
+    return build_rom(f'RRSAVE {name}', header_type, ram_code, program(kind, writes))
 
 
 def expected_copy(kind: str) -> list[int]:
@@ -171,11 +178,11 @@ def environment() -> dict:
                 PYINSTALLER_SUPPRESS_SPLASH_SCREEN='1')
 
 
-def convert(name: str, work: Path) -> Path:
-    """The delivered executable of the authored cartridge `name`."""
+def convert(name: str, work: Path, data: bytes | None = None) -> Path:
+    """The delivered executable of the authored cartridge `name` (or of the bytes `data` under that name)."""
     rom = work / 'roms' / f'{name}.gb'
     rom.parent.mkdir(parents=True, exist_ok=True)
-    rom.write_bytes(authored_rom(name))
+    rom.write_bytes(authored_rom(name) if data is None else data)
     out = work / f'out_{name}'
     shutil.rmtree(out, ignore_errors=True)
     result = subprocess.run([sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'convert', str(rom), '--system', 'gb',

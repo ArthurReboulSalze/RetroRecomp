@@ -322,6 +322,21 @@ back byte for byte, a run that writes nothing leaves every file as it was, a car
 a damaged battery or clock file (short, long, empty, junk) is refused with the game starting normally and the file untouched
 ([GAME_BOY.md](GAME_BOY.md#qualification)). No defect was found in the runtime.
 
+## Game Boy: states in a fresh process are proven (1.6.6, gate G6)
+
+`tools/gameboy_states_check.py` runs the headless state flags of the delivered file in separate processes: a state taken after N frames,
+loaded by a fresh process and run for M frames, must give the dump and the per-frame trace (picture, sound, RAM, program counter) of one
+continuous run of N + M frames; a state taken after that load must continue the same way; damaged states and a missing one are refused.
+
+*What moves.* Nothing: developer files only (`tools/gameboy_states_check.py`, `tests/test_gameboy_states_tool.py`), in the public files and in no
+stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No quick-state key.
+
+*Hot path: not touched.*
+
+*Proof.* 29 checks pass on a cartridge authored for the purpose (240 different pictures, 45 different sound hashes over the 240 frames) and on
+Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
+need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in

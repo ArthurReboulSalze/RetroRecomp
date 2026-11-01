@@ -259,6 +259,16 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
   file under the game's folder. The Game Boy has its own codec ([GAME_STATES.md](GAME_STATES.md)); the APU corrections did not change its
   layout. There is no Game Boy quick-state key: the RAM counters are host-only context fields outside every state, and a state of a 1.6.2 export loads in a
   1.6.3 export and the reverse ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)).
+  Since 1.6.6 `tools/gameboy_states_check.py` (gate G6) drives the two functions the keys call (`gb_context_save_state_file` and
+  `gb_context_load_state_file`, through the headless flags `--save-state-file` and `--load-state-file`) in separate processes, on a
+  cartridge authored for it (screen on, a square channel playing, vertical-blank and timer interrupts, a foreground counter) and on
+  Super Mario Land: a state taken after 120 frames, loaded by a fresh process and run for 120 more, gives the dump of a continuous
+  240-frame run field by field (registers, cycles, work and high RAM, LY and PPU mode) and the same picture, sound, RAM and program
+  counter on each of the 120 frames (`--frame-trace`); a second state taken after that load continues the same way. A state cut short
+  (empty, inside the header, in the body, one byte short), not a state, with a wrong magic, version, ROM hash or ROM size, is refused
+  before anything is applied (exit 1 and "Failed to load execution state", the file untouched); a state that does not exist is refused
+  and nothing is created. The F8 and F9 keys themselves (the path of slot 1) need a window and are not driven by the check. A byte
+  changed inside a state of the right length is not detected: the file has no checksum.
 - **Battery RAM and the real-time clock** use `datas/games/<game-title>-<ROM-SHA-prefix>/`, only when written. Battery RAM is flushed on
   exit only after a changed RAM value; a game's own automatic save can therefore create this folder without a manual state save.
   An isolated two-frame launch of Lazlos' Leap (MBC2 with battery RAM) created no `datas` folder. Since 1.6.6
