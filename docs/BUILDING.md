@@ -234,7 +234,10 @@ when UPX cannot pack and test a game, the validated original is put back and pub
 built: a larger file, the same program, with the reason in the conversion log (the interface and
 the batch command line, once per game) and in the report (`packing.packed` false,
 `packing.unpacked_reason`); the Neo Geo `native-validation.json` reads `validated_candidate:
-unpacked`. Windows still stops the conversion when UPX fails. Games that pack and pass are byte for byte what they were: a Master System and a Game
+unpacked`. Since 1.6.6 Windows does the same instead of stopping the conversion: Windows Defender's
+machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive) has removed UPX's temporary output while
+it packed freshly built Neo Geo and NES games, which ended whole conversions with "UPX could not compact or verify ...
+Invalid argument"; the notice then says the antivirus most likely removed the file. Games that pack and pass are byte for byte what they were: a Master System and a Game
 Gear game converted by the commit before and by this change are identical files.
 
 The X68000 rows were measured afterwards on the same machine and day: the

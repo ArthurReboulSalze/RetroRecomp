@@ -100,8 +100,9 @@ def compact_executable(path: Path, emit=None) -> dict | None:
 def _compact_executable(path: Path, emit=None) -> dict | None:
     """Pack a disposable staged copy; raise before replacing an existing game.
 
-    Windows raises when UPX cannot pack and test the file. On Linux that is a last
-    resort only (see compact_linux). Returns None when the file was packed as usual or
+    On Windows and on Linux alike, a game UPX cannot pack and test is published unpacked, exactly
+    as built and validated (compact_windows, compact_linux), rather than failing the conversion;
+    only a validated original that is gone too is an error. Returns None when the file was packed as usual or
     left as built on purpose, else {'notice': text}, the reason it stays unpacked. The
     text is passed to `emit` (the conversion log) when given, else printed on stderr:
     never both, so a command line shows it once."""
@@ -113,9 +114,23 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
             else:
                 print(outcome['notice'], file=sys.stderr, flush=True)
         return outcome
-    tool = ASSETS / "assets/tools/upx.exe"
-    if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
-        raise RuntimeError("Bundled UPX 5.3.0 is missing or failed its integrity check.")
+    outcome = compact_windows(path)
+    if outcome:
+        if emit is not None:
+            emit(outcome['notice'])
+        else:
+            print(outcome['notice'], file=sys.stderr, flush=True)
+    return outcome
+
+
+# Windows Defender's machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive) has removed UPX's
+# temporary output while it packed a freshly built game: UPX then stops with an I/O error ("IOException ... Invalid
+# argument") and, until 1.6.6, the whole conversion failed after minutes of work. Seen on Neo Geo and NES games.
+_DEFENDER_SIGNS = ('IOException', 'Invalid argument', 'WinError 225', 'virus', 'potentially unwanted')
+
+
+def _windows_attempt(tool: Path, path: Path) -> str | None:
+    """Pack then test `path` in place with the Windows flags: None when both passed, else why not."""
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     # The exhaustive --best search can spend minutes on large native ROM-PC
     # tables. Level 9 retains the same transparent loader and most of the
@@ -125,13 +140,49 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,
                                     timeout=upx_timeout(path), creationflags=flags)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise RuntimeError(f"UPX could not compact or verify {path.name}: {exc}") from exc
+        except subprocess.TimeoutExpired:
+            return f"UPX {args[0]} timed out after {upx_timeout(path)} s"
+        except OSError as exc:
+            return str(exc)
         if result.returncode:
             detail = (result.stderr or result.stdout).strip().splitlines()
-            raise RuntimeError(f"UPX could not compact or verify {path.name}: "
-                               f"{detail[-1] if detail else 'unknown error'}")
+            return detail[-1].replace(f"{path}: ", "") if detail else 'unknown error'
     return None
+
+
+def compact_windows(path: Path) -> dict | None:
+    """Pack a Windows game with the bundled UPX; publish it unpacked when that fails.
+
+    The validated original is kept beside it while UPX works. When UPX cannot pack and test the
+    file (or the antivirus removed its temporary output), the original is put back and the game
+    is published unpacked, exactly as built and validated, with the reason as {'notice': text};
+    None means it was packed and tested. A missing or altered UPX, or an original that cannot be
+    put back, is still an error."""
+    tool = ASSETS / "assets/tools/upx.exe"
+    if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
+        raise RuntimeError("Bundled UPX 5.3.0 is missing or failed its integrity check.")
+    handle, name = tempfile.mkstemp(prefix='.upx-original-', dir=path.parent)
+    os.close(handle)
+    original = Path(name)
+    try:
+        shutil.copyfile(path, original)
+        failure = _windows_attempt(tool, path)
+        if failure is None:
+            return None
+        try:
+            shutil.copyfile(original, path)
+        except OSError as exc:
+            raise RuntimeError(f"UPX could not compact or verify {path.name} ({failure}), and the validated "
+                               f"executable could not be put back: {exc}") from exc
+        defender = any(sign in failure for sign in _DEFENDER_SIGNS)
+        notice = (
+            f"UPX {UPX_VERSION} could not pack and verify the executable ({failure})"
+            f"{'; the antivirus most likely removed its temporary file (a known false positive)' if defender else ''}. "
+            "It is published unpacked, exactly as built and validated: a larger file, the same program.")
+        _UNPACKED_REASONS[hashlib.sha256(original.read_bytes()).hexdigest()] = notice
+        return {'notice': notice}
+    finally:
+        original.unlink(missing_ok=True)
 
 
 def _linux_tool(folder: Path) -> tuple[Path, Path | None]:

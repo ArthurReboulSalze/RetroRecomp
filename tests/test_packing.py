@@ -243,6 +243,24 @@ class WindowsPackingTests(unittest.TestCase):
             self.assertEqual((call.kwargs['timeout'], call.kwargs['creationflags']),
                              (packing.LINUX_TIMEOUT, subprocess.CREATE_NO_WINDOW))
 
+    def test_a_windows_game_upx_cannot_pack_is_published_unpacked_not_failed(self):
+        # Windows Defender removed UPX's temporary output (1.6.6): the conversion must not fail.
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(b'MZ validated build')
+            def run(command, **options):
+                game.write_bytes(b'MZ half-written')   # what UPX leaves behind
+                return SimpleNamespace(returncode=1, stdout='',
+                                       stderr=f'upx: {game}: IOException: {game}: Invalid argument')
+            log = []
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                outcome = packing.compact_executable(game, emit=log.append)
+            self.assertEqual(game.read_bytes(), b'MZ validated build')
+            self.assertIn('published unpacked', outcome['notice'])
+            self.assertIn('antivirus', outcome['notice'])
+            self.assertEqual(log, [outcome['notice']])
+            self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+
     def test_the_limit_grows_with_the_executable(self):
         # A fixed 120 s stopped a large NES game packed while other conversions ran (1.6.5).
         with tempfile.TemporaryDirectory() as folder:

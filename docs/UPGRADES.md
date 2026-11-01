@@ -97,10 +97,23 @@ releases follow, newest first (1.6.5, then 1.6.4 and before).
 | [Neo Geo and CPS-1: the sound CPU's Z80 is corrected](#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166) | Neo Geo, CPS-1 | none | Neo Geo state of 1.6.5 refused; CPS-1 state of 1.6.5 still loads |
 | [CPS-1 leaves the experimental status](#cps-1-leaves-the-experimental-status-166) | CPS-1 (it already moves for the Z80 corrections: no extra conversion) | none | no key changes |
 | [Sharp X68000: D88 images, floppy format read from the content, fuller report](#sharp-x68000-d88-images-floppy-format-read-from-the-content-fuller-report-166) | Sharp X68000 | none | not stated |
+| [Windows: a game UPX cannot pack is published unpacked](#windows-a-game-upx-cannot-pack-is-published-unpacked-166) | none | build stamp of every console (`retrorecomp/packing.py`) | none |
 
 Taken together, the sections give the game stamp of **every console** a move between 1.6.5 and 1.6.6, through the first line (the
 shared `core`); the host stamps and the build stamps are unmoved by every section that states them. What the release does with
 `LEGACY_GAME_STAMPS` is the release procedure's decision (the rule above) and is not written here before the release exists.
+
+## Windows: a game UPX cannot pack is published unpacked (1.6.6)
+
+On Windows a failure of UPX stopped the whole conversion. Windows Defender's machine-learning detection
+(`Program:Win32/Contebrew.A!ml`, a false positive) has removed UPX's temporary output while it packed freshly built Neo Geo
+and NES games; UPX then ended with "IOException ... Invalid argument" after minutes of conversion work. Windows now does what
+Linux has done since 1.6.0 (`packing.compact_windows`): the validated executable is kept beside UPX's work, put back when UPX
+cannot pack and test the file, and published unpacked, exactly as built and validated (a larger file, the same program), with the
+reason in the conversion log and the report (`packing.packed` false, `packing.unpacked_reason`; the notice says when the antivirus
+most likely removed the file). A missing or altered UPX, or an original that cannot be put back, is still an error. Games that
+pack and pass are byte for byte what they were. `retrorecomp/packing.py` is a build input of every console: the build stamps move,
+no game stamp, no quick-state key.
 
 ## Master System and Game Gear: WZ in the functions engine, ordered word reads (1.6.6)
 
