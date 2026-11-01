@@ -228,6 +228,7 @@ retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimizati
 retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/systems/console16.py
 retrorecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
+native/m68000_decode_rules_checks.c tools/m68000_decode_rules_selftest.py
 retrorecomp/neogeo.py retrorecomp/neogeo_build.py retrorecomp/systems/neogeo.py
 retrorecomp/neogeo_catalogue.py retrorecomp/neogeo_conversion.py
 retrorecomp/neogeo_state_checks.py retrorecomp/neogeo_knowledge.py

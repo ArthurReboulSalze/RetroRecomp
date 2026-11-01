@@ -19,7 +19,7 @@ int main(int argc,char **argv) {
             base=0x8000;length=sizeof(bytes);memset(bytes,0,sizeof(bytes));bytes[0]=(unsigned char)(op>>8);bytes[1]=(unsigned char)op;
             GenesisRom view={0};view.rom_size=base+length;view.read8_override=fetch;
             M68KInstr s={0};unsigned char words=8;
-            if(m68k_decode(&view,base,&s)&&s.word_count>0&&s.word_count<=8)words=(unsigned char)s.word_count;
+            if(m68k_decode(&view,base,&s)){rr_md_normalize_exception(&s);if(s.word_count>0&&s.word_count<=8)words=(unsigned char)s.word_count;}
             if(fwrite(&words,1,1,out)!=1){fclose(out);return 3;}
         }
         return fclose(out)?3:0;

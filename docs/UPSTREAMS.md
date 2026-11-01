@@ -302,6 +302,16 @@ each is the patched `hw_mapper.c` (and the new check file). The gain is not meas
 |---|---|---|---|
 | MMC1: a PPU A12 change rebuilds the bank tables only when CHR registers 0 and 1 differ in bits 2-4 in 4 KiB mode | nes | `nes_machine.py` (`_mmc1_a12`, applied to the staged `hw_mapper.c`) | nes |
 
+## Fixes carried as our own patches in 1.6.6
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| 68000 decoding rules the pinned decoder (68010/68020-aware) does not apply: `MOVEC`, `BKPT` and a non-control addressing mode of `JMP`, `JSR`, `LEA`, `PEA` are the illegal instruction (390 words); `$xxFF` branches are one word with the displacement -1 | md, ng, cps1, x68 | `native/md_exception_decode.h` (read by the offline decoding tools of the four; the X68000 length table too), written from the Motorola manual | md, ng, cps1, x68 |
+
+The pinned `m68k-recomp-core` is not edited and no upstream change was copied: the revision `6df014b` of that repository was read only
+to find which opcodes differ, and the rules were written from the manual. Described in [UPGRADES.md](UPGRADES.md) and
+[CPU_68000.md](CPU_68000.md).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

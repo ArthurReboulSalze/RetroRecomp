@@ -200,7 +200,7 @@ observations, not a compatibility score of the catalogue.
 - **Hardware**: 68000 address and bus errors, electrical interrupt acknowledge (VPA/E-clock), BR/BG/BGACK phases,
   refresh and blanking slots, VDP port collisions and physical interlace field timing are not qualified. The shift clocks
   follow the manual (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`, see [CPU_68000.md](CPU_68000.md)).
-  Supervisor `RESET` only takes its clocks (the cartridge-port reset pulse is not modelled); unknown decoder patterns and later-CPU operations remain explicit limitations.
+  Supervisor `RESET` only takes its clocks (the cartridge-port reset pulse is not modelled); unknown decoder patterns remain explicit limitations. Words the 68000 does not define (`MOVEC`, `BKPT`, undefined addressing modes of `JMP`/`JSR`/`LEA`/`PEA`) are the illegal instruction since 1.6.6.
 - **Sound**: no complete YM2612 fidelity is claimed (BUSY and timer-driven CSM are missing); the checks inspect digital
   samples, not loudspeakers or listening quality.
 - **Cartridges**: SVP, 32X, Pico, lock-on and unrelated licensed or unlicensed mappers are refused; serial EEPROM boards

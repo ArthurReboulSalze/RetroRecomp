@@ -452,7 +452,6 @@ INPUTS = _resolve({
         'native/md_eeprom.h',
         'native/md_eeprom_checks.c',
         'native/md_exception_checks.c',
-        'native/md_exception_decode.h',
         'native/md_fifo_checks.c',
         'native/md_mapper_checks.c',
         'native/md_native_checks.c',
@@ -759,7 +758,9 @@ INPUTS = _resolve({
         'native/m68000_backend.c',
         'native/m68000_backend.h',
         'native/m68000_backend_checks.c',
+        'native/m68000_decode_rules_checks.c',
         'native/m68000_state_helpers.h',
+        'native/md_exception_decode.h',
         'retrorecomp.m68000',
     ),
 })

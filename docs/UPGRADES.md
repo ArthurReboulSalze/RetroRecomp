@@ -457,6 +457,34 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## The 68000 decoding rules of the original chip (1.6.6)
+
+The decoder the converter uses is written for the 68010 and the 68020 as well and accepts more than a 68000 knows. Four machines hold a
+68000 (Mega Drive, Neo Geo, CPS-1, X68000), and their offline decoding tools now apply the Motorola manual's rules, in one shared
+header (`native/md_exception_decode.h`, which already held the reserved words `$4AFA` and `$4AFB`):
+
+- `MOVEC` (`$4E7A`, `$4E7B`) and `BKPT` (`$4848` to `$484F`) are not 68000 instructions, and `JMP`, `JSR`, `LEA` and `PEA` accept
+  only a control addressing mode: (An), d16(An), d8(An,Xn), abs.W, abs.L, d16(PC), d8(PC,Xn). The 390 opcode words that break those
+  rules (`LEA` 288, `JSR` 36, `JMP` 36, `PEA` 20, `BKPT` 8, `MOVEC` 2; the 388 of the first four families plus `MOVEC`) were
+  translated as if they existed; they are now the illegal instruction exception (vector 4), one word, like `$4AFC`.
+- A branch whose 8-bit displacement is `$FF` (`$60FF` to `$6FFF`) is a one-word branch with the displacement -1, as on the 68000.
+  The decoder had read the 32-bit displacement of the 68020 and made it three words long. The validator still refuses it as
+  speculative code (the tools skip it), so no scan translates it; the change is the length and the target the reference path and
+  the X68000 table of instruction lengths see.
+
+*Edited:* `native/md_exception_decode.h` (moved to the 68000 family of the stamp manifest, so that it moves the stamps of all four
+machines, which it did not do for the Neo Geo, CPS-1 and X68000 before), `native/x68000_native/decode.c` (its table of lengths now
+applies the same rules), and the new check `native/m68000_decode_rules_checks.c` with `tools/m68000_decode_rules_selftest.py`.
+**The `md`, `ng`, `cps1` and `x68` game stamps move.** The generated code differs only where data was read as code: the Neo Geo
+sweeps every even address of its fixed apertures, and a speculative scan elsewhere can reach such a word; a word a game really
+executes is unchanged unless it is one of the 390. No host or build stamp moves.
+
+Checked on the 65,536 opcode words against an expectation written from the manual's addressing-mode tables (no other word changes
+its decoding), on 25 hand-written byte sequences, and on the four real decoding tools and the X68000 length table with the same
+bytes; every one of those fails on the previous header (`LEA D0,A0` came out as `LEA`, `MOVEC` as `MOVEC`, `BKPT #0` as `PEA`, the
+`$60FF` branch three words long). The Mega Drive, Neo Geo, CPS-1 and 68000 backend self-tests still pass. This is a CPU fidelity
+change of what the decoder accepts; it is not a statement about any game's behaviour.
+
 ## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
 
 The 68000 now sees the grant of the Z80 bus (`$A11100` bit 0) at the end of the sound CPU's machine cycle in progress when it
