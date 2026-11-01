@@ -302,6 +302,36 @@ each is the patched `hw_mapper.c` (and the new check file). The gain is not meas
 |---|---|---|---|
 | MMC1: a PPU A12 change rebuilds the bank tables only when CHR registers 0 and 1 differ in bits 2-4 in 4 KiB mode | nes | `nes_machine.py` (`_mmc1_a12`, applied to the staged `hw_mapper.c`) | nes |
 
+## Fixes carried as our own patches in 1.6.6
+
+The Z80 of Geolith (SuperZazu derived: the sound CPU of the Neo Geo and of the CPS-1) is corrected in the converter's copy of its text.
+The corrections are strict replacements in `retrorecomp/neogeo_z80.py` (`FIXES`, applied by `adapt_source`), so the interpreter used as
+the reference and the translated bodies take them together, and a changed pin refuses the adaptation. The pin does not move. They were
+written from the instruction behaviours in the Zilog manual and from the 51,328 independent SingleStepTests/z80 vectors; no other
+emulator's code was read, and the corrections of our own Master System reference (`retrorecomp/cpu.py`), written earlier from the same
+sources, served as the checklist. Reproducers: `tools/cps1_z80_vector_selftest.py` (matching states go from 50,429 to 51,260 of 51,328,
+matching clocks from 51,200 to 51,328; only the X and Y flags of `SCF`/`CCF` remain) and `tests/test_z80_fixes.py` (each replacement
+applies once, a changed pin fails).
+
+| Fix | Consoles | Our file | Game stamps that move |
+|---|---|---|---|
+| WZ of `LD IX/IY,(nn)` and `LD (nn),IX/IY` is the address plus one; `JP (IX/IY)` leaves WZ alone, like `JP (HL)` | ng, cps1 | `neogeo_z80.py` (`FIXES`) | ng, cps1 |
+| `IN r,(C)`: WZ is BC plus one and X and Y follow the value read | ng, cps1 | same | ng, cps1 |
+| `LD A,I` and `LD A,R` copy X and Y from A | ng, cps1 | same | ng, cps1 |
+| A repeating block instruction (`LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `INDR`, `OTIR`, `OTDR`): WZ is PC plus one, X and Y come from the high byte of the rewound PC, the repeating input and output forms adjust H and P; the last pass of `CPIR`/`CPDR` moves WZ once | ng, cps1 | same | ng, cps1 |
+| `OUTI` and `OUTD` put the decremented B on the address bus; `OUTD` has its own L, WZ and flags | ng, cps1 | same | ng, cps1 |
+| `RETI` restores IFF1; `ED 4E` and `ED 6E` are `IM 0`; the other undocumented `ED` encodings are two-byte NOPs of 8 T-states | ng, cps1 | same | ng, cps1 |
+
+`GENERATOR_REVISION` of the CPS-1 goes to 9 (the file is a pinned generator source), so a CPS-1 path qualified by the old code waits again;
+none was qualified. Real conversions with `tools/ab_conversion.py` (tree before against tree after, same empty library; `sf2ce` and `ffight`
+on the CPS-1, `nam1975` and `mslug3` on the Neo Geo): the CPS-1 sets give identical generated sources except the Z80 core and its translated
+bodies, and identical reports and evidence (CPU, RAM, picture and sound hashes of every route) except the knowledge record (engine revision) and
+the size of the compressed executable. On the Neo Geo the picture and sound hashes are identical on every route; the Z80 and hardware hashes
+(registers and memory of the sound CPU) differ in the AES play route of `nam1975` from frame 2380 and in the per-frame state checks of
+`mslug3` from row 506. The causes were found by converting again with the corrections switched off one at a time: `LD A,R` in `nam1975` (the
+game reads R; the X and Y bits of F are now those of the result), WZ of `LD IX,(nn)` and then X and Y and WZ of `IN r,(C)` in `mslug3`
+(internal registers and flag bits that the picture and the sound never show).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

@@ -23,6 +23,7 @@ the machine page).
 - [29 October 2026 (1.6.5 tree): independent vectors and route liveness](#29-october-2026-165-tree-independent-vectors-and-route-liveness)
 - [29 October 2026 (1.6.5 tree): the whole panel, routes, captures and long routes](#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes)
 - [30 October 2026 (1.6.5 tree): Z80 vectors, MAME again and a Linux witness](#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness)
+- [1 November 2026 (1.6.6 tree): Z80 corrections, sound against MAME and a third Linux witness](#1-november-2026-166-tree-z80-corrections-sound-against-mame-and-a-third-linux-witness)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -345,3 +346,58 @@ was removed afterwards; the ROM was copied for the run and deleted): 0 interpret
 check passed, and the CPU, RAM, image and sound hashes and the trace hashes of both routes are **identical** to the Windows conversion
 (attract `3bbf4e1b9e913170` image, play `58d38aebe87defe0`). The conversion took 237 seconds
 (Windows 138 s), the first 147 seconds including a build of SDL; these are wall times on a shared machine, not timings.
+
+## 1 November 2026 (1.6.6 tree): Z80 corrections, sound against MAME and a third Linux witness
+
+Branch `spec/cps1-165e` on local `main` of 1.6.5 (`850cf2d`).
+
+**Z80 corrections** (`neogeo_z80.FIXES`, [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)). The replay of 51,328 independent
+Z80 vectors through the CPS-1 path goes from 50,429 to **51,260** matching states and from 51,200 to **51,328** matching clocks, native and interpreted
+paths identical on every vector; the 68 left are the X and Y flags of `SCF` and `CCF` (the Q latch is not carried). A/B from the main checkout
+(`tools/ab_conversion.py`, tree of 1.6.5 against the tree of the branch): `sf2ce` and `ffight` identical except the Z80 core, its translated bodies,
+the knowledge record (engine revision 9) and the compressed size; `nam1975` and `mslug3`: picture and sound hashes identical, Z80 and hardware hashes
+different from frame 2380 of the AES play route (`nam1975`, cause `LD A,R`: the game reads R, the X and Y bits of F are now those of the result) and
+from row 506 of the per-frame state checks (`mslug3`, causes WZ of `LD IX,(nn)` and `LD (nn),IX`, then X, Y and WZ of `IN r,(C)`): found by converting
+again with the corrections switched off one at a time (a control run with all of them off reproduces the 1.6.5 hashes exactly).
+
+**Sound against MAME 0.289** (`tools/cps1_mame_compare.py --sound`, credited play route of 3,600 frames, 24 comparable sets; MAME's WAV at 55,930 Hz
+against the game's samples, one-second windows with sound on both sides; the lag found by correlation is zero on every set). Level difference in
+dB (median and largest window), cosine of the averaged magnitude spectra, largest third-octave difference of the averaged spectrum below 4 kHz and
+from 5 to 16 kHz (dB), waveform correlation, windows silent on one side:
+
+| Set | Level median | Level max | Spectra cosine | Bands < 4 kHz | Bands 5 to 16 kHz | Waveform | Silent |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `1941` | 0.139 | 0.39 | 0.99740 | 0.97 | 0.40 | 0.67 | 18 |
+| `captcomm` | 0.045 | 0.29 | 0.99917 | 0.41 | 1.15 | 0.72 | 14 |
+| `cawing` | 0.054 | 0.16 | 0.99890 | 0.28 | 0.31 | 0.49 | 12 |
+| `dynwar` | 0.024 | 0.40 | 0.99361 | 0.53 | 0.22 | 0.43 | 14 |
+| `ffight` | 0.118 | 0.65 | 0.99638 | 1.06 | 0.88 | 0.62 | 14 |
+| `ghouls` | 0.011 | 0.10 | 0.99893 | 0.06 | 0.04 | 0.22 | 28 |
+| `knights` | 0.024 | 0.21 | 0.99874 | 0.63 | 0.51 | 0.57 | 13 |
+| `msword` | 0.104 | 0.66 | 0.99807 | 0.67 | 0.60 | 0.67 | 18 |
+| `megaman` | 0.060 | 0.64 | 0.99707 | 0.76 | 0.26 | 0.68 | 11 |
+| `mtwins` | 0.056 | 0.87 | 0.99782 | 0.46 | 0.28 | 0.49 | 13 |
+| `nemo` | 0.122 | 0.26 | 0.99788 | 0.71 | 0.29 | 0.61 | 22 |
+| `pnickj` | 0.032 | 0.24 | 0.99881 | 0.15 | 0.20 | 0.56 | 22 |
+| `pokonyan` | 0.371 | 0.99 | 0.99599 | 0.82 | 0.60 | 0.35 | 13 |
+| `qad` | 0.060 | 0.50 | 0.99788 | 0.76 | 0.56 | 0.56 | 12 |
+| `qtono2j` | 0.049 | 0.39 | 0.99896 | 1.07 | 1.95 | 0.80 | 8 |
+| `sf2ce` | 0.050 | 0.39 | 0.99888 | 0.90 | 1.07 | 0.80 | 16 |
+| `sf2hf` | 0.415 | 5.41 | 0.98625 | 1.43 | 1.64 | 0.29 | 16 |
+| `sf2` | 0.033 | 0.13 | 0.99920 | 0.70 | 0.56 | 0.86 | 15 |
+| `strider` | 0.006 | 0.68 | 0.99112 | 0.18 | 0.23 | 0.49 | 10 |
+| `kod` | 0.018 | 0.35 | 0.99899 | 0.89 | 0.77 | 0.74 | 10 |
+| `3wonders` | 0.096 | 0.92 | 0.99627 | 0.41 | 0.52 | 0.41 | 15 |
+| `unsquad` | 0.033 | 0.40 | 0.99673 | 0.50 | 0.21 | 0.31 | 12 |
+| `varth` | 0.105 | 0.30 | 0.99802 | 0.93 | 1.09 | 0.66 | 12 |
+| `willow` | 0.013 | 0.20 | 0.99657 | 0.06 | 0.12 | 0.36 | 13 |
+
+The waveform correlation is low because the OKI is interpolated linearly here and filtered by MAME in its own way, and because windows are not
+phase-aligned below the sample; it is not claimed. `sf2hf` is the set whose picture slips by a frame in the same run. Physical audio and latency are
+not measured.
+
+**Linux witness 3** (Debian 13, Hermès, one conversion of `1941`, standard level, in a folder apart removed afterwards, the ROM copied for the run
+and deleted, archive of `main` and a copy of the dependency cache; `.deps` of the existing checkout read, nothing else touched): 0 interpreted 68000 and
+Z80 instructions, 101,209,464 native 68000 and 44,659,319 native Z80 instructions over both routes, every check passed, and the CPU, RAM, picture and
+sound hashes and the trace hashes of both routes are **identical** to the Windows conversion (attract picture `5bd0c5a2c01d5df5`, play `4def87fdac4ed72a`).
+It took 119 seconds (Windows 67 s): wall times on a shared machine, not timings.
