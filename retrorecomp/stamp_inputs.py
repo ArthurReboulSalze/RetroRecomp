@@ -708,6 +708,7 @@ INPUTS = _resolve({
         'native/video_mode4.inc',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
+        'retrorecomp.sega_evidence',
         'retrorecomp.systems.game_gear',
         'retrorecomp.systems.master_system',
         'retrorecomp.validation',

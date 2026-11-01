@@ -42,9 +42,9 @@ x68 = Sharp X68000.
 | G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
-| G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
+| G6 | P | P | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | Y |
-| G8 | ? | ? | ? | P | P | Y | Y | Y | Y |
+| G8 | P | P | ? | P | P | Y | Y | Y | Y |
 | G9 | P | P | P | P | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
@@ -95,12 +95,20 @@ reads rows a machine already writes; it never runs a game.
   `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
   refuses to be written before every route matched.
 
+The Master System and the Game Gear use it since 1.6.6 (`retrorecomp/sega_evidence.py`): the runner's `--vdp-trace` has two more
+columns, `psg_h` (hash of the PSG's stereo samples of the frame) and `psg_nz` (their non-zero count), written only when a trace is
+written; every conversion records `final_checks[].liveness` per route (picture from `pixels_h`, sound, RAM; no program counter, so that
+key is None) and refuses a conversion whose main (`play`) route never changed picture; the banked engine also replays the compressed
+copy of the build on both routes against the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`).
+The "functions" engine has the liveness record and no packed replay. G8 is `P` for both columns: the record exists on every
+conversion, but the captures were not inspected as a campaign and the risk cases were not run to play. G5 stays as recorded: the
+replay is in the conversion for every banked game, run on three of them here.
+
 Machines that do not use it yet, what each already writes per frame, and the smallest change to feed it (a plan, not a
 record: nothing below runs yet):
 
 | Machine | Per-frame data today | Missing | Smallest change |
 |---|---|---|---|
-| Master System, Game Gear | `--vdp-trace` (`vdp.csv`, pinned runner `glue.c`): frame, VRAM, CRAM and register hashes, RAM hash, SP; the probe compares native and `--interp` runs on it | An audible flag or a sound hash per frame (the PSG is drained per frame to a sink, nothing is recorded); the picture is the video state, not the rendered image | One column in the runner's trace (a hash of the frame's PSG block and its non-zero sample count), carried as our patch ([UPSTREAMS.md](UPSTREAMS.md)); an adapter `FrameRow(frame, (vram, cram, reg), sound=..., audible=..., ram=...)` in `core.py` |
 | Game Boy | Nothing per frame: the probe reads stdout (`[LIMIT]`, interpreter inventory) and `--trace-entries`; the CPU comparison is the upstream's `--differential` | A picture hash and a sound hash per frame | A `--frame-trace` flag added to the runtime in `gameboy_runtime.py` (one line per frame: frame, LCD framebuffer hash, APU block hash and non-zero count); adapter in `gameboy.py` |
 | NES | `--hash-out`: frame, CPU trace hash, memory hash, PC, registers, cycles, hardware-state hash; `--wav-out` for the whole run, compared native against reference | A rendered-picture hash and a per-frame audio hash (the WAV has no frame boundaries; the hardware-state hash may change every frame whatever the picture shows) | Two fields appended to `write_hash_line` through `nes_runtime.py` (`pic=` the framebuffer hash, `snd=` the hash and non-zero count of that frame's PCM); both runs write them, so the native/reference line comparison stays valid; `FrameRow(frame, pic, sound=snd, audible=..., ram=mem, pc=PC)` |
 | Mega Drive | Done in 1.6.6 (`retrorecomp/megadrive_evidence.py`, called from `console16.convert16`). The conversion replays the compressed copy on every route with `--trace` and reads the trace as `FrameRow(frame, frame_hash, sound=audio_hash, audible=fm_nonzero + psg_nonzero > 0, pc=pc)`; the comparison with the fresh reference is `reference_differences`. `final_checks[].liveness` holds the eight keys of the delivered file's run; `native_validation.packed_reference_match` and `packed_candidate_sha256` are written by the delivered file. Only a frozen `play` route is refused: the attract route presses no button and the long and authored routes may sit in a menu | A per-frame RAM hash (the RAM hash is final only) | |

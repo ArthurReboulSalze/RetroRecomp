@@ -49,6 +49,7 @@ class MasterSystemProfile(SystemProfile):
     converter_publishes = True
     options_tab = "options_master_system"
     host_adapter = "adapters/rrhk_sms.c"
+    stamp_groups = ('conversion_gates',)   # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py)
     # The Z80 map of the Master System and the Game Gear is declared once, here (the Game Gear lists the section).
     path_spec = PathSpec(order=0, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
                          required_sources=("rom",),

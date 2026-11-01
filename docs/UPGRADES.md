@@ -431,6 +431,25 @@ identical for every game, the last pass of each is at 5 % interpreter (cycles) o
 routes of Shinobi World and Factory Panic now equal the reference over 3600 frames. Banked sources: unchanged. Nothing is claimed for
 hardware fidelity, gameplay beyond those routes or latency.
 
+## Master System and Game Gear: evidence about the delivered file (1.6.6)
+
+Every conversion of the two consoles now records what the delivered file does, through the shared `delivery_evidence` module
+(`retrorecomp/sega_evidence.py` is their adapter). The runner's `--vdp-trace` gets two columns, `psg_h` and `psg_nz` (the hash and the
+non-zero count of the PSG's stereo samples of the frame); they are written, and the PSG is rendered for them, only when a trace is
+written (a probe run), never in the game the player runs. `final_checks[].liveness` carries, per route, the frames, the distinct and
+changed pictures, the audible frames and the last audible frame, the distinct sound blocks and RAM states (no program counter: that key
+is None, not 0). A conversion whose main (`play`) route never changes picture is refused and the previous export stays; a silent route
+is reported, not refused. With the banked engine the conversion also compresses a copy of the build as publication does and replays it
+on both routes against the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`); the "functions"
+engine records liveness only. What it does not say: nothing about hardware fidelity, latency, or play beyond the routes.
+
+`tools/sega_states_selftest.py` is the check of the quick states across processes (gate G6): with the harness build of an export it saves with F8, loads in a fresh process with F9 and compares every presented picture with the first process after its save, then checks that a state with a byte changed, a truncated one and one of another cartridge are refused (same pictures as a run that never pressed F9, file left as it was) and that F9 with nothing saved creates nothing. Run on Bank Panic (Master System) and Factory Panic (Game Gear), banked engine; no host or game file changes.
+
+Exports: the only generated source that changes is `runtime_glue.c` (the trace patch); on Bank Panic, Factory Panic and Action Fighter
+the other generated sources are byte-identical, the shared trace columns, the frame dumps and the RAM are identical, and only the dump
+of the PSG state (`frame.png.psg`, a probe output) differs because the PSG is now advanced during traced runs. The game stamp of all
+nine consoles moves with `core`, and both consoles join the `conversion_gates` group (their module `sega_evidence` is in their group).
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It
