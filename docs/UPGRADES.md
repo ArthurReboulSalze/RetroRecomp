@@ -75,6 +75,58 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Super Nintendo: RAM code that no scan has seen is compiled and counted apart (1.6.7)
+
+A Super Nintendo game whose code lives in RAM (the game logic of Secret of Mana, most sound drivers, Chrono Trigger, Super
+Turrican) was native only at the addresses and opcodes a scan had seen executing; anywhere else the instruction went to the
+counted interpreter. Since 1.6.7 it runs through the compiled body of the opcode it has when it is fetched (the same bodies,
+the same cycle table, operands read live on the timed bus), for the 65816 in WRAM and in the cartridge's RAM and for the
+SPC700 in the sound unit's RAM outside `$F0-$FF`. Fetches from device registers, changed ROM bytes and device instructions
+stay interpreted and counted.
+
+- **A third counter, `compiled_unobserved`.** Per CPU, native + compiled and not observed + interpreted = the instructions
+  retired. `native_entries` and `audio_native_opcodes` keep their flat meaning (every compiled body); the new figures, part of
+  them, are `compiled_unobserved_opcodes` and `audio_compiled_unobserved_opcodes` (and `_cycles`) in the scenario rows, and the
+  report's per-CPU view subtracts them to give the native count. The fallback is never folded into it.
+- **Both learning passes stay**, and the observation goes on: an unobserved instruction is recorded as an interpreted one
+  was, so the second pass moves it from the new counter to the native one. The pass no longer changes what runs fast or
+  correctly.
+- **The SNES game stamp moves** (the generated map and the two runtimes changed): an export made before 1.6.7 is rebuilt on its
+  next conversion, and a game converted before keeps running as it did.
+- **Proof.** The authored fixtures run every 65816 operation in 32 register modes from WRAM and from the cartridge's RAM at a
+  position no table holds, and every SPC700 operation in 256 register states, against the internal reference (65,890 and
+  131,396 comparisons); five games converted from an empty library with the 1.6.6 tree and with this one give the same
+  picture, sound, CPU, RAM, video-memory and sound-unit hashes as each other and as the fully interpreted reference (see
+  [SNES.md](SNES.md)). Nothing here measures speed, and nothing is claimed about hardware fidelity: the bodies are the
+  interpreter's own.
+
+## Super Nintendo: the S-DD1 cartridges may be 8 MiB, and Star Ocean converts (1.6.7)
+
+A CPU read of the S-DD1 window ($C0-$FF) now goes through the cartridge (`cart_read`) instead of the plain ROM pointer, so the chip's
+decompression can answer it (`snes_cart.adapt_cpu`, a fail-closed patch of the pinned `cpu_read8`), and the S-DD1 boards are accepted
+up to 8 MiB (the other boards stay at 4 MiB). Star Ocean (6 MiB) converts: see [KNOWN_FAILURES.md](KNOWN_FAILURES.md). Street Fighter
+Alpha 2 converted again from an empty library with the 1.6.6 tree and with this one gives the same hashes. The SNES game stamp moves
+with the other 1.6.7 changes above.
+
+## Super Nintendo: the delivered file is replayed and its liveness recorded on every conversion (1.6.7, gates G5 and G8)
+
+The Super Nintendo conversion compresses a copy of the build as publication does, replays it on every route against the fresh
+reference of the same route, and records each route's liveness (`final_checks[].liveness`: frames, distinct pictures, picture
+changes, last picture change, distinct sound blocks, and `pcm_nonzero` and `visible_frames` of the route; the audible-frame fields
+are None because this host writes no per-frame audible flag). It was the case for the Mega Drive in 1.6.6; before 1.6.7 the Super
+Nintendo did it only in a developer tool. `retrorecomp/snes_evidence.py` is the Super Nintendo's part, `console16.convert16` calls it
+for `md` and `snes` through `delivery_evidence()` (the Mega Drive path and its log line are unchanged, tested). A conversion whose
+`play` route never changes the picture is refused. Report: `native_validation.packed_reference_match`, `packed_candidate_sha256`.
+`console16.py` is shared with the Mega Drive, the Neo Geo and the CPS-1: their game stamps move with this text.
+
+## Tools that change no export (1.6.7)
+
+- `tools/snes_saves_check.py` (gate G7): cartridges written for the purpose, one per board, check the save file, its damaged forms,
+  the absence of a file without a battery and the quick states ([SNES.md](SNES.md)).
+- `tools/fetch_snes_vectors.py` and `tools/snes_cpu_vector_selftest.py` (gate G10): the 65816 and the SPC700 against the independent
+  SingleStepTests corpora, pinned and fetched into `.deps`; findings in [CPU_65816_SPC700.md](CPU_65816_SPC700.md). Nothing in the
+  cores changed.
+
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says

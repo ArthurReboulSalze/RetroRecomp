@@ -46,6 +46,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [ninja-build/ninja](https://github.com/ninja-build/ninja) | all (Windows build) | `1.13.2` | `1.13.2` | `toolchain.NINJA_VERSION` |
 | [upx/upx](https://github.com/upx/upx) | all | `5.3.0` | `5.3.0` | `packing.UPX_VERSION` |
 | [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
+| [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | snes | `307c63f` | `307c63f5673c8c6b861c52f71ddb89212a227480` | `tools/fetch_snes_vectors.REVISION_65816` |
+| [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | snes | `67d15f4` | `67d15f492b2740964abd4efd1229e0ec9c342228` | `tools/fetch_snes_vectors.REVISION_SPC700` |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | md | `64b2531` | `64b253116a3de04aaac4346c43680960dc9b67e5` | `tests/fixtures/md-prefetch/cases.json` (also `tests/fixtures/md-exceptions/cases.json`) |
 
 The three submodule pins are not in our code: they are recorded by the pinned tree of their parent. The tool reads
@@ -81,6 +83,8 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [upx/upx](https://github.com/upx/upx) | Executable packer | GPL with special exception for packed executables | Official 5.3.0 binaries and the source archive in `licenses/` | Current. |
 | [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | Independent Z80 vectors, development tests only | MIT | Fetched on demand into `.deps`; not shipped | Identical. Keep. |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | Independent 68000 vectors, development tests only | MIT | A small extract in `tests/fixtures`; not shipped | Identical. Keep. |
+| [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | Independent 65816 vectors, development tests only | MIT | Fetched on demand into `.deps` (489 MB corpus, a sample of 64 cases per family kept, the whole corpus checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
+| [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | Independent SPC700 vectors, development tests only | MIT | Fetched on demand into `.deps` (16 MB corpus, 128 cases per family kept, checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
 
 Licences of the four engines that PolyForm Noncommercial covers (nesrecomp, segagenesisrecomp, m68k-recomp-core,
 snesrecomp) were compared with upstream on the review day: same terms, same files. Two third parties appear upstream
