@@ -620,6 +620,15 @@ SNES_AUDIO_FIELDS = ('spc_pc', 'spc_cpu_hash', 'apu_state_hash', 'dsp_state_hash
                      'audio_ring_highwater', 'audio_ring_current')
 
 
+def delivery_evidence(system_id: str):
+    """The machine's `replay_delivered` (liveness and the packed replay, gates G8 and G5) and the name it is reported under."""
+    if system_id == 'md':
+        from .megadrive_evidence import replay_delivered
+        return replay_delivered, 'Mega Drive'
+    from .snes_evidence import replay_delivered
+    return replay_delivered, 'Super Nintendo'
+
+
 def reference_differences(system_id: str, native: dict, reference: dict) -> list[str]:
     """Require every diagnostic field; absent data must never validate an export."""
     fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'cpu_pc')
@@ -918,10 +927,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         learn_spc(rom, checks)
     emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
     delivered = None
-    if system_id == 'md':
+    if system_id in ('md', 'snes'):
         # The file the player receives is a compressed copy of this build: replay it on every route against the fresh
-        # reference of the same route, and record its liveness (gates G5 and G8; retrorecomp/megadrive_evidence.py).
-        from .megadrive_evidence import replay_delivered
+        # reference of the same route, and record its liveness (gates G5 and G8; retrorecomp/megadrive_evidence.py,
+        # retrorecomp/snes_evidence.py).
+        replay_delivered, machine = delivery_evidence(system_id)
         packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
 
         def replay(candidate, directory, check):
@@ -938,7 +948,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                 lambda result, reference: reference_differences(system_id, result, reference), emit)
         for check in checks:
             check['liveness'] = delivered_runs[check['scenario']]['liveness']
-        emit('Mega Drive: the compressed executable matches the fresh reference on every route.')
+        emit(f'{machine}: the compressed executable matches the fresh reference on every route.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': stage,
         'created_utc': datetime.now(timezone.utc).isoformat(),
         'system': {'id': system_id, 'name': name}, 'scan_level': level, 'rom': rom.metadata(),

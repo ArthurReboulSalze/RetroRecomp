@@ -25,6 +25,12 @@ def md(region=b'JUE'):
     return bytes(data)
 
 
+def write_snes_trace(directory, scenario):
+    """The --trace file of the Super Nintendo host: a picture that changes on every frame."""
+    lines = ['frame,frame_hash,native,interpreted,audio_hash'] + [f'{n},{n:016x},1,0,{n:016x}' for n in range(1, 4)]
+    (Path(directory) / f'{scenario}.trace.csv').write_text(chr(10).join(lines) + chr(10), encoding='ascii')
+
+
 def snes(region=1, mapping='lorom', fast=False):
     data = bytearray(65536)
     offset = 0x7fc0 if mapping == 'lorom' else 0xffc0
@@ -512,6 +518,7 @@ class Console16Tests(unittest.TestCase):
                 audio_native_cycles=0 if reference else 800 - 4 * fallback,
                 audio_interpreted_cycles=800 if reference else 4 * fallback,
                 spc_variants=[{'address': 42, 'opcode': 0xe8}] if fallback else [], audio_cpu='native')
+            if options.get('trace'): write_snes_trace(directory, scenario)
             return data
 
         def learn(rom, checks):
@@ -524,6 +531,7 @@ class Console16Tests(unittest.TestCase):
                     patch('retrorecomp.console16.probe16', side_effect=probe), \
                     patch('retrorecomp.supernintendo.learn_ram_variants', return_value=0), \
                     patch('retrorecomp.snes_spc.learn', side_effect=learn), \
+                    patch('retrorecomp.delivery_evidence.pack_candidate', side_effect=lambda built, target, emit: Path(target).write_bytes(Path(built).read_bytes())), \
                     patch('retrorecomp.console16.reference_differences', return_value=['pcm_hash'] if fail else []):
                 if fail:
                     with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
@@ -563,12 +571,14 @@ class Console16Tests(unittest.TestCase):
                 cartridge_chip='superfx', coprocessor_mode='interpreted',
                 coprocessor_instructions=device, coprocessor_failed=0, coprocessor_commands=0,
                 ram_observation_overflows=7 if play else 0)
+            if options.get('trace'): write_snes_trace(directory, data['scenario'])
             return data
 
         with patch('retrorecomp.console16.prepare16', return_value=executable), \
                 patch('retrorecomp.console16.probe16', side_effect=probe), \
                 patch('retrorecomp.supernintendo.learn_ram_variants', return_value=0), \
                 patch('retrorecomp.snes_spc.learn', return_value=0), \
+                patch('retrorecomp.delivery_evidence.pack_candidate', side_effect=lambda built, target, emit: Path(target).write_bytes(Path(built).read_bytes())), \
                 patch('retrorecomp.console16.reference_differences', return_value=[]):
             convert16(source, system_id='snes', output=self.root / 'reports', frames=30, passes=1,
                       emit=log.append)
