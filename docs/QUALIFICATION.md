@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G10 of the Neo Geo of 2 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -53,7 +53,7 @@ x68 = Sharp X68000.
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
 | G8 | P | P | P | Y | P | P | P | Y | Y |
 | G9 | P | P | P | Y | Y | P | Y | Y | Y |
-| G10 | Y | Y | P | Y | P | P | P | Y | P |
+| G10 | Y | Y | P | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | P |
 | G13 | P | P | P | P | P | P | P | P | Y |
@@ -97,6 +97,21 @@ x68 = Sharp X68000.
   with a coprocessor only (`supernintendo.validate_device_liveness`), none for an ordinary cartridge; the Neo Geo has no liveness record
   yet (`retrorecomp/neogeo_conversion.py` uses `deliver_packed` and `replay_routes`, not `liveness_summary`). See the section
   *Shared evidence helper*.
+- Neo Geo (2 November 2026): G10 moved from `P` to `Y`. Both CPUs replay independent vectors through the Neo Geo generator, the same ones
+  as the CPS-1 and with the same figures ([NEOGEO.md](NEOGEO.md#qualification), [NEOGEO_LOG.md](NEOGEO_LOG.md)). 68000
+  (`tools/neogeo_vector_selftest.py`): the three SingleStepTests fixtures (834 + 2,171 + 864 vectors, the 82 authored cases included) all run
+  as native steps; the native steps agree with 3,867 of 3,869 on registers, SR, PC, written bytes and clocks. Z80
+  (`tools/neogeo_z80_vector_selftest.py`): 51,328 vectors through `neogeo_z80.generate` and the Geolith core corrected in the converter's copy
+  (`neogeo_z80.FIXES`), 49,685 as native steps below `0xf800` and 1,643 through observed RAM variants; native and interpreted identical on every
+  vector, 51,260 states (99.87 percent) and all 51,328 clocks agree with the oracle. **Reserves, written as they are:**
+  (a) the two authored 68000 vectors that set the trace bit, which neither path delivers (the Neo Geo Musashi is built without trace);
+  (b) the 68 Z80 vectors that differ are the X and Y flags of `SCF` and `CCF` and their `DD`/`FD` duplicates (the Q latch of the original chip is
+  not carried: a store per instruction and a state field); (c) the shared Musashi, the reference of every conversion, differs from the
+  68000 vectors on `DIVU`/`DIVS` flags (and the division clocks), `CHK` flags and clocks and one line-F stack byte (3,783 of 3,869 on state,
+  3,823 on clocks), where the translated steps follow the vectors: a game that reached such a case would show a native-against-reference
+  difference at conversion, not hide it, and none of the 134 qualified identities has; correcting the Musashi is the lead's decision and
+  would move the 68000 stamps of four machines; (d) the oracles are MAME (68000) and JSMoo (Z80), not hardware, and the bus is flat: nothing
+  of the board, the YM2610, the command latch or the prefetch bus phases.
 - G14 for NES, SNES, SMS, GG, GB and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document

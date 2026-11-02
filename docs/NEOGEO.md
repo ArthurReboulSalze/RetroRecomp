@@ -246,9 +246,9 @@ and ordinary saving is disabled for that session with a short warning.
 
 ## Qualification
 
-Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md) (27 October 2026: Neo
-Geo meets G1-G9, G12, G14 to G16; **partial** on G10 independent CPU evidence, G11
-independent hardware evidence and G13 cross-OS witness). Qualification is **per exact
+Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md) (27 October 2026, G8 and G10
+updated on 2 November: Neo Geo meets G1-G7, G9, G10, G12, G14 to G16; **partial** on G8 liveness,
+G11 independent hardware evidence and G13 cross-OS witness). Qualification is **per exact
 ROM identity** (cartridge and BIOS) and per engine revision; only numeric
 observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)).
 
