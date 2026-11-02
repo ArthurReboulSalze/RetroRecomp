@@ -6,7 +6,7 @@ trace of the runtime (picture, sound, work RAM and program counter hashes) and s
 put side by side on one sheet per game, which is looked at by a person; the numbers below are only a first filter and say nothing of
 whether the game is played well.
 
-    python tools/gameboy_campaign.py [--work FOLDER] [--only SLUG ...] [--reuse]
+    python tools/gameboy_campaign.py --roms FOLDER [--work FOLDER] [--only SLUG ...] [--reuse]
 
 The ROMs are read in place from the player's folder (never copied into the repository); the sheets and the summary stay in the work
 folder. Nothing here validates hardware fidelity or a complete game.
@@ -42,7 +42,7 @@ GAMES = {
     'exodus': ('Exodus - Journey to the Promised Land (Unl).zip', 'Wisdom Tree mapper (header says ROM only), added in 1.6.6'),
     'veediots': ('The Ren & Stimpy Show - Veediots!.zip', 'turns the screen off and waits (the frame rule of the LCD off)'),
 }
-ROM_FOLDER = Path(os.environ.get('RR_GB_ROMS', r'\\192.168.1.33\Batocera\roms\gb'))
+ROM_FOLDER = Path(os.environ['RR_GB_ROMS']) if os.environ.get('RR_GB_ROMS') else None      # set by --roms
 CAPTURES = 6
 
 
@@ -50,8 +50,8 @@ def environment() -> dict:
     return dict(os.environ, PYTHONUTF8='1', SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', PYINSTALLER_SUPPRESS_SPLASH_SCREEN='1')
 
 
-def extract(slug: str, work: Path) -> Path:
-    archive = ROM_FOLDER / GAMES[slug][0]
+def extract(slug: str, work: Path, folder: Path) -> Path:
+    archive = folder / GAMES[slug][0]
     with zipfile.ZipFile(archive) as bundle:
         name = next(item for item in bundle.namelist() if item.lower().endswith('.gb'))
         target = work / 'roms' / f'{slug}.gb'
@@ -149,10 +149,13 @@ def summarise(report: dict) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--roms', type=Path, default=ROM_FOLDER, help='the folder with the ZIP files of the games (or set RR_GB_ROMS)')
     parser.add_argument('--work', type=Path, default=ROOT / '.build' / 'gb-campaign')
     parser.add_argument('--only', action='append', choices=sorted(GAMES))
     parser.add_argument('--reuse', action='store_true', help='keep a conversion already done in the work folder')
     args = parser.parse_args()
+    if args.roms is None:
+        parser.error('give the folder of the games with --roms (or RR_GB_ROMS)')
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     summary_path = work / 'summary.json'
@@ -163,7 +166,7 @@ def main() -> int:
         row: dict = {'why': GAMES[slug][1]}
         report_path = find_report(out) if args.reuse else None
         if report_path is None:
-            ok, seconds, tail = convert(extract(slug, work), out)
+            ok, seconds, tail = convert(extract(slug, work, args.roms), out)
             row.update({'converted': ok, 'convert_wall_seconds': round(seconds, 1)})
             if not ok:
                 row['failure_tail'] = tail
