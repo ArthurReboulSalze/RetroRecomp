@@ -46,12 +46,12 @@ native/x68000_reference/audio_checks.c native/x68000_reference/audio_checks.h
 native/x68000_reference/check_compat.h native/x68000_reference/CMakeLists.txt
 native/x68000_reference/disk_checks.c native/x68000_reference/disk_checks.h
 native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.h
-native/x68000_reference/loading.h native/x68000_reference/media_probe.c
+native/x68000_reference/loading.h
 native/x68000_reference/media_session.c native/x68000_reference/media_session.h native/x68000_reference/mouse_games.json
 native/x68000_reference/payload.c native/x68000_reference/payload.h
 native/x68000_reference/probe.c
 native/x68000_reference/probe.h native/x68000_reference/reference_host.c
-native/x68000_reference/rtc_clock_shim.h native/x68000_reference/session_bridge.c
+native/x68000_reference/rtc_clock_shim.h
 native/x68000_reference/session_checks.c native/x68000_reference/session_checks.h
 native/x68000_reference/state_store.c native/x68000_reference/state_store.h
 native/x68000_reference/state_store_test.c native/x68000_reference/timing_checks.c
