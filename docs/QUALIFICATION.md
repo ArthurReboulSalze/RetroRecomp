@@ -359,6 +359,47 @@ Then three checks on the machine itself, each on one game of your choice:
 |---|---|---|---|---|
 | (to fill) | Sharp X68000 | (to fill) | (to fill) | (to fill) |
 
+### Checklist for Arthur: Nintendo NES play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging.
+`python tools/nes_owner_trial.py --roms <your NES folder>` converts these six games as a player would, one at a time, under
+`.build/nes-owner-trial/` (never into Export), writes `TRIAL.md` there with the same table and takes one picture of each right-hand
+play route. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this
+test".
+
+| | Zelda | Kirby's Adventure | Mr. Gimmick (PAL) | Duck Hunt (Zapper) | Battletoads | Castlevania III |
+|---|---|---|---|---|---|---|
+| Why it is here | MMC1, battery save, long game | MMC3 scanline IRQ, battery save | 50 Hz cartridge, FME-7 sound chip | the Zapper | two players, AxROM, code in RAM | MMC5, extra sound channels |
+| It starts without an error window | | | | | | |
+| Controls: arrows, **W** and **X**, **Enter** (Start), **Shift** (Select); player 2 on the keypad | | | | The mouse aims, the left button shoots, the right button shoots off-screen | Both pads answer | |
+| Sound is the game's (music and effects) | | | The speed and the pitch of a PAL game | | | The extra pulse channels are heard |
+| **F8** in play, move on, **F9** goes back | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | |
+| A save made in the game is still there after closing and starting again | | | not applicable | not applicable | not applicable | not applicable |
+| **F3** changes the picture filter, **F4** the window mode | | | | | | |
+| Nothing odd: a frozen picture, a flickering status bar, a wrong colour | | | | | | |
+
+Then four checks, each on the game that fits:
+
+1. **Battery save.** Start a game in Zelda or Kirby, save in the game, quit, start again and load it. The file is
+   `datas/games/<game>-<12 hex digits>.sav` beside the player; the conversion's own test runs leave none.
+2. **Autofire and extra sprites.** On a gamepad, **F6** turns autofire on and off (a notice shows "Autofire ON" or "Autofire OFF"; a game
+   samples its pad once per frame, so what it makes of it is the game's). **F5** toggles the extra sprites: in a game that flickers
+   (Battletoads, Castlevania III) fewer objects blink; off by default.
+3. **The Zapper.** In Duck Hunt, **F2** then the Zapper page (after the four control pages) changes the reticle: cross or dot, size, red,
+   white or green. The light is an approximation fed by the pixels the PPU emits: say if a shot you think was good counts as a miss, or
+   the opposite, and where on the screen.
+4. **Language.** **F7** changes the language of the player's own menus (the game's text is the cartridge's).
+
+Known limits to keep in mind while you play: the Zapper's light is approximate; one Zapper only (no second gun, no other special
+controller); the Famicom Disk System is not supported; no Dendy timing (NTSC and PAL only). Keep the five measures apart when you judge: the CPU is checked against independent vectors and
+the hardware against authored fixtures, not against a reference console, and a good feel here is neither an exact fidelity nor a
+latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
+
 ## Running the verification campaign
 
 `tools/campaign.py` is a developer tool: it prepares and runs the pre-release
