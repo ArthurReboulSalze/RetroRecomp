@@ -124,7 +124,10 @@ reads rows a machine already writes; it never runs a game.
   replay; `replay_packed` (or `replay_routes` where the machine's callback compares by itself) replays that copy on every
   route and compares it with the fresh reference. `native_validation.packed_reference_match` and
   `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
-  refuses to be written before every route matched.
+  refuses to be written before every route matched. Since 1.6.7 a compressed copy that fails its replay on the converting
+  system is replaced by the build as built and every route is replayed again on it (`DeliveredFile.fall_back_to_build`): if that
+  passes the unpacked file is delivered and reported as such (`packing.unpacked_reason`), else the first error is raised
+  ([BUILDING.md](BUILDING.md)). It is the same file that passed every route that is delivered, packed or not.
 
 The Master System and the Game Gear use it since 1.6.6 (`retrorecomp/sega_evidence.py`): the runner's `--vdp-trace` has two more
 columns, `psg_h` (hash of the PSG's stereo samples of the frame) and `psg_nz` (their non-zero count), written only when a trace is

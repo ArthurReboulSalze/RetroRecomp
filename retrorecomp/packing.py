@@ -54,6 +54,15 @@ def upx_timeout(path: Path) -> int:
 # to stderr, once.
 _UNPACKED_REASONS: dict[str, str] = {}
 
+# A build whose compressed copy was replayed on every route and did not match, or did not even run, on this system (a
+# Linux X68000 game: the build runs and `upx -t` passes, the compressed copy stops at start). The conversion then
+# replays the build as built (delivery_evidence.DeliveredFile.fall_back_to_build) and registers it here by the SHA-256 of
+# the unpacked bytes, with the notice. The publication packs the same build again (UPX is deterministic), so
+# `_compact_executable` looks here first: a build registered here is published unpacked, exactly as it passed every
+# route, never as a compressed file nobody replayed successfully. It lives as long as the process, which a conversion
+# and its publication share.
+_REPLAY_REFUSED: dict[str, str] = {}
+
 # The player's global option "Compress games" (preference `compress_games`, command line `--no-compress`). It exists
 # because of Windows Defender: its machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive)
 # sometimes flags a freshly built, UPX-packed game, and an unpacked game is 3 to 4 times larger but the same program.
@@ -75,6 +84,15 @@ def set_compression(enabled: bool) -> None:
 def compression_enabled() -> bool:
     """Whether published games are compressed (True unless the player turned the option off)."""
     return _COMPRESSION
+
+
+def refuse_compression(sha256: str, notice: str) -> None:
+    """Say that the build with this SHA-256 must not be published compressed: its compressed copy failed its replay.
+
+    `notice` is the reason (the text the log and `packing_record`'s `unpacked_reason` carry). From now on
+    `compact_executable` leaves that build as built and returns the notice, and `packing_record` reports it."""
+    _REPLAY_REFUSED[sha256] = notice
+    _UNPACKED_REASONS[sha256] = notice
 
 
 def compression_from_preferences(preferences: dict) -> bool:
@@ -99,7 +117,8 @@ def packing_record(unpacked: dict, published: Path, packed_replayed: bool = Fals
     (`packed_replayed`: Neo Geo, CPS-1 and X68000 replay a packed copy against the
     reference, `native_validation.packed_reference_match`). A Linux game that UPX
     could not pack and test is published unpacked (`packed` false) and `unpacked_reason`
-    says why.
+    says why; so is a game whose compressed copy failed its replay on the system that
+    converted it (`refuse_compression`), and the conversion then replayed the unpacked file.
     """
     data = Path(published).read_bytes()
     packed = b'UPX!' in data
@@ -138,24 +157,21 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
     never both, so a command line shows it once.
 
     With the player's option "Compress games" off (`set_compression`), UPX is not run at all: the file stays as built and
-    validated and the notice says that the player chose it, which `packing_record` reports as `unpacked_reason`."""
+    validated and the notice says that the player chose it, which `packing_record` reports as `unpacked_reason`.
+
+    A build registered by `refuse_compression` (its compressed copy failed the replay of the conversion) is left as built
+    in the same way, with the notice that registration gave."""
     if not _COMPRESSION:
         _UNPACKED_REASONS[file_identity(path)['sha256']] = UNCOMPRESSED_NOTICE
-        outcome = {'notice': UNCOMPRESSED_NOTICE}
-        if emit is not None:
-            emit(outcome['notice'])
-        else:
-            print(outcome['notice'], file=sys.stderr, flush=True)
-        return outcome
-    if os.name != 'nt':
-        outcome = compact_linux(path)
-        if outcome:
-            if emit is not None:
-                emit(outcome['notice'])
-            else:
-                print(outcome['notice'], file=sys.stderr, flush=True)
-        return outcome
-    outcome = compact_windows(path)
+        return _announce({'notice': UNCOMPRESSED_NOTICE}, emit)
+    refused = _REPLAY_REFUSED.get(file_identity(path)['sha256']) if _REPLAY_REFUSED else None
+    if refused:
+        return _announce({'notice': refused}, emit)
+    return _announce(compact_windows(path) if os.name == 'nt' else compact_linux(path), emit)
+
+
+def _announce(outcome: dict | None, emit=None) -> dict | None:
+    """Pass the notice of an unpacked outcome to `emit`, else print it on stderr (once), and return the outcome."""
     if outcome:
         if emit is not None:
             emit(outcome['notice'])
