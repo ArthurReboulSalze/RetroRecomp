@@ -63,5 +63,42 @@ class InstructionRulesTests(unittest.TestCase):
             self.assertNotIn('megadrive_rules', (ROOT / name).read_text(encoding='utf-8'), name)
 
 
+@unittest.skipUnless(PINNED.is_file(), 'pinned segagenesisrecomp sources are not cached')
+class DecoderToolIsolationTests(unittest.TestCase):
+    """The other 68000 machines keep the decoder they had: the Mega Drive's rules go to a decoder of its own."""
+
+    def written(self, **options):
+        from unittest import mock
+        from retrorecomp import megadrive_codegen
+        files = {}
+        with mock.patch.object(megadrive_codegen, 'write_changed', lambda path, text: files.__setitem__(Path(path).name, (Path(path).parent, text))),                 mock.patch.object(megadrive_codegen, 'run', lambda *a, **k: ''),                 mock.patch.object(megadrive_codegen, 'toolchain', lambda: ('cmake', 'Ninja')),                 mock.patch.object(megadrive_codegen, 'build_executable', lambda folder, name: Path(folder) / name):
+            megadrive_codegen.decoder_tool(ROOT / '.deps/segagenesisrecomp', **options)
+        return files
+
+    def test_the_default_decoder_is_the_one_of_the_previous_release(self):
+        raw = PINNED.read_text(encoding='utf-8')
+        source = m68000.adapt_cycle_estimates(raw)           # what the decoder tool wrote before 1.6.7
+        expected = source[source.index('static int interp_popcount16('):source.index('static void interp_account_cycles(')]
+        expected = expected[:expected.rfind('/* The emit_cycle_accounting')]
+        folder, text = self.written()['md_cycle_estimate.h']
+        self.assertEqual(text, expected)
+        self.assertEqual(folder.name, 'megadrive-step-decoder')
+
+    def test_the_mega_drive_decoder_has_its_own_folder_and_the_rules(self):
+        folder, text = self.written(md_rules=True)['md_cycle_estimate.h']
+        self.assertEqual(folder.name, 'megadrive-step-decoder-rules')
+        self.assertIn('instr->mnemonic != MN_CMP &&', text)
+
+    def test_only_the_mega_drive_generator_asks_for_the_rules(self):
+        import re
+        users = {}
+        for path in (ROOT / 'retrorecomp').glob('*.py'):
+            users[path.name] = len(re.findall(r'decoder_tool\([^)]*md_rules', path.read_text(encoding='utf-8')))
+        self.assertEqual({name for name, n in users.items() if n}, {'megadrive_codegen.py'})
+        for name in ('neogeo_codegen.py', 'cps1_codegen.py'):
+            self.assertEqual(users[name], 0)
+        self.assertNotIn('md_rules', (ROOT / 'tools/x68000_native.py').read_text(encoding='utf-8'))
+
+
 if __name__ == '__main__':
     unittest.main()
