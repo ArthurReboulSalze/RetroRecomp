@@ -309,7 +309,7 @@ reports, a column of the catalogue), outside the evidence above. What exists on 
 the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets of the test collection (one per family, of 18) agree with MAME 0.289
 on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
 its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
-`wof` converts through the whole chain at the quick level. Not done: the other 13 sets, the standard level on the five, a run of the DSP16, the owner's play trial.
+The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
 
 ## Panel sizes
 

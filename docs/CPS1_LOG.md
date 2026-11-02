@@ -460,3 +460,27 @@ picture, the frames around them identical; the every-10th-frame comparison catch
 writes are not modelled); the 13 sets of the tier that the
 test collection does not hold; a run of the DSP16 instead of the model (about 10 to 15 hours of work, a third counted processor); the
 owner's play trial of the tier.
+
+## 2 November 2026 (1.6.7 tree): the CPS-1.5 sets at the Standard level, delivered games against MAME
+
+The five sets of the test collection (FBNeo romsets, the DSP ROM of the BIOS folder given with `--qsound-rom`), one batch of five conversions,
+`--scan-level standard`, `--jobs 1`, an empty library, no shared base, no online cover: five of five succeeded. Wall seconds of each conversion
+(report): `wof` 79, `dino` 78, `punisher` 87, `mbombrd` 133, `slammast` 168.
+
+| Set | routes (frames) | interpreted 68000 / Z80 | pictures seen (attract, play) | audible frames (attract, play) | reference = native | quick state, fresh process | packed copy |
+|---|---|---|---|---|---|---|---|
+| `wof` | attract, play (3,600) | 0 / 0 on both | 915, 1,780 | 0, 2,834 | yes | yes (frame 2,940, 600 frames) | yes |
+| `dino` | same | 0 / 0 | 1,635, 1,932 | 0, 2,847 | yes | yes | yes |
+| `punisher` | same | 0 / 0 | 813, 2,190 | 0, 2,815 | yes | yes | yes |
+| `slammast` | same | 0 / 0 | 1,350, 1,837 | 3,169, 3,169 | yes | yes | yes |
+| `mbombrd` | same | 0 / 0 | 1,768, 1,638 | 3,169, 3,169 | yes | yes | yes |
+
+Every report: `status: experimental`, `board_tier: experimental`, `native_coverage: true`, `hardware_fidelity_validated: false`,
+`full_game_validated: false`, `knowledge.shared: false`, `audio_model.dsp16 = {model: hle, executed: false}`. Silent attract routes (`wof`, `dino`, `punisher`)
+are accepted because the credited route of each is audible, as for the CPS-1 sets. The five delivered executables compared with MAME 0.289 again,
+both routes, the same tool and figures as above: pictures 3,599 of 3,600 (`dino`, frame 1,640), sound per channel within 0.003 to 0.011 dB (median), averaged spectrum cosine 0.996 to 0.9997, aligned waveform correlation 0.96 to 0.99 (median).
+
+EEPROM saves, on the delivered executables started the player's way (SDL dummy drivers, `RETRORECOMP_HOST_TEST_FRAMES=900`): after the first run each of the
+five has a `datas/saves/CPS1-<sha256 of the romset>.rrsave` of 224 bytes (106 to 127 of the 128 EEPROM cells hold something other than 0xff:
+the game initialised its settings), and a second run leaves each file unchanged. Not done by a tool: a run of the game by a person.
+
