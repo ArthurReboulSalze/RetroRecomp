@@ -178,10 +178,13 @@ Conversion options: the console tab of **Options** sets the scan level, passes a
 
 ## Qualification
 
-Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md). The Super Nintendo column (27 October 2026) reads: met for the
-report contract, native coverage, CPU fidelity run, packed replay, fresh-process states, liveness, panel and shared-knowledge
-safety (G2-G6, G8, G12, G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats there); partial for scope and status wording, saves, route depth, independent CPU and hardware
-evidence, cross-OS witness and honesty (G1, G7, G9-G11, G13, G15); unknown for owner acceptance (G14).
+Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md). The Super Nintendo column (matrix of 27 October 2026, G5 and G8 of
+1 November 2026) reads: met for the report contract, native coverage, CPU fidelity run, delivered file, fresh-process states, panel
+and shared-knowledge safety (G2-G6, G12, G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats
+there); partial for scope and status wording, saves, liveness (a record exists for the cartridges with a coprocessor only),
+route depth, independent CPU and hardware evidence, cross-OS witness and honesty (G1, G7-G11, G13, G15); unknown for owner
+acceptance (G14: no decision recorded). The SA-1 and S-DD1 boards of 1.6.6 were proved on four titles and an authored cartridge
+(section above), which is panel breadth for G12 and nothing more: they do not close any partial gate.
 
 The five measures, kept apart:
 
