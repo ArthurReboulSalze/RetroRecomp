@@ -186,6 +186,17 @@ route depth, independent CPU and hardware evidence, cross-OS witness and honesty
 acceptance (G14: no decision recorded). The SA-1 and S-DD1 boards of 1.6.6 were proved on four titles and an authored cartridge
 (section above), which is panel breadth for G12 and nothing more: they do not close any partial gate.
 
+**Saves on every board (release 1.6.7).** `tools/snes_saves_check.py` converts one cartridge written for the purpose per board
+(LoROM 8 KiB and 128 KiB with a battery, LoROM and HiROM with RAM and no battery, HiROM 32 KiB, Super FX, S-DD1 and the HiROM DSP-1
+with a battery; the SA-1 has its own in `snes_sa1_selftest.py`) and checks, for each: the save file is written with its board
+code, size and whole RAM (the first and the last byte of the RAM included); a second process reads it back; a board without a
+battery writes nothing and starts blank; ten kinds of damaged file (a payload byte, the cartridge identity, the board code, the
+size, the version, the magic, a byte missing or added, an empty file) are refused with exit code 9 and left untouched; the
+valid file loads again afterwards; no temporary file is left; native equals the interpreted reference; the quick states
+restore in a fresh process. It proves the adapter and the file format on those boards, not a commercial cartridge's own
+save (Stunt Race FX and Yoshi's Island were not played to a save). A refused file means the game does not start: it never
+starts a blank game over a progress file it cannot read.
+
 The five measures, kept apart:
 
 | Measure | What exists | What is not claimed |
