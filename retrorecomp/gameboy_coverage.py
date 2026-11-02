@@ -113,6 +113,9 @@ def probe_scenarios(frames: int, *, varied: bool = True, long_routes=()) -> tupl
 # The most frames a scenario is compared with the reference for when the comparison runs over the whole length: the lockstep run goes at
 # roughly twenty frames a second, so a pseudo-random route of 18,000 frames is compared over its first 3,600 and says so.
 FULL_VALIDATION_CAP = 3600
+# The scan levels from which the comparison runs over the whole length (the shared scan_levels module is an input of every machine's stamp,
+# so this Game Boy choice lives here).
+FULL_VALIDATION_LEVELS = ('extended', 'thorough')
 
 
 def scenario_frames(scenario: ProbeScenario, frames: int) -> int:

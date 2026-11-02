@@ -20,7 +20,7 @@ from .gameboy_build import preserve_unchanged_sources, share_native_bodies, comp
 from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_cartridge import cartridge_memory, cartridge_record, device_entries
 from .gameboy_delivery import liveness_record, replay_delivered, require_moving_main_route, state_checks
-from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios, scenario_frames,
+from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios, scenario_frames, FULL_VALIDATION_LEVELS,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
 from .report_schema import write_report
@@ -470,7 +470,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         emit(f"Game Boy: adding {len(new_entries)} observed ROM entries to the next pass.")
     timings.end_passes()
     require_moving_main_route(final_checks)
-    full_length = bool(gb_deep_validation and scan['full_length'])
+    full_length = bool(gb_deep_validation and level in FULL_VALIDATION_LEVELS)
     validation_mode = 'full' if full_length else 'deep' if gb_deep_validation else 'standard'
     emit(f"Comparing generated execution with the reference CPU ({validation_mode})…")
     comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation, full=full_length, long_routes=long_routes)

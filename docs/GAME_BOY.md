@@ -53,7 +53,9 @@ not bank (MMM01, MBC6, MBC7, camera, TAMA5, HuC1, HuC3). `saves.cartridge_memory
 stays "not validated" for both.
 
 Where the five measures stand: **native code** is reported per scenario with the interpreter and the one-by-one executors shown
-apart; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
+apart, and, since 1.6.7, with the guarded helpers (native bodies that take over a recognised routine of writable code after checking its
+live bytes: store and increment, copy, DMA page, interrupt-bracketed DMA) counted apart too, by kind, as entries and guest cycles in
+`final_checks[].guarded_helpers`; they are not interpreter sessions and are not added to any other figure; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
 [Qualification](#qualification)); **hardware fidelity**, **gameplay validation** and **physical latency** are not claimed.
 
 ### Sound and input timing
@@ -250,7 +252,10 @@ unguarded ROM code. Exported games do not write learning logs, and the interpret
 
 The fallback percentage is deliberately left unknown because the upstream report does not provide a defensible total cycle
 denominator. Before export, the mandatory CPU check compares generated and reference execution instruction by instruction for up to
-30 boot frames. **Deep Game Boy validation (slow)** adds up to 240 frames per input scenario. Both modes require the requested
+30 boot frames. **Deep Game Boy validation (slow)** adds up to 240 frames per input scenario. With the **extended** and **thorough** scan levels
+(since 1.6.7) every scenario of the probes, the pseudo-random routes included, is compared over its whole length, up to 3,600 frames; the report
+says for each comparison how many frames were compared and how long the scenario is (`scenario_frames`), and `native_validation.mode` is `full`.
+The lockstep run goes at about twenty frames a second, so a route of 18,000 frames is compared over its first 3,600 and says so. Both modes require the requested
 comparison frames to finish and reject a mismatch. The differential validator checks all mutable memory and framebuffer bytes after
 every instruction and locates the first differing byte on failure. The option only changes the scope of the reference CPU validation;
 native ROM discovery, the converter library, the coverage probes and the pass limit are identical in both modes. The conversion
@@ -292,7 +297,8 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
 ## Qualification
 
 Gate status for the Game Boy is in [QUALIFICATION.md](QUALIFICATION.md) (the column `gb`); the checks below are what exists today.
-Deep CPU checks compare instructions and memory for 30 boot frames and 240 frames of each of the three input scenarios (the Game Boy
+Deep CPU checks compare instructions and memory for 30 boot frames and 240 frames of each of the three input scenarios, and from the extended level
+on over the whole length of every scenario, up to 3,600 frames (the Game Boy
 release check compares the CPU once, on a short boot, not on every final scenario as the other writers do). These checks do not cover
 all gameplay, certify hardware fidelity or measure physical latency.
 

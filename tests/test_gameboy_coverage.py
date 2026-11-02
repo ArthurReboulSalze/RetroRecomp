@@ -131,6 +131,10 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(budgets(75, deep=True), [('boot', 30), ('play_r', 75), ('play_l', 75)])
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
 
+    def test_the_whole_length_is_compared_from_the_extended_level_on(self):
+        from retrorecomp.gameboy_coverage import FULL_VALIDATION_LEVELS
+        self.assertEqual(FULL_VALIDATION_LEVELS, ('extended', 'thorough'))
+
     def test_full_length_comparison_covers_every_final_scenario_up_to_the_cap(self):
         from retrorecomp.gameboy_coverage import FULL_VALIDATION_CAP, scenario_frames
         def budgets(frames, **options):

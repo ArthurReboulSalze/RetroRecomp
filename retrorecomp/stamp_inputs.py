@@ -178,6 +178,8 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
+    # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
+    'licenses/SingleStepTests-sm83.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py): never built into a game, so they move no stamp.
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
@@ -252,7 +254,6 @@ INPUTS = _resolve({
         'licenses/Python.md',
         'licenses/SDL2.md',
         'licenses/SingleStepTests-m68000.md',
-        'licenses/SingleStepTests-sm83.md',
         'licenses/SingleStepTests-z80.md',
         'licenses/Tcl-Tk.md',
         'licenses/UPX.md',
