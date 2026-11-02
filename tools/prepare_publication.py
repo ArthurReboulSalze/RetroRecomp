@@ -269,6 +269,7 @@ native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
 native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
+tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
 native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test_neogeo_z80_vectors.py
 native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py tests/test_z80_fixes.py
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
