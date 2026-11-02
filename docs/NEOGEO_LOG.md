@@ -13,6 +13,24 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Routes measured on exports: the AES attract and a generic two-player route, no rule — 2 November 2026
+
+For 1.6.7, read-only: copies of 16 Export executables (Export itself untouched), headless, standard clocks, a fixed RTC seed, two at a time.
+Two questions asked after the attract route of 7,200 frames (cause A) and the deferral of the second megabyte (cause B).
+
+- **Does the BIOS restart leave the same fallback in AES mode?** No. An attract with no input, `--aes`, 3,600 and 9,000 frames, on the six sets of
+  cause A (Breakers Revenge, Rage of the Dragons, Matrimelee, Metal Slug 4, Prehistoric Isle 2, Strikers 1945 Plus) and four controls (Metal Slug 3,
+  Samurai Shodown V, KOF '97, Real Bout 2): **0 interpreted 68000 and Z80 instructions everywhere**. The routine runs early in AES (8.4 million
+  instructions in RAM within the first 3,600 frames on eight of the ten, none on KOF '97 and Real Bout 2), where the `aes-attract` and `aes-play` routes
+  of every conversion already reach it. No AES rule is needed.
+- **Does a generic two-player route reach the code that stays interpreted on Twinkle Star Sprites?** No. The two-player route of `qualification_routes`
+  (credits for both, both Start, both pads pressing; the same text for every set it is given to) was run for 6,600 frames on ten exports (the four
+  2 MiB sets Twinkle Star Sprites, KOF '94, KOF '95 and Breakers Revenge among them): **0 interpreted instructions on all ten**, Twinkle Star Sprites
+  included, where its two pseudo-random routes of 18,000 frames run 1,402,301 and 606,984 interpreted instructions at 3,043 and 2,967 sites. The fixed
+  pattern never starts a versus game there. The pseudo-random route reaches it by length: 0 at 3,000 frames, 444,297 instructions (1,086 sites) at
+  6,000, 1,049,417 (1,469) at 9,000, 1,402,301 (3,043) at 15,000: a route short enough to be cheap covers a third of it. No two-player rule
+  is proposed; the deferral of the second-megabyte sweep stands ([UPSTREAMS.md](UPSTREAMS.md#deferred)).
+
 ## Liveness of every route (gate G8) — 2 November 2026
 
 For 1.6.7. The Neo Geo was the one machine without a liveness record (CPS-1 and the X68000 have it through `delivery_evidence.py`). The packed
