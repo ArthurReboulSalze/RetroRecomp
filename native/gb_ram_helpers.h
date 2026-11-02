@@ -325,23 +325,41 @@ static inline bool rr_gb_store_helper_matches(GBContext* ctx, uint16_t start) {
     return true;
 }
 
+/* The guarded helpers are native bodies that replace a recognised routine of writable code, checked against the live bytes before each
+ * instruction they take over. They are not interpreter sessions and not instructions run one at a time, so the report lists them apart:
+ * how many times each kind was entered and the guest cycles spent in those entries (host-only counters of the context, outside every
+ * saved state; ctx->rr_helper_entries / rr_helper_cycles, indexed by the kinds below). */
+enum { RR_HELPER_STORE = 0, RR_HELPER_COPY = 1, RR_HELPER_DMA_PAGE = 2, RR_HELPER_INTERRUPT_DMA = 3 };
+
+static inline void rr_gb_note_helper(GBContext* ctx, unsigned kind, uint64_t before) {
+    ctx->rr_helper_entries[kind]++;
+    ctx->rr_helper_cycles[kind] += ctx->total_cycles - before;
+}
+
 static inline uint8_t rr_gb_try_store_helper(GBContext* ctx, uint16_t addr) {
     if (addr < 0xC000) return 0;
     if (rr_gb_store_helper_matches(ctx, addr)) {
         /* LD (DE),A. The two following NOPs stay separate CPU instructions. */
+        const uint64_t before = ctx->total_cycles;
         ctx->pc = (uint16_t)(addr + 1);
         gbrt_timed_bus_write8(ctx, ctx->de, ctx->a, 7);
+        rr_gb_note_helper(ctx, RR_HELPER_STORE, before);
         return 1;
     }
     if (addr >= 3 && rr_gb_store_helper_matches(ctx, (uint16_t)(addr - 3))) {
         /* INC DE, including the existing timed OAM/bus behavior. */
+        const uint64_t before = ctx->total_cycles;
         ctx->pc = (uint16_t)(addr + 1);
         gbrt_timed_inc16(ctx, &ctx->de);
+        rr_gb_note_helper(ctx, RR_HELPER_STORE, before);
         return 1;
     }
     /* Keep the dispatch entry point compatible with already generated code. */
-    return rr_gb_try_interrupt_dma_helper(ctx, addr) || rr_gb_try_dma_page_helper(ctx, addr) ||
-           rr_gb_try_copy_helper(ctx, addr);
+    const uint64_t before = ctx ? ctx->total_cycles : 0;
+    if (rr_gb_try_interrupt_dma_helper(ctx, addr)) { rr_gb_note_helper(ctx, RR_HELPER_INTERRUPT_DMA, before); return 1; }
+    if (rr_gb_try_dma_page_helper(ctx, addr)) { rr_gb_note_helper(ctx, RR_HELPER_DMA_PAGE, before); return 1; }
+    if (rr_gb_try_copy_helper(ctx, addr)) { rr_gb_note_helper(ctx, RR_HELPER_COPY, before); return 1; }
+    return 0;
 }
 
 /* The dispatch entry used by the generated game (and by the checks): the guarded multi-instruction

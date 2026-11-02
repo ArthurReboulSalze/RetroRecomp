@@ -133,8 +133,9 @@ def nes_budget(level: str) -> dict:
 
 
 def gameboy_budget(level: str) -> dict:
-    """Game Boy: quick skips the varied replay and the deep CPU comparison."""
-    return {'varied': level != 'quick', 'deep_allowed': level != 'quick',
+    """Game Boy: quick skips the varied replay and the deep CPU comparison; extended and thorough compare every scenario with the
+    reference over its whole length (up to retrorecomp.gameboy_coverage.FULL_VALIDATION_CAP frames), not over the first 30 or 240."""
+    return {'varied': level != 'quick', 'deep_allowed': level != 'quick', 'full_length': level in ('extended', 'thorough'),
             'route_count': LONG_ROUTES[level], 'route_frames': LONG_ROUTE_FRAMES}
 
 

@@ -54,6 +54,9 @@ target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)
     probe = run([executable, '--headless', '--limit-frames', frames, '--report-interpreter-hotspots'], timeout=180)
     steps = RAM_STEPS.search(probe)
     assert steps and not any(map(int, steps.groups())), probe
+    from retrorecomp.gameboy import HELPERS
+    helpers = HELPERS.search(probe)          # the guarded helpers are counted and printed too; the fixture runs ROM code only
+    assert helpers and not any(map(int, helpers.groups())), probe
     state = json.loads((project / 'trampoline-state.json').read_text(encoding='utf-8'))
     expected = {'d': 0, 'e': 0, 'sp': 65534, 'pc': 276,
                 'cycles': 4522088, 'dispatch_fallbacks': 0}

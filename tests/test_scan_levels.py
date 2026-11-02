@@ -14,7 +14,7 @@ class ScanLevelTests(unittest.TestCase):
                          {'advanced': False, 'demo_frames': 3600, 'route_count': 0, 'route_frames': 18000})
         self.assertEqual(sl.x68000_budget('standard'), {'exploration': True, 'long_count': 0, 'long_frames': 18000})
         self.assertEqual(sl.nes_budget('standard')['advanced'], False)
-        self.assertEqual(sl.gameboy_budget('standard'), {'varied': True, 'deep_allowed': True, 'route_count': 0, 'route_frames': 18000})
+        self.assertEqual(sl.gameboy_budget('standard'), {'varied': True, 'deep_allowed': True, 'full_length': False, 'route_count': 0, 'route_frames': 18000})
 
     def test_former_switches_map_to_levels(self):
         self.assertEqual(sl.plan_for('md', None, md_advanced_scan=True).level, 'thorough')
@@ -52,7 +52,9 @@ class ScanLevelTests(unittest.TestCase):
         self.assertEqual(sl.nes_budget('quick'), {'advanced': False, 'play_left': False, 'route_count': 0, 'route_frames': 18000})
         for budget in (sl.gameboy_budget, sl.sega_budget, sl.neogeo_budget):
             self.assertEqual((budget('extended')['route_count'], budget('thorough')['route_count']), (1, 2))
-        self.assertEqual(sl.gameboy_budget('quick'), {'varied': False, 'deep_allowed': False, 'route_count': 0, 'route_frames': 18000})
+        self.assertEqual(sl.gameboy_budget('quick'), {'varied': False, 'deep_allowed': False, 'full_length': False, 'route_count': 0, 'route_frames': 18000})
+        self.assertEqual([sl.gameboy_budget(level)['full_length'] for level in ('quick', 'standard', 'extended', 'thorough')],
+                         [False, False, True, True])      # the whole length of every scenario is compared with the reference from extended on
 
     def test_nes_and_game_boy_scenario_builders_follow_the_budgets(self):
         import tempfile

@@ -193,7 +193,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    uint64_t rr_ram_single_step_instructions; /**< WRAM/HRAM instructions run one by one by rr_gb_try_ram_instruction (host-only) */\n'
         '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */\n'
         '    uint64_t rr_highmem_stub_instructions; /**< 0xFF00-0xFF7F instructions run one by one by the upstream high-memory stub (host-only) */\n'
-        '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */')
+        '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */\n'
+        '    uint64_t rr_helper_entries[4]; /**< Entries of the guarded helpers (store, copy, DMA page, interrupt-bracketed DMA), host-only */\n'
+        '    uint64_t rr_helper_cycles[4]; /**< Guest cycles spent in those entries */')
     # `--frame-trace FILE` (native/gb_frame_trace.h): one line per completed frame, for the liveness record of the delivered file.
     source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
         'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
@@ -377,6 +379,13 @@ static void rr_gb_feedback(GBContext *ctx) {
             (unsigned long long)ctx->rr_ram_stub_instructions, (unsigned long long)ctx->rr_ram_stub_cycles,
             (unsigned long long)ctx->rr_ram_single_step_instructions, (unsigned long long)ctx->rr_ram_single_step_cycles,
             (unsigned long long)ctx->rr_highmem_stub_instructions, (unsigned long long)ctx->rr_highmem_stub_cycles);
+    fprintf(stderr,
+            "[RR-HELPERS] store_entries=%llu store_cycles=%llu copy_entries=%llu copy_cycles=%llu "
+            "dma_page_entries=%llu dma_page_cycles=%llu interrupt_dma_entries=%llu interrupt_dma_cycles=%llu\\n",
+            (unsigned long long)ctx->rr_helper_entries[0], (unsigned long long)ctx->rr_helper_cycles[0],
+            (unsigned long long)ctx->rr_helper_entries[1], (unsigned long long)ctx->rr_helper_cycles[1],
+            (unsigned long long)ctx->rr_helper_entries[2], (unsigned long long)ctx->rr_helper_cycles[2],
+            (unsigned long long)ctx->rr_helper_entries[3], (unsigned long long)ctx->rr_helper_cycles[3]);
     fprintf(stderr,
             "[INTERP] Fallback inventory: sites=%u''')
     source = replace_once(source, '''        while (!ctx->frame_done) {

@@ -110,8 +110,26 @@ def probe_scenarios(frames: int, *, varied: bool = True, long_routes=()) -> tupl
     return tuple(scenarios)
 
 
-def cpu_validation_scenarios(frames: int, *, deep: bool = False) -> tuple[tuple[ProbeScenario, int], ...]:
-    """Keep discovery independent of the costly per-instruction CPU checks."""
+# The most frames a scenario is compared with the reference for when the comparison runs over the whole length: the lockstep run goes at
+# roughly twenty frames a second, so a pseudo-random route of 18,000 frames is compared over its first 3,600 and says so.
+FULL_VALIDATION_CAP = 3600
+
+
+def scenario_frames(scenario: ProbeScenario, frames: int) -> int:
+    """The length of a scenario as the probes run it (its own budget, else the shared limit)."""
+    return scenario.frames or frames
+
+
+def cpu_validation_scenarios(frames: int, *, deep: bool = False, full: bool = False,
+                             long_routes=()) -> tuple[tuple[ProbeScenario, int], ...]:
+    """Keep discovery independent of the costly per-instruction CPU checks.
+
+    By default the boot is compared for 30 frames and each other route for 240. With `full` (extended and thorough levels) every
+    scenario that the probes run as a final scenario, the pseudo-random routes included, is compared over its whole length, up to
+    FULL_VALIDATION_CAP frames."""
+    if full and deep:
+        return tuple((scenario, min(scenario_frames(scenario, frames), FULL_VALIDATION_CAP))
+                     for scenario in probe_scenarios(frames, long_routes=long_routes))
     return tuple((scenario, min(frames, 30 if scenario.name == 'boot' else 240))
                  for scenario in probe_scenarios(frames)
                  if deep or scenario.name == 'boot')

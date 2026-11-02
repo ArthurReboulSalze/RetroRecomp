@@ -72,6 +72,8 @@ class CoverageTests(unittest.TestCase):
         log = ('[LIMIT] Reached frame limit 1200\n'
                '[RR-RAM] ram_stub_instructions=3 ram_stub_cycles=24 ram_single_step_instructions=5 ram_single_step_cycles=44 '
                'highmem_stub_instructions=2 highmem_stub_cycles=9\n'
+               '[RR-HELPERS] store_entries=1 store_cycles=8 copy_entries=3 copy_cycles=250 dma_page_entries=0 dma_page_cycles=0 '
+               'interrupt_dma_entries=2 interrupt_dma_cycles=8\n'
                '[INTERP] Fallback inventory: sites=1 dropped=0 complete=yes\n'
                '[INTERP] Fallback site #1 00A:4567 reason=address_not_compiled entries=2 instructions=2 cycles=32\n'
                '[INTERP] Summary: fallbacks=2 interpreter_entries=2 interpreter_instructions=2 interpreter_cycles=32')
@@ -83,8 +85,14 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual((result['ram_stub_instructions'], result['ram_stub_cycles'],
                           result['ram_single_step_instructions'], result['ram_single_step_cycles'],
                           result['highmem_stub_instructions'], result['highmem_stub_cycles']), (3, 24, 5, 44, 2, 9))
+        # The guarded helpers are counted apart, by kind, with their entries and guest cycles.
+        self.assertEqual(result['guarded_helpers'], {'store': {'entries': 1, 'cycles': 8}, 'copy': {'entries': 3, 'cycles': 250},
+                                                     'dma_page': {'entries': 0, 'cycles': 0}, 'interrupt_dma': {'entries': 2, 'cycles': 8}})
         # A runtime line without the high-memory figures (an export of the same lot before it) is not accepted.
         with patch('retrorecomp.gameboy.run', return_value=log.replace(' highmem_stub_instructions=2 highmem_stub_cycles=9', '')):
+            with self.assertRaises(ConversionError):
+                _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
+        with patch('retrorecomp.gameboy.run', return_value=log.replace('[RR-HELPERS]', '[RR-OTHER]')):     # no helper counts: refused
             with self.assertRaises(ConversionError):
                 _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
         with patch('retrorecomp.gameboy.run', return_value=log.replace('[RR-RAM]', '[RR-OTHER]')):
@@ -122,6 +130,23 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(budgets(3600, deep=True), [('boot', 30), ('play_r', 240), ('play_l', 240), ('varied', 240)])
         self.assertEqual(budgets(75, deep=True), [('boot', 30), ('play_r', 75), ('play_l', 75)])
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
+
+    def test_full_length_comparison_covers_every_final_scenario_up_to_the_cap(self):
+        from retrorecomp.gameboy_coverage import FULL_VALIDATION_CAP, scenario_frames
+        def budgets(frames, **options):
+            return [(scenario.name, count) for scenario, count in cpu_validation_scenarios(frames, **options)]
+        # every scenario of the probes, at its own length: the boot too, and the varied replay
+        self.assertEqual(budgets(1200, deep=True, full=True), [('boot', 1200), ('play_r', 1200), ('play_l', 1200), ('varied', 1200)])
+        # a pseudo-random route has a budget of its own; it is compared over at most FULL_VALIDATION_CAP frames
+        from retrorecomp.random_routes import long_routes as routes
+        long_routes = routes('gb', 'a' * 64, count=2, frames=18000, two_players=False)
+        result = cpu_validation_scenarios(1200, deep=True, full=True, long_routes=long_routes)
+        self.assertEqual(len(result), 6)
+        self.assertEqual([count for _scenario, count in result[4:]], [FULL_VALIDATION_CAP] * 2)
+        self.assertEqual([scenario_frames(scenario, 1200) for scenario, _count in result[4:]], [18000, 18000])
+        # the default (and every level below extended) is unchanged, and without deep validation only the boot is compared
+        self.assertEqual(budgets(1200, deep=True), [('boot', 30), ('play_r', 240), ('play_l', 240), ('varied', 240)])
+        self.assertEqual(budgets(1200, full=True), [('boot', 30)])
 
     def test_parallelism_respects_batch_cpu_share(self):
         from retrorecomp.platforms import build_jobs
@@ -270,6 +295,9 @@ class WritableCodeHookTests(unittest.TestCase):
             self.assertEqual(header.count(f'ctx->{field}'), 1, field)
         self.assertIn('[RR-RAM] ram_stub_instructions', runtime)
         self.assertIn('highmem_stub_instructions=%llu highmem_stub_cycles=%llu', runtime)
+        self.assertIn('[RR-HELPERS] store_entries=%llu', runtime)
+        self.assertEqual(runtime.count('uint64_t rr_helper_entries[4];'), 1)
+        self.assertEqual(header.count('rr_gb_note_helper(ctx, RR_HELPER_'), 5)       # store (two entries), interrupt DMA, DMA page, copy
         self.assertEqual(header.count('static inline uint8_t rr_gb_try_highmem_dispatch('), 1)
         self.assertEqual(header.count('static inline uint8_t rr_gb_try_ram_instruction('), 1)
         self.assertEqual(header.count('static inline unsigned rr_gb_ram_length('), 1)
