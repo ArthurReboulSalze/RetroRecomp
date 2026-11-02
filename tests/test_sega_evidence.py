@@ -134,14 +134,16 @@ class ReplayTests(unittest.TestCase):
 
 
 class ConvertWiringTests(unittest.TestCase):
-    """The conversion reads the delivered-file evidence through the adapter, and the functions engine has no packed replay."""
+    """The conversion reads the delivered-file evidence through the adapter; both engines replay the delivered copy."""
 
     def test_convert_uses_the_adapter_for_liveness_and_the_banked_replay(self):
         import inspect
         text = inspect.getsource(core.convert)
         self.assertIn('route_liveness(trace / "vdp.csv")', text)
         self.assertIn('require_main_route_moving(scenario, check["liveness"], trace)', text)
-        self.assertIn('if banked:\n        # The file the player receives is a compressed copy of this build', text)
+        self.assertIn('# The file the player receives is a compressed copy of this build: replay it on every route', text)
+        self.assertIn('engine has no per-route reference, so the copy is compared with the final pass of this same build', text)
+        self.assertIn("checks.pop('final_cpu')", text)
         self.assertIn('replay_delivered(executable, packed', text)
         self.assertIn('**(delivered.report_fields() if delivered else {})', text)
 

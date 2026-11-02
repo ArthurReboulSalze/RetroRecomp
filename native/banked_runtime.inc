@@ -41,6 +41,28 @@ static inline void banked_advance_vdp(uint64_t cyc) {
     advance_vdp(cyc);
 }
 
+/* Accept the /INT latched at the start of the step that just completed: the return address is the PC the step left (the
+ * repeating block instruction itself while it goes on, the next instruction otherwise), WZ follows the jump, and a
+ * pending LD A,I / LD A,R clears the parity flag. A function of its own so that tools/banked_cpu_selftest.py can run it
+ * against the reference CPU's acceptance state by state. */
+static void banked_accept_irq(void) {
+    g_irq_taken++;
+    if (g_z80.p) g_z80.f &= (uint8_t)~Z80_FLAG_P;
+    g_z80.p = g_z80.q = 0;
+    g_z80.iff1 = g_z80.iff2 = false; g_z80.halted = false;
+    g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7F));
+    g_z80.cyc += g_z80.im == 2 ? 19 : 13;
+    g_z80.sp = (uint16_t)(g_z80.sp - 2); sms_write16(g_z80.sp, g_z80.pc);
+    g_z80.pc = g_z80.im == 2 ? sms_read16((uint16_t)((g_z80.i << 8) | 0xFF)) : 0x0038;
+    g_z80.wz = g_z80.pc;
+}
+
+/* EI suppresses acceptance through its own completion; otherwise a level latched at the start of the step is taken. */
+static inline void banked_after_step(int pending_irq) {
+    if (g_z80.ei_block) g_z80.ei_block = 0;
+    else if (pending_irq && g_z80.iff1) banked_accept_irq();
+}
+
 static void smsrecomp_banked_run(void) {
     /* Same documented reset AF/SP as the reference CPU. Other registers stay
      * at the runtime's deterministic reset values. */
@@ -84,18 +106,7 @@ static void smsrecomp_banked_run(void) {
             else { sms_enter(g_z80.pc); sms_dispatch_miss(g_z80.pc); }
         }
         prefix_pending = 0; g_frame_ic++;
-        if (g_z80.ei_block) g_z80.ei_block = 0;
-        else if (pending_irq && g_z80.iff1) {
-            g_irq_taken++;
-            if (g_z80.p) g_z80.f &= (uint8_t)~Z80_FLAG_P;
-            g_z80.p = g_z80.q = 0;
-            g_z80.iff1 = g_z80.iff2 = false; g_z80.halted = false;
-            g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7F));
-            g_z80.cyc += g_z80.im == 2 ? 19 : 13;
-            g_z80.sp = (uint16_t)(g_z80.sp - 2); sms_write16(g_z80.sp, g_z80.pc);
-            g_z80.pc = g_z80.im == 2 ? sms_read16((uint16_t)((g_z80.i << 8) | 0xFF)) : 0x0038;
-            g_z80.wz = g_z80.pc;
-        }
+        banked_after_step(pending_irq);
         banked_advance_vdp(g_z80.cyc);
         g_sync_deadline = g_next_line_cyc;
         smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */
