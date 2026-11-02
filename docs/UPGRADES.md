@@ -247,6 +247,20 @@ stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No 
 Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
 need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
 
+## Game Boy: independent SM83 vectors (1.6.7, gate G10)
+
+`tools/fetch_sm83_vectors.py` caches the pinned SingleStepTests/sm83 corpus into `.deps` (revision `f9c3021`, MIT, a pinned digest of its
+500 files, a line per vector); `tools/gameboy_sm83_vector_selftest.py` builds `native/gb_sm83_vector_checks.c` against the pinned runtime and
+runs the 404,358 vectors that touch plain memory through the interpreter, the one-instruction RAM executor and the RAM dispatch.
+
+*What moves.* Nothing: developer files, in the public files and in no stamp (the C check is declared out of the stamps like the
+CPS-1 vector checks). No export changes.
+
+*Hot path: not touched.*
+
+*Proof and finding.* 401,724 of 404,358 interpreter vectors match; the three families that differ are pinned with their numbers
+(`STOP` and `HALT`: conventions of the vector model; `EI`: a real difference, IME set when `EI` completes instead of one instruction later, in native code and interpreter alike). Details and the decision on `EI` in [CPU_SM83.md](CPU_SM83.md#6-tests-and-vectors).
+
 ## Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states (1.6.6, gates G2 and G6)
 
 *The report.* Beside the CPU, the Game Boy report (schema 2) now lists two units in `devices`, after the coprocessor entry if a machine has

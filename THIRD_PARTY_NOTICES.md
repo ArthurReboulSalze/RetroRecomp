@@ -72,6 +72,7 @@ shipped; you supply your own IPL and font ROM.
 | Portable compiler runtime (llvm-mingw 20261006: libc++, libc++abi, libunwind, compiler-rt, MinGW-w64 runtime, winpthreads) | Apache-2.0 with LLVM exceptions; MinGW-w64 and winpthreads permissive licences; statically linked into games built with the portable build tools | [Full text](licenses/llvm-mingw.md) |
 | xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
+| SingleStepTests/sm83 independent vectors (development tests only) | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-sm83.md) |
 | SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |
 | arcanite24/gb-recompiled (Game Boy compiler and generated runtime) | MIT; copyright arcanite24 | [Full text](licenses/gb-recompiled.md) |
 | Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |

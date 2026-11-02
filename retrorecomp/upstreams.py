@@ -181,13 +181,17 @@ SST_Z80 = Upstream(
     'SingleStepTests/z80', 'SingleStepTests/z80', 'main', 'independent Z80 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_z80_vectors.py into .deps; not shipped',
     _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md'))
+SST_SM83 = Upstream(
+    'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
+    'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
+    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb',))
 SST_M68000 = Upstream(
     'SingleStepTests/m68000', 'SingleStepTests/m68000', 'main', 'independent 68000 test vectors (development tests only)',
     'MIT', 'a small extract stored in tests/fixtures (md-prefetch, md-exceptions); not shipped',
     Pin('json', 'tests/fixtures/md-prefetch/cases.json', 'revision'),
     also=(Pin('json', 'tests/fixtures/md-exceptions/cases.json', 'revision'),), shared_by=('md',))
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_M68000)
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),

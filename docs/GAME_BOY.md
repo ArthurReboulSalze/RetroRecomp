@@ -177,7 +177,7 @@ instructions are reported beside them. Wario Land II kept interpreter sessions a
 | Converter | `retrorecomp/gameboy.py` (pipeline, passes, report), `gameboy_coverage.py` (probe and CPU-validation scenarios), `gameboy_runtime.py` (adaptations of the generated project), `gameboy_boundary.py`, `gameboy_build.py`, `gameboy_hardware.py`, `gameboy_host.py` (platform layer on the host kit) |
 | Shared converter code used | `scan_levels.py` (`gameboy_budget`), `random_routes.py`, `path_profiles.py` (CPU-keyed `rom_entries`), `report_schema.py` |
 | Native | `native/gb_ram_helpers.h`, `gb_ram_checks.c`, `gb_boundary_checks.c`, `gb_audio_checks.c`, `gb_latency_checks.cpp`, `gb_tick_fast.h`, `gb_tick_checks.c`; the adapter `native/hostkit/adapters/rrhk_gb.inc` |
-| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_tick_selftest.py` |
+| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_tick_selftest.py`, `gameboy_sm83_vector_selftest.py` (independent SM83 vectors, [CPU_SM83.md](CPU_SM83.md#6-tests-and-vectors)) |
 | Unit tests | `tests/test_game_boy.py`, `test_gameboy_build.py`, `test_gameboy_coverage.py` |
 | Stamps | The role and owners of each file are in `retrorecomp/stamp_inputs.py`; editing a Game Boy game file moves the Game Boy game stamp (there is no Game Boy quick-state key) |
 
