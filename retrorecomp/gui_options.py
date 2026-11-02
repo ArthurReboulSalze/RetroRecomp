@@ -42,6 +42,8 @@ FIRMWARE_ROWS_DEFAULT = {'pady': (8, 4), 'title': 'browse', 'resolve': False,
 FIRMWARE_ROWS = {
     'ng_bios': {'pady': (0, 8), 'title': 'label', 'filetypes': [('ZIP', '*.zip')], 'resolve': True,
                 'check': ('neogeo', 'validate_bios')},
+    'qsound_rom': {'pady': (8, 8), 'title': 'label', 'filetypes': [('ZIP / BIN', '*.zip *.bin'), ('All files', '*.*')], 'resolve': True,
+                   'check': ('cps1_qsound', 'validate_dsp_rom')},
 }
 
 

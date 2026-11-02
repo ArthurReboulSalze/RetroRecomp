@@ -101,12 +101,17 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # of IN r,(C), LD A,I, LD A,R and of the repeating block instructions, the port address and flags of OUTI/OUTD, CPIR/CPDR WZ, RETI
 # restoring IFF1, the undocumented ED encodings), so the translated Z80 bodies change for those opcodes (1 November 2026, 1.6.6). No
 # CPS-1 path was qualified, so nothing is lost today.
-GENERATOR_REVISION = 9
+# 10: the CPS-1.5 (QSound) boards' Kabuki Z80 (`retrorecomp/cps1_kabuki.py`, 2 November 2026): a board with an opcode image reads
+# instruction bytes from it, the generator takes the instruction form from it, and `cps1_build` patches the core for it. The
+# generated code of a board without a Kabuki is byte for byte that of revision 9 (checked by generating the same set on both
+# trees); the revision is raised because the pins cover the whole generator and the native files changed. No CPS-1 path was
+# qualified, so nothing is lost today.
+GENERATOR_REVISION = 10
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',
                  'native/cps1_machine.c', 'native/cps1_machine.h', 'native/md_prefetch.inc')
-GENERATOR_SOURCES = ('retrorecomp/cps1_codegen.py', 'retrorecomp/cps1_build.py', 'retrorecomp/m68000.py',
+GENERATOR_SOURCES = ('retrorecomp/cps1_codegen.py', 'retrorecomp/cps1_build.py', 'retrorecomp/cps1_kabuki.py', 'retrorecomp/m68000.py',
                      'retrorecomp/neogeo_codegen.py', 'retrorecomp/neogeo_z80.py', 'retrorecomp/megadrive_z80.py')
 
 

@@ -43,6 +43,7 @@ class Cps1Set:
     mapper: str
     alternatives: tuple[str, ...] = ()
     system_id: str = 'cps1'
+    tier: str = 'supported'          # catalogue column: 'experimental' for the QSound boards (CPS-1.5)
 
     @property
     def size(self):
@@ -58,7 +59,7 @@ class Cps1Set:
                 'members': [{k: v for k, v in item.items() if k not in ('archive', 'archive_path')}
                             for item in self.members],
                 'support': self.support, 'reason': self.reason, 'rotation': self.rotation,
-                'board': self.board, 'mapper': self.mapper, 'alternatives': list(self.alternatives)}
+                'board': self.board, 'mapper': self.mapper, 'alternatives': list(self.alternatives), 'tier': self.tier}
 
 
 def archive_members(path: Path) -> tuple[dict, ...]:
@@ -185,4 +186,4 @@ def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | Non
         [item['name'], item['bytes'], item['sha256']] for item in members]}).encode()).hexdigest()
     return Cps1Set(path, display_title(game['title']), game['set'], game['parent'], tuple(members), identity,
                    game['support'], game['reason'], game['rotation'], game['board'], game['mapper'],
-                   tuple(other['set'] for other in others))
+                   tuple(other['set'] for other in others), tier=cps1_catalogue.tier(game))
