@@ -1,4 +1,5 @@
-/* Capcom CPS-1 board (standard 10/12 MHz A/B/C boards, no QSound).
+/* Capcom CPS-1 board (standard 10/12 MHz A/B/C boards) and its QSound variant (CPS-1.5: Kabuki Z80 at 8 MHz, shared RAM,
+ * serial EEPROM, QSound instead of the YM2151 and the OKI).
  *
  * Adapted from MAME's CPS-1 driver (src/mame/capcom/cps1.cpp, cps1_v.cpp,
  * BSD-3-Clause, copyright-holders: Paul Leaman) at revision
@@ -38,6 +39,8 @@ typedef struct cps1_board {
     int range_count;
     int ports[3];             /* in2, in3, out2 CPS-B offsets (0 = absent) */
     int kludge, rotation;
+    int qsound;               /* 1: the QSound board (CPS-1.5), see cps1_machine.c */
+    uint32_t z80_clock;       /* sound CPU clock: CPS1_YM_CLOCK, or 8 MHz on the QSound board */
     uint16_t port_default[CPS1_PORTS];
     uint8_t port_present[CPS1_PORTS];
 } cps1_board;
@@ -48,6 +51,10 @@ typedef struct cps1_regions {
     const uint8_t *gfx; size_t gfx_size;
     const uint8_t *oki; size_t oki_size;
     const uint8_t *stars; size_t stars_size;
+    const uint8_t *audiocpu_op; size_t audiocpu_op_size;   /* Kabuki: the instruction-fetch view of audiocpu (NULL: none) */
+    const uint8_t *qsound; size_t qsound_size;             /* QSound board: the sample ROM */
+    const uint8_t *audiorom_raw; size_t audiorom_raw_size; /* QSound board (Slam Masters): sound ROM read by the 68000 at 0xf00000 */
+    const uint8_t *dsp_rom; size_t dsp_rom_size;           /* QSound board: the DSP's internal ROM (dl-1425.bin), the player's own dump */
 } cps1_regions;
 
 /* Parse the board.txt description written by smsrecomp/cps1_board.py. */
@@ -58,6 +65,13 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions);
 void cps1_reset(void);
 void cps1_shutdown(void);
 
+/* The 93C46 EEPROM of the QSound board: its 128 bytes, loaded by the host before the first frame and read back when
+ * `cps1_eeprom_changed` says they changed. Boards without one answer 0 / NULL. */
+size_t cps1_eeprom_size(void);
+const uint8_t *cps1_eeprom_data(void);
+int cps1_eeprom_load(const uint8_t *data, size_t size);
+int cps1_eeprom_changed(void);
+
 /* Port values are raw (active low, as the board reads them). */
 void cps1_set_port(int port, uint16_t value);
 uint16_t cps1_port_default(int port);
@@ -66,7 +80,10 @@ uint16_t cps1_port_default(int port);
  * VBLANK starts and coloured when it ends; its audio is queued. */
 void cps1_run_frame(void);
 const uint32_t *cps1_framebuffer(void);         /* 384x224 0x00RRGGBB */
-const int16_t *cps1_audio(size_t *samples);     /* mono, CPS1_AUDIO_RATE */
+/* The frame's sound: `samples` counts 16-bit values, interleaved left and right when there are two channels. */
+const int16_t *cps1_audio(size_t *samples);
+unsigned cps1_audio_rate(void);                 /* CPS1_AUDIO_RATE (mono), or 24,038 Hz on the QSound board (stereo) */
+unsigned cps1_audio_channels(void);
 uint64_t cps1_frame_number(void);
 
 typedef struct cps1_cpu_state {

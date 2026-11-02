@@ -58,7 +58,7 @@ static void banked_accept_irq(void) {
 }
 
 /* EI suppresses acceptance through its own completion; otherwise a level latched at the start of the step is taken. */
-static void banked_after_step(int pending_irq) {
+static inline void banked_after_step(int pending_irq) {
     if (g_z80.ei_block) g_z80.ei_block = 0;
     else if (pending_irq && g_z80.iff1) banked_accept_irq();
 }

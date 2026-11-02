@@ -46,7 +46,9 @@ missing, because the old readers take a null for a value)::
     schema        {'name': 'retro-recomp-report', 'version': 2}
     read_from     {'schema_version': 1 | 2, 'writer': 'core' | 'gameboy' | ...}
     tool, version, created_utc, target     as written, else None
-    system        {'id', 'name', 'status'}  status as the writer stored it
+    system        {'id', 'name', 'status'[, 'board_tier']}  status as the writer stored it; board_tier, only when
+                  the writer states one, is the tier of the board within a machine (CPS-1: 'supported', or
+                  'experimental' for the QSound boards of the CPS-1.5); read it with .get()
     rom           the writer's ROM record; source_identity (X68000) beside it
     scan          {'level', 'enabled', 'scenario_frames', 'routes': [...]}
     cpus          [{'id': 'main' | 'audio', 'arch', 'role', 'unit': 'instructions',
@@ -646,7 +648,8 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         'read_from': {'schema_version': schema_version, 'writer': shape.writer},
         'tool': data.get('tool'), 'version': data.get('version'), 'created_utc': data.get('created_utc'),
         'target': data.get('target'),
-        'system': {'id': system.get('id'), 'name': system.get('name'), 'status': data.get('status')},
+        'system': {'id': system.get('id'), 'name': system.get('name'), 'status': data.get('status'),
+                   **({'board_tier': data['board_tier']} if data.get('board_tier') is not None else {})},
         'rom': {**_copy(_dict(data.get('rom'))), **({'source_identity': data['source_identity']}
                                                     if 'source_identity' in data else {})},
         'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
@@ -695,12 +698,13 @@ def legacy_view(document) -> dict:
     """The writer's own keys of a report: what ``with_schema_v2`` was given.
 
     Drops the schema-2 sections and the schema-2 parts of the three keys the shapes share
-    (``system.status``, ``rom.source_identity``, the schema-2 keys of ``knowledge``). A report that
+    (``system.status`` and ``system.board_tier``, ``rom.source_identity``, the schema-2 keys of ``knowledge``). A report that
     is not dual-written comes back as a copy.
     """
     legacy = {key: _copy(value) for key, value in document.items() if key not in V2_ONLY_KEYS}
     if isinstance(legacy.get('system'), dict):
         legacy['system'].pop('status', None)
+        legacy['system'].pop('board_tier', None)
     if isinstance(legacy.get('rom'), dict) and 'source_identity' in legacy:
         legacy['rom'].pop('source_identity', None)
     knowledge = legacy.get('knowledge')

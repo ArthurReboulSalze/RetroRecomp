@@ -23,24 +23,13 @@ from .conversion_common import check_exit, resolve_scan_level, spawn
 from .conversion_gates import continuation_difference, require, require_same_file
 from .core import ConversionError, executable_name
 from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields,
-                                require_moving_picture, same_trace)
+                                require_moving_picture, same_trace, silent_sound_hash)
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .paths import ROOT
 from .toolchain import describe as toolchain_description
 
 STATE_SETTLE = 600   # frames continued after a quick state is loaded
-FNV_BASIS, FNV_PRIME, FNV_MASK = 14695981039346656037, 1099511628211, (1 << 64) - 1   # the hashes of native/cps1_main.c
-
-
-def silent_sound_hash(samples: int) -> int:
-    """The per-frame sound hash of `samples` samples that are all zero (cps1_main.c hashes each sample, xor then multiply)."""
-    value = FNV_BASIS
-    for _ in range(samples):
-        value = (value * FNV_PRIME) & FNV_MASK
-    return value
-
-
 # The report keys of a route's liveness, from the common record of delivery_evidence (the names CPS-1 has always written).
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
                    'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',
@@ -170,13 +159,34 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
 
-def knowledge_block(record: dict, promotion: dict, hints_used: dict) -> dict:
+def audio_model(dsp_rom: bytes | None) -> dict:
+    """The sound of the board. On a QSound board the DSP16 is not run: a high-level model of it stands in, written from the disassembled
+    program (MAME's qsoundhle.cpp), so the DSP16 is not executed (`executed: false`, and no figure that could be mistaken for a zero count
+    of a processor that runs); what the model reads is the player's own dump of the chip's internal ROM, identified here by its hash."""
+    if dsp_rom is None:
+        return {'chips': ['YM2151 (ymfm)', 'OKI MSM6295'], 'rate': 3579545 // 64}
+    return {'chips': ['QSound (DL-1425), high-level model of its DSP16'], 'rate': 24038, 'channels': 2,
+            'dsp16': {'model': 'hle', 'executed': False,
+                      'source': "MAME's qsoundhle.cpp (BSD-3-Clause), written from the disassembled DSP program",
+                      'internal_rom_sha256': hashlib.sha256(dsp_rom).hexdigest(), 'internal_rom_bytes': len(dsp_rom),
+                      'comparison_with_mame': "MAME 0.289 runs the same high-level model by default: agreement with it says nothing about the "
+                                              'hardware or about a run of the DSP16 program'}}
+
+
+def ordinary_saves(dsp_rom: bytes | None) -> dict:
+    if dsp_rom is None:
+        return {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'}
+    return {'supported': True, 'memory': '93C46 serial EEPROM, 128 bytes', 'file': 'datas/saves/CPS1-<sha256 of the romset>.rrsave',
+            'interactive_play_only': True}
+
+
+def knowledge_block(record: dict, promotion: dict, hints_used: dict, board_tier: str = 'supported') -> dict:
     """The report's `knowledge` section. `shared` says whether CPS-1 is in the sharing at all
     (`path_profiles.EXPERIMENTAL_SHARED`), not that this conversion shared anything."""
     from . import cps1_knowledge
     from .systems.cps1 import CPS1
     return {
-        'machine_status': CPS1.status, 'shared': 'cps1' in path_profiles.SHARED_SYSTEMS,
+        'machine_status': CPS1.status, 'shared': 'cps1' in path_profiles.SHARED_SYSTEMS and board_tier == 'supported',
         'record_format': cps1_knowledge.FORMAT,
         'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
         'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'm68k_gfx', 'z80_ram', 'truncated')},
@@ -186,7 +196,7 @@ def knowledge_block(record: dict, promotion: dict, hints_used: dict) -> dict:
 
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True,
             boxart_dir=None, passes=3, frames=3600, scan_level=None, standard_override=None, profile=None,
-            emit=print, **unused) -> Path:
+            qsound_rom=None, emit=print, **unused) -> Path:
     started = time.perf_counter()
     from .cps1 import read_set
     from . import cps1_catalogue
@@ -202,6 +212,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     if not game_set.supported:
         raise ConversionError(f'CPS-1 set {game_set.set_name} is not supported yet: {game_set.reason}')
     game = cps1_catalogue.by_set()[game_set.set_name]
+    # A QSound board needs the chip's own ROM, which only the player has: refused with its reason when it is not there.
+    from . import cps1_qsound
+    dsp_rom = None
+    if cps1_qsound.needs_dsp_rom(game):
+        try:
+            dsp_rom = cps1_qsound.internal_rom(qsound_rom)
+        except ValueError as error:
+            raise ConversionError(f'CPS-1.5 set {game_set.set_name} needs the QSound DSP ROM (dl-1425.bin, CRC d6cf5ef5), which is your own '
+                                  f'dump and is never shipped or downloaded: select it in Options or give --qsound-rom. {error}') from error
     title = title or game_set.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
         raise ConversionError('Invalid CPS-1 game title.')
@@ -222,9 +241,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     def shared_hints(board):
         """Rows rebuilt from the shared and library records for the player's own images (build input only)."""
         images = cps1_knowledge.images_from_board(board, game)
+        # A board of the experimental tier takes nothing from the shared base and gives nothing to it (docs/CPS1.md).
+        local = cps1_catalogue.tier(game) != 'supported'
         rows, info = cps1_knowledge.shared_rows(
-            game_set.sha256, images, qualified=knowledge.qualified_game('cps1', game_set.sha256),
-            imported=knowledge.imported_game('cps1', game_set.sha256),
+            game_set.sha256, images, qualified=None if local else knowledge.qualified_game('cps1', game_set.sha256),
+            imported=None if local else knowledge.imported_game('cps1', game_set.sha256),
             library=cps1_knowledge.library_record(game_set.sha256))
         merge(rows, feedback_rows(game_set.sha256))
         hints_used.update(info)
@@ -255,7 +276,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             emit(f'CPS-1: translating the 68000 program and Z80 sound code (pass {attempt + 1}).')
             with stages.phase('code_generation'):
                 prepared = prepare_game(project, game_set, game, title=title, observations=observations,
-                                        presentation=presentation, hints=shared_hints)
+                                        presentation=presentation, hints=shared_hints, dsp_rom=dsp_rom)
             with stages.phase('compile'):
                 executable = build_game(project)
             timings[f'translate_and_build_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
@@ -347,9 +368,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
     from .systems.cps1 import CPS1
+    board_tier = cps1_catalogue.tier(game)
     analysis = prepared['analysis']
     report = {'tool': 'Retro-Recomp', 'version': __version__,
-        'status': 'completed' if not CPS1.experimental and native_coverage else 'experimental',
+        # The machine is supported; a board of the experimental tier (the QSound boards of the CPS-1.5, a catalogue column)
+        # reports `experimental` whatever its coverage.
+        'status': 'completed' if not CPS1.experimental and board_tier == 'supported' and native_coverage else 'experimental',
+        'board_tier': board_tier,
         'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': 'cps1', 'name': 'Capcom CPS-1'},
         'rom': game_set.metadata(),
         'compiler': {'board': 'Retro-Recomp CPS-1 board adapted from MAME (BSD-3-Clause)', 'mame_revision': MAME_REVISION,
@@ -366,17 +391,17 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'native_coverage': native_coverage,
         'video_model': {'standard': 'arcade', 'visible_pixels': [384, 224], 'hz': 8000000 / (512 * 262),
                         'rotation': game_set.rotation, 'display_aspect': '3:4' if game_set.rotation else '4:3'},
-        'audio_cpu': 'Z80', 'audio_model': {'chips': ['YM2151 (ymfm)', 'OKI MSM6295'], 'rate': 3579545 // 64},
+        'audio_cpu': 'Z80', 'audio_model': audio_model(dsp_rom),
         'counter_unit': 'retired instructions', 'runtime_learning': True, 'runtime_feedback': feedback,
         'physical_latency_measured': False, 'latency_ms': None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',
                         'compatibility': 'exact romset, board model and runtime ABI', 'validation': states},
-        'ordinary_saves': {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'},
+        'ordinary_saves': ordinary_saves(dsp_rom),
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
         **delivered.report_fields(), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'knowledge': knowledge_block(record, promotion, hints_used),
+        'knowledge': knowledge_block(record, promotion, hints_used, board_tier),
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
                         'validation routes drive players 1 and 2',

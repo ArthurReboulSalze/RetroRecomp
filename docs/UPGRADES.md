@@ -117,7 +117,7 @@ pushed when it falls inside a repeating block instruction? Both were already rig
 the step leaves is the instruction itself while the block goes on and the next one after its last iteration). What was missing was the
 proof. `native/banked_runtime.inc` now has the acceptance in two small functions (`banked_after_step`, `banked_accept_irq`) with the
 same statements as before, and `native/banked_cpu_checks.c` (run by `tools/banked_cpu_selftest.py`) runs them against the corrected
-reference CPU on 720 states: fifteen instructions (a NOP, `LD A,I`, `LD A,R`, `EI`, `HALT`, `RETI`, and the first, a middle and the
+reference CPU on 720 states (360 execute the instruction named, 360 are HALT or NOP states: a halted CPU runs a NOP): fifteen instructions (a NOP, `LD A,I`, `LD A,R`, `EI`, `HALT`, `RETI`, and the first, a middle and the
 last iteration of `LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `OTIR`, `INDR`, `OTDR`) by IM 0, 1 and 2, interrupts enabled or not,
 a halted CPU or not, two register seeds, two stack positions; 348 of them take the interrupt. Registers, WZ, Q, P, the clock, the stack
 bytes and the RAM agree on all of them, and after a NOP the documented values (13 clocks, 19 in IM 2, return address pushed low byte
@@ -126,8 +126,21 @@ fault in the function (WZ one too high) fails the check. What this is not: agree
 documentation, not hardware captures, and the reference cannot show an error it shares.
 
 Exports: the behaviour of the generated game is unchanged; only the text of `runtime_glue.c` (the two functions) differs. The game
-stamps of the Master System and the Game Gear move (`banked_runtime.inc`, `banked_cpu_checks.c`), no other console. The interrupt path
+stamps of all nine consoles move (`banked_runtime.inc` and `banked_cpu_checks.c` are inputs of every console in `stamp_inputs.py`; the
+generated game of the other consoles is the same). The interrupt path
 is taken once per interrupt, not once per instruction; the per-instruction loop gains no work.
+
+## Neo Geo: the liveness of every route (1.6.7, gate G8)
+
+The packed replays of a Neo Geo conversion run with `--trace` and every `final_checks[]` row gains `liveness` (`frames`, `distinct_pictures`,
+`picture_changes`, `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, the CPS-1 keys), read from the per-frame trace through
+`delivery_evidence.py` unchanged; a route whose picture never changes stops the conversion. Nothing the game does changes: `tools/ab_conversion.py` on
+nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, images, traces and states identical). Details:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#liveness-of-every-route-gate-g8--2-november-2026).
+
+**What moves.** The Neo Geo game stamp (`neogeo_conversion` is a converter module of its stamp groups): an export of 1.6.6 is **converted in full
+once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
+(`neogeo_conversion` is not among the modules it hashes), nor any other console.
 
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
@@ -487,6 +500,20 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
 - **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
+
+## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
+
+`native/x68000_reference/CMakeLists.txt` no longer carries the `current` machine base (the earlier px68k-libretro reference, kept for private
+comparison): it named four private adapters that were never part of the public sources (`tools/x68000_hardware.py`,
+`x68000_session_hardware.py`, `x68000_disk_hardware.py`, `native/x68000_reference/adapt_upstream.cmake`), so a clean checkout could not build it.
+The hissorii base (74ddbb3) is the only one, and any other value is refused with a message. The program does not change: the generated
+code, the machine and the states are the same (a conversion of R-Type before and after gives the same trace hashes on every route).
+Two files that only that branch compiled leave the tree with it: `native/x68000_reference/session_bridge.c` and `media_probe.c` (no build named them any
+more); they are no longer stamp inputs nor public files. A conversion of R-Type after both changes gives the same CPU, RAM, picture and PCM hashes on the three routes.
+
+Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game, with no change in what
+a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
+file that is absent.
 
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 
