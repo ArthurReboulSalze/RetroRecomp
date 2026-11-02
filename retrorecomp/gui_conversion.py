@@ -134,6 +134,14 @@ class ConversionMixin:
                     validate_bios(bios)
                 except ValueError as exc:
                     raise ValueError(self.tr('ng_bios_invalid', error=str(exc))) from exc
+            if any(self.items[row].system == 'cps1' and not self.items[row].error for row in chosen_rows):
+                from . import cps1_qsound
+                if any(cps1_qsound.path_needs_dsp_rom(self.items[row].path) for row in chosen_rows
+                       if self.items[row].system == 'cps1' and not self.items[row].error):
+                    try:
+                        cps1_qsound.validate_dsp_rom(options.get('qsound_rom'))
+                    except ValueError as exc:
+                        raise ValueError(self.tr('qsound_rom_required') + ' ' + self.tr('qsound_rom_invalid', error=str(exc))) from exc
             for row in chosen_rows:
                 if self.items[row].system == 'x68' and not self.items[row].error:
                     from .x68000 import machine

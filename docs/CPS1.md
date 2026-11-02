@@ -1,8 +1,9 @@
 # Capcom CPS-1
 
 **Supported** machine profile (`cps1`, since 1.6.6): the standard CPS-1 arcade boards at 10
-and 12 MHz (68000, Z80 sound CPU, YM2151 and OKI MSM6295). QSound boards,
-CPS-1.5/CPS-2, bootlegs and a few special boards are outside this scope. The
+and 12 MHz (68000, Z80 sound CPU, YM2151 and OKI MSM6295). The QSound boards (CPS-1.5) are joining in a tier of
+their own, experimental and not finished ([CPS-1.5](#cps-15-qsound-boards-experimental-tier)); CPS-2,
+bootlegs and a few special boards are outside this scope. The
 sources and licences of the board model are in
 [cps1-machine.md](../licenses/cps1-machine.md) and
 [cps1-ymfm.md](../licenses/cps1-ymfm.md).
@@ -28,7 +29,7 @@ Processors: [CPU_68000.md](CPU_68000.md) (main CPU) and [CPU_Z80.md](CPU_Z80.md)
 |---|---|
 | Status | Supported since 1.6.6, on the owner's decision of 1 November 2026 and the evidence in [QUALIFICATION.md](QUALIFICATION.md); the owner's play trial of the 1.6.6 executable is still to do. The report says `completed` when no 68000 or Z80 instruction was interpreted on the final routes, `experimental` when some was (as for the Neo Geo) |
 | Accepted | MAME or FBNeo romset `.zip` files, chosen with **Automatic** detection or **Capcom CPS-1** |
-| Scope | 129 of the 233 sets of the catalogue, derived from MAME's CPS-1 driver; for a set outside the scope the converter names the reason (QSound, rotary dial, serial EEPROM, timekeeper RAM, CPS Changer cartridge, bootleg or hack, special start-up, incomplete dump, not working) |
+| Scope | 129 of the 233 sets of the catalogue, derived from MAME's CPS-1 driver, and the 18 sets of the QSound boards in their experimental tier ([below](#cps-15-qsound-boards-experimental-tier)); for a set outside the scope the converter names the reason (rotary dial, serial EEPROM, timekeeper RAM, CPS Changer cartridge, bootleg or hack, special start-up, incomplete dump, not working) |
 | Firmware | None: no BIOS is needed |
 | Output | `Games/CPS-1` |
 | Linux | The profile is marked `witnessed` since 1.6.6 on three conversions (Final Fight, Street Fighter II' Champion Edition, 1941) that gave the same route hashes on Debian 13 as on Windows; interactive play, sound and pads on Linux were not witnessed |
@@ -355,7 +356,7 @@ first stage and `1941` looping through play and its title.
   Edition (`sf2ce`, code run from graphics RAM), Final Fight (`ffight`, the same
   route hashes on Windows and Debian 13), Captain Commando (`captcomm`, four
   players), Strider (`strider`, compared with MAME) and Warriors of Fate
-  (`wof`, a QSound set: refused with a named reason).
+  (`wof`, a QSound set of the experimental tier: converts since 1.6.7 with the player's QSound DSP ROM, see the CPS-1.5 section).
 
 ### Comparison with MAME
 
@@ -408,12 +409,52 @@ The panel is every set of the perimeter (129 sets) that the test collection hold
 A player who owns one of those sets gets the same checks as any other conversion (fresh reference, 0-interpreted accounting, states); the
 sets are simply not part of the qualification evidence.
 
+## CPS-1.5 (QSound boards): experimental tier
+
+In progress on the 1.6.7 tree; the machine stays `supported` and nothing below is claimed for it. The 18 sets of the catalogue that
+used the QSound boards (Warriors of Fate, Cadillacs and Dinosaurs, The Punisher, Saturday Night Slam Masters, Muscle Bomber and their
+clones) are no longer refused with the reason `qsound`: they carry the catalogue column `tier = experimental`, which gives their
+reports `status: experimental` and `board_tier: experimental` whatever their coverage, and keeps them out of the evidence of the CPS-1
+(`cps1_catalogue.qualification_candidate`). The CPS Changer cartridge `wofch` stays refused.
+
+What the board is, from MAME's `cps1.cpp` (BSD-3-Clause, see [UPSTREAMS.md](UPSTREAMS.md)): the 68000 at 12 MHz with its own memory map
+(a window of the sound ROM at `f00000` for Slam Masters' protection, RAM shared with the Z80 at `f18000` and `f1e000`, players 3 and 4
+at `f1c000`, a serial EEPROM at `f1c006`); a Z80 at 8 MHz with a 250 Hz interrupt and its own map; a QSound chip in place of the YM2151
+and the OKI; and a Z80 program encrypted by the Kabuki.
+
+| Step | State | Evidence |
+|---|---|---|
+| Kabuki decryption (`retrorecomp/cps1_kabuki.py`; four key numbers per game family in the catalogue) | done | `tools/cps1_kabuki_check.py`: the opcode and data images equal MAME 0.289's `opcodes` and `program` spaces byte for byte on `wof`, `dino`, `punisher`, `slammast`, `mbombrd`, `wofch`; `tools/cps1_kabuki_selftest.py`: the patched core and the generator on two different images |
+| The board without its sound (`machine qsound` in `board.txt`): maps, shared RAM, banks, interrupt, 93C46 EEPROM with its write times, saved between runs in `datas/saves` (windowed play only) | done; the sound is silent | the five sets of the test collection (one per family; 18 sets exist) against MAME 0.289, `tools/cps1_mame_compare.py` routes `attract` and `play`, 3,600 frames, a picture every 10th: 3,599 of 3,600 identical; `wof` identical on every one of its first 300 frames. `dino` differs on two isolated frames (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right, the frames around them identical), cause not isolated |
+| QSound sound: a high-level model of the DSP16 (`native/cps1_qsound.c`, from MAME's `qsoundhle.cpp`), stereo at 24,038 Hz, reading the player's own `dl-1425.bin` (Options, or `--qsound-rom`; `dl-1425.bin` or the `qsound.zip` that holds it, recognised by its CRC `d6cf5ef5`; a conversion without it is refused with that reason) | done | against MAME 0.289, `play` route of the five sets, 60 one-second windows, each channel: level difference 0.005 to 0.011 dB (median) and at most 0.85 dB, averaged spectrum cosine 0.997 to 0.9997, one-third-octave bands within 0.15 dB, waveform correlation 0.96 to 0.99 (median over the windows, each aligned within 40 samples; below 1 because MAME resamples 24,038.46 Hz to the 24,038 Hz asked for and a register write lands on a sample one earlier or later); `wof` converts through the whole chain (`--scan-level quick`: 0 interpreted 68000 and Z80 instructions, reference agreement, quick state continued in a fresh process, 1,634 audible frames of 2,400) |
+
+**What the comparison with MAME is.** MAME 0.289 plays these boards with the same high-level model by default (`qsound.h` makes `QSOUND`
+an alias of `QSOUND_HLE`): the agreement above validates this port of the model against MAME's, not against the hardware, and not against
+a run of the DSP16 program. A run of the DSP16 (MAME's `qsound.cpp` and `dsp16.cpp`) is possible later and would make it a third counted
+processor; today the report says so: `audio_model.dsp16` is `{model: hle, executed: false}` (no number that could stand next to the
+counters of the processors that run), with the hash of the internal ROM it read (the dump itself is never in a report, a library or a shared file).
+
+**The measures, apart.** Native code: counted per processor, 68000 and Z80, like every CPS-1 set; the DSP16 is not a counted
+processor. CPU fidelity: the reference run (every instruction interpreted) equals the native run on each route. Hardware fidelity: not
+claimed; the pictures of five sets and the sound of the model agree with MAME. Gameplay: the routes of the conversion, not full games. Physical latency: not measured.
+
+**Saves.** The 93C46 EEPROM (settings, scores) is kept in `datas/saves/CPS1-<sha256 of the romset>.rrsave` in interactive play: written when the game changes it,
+loaded at start; a file that does not belong to the set or fails its checksum is left alone and not written over, and the game starts with
+a blank EEPROM. Validation runs never read or write it.
+
+**The sound CPU's ROM.** The Z80 translation covers the fixed 32 KiB and the first two 16 KiB banks of the sound ROM, as on the CPS-1
+boards; banks 2 to 5 hold the note data (MAME's comment on the bank register: "banked (contains music data)"). Code that ran from
+them would have no native step: it would be interpreted and counted per instruction like any other.
+
+**Sharing.** The sets of this tier take nothing from the shared base of paths and give nothing to it (`board_tier` of the report,
+`knowledge.shared: false`) until the tier is left.
+
 ## Known limits
 
 - **Supported, with open items**: the owner's play trial of the 1.6.6 executable is still to do, no CPS-1 path is qualified yet, and
   the shared base keeps CPS-1 in its experimental tier. The 26 sets of the table were requalified on the 1.6.5 tree (29 October
   2026) and measured again on the 1.6.6 tree where the CPUs changed.
-- **Out of scope**: QSound boards, CPS-1.5/CPS-2, rotary-dial, serial-EEPROM and
+- **Out of scope**: CPS-2, rotary-dial, Pang! 3 serial-EEPROM and
   timekeeper boards, CPS Changer cartridges, bootlegs and hacks, sets that
   need board-specific start-up, and sets with a never-dumped part.
 - **Graphics mapper**: 12 convertible sets have a mapper MAME marks as
