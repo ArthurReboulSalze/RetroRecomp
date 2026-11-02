@@ -23,24 +23,13 @@ from .conversion_common import check_exit, resolve_scan_level, spawn
 from .conversion_gates import continuation_difference, require, require_same_file
 from .core import ConversionError, executable_name
 from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields,
-                                require_moving_picture, same_trace)
+                                require_moving_picture, same_trace, silent_sound_hash)
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .paths import ROOT
 from .toolchain import describe as toolchain_description
 
 STATE_SETTLE = 600   # frames continued after a quick state is loaded
-FNV_BASIS, FNV_PRIME, FNV_MASK = 14695981039346656037, 1099511628211, (1 << 64) - 1   # the hashes of native/cps1_main.c
-
-
-def silent_sound_hash(samples: int) -> int:
-    """The per-frame sound hash of `samples` samples that are all zero (cps1_main.c hashes each sample, xor then multiply)."""
-    value = FNV_BASIS
-    for _ in range(samples):
-        value = (value * FNV_PRIME) & FNV_MASK
-    return value
-
-
 # The report keys of a route's liveness, from the common record of delivery_evidence (the names CPS-1 has always written).
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
                    'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',

@@ -11,7 +11,8 @@ import time
 
 from . import __version__, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
-from .delivery_evidence import deliver_packed, replay_routes
+from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_routes, report_fields,
+                                require_moving_picture, silent_sound_hash)
 from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
 from .report_schema import write_report
@@ -22,6 +23,36 @@ from .paths import selected_bios_path
 from .toolchain import describe as toolchain_description
 
 
+# The report keys of a route's liveness, from the common record of delivery_evidence: the names CPS-1 writes in final_checks[].liveness.
+LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
+                   'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',
+                   'last_audible_frame': 'last_audible_frame'}
+
+
+def trace_rows(trace: Path):
+    """The per-frame rows of a route's trace (frame, cpu, hardware, z80, image, pcm, samples) for `delivery_evidence`.
+
+    A frame is audible when its sound hash is not the hash of silence for its number of samples."""
+    silence = {}
+    for line in trace.read_text(encoding='ascii').splitlines():
+        fields = line.split(',')
+        if len(fields) != 7 or not fields[0].isdigit():   # the first line names the columns
+            continue
+        frame, image, sound, samples = int(fields[0]), fields[4], fields[5], int(fields[6])
+        if samples not in silence:
+            silence[samples] = f'{silent_sound_hash(samples):016x}'
+        yield FrameRow(frame, image, sound=sound, audible=sound != silence[samples])
+
+
+def route_liveness(trace: Path) -> dict:
+    """Picture and sound activity of one route, read from its per-frame trace.
+
+    A picture change is a frame whose image hash differs from the previous frame's; a frame is audible when its sound hash is
+    not the hash of silence. This is evidence that the route reached a moving picture and sound (gate G8), nothing more: it
+    says nothing about what the picture shows or about play. The counting is `delivery_evidence.liveness_summary`."""
+    return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
+
+
 def check_routes(executable: Path, project: Path, set_name: str, qualification=None, *, workers=1) -> list[dict]:
     """Recheck the packed candidate against its fresh pre-learning reference."""
     directory = project / 'packed-checks'
@@ -30,9 +61,10 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
     def verify(row):
         name, (frames, _) = row
         report = directory / (name + '.json')
+        trace = directory / (name + '.csv')
         script = project / 'native-discovery' / (name + '.inputs')
         run = spawn([str(executable), '--headless', *route_arguments(name), '--frames', str(frames),
-            '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report)],
+            '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report), '--trace', str(trace)],
             cwd=directory, timeout=max(240,frames/60*4), capture_output=True)
         check_exit(run, lambda result: ConversionError(str(probe_failure('packed '+name, result))))
         native = json.loads(report.read_text(encoding='utf-8'))
@@ -40,13 +72,16 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
         compare(native, reference, require_native=False)
         if not native['nonzero_samples'] or native['nonuniform_frames'] < frames // 2:
             raise ConversionError('Neo Geo validation produced no usable image/audio.')
+        liveness = route_liveness(trace)
+        require_moving_picture(liveness, lambda: ConversionError(
+            f'Neo Geo {name}: the picture never changed during the route; the game is stuck.'))
         return {'name': name, 'frames': frames, 'native_entries': native['native_68000'],
             'interpreted_opcodes': native['interpreted_68000'],
             'audio_native_opcodes': native['native_z80'], 'audio_interpreted_opcodes': native['interpreted_z80'],
             'interpreter_percent': round(100*native['interpreted_68000']/max(1,native['native_68000']+native['interpreted_68000']),6),
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'hardware_hash': native['extended_hardware_hash'], 'z80_hash': native['z80_hash'],
-            'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash']}
+            'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'], 'liveness': liveness}
     routes = extended_routes(set_name,qualification,aes=aes_available(project))
     return replay_routes(routes.items(),verify,workers=workers)
 

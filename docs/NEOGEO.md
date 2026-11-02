@@ -246,9 +246,9 @@ and ordinary saving is disabled for that session with a short warning.
 
 ## Qualification
 
-Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md) (27 October 2026: Neo
-Geo meets G1-G9, G12, G14 to G16; **partial** on G10 independent CPU evidence, G11
-independent hardware evidence and G13 cross-OS witness). Qualification is **per exact
+Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md) (27 October 2026, G8 and G10
+updated on 2 November: Neo Geo meets G1-G10, G12, G14 to G16; **partial** on G11 independent
+hardware evidence and G13 cross-OS witness). Qualification is **per exact
 ROM identity** (cartridge and BIOS) and per engine revision; only numeric
 observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)).
 
@@ -284,6 +284,9 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   vectors for the state and on all 51,328 for the clock. The 68 others are the X and Y flags of `SCF` and `CCF` and their `DD`/`FD`
   duplicates, which need the Q latch of the original chip, not modelled. The very figures of the CPS-1 replay, as expected from one shared core.
   It says nothing of the board, the YM2610, the 68000-to-Z80 command latch, hardware fidelity or gameplay ([log](NEOGEO_LOG.md)).
+- **Liveness (G8)**: every route of a conversion, MVS and AES, replays the delivered file with `--trace`; `final_checks[].liveness` gives the frames, the
+  distinct pictures, the picture changes and the last change, the audible frames and the last audible frame (the CPS-1 keys, through the shared
+  `delivery_evidence.py`), and a route whose picture never changes stops the conversion. It says that picture and sound change, not what they show.
 - **Release check game**: NAM-1975 (`nam1975`), zero interpreted instructions on the
   main and sound CPUs.
 - **Risk cases** (`tools/campaign-risk-cases.json`): Metal Slug 3 (state-ABI

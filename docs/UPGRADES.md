@@ -75,6 +75,18 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Neo Geo: the liveness of every route (1.6.7, gate G8)
+
+The packed replays of a Neo Geo conversion run with `--trace` and every `final_checks[]` row gains `liveness` (`frames`, `distinct_pictures`,
+`picture_changes`, `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, the CPS-1 keys), read from the per-frame trace through
+`delivery_evidence.py` unchanged; a route whose picture never changes stops the conversion. Nothing the game does changes: `tools/ab_conversion.py` on
+nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, images, traces and states identical). Details:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#liveness-of-every-route-gate-g8--2-november-2026).
+
+**What moves.** The Neo Geo game stamp (`neogeo_conversion` is a converter module of its stamp groups): an export of 1.6.6 is **converted in full
+once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
+(`neogeo_conversion` is not among the modules it hashes), nor any other console.
+
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says
