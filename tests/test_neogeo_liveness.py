@@ -32,7 +32,7 @@ class LivenessTests(unittest.TestCase):
 
     def test_silence_hash_equals_the_hash_of_zero_samples(self):
         for count in (0, 1, 924, 925):
-            self.assertEqual(neogeo_conversion.silent_pcm_hash(count), sound_hash([0] * count))
+            self.assertEqual(neogeo_conversion.silent_sound_hash(count), sound_hash([0] * count))
 
     def test_a_moving_picture_and_a_late_sound(self):
         silent, loud = [0] * 8, [0, 3, -2, 0, 0, 0, 0, 7]

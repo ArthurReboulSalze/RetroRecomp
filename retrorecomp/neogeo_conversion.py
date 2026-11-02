@@ -12,7 +12,7 @@ import time
 from . import __version__, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
 from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_routes, report_fields,
-                                require_moving_picture)
+                                require_moving_picture, silent_sound_hash)
 from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
 from .report_schema import write_report
@@ -23,20 +23,10 @@ from .paths import selected_bios_path
 from .toolchain import describe as toolchain_description
 
 
-FNV_BASIS, FNV_PRIME, FNV_MASK = 14695981039346656037, 1099511628211, (1 << 64) - 1   # the hashes of native/neogeo_main.c
-
 # The report keys of a route's liveness, from the common record of delivery_evidence: the names CPS-1 writes in final_checks[].liveness.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
                    'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',
                    'last_audible_frame': 'last_audible_frame'}
-
-
-def silent_pcm_hash(samples: int) -> int:
-    """The per-frame sound hash of `samples` samples that are all zero (neogeo_main.c hashes each sample: xor then multiply)."""
-    value = FNV_BASIS
-    for _ in range(samples):
-        value = (value * FNV_PRIME) & FNV_MASK
-    return value
 
 
 def trace_rows(trace: Path):
@@ -50,7 +40,7 @@ def trace_rows(trace: Path):
             continue
         frame, image, sound, samples = int(fields[0]), fields[4], fields[5], int(fields[6])
         if samples not in silence:
-            silence[samples] = f'{silent_pcm_hash(samples):016x}'
+            silence[samples] = f'{silent_sound_hash(samples):016x}'
         yield FrameRow(frame, image, sound=sound, audible=sound != silence[samples])
 
 

@@ -37,7 +37,7 @@ For 1.6.7. The Neo Geo was the one machine without a liveness record (CPS-1 and 
 replays of `neogeo_conversion.check_routes` now pass `--trace`; the per-frame trace the game writes (`frame,cpu,hardware,z80,image,pcm,samples`:
 one picture hash and one sound hash per frame) is read by `neogeo_conversion.trace_rows` into the shared `FrameRow`, and `route_liveness` returns the CPS-1
 record (`liveness_summary` and `report_fields`, unchanged). A frame is audible when its sound hash is not the hash of silence for its number of
-samples (`silent_pcm_hash`: the same six lines as `cps1_conversion.silent_sound_hash`, to hoist into the shared module). `require_moving_picture`
+samples (`delivery_evidence.silent_sound_hash`, one function for the CPS-1 and the Neo Geo, hoisted there from `cps1_conversion` on 2 November). `require_moving_picture`
 stops the conversion for a route whose picture never changes ("the game is stuck"), for every route, MVS and AES, as on the CPS-1.
 
 - **Result.** `tools/ab_conversion.py` on nam1975, base against this tree: the only differences are the 42 new fields (6 keys on 7 routes); every
