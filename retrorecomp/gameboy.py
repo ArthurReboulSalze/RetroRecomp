@@ -533,7 +533,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
             "mode": validation_mode, "full_length": full_length, "scenarios": cpu_checks, **delivered.validation_fields(),
-            "frames": min(frames, 30), "hardware_accuracy": False, "full_game": False},
+            # the frames of the first comparison (the boot); each comparison says its own in `scenarios`
+            "frames": cpu_checks[0]["frames"], "hardware_accuracy": False, "full_game": False},
         "reference_vdp_trace_match": None,
         "video_model": {"standard": "dmg", "visible_pixels": [160, 144],
             "palette": "monochrome grayscale by default; F5 switches directly to/from classic green",

@@ -19,7 +19,11 @@ SPEC.loader.exec_module(check)
 TICK = '        ' + runtime.EI_PROMOTE + '\n        return;\n'
 HEAD = 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;\n#ifdef X\n'
 STUBS = ('        case 0xF3: /* DI */\n            ctx->ime = 0;\n            ctx->pc = (uint16_t)(addr + 1);\n'
-         '        case 0xFB: /* EI */\n            ctx->ime = 1;\n            ctx->pc = (uint16_t)(addr + 1);\n')
+         '        case 0xFB: /* EI */\n            ctx->ime = 1;\n            ctx->pc = (uint16_t)(addr + 1);\n'
+         'void gbrt_execute_halt(GBContext* ctx, uint16_t next_pc, uint32_t cycles) {\n    ctx->pc = next_pc;\n'
+         '    if (!ctx->ime &&\n        (gb_read8(ctx, 0xFFFF) & gb_read8(ctx, 0xFF0F) & 0x1F)) {\n        ctx->halted = 0;\n        ctx->halt_bug = 1;\n    }\n}\n'
+         'void gb_handle_interrupts(GBContext* ctx) {\n    if (pending) {\n'
+         '        ctx->ime = 0; ctx->halted = 0; ctx->stop_mode_active = 0;\n        const uint16_t return_pc = ctx->pc;\n    }\n}\n')
 
 
 class RuntimePatchTests(unittest.TestCase):
@@ -32,6 +36,15 @@ class RuntimePatchTests(unittest.TestCase):
         self.assertIn('case 0xF3: /* DI */\n            ctx->ime = 0;\n            ctx->ime_pending = 0;\n', out)
         self.assertIn('case 0xFB: /* EI */\n            ' + runtime.EI_ARM_ONCE + '\n', out)
         self.assertNotIn('ctx->ime = 1;\n            ctx->pc', out)
+
+    def test_ei_then_halt_is_not_the_halt_bug_and_the_dispatch_clears_the_armed_flag(self):
+        out = runtime.adapt_ei_delay(HEAD + TICK * 3 + STUBS)
+        # the HALT bug needs IME off with nothing about to turn it on: an armed EI (2) is about to
+        self.assertIn('if (!ctx->ime && ctx->ime_pending != 2 &&\n        (gb_read8(ctx, 0xFFFF)', out)
+        # an interrupt taken with the flag armed must not see IME switched back on in the middle of the dispatch
+        self.assertIn('ctx->ime = 0; ctx->ime_pending = 0; ctx->halted = 0; ctx->stop_mode_active = 0;', out)
+        with self.assertRaises(Exception):
+            runtime.adapt_ei_delay((HEAD + TICK * 3 + STUBS).replace('ctx->halt_bug = 1;', 'ctx->halt_bug = 2;'))    # a changed upstream is refused
 
     def test_a_changed_upstream_is_refused_not_guessed(self):
         with self.assertRaises(ConversionError):
@@ -91,7 +104,7 @@ class ReproducerTests(unittest.TestCase):
     def test_the_program_fits_before_its_interrupt_routine(self):
         code, extra = check.program()
         self.assertLess(0x150 + len(code), 0x200)
-        self.assertEqual(sorted(extra), [0x40, 0x200, 0x2FF, 0x300, 0x1000])
+        self.assertEqual(sorted(extra), [0x40, 0x200, 0x2FF, 0x300, 0x400, 0x1000])
 
     def test_the_cartridge_has_a_valid_header_and_no_mapper(self):
         rom = check.authored_rom()
@@ -103,7 +116,7 @@ class ReproducerTests(unittest.TestCase):
 
     def test_the_cases_say_what_the_console_does(self):
         self.assertEqual({index: expected for _text, index, expected in check.CASES},
-                         {0: 1, 1: 1, 2: 0, 3: 2, 4: 1, 5: 1, 6: 5, 7: 1})
+                         {0: 1, 1: 1, 2: 0, 3: 2, 4: 1, 5: 1, 6: 5, 7: 1, 8: 6, 9: 0xFC, 10: 0xFF})
 
 
 if __name__ == '__main__':

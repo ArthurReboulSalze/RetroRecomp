@@ -107,7 +107,66 @@ static uint64_t digest(GBContext* ctx) {
     return hash;
 }
 
+/* EI and the interrupt dispatch (the delayed EI of 1.6.7, found by the review of the change):
+ *  1. EI executed while IME was already on, with an interrupt pending at once: the flag it armed must not switch IME back on in the middle of
+ *     the dispatch (a nested interrupt inside the handler); on the console that EI does nothing.
+ *  2. EI ; HALT with an interrupt already pending and IME off before the EI: not the HALT bug. The interrupt is taken once, after the HALT, the
+ *     handler runs once and the stack is balanced. With the HALT bug the first instruction of the handler runs twice and a handler that begins
+ *     with PUSH AF unbalances the stack.
+ * Counted in the summary; any failure stops the program. */
+static void interrupt_rom(void) {
+    memset(rom_image, 0, sizeof rom_image);
+    static const uint8_t handler[] = {0xF5, 0xFA, 0x00, 0xC1, 0x3C, 0xEA, 0x00, 0xC1, 0xF1, 0xD9};   /* PUSH AF ; LD A,(C100) ; INC A ; LD (C100),A ; POP AF ; RETI */
+    memcpy(rom_image + 0x40, handler, sizeof handler);
+    static const uint8_t program[] = {0xFB, 0x76, 0x00, 0x18, 0xFE};   /* EI ; HALT ; NOP ; JR $ */
+    memcpy(rom_image + 0x150, program, sizeof program);
+}
+
+static GBContext* interrupt_context(void) {
+    interrupt_rom();
+    GBContext* ctx = gb_context_create(NULL);
+    assert(ctx && gb_context_load_rom(ctx, rom_image, sizeof rom_image));
+    gb_write8(ctx, 0xFF40, 0x00);                          /* screen off: nothing else raises a flag */
+    gb_write8(ctx, 0xFFFF, 0x01);                          /* vertical blank */
+    gb_write8(ctx, 0xFF0F, 0x01);                          /* and it is already pending */
+    gb_write8(ctx, 0xC100, 0x00);
+    ctx->sp = 0xFFFE; ctx->pc = 0x150;
+    ctx->ime = 0; ctx->ime_pending = 0; ctx->halted = 0; ctx->halt_bug = 0;
+    return ctx;
+}
+
+static unsigned ei_and_halt_checks(void) {
+    unsigned done = 0;
+    {   /* 1. the dispatch clears the armed flag together with IME */
+        GBContext* ctx = interrupt_context();
+        ctx->ime = 1; ctx->ime_pending = 2;
+        gb_handle_interrupts(ctx);
+        assert(ctx->ime == 0 && ctx->ime_pending == 0);
+        assert(ctx->pc == 0x40 && ctx->sp == 0xFFFC);
+        gb_context_destroy(ctx); ++done;
+    }
+    {   /* 2. EI ; HALT, the interrupt already pending */
+        GBContext* ctx = interrupt_context();
+        gb_run_cycles(ctx, 600);
+        assert(ctx->halt_bug == 0);
+        assert(gb_read8(ctx, 0xC100) == 1);                 /* the handler ran once */
+        assert(ctx->sp == 0xFFFE);                          /* and left the stack as it found it */
+        assert(ctx->ime == 1);                              /* RETI */
+        assert(ctx->pc >= 0x152 && ctx->pc <= 0x155);       /* back after the HALT, in the NOP / JR loop */
+        gb_context_destroy(ctx); ++done;
+    }
+    {   /* the same with IME already on before the EI: the interrupt is taken right away and once */
+        GBContext* ctx = interrupt_context();
+        ctx->ime = 1;
+        gb_run_cycles(ctx, 600);
+        assert(gb_read8(ctx, 0xC100) == 1 && ctx->sp == 0xFFFE && ctx->halt_bug == 0);
+        gb_context_destroy(ctx); ++done;
+    }
+    return done;
+}
+
 int main(int argc, char** argv) {
+    const unsigned interrupt_checks = ei_and_halt_checks();
     FILE* trace = argc > 1 ? fopen(argv[1], "w") : NULL;
     assert(trace);
     const unsigned variants = 48, frames = 6;
@@ -135,7 +194,7 @@ int main(int argc, char** argv) {
     }
     fclose(trace);
     printf("{\"variants\":%u,\"frames_each\":%u,\"slices\":%llu,\"slices_that_ended_halted\":%llu,"
-           "\"long_steps_inside_mode3\":%llu,\"dots_in_those_steps\":%llu,\"long_steps_elsewhere\":%llu}\n",
-           variants, frames, slices, halted_slices, mode3_long_steps, mode3_dots_in_long_steps, other_long_steps);
+           "\"long_steps_inside_mode3\":%llu,\"dots_in_those_steps\":%llu,\"long_steps_elsewhere\":%llu,\"ei_and_halt_checks\":%u}\n",
+           variants, frames, slices, halted_slices, mode3_long_steps, mode3_dots_in_long_steps, other_long_steps, interrupt_checks);
     return 0;
 }

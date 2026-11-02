@@ -84,8 +84,16 @@ def adapt_ei_delay(source: str) -> str:
                           '    static uint32_t last_log = 0;\n    ' + EI_PROMOTE_FIRST + '\n')
     source = replace_once(source, '        case 0xF3: /* DI */\n            ctx->ime = 0;\n',
                           '        case 0xF3: /* DI */\n            ctx->ime = 0;\n            ctx->ime_pending = 0;\n')
-    return replace_once(source, '        case 0xFB: /* EI */\n            ctx->ime = 1;\n',
-                        '        case 0xFB: /* EI */\n            ' + EI_ARM_ONCE + '\n')
+    source = replace_once(source, '        case 0xFB: /* EI */\n            ctx->ime = 1;\n',
+                          '        case 0xFB: /* EI */\n            ' + EI_ARM_ONCE + '\n')
+    # EI ; HALT with an interrupt already pending and IME still off: the flag is armed (2), IME comes with the tick of the HALT itself, so
+    # this is not the HALT bug (which needs IME off and nothing about to turn it on): the interrupt is taken after the HALT, once, as before.
+    source = replace_once(source, '    if (!ctx->ime &&\n        (gb_read8(ctx, 0xFFFF) & gb_read8(ctx, 0xFF0F) & 0x1F)) {\n        ctx->halted = 0;\n        ctx->halt_bug = 1;',
+                          '    if (!ctx->ime && ctx->ime_pending != 2 &&\n        (gb_read8(ctx, 0xFFFF) & gb_read8(ctx, 0xFF0F) & 0x1F)) {\n        ctx->halted = 0;\n        ctx->halt_bug = 1;')
+    # An interrupt taken with the flag armed (EI while IME was already on, the interrupt pending at once): the dispatch switches IME off and the
+    # armed EI must not switch it back on in the middle of the dispatch (a nested interrupt in the handler). On the console that EI does nothing.
+    return replace_once(source, '        ctx->ime = 0; ctx->halted = 0; ctx->stop_mode_active = 0;\n        const uint16_t return_pc = ctx->pc;',
+                        '        ctx->ime = 0; ctx->ime_pending = 0; ctx->halted = 0; ctx->stop_mode_active = 0;\n        const uint16_t return_pc = ctx->pc;')
 
 
 def adapt_halt_mode3(source: str) -> str:

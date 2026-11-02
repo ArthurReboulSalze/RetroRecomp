@@ -66,6 +66,7 @@ def main():
               'frame_ends': len(frame_ends), 'frame_ends_with_other_samples': len(sample_differences),
               'with_bound': summary_with, 'without_bound': summary_without}
     assert summary_with['long_steps_inside_mode3'] > 0 and summary_without['long_steps_inside_mode3'] == 0, result
+    assert summary_with['ei_and_halt_checks'] == summary_without['ei_and_halt_checks'] == 3, result      # EI and the dispatch, EI ; HALT
     assert not state_differences, result
     (ROOT / '.build/gb-halt-selftest/results.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result), flush=True)

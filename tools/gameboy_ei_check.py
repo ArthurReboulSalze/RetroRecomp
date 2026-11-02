@@ -4,7 +4,7 @@ On the console IME is set after the instruction that follows EI (Pan Docs, "Inte
 interrupt is taken, `EI` then `DI` takes no interrupt, and `EI` `EI` takes it right after the second. The pinned runtime of 1.6.6 set IME
 when EI itself completed, but its interrupt test lagged by one instruction, so ordinary flow already gave these answers; since 1.6.7
 (`gameboy_runtime.adapt_ei_delay`) IME is set one instruction later, which is what the vectors see, and these cases guard that the answers
-do not move. The program runs eight cases with the vertical-blank flag raised by hand and the screen off (so nothing else raises it):
+do not move. The program runs nine cases with the vertical-blank flag raised by hand and the screen off (so nothing else raises it):
 ROM code, code copied to WRAM and to HRAM (the paths of the generated code, of the one-instruction RAM executors and of the interpreter) and
 an EI at the end of a block; the results are left in work RAM. The delivered file is then also run in lockstep against the reference
 interpreter, which must agree.
@@ -42,6 +42,9 @@ CASES = [
     ('same called in HRAM: B seen by the routine', 5, 1),
     ('after those: routines run in all', 6, 5),
     ('EI as the last instruction of a block, falling into a call target (ROM): B seen by the routine', 7, 1),
+    ('EI ; HALT with an interrupt already pending and IME off (not the HALT bug): the routine ran once more', 8, 6),
+    ('... and the stack is balanced: SP is $FFFC inside the CALL (low byte)', 9, 0xFC),
+    ('... (high byte)', 10, 0xFF),
 ]
 
 
@@ -80,10 +83,13 @@ def program() -> tuple[bytes, dict[int, bytes]]:
     a.code[after + 1:after + 3] = (a.origin + len(a.code)).to_bytes(2, 'little')
     a.emit(0x00, 0xF3); store(7, ISR_B)                               # NOP ; DI
     store(6, ISR_COUNT)
+    a.emit(0xCD, 0x00, 0x04)                                          # case 8: CALL $0400, EI ; HALT with the interrupt already pending
     a.label('done'); a.jr('', 'done')
     isr = bytes.fromhex('F5 FA0FC0 3C EA0FC0 78 EA20C0 7A EA21C0 F1 D9')   # PUSH AF ; count ; save B and D ; POP AF ; RETI
     return a.finish(), {0x40: bytes.fromhex('C30002'), 0x200: isr, 0x1000: bytes.fromhex('FB0400C9'),
-                               0x2FF: bytes.fromhex('FB'), 0x300: bytes.fromhex('0400C9')}
+                               0x2FF: bytes.fromhex('FB'), 0x300: bytes.fromhex('0400C9'),
+                               # 0400: IF = vertical blank ; EI ; HALT ; NOP ; DI ; the count of routines run, then SP, to work RAM ; RET
+                               0x400: bytes.fromhex('3E01E00F FB 76 00 F3 FA0FC0 EA08C1 0809C1 C9'.replace(' ', ''))}
 
 
 def authored_rom() -> bytes:
@@ -118,7 +124,7 @@ def main() -> int:
     from retrorecomp.gameboy import CPU_MATCH
     saves.check(bool(CPU_MATCH.search(lockstep.stdout + lockstep.stderr)),
                 'the generated code and the reference interpreter agree for the whole program', failures)
-    (work / 'results.json').write_text(json.dumps({'ram': wram[RESULTS - 0xC000:RESULTS - 0xC000 + 7], 'failures': failures}, indent=1) + '\n',
+    (work / 'results.json').write_text(json.dumps({'ram': wram[RESULTS - 0xC000:RESULTS - 0xC000 + 11], 'failures': failures}, indent=1) + '\n',
                                        encoding='utf-8')
     print(f'{len(failures)} failure(s)')
     return 1 if failures else 0

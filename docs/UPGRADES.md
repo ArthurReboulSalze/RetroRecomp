@@ -272,8 +272,8 @@ levels are unchanged.
 plays as before until it is converted again; its report has no `guarded_helpers` and no `scenario_frames`, which read as absent, never as zero.
 
 *Hot path: touched, not timed.* `gb_halt_fast_forward_cycles` runs once per halted step and gains one comparison in mode 3; the steps there become longer (in the test fixture the
-average step inside mode 3 is 106 dots instead of 4, about 26 times fewer steps). `rr_gb_try_store_helper`, reached for code that runs from WRAM or HRAM, reads the cycle
-counter once and adds two counters when a helper is taken. The gain on a real game is not measured here: it is to be timed on a quiet PC.
+average step inside mode 3 is 106 dots instead of 4, about 26 times fewer steps). The counting of the guarded helpers costs one increment and one addition of 64 bits per helper entry and one read of `total_cycles` per dispatch of code run from WRAM or HRAM
+(`rr_gb_try_store_helper`, taken or not). The gain on a real game is not measured here: it is to be timed on a quiet PC.
 
 *Proof.* `tools/gameboy_halt_selftest.py` builds the runtime with and without the bound and runs a HALT program on random video memory, sprites, window and scroll with
 four kinds of wake-up source in 48 variants: the digest of the whole state is identical after each of 66,843 slices of random length, the sound samples agree at all 288
@@ -293,6 +293,14 @@ everywhere (`gameboy_runtime.adapt_ei_delay`, `native/gb_tick_fast.h`, `native/g
 advance it, so the interrupt test that follows sees IME in the first tick of the instruction after `EI`. `DI` clears the flag, and an `EI` that finds it armed leaves it
 (`EI`, `EI`: IME is on after the second).
 
+*Two cases the review of the change found, both fixed in `adapt_ei_delay`.* (1) `EI ; HALT` with an interrupt already pending and IME off before the `EI`: the pinned
+`gbrt_execute_halt` saw IME off and took the HALT bug, then the tick of the HALT turned IME on and the dispatch ran with the bug still set, so the first instruction of the
+handler ran twice (a handler that begins with `PUSH AF` unbalances the stack). An armed `EI` (flag 2) now counts as IME about to be on: no HALT bug, the interrupt is taken once
+after the HALT, as in 1.6.6 and on the console. (2) `EI` executed with IME already on and an interrupt pending at once: the dispatch switched IME off and the armed flag
+switched it back on in the middle of the dispatch (a nested interrupt in the handler); the dispatch now clears the flag with IME (the `EI` does nothing there, as on the console).
+Both are asserted in `native/gb_halt_checks.c` (removing either fix makes it fail: the stack comes back unbalanced, or IME stays on) and the `EI ; HALT` case is also in
+`tools/gameboy_ei_check.py` on the delivered file.
+
 *What moves.* The Game Boy **game stamp** (`gameboy_runtime.py`, `gb_tick_fast.h`, `gb_ram_helpers.h`); no host or build stamp. An export of 1.6.6 keeps the old rule until it
 is converted again. The pending flag is part of a quick state: a state taken between an `EI` and the next instruction by this build holds 2, which an older build
 also promotes at its next tick, so no key changes.
@@ -310,9 +318,11 @@ both modes. The five extra steps are not explained further than by that single d
 
 *Proof.* `tools/gameboy_sm83_vector_selftest.py`: the interpreter matches 402,589 of 404,358 vectors (the 865 `EI` vectors now match; what is left is `STOP` and `HALT`, conventions of
 the vector model), the RAM executor all 51,654 and the RAM dispatch all 58,153. `tools/gameboy_ei_check.py`, a cartridge authored for it with an interrupt already pending at the
-`EI`: eight cases (ROM code, code copied to WRAM and HRAM, an `EI` at the end of a block, `EI ; DI`, `EI ; EI`) give the console's answers on the old and the new runtime, and the
-generated code agrees with the interpreter in lockstep. The inline tick against the real `gb_tick` (309,676 checks, with the pending flag drawn from 0, 1 and 2), the RAM self-test
-(56,170) and the bank-boundary self-test (47,104) pass. `tests/test_gameboy_ei_delay.py` covers the patch functions. Fable reviews the change before it is merged.
+`EI`: nine cases (ROM code, code copied to WRAM and HRAM, an `EI` at the end of a block, `EI ; DI`, `EI ; EI`, `EI ; HALT`) give the console's answers on the new runtime (the first
+eight were also measured on the 1.6.6 runtime, which gave the same), and the generated code agrees with the interpreter in lockstep. The inline tick against the real `gb_tick`
+(309,676 checks, with the pending flag drawn from 0, 1 and 2), the RAM self-test (56,170) and the bank-boundary self-test (47,104) pass; the vector counts above were run again
+after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch functions. A/B of the corrected tree against 1.6.6 on Tetris, Link's Awakening and Wario Land II (the
+games of the collection with an `EI ; HALT` byte pair, or that wait in HALT): see the entry above. Fable has reviewed the change; both findings are fixed here.
 
 ## Game Boy: independent SM83 vectors (1.6.7, gate G10)
 
