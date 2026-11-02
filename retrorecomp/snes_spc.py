@@ -150,6 +150,12 @@ def native_source(source, boot, masks):
     spc->cyclesUsed = {cycles[opcode]};
     do {{ {bodies[opcode]} }} while (0);
 }}
+/* The same body for a position the table of observed ones does not hold: counted and recorded apart. */
+static void rr_spc_uop_{opcode:02x}(Spc *spc) {{
+    uint16_t pc = spc->pc;
+    rr_spc_op_{opcode:02x}(spc);
+    rr_spc_note_unobserved(spc, pc, 0x{opcode:02x});
+}}
 ''')
     sets, ids, mapping = [()], {(): 0}, []
     guarded = 0
@@ -175,17 +181,20 @@ def native_source(source, boot, masks):
                 ','.join(f'{{rr_spc_set_{index},{len(values)}}}' for index, values in enumerate(sets[1:], 1)) + '};')
     code.append('static const uint16_t rr_spc_pc_sets[65536] = {' +
                 ',\n'.join(','.join(map(str, mapping[i:i + 32])) for i in range(0, 65536, 32)) + '};')
+    code.append('static const RrSpcNativeOp rr_spc_unobserved[256] = {' +
+                ','.join(f'{{0x{opcode:02x},rr_spc_uop_{opcode:02x}}}' for opcode in range(256)) + '};')
     code.append('static const RrSpcNativeOp rr_spc_boot[64] = {' +
                 ','.join(f'{{0x{opcode:02x},rr_spc_op_{opcode:02x}}}' for opcode in boot) + '};')
     code.append('''const RrSpcNativeOp *rr_spc_native_lookup(Spc *spc) {
     if (!rr_spc_native_enabled()) return NULL;
     if (spc->apu->romReadable && spc->pc >= 0xffc0) return &rr_spc_boot[spc->pc - 0xffc0];
+    if (spc->pc >= 0xf0 && spc->pc <= 0xff) return NULL; /* volatile I/O cannot be peeked or guarded safely */
     unsigned id = rr_spc_pc_sets[spc->pc];
-    if (!id) return NULL;
     uint8_t opcode = spc->apu->ram[spc->pc]; /* side-effect-free guard */
     for (unsigned n = 0; n < rr_spc_sets[id].count; ++n)
         if (rr_spc_sets[id].ops[n].opcode == opcode) return rr_spc_sets[id].ops + n;
-    return NULL;
+    /* RAM code at a position (or with an opcode) no run has been seen executing: the body of the opcode it has now. */
+    return rr_spc_unobserved + opcode;
 }
 ''')
     return '\n'.join(code) + '\n', guarded

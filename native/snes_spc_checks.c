@@ -31,7 +31,9 @@ void apu_cpuWrite(Apu *apu, uint16_t adr, uint8_t value) {
     if (adr == 0xf1) apu->romReadable = (value & 0x80) != 0;
     apu->ram[adr] = value; trace(adr, value, true);
 }
-static void compare(Spc input, bool expect_native) {
+/* `unobserved`: RAM code at a position (or with an opcode) the generated table does not hold: it runs through the body
+ * of the opcode it has and is counted as compiled and not observed, inside the native count. */
+static void compare_kind(Spc input, bool expect_native, bool unobserved) {
     initial = machine;
     Spc native = input, reference = input;
     rr_spc_set_mode(true, true); rr_spc_reset_evidence();
@@ -40,6 +42,7 @@ static void compare(Spc input, bool expect_native) {
     uint64_t native_trace = bus_trace;
     compiled_apu = machine;
     require(rr_spc_native_opcodes() == (expect_native ? 1u : 0u), "native opcode accounting");
+    require(rr_spc_compiled_unobserved_opcodes() == ((expect_native && unobserved) ? 1u : 0u), "unobserved opcode accounting");
     require(rr_spc_interpreted_opcodes() == (expect_native ? 0u : 1u), "fallback opcode accounting");
     machine = initial;
     rr_spc_set_mode(false, false); rr_spc_reset_evidence();
@@ -52,6 +55,7 @@ static void compare(Spc input, bool expect_native) {
     require(rr_spc_native_opcodes() == 0 && rr_spc_interpreted_opcodes() == 1, "reference accounting");
     ++cases;
 }
+static void compare(Spc input, bool expect_native) { compare_kind(input, expect_native, false); }
 static Spc state(uint16_t pc, unsigned flags) {
     Spc cpu = {0}; cpu.apu = &machine; cpu.pc = pc;
     cpu.a = (uint8_t)(flags * 19); cpu.x = flags % 4 ? (uint8_t)(flags * 11) : 0;
@@ -82,9 +86,22 @@ int main(void) {
         memset(&machine, 0, sizeof machine); machine.romReadable = true;
         compare(state((uint16_t)(0xffc0 + i), i), true);
     }
+    for (unsigned flags = 0; flags < 256; ++flags) {
+        for (unsigned opcode = 0; opcode < 256; ++opcode) {
+            /* Positions no observation holds, whatever the register state: every opcode runs, compiled and unobserved. */
+            memset(&machine, 0, sizeof machine);
+            for (unsigned i = 0; i < 65536; ++i) machine.ram[i] = (uint8_t)(i * 13 + flags * 7);
+            uint16_t pc = (uint16_t)(0x6000 + opcode * 8);
+            machine.ram[pc] = (uint8_t)opcode;
+            machine.ram[pc + 1] = (uint8_t)(flags % 3 ? 0x34 : 0xff);
+            machine.ram[pc + 2] = (uint8_t)(flags % 3 ? 0x12 : 0);
+            for (unsigned i = 0; i < 3; ++i) machine.timer[i].counter = (uint8_t)(flags & 15);
+            compare_kind(state(pc, flags), true, true);
+        }
+    }
     memset(&machine, 0, sizeof machine);
     machine.ram[0x2000] = 0xe8; machine.ram[0x2001] = 0x91;
-    compare(state(0x2000, 0), false); /* changed opcode rejected */
+    compare_kind(state(0x2000, 0), true, true); /* another opcode than the one observed here: its own body, unobserved */
     machine.ram[0x2000] = 0;
     compare(state(0x2000, 0), true); /* restored opcode */
     compare(state(0xf4, 0), false); /* volatile I/O fetch is read once */

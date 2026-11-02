@@ -893,6 +893,7 @@
     "Output device: %s": "输出设备：%s",
     "System default": "系统默认",
     "` Max speed: %s": "` 最高速度：%s",
-    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  快进 | `  最高速度 | M  静音"
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  快进 | `  最高速度 | M  静音",
+    "RAM code: compiled, not observed": "RAM 代码：已编译，未观测"
   }
 }

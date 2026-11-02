@@ -893,6 +893,7 @@
     "Output device: %s": "Устройство вывода: %s",
     "System default": "По умолчанию",
     "` Max speed: %s": "` Макс. скорость: %s",
-    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Ускорение | `  Макс. | M  Без звука"
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Ускорение | `  Макс. | M  Без звука",
+    "RAM code: compiled, not observed": "Код в RAM: скомпилирован, не наблюдался"
   }
 }

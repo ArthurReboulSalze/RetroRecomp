@@ -187,13 +187,35 @@ class SnesNativeTests(unittest.TestCase):
         # One load for the ordinary case; another bank or a second opcode on the same WRAM byte,
         # and cartridge RAM, go to the exact (PC, opcode) search.
         self.assertIn('rr_sn_wram_entry[offset]', guarded)
-        self.assertIn('return rr_sn_ram_search(pc, fetched);', guarded)
+        self.assertIn('const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);', guarded)
+        self.assertIn('return rr_sn_unobserved(pc, fetched);', guarded)
         self.assertIn('((entry >> 8) & 0xffu) == (pc >> 16)', guarded)
         self.assertIn('rr_sn_ram_mapped(pc)', guarded)
         plain = snes_codegen.native_source(source_fixture(), bytes(range(256)))
         self.assertNotIn('rr_sn_wram_entry', plain)
         self.assertNotIn('rr_sn_ram_search', plain)
-        self.assertIn('if (!mapped) return NULL;', plain)
+        # Without any observation RAM code still runs through the body of its live opcode, counted apart.
+        self.assertIn('if (!mapped) return rr_sn_unobserved(pc, fetched);', plain)
+
+    def test_ram_code_nobody_has_seen_runs_through_the_body_of_its_live_opcode_and_is_counted_apart(self):
+        source = snes_codegen.native_source(source_fixture(), bytes(range(256)), [{'address': 0x7e0100, 'bytes': 'a93412ea'}])
+        # The table of unobserved bodies has one entry per opcode, each recording the position before its body runs
+        # (the code may overwrite itself) and counting after it.
+        self.assertEqual(source.count('rr16_snes_note_compiled_unobserved();'), 256)
+        self.assertIn('rr_sn_unobserved_ops[256]', source)
+        wrapper = source.split('static void rr_sn_uop_a9(Interp816 *cpu) {')[1].split('}')[0]
+        self.assertLess(wrapper.index('rr16_snes_observe_fallback(g_interp816_cur_pc)'), wrapper.index('rr_sn_op_a9(cpu)'))
+        self.assertLess(wrapper.index('rr_sn_op_a9(cpu)'), wrapper.index('rr16_snes_note_compiled_unobserved()'))
+        # Only RAM is reached by it: a fetch from device registers has no live byte to read and stays interpreted.
+        function = source.split('static const RrSnesNativeOp *rr_sn_unobserved(')[1].split('static const RrSnesNativeOp *rr_sn_lookup')[0]
+        self.assertIn('cpu_wram_offset', function)
+        self.assertIn('rr_snes_cart_ram_offset', function)
+        self.assertIn('if (offset < 0) return NULL;', function)
+        self.assertIn('fetched < 0 || live == fetched', function)
+        # The ROM path is the one of 1.6.6: a ROM position never reaches the unobserved table.
+        lookup = source.split('static const RrSnesNativeOp *rr_sn_lookup(')[1]
+        self.assertLess(lookup.index('rr_sn_pages[offset >> 8]'), len(lookup))
+        self.assertEqual(lookup.count('rr_sn_unobserved('), 1)
 
 
 class SnesCopierFileTests(unittest.TestCase):

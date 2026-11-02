@@ -38,6 +38,17 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     rrhk_help_sound_line(ctx, y + 2 * RR_MENU_LINE);
 }
 
+/* Defined by the Super Nintendo backend (snes_backend.c), declared here: the shared 16-bit header is not this machine's. */
+uint64_t rr16_compiled_unobserved(void);
+uint64_t rr16_audio_compiled_unobserved(void);
+
+/* RAM code compiled at a position no scan has seen executing (either CPU): said in the help beside the interpreter-fallback
+ * lines, only when there is some. The window title belongs to the shell and is not changed here. */
+static void help_lines(int slot, const char **lines, int *count) {
+    if (slot == 1 && (rr16_compiled_unobserved() || rr16_audio_compiled_unobserved()))
+        lines[(*count)++] = rrhk_tr("RAM code: compiled, not observed", "Code en RAM : compile, non observe");
+}
+
 static int players(void) { return 2; }
 static int display_width(void) { return 256; }
 static void pointer_input(RrhkPointer p) {
@@ -66,7 +77,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .pointer_input = pointer_input,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
-            .help_controls = help_controls,
+            .help_controls = help_controls, .help_lines = help_lines,
         };
     }
     return &machine;

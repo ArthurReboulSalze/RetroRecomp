@@ -893,6 +893,7 @@
     "Output device: %s": "Audioausgabe: %s",
     "System default": "Systemstandard",
     "` Max speed: %s": "` Höchsttempo: %s",
-    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm"
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm",
+    "RAM code: compiled, not observed": "RAM-Code: kompiliert, nicht beobachtet"
   }
 }

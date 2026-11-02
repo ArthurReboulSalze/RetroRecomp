@@ -197,6 +197,7 @@ static const char *const rr_translations[][5] = {
     {"Quit","Quitter","Esci","Salir","Beenden"},
     {"Quit: gamepad","Quitter : manette","Esci: controller","Salir: mando","Beenden: Controller"},
     {"Quit: keyboard","Quitter : clavier","Esci: tastiera","Salir: teclado","Beenden: Tastatur"},
+    {"RAM code: compiled, not observed","Code en RAM : compile, non observe","Codice in RAM: compilato, non osservato","Codigo en RAM: compilado, no observado","RAM-Code: kompiliert, nicht beobachtet"},
     {"Red","Rouge","Rosso","Rojo","Rot"},
     {"Reserved button or config unavailable","Commande reservee ou config inaccessible","Pulsante riservato o config negata","Boton reservado o ajustes inaccesibles","Taste reserviert oder Config gesperrt"},
     {"Reserved key or config unavailable","Touche reservee ou config inaccessible","Tasto riservato o config inaccessibile","Tecla reservada o ajustes inaccesibles","Taste reserviert oder Config gesperrt"},

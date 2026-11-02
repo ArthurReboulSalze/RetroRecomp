@@ -893,6 +893,7 @@
     "Output device: %s": "出力デバイス：%s",
     "System default": "システム既定",
     "` Max speed: %s": "` 最高速度：%s",
-    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  早送り | `  最高速度 | M  ミュート"
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  早送り | `  最高速度 | M  ミュート",
+    "RAM code: compiled, not observed": "RAM コード：コンパイル済み・未観測"
   }
 }

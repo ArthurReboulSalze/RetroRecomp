@@ -82,6 +82,14 @@ def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',r
     do {{ {bodies[opcode]} }} while (0);
 }}
 static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_op_{opcode:02x}}};
+/* The same body for RAM code whose address and opcode no run has been seen executing: it is recorded (before the
+ * body, which may overwrite the code) and counted as compiled and not observed. */
+static void rr_sn_uop_{opcode:02x}(Interp816 *cpu) {{
+    rr16_snes_observe_fallback(g_interp816_cur_pc);
+    rr_sn_op_{opcode:02x}(cpu);
+    rr16_snes_note_compiled_unobserved();
+}}
+static const RrSnesNativeOp rr_sn_unobserved_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_uop_{opcode:02x}}};
 ''')
     pages, page_ids = [], {}
     slots = []
@@ -107,6 +115,8 @@ static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_o
         'rr_sn_ram[] = {' + ','.join(f'{{{pc},&rr_sn_entry_{op:02x}}}' for pc,op in ram) + '};\n') if ram else ''
     operations = ('static const RrSnesNativeOp *const rr_sn_ops[256] = {' +
                   ','.join(f'&rr_sn_entry_{opcode:02x}' for opcode in range(256)) + '};\n')
+    unobserved_ops = ('static const RrSnesNativeOp *const rr_sn_unobserved_ops[256] = {' +
+                      ','.join(f'&rr_sn_unobserved_entry_{opcode:02x}' for opcode in range(256)) + '};\n')
     # The exact PC and opcode of a RAM instruction are looked up in a table indexed by the WRAM
     # byte it sits at (one load for the ordinary case). An entry holds the first bank and opcode
     # seen there; a WRAM byte reached under another bank (the low-bank mirrors) or with a second
@@ -149,18 +159,27 @@ static void rr_sn_wram_fill(void) {{
     }}
 }}
 ''' if ram else ''
+    # An instruction fetched from RAM whose (address, opcode) no run has been seen executing still runs through the
+    # compiled body of its live opcode (`rr_sn_unobserved`, counted apart). The observation stays a coverage record.
     ram_lookup = '''if (!mapped) {
         int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
         if (offset >= 0) {
             uint32_t entry = rr_sn_wram_entry[offset];
-            if (!entry) return NULL;
-            uint8_t live = g_ram[offset];
-            if (((entry >> 8) & 0xffu) == (pc >> 16) && (entry & 0xffu) == live)
-                return fetched<0 || live==fetched ? rr_sn_ops[live] : NULL;
-            if (!(entry & 0x20000u)) return NULL;
+            if (entry) {
+                uint8_t live = g_ram[offset];
+                if (((entry >> 8) & 0xffu) == (pc >> 16) && (entry & 0xffu) == live)
+                    return fetched<0 || live==fetched ? rr_sn_ops[live] : NULL;
+                if (entry & 0x20000u) {
+                    const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);
+                    if (found) return found;
+                }
+            }
+        } else {
+            const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);
+            if (found) return found;
         }
-        return rr_sn_ram_search(pc, fetched);
-    }''' if ram else 'if (!mapped) return NULL;'
+        return rr_sn_unobserved(pc, fetched);
+    }''' if ram else 'if (!mapped) return rr_sn_unobserved(pc, fetched);'
     fill = 'rr_sn_wram_fill();' if ram else ''
     if cart_type == 'CART_SA1':
         # The SA-1 board's memory pointer may aim at its I-RAM or its BW-RAM, which are other objects than the ROM:
@@ -191,7 +210,7 @@ static void rr_sn_wram_fill(void) {{
     return ('/* Generated ROM-PC operation map. LakeSnes/snesrecomp notices retained. */\n'
         '#include <string.h>\n#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
         '#include "snes/cart.h"\n#include "snes_cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
-        '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + f'''
+        '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + unobserved_ops + f'''
 {sa1_cpu}{ram_search}static bool rr_sn_enabled, rr_sn_bound, rr_sn_active;
 static Cart *rr_sn_cart;
 /* The cartridge is loaded once, before the first instruction: its board, storage and image
@@ -223,6 +242,19 @@ bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
 }}
 static uint8_t *rr_sn_rom_ptr(uint8_t bank, uint16_t adr) {{
     {rom_ptr}
+}}
+/* Code in WRAM or in the cartridge's RAM that the table of observed positions does not hold: the body of the opcode it
+ * has now, if the fetched byte is that opcode. Anything else (device registers, open bus) is not RAM and is not here. */
+static const RrSnesNativeOp *rr_sn_unobserved(uint32_t pc, int fetched) {{
+    uint8_t live;
+    int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
+    if (offset >= 0) live = g_ram[offset];
+    else {{
+        offset = rr_snes_cart_ram_offset(rr_sn_cart, (uint8_t)(pc >> 16), (uint16_t)pc);
+        if (offset < 0) return NULL;
+        live = rr_sn_cart->ram[offset];
+    }}
+    return fetched < 0 || live == fetched ? rr_sn_unobserved_ops[live] : NULL;
 }}
 static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_active) return NULL;

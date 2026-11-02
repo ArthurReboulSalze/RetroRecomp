@@ -54,6 +54,22 @@ class SpcConversionTests(unittest.TestCase):
             snes_spc.boot_bytes('static const uint8_t bootRom[0x40] = {0x00};')
 
 
+    def test_a_position_no_run_has_seen_runs_the_body_of_its_live_opcode_and_is_counted_apart(self):
+        masks = bytearray(snes_spc.MASK_BYTES)
+        masks[0x2000 * 32] = 3
+        text, _ = snes_spc.native_source(fixture(), bytes(64), masks)
+        # Every opcode has an unobserved wrapper: the position is taken before the body (which moves the program counter)
+        # and counted after it (the cycles are known by then).
+        self.assertEqual(text.count('rr_spc_note_unobserved(spc, pc, 0x'), 256)
+        wrapper = text.split('static void rr_spc_uop_a9(Spc *spc) {')[1].split('}')[0]
+        self.assertLess(wrapper.index('uint16_t pc = spc->pc;'), wrapper.index('rr_spc_op_a9(spc);'))
+        self.assertLess(wrapper.index('rr_spc_op_a9(spc);'), wrapper.index('rr_spc_note_unobserved'))
+        lookup = text.split('const RrSpcNativeOp *rr_spc_native_lookup(Spc *spc) {')[1]
+        # Device registers are still never peeked, and the boot ROM and the observed table are asked first.
+        self.assertLess(lookup.index('spc->pc >= 0xf0 && spc->pc <= 0xff) return NULL'), lookup.index('rr_spc_pc_sets[spc->pc]'))
+        self.assertLess(lookup.index('ops[n].opcode == opcode'), lookup.index('return rr_spc_unobserved + opcode;'))
+        self.assertNotIn('if (!id) return NULL;', lookup)
+
 class SpcMemoryTests(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
