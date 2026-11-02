@@ -276,6 +276,22 @@ main checkout against the commit this branch left (`tools/ab_conversion.py`): on
 differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
 `states` built from them; timings are not compared).
 
+## NES: the Zapper catalogue holds no database (1.6.7)
+
+*The NES game stamp moves (`nes_catalog.py` is one of its inputs); exports are rebuilt from their learned paths. Which game gets
+the Zapper does not change for any game of the maintainer's library.* The catalogue that decides whether a cartridge uses the
+Zapper carried 122 payload CRCs taken from MesenNesDB, a file of the GPL-3 Mesen2 repository (the same source as the known-dump
+table of the pinned engine's later revisions, which Retro-Recomp does not take). They are removed. A cartridge now uses the Zapper
+when its NES 2.0 header names it (default expansion device 8) or when its file name is the exact title of a game known to
+support it: the nine licensed games that need it, the licensed and unlicensed ones that support it as an option (as the
+compatible-games list of the Wikipedia article on the NES Zapper names them; facts only), and the aliases already carried.
+
+Checked on the 1,063 files of the maintainer's NES library, before and after: the same 19 games, none lost, none gained (the two
+that only the CRC table recognised, The Lone Ranger and Day Dreamin' Davey, are now named by title). What changes is outside
+that library: a revision, hack or translation of these games whose file name is not one of the titles and whose header does not
+name the Zapper is no longer recognised, and its game runs with the two controllers. The Hunt for Red October is on the
+Wikipedia list but is not taken, since no other source says the NES game uses the gun.
+
 ## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
 
 *The NES game stamp moves; exports are rebuilt from their learned paths. What a player's game does is the same, except in PAL

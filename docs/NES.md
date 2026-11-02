@@ -285,8 +285,17 @@ choice is saved in `[NES.Video] reduce_sprite_flicker`; off by default.
 
 Known single-Zapper games automatically use mouse aim and left-click fire on
 port 2, with right-click for an off-screen shot. Identification uses NES 2.0
-device metadata, a payload-CRC catalogue and exact title aliases. The CRC
-facts are attributed to [MesenNesDB](https://github.com/SourMesen/Mesen2/blob/master/UI/Dependencies/MesenNesDB.txt).
+device metadata (default expansion device 8) and exact title aliases: the games that need the
+Zapper, those that support it as an option, and two unlicensed ones, named as the compatible-games
+list of the Wikipedia article on the NES Zapper names them (facts only), plus the aliases the converter
+already carried (`retrorecomp/nes_catalog.py`). No database is imported: before 1.6.7 the catalogue also
+held 122 payload CRCs from MesenNesDB, a file of the GPL-3 Mesen2 repository, and they were removed. On
+the 1,063 files of the maintainer's NES library the same 19 games are recognised before and after
+(Adventures of Bayou Billy, Baby Boomer, Barker Bill's Trick Shooting, Chiller, Day Dreamin' Davey,
+Duck Hunt, Freedom Force, Gotcha! The Sport!, Gumshoe, Hogan's Alley, Laser Invasion, The Lone Ranger,
+Mad City (translated), Mechanized Attack, Operation Wolf, Shooting Range, To the Earth, Track & Field II
+and Wild Gunman); a revision, hack or translation outside the library whose file name is not one of
+the titles and whose header does not name the Zapper is no longer recognised and runs with two controllers.
 The default reticle is a small red cross. The Zapper page of F2, after the four
 control pages, selects cross/dot, size and red/white/green. Intentional game flashes are kept.
 The sensor uses pixels as the PPU emits them, with bounded light persistence,
