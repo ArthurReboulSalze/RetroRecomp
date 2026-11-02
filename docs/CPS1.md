@@ -356,7 +356,7 @@ first stage and `1941` looping through play and its title.
   Edition (`sf2ce`, code run from graphics RAM), Final Fight (`ffight`, the same
   route hashes on Windows and Debian 13), Captain Commando (`captcomm`, four
   players), Strider (`strider`, compared with MAME) and Warriors of Fate
-  (`wof`, a QSound set: refused since the QSound sound does not exist yet, see the CPS-1.5 section).
+  (`wof`, a QSound set of the experimental tier: converts since 1.6.7 with the player's QSound DSP ROM, see the CPS-1.5 section).
 
 ### Comparison with MAME
 
@@ -431,16 +431,20 @@ and the OKI; and a Z80 program encrypted by the Kabuki.
 **What the comparison with MAME is.** MAME 0.289 plays these boards with the same high-level model by default (`qsound.h` makes `QSOUND`
 an alias of `QSOUND_HLE`): the agreement above validates this port of the model against MAME's, not against the hardware, and not against
 a run of the DSP16 program. A run of the DSP16 (MAME's `qsound.cpp` and `dsp16.cpp`) is possible later and would make it a third counted
-processor; today the report says so: `audio_model.dsp16` is `high-level model of the DSP16`, `instructions_executed: 0`, with the hash of
-the internal ROM it read (the dump itself is never in a report, a library or a shared file).
+processor; today the report says so: `audio_model.dsp16` is `{model: hle, executed: false}` (no number that could stand next to the
+counters of the processors that run), with the hash of the internal ROM it read (the dump itself is never in a report, a library or a shared file).
 
 **The measures, apart.** Native code: counted per processor, 68000 and Z80, like every CPS-1 set; the DSP16 is not a counted
 processor. CPU fidelity: the reference run (every instruction interpreted) equals the native run on each route. Hardware fidelity: not
 claimed; the pictures of five sets and the sound of the model agree with MAME. Gameplay: the routes of the conversion, not full games. Physical latency: not measured.
 
-**Saves.** The 93C46 EEPROM (settings, scores) is kept in `datas/saves/CPS1-<set>.rrsave` in interactive play: written when the game changes it,
+**Saves.** The 93C46 EEPROM (settings, scores) is kept in `datas/saves/CPS1-<sha256 of the romset>.rrsave` in interactive play: written when the game changes it,
 loaded at start; a file that does not belong to the set or fails its checksum is left alone and not written over, and the game starts with
 a blank EEPROM. Validation runs never read or write it.
+
+**The sound CPU's ROM.** The Z80 translation covers the fixed 32 KiB and the first two 16 KiB banks of the sound ROM, as on the CPS-1
+boards; banks 2 to 5 hold the note data (MAME's comment on the bank register: "banked (contains music data)"). Code that ran from
+them would have no native step: it would be interpreted and counted per instruction like any other.
 
 **Sharing.** The sets of this tier take nothing from the shared base of paths and give nothing to it (`board_tier` of the report,
 `knowledge.shared: false`) until the tier is left.

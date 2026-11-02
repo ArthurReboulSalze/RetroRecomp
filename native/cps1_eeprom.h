@@ -31,5 +31,7 @@ int cps1_eeprom_take_changed(cps1_eeprom *chip);                  /* 1 once afte
 /* Quick state: every field, little-endian, no padding. */
 #define CPS1_EEPROM_STATE_BYTES (CPS1_EEPROM_BYTES + 8 + 2 + 2 + 4 + 8 + 8)
 size_t cps1_eeprom_state_put(const cps1_eeprom *chip, uint8_t *out);
-int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in);
+/* `ticks_per_usec` is the board's clock (what `cps1_eeprom_reset` was given): it is not part of a state, and a state restored with
+ * another one would end a write cycle at the wrong time. 0 when a field is out of its range; the chip is then untouched. */
+int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in, uint32_t ticks_per_usec);
 #endif

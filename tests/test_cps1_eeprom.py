@@ -20,7 +20,7 @@ class EepromModelTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = selftest.run_checks(Path(folder))
         self.assertEqual(result['failed'], 0)
-        self.assertGreaterEqual(result['passed'], 14)
+        self.assertGreaterEqual(result['passed'], 19)
 
 
 if __name__ == '__main__':

@@ -172,12 +172,12 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
 
 def audio_model(dsp_rom: bytes | None) -> dict:
     """The sound of the board. On a QSound board the DSP16 is not run: a high-level model of it stands in, written from the disassembled
-    program (MAME's qsoundhle.cpp), so no DSP16 instruction is executed or counted and there is no DSP16 coverage figure to give; what
-    the model reads is the player's own dump of the chip's internal ROM, identified here by its hash."""
+    program (MAME's qsoundhle.cpp), so the DSP16 is not executed (`executed: false`, and no figure that could be mistaken for a zero count
+    of a processor that runs); what the model reads is the player's own dump of the chip's internal ROM, identified here by its hash."""
     if dsp_rom is None:
         return {'chips': ['YM2151 (ymfm)', 'OKI MSM6295'], 'rate': 3579545 // 64}
     return {'chips': ['QSound (DL-1425), high-level model of its DSP16'], 'rate': 24038, 'channels': 2,
-            'dsp16': {'model': 'high-level model of the DSP16', 'instructions_executed': 0,
+            'dsp16': {'model': 'hle', 'executed': False,
                       'source': "MAME's qsoundhle.cpp (BSD-3-Clause), written from the disassembled DSP program",
                       'internal_rom_sha256': hashlib.sha256(dsp_rom).hexdigest(), 'internal_rom_bytes': len(dsp_rom),
                       'comparison_with_mame': "MAME 0.289 runs the same high-level model by default: agreement with it says nothing about the "
@@ -187,7 +187,7 @@ def audio_model(dsp_rom: bytes | None) -> dict:
 def ordinary_saves(dsp_rom: bytes | None) -> dict:
     if dsp_rom is None:
         return {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'}
-    return {'supported': True, 'memory': '93C46 serial EEPROM, 128 bytes', 'file': 'datas/saves/CPS1-<set>.rrsave',
+    return {'supported': True, 'memory': '93C46 serial EEPROM, 128 bytes', 'file': 'datas/saves/CPS1-<sha256 of the romset>.rrsave',
             'interactive_play_only': True}
 
 

@@ -73,12 +73,31 @@ int main(void)
     expect("the state has its documented size", cps1_eeprom_state_put(&chip, state) == CPS1_EEPROM_STATE_BYTES);
     cps1_eeprom copy;
     cps1_eeprom_reset(&copy, 12);
-    expect("a state loads", cps1_eeprom_state_get(&copy, state) == 1);
+    expect("a state loads", cps1_eeprom_state_get(&copy, state, 12) == 1);
     uint8_t again[CPS1_EEPROM_STATE_BYTES];
     cps1_eeprom_state_put(&copy, again);
     expect("a loaded state saves the same bytes", !memcmp(state, again, sizeof state));
     state[CPS1_EEPROM_BYTES] = 9;                 /* a state byte out of range */
-    expect("a state with an impossible field is refused", cps1_eeprom_state_get(&copy, state) == 0);
+    expect("a state with an impossible field is refused", cps1_eeprom_state_get(&copy, state, 12) == 0);
+    /* a chip restored from a state keeps the board's clock: its next write cycle lasts what it should (a clock of 0 ends it at once) */
+    chip = copy;
+    now += 12 * 1800;
+    unlock();
+    now += 12 * 1800;
+    write_byte(30, 0x5a);
+    select();
+    expect("a write after a state load is busy for 1 ms", cps1_eeprom_read_port(&chip, now + 12 * 1000) == 0);
+    expect("and ready after 1.8 ms", cps1_eeprom_read_port(&chip, now + 12 * 1800) == 1);
+    deselect();
+    /* a write cycle that was running when the state was saved is still running when it is loaded */
+    now += 12 * 1800;
+    write_byte(31, 0x6b);
+    select();
+    cps1_eeprom_state_put(&chip, state);
+    cps1_eeprom_reset(&copy, 12);
+    expect("a state taken during a write cycle loads", cps1_eeprom_state_get(&copy, state, 12) == 1);
+    expect("the cycle is still running after the load", cps1_eeprom_read_port(&copy, now) == 0);
+    expect("and ends on time", cps1_eeprom_read_port(&copy, now + 12 * 1800) == 1);
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);
     return failed ? 1 : 0;
 }

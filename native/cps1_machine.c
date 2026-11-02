@@ -1150,7 +1150,9 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     if (M.board.qsound) {
         const uint8_t *extra = buffer + r.used + opm_size;
         memcpy(qram, extra, sizeof qram);
-        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram)) return 0;
+        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, M.board.cpu_clock / 1000000u)) return 0;
+        /* what the state holds and the EEPROM kept differ: the game's next save must write what is now the EEPROM's */
+        if (memcmp(eeprom.data, M.eeprom.data, CPS1_EEPROM_BYTES)) eeprom.changed = 1;
         reader_t tail = {extra + sizeof qram + CPS1_EEPROM_STATE_BYTES, 16 + cps1_qsound_state_bytes(), 0, 0};
         qsound_irq_clock = get_le(&tail, 8); qsound_done = get_le(&tail, 8);
         if (!cps1_qsound_state_get(&chip, tail.data + tail.used)) return 0;

@@ -30,7 +30,7 @@ int main(void)
 {
     /* a ROM of values that are not constant, so the tables and the samples change the output */
     for (unsigned n = 0; n < sizeof dsp_rom; n++) dsp_rom[n] = (uint8_t)(n * 37u + (n >> 8) * 11u);
-    for (unsigned n = 0; n < sizeof samples; n++) samples[n] = (uint8_t)((n * 5u) ^ (n >> 7));
+    for (unsigned n = 0; n < sizeof samples; n++) samples[n] = (uint8_t)((n * 5u) ^ (n >> 7) ^ (n >> 14));
     static cps1_qsound chip;
     cps1_qsound_init(&chip, dsp_rom, samples, sizeof samples);
     static int16_t out[2 * 4096], first[2 * 4096], again[2 * 4096];
@@ -83,6 +83,18 @@ int main(void)
     expect("a refused state leaves the chip alone", untouched);
     free(state);
     free(bad);
+    /* the sample ROM is mirrored like MAME's: 128 KiB repeats over the 24-bit space, a 192 KiB one is unmapped (0) up to 256 KiB and repeats from there */
+    expect("a power-of-two ROM repeats over the high address bits",
+           cps1_qsound_read_sample(&chip, 0, 5) == cps1_qsound_read_sample(&chip, 2, 5) && cps1_qsound_read_sample(&chip, 0, 5) == cps1_qsound_read_sample(&chip, 0x100, 5)
+           && cps1_qsound_read_sample(&chip, 1, 5) == cps1_qsound_read_sample(&chip, 3, 5) && cps1_qsound_read_sample(&chip, 0, 5) != cps1_qsound_read_sample(&chip, 1, 5));
+    static cps1_qsound odd;
+    static uint8_t big[0x30000];
+    for (unsigned n = 0; n < sizeof big; n++) big[n] = (uint8_t)(n * 7u + 1u);
+    cps1_qsound_init(&odd, dsp_rom, big, sizeof big);
+    expect("a ROM that is not a power of two is read inside it", cps1_qsound_read_sample(&odd, 2, 9) == (int16_t)(big[0x20009] << 8));
+    expect("and reads 0 between its end and the power of two", cps1_qsound_read_sample(&odd, 3, 9) == 0);
+    expect("and repeats from there", cps1_qsound_read_sample(&odd, 4, 9) == cps1_qsound_read_sample(&odd, 0, 9)
+           && cps1_qsound_read_sample(&odd, 0, 9) == (int16_t)(big[9] << 8));
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);
     return failed ? 1 : 0;
 }

@@ -183,7 +183,7 @@ size_t cps1_eeprom_state_put(const cps1_eeprom *chip, uint8_t *out)
     return CPS1_EEPROM_STATE_BYTES;
 }
 
-int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in)
+int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in, uint32_t ticks_per_usec)
 {
     cps1_eeprom next = {{0}};
     memcpy(next.data, in, CPS1_EEPROM_BYTES);
@@ -195,7 +195,7 @@ int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in)
     next.shift = (uint32_t)get_le(p, 4); p += 4;
     next.cs_rise_time = get_le(p, 8); p += 8;
     next.ready_time = get_le(p, 8);
-    next.ticks_per_usec = chip->ticks_per_usec;
+    next.ticks_per_usec = ticks_per_usec;
     if (next.state > WAIT_COMPLETION || next.cs > 1 || next.clk > 1 || next.di > 1 || next.locked > 1 || next.command > CMD_ERASEALL ||
         next.address >= CPS1_EEPROM_BYTES || next.changed > 1) return 0;
     *chip = next;

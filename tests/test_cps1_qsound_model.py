@@ -20,7 +20,7 @@ class QsoundModelTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = selftest.run_checks(Path(folder))
         self.assertEqual(result['failed'], 0)
-        self.assertGreaterEqual(result['passed'], 13)
+        self.assertGreaterEqual(result['passed'], 16)
 
 
 if __name__ == '__main__':

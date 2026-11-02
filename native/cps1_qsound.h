@@ -22,7 +22,7 @@ typedef struct { uint16_t end_pos; int16_t feedback, length, last_sample, delay_
 
 typedef struct cps1_qsound {
     uint16_t dsp_rom[0x1000];             /* from the player's dl-1425.bin, little-endian words (not part of a state) */
-    const uint8_t *samples; size_t sample_bytes;   /* the sample ROM (not part of a state) */
+    const uint8_t *samples; size_t sample_bytes, sample_mask;   /* the sample ROM and its address mask (not part of a state) */
     uint16_t data_latch;
     int16_t out[2];
     cps1_qs_voice voice[16];
@@ -41,6 +41,9 @@ void cps1_qsound_init(cps1_qsound *chip, const uint8_t *dsp_rom, const uint8_t *
 void cps1_qsound_reset(cps1_qsound *chip);                     /* the DSP boots again; not ready until it has initialised */
 void cps1_qsound_write(cps1_qsound *chip, unsigned offset, uint8_t data);   /* Z80 d000 (high), d001 (low), d002 (register) */
 uint8_t cps1_qsound_ready(const cps1_qsound *chip);            /* d007: 0x80 ready, 0x00 busy */
+/* What the DSP reads of the sample ROM at (bank, address): MAME's device_rom_interface, a 24-bit space on which the ROM is mirrored
+ * over the address bits above the smallest power of two that holds it, and beyond a ROM that is not a power of two reads 0. */
+int16_t cps1_qsound_read_sample(const cps1_qsound *chip, uint16_t bank, uint16_t address);
 void cps1_qsound_sample(cps1_qsound *chip, int16_t out[2]);    /* one more sample, left and right */
 
 /* Quick state: every field of the chip but the two ROM references, little-endian, no padding. */

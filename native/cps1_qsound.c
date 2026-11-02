@@ -15,14 +15,17 @@ static int32_t shl(int32_t value, unsigned bits) { return (int32_t)((uint32_t)va
 static int32_t clamp(int32_t value, int32_t low, int32_t high) { return value < low ? low : value > high ? high : value; }
 static uint16_t dsp(const cps1_qsound *q, unsigned address) { return q->dsp_rom[address & 0xfff]; }
 
-/* A sample byte of the sample ROM, as the signed 16-bit value the DSP reads (bits 0-7 are tied to ground). An address past the
- * end of the ROM reads as silence. */
-static int16_t read_sample(const cps1_qsound *q, uint16_t bank, uint16_t address)
+/* A sample byte of the sample ROM, as the signed 16-bit value the DSP reads (bits 0-7 are tied to ground). MAME gives the ROM a 24-bit
+ * address space, mirrored over the bits above the power of two that holds it (device_rom_interface::set_rom); a ROM that is not a power of
+ * two is unmapped between its end and that power of two, which reads 0. */
+int16_t cps1_qsound_read_sample(const cps1_qsound *q, uint16_t bank, uint16_t address)
 {
-    const uint32_t at = (uint32_t)(bank & 0x7fff) << 16 | address;
-    const uint8_t value = q->samples && at < q->sample_bytes ? q->samples[at] : 0;
+    const uint32_t at = ((uint32_t)(bank & 0x7fff) << 16 | address) & 0xffffffu;
+    const size_t inside = (size_t)at & q->sample_mask;
+    const uint8_t value = q->samples && inside < q->sample_bytes ? q->samples[inside] : 0;
     return (int16_t)(value << 8);
 }
+#define read_sample cps1_qsound_read_sample
 
 /* A PCM voice: 16 of them, each updated every sample with full rate and volume control. */
 static int16_t voice_update(const cps1_qsound *q, cps1_qs_voice *v, int32_t *echo_out)
@@ -268,6 +271,9 @@ void cps1_qsound_init(cps1_qsound *q, const uint8_t *dsp_rom, const uint8_t *sam
     for (unsigned n = 0; n < 0x1000; n++) q->dsp_rom[n] = (uint16_t)(dsp_rom[2 * n] | dsp_rom[2 * n + 1] << 8);
     q->samples = samples;
     q->sample_bytes = samples ? sample_bytes : 0;
+    size_t mask = q->sample_bytes ? q->sample_bytes - 1 : 0;      /* the smallest power of two minus one that covers the last byte */
+    for (unsigned shift = 1; shift < 32; shift <<= 1) mask |= mask >> shift;
+    q->sample_mask = mask;
     cps1_qsound_reset(q);
 }
 
