@@ -70,11 +70,18 @@ class ChipTests(unittest.TestCase):
             with self.subTest(mode=mode,kind=kind):
                 with self.assertRaises(ConversionError):
                     support_stage(self.rom(mode,kind))
-        # Star Ocean is 6 MiB: it converts but stays on a blank screen, so images above 4 MiB stay refused.
+        # Star Ocean is 6 MiB: the S-DD1's pages reach 8 MiB (1.6.7), nothing else goes above 4 MiB.
         big=self.rom(0x32,0x45,ram=3)
         big.data=big.data+bytes(0x500000)
+        self.assertEqual(support_stage(big),'supported')
+        huge=self.rom(0x32,0x45,ram=3)
+        huge.data=huge.data+bytes(0x900000)
         with self.assertRaisesRegex(ConversionError,'4 MiB'):
-            support_stage(big)
+            support_stage(huge)
+        ordinary=self.rom(0x20,2,ram=3)
+        ordinary.data=ordinary.data+bytes(0x500000)
+        with self.assertRaisesRegex(ConversionError,'4 MiB'):
+            support_stage(ordinary)
     def test_hirom_dsp1_board_without_ram_has_the_dsp_window_and_no_battery_window(self):
         # Lock On, Suzuka 8 Hours, Super Air Diver 2... carry $31 / $03: the HiROM DSP-1 board of Super Mario Kart
         # ($31 / $05) without its battery RAM.
@@ -169,3 +176,26 @@ class ChipTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             sa1(source.replace('sa1->cpu->irqWanted = true;', 'changed'))
 if __name__=='__main__':unittest.main()
+
+class SdDdOneCpuReadTests(unittest.TestCase):
+    """The S-DD1 decompresses on a CPU read of its window: the bus the CPU reads through must reach `cart_read` (1.6.7)."""
+    def pinned(self):
+        path = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/cpu_state.c'
+        if not path.exists():
+            self.skipTest('the pinned engine is not downloaded')
+        return path.read_text(encoding='utf-8')
+
+    def test_a_cpu_read_of_the_s_dd1_window_goes_through_the_cartridge(self):
+        from retrorecomp.snes_cart import adapt_cpu
+        adapted = adapt_cpu(self.pinned())
+        line = 'g_snes->cart->type == CART_SDD1 && bank >= 0xc0'
+        self.assertEqual(adapted.count(line), 1)
+        after = adapted.split(line)[1].split(chr(10))[1]
+        self.assertIn('cart_read(g_snes->cart, bank, addr)', after)
+        self.assertIn('bank >= 0xc0', line)   # the S-DD1's own banks only; the others stay on the LoROM path
+
+    def test_the_patch_fails_closed_when_the_pinned_bus_changes(self):
+        from retrorecomp.snes_cart import adapt_cpu
+        text = self.pinned().replace('g_snes->cart->type == CART_SA1)', 'g_snes->cart->type == CART_SA1 || 0)')
+        with self.assertRaises(ConversionError):
+            adapt_cpu(text)

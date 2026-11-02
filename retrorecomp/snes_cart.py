@@ -145,6 +145,17 @@ def adapt_cpu(source):
     // The device and SRAM windows above have already handled driven reads.
     uint8_t *rom=g_snes ? cart_getRomPtr(g_snes->cart,bank,addr) : NULL;
     return rom ? cpu_latch_read8(cpu,*rom) : cpu->open_bus;''')
+    # The S-DD1 decompresses on a CPU read of its window ($C0-$FF) when a channel is armed for the address (`sdd1_cpu_read`,
+    # inside `cart_read`). The pinned `cpu_read8` sends the Super FX, the SA-1, the CX4 and the DSP-1 windows to `cart_read` and
+    # every other ROM read to the plain pointer, so a CPU read of decompressed data came back as the compressed bytes: the
+    # S-DD1 reaches `cart_read` too, for banks $C0-$FF (the others stay as LoROM, and as before).
+    source=replace(source,'''    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SA1)
+        return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
+''','''    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SA1)
+        return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
+    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SDD1 && bank >= 0xc0)
+        return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
+''')
     word_start=source.index('uint16 cpu_read16(CpuState *cpu, uint8 bank, uint16 addr) {')
     word_end=source.index('\nvoid cpu_write8(',word_start)
     if source[word_start:word_end].count('RomPtr(')!=1:

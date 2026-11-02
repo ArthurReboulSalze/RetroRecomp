@@ -90,10 +90,9 @@ def validate_cartridge(rom):
     mode, chip = rom.data[offset + 21], rom.data[offset + 22]
     from .snes_chips import identify
     circuit = identify(rom.data)
-    # The S-DD1's 1 MiB pages reach 8 MiB, but the only cartridge above 4 MiB seen (Star Ocean, 6 MiB) converts and then
-    # stays on a blank screen after the translation's splash (docs/KNOWN_FAILURES.md): it stays refused until that is understood.
-    if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
-        raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
+    # The S-DD1's 1 MiB pages reach 8 MiB: its cartridges (Star Ocean, 6 MiB) may. Anything else stays at 4 MiB.
+    if mapping not in ('lorom', 'hirom') or len(rom.data) > (0x800000 if circuit == 'sdd1' else 0x400000):
+        raise ConversionError(f'SNES {mapping} cartridges above 4 MiB (8 MiB for the S-DD1) or extended mappings '
                               'are not supported by the native runtime yet.')
     # Mode $32 is the ExLoROM byte of the S-DD1 boards (chip type $43/$45, refused by `identify` above). On a
     # LoROM header with no chip (type 0, 1 or 2: nothing, RAM, RAM and battery) it is a mastering quirk of an ordinary
