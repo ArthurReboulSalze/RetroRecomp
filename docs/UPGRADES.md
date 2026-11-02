@@ -99,6 +99,14 @@ the rules), and the CPS-1 vector replay gives the same figures on the branch as 
 
 **Cost.** None at run time: the new clocks are constants of the translated steps; the three data-dependent ones (`Scc` false, `BCHG`,
 `BCLR`, `BSET` by bit number) use the hook the register shifts already use. Hot paths: not changed.
+
+**Checked (A/B, `tools/ab_conversion.py`, 1.6.6 against this tree, standard scan).** Blockout, Sonic The Hedgehog and Gunstar Heroes
+(USA) convert on both sides with status `supported`, zero interpreted 68000 and Z80 instructions on both routes, native equal to the
+fresh reference on every route and the compressed copy equal to the reference. As expected the generated steps, the clocks and the
+hashes of the picture, the sound and the Z80 differ (the report counts, such as the native entries, move by well under 1 percent), and
+the number of distinct pictures of a route stays within 1 percent (Blockout demo 1,592 against 1,591, play 483 against 486; Sonic 2,501 and
+2,669 against 2,500 and 2,670; Gunstar 2,046 and 414 against 2,052 and 415). This shows that the corrected clocks keep the conversions
+valid; it does not show that any frame-timed effect looks the same, which a play test of the games named in the campaign would.
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says
