@@ -145,7 +145,8 @@ corpus exposes: the undocumented X and Y flags, the internal WZ register, the Q 
 M1 fragments without recursion (chains of 4,097 prefixes are tested), the delay after `EI`, `HALT`, interrupt modes 0,
 1 and 2, and the extra 5 T-states of a repeating `OTDR`. `BIT n,(HL)` is a read-only bus operation, because rewriting the byte is not
 harmless at the mapper registers at $FFFC-$FFFF. Interrupt requests are sampled as a level at the start of each step, and
-accepted after the instruction, the same contract in the reference and the banked engine. The VDP is synchronised at the
+accepted after the instruction, the same contract in the reference and the banked engine (since 1.6.7 the acceptance itself is run against
+the reference on 720 states: [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-acceptance-of-an-interrupt-is-checked-state-by-state-167)). The VDP is synchronised at the
 CPU time of each access. The corrections are made in generated copies by `retrorecomp/cpu.py` and `core.py`; the pinned
 checkout stays clean.
 

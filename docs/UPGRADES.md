@@ -75,6 +75,25 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: the acceptance of an interrupt is checked state by state (1.6.7)
+
+The 1.6.6 review of the banked engine left a doubt: does an accepted interrupt set WZ to the new PC, and is the right return address
+pushed when it falls inside a repeating block instruction? Both were already right (WZ has followed the jump since 0.10.4; the PC
+the step leaves is the instruction itself while the block goes on and the next one after its last iteration). What was missing was the
+proof. `native/banked_runtime.inc` now has the acceptance in two small functions (`banked_after_step`, `banked_accept_irq`) with the
+same statements as before, and `native/banked_cpu_checks.c` (run by `tools/banked_cpu_selftest.py`) runs them against the corrected
+reference CPU on 720 states: fifteen instructions (a NOP, `LD A,I`, `LD A,R`, `EI`, `HALT`, `RETI`, and the first, a middle and the
+last iteration of `LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `OTIR`, `INDR`, `OTDR`) by IM 0, 1 and 2, interrupts enabled or not,
+a halted CPU or not, two register seeds, two stack positions; 348 of them take the interrupt. Registers, WZ, Q, P, the clock, the stack
+bytes and the RAM agree on all of them, and after a NOP the documented values (13 clocks, 19 in IM 2, return address pushed low byte
+first, two refresh increments, IFF1 and IFF2 cleared, WZ the new PC) are asserted on their own, not through the reference. A deliberate
+fault in the function (WZ one too high) fails the check. What this is not: agreement with the project's reference CPU and the
+documentation, not hardware captures, and the reference cannot show an error it shares.
+
+Exports: the behaviour of the generated game is unchanged; only the text of `runtime_glue.c` (the two functions) differs. The game
+stamps of the Master System and the Game Gear move (`banked_runtime.inc`, `banked_cpu_checks.c`), no other console. The interrupt path
+is taken once per interrupt, not once per instruction; the per-instruction loop gains no work.
+
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says

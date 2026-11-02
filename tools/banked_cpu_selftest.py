@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
     report_path = args.output / 'conversion-report.json'
     if not report_path.exists():
-        report_path = next((args.output / 'datas/reports').glob('Bubble_Bobble-*/conversion-report.json'))
+        report_path = next((args.output / 'datas/reports').glob('*/conversion-report.json'))   # the one conversion kept here
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["backend"] == "banked"
     game = Path(report["build_directory"])
