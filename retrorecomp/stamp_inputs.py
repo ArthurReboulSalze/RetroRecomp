@@ -179,10 +179,10 @@ NOT_INPUTS = (
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
-    # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py): never built into a game, so they move no stamp.
+    # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py, tools/cps1_qsound_selftest.py, tools/cps1_persistence_selftest.py): never built into a game, so they move no stamp.
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
-    'native/cps1_eeprom_checks.c')
+    'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -700,6 +700,8 @@ INPUTS = _resolve({
         'native/cps1_persistence.c',
         'native/cps1_persistence.h',
         'native/cps1_probe.c',
+        'native/cps1_qsound.c',
+        'native/cps1_qsound.h',
         'native/cps1_z80_native.h',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
@@ -709,6 +711,7 @@ INPUTS = _resolve({
         'retrorecomp.cps1_conversion',
         'retrorecomp.cps1_kabuki',
         'retrorecomp.cps1_knowledge',
+        'retrorecomp.cps1_qsound',
     ),
     ('sms', 'gg'): (
         'native/video_checks.c',

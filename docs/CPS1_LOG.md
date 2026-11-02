@@ -432,3 +432,31 @@ The first comparison of `wof` differed for 20 frames from the first picture on: 
 to finish, and the model took writes as instant. With the write and erase times of MAME's `eeprom.cpp` (1.75 ms, 1 ms, 8 ms for all cells) every
 frame agrees. What this shows: pictures agree with MAME's on these routes. It says nothing about the sound (not there yet), the other 13 sets, hardware
 fidelity or play.
+
+### The sound of the CPS-1.5 boards, against MAME (same day, 1.6.7 tree)
+
+The high-level QSound model (`native/cps1_qsound.c`, from MAME's `qsoundhle.cpp`) with the DSP ROM of the BIOS folder (the QSound DSP ROM
+the player supplies: nothing of it is kept in a report), `tools/cps1_mame_compare.py --sound` adapted to the two channels at 24,038 Hz
+(`-samplerate 24038` for MAME, each channel compared on its own), `attract` and `play` routes of 3,600 frames of the five sets, pictures
+every 10th frame. The picture agreed on 3,599 of the 3,600 compared frames of the ten routes of the five sets: the exception is the isolated
+`dino` frame 1,640 of `attract` (see the open items). The sound of `play`, per channel (left and right in the same
+ranges), 60 windows of one second:
+
+| Set | level difference, median / max (dB) | averaged spectrum cosine | one-third-octave bands, worst (dB) | waveform correlation, aligned, median / min |
+|---|---|---|---|---|
+| `wof` | 0.010 / 0.10 | 0.9994 to 0.9997 | 0.07 | 0.97 / 0.76 |
+| `dino` | 0.006 to 0.010 / 0.30 | 0.9997 | 0.06 | 0.98 / 0.72 |
+| `punisher` | 0.009 / 0.09 | 0.9992 to 0.9994 | 0.15 | 0.98 / 0.88 |
+| `slammast` | 0.006 to 0.008 / 0.85 | 0.9968 to 0.9969 | 0.12 | 0.96 / 0.56 |
+| `mbombrd` | 0.005 to 0.006 / 0.08 | 0.9992 to 0.9994 | 0.05 | 0.97 / 0.82 |
+
+The attract routes of `wof`, `dino` and `punisher` are silent on both sides over the first minute; `slammast` and `mbombrd` play music in
+attract and agree there too (levels 0.003 dB). The correlation is not 1: MAME writes the sound at 24,038 Hz while the chip makes 24,038.46,
+so the two drift by half a sample a second (the waveform correlation of the whole signal is low whatever the sound, which is why the aligned one is
+given), and a register write can land one sample earlier or later than MAME's stream puts it. Not claimed: waveforms equal, hardware.
+
+**Open items** (CPS-1.5): the two isolated frames of `dino` in `attract` (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right of the
+picture, the frames around them identical; the every-10th-frame comparison catches only the second; the cause is not isolated, mid-frame
+writes are not modelled); the 13 sets of the tier that the
+test collection does not hold; a run of the DSP16 instead of the model (about 10 to 15 hours of work, a third counted processor); the
+owner's play trial of the tier.

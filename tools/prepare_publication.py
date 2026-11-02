@@ -264,6 +264,9 @@ retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
 native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
+native/cps1_qsound.c native/cps1_qsound.h retrorecomp/cps1_qsound.py tests/test_cps1_qsound.py
+tools/cps1_qsound_selftest.py native/cps1_qsound_checks.c tests/test_cps1_qsound_model.py
+tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py

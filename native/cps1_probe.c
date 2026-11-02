@@ -135,10 +135,11 @@ int main(int argc, char **argv)
     uint8_t *audiocpu_op = load_file(directory, "audiocpu-op.bin", &regions.audiocpu_op_size, 0);
     uint8_t *qsound = load_file(directory, "qsound.bin", &regions.qsound_size, 0);
     uint8_t *audiorom_raw = load_file(directory, "audiorom_raw.bin", &regions.audiorom_raw_size, 0);
+    uint8_t *dsp_rom = load_file(directory, "qsound_dsp.bin", &regions.dsp_rom_size, 0);
     if (!maincpu || !audiocpu || !gfx || (!oki && !board.qsound)) return 3;
     regions.maincpu = maincpu; regions.audiocpu = audiocpu; regions.gfx = gfx;
     regions.oki = oki; regions.stars = stars; regions.audiocpu_op = audiocpu_op;
-    regions.qsound = qsound; regions.audiorom_raw = audiorom_raw;
+    regions.qsound = qsound; regions.audiorom_raw = audiorom_raw; regions.dsp_rom = dsp_rom;
     if (!cps1_init(&board, &regions)) { fprintf(stderr, "cannot start the CPS-1 board\n"); return 4; }
 
     FILE *trace = trace_path ? fopen(trace_path, "w") : NULL;
@@ -176,7 +177,9 @@ int main(int argc, char **argv)
     if (wav) {
         uint32_t bytes = (uint32_t)(total_samples * 2);
         fseek(wav, 4, SEEK_SET); put32(wav, 36 + bytes);
-        fseek(wav, 24, SEEK_SET); put32(wav, CPS1_AUDIO_RATE); put32(wav, CPS1_AUDIO_RATE * 2);
+        const unsigned channels = cps1_audio_channels(), rate = cps1_audio_rate();
+        fseek(wav, 22, SEEK_SET); fputc((int)channels, wav); fputc(0, wav);
+        put32(wav, rate); put32(wav, rate * 2 * channels); fputc((int)(2 * channels), wav); fputc(0, wav);
         fseek(wav, 40, SEEK_SET); put32(wav, bytes);
         fclose(wav);
     }
@@ -196,6 +199,6 @@ int main(int argc, char **argv)
            (unsigned long long)video_all, (unsigned long long)audio_all, total_samples,
            (unsigned long long)cps1_ram_hash(), cpu.m68k_pc, cpu.z80_pc);
     cps1_shutdown();
-    free(maincpu); free(audiocpu); free(gfx); free(oki); free(stars); free(audiocpu_op); free(qsound); free(audiorom_raw);
+    free(maincpu); free(audiocpu); free(gfx); free(oki); free(stars); free(audiocpu_op); free(qsound); free(audiorom_raw); free(dsp_rom);
     return 0;
 }

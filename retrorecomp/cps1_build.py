@@ -21,7 +21,8 @@ from .platforms import build_executable, cmake_target_args, build_jobs, sdl_inst
 YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
 NATIVE_FILES = ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h',
-                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h')
+                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h',
+                'cps1_qsound.c', 'cps1_qsound.h')
 AOT_FILES = ('cps1_native.c', 'cps1_native.h', 'cps1_z80_native.h', 'm68000_state_helpers.h')
 MUSASHI_FILES = ('m68k.h', 'm68kcpu.c', 'm68kcpu.h', 'm68kops.c', 'm68kops.h', 'm68kfpu.c', 'm68kmmu.h')
 YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp')
@@ -171,7 +172,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if(MSVC)
   add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)
 endif()
-set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c
+set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c cps1_qsound.c
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c engine/ymfm/ymfm_opm.cpp)
 function(cps1_library name)
   add_library(${name} STATIC ${CPS1_BOARD} ${ARGN})
@@ -251,7 +252,7 @@ NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 
                 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
                 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin', 'qsound.bin',
-                'audiorom_raw.bin')
+                'audiorom_raw.bin', 'qsound_dsp.bin')
 # Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
 ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
            'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}
@@ -322,7 +323,7 @@ def state_config(game_set, title: str) -> str:
     from .core import executable_name, module_fingerprint
     abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
-                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h'):
+                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h'):
         abi.update((ASSETS / 'native' / name).read_bytes())
     for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
@@ -340,7 +341,7 @@ def state_config(game_set, title: str) -> str:
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,
-                 presentation: dict | None = None, hints=None) -> dict:
+                 presentation: dict | None = None, hints=None, dsp_rom: bytes | None = None) -> dict:
     """A playable game project: native board, shared 16-bit host and embedded regions.
 
     `hints(board)`, when given, answers more observation rows ({'m68k_ram', 'm68k_gfx', 'z80_ram'}) rebuilt from the
@@ -350,7 +351,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     from . import __version__
     from .cps1_board import write_board
     board = project / 'board'
-    write_board(board, game_set, game)
+    write_board(board, game_set, game, dsp_rom)
     if hints is not None:
         extra = hints(board)
         observations = {name: [*(observations or {}).get(name, ()), *extra.get(name, ())] for name in ('m68k_ram', 'm68k_gfx', 'z80_ram')}
@@ -369,7 +370,8 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     _write(project / 'notices.txt', '\n\n'.join(notices))
     packed = project / 'board.pack'
     payload = pack(board)
-    if not packed.is_file() or packed.read_bytes() != payload:
+    pack_changed = not packed.is_file() or packed.read_bytes() != payload
+    if pack_changed:
         packed.write_bytes(payload)
     from .core import executable_name
     from .metadata import write_game_metadata
@@ -389,6 +391,8 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     _write(project / 'content.rc', '#pragma code_page(65001)\n'
                   f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
                   '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
+    if pack_changed and (project / 'content.rc').is_file():
+        (project / 'content.rc').touch()     # the resource compiler does not track the pack it includes: a new pack must rebuild it
     from .resources import embed_resources
     embed_resources(project, {201: packed, 203: project / 'notices.txt', 205: project / 'export-identity.bin'})
     table = ','.join('{%d,%d,%d,%d}' % row for row in input_table(game))

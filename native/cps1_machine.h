@@ -54,6 +54,7 @@ typedef struct cps1_regions {
     const uint8_t *audiocpu_op; size_t audiocpu_op_size;   /* Kabuki: the instruction-fetch view of audiocpu (NULL: none) */
     const uint8_t *qsound; size_t qsound_size;             /* QSound board: the sample ROM */
     const uint8_t *audiorom_raw; size_t audiorom_raw_size; /* QSound board (Slam Masters): sound ROM read by the 68000 at 0xf00000 */
+    const uint8_t *dsp_rom; size_t dsp_rom_size;           /* QSound board: the DSP's internal ROM (dl-1425.bin), the player's own dump */
 } cps1_regions;
 
 /* Parse the board.txt description written by smsrecomp/cps1_board.py. */
@@ -79,7 +80,10 @@ uint16_t cps1_port_default(int port);
  * VBLANK starts and coloured when it ends; its audio is queued. */
 void cps1_run_frame(void);
 const uint32_t *cps1_framebuffer(void);         /* 384x224 0x00RRGGBB */
-const int16_t *cps1_audio(size_t *samples);     /* mono, CPS1_AUDIO_RATE */
+/* The frame's sound: `samples` counts 16-bit values, interleaved left and right when there are two channels. */
+const int16_t *cps1_audio(size_t *samples);
+unsigned cps1_audio_rate(void);                 /* CPS1_AUDIO_RATE (mono), or 24,038 Hz on the QSound board (stereo) */
+unsigned cps1_audio_channels(void);
 uint64_t cps1_frame_number(void);
 
 typedef struct cps1_cpu_state {

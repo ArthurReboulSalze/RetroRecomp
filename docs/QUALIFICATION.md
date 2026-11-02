@@ -301,6 +301,16 @@ not how fast anything runs.
 The checks themselves are run by `tools/campaign.py`, `tools/nes_route_captures.py`, `tools/nes_saves_check.py` and
 `tools/nes_state_selftest.py`; none of them needs a ROM in the repository.
 
+### CPS-1.5 (QSound boards): the experimental tier of the CPS-1
+
+Not a column of the matrix: the machine stays `supported` and these boards are a tier of their own (`board_tier: experimental` in their
+reports, a column of the catalogue), outside the evidence above. What exists on the 1.6.7 tree, dated 2 November 2026, detail in
+[CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
+the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets of the test collection (one per family, of 18) agree with MAME 0.289
+on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
+its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
+`wof` converts through the whole chain at the quick level. Not done: the other 13 sets, the standard level on the five, a run of the DSP16, the owner's play trial.
+
 ## Panel sizes
 
 No common panel size exists today. The panel sizes noted by the 27 October

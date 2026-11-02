@@ -9,6 +9,7 @@
 #include "cps1_oki.h"
 #include "cps1_opm.h"
 #include "cps1_eeprom.h"
+#include "cps1_qsound.h"
 #include "m68k.h"
 #include "z80.h"
 
@@ -71,7 +72,8 @@ static struct {
     uint8_t qram[2][QSOUND_SHARED];             /* shared RAM: Z80 c000-cfff and f000-ffff, 68000 f18000 and f1e000 (low bytes) */
     cps1_eeprom eeprom;
     uint64_t qsound_irq_clock;                  /* Z80 clock of the next 250 Hz interrupt */
-    int64_t qsound_write_sample;                /* sample index of the last QSound register write (the busy flag) */
+    uint64_t qsound_done;                       /* QSound samples made so far */
+    cps1_qsound qchip;
 } M;
 
 /* ---------------------------------------------------------------- board */
@@ -231,8 +233,19 @@ static void opm_irq(void *context, int asserted)
 
 /* ---------------------------------------------------------------- QSound board */
 
-/* Sample index of a Z80 clock: the QSound chip makes 24,038.46 samples a second, the Z80 runs at 8 MHz. */
-static int64_t qsound_sample(uint64_t clock) { return (int64_t)(clock * 5 / 1664); }
+/* Samples due by a Z80 clock: the QSound chip makes 24,038.46 samples a second, the Z80 runs at 8 MHz. */
+static uint64_t qsound_due(uint64_t clock) { return clock * CPS1_QSOUND_RATE_NUM / CPS1_QSOUND_RATE_DEN; }
+
+/* The chip catches up to the Z80 before the Z80 touches it, as MAME updates the stream on each access. */
+static void qsound_catch_up(void)
+{
+    for (const uint64_t due = qsound_due(M.z80_clock); M.qsound_done < due; M.qsound_done++) {
+        int16_t out[2];
+        cps1_qsound_sample(&M.qchip, out);
+        audio_push(out[0]);
+        audio_push(out[1]);
+    }
+}
 
 /* The sound CPU of the QSound board (MAME's qsound_sub_map): ROM, banked ROM, shared RAM, the QSound ports and RAM. */
 static uint8_t qsound_z80_read(uint16_t address)
@@ -243,8 +256,7 @@ static uint8_t qsound_z80_read(uint16_t address)
         return offset < M.rom.audiocpu_size ? M.rom.audiocpu[offset] : 0;
     }
     if (address < 0xd000) return M.qram[0][address - 0xc000];
-    /* ready bit: busy from a register write until the chip's next sample */
-    if (address == 0xd007) return qsound_sample(M.z80_clock) > M.qsound_write_sample ? 0x80 : 0x00;
+    if (address == 0xd007) { qsound_catch_up(); return cps1_qsound_ready(&M.qchip); }     /* 0x80 ready, 0x00 busy */
     if (address >= 0xf000) return M.qram[1][address - 0xf000];
     return 0;
 }
@@ -253,18 +265,14 @@ static void qsound_z80_write(uint16_t address, uint8_t value)
 {
     if (address >= 0xc000 && address < 0xd000) { M.qram[0][address - 0xc000] = value; return; }
     if (address >= 0xf000) { M.qram[1][address - 0xf000] = value; return; }
-    if (address == 0xd002) M.qsound_write_sample = qsound_sample(M.z80_clock);
-    else if (address == 0xd003) {
+    if (address >= 0xd000 && address <= 0xd002) {
+        if (address == 0xd002) qsound_catch_up();
+        cps1_qsound_write(&M.qchip, address - 0xd000u, value);
+    } else if (address == 0xd003) {
         int bank = value & 0x0f;
         if (0x10000 + (size_t)bank * 0x4000 >= M.rom.audiocpu_size) bank = 0;   /* MAME: a bank past the ROM selects bank 0 */
         M.sound_bank = (uint8_t)bank;
     }
-}
-
-/* No sound yet on this board: silence at the usual rate, so the frame loop and the capture stay as they are. */
-static void qsound_catch_up(void)
-{
-    while ((M.opm_samples + 1) * M.board.z80_clock / CPS1_AUDIO_RATE <= M.z80_clock) { audio_push(0); M.opm_samples++; }
 }
 
 static uint8_t z80_read(void *context, uint16_t address)
@@ -814,6 +822,7 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     memset(&M, 0, sizeof M);
     M.board = *board;
     M.rom = *regions;
+    if (M.board.qsound && (!M.rom.dsp_rom || M.rom.dsp_rom_size < CPS1_QSOUND_DSP_BYTES || !M.rom.qsound)) return 0;   /* the player's own DSP ROM and the samples */
     cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
     if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
@@ -845,7 +854,8 @@ void cps1_reset(void)
         cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
         memcpy(M.eeprom.data, kept, sizeof kept);
     }
-    M.qsound_irq_clock = QSOUND_IRQ_CLOCKS; M.qsound_write_sample = -1;
+    M.qsound_irq_clock = QSOUND_IRQ_CLOCKS; M.qsound_done = 0;
+    if (M.board.qsound) cps1_qsound_init(&M.qchip, M.rom.dsp_rom, M.rom.qsound, M.rom.qsound_size);
     M.cps_a[A_OBJ] = 0x9200; M.cps_a[A_SCROLL1] = 0x9000; M.cps_a[A_SCROLL2] = 0x9040;
     M.cps_a[A_SCROLL3] = 0x9080; M.cps_a[A_OTHER] = 0x9100;
     for (int i = 0; i < CPS1_PORTS; i++) M.ports[i] = M.board.port_default[i];
@@ -889,6 +899,8 @@ uint16_t cps1_port_default(int port)
 
 const uint32_t *cps1_framebuffer(void) { return M.frame; }
 const int16_t *cps1_audio(size_t *samples) { *samples = M.audio_count; return M.audio; }
+unsigned cps1_audio_rate(void) { return M.board.qsound ? 24038u : CPS1_AUDIO_RATE; }
+unsigned cps1_audio_channels(void) { return M.board.qsound ? 2u : 1u; }
 uint64_t cps1_frame_number(void) { return M.frame_number; }
 
 void cps1_cpu_state_get(cps1_cpu_state *state)
@@ -1076,7 +1088,11 @@ size_t cps1_state_save(uint8_t *buffer, size_t capacity)
         put(&w, M.qram, sizeof M.qram);
         cps1_eeprom_state_put(&M.eeprom, eeprom);
         put(&w, eeprom, sizeof eeprom);
-        put_le(&w, M.qsound_irq_clock, 8); put_le(&w, (uint64_t)M.qsound_write_sample, 8);
+        put_le(&w, M.qsound_irq_clock, 8); put_le(&w, M.qsound_done, 8);
+        uint8_t *chip = malloc(cps1_qsound_state_bytes());
+        if (!chip) return 0;
+        put(&w, chip, cps1_qsound_state_put(&M.qchip, chip));
+        free(chip);
     }
     if (!buffer) return w.used;
     return w.overflow ? 0 : w.used;
@@ -1122,21 +1138,22 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     const uint8_t *context = buffer + r.used;
     r.used += context_size;
     get(&r, &opm_size, sizeof opm_size);
-    const size_t qsound_bytes = M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 : 0;
+    const size_t qsound_bytes = M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0;
     if (r.bad || r.used + opm_size + qsound_bytes != size || line < 0 || line >= LINES || latch_count < 0 ||
         latch_count > LATCH_QUEUE || sound_bank > (M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
     for (int i = 0; i < 4; i++)
         if (oki.voice[i].step < 0 || oki.voice[i].step > 48) return 0;
     uint8_t qram[2][QSOUND_SHARED] = {{0}};
     cps1_eeprom eeprom = {{0}};
-    uint64_t qsound_irq_clock = 0;
-    int64_t qsound_write_sample = 0;
+    uint64_t qsound_irq_clock = 0, qsound_done = 0;
+    cps1_qsound chip = M.qchip;
     if (M.board.qsound) {
         const uint8_t *extra = buffer + r.used + opm_size;
         memcpy(qram, extra, sizeof qram);
         if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram)) return 0;
-        reader_t tail = {extra + sizeof qram + CPS1_EEPROM_STATE_BYTES, 16, 0, 0};
-        qsound_irq_clock = get_le(&tail, 8); qsound_write_sample = (int64_t)get_le(&tail, 8);
+        reader_t tail = {extra + sizeof qram + CPS1_EEPROM_STATE_BYTES, 16 + cps1_qsound_state_bytes(), 0, 0};
+        qsound_irq_clock = get_le(&tail, 8); qsound_done = get_le(&tail, 8);
+        if (!cps1_qsound_state_get(&chip, tail.data + tail.used)) return 0;
     }
     if (!cps1_opm_load(M.opm, buffer + r.used, opm_size)) return 0;
     memcpy(M.ram, ram, sizeof ram); memcpy(M.gfxram, gfxram, sizeof gfxram);
@@ -1153,7 +1170,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     M.cpu = cpu;
     if (M.board.qsound) {
         memcpy(M.qram, qram, sizeof qram); M.eeprom = eeprom;
-        M.qsound_irq_clock = qsound_irq_clock; M.qsound_write_sample = qsound_write_sample;
+        M.qsound_irq_clock = qsound_irq_clock; M.qsound_done = qsound_done; M.qchip = chip;
     }
     cps1_m68k_state_set(context);
 #ifdef CPS1_NATIVE

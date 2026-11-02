@@ -426,11 +426,24 @@ and the OKI; and a Z80 program encrypted by the Kabuki.
 |---|---|---|
 | Kabuki decryption (`retrorecomp/cps1_kabuki.py`; four key numbers per game family in the catalogue) | done | `tools/cps1_kabuki_check.py`: the opcode and data images equal MAME 0.289's `opcodes` and `program` spaces byte for byte on `wof`, `dino`, `punisher`, `slammast`, `mbombrd`, `wofch`; `tools/cps1_kabuki_selftest.py`: the patched core and the generator on two different images |
 | The board without its sound (`machine qsound` in `board.txt`): maps, shared RAM, banks, interrupt, 93C46 EEPROM with its write times, saved between runs in `datas/saves` (windowed play only) | done; the sound is silent | the five sets of the test collection (one per family; 18 sets exist) against MAME 0.289, `tools/cps1_mame_compare.py` routes `attract` and `play`, 3,600 frames, a picture every 10th: 3,599 of 3,600 identical; `wof` identical on every one of its first 300 frames. `dino` differs on two isolated frames (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right, the frames around them identical), cause not isolated |
-| QSound sound (high-level model of the DSP16, from MAME's `qsoundhle.cpp`, with the player's own `dl-1425.bin`) | to do | |
+| QSound sound: a high-level model of the DSP16 (`native/cps1_qsound.c`, from MAME's `qsoundhle.cpp`), stereo at 24,038 Hz, reading the player's own `dl-1425.bin` (Options, or `--qsound-rom`; `dl-1425.bin` or the `qsound.zip` that holds it, recognised by its CRC `d6cf5ef5`; a conversion without it is refused with that reason) | done | against MAME 0.289, `play` route of the five sets, 60 one-second windows, each channel: level difference 0.005 to 0.011 dB (median) and at most 0.85 dB, averaged spectrum cosine 0.997 to 0.9997, one-third-octave bands within 0.15 dB, waveform correlation 0.96 to 0.99 (median over the windows, each aligned within 40 samples; below 1 because MAME resamples 24,038.46 Hz to the 24,038 Hz asked for and a register write lands on a sample one earlier or later); `wof` converts through the whole chain (`--scan-level quick`: 0 interpreted 68000 and Z80 instructions, reference agreement, quick state continued in a fresh process, 1,634 audible frames of 2,400) |
 
-Until the sound exists the conversion refuses these sets ("validation produced no sound on any route"): a route without sound is not
-accepted for the CPS-1. The measures stay separate: the native code of both processors is counted per CPU like every CPS-1 set, the
-Z80 of these boards is translated and counted like the CPS-1's, and nothing here says hardware fidelity or gameplay.
+**What the comparison with MAME is.** MAME 0.289 plays these boards with the same high-level model by default (`qsound.h` makes `QSOUND`
+an alias of `QSOUND_HLE`): the agreement above validates this port of the model against MAME's, not against the hardware, and not against
+a run of the DSP16 program. A run of the DSP16 (MAME's `qsound.cpp` and `dsp16.cpp`) is possible later and would make it a third counted
+processor; today the report says so: `audio_model.dsp16` is `high-level model of the DSP16`, `instructions_executed: 0`, with the hash of
+the internal ROM it read (the dump itself is never in a report, a library or a shared file).
+
+**The measures, apart.** Native code: counted per processor, 68000 and Z80, like every CPS-1 set; the DSP16 is not a counted
+processor. CPU fidelity: the reference run (every instruction interpreted) equals the native run on each route. Hardware fidelity: not
+claimed; the pictures of five sets and the sound of the model agree with MAME. Gameplay: the routes of the conversion, not full games. Physical latency: not measured.
+
+**Saves.** The 93C46 EEPROM (settings, scores) is kept in `datas/saves/CPS1-<set>.rrsave` in interactive play: written when the game changes it,
+loaded at start; a file that does not belong to the set or fails its checksum is left alone and not written over, and the game starts with
+a blank EEPROM. Validation runs never read or write it.
+
+**Sharing.** The sets of this tier take nothing from the shared base of paths and give nothing to it (`board_tier` of the report,
+`knowledge.shared: false`) until the tier is left.
 
 ## Known limits
 

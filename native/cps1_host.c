@@ -120,18 +120,25 @@ const char *rr16_audio_cpu(void) { return "Z80"; }
 uint64_t rr16_audio_fingerprint(void) { return cps1_cpu_hash(); }
 uint64_t rr16_audio_frame_fingerprint(void) { return cps1_cpu_hash(); }
 
-/* Mono board output at 3.579545 MHz / 64, duplicated to stereo for SDL. */
+/* The board's output: mono at 3.579545 MHz / 64, duplicated to stereo for SDL, or the QSound board's stereo at 24,038 Hz as it is. */
 size_t rr16_audio(int16_t *out, size_t capacity)
 {
     size_t count = 0;
-    const int16_t *mono = rr_cps1_take_audio(&count);
-    if (!resampler) resampler = SDL_NewAudioStream(AUDIO_S16SYS, 2, CPS1_AUDIO_RATE, AUDIO_S16SYS, 2, 48000);
+    const int16_t *board = rr_cps1_take_audio(&count);
+    const bool two_channels = cps1_audio_channels() == 2;
+    if (!resampler) resampler = SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)cps1_audio_rate(), AUDIO_S16SYS, 2, 48000);
     if (!resampler) return 0;
     int16_t stereo[1024];
     for (size_t done = 0; done < count;) {
         size_t n = count - done > 512 ? 512 : count - done;
-        for (size_t i = 0; i < n; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[done + i];
-        if (SDL_AudioStreamPut(resampler, stereo, (int)(n * 4))) return 0;
+        if (two_channels) {
+            n &= ~(size_t)1;
+            if (!n) break;
+            if (SDL_AudioStreamPut(resampler, board + done, (int)(n * 2))) return 0;
+        } else {
+            for (size_t i = 0; i < n; i++) stereo[2 * i] = stereo[2 * i + 1] = board[done + i];
+            if (SDL_AudioStreamPut(resampler, stereo, (int)(n * 4))) return 0;
+        }
         done += n;
     }
     int bytes = SDL_AudioStreamGet(resampler, out, (int)(capacity * 2));
