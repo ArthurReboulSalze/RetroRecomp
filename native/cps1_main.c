@@ -284,10 +284,10 @@ static int execute(int argc, char **argv)
     rr_feedback_start(!headless);
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     performance_frequency = SDL_GetPerformanceFrequency();
-    static const char *const names[] = {"board.txt", "maincpu.bin", "audiocpu.bin", "gfx.bin", "oki.bin", "stars.bin"};
-    Region regions[6] = {{0}};
+    static const char *const names[] = {"board.txt", "maincpu.bin", "audiocpu.bin", "gfx.bin", "oki.bin", "stars.bin", "audiocpu-op.bin"};
+    Region regions[7] = {{0}};
     uint8_t *content = NULL;
-    if (!unpack(&content, regions, names, 6) || !regions[0].data || !regions[1].data || !regions[2].data ||
+    if (!unpack(&content, regions, names, 7) || !regions[0].data || !regions[1].data || !regions[2].data ||
         !regions[3].data || !regions[4].data) { SDL_Quit(); return 3; }
     char *text = malloc(regions[0].size + 1);
     if (!text) { free(content); SDL_Quit(); return 3; }
@@ -298,7 +298,8 @@ static int execute(int argc, char **argv)
     free(text);
     if (!parsed) { fprintf(stderr, "%s\n", error); free(content); SDL_Quit(); return 3; }
     cps1_regions rom = {regions[1].data, regions[1].size, regions[2].data, regions[2].size, regions[3].data,
-                        regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size};
+                        regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size,
+                        regions[6].data, regions[6].size};
     if (!cps1_init(&board, &rom)) { free(content); SDL_Quit(); return 3; }
     if (dips_given) rr_cps1_set_dip_values(dips);
     rr_cps1_apply_pads(0, 0);

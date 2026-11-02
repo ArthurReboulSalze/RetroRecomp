@@ -48,6 +48,7 @@ typedef struct cps1_regions {
     const uint8_t *gfx; size_t gfx_size;
     const uint8_t *oki; size_t oki_size;
     const uint8_t *stars; size_t stars_size;
+    const uint8_t *audiocpu_op; size_t audiocpu_op_size;   /* Kabuki: the instruction-fetch view of audiocpu (NULL: none) */
 } cps1_regions;
 
 /* Parse the board.txt description written by smsrecomp/cps1_board.py. */

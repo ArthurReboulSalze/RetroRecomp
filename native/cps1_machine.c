@@ -1097,6 +1097,20 @@ int rr_cps1_z80_code_byte(uint16_t pc, uint8_t *byte)
     return 0;
 }
 
+/* The sound ROM of a Kabuki board is read twice: instruction fetches (M1) see the opcode image, data reads the data image
+ * (retrorecomp/cps1_kabuki.py). Without an opcode image both answer alike, so no other board changes. */
+uint8_t rr_cps1_z80_read_op(uint16_t address)
+{
+    if (address < 0x8000 && M.rom.audiocpu_op) return address < M.rom.audiocpu_op_size ? M.rom.audiocpu_op[address] : 0;
+    return z80_read(NULL, address);
+}
+
+int rr_cps1_z80_code_byte_m1(uint16_t pc, int m1, uint8_t *byte)
+{
+    if (m1 && pc < 0x8000 && M.rom.audiocpu_op && pc < M.rom.audiocpu_op_size) { *byte = M.rom.audiocpu_op[pc]; return 1; }
+    return rr_cps1_z80_code_byte(pc, byte);
+}
+
 /* Interpreted instructions on a native build, with the RAM code they ran
  * (bounded); the converter turns RAM variants into guarded native code. */
 #define MISS_SLOTS 8192
@@ -1166,12 +1180,13 @@ void rr_cps1_z80_note_fallback(uint16_t pc)
     if (rr_feedback_enabled()) {
         uint8_t bytes[4] = {0};
         for (unsigned n = 0; n < 4; n++) rr_cps1_z80_code_byte((uint16_t)(pc + n), &bytes[n]);
+        rr_cps1_z80_code_byte_m1(pc, 1, &bytes[0]);
         rr_feedback_note(RR_FB_CPS1_Z80, pc, 0, bytes, 4);
     }
 #endif
     if (!rr_cps1_observe) return;
     uint8_t first = 0;
-    rr_cps1_z80_code_byte(pc, &first);
+    rr_cps1_z80_code_byte_m1(pc, 1, &first);
     note_miss(z80_misses, pc, first);
     if (pc < 0xd000 || pc >= 0xd800) return;
     z80_variant_t value = {pc, {0}};

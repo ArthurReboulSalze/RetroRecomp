@@ -272,6 +272,7 @@ native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test
 native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py tests/test_z80_fixes.py
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
+retrorecomp/cps1_kabuki.py tools/cps1_kabuki_check.py tools/cps1_kabuki_selftest.py native/cps1_kabuki_checks.c tests/test_cps1_kabuki.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
 retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md

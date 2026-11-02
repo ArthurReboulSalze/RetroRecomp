@@ -10,13 +10,13 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 
-from . import cps1_catalogue
+from . import cps1_catalogue, cps1_kabuki
 
 # (group size, skip, reversed) per load operation.
 LAYOUTS = {'load': (1, 0, False), 'load16_byte': (1, 1, False), 'load16_word': (1, 0, False),
            'load16_word_swap': (2, 0, True), 'load32_byte': (1, 3, False),
            'load64_byte': (1, 7, False), 'load64_word': (2, 6, False)}
-RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars')
+RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars', 'audiocpu-op')
 PORTS = ('IN0', 'IN1', 'IN2', 'IN3', 'DSWA', 'DSWB', 'DSWC')
 
 
@@ -116,6 +116,12 @@ def descriptor(game: dict) -> str:
 def write_board(directory: Path, game_set, game: dict | None = None) -> dict:
     game = game or cps1_catalogue.by_set()[game_set.set_name]
     regions = assemble(game, member_bytes(game_set))
+    keys = cps1_kabuki.keys_for(game)
+    if keys:
+        # A Kabuki sound CPU sees its ROM twice: instruction fetches through the opcode image, everything else through
+        # the data image, which is the one the board's sound ROM holds (retrorecomp/cps1_kabuki.py).
+        opcodes, regions['audiocpu'] = cps1_kabuki.decode(bytes(regions['audiocpu']), keys)
+        regions['audiocpu-op'] = opcodes
     directory.mkdir(parents=True, exist_ok=True)
     written = {}
     for tag in RUNTIME_REGIONS:

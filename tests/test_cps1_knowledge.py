@@ -256,7 +256,8 @@ class EngineTests(unittest.TestCase):
     # cps1_knowledge.GENERATOR_REVISION would let a path validated by the old code count as qualified for the
     # new one, so this test fails until both are done: raise the revision, then update the digests below.
     PINNED_SOURCES = {
-        'retrorecomp/cps1_codegen.py': None, 'retrorecomp/cps1_build.py': None, 'retrorecomp/m68000.py': None,
+        'retrorecomp/cps1_codegen.py': None, 'retrorecomp/cps1_build.py': None, 'retrorecomp/cps1_kabuki.py': None,
+        'retrorecomp/m68000.py': None,
         'retrorecomp/neogeo_codegen.py': None, 'retrorecomp/neogeo_z80.py': None, 'retrorecomp/megadrive_z80.py': None}
     PINNED_REVISION = 1
 

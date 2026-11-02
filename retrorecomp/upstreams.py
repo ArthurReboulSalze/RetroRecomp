@@ -137,11 +137,11 @@ YMFM = Upstream(
     'ymfm.h, ymfm_fm.h, ymfm_fm.ipp, ymfm_opm.h, ymfm_opm.cpp',
     _py('retrorecomp/cps1_build.py', 'YMFM_REVISION'), checkout='ymfm')
 MAME = Upstream(
-    'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
-    'no code is built from the checkout; the ROM-free CPS-1 catalogue and the OKI model are adapted from it',
+    'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue, Kabuki keys and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
+    'no code is built from the checkout; the ROM-free CPS-1 catalogue, the Kabuki decryption and the OKI model are adapted from it',
     _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/build_cps1_catalogue.py', 'MAME_REVISION'),),
     watch=('src/mame/capcom/cps1.cpp', 'src/mame/capcom/cps1_v.cpp', 'src/mame/capcom/cps1.h',
-           'src/devices/sound/okim6295.cpp'))
+           'src/devices/sound/okim6295.cpp', 'src/mame/capcom/kabuki.cpp'))
 PX68K_LIBRETRO = Upstream(
     'px68k-libretro', 'libretro/px68k-libretro', 'master',
     'X68000 libretro port; private comparison mode only (GPL)', 'GPL-2.0',
