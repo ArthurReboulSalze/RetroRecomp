@@ -302,6 +302,30 @@ on over the whole length of every scenario, up to 3,600 frames (the Game Boy
 release check compares the CPU once, on a short boot, not on every final scenario as the other writers do). These checks do not cover
 all gameplay, certify hardware fidelity or measure physical latency.
 
+### The sixteen gates, with their evidence (1.6.7)
+
+The letters (met, partial, unknown) are in [QUALIFICATION.md](QUALIFICATION.md); this table says where each piece of evidence is and what it
+leaves out. A tool or a report field named here exists in the tree of this page.
+
+| Gate | Evidence for the Game Boy | What it leaves out |
+|---|---|---|
+| G1 Status | `supported`: the profile (`retrorecomp/systems/game_boy.py` takes the default status), the first line of this page and the README table say so; [COMPATIBILITY.md](COMPATIBILITY.md) and [INDEX.md](INDEX.md) describe the machine without any experimental mark | The status rests on the gates below; it claims neither hardware fidelity nor complete games nor latency |
+| G2 Report | Schema 2: the SM83 as the main CPU (cycles and instructions), the mapper and the sound unit as two devices with no counter, `saves.cartridge_memory`, `states`, `packed` | The mapper and the sound unit are C models of the runtime; their fidelity is stated as not validated |
+| G3 Native coverage | `final_checks[]`: `interpreter_instructions` and `interpreter_cycles`, the one-by-one counts of writable code (`ram_*`, `highmem_*`), `guarded_helpers` by kind; the fallback percentage stays unknown (no honest denominator) | Only the routes run; helpers are counted as entries and cycles, not as instructions |
+| G4 CPU fidelity | Lockstep against the pinned interpreter: 30 boot frames and 240 per route; from the extended level on, every scenario over its whole length up to 3,600 frames (`native_validation.scenarios[]`, `mode: full`) | The interpreter shares the runtime's devices, so this is no independent oracle for them; its own fidelity is G10 |
+| G5 Delivered file | The compressed copy replayed on the same routes with the same verdict (`packed_reference_match`, `packed_candidate_sha256`) | Same routes and lengths as G4 |
+| G6 States | Every conversion checks quick states in fresh processes on that copy (`game_states.fresh_process_verified`); `tools/gameboy_states_check.py` on an authored cartridge and a game | F8 and F9 themselves are not driven; the state file has no checksum |
+| G7 Saves | `tools/gameboy_saves_check.py`: six authored cartridges (MBC1, MBC2, MBC3 with clock, MBC5, RAM without battery, battery never written), reload byte for byte, damaged files refused | A game's own save code is not tested |
+| G8 Liveness | `final_checks[].liveness` on every probe; a conversion is refused when its `varied` route never changes the picture | Counts of changes, not proof that the game is played well |
+| G9 Route depth | The reproducible pseudo-random route of the extended and thorough levels; the 1.6.7 campaign (`tools/gameboy_campaign.py`) replays it on the delivered file with six captures a game that a person looks at | Not full games; the pictures are looked at by the specialist agent, not by the owner |
+| G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors' | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions |
+| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`) | They compare the runtime with its own model: no external emulator and no hardware capture is used |
+| G12 Panel | The exact-cartridge panel of the collection (below) | Cartridges that failed or were skipped are listed on that page and in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) |
+| G13 Cross-OS | A Linux build exists; the per-frame trace (`--frame-trace`) makes the route hashes of the two systems comparable | That comparison has not been made for this machine |
+| G14 Owner | No recorded owner decision | His play test |
+| G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the interface and the report say "tested scenarios" and "not native" where it applies; the audit of 3 November 2026 of this page, [CPU_SM83.md](CPU_SM83.md) and the strings of the report found no claim of exactness, zero latency or hardware fidelity | Words in other pages and in the interface strings of other machines are not covered |
+| G16 Shared knowledge | Hints are numbers about a ROM (addresses, positions), rechecked on the exact ROM, and the conversion retries without them on failure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)) | A hint qualifies a path only after a conversion by another player reaches it and checks it against the reference |
+
 - **Collection campaign, October 2026.** The supplied DMG collection was qualified with 6 concurrent conversions, up to six discovery
   passes and four 7,200-frame input scenarios. Initial batch: 592 qualified exact cartridges from 638 input files, 28 successful
   exact-copy extras skipped and 18 failed input attempts (17 distinct cartridges). Among qualified exports, 487 had zero fallback
