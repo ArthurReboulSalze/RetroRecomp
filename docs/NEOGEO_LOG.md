@@ -13,6 +13,26 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Liveness of every route (gate G8) — 2 November 2026
+
+For 1.6.7. The Neo Geo was the one machine without a liveness record (CPS-1 and the X68000 have it through `delivery_evidence.py`). The packed
+replays of `neogeo_conversion.check_routes` now pass `--trace`; the per-frame trace the game writes (`frame,cpu,hardware,z80,image,pcm,samples`:
+one picture hash and one sound hash per frame) is read by `neogeo_conversion.trace_rows` into the shared `FrameRow`, and `route_liveness` returns the CPS-1
+record (`liveness_summary` and `report_fields`, unchanged). A frame is audible when its sound hash is not the hash of silence for its number of
+samples (`silent_pcm_hash`: the same six lines as `cps1_conversion.silent_sound_hash`, to hoist into the shared module). `require_moving_picture`
+stops the conversion for a route whose picture never changes ("the game is stuck"), for every route, MVS and AES, as on the CPS-1.
+
+- **Result.** `tools/ab_conversion.py` on nam1975, base against this tree: the only differences are the 42 new fields (6 keys on 7 routes); every
+  hash, frame image, trace and state is identical. Conversions of Puzzle De Pon!, Metal Slug 3 and The Irritating Maze with this tree: 0 interpreted
+  opcodes, every route moves: from 1,407 picture changes (attract) to 5,368, from 3,220 audible frames of 3,600 to all of 7,200 on the play routes.
+  The record of NAM-1975: 1,948 to 4,679 changes, 3,328 to 11,466 audible frames over 3,600 to 13,800 frames.
+- **Not done / limits.** Four sets read, not the library; the record says nothing of what the picture shows or how deep the route goes;
+  the trace makes the delivered file also write the CPU, hardware and Z80 hashes of each frame (a per-frame cost of the replays only; the game a
+  player runs writes no trace).
+- **Files.** `retrorecomp/neogeo_conversion.py`, `tests/test_neogeo_liveness.py` (authored traces: the silence hash, a moving picture with a late sound,
+  a frozen route refused, the layout of the trace), `tests/conversion_gates_golden.json` (the recorded packed replays gain the `--trace` argument, the
+  `liveness` record and one refusal scenario, nothing else).
+
 ## Independent Z80 vectors replayed through the Neo Geo generator — 1 November 2026
 
 For 1.6.6 (gate G10, CPU evidence), on the tree after the 19 corrections of the Geolith Z80 core (`neogeo_z80.FIXES`, from the CPS-1 work). The

@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G10 of the Neo Geo of 2 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -51,7 +51,7 @@ x68 = Sharp X68000.
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
-| G8 | P | P | P | Y | P | P | P | Y | Y |
+| G8 | P | P | P | Y | P | P | Y | Y | Y |
 | G9 | P | P | P | Y | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
@@ -112,6 +112,14 @@ x68 = Sharp X68000.
   difference at conversion, not hide it, and none of the 134 qualified identities has; correcting the Musashi is the lead's decision and
   would move the 68000 stamps of four machines; (d) the oracles are MAME (68000) and JSMoo (Z80), not hardware, and the bus is flat: nothing
   of the board, the YM2610, the command latch or the prefetch bus phases.
+- Neo Geo (2 November 2026): G8 moved from `P` back to `Y`. The packed replays now run with `--trace` and every `final_checks[]` row carries
+  `liveness` with the CPS-1 keys (`frames`, `distinct_pictures`, `picture_changes`, `last_picture_change_frame`, `audible_frames`,
+  `last_audible_frame`), counted from frame 1, through `delivery_evidence.py` unchanged (`liveness_summary`, `report_fields`,
+  `require_moving_picture`); a route whose picture never changes stops the conversion, as on the CPS-1, and every route of a set is required
+  to move (MVS and AES). Read on conversions of the tree: NAM-1975 (7 routes), Puzzle De Pon! (6), Metal Slug 3 (7) and The Irritating Maze
+  (4): every route changed its picture on more than a thousand frames and was audible on more than half of them. **Scope:** the record is on
+  every conversion from now on; it was read on four sets, not on the 134 identities, and it says that picture and sound change, nothing of what
+  they show (the captures of the earlier campaigns are G9's evidence).
 - G14 for NES, SNES, SMS, GG, GB and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
@@ -119,7 +127,7 @@ x68 = Sharp X68000.
 
 ## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
 
-Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and, apart from the Neo Geo, the liveness record (G8) through one
+Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and the liveness record (G8) through one
 module, and since 1.6.6 so do the Master System and Game Gear, the Game Boy, the Mega Drive and the NES, so a machine
 that joins them gives the same evidence in the same shape ([STANDARDS.md](STANDARDS.md) rules 1 and 7). The module
 reads rows a machine already writes; it never runs a game.
@@ -134,7 +142,7 @@ reads rows a machine already writes; it never runs a game.
   `distinct_program_counters`. CPS-1 reports the first six (`final_checks[].liveness`). The X68000 reports `frames`,
   `distinct_pictures`, `distinct_audio_blocks` (= `distinct_sound_blocks`), `distinct_ram_states` and
   `distinct_program_counters`, then `nonblack_frames` and `nonzero_samples` from its replay report (`liveness[]`). Frame
-  numbers are the machine's own: CPS-1 counts from 1, the X68000 from 0. Neo Geo has no liveness record yet.
+  numbers are the machine's own: CPS-1 and Neo Geo count from 1, the X68000 from 0. Neo Geo reports the CPS-1 six keys (`final_checks[].liveness`).
 - **Packed replay.** `deliver_packed` compresses a copy of the build as publication does and takes its SHA-256 before any
   replay; `replay_packed` (or `replay_routes` where the machine's callback compares by itself) replays that copy on every
   route and compares it with the fresh reference. `native_validation.packed_reference_match` and
