@@ -89,10 +89,14 @@ x68 = Sharp X68000.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
-- Master System and Game Gear (1 November 2026): G5 is `P` for both. The replay of the compressed copy exists only with the banked
-  engine (the "functions" engine records liveness only), and what is recorded for it is synthetic tests
-  (`tests/test_sega_evidence.py`) and runs on three games, not a result per console ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-evidence-about-the-delivered-file-166)).
-  The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
+- Master System and Game Gear (1 November 2026, completed 2 November): G5 is `P` for both. The compressed copy is replayed by both
+  engines since 1.6.7: the banked engine compares it with the fresh reference of each route, the "functions" engine (which has no
+  per-route reference) with the final pass of the same build, and the report says which (`packed_replay` for the functions engine). What
+  is recorded is synthetic tests (`tests/test_sega_evidence.py`), runs on three banked games and 18 + 3 + 15 functions conversions
+  ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-replays-the-delivered-copy-and-starts-from-the-reset-state-167)),
+  not a result per console. The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
+  G6 is judged on the banked engine, the default: the "functions" engine has no quick states ([MASTER_SYSTEM.md](MASTER_SYSTEM.md)),
+  so it has nothing to check and is not claimed.
 - Super Nintendo and Neo Geo (1 November 2026): G8 moved from `Y` to `P`. The Super Nintendo has a liveness check for the cartridges
   with a coprocessor only (`supernintendo.validate_device_liveness`), none for an ordinary cartridge; the Neo Geo has no liveness record
   yet (`retrorecomp/neogeo_conversion.py` uses `deliver_packed` and `replay_routes`, not `liveness_summary`). See the section
@@ -131,9 +135,10 @@ columns, `psg_h` (hash of the PSG's stereo samples of the frame) and `psg_nz` (t
 written; every conversion records `final_checks[].liveness` per route (picture from `pixels_h`, sound, RAM; no program counter, so that
 key is None) and refuses a conversion whose main (`play`) route never changed picture; the banked engine also replays the compressed
 copy of the build on both routes against the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`).
-The "functions" engine has the liveness record and no packed replay. G8 is `P` for both columns: the record exists on every
-conversion, but the captures were not inspected as a campaign and the risk cases were not run to play. G5 stays as recorded: the
-replay is in the conversion for every banked game, run on three of them here.
+Both engines have the liveness record and the packed replay (the "functions" engine compares the copy with the final pass of its own
+build). G8 is `P` for both columns: the record exists on every conversion, but the captures were not inspected as a campaign and the
+risk cases were not run to play. G5 stays as recorded: the replay is in the conversion for every game, run on three banked games and
+on the functions batches here.
 
 The NES uses it since 1.6.6 (`retrorecomp/nes_checks.py`, `retrorecomp/nes.py`): the headless `--hash-out` line of the exported
 game carries `pic=` (the hash of the rendered 256 x 240 picture), `snd=` (the hash of the frame's sound) and `aud=` (1 when a

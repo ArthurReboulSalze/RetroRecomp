@@ -75,6 +75,41 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: the "functions" engine replays the delivered copy and starts from the reset state (1.6.7)
+
+Two changes of the "functions" engine of the two consoles, and a check that needed no change.
+
+1. **The delivered copy is replayed (gate G5).** The compressed copy of the build is now started on every route, as the banked engine
+   already did, and refused if it differs. The "functions" engine has no fresh reference for the `play` route (only the demo route is
+   compared with the interpreter), so the copy is compared with the final pass of the same build; the report says so
+   (`packed_replay`: `engine`, `compared_with`, `matched`, `routes`) and does not claim `packed_reference_match` for it. Its liveness is
+   the one the report keeps, as for the banked engine.
+2. **The documented reset state.** The pinned runner started the CPU with AF = 0 and SP = $DFF0; the reference CPU and the banked
+   engine start with AF = SP = $FFFF, as the chip does after a reset. A program that pushes AF in its first frame, before any flag
+   instruction, left a different byte on the stack (found on an authored cartridge: the RAM hash of frame 1 differed from the
+   interpreted run, the next frame agreed). The glue now starts at $FFFF with A and F at $FF. Games normally set SP at once; the 15 games
+   below all still match the interpreter after the change.
+3. **No change: the dispatch of a paged address.** The upstream commit `a92717d` (not taken, the pin stays) guards the dispatch of a
+   single compiled variant by the live bank. The converter already carries both of its hunks (1.6.3 for the direct calls, and the
+   single-variant guard in `core.patched_generator_source`). `tools/sega_bank_dispatch_check.py` writes a cartridge of its own that pages
+   $8000 from RAM, bank 2 for 5,000 frames and bank 5 afterwards (the conversion runs 3,600 frames per route, so it learns bank 2 only),
+   converts it with the "functions" engine, checks that the generated dispatch tests the bank, and runs 6,000 frames natively and
+   interpreted: the VDP traces are identical and the late bank went through the counted interpreter (1,001 calls, 0.005 percent of the
+   cycles). It was run once on this tree; it has not been run against an unguarded dispatch.
+
+What was run: 15 games of the 1.6.4 batch, one conversion at a time from an empty learning state, "functions" engine: 15 of 15 match
+the interpreter on the VDP trace and the final RAM, the packed copy matches its build on both routes, and the last pass interprets at most
+4.96 percent of the cycles (Aladdin; the others 0.15 percent or less). Order independence: Action Fighter, Aladdin, Super Columns, The Lost Stars,
+Sonic Spinball (Game Gear) and Triple Trouble, converted in three different orders (6 x 3 = 18 conversions, each order from an empty
+state), give the same number of passes, the same interpreter share per pass, the same dispatch misses and the same pictures in every order.
+The learned state of a game is kept per ROM, so no game depends on another; what can differ is the state of the same game, and
+converting Aladdin, The Lost Stars and Sonic Spinball (Game Gear) again from the state the first conversion left gives the same result in a
+single pass. The packed copy's own digest differs from one conversion to the next (the same build, packed again); it is not compared.
+
+Exports: the game stamp of all nine consoles moves with `core` (the reset state is a patch in `core.py`). The Master System and Game
+Gear exports made with the "functions" engine change only by the reset state of the CPU; the banked engine is unaffected. The reset
+state costs nothing per instruction.
+
 ## Master System and Game Gear: the acceptance of an interrupt is checked state by state (1.6.7)
 
 The 1.6.6 review of the banked engine left a doubt: does an accepted interrupt set WZ to the new PC, and is the right return address
