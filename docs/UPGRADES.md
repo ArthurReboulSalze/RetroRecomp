@@ -75,11 +75,74 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
-## Exports of 1.6.6 in 1.6.7 (in development)
+## Master System and Game Gear: the "functions" engine replays the delivered copy and starts from the reset state (1.6.7)
 
-1.6.7 is not published. This section is the index of its changes (one sub-section each).
+Two changes of the "functions" engine of the two consoles, and a check that needed no change.
 
-### Lead: unpacked fallback of the packed replay
+1. **The delivered copy is replayed (gate G5).** The compressed copy of the build is now started on every route, as the banked engine
+   already did, and refused if it differs. The "functions" engine has no fresh reference for the `play` route (only the demo route is
+   compared with the interpreter), so the copy is compared with the final pass of the same build; the report says so
+   (`packed_replay`: `engine`, `compared_with`, `matched`, `routes`) and does not claim `packed_reference_match` for it. Its liveness is
+   the one the report keeps, as for the banked engine.
+2. **The documented reset state.** The pinned runner started the CPU with AF = 0 and SP = $DFF0; the reference CPU and the banked
+   engine start with AF = SP = $FFFF, as the chip does after a reset. A program that pushes AF in its first frame, before any flag
+   instruction, left a different byte on the stack (found on an authored cartridge: the RAM hash of frame 1 differed from the
+   interpreted run, the next frame agreed). The glue now starts at $FFFF with A and F at $FF. Games normally set SP at once; the 15 games
+   below all still match the interpreter after the change.
+3. **No change: the dispatch of a paged address.** The upstream commit `a92717d` (not taken, the pin stays) guards the dispatch of a
+   single compiled variant by the live bank. The converter already carries both of its hunks (1.6.3 for the direct calls, and the
+   single-variant guard in `core.patched_generator_source`). `tools/sega_bank_dispatch_check.py` writes a cartridge of its own that pages
+   $8000 from RAM, bank 2 for 5,000 frames and bank 5 afterwards (the conversion runs 3,600 frames per route, so it learns bank 2 only),
+   converts it with the "functions" engine, checks that the generated dispatch tests the bank, and runs 6,000 frames natively and
+   interpreted: the VDP traces are identical and the late bank went through the counted interpreter (1,001 calls, 0.005 percent of the
+   cycles). It was run once on this tree; it has not been run against an unguarded dispatch.
+
+What was run: 15 games of the 1.6.4 batch, one conversion at a time from an empty learning state, "functions" engine: 15 of 15 match
+the interpreter on the VDP trace and the final RAM, the packed copy matches its build on both routes, and the last pass interprets at most
+4.96 percent of the cycles (Aladdin; the others 0.15 percent or less). Order independence: Action Fighter, Aladdin, Super Columns, The Lost Stars,
+Sonic Spinball (Game Gear) and Triple Trouble, converted in three different orders (6 x 3 = 18 conversions, each order from an empty
+state), give the same number of passes, the same interpreter share per pass, the same dispatch misses and the same pictures in every order.
+The learned state of a game is kept per ROM, so no game depends on another; what can differ is the state of the same game, and
+converting Aladdin, The Lost Stars and Sonic Spinball (Game Gear) again from the state the first conversion left gives the same result in a
+single pass. The packed copy's own digest differs from one conversion to the next (the same build, packed again); it is not compared.
+
+Exports: the game stamp of all nine consoles moves with `core` (the reset state is a patch in `core.py`). The Master System and Game
+Gear exports made with the "functions" engine change only by the reset state of the CPU; the banked engine is unaffected. The reset
+state costs nothing per instruction.
+
+## Master System and Game Gear: the acceptance of an interrupt is checked state by state (1.6.7)
+
+The 1.6.6 review of the banked engine left a doubt: does an accepted interrupt set WZ to the new PC, and is the right return address
+pushed when it falls inside a repeating block instruction? Both were already right (WZ has followed the jump since 0.10.4; the PC
+the step leaves is the instruction itself while the block goes on and the next one after its last iteration). What was missing was the
+proof. `native/banked_runtime.inc` now has the acceptance in two small functions (`banked_after_step`, `banked_accept_irq`) with the
+same statements as before, and `native/banked_cpu_checks.c` (run by `tools/banked_cpu_selftest.py`) runs them against the corrected
+reference CPU on 720 states (360 execute the instruction named, 360 are HALT or NOP states: a halted CPU runs a NOP): fifteen instructions (a NOP, `LD A,I`, `LD A,R`, `EI`, `HALT`, `RETI`, and the first, a middle and the
+last iteration of `LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `OTIR`, `INDR`, `OTDR`) by IM 0, 1 and 2, interrupts enabled or not,
+a halted CPU or not, two register seeds, two stack positions; 348 of them take the interrupt. Registers, WZ, Q, P, the clock, the stack
+bytes and the RAM agree on all of them, and after a NOP the documented values (13 clocks, 19 in IM 2, return address pushed low byte
+first, two refresh increments, IFF1 and IFF2 cleared, WZ the new PC) are asserted on their own, not through the reference. A deliberate
+fault in the function (WZ one too high) fails the check. What this is not: agreement with the project's reference CPU and the
+documentation, not hardware captures, and the reference cannot show an error it shares.
+
+Exports: the behaviour of the generated game is unchanged; only the text of `runtime_glue.c` (the two functions) differs. The game
+stamps of all nine consoles move (`banked_runtime.inc` and `banked_cpu_checks.c` are inputs of every console in `stamp_inputs.py`; the
+generated game of the other consoles is the same). The interrupt path
+is taken once per interrupt, not once per instruction; the per-instruction loop gains no work.
+
+## Neo Geo: the liveness of every route (1.6.7, gate G8)
+
+The packed replays of a Neo Geo conversion run with `--trace` and every `final_checks[]` row gains `liveness` (`frames`, `distinct_pictures`,
+`picture_changes`, `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, the CPS-1 keys), read from the per-frame trace through
+`delivery_evidence.py` unchanged; a route whose picture never changes stops the conversion. Nothing the game does changes: `tools/ab_conversion.py` on
+nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, images, traces and states identical). Details:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#liveness-of-every-route-gate-g8--2-november-2026).
+
+**What moves.** The Neo Geo game stamp (`neogeo_conversion` is a converter module of its stamp groups): an export of 1.6.6 is **converted in full
+once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
+(`neogeo_conversion` is not among the modules it hashes), nor any other console.
+
+## Lead: unpacked fallback of the packed replay (1.6.7)
 
 Every conversion replays a compressed copy of the build on all its routes against the fresh reference (gate G5). On Linux
 one X68000 game builds and runs unpacked and passes `upx -t`, but its compressed copy stops at start (SIGTRAP, exit 133),
@@ -461,6 +524,20 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
 - **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
+
+## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
+
+`native/x68000_reference/CMakeLists.txt` no longer carries the `current` machine base (the earlier px68k-libretro reference, kept for private
+comparison): it named four private adapters that were never part of the public sources (`tools/x68000_hardware.py`,
+`x68000_session_hardware.py`, `x68000_disk_hardware.py`, `native/x68000_reference/adapt_upstream.cmake`), so a clean checkout could not build it.
+The hissorii base (74ddbb3) is the only one, and any other value is refused with a message. The program does not change: the generated
+code, the machine and the states are the same (a conversion of R-Type before and after gives the same trace hashes on every route).
+Two files that only that branch compiled leave the tree with it: `native/x68000_reference/session_bridge.c` and `media_probe.c` (no build named them any
+more); they are no longer stamp inputs nor public files. A conversion of R-Type after both changes gives the same CPU, RAM, picture and PCM hashes on the three routes.
+
+Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game, with no change in what
+a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
+file that is absent.
 
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 

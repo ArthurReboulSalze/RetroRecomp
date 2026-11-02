@@ -21,7 +21,7 @@ IDS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
 
 # The console-specific option keys each console's converter receives.
 OPTION_KEYS = {
-    'sms': set(), 'gg': set(), 'cps1': set(),
+    'sms': set(), 'gg': set(), 'cps1': {'qsound_rom'},
     'gb': {'gb_deep_validation', 'gb_parallel_games'},
     'nes': {'nes_advanced_scan'},
     'md': {'md_advanced_scan'}, 'snes': {'md_advanced_scan'},
@@ -161,7 +161,7 @@ class ProfileDataTests(unittest.TestCase):
         self.assertEqual({name for name in console_option_keys()
                           if any(name in OPTION_KEYS[system] for system in OPTION_KEYS)}, EVERY_KEY)
         # Options that only size the work or name firmware never enter a request.
-        self.assertEqual(unsigned_option_keys() & EVERY_KEY, {'gb_parallel_games', 'ng_parallel_games', 'ng_bios'})
+        self.assertEqual(unsigned_option_keys() & EVERY_KEY, {'gb_parallel_games', 'ng_parallel_games', 'ng_bios', 'qsound_rom'})
         parallel = {profile.id: profile.parallel_games_option for profile in ALL_PROFILES
                     if profile.parallel_games_option}
         self.assertEqual({k: v for k, v in parallel.items() if k in IDS}, {'gb': 'gb_parallel_games', 'ng': 'ng_parallel_games'})
@@ -312,7 +312,7 @@ class ProfileContractTests(unittest.TestCase):
         self.assertEqual({name for name, key in seen.items() if key.kind == 'count' and name in EVERY_KEY},
                          {'gb_parallel_games', 'ng_parallel_games'})
         self.assertEqual({name for name, key in seen.items() if key.kind == 'path' and name in EVERY_KEY},
-                         {'ng_bios', 'x68_ipl', 'x68_cgrom'})
+                         {'ng_bios', 'x68_ipl', 'x68_cgrom', 'qsound_rom'})
         self.assertEqual({name for name, key in seen.items() if key.kind == 'plan' and name in EVERY_KEY}, {'ng_qualification_routes'})
         self.assertEqual((seen['x68_ram'].choices, seen['x68_ram'].default), ((2, 4), 2))
         # Every firmware the user supplies has a path option named after it (tests/test_machine_registry.py).

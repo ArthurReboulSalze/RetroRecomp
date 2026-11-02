@@ -7,6 +7,9 @@
 typedef struct { unsigned mask; uint8_t bytes[4]; unsigned (*execute)(z80*); } RrCps1Z80Step;
 int rr_cps1_z80_code_location(uint16_t pc,uint32_t *offset);
 int rr_cps1_z80_code_byte(uint16_t pc,uint8_t *byte);
+/* Kabuki sound CPU: an instruction byte (M1) is read from the opcode view of the sound ROM, anything else from the data view. */
+int rr_cps1_z80_code_byte_m1(uint16_t pc,int m1,uint8_t *byte);
+uint8_t rr_cps1_z80_read_op(uint16_t address);
 void rr_cps1_z80_note_fallback(uint16_t pc);
 extern int rr_cps1_force_reference,rr_cps1_force_z80_reference;
 extern uint64_t rr_cps1_native_z80;

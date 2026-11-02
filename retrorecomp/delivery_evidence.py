@@ -13,10 +13,10 @@ the picture and the sound change on a route (and, with RAM and PC, that the mach
 the picture shows or how deep into the game the route goes. Which routes must move and what a silent route means (CPS-1
 refuses a route with no sound on every route, the X68000 accepts and reports it) are each machine's decision.
 
-Report fields. A machine keeps its own names in its report (`final_checks[].liveness` for CPS-1, `liveness[]` for the
-X68000): `report_fields` selects and renames from the common record. The names as they stand today:
+Report fields. A machine keeps its own names in its report (`final_checks[].liveness` for CPS-1 and Neo Geo, `liveness[]` for
+the X68000): `report_fields` selects and renames from the common record. The names as they stand today:
 
-    common key                  CPS-1 report key             X68000 report key
+    common key                  CPS-1 and Neo Geo report key X68000 report key
     frames                      frames                       frames
     distinct_pictures           distinct_pictures            distinct_pictures
     picture_changes             picture_changes              (not reported)
@@ -27,7 +27,9 @@ X68000): `report_fields` selects and renames from the common record. The names a
     distinct_ram_states         (not reported)               distinct_ram_states
     distinct_program_counters   (not reported)               distinct_program_counters
 
-Frame numbers are the machine's own (CPS-1 counts from 1, the X68000 from 0); the record keeps them as given.
+Frame numbers are the machine's own (CPS-1 and Neo Geo count from 1, the X68000 from 0); the record keeps them as given.
+`silent_sound_hash` is the per-frame sound hash of a frame of silence, for the machines (CPS-1, Neo Geo) whose runtime hashes
+each sample of a frame and write that hash in their trace: a frame is audible when its hash differs from it.
 
 Packed replay (G5). The delivered file is a compressed copy of the build: `deliver_packed` makes that copy (the build is
 never touched) and takes its SHA-256; `replay_packed` replays the copy on every route through the machine's callback and
@@ -57,6 +59,9 @@ from typing import Any, Callable, Hashable, Iterable, Mapping, NamedTuple
 
 from .conversion_gates import comparison_notice, pack_candidate, require
 
+# The per-frame sound hash of native/cps1_main.c and native/neogeo_main.c: for each sample, xor it (as uint16) then multiply.
+FNV_BASIS, FNV_PRIME, FNV_MASK = 14695981039346656037, 1099511628211, (1 << 64) - 1
+
 LIVENESS_KEYS = ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame', 'audible_frames',
                  'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states', 'distinct_program_counters')
 
@@ -73,6 +78,14 @@ class FrameRow(NamedTuple):
     audible: bool | None = None
     ram: Hashable | None = None
     pc: Hashable | None = None
+
+
+def silent_sound_hash(samples: int) -> int:
+    """The per-frame sound hash of `samples` samples that are all zero (xor with zero changes nothing, so only the multiplies)."""
+    value = FNV_BASIS
+    for _ in range(samples):
+        value = (value * FNV_PRIME) & FNV_MASK
+    return value
 
 
 def liveness_summary(rows: Iterable[FrameRow]) -> dict:

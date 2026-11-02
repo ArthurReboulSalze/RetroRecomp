@@ -111,6 +111,20 @@ class ReportFieldsTests(unittest.TestCase):
             report_fields(liveness_summary([]), {'x': 'picture_count'})
 
 
+class SilenceHashTests(unittest.TestCase):
+    def test_one_function_serves_the_cps1_and_the_neo_geo_and_is_the_hash_of_zero_samples(self):
+        from retrorecomp import delivery_evidence, neogeo_conversion
+        self.assertIs(cps1_conversion.silent_sound_hash, delivery_evidence.silent_sound_hash)
+        self.assertIs(neogeo_conversion.silent_sound_hash, delivery_evidence.silent_sound_hash)
+        basis, prime, mask = 14695981039346656037, 1099511628211, (1 << 64) - 1
+        for count in (0, 1, 4, 924):
+            value = basis
+            for _ in range(count):
+                value = ((value ^ 0) * prime) & mask           # the runtimes xor each sample (as uint16) then multiply
+            self.assertEqual(delivery_evidence.silent_sound_hash(count), value)
+        self.assertNotEqual(delivery_evidence.silent_sound_hash(3), delivery_evidence.silent_sound_hash(4))
+
+
 class AdaptersAgreeTests(unittest.TestCase):
     """CPS-1 and the X68000 read different traces; for the same route they give the same common record."""
 

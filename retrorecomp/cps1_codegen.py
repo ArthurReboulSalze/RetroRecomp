@@ -260,15 +260,19 @@ const RrCps1NativeStep *{PREFIX}_gfx_native_lookup(uint32_t pc,uint32_t offset,u
             'structural_bodies': len(forms), 'semantics_sha256': hashlib.sha256(source.encode()).hexdigest()}
 
 
-def generate_z80(project: Path, z80_source: str, audio: bytes, ram_records=()) -> dict:
-    """Every byte position of the fixed ROM and both banks, plus RAM variants."""
+def generate_z80(project: Path, z80_source: str, audio: bytes, ram_records=(), opcodes: bytes | None = None) -> dict:
+    """Every byte position of the fixed ROM and both banks, plus RAM variants.
+
+    `audio` is the sound CPU's data view of its ROM. A Kabuki board also has an opcode view (`opcodes`, as long as `audio`):
+    the instruction form of each position is read from it (cps1_kabuki.window), and the operands stay live reads of the data."""
+    from .cps1_kabuki import window as kabuki_window
     from .neogeo_z80 import Emitter
     emitter = Emitter(z80_source)
     window = audio + audio[:3]
     mapping, keys = [None] * len(audio), set()
     for start, end in ((0, Z80_FIXED), Z80_BANKS):
         for offset in range(start, min(end, len(audio))):
-            key = opcode_key(window[offset:offset + 4])
+            key = opcode_key(window[offset:offset + 4] if opcodes is None else kabuki_window(opcodes, audio, offset))
             mapping[offset] = key
             if key is not None:
                 keys.add(key)
@@ -310,18 +314,22 @@ static const RrCps1Z80Step *{PREFIX}_z80_ram_lookup(uint16_t pc) {{
 '''
     generated += '    return NULL;\n}\n'
     write_changed(project / 'cps1_z80_steps.inc', generated)
-    return {'audio_bytes': len(audio), 'audio_sha256': hashlib.sha256(audio).hexdigest(),
-            'structural_bodies': len(ordered), 'guarded_ram_variants': len(ram),
-            'translated_positions': sum(key is not None for key in mapping)}
+    result = {'audio_bytes': len(audio), 'audio_sha256': hashlib.sha256(audio).hexdigest(),
+              'structural_bodies': len(ordered), 'guarded_ram_variants': len(ram),
+              'translated_positions': sum(key is not None for key in mapping)}
+    if opcodes is not None:
+        result['kabuki_opcodes_sha256'] = hashlib.sha256(opcodes).hexdigest()
+    return result
 
 
 def generate(project: Path, board: Path, game: dict, z80_source: str, observations: dict | None = None) -> dict:
     observations = observations or {}
     program = (board / 'maincpu.bin').read_bytes()[:program_size(game)]
     audio = (board / 'audiocpu.bin').read_bytes()
+    opcodes = (board / 'audiocpu-op.bin').read_bytes() if (board / 'audiocpu-op.bin').is_file() else None
     result = {'schema': 1, 'set': game['set'],
               'm68000': generate_m68k(project, program, observations.get('m68k_ram', ()), observations.get('m68k_gfx', ())),
-              'z80': generate_z80(project, z80_source, audio, observations.get('z80_ram', ())),
+              'z80': generate_z80(project, z80_source, audio, observations.get('z80_ram', ()), opcodes),
               'knowledge_promoted': False}
     atomic_json(project / 'native-analysis.json', result)
     return result

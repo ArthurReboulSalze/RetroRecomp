@@ -73,8 +73,8 @@ def require_main_route_moving(scenario: str, liveness: dict, directory: Path) ->
 def replay_delivered(executable: Path, packed: Path, directory: Path, checks: list, references: dict,
                      replay: Callable[[Path, Path, dict], dict], differences: Callable[[dict, dict], list],
                      emit: Callable[[str], None]):
-    """Compress a copy of the build as publication does, replay it on every route and compare each result with the fresh
-    reference of the same route.
+    """Compress a copy of the build as publication does, replay it on every route and compare each result with the reference of
+    the same route: the fresh reference run of the banked engine, or the final pass of the same build for the "functions" engine.
 
     `replay(packed, directory, check)` starts the copy on the route of `check` (the same arguments as the probe that made the native
     result), writing its trace in `directory`, and returns the probe's result; `differences(result, reference)` lists the checks
@@ -98,7 +98,7 @@ def replay_delivered(executable: Path, packed: Path, directory: Path, checks: li
     def mismatch(check: dict) -> Exception:
         fields = ', '.join(differences(results[check['scenario']], references[check['scenario']])[:6])
         return ConversionError(f"Master System / Game Gear {check['scenario']}: the delivered (compressed) executable differs from "
-                               f'the fresh reference ({fields}). Previous export preserved; see {directory}.')
+                               f'its reference ({fields}). Previous export preserved; see {directory}.')
 
     replay_packed(delivered, checks, run, same=same, mismatch=mismatch)
     for check in checks:

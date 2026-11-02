@@ -256,7 +256,8 @@ class EngineTests(unittest.TestCase):
     # cps1_knowledge.GENERATOR_REVISION would let a path validated by the old code count as qualified for the
     # new one, so this test fails until both are done: raise the revision, then update the digests below.
     PINNED_SOURCES = {
-        'retrorecomp/cps1_codegen.py': None, 'retrorecomp/cps1_build.py': None, 'retrorecomp/m68000.py': None,
+        'retrorecomp/cps1_codegen.py': None, 'retrorecomp/cps1_build.py': None, 'retrorecomp/cps1_kabuki.py': None,
+        'retrorecomp/m68000.py': None,
         'retrorecomp/neogeo_codegen.py': None, 'retrorecomp/neogeo_z80.py': None, 'retrorecomp/megadrive_z80.py': None}
     PINNED_REVISION = 1
 
@@ -596,6 +597,17 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(kx.pending_since_shared('file', found), [])
         self.assertEqual(kx.pending_since_shared('account', found), [KEY])
 
+    def test_a_board_of_the_experimental_tier_is_never_collected(self):
+        # The QSound boards (CPS-1.5) keep their paths local until they leave the experimental tier: the collection reads the
+        # tier from the report's board_tier, a catalogue column, never a set name.
+        Library().keep(self, a_record())
+        found = self.collect(self.game(board_tier='experimental'))
+        self.assertEqual((found['games'], found['discoveries'], found['consoles']), (0, 0, {}))
+        self.assertEqual(found['omitted']['unqualified'], 1)
+        # the same report of a board of the supported tier is collected
+        self.assertEqual(self.collect(self.game(board_tier='supported'))['games'], 1)
+        self.assertEqual(self.collect()['games'], 1, 'a report older than the tier column is a supported board')
+
     def test_a_version_2_file_cannot_carry_it_and_does_not_mark_it_shared(self):
         Library().keep(self, a_record())
         found = self.collect()
@@ -856,6 +868,14 @@ class ReportTests(unittest.TestCase):
         stable = pp.STABLE_SHARED
         with patch.object(pp, 'SHARED_SYSTEMS', stable):
             self.assertIs(cps1_conversion.knowledge_block(record, promotion, {})['shared'], False)
+
+
+class TierTests(unittest.TestCase):
+    def test_the_report_of_an_experimental_board_says_it_does_not_share(self):
+        from retrorecomp import cps1_conversion
+        promotion = {'paths': {'m68k_ram': 1, 'z80_ram': 1}, 'm68k_ram': {}, 'm68k_gfx': {}, 'z80_ram': {}, 'truncated': False}
+        self.assertIs(cps1_conversion.knowledge_block(a_record(), promotion, {}, 'supported')['shared'], True)
+        self.assertIs(cps1_conversion.knowledge_block(a_record(), promotion, {}, 'experimental')['shared'], False)
 
 
 class LabelTests(unittest.TestCase):

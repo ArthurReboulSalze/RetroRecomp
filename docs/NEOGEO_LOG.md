@@ -13,6 +13,44 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Routes measured on exports: the AES attract and a generic two-player route, no rule — 2 November 2026
+
+For 1.6.7, read-only: copies of 16 Export executables (Export itself untouched), headless, standard clocks, a fixed RTC seed, two at a time.
+Two questions asked after the attract route of 7,200 frames (cause A) and the deferral of the second megabyte (cause B).
+
+- **Does the BIOS restart leave the same fallback in AES mode?** No. An attract with no input, `--aes`, 3,600 and 9,000 frames, on the six sets of
+  cause A (Breakers Revenge, Rage of the Dragons, Matrimelee, Metal Slug 4, Prehistoric Isle 2, Strikers 1945 Plus) and four controls (Metal Slug 3,
+  Samurai Shodown V, KOF '97, Real Bout 2): **0 interpreted 68000 and Z80 instructions everywhere**. The routine runs early in AES (8.4 million
+  instructions in RAM within the first 3,600 frames on eight of the ten, none on KOF '97 and Real Bout 2), where the `aes-attract` and `aes-play` routes
+  of every conversion already reach it. No AES rule is needed.
+- **Does a generic two-player route reach the code that stays interpreted on Twinkle Star Sprites?** No. The two-player route of `qualification_routes`
+  (credits for both, both Start, both pads pressing; the same text for every set it is given to) was run for 6,600 frames on ten exports (the four
+  2 MiB sets Twinkle Star Sprites, KOF '94, KOF '95 and Breakers Revenge among them): **0 interpreted instructions on all ten**, Twinkle Star Sprites
+  included, where its two pseudo-random routes of 18,000 frames run 1,402,301 and 606,984 interpreted instructions at 3,043 and 2,967 sites. The fixed
+  pattern never starts a versus game there. The pseudo-random route reaches it by length: 0 at 3,000 frames, 444,297 instructions (1,086 sites) at
+  6,000, 1,049,417 (1,469) at 9,000, 1,402,301 (3,043) at 15,000: a route short enough to be cheap covers a third of it. No two-player rule
+  is proposed; the deferral of the second-megabyte sweep stands ([UPSTREAMS.md](UPSTREAMS.md#deferred)).
+
+## Liveness of every route (gate G8) — 2 November 2026
+
+For 1.6.7. The Neo Geo was the one machine without a liveness record (CPS-1 and the X68000 have it through `delivery_evidence.py`). The packed
+replays of `neogeo_conversion.check_routes` now pass `--trace`; the per-frame trace the game writes (`frame,cpu,hardware,z80,image,pcm,samples`:
+one picture hash and one sound hash per frame) is read by `neogeo_conversion.trace_rows` into the shared `FrameRow`, and `route_liveness` returns the CPS-1
+record (`liveness_summary` and `report_fields`, unchanged). A frame is audible when its sound hash is not the hash of silence for its number of
+samples (`delivery_evidence.silent_sound_hash`, one function for the CPS-1 and the Neo Geo, hoisted there from `cps1_conversion` on 2 November). `require_moving_picture`
+stops the conversion for a route whose picture never changes ("the game is stuck"), for every route, MVS and AES, as on the CPS-1.
+
+- **Result.** `tools/ab_conversion.py` on nam1975, base against this tree: the only differences are the 42 new fields (6 keys on 7 routes); every
+  hash, frame image, trace and state is identical. Conversions of Puzzle De Pon!, Metal Slug 3 and The Irritating Maze with this tree: 0 interpreted
+  opcodes, every route moves: from 1,407 picture changes (attract) to 5,368, from 3,220 audible frames of 3,600 to all of 7,200 on the play routes.
+  The record of NAM-1975: 1,948 to 4,679 changes, 3,328 to 11,466 audible frames over 3,600 to 13,800 frames.
+- **Not done / limits.** Four sets read, not the library; the record says nothing of what the picture shows or how deep the route goes;
+  the trace makes the delivered file also write the CPU, hardware and Z80 hashes of each frame (a per-frame cost of the replays only; the game a
+  player runs writes no trace).
+- **Files.** `retrorecomp/neogeo_conversion.py`, `tests/test_neogeo_liveness.py` (authored traces: the silence hash, a moving picture with a late sound,
+  a frozen route refused, the layout of the trace), `tests/conversion_gates_golden.json` (the recorded packed replays gain the `--trace` argument, the
+  `liveness` record and one refusal scenario, nothing else).
+
 ## Independent Z80 vectors replayed through the Neo Geo generator — 1 November 2026
 
 For 1.6.6 (gate G10, CPU evidence), on the tree after the 19 corrections of the Geolith Z80 core (`neogeo_z80.FIXES`, from the CPS-1 work). The

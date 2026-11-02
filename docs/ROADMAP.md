@@ -34,9 +34,10 @@ X68000, the runtime code of the current consoles is now stable and already
 highly optimized on Windows and Linux, and further speed gains there should be
 modest. For these consoles, the main ongoing work is breadth: more titles and
 more verified entries in the shared compilation library, added step by step.
-The X68000 continues its experimental phase: automatic disk changes, loading
-speed, low-power Linux performance and sound, mouse checks and a wider game
-campaign remain before it leaves that phase.
+The X68000 continues its experimental phase: independent CPU and hardware
+evidence, a named panel of games, low-power Linux performance and the owner's
+own play test remain before it can leave that phase; automatic disk changes,
+mouse checks and D88 images are in place.
 
 ## Next machines
 

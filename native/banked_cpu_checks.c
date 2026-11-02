@@ -105,6 +105,83 @@ static unsigned check_irq_bus(void) {
     printf("IRQ_BUS_CHECKS=4 FAILED=%u\n", failed);
     return failed;
 }
+/* The acceptance of an interrupt (banked_after_step) against the reference CPU, state by state. The instruction that precedes it
+ * is run by the reference alone (so its flags, WZ, Q and P are the reference's); then the same state takes the interrupt in the
+ * native run-loop code and, from the same start, in the reference. Registers, WZ, Q, P, the clock, the stack bytes and the RAM must
+ * agree. Covers IM 0, 1 and 2, IFF1, a halted CPU, the PV flag after LD A,I / LD A,R, EI's delay, and each stage of a repeating
+ * block instruction (its first, a middle and its last iteration, with the return address that follows). */
+static unsigned check_irq_acceptance(void) {
+    static const struct { const char *name; uint8_t code[4]; unsigned length; unsigned bc; } program[] = {
+        {"NOP", {0x00}, 1, 2}, {"LD A,I", {0xed, 0x57}, 2, 2}, {"LD A,R", {0xed, 0x5f}, 2, 2}, {"EI", {0xfb}, 1, 2},
+        {"HALT", {0x76}, 1, 2}, {"RETI", {0xed, 0x4d}, 2, 2},
+        {"LDIR bc=3", {0xed, 0xb0}, 2, 3}, {"LDIR bc=1", {0xed, 0xb0}, 2, 1}, {"LDDR bc=2", {0xed, 0xb8}, 2, 2},
+        {"CPIR bc=3", {0xed, 0xb1}, 2, 3}, {"CPDR bc=1", {0xed, 0xb9}, 2, 1},
+        {"INIR b=2", {0xed, 0xb2}, 2, 0x0213}, {"OTIR b=2", {0xed, 0xb3}, 2, 0x0213},
+        {"INDR b=1", {0xed, 0xba}, 2, 0x0113}, {"OTDR b=1", {0xed, 0xbb}, 2, 0x0113}};
+    unsigned failed = 0, cases = 0, accepted = 0;
+    for (unsigned item = 0; item < sizeof program / sizeof *program; ++item) {
+        for (unsigned im = 0; im < 3; ++im) for (unsigned iff = 0; iff < 2; ++iff) for (unsigned halted = 0; halted < 2; ++halted)
+        for (unsigned seed = 0; seed < 2; ++seed) for (unsigned reg_i = 0; reg_i < 2; ++reg_i) {
+            Z80State start = initial_cpu(0xc100, seed);
+            start.im = (uint8_t)im; start.iff1 = start.iff2 = iff != 0; start.halted = halted != 0;
+            start.i = reg_i ? 0xc1 : 0x17; start.r = reg_i ? 0x7f : 0xfd;
+            if (program[item].bc > 0xff) { start.b = (uint8_t)(program[item].bc >> 8); start.c = (uint8_t)program[item].bc; }
+            else { start.b = 0; start.c = (uint8_t)program[item].bc; }
+            start.sp = reg_i ? 0xc001 : 0xdff0;
+            /* the instruction alone */
+            reset_case(start);
+            for (unsigned i = 0; i < program[item].length; ++i) g_ram[0x100 + i] = program[item].code[i];
+            g_ram[0x102] = 0x00;
+            uint8_t after_ram[8192]; Z80State after;
+            state_to_hz(); g_hz.pc = 0xc100; g_hz.cyc = 0; g_hz.int_pending = 0;
+            z80_step(&g_hz); state_from_hz(); g_z80.pc = g_hz.pc; g_z80.cyc = g_hz.cyc;
+            after = g_z80; memcpy(after_ram, g_ram, sizeof after_ram);
+            /* the reference takes the interrupt after the same instruction */
+            reset_case(start);
+            for (unsigned i = 0; i < program[item].length; ++i) g_ram[0x100 + i] = program[item].code[i];
+            g_ram[0x102] = 0x00;
+            g_vdp.reg[1] = 0x20; g_vdp.frame_irq = true;
+            state_to_hz(); g_hz.pc = 0xc100; g_hz.cyc = 0; reference_cycle_base = 0;
+            reference_sample_irq(); z80_step(&g_hz); state_from_hz(); g_z80.pc = g_hz.pc; g_z80.cyc = g_hz.cyc;
+            Z80State expected = g_z80; uint8_t expected_ram[8192]; memcpy(expected_ram, g_ram, sizeof expected_ram);
+            /* the reference keeps EI's delay marker until the next step consumes it; the native loop consumes it at the completion */
+            expected.ei_block = 0;
+            if (expected.sp != after.sp) ++accepted;   /* the interrupt pushed a return address */
+            /* the native loop takes it from the state the instruction left */
+            reset_case(start);
+            g_z80 = after; memcpy(g_ram, after_ram, sizeof g_ram);
+            banked_after_step(1);   /* the level the loop latched at the start of the step */
+            ++cases;
+            if (item == 0 && !halted && iff && !reg_i) {   /* the stack in RAM: SP $DFF0 */
+                /* The documented acceptance after a NOP, from the Zilog manual and the Sega documents rather than from the
+                 * reference: 13 clocks (19 in IM 2) after the NOP's 4, the return address pushed low byte first, two refresh
+                 * increments, IFF1 and IFF2 cleared, WZ the new PC. */
+                uint16_t vector = sms_read16((uint16_t)((start.i << 8) | 0xff));
+                uint16_t target = im == 2 ? vector : 0x0038;
+                uint8_t refresh = (uint8_t)((start.r & 0x80) | ((start.r + 2) & 0x7f));
+                uint16_t sp = (uint16_t)(start.sp - 2);
+                if (g_z80.pc != target || g_z80.wz != target || g_z80.sp != sp || g_z80.r != refresh || g_z80.iff1 || g_z80.iff2 ||
+                        g_z80.cyc != 4u + (im == 2 ? 19u : 13u) ||
+                        g_ram[sp & 0x1fff] != 0x01 || g_ram[(sp + 1) & 0x1fff] != 0xc1) {
+                    ++failed;
+                    printf("IRQ FAIL documented values after NOP im=%u: pc=%04X sp=%04X r=%02X cyc=%llu\n", im, g_z80.pc, g_z80.sp,
+                           g_z80.r, (unsigned long long)g_z80.cyc);
+                }
+            }
+            if (!same_cpu(&g_z80, &expected) || memcmp(g_ram, expected_ram, sizeof g_ram)) {
+                if (failed++ < 12)
+                    printf("IRQ FAIL %s im=%u iff=%u halted=%u seed=%u: native pc=%04X sp=%04X af=%04X r=%02X cyc=%llu wz=%04X q=%02X p=%u iff1=%u ei=%u / reference pc=%04X sp=%04X af=%04X r=%02X cyc=%llu wz=%04X q=%02X p=%u iff1=%u ei=%u ram=%d\n",
+                        program[item].name, im, iff, halted, seed, g_z80.pc, g_z80.sp, z80_af(&g_z80), g_z80.r,
+                        (unsigned long long)g_z80.cyc, g_z80.wz, g_z80.q, g_z80.p, g_z80.iff1, g_z80.ei_block,
+                        expected.pc, expected.sp, z80_af(&expected), expected.r, (unsigned long long)expected.cyc,
+                        expected.wz, expected.q, expected.p, expected.iff1, expected.ei_block,
+                        memcmp(g_ram, expected_ram, sizeof g_ram) != 0);
+            }
+        }
+    }
+    printf("IRQ_ACCEPT_CHECKS=%u ACCEPTED=%u FAILED=%u\n", cases, accepted, failed);
+    return failed;
+}
 int main(void) {
     if (!glue_load_rom("embedded")) return 2;
     z80_init(&g_hz); g_hz_init = true;
@@ -155,5 +232,6 @@ int main(void) {
     printf("CHECKS=%u MISSES=%u FAILED=%u OPCODE_KINDS=%u\n", checks, misses, failed, kinds);
     failed += check_bit_bus();
     failed += check_irq_bus();
+    failed += check_irq_acceptance();
     return failed || misses ? 1 : 0;
 }
