@@ -188,24 +188,30 @@ comparisons with another emulator in its own repository; they are not run by thi
 | Measure | What this page can say |
 |---|---|
 | Native code | Interpreter sessions, one-by-one executors and uncounted helpers are three separate lines; ROM code on the tested scenarios is ahead-of-time code |
-| CPU fidelity | Generated code equal to the pinned interpreter on the tested frames (not independent); the interpreter itself checked against independent vectors, with one real difference, `EI` |
+| CPU fidelity | Generated code equal to the pinned interpreter on the tested frames (not independent); the interpreter itself checked against independent vectors (two conventions of the vector model remain, `STOP` and `HALT`) |
 | Hardware fidelity | Not measured here; see the machine page |
 | Gameplay validation | Scripted probes, never a completed game |
 | Physical latency | Not measured |
 
-**Independent vectors (1.6.7, gate G10).** The interpreter matches 401,724 of the 404,358 vectors it is given. The 2,634 that differ
-are three opcodes, each pinned with its number in the tool and its reason:
+**Independent vectors (1.6.7, gate G10).** The interpreter matches 402,589 of the 404,358 vectors it is given. The 1,769 that differ are two
+opcodes, each pinned with its number in the tool and its reason, both conventions of the vector model:
 
 | Opcode | Vectors | What differs |
 |---|---|---|
-| `STOP` (`10`) | 872 | The vectors count one byte and three machine cycles, the runtime skips the padding byte (two bytes, as Pan Docs says is normal) and does not give the low-power wait a cycle count. A modelling convention of the vector set. |
+| `STOP` (`10`) | 872 | The vectors count one byte and three machine cycles, the runtime skips the padding byte (two bytes, as Pan Docs says is normal) and does not give the low-power wait a cycle count. |
 | `HALT` (`76`) | 897 | The vectors give three machine cycles, the runtime four cycles and then the halted ticks until an interrupt is flagged. Registers, memory and PC agree. |
-| `EI` (`FB`) | 865 | **A real difference from the console.** Pan Docs and the vectors enable IME after the instruction that follows `EI`; the pinned runtime sets it when `EI` itself completes, in the interpreter, in the generated code and in the RAM executors alike. Native and interpreter agree with each other, so no lockstep comparison can show it. It matters only when an interrupt is already pending at the `EI` (an `EI` followed by `HALT` or `DI`, or by a `RET` in a handler). |
 
-The one-instruction RAM executor matches 51,523 of the 51,654 vectors it takes (the 131 that differ are `EI`); the RAM dispatch, which tries the
-store helper, the upstream stub and then the executor, matches 58,022 of the 58,153 it takes and leaves 638 to an interpreter session: `STOP`, `HALT` and
-the eight `RST`, the documented limit of the executors. A vector whose final value is altered by one is caught on all three paths. The
-undocumented opcodes are not in the corpus.
+`EI` (`FB`, 865 vectors) differed until 1.6.7 and is fixed: the vectors and Pan Docs ("delayed by one instruction") set IME after the instruction that
+follows `EI`, and the pinned runtime set it when `EI` itself completed. In ordinary flow that was not visible, because the interrupt test inside
+`gb_tick` ran before the pending flag was promoted and so put the interrupt after the next instruction by accident; a cartridge authored for the
+case (`tools/gameboy_ei_check.py`) gave the console's answers on all eight cases before and after. It was visible in the IME state between the two
+instructions, and in the lockstep comparison, whose one-step loop took an interrupt right after an `EI` (Super Mario Land, boot, `EI` at `$042C`)
+where a normal run did not. The rule is now one for the interpreter, the generated code, the RAM executors and the upstream stub: the pending flag
+goes 0, 1 (`EI` just ran), 2, then IME, promoted at the start of each tick, before the interrupt test ([UPGRADES.md](UPGRADES.md#game-boy-ei-enables-ime-one-instruction-later-167)).
+
+The one-instruction RAM executor matches all 51,654 vectors it takes; the RAM dispatch, which tries the store helper, the upstream stub and then
+the executor, matches all 58,153 it takes and leaves 638 to an interpreter session: `STOP`, `HALT` and the eight `RST`, the documented limit of the
+executors. A vector whose final value is altered by one is caught on all three paths. The undocumented opcodes are not in the corpus.
 
 ## 7. Deep dives
 

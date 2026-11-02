@@ -25,8 +25,10 @@ from retrorecomp.resources import embed_resources
 from retrorecomp.paths import ASSETS
 import fetch_sm83_vectors as corpus
 
-# The three families on which the pinned runtime differs from the vectors, with the number of vectors that differ on each path
-# (the corpus is pinned, so the numbers are exact) and why. A new difference, or a changed number, fails the run.
+# The two families on which the runtime differs from the vectors, with the number of vectors that differ on each path (the corpus is
+# pinned, so the numbers are exact) and why: both are conventions of the vector model. A new difference, or a changed number, fails
+# the run. EI was a third until 1.6.7: the pinned runtime set IME when EI completed (865 vectors); gameboy_runtime.adapt_ei_delay
+# now delays it by one instruction, as the vectors and Pan Docs have it.
 KNOWN = {
     '10': {'interpreter': 872, 'ram_executor': 0, 'ram_dispatch': 0,
            'reason': 'STOP: the vectors count it as one byte and three machine cycles; the runtime skips its padding byte (two bytes, '
@@ -36,15 +38,9 @@ KNOWN = {
     '76': {'interpreter': 897, 'ram_executor': 0, 'ram_dispatch': 0,
            'reason': 'HALT: the vectors give three machine cycles; the runtime spends four cycles on the instruction and then ticks '
                      'while the CPU is halted until an interrupt is flagged. Registers, memory and PC agree; only the cycle count of '
-                     'a model that has no wake-up differs.'},
-    'fb': {'interpreter': 865, 'ram_executor': 131, 'ram_dispatch': 131,
-           'reason': 'EI: the vectors (and Pan Docs: "delayed by one instruction") enable IME after the instruction that follows EI; the '
-                     'pinned runtime sets it when EI itself completes (gb_tick promotes the pending flag at the end of the EI tick), in '
-                     'the interpreter, in the generated code and in the RAM executors alike. Native and interpreter agree with each '
-                     'other, so no lockstep comparison can show it. A real difference from the console, visible only when an interrupt '
-                     'is already pending at the EI.'}}
+                     'a model that has no wake-up differs.'}}
 # What the pinned corpus gives on each path (exact, since the corpus is pinned).
-EXPECTED = {'interpreter': (404358, 401724), 'ram_executor': (51654, 51523), 'ram_dispatch': (58153, 58022)}
+EXPECTED = {'interpreter': (404358, 402589), 'ram_executor': (51654, 51654), 'ram_dispatch': (58153, 58153)}
 # The opcodes the RAM dispatch leaves to an interpreter session (the documented limit of the executors: HALT, STOP and RST).
 LEFT_TO_THE_INTERPRETER = {'10', '76', 'c7', 'cf', 'd7', 'df', 'e7', 'ef', 'f7', 'ff'}
 

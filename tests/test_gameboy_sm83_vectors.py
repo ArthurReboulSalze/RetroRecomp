@@ -86,8 +86,11 @@ class SelftestPinTests(unittest.TestCase):
             self.assertGreater(len(row['reason']), 80, name)
             self.assertTrue({'interpreter', 'ram_executor', 'ram_dispatch'} <= set(row), name)
 
-    def test_the_ei_difference_is_named_as_a_difference_from_the_console(self):
-        self.assertIn('real difference', selftest.KNOWN['fb']['reason'].lower())
+    def test_only_stop_and_halt_remain_and_ei_is_not_excused(self):
+        # EI was a real difference until 1.6.7 (IME set when EI completed); it is fixed in the runtime and must not be excused again.
+        self.assertEqual(set(selftest.KNOWN), {'10', '76'})
+        for row in selftest.KNOWN.values():
+            self.assertIn('vector', row['reason'].lower())       # each is said to be a matter of the vector model
 
     def test_the_dispatch_leaves_only_halt_stop_and_rst_to_the_interpreter(self):
         self.assertEqual(selftest.LEFT_TO_THE_INTERPRETER, {'10', '76', 'c7', 'cf', 'd7', 'df', 'e7', 'ef', 'f7', 'ff'})

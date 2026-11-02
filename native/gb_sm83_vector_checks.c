@@ -76,7 +76,7 @@ static void load(GBContext* ctx, const Vector* v) {
     ctx->a = v->a; ctx->b = v->b; ctx->c = v->c; ctx->d = v->d; ctx->e = v->e; ctx->h = v->h; ctx->l = v->l;
     ctx->f_z = (v->f >> 7) & 1; ctx->f_n = (v->f >> 6) & 1; ctx->f_h = (v->f >> 5) & 1; ctx->f_c = (v->f >> 4) & 1;
     ctx->sp = v->sp; ctx->pc = v->pc;
-    ctx->ime = v->ime; ctx->ime_pending = v->ei;
+    ctx->ime = v->ime; ctx->ime_pending = v->ei ? 2 : 0;    /* 2: EI ran at the instruction before, IME comes after this one */
     ctx->halted = ctx->stopped = ctx->stop_mode_active = ctx->halt_bug = 0;
     gb_write8(ctx, 0xFF0F, 0x00);
     gb_write8(ctx, 0xFFFF, v->ie);

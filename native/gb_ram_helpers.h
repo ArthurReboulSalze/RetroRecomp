@@ -64,7 +64,7 @@ static inline uint8_t rr_gb_try_copy_helper(GBContext* ctx, uint16_t addr) {
             else if (entry == (kind ? 1u : 0u)) { ctx->ime=0; ctx->ime_pending=0; gb_tick(ctx,4); }
             else if (entry == (kind ? 4u : 3u)) { gb_bit(ctx,1,ctx->a); gb_tick(ctx,8); }
             else if (entry == 8) { gbrt_timed_bus_write8(ctx,kind ? ctx->hl : ctx->de,kind ? ctx->d : ctx->a,7); }
-            else if (entry == 9) { ctx->ime_pending=1; gb_tick(ctx,4); }
+            else if (entry == 9) { if (!ctx->ime_pending) ctx->ime_pending=1; gb_tick(ctx,4); }
             else if (entry == 10) { gbrt_timed_inc16(ctx,kind ? &ctx->hl : &ctx->de); }
             else if (entry == 11) { gbrt_timed_dec16(ctx,&ctx->bc); }
             else if (entry == 12) { ctx->a=ctx->c; gb_tick(ctx,4); }
@@ -115,7 +115,7 @@ static inline uint8_t rr_gb_try_interrupt_dma_helper(GBContext* ctx, uint16_t ad
         return 1;
     }
     if (addr >= 10 && rr_gb_interrupt_dma_matches(ctx, (uint16_t)(addr - 10))) {
-        ctx->ime_pending = 1;
+        if (!ctx->ime_pending) ctx->ime_pending = 1;
         ctx->pc = (uint16_t)(addr + 1);
         gb_tick(ctx, 4);
         return 1;
@@ -274,7 +274,7 @@ static inline uint8_t rr_gb_try_ram_instruction(GBContext* ctx, uint16_t addr) {
         case 0xE5: gbrt_timed_push16(ctx, ctx->hl); cycles = 0; break;
         case 0xF5: gb_pack_flags(ctx); gbrt_timed_push16(ctx, ctx->af & 0xFFF0); cycles = 0; break;
         case 0xF3: ctx->ime = 0; ctx->ime_pending = 0; break;
-        case 0xFB: ctx->ime_pending = 1; break;
+        case 0xFB: if (!ctx->ime_pending) ctx->ime_pending = 1; break;
         case 0xCB: {                                /* CB prefix: rotates and shifts, BIT, RES, SET */
             const uint8_t cb = gb_read8(ctx, (uint16_t)(addr + 1));
             const unsigned reg = cb & 7u, bit = (cb >> 3) & 7u;

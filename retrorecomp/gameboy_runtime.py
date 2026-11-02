@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from shutil import copyfile
 
-from .core import replace_once
+from .core import ConversionError, replace_once
 from .paths import ASSETS
 from . import __version__
 
@@ -54,6 +54,55 @@ def adapt_wisdom_tree(source: str) -> str:
         '        }')
     return replace_once(source, '    ctx->rom_bank = 1;\n    ctx->ram_bank = 0;',
         '    ctx->rom_bank = 1;\n    if (ctx->rr_wisdom_tree) ctx->rom_bank = 0;\n    ctx->ram_bank = 0;')
+
+
+# EI enables IME after the instruction that follows it (Pan Docs, "Interrupts"; the vectors of SingleStepTests/sm83; EI followed by DI
+# lets no interrupt in between). The pinned runtime stored ime_pending = 1 for EI and turned it into IME at the END of the same tick
+# (EI's own), in the interpreter, in the generated code and in the stubs alike. Its interrupt test, which runs inside gb_tick before
+# that line, lagged one tick behind, which put the interrupt after the next instruction in ordinary flow, but IME itself was already
+# set after EI: the state the vectors see, and what the dispatch loop sees when EI is the last instruction of a block or a
+# single-step is taken.
+# ime_pending now has three values: 0, 1 (EI just ran) and 2 (the instruction after EI is next). The FIRST thing every tick does is
+# move 1 to 2 (that is EI's own tick, its only one) and 2 to IME (the first tick of the next instruction); the interrupt test then
+# runs with IME already set, so the interrupt is taken right after that instruction. DI clears the flag. An EI that finds it
+# already armed leaves it (EI, EI: IME is on after the second, as on the console).
+EI_PROMOTE = 'if (ctx->ime_pending) { ctx->ime = 1; ctx->ime_pending = 0; }'
+EI_PROMOTE_FIRST = ('if (ctx->ime_pending) { if (ctx->ime_pending == 1) ctx->ime_pending = 2; '
+                    'else { ctx->ime = 1; ctx->ime_pending = 0; } }')
+EI_ARM = 'ctx->ime_pending = 1;'
+EI_ARM_ONCE = 'if (!ctx->ime_pending) ctx->ime_pending = 1;'
+
+
+def adapt_ei_delay(source: str) -> str:
+    """The delayed EI in gbrt.c: the promotion moves from the three ends of gb_tick to its start, and the upstream high-memory stub,
+    which set IME directly (and whose DI left a pending EI standing), follows the same rule."""
+    line = re.compile(r'^[ ]+' + re.escape(EI_PROMOTE) + r'\n', re.M)
+    if len(line.findall(source)) != 3 or source.count(EI_PROMOTE) != 3:
+        raise ConversionError(f'gbrt.c has {source.count(EI_PROMOTE)} IME promotions in gb_tick, expected 3.')
+    source = line.sub('', source)
+    source = replace_once(source, '    static uint32_t last_log = 0;\n',
+                          '    static uint32_t last_log = 0;\n    ' + EI_PROMOTE_FIRST + '\n')
+    source = replace_once(source, '        case 0xF3: /* DI */\n            ctx->ime = 0;\n',
+                          '        case 0xF3: /* DI */\n            ctx->ime = 0;\n            ctx->ime_pending = 0;\n')
+    return replace_once(source, '        case 0xFB: /* EI */\n            ctx->ime = 1;\n',
+                        '        case 0xFB: /* EI */\n            ' + EI_ARM_ONCE + '\n')
+
+
+def adapt_ei_delay_interpreter(code: str) -> str:
+    return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
+                        'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
+
+
+def adapt_ei_delay_generated(project: Path) -> int:
+    """The generated bodies store the same arming for every EI they translate; the same rule. Returns how many were changed."""
+    changed = 0
+    for path in sorted(project.glob('game_funcs_*.c')):
+        source = path.read_text(encoding='utf-8').replace(EI_ARM_ONCE, EI_ARM)       # so that a second run changes nothing
+        count = source.count(EI_ARM)
+        if count:
+            path.write_text(source.replace(EI_ARM, EI_ARM_ONCE), encoding='utf-8', newline='')
+            changed += count
+    return changed
 
 
 def adapt_differential(project: Path) -> None:
@@ -213,6 +262,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    return ram_result && rtc_result;\n}',
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     source = adapt_wisdom_tree(source)
+    source = adapt_ei_delay(source)
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have
@@ -243,7 +293,9 @@ static void rr_gb_feedback(GBContext *ctx) {
                         helper + '\nvoid gb_interpret(GBContext* ctx, uint16_t addr) {')
     code = replace_once(code, '        uint8_t opcode;\n        if (ctx->halt_bug)',
                         '        rr_gb_feedback(ctx);\n        uint8_t opcode;\n        if (ctx->halt_bug)')
+    code = adapt_ei_delay_interpreter(code)
     interpreter.write_text(code, encoding='utf-8')
+    adapt_ei_delay_generated(project)
 
     # Writable code keeps live byte guards, one instruction per dispatch and
     # the normal interrupt/frame safepoints. Unknown or modified RAM stays

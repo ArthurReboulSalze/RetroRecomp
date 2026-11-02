@@ -132,7 +132,7 @@ static void run_scenario(unsigned scenario, unsigned operations) {
             if (rnd() & 1u) { gb_reset_frame(a); gb_reset_frame(b); }   /* the frame loop of the host */
             else { a->frame_done = b->frame_done = 0; }
         } else {
-            const uint8_t ime = (uint8_t)(rnd() & 1u), pending = (uint8_t)(rnd() & 1u);
+            const uint8_t ime = (uint8_t)(rnd() & 1u), pending = (uint8_t)(rnd() % 3u);
             a->ime = b->ime = ime; a->ime_pending = b->ime_pending = pending;
         }
         compare_cheap(a, b, scenario, op);
