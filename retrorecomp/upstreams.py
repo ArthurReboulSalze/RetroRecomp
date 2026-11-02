@@ -187,7 +187,18 @@ SST_M68000 = Upstream(
     Pin('json', 'tests/fixtures/md-prefetch/cases.json', 'revision'),
     also=(Pin('json', 'tests/fixtures/md-exceptions/cases.json', 'revision'),), shared_by=('md',))
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_M68000)
+SST_65816 = Upstream(
+    'SingleStepTests/65816', 'SingleStepTests/65816', 'main', 'independent 65816 test vectors (development tests only)', 'MIT',
+    'fetched on demand by tools/fetch_snes_vectors.py into .deps (an evenly spaced sample of each family, the whole corpus '
+    'checked against a pinned digest); not shipped',
+    _py('tools/fetch_snes_vectors.py', 'REVISION_65816'), shared_by=('snes',))
+SST_SPC700 = Upstream(
+    'SingleStepTests/spc700', 'SingleStepTests/spc700', 'main', 'independent SPC700 test vectors (development tests only)', 'MIT',
+    'fetched on demand by tools/fetch_snes_vectors.py into .deps (an evenly spaced sample of each family, the whole corpus '
+    'checked against a pinned digest); not shipped',
+    _py('tools/fetch_snes_vectors.py', 'REVISION_SPC700'), shared_by=('snes',))
+
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_M68000, SST_65816, SST_SPC700)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),
