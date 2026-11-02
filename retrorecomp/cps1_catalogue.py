@@ -10,12 +10,12 @@ import json
 from .paths import ASSETS
 
 RESOURCE = 'assets/cps1-catalogue.json'
-SHA256 = 'ce2b321d25750f92e40de9a2c12b6774986c6de2cdad1c60cfc3c895ef5b0a54'
+SHA256 = 'c026949db4da913e1d70cc72d235f6a229e54ffe7a61e5b669546738ddc50413'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 MAX_BYTES = 2 * 1024 * 1024
 # Phase 1 runs standard 10/12 MHz boards: 68000, Z80, YM2151, OKI MSM6295.
 REASONS = {
-    'qsound': 'QSound boards (Kabuki-encrypted Z80 and QSound DSP) are not supported yet.',
+    'qsound': 'This Chinese bootleg board uses neither the QSound chip nor the CPS-1 sound hardware.',
     'dial': 'Forgotten Worlds boards need the rotary dial controller, which is not supported yet.',
     'eeprom': 'Pang! 3 boards (serial EEPROM, encrypted graphics) are not supported yet.',
     'timekeeper': 'Ganbare! Marine Kun boards (timekeeper RAM, raster interrupt) are not supported yet.',
@@ -94,9 +94,16 @@ def supported(game: dict) -> bool:
     return game['support'] == 'phase1'
 
 
+def tier(game: dict) -> str:
+    """'supported' for the CPS-1 boards, 'experimental' for the board families that joined later (the QSound boards of the
+    CPS-1.5, since 1.6.7): a column of the catalogue, so the status of a conversion never depends on the name of a set."""
+    return game.get('tier', 'supported')
+
+
 def qualification_candidate(game: dict) -> bool:
-    """MAME-guessed graphics mappers and suspect dumps never count as evidence."""
-    return supported(game) and game['mapper_verified'] and not any(item['bad_dump'] for item in files(game))
+    """MAME-guessed graphics mappers and suspect dumps never count as evidence, nor does a board of the experimental tier
+    (its evidence is its own, docs/CPS1.md)."""
+    return supported(game) and tier(game) == 'supported' and game['mapper_verified'] and not any(item['bad_dump'] for item in files(game))
 
 
 def unsupported_reason(game: dict) -> str:

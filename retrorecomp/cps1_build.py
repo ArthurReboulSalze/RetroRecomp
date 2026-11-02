@@ -21,7 +21,7 @@ from .platforms import build_executable, cmake_target_args, build_jobs, sdl_inst
 YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
 NATIVE_FILES = ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h',
-                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c')
+                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h')
 AOT_FILES = ('cps1_native.c', 'cps1_native.h', 'cps1_z80_native.h', 'm68000_state_helpers.h')
 MUSASHI_FILES = ('m68k.h', 'm68kcpu.c', 'm68kcpu.h', 'm68kops.c', 'm68kops.h', 'm68kfpu.c', 'm68kmmu.h')
 YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp')
@@ -171,7 +171,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if(MSVC)
   add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)
 endif()
-set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp
+set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c engine/ymfm/ymfm_opm.cpp)
 function(cps1_library name)
   add_library(${name} STATIC ${CPS1_BOARD} ${ARGN})
@@ -241,7 +241,7 @@ def build_native(board: Path, game: dict, observations: dict | None = None,
 
 # ------------------------------------------------------------------ game build
 
-HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_state.c',
+HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'cps1_persistence.c', 'cps1_persistence.h', 'console16_state.c',
               'console16_state.h', 'console16_video.h', 'platform_io.c', 'platform_io.h',
               'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h',
               'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
@@ -250,7 +250,8 @@ HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_state.c',
 NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 'licenses/musashi.md',
                 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
                 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
-PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin')
+PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin', 'qsound.bin',
+                'audiorom_raw.bin')
 # Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
 ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
            'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}
@@ -321,7 +322,7 @@ def state_config(game_set, title: str) -> str:
     from .core import executable_name, module_fingerprint
     abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
-                 'cps1_host.c', 'cps1_native.c'):
+                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h'):
         abi.update((ASSETS / 'native' / name).read_bytes())
     for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
@@ -409,7 +410,7 @@ endif()
 target_compile_definitions(cps1_native PUBLIC CPS1_FEEDBACK=1)
 set(GEO "{geolith.as_posix()}")
 find_package(SDL2 CONFIG REQUIRED)
-add_executable(game cps1_main.c cps1_host.c {' '.join(hostkit.sources('cps1'))} console16_state.c retro_menu.c
+add_executable(game cps1_main.c cps1_host.c cps1_persistence.c {' '.join(hostkit.sources('cps1'))} console16_state.c retro_menu.c
   "${{GEO}}/deps/miniz/miniz.c")
 target_include_directories(game PRIVATE "${{GEO}}/deps/miniz")
 if(WIN32)

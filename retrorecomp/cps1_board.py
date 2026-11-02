@@ -16,7 +16,7 @@ from . import cps1_catalogue, cps1_kabuki
 LAYOUTS = {'load': (1, 0, False), 'load16_byte': (1, 1, False), 'load16_word': (1, 0, False),
            'load16_word_swap': (2, 0, True), 'load32_byte': (1, 3, False),
            'load64_byte': (1, 7, False), 'load64_word': (2, 6, False)}
-RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars', 'audiocpu-op')
+RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars', 'audiocpu-op', 'qsound', 'audiorom_raw')
 PORTS = ('IN0', 'IN1', 'IN2', 'IN3', 'DSWA', 'DSWB', 'DSWC')
 
 
@@ -94,7 +94,8 @@ def descriptor(game: dict) -> str:
     """Plain key/value text read by the C runtime (no JSON parser there)."""
     data = cps1_catalogue.catalogue()
     board, mapper = data['boards'][game['board']], data['mappers'][game['mapper']]
-    clock = 12000000 if game['machine'] == 'cps1_12MHz' else 10000000
+    qsound = game['machine'] == 'qsound'      # the CPS-1.5 board: a 12 MHz CPS-1 with a Kabuki Z80 and a QSound chip
+    clock = 12000000 if game['machine'] == 'cps1_12MHz' or qsound else 10000000
     lines = ['cps1-board 1', 'set ' + game['set'], f'cpu_clock {clock}',
              f'id {board["id_address"]} {board["id_value"]}',
              'mult {} {} {} {}'.format(board['mult_factor1'], board['mult_factor2'],
@@ -106,6 +107,8 @@ def descriptor(game: dict) -> str:
              'bank_sizes ' + ' '.join(map(str, mapper['bank_sizes'])),
              'ports ' + ' '.join(map(str, game['ports'])), f'kludge {game["kludge"]}',
              f'rotation {game["rotation"]}']
+    if qsound:
+        lines += ['machine qsound', 'z80_clock 8000000']
     lines += ['range ' + ' '.join(map(str, row)) for row in mapper['ranges']]
     for port in PORTS:
         if port in game['inputs']:

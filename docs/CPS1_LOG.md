@@ -24,6 +24,7 @@ the machine page).
 - [29 October 2026 (1.6.5 tree): the whole panel, routes, captures and long routes](#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes)
 - [30 October 2026 (1.6.5 tree): Z80 vectors, MAME again and a Linux witness](#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness)
 - [1 November 2026 (1.6.6 tree): Z80 corrections, sound against MAME and a third Linux witness](#1-november-2026-166-tree-z80-corrections-sound-against-mame-and-a-third-linux-witness)
+- [2 November 2026 (1.6.7 tree): the CPS-1.5 board without its sound, against MAME](#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -401,3 +402,33 @@ and deleted, archive of `main` and a copy of the dependency cache; `.deps` of th
 Z80 instructions, 101,209,464 native 68000 and 44,659,319 native Z80 instructions over both routes, every check passed, and the CPU, RAM, picture and
 sound hashes and the trace hashes of both routes are **identical** to the Windows conversion (attract picture `5bd0c5a2c01d5df5`, play `4def87fdac4ed72a`).
 It took 119 seconds (Windows 67 s): wall times on a shared machine, not timings.
+
+## 2 November 2026 (1.6.7 tree): the CPS-1.5 board without its sound, against MAME
+
+The QSound boards (CPS-1.5) join as an experimental tier ([CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier)). Here the board runs without
+its sound (the QSound registers are accepted and answer ready after the next sample; the sound is silence), compared with MAME 0.289 with the same
+tool as the other sets: `tools/cps1_mame_compare.py`, FBNeo romsets of the test collection (one set per family: `wof`, `dino`, `punisher`,
+`slammast`, `mbombrd`), the QSound DSP ROM read by MAME from the BIOS folder (MAME needs it to start; the game under test does not read it yet),
+stand-in files of one byte for the PLD dumps the zips lack, routes `attract` and `play` of 3,600 frames, a picture compared every 10th frame.
+
+| Set | `attract` | `play` |
+|---|---|---|
+| `wof` | 360 of 360 identical | 360 of 360 |
+| `dino` | 359 of 360 (frame 1,640) | 360 of 360 |
+| `punisher` | 360 of 360 | 360 of 360 |
+| `slammast` | 360 of 360 | 360 of 360 |
+| `mbombrd` | 360 of 360 | 360 of 360 |
+
+`wof` also compared on each of its first 300 frames: 308 of 308 identical. `dino` compared on each of the first 1,700 frames of `attract`: two frames
+differ (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right of the picture), the frames around them are identical; the cause was not isolated
+(mid-frame writes are not modelled, see the timing model in the known limits).
+
+Counted per processor on 3,600 frames of `attract` of a first-pass build (nothing learned yet): interpreted Z80 instructions 0 on the five sets; interpreted
+68000 instructions 0 on `wof`, `dino`, `punisher` and `mbombrd` (56 to 67 million native 68000 instructions, 48 to 50 million native Z80), and 39,388 on
+`slammast` (66,679,903 native), all from a checksum routine the game copies into work RAM: the next pass of a conversion builds guarded native code
+for such variants, as it does for the CPS-1 sets.
+
+The first comparison of `wof` differed for 20 frames from the first picture on: the game reads its EEPROM during start-up and waits for each write
+to finish, and the model took writes as instant. With the write and erase times of MAME's `eeprom.cpp` (1.75 ms, 1 ms, 8 ms for all cells) every
+frame agrees. What this shows: pictures agree with MAME's on these routes. It says nothing about the sound (not there yet), the other 13 sets, hardware
+fidelity or play.

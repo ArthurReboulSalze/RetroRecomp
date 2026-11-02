@@ -32,9 +32,11 @@ PLD_REGIONS = frozenset(('aboardplds', 'bboardplds', 'cboardplds', 'dboardplds',
 LOADS = {'ROM_LOAD': 'load', 'ROM_LOAD16_BYTE': 'load16_byte', 'ROM_LOAD16_WORD': 'load16_word',
          'ROM_LOAD16_WORD_SWAP': 'load16_word_swap', 'ROM_LOAD32_BYTE': 'load32_byte',
          'ROM_LOAD64_BYTE': 'load64_byte', 'ROM_LOAD64_WORD': 'load64_word'}
-PHASE1_MACHINES = frozenset(('cps1_10MHz', 'cps1_12MHz'))
-EXCLUDED_MACHINES = {'qsound': 'qsound', 'wofhfh': 'qsound', 'forgottn': 'dial', 'pang3': 'eeprom',
-                     'ganbare': 'timekeeper'}
+PHASE1_MACHINES = frozenset(('cps1_10MHz', 'cps1_12MHz', 'qsound'))
+# The boards that join the converter in a tier of their own: the CPS-1.5 (QSound) boards run a Kabuki Z80 and a QSound chip and
+# are experimental until they meet the same evidence as the CPS-1 boards (the tier is a column of the catalogue, never a test on a set).
+EXPERIMENTAL_TIER_MACHINES = frozenset(('qsound',))
+EXCLUDED_MACHINES = {'wofhfh': 'qsound', 'forgottn': 'dial', 'pang3': 'eeprom', 'ganbare': 'timekeeper'}
 ROTATIONS = {'ROT0': 0, 'ROT90': 90, 'ROT180': 180, 'ROT270': 270}
 GFX_TYPES = {'GFXTYPE_SPRITES': 1, 'GFXTYPE_SCROLL1': 2, 'GFXTYPE_SCROLL2': 4,
              'GFXTYPE_SCROLL3': 8, 'GFXTYPE_STARS': 16}
@@ -420,7 +422,7 @@ def input_ports(text: str, macros: dict, strings: dict) -> dict:
     return result, switches
 
 
-def support(row: dict, config: dict) -> tuple[str, str]:
+def support(row: dict, config: dict, kabuki: dict) -> tuple[str, str]:
     title, company = row['title'].casefold(), row['company'].casefold()
     if row['kind'] == 'cons':
         return 'excluded', 'cps_changer'
@@ -432,7 +434,7 @@ def support(row: dict, config: dict) -> tuple[str, str]:
         return 'excluded', EXCLUDED_MACHINES[row['machine']]
     if row['machine'] not in PHASE1_MACHINES:
         return 'excluded', 'other_hardware'
-    if row['init'] != 'empty_init':
+    if row['init'] != 'empty_init' and not (row['machine'] in EXPERIMENTAL_TIER_MACHINES and row['init'] in kabuki):
         return 'excluded', 'special_init'
     if config['board'].startswith('HACK_B_'):
         return 'excluded', 'bootleg_or_hack'
@@ -474,6 +476,7 @@ def build(cache: Path, *, offline: bool = False) -> dict:
     board_table, mapper_table = boards(video_clean, video_macros), mappers(video_clean, video_macros)
     port_blocks, switch_blocks = input_ports(driver_clean, driver_macros,
                                              default_strings(texts['src/emu/ioport.cpp']))
+    kabuki = kabuki_keys(texts['src/mame/capcom/kabuki.cpp'], driver_clean)
     games = []
     for row in rows:
         config = configs.get(row['set'])
@@ -481,10 +484,11 @@ def build(cache: Path, *, offline: bool = False) -> dict:
             raise SystemExit('No CPS-B configuration for ' + row['set'])
         if config['board'] not in board_table or config['mapper'] not in mapper_table:
             raise SystemExit('Unknown board or mapper for ' + row['set'])
-        status, reason = support(row, config)
+        status, reason = support(row, config, kabuki)
         if status == 'phase1' and any(load.get('no_dump') for region in sets[row['set']] for load in region['loads']):
             status, reason = 'excluded', 'incomplete_dump'
-        row = dict(row, support=status, reason=reason, regions=sets[row['set']], **{
+        row = dict(row, support=status, reason=reason, regions=sets[row['set']],
+                   tier='experimental' if row['machine'] in EXPERIMENTAL_TIER_MACHINES else 'supported', **{
             'board': config['board'], 'mapper': config['mapper'], 'ports': [config['in2'], config['in3'], config['out2']],
             'kludge': config['kludge'], 'board_note': config['note'], 'inputs': port_blocks[row['input']],
             # MAME marks guessed or undumped PAL equations in its notes.
@@ -493,7 +497,6 @@ def build(cache: Path, *, offline: bool = False) -> dict:
     names = {game['set'] for game in games}
     if len(names) != len(games) or any(game['parent'] and game['parent'] not in names for game in games):
         raise SystemExit('Duplicate set or unknown parent.')
-    kabuki = kabuki_keys(texts['src/mame/capcom/kabuki.cpp'], driver_clean)
     for game in games:
         if game['machine'] == 'qsound' and game['init'] not in kabuki:
             raise SystemExit('No Kabuki keys for ' + game['set'])

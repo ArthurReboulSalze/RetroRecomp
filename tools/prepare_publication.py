@@ -263,7 +263,7 @@ retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
-native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
+native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
@@ -273,6 +273,7 @@ native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
 retrorecomp/cps1_kabuki.py tools/cps1_kabuki_check.py tools/cps1_kabuki_selftest.py native/cps1_kabuki_checks.c tests/test_cps1_kabuki.py
+tools/cps1_eeprom_selftest.py native/cps1_eeprom_checks.c tests/test_cps1_eeprom.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
 retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md

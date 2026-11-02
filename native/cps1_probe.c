@@ -130,12 +130,15 @@ int main(int argc, char **argv)
     uint8_t *maincpu = load_file(directory, "maincpu.bin", &regions.maincpu_size, 1);
     uint8_t *audiocpu = load_file(directory, "audiocpu.bin", &regions.audiocpu_size, 1);
     uint8_t *gfx = load_file(directory, "gfx.bin", &regions.gfx_size, 1);
-    uint8_t *oki = load_file(directory, "oki.bin", &regions.oki_size, 1);
+    uint8_t *oki = load_file(directory, "oki.bin", &regions.oki_size, !board.qsound);   /* the QSound board has none */
     uint8_t *stars = load_file(directory, "stars.bin", &regions.stars_size, 0);
     uint8_t *audiocpu_op = load_file(directory, "audiocpu-op.bin", &regions.audiocpu_op_size, 0);
-    if (!maincpu || !audiocpu || !gfx || !oki) return 3;
+    uint8_t *qsound = load_file(directory, "qsound.bin", &regions.qsound_size, 0);
+    uint8_t *audiorom_raw = load_file(directory, "audiorom_raw.bin", &regions.audiorom_raw_size, 0);
+    if (!maincpu || !audiocpu || !gfx || (!oki && !board.qsound)) return 3;
     regions.maincpu = maincpu; regions.audiocpu = audiocpu; regions.gfx = gfx;
     regions.oki = oki; regions.stars = stars; regions.audiocpu_op = audiocpu_op;
+    regions.qsound = qsound; regions.audiorom_raw = audiorom_raw;
     if (!cps1_init(&board, &regions)) { fprintf(stderr, "cannot start the CPS-1 board\n"); return 4; }
 
     FILE *trace = trace_path ? fopen(trace_path, "w") : NULL;
@@ -193,6 +196,6 @@ int main(int argc, char **argv)
            (unsigned long long)video_all, (unsigned long long)audio_all, total_samples,
            (unsigned long long)cps1_ram_hash(), cpu.m68k_pc, cpu.z80_pc);
     cps1_shutdown();
-    free(maincpu); free(audiocpu); free(gfx); free(oki); free(stars); free(audiocpu_op);
+    free(maincpu); free(audiocpu); free(gfx); free(oki); free(stars); free(audiocpu_op); free(qsound); free(audiorom_raw);
     return 0;
 }

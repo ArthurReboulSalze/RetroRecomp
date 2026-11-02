@@ -347,9 +347,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
     from .systems.cps1 import CPS1
+    board_tier = cps1_catalogue.tier(game)
     analysis = prepared['analysis']
     report = {'tool': 'Retro-Recomp', 'version': __version__,
-        'status': 'completed' if not CPS1.experimental and native_coverage else 'experimental',
+        # The machine is supported; a board of the experimental tier (the QSound boards of the CPS-1.5, a catalogue column)
+        # reports `experimental` whatever its coverage.
+        'status': 'completed' if not CPS1.experimental and board_tier == 'supported' and native_coverage else 'experimental',
+        'board_tier': board_tier,
         'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': 'cps1', 'name': 'Capcom CPS-1'},
         'rom': game_set.metadata(),
         'compiler': {'board': 'Retro-Recomp CPS-1 board adapted from MAME (BSD-3-Clause)', 'mame_revision': MAME_REVISION,

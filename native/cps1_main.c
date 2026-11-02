@@ -16,6 +16,7 @@
 #include <math.h>
 #include "miniz.h"
 #include "cps1_machine.h"
+#include "cps1_persistence.h"
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "console16_video.h"
@@ -168,6 +169,7 @@ void rr_cps1_host_frame(uint16_t p1, uint16_t p2)
     if (scripted) scripted_pads();
     else rr_cps1_apply_pads(p1, p2);
     step_frame();
+    rr_cps1_save_frame();      /* the EEPROM of a QSound board, windowed play only (it is not begun otherwise) */
 }
 uint32_t rr_cps1_frame_index(void) { return frame; }
 void rr_cps1_restore_frame(uint32_t value)
@@ -284,11 +286,12 @@ static int execute(int argc, char **argv)
     rr_feedback_start(!headless);
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     performance_frequency = SDL_GetPerformanceFrequency();
-    static const char *const names[] = {"board.txt", "maincpu.bin", "audiocpu.bin", "gfx.bin", "oki.bin", "stars.bin", "audiocpu-op.bin"};
-    Region regions[7] = {{0}};
+    static const char *const names[] = {"board.txt", "maincpu.bin", "audiocpu.bin", "gfx.bin", "oki.bin", "stars.bin", "audiocpu-op.bin",
+                                         "qsound.bin", "audiorom_raw.bin"};
+    Region regions[9] = {{0}};
     uint8_t *content = NULL;
-    if (!unpack(&content, regions, names, 7) || !regions[0].data || !regions[1].data || !regions[2].data ||
-        !regions[3].data || !regions[4].data) { SDL_Quit(); return 3; }
+    if (!unpack(&content, regions, names, 9) || !regions[0].data || !regions[1].data || !regions[2].data ||
+        !regions[3].data) { SDL_Quit(); return 3; }
     char *text = malloc(regions[0].size + 1);
     if (!text) { free(content); SDL_Quit(); return 3; }
     memcpy(text, regions[0].data, regions[0].size); text[regions[0].size] = 0;
@@ -297,9 +300,10 @@ static int execute(int argc, char **argv)
     int parsed = cps1_board_parse(&board, text, error, sizeof error);
     free(text);
     if (!parsed) { fprintf(stderr, "%s\n", error); free(content); SDL_Quit(); return 3; }
+    if (!board.qsound && !regions[4].data) { free(content); SDL_Quit(); return 3; }   /* the OKI samples */
     cps1_regions rom = {regions[1].data, regions[1].size, regions[2].data, regions[2].size, regions[3].data,
                         regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size,
-                        regions[6].data, regions[6].size};
+                        regions[6].data, regions[6].size, regions[7].data, regions[7].size, regions[8].data, regions[8].size};
     if (!cps1_init(&board, &rom)) { free(content); SDL_Quit(); return 3; }
     if (dips_given) rr_cps1_set_dip_values(dips);
     rr_cps1_apply_pads(0, 0);
@@ -322,8 +326,10 @@ static int execute(int argc, char **argv)
         }
         loop_wall_seconds = (double)(SDL_GetPerformanceCounter() - begun) / (double)performance_frequency;
     } else {
+        rr_cps1_save_begin();      /* a save that cannot be used leaves the game with a blank EEPROM, as on a new board */
         host_result = rr16_sdl_main(RR_CPS1_TITLE, rr_cps1_rotated() ? 2 : 3);
         rr16_shutdown();
+        rr_cps1_save_close();
     }
     if (save_path && !save_at && !state_file(save_path, 0)) save_failed = 1;
     int okay = report(board.set) && !save_failed && !host_result;
