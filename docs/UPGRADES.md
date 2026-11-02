@@ -107,6 +107,14 @@ hashes of the picture, the sound and the Z80 differ (the report counts, such as 
 the number of distinct pictures of a route stays within 1 percent (Blockout demo 1,592 against 1,591, play 483 against 486; Sonic 2,501 and
 2,669 against 2,500 and 2,670; Gunstar 2,046 and 414 against 2,052 and 415). This shows that the corrected clocks keep the conversions
 valid; it does not show that any frame-timed effect looks the same, which a play test of the games named in the campaign would.
+
+**Checked (campaign of 11 games, one conversion at a time, `batch --system md`).** Sonic The Hedgehog 2 and 3, Streets of Rage 2, Road
+Rash 3, Contra - Hard Corps, Ecco - The Tides of Time, Earthworm Jim 2, Super Street Fighter II, NBA Jam - Tournament Edition, OutRun and
+Shinobi III (all USA), chosen for raster effects, split screens, Z80 drivers, banked and EEPROM cartridges, all convert with status
+`supported`, zero interpreted 68000 and Z80 instructions on both routes, native equal to the fresh reference and the compressed copy
+equal to the reference. The paths of these games are qualified in the base, so the conversion is the 1,200-frame quick check from them,
+not a new discovery; a first series that overlapped another by mistake showed interpreted counts for OutRun and Sonic 2 that the clean
+series did not reproduce, and is not used. No game was dropped and none needs a line in `KNOWN_FAILURES`.
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says
