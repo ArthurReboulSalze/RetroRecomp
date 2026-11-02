@@ -46,12 +46,12 @@ native/x68000_reference/audio_checks.c native/x68000_reference/audio_checks.h
 native/x68000_reference/check_compat.h native/x68000_reference/CMakeLists.txt
 native/x68000_reference/disk_checks.c native/x68000_reference/disk_checks.h
 native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.h
-native/x68000_reference/loading.h native/x68000_reference/media_probe.c
+native/x68000_reference/loading.h
 native/x68000_reference/media_session.c native/x68000_reference/media_session.h native/x68000_reference/mouse_games.json
 native/x68000_reference/payload.c native/x68000_reference/payload.h
 native/x68000_reference/probe.c
 native/x68000_reference/probe.h native/x68000_reference/reference_host.c
-native/x68000_reference/rtc_clock_shim.h native/x68000_reference/session_bridge.c
+native/x68000_reference/rtc_clock_shim.h
 native/x68000_reference/session_checks.c native/x68000_reference/session_checks.h
 native/x68000_reference/state_store.c native/x68000_reference/state_store.h
 native/x68000_reference/state_store_test.c native/x68000_reference/timing_checks.c
@@ -271,6 +271,10 @@ native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
 native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py
+native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
+tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
+tools/x68000_mame_compare.py tests/test_x68000_mame_compare.py
+tests/test_x68000_cmake.py
 native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test_neogeo_z80_vectors.py
 native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py tests/test_z80_fixes.py
 tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py

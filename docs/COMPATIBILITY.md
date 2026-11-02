@@ -192,7 +192,7 @@ native code with a fresh interpreted reference run, and the report keeps board
 fidelity against real hardware, complete gameplay and physical latency outside
 what is claimed. The owner's play trial of the 1.6.6 executable is still to do
 ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The
-**Sharp X68000** prototype is experimental; it converts DIM/XDF disks and
+**Sharp X68000** prototype is experimental; it converts DIM, XDF and D88 disks and
 ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
 each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency.

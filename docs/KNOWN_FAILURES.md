@@ -36,6 +36,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Capcom CPS-1 | Bootlegs and hacks, 65 sets (for example `sf2ebbl`, `sf2rb`, `3wondersb`, `dinohunt`) | Refused by design | « Bootleg and modified sets are outside the supported CPS-1 scope » | Refused by the catalogue; the originals convert | 24 October 2026 |
 | Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.d88`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
+| Sharp X68000 | Choujin (Fix), on Debian only | Failing | The conversion is refused at the replay of the compressed copy: the UPX-compressed game stops at start (SIGTRAP, exit 133) on Debian 13, with UPX 5.3.0 at `-9`, `-1` and `--lzma`, while `upx -t` passes and the unpacked program (the same bytes after `upx -d`) runs. Windows converts and replays it; Debian with `--no-compress` gives the same CPU, RAM, picture and PCM hashes as Windows | Repeated, with and without address randomisation, on the file kept by the failed conversion; not a disk fault. Probably the UPX start-up stub against the layout of this one executable (other games pack and start); `retrorecomp/packing.py` could publish such a game unpacked, as it already does when UPX rejects its own result, after a start-up check of the packed copy | 2 November 2026 |
 
 ## Taken off this page
 

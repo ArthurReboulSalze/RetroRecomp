@@ -446,6 +446,20 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
 
+## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
+
+`native/x68000_reference/CMakeLists.txt` no longer carries the `current` machine base (the earlier px68k-libretro reference, kept for private
+comparison): it named four private adapters that were never part of the public sources (`tools/x68000_hardware.py`,
+`x68000_session_hardware.py`, `x68000_disk_hardware.py`, `native/x68000_reference/adapt_upstream.cmake`), so a clean checkout could not build it.
+The hissorii base (74ddbb3) is the only one, and any other value is refused with a message. The program does not change: the generated
+code, the machine and the states are the same (a conversion of R-Type before and after gives the same trace hashes on every route).
+Two files that only that branch compiled leave the tree with it: `native/x68000_reference/session_bridge.c` and `media_probe.c` (no build named them any
+more); they are no longer stamp inputs nor public files. A conversion of R-Type after both changes gives the same CPU, RAM, picture and PCM hashes on the three routes.
+
+Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game, with no change in what
+a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
+file that is absent.
+
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 
 The converter now takes D88 floppy images and recognises DIM, XDF and D88 by their content rather than by their name
