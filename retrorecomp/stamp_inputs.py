@@ -181,7 +181,7 @@ NOT_INPUTS = (
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py): never built into a game, so they move no stamp.
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
-    'native/neogeo_z80_vector_checks.c', 'native/gb_sm83_vector_checks.c')
+    'native/neogeo_z80_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/gb_halt_checks.c', 'native/gb_state_compare.h')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:

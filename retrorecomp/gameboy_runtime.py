@@ -88,6 +88,27 @@ def adapt_ei_delay(source: str) -> str:
                         '        case 0xFB: /* EI */\n            ' + EI_ARM_ONCE + '\n')
 
 
+def adapt_halt_mode3(source: str) -> str:
+    """The halted fast-forward of gb_run_cycles (gb_halt_fast_forward_cycles in gbrt.c) jumps to the next PPU event in every mode but the
+    pixel transfer, where it steps one M-cycle at a time because the end of the mode depends on the pixel FIFO (sprites, window,
+    scroll). A game that waits for vertical blank in HALT therefore issues about 43 steps per line in mode 3 alone. The transfer
+    ends when the 160th pixel has been pushed, at best one pixel per dot; the extra dots only come later. So the step may go up to one
+    dot before that, rounded down to a four-cycle boundary: the dot where the mode ends, and the interrupt it may raise, are still
+    reached by a four-cycle step, as before. Until the mode is published as 3, or with four pixels left or fewer, the step stays one
+    M-cycle. tools/gameboy_halt_selftest.py compares it with plain four-cycle stepping, byte for byte, frame by frame."""
+    return replace_once(source,
+        '        /* Mode 3 ends on a dynamic FIFO event; advance only one CPU M-cycle. */\n'
+        '        case PPU_MODE_DRAW: target = ppu->mode_cycles + 4u; break;\n',
+        '        /* Mode 3 ends when the 160th pixel is pushed, at best one pixel per dot; sprites, the window and the scroll only add\n'
+        '         * dots. Step to at most one dot before that, on a four-cycle boundary (the dot where the mode ends, and the interrupt\n'
+        '         * it may raise, is still reached by a four-cycle step). Before the mode is published as 3, advance one CPU M-cycle. */\n'
+        '        case PPU_MODE_DRAW: {\n'
+        '            const uint32_t pixels_left = ppu->draw_x < GB_SCREEN_WIDTH ? (uint32_t)(GB_SCREEN_WIDTH - ppu->draw_x) : 0u;\n'
+        '            target = ppu->mode_cycles + (ppu->visible_mode == PPU_MODE_DRAW && pixels_left > 4u ? pixels_left - 1u : 4u);\n'
+        '            break;\n'
+        '        }\n')
+
+
 def adapt_ei_delay_interpreter(code: str) -> str:
     return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
                         'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
@@ -141,7 +162,9 @@ static bool gb_diff_compare_ppu''')
     path.write_text(source, encoding='utf-8')
 
 
-def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str) -> None:
+def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str, halt_mode3_bound: bool = True) -> None:
+    """`halt_mode3_bound=False` leaves the halted fast-forward as the pinned runtime has it: only tools/gameboy_halt_selftest.py asks for it,
+    to compare the two."""
     # Shared player shell first (menus, filters, platform), then the machine.
     from .gameboy_host import adapt_shell
     adapt_shell(project, title)
@@ -263,6 +286,8 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     source = adapt_wisdom_tree(source)
     source = adapt_ei_delay(source)
+    if halt_mode3_bound:
+        source = adapt_halt_mode3(source)
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have
