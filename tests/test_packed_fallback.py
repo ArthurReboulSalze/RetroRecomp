@@ -2,7 +2,7 @@
 is replaced by the build as built, and every route is replayed again on it.
 
 Fake replay callbacks and fake packing only: no ROM, no compiler, no UPX, no game process. The shared mechanism is
-`delivery_evidence.replay_packed` / `DeliveredFile.fall_back_to_build`; the registry that makes the publication leave the
+`delivery_evidence.replay_packed` / `_fall_back`; the registry that makes the publication leave the
 build unpacked is `packing.refuse_compression`; the Neo Geo path goes through `neogeo_conversion.check_routes(delivered=...)`.
 """
 import hashlib
@@ -64,8 +64,10 @@ class FallbackTests(FallbackBase):
                                 same=lambda route, result: result == route.upper(), mismatch=Failure)
         self.assertEqual(results, ['A', 'B'])
         # One replay at a time stops at the first route that fails ('a' on the compressed copy); then every route runs
-        # again, from the first, on the build.
-        self.assertEqual(calls, [('a', PACKED), ('a', BUILT), ('b', BUILT)])
+        # again, from the first, on the build; then the compressed copy is replayed once more on 'a' (it fails again: the
+        # compression is at fault) and 'a' runs once more on the build so that its outputs are the build's.
+        self.assertEqual(calls, [('a', PACKED), ('a', BUILT), ('b', BUILT), ('a', PACKED), ('a', BUILT)])
+        self.assertFalse(delivered.aside.exists())
         self.assertEqual((delivered.kind, delivered.path.read_bytes(), delivered.sha256), ('unpacked', BUILT, SHA_BUILT))
         self.assertEqual(self.built.read_bytes(), BUILT)
         self.assertTrue(delivered.matched)
@@ -77,7 +79,7 @@ class FallbackTests(FallbackBase):
         delivered = self.delivered()
         replay_packed(delivered, ['a'], self.replay_that_crashes_when_compressed([]))
         self.assertEqual(delivered.notice, {'notice': (
-            f'The compressed copy (UPX {packing.UPX_VERSION}) did not replay correctly on this system '
+            f'The compressed copy (UPX {packing.UPX_VERSION}) did not replay correctly on this system, twice '
             '(exit 133 (SIGTRAP) at start). It is published unpacked, exactly as built and validated: a larger file, '
             'the same program.')})
         self.assertEqual(self.said, [
@@ -103,7 +105,7 @@ class FallbackTests(FallbackBase):
             return self.packed.read_bytes()
         results = replay_packed(delivered, ['a'], replay, same=lambda route, result: result == BUILT,
                                 mismatch=lambda route: Failure('differs on ' + route))
-        self.assertEqual((results, calls), ([BUILT], [PACKED, BUILT]))
+        self.assertEqual((results, calls), ([BUILT], [PACKED, BUILT, PACKED, BUILT]))
         self.assertEqual(delivered.kind, 'unpacked')
         self.assertIn('did not replay correctly', delivered.notice['notice'])
 
@@ -111,7 +113,8 @@ class FallbackTests(FallbackBase):
         delivered, calls = self.delivered(), []
         results = replay_packed(delivered, ['a', 'b', 'c'], self.replay_that_crashes_when_compressed(calls), workers=3)
         self.assertEqual(results, ['A', 'B', 'C'])
-        self.assertEqual(sorted(calls), sorted([(route, PACKED) for route in 'abc'] + [(route, BUILT) for route in 'abc']))
+        self.assertEqual(sorted(calls), sorted([(route, PACKED) for route in 'abc'] + [(route, BUILT) for route in 'abc'] +
+                                               [('a', PACKED), ('a', BUILT)]))
         self.assertEqual(delivered.kind, 'unpacked')
 
     def test_the_report_says_unpacked_with_the_reason(self):
@@ -145,6 +148,112 @@ class FallbackTests(FallbackBase):
         packer.assert_called_once_with(other)
 
 
+class NotReproducedTests(FallbackBase):
+    """A failure that is not reproduced is not blamed on the compression, and no refusal is registered."""
+
+    def flaky(self, calls, fails=1):
+        """A replay of the compressed copy that fails its first `fails` runs and then passes; the build always passes."""
+        seen = []
+
+        def replay(route):
+            calls.append((route, self.packed.read_bytes()))
+            if self.packed.read_bytes() == PACKED:
+                seen.append(route)
+                if len(seen) <= fails:
+                    raise Failure('flaky host')
+            return route.upper()
+        return replay
+
+    def test_a_compressed_copy_that_passes_the_second_time_raises_the_original_error_and_delivers_nothing(self):
+        delivered, calls = self.delivered(), []
+        with self.assertRaises(Failure) as caught:
+            replay_packed(delivered, ['a', 'b'], self.flaky(calls))
+        self.assertEqual(str(caught.exception), 'flaky host')
+        self.assertTrue(any('could not be reproduced' in note for note in caught.exception.__notes__))
+        # compressed 'a' fails; the build runs 'a' and 'b'; the compressed copy runs 'a' again and passes.
+        self.assertEqual(calls, [('a', PACKED), ('a', BUILT), ('b', BUILT), ('a', PACKED)])
+        self.assertIn('could not be reproduced', self.said[-1])
+        self.assertIn('(non-deterministic)', self.said[-1])
+        # Nothing delivered, nothing claimed, nothing registered; the compressed copy is the delivered path as before.
+        self.assertEqual((delivered.kind, delivered.notice, delivered.matched), ('packed', None, False))
+        self.assertEqual((delivered.path.read_bytes(), delivered.aside.exists(), delivered.sha256),
+                         (PACKED, False, hashlib.sha256(PACKED).hexdigest()))
+        self.assertEqual((packing._REPLAY_REFUSED, packing._UNPACKED_REASONS), ({}, {}))
+        with self.assertRaises(ValueError):
+            delivered.validation_fields()
+
+    def test_the_publication_still_compresses_a_build_whose_first_failure_was_a_fluke(self):
+        delivered = self.delivered()
+        with self.assertRaises(Failure):
+            replay_packed(delivered, ['a'], self.flaky([]))
+        staged = self.root / 'staged.exe'
+        staged.write_bytes(BUILT)
+        which = 'compact_windows' if packing.os.name == 'nt' else 'compact_linux'
+        with patch.object(packing, which, return_value=None) as packer:
+            self.assertIsNone(packing.compact_executable(staged, lambda text: None))
+        packer.assert_called_once_with(staged)
+
+    def test_nothing_is_registered_before_the_confirmation(self):
+        # The refusal exists only after the confirmation: during the second attempt nothing is registered yet.
+        delivered, seen = self.delivered(), []
+
+        def replay(route):
+            seen.append((self.packed.read_bytes(), dict(packing._REPLAY_REFUSED)))
+            if self.packed.read_bytes() == PACKED:
+                raise Failure('compressed')
+            return route
+        replay_packed(delivered, ['a'], replay)
+        self.assertEqual([refused for _, refused in seen], [{}, {}, {}, {}])
+        self.assertEqual(list(packing._REPLAY_REFUSED), [SHA_BUILT])
+
+    def test_the_first_route_that_failed_is_the_one_replayed_again(self):
+        delivered, calls = self.delivered(), []
+
+        def replay(route):
+            calls.append((route, self.packed.read_bytes()))
+            if self.packed.read_bytes() == PACKED and route in ('b', 'c'):
+                raise Failure(route)
+            return route
+        for workers in (1, 3):
+            packing._REPLAY_REFUSED.clear()
+            packing._UNPACKED_REASONS.clear()
+            delivered, calls[:] = self.delivered(), []
+            replay_packed(delivered, ['a', 'b', 'c'], replay, workers=workers)
+            self.assertEqual(calls[-2:], [('b', PACKED), ('b', BUILT)], workers)
+            self.assertEqual(delivered.kind, 'unpacked')
+
+    def test_a_build_that_fails_when_one_route_is_replayed_again_is_not_delivered(self):
+        delivered, runs = self.delivered(), []
+
+        def replay(route):
+            if self.packed.read_bytes() == BUILT:
+                runs.append(route)
+                if len(runs) > 1:
+                    raise Failure('build, third replay')
+            if self.packed.read_bytes() == PACKED:
+                raise Failure('compressed')
+            return route
+        with self.assertRaises(Failure) as caught:
+            replay_packed(delivered, ['a'], replay)
+        self.assertEqual(str(caught.exception), 'compressed')
+        self.assertEqual(str(caught.exception.__cause__), 'build, third replay')
+        self.assertEqual((delivered.kind, delivered.path.read_bytes(), delivered.aside.exists(), packing._REPLAY_REFUSED),
+                         ('packed', PACKED, False, {}))
+
+    def test_a_stop_while_the_compressed_copy_is_replayed_again_is_raised_as_it_is(self):
+        delivered, runs = self.delivered(), []
+
+        def replay(route):
+            runs.append(self.packed.read_bytes())
+            if self.packed.read_bytes() == PACKED:
+                raise Failure('compressed') if runs.count(PACKED) == 1 else StopRequested('stop')
+            return route
+        with self.assertRaises(StopRequested):
+            replay_packed(delivered, ['a'], replay)
+        self.assertEqual((delivered.kind, delivered.path.read_bytes(), delivered.aside.exists(), packing._REPLAY_REFUSED),
+                         ('packed', PACKED, False, {}))
+
+
 class NoFallbackTests(FallbackBase):
     def test_both_copies_failing_raises_the_first_error_chained_to_the_second_and_marks_nothing_matched(self):
         delivered, calls = self.delivered(), []
@@ -158,6 +267,9 @@ class NoFallbackTests(FallbackBase):
         self.assertEqual(str(caught.exception.__cause__), 'unpacked')
         self.assertEqual(calls, [PACKED, BUILT])
         self.assertFalse(delivered.matched)
+        # Nothing was claimed: the compressed copy is the delivered path again, no refusal is registered.
+        self.assertEqual((delivered.kind, delivered.path.read_bytes(), delivered.aside.exists()), ('packed', PACKED, False))
+        self.assertEqual((packing._REPLAY_REFUSED, packing._UNPACKED_REASONS), ({}, {}))
         with self.assertRaises(ValueError):
             delivered.validation_fields()
 
@@ -173,6 +285,7 @@ class NoFallbackTests(FallbackBase):
         self.assertEqual(str(caught.exception), 'differs on a #1')
         self.assertEqual(str(caught.exception.__cause__), 'differs on a #2')
         self.assertFalse(delivered.matched)
+        self.assertEqual((delivered.kind, packing._REPLAY_REFUSED), ('packed', {}))
 
     def test_a_compressed_copy_that_passes_is_delivered_as_it_is(self):
         delivered, calls = self.delivered(), []
@@ -214,7 +327,7 @@ class NoFallbackTests(FallbackBase):
         copy, calls = self.root / 'c.exe', []
         copy.write_bytes(PACKED)
         delivered = DeliveredFile(copy, None, 'ab' * 32)
-        self.assertFalse(delivered.fall_back_to_build(Failure('x')))
+        self.assertFalse(delivered.keep_compressed_aside(Failure('x')))
 
         def replay(route):
             calls.append(route)
@@ -265,6 +378,12 @@ class NeoGeoPathTests(FallbackBase):
             (self.project_folder / 'native-discovery' / (name + '-reference.json')).write_text(
                 json.dumps(self.report(frames)), encoding='utf-8')
 
+    def write_route(self, argv, frames):
+        """What a game run leaves: the report, and the per-frame trace (a moving picture, some sound) the liveness reads."""
+        Path(argv[argv.index('--report') + 1]).write_text(json.dumps(self.report(frames)), encoding='utf-8')
+        rows = ['frame,cpu,hardware,z80,image,pcm,samples'] + [f'{n},c,h,z,{n % 3:016x},{n % 5:016x},800' for n in range(1, 8)]
+        Path(argv[argv.index('--trace') + 1]).write_text('\n'.join(rows) + '\n', encoding='ascii')
+
     @staticmethod
     def report(frames):
         from retrorecomp.neogeo_validation import FIELDS
@@ -282,7 +401,7 @@ class NeoGeoPathTests(FallbackBase):
             if game.read_bytes() == PACKED:
                 return subprocess.CompletedProcess(argv, 133, b'', b'Trace/breakpoint trap')
             frames = int(argv[argv.index('--frames') + 1])
-            Path(argv[argv.index('--report') + 1]).write_text(json.dumps(self.report(frames)), encoding='utf-8')
+            self.write_route(argv, frames)
             return subprocess.CompletedProcess(argv, 0, b'', b'')
         return spawn
 
@@ -296,8 +415,9 @@ class NeoGeoPathTests(FallbackBase):
         names = list(self.routes)
         self.assertEqual([row['name'] for row in checks], names)
         self.assertTrue(all(row['reference_match'] for row in checks))
-        # One replay at a time: the compressed copy stopped on the first route; then every route ran on the build.
-        self.assertEqual(started, [PACKED] + [BUILT] * len(names))
+        # One replay at a time: the compressed copy stopped on the first route; then every route ran on the build; the
+        # compressed copy stopped on the first route again; the first route ran once more on the build.
+        self.assertEqual(started, [PACKED] + [BUILT] * len(names) + [PACKED, BUILT])
         self.assertEqual((delivered.kind, delivered.matched), ('unpacked', True))
         self.assertEqual(delivered.path.read_bytes(), BUILT)
         self.assertIn('the compressed copy failed its replay on this system', self.said[-1])
@@ -316,7 +436,7 @@ class NeoGeoPathTests(FallbackBase):
         def spawn(argv, **kwargs):
             started.append(Path(argv[0]).read_bytes())
             frames = int(argv[argv.index('--frames') + 1])
-            Path(argv[argv.index('--report') + 1]).write_text(json.dumps(self.report(frames)), encoding='utf-8')
+            self.write_route(argv, frames)
             return subprocess.CompletedProcess(argv, 0, b'', b'')
         with patch.object(neogeo_conversion, 'spawn', spawn), \
                 patch.object(neogeo_conversion, 'aes_available', lambda project: False):

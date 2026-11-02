@@ -56,8 +56,10 @@ _UNPACKED_REASONS: dict[str, str] = {}
 
 # A build whose compressed copy was replayed on every route and did not match, or did not even run, on this system (a
 # Linux X68000 game: the build runs and `upx -t` passes, the compressed copy stops at start). The conversion then
-# replays the build as built (delivery_evidence.DeliveredFile.fall_back_to_build) and registers it here by the SHA-256 of
-# the unpacked bytes, with the notice. The publication packs the same build again (UPX is deterministic), so
+# replays the build as built; only when the build passes every route and the compressed copy fails again on the route it
+# failed on (a failure that is not reproduced is no fault of the compression) does
+# delivery_evidence.DeliveredFile.confirm_unpacked register the build here, by the SHA-256 of the unpacked bytes, with
+# the notice. A refusal is never registered before that confirmation. The publication packs the same build again (UPX is deterministic), so
 # `_compact_executable` looks here first: a build registered here is published unpacked, exactly as it passed every
 # route, never as a compressed file nobody replayed successfully. It lives as long as the process, which a conversion
 # and its publication share.

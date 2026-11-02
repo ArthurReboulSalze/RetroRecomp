@@ -148,17 +148,20 @@ Every conversion replays a compressed copy of the build on all its routes agains
 one X68000 game builds and runs unpacked and passes `upx -t`, but its compressed copy stops at start (SIGTRAP, exit 133),
 and the failed replay refused the whole conversion. Now `delivery_evidence.replay_packed` does what packing already did
 when UPX itself failed: when the replay of a copy that really was compressed fails (the replay raises, or the comparison
-does not hold), the delivered copy is replaced by the build exactly as built (`DeliveredFile.fall_back_to_build`), one line
-says so in the conversion log, and every route is replayed again on the unpacked file. If that passes, the unpacked file is
-delivered, `packed_reference_match` is true for the file actually delivered, and the build is registered
-(`packing.refuse_compression`) so that the publication leaves it unpacked too; the report says `packing.packed` false with the
-notice as `packing.unpacked_reason`. If it fails too, the first error is raised, chained to the second. A file that has not
-passed every route is never delivered. It changes nothing for a game whose compressed copy replays, for a file that was not
+does not hold), the compressed copy is kept aside and replaced by the build exactly as built, one line says so in the
+conversion log, and every route is replayed again on the unpacked file. The compression is blamed only for a failure that
+repeats: once the build has passed every route, the compressed copy is replayed once more on the first route that failed.
+If it fails again, the unpacked file is delivered (that route is replayed once more on it), `packed_reference_match` is true
+for the file actually delivered, and the build is registered (`packing.refuse_compression`, only now) so that the publication
+leaves it unpacked too; the report says `packing.packed` false with the notice as `packing.unpacked_reason`. If it passes,
+the first error is raised with a note that the failure could not be reproduced (non-deterministic), nothing is delivered and
+nothing is registered. If the build fails too, the first error is raised, chained to the second. A file that has not passed
+every route is never delivered. It changes nothing for a game whose compressed copy replays, for a file that was not
 compressed (option "Compress games" off, UPX failure) or for a user stop. `DeliveredFile` now knows its build; the X68000
 replay copies the delivered file into each route's folder at every attempt; Neo Geo's `check_routes` takes the delivered file
 and replays through `replay_packed`. The text is in [BUILDING.md](BUILDING.md).
 
-Stamps (computed with the tree of the commit before and the tree of this change, `compilation_inputs.role_stamps` of the nine
+Stamps (computed with the tree of `main` before and the tree of this change, `compilation_inputs.role_stamps` of the nine
 consoles): the **game stamp** moves for the eight consoles of `stamp_inputs.sharing('conversion_gates')` (Master System, Game
 Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1), because `retrorecomp/delivery_evidence.py` belongs to that group (Neo
 Geo's and X68000's own converters, edited too, are already inputs of their game stamps); the Super Nintendo's does not move.
