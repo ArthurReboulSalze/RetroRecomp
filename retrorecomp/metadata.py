@@ -45,7 +45,8 @@ def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
 # (native/hostkit/shell/rrhk_main.c: SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"), stated before the first window
 # instead of after; "true/pm" and the PerMonitor fallback keep Windows 8.1 and older reading it. No other setting (no UTF-8
 # code page, no long paths, no common-controls version), so that file names, dialogs and scaling stay what they were.
-# A standard practice; its effect on antivirus detections is not demonstrated.
+# A standard practice; its effect on antivirus detections is not demonstrated. Not written for the Visual Studio fallback
+# (`_embeds_manifest`).
 MANIFEST_XML = (
     "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
     "<assembly xmlns='urn:schemas-microsoft-com:asm.v1' manifestVersion='1.0'>\n"
@@ -70,6 +71,13 @@ MANIFEST_XML = (
     "    </windowsSettings>\n"
     "  </application>\n"
     "</assembly>\n")
+
+
+def _embeds_manifest() -> bool:
+    """False for the Visual Studio fallback toolchain only: MSBuild merges its own manifest into resource 1 (mt.exe, or LNK1123
+    for a duplicate), so a game built there keeps the default manifest of MSBuild and carries none of ours."""
+    from . import toolchain
+    return toolchain.active() != toolchain.MSVC
 
 
 def manifest_resource() -> list[str]:
@@ -107,7 +115,8 @@ def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: 
                                                 + b'\n\n' + (ASSETS / 'licenses/llvm-mingw.md').read_bytes())
         lines.append('104 RCDATA "filter_legal.txt"')
     if icon: lines.append('101 ICON "game.ico"')
-    lines += manifest_resource()
+    if _embeds_manifest():
+        lines += manifest_resource()
     lines += ['1 VERSIONINFO', f'FILEVERSION {numbers}', f'PRODUCTVERSION {numbers}',
         'FILEFLAGSMASK VS_FFI_FILEFLAGSMASK', 'FILEFLAGS 0', 'FILEOS VOS_NT_WINDOWS32',
         'FILETYPE VFT_APP', 'FILESUBTYPE 0', 'BEGIN', '  BLOCK "StringFileInfo"',

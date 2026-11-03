@@ -411,7 +411,7 @@ def main() -> int:
                                           {item.system for item in items})
                 try:
                     record = convert_batch(items, args.output, shared_paths=outcome['paths'],
-                        jobs=args.jobs, overwrite=not args.no_overwrite, force=args.force,
+                        jobs=args.jobs, prepare_shared=True, overwrite=not args.no_overwrite, force=args.force,
                         passes=args.passes, frames=args.frames,
                         backend=args.backend, language=args.language,
                         boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
@@ -438,6 +438,7 @@ def main() -> int:
                     item.title = args.title
                 item.cover = args.cover
                 record = convert_batch([item], args.output or games_root(), profile=args.profile,
+                    prepare_shared=True,
                     passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
                     use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,

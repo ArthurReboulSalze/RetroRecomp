@@ -141,6 +141,7 @@ def packing_record(unpacked: dict, published: Path, packed_replayed: bool = Fals
     """
     data = Path(published).read_bytes()
     packed = b'UPX!' in data
+    # 'method' is the method of the packing process of this OS (WINDOWS_METHOD or LINUX_METHOD), not read back from the file.
     record = {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL,
               'method': packing_method() if packed else None, 'packed': packed, 'unpacked': unpacked,
               'published': {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()},
@@ -370,15 +371,19 @@ def _defender_failure(failure: str | None) -> bool:
     return bool(failure) and any(sign in failure for sign in _DEFENDER_SIGNS)
 
 
-def _windows_pack(tool: Path, path: Path, original: Path, prepare=None) -> str | None:
+def _windows_pack(tool: Path, path: Path, original: Path, prepare=None, retried: list | None = None) -> str | None:
     """`_windows_attempt` with one identical retry after a Defender sign: None when packed and tested, else why not.
 
     On a sign, the validated build is put back, `prepare` (what the first attempt did to the staged copy before UPX, if
     anything) is done again, DEFENDER_RETRY_WAIT seconds pass and the very same command runs once more. The second
-    result is final: no third attempt and no other option, flag or file to get past a detection."""
+    result is final: no third attempt and no other option, flag or file to get past a detection. `retried` is shared by
+    the call-filter attempt and the plain attempt of one packing (`compact_windows`): the wait and the retry happen once per
+    packing, whichever form meets the sign first."""
     failure = _windows_attempt(tool, path)
-    if not _defender_failure(failure):
+    if not _defender_failure(failure) or (retried is not None and retried):
         return failure
+    if retried is not None:
+        retried.append(True)
     try:
         _put_back(original, path, failure)
         if prepare is not None:
@@ -410,7 +415,8 @@ def _packed_filter(tool: Path, path: Path) -> str | None:
     return found.group(1) if found else None
 
 
-def _pack_with_filter_prefix(tool: Path, path: Path, original: Path) -> tuple[bool, str | None]:
+def _pack_with_filter_prefix(tool: Path, path: Path, original: Path,
+                             retried: list | None = None) -> tuple[bool, str | None]:
     """Pack the build at `path` with the longest filterable SizeOfCode when UPX would lose its call filter.
 
     (True, None) when the file was packed, passed `upx -t` and UPX reports filter 0x49 for it (the build is noted for
@@ -430,7 +436,7 @@ def _pack_with_filter_prefix(tool: Path, path: Path, original: Path) -> tuple[bo
         return False, None
     try:
         _set_size_of_code(path, prefix)
-        failure = _windows_pack(tool, path, original, lambda: _set_size_of_code(path, prefix))
+        failure = _windows_pack(tool, path, original, lambda: _set_size_of_code(path, prefix), retried)
         if failure is None and _packed_filter(tool, path) == CALL_FILTER_ID:
             _CALL_FILTER_USED[identity] = {'filter': CALL_FILTER_ID, 'code_bytes': _pe_code(built)[1],
                                            'filtered_bytes': prefix}
@@ -459,12 +465,13 @@ def compact_windows(path: Path) -> dict | None:
     original = Path(name)
     try:
         shutil.copyfile(path, original)
-        packed, blocked = _pack_with_filter_prefix(tool, path, original)
+        retried: list = []              # the identical retry is used once per packing, by either form
+        packed, blocked = _pack_with_filter_prefix(tool, path, original, retried)
         if packed:
             return None
         # The plain attempt follows a failed filter attempt (a size matter) but not an antivirus removal that the identical
         # retry did not get past: no other form of the same build is tried to get past a detection.
-        failure = blocked or _windows_pack(tool, path, original)
+        failure = blocked or _windows_pack(tool, path, original, retried=retried)
         if failure is None:
             return None
         _put_back(original, path, failure)

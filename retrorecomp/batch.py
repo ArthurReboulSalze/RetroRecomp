@@ -592,9 +592,26 @@ def _convert_in_budget(parallel_games, *args):
         return retry
 
 
+def _prepare_shared(emit) -> None:
+    """Build the shared pieces (engine sources, translator, static SDL2) once, here, before the workers start.
+
+    Every worker calls `core.dependencies()` inside its compilation budget (platforms.compilation_budget): after an update that
+    changes how SDL is built, the first worker would compile it with the share of CPUs of one game, and the others would wait
+    for the same build. Done here, outside any budget, the build uses the whole computer, once. A failure is not raised: each
+    game then meets it and reports it (a missing compiler, no network), as before."""
+    from .core import dependencies, dependencies_ready
+    try:
+        if not dependencies_ready():
+            dependencies(emit)
+    except StopRequested:
+        raise
+    except Exception as exc:
+        emit(f'Shared dependencies: {exc}')
+
+
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,
                   on_event=lambda kind, index, value: None, emit=print, jobs: int = 1,
-                  overwrite: bool = True,
+                  overwrite: bool = True, prepare_shared: bool = False,
                   **options) -> dict:
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
@@ -622,6 +639,8 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     stopped = False
     queued = list(range(len(items)))
     reset_stop()
+    if prepare_shared:
+        _prepare_shared(emit)
     with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix='retro-recomp') as executor:
         pending = {}
         while queued or pending:

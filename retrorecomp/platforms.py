@@ -54,11 +54,60 @@ def recompiler_build() -> Path:
     return ROOT / ('.deps/recompiler-build' + toolchain.suffix())
 
 
-def sdl_install() -> Path:
-    """The pinned SDL2 static build for the active toolchain."""
+# How the static SDL2 of a game is built, besides its revision (1.6.7). The install and the build folder are named after a
+# key of these settings, so a library built another way is a different folder: it is never overwritten, never deleted, and a
+# tree that still wants the old settings keeps its own library (no half-written libSDL2.a under a game being linked, no
+# ping-pong between two branches that share a .deps). Change SDL_BUILD_FLAGS when the way SDL is configured changes.
+#   path-map-1: -ffile-prefix-map writes the player's SDL folder as `SDL` in the strings the library keeps (SDL_render_gl.c,
+#   SDL_render_gles2.c and SDL_render_sw.c keep their file name for assertions), so that the same game built in two folders is
+#   the same file and no folder of the player's computer is in it.
+SDL_BUILD_FLAGS = "path-map-1"
+SDL_INSTALL_MARKER = "retro-recomp-sdl.txt"      # written last in an install: a folder without it is unfinished
+SDL_PATH_NAME = "SDL"
+
+
+def sdl_install_key() -> str:
+    """What the static SDL2 is built with: revision (core.SDL_REV), build flags and toolchain."""
+    from . import toolchain
+    from .core import SDL_REV
+    return f"sdl={SDL_REV};flags={SDL_BUILD_FLAGS};toolchain={toolchain.active()}"
+
+
+def _sdl_folder(kind: str) -> Path:
+    import hashlib
     from . import toolchain
     from .paths import ROOT
-    return ROOT / '.deps/SDL' / ('install' + toolchain.suffix())
+    digest = hashlib.sha256(sdl_install_key().encode()).hexdigest()[:8]
+    return ROOT / '.deps/SDL' / f'{kind}{toolchain.suffix()}-{digest}'
+
+
+def sdl_install() -> Path:
+    """The pinned SDL2 static build for the active toolchain and the current build settings (sdl_install_key)."""
+    return _sdl_folder('install')
+
+
+def sdl_build_folder() -> Path:
+    """Where that SDL2 is compiled: one folder per key too, kept when a build stops so that the next one goes on."""
+    return _sdl_folder('build')
+
+
+def sdl_install_current(prefix: Path | None = None) -> bool:
+    """Whether the static SDL2 of the current key is installed completely (its library and its marker)."""
+    prefix = sdl_install() if prefix is None else prefix
+    try:
+        return ((prefix / sdl_library()).exists()
+                and (prefix / SDL_INSTALL_MARKER).read_text(encoding="utf-8").strip() == sdl_install_key())
+    except OSError:
+        return False
+
+
+def sdl_compiler_flags(source: Path) -> list[str]:
+    """The CMake argument that maps the SDL source folder to `SDL` in the compiled library (quoted when the path has a space)."""
+    from . import toolchain
+    if toolchain.active() == toolchain.MSVC:
+        return []           # cl.exe has no such option; the Visual Studio fallback keeps its folder in the library
+    flag = f"-ffile-prefix-map={Path(source).as_posix()}={SDL_PATH_NAME}"
+    return [f'-DCMAKE_C_FLAGS="{flag}"' if " " in flag else f"-DCMAKE_C_FLAGS={flag}"]
 
 
 def sdl_library() -> str:

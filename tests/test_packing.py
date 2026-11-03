@@ -519,6 +519,29 @@ class WindowsPackingTests(unittest.TestCase):
                              [('-9', 4101), ('-9', 4101), ('-t', 4101), ('--fileinfo', 4101)])
             self.assertIn(hashlib.sha256(make_pe(saturated_code())).hexdigest(), packing._CALL_FILTER_USED)
 
+    def test_the_wait_and_the_retry_happen_once_per_packing_across_both_forms(self):
+        # The shortened-SizeOfCode form meets the sign (retried, then fails another way); the plain form meets it again:
+        # no second wait and no second retry.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            built = game.read_bytes()
+            packs = []
+            def run(command, **options):
+                if command[1] != '-9':
+                    return SimpleNamespace(returncode=0, stdout='', stderr='')
+                packs.append(struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0])
+                sign = len(packs) in (1, 3)         # 1: filter form, 2: its retry (another failure), 3: plain form
+                Path(command[-1]).write_bytes(b'MZ half-written')
+                return SimpleNamespace(returncode=1, stdout='', stderr=(
+                    f'upx: {game}: IOException: {game}: Invalid argument' if sign else 'upx: Game.exe: CantPackException: test'))
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertEqual(packs, [4101, 4101, 8192])      # no fourth pack
+            self.assertEqual(sleep.call_count, 1)
+            self.assertIn('antivirus', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
+
     def test_the_report_names_the_method_of_a_packed_game(self):
         with tempfile.TemporaryDirectory() as folder:
             game = Path(folder) / 'Game.exe'

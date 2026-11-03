@@ -37,6 +37,22 @@ class MetadataTests(unittest.TestCase):
 class ManifestTests(unittest.TestCase):
     """The application manifest of every game (1.6.7): inline in the resource script, standard, no behaviour change."""
 
+    def setUp(self):
+        from unittest.mock import patch
+        patcher = patch('retrorecomp.toolchain.active', return_value='llvm')     # the portable toolchain, whatever this PC has
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_visual_studio_fallback_builds_without_it(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            with patch('retrorecomp.toolchain.active', return_value='msvc'):
+                write_game_metadata(folder, 'Game', 'Game.exe', light_phaser=False, icon=True)
+            content = (folder / 'game_resources.rc').read_text(encoding='utf-8')
+        self.assertNotIn('1 24', content)               # MSBuild embeds its own manifest as resource 1
+        self.assertIn('1 VERSIONINFO', content)
+
     def manifest_of(self, **options):
         import re
         import xml.etree.ElementTree as ElementTree
