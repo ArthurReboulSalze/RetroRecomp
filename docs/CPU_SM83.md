@@ -171,6 +171,7 @@ defensible denominator of total cycles. The report gives the counts themselves, 
 | `tools/gameboy_boundary_selftest.py` with `native/gb_boundary_checks.c` | Instructions crossing a bank window against the internal CPU (CPU, memory, timing) | a C compiler |
 | `tools/gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_display_selftest.py` | APU, PPU dot timing, OAM DMA bus, input and audio scheduling, the host's display settings and files; related, not CPU tests | a C compiler |
 | `tests/test_gameboy_build.py`, `test_gameboy_coverage.py`, `test_game_boy.py` | Dispatch sharing, boundary repair, discovery hints, ROM identification | none (no ROM) |
+| `tools/fetch_sm83_vectors.py`, `tools/gameboy_sm83_vector_selftest.py` with `native/gb_sm83_vector_checks.c` | The pinned interpreter, and our one-instruction RAM executor and the RAM dispatch the generated code calls, against the 500,000 vectors of [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) (`f9c3021`, MIT, generated from a reference model, not hardware captures): registers, flags, PC, SP, IME and its pending state, the memory the vector lists, and the cycle count, one instruction per vector. Only the 404,358 vectors that touch plain memory (ROM read, VRAM, cartridge RAM, WRAM, OAM, HRAM) are run; the vector model is a flat RAM, the runtime's bus is not | a C compiler, the cached corpus (`.deps`, checked against a pinned digest) |
 | Conversion differential | Generated execution against the pinned interpreter, instruction by instruction (registers, mutable memory and framebuffer): 30 frames of boot, and with *Deep Game Boy validation* (the default) 240 frames of each input scenario; a mismatch blocks the export | the player's ROM |
 
 Counts of cases, frames and cartridges, with their dates and conditions, are in [GAME_BOY.md](GAME_BOY.md) and
@@ -178,17 +179,39 @@ Counts of cases, frames and cartridges, with their dates and conditions, are in 
 
 **What the evidence is.** The comparisons are between the generated code and the pinned runtime's own interpreter, which
 share the runtime devices: they find divergence introduced by translation and by our executors, and they are not an
-independent hardware oracle. There is **no independent SM83 vector set** in this repository (the independent sets pinned
-by the project are for the Z80 and the 68000, [UPSTREAMS.md](UPSTREAMS.md)). The upstream project mentions external
-suites and comparisons with another emulator in its own repository; they are not run by this one.
+independent hardware oracle. Since 1.6.7 the interpreter itself is also run against an **independent SM83 vector set**
+(SingleStepTests/sm83, below), which is what carries the lockstep comparison one step further: translated code equal to
+the interpreter, and the interpreter checked against vectors. The vectors do not run the generated code, they are not
+hardware captures, and they say nothing of the PPU, APU or cartridge. The upstream project mentions external suites and
+comparisons with another emulator in its own repository; they are not run by this one.
 
 | Measure | What this page can say |
 |---|---|
 | Native code | Interpreter sessions, one-by-one executors and uncounted helpers are three separate lines; ROM code on the tested scenarios is ahead-of-time code |
-| CPU fidelity | Generated code equal to the pinned interpreter on the tested frames; not independent |
+| CPU fidelity | Generated code equal to the pinned interpreter on the tested frames (not independent); the interpreter itself checked against independent vectors (two conventions of the vector model remain, `STOP` and `HALT`) |
 | Hardware fidelity | Not measured here; see the machine page |
 | Gameplay validation | Scripted probes, never a completed game |
 | Physical latency | Not measured |
+
+**Independent vectors (1.6.7, gate G10).** The interpreter matches 402,589 of the 404,358 vectors it is given. The 1,769 that differ are two
+opcodes, each pinned with its number in the tool and its reason, both conventions of the vector model:
+
+| Opcode | Vectors | What differs |
+|---|---|---|
+| `STOP` (`10`) | 872 | The vectors count one byte and three machine cycles, the runtime skips the padding byte (two bytes, as Pan Docs says is normal) and does not give the low-power wait a cycle count. |
+| `HALT` (`76`) | 897 | The vectors give three machine cycles, the runtime four cycles and then the halted ticks until an interrupt is flagged. Registers, memory and PC agree. |
+
+`EI` (`FB`, 865 vectors) differed until 1.6.7 and is fixed: the vectors and Pan Docs ("delayed by one instruction") set IME after the instruction that
+follows `EI`, and the pinned runtime set it when `EI` itself completed. In ordinary flow that was not visible, because the interrupt test inside
+`gb_tick` ran before the pending flag was promoted and so put the interrupt after the next instruction by accident; a cartridge authored for the
+case (`tools/gameboy_ei_check.py`) gave the console's answers on all eight cases before and after. It was visible in the IME state between the two
+instructions, and in the lockstep comparison, whose one-step loop took an interrupt right after an `EI` (Super Mario Land, boot, `EI` at `$042C`)
+where a normal run did not. The rule is now one for the interpreter, the generated code, the RAM executors and the upstream stub: the pending flag
+goes 0, 1 (`EI` just ran), 2, then IME, promoted at the start of each tick, before the interrupt test ([UPGRADES.md](UPGRADES.md#game-boy-ei-enables-ime-one-instruction-later-167)).
+
+The one-instruction RAM executor matches all 51,654 vectors it takes; the RAM dispatch, which tries the store helper, the upstream stub and then
+the executor, matches all 58,153 it takes and leaves 638 to an interpreter session: `STOP`, `HALT` and the eight `RST`, the documented limit of the
+executors. A vector whose final value is altered by one is caught on all three paths. The undocumented opcodes are not in the corpus.
 
 ## 7. Deep dives
 

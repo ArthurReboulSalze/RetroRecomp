@@ -315,7 +315,11 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
         if source.is_file() and source.name!='m68kconf.h':
             target=project/'musashi'/source.relative_to(geo/'src/m68k')
             target.parent.mkdir(parents=True,exist_ok=True)
-            if not target.is_file() or target.read_bytes()!=source.read_bytes():shutil.copyfile(source,target)
+            data=source.read_bytes()
+            if source.name=='m68kops.c':
+                from retrorecomp.musashi_fixes import adapt_musashi_ops
+                data=adapt_musashi_ops(data.decode('utf-8')).encode('utf-8')
+            if not target.is_file() or target.read_bytes()!=data:target.write_bytes(data)
     if machine_base=='hissorii':
         # Our MIT configuration and CPU binding (native/x68000_machine/base74);
         # no PX68k m68000 file is copied.

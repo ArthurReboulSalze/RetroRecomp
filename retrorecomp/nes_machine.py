@@ -391,10 +391,8 @@ _APU_STRUCTS = {'LengthCounter', 'Envelope', 'Pulse', 'HwApu', 'RrAudio'}
 _VRC7_STRUCTS = {'OPLL_PATCH', 'OPLL_SLOT', 'OPLL'}
 
 
-def _state_layouts(transformed: dict[str, bytes]) -> dict[str, str]:
-    """The quick-state serialisers, written from the struct definitions of the staged sources."""
-    def text(name: str) -> str:
-        return transformed[name].decode('utf-8')
+def _state_sets(text) -> dict[str, tuple[dict, list[str]]]:
+    """{serialiser file: (the structs read from the sources, the roots written)}; `text(name)` reads a staged source."""
     machine, apu, vrc7 = {}, {}, {}
     for name in ('runner/cyc/hw_internal.h', 'runner/cyc/cpu6502.h', 'runner/cyc/mmc5_state.h', 'common/nes_cart.h',
                  'common/nes_eeprom.h', 'common/nes_barcode.h'):
@@ -403,9 +401,20 @@ def _state_layouts(transformed: dict[str, bytes]) -> dict[str, str]:
                                           _MACHINE_STRUCTS))
     apu.update(nes_state_layout.parse(text('runner/cyc/hw_apu.c'), _APU_STRUCTS))
     vrc7.update(nes_state_layout.parse(text('runner/cyc/vendor/emu2413/emu2413.h'), _VRC7_STRUCTS))
-    return {'runner/cyc/nes_state_main.inc': nes_state_layout.generate(machine, ['RrStateHeader', 'RrMachineState']),
-            'runner/cyc/nes_state_apu.inc': nes_state_layout.generate(apu, ['HwApu', 'RrAudio']),
-            'runner/cyc/nes_state_vrc7.inc': nes_state_layout.generate(vrc7, ['OPLL'])}
+    return {'runner/cyc/nes_state_main.inc': (machine, ['RrStateHeader', 'RrMachineState']),
+            'runner/cyc/nes_state_apu.inc': (apu, ['HwApu', 'RrAudio']),
+            'runner/cyc/nes_state_vrc7.inc': (vrc7, ['OPLL'])}
+
+
+def _state_layouts(transformed: dict[str, bytes]) -> dict[str, str]:
+    """The quick-state serialisers, written from the struct definitions of the staged sources."""
+    sets = _state_sets(lambda name: transformed[name].decode('utf-8'))
+    return {name: nes_state_layout.generate(known, roots) for name, (known, roots) in sets.items()}
+
+
+def state_audit(text) -> list[dict]:
+    """Every member of the saved structures, written or left out with its reason (see `nes_state_layout.audit`)."""
+    return [row for known, roots in _state_sets(text).values() for row in nes_state_layout.audit(known, roots)]
 
 
 def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,

@@ -285,8 +285,17 @@ choice is saved in `[NES.Video] reduce_sprite_flicker`; off by default.
 
 Known single-Zapper games automatically use mouse aim and left-click fire on
 port 2, with right-click for an off-screen shot. Identification uses NES 2.0
-device metadata, a payload-CRC catalogue and exact title aliases. The CRC
-facts are attributed to [MesenNesDB](https://github.com/SourMesen/Mesen2/blob/master/UI/Dependencies/MesenNesDB.txt).
+device metadata (default expansion device 8) and exact title aliases: the games that need the
+Zapper, those that support it as an option, and two unlicensed ones, named as the compatible-games
+list of the Wikipedia article on the NES Zapper names them (facts only), plus the aliases the converter
+already carried (`retrorecomp/nes_catalog.py`). No database is imported: before 1.6.7 the catalogue also
+held 122 payload CRCs from MesenNesDB, a file of the GPL-3 Mesen2 repository, and they were removed. On
+the 1,063 files of the maintainer's NES library the same 19 games are recognised before and after
+(Adventures of Bayou Billy, Baby Boomer, Barker Bill's Trick Shooting, Chiller, Day Dreamin' Davey,
+Duck Hunt, Freedom Force, Gotcha! The Sport!, Gumshoe, Hogan's Alley, Laser Invasion, The Lone Ranger,
+Mad City (translated), Mechanized Attack, Operation Wolf, Shooting Range, To the Earth, Track & Field II
+and Wild Gunman); a revision, hack or translation outside the library whose file name is not one of
+the titles and whose header does not name the Zapper is no longer recognised and runs with two controllers.
 The default reticle is a small red cross. The Zapper page of F2, after the four
 control pages, selects cross/dot, size and red/white/green. Intentional game flashes are kept.
 The sensor uses pixels as the PPU emits them, with bounded light persistence,
@@ -404,8 +413,11 @@ same engine's internal CPU and bus; they do not certify physical hardware.
 | `python tools/nes_machine_selftest.py` | Authored NTSC/PAL fixtures: clock/APU behaviour, beam-driven Zapper detection, snapshot round trips, mapper audio, corrupted-state rejection without mutation |
 | `python tools/nes_audio_selftest.py` | The host kit's callback-ring output and authored PCM timelines, silently |
 | `python tools/nes_saves_check.py` | Battery saves on an authored cartridge (MMC1, battery RAM, a program that counts its launches): the first launch saves 1, the second 2, a second conversion over the same export keeps the file, the new build saves 3; the conversion's probes leave no file beside the export |
+| `python tools/nes_owner_trial.py --roms FOLDER` | Converts six games for the owner's play test (G14) under `.build/nes-owner-trial/`, one at a time, with a picture of each and a `TRIAL.md` checklist; the checklist itself is in [QUALIFICATION.md](QUALIFICATION.md#checklist-for-arthur-nintendo-nes-play-test-g14) |
 | `python tools/nes_route_captures.py ROM EXE` | The last picture of each route of a converted game (the routes are written again from the ROM at the same scan level), to see whether a route reached play; headless |
 | `python tools/nes_state_selftest.py <game.exe>` | The check a conversion runs on the file it delivers (`retrorecomp/nes_checks.py`). Needs a generated game. Saves, closes, relaunches and compares continued CPU/memory/video/hardware hashes and PCM; checks lazy file creation; opens no game window. `--save-after 1800 --frames 180 --input <schedule.input>` resumes a held two-player input schedule in a fresh process |
+| `python tools/nes_state_prg_check.py` | Authored cartridges for four boards that keep their PRG bank in the cartridge's `m.prg` register (MMC1, VRC6, Bandai, MMC2): the program selects bank 3 once and shows the first byte of the switchable window every frame. Each is converted (the conversion runs the fresh-process state check) and checked again at two save points; a writer that drops the register is refused. With the 1.6.6 source all four are refused, with 1.6.7 all four pass; `--root` runs it on an older source |
+| `python tools/nes_cross_os.py trace ROM EXE --out DIR` / `compare A B` | Gate G13: the routes of a conversion replayed on one executable keep the per-frame trace and the sound hash; two folders (Windows and Debian, each built with the same engine revision and native sources) are compared route by route, with the first frame and column that differ |
 | `python tools/nes_state_cross.py A.exe B.exe` | Needs two builds of one game. A quick state written by one build must continue identically in the other (for example Visual Studio and portable-toolchain builds) |
 
 The Python suite (`tests/test_nes*.py` and the rest of `python -B -m unittest discover -s tests -q`)
@@ -480,6 +492,36 @@ The 12 October 2026 campaigns and the work that followed are recorded in
 | Guarded RAM and unstable mapper follow-up (12 October 2026) | Zelda, Kirby's Adventure, Wizards & Warriors, Micro Machines, Dragon Warrior III and IV (512 KiB MMC1) | Zero interpreted cycles on three 3,600-frame scenarios, 64,800 matching frame pairs; 274 verified RAM guards retained in the shared resource |
 | Lower ROM aliases and protected cartridge RAM | Eight targeted conversions on mappers 23, 25, 80, 82, 4 (PAL) and 69 | No interpreted cycles on the tested paths; 86,400 matching frame pairs on the final EXEs; 2,421,760 lower-ROM matrix comparisons; no mapper-40 retail qualification |
 | RAM-board, DMA and restart qualification (12 October 2026) | Batman: Return of the Joker, Mr. Gimmick, Ufouria, Dragon Ball Z III (supplied translation), Castlevania III, Ninja Gaiden II, Battletoads, Contra | Zero interpreted cycles; 86,400 frame pairs; fresh-process state continuations after 720 and 1,800 input frames |
+
+### Panel of mapper families (3 November 2026)
+
+Ten games chosen on 2 November 2026, each for a mapper family the earlier campaigns did not cover, validated by the lead session
+before the run. Each was converted at the thorough level (eight routes, 57,600 frames compared against the fresh reference, the
+delivered file replayed, fresh-process state continuation, saves in the report), one at a time, with `tools/campaign.py` on the
+maintainer's Windows PC:
+
+| Game | Board | Why it is in the panel | Result | Conversion |
+|---|---|---|---|---|
+| Mike Tyson's Punch-Out!! (Japan, USA) | Mapper 9 (MMC2) | CHR latches that switch banks as the PPU reads tiles | Pass, no interpreted cycles | 1,036 s |
+| Fire Emblem (Japan, translated) | Mapper 10 (MMC4) | The same latches with a 16 KiB PRG window, battery RAM; a translated release | Pass, no interpreted cycles | 988 s |
+| Final Lap (Japan) | Mapper 19 (Namco 163) | Wavetable sound channels and a CHR/nametable mapping of its own | Pass, no interpreted cycles | 2,375 s |
+| Rolling Thunder (USA, unlicensed) | Mapper 64 (Tengen RAMBO-1) | A scanline IRQ with its own counter rules and CHR banking modes | Pass, no interpreted cycles | 1,250 s |
+| Ys III: Wanderers from Ys (Japan, translated) | Mapper 118 (TxSROM) | An MMC3 whose CHR bank bits drive the nametables | Pass, no interpreted cycles | 1,356 s |
+| Akumajou Special: Boku Dracula-kun (Japan, translated) | Mapper 23 (Konami VRC2/VRC4 family) | The address-line wiring variants of the VRC boards | Pass, no interpreted cycles | 1,320 s |
+| Dragon Ball Z III: Ressen Jinzou Ningen (Japan, translated) | Mapper 16 (Bandai FCG) | A cycle-counted IRQ and a serial EEPROM for saves | Pass, no interpreted cycles | 1,386 s |
+| Dragon Warrior IV (USA) | Mapper 1 at 512 KiB (SUROM) | A second outer PRG bank register; the conversion that was set aside on 29 October 2026 | Pass, no interpreted cycles | 1,355 s |
+| Asterix (Europe) | Mapper 2, PAL | The PAL deferred clock on a mapper without an IRQ | Pass, no interpreted cycles | 770 s |
+| Batman: Return of the Joker (USA) | Mapper 69 (FME-7) with the Sunsoft 5B channels | A second cartridge with those channels, beside Mr. Gimmick | Pass, no interpreted cycles | 1,340 s |
+
+Ten of ten pass, none dropped. The verdict is the one of `tools/release_check.py` on each conversion's report: the conversion, the
+agreement of the native code with the project's own reference on the routes played, the interpreter limit and the replay gates. It
+says nothing about hardware fidelity, a whole game played or physical latency, and the routes are first minutes of play only; the
+pictures of these ten games were not looked at one by one.
+
+One thing about how the run was made. The first six games (to Akumajou Special) were converted with the quick-state writer of 1.6.6
+and the last four with the corrected one ([UPGRADES.md](UPGRADES.md)): the writer was fixed while the campaign was running from the same
+checkout, which the specialist's own notes forbid. The six were therefore converted again with the corrected writer at the standard
+level: all six succeed, including the check of states in a fresh process.
 
 ### Independent comparisons
 

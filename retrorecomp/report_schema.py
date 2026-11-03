@@ -61,7 +61,10 @@ missing, because the old readers take a null for a value)::
                                                        'highmem_stub_instructions', 'highmem_stub_cycles'}
                                                       (Game Boy: WRAM/HRAM and 0xFF00-0xFF7F code run one
                                                        instruction at a time by the generated dispatch;
-                                                       neither native nor interpreted)}]}]
+                                                       neither native nor interpreted),
+                                   'guarded_helpers': {kind: {'entries', 'cycles'}} (Game Boy, since 1.6.7: native
+                                                       bodies that take over a recognised routine of writable code;
+                                                       kinds store, copy, dma_page, interrupt_dma, counted apart)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
                   The coprocessor comes first. After it a writer may list units that have no counter
@@ -208,6 +211,11 @@ def _main_scenario(writer, row):
                 'single_step_cycles': _count(row.get('ram_single_step_cycles')),
                 'highmem_stub_instructions': _count(row.get('highmem_stub_instructions')),
                 'highmem_stub_cycles': _count(row.get('highmem_stub_cycles'))}
+        if isinstance(row.get('guarded_helpers'), dict):
+            # The guarded helpers: native bodies that take over a recognised routine of writable code after checking its live
+            # bytes. Counted apart (entries and guest cycles per kind), neither interpreter nor one-at-a-time, not hidden in native.
+            extra['guarded_helpers'] = {kind: {'entries': _count(_dict(value).get('entries')), 'cycles': _count(_dict(value).get('cycles'))}
+                                        for kind, value in row['guarded_helpers'].items()}
     elif writer == 'nes':
         cycles = {'native': _count(row.get('native_cycles')), 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('cycles')), 'interpreted_rom': _count(row.get('interpreter_rom_cycles')),
@@ -376,7 +384,9 @@ def _cpu_scenarios(shape, data, rows):
                 for item in _dict_rows(validation.get('scenarios'))]
     if writer == 'gameboy':
         return [{'name': item.get('scenario'), 'frames': _count(item.get('frames')),
-                 'match': True if 'Matched' in str(item.get('result')) else None, 'checks': None, 'hashes': None}
+                 'match': True if 'Matched' in str(item.get('result')) else None, 'checks': None, 'hashes': None,
+                 # The length of the final scenario of the probes (Game Boy, since 1.6.7); None when the report does not say.
+                 'scenario_frames': _count(item.get('scenario_frames'))}
                 for item in _dict_rows(validation.get('scenarios'))]
     if writer == 'nes':
         return [{'name': item.get('scenario'), 'frames': _count(item.get('frames')),
