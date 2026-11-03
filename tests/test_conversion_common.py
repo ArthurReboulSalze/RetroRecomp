@@ -174,6 +174,8 @@ def collect_run_probes(root):
     gb_output = ('[LIMIT] Reached frame limit 30\n'
                  '[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0 '
                  'highmem_stub_instructions=0 highmem_stub_cycles=0\n'
+                 '[RR-HELPERS] store_entries=0 store_cycles=0 copy_entries=0 copy_cycles=0 dma_page_entries=0 dma_page_cycles=0 '
+                 'interrupt_dma_entries=0 interrupt_dma_cycles=0\n'
                  '[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n'
                  '[INTERP] No interpreter fallback recorded.\n')
     runner = FakeRun(gb_output)

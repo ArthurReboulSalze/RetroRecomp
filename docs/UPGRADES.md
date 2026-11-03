@@ -341,6 +341,99 @@ stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No 
 Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
 need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
 
+## Game Boy: HALT steps through mode 3, the guarded helpers are counted, the reference runs over the whole length (1.6.7)
+
+*The halted fast-forward.* While a game waits in HALT, the runtime jumps to the next PPU event in every mode but the pixel transfer, where it stepped one machine
+cycle at a time because the end of the mode depends on the pixel FIFO: about 43 steps a line, in a loop that issues most of the calls of a game that waits for vertical
+blank. The transfer ends when the 160th pixel is pushed, at best one pixel a dot (sprites, the window and the scroll only add dots), so the step may now go to one dot
+before that, on a four-cycle boundary (`gameboy_runtime.adapt_halt_mode3`); the dot where the mode ends, and the interrupt it may raise, is still reached by a four-cycle
+step, so the CPU wakes on the same cycle. It applies once the mode is published as 3 and with more than four pixels left.
+
+*The guarded helpers are counted (gate G3).* The four kinds of native body that take over a recognised routine of writable code (store and increment, copy, DMA page,
+interrupt-bracketed DMA) count their entries and the guest cycles of those entries in host-only counters of the context (outside every saved state). The runtime prints
+them on a `[RR-HELPERS]` line, the probe reads it (a runtime without the line is refused) and the report gives them per scenario, by kind, in `guarded_helpers` beside the
+one-at-a-time counts, never added to the interpreter figures. On the games of the A/B they are mostly zero; Kirby's Dream Land enters the store helper 11,360 times in its
+3,600-frame boot route (90,880 guest cycles).
+
+*The reference comparison (gate G4).* The comparison with the reference interpreter covered 30 frames of the boot and 240 of each route, and never the pseudo-random
+routes. From the extended level on, every scenario of the probes, the pseudo-random routes included, is compared over its whole length, up to 3,600 frames; the report
+says, for each comparison, the frames compared (`frames`) and the length of the scenario (`scenario_frames`), and `native_validation.mode` is `full`. The packed replay uses
+the same lengths. The lockstep run goes at roughly seventeen frames a second on a busy PC (73 s for 1,200 frames of one route), which is why the default and the lower
+levels are unchanged.
+
+*What moves.* The Game Boy **game stamp** (`gameboy.py`, `gameboy_coverage.py`, `gameboy_runtime.py`, `native/gb_ram_helpers.h`, `native/gb_tick_fast.h`, `native/gb_tick_checks.c` and
+`native/gb_ram_checks.c`), once for this whole lot with the EI change above; against the base of the lot every other stamp of every machine is the same. An export of 1.6.6
+plays as before until it is converted again; its report has no `guarded_helpers` and no `scenario_frames`, which read as absent, never as zero.
+
+*Hot path: touched, not timed.* `gb_halt_fast_forward_cycles` runs once per halted step and gains one comparison in mode 3; the steps there become longer (in the test fixture the
+average step inside mode 3 is 106 dots instead of 4, about 26 times fewer steps). The counting of the guarded helpers costs one increment and one addition of 64 bits per helper entry and one read of `total_cycles` per dispatch of code run from WRAM or HRAM
+(`rr_gb_try_store_helper`, taken or not). The gain on a real game is not measured here: it is to be timed on a quiet PC.
+
+*Proof.* `tools/gameboy_halt_selftest.py` builds the runtime with and without the bound and runs a HALT program on random video memory, sprites, window and scroll with
+four kinds of wake-up source in 48 variants: the digest of the whole state is identical after each of 66,843 slices of random length, the sound samples agree at all 288
+frame ends, the build with the bound takes 66,187 long steps inside mode 3 and the other none, and a bound that runs 20 dots too far is caught (43,419 slices differ). A/B
+on five games (Tetris, Super Mario Land, Kirby's Dream Land, Link's Awakening, Wario Land II; old tree before the lot's HALT change, new tree after it, from an empty library):
+on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter of every frame are identical, and so is the final state;
+the lockstep comparison takes the same number of steps. The RAM self-test (56,170 checks) asserts the counter of each helper kind; `tests/test_gameboy_helper_counts.py`,
+`tests/test_gameboy_halt_bound.py` and the coverage tests cover the rest. Fable reviews the HALT change and the EI change before they are merged.
+
+## Game Boy: EI enables IME one instruction later (1.6.7)
+
+On the console IME is set after the instruction that follows `EI` (Pan Docs, "Interrupts"; `EI` then `DI` lets no interrupt in between). The pinned runtime
+stored `ime_pending = 1` for `EI` and turned it into IME at the end of the same tick, in the interpreter, the generated code, the upstream stub and our RAM
+executors. The independent SM83 vectors (865 of them) saw it: IME was already set after `EI`. In ordinary flow the interrupt still came after the next
+instruction, by accident, because the interrupt test inside `gb_tick` ran before the pending flag was promoted. The change makes the flag a real delay, the same rule
+everywhere (`gameboy_runtime.adapt_ei_delay`, `native/gb_tick_fast.h`, `native/gb_ram_helpers.h`): 0, 1 (`EI` just ran), 2, then IME; the first thing every tick does is
+advance it, so the interrupt test that follows sees IME in the first tick of the instruction after `EI`. `DI` clears the flag, and an `EI` that finds it armed leaves it
+(`EI`, `EI`: IME is on after the second).
+
+*Two cases the review of the change found, both fixed in `adapt_ei_delay`.* (1) `EI ; HALT` with an interrupt already pending and IME off before the `EI`: the pinned
+`gbrt_execute_halt` saw IME off and took the HALT bug, then the tick of the HALT turned IME on and the dispatch ran with the bug still set, so the first instruction of the
+handler ran twice (a handler that begins with `PUSH AF` unbalances the stack). An armed `EI` (flag 2) now counts as IME about to be on: no HALT bug, the interrupt is taken once
+after the HALT, as in 1.6.6 and on the console. (2) `EI` executed with IME already on and an interrupt pending at once: the dispatch switched IME off and the armed flag
+switched it back on in the middle of the dispatch (a nested interrupt in the handler); the dispatch now clears the flag with IME (the `EI` does nothing there, as on the console).
+Both are asserted in `native/gb_halt_checks.c` (removing either fix makes it fail: the stack comes back unbalanced, or IME stays on) and the `EI ; HALT` case is also in
+`tools/gameboy_ei_check.py` on the delivered file.
+
+*What moves.* The Game Boy **game stamp** (`gameboy_runtime.py`, `gb_tick_fast.h`, `gb_ram_helpers.h`); no host or build stamp. An export of 1.6.6 keeps the old rule until it
+is converted again. The pending flag is part of a quick state: a state taken between an `EI` and the next instruction by this build holds 2, which an older build
+also promotes at its next tick, so no key changes.
+
+*Hot path: touched, not timed.* `gb_tick` and its inline copy test `ime_pending` once per tick as before; the test moved from the end of the function to the start, and the
+value it handles has a third state. No other work is added per tick.
+
+*What it changes in practice.* In the game, on five games, nothing: on Tetris, Super Mario Land, Kirby's Dream Land, Link's Awakening and Wario Land II (one conversion at a
+time from an empty library, old and new tree), the four routes of each (boot, two plays, varied) were replayed on both delivered files for 3,600 frames and the picture,
+the sound, the work RAM and the program counter of every frame are identical, and so is the final state dump. In the lockstep comparison of the conversion, which
+runs one instruction at a time, Super Mario Land takes five more steps in the 30-frame boot comparison and in each 240-frame comparison (Tetris, Kirby's Dream Land and
+Link's Awakening: the same number); on the old tree its one-step loop took one interrupt right after an `EI` (the `EI` at `$042C`, interrupt taken at `$042D`, cycle
+938,248, found with a print in the dispatch) where a normal run took none. Both trees match their own interpreter; the new one takes that interrupt after the next instruction in
+both modes. The five extra steps are not explained further than by that single difference, and no picture, sound, RAM or PC difference goes with them.
+
+*Proof.* `tools/gameboy_sm83_vector_selftest.py`: the interpreter matches 402,589 of 404,358 vectors (the 865 `EI` vectors now match; what is left is `STOP` and `HALT`, conventions of
+the vector model), the RAM executor all 51,654 and the RAM dispatch all 58,153. `tools/gameboy_ei_check.py`, a cartridge authored for it with an interrupt already pending at the
+`EI`: nine cases (ROM code, code copied to WRAM and HRAM, an `EI` at the end of a block, `EI ; DI`, `EI ; EI`, `EI ; HALT`) give the console's answers on the new runtime (the first
+eight were also measured on the 1.6.6 runtime, which gave the same), and the generated code agrees with the interpreter in lockstep. The inline tick against the real `gb_tick`
+(309,676 checks, with the pending flag drawn from 0, 1 and 2), the RAM self-test (56,170) and the bank-boundary self-test (47,104) pass; the vector counts above were run again
+after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch functions. A/B of the corrected tree against the 1.6.6 tree (`f9d2350`) on Tetris, Link's Awakening and Wario Land II (the
+last two have an `EI ; HALT` byte pair in their ROM; Tetris waits in HALT): on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter
+of every frame are identical to 1.6.6, and so are the final state and the number of steps of the lockstep comparison. Fable has reviewed the change; both findings are fixed here.
+
+## Game Boy: independent SM83 vectors (1.6.7, gate G10)
+
+`tools/fetch_sm83_vectors.py` caches the pinned SingleStepTests/sm83 corpus into `.deps` (revision `f9c3021`, MIT, a pinned digest of its
+500 files, a line per vector); `tools/gameboy_sm83_vector_selftest.py` builds `native/gb_sm83_vector_checks.c` against the pinned runtime and
+runs the 404,358 vectors that touch plain memory through the interpreter, the one-instruction RAM executor and the RAM dispatch.
+
+*What moves.* Nothing: developer files, in the public files and in no stamp (the C check is declared out of the stamps like the
+CPS-1 vector checks). No export changes.
+
+*Hot path: not touched.*
+
+*Proof and finding.* 401,724 of 404,358 interpreter vectors matched at the time; the three families that differed were pinned with their numbers
+(`STOP` and `HALT`: conventions of the vector model; `EI`: IME set when `EI` completes instead of one instruction later, see the next entry for the
+fix and for what it changed in practice). Details in [CPU_SM83.md](CPU_SM83.md#6-tests-and-vectors).
+
 ## Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states (1.6.6, gates G2 and G6)
 
 *The report.* Beside the CPU, the Game Boy report (schema 2) now lists two units in `devices`, after the coprocessor entry if a machine has

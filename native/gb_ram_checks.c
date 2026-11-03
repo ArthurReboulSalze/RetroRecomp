@@ -38,6 +38,8 @@ static void copy_differential_checks(void) {
         GBDifferentialResult result;
         assert(gb_run_differential(ctxs[0],ctxs[1],&options,&result));
         assert(result.steps_completed==1 && ctxs[0]->total_interpreter_cycles==0);
+        assert(ctxs[0]->rr_helper_entries[RR_HELPER_COPY] == 1 && ctxs[0]->rr_helper_cycles[RR_HELPER_COPY] > 0);   /* counted, apart */
+        assert(ctxs[1]->rr_helper_entries[RR_HELPER_COPY] == 0);
         gb_context_destroy(ctxs[0]);gb_context_destroy(ctxs[1]);++checks;
     }
     for (unsigned i=0;i<17;++i) {
@@ -64,6 +66,8 @@ static void dma_page_checks(void) {
         GBDifferentialOptions options={0};options.max_steps=1;options.compare_memory=true;options.fail_on_fallback=true;
         GBDifferentialResult result;assert(gb_run_differential(ctxs[0],ctxs[1],&options,&result));
         assert(result.steps_completed==1 && ctxs[0]->total_interpreter_cycles==0);
+        assert(ctxs[0]->rr_helper_entries[RR_HELPER_DMA_PAGE] == 1 && ctxs[0]->rr_helper_cycles[RR_HELPER_DMA_PAGE] > 0);   /* counted, apart */
+        assert(ctxs[1]->rr_helper_entries[RR_HELPER_DMA_PAGE] == 0);
         gb_context_destroy(ctxs[0]);gb_context_destroy(ctxs[1]);++checks;
     }
     for (unsigned i=0;i<sizeof(code);++i) {
@@ -112,6 +116,8 @@ static void differential_checks(void) {
         assert(result.steps_completed == 1 && native->total_interpreter_cycles == 0);
         const unsigned cycles = native->cycles;
         assert(cycles == phases[p] + 8);
+        assert(native->rr_helper_entries[RR_HELPER_STORE] == 1 && native->rr_helper_cycles[RR_HELPER_STORE] == 8);   /* counted, apart */
+        assert(reference->rr_helper_entries[RR_HELPER_STORE] == 0);
         gb_context_destroy(native); gb_context_destroy(reference); ++checks;
     }
 }
@@ -175,6 +181,8 @@ static void dma_differential_checks(void) {
         assert(gb_run_differential(native, reference, &options, &result));
         assert(result.steps_completed == 1 && native->total_interpreter_cycles == 0);
         assert(native->cycles == phases[phase] + 4);
+        assert(native->rr_helper_entries[RR_HELPER_INTERRUPT_DMA] == 1 && native->rr_helper_cycles[RR_HELPER_INTERRUPT_DMA] == 4);   /* counted, apart */
+        assert(reference->rr_helper_entries[RR_HELPER_INTERRUPT_DMA] == 0);
         gb_context_destroy(native); gb_context_destroy(reference); ++checks;
     }
 }
