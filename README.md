@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.6-d4a737" alt="Release version 1.6.6">
+  <img src="https://img.shields.io/badge/release-1.6.7-d4a737" alt="Release version 1.6.7">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -71,13 +71,18 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Mega Drive](docs/MEGADRIVE.md) | Supported | Standard cartridges, PAL/NTSC, SRAM and EEPROM saves, quick states and Menacer |
 | [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges, LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
-| [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
+| [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
+
+**New in 1.6.7.** The QSound boards of Capcom can be converted with your own DSP ROM, as an experimental tier of their own;
+Star Ocean and the ExHiROM Super Nintendo cartridges convert; Windows games are smaller (LZMA) and built reproducibly; the Game
+Boy, Super Nintendo, Mega Drive, Neo Geo, CPS-1 and X68000 are corrected against independent CPU vectors. Details in the
+[release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
