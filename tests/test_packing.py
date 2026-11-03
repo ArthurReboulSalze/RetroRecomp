@@ -48,7 +48,7 @@ class BundledPackerTests(unittest.TestCase):
         self.assertIn('tools/x68000_fixtures.py', PUBLIC_FILES)
 
 
-def make_pe(code: bytes, size_of_code=None, magic=0x20B) -> bytes:
+def make_pe(code: bytes, size_of_code=None, magic=0x20B, virtual_size=None) -> bytes:
     """A minimal 64-bit PE: one .text section holding `code` at RVA 0x1000, raw data at 0x400."""
     header = bytearray(0x400)
     header[0:2] = b'MZ'
@@ -62,7 +62,7 @@ def make_pe(code: bytes, size_of_code=None, magic=0x20B) -> bytes:
     struct.pack_into('<I', header, optional + 20, 0x1000)
     table = optional + 0xF0
     header[table:table + 8] = b'.text\0\0\0'
-    struct.pack_into('<IIII', header, table + 8, len(code), 0x1000, len(code), 0x400)
+    struct.pack_into('<IIII', header, table + 8, virtual_size or len(code), 0x1000, len(code), 0x400)
     return bytes(header) + code
 
 
@@ -143,8 +143,30 @@ class CallFilterModelTests(unittest.TestCase):
         self.assertEqual(spare_values(bytes(code), length + 1), [])
 
     def test_the_header_gives_the_start_and_the_addvalue_of_the_code(self):
-        field, size, start, addvalue = packing._pe_code(make_pe(bytes(64)))
-        self.assertEqual((field, size, start, addvalue), (SIZE_OF_CODE_FIELD, 64, 0x400, 0))
+        located = packing._pe_code(make_pe(bytes(64)))
+        self.assertEqual(located, (SIZE_OF_CODE_FIELD, 64, 0x400, 0, 64))
+        # UPX reads min(SizeOfRawData, VirtualSize) bytes of a section (pefile.cpp).
+        self.assertEqual(packing._pe_code(make_pe(bytes(64), virtual_size=40))[4], 40)
+
+    def test_what_is_past_the_virtual_size_is_zeros_for_upx(self):
+        # The raw tail of a section past its VirtualSize is not read by UPX (zero fill): a call there takes no value.
+        code = saturated_code(late_at=7000, size=8192)
+        self.assertEqual(spare_values(code, len(code)), [])
+        length, value = packing.call_filter_length(make_pe(code, virtual_size=6500))
+        self.assertEqual((length, value), (len(code), 7))
+        length, _ = packing.call_filter_length(make_pe(code))
+        self.assertEqual(length, 7000 + 5)
+
+    def test_the_length_is_capped_by_addvalue_and_by_the_largest_buffer_of_the_filter(self):
+        # Targets inside the filtered part must stay under 2**24 with addvalue (ctok.h), and UPX does not filter a
+        # buffer over max_buf_len 0x00ffffff (filter_impl.cpp).
+        code = saturated_code()
+        field = SIZE_OF_CODE_FIELD
+        with patch.object(packing, '_pe_code', return_value=(field, len(code), 0x400, (1 << 24) - 4100, len(code))):
+            self.assertEqual(packing.call_filter_length(make_pe(code)), (4100, 7))      # the late value, free below 4102
+        with patch.object(packing, '_pe_code', return_value=(field, 1 << 24, 0x400, 0, 1 << 24)):
+            self.assertEqual(packing.call_filter_length(bytes(0x400 + (1 << 24))), (0xFFFFFF, 0))
+
 
     def test_only_a_64_bit_pe_is_read(self):
         self.assertIsNone(packing.call_filter_length(b'MZ'))
@@ -359,6 +381,9 @@ class LinuxPackingTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'Windows packing')
 class WindowsPackingTests(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(packing._CALL_FILTER_USED.clear)
+
     def test_windows_games_keep_the_same_upx_flags(self):
         with tempfile.TemporaryDirectory() as folder:
             game = Path(folder) / 'Game.exe'
@@ -391,34 +416,93 @@ class WindowsPackingTests(unittest.TestCase):
             self.assertEqual(log, [outcome['notice']])
             self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
 
+    # The suite does not run UPX itself here: subprocess.run is replaced by a script that plays UPX (pack, test and
+    # --fileinfo) and records what the game's SizeOfCode was at each call. The real UPX was run on real builds by hand.
+    def play_upx(self, game, filters=('0x49',), pack_fails=False):
+        """A fake UPX: (the list of (argument, SizeOfCode seen) calls, the run function). The n-th --fileinfo says filters[n]."""
+        seen = []
+        def run(command, **options):
+            argument = command[1]
+            seen.append((argument, struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0]))
+            if argument == '--fileinfo':
+                said = filters[len([call for call in seen if call[0] == '--fileinfo']) - 1]
+                return SimpleNamespace(returncode=0, stderr='', stdout=(
+                    'game.exe [amd64-win64.pe, win64/pe]' + chr(10) + '   1328128 bytes, compressed by UPX 13, method 8, level 9, '
+                    f'filter {said}/0x57' + chr(10)))
+            failing = pack_fails and argument == '-9' and len([call for call in seen if call[0] == '-9']) == 1
+            return SimpleNamespace(returncode=1 if failing else 0, stdout='',
+                                   stderr='upx: Game.exe: CantPackException: test' if failing else '')
+        return seen, run
+
+    def staged(self, folder):
+        game = Path(folder) / 'Game.exe'
+        game.write_bytes(make_pe(saturated_code()))
+        return game
+
     def test_a_build_that_loses_the_call_filter_is_packed_with_the_longest_filterable_length(self):
         # 1.6.6: the Super Mario Land build used the last spare value, UPX found no filter and the game grew by 24 %.
-        built = make_pe(saturated_code())
         with tempfile.TemporaryDirectory() as folder:
-            game = Path(folder) / 'Game.exe'
-            game.write_bytes(built)
-            seen = []
-            def run(command, **options):
-                seen.append((command[1], struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0]))
-                return SimpleNamespace(returncode=0, stdout='', stderr='')
+            game = self.staged(folder)
+            seen, run = self.play_upx(game)
+            log = []
             with patch('retrorecomp.packing.subprocess.run', side_effect=run):
-                self.assertIsNone(packing.compact_executable(game))
-            self.assertEqual(seen, [('-9', 4101), ('-t', 4101)])
+                self.assertIsNone(packing.compact_executable(game, emit=log.append))
+            self.assertEqual(seen, [('-9', 4101), ('-t', 4101), ('--fileinfo', 4101)])
             self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+            self.assertEqual(len(log), 1)
+            self.assertIn('call filter kept over 50 % of the code (4101 of 8192 bytes)', log[0])
+            # The report says it: only for a packed game, and only for the build that used it.
+            build = make_pe(saturated_code())
+            identity = {'bytes': len(build), 'sha256': hashlib.sha256(build).hexdigest()}
+            game.write_bytes(b'MZ UPX! the packed game')      # what the fake UPX did not write
+            record = packing.packing_record(identity, game)
+            self.assertEqual(record['call_filter'], {'filter': '0x49', 'code_bytes': 8192, 'filtered_bytes': 4101})
+            self.assertNotIn('call_filter', packing.packing_record({'bytes': 1, 'sha256': '0' * 64}, game))
+
+    def test_a_packed_file_without_the_call_filter_is_replaced_by_the_plain_attempt(self):
+        # Seen for real: UPX returned 0, `upx -t` passed and the file had filter 0x00 and was 7 % larger.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            seen, run = self.play_upx(game, filters=('0x00', '0x49'))
+            log = []
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                self.assertIsNone(packing.compact_executable(game, emit=log.append))
+            self.assertEqual(seen, [('-9', 4101), ('-t', 4101), ('--fileinfo', 4101), ('-9', 8192), ('-t', 8192)])
+            self.assertEqual(log, [])
+            self.assertNotIn(hashlib.sha256(make_pe(saturated_code())).hexdigest(), packing._CALL_FILTER_USED)
+
+    def test_the_note_of_an_earlier_packing_is_not_kept_when_the_next_one_falls_back(self):
+        # The conversion and the publication pack the same build in one process: the report must say what the last one did.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            build = game.read_bytes()
+            seen, run = self.play_upx(game)
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                packing.compact_executable(game)
+            self.assertIn(hashlib.sha256(build).hexdigest(), packing._CALL_FILTER_USED)
+            game.write_bytes(build)
+            seen, run = self.play_upx(game, filters=('0x00',))
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                packing.compact_executable(game)
+            self.assertNotIn(hashlib.sha256(build).hexdigest(), packing._CALL_FILTER_USED)
 
     def test_when_the_shorter_length_fails_the_build_is_packed_as_before(self):
-        built = make_pe(saturated_code())
         with tempfile.TemporaryDirectory() as folder:
-            game = Path(folder) / 'Game.exe'
-            game.write_bytes(built)
-            seen = []
-            def run(command, **options):
-                seen.append((command[1], struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0]))
-                failing = len(seen) == 1           # the first pack (shorter length) fails, the next ones succeed
-                return SimpleNamespace(returncode=1 if failing else 0, stdout='', stderr='upx: Game.exe: CantPackException: test')
+            game = self.staged(folder)
+            seen, run = self.play_upx(game, pack_fails=True)
             with patch('retrorecomp.packing.subprocess.run', side_effect=run):
                 self.assertIsNone(packing.compact_executable(game))
             self.assertEqual(seen, [('-9', 4101), ('-9', 8192), ('-t', 8192)])
+
+    def test_a_staged_copy_that_cannot_be_patched_is_packed_as_before(self):
+        # The antivirus may remove or lock the staged copy: the conversion must not fail on the header write.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            seen, run = self.play_upx(game)
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run),                     patch('retrorecomp.packing._set_size_of_code', side_effect=PermissionError('locked')):
+                self.assertIsNone(packing.compact_executable(game))
+            self.assertEqual(seen, [('-9', 8192), ('-t', 8192)])
+            self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
 
     def test_when_every_attempt_fails_the_game_is_published_as_built(self):
         built = make_pe(saturated_code())

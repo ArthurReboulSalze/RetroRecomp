@@ -199,15 +199,22 @@ itself, whatever the game: the NES builds (10 MB or more of code) never had a fi
 
 `retrorecomp/packing.py` now runs UPX's own scan on the build (`call_filter_length`, the first pass of `ctok.h` in Python,
 cross-checked against a brute force in `tests/test_packing.py`; on the thirteen builds below it named the value UPX chose in
-each of the nine that kept a filter and the loss in the four that lost it) and, when the whole code has no spare value, writes the longest length that has one in the SizeOfCode field
-of the PE header before packing: UPX filters that many bytes from BaseOfCode, the loader ignores the field. The Super Mario
+each of the nine that kept a filter and the loss in the four that lost it) and, when the whole code has no spare value, writes the
+longest length that has one in the SizeOfCode field of the PE header before packing. UPX bounds its filter by that field
+(`pefile.cpp`), so it filters that many bytes from BaseOfCode. The delivered packed file carries UPX's own SizeOfCode
+(`oh.codesize = osection[1].vsize`): the patched value exists only in UPX's input and in the output of `upx -d`. The Super Mario
 Land build of 1.6.6 is filtered over 59 % of its code (cto 87 = 0x57) and packs to 1,367,552 bytes (from 1,647,616; 1.33 MB with
-the filter on all the code, which is not possible). If that pack or `upx -t` fails, the validated build is put back and packed
-exactly as before; a build whose longest filterable part is under a quarter of the code (the NES) is packed exactly as before. A
+the filter on all the code, which is not possible). The packed file must pass `upx -t` and `upx --fileinfo` must show filter 0x49 (a silent
+no-filter result, seen with a SizeOfCode cut at random, passes the test and is 7 % larger); if that fails, or if the header of
+the staged copy cannot be written (the antivirus may lock it), the validated build is put back and packed exactly as before; a build whose longest filterable part is under a quarter of the code (the NES) is packed exactly as before. A
 build with a spare value over all its code (everything else measured) is untouched: same UPX call, same bytes. The packer, its
 SHA-256 checks and its flags are unchanged; the output is deterministic (the publication repacks to the same bytes, checked).
-`upx -d` of an affected game gives the build with that one header field changed. Windows only: the Linux ELF has no such
-field, its packing is unchanged.
+`upx -d` of an affected game gives the build with that one header field changed. The scan reads the code as UPX does (the
+section up to its VirtualSize, zeros after) and caps the length at the 16 MiB the filter can address (`max_buf_len`
+0x00ffffff, targets under 2^24 with the added value). The conversion log says "UPX call filter kept over N % of the code" for
+such a game, and `packing.call_filter` ({filter, code_bytes, filtered_bytes}) records it in the report beside the other
+`packing` keys; it is absent for every other game, and the schema-2 `packed` section is unchanged. Windows only: the Linux
+ELF has no such field, its packing is unchanged.
 
 Measured on unpacked builds kept by earlier work (UPX as 1.6.6 calls it, then `packing.compact_windows`; every result passes `upx -t`
 and repacks to the same bytes; the times are pack plus test on a PC shared with other conversions, so only large differences count):
@@ -226,8 +233,7 @@ and repacks to the same bytes; the times are pack plus test on a PC shared with 
 Time: 4 to 38 s per game before and after, within the noise (the model adds 0.2 to 2 s, the second UPX pack is only run for the
 two games above). The Super Mario Land 1.6.6 game packed this way was converted whole with the 1.6.6 converter and this change
 only in `packing.py`: its packed copy replayed on 4 routes against the reference and matched (`packed_reference_match` true).
-The NES builds keep no filter (10 MB or more of code, every value is taken within the first 80 KB; Mr. Gimmick has 16.4 MB, over
-the 16 MiB the filter can address); `--lzma` would make them 24 % smaller (Metroid 3,107,840 to 2,371,584) at a start-up cost
+The NES builds keep no filter (10 MB or more of code, every value is taken within the first 80 KB); `--lzma` would make them 24 % smaller (Metroid 3,107,840 to 2,371,584) at a start-up cost
 that was not measured here, a decision for the maintainer.
 
 Stamps (computed with the tree of `main` before and the tree of this change, `compilation_inputs.role_stamps` of the nine
