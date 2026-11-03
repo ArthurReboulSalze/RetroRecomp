@@ -321,7 +321,7 @@ leaves out. A tool or a report field named here exists in the tree of this page.
 | G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors' | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions |
 | G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`) | They compare the runtime with its own model: no external emulator and no hardware capture is used |
 | G12 Panel | The exact-cartridge panel of the collection (below) | Cartridges that failed or were skipped are listed on that page and in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) |
-| G13 Cross-OS | A Linux build exists; the per-frame trace (`--frame-trace`) makes the route hashes of the two systems comparable | That comparison has not been made for this machine |
+| G13 Cross-OS | Windows and Debian 13 (Hermès), each converting the game with the same tree, the same engine revision and an empty library at the quick level, give equal per-frame traces (picture, sound, work RAM and program counter hashes) and equal final states on 15 of 15 routes: boot, two play runs, `varied` and an 18,000-frame pseudo-random route, for Tetris, Exodus and Super Mario Land (3 November 2026); `tools/gameboy_cross_os.py`, section *The cross-OS witness* below | Three of the 606 cartridges, the quick level, no thorough run; the compiler and the SDL build differ by system, which is what the equal traces show to be harmless for these routes, not for every game |
 | G14 Owner | No recorded owner decision | His play test |
 | G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the interface and the report say "tested scenarios" and "not native" where it applies; the audit of 3 November 2026 of this page, [CPU_SM83.md](CPU_SM83.md) and the strings of the report found no claim of exactness, zero latency or hardware fidelity | Words in other pages and in the interface strings of other machines are not covered |
 | G16 Shared knowledge | Hints are numbers about a ROM (addresses, positions), rechecked on the exact ROM, and the conversion retries without them on failure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)) | A hint qualifies a path only after a conversion by another player reaches it and checks it against the reference |
@@ -409,6 +409,21 @@ fresh-process state check empties it, the probes do not), so a probe is not alwa
 do start clean (Link's Awakening shows 179 pictures on the clean `varied` replay against 212 in its probe, which a save left by an earlier
 probe would explain; it was not isolated). And a route that ends in a menu or on a
 paused game is evidence of liveness, not of depth: the lengths of the table are what the route reached, not what the game offers.
+
+### The cross-OS witness (1.6.7, gate G13)
+
+Tetris (no mapper), Exodus (Wisdom Tree) and Super Mario Land (MBC1) were converted on Windows and on Debian 13 (the machine Hermès) from the
+same tree (the commit of 3 November 2026), at the quick level, from an empty library, with the pinned engine and the pinned SDL on each side
+(29 to 43 s on the PC, 84 to 130 s on Hermès). Then the five routes of each game (boot, two play runs, `varied` and one pseudo-random route
+of 18,000 frames, 73,800 frames per system) were replayed on the delivered file of each system, headless, from a private empty folder:
+`python tools/gameboy_cross_os.py trace EXE --out DIR` on each system, then `compare DIR_A DIR_B`.
+
+The per-frame traces (picture, sound, work RAM and program counter hashes) and the final states (registers, cycles, work and high RAM,
+LY and PPU mode) are **equal on all 15 routes**. The generated sources are equal file for file (107 to 114 per game); the only difference
+is the resource embedding, which is by design: a `.rc` file on Windows, `embedded_resources.c` and `.S` on Linux. The sound is compared
+as a hash per block of samples inside the trace, not as a file. This says that the converter and the runtime give the same game on the
+two systems for these three games and these routes; it says nothing about the other 603 cartridges, the thorough level, the speed on each
+system or hardware fidelity.
 
 ### Letters missing in a menu of Final Fantasy Legend II
 
