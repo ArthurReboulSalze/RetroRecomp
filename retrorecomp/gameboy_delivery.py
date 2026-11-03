@@ -92,7 +92,11 @@ CUT_STATES = ('empty', 'cut inside the header', 'cut inside the body', 'one byte
 
 
 def launch(game: Path, folder: Path, *args) -> tuple[int, str]:
-    """One headless run of a delivered file in `folder`: the exit code and what it printed."""
+    """One headless run of a delivered file in `folder`: the exit code and what it printed.
+
+    The data folder beside the file is emptied first: a game with battery RAM writes its save when it ends, and the next run of the
+    same folder would start from it, so that two runs meant to be the same would not begin in the same state."""
+    shutil.rmtree(folder / 'datas', ignore_errors=True)
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
     result = subprocess.run([str(game), '--headless', *map(str, args)], cwd=folder, env=environment, capture_output=True,
                             text=True, timeout=STATE_TIMEOUT)
@@ -165,12 +169,12 @@ def state_checks(delivered: Path, scratch: Path, emit: Callable[[str], None], fr
             damaged.write_bytes(data)
             code, output, snapshot = dump_run(game, folder, 'damaged', more, '--load-state-file', damaged)
             refused[label] = code != 0 and snapshot is None and 'Failed to load execution state' in output \
-                and damaged.read_bytes() == data
+                and damaged.read_bytes() == data and not (folder / 'datas').exists()       # a refused state creates nothing
             if not refused[label]:
                 problems.append(f'a state with the defect "{label}" was not refused')
         missing = folder / 'nowhere' / 'none.state'
         code, _, snapshot = dump_run(game, folder, 'missing', more, '--load-state-file', missing)
-        read_only = code != 0 and snapshot is None and not missing.parent.exists()
+        read_only = code != 0 and snapshot is None and not missing.parent.exists() and not (folder / 'datas').exists()
         if not read_only:
             problems.append('loading a state that does not exist was not refused cleanly')
         for problem in problems:

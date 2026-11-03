@@ -185,6 +185,13 @@ def main() -> int:
             row['replay'] = replay(executable, script, route.frames, work / 'replay' / slug / 'run')
             image = sheet(work / 'replay' / slug / 'run', slug)
             row['sheet'] = str(image) if image else None
+        # The pseudo-random route presses every button, Start included, and a game can sit paused or on a menu for most of it: the
+        # `varied` route of the probes (menus, movement and buttons, chosen for depth) is replayed and captured as well.
+        varied = next((check for check in report.get('final_checks', []) if check['scenario'] == 'varied'), None)
+        if varied is not None and executable is not None:
+            row['varied_replay'] = replay(executable, varied.get('input_script') or '', varied['frames'], work / 'replay' / slug / 'varied')
+            image = sheet(work / 'replay' / slug / 'varied', f'{slug}-varied')
+            row['varied_sheet'] = str(image) if image else None
         summary[slug] = row
         summary_path.write_text(json.dumps(summary, indent=1) + '\n', encoding='utf-8')
         print('  ' + json.dumps({key: row.get(key) for key in ('convert_wall_seconds', 'replay')}, default=str)[:400], flush=True)
