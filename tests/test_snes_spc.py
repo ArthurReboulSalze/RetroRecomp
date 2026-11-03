@@ -18,7 +18,7 @@ def fixture():
     return ('static const int cyclesPerOpcode[256] = {' + ','.join(['2'] * 256) + '};\n' +
         'static void spc_doOpcode(Spc* spc, uint8_t opcode) { switch(opcode) {\n' +
         'case 0x00: // first shared label\ncase 0x01: { spc->a += opcode; break; }\n' +
-        '\n'.join(f'case 0x{op:02x}: {{ spc->a += opcode; break; }}' for op in range(2, 256)) +
+        '\n'.join((snes_spc.DIVISION if op == 0x9e else f'case 0x{op:02x}: {{ spc->a += opcode; break; }}') for op in range(2, 256)) +
         '\n} }\n')
 
 
@@ -69,6 +69,17 @@ class SpcConversionTests(unittest.TestCase):
         self.assertLess(lookup.index('spc->pc >= 0xf0 && spc->pc <= 0xff) return NULL'), lookup.index('rr_spc_pc_sets[spc->pc]'))
         self.assertLess(lookup.index('ops[n].opcode == opcode'), lookup.index('return rr_spc_unobserved + opcode;'))
         self.assertNotIn('if (!id) return NULL;', lookup)
+
+    def test_the_division_is_the_chips_and_is_corrected_once(self):
+        text = snes_spc.corrected(fixture())
+        self.assertIn('hardware division', text)
+        self.assertNotIn('TODO: proper division algorithm', text)
+        self.assertEqual(snes_spc.corrected(text), text)           # idempotent: adapt_core and native_source both apply it
+        self.assertIn('spc->a = 255 - (value - (spc->x << 9)) / (256 - spc->x);', text)
+        with self.assertRaises(ConversionError):
+            snes_spc.corrected(fixture().replace('TODO: proper division algorithm', 'changed'))
+        generated, _ = snes_spc.native_source(fixture(), bytes(64), bytearray(snes_spc.MASK_BYTES))
+        self.assertIn('spc->v = spc->y >= spc->x;', generated)
 
 class SpcMemoryTests(unittest.TestCase):
     def setUp(self):

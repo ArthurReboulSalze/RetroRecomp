@@ -310,10 +310,56 @@ def correct_software_interrupts(source: str) -> str:
         '          : interp816_readWord(cpu, 0xffe4, 0xffe5);\n')
 
 
+def correct_emulation_mode(source: str) -> str:
+    """Give RTI, TCS, TXS and the direct-page indexing the 65816 emulation mode's behaviour (found by the independent vectors).
+
+    In emulation mode the chip keeps the stack in page 1 and the program bank is neither stacked by an interrupt nor pulled by
+    RTI (the pinned RTI pulled it, and took the native extra cycle, in both modes, while our interrupt entry and the BRK/COP
+    correction above stack three bytes there: the stack drifted by one byte after every interrupt taken in emulation mode). TCS
+    and TXS load S with the page forced to 1. A taken branch (BRA included) that crosses a page takes one more cycle in emulation mode. With the direct page's low byte 0, the indexed direct-page addresses wrap within
+    the page ((dp,X), dp,X and dp,Y), the pointer's second byte included. Written from the processor manual and checked against
+    SingleStepTests/65816; native mode is untouched, and the compiled operations follow since they come from this same text.
+    """
+    source = replace_once(source,
+        '      interp816_setFlags(cpu, interp816_pullByte(cpu));\n'
+        '      cpu->cyclesUsed++; // native mode: 1 extra cycle\n'
+        '      cpu->pc = interp816_pullWord(cpu);\n'
+        '      cpu->k = interp816_pullByte(cpu);\n',
+        '      interp816_setFlags(cpu, interp816_pullByte(cpu));\n'
+        '      if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (the program bank is pulled)\n'
+        '      cpu->pc = interp816_pullWord(cpu);\n'
+        '      if(!cpu->e) cpu->k = interp816_pullByte(cpu);\n')
+    source = replace_once(source, '    case 0x1b: { // tcs imp\n      cpu->sp = cpu->a;\n',
+                          '    case 0x1b: { // tcs imp\n      cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->a & 0xff)) : cpu->a;\n')
+    source = replace_once(source, '    case 0x9a: { // txs imp\n      cpu->sp = cpu->x;\n',
+                          '    case 0x9a: { // txs imp\n      cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->x & 0xff)) : cpu->x;\n')
+    source = replace_once(source,
+        '    cpu->cyclesUsed++; // taken branch: 1 extra cycle'+chr(10)+'    cpu->pc += (int8_t) value;'+chr(10),
+        '    cpu->cyclesUsed++; // taken branch: 1 extra cycle'+chr(10)+'    uint16_t from = cpu->pc;'+chr(10)+'    cpu->pc += (int8_t) value;'+chr(10)+
+        '    if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++; // emulation mode: a taken branch across a page takes one more'+chr(10))
+    source = replace_once(source,
+        '    case 0x80: { // bra rel'+chr(10)+'      uint8_t offset = interp816_readOpcode(cpu);'+chr(10)+'      cpu->pc += (int8_t) offset;'+chr(10),
+        '    case 0x80: { // bra rel'+chr(10)+'      uint8_t offset = interp816_readOpcode(cpu);'+chr(10)+'      uint16_t from = cpu->pc;'+chr(10)+
+        '      cpu->pc += (int8_t) offset;'+chr(10)+
+        '      if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++; // emulation mode: across a page, one more cycle'+chr(10))
+    for index in ('x', 'y'):
+        source = replace_once(source,
+            f'  *low = (cpu->dp + adr + cpu->{index}) & 0xffff;\n  return (cpu->dp + adr + cpu->{index} + 1) & 0xffff;\n}}',
+            f'  if(cpu->e && !(cpu->dp & 0xff)) {{ /* emulation mode, direct page aligned: the index wraps within the page */\n'
+            f'    *low = cpu->dp | ((adr + cpu->{index}) & 0xff);\n'
+            f'    return cpu->dp | ((adr + cpu->{index} + 1) & 0xff);\n  }}\n'
+            f'  *low = (cpu->dp + adr + cpu->{index}) & 0xffff;\n  return (cpu->dp + adr + cpu->{index} + 1) & 0xffff;\n}}')
+    return replace_once(source,
+        '  uint16_t pointer = interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n',
+        '  uint16_t pointer = (cpu->e && !(cpu->dp & 0xff))\n'
+        '      ? interp816_readWord(cpu, cpu->dp | ((adr + cpu->x) & 0xff), cpu->dp | ((adr + cpu->x + 1) & 0xff))\n'
+        '      : interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n')
+
+
 def read_core(engine: Path) -> str:
-    """The pinned interpreter source with the BRK/COP correction: what both readers use."""
-    return correct_software_interrupts(
-        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8'))
+    """The pinned interpreter source with the BRK/COP and emulation-mode corrections: what both readers use."""
+    return correct_emulation_mode(correct_software_interrupts(
+        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')))
 
 
 def adapt_core(source: str) -> str:

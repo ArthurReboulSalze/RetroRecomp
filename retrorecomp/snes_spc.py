@@ -93,6 +93,52 @@ def learn(rom, checks):
         return added
 
 
+DIVISION = '''    case 0x9e: { // div imp
+      // TODO: proper division algorithm
+      uint16_t value = spc->a | (spc->y << 8);
+      int result = 0xffff;
+      int mod = spc->a;
+      if(spc->x != 0) {
+        result = value / spc->x;
+        mod = value % spc->x;
+      }
+      spc->v = result > 0xff;
+      spc->h = (spc->x & 0xf) <= (spc->y & 0xf);
+      spc->a = result;
+      spc->y = mod;
+      spc_setZN(spc, spc->a);
+      break;
+    }
+'''
+HARDWARE_DIVISION = '''    case 0x9e: { // div imp (hardware division: a result above 255 wraps the way the chip's 9-bit divider does)
+      uint16_t value = spc->a | (spc->y << 8);
+      spc->v = spc->y >= spc->x;
+      spc->h = (spc->y & 0xf) >= (spc->x & 0xf);
+      if(spc->y < (spc->x << 1)) {
+        spc->a = value / spc->x;
+        spc->y = value % spc->x;
+      } else {
+        spc->a = 255 - (value - (spc->x << 9)) / (256 - spc->x);
+        spc->y = spc->x + (value - (spc->x << 9)) % (256 - spc->x);
+      }
+      spc_setZN(spc, spc->a);
+      break;
+    }
+'''
+
+
+def corrected(source):
+    """DIV YA,X as the chip does it. The pinned core divides plainly and flags an overflow by comparing with 255, which gives a
+    different quotient, remainder and flags whenever Y >= X (24 of the 128 sampled cases of SingleStepTests/spc700). Written
+    from the public descriptions of the divider (anomie's SPC700 document, fullsnes, bsnes), checked against the vectors. X = 0
+    gives the divider's own answer: Y >= X, so the second formula, with 256 - 0 as the divisor. Idempotent."""
+    if 'hardware division' in source:
+        return source
+    if source.count(DIVISION) != 1:
+        raise ConversionError('Pinned SPC700 division changed.')
+    return source.replace(DIVISION, HARDWARE_DIVISION, 1)
+
+
 def operation_bodies(source):
     signature = 'static void spc_doOpcode(Spc* spc, uint8_t opcode) {'
     try:
@@ -140,6 +186,7 @@ def boot_bytes(source):
 def native_source(source, boot, masks):
     if len(boot) != 64 or len(masks) != MASK_BYTES:
         raise ConversionError('Invalid SPC700 native address map.')
+    source = corrected(source)
     bodies, cycles = operation_bodies(source), cycle_costs(source)
     code = ['/* Generated fixed-operation SPC700 AOT. Upstream notices retained. */']
     for opcode in range(256):
@@ -201,6 +248,7 @@ static void rr_spc_uop_{opcode:02x}(Spc *spc) {{
 
 
 def adapt_core(source):
+    source = corrected(source)
     marker = 'int spc_runOpcode(Spc* spc) {'
     if source.count(marker) != 1 or source.count('#include "spc.h"') != 1:
         raise ConversionError('Pinned SPC700 execution boundary changed.')

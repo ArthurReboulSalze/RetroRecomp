@@ -218,6 +218,32 @@ class SnesNativeTests(unittest.TestCase):
         self.assertEqual(lookup.count('rr_sn_unobserved('), 1)
 
 
+class EmulationModeCorrectionTests(unittest.TestCase):
+    """RTI, TCS, TXS and the indexed direct-page wrap of emulation mode (1.6.7), from the independent vectors."""
+    PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/interp816.c'
+
+    @unittest.skipUnless(PINNED.is_file(), 'pinned engine checkout not present')
+    def test_the_corrected_core_has_each_correction_once_and_fails_closed(self):
+        raw = self.PINNED.read_text(encoding='utf-8')
+        text = snes_codegen.correct_emulation_mode(snes_codegen.correct_software_interrupts(raw))
+        self.assertIn('if(!cpu->e) cpu->k = interp816_pullByte(cpu);', text)           # RTI pulls the bank in native mode only
+        self.assertEqual(text.count('if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (the program bank is pulled)'), 1)
+        self.assertIn('cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->a & 0xff)) : cpu->a;', text)   # TCS
+        self.assertIn('cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->x & 0xff)) : cpu->x;', text)   # TXS
+        self.assertEqual(text.count('the index wraps within the page'), 2)                          # dp,X and dp,Y
+        self.assertIn('if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++;', text)         # a branch across a page
+        self.assertIn('cpu->cyclesUsed++; // emulation mode: across a page, one more cycle', text)     # BRA
+        self.assertIn('cpu->dp | ((adr + cpu->x + 1) & 0xff)', text)                                 # (dp,X) too
+        # Every anchor is checked: a pinned text that changed is refused, not patched around.
+        corrected = snes_codegen.correct_software_interrupts(raw)
+        for anchor in ('case 0x1b: { // tcs imp', 'case 0x9a: { // txs imp', 'interp816_setFlags(cpu, interp816_pullByte(cpu));'):
+            with self.subTest(anchor=anchor):
+                with self.assertRaises(ConversionError):
+                    snes_codegen.correct_emulation_mode(corrected.replace(anchor, anchor.replace('imp', 'changed')
+                                                                          if 'imp' in anchor else 'X'))
+        # Native mode keeps the pinned text for what it did right.
+        self.assertIn('interp816_pushWord(cpu, cpu->pc - 1);', text)
+
 class SnesCopierFileTests(unittest.TestCase):
     """The Pro Fighter .fig format: a 512-byte copier header before whole 32 KiB blocks, like .smc."""
     def setUp(self):
