@@ -413,9 +413,12 @@ paused game is evidence of liveness, not of depth: the lengths of the table are 
 ### Letters missing in a menu of Final Fantasy Legend II
 
 On the sheet of Final Fantasy Legend II some letters are missing in the character menu and in the introduction text: the `i` of "Slime" on every
-frame, the `o` of "Robot" on some, the `d` of "and" once. It is not a transition (eight consecutive captures show it). The lockstep comparison
-cannot tell whether it is the game's own behaviour or the pinned PPU model, since the interpreter shares the PPU; no external emulator was
-used. It is recorded here as an unexplained observation about the rendering of this game, not as a claim about the hardware.
+frame, the `o` of "Robot" on some, the `d` of "and" once. It is not a transition (eight consecutive captures show it). It is **not an effect of the 1.6.7
+changes**: the same route on a conversion of the 1.6.6 tree (`tools/ab_conversion.py`, quick level) gives the same frames byte for byte at
+frames 2,980, 5,960, 5,972, 5,980 and 5,988, the missing letters included. The lockstep comparison cannot tell whether it is the game's own
+behaviour or the pinned PPU model, since the interpreter shares the PPU, and no external emulator was used. It is recorded here as an
+unexplained observation about the rendering of this game (a candidate for a check against a reference emulator, not a claim about the
+hardware); it does not change the status of the conversion.
 
 ## Known limits
 
