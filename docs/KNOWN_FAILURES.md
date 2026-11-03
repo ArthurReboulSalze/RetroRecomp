@@ -10,6 +10,8 @@ Kinds of entry:
 - **Set aside**: investigated at length without a result (possibly a bad dump); kept here so it is not rediscovered.
 - **Refused by design**: outside the supported scope of the machine (a coprocessor, a board or a medium not handled);
   the converter says so and stops.
+- **Delivered unpacked**: the conversion succeeds and every route is validated, but the compressed copy cannot be
+  delivered on one system; the game is published as built, a larger file, with the reason in the report.
 
 Games that convert but run part of their code in the counted interpreter are not listed here: their reports show the
 counts (the five measures stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation, latency).
@@ -35,6 +37,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Capcom CPS-1 | Bootlegs and hacks, 65 sets (for example `sf2ebbl`, `sf2rb`, `3wondersb`, `dinohunt`) | Refused by design | « Bootleg and modified sets are outside the supported CPS-1 scope » | Refused by the catalogue; the originals convert | 24 October 2026 |
 | Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.d88`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
+| Sharp X68000 | Choujin (Fix), on Debian only | Delivered unpacked | The UPX-compressed game stops at start (SIGTRAP, exit 133) on Debian 13, with UPX 5.3.0 at `-9`, `-1` and `--lzma`, while `upx -t` passes and the unpacked program (the same bytes after `upx -d`) runs. Since 1.6.7 the shared packing step replays the compressed copy twice, sees the build pass every route, and publishes the build as built: the conversion succeeds, the file is 9.5 MB unpacked, `packing.packed` is false and `packing.unpacked_reason` says why. Windows delivers it compressed | Repeated, with and without address randomisation, on the file kept by the failed conversion; not a disk fault. Debian with `--no-compress` and the fallback both give the same CPU, RAM, picture and PCM hashes as Windows (fallback run on main at 1aa7ddd, 3 November 2026: published file byte for byte the validated build, `native_validation.packed_reference_match` true). The cause in the UPX start-up stub against the layout of this one executable is still not found | 2 November 2026 |
 
 ## Taken off this page
 

@@ -53,7 +53,9 @@ not bank (MMM01, MBC6, MBC7, camera, TAMA5, HuC1, HuC3). `saves.cartridge_memory
 stays "not validated" for both.
 
 Where the five measures stand: **native code** is reported per scenario with the interpreter and the one-by-one executors shown
-apart; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
+apart, and, since 1.6.7, with the guarded helpers (native bodies that take over a recognised routine of writable code after checking its
+live bytes: store and increment, copy, DMA page, interrupt-bracketed DMA) counted apart too, by kind, as entries and guest cycles in
+`final_checks[].guarded_helpers`; they are not interpreter sessions and are not added to any other figure; **CPU fidelity** is a comparison against the pinned reference interpreter on short scripted scenarios (see
 [Qualification](#qualification)); **hardware fidelity**, **gameplay validation** and **physical latency** are not claimed.
 
 ### Sound and input timing
@@ -177,7 +179,7 @@ instructions are reported beside them. Wario Land II kept interpreter sessions a
 | Converter | `retrorecomp/gameboy.py` (pipeline, passes, report), `gameboy_coverage.py` (probe and CPU-validation scenarios), `gameboy_runtime.py` (adaptations of the generated project), `gameboy_boundary.py`, `gameboy_build.py`, `gameboy_hardware.py`, `gameboy_host.py` (platform layer on the host kit) |
 | Shared converter code used | `scan_levels.py` (`gameboy_budget`), `random_routes.py`, `path_profiles.py` (CPU-keyed `rom_entries`), `report_schema.py` |
 | Native | `native/gb_ram_helpers.h`, `gb_ram_checks.c`, `gb_boundary_checks.c`, `gb_audio_checks.c`, `gb_latency_checks.cpp`, `gb_tick_fast.h`, `gb_tick_checks.c`; the adapter `native/hostkit/adapters/rrhk_gb.inc` |
-| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_tick_selftest.py` |
+| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_tick_selftest.py`, `gameboy_sm83_vector_selftest.py` (independent SM83 vectors, [CPU_SM83.md](CPU_SM83.md#6-tests-and-vectors)) |
 | Unit tests | `tests/test_game_boy.py`, `test_gameboy_build.py`, `test_gameboy_coverage.py` |
 | Stamps | The role and owners of each file are in `retrorecomp/stamp_inputs.py`; editing a Game Boy game file moves the Game Boy game stamp (there is no Game Boy quick-state key) |
 
@@ -250,7 +252,10 @@ unguarded ROM code. Exported games do not write learning logs, and the interpret
 
 The fallback percentage is deliberately left unknown because the upstream report does not provide a defensible total cycle
 denominator. Before export, the mandatory CPU check compares generated and reference execution instruction by instruction for up to
-30 boot frames. **Deep Game Boy validation (slow)** adds up to 240 frames per input scenario. Both modes require the requested
+30 boot frames. **Deep Game Boy validation (slow)** adds up to 240 frames per input scenario. With the **extended** and **thorough** scan levels
+(since 1.6.7) every scenario of the probes, the pseudo-random routes included, is compared over its whole length, up to 3,600 frames; the report
+says for each comparison how many frames were compared and how long the scenario is (`scenario_frames`), and `native_validation.mode` is `full`.
+The lockstep run goes at about twenty frames a second, so a route of 18,000 frames is compared over its first 3,600 and says so. Both modes require the requested
 comparison frames to finish and reject a mismatch. The differential validator checks all mutable memory and framebuffer bytes after
 every instruction and locates the first differing byte on failure. The option only changes the scope of the reference CPU validation;
 native ROM discovery, the converter library, the coverage probes and the pass limit are identical in both modes. The conversion
@@ -292,9 +297,34 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
 ## Qualification
 
 Gate status for the Game Boy is in [QUALIFICATION.md](QUALIFICATION.md) (the column `gb`); the checks below are what exists today.
-Deep CPU checks compare instructions and memory for 30 boot frames and 240 frames of each of the three input scenarios (the Game Boy
+Deep CPU checks compare instructions and memory for 30 boot frames and 240 frames of each of the three input scenarios, and from the extended level
+on over the whole length of every scenario, up to 3,600 frames (the Game Boy
 release check compares the CPU once, on a short boot, not on every final scenario as the other writers do). These checks do not cover
 all gameplay, certify hardware fidelity or measure physical latency.
+
+### The sixteen gates, with their evidence (1.6.7)
+
+The letters (met, partial, unknown) are in [QUALIFICATION.md](QUALIFICATION.md); this table says where each piece of evidence is and what it
+leaves out. A tool or a report field named here exists in the tree of this page.
+
+| Gate | Evidence for the Game Boy | What it leaves out |
+|---|---|---|
+| G1 Status | `supported`: the profile (`retrorecomp/systems/game_boy.py` takes the default status), the first line of this page and the README table say so; [COMPATIBILITY.md](COMPATIBILITY.md) and [INDEX.md](INDEX.md) describe the machine without any experimental mark | The status rests on the gates below; it claims neither hardware fidelity nor complete games nor latency |
+| G2 Report | Schema 2: the SM83 as the main CPU (cycles and instructions), the mapper and the sound unit as two devices with no counter, `saves.cartridge_memory`, `states`, `packed` | The mapper and the sound unit are C models of the runtime; their fidelity is stated as not validated |
+| G3 Native coverage | `final_checks[]`: `interpreter_instructions` and `interpreter_cycles`, the one-by-one counts of writable code (`ram_*`, `highmem_*`), `guarded_helpers` by kind; the fallback percentage stays unknown (no honest denominator) | Only the routes run; helpers are counted as entries and cycles, not as instructions |
+| G4 CPU fidelity | Lockstep against the pinned interpreter: 30 boot frames and 240 per route; from the extended level on, every scenario over its whole length up to 3,600 frames (`native_validation.scenarios[]`, `mode: full`) | The interpreter shares the runtime's devices, so this is no independent oracle for them; its own fidelity is G10 |
+| G5 Delivered file | The compressed copy replayed on the same routes with the same verdict (`packed_reference_match`, `packed_candidate_sha256`) | Same routes and lengths as G4 |
+| G6 States | Every conversion checks quick states in fresh processes on that copy (`game_states.fresh_process_verified`); `tools/gameboy_states_check.py` on an authored cartridge and a game | F8 and F9 themselves are not driven; the state file has no checksum |
+| G7 Saves | `tools/gameboy_saves_check.py`: six authored cartridges (MBC1, MBC2, MBC3 with clock, MBC5, RAM without battery, battery never written), reload byte for byte, damaged files refused | A game's own save code is not tested |
+| G8 Liveness | `final_checks[].liveness` on every probe; a conversion is refused when its `varied` route never changes the picture | Counts of changes, not proof that the game is played well |
+| G9 Route depth | The reproducible pseudo-random route of the extended and thorough levels; the 1.6.7 campaign (`tools/gameboy_campaign.py`) replays it on the delivered file with six captures a game that a person looks at | Not full games; the pictures are looked at by the specialist agent, not by the owner |
+| G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors' | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions |
+| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`) | They compare the runtime with its own model: no external emulator and no hardware capture is used |
+| G12 Panel | The exact-cartridge panel of the collection (below) | Cartridges that failed or were skipped are listed on that page and in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) |
+| G13 Cross-OS | Windows and Debian 13 (Hermès), each converting the game with the same tree, the same engine revision and an empty library at the quick level, give equal per-frame traces (picture, sound, work RAM and program counter hashes) and equal final states on 15 of 15 routes: boot, two play runs, `varied` and an 18,000-frame pseudo-random route, for Tetris, Exodus and Super Mario Land (3 November 2026); `tools/gameboy_cross_os.py`, section *The cross-OS witness* below | Three of the 606 cartridges, the quick level, no thorough run, so the gate stays `P` in [QUALIFICATION.md](QUALIFICATION.md) (the same bar as the Neo Geo with three sets; the NES reached `Y` with the eight games of its campaign): `Y` would take the games of the campaign above, not these three; the compiler and the SDL build differ by system, which is what the equal traces show to be harmless for these routes, not for every game |
+| G14 Owner | No recorded owner decision | His play test |
+| G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the interface and the report say "tested scenarios" and "not native" where it applies; the audit of 3 November 2026 of this page, [CPU_SM83.md](CPU_SM83.md) and the strings of the report found no claim of exactness, zero latency or hardware fidelity | Words in other pages and in the interface strings of other machines are not covered |
+| G16 Shared knowledge | Hints are numbers about a ROM (addresses, positions), rechecked on the exact ROM, and the conversion retries without them on failure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)) | A hint qualifies a path only after a conversion by another player reaches it and checks it against the reference |
 
 - **Collection campaign, October 2026.** The supplied DMG collection was qualified with 6 concurrent conversions, up to six discovery
   passes and four 7,200-frame input scenarios. Initial batch: 592 qualified exact cartridges from 638 input files, 28 successful
@@ -342,6 +372,68 @@ all gameplay, certify hardware fidelity or measure physical latency.
   15,647,464 and Track & Field 62,096,888 to 28,786,996 (all three keep visible fallback; every deep CPU comparison matched); Super
   Mario Land's 44,272 and 60,656 interpreted cycles at bank 3, address `7FF0` reach zero once the JP relay is compiled. These are
   scripted-path evidence, not whole-game coverage.
+
+### The campaign of twelve games (1.6.7, gates G8 and G9)
+
+Twelve cartridges chosen for what each could break (a reason per game in `tools/gameboy_campaign.py`) were converted one at a time at the
+extended level, on the 1.6.7 tree, from an empty library, then replayed on the delivered file with `tools/gameboy_campaign.py`: the
+reproducible pseudo-random route of the conversion for its whole length (18,000 frames) and the `varied` route, each with the per-frame trace
+and six captures put on one sheet, which was looked at. The ROMs are read in place from the player's folder; the sheets and
+the summary stay out of the repository.
+
+All twelve converted to `supported`, with the CPU compared over the whole length of every route (`mode: full`; the long route over its first
+3,600 of 18,000 frames), the compressed copy matching the reference on every route, the states verified in fresh processes and **no
+interpreter cycle on any final route**. What each sheet shows (the specialist agent's reading, not the owner's):
+
+| Game | Mapper | Long route (18,000 frames) | Writable code run one by one |
+|---|---|---|---|
+| Tetris | none | Games of falling pieces (score up to 16, a lost game, the top-score table); the `varied` route stays on the licence page and menus | 17,979 |
+| Super Mario Land | MBC1 | The title, then the first level with the pause shown; the route is paused for most of its length (31 pictures), so it proves little depth | 17,975 |
+| Link's Awakening | MBC1 + RAM | The intro, the title and the name entry on the `varied` route; the long route stays in the first room (2,063 pictures, animations) | 17,901 |
+| Wario Land II | MBC3 + RAM | The title, then levels with enemies and a long route that plays: 2,877 pictures | 925,868 |
+| Pokémon Red, Pokémon Yellow | MBC3, MBC5 + RAM | The logos, the introduction and the first bedroom; menus and dialogue render (855 and 1,002 pictures) | 17,950; 17,807 |
+| Metroid II | MBC1 + RAM | The title, then Samus beside her ship for the whole long route (18 pictures: animation and palette) | 17,981 |
+| Final Fantasy Legend II | MBC1 + RAM | The title, the introduction and the character menu (705 pictures); see the letters below | 36,523 |
+| Mega Man V | MBC1 | The menu, the first level and its enemies, the life counter changing (5,516 pictures) | 77,317 |
+| Contra: The Alien Wars | MBC1 | The title, then a level with enemies and a vehicle (8,690 pictures); upstream issue 24 (it does not start) does not occur on this ROM | 62,241 |
+| Exodus | Wisdom Tree | A maze level: score 100 to 500, the timer running down, objects picked up (9,716 pictures) | 0 |
+| The Ren & Stimpy Show: Veediots! | MBC1 | A level: the money 0 to 0.75, lives 3 to 1, the timer restarting (3,150 pictures); the screen-off wait does not stall | 3,684 |
+
+What this shows: the delivered file is alive on every game of the panel (pictures and sound change, no stall, no crash) and plays a real
+level or game on Tetris, Wario Land II, Mega Man V, Contra, Exodus and Veediots. What it does not show: complete games (the routes press
+buttons, they do not play to a goal), the depth of the others (Super Mario Land paused, Link's Awakening and Metroid II in their first
+room, Pokémon in its bedroom, Final Fantasy Legend II in its menus), hardware fidelity, or latency. The 12 games are 12 of the 606 qualified cartridges.
+
+Two facts about the method. The probes of the conversions in this campaign were not played from a clean start: a game with battery RAM writes its save
+beside the executable when it ends and the next probe of the same folder started from it (the `varied` route of Link's Awakening, run twice in one folder,
+shows 179 pictures, then 184); the replays of the campaign do start clean, and from 1.6.7 on every probe empties the `datas` folder of the build first
+([UPGRADES.md](UPGRADES.md)). The picture counts of the table are from the replays, the counts of instructions run one by one from the probes. And a route that ends in a menu or on a paused game is evidence of liveness, not
+of depth: the lengths of the table are what the route reached, not what the game offers.
+
+### The cross-OS witness (1.6.7, gate G13)
+
+Tetris (no mapper), Exodus (Wisdom Tree) and Super Mario Land (MBC1) were converted on Windows and on Debian 13 (the machine Hermès) from the
+same tree (the commit of 3 November 2026), at the quick level, from an empty library, with the pinned engine and the pinned SDL on each side
+(29 to 43 s on the PC, 84 to 130 s on Hermès). Then the five routes of each game (boot, two play runs, `varied` and one pseudo-random route
+of 18,000 frames, 73,800 frames per system) were replayed on the delivered file of each system, headless, from a private empty folder:
+`python tools/gameboy_cross_os.py trace EXE --out DIR` on each system, then `compare DIR_A DIR_B`.
+
+The per-frame traces (picture, sound, work RAM and program counter hashes) and the final states (registers, cycles, work and high RAM,
+LY and PPU mode) are **equal on all 15 routes**. The generated sources are equal file for file (107 to 114 per game); the only difference
+is the resource embedding, which is by design: a `.rc` file on Windows, `embedded_resources.c` and `.S` on Linux. The sound is compared
+as a hash per block of samples inside the trace, not as a file. This says that the converter and the runtime give the same game on the
+two systems for these three games and these routes; it says nothing about the other 603 cartridges, the thorough level, the speed on each
+system or hardware fidelity.
+
+### Letters missing in a menu of Final Fantasy Legend II
+
+On the sheet of Final Fantasy Legend II some letters are missing in the character menu and in the introduction text: the `i` of "Slime" on every
+frame, the `o` of "Robot" on some, the `d` of "and" once. It is not a transition (eight consecutive captures show it). It is **not an effect of the 1.6.7
+changes**: the same route on a conversion of the 1.6.6 tree (`tools/ab_conversion.py`, quick level) gives the same frames byte for byte at
+frames 2,980, 5,960, 5,972, 5,980 and 5,988, the missing letters included. The lockstep comparison cannot tell whether it is the game's own
+behaviour or the pinned PPU model, since the interpreter shares the PPU, and no external emulator was used. It is recorded here as an
+unexplained observation about the rendering of this game (a candidate for a check against a reference emulator, not a claim about the
+hardware); it does not change the status of the conversion.
 
 ## Known limits
 

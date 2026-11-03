@@ -385,6 +385,20 @@ class SummaryParity(unittest.TestCase):
 
 
 class SchemaShape(unittest.TestCase):
+    def test_board_tier_is_kept_only_when_the_writer_states_one(self):
+        # The CPS-1 writer names the tier of the board (the QSound boards of the CPS-1.5 are experimental);
+        # a report that states none has no such key, and the legacy view drops it again.
+        plain = read_report(cps1_report())
+        self.assertNotIn('board_tier', plain['system'])
+        tiered = cps1_report()
+        tiered['board_tier'] = 'experimental'
+        report = read_report(tiered)
+        self.assertEqual(report['system']['board_tier'], 'experimental')
+        written = report_schema.with_schema_v2(tiered)
+        self.assertEqual(written['system']['board_tier'], 'experimental')
+        self.assertNotIn('board_tier', report_schema.legacy_view(written)['system'])
+        self.assertEqual(report_schema.legacy_view(written)['board_tier'], 'experimental')
+
     def test_every_shape_reads_into_the_same_complete_document(self):
         for label, make in FIXTURES.items():
             with self.subTest(fixture=label):

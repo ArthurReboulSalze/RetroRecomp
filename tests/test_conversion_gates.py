@@ -457,13 +457,22 @@ def route_report(frames, **changes):
     return body
 
 
+def write_ng_trace(path, frames, moving=True):
+    """A route's per-frame trace as native/neogeo_main.c writes it: the picture changes every frame (or never), the sound is not silent."""
+    lines = ['frame,cpu,hardware,z80,image,pcm,samples']
+    for n in range(1, frames + 1):
+        lines.append(f'{n},{0:016x},{0:016x},{0:016x},{(n % 5 if moving else 7):016x},{n:016x},4')
+    Path(path).write_text('\n'.join(lines) + '\n', encoding='ascii')
+
+
 def collect_ng_check_routes(root):
     result = {}
-    for label, native, reference, code in (
-            ('good', {}, {}, 0), ('reference_differs', {}, {'cpu_hash': 'other'}, 0),
-            ('no_image', {'nonuniform_frames': 3}, {'nonuniform_frames': 3}, 0),
-            ('no_audio', {'nonzero_samples': 0}, {'nonzero_samples': 0}, 0),
-            ('total_differs', {'native_68000': 5}, {}, 0), ('exit', {}, {}, 3)):
+    for label, native, reference, code, moving in (
+            ('good', {}, {}, 0, True), ('reference_differs', {}, {'cpu_hash': 'other'}, 0, True),
+            ('no_image', {'nonuniform_frames': 3}, {'nonuniform_frames': 3}, 0, True),
+            ('no_audio', {'nonzero_samples': 0}, {'nonzero_samples': 0}, 0, True),
+            ('total_differs', {'native_68000': 5}, {}, 0, True), ('exit', {}, {}, 3, True),
+            ('frozen_picture', {}, {}, 0, False)):
         folder = root / label
         project = folder / 'project'
         (project / 'native-discovery').mkdir(parents=True)
@@ -475,11 +484,12 @@ def collect_ng_check_routes(root):
             (project / 'native-discovery' / (name + '-reference.json')).write_text(
                 json.dumps(route_report(frames, **reference)), encoding='utf-8')
 
-        def behave(argv, record, native=native, code=code):
+        def behave(argv, record, native=native, code=code, moving=moving):
             if code:
                 return subprocess.CompletedProcess(argv, code, b'', b'  engine\n stopped  ' + b'x' * 1500)
             frames = int(option(argv, '--frames'))
             Path(option(argv, '--report')).write_text(json.dumps(route_report(frames, **native)), encoding='utf-8')
+            write_ng_trace(option(argv, '--trace'), frames, moving)
             return subprocess.CompletedProcess(argv, 0, b'', b'')
         recorder = Recorder(behave, context=False)
         with fake_process(recorder), patch.object(neogeo_conversion, 'aes_available', lambda p: False):
@@ -883,6 +893,7 @@ class ProcessContextTests(unittest.TestCase):
         def behave(argv, record):
             Path(option(argv, '--report')).write_text(json.dumps(route_report(int(option(argv, '--frames')))),
                                                       encoding='utf-8')
+            write_ng_trace(option(argv, '--trace'), int(option(argv, '--frames')))
             return subprocess.CompletedProcess(argv, 0, b'', b'')
         recorder = Recorder(behave, context=False)
         with fake_process(recorder), patch.object(neogeo_conversion, 'aes_available', lambda p: False):

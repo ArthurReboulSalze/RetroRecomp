@@ -3553,7 +3553,8 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
-    "X68000: comparing the compressed executable with the fresh reference."
+    "X68000: comparing the compressed executable with the fresh reference.",
+    "X68000: the compressed copy failed its replay on this system (X68000 main: the compressed executable differs from the fresh reference; existing export preserved); replaying the unpacked build instead."
    ],
    "library": {},
    "log": [
@@ -3583,6 +3584,7 @@
     "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "exit packed_replays"
    ],
    "outcome": {
@@ -3601,7 +3603,8 @@
     "X68000: independent keyboard exploration (4000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
-    "X68000: comparing the compressed executable with the fresh reference."
+    "X68000: comparing the compressed executable with the fresh reference.",
+    "X68000: the compressed copy failed its replay on this system (X68000 mouse: the compressed executable differs from the fresh reference; existing export preserved); replaying the unpacked build instead."
    ],
    "library": {},
    "log": [
@@ -3636,6 +3639,9 @@
     "exit native_runs",
     "pack_candidate player.exe -> packed-game",
     "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",

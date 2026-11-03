@@ -1,6 +1,6 @@
 """Capcom CPS-1 conversion profile: MAME/FBNeo romsets identified by CRC."""
 from pathlib import Path
-from . import Capabilities, Cpu, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SystemProfile
 from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
@@ -19,6 +19,8 @@ class Cps1Profile(SystemProfile):
     # The standard boards keep no non-volatile memory.
     capabilities = Capabilities()
     feedback_kinds = frozenset({14, 15, 16})
+    # The QSound boards (CPS-1.5) need the player's own dump of the chip's internal ROM, like a BIOS; no other board does.
+    option_keys = (OptionKey('qsound_rom', signature=False, kind='path', label='qsound_rom_label'),)
     fallback_display = 'opcodes'
     default_frames = 3600
     quick_frames = 2400
@@ -45,7 +47,7 @@ class Cps1Profile(SystemProfile):
     # Still the experimental tier of the shared base (schema 3 only, no schema 1 form, no site builder); see docs/CPS1.md.
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True)
     host_adapter = 'adapters/rrhk_cps1.c'
-    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build')
+    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build', 'musashi_fixes')
     # A romset ZIP whose program ROMs are in the catalogue (by CRC, never by name), or any ZIP when chosen.
     identify = Identify(path_order=20)
 
@@ -70,6 +72,15 @@ class Cps1Profile(SystemProfile):
     def convert(self, path: Path, **options) -> Path:
         from ..cps1_conversion import convert
         return convert(path, **options)
+
+    def request_identity(self, item, options: dict, settings: dict) -> None:
+        # a QSound set depends on the DSP ROM it was converted with; any other set does not
+        from .. import cps1_qsound
+        if cps1_qsound.path_needs_dsp_rom(item.path):
+            try:
+                settings['bios'] = cps1_qsound.validate_dsp_rom(options.get('qsound_rom'))
+            except ValueError:
+                pass          # the conversion itself refuses with the reason
 
 
 CPS1 = Cps1Profile()

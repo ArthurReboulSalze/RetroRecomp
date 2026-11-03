@@ -19,6 +19,17 @@ from the user's own ROMs: MC68000 bodies from m68k-recomp-core (see
 `licenses/segagenesisrecomp.md`) and Z80 bodies from the pinned Geolith Z80
 core (see `licenses/superzazu-z80.md`); it is never distributed.
 
+The "Kabuki" Z80 decryption of the CPS-1.5 boards (`retrorecomp/cps1_kabuki.py`) follows the algorithm of MAME's
+`src/mame/capcom/kabuki.cpp` at the same revision (`license:BSD-3-Clause`, `copyright-holders:Nicola Salmoria`). The four key
+numbers of each game family are read from that file by `tools/build_cps1_catalogue.py` into the catalogue; they are numbers of
+the algorithm, not ROM data.
+
+The QSound model of the CPS-1.5 boards (`native/cps1_qsound.c`, `native/cps1_qsound.h`) adapts MAME's `src/devices/sound/qsoundhle.cpp`
+and `qsoundhle.h` at the same revision (`license:BSD-3-Clause`, `copyright-holders:superctr, Valley Bell`): a high-level model written from
+the disassembled program of the chip's DSP16. It reads the chip's internal ROM, the player's own dump, which is never part of Retro-Recomp.
+The 93C46 EEPROM model (`native/cps1_eeprom.c`) follows MAME's `src/devices/machine/eepromser.cpp` and `eeprom.cpp` at the same revision
+(`license:BSD-3-Clause`, `copyright-holders:Aaron Giles`). The memory maps of the QSound board come from `cps1.cpp` (Paul Leaman).
+
 Retro-Recomp's CPS-1 board catalogue (`assets/cps1-catalogue.json`) is derived
 from MAME's CPS-1 driver at revision
 [`61a222977fd29f22ce11fbea3f7c290fd7ced091`](https://github.com/mamedev/mame/tree/61a222977fd29f22ce11fbea3f7c290fd7ced091/src/mame/capcom):
@@ -37,7 +48,7 @@ Retro-Recomp is noncommercial. The terms below come from MAME's
 `docs/legal/BSD-3-Clause` at the same revision, with the copyright lines taken
 from the source headers (no year is stated there).
 
-Copyright Paul Leaman; Mirko Buffoni; Aaron Giles; Andrew Gardner
+Copyright Paul Leaman; Mirko Buffoni; Aaron Giles; Andrew Gardner; Nicola Salmoria; superctr; Valley Bell
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are

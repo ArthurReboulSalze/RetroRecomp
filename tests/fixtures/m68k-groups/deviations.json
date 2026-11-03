@@ -7,11 +7,7 @@
   "bus": 2
  },
  "ADD.l": {
-  "bus": 10,
-  "clocks": 5
- },
- "ADDA.l": {
-  "clocks": 8
+  "bus": 10
  },
  "ADDX.b": {
   "bus": 17
@@ -26,46 +22,34 @@
   "bus": 1
  },
  "AND.l": {
-  "bus": 8,
-  "clocks": 6
+  "bus": 8
  },
  "ANDItoCCR": {
   "bus": 44
  },
- "BCHG": {
-  "clocks": 4
- },
  "BCLR": {
-  "bus": 3,
-  "clocks": 3
+  "bus": 3
  },
  "BSET": {
-  "bus": 2,
-  "clocks": 1
+  "bus": 2
  },
  "BTST": {
-  "bus": 2,
-  "clocks": 2
+  "bus": 2
  },
  "CLR.l": {
   "bus": 15
- },
- "CMPA.w": {
-  "clocks": 25
  },
  "EOR.b": {
   "bus": 3
  },
  "EOR.l": {
-  "bus": 15,
-  "clocks": 7
+  "bus": 15
  },
  "EORItoCCR": {
   "bus": 40
  },
  "LINK": {
-  "bus": 31,
-  "state": 6
+  "bus": 37
  },
  "MOVEP.l": {
   "bus": 26
@@ -82,9 +66,6 @@
  "NEG.l": {
   "bus": 14
  },
- "NEGX.b": {
-  "state": 1
- },
  "NEGX.l": {
   "bus": 17
  },
@@ -95,17 +76,13 @@
   "bus": 1
  },
  "OR.l": {
-  "bus": 13,
-  "clocks": 3
+  "bus": 13
  },
  "OR.w": {
   "bus": 2
  },
  "ORItoCCR": {
   "bus": 40
- },
- "RTR": {
-  "state": 18
  },
  "SBCD": {
   "bus": 16,
@@ -115,11 +92,7 @@
   "bus": 1
  },
  "SUB.l": {
-  "bus": 4,
-  "clocks": 5
- },
- "SUBA.l": {
-  "clocks": 12
+  "bus": 4
  },
  "SUBX.b": {
   "bus": 20
@@ -129,11 +102,5 @@
  },
  "SUBX.w": {
   "bus": 6
- },
- "Scc": {
-  "clocks": 2
- },
- "UNLINK": {
-  "state": 4
  }
 }

@@ -24,6 +24,7 @@ the machine page).
 - [29 October 2026 (1.6.5 tree): the whole panel, routes, captures and long routes](#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes)
 - [30 October 2026 (1.6.5 tree): Z80 vectors, MAME again and a Linux witness](#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness)
 - [1 November 2026 (1.6.6 tree): Z80 corrections, sound against MAME and a third Linux witness](#1-november-2026-166-tree-z80-corrections-sound-against-mame-and-a-third-linux-witness)
+- [2 November 2026 (1.6.7 tree): the CPS-1.5 board without its sound, against MAME](#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -401,3 +402,85 @@ and deleted, archive of `main` and a copy of the dependency cache; `.deps` of th
 Z80 instructions, 101,209,464 native 68000 and 44,659,319 native Z80 instructions over both routes, every check passed, and the CPU, RAM, picture and
 sound hashes and the trace hashes of both routes are **identical** to the Windows conversion (attract picture `5bd0c5a2c01d5df5`, play `4def87fdac4ed72a`).
 It took 119 seconds (Windows 67 s): wall times on a shared machine, not timings.
+
+## 2 November 2026 (1.6.7 tree): the CPS-1.5 board without its sound, against MAME
+
+The QSound boards (CPS-1.5) join as an experimental tier ([CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier)). Here the board runs without
+its sound (the QSound registers are accepted and answer ready after the next sample; the sound is silence), compared with MAME 0.289 with the same
+tool as the other sets: `tools/cps1_mame_compare.py`, FBNeo romsets of the test collection (one set per family: `wof`, `dino`, `punisher`,
+`slammast`, `mbombrd`), the QSound DSP ROM read by MAME from the BIOS folder (MAME needs it to start; the game under test does not read it yet),
+stand-in files of one byte for the PLD dumps the zips lack, routes `attract` and `play` of 3,600 frames, a picture compared every 10th frame.
+
+| Set | `attract` | `play` |
+|---|---|---|
+| `wof` | 360 of 360 identical | 360 of 360 |
+| `dino` | 359 of 360 (frame 1,640) | 360 of 360 |
+| `punisher` | 360 of 360 | 360 of 360 |
+| `slammast` | 360 of 360 | 360 of 360 |
+| `mbombrd` | 360 of 360 | 360 of 360 |
+
+`wof` also compared on each of its first 300 frames: 308 of 308 identical. `dino` compared on each of the first 1,700 frames of `attract`: two frames
+differ (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right of the picture), the frames around them are identical; the cause was not isolated
+(mid-frame writes are not modelled, see the timing model in the known limits).
+
+Counted per processor on 3,600 frames of `attract` of a first-pass build (nothing learned yet): interpreted Z80 instructions 0 on the five sets; interpreted
+68000 instructions 0 on `wof`, `dino`, `punisher` and `mbombrd` (56 to 67 million native 68000 instructions, 48 to 50 million native Z80), and 39,388 on
+`slammast` (66,679,903 native), all from a checksum routine the game copies into work RAM: the next pass of a conversion builds guarded native code
+for such variants, as it does for the CPS-1 sets.
+
+The first comparison of `wof` differed for 20 frames from the first picture on: the game reads its EEPROM during start-up and waits for each write
+to finish, and the model took writes as instant. With the write and erase times of MAME's `eeprom.cpp` (1.75 ms, 1 ms, 8 ms for all cells) every
+frame agrees. What this shows: pictures agree with MAME's on these routes. It says nothing about the sound (not there yet), the other 13 sets, hardware
+fidelity or play.
+
+### The sound of the CPS-1.5 boards, against MAME (same day, 1.6.7 tree)
+
+The high-level QSound model (`native/cps1_qsound.c`, from MAME's `qsoundhle.cpp`) with the DSP ROM of the BIOS folder (the QSound DSP ROM
+the player supplies: nothing of it is kept in a report), `tools/cps1_mame_compare.py --sound` adapted to the two channels at 24,038 Hz
+(`-samplerate 24038` for MAME, each channel compared on its own), `attract` and `play` routes of 3,600 frames of the five sets, pictures
+every 10th frame. The picture agreed on 3,599 of the 3,600 compared frames of the ten routes of the five sets: the exception is the isolated
+`dino` frame 1,640 of `attract` (see the open items). The sound of `play`, per channel (left and right in the same
+ranges), 60 windows of one second:
+
+| Set | level difference, median / max (dB) | averaged spectrum cosine | one-third-octave bands, worst (dB) | waveform correlation, aligned, median / min |
+|---|---|---|---|---|
+| `wof` | 0.010 / 0.10 | 0.9994 to 0.9997 | 0.07 | 0.97 / 0.76 |
+| `dino` | 0.006 to 0.010 / 0.30 | 0.9997 | 0.06 | 0.98 / 0.72 |
+| `punisher` | 0.009 / 0.09 | 0.9992 to 0.9994 | 0.15 | 0.98 / 0.88 |
+| `slammast` | 0.006 to 0.008 / 0.85 | 0.9968 to 0.9969 | 0.12 | 0.96 / 0.56 |
+| `mbombrd` | 0.005 to 0.006 / 0.08 | 0.9992 to 0.9994 | 0.05 | 0.97 / 0.82 |
+
+The attract routes of `wof`, `dino` and `punisher` are silent on both sides over the first minute; `slammast` and `mbombrd` play music in
+attract and agree there too (levels 0.003 dB). The correlation is not 1: MAME writes the sound at 24,038 Hz while the chip makes 24,038.46,
+so the two drift by half a sample a second (the waveform correlation of the whole signal is low whatever the sound, which is why the aligned one is
+given), and a register write can land one sample earlier or later than MAME's stream puts it. Not claimed: waveforms equal, hardware.
+
+**Open items** (CPS-1.5): the two isolated frames of `dino` in `attract` (1,279 and 1,640, 4,400 to 4,700 pixels in the upper right of the
+picture, the frames around them identical; the every-10th-frame comparison catches only the second; the cause is not isolated, mid-frame
+writes are not modelled); the 13 sets of the tier that the
+test collection does not hold; a run of the DSP16 instead of the model (about 10 to 15 hours of work, a third counted processor); the
+owner's play trial of the tier.
+
+## 2 November 2026 (1.6.7 tree): the CPS-1.5 sets at the Standard level, delivered games against MAME
+
+The five sets of the test collection (FBNeo romsets, the DSP ROM of the BIOS folder given with `--qsound-rom`), one batch of five conversions,
+`--scan-level standard`, `--jobs 1`, an empty library, no shared base, no online cover: five of five succeeded. Wall seconds of each conversion
+(report): `wof` 79, `dino` 78, `punisher` 87, `mbombrd` 133, `slammast` 168.
+
+| Set | routes (frames) | interpreted 68000 / Z80 | pictures seen (attract, play) | audible frames (attract, play) | reference = native | quick state, fresh process | packed copy |
+|---|---|---|---|---|---|---|---|
+| `wof` | attract, play (3,600) | 0 / 0 on both | 915, 1,780 | 0, 2,834 | yes | yes (frame 2,940, 600 frames) | yes |
+| `dino` | same | 0 / 0 | 1,635, 1,932 | 0, 2,847 | yes | yes | yes |
+| `punisher` | same | 0 / 0 | 813, 2,190 | 0, 2,815 | yes | yes | yes |
+| `slammast` | same | 0 / 0 | 1,350, 1,837 | 3,169, 3,169 | yes | yes | yes |
+| `mbombrd` | same | 0 / 0 | 1,768, 1,638 | 3,169, 3,169 | yes | yes | yes |
+
+Every report: `status: experimental`, `board_tier: experimental`, `native_coverage: true`, `hardware_fidelity_validated: false`,
+`full_game_validated: false`, `knowledge.shared: false`, `audio_model.dsp16 = {model: hle, executed: false}`. Silent attract routes (`wof`, `dino`, `punisher`)
+are accepted because the credited route of each is audible, as for the CPS-1 sets. The five delivered executables compared with MAME 0.289 again,
+both routes, the same tool and figures as above: pictures 3,599 of 3,600 (`dino`, frame 1,640), sound per channel within 0.003 to 0.011 dB (median), averaged spectrum cosine 0.996 to 0.9997, aligned waveform correlation 0.96 to 0.99 (median).
+
+EEPROM saves, on the delivered executables started the player's way (SDL dummy drivers, `RETRORECOMP_HOST_TEST_FRAMES=900`): after the first run each of the
+five has a `datas/saves/CPS1-<sha256 of the romset>.rrsave` of 224 bytes (106 to 127 of the 128 EEPROM cells hold something other than 0xff:
+the game initialised its settings), and a second run leaves each file unchanged. Not done by a tool: a run of the game by a person.
+

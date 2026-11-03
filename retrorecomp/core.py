@@ -725,6 +725,10 @@ static int hyb_cf_class(uint16_t pc){''')
     # is printed with the other [exec] counters and read by probe().
     glue = replace_once(glue, '\n    mmio_tally_dump();\n}',
         '\n    { extern uint32_t rr_ret_deep; fprintf(stderr, "[exec] ret_nest_overflow: %u\\n", (unsigned)rr_ret_deep); }\n    mmio_tally_dump();\n}')
+    # Power-on state: the documented reset leaves AF and SP at $FFFF. The reference CPU and the banked engine start there; the
+    # pinned runner started with AF = 0 and SP = $DFF0, so a program that pushed AF before any flag was set (a handler entered
+    # in the first frame) left other stack bytes than the reference.
+    glue = replace_once(glue, '    g_z80.sp = 0xDFF0;\n', '    g_z80.sp = 0xFFFF; g_z80.a = g_z80.f = 0xFF;   /* documented reset state, as the reference CPU */\n')
     return replace_once(glue, '    g_enter_pos = 0; g_dbg_pc = 0;', '    g_enter_pos = 0; g_dbg_pc = 0; g_irq_armed = false;')
 
 
@@ -1529,26 +1533,35 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             failures = {c['scenario']: [key for key, ok in c['checks'].items() if not ok] for c in comparisons if not c['passed']}
             raise ConversionError(f'Native validation failed: {failures}. Previous export preserved. Details: {game / "checks/native-validation.json"}')
     delivered = None
+    # The file the player receives is a compressed copy of this build: replay it on every route (gate G5,
+    # retrorecomp/sega_evidence.py). The banked engine compares it with the fresh reference of the same route; the "functions"
+    # engine has no per-route reference, so the copy is compared with the final pass of this same build, which the demo route
+    # has matched against the interpreter. Its liveness is the one the report keeps.
+    from .sega_evidence import replay_delivered
+    packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
+    replay_checks = [{'scenario': scenario, 'press': inputs, 'frames': budget} for scenario, inputs, budget in scenarios]
     if banked:
-        # The file the player receives is a compressed copy of this build: replay it on every route against the fresh reference of
-        # the same route (gate G5, retrorecomp/sega_evidence.py). Its liveness is the one the report keeps.
-        from .sega_evidence import replay_delivered
-        packed = executable.parent / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
-        replay_checks = [{'scenario': scenario, 'press': inputs, 'frames': budget} for scenario, inputs, budget in scenarios]
         references = {scenarios[index][0]: {**ref, 'directory': str(ref_dir)} for index, (ref, ref_dir) in enumerate(reference_runs)}
+    else:
+        final_pass = len(history) // len(scenarios)
+        references = {scenario: {**check, 'directory': str(game / 'checks' / f'pass{final_pass}_{scenario}')}
+                      for (scenario, _, _), check in zip(scenarios, final_checks)}
 
-        def replay_route(candidate, directory, check):
-            return probe(candidate, directory, check['frames'], press=check['press'])
+    def replay_route(candidate, directory, check):
+        return probe(candidate, directory, check['frames'], press=check['press'])
 
-        def route_differences(result, reference):
-            checks = compare_execution(result, reference, Path(result['directory']), Path(reference['directory']))['checks']
-            return [key for key, ok in checks.items() if not ok]
+    def route_differences(result, reference):
+        checks = compare_execution(result, reference, Path(result['directory']), Path(reference['directory']))['checks']
+        if not reference.get('final_cpu'):
+            checks.pop('final_cpu')   # the "functions" engine keeps no final register file to compare
+        return [key for key, ok in checks.items() if not ok]
 
-        with timings.phase('packed_replays'):
-            delivered, delivered_runs = replay_delivered(executable, packed, game / 'checks' / 'packed', replay_checks, references,
-                                                         replay_route, route_differences, emit)
-        for (scenario, _, _), check in zip(scenarios, final_checks):
-            check['liveness'] = delivered_runs[scenario]['liveness']
+    with timings.phase('packed_replays'):
+        delivered, delivered_runs = replay_delivered(executable, packed, game / 'checks' / 'packed', replay_checks, references,
+                                                     replay_route, route_differences, emit)
+    for (scenario, _, _), check in zip(scenarios, final_checks):
+        check['liveness'] = delivered_runs[scenario]['liveness']
+    if banked:
         validation.update(delivered.validation_fields())
         (game / 'checks/native-validation.json').write_text(json.dumps(validation, indent=2), encoding='utf-8')
     final_executable = destination / executable_name(title)
@@ -1568,6 +1581,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         "long_routes": [route.metadata() for route in long_routes],
         "native_coverage": coverage, "native_validation": validation,
         **(delivered.report_fields() if delivered else {}),
+        **({"packed_replay": {"engine": "functions", "compared_with": "final pass of this build (no per-route reference)",
+                              "matched": delivered.matched, "routes": [route['scenario'] for route in delivered.routes]}}
+           if delivered and not banked else {}),
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,

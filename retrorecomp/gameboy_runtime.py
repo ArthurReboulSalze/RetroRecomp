@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from shutil import copyfile
 
-from .core import replace_once
+from .core import ConversionError, replace_once
 from .paths import ASSETS
 from . import __version__
 
@@ -56,6 +56,84 @@ def adapt_wisdom_tree(source: str) -> str:
         '    ctx->rom_bank = 1;\n    if (ctx->rr_wisdom_tree) ctx->rom_bank = 0;\n    ctx->ram_bank = 0;')
 
 
+# EI enables IME after the instruction that follows it (Pan Docs, "Interrupts"; the vectors of SingleStepTests/sm83; EI followed by DI
+# lets no interrupt in between). The pinned runtime stored ime_pending = 1 for EI and turned it into IME at the END of the same tick
+# (EI's own), in the interpreter, in the generated code and in the stubs alike. Its interrupt test, which runs inside gb_tick before
+# that line, lagged one tick behind, which put the interrupt after the next instruction in ordinary flow, but IME itself was already
+# set after EI: the state the vectors see, and what the dispatch loop sees when EI is the last instruction of a block or a
+# single-step is taken.
+# ime_pending now has three values: 0, 1 (EI just ran) and 2 (the instruction after EI is next). The FIRST thing every tick does is
+# move 1 to 2 (that is EI's own tick, its only one) and 2 to IME (the first tick of the next instruction); the interrupt test then
+# runs with IME already set, so the interrupt is taken right after that instruction. DI clears the flag. An EI that finds it
+# already armed leaves it (EI, EI: IME is on after the second, as on the console).
+EI_PROMOTE = 'if (ctx->ime_pending) { ctx->ime = 1; ctx->ime_pending = 0; }'
+EI_PROMOTE_FIRST = ('if (ctx->ime_pending) { if (ctx->ime_pending == 1) ctx->ime_pending = 2; '
+                    'else { ctx->ime = 1; ctx->ime_pending = 0; } }')
+EI_ARM = 'ctx->ime_pending = 1;'
+EI_ARM_ONCE = 'if (!ctx->ime_pending) ctx->ime_pending = 1;'
+
+
+def adapt_ei_delay(source: str) -> str:
+    """The delayed EI in gbrt.c: the promotion moves from the three ends of gb_tick to its start, and the upstream high-memory stub,
+    which set IME directly (and whose DI left a pending EI standing), follows the same rule."""
+    line = re.compile(r'^[ ]+' + re.escape(EI_PROMOTE) + r'\n', re.M)
+    if len(line.findall(source)) != 3 or source.count(EI_PROMOTE) != 3:
+        raise ConversionError(f'gbrt.c has {source.count(EI_PROMOTE)} IME promotions in gb_tick, expected 3.')
+    source = line.sub('', source)
+    source = replace_once(source, '    static uint32_t last_log = 0;\n',
+                          '    static uint32_t last_log = 0;\n    ' + EI_PROMOTE_FIRST + '\n')
+    source = replace_once(source, '        case 0xF3: /* DI */\n            ctx->ime = 0;\n',
+                          '        case 0xF3: /* DI */\n            ctx->ime = 0;\n            ctx->ime_pending = 0;\n')
+    source = replace_once(source, '        case 0xFB: /* EI */\n            ctx->ime = 1;\n',
+                          '        case 0xFB: /* EI */\n            ' + EI_ARM_ONCE + '\n')
+    # EI ; HALT with an interrupt already pending and IME still off: the flag is armed (2), IME comes with the tick of the HALT itself, so
+    # this is not the HALT bug (which needs IME off and nothing about to turn it on): the interrupt is taken after the HALT, once, as before.
+    source = replace_once(source, '    if (!ctx->ime &&\n        (gb_read8(ctx, 0xFFFF) & gb_read8(ctx, 0xFF0F) & 0x1F)) {\n        ctx->halted = 0;\n        ctx->halt_bug = 1;',
+                          '    if (!ctx->ime && ctx->ime_pending != 2 &&\n        (gb_read8(ctx, 0xFFFF) & gb_read8(ctx, 0xFF0F) & 0x1F)) {\n        ctx->halted = 0;\n        ctx->halt_bug = 1;')
+    # An interrupt taken with the flag armed (EI while IME was already on, the interrupt pending at once): the dispatch switches IME off and the
+    # armed EI must not switch it back on in the middle of the dispatch (a nested interrupt in the handler). On the console that EI does nothing.
+    return replace_once(source, '        ctx->ime = 0; ctx->halted = 0; ctx->stop_mode_active = 0;\n        const uint16_t return_pc = ctx->pc;',
+                        '        ctx->ime = 0; ctx->ime_pending = 0; ctx->halted = 0; ctx->stop_mode_active = 0;\n        const uint16_t return_pc = ctx->pc;')
+
+
+def adapt_halt_mode3(source: str) -> str:
+    """The halted fast-forward of gb_run_cycles (gb_halt_fast_forward_cycles in gbrt.c) jumps to the next PPU event in every mode but the
+    pixel transfer, where it steps one M-cycle at a time because the end of the mode depends on the pixel FIFO (sprites, window,
+    scroll). A game that waits for vertical blank in HALT therefore issues about 43 steps per line in mode 3 alone. The transfer
+    ends when the 160th pixel has been pushed, at best one pixel per dot; the extra dots only come later. So the step may go up to one
+    dot before that, rounded down to a four-cycle boundary: the dot where the mode ends, and the interrupt it may raise, are still
+    reached by a four-cycle step, as before. Until the mode is published as 3, or with four pixels left or fewer, the step stays one
+    M-cycle. tools/gameboy_halt_selftest.py compares it with plain four-cycle stepping, byte for byte, frame by frame."""
+    return replace_once(source,
+        '        /* Mode 3 ends on a dynamic FIFO event; advance only one CPU M-cycle. */\n'
+        '        case PPU_MODE_DRAW: target = ppu->mode_cycles + 4u; break;\n',
+        '        /* Mode 3 ends when the 160th pixel is pushed, at best one pixel per dot; sprites, the window and the scroll only add\n'
+        '         * dots. Step to at most one dot before that, on a four-cycle boundary (the dot where the mode ends, and the interrupt\n'
+        '         * it may raise, is still reached by a four-cycle step). Before the mode is published as 3, advance one CPU M-cycle. */\n'
+        '        case PPU_MODE_DRAW: {\n'
+        '            const uint32_t pixels_left = ppu->draw_x < GB_SCREEN_WIDTH ? (uint32_t)(GB_SCREEN_WIDTH - ppu->draw_x) : 0u;\n'
+        '            target = ppu->mode_cycles + (ppu->visible_mode == PPU_MODE_DRAW && pixels_left > 4u ? pixels_left - 1u : 4u);\n'
+        '            break;\n'
+        '        }\n')
+
+
+def adapt_ei_delay_interpreter(code: str) -> str:
+    return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
+                        'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
+
+
+def adapt_ei_delay_generated(project: Path) -> int:
+    """The generated bodies store the same arming for every EI they translate; the same rule. Returns how many were changed."""
+    changed = 0
+    for path in sorted(project.glob('game_funcs_*.c')):
+        source = path.read_text(encoding='utf-8').replace(EI_ARM_ONCE, EI_ARM)       # so that a second run changes nothing
+        count = source.count(EI_ARM)
+        if count:
+            path.write_text(source.replace(EI_ARM, EI_ARM_ONCE), encoding='utf-8', newline='')
+            changed += count
+    return changed
+
+
 def adapt_differential(project: Path) -> None:
     """Keep byte-exact checks while making their common equal case fast."""
     path = project / 'runtime/src/differential.c'
@@ -92,7 +170,9 @@ static bool gb_diff_compare_ppu''')
     path.write_text(source, encoding='utf-8')
 
 
-def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str) -> None:
+def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str, halt_mode3_bound: bool = True) -> None:
+    """`halt_mode3_bound=False` leaves the halted fast-forward as the pinned runtime has it: only tools/gameboy_halt_selftest.py asks for it,
+    to compare the two."""
     # Shared player shell first (menus, filters, platform), then the machine.
     from .gameboy_host import adapt_shell
     adapt_shell(project, title)
@@ -121,7 +201,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    uint64_t rr_ram_single_step_instructions; /**< WRAM/HRAM instructions run one by one by rr_gb_try_ram_instruction (host-only) */\n'
         '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */\n'
         '    uint64_t rr_highmem_stub_instructions; /**< 0xFF00-0xFF7F instructions run one by one by the upstream high-memory stub (host-only) */\n'
-        '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */')
+        '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */\n'
+        '    uint64_t rr_helper_entries[4]; /**< Entries of the guarded helpers (store, copy, DMA page, interrupt-bracketed DMA), host-only */\n'
+        '    uint64_t rr_helper_cycles[4]; /**< Guest cycles spent in those entries */')
     # `--frame-trace FILE` (native/gb_frame_trace.h): one line per completed frame, for the liveness record of the delivered file.
     source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
         'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
@@ -213,6 +295,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    return ram_result && rtc_result;\n}',
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     source = adapt_wisdom_tree(source)
+    source = adapt_ei_delay(source)
+    if halt_mode3_bound:
+        source = adapt_halt_mode3(source)
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have
@@ -243,7 +328,9 @@ static void rr_gb_feedback(GBContext *ctx) {
                         helper + '\nvoid gb_interpret(GBContext* ctx, uint16_t addr) {')
     code = replace_once(code, '        uint8_t opcode;\n        if (ctx->halt_bug)',
                         '        rr_gb_feedback(ctx);\n        uint8_t opcode;\n        if (ctx->halt_bug)')
+    code = adapt_ei_delay_interpreter(code)
     interpreter.write_text(code, encoding='utf-8')
+    adapt_ei_delay_generated(project)
 
     # Writable code keeps live byte guards, one instruction per dispatch and
     # the normal interrupt/frame safepoints. Unknown or modified RAM stays
@@ -300,6 +387,13 @@ static void rr_gb_feedback(GBContext *ctx) {
             (unsigned long long)ctx->rr_ram_stub_instructions, (unsigned long long)ctx->rr_ram_stub_cycles,
             (unsigned long long)ctx->rr_ram_single_step_instructions, (unsigned long long)ctx->rr_ram_single_step_cycles,
             (unsigned long long)ctx->rr_highmem_stub_instructions, (unsigned long long)ctx->rr_highmem_stub_cycles);
+    fprintf(stderr,
+            "[RR-HELPERS] store_entries=%llu store_cycles=%llu copy_entries=%llu copy_cycles=%llu "
+            "dma_page_entries=%llu dma_page_cycles=%llu interrupt_dma_entries=%llu interrupt_dma_cycles=%llu\\n",
+            (unsigned long long)ctx->rr_helper_entries[0], (unsigned long long)ctx->rr_helper_cycles[0],
+            (unsigned long long)ctx->rr_helper_entries[1], (unsigned long long)ctx->rr_helper_cycles[1],
+            (unsigned long long)ctx->rr_helper_entries[2], (unsigned long long)ctx->rr_helper_cycles[2],
+            (unsigned long long)ctx->rr_helper_entries[3], (unsigned long long)ctx->rr_helper_cycles[3]);
     fprintf(stderr,
             "[INTERP] Fallback inventory: sites=%u''')
     source = replace_once(source, '''        while (!ctx->frame_done) {
