@@ -9,14 +9,15 @@
 
 #include "probe.h"
 
-extern uint16_t *videoBuffer;
+extern const void *rr_glue_converted_frame(void);
 extern unsigned RR_FDD_MediaMask(void);
 extern unsigned RR_FDD_BlinkMask(void);
 extern int FDC_IsDataReady(void);
 extern unsigned RR_FDC_DriveInterest(unsigned drive);
 
 RR_X68K_EXPORT const char *rr_x68k_state_compatibility(void) { return RR_X68K_STATE_ABI; }
-RR_X68K_EXPORT const void *rr_x68k_framebuffer(void) { return videoBuffer; }
+/* The picture as presented (XRGB8888, 800 pixels per row), converted from the machine's colour word. */
+RR_X68K_EXPORT const void *rr_x68k_framebuffer(void) { return rr_glue_converted_frame(); }
 
 unsigned rr_x68000_media_ready(void)
 {

@@ -37,7 +37,7 @@ native/x68000_machine/base74/x11/mmsystem.h native/x68000_machine/base74/x11/mou
 native/x68000_machine/base74/x11/prop.h native/x68000_machine/base74/x11/status.h
 native/x68000_machine/base74/x11/timer.h native/x68000_machine/base74/x11/windows.h
 native/x68000_machine/base74/x11/windraw.h native/x68000_machine/base74/x11/winui.h
-native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/glue.h native/x68000_machine/glue_line.h
+native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/colour.h native/x68000_machine/glue.h native/x68000_machine/glue_line.h
 native/x68000_machine/input.c native/x68000_machine/libretro_api.c native/x68000_machine/machine.c
 native/x68000_machine/provenance.json native/x68000_machine/PROVENANCE.md
 native/x68000_machine/state/legacy_stub.c native/x68000_machine/state/rr_state.c
@@ -273,6 +273,7 @@ native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vector
 native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
 tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
+tests/test_x68000_colour.py tests/x68000_colour_harness.c
 tools/x68000_mame_compare.py tests/test_x68000_mame_compare.py
 tests/test_x68000_cmake.py
 native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test_neogeo_z80_vectors.py

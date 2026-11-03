@@ -455,7 +455,7 @@ static RRStateResult snapshot(bool load) {
    result=load?rr_x68k_state_load(state_slot,&io,error,sizeof(error)):rr_x68k_state_save(state_slot,&io,error,sizeof(error));
    if(result==RR_STATE_OK){
       if(load){loaded_count++;automatic_loading=false;loading_holdoff=16;memset(&loading_detector,0,sizeof(loading_detector));
-         video(core.framebuffer(),width,height,800*2);}
+         video(core.framebuffer(),width,height,800*(pixel_format==RETRO_PIXEL_FORMAT_RGB565?2:4));}
       else saved_count++;
       notify(load?"State loaded":"State saved");
    }else{rejected_count++;notify(error);if(result==RR_STATE_ROLLBACK_ERROR)fail("Snapshot rollback failed; stopping to preserve state");}

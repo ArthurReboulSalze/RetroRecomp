@@ -17,7 +17,8 @@
 
 WORD *ScrBuf = NULL;
 BYTE Draw_DrawFlag = 1;
-WORD WinDraw_Pal16B = 0x001f, WinDraw_Pal16R = 0xf800, WinDraw_Pal16G = 0x07e0;
+/* The machine's own colour word, GGGGGRRRRRBBBBBI (colour.h): Pal_SetColor then finds bit 0 free for Ibit. */
+WORD WinDraw_Pal16B = 0x003e, WinDraw_Pal16R = 0x07c0, WinDraw_Pal16G = 0xf800;
 BYTE Debug_Text = 1, Debug_Grp = 1, Debug_Sp = 1;
 char filepath[MAX_PATH] = ".";
 
@@ -29,10 +30,10 @@ static DWORD presented_x, presented_y;
 
 int WinDraw_Init(void)
 {
-   /* RGB565, as the glue announces; Pal_Init derives every colour from these. */
-   WinDraw_Pal16B = 0x001f;
-   WinDraw_Pal16R = 0xf800;
-   WinDraw_Pal16G = 0x07e0;
+   /* The colour word of the machine; libretro_api.c widens it when the picture is presented. */
+   WinDraw_Pal16B = 0x003e;
+   WinDraw_Pal16R = 0x07c0;
+   WinDraw_Pal16G = 0xf800;
    free(ScrBuf);
    ScrBuf = (WORD *)calloc(800 * 600, sizeof(WORD));
    videoBuffer = ScrBuf;

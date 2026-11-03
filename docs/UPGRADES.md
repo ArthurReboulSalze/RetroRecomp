@@ -528,6 +528,36 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
 
+## Sharp X68000: the intensity bit of the palette lifts red, green and blue (1.6.7)
+
+A palette entry of the X68000 is `GGGGGRRRRRBBBBBI`: five bits per primary and an intensity bit `I` that adds a half step (one level of the 6-bit
+DAC, 4 of 255) to the three primaries together. The pinned base kept its picture in RGB565, which has no spare bit for red and blue, and put `I` in
+the low bit of green: a pixel with `I` set came out brighter on green only. Arthur agreed to correct it (2 November 2026).
+
+What changes: the machine now keeps the colour word as the X68000 holds it (`host_draw.c` gives the 2014 palette code the masks of that layout, so the
+table it builds is the identity and `Ibit` is bit 0), and widens it when the picture is presented (`native/x68000_machine/colour.h`, new): each primary
+is `(five bits << 1 | I)` as a 6-bit level, extended to 8 bits (`v << 2 | v >> 4`). The picture handed to the host is XRGB8888 instead of RGB565; the
+host kit and the reference host already read both. After a saved state is loaded, the host redraws the picture through the same conversion
+(`rr_x68k_framebuffer` returns the converted frame). The contrast of the system port is still applied by the base on the five-bit primaries, and the
+half-tone and translucency blends keep the base's arithmetic (its rounding bit now lands on blue instead of green). No game is treated apart.
+
+What a player sees: no layout, timing, sound or code change; colours move by at most 4 of 255 on a channel, and a pixel with `I` set is now
+lighter on red and blue too. The picture hash of every route changes (it hashes the new pixel format); the CPU, RAM and PCM hashes do not: a
+conversion of Bubble Bobble before and after gives equal CPU, RAM and PCM hashes on the three routes, 0 interpreted opcodes, a packed copy that
+matches, and states that resume. Against MAME 0.289 on the 12 still pictures of Bubble Bobble that match in shape (2,487,394 pixels, `tools/x68000_mame_compare.py`
+method, no input), the share of pixels with exactly the same colour goes from 93.55 to 97.03 percent, and the mean error per channel
+(0.709, 0.770, 0.713 before) is 0.712 on all three after; the largest remaining difference is 24 of 255 (the screen contrast, applied by MAME after
+the raw screen, and rounding; not analysed again here). This compares one game's pictures with another emulator, which is not hardware: it does not
+establish exact colours, and sound is not part of it.
+
+Stamps: the files are game inputs of the Sharp X68000 (`libretro_api.c`, `base74/host_draw.c`, `base74/bridge.c`, the new `colour.h`,
+`x68000_reference/video_checks.c` and `reference_host.c`), so its **game stamp moves** (a full reconversion of every X68000 game; the 1.6.6 exports
+keep their old colours until then, and their states are not loaded by the new build as for every game stamp move); host and build stamps and the eight other
+consoles do not move (checked against the previous commit). Cost: one table lookup per presented pixel, at most 800 x 600 a frame (about 2 percent of one
+core at 768 x 512 and 60 frames a second by count; no timing was taken on a quiet machine: the conversion times of the two Bubble Bobble runs, 194 and 197 seconds,
+differ by less than the load of the PC). `tests/test_x68000_colour.py` fixes the conversion without a ROM: the masks and the table of the real palette
+code, and all 65,536 words against a model written from the rule, with `I` at 0 and at 1.
+
 ## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
 
 `native/x68000_reference/CMakeLists.txt` no longer carries the `current` machine base (the earlier px68k-libretro reference, kept for private

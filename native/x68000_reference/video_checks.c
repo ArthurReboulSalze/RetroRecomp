@@ -275,6 +275,10 @@ uint32_t rr_x68k_video_checks(const char *json_path)
     equal(&r[12], GrphPal[1], channel_bits(WinDraw_Pal16G));
     equal(&r[12], GrphPal[2], channel_bits(WinDraw_Pal16B));
     equal(&r[12], TextPal[3], channel_bits(WinDraw_Pal16R) | Ibit);
+    /* The frame buffer holds the machine's own word, GGGGGRRRRRBBBBBI: Ibit is bit 0 and every primary has its five bits. */
+    equal(&r[12], Ibit, 0x0001);
+    equal(&r[12], GrphPal[0], 0x07c0); equal(&r[12], GrphPal[1], 0xf800); equal(&r[12], GrphPal[2], 0x003e);
+    equal(&r[12], TextPal[3], 0x07c1);
     equal(&r[12], Pal_Read(0xe82000), 7); equal(&r[12], Pal_Read(0xe82001), 0xc0);
 
     for (page = 0; page < 3; ++page) {
