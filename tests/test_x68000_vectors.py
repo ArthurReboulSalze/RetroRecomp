@@ -46,5 +46,50 @@ class ProblemTests(unittest.TestCase):
         self.assertEqual(selftest.shared.problems(result), [])
 
 
+class GroupsReplayTests(unittest.TestCase):
+    def group(self, name='ADD.w', cases=10, **bad):
+        row = {'group': name, 'cases': cases, 'native_executed': cases, 'native_state': cases, 'reference_state': cases,
+               'native_clock': cases, 'reference_clock': cases, 'paths_equal': cases, 'paths_clock_equal': cases}
+        row.update(bad)
+        return row
+
+    def test_the_recorded_deviations_name_groups_of_the_fixture_and_fit_their_size(self):
+        recorded = json.loads((ROOT / 'tests/fixtures/m68k-groups/deviations-x68000.json').read_text(encoding='utf-8'))
+        sizes = {}
+        for test in json.loads((ROOT / 'tests/fixtures/m68k-groups/cases.json').read_text(encoding='utf-8'))['tests']:
+            sizes[test['group']] = sizes.get(test['group'], 0) + 1
+        self.assertEqual(selftest.GROUPS, 'm68k-groups')
+        self.assertTrue(recorded)
+        for name, counts in recorded.items():
+            self.assertIn(name, sizes)
+            self.assertTrue(all(0 < value <= sizes[name] for value in counts.values()), name)
+        # The groups the Mega Drive corrected in 1.6.7 and the X68000 has not: the same defective lines, listed so that they stay visible.
+        self.assertTrue({'LINK', 'UNLINK', 'NEGX.b'} <= set(recorded))
+
+    def test_a_group_that_agrees_with_the_vectors_and_is_not_listed_passes(self):
+        self.assertEqual(selftest.group_problems({'groups': [self.group()]}, {}), [])
+
+    def test_a_group_that_differs_and_is_not_listed_is_a_problem(self):
+        result = {'groups': [self.group(native_state=9, paths_equal=9)]}
+        self.assertEqual(selftest.group_deviations(result), {'ADD.w': {'native_state': 1, 'paths': 1}})
+        self.assertTrue(selftest.group_problems(result, {}))
+        self.assertEqual(selftest.group_problems(result, {'ADD.w': {'native_state': 1, 'paths': 1}}), [])
+
+    def test_a_listed_count_that_changed_is_a_problem_in_both_directions(self):
+        listed = {'ADD.w': {'native_state': 2}}
+        self.assertTrue(selftest.group_problems({'groups': [self.group(native_state=9)]}, listed))
+        self.assertTrue(selftest.group_problems({'groups': [self.group(native_state=7)]}, listed))
+        self.assertTrue(selftest.group_problems({'groups': [self.group()]}, listed))
+
+    def test_a_clock_that_differs_from_a_vector_or_a_step_not_run_natively_is_a_problem(self):
+        self.assertTrue(selftest.group_problems({'groups': [self.group(native_clock=9)]}, {}))
+        self.assertTrue(selftest.group_problems({'groups': [self.group(reference_clock=9)]}, {}))
+        self.assertTrue(selftest.group_problems({'groups': [self.group(native_executed=9)]}, {}))
+
+    def test_the_groups_fixture_goes_through_its_own_problem_check(self):
+        result = {'fixture': 'm68k-groups', 'groups': [self.group(native_state=9)]}
+        self.assertTrue(selftest.problems(result))
+
+
 if __name__ == '__main__':
     unittest.main()

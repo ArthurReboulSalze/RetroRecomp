@@ -256,6 +256,8 @@ def x68_report(*, interpreted=0):
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True},
             'video_model': {'standard': 'native', 'frameskip': False, 'fps': 55.46},
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
+            'qualification_scope': {'controls': 'joystick, keyboard and mouse routes', 'media': 'floppy disks only',
+                                    'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': 1800.25}
 
 
@@ -433,6 +435,10 @@ class SchemaShape(unittest.TestCase):
                     self.assertIn('no independent CPU oracle', validation['cpu_fidelity']['claim'])
 
     def test_a_flag_the_writer_does_not_store_is_none_and_never_false(self):
+        # The X68000 writes the flag it stands behind (it claims no universal zero fallback) like the CPS-1 and the Neo Geo.
+        self.assertIs(read_report(x68_report())['honesty']['universal_zero_fallback_claim'], False)
+        writer = (Path(__file__).resolve().parents[1] / 'retrorecomp' / 'x68000_conversion.py').read_text(encoding='utf-8')
+        self.assertIn("'universal_zero_fallback_claim':False", writer)
         gb = read_report(gb_report())
         self.assertIsNone(gb['honesty']['independent_cpu_oracle'])
         self.assertIsNone(gb['honesty']['universal_zero_fallback_claim'])

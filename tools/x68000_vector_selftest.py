@@ -1,6 +1,6 @@
 """Independent MC68000 vectors replayed through the X68000 generator path (gate G10, independent CPU evidence).
 
-    python -B tools/x68000_vector_selftest.py [fixture ...]        (default: every fixture)
+    python -B tools/x68000_vector_selftest.py [fixture ...]        (default: every fixture, the groups one with its recorded deviations)
 
 The vectors are the pinned SingleStepTests/m68000 fixtures of the repository (`tests/fixtures`, MIT, generated with MAME, not
 recorded from hardware; synthetic instruction data, no disk, no firmware): the same fixtures and the same reading of them as
@@ -34,6 +34,7 @@ shared = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shared)
 
 FIXTURES = shared.FIXTURES
+GROUPS = 'm68k-groups'    # 85 instruction groups no other fixture holds: replayed with a recorded list of deviations (below)
 PROGRAM_BYTES = shared.PROGRAM_BYTES
 OBSERVED_BYTES = 16     # the bytes read at a vector's address: enough for the longest instruction (eight words)
 
@@ -85,12 +86,49 @@ endif()
     return result
 
 
+def group_deviations(result: dict) -> dict:
+    """Per group, how many vectors differ: the native steps' state, the reference's state, the two paths with each other."""
+    found = {}
+    for group in result['groups']:
+        cases = group['cases']
+        counts = {'native_state': cases - group['native_state'], 'reference_state': cases - group['reference_state'],
+                  'paths': cases - group['paths_equal']}
+        if any(counts.values()):
+            found[group['group']] = {key: value for key, value in counts.items() if value}
+    return found
+
+
+def group_problems(result: dict, recorded: dict | None = None) -> list[str]:
+    """What the groups replay must satisfy: every vector runs as a native step, every total of clocks equals the vector's on
+    both paths, and the vectors that differ are exactly the ones in `deviations-x68000.json` (a group not listed that
+    differs fails, and so does a count that changed, so the list can only shrink when a rule is corrected)."""
+    if recorded is None:
+        recorded = json.loads((ROOT / 'tests/fixtures' / GROUPS / 'deviations-x68000.json').read_text(encoding='utf-8'))
+    found = []
+    for group in result['groups']:
+        name, cases = group['group'], group['cases']
+        if group['native_executed'] != cases:
+            found.append(f'{name}: {cases - group["native_executed"]} vector(s) not run as a native step')
+        if group['native_clock'] != cases or group['reference_clock'] != cases or group['paths_clock_equal'] != cases:
+            found.append(f'{name}: the clocks differ from the vectors (native {group["native_clock"]}/{cases}, '
+                         f'reference {group["reference_clock"]}/{cases})')
+    observed = group_deviations(result)
+    for name in sorted(set(observed) | set(recorded)):
+        if observed.get(name, {}) != recorded.get(name, {}):
+            found.append(f'{name}: the vectors that differ are {observed.get(name, {})}, the recorded list says {recorded.get(name, {})}')
+    return found
+
+
+def problems(result: dict) -> list[str]:
+    return group_problems(result) if result['fixture'] == GROUPS else shared.problems(result)
+
+
 def main(names=None) -> int:
-    results = [replay(name) for name in (names or FIXTURES)]
+    results = [replay(name) for name in (names or FIXTURES + (GROUPS,))]
     failed = 0
     for result in results:
         print(shared.summary(result))
-        for text in shared.problems(result):
+        for text in problems(result):
             failed += 1
             print('PROBLEM', result['fixture'], text)
     print(json.dumps(results))

@@ -781,6 +781,17 @@ Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves
 a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
 file that is absent.
 
+## Sharp X68000: the report states that no universal zero-fallback claim is made (1.6.7, gate G15)
+
+The conversion report of the CPS-1 and of the Neo Geo carries `qualification_scope.universal_zero_fallback_claim: false`; the X68000's did not, so
+the common `honesty` block read it as unknown (`null`) instead of as a claim the machine does not make. The X68000 report now carries the same block
+(`qualification_scope`: the controls its routes drive, floppy disks only, and `universal_zero_fallback_claim: false`). Nothing reads it back to decide a
+game, and what a game does does not change.
+
+Stamps: `retrorecomp/x68000_conversion.py` is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game,
+with no change in what a game does; it comes in the same release as the colour correction above, which moves it already). Host and build stamps, the state
+compatibility key and the other eight consoles do not move (checked against main). `tests/test_report_schema.py` fixes the block.
+
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 
 The converter now takes D88 floppy images and recognises DIM, XDF and D88 by their content rather than by their name
