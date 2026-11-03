@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -51,12 +51,12 @@ x68 = Sharp X68000.
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
-| G8 | P | P | P | Y | P | P | P | Y | Y |
+| G8 | P | P | P | Y | P | P | Y | Y | Y |
 | G9 | P | P | P | Y | Y | P | Y | Y | Y |
-| G10 | Y | Y | P | Y | P | P | P | Y | P |
+| G10 | Y | Y | P | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | P |
-| G13 | P | P | P | P | P | P | P | P | Y |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
+| G13 | P | P | P | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | ? | Y | ? | Y | P | ? |
 | G15 | P | P | P | P | P | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
@@ -89,14 +89,45 @@ x68 = Sharp X68000.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
-- Master System and Game Gear (1 November 2026): G5 is `P` for both. The replay of the compressed copy exists only with the banked
-  engine (the "functions" engine records liveness only), and what is recorded for it is synthetic tests
-  (`tests/test_sega_evidence.py`) and runs on three games, not a result per console ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-evidence-about-the-delivered-file-166)).
-  The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
+- NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 with the same
+  engine revision and the same native sources, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
+  The panel of ten mapper families of 1.6.7 passes at the thorough level (G12 stays `P`: the panel size policy is not decided). A defect of
+  the quick-state writer found on the way (the PRG register was not saved, 1.6.5 and 1.6.6) is described in [UPGRADES.md](UPGRADES.md).
+- Master System and Game Gear (1 November 2026, completed 2 November): G5 is `P` for both. The compressed copy is replayed by both
+  engines since 1.6.7: the banked engine compares it with the fresh reference of each route, the "functions" engine (which has no
+  per-route reference) with the final pass of the same build, and the report says which (`packed_replay` for the functions engine). What
+  is recorded is synthetic tests (`tests/test_sega_evidence.py`), runs on three banked games and 18 + 3 + 15 functions conversions
+  ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-replays-the-delivered-copy-and-starts-from-the-reset-state-167)),
+  not a result per console. The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
+  G6 is judged on the banked engine, the default: the "functions" engine has no quick states ([MASTER_SYSTEM.md](MASTER_SYSTEM.md)),
+  so it has nothing to check and is not claimed.
 - Super Nintendo and Neo Geo (1 November 2026): G8 moved from `Y` to `P`. The Super Nintendo has a liveness check for the cartridges
   with a coprocessor only (`supernintendo.validate_device_liveness`), none for an ordinary cartridge; the Neo Geo has no liveness record
   yet (`retrorecomp/neogeo_conversion.py` uses `deliver_packed` and `replay_routes`, not `liveness_summary`). See the section
   *Shared evidence helper*.
+- Neo Geo (2 November 2026): G10 moved from `P` to `Y`. Both CPUs replay independent vectors through the Neo Geo generator, the same ones
+  as the CPS-1 and with the same figures ([NEOGEO.md](NEOGEO.md#qualification), [NEOGEO_LOG.md](NEOGEO_LOG.md)). 68000
+  (`tools/neogeo_vector_selftest.py`): the three SingleStepTests fixtures (834 + 2,171 + 864 vectors, the 82 authored cases included) all run
+  as native steps; the native steps agree with 3,867 of 3,869 on registers, SR, PC, written bytes and clocks. Z80
+  (`tools/neogeo_z80_vector_selftest.py`): 51,328 vectors through `neogeo_z80.generate` and the Geolith core corrected in the converter's copy
+  (`neogeo_z80.FIXES`), 49,685 as native steps below `0xf800` and 1,643 through observed RAM variants; native and interpreted identical on every
+  vector, 51,260 states (99.87 percent) and all 51,328 clocks agree with the oracle. **Reserves, written as they are:**
+  (a) the two authored 68000 vectors that set the trace bit, which neither path delivers (the Neo Geo Musashi is built without trace);
+  (b) the 68 Z80 vectors that differ are the X and Y flags of `SCF` and `CCF` and their `DD`/`FD` duplicates (the Q latch of the original chip is
+  not carried: a store per instruction and a state field); (c) the shared Musashi, the reference of every conversion, differs from the
+  68000 vectors on `DIVU`/`DIVS` flags (and the division clocks), `CHK` flags and clocks and one line-F stack byte (3,783 of 3,869 on state,
+  3,823 on clocks), where the translated steps follow the vectors: a game that reached such a case would show a native-against-reference
+  difference at conversion, not hide it, and none of the 134 qualified identities has; correcting the Musashi is the lead's decision and
+  would move the 68000 stamps of four machines; (d) the oracles are MAME (68000) and JSMoo (Z80), not hardware, and the bus is flat: nothing
+  of the board, the YM2610, the command latch or the prefetch bus phases.
+- Neo Geo (2 November 2026): G8 moved from `P` back to `Y`. The packed replays now run with `--trace` and every `final_checks[]` row carries
+  `liveness` with the CPS-1 keys (`frames`, `distinct_pictures`, `picture_changes`, `last_picture_change_frame`, `audible_frames`,
+  `last_audible_frame`), counted from frame 1, through `delivery_evidence.py` unchanged (`liveness_summary`, `report_fields`,
+  `require_moving_picture`); a route whose picture never changes stops the conversion, as on the CPS-1, and every route of a set is required
+  to move (MVS and AES). Read on conversions of the tree: NAM-1975 (7 routes), Puzzle De Pon! (6), Metal Slug 3 (7) and The Irritating Maze
+  (4): every route changed its picture on more than a thousand frames and was audible on more than half of them. **Scope:** the record is on
+  every conversion from now on; it was read on four sets, not on the 134 identities, and it says that picture and sound change, nothing of what
+  they show (the captures of the earlier campaigns are G9's evidence).
 - G14 for NES, SNES, SMS, GG, GB and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
@@ -104,7 +135,7 @@ x68 = Sharp X68000.
 
 ## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
 
-Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and, apart from the Neo Geo, the liveness record (G8) through one
+Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and the liveness record (G8) through one
 module, and since 1.6.6 so do the Master System and Game Gear, the Game Boy, the Mega Drive and the NES, so a machine
 that joins them gives the same evidence in the same shape ([STANDARDS.md](STANDARDS.md) rules 1 and 7). The module
 reads rows a machine already writes; it never runs a game.
@@ -119,21 +150,27 @@ reads rows a machine already writes; it never runs a game.
   `distinct_program_counters`. CPS-1 reports the first six (`final_checks[].liveness`). The X68000 reports `frames`,
   `distinct_pictures`, `distinct_audio_blocks` (= `distinct_sound_blocks`), `distinct_ram_states` and
   `distinct_program_counters`, then `nonblack_frames` and `nonzero_samples` from its replay report (`liveness[]`). Frame
-  numbers are the machine's own: CPS-1 counts from 1, the X68000 from 0. Neo Geo has no liveness record yet.
+  numbers are the machine's own: CPS-1 and Neo Geo count from 1, the X68000 from 0. Neo Geo reports the CPS-1 six keys (`final_checks[].liveness`).
 - **Packed replay.** `deliver_packed` compresses a copy of the build as publication does and takes its SHA-256 before any
   replay; `replay_packed` (or `replay_routes` where the machine's callback compares by itself) replays that copy on every
   route and compares it with the fresh reference. `native_validation.packed_reference_match` and
   `packed_candidate_sha256` are written from the delivered file (`validation_fields()`, `report_fields()`); the first
-  refuses to be written before every route matched.
+  refuses to be written before every route matched. Since 1.6.7 a compressed copy that fails its replay on the converting
+  system is replaced by the build as built and every route is replayed again on it; if that passes, the compressed copy is
+  replayed once more on the first route that failed, and only a failure that is reproduced is blamed on the compression: the
+  unpacked file is then delivered and reported as such (`packing.unpacked_reason`). A failure that does not reproduce, or a
+  build that fails too, raises the first error ([BUILDING.md](BUILDING.md)). It is the same file that passed every route that
+  is delivered, packed or not.
 
 The Master System and the Game Gear use it since 1.6.6 (`retrorecomp/sega_evidence.py`): the runner's `--vdp-trace` has two more
 columns, `psg_h` (hash of the PSG's stereo samples of the frame) and `psg_nz` (their non-zero count), written only when a trace is
 written; every conversion records `final_checks[].liveness` per route (picture from `pixels_h`, sound, RAM; no program counter, so that
 key is None) and refuses a conversion whose main (`play`) route never changed picture; the banked engine also replays the compressed
 copy of the build on both routes against the fresh reference (`native_validation.packed_reference_match`, `packed_candidate_sha256`).
-The "functions" engine has the liveness record and no packed replay. G8 is `P` for both columns: the record exists on every
-conversion, but the captures were not inspected as a campaign and the risk cases were not run to play. G5 stays as recorded: the
-replay is in the conversion for every banked game, run on three of them here.
+Both engines have the liveness record and the packed replay (the "functions" engine compares the copy with the final pass of its own
+build). G8 is `P` for both columns: the record exists on every conversion, but the captures were not inspected as a campaign and the
+risk cases were not run to play. G5 stays as recorded: the replay is in the conversion for every game, run on three banked games and
+on the functions batches here.
 
 The NES uses it since 1.6.6 (`retrorecomp/nes_checks.py`, `retrorecomp/nes.py`): the headless `--hash-out` line of the exported
 game carries `pic=` (the hash of the rendered 256 x 240 picture), `snd=` (the hash of the frame's sound) and `aud=` (1 when a
@@ -163,15 +200,15 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G2 | Y | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`, golden `tests/x68000_common_golden.json`). Since 1.6.6 the sections are filled from the conversion itself: `cpus` (one 68000, native and interpreted counts per route), `validation.cpu_fidelity` (digests of the CPU, RAM, image and PCM traces per route), `scan.routes` (frames, steps and script digest of each exploration route), `states.validation` (fresh process, compressed copy, the frame of the save and the 400 continued frames), `saves`, `input_players`, `peripheral`, `packed.replay` | `devices` is empty and there is no audio CPU section: the machine has no cartridge device and its sound is part of the reference machine, so a counter per device does not apply. `saves.validation.checked_in_this_conversion` is false (the proof is the test and the tool named there, not a step of the conversion) |
 | G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
-| G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
+| G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked); on Debian the compressed copy of Choujin stops at start and is refused (the panel row below) |
 | G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
 | G7 | Y | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts. `tools/x68000_saves_check.py` on a real game (below): the game wrote to its disk, a relaunch and a second conversion found it as it was | The writes found are file time stamps of 4 to 12 bytes (below): no game was seen saving a score or a position on purpose, which needs play beyond the routes |
 | G8 | Y | `liveness` in every report, per route and for the delivered file; captures looked at; the four risk cases below reach play, R-Type and Metal Sight on the standard routes, Lemmings and Super Hang-On on authored routes (`tools/x68000_play_routes.py`) | Scope: the four risk cases, not every set of the panel. 8 of the 84 reviewed mouse sets make no sound on any standard route and 15 show a still picture on the 4,000-frame main route, which a click or a key wakes on another route (Route rules, below) |
 | G9 | Y | The four risk cases were converted at the extended level (main, mouse, keyboard and one 18,000-frame pseudo-random route), 0 interpreted opcodes on every route, the compressed copy matching the reference on the four routes (table below); play is reached on the delivered file for R-Type and Metal Sight (standard and long routes), for Super Hang-On (long route, and its authored route) and for Lemmings (authored route; its standard and long routes stay on the menu) | Inspected by the specialist agent, not by the owner; four games, not the 84 mouse sets; the thorough level (36,000 frames) was not run; not full games |
-| G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
-| G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
-| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (silent on the routes without the mouse; since 1.6.5 a silent route is accepted and reported, and it converts with zero interpreted opcodes) |
-| G13 | Y | Windows and Debian trace hashes match on the 19 sets | |
+| G10 | P | The 3,869 SingleStepTests vectors (834 shift, 2,089 prefetch plus 82 authored cases, 864 exception) replayed through the X68000 generator and through the same Musashi interpreting every instruction: the translated steps agree with every vector on registers, SR, PC, written bytes and clocks, and the Musashi reference differs in the groups already named for the CPS-1 and the Neo Geo (division and `CHK` flags, `CHK` clocks, one line-F frame) (`tools/x68000_vector_selftest.py`, `tests/test_x68000_vectors.py`, [CPU_68000.md](CPU_68000.md#tests-and-vectors)); Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | The shared Musashi reference carries no correction for those groups (it would move the stamps of three machines); the oracle is MAME, not silicon; odd-address and bus errors, `TAS`, `TRAPV` and the interrupt pins are outside the fixtures |
+| G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`); MAME 0.289 (its `x68000` driver, run with the IPL and font ROM it expects: the hashes of the owner's firmware are the ones MAME lists) against the delivered game on five games, no input on either side (`tools/x68000_mame_compare.py`, 2 November 2026): **90 of the 104 pictures of MAME that stand still have the same shape in the game** (R-Type 14 of 16, Lemmings 19 of 24, Star Luster 26 of 31, Quarth 19 of 20, Bubble Bobble 12 of 13), the first 200 frames (the Human68k start-up screen) are identical to the pixel on R-Type, and after the disk has loaded the two emulators advance image for image at a constant lag (665 frames on R-Type) | Colours and sound are **not** compared (the game's framebuffer is the pinned base's RGB565, MAME expands the palette's intensity bit onto the three channels: about 2 to 4 levels of 255 per channel; and the screen contrast of the system port is applied to the palette by the base but by MAME at display, after the raw screen this tool reads). Of the 14 pictures with no match, 4 are explained (2 of R-Type fall beyond the 3,000 frames captured on the game side, 2 are transition frames that agree on 99.97 percent of their pixels) and 10 are **not explained** (Lemmings 5, Star Luster 4, Bubble Bobble 1). Disks load more slowly in MAME, so the lag is per game and not calibrated. MAME is not hardware and marks its driver imperfect |
+| G12 | Y | **The owner chose option B (2 November 2026): 21 named games, each with its written reason, none dropped for failing** (the panel and its rule are [below](#sharp-x68000-the-panel-2-november-2026)); all 21 are converted on Windows (22 conversions with R-Type again at 4 MiB), 0 interpreted opcodes on every route, the compressed copy matching, F8/F9 resumed in a fresh process; the collection holds 418 images, 33 multi-disk sets and 84 reviewed mouse sets | The panel covers the categories it names, not the whole collection; the two sets that used to stop the reference (Tetris v5, TF4G v0.3A09) and Pensan CD (silent on its keys) are in it and convert |
+| G13 | Y | Windows and Debian trace hashes (CPU, RAM, picture and PCM, main, mouse and keyboard routes) are equal on the 21 games of the panel (2 November 2026) | One game, Choujin, is delivered on Debian only unpacked: its UPX-compressed copy stops at start there (see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)); the uncompressed Debian conversion gives the same hashes as Windows |
 | G14 | ? | No recorded owner decision (draft below) | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [X68000.md](X68000.md) | The interface and the older documents have not all been read for this |
 | G16 | - | The X68000 shares no paths yet | |
@@ -273,8 +310,8 @@ the games named in each row.
 | G9 | Y | The thorough level runs six authored routes of 3,600 frames (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run) and two pseudo-random routes of 18,000 frames seeded from the exact ROM, 57,600 frames per game. `tools/nes_route_captures.py` replays them on the delivered files and takes the last picture: **all eight games reached play on at least one route**. The Legend of Zelda (the overworld, Link in the field), Mr. Gimmick (the first stage, score 130), Esper Dream 2 (rooms and a dialogue), Gumshoe (a water stage with a score), Front Line (the road, score 300), Commando (the field, then the title with a score of 450: a game over), Castlevania III (stage 1-02) and Kirby's Adventure (Vegetable Valley) | First stages only, not full games. The pictures were looked at by the specialist agent, not by the owner. Kirby stays on its first level on both long routes; Gumshoe's second long route ends on a plain blue picture |
 | G10 | Y | The separate TriCNES-derived software oracle on NTSC routes (see the validation sections of [NES.md](NES.md)) | PAL has no independent oracle |
 | G11 | P | Authored fixtures of the clock, the APU, the Zapper and the mappers ([NES.md](NES.md#self-tests)) | No external emulator or hardware comparison; fine 2C07 register races and the PAL vblank-clear timing are unconfirmed (NESdev lists it as such) |
-| G12 | P | The eight games below, the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
-| G13 | P | Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | No campaign on Debian for the NES in 1.6.6 |
+| G12 | P | The eight games below, the ten games of the 1.6.7 panel of mapper families (mappers 9, 10, 19, 64, 118, 23, 16, 1 at 512 KiB, 2 in PAL and 69: ten of ten pass at the thorough level, [NES.md](NES.md#panel-of-mapper-families-3-november-2026)), the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
+| G13 | Y | Windows and Debian 13 (Hermès), each converting the game with the same engine revision and the same native sources at the standard level, replay the six routes of the extended level (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run; 3,600 frames each) with `tools/nes_cross_os.py`: the per-frame trace (program counter and registers, work memory, mapper, PPU and APU hashes, picture and sound hashes) and the SHA-256 of the 48 kHz sound are identical on all 48 routes of the eight games (The Legend of Zelda, Mr. Gimmick, Kirby's Adventure, Castlevania III, Gumshoe, Front Line, Commando, Esper Dream 2: mappers 1, 69, 4, 5, 66, 0, 2 and 26, NTSC and PAL). Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | The two pseudo-random routes of 18,000 frames of the thorough level were not replayed on Debian, nor the ten games of the 1.6.7 panel; the traces were not compared with a reference console. Six of the eight games had identical native sources on both systems; the exception is Kirby's Adventure and Castlevania III, built with the corrected state writer on Windows only and with the previous one on Debian, which shows that the correction changes no trace |
 | G14 | ? | No recorded owner decision | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [NES.md](NES.md) | The older documents have not all been read for this |
 | G16 | Y | Numeric hints, rechecked and retried without hints on a failed conversion; the RAM entries a conversion adds are permissions the guard checks | |
@@ -301,13 +338,71 @@ not how fast anything runs.
 The checks themselves are run by `tools/campaign.py`, `tools/nes_route_captures.py`, `tools/nes_saves_check.py` and
 `tools/nes_state_selftest.py`; none of them needs a ROM in the repository.
 
+### CPS-1.5 (QSound boards): the experimental tier of the CPS-1
+
+Not a column of the matrix: the machine stays `supported` and these boards are a tier of their own (`board_tier: experimental` in their
+reports, a column of the catalogue), outside the evidence above. What exists on the 1.6.7 tree, dated 2 November 2026, detail in
+[CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
+the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets of the test collection (one per family, of 18) agree with MAME 0.289
+on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
+its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
+The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
+
 ## Panel sizes
 
 No common panel size exists today. The panel sizes noted by the 27 October
 2026 inventory are: Neo Geo 24+10, Mega Drive 24+8, Super Nintendo DSP-1/CX4
 8, Super FX 9, NES 8+10+8+6, Game Boy 606, Master System 258, CPS-1 26,
-X68000 19. Whether G12 needs a common threshold is a policy decision that has
+X68000 21 (19 before 2 November 2026). Whether G12 needs a common threshold is a policy decision that has
 not been recorded; for CPS-1 the owner chose, on 1 November 2026, "every set of the perimeter he owns".
+
+### Sharp X68000: the panel (2 November 2026)
+
+**Written rule.** The panel is 21 named games of the owner's collection (option B of 2 November 2026), each chosen for at least one reason in
+these categories, and none is ever dropped because it fails: a failure becomes a line of [KNOWN_FAILURES.md](KNOWN_FAILURES.md), not an absence.
+The categories are the structure of the floppies (1, 2, 3, 4 and 5 disks, the largest set of the collection has 5), their behaviour (an automatic
+disk change, a refusal then the next disk, an eject after loading), the mouse (read through the system calls or through the SCC chip, and a
+mouse that wakes a sound), the sound (a silent route accepted, a sound that starts after a click), the picture mode (15 kHz at 55.46 frames a
+second, 31 kHz at 61.46), the sets that used to stop, and a spread of genres. Each game is converted at the Standard level from an empty
+library, one conversion at a time, on Windows, and again on Debian (the 1.6.6 source, whose X68000 game stamp equals this tree's) with a temporary
+copy of the disks that is deleted afterwards. R-Type is converted once more with the 4 MiB option (the option, not a game of the panel).
+
+| Game | Why it is in the panel |
+|---|---|
+| R-Type (Irem) | one disk, 15 kHz, the release-check game |
+| Metal Sight (System Sacom) | 5 disks (the largest set), 31 kHz, automatic disk changes (2 on the routes) |
+| Lemmings (Imagineer) | the mouse through the SCC chip |
+| Super Hang-On (Sharp / SPS) | 2 disks ejected after loading, a long load, 31 kHz |
+| Metal Unit II Power Unit | 3 disks, the third after a refusal |
+| Tricorn Final (Xain) | 4 disks, 15 kHz |
+| Cranked Arrow (Fukuda Naoto) | 3 disks, another maker |
+| Choujin (Fix) | 2 disks ejected after loading, 31 kHz |
+| Tetris v5 (Cyber Factory) | stopped the reference (CRTC reprogrammed during a line), fixed in 1.6.5 |
+| TF4G v0.3A09 | the same cause, fixed in 1.6.5 |
+| Pensan CD (Tanaka Yuu) | silent on its keys, its music starts after a click |
+| Uno | silent on every standard route, a card game played with the mouse |
+| Boyon Boyon | silent on the main route, sound on the mouse route |
+| Populous (Imagineer) | the mouse through the SCC chip |
+| Cameltry (Denpa) | the mouse through the SCC chip, 31 kHz |
+| Dungeon Master (FTL) | 2 disks (System and User), the mouse |
+| Afterburner II (Dempa) | 2 disks, 31 kHz |
+| Star Luster (Dempa) | one disk, 31 kHz, 3D |
+| Nemesis '94 Gradius 2 | horizontal shooter, one disk, 15 kHz |
+| Quarth (Konami) | puzzle, one disk |
+| Bubble Bobble (Dempa) | arcade port, one disk |
+
+**Result (Windows, 2 November 2026, 1.6.6 tree).** All 21 convert and are delivered (110 to 226 seconds each on the build PC), with 0 interpreted
+opcodes on the main, mouse and keyboard routes, the compressed copy matching the reference, and the F8/F9 state resumed in a fresh process.
+Uno is accepted as silent (its report says so); every other game has sound on at least one route. Metal Sight shows its 2 automatic disk changes; the other
+multi-disk sets show none on these routes (their disk requests, if any, come later in the game: not observed). R-Type at 4 MiB gives the same pictures
+as at 2 MiB.
+
+**Result (Debian, same day).** 20 of the 21 convert and are delivered with the same CPU, RAM, picture and PCM hashes as Windows on every
+route. The 21st, Choujin, is refused on Debian at the replay of its compressed copy: the UPX-compressed program stops at start (SIGTRAP) with
+`-9`, `-1` and `--lzma`, although `upx -t` passes and the program UPX unpacks from it is byte for byte the one that was validated and runs. Converted on
+Debian with `--no-compress` it gives the same hashes as Windows. This is the packing step shared by every console, not the X68000
+([KNOWN_FAILURES.md](KNOWN_FAILURES.md)). These checks say that the native code, the picture and the sound of the routes run are the same on the two systems;
+they say nothing of complete gameplay, exact hardware or latency.
 
 ## Owner acceptance
 
@@ -358,6 +453,47 @@ Then three checks on the machine itself, each on one game of your choice:
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | (to fill) | Sharp X68000 | (to fill) | (to fill) | (to fill) |
+
+### Checklist for Arthur: Nintendo NES play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging.
+`python tools/nes_owner_trial.py --roms <your NES folder>` converts these six games as a player would, one at a time, under
+`.build/nes-owner-trial/` (never into Export), writes `TRIAL.md` there with the same table and takes one picture of each right-hand
+play route. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this
+test".
+
+| | Zelda | Kirby's Adventure | Mr. Gimmick (PAL) | Duck Hunt (Zapper) | Battletoads | Castlevania III |
+|---|---|---|---|---|---|---|
+| Why it is here | MMC1, battery save, long game | MMC3 scanline IRQ, battery save | 50 Hz cartridge, FME-7 sound chip | the Zapper | two players, AxROM, code in RAM | MMC5, extra sound channels |
+| It starts without an error window | | | | | | |
+| Controls: arrows, **W** and **X**, **Enter** (Start), **Shift** (Select); player 2 on the keypad | | | | The mouse aims, the left button shoots, the right button shoots off-screen | Both pads answer | |
+| Sound is the game's (music and effects) | | | The speed and the pitch of a PAL game | | | The extra pulse channels are heard |
+| **F8** in play, move on, **F9** goes back | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | |
+| A save made in the game is still there after closing and starting again | | | not applicable | not applicable | not applicable | not applicable |
+| **F3** changes the picture filter, **F4** the window mode | | | | | | |
+| Nothing odd: a frozen picture, a flickering status bar, a wrong colour | | | | | | |
+
+Then four checks, each on the game that fits:
+
+1. **Battery save.** Start a game in Zelda or Kirby, save in the game, quit, start again and load it. The file is
+   `datas/games/<game>-<12 hex digits>.sav` beside the player; the conversion's own test runs leave none.
+2. **Autofire and extra sprites.** On a gamepad, **F6** turns autofire on and off (a notice shows "Autofire ON" or "Autofire OFF"; a game
+   samples its pad once per frame, so what it makes of it is the game's). **F5** toggles the extra sprites: in a game that flickers
+   (Battletoads, Castlevania III) fewer objects blink; off by default.
+3. **The Zapper.** In Duck Hunt, **F2** then the Zapper page (after the four control pages) changes the reticle: cross or dot, size, red,
+   white or green. The light is an approximation fed by the pixels the PPU emits: say if a shot you think was good counts as a miss, or
+   the opposite, and where on the screen.
+4. **Language.** **F7** changes the language of the player's own menus (the game's text is the cartridge's).
+
+Known limits to keep in mind while you play: the Zapper's light is approximate; one Zapper only (no second gun, no other special
+controller); the Famicom Disk System is not supported; no Dendy timing (NTSC and PAL only). Keep the five measures apart when you judge: the CPU is checked against independent vectors and
+the hardware against authored fixtures, not against a reference console, and a good feel here is neither an exact fidelity nor a
+latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
 
 ## Running the verification campaign
 

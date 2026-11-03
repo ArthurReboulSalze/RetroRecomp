@@ -2084,7 +2084,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/exit/project/packed-checks/attract.json"
+      "<T>/exit/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/exit/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2100,6 +2102,39 @@
    },
    "reports": []
   },
+  "frozen_picture": {
+   "calls": [
+    {
+     "args": [
+      "<T>/frozen_picture/packed-game.exe",
+      "--headless",
+      "--frames",
+      "3600",
+      "--script",
+      "<T>/frozen_picture/project/native-discovery/attract.inputs",
+      "--rtc-seed",
+      "1760000000",
+      "--report",
+      "<T>/frozen_picture/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/frozen_picture/project/packed-checks/attract.csv"
+     ],
+     "capture_output": true,
+     "env_changed": {},
+     "env_removed": [],
+     "other": [],
+     "text": null,
+     "timeout": 240
+    }
+   ],
+   "outcome": {
+    "message": "Neo Geo attract: the picture never changed during the route; the game is stuck.",
+    "raised": "ConversionError"
+   },
+   "reports": [
+    "attract.json"
+   ]
+  },
   "good": {
    "calls": [
     {
@@ -2113,7 +2148,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/good/project/packed-checks/attract.json"
+      "<T>/good/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/good/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2133,7 +2170,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/good/project/packed-checks/play.json"
+      "<T>/good/project/packed-checks/play.json",
+      "--trace",
+      "<T>/good/project/packed-checks/play.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2153,7 +2192,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/good/project/packed-checks/long-attract.json"
+      "<T>/good/project/packed-checks/long-attract.json",
+      "--trace",
+      "<T>/good/project/packed-checks/long-attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2173,7 +2214,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/good/project/packed-checks/actions.json"
+      "<T>/good/project/packed-checks/actions.json",
+      "--trace",
+      "<T>/good/project/packed-checks/actions.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2194,6 +2237,14 @@
       "image_hash": "i",
       "interpreted_opcodes": 12,
       "interpreter_percent": 1.315789,
+      "liveness": {
+       "audible_frames": 3600,
+       "distinct_pictures": 5,
+       "frames": 3600,
+       "last_audible_frame": 3600,
+       "last_picture_change_frame": 3600,
+       "picture_changes": 3599
+      },
       "name": "attract",
       "native_entries": 900,
       "pcm_hash": "p",
@@ -2210,6 +2261,14 @@
       "image_hash": "i",
       "interpreted_opcodes": 12,
       "interpreter_percent": 1.315789,
+      "liveness": {
+       "audible_frames": 7200,
+       "distinct_pictures": 5,
+       "frames": 7200,
+       "last_audible_frame": 7200,
+       "last_picture_change_frame": 7200,
+       "picture_changes": 7199
+      },
       "name": "play",
       "native_entries": 900,
       "pcm_hash": "p",
@@ -2226,6 +2285,14 @@
       "image_hash": "i",
       "interpreted_opcodes": 12,
       "interpreter_percent": 1.315789,
+      "liveness": {
+       "audible_frames": 7200,
+       "distinct_pictures": 5,
+       "frames": 7200,
+       "last_audible_frame": 7200,
+       "last_picture_change_frame": 7200,
+       "picture_changes": 7199
+      },
       "name": "long-attract",
       "native_entries": 900,
       "pcm_hash": "p",
@@ -2242,6 +2309,14 @@
       "image_hash": "i",
       "interpreted_opcodes": 12,
       "interpreter_percent": 1.315789,
+      "liveness": {
+       "audible_frames": 7200,
+       "distinct_pictures": 5,
+       "frames": 7200,
+       "last_audible_frame": 7200,
+       "last_picture_change_frame": 7200,
+       "picture_changes": 7199
+      },
       "name": "actions",
       "native_entries": 900,
       "pcm_hash": "p",
@@ -2271,7 +2346,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/no_audio/project/packed-checks/attract.json"
+      "<T>/no_audio/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/no_audio/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2302,7 +2379,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/no_image/project/packed-checks/attract.json"
+      "<T>/no_image/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/no_image/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2333,7 +2412,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/reference_differs/project/packed-checks/attract.json"
+      "<T>/reference_differs/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/reference_differs/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},
@@ -2364,7 +2445,9 @@
       "--rtc-seed",
       "1760000000",
       "--report",
-      "<T>/total_differs/project/packed-checks/attract.json"
+      "<T>/total_differs/project/packed-checks/attract.json",
+      "--trace",
+      "<T>/total_differs/project/packed-checks/attract.csv"
      ],
      "capture_output": true,
      "env_changed": {},

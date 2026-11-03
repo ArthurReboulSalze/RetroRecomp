@@ -567,13 +567,19 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         for name,frames_,inputs,reference_folder,extra in (
                 [('main',count,event_file,checks/'reference',['--state-save-at',str(state_frame)])]+
                 [(route.name,route.frames,inputs,ref_folder,[]) for route,ref_folder,inputs in extra_routes]):
-            folder=packed_checks/name;folder.mkdir(parents=True,exist_ok=True)
-            target=folder/candidate.name;shutil.copy2(packed,target)
+            folder=packed_checks/name
+            packed_runs.append((name,folder,reference_folder,(folder/candidate.name,folder,frames_,inputs,dict(extra=extra))))
+
+        def replay_copy(run):
+            # The route's folder holds a fresh copy of the delivered file each time it is replayed: when a compressed copy
+            # fails and the build as built takes its place (`replay_packed`), the second attempt must not run the first copy.
+            target,folder=run[3][0],run[3][1]
+            shutil.rmtree(folder,ignore_errors=True);folder.mkdir(parents=True)
+            shutil.copy2(packed,target)
             if os.name!='nt':target.chmod(0o755)
-            packed_runs.append((name,folder,reference_folder,(target,folder,frames_,inputs,dict(extra=extra))))
+            return replay(target,folder,run[3][2],run[3][3],**run[3][4])
         with timings.phase('packed_replays'):
-            packed_results=replay_packed(delivered,packed_runs,
-                lambda run:replay(run[3][0],run[3][1],run[3][2],run[3][3],**run[3][4]),
+            packed_results=replay_packed(delivered,packed_runs,replay_copy,
                 same=lambda run,result:same_trace(run[1]/'trace.tsv',run[2]/'trace.tsv'),
                 mismatch=lambda run:ConversionError('X68000 '+run[0]+': the compressed executable differs from the fresh reference; existing export preserved.'),
                 workers=workers)

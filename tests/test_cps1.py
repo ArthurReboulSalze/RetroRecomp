@@ -28,8 +28,13 @@ class BundledCatalogueTests(unittest.TestCase):
         self.assertEqual(data['source']['revision'], builder.MAME_REVISION)
         self.assertEqual(len(games), 233)
         phase1 = [game for game in games if cps1_catalogue.supported(game)]
-        self.assertEqual(len(phase1), 129)
-        self.assertEqual(len({game['parent'] or game['set'] for game in phase1}), 28)
+        self.assertEqual(len(phase1), 147)
+        # 129 sets of the CPS-1 boards (28 families) and, since 1.6.7, the 18 sets of the QSound boards (5 families), a tier of their own
+        cps1_tier = [game for game in phase1 if cps1_catalogue.tier(game) == 'supported']
+        self.assertEqual(len(cps1_tier), 129)
+        self.assertEqual(len({game['parent'] or game['set'] for game in cps1_tier}), 28)
+        self.assertEqual({game['set'] for game in phase1} - {game['set'] for game in cps1_tier},
+                         {game['set'] for game in games if game['machine'] == 'qsound' and game['support'] == 'phase1'})
         self.assertEqual(sum(game['rotation'] == 270 for game in phase1), 13)
         for game in games:
             self.assertIn(game['board'], data['boards'])
@@ -38,8 +43,10 @@ class BundledCatalogueTests(unittest.TestCase):
         sets = cps1_catalogue.by_set()
         self.assertEqual((sets['ffight']['board'], sets['ffight']['mapper']), ('CPS_B_04', 'S224B'))
         self.assertEqual(sets['sf2']['ports'][0], 0x36)
-        self.assertEqual((sets['wof']['support'], sets['wof']['reason']), ('excluded', 'qsound'))
-        self.assertIn('QSound', cps1_catalogue.unsupported_reason(sets['wof']))
+        self.assertEqual((sets['wof']['support'], sets['wof']['reason'], sets['wof']['tier']), ('phase1', '', 'experimental'))
+        self.assertEqual(cps1_catalogue.tier(sets['ffight']), 'supported')
+        self.assertFalse(cps1_catalogue.qualification_candidate(sets['wof']))      # an experimental tier is no evidence for the CPS-1
+        self.assertEqual((sets['wofch']['support'], sets['wofch']['reason']), ('excluded', 'cps_changer'))
         self.assertEqual(sets['sf2qp1']['reason'], 'bootleg_or_hack')
         self.assertEqual(sets['forgottn']['reason'], 'dial')
         self.assertEqual(sets['1941']['rotation'], 270)

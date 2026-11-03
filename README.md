@@ -72,7 +72,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges, LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
-| [Sharp X68000](docs/X68000.md) | Experimental | DIM/XDF disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
+| [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
