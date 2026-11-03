@@ -11,7 +11,8 @@ class StartupCostTests(unittest.TestCase):
         for machine in startup_cost.MACHINES:
             command = startup_cost.headless_command(machine, Path('game.exe'), Path('run'), 1)
             self.assertEqual(command[0], 'game.exe')
-            self.assertIn('1', command)
+            # The X68000 host needs two frames (it exits with 1 after a single one).
+            self.assertIn('2' if machine == 'x68' else '1', command)
         with self.assertRaises(SystemExit):
             startup_cost.headless_command('amiga', Path('game.exe'), Path('run'), 1)
 

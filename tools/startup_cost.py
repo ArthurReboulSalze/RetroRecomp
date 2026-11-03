@@ -57,7 +57,8 @@ NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 def headless_command(machine: str, game: Path, folder: Path, frames: int) -> list[str]:
     """The headless command line of one console's game (the flags retrorecomp's own probes use)."""
-    count = str(frames)
+    # The X68000 host exits with 1 after a single frame (its first frame ends before the boot); it runs two at least.
+    count = str(max(frames, 2) if machine == 'x68' else frames)
     if machine in ('sms', 'gg'):
         return [str(game), '--headless', '--frames', count, '--log', str(folder / 'runtime.log')]          # core.py probe
     if machine == 'gb':

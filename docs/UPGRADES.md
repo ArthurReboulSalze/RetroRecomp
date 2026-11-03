@@ -252,9 +252,8 @@ timestamp or the manifest changes what Defender says about a file.
   method is one named constant per OS (`packing.LINUX_METHOD` stays `'nrv'`, UPX's default: Linux is unchanged until the cost
   of `--lzma` on a large ELF, 2.7 s against 0.17 s on a slow laptop in 1.6.0, is measured again). `packing.packing_record`
   and the schema-2 `packed` section carry `method` (`lzma`, `nrv`, or none when the file is not packed); it is optional, a
-  report from before reads `None`, no schema number changes. The cost is a start that decompresses a little longer:
-  `tools/startup_cost.py start` measures it (not measured yet, an estimate of +80 to +280 ms per game; the owner decides on
-  the measurement).
+  report from before reads `None`, no schema number changes. The cost is a start that decompresses a little longer,
+  measured on a quiet PC on 3 November 2026 (table below); the owner had approved LZMA if that cost stayed small.
 - **A reproducible link.** The portable linker is given `-Wl,--no-insert-timestamp` (`toolchain.LLVM_LINKER_FLAGS`): the PE
   header carries 0 instead of the link time. The static SDL2 is configured with `-ffile-prefix-map=<its source folder>=SDL`
   (`platforms.sdl_compiler_flags`; quoted when the path has a space; not for the Visual Studio fallback, whose `cl.exe` has no
@@ -318,6 +317,31 @@ decompression of a game on this PC; the real start is measured by `tools/startup
 [BUILDING.md](BUILDING.md)): it needs a quiet PC and the owner's agreement. End to end, Super Mario Land converted whole with
 this tree: the packed game is 1,158,144 bytes (the 1.6.7 call-filter build was 1,367,552 with NRV) and its packed copy replayed
 on 4 routes against the reference and matched (`packed_reference_match` true); `packing.method` reads `lzma`.
+
+Start-up cost (`tools/startup_cost.py start --runs 9 --core 4`, quiet PC, 3 November 2026, Windows 11, one core pinned):
+median milliseconds from the creation of the process to its exit after one headless frame (two for the X68000, whose host
+exits with 1 after a single frame). "Second start" is a game started again, the usual case; "first start" is a fresh copy of
+the file, which Windows Defender scans before it runs (the first launch after a conversion), and it varies much more. A fresh
+copy is still in the file cache (no administrator rights to flush it).
+
+| Game (console, unpacked size) | Second start: unpacked / NRV / LZMA | LZMA - NRV | First start: NRV / LZMA | LZMA - NRV |
+|---|---|---|---|---|
+| Sonic (SMS, 6.1 MB) | 18 / 49 / 104 | +55 | 601 / 704 | +103 |
+| Sonic Drift (GG, 6.1 MB) | 19 / 50 / 123 | +73 | 902 / 1,048 | +146 |
+| Super Mario Land (GB, 5.1 MB) | 19 / 44 / 92 | +48 | 514 / 606 | +91 |
+| Metroid (NES, 12.6 MB) | 20 / 54 / 151 | +96 | 923 / 1,132 | +210 |
+| Kirby's Adventure (NES, 43.4 MB) | 27 / 127 / 409 | +282 | 2,829 / 3,373 | +544 |
+| Sonic (MD, 8.2 MB) | 22 / 59 / 141 | +82 | 608 / 783 | +175 |
+| SNES campaign g02 (40.0 MB) | 40 / 160 / 287 | +127 | 2,031 / 1,057 | -974 |
+| Real Bout Fatal Fury Special (NG, 50.2 MB) | 197 / 318 / 470 | +152 | 2,059 / 2,387 | +328 |
+| The Punisher (CPS-1, 25.9 MB) | 61 / 133 / 260 | +127 | 2,172 / 2,098 | -74 |
+| R-Type (X68000, 8.7 MB) | 29 / 81 / 221 | +141 | 1,284 / 1,424 | +141 |
+
+LZMA adds 48 to 282 ms to a usual start (the largest, Kirby's Adventure, 43 MB unpacked: +0.28 s) and up to about half a
+second to the first launch after a conversion, where the antivirus scan dominates (2 to 3 s for the largest games with either
+method). The Neo Geo's F11, which starts the file again, pays the second-start figure (+0.15 s on Real Bout). It measures the
+start only: nothing about the native code share, CPU or hardware fidelity, gameplay or physical latency. Linux is not measured
+and keeps NRV.
 
 Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): **all three stamps of every
 console move**. The build stamp (`toolchain.py`, `packing.py`) and the host stamp (`metadata.py`,
