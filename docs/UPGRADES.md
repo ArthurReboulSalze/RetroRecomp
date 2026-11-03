@@ -87,7 +87,11 @@ stay interpreted and counted.
 - **A third counter, `compiled_unobserved`.** Per CPU, native + compiled and not observed + interpreted = the instructions
   retired. `native_entries` and `audio_native_opcodes` keep their flat meaning (every compiled body); the new figures, part of
   them, are `compiled_unobserved_opcodes` and `audio_compiled_unobserved_opcodes` (and `_cycles`) in the scenario rows, and the
-  report's per-CPU view subtracts them to give the native count. The fallback is never folded into it.
+  report's per-CPU view subtracts them to give the native count. The fallback is never folded into it. In the common report
+  (`retrorecomp/report_schema.py`, schema 2, no version change: an added optional key) each scenario of a CPU that counts
+  it carries `compiled_unobserved` (and the audio `cycles` too), and the summary of the batch and the window adds
+  `compiled_unobserved_opcodes` and `audio_compiled_unobserved_opcodes`. A writer that does not count it has no such key,
+  and its native figure is read as before.
 - **Both learning passes stay**, and the observation goes on: an unobserved instruction is recorded as an interpreted one
   was, so the second pass moves it from the new counter to the native one. The pass no longer changes what runs fast or
   correctly.

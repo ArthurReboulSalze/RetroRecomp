@@ -796,5 +796,49 @@ class RamSingleStepTests(unittest.TestCase):
                 self.assertEqual(game.status, 'fallback' if expected else 'no_hints', label)
 
 
+class CompiledUnobservedTests(unittest.TestCase):
+    """Super Nintendo since 1.6.7: compiled bodies run where no earlier run had seen code are a third figure, never folded
+    into native (observed code) nor into interpreted."""
+
+    @staticmethod
+    def counted(report, main=0, audio=0):
+        for row in report['final_checks']:
+            row.update(compiled_unobserved_opcodes=main, audio_compiled_unobserved_opcodes=audio,
+                       audio_compiled_unobserved_cycles=3 * audio)
+        return report
+
+    def test_the_figure_is_taken_out_of_native_and_kept_apart_per_cpu(self):
+        report = read_report(self.counted(console16_report('snes'), main=6, audio=4))
+        main, audio = report['cpus'][0]['scenarios'][0], report['cpus'][1]['scenarios'][0]
+        self.assertEqual((main['native'], main['compiled_unobserved'], main['interpreted']), (900_000 - 6, 6, 0))
+        self.assertEqual((audio['native'], audio['compiled_unobserved'], audio['interpreted']), (500_000 - 4, 4, 0))
+        self.assertEqual((audio['cycles']['native'], audio['cycles']['compiled_unobserved']), (2_000_000 - 12, 12))
+        # Not an interpreter: the fallback figures are untouched.
+        self.assertFalse(report['cpus'][0]['fallback_present'])
+        summary = fallback_summary(report)
+        self.assertEqual((summary['compiled_unobserved_opcodes'], summary['audio_compiled_unobserved_opcodes']), (6, 4))
+        self.assertEqual((summary['main_interpreted_opcodes'], summary['audio_interpreted_opcodes']), (0, 0))
+
+    def test_zero_is_a_measured_zero_and_other_writers_have_no_key(self):
+        report = read_report(self.counted(console16_report('snes')))
+        self.assertEqual(report['cpus'][0]['scenarios'][0]['compiled_unobserved'], 0)
+        self.assertEqual(report['cpus'][0]['scenarios'][0]['native'], 900_000)
+        self.assertEqual(fallback_summary(report)['compiled_unobserved_opcodes'], 0)
+        # An older Super Nintendo report and a writer that does not count it: native unchanged, no new key.
+        for old in (read_report(console16_report('snes')), read_report(console16_report('md'))):
+            for cpu in old['cpus']:
+                self.assertNotIn('compiled_unobserved', cpu['scenarios'][0])
+                self.assertNotIn('compiled_unobserved', cpu['scenarios'][0]['cycles'] or {})
+            self.assertEqual(old['cpus'][0]['scenarios'][0]['native'], 900_000)
+            self.assertNotIn('compiled_unobserved_opcodes', fallback_summary(old))
+
+    def test_a_count_larger_than_the_total_is_not_subtracted(self):
+        data = self.counted(console16_report('snes'), main=1)
+        for row in data['final_checks']:
+            row['native_entries'] = 0
+        scenario = read_report(data)['cpus'][0]['scenarios'][0]
+        self.assertEqual((scenario['native'], scenario['compiled_unobserved']), (0, 1))
+
+
 if __name__ == '__main__':
     unittest.main()
