@@ -5,7 +5,9 @@ import io
 import os
 from pathlib import Path
 import platform
+import random
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -44,6 +46,134 @@ class BundledPackerTests(unittest.TestCase):
         bundled = {name for name in BUNDLED_FILES if name.startswith('tools/x68000_')}
         self.assertEqual(bundled, {'tools/' + name for name in SDK_TOOLS})
         self.assertIn('tools/x68000_fixtures.py', PUBLIC_FILES)
+
+
+def make_pe(code: bytes, size_of_code=None, magic=0x20B) -> bytes:
+    """A minimal 64-bit PE: one .text section holding `code` at RVA 0x1000, raw data at 0x400."""
+    header = bytearray(0x400)
+    header[0:2] = b'MZ'
+    struct.pack_into('<I', header, 0x3C, 0x80)
+    header[0x80:0x84] = b'PE\0\0'
+    struct.pack_into('<HH', header, 0x84, 0x8664, 1)
+    struct.pack_into('<H', header, 0x80 + 20, 0xF0)
+    optional = 0x80 + 24
+    struct.pack_into('<H', header, optional, magic)
+    struct.pack_into('<I', header, optional + 4, size_of_code or len(code))
+    struct.pack_into('<I', header, optional + 20, 0x1000)
+    table = optional + 0xF0
+    header[table:table + 8] = b'.text\0\0\0'
+    struct.pack_into('<IIII', header, table + 8, len(code), 0x1000, len(code), 0x400)
+    return bytes(header) + code
+
+
+SIZE_OF_CODE_FIELD = 0x80 + 24 + 4
+
+
+def saturated_code(late_value=7, late_at=4096, size=8192) -> bytes:
+    """Code in which every byte value is the first operand byte of an E8 that leaves the code, `late_value` only at `late_at`."""
+    code = bytearray(size)
+    for value in range(256):
+        if value != late_value:
+            code[16 * value:16 * value + 5] = bytes((0xE8, value, 0x7F, 0x7F, 0x7F))
+    code[late_at:late_at + 5] = bytes((0xE8, late_value, 0x7F, 0x7F, 0x7F))
+    return bytes(code)
+
+
+def spare_values(code: bytes, length: int) -> list[int]:
+    """The cto values UPX's call-trick scan (src/filter/ctok.h) leaves free over the first `length` bytes, by brute force."""
+    taken = set()
+    for position in range(length - 5):
+        if code[position] in (0xE8, 0xE9) or (position and code[position - 1] == 0x0F and 0x80 <= code[position] <= 0x8F):
+            target = (struct.unpack_from('<I', code, position + 1)[0] + position + 1) & 0xFFFFFFFF
+            if target >= length:
+                taken.add(code[position + 1])
+    return [value for value in range(256) if value not in taken]
+
+
+class CallFilterModelTests(unittest.TestCase):
+    """packing.call_filter_length: the longest part of the code over which UPX's call-trick filter keeps a spare byte."""
+
+    def test_a_value_used_late_frees_the_part_of_the_code_before_it(self):
+        code = saturated_code()
+        self.assertEqual(spare_values(code, len(code)), [])
+        length, value = packing.call_filter_length(make_pe(code))
+        self.assertEqual((length, value), (4096 + 5, 7))
+        self.assertEqual(spare_values(code, length), [7])
+        self.assertEqual(spare_values(code, length + 1), [])
+
+    def test_code_with_a_spare_value_is_left_whole(self):
+        code = bytearray(saturated_code())
+        code[16 * 9:16 * 9 + 5] = bytes(5)        # nobody uses 9 any more
+        length, value = packing.call_filter_length(make_pe(bytes(code)))
+        self.assertEqual((length, value), (len(code), 9))
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(make_pe(bytes(code)))
+            self.assertIsNone(packing._call_filter_prefix(game))
+
+    def test_a_call_across_the_end_of_the_length_takes_its_value_back(self):
+        # An E8 with the late value whose target lies beyond the length takes the value back for every longer length.
+        code = bytearray(saturated_code())
+        code[4008:4013] = bytes((0xE8, 7, 0x10, 0x00, 0x00))     # target 4008 + 5 + 0x1007 - 4: past the first 4101 bytes
+        length, value = packing.call_filter_length(make_pe(bytes(code)))
+        self.assertLess(length, 4096 + 5)
+        self.assertIn(value, spare_values(bytes(code), length))
+        self.assertEqual(spare_values(bytes(code), length + 1), [])
+
+    def test_the_model_matches_a_brute_force_scan_on_random_code(self):
+        rng = random.Random(167)
+        for _ in range(40):
+            size = rng.randrange(600, 2600)
+            code = bytes(rng.choice((0xE8, 0xE9, 0x0F, 0x85, 0x00, 0xFF, rng.randrange(256))) if rng.random() < 0.6 else rng.randrange(256)
+                         for _ in range(size))
+            expected = max((length for length in range(6, size + 1) if spare_values(code, length)), default=0)
+            found = packing.call_filter_length(make_pe(code))
+            self.assertEqual(found[0] if found else 0, expected)
+            if found:
+                self.assertIn(found[1], spare_values(code, found[0]))
+
+    def test_the_8x_byte_of_a_conditional_jump_takes_its_value_too(self):
+        # 0F 85 rel32 (JNE) is a candidate of filter 0x49 like E8 and E9: its first operand byte is taken.
+        code = bytearray(saturated_code())
+        code[16 * 9:16 * 9 + 5] = bytes(5)                              # 9 would be spare ...
+        code[5000:5006] = bytes((0x0F, 0x85, 9, 0x7F, 0x7F, 0x7F))      # ... but a jump uses it, outside the code
+        length, value = packing.call_filter_length(make_pe(bytes(code)))
+        self.assertLess(length, len(code))
+        self.assertIn(value, spare_values(bytes(code), length))
+        self.assertEqual(spare_values(bytes(code), length + 1), [])
+
+    def test_the_header_gives_the_start_and_the_addvalue_of_the_code(self):
+        field, size, start, addvalue = packing._pe_code(make_pe(bytes(64)))
+        self.assertEqual((field, size, start, addvalue), (SIZE_OF_CODE_FIELD, 64, 0x400, 0))
+
+    def test_only_a_64_bit_pe_is_read(self):
+        self.assertIsNone(packing.call_filter_length(b'MZ'))
+        self.assertIsNone(packing.call_filter_length(b'\x7fELF' + bytes(100)))
+        self.assertIsNone(packing.call_filter_length(make_pe(bytes(64), magic=0x10B)))
+        self.assertIsNone(packing.call_filter_length(make_pe(bytes(64), size_of_code=1 << 20)))   # larger than its section
+        self.assertIsNone(packing.call_filter_length(make_pe(bytes(64))[:0x300]))
+
+    def test_a_short_filtered_part_is_not_worth_a_new_header(self):
+        code = saturated_code(late_at=16 * 256 + 100, size=60000)
+        length, _ = packing.call_filter_length(make_pe(code))
+        self.assertLess(length * packing.CALL_FILTER_MIN_SHARE, len(code))
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(make_pe(code))
+            self.assertIsNone(packing._call_filter_prefix(game))
+
+    def test_size_of_code_is_the_only_header_field_that_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            built = make_pe(saturated_code())
+            game.write_bytes(built)
+            self.assertEqual(packing._call_filter_prefix(game), 4101)
+            packing._set_size_of_code(game, 4101)
+            changed = game.read_bytes()
+            self.assertEqual(len(changed), len(built))
+            self.assertEqual([i for i in range(len(built)) if built[i] != changed[i]],
+                             [SIZE_OF_CODE_FIELD, SIZE_OF_CODE_FIELD + 1])
+            self.assertEqual(struct.unpack_from('<I', changed, SIZE_OF_CODE_FIELD)[0], 4101)
 
 
 class LinuxPackingTests(unittest.TestCase):
@@ -260,6 +390,48 @@ class WindowsPackingTests(unittest.TestCase):
             self.assertIn('antivirus', outcome['notice'])
             self.assertEqual(log, [outcome['notice']])
             self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+
+    def test_a_build_that_loses_the_call_filter_is_packed_with_the_longest_filterable_length(self):
+        # 1.6.6: the Super Mario Land build used the last spare value, UPX found no filter and the game grew by 24 %.
+        built = make_pe(saturated_code())
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(built)
+            seen = []
+            def run(command, **options):
+                seen.append((command[1], struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0]))
+                return SimpleNamespace(returncode=0, stdout='', stderr='')
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                self.assertIsNone(packing.compact_executable(game))
+            self.assertEqual(seen, [('-9', 4101), ('-t', 4101)])
+            self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+
+    def test_when_the_shorter_length_fails_the_build_is_packed_as_before(self):
+        built = make_pe(saturated_code())
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(built)
+            seen = []
+            def run(command, **options):
+                seen.append((command[1], struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0]))
+                failing = len(seen) == 1           # the first pack (shorter length) fails, the next ones succeed
+                return SimpleNamespace(returncode=1 if failing else 0, stdout='', stderr='upx: Game.exe: CantPackException: test')
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                self.assertIsNone(packing.compact_executable(game))
+            self.assertEqual(seen, [('-9', 4101), ('-9', 8192), ('-t', 8192)])
+
+    def test_when_every_attempt_fails_the_game_is_published_as_built(self):
+        built = make_pe(saturated_code())
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(built)
+            def run(command, **options):
+                Path(command[-1]).write_bytes(b'MZ half-written')
+                return SimpleNamespace(returncode=1, stdout='', stderr='upx: Game.exe: CantPackException: test')
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertIn('published unpacked', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
 
     def test_the_limit_grows_with_the_executable(self):
         # A fixed 120 s stopped a large NES game packed while other conversions ran (1.6.5).

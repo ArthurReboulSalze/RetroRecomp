@@ -187,6 +187,54 @@ The **build stamp of every console moves**, because `retrorecomp/packing.py` is 
 (`BUILD_MODULES`). No host stamp moves. A game that replays as before is the same program; exports of 1.6.6 are rebuilt or
 reconverted as the release procedure decides. No quick-state key moves.
 
+## Lead: the packed Windows game keeps UPX's call filter (1.6.7)
+
+Since 1.6.6 the packed Super Mario Land was 1.65 MB instead of 1.33 MB while its unpacked build grew by 1.5 KB. UPX 5.3.0
+shrinks x86-64 code with a "call trick" filter (win64/pe filter 0x49) that needs one spare byte value: a value that is the
+first operand byte of no E8, E9 or 0F 8x byte whose target leaves the code (every such byte counts, inside other instructions
+and in tables too). The 1.6.5 build left one (162: UPX chose 0xa2), the 1.6.6 build none, so UPX chose no filter
+(`upx --fileinfo`: filter 0x00) and the same compression came out 24 % larger. `--all-filters`, `--brute`, `--ultra-brute`
+and `--filter` cannot repair it (the PE packer has this one filter and the filter itself fails); a larger codebase does it by
+itself, whatever the game: the NES builds (10 MB or more of code) never had a filter.
+
+`retrorecomp/packing.py` now runs UPX's own scan on the build (`call_filter_length`, the first pass of `ctok.h` in Python,
+cross-checked against a brute force in `tests/test_packing.py`; on the thirteen builds below it named the value UPX chose in
+each of the nine that kept a filter and the loss in the four that lost it) and, when the whole code has no spare value, writes the longest length that has one in the SizeOfCode field
+of the PE header before packing: UPX filters that many bytes from BaseOfCode, the loader ignores the field. The Super Mario
+Land build of 1.6.6 is filtered over 59 % of its code (cto 87 = 0x57) and packs to 1,367,552 bytes (from 1,647,616; 1.33 MB with
+the filter on all the code, which is not possible). If that pack or `upx -t` fails, the validated build is put back and packed
+exactly as before; a build whose longest filterable part is under a quarter of the code (the NES) is packed exactly as before. A
+build with a spare value over all its code (everything else measured) is untouched: same UPX call, same bytes. The packer, its
+SHA-256 checks and its flags are unchanged; the output is deterministic (the publication repacks to the same bytes, checked).
+`upx -d` of an affected game gives the build with that one header field changed. Windows only: the Linux ELF has no such
+field, its packing is unchanged.
+
+Measured on unpacked builds kept by earlier work (UPX as 1.6.6 calls it, then `packing.compact_windows`; every result passes `upx -t`
+and repacks to the same bytes; the times are pack plus test on a PC shared with other conversions, so only large differences count):
+
+| Build (console) | Unpacked | Packed before | Packed after | Filter before / after |
+|---|---|---|---|---|
+| Super Mario Land 1.6.6 (Game Boy) | 5,131,776 | 1,647,616 | 1,367,552 (-17.0 %) | none / 0x49 |
+| Sonic the Hedgehog (Master System) | 6,056,960 | 1,861,120 | 1,831,936 (-1.6 %) | none / 0x49 |
+| Super Mario Land 1.6.5 and current (Game Boy) | 5,130,240 / 5,134,336 | 1,328,128 / 1,329,152 | same | 0x49 / 0x49 |
+| Sonic the Hedgehog (Mega Drive) | 8,191,488 | 2,312,704 | same | 0x49 / 0x49 |
+| Puzzle De Pon (Neo Geo) | 11,678,720 | 3,044,864 | same | 0x49 / 0x49 |
+| Metroid, Mr. Gimmick (NES) | 12,623,872 / 19,725,312 | 3,107,840 / 4,819,968 | same | none / none |
+| Two Super Nintendo games and a Mega Drive game | 24,783,872 / 36,696,576 / 7,707,136 | 5,220,352 / 8,834,560 / 6,095,360 | same | 0x49 / 0x49 |
+| Dino, Punisher (CPS-1) | 23,591,424 / 25,851,904 | 7,467,520 / 7,809,536 | same | 0x49 / 0x49 |
+
+Time: 4 to 38 s per game before and after, within the noise (the model adds 0.2 to 2 s, the second UPX pack is only run for the
+two games above). The Super Mario Land 1.6.6 game packed this way was converted whole with the 1.6.6 converter and this change
+only in `packing.py`: its packed copy replayed on 4 routes against the reference and matched (`packed_reference_match` true).
+The NES builds keep no filter (10 MB or more of code, every value is taken within the first 80 KB; Mr. Gimmick has 16.4 MB, over
+the 16 MiB the filter can address); `--lzma` would make them 24 % smaller (Metroid 3,107,840 to 2,371,584) at a start-up cost
+that was not measured here, a decision for the maintainer.
+
+Stamps (computed with the tree of `main` before and the tree of this change, `compilation_inputs.role_stamps` of the nine
+consoles): only the **build stamp of every console moves** (`retrorecomp/packing.py` is a build input of every console,
+`BUILD_MODULES`); no game stamp and no host stamp moves. A game packed by the 1.6.6 or the 1.6.7 converter before this change
+and rebuilt from its paths is packed again, smaller when it lost its filter.
+
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
 The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and

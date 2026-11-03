@@ -10,7 +10,9 @@ import hashlib
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -188,6 +190,110 @@ def _announce(outcome: dict | None, emit=None) -> dict | None:
 _DEFENDER_SIGNS = ('IOException', 'Invalid argument', 'WinError 225', 'virus', 'potentially unwanted')
 
 
+# UPX shrinks the x86-64 code of a Windows game with a "call trick" filter before it compresses it (relative CALL and JMP
+# operands become absolute addresses that repeat, a gain of 1 % to 25 %). The filter (upx/upx src/filter/ctok.h, the one
+# win64/pe uses, id 0x49) needs one spare byte value, `cto`: a value that is not the first (low) operand byte of any E8, E9
+# or 0F 8x byte of the code whose displacement leaves the code. Every such byte counts, also inside other instructions and
+# in tables, so in a few MB of code the 256 values are used up: the Super Mario Land build of 1.6.5 left one spare value
+# (162 = 0xa2), 1.6.6 added 1.5 KB of code that used it, UPX then found no filter at all and the packed game grew from
+# 1.33 MB to 1.65 MB. `--all-filters`, `--brute` and `--filter` cannot help (the PE packer has this one
+# filter and the filter itself fails). UPX filters the first SizeOfCode bytes of the PE header from BaseOfCode, so a shorter
+# length leaves fewer E8 and E9 bytes in sight and can free a value. The game is packed with the longest length for which a
+# value is free (this model is the same scan as UPX's, in Python; UPX stays the judge: if it still fails, or if the result
+# does not pass its test, the game is packed as before). Deterministic: the same build gives the same bytes.
+CALL_FILTER_MIN_SHARE = 4    # a shorter filtered part than 1/4 of the code is not worth a different SizeOfCode
+# E8 and E9, and the 8x byte of a 0F 8x conditional jump (COND of filter 0x49, upx/upx src/filter/filter_impl.cpp).
+_CALL_CANDIDATE = re.compile(rb'(?<=\x0f)[\x80-\x8f]|[\xe8\xe9]')
+
+
+def _pe_code(data: bytes) -> tuple[int, int, int, int] | None:
+    """(offset of SizeOfCode, SizeOfCode, file offset of the code, addvalue) of a 64-bit PE, else None."""
+    try:
+        if data[:2] != b'MZ':
+            return None
+        pe = struct.unpack_from('<I', data, 0x3C)[0]
+        if data[pe:pe + 4] != b'PE\0\0' or struct.unpack_from('<H', data, pe + 24)[0] != 0x20B:
+            return None
+        sections, optional = struct.unpack_from('<H', data, pe + 6)[0], struct.unpack_from('<H', data, pe + 20)[0]
+        field = pe + 24 + 4
+        size_of_code, base_of_code = struct.unpack_from('<I', data, field)[0], struct.unpack_from('<I', data, pe + 24 + 20)[0]
+        table = pe + 24 + optional
+        rvamin = min(struct.unpack_from('<I', data, table + 40 * n + 12)[0] for n in range(sections))
+        for n in range(sections):
+            virtual_size, rva, raw_size, raw = struct.unpack_from('<IIII', data, table + 40 * n + 8)
+            if rva <= base_of_code < rva + max(virtual_size, raw_size):
+                start = raw + base_of_code - rva
+                if size_of_code and base_of_code + size_of_code <= rva + raw_size and start + size_of_code <= len(data):
+                    return field, size_of_code, start, base_of_code - rvamin
+                return None
+    except (struct.error, ValueError):
+        pass
+    return None
+
+
+def call_filter_length(data: bytes) -> tuple[int, int] | None:
+    """(length, cto) UPX's call-trick filter is predicted to accept at the longest, for the PE `data`.
+
+    The scan is UPX's own (src/filter/ctok.h): a candidate is an E8 or E9 byte or the 8x of a 0F 8x jump, its target is `rel32 + position + 1`;
+    a target inside the filtered length is a call (it must stay under 16 MiB with `addvalue`), a target outside marks
+    the candidate's first operand byte as taken, and `cto` is any value left. For each value the lengths where it is
+    taken are intervals (a candidate counts from position + 6 up to its target), merged as the scan goes. None when the
+    data is not a 64-bit PE; the SizeOfCode itself when a value is free over the whole code."""
+    located = _pe_code(data)
+    if located is None:
+        return None
+    _, size_of_code, start, addvalue = located
+    limit = min(size_of_code, (1 << 24) - addvalue)
+    code = data[start:start + limit]
+    first = [None] * 256        # start of the last merged interval where each value is taken
+    last = [0] * 256            # its end
+    unpack = struct.Struct('<I').unpack_from
+    for match in _CALL_CANDIDATE.finditer(code):
+        position = match.start()
+        begin = position + 6
+        if begin > limit:
+            break
+        low = code[position + 1]
+        target = (unpack(code, position + 1)[0] + position + 1) & 0xFFFFFFFF
+        end = min(target, limit)
+        if end < begin:
+            continue
+        if first[low] is None or begin > last[low] + 1:
+            first[low], last[low] = begin, end
+        elif end > last[low]:
+            last[low] = end
+    best = (0, 0)
+    for value in range(256):
+        length = limit if first[value] is None or last[value] < limit else first[value] - 1
+        if length > best[0]:
+            best = (length, value)
+    return best if best[0] else None
+
+
+def _call_filter_prefix(path: Path) -> int | None:
+    """The SizeOfCode to give a game before UPX when its call filter would otherwise be lost, else None.
+
+    None for a file that is not a 64-bit PE, when the whole code keeps a free value (UPX filters it as it is) and when
+    the longest filterable part is under 1/CALL_FILTER_MIN_SHARE of the code (the gain would not pay for it)."""
+    try:
+        data = Path(path).read_bytes()
+    except OSError:
+        return None
+    found = call_filter_length(data)
+    located = _pe_code(data)
+    if found is None or located is None or found[0] >= located[1] or found[0] * CALL_FILTER_MIN_SHARE < located[1]:
+        return None
+    return found[0]
+
+
+def _set_size_of_code(path: Path, length: int) -> None:
+    """Write `length` as the SizeOfCode field of the PE header of `path` (an informational field the loader ignores)."""
+    field = _pe_code(Path(path).read_bytes())[0]
+    with Path(path).open('r+b') as stream:
+        stream.seek(field)
+        stream.write(struct.pack('<I', length))
+
+
 def _windows_attempt(tool: Path, path: Path) -> str | None:
     """Pack then test `path` in place with the Windows flags: None when both passed, else why not."""
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -209,6 +315,15 @@ def _windows_attempt(tool: Path, path: Path) -> str | None:
     return None
 
 
+def _put_back(original: Path, path: Path, failure: str) -> None:
+    """Put the validated build back over the game UPX left half-done; an original that cannot be put back is an error."""
+    try:
+        shutil.copyfile(original, path)
+    except OSError as exc:
+        raise RuntimeError(f"UPX could not compact or verify {path.name} ({failure}), and the validated "
+                           f"executable could not be put back: {exc}") from exc
+
+
 def compact_windows(path: Path) -> dict | None:
     """Pack a Windows game with the bundled UPX; publish it unpacked when that fails.
 
@@ -225,14 +340,20 @@ def compact_windows(path: Path) -> dict | None:
     original = Path(name)
     try:
         shutil.copyfile(path, original)
+        failure = None
+        # A build whose call filter UPX would lose is packed with the longest filterable SizeOfCode first (see above);
+        # if that does not pass UPX's test, the validated build is put back and packed exactly as before.
+        prefix = _call_filter_prefix(original)
+        if prefix:
+            _set_size_of_code(path, prefix)
+            failure = _windows_attempt(tool, path)
+            if failure is None:
+                return None
+            _put_back(original, path, failure)
         failure = _windows_attempt(tool, path)
         if failure is None:
             return None
-        try:
-            shutil.copyfile(original, path)
-        except OSError as exc:
-            raise RuntimeError(f"UPX could not compact or verify {path.name} ({failure}), and the validated "
-                               f"executable could not be put back: {exc}") from exc
+        _put_back(original, path, failure)
         defender = any(sign in failure for sign in _DEFENDER_SIGNS)
         notice = (
             f"UPX {UPX_VERSION} could not pack and verify the executable ({failure})"
