@@ -76,7 +76,7 @@ class ToolchainTests(unittest.TestCase):
         install_fake(self.tools)
         arguments = toolchain.cmake_arguments()
         self.assertIn('-DCMAKE_BUILD_TYPE=Release', arguments)
-        self.assertIn('-DCMAKE_EXE_LINKER_FLAGS=-static -s', arguments)
+        self.assertIn('-DCMAKE_EXE_LINKER_FLAGS=-static -s -Wl,--no-insert-timestamp', arguments)
         for name in ('CMAKE_C_COMPILER=', 'CMAKE_CXX_COMPILER=', 'CMAKE_RC_COMPILER=', 'CMAKE_MAKE_PROGRAM='):
             self.assertTrue(any(part.startswith('-D' + name) and ':' in part for part in arguments), name)
         self.assertNotIn('-A', arguments)

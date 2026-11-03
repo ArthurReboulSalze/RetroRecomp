@@ -389,6 +389,119 @@ consoles): only the **build stamp of every console moves** (`retrorecomp/packing
 `BUILD_MODULES`); no game stamp and no host stamp moves. A game packed by the 1.6.6 or the 1.6.7 converter before this change
 and rebuilt from its paths is packed again, smaller when it lost its filter.
 
+## Lead: LZMA packing, a reproducible link, a manifest and one identical retry on Windows (1.6.7)
+
+Four changes to how a Windows game is built and packed. None changes what a game does. **None is an antivirus fix**: the
+Defender study of 3 November 2026 reproduced no detection on 280 scans, and nothing shows that the method, the link
+timestamp or the manifest changes what Defender says about a file.
+
+- **LZMA by default (a size choice).** `packing.WINDOWS_METHOD = 'lzma'` adds `--lzma` to the Windows UPX call (`-9 --lzma
+  --compress-resources=0 --compress-icons=0`, the call-filter prefix, `-t` and the `--fileinfo` 0x49 check as before). The
+  method is one named constant per OS (`packing.LINUX_METHOD` stays `'nrv'`, UPX's default: Linux is unchanged until the cost
+  of `--lzma` on a large ELF, 2.7 s against 0.17 s on a slow laptop in 1.6.0, is measured again). `packing.packing_record`
+  and the schema-2 `packed` section carry `method` (`lzma`, `nrv`, or none when the file is not packed); it is optional, a
+  report from before reads `None`, no schema number changes. The cost is a start that decompresses a little longer,
+  measured on a quiet PC on 3 November 2026 (table below); the owner had approved LZMA if that cost stayed small.
+- **A reproducible link.** The portable linker is given `-Wl,--no-insert-timestamp` (`toolchain.LLVM_LINKER_FLAGS`): the PE
+  header carries 0 instead of the link time. The static SDL2 is configured with `-ffile-prefix-map=<its source folder>=SDL`
+  (`platforms.sdl_compiler_flags`; quoted when the path has a space; not for the Visual Studio fallback, whose `cl.exe` has no
+  such option): without it three SDL files (`SDL_render_gl.c`, `SDL_render_gles2.c`, `SDL_render_sw.c`) kept
+  `<player's folder>/.deps/SDL/src/...` in the game as assertion strings, so two players got different bytes.
+  **The SDL install and its build folder are named after the build settings** (`platforms.sdl_install_key`: SDL revision,
+  `SDL_BUILD_FLAGS`, toolchain; `.deps/SDL/install-llvm-<8 hex of the key>` and `build-llvm-<same>`). An SDL installed by 1.6.6 or
+  before (`install-llvm`) is therefore never used again by this version, never overwritten and never deleted: the first conversion
+  builds the new one beside it (a tree on an older version keeps its own, and two branches that share a `.deps` do not take turns
+  replacing one library under a game being linked). The install gets its marker (`retro-recomp-sdl.txt`) as its last step; a folder
+  without it is unfinished and is built again, and a build that stops (a timeout, Stop, a crash) keeps its build folder so that the
+  next one goes on from it. The three steps (configure, build, install) have a limit of 3600 s (`core.SDL_STEP_TIMEOUT`) instead of
+  600 s. The `convert` and `batch` commands build the shared pieces once before the workers start (`batch._prepare_shared`,
+  `prepare_shared=True`, outside any compilation budget), so that a batch of several games does not start the same SDL build
+  with the one-job share of each worker; the window already does it before a conversion (`dependencies_ready` now reports a
+  missing key-named install as not ready, and the dialog says "again (new build settings)" in the eight languages).
+  The old `install-llvm` and `build-llvm` stay on disk (about 6 MB and the object files) until the player removes the compiler
+  caches. Measured proof: two detached trees of the same commit, each with its **own SDL clone in a different folder**
+  (`.build/u3/a/.deps/SDL` and `.build/u3/folder with space/bb/.deps/SDL`; the second started from a copied 1.6.6 install and let
+  the `batch` command build the new one), empty libraries, no cover: the same unpacked Super Mario Land (5,135,360 bytes,
+  SHA-256 `56bf344c...`) and the same packed game (1,157,632 bytes, `7f55e43c...`), `packed_reference_match` true on 4 routes in
+  both, and the same bytes as before the keyed folders. The binary holds no folder of the machine (no `K:`, `Users`, `.deps`,
+  `.build`, `worktrees`): SDL's three names read `SDL\src\render\...`. What still varies: nothing found; the strings
+  `/home/runner/work/llvm-mingw/...` of the pinned llvm-mingw runtime are the same for every player of the pinned toolchain. The
+  title, the cover and the player's options change the binary too (that is a different game, not a variation). Building SDL
+  again took 112 s on this PC with two builds running at once (the first conversion after the update; 153 s in an earlier run).
+- **An application manifest.** Every Windows game carries resource 1 of type RT_MANIFEST, written inline in the resource script
+  (`metadata.MANIFEST_XML`): `asInvoker`, `supportedOS` for Windows 7 to 11, and the DPI awareness the host already asks SDL for
+  at start (`rrhk_main.c`: `SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"`; `dpiAware true/pm` and `dpiAwareness
+  PerMonitorV2,PerMonitor`), stated before the first window. No UTF-8 code page, no long-path flag, no common-controls version.
+  SDL 2.32.10 reads the Windows version only through `WIN_IsWindows8OrGreater`, which is true with or without the manifest, and
+  sets its DPI awareness by function pointer: scaling does not change. The manifest is present in the unpacked and the packed
+  game (UPX leaves it readable) and the packed game starts (headless). The Visual Studio fallback toolchain gets **no** manifest
+  (`metadata._embeds_manifest`): MSBuild embeds its own as resource 1, and a second one is a duplicate resource or LNK1123; a game
+  built there keeps MSBuild's default manifest. That toolchain was not tried.
+- **One identical retry.** When a Windows pack attempt fails with a sign that the antivirus removed UPX's output
+  (`IOException`, `Invalid argument`, `WinError 225`, `virus`, `potentially unwanted`), the validated build is put back, the
+  SizeOfCode of the call-filter attempt is written again if it had one, the process waits `DEFENDER_RETRY_WAIT` (5 s, `time.sleep`)
+  and runs exactly the same command once. A second failure ends there, as before: the game is published unpacked with the notice
+  (and when it was the call-filter attempt, the plain form of the same build is not tried, so that no variant is searched to
+  get past a detection). The wait and the retry happen once per packing, whichever form (shortened SizeOfCode or plain) meets the
+  sign first. Other failures are not retried.
+
+Measured with `tools/startup_cost.py pack --determinism` on unpacked builds kept by earlier work (the converter's own packing code,
+the method switched for each call; every result passes `upx -t`, and packing a second copy gave the same bytes for both
+methods in all eight cases; times are pack plus test on a PC shared with two conversions, so only large differences count):
+
+| Build (console) | Unpacked | NRV | LZMA | LZMA / NRV | Pack NRV / LZMA | `upx -t` NRV / LZMA |
+|---|---|---|---|---|---|---|
+| Sonic the Hedgehog (Master System) | 6,056,960 | 1,831,936 | 1,414,144 | 0.772 | 6.1 s / 3.4 s | 0.07 s / 0.13 s |
+| Super Mario Land (Game Boy) | 5,131,776 | 1,367,552 | 1,193,984 | 0.873 | 3.8 s / 3.2 s | 0.06 s / 0.12 s |
+| Metroid (NES) | 12,623,872 | 3,107,840 | 2,371,584 | 0.763 | 13.8 s / 8.7 s | 0.09 s / 0.20 s |
+| Sonic the Hedgehog (Mega Drive) | 8,191,488 | 2,312,704 | 1,961,984 | 0.848 | 8.0 s / 4.7 s | 0.08 s / 0.17 s |
+| DBZ Hyper Dimension (Super Nintendo) | 33,103,360 | 7,424,512 | 6,001,152 | 0.808 | 32.6 s / 19.1 s | 0.48 s / 0.71 s |
+| Puzzle De Pon (Neo Geo) | 11,678,720 | 3,044,864 | 2,553,856 | 0.839 | 10.5 s / 9.5 s | 0.19 s / 0.25 s |
+| Dino (CPS-1) | 23,591,424 | 7,467,520 | 6,686,208 | 0.895 | 16.6 s / 12.1 s | 0.16 s / 0.26 s |
+| R-Type (X68000) | 8,733,184 | 3,716,096 | 3,374,080 | 0.908 | 5.5 s / 4.7 s | 0.13 s / 0.22 s |
+
+`upx -t` decompresses the whole file once, so its difference (+0.05 to +0.23 s here) is an upper bound of the extra start-up
+decompression of a game on this PC; the real start is measured by `tools/startup_cost.py start` (see
+[BUILDING.md](BUILDING.md)): it needs a quiet PC and the owner's agreement. End to end, Super Mario Land converted whole with
+this tree: the packed game is 1,158,144 bytes (the 1.6.7 call-filter build was 1,367,552 with NRV) and its packed copy replayed
+on 4 routes against the reference and matched (`packed_reference_match` true); `packing.method` reads `lzma`.
+
+Start-up cost (`tools/startup_cost.py start --runs 9 --core 4`, quiet PC, 3 November 2026, Windows 11, one core pinned):
+median milliseconds from the creation of the process to its exit after one headless frame (two for the X68000, whose host
+exits with 1 after a single frame). "Second start" is a game started again, the usual case; "first start" is a fresh copy of
+the file, which Windows Defender scans before it runs (the first launch after a conversion), and it varies much more. A fresh
+copy is still in the file cache (no administrator rights to flush it).
+
+| Game (console, unpacked size) | Second start: unpacked / NRV / LZMA | LZMA - NRV | First start: NRV / LZMA | LZMA - NRV |
+|---|---|---|---|---|
+| Sonic (SMS, 6.1 MB) | 18 / 49 / 104 | +55 | 601 / 704 | +103 |
+| Sonic Drift (GG, 6.1 MB) | 19 / 50 / 123 | +73 | 902 / 1,048 | +146 |
+| Super Mario Land (GB, 5.1 MB) | 19 / 44 / 92 | +48 | 514 / 606 | +91 |
+| Metroid (NES, 12.6 MB) | 20 / 54 / 151 | +96 | 923 / 1,132 | +210 |
+| Kirby's Adventure (NES, 43.4 MB) | 27 / 127 / 409 | +282 | 2,829 / 3,373 | +544 |
+| Sonic (MD, 8.2 MB) | 22 / 59 / 141 | +82 | 608 / 783 | +175 |
+| SNES campaign g02 (40.0 MB) | 40 / 160 / 287 | +127 | 2,031 / 1,057 | -974 |
+| Real Bout Fatal Fury Special (NG, 50.2 MB) | 197 / 318 / 470 | +152 | 2,059 / 2,387 | +328 |
+| The Punisher (CPS-1, 25.9 MB) | 61 / 133 / 260 | +127 | 2,172 / 2,098 | -74 |
+| R-Type (X68000, 8.7 MB) | 29 / 81 / 221 | +141 | 1,284 / 1,424 | +141 |
+
+LZMA adds 48 to 282 ms to a usual start (the largest, Kirby's Adventure, 43 MB unpacked: +0.28 s) and up to about half a
+second to the first launch after a conversion, where the antivirus scan dominates (2 to 3 s for the largest games with either
+method). The Neo Geo's F11, which starts the file again, pays the second-start figure (+0.15 s on Real Bout). It measures the
+start only: nothing about the native code share, CPU or hardware fidelity, gameplay or physical latency. Linux is not measured
+and keeps NRV.
+
+Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): **all three stamps of every
+console move**. The build stamp (`toolchain.py`, `packing.py`) and the host stamp (`metadata.py`,
+which writes the resource script, and the interface texts) move because of the method, the link flag and the manifest. The **game stamp
+moves too, because of `core.py` and `platforms.py`** (the SDL configuration; both are game inputs of every console): the main tree of 1.6.7 already moves
+every game stamp for other reasons, so this adds no reconversion, but it does mean a 1.6.6 export is never taken as current by this change
+alone. No file is added to the stamps (`tools/startup_cost.py` and the tests are public files outside them). An export is rebuilt from its
+paths as for any such change, and is smaller and carries the manifest once rebuilt. For a player the one visible effect is the first
+conversion after the update: it builds SDL2 again (112 to 153 s here) before anything else, with a progress dialog in the window and one
+build before the workers in a batch. A developer who shares one `.deps/SDL` between several trees (junctions to the main checkout)
+gets the new install beside the old one, built once by the tree that converts first, and the other trees on older code keep theirs.
+
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
 The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and

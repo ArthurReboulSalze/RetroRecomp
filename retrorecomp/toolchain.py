@@ -35,6 +35,7 @@ NINJA_URL = f'https://github.com/ninja-build/ninja/releases/download/v{NINJA_VER
 NINJA_SHA256 = '07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65'
 NINJA_BYTES = 291570
 STAMP = 'retro-recomp-tool.json'
+LLVM_LINKER_FLAGS = '-static -s -Wl,--no-insert-timestamp'
 
 
 class ToolchainError(RuntimeError):
@@ -153,12 +154,14 @@ def cmake_arguments() -> list[str]:
     # -static keeps clang's C++ runtime (libc++, libunwind, winpthread) inside
     # every program, converter tools included: nothing needs this folder at run
     # time. -s drops the symbol and debug tables (a quarter of the raw size).
+    # --no-insert-timestamp writes 0 instead of the link time in the PE header: the same game built twice, in any
+    # folder, gives the same bytes (1.6.7; LLVM_LINKER_FLAGS).
     return ['-DCMAKE_BUILD_TYPE=Release',
             f'-DCMAKE_C_COMPILER={(llvm / "clang.exe").as_posix()}',
             f'-DCMAKE_CXX_COMPILER={(llvm / "clang++.exe").as_posix()}',
             f'-DCMAKE_RC_COMPILER={(llvm / "llvm-windres.exe").as_posix()}',
             f'-DCMAKE_MAKE_PROGRAM={(tools_directory() / "ninja" / "ninja.exe").as_posix()}',
-            '-DCMAKE_EXE_LINKER_FLAGS=-static -s']
+            f'-DCMAKE_EXE_LINKER_FLAGS={LLVM_LINKER_FLAGS}']
 
 
 def suffix() -> str:

@@ -16,6 +16,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 
 from . import timings
 from .paths import ASSETS
@@ -23,6 +24,15 @@ from .paths import ASSETS
 
 UPX_VERSION = "5.3.0"
 UPX_LEVEL = "-9"
+# The compression method of each OS, one named constant each (1.6.7): 'lzma' (UPX --lzma) or 'nrv' (UPX's default, the
+# NRV2 family, no method flag). Windows: LZMA, about 14 % smaller than NRV on average (NES -26 %, SNES -19 %) and packed
+# about twice as fast, for a start that decompresses a little longer (tools/startup_cost.py measures it). A size choice,
+# not an antivirus measure: nothing shows that it changes a detection. Linux: unchanged until the start-up cost of --lzma
+# on a large ELF (see the note on UPX 5.2 below: 2.7 s against 0.17 s on a slow laptop) is measured again.
+# `packing_record` reports the method of the file it describes.
+WINDOWS_METHOD = 'lzma'
+LINUX_METHOD = 'nrv'
+METHOD_FLAGS: dict[str, tuple[str, ...]] = {'nrv': (), 'lzma': ('--lzma',)}
 UPX_SHA256 = "ff30a651c9e41a2bbb363825fac9e7e23d92871c1ac82813a264e3b8d1cd302b"
 # Official upx-5.3.0-amd64_linux.tar.xz (SHA-256 79cea8a5...dc505c1), its upx file.
 UPX_LINUX = "assets/tools/upx-amd64_linux"
@@ -104,6 +114,11 @@ def compression_from_preferences(preferences: dict) -> bool:
     return preferences.get('compress_games', True) is not False
 
 
+def packing_method() -> str:
+    """The compression method ('lzma' or 'nrv') this OS packs games with (WINDOWS_METHOD, LINUX_METHOD)."""
+    return WINDOWS_METHOD if os.name == 'nt' else LINUX_METHOD
+
+
 def file_identity(path: Path) -> dict:
     """Size and SHA-256 of one executable."""
     data = Path(path).read_bytes()
@@ -126,8 +141,9 @@ def packing_record(unpacked: dict, published: Path, packed_replayed: bool = Fals
     """
     data = Path(published).read_bytes()
     packed = b'UPX!' in data
-    record = {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL, 'packed': packed,
-              'unpacked': unpacked,
+    # 'method' is the method of the packing process of this OS (WINDOWS_METHOD or LINUX_METHOD), not read back from the file.
+    record = {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL,
+              'method': packing_method() if packed else None, 'packed': packed, 'unpacked': unpacked,
               'published': {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()},
               'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
               'compared_on': 'unpacked build executable',
@@ -330,7 +346,7 @@ def _windows_attempt(tool: Path, path: Path) -> str | None:
     # The exhaustive --best search can spend minutes on large native ROM-PC
     # tables. Level 9 retains the same transparent loader and most of the
     # size reduction with a bounded conversion time.
-    for args in (("-9", "--compress-resources=0", "--compress-icons=0", str(path)),
+    for args in (("-9", *METHOD_FLAGS[WINDOWS_METHOD], "--compress-resources=0", "--compress-icons=0", str(path)),
                  ("-t", str(path))):
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,
@@ -343,6 +359,39 @@ def _windows_attempt(tool: Path, path: Path) -> str | None:
             detail = (result.stderr or result.stdout).strip().splitlines()
             return detail[-1].replace(f"{path}: ", "") if detail else 'unknown error'
     return None
+
+
+# A pack attempt that fails with one of the signs above is tried once more, with exactly the same command, on the validated
+# build put back, after this many seconds (the antivirus's scan of UPX's output is usually over by then). Never another option.
+DEFENDER_RETRY_WAIT = 5
+
+
+def _defender_failure(failure: str | None) -> bool:
+    """Whether `failure` carries one of the signs of an antivirus that removed UPX's output."""
+    return bool(failure) and any(sign in failure for sign in _DEFENDER_SIGNS)
+
+
+def _windows_pack(tool: Path, path: Path, original: Path, prepare=None, retried: list | None = None) -> str | None:
+    """`_windows_attempt` with one identical retry after a Defender sign: None when packed and tested, else why not.
+
+    On a sign, the validated build is put back, `prepare` (what the first attempt did to the staged copy before UPX, if
+    anything) is done again, DEFENDER_RETRY_WAIT seconds pass and the very same command runs once more. The second
+    result is final: no third attempt and no other option, flag or file to get past a detection. `retried` is shared by
+    the call-filter attempt and the plain attempt of one packing (`compact_windows`): the wait and the retry happen once per
+    packing, whichever form meets the sign first."""
+    failure = _windows_attempt(tool, path)
+    if not _defender_failure(failure) or (retried is not None and retried):
+        return failure
+    if retried is not None:
+        retried.append(True)
+    try:
+        _put_back(original, path, failure)
+        if prepare is not None:
+            prepare()
+    except OSError:
+        return failure
+    time.sleep(DEFENDER_RETRY_WAIT)
+    return _windows_attempt(tool, path)
 
 
 def _put_back(original: Path, path: Path, failure: str) -> None:
@@ -366,34 +415,37 @@ def _packed_filter(tool: Path, path: Path) -> str | None:
     return found.group(1) if found else None
 
 
-def _pack_with_filter_prefix(tool: Path, path: Path, original: Path) -> bool:
+def _pack_with_filter_prefix(tool: Path, path: Path, original: Path,
+                             retried: list | None = None) -> tuple[bool, str | None]:
     """Pack the build at `path` with the longest filterable SizeOfCode when UPX would lose its call filter.
 
-    True when the file was packed, passed `upx -t` and UPX reports filter 0x49 for it (the build is noted for
-    `packing_record` and the conversion log, see `_compact_executable`). Otherwise the validated build is put back and False is returned, so the
-    caller packs it as before: nothing to do, a build that keeps its filter, a header that cannot be written (the
-    antivirus may have locked the staged copy), a pack or test that fails, or a packed file that has no filter."""
+    (True, None) when the file was packed, passed `upx -t` and UPX reports filter 0x49 for it (the build is noted for
+    `packing_record` and the conversion log, see `_compact_executable`). Otherwise the validated build is put back and
+    (False, None) is returned, so the caller packs it as before: nothing to do, a build that keeps its filter, a header
+    that cannot be written (the antivirus may have locked the staged copy), a pack or test that fails, or a packed file
+    that has no filter. (False, failure) when the antivirus removed UPX's output again after the identical retry: the
+    caller does not try another form of the same build."""
     try:
         built = original.read_bytes()
     except OSError:
-        return False
+        return False, None
     identity = hashlib.sha256(built).hexdigest()
     _CALL_FILTER_USED.pop(identity, None)       # a note of an earlier packing of this build is not this one's
     prefix = _prefix_of(built)
     if not prefix:
-        return False
+        return False, None
     try:
         _set_size_of_code(path, prefix)
-        failure = _windows_attempt(tool, path)
+        failure = _windows_pack(tool, path, original, lambda: _set_size_of_code(path, prefix), retried)
         if failure is None and _packed_filter(tool, path) == CALL_FILTER_ID:
             _CALL_FILTER_USED[identity] = {'filter': CALL_FILTER_ID, 'code_bytes': _pe_code(built)[1],
                                            'filtered_bytes': prefix}
-            return True
+            return True, None
         failure = failure or f"no call filter in the packed file ({CALL_FILTER_ID} expected)"
     except OSError as exc:
         failure = str(exc)
     _put_back(original, path, failure)
-    return False
+    return False, failure if _defender_failure(failure) else None
 
 
 def compact_windows(path: Path) -> dict | None:
@@ -413,13 +465,17 @@ def compact_windows(path: Path) -> dict | None:
     original = Path(name)
     try:
         shutil.copyfile(path, original)
-        if _pack_with_filter_prefix(tool, path, original):
+        retried: list = []              # the identical retry is used once per packing, by either form
+        packed, blocked = _pack_with_filter_prefix(tool, path, original, retried)
+        if packed:
             return None
-        failure = _windows_attempt(tool, path)
+        # The plain attempt follows a failed filter attempt (a size matter) but not an antivirus removal that the identical
+        # retry did not get past: no other form of the same build is tried to get past a detection.
+        failure = blocked or _windows_pack(tool, path, original, retried=retried)
         if failure is None:
             return None
         _put_back(original, path, failure)
-        defender = any(sign in failure for sign in _DEFENDER_SIGNS)
+        defender = _defender_failure(failure)
         notice = (
             f"UPX {UPX_VERSION} could not pack and verify the executable ({failure})"
             f"{'; the antivirus most likely removed its temporary file (a known false positive)' if defender else ''}. "
@@ -451,7 +507,7 @@ def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
 def _upx_attempt(tool: Path, path: Path) -> str | None:
     """Pack then test `path` in place: None when both passed, else why not. A packer
     that cannot even start (OSError) is an installation fault and stays an error."""
-    for args in (("-9", "-q", str(path)), ("-t", "-q", str(path))):
+    for args in (("-9", *METHOD_FLAGS[LINUX_METHOD], "-q", str(path)), ("-t", "-q", str(path))):
         limit = upx_timeout(path)
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,

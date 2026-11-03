@@ -228,6 +228,19 @@ class LinuxPackingTests(unittest.TestCase):
         self.assertEqual({Path(command[0]) for command, _ in calls}, {ASSETS / packing.UPX_LINUX})
         self.assertEqual({options['timeout'] for _, options in calls}, {packing.LINUX_TIMEOUT})
 
+    def test_the_linux_method_is_one_constant_and_changes_nothing_while_it_is_nrv(self):
+        self.assertEqual((packing.LINUX_METHOD, packing.WINDOWS_METHOD), ('nrv', 'lzma'))
+        self.assertEqual(packing.METHOD_FLAGS, {'nrv': (), 'lzma': ('--lzma',)})
+        with patch.object(packing, 'LINUX_METHOD', 'lzma'):
+            calls = self.run_packer()
+        self.assertEqual([command[1:] for command, _ in calls],
+                         [('-9', '--lzma', '-q', str(self.game)), ('-t', '-q', str(self.game))])
+        with patch('retrorecomp.packing.os', POSIX_OS):
+            self.assertEqual(packing.packing_method(), 'nrv')
+        self.game.write_bytes(b'UPX! packed')
+        with patch('retrorecomp.packing.os', POSIX_OS):
+            self.assertEqual(packing.packing_record({'bytes': 1, 'sha256': '0' * 64}, self.game)['method'], 'nrv')
+
     def test_a_packer_without_its_execute_bit_runs_from_a_private_verified_copy(self):
         seen = []
         def run(command, **options):
@@ -384,7 +397,7 @@ class WindowsPackingTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(packing._CALL_FILTER_USED.clear)
 
-    def test_windows_games_keep_the_same_upx_flags(self):
+    def test_windows_games_are_packed_with_lzma_and_the_same_other_flags(self):
         with tempfile.TemporaryDirectory() as folder:
             game = Path(folder) / 'Game.exe'
             game.write_bytes(b'MZ')
@@ -392,7 +405,7 @@ class WindowsPackingTests(unittest.TestCase):
                        return_value=SimpleNamespace(returncode=0, stdout='', stderr='')) as run:
                 packing.compact_executable(game)
         self.assertEqual([call.args[0][1:] for call in run.call_args_list],
-                         [('-9', '--compress-resources=0', '--compress-icons=0', str(game)), ('-t', str(game))])
+                         [('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)), ('-t', str(game))])
         self.assertEqual({Path(call.args[0][0]) for call in run.call_args_list}, {ASSETS / 'assets/tools/upx.exe'})
         for call in run.call_args_list:
             self.assertEqual((call.kwargs['timeout'], call.kwargs['creationflags']),
@@ -408,13 +421,135 @@ class WindowsPackingTests(unittest.TestCase):
                 return SimpleNamespace(returncode=1, stdout='',
                                        stderr=f'upx: {game}: IOException: {game}: Invalid argument')
             log = []
-            with patch('retrorecomp.packing.subprocess.run', side_effect=run):
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run) as runner, \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
                 outcome = packing.compact_executable(game, emit=log.append)
+            self.assertEqual(runner.call_count, 2)      # the identical pack, once more after the wait (1.6.7)
+            sleep.assert_called_once_with(packing.DEFENDER_RETRY_WAIT)
             self.assertEqual(game.read_bytes(), b'MZ validated build')
             self.assertIn('published unpacked', outcome['notice'])
             self.assertIn('antivirus', outcome['notice'])
             self.assertEqual(log, [outcome['notice']])
             self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+
+    def script_defender(self, game, blocked):
+        """A fake UPX for the plain build: pack number n (1-based) fails like a Defender removal when n is in `blocked`.
+        Returns (the commands run with the SizeOfCode and the bytes the file had when each started, the run function)."""
+        started = []
+        def run(command, **options):
+            data = Path(command[-1]).read_bytes()
+            started.append((command[1:], struct.unpack_from('<I', data, SIZE_OF_CODE_FIELD)[0], data[:2] == b'MZ'))
+            if command[1] == '--fileinfo':
+                return SimpleNamespace(returncode=0, stderr='', stdout='x [amd64-win64.pe, win64/pe]\n  1 bytes, filter 0x49/0x57\n')
+            if command[1] == '-9':
+                if len([call for call in started if call[0][0] == '-9']) in blocked:
+                    Path(command[-1]).write_bytes(b'MZ half-written')
+                    return SimpleNamespace(returncode=1, stdout='', stderr=f'upx: {game}: IOException: {game}: Invalid argument')
+            return SimpleNamespace(returncode=0, stdout='', stderr='')
+        return started, run
+
+    def test_an_antivirus_removal_is_retried_once_with_the_identical_command(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            built = make_pe(bytes(64))                 # nothing for the call filter: the plain attempt only
+            game.write_bytes(built)
+            started, run = self.script_defender(game, blocked={1})
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                self.assertIsNone(packing.compact_executable(game, emit=lambda text: self.fail(text)))
+            commands = [call[0] for call in started]
+            self.assertEqual(commands, [('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)),
+                                        ('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)),
+                                        ('-t', str(game))])
+            self.assertEqual(started[1][1:], (len(bytes(64)), True))      # the validated build was put back first
+            sleep.assert_called_once_with(packing.DEFENDER_RETRY_WAIT)
+            self.assertEqual(game.read_bytes(), built)                     # the fake UPX left the build as it got it
+            self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
+
+    def test_a_second_removal_leaves_the_game_as_built_after_one_retry_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            built = make_pe(bytes(64))
+            game.write_bytes(built)
+            started, run = self.script_defender(game, blocked={1, 2, 3})
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertEqual(len(started), 2)                  # one attempt and one retry, never a third
+            self.assertEqual(started[0][0], started[1][0])     # the same command, no other option
+            self.assertEqual(sleep.call_count, 1)
+            self.assertIn('antivirus', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
+
+    def test_another_failure_is_not_retried_and_nothing_waits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(make_pe(bytes(64)))
+            def run(command, **options):
+                return SimpleNamespace(returncode=1, stdout='', stderr='upx: Game.exe: CantPackException: test')
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run) as runner, \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                packing.compact_executable(game, emit=lambda text: None)
+            self.assertEqual(runner.call_count, 1)
+            sleep.assert_not_called()
+
+    def test_the_retry_of_the_call_filter_attempt_repeats_its_header_and_a_second_removal_stops_there(self):
+        # The antivirus removed the output of the shortened-SizeOfCode attempt twice: the plain form of the same
+        # build is not tried to get past it.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            built = game.read_bytes()
+            started, run = self.script_defender(game, blocked={1, 2})
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertEqual([call[1] for call in started], [4101, 4101])     # both with the prefix, no plain attempt
+            self.assertEqual(sleep.call_count, 1)
+            self.assertIn('antivirus', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
+            self.assertNotIn(hashlib.sha256(built).hexdigest(), packing._CALL_FILTER_USED)
+
+    def test_the_retry_of_the_call_filter_attempt_can_succeed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            started, run = self.script_defender(game, blocked={1})
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), patch('retrorecomp.packing.time.sleep'):
+                self.assertIsNone(packing.compact_executable(game, emit=lambda text: None))
+            self.assertEqual([(call[0][0], call[1]) for call in started],
+                             [('-9', 4101), ('-9', 4101), ('-t', 4101), ('--fileinfo', 4101)])
+            self.assertIn(hashlib.sha256(make_pe(saturated_code())).hexdigest(), packing._CALL_FILTER_USED)
+
+    def test_the_wait_and_the_retry_happen_once_per_packing_across_both_forms(self):
+        # The shortened-SizeOfCode form meets the sign (retried, then fails another way); the plain form meets it again:
+        # no second wait and no second retry.
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            built = game.read_bytes()
+            packs = []
+            def run(command, **options):
+                if command[1] != '-9':
+                    return SimpleNamespace(returncode=0, stdout='', stderr='')
+                packs.append(struct.unpack_from('<I', Path(command[-1]).read_bytes(), SIZE_OF_CODE_FIELD)[0])
+                sign = len(packs) in (1, 3)         # 1: filter form, 2: its retry (another failure), 3: plain form
+                Path(command[-1]).write_bytes(b'MZ half-written')
+                return SimpleNamespace(returncode=1, stdout='', stderr=(
+                    f'upx: {game}: IOException: {game}: Invalid argument' if sign else 'upx: Game.exe: CantPackException: test'))
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                    patch('retrorecomp.packing.time.sleep') as sleep:
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertEqual(packs, [4101, 4101, 8192])      # no fourth pack
+            self.assertEqual(sleep.call_count, 1)
+            self.assertIn('antivirus', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
+
+    def test_the_report_names_the_method_of_a_packed_game(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(b'MZ UPX! packed')
+            identity = {'bytes': 100, 'sha256': '0' * 64}
+            self.assertEqual(packing.packing_record(identity, game)['method'], 'lzma')
+            game.write_bytes(b'MZ as built')
+            self.assertIsNone(packing.packing_record(identity, game)['method'])      # not packed: no method
 
     # The suite does not run UPX itself here: subprocess.run is replaced by a script that plays UPX (pack, test and
     # --fileinfo) and records what the game's SizeOfCode was at each call. The real UPX was run on real builds by hand.

@@ -407,7 +407,8 @@ class UpdatesMixin:
         # follow the tools, so the first conversion starts at once.
         steps = {'Téléchargement de smsggrecomp…': 'deps_step_engine', 'Téléchargement de SDL…': 'deps_step_sdl_fetch',
                  'Compilation du traducteur Z80 → C…': 'deps_step_translator',
-                 'Compilation de SDL2 statique (première utilisation)…': 'deps_step_sdl'}
+                 'Compilation de SDL2 statique (première utilisation)…': 'deps_step_sdl',
+                 'Compilation de SDL2 statique (nouveaux réglages)…': 'deps_step_sdl_again'}
 
         def progress(label, done, total):
             state.update(label=label, done=done, total=total)

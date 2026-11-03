@@ -29,11 +29,15 @@ from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
 from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
-from .platforms import build_executable, cmake_target_args, build_jobs, target_id, claim_cache, sdl_install, sdl_library
+from .platforms import (build_executable, cmake_target_args, build_jobs, target_id, claim_cache, sdl_install, sdl_library,
+                        sdl_install_current, sdl_install_key, sdl_compiler_flags, SDL_INSTALL_MARKER)
 from .toolchain import active as active_toolchain, suffix, describe as toolchain_description
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "5d249570393f7a37e037abf22cd6012a4cc56a71"
+# The pinned SDL is compiled at the player's computer: a first build with all the CPUs takes minutes, one with a single job of a
+# crowded batch much longer. The limit only stops a build that hangs.
+SDL_STEP_TIMEOUT = 3600
 _SHARED_SETUP_LOCK = RLock()
 _SHARED_SETUP_DEPTH = 0
 
@@ -310,9 +314,32 @@ def dependencies_ready() -> bool:
         dep = ROOT / ".deps"
         return ((dep / "smsggrecomp/external/z80-recomp-core/include/sms_runtime.h").exists()
                 and build_executable(dep / ('recompiler-build' + suffix()), 'SmsRecomp').exists()
-                and (sdl_install() / sdl_library()).exists())
+                and sdl_install_current())
     except Exception:
         return False
+
+
+def ensure_sdl(cmake, generator, sdl: Path, prefix: Path, log: Path, emit: Callable[[str], None] = print) -> None:
+    """Build and install the static SDL2 of the current settings (platforms.sdl_install_key) unless it is installed.
+
+    The install and the build folder are named after the settings, so nothing of another configuration is overwritten or
+    deleted. A build that stops (a timeout, Stop, a crash) leaves its build folder, and the next one goes on from it; the
+    install has no marker until its last step, so an unfinished install is never taken as current."""
+    if sdl_install_current(prefix):
+        return
+    others = [path for path in sdl.glob("install*") if path.is_dir() and path != prefix]     # INSTALL.txt is not one
+    emit("Compilation de SDL2 statique (nouveaux réglages)…" if others
+         else "Compilation de SDL2 statique (première utilisation)…")
+    sdl_build = sdl / prefix.name.replace("install", "build", 1)        # platforms.sdl_build_folder()
+    steps = ([cmake, "-S", sdl, "-B", sdl_build, "-G", generator, *cmake_target_args(),
+              "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
+              *(["-DSDL_FORCE_STATIC_VCRT=ON"] if active_toolchain() == "msvc" else []),
+              *sdl_compiler_flags(sdl), f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"],
+             [cmake, "--build", sdl_build, "--config", "Release", "--parallel", build_jobs()],
+             [cmake, "--install", sdl_build, "--config", "Release"])
+    for step in steps:
+        run(step, log=log, timeout=SDL_STEP_TIMEOUT)
+    (prefix / SDL_INSTALL_MARKER).write_text(sdl_install_key() + "\n", encoding="utf-8")
 
 
 @serialized_setup
@@ -375,15 +402,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         run([cmake, "--build", recomp_build, "--config", "Release", "--parallel", build_jobs()], log=log)
         compiled_marker.write_text(expected)
     prefix = sdl_install()
-    if not (prefix / sdl_library()).exists():
-        emit("Compilation de SDL2 statique (première utilisation)…")
-        sdl_build = sdl / ("build" + suffix())
-        run([cmake, "-S", sdl, "-B", sdl_build, "-G", generator, *cmake_target_args(),
-            "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
-            *(["-DSDL_FORCE_STATIC_VCRT=ON"] if active_toolchain() == "msvc" else []),
-            f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
-        run([cmake, "--build", sdl_build, "--config", "Release", "--parallel", build_jobs()], log=log)
-        run([cmake, "--install", sdl_build, "--config", "Release"], log=log)
+    ensure_sdl(cmake, generator, sdl, prefix, log, emit)
     return engine, prefix, cmake, generator
 
 
