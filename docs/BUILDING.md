@@ -253,6 +253,32 @@ it packed freshly built Neo Geo and NES games, which ended whole conversions wit
 Invalid argument"; the notice then says the antivirus most likely removed the file. Games that pack and pass are byte for byte what they were: a Master System and a Game
 Gear game converted by the commit before and by this change are identical files.
 
+**A compressed copy that fails its replay is published unpacked (1.6.7).** Every conversion replays a compressed copy
+of the build on all its routes against the fresh reference (gate G5, `retrorecomp/delivery_evidence.py`). On Linux one
+X68000 game builds and runs unpacked and `upx -t` passes, but the compressed copy stopped at start (SIGTRAP, exit
+133) at `-9`, `-1` and `--lzma`, and the replay refused the whole conversion. When the replay of a copy that really
+was compressed fails (the replay raises, or the comparison does not hold), the compressed copy is kept aside
+(`<file>.upx-failed`), the build exactly as built and validated takes its place, the conversion log says "the compressed
+copy failed its replay on this system (...); replaying the unpacked build instead", and every route is replayed again on
+the unpacked file. The compression is blamed only for a failure that repeats: once the build has passed every route, the
+compressed copy is put back and replayed once more on the first route that failed.
+- If it fails again, the conversion goes on with the unpacked file (that route is replayed once more on it, so that its
+  outputs are the build's) and `packed_reference_match` is true for the file actually delivered. The build is then
+  registered with `packing.refuse_compression`, so the publication leaves the same build unpacked (UPX would pack it into
+  the same failing file), and the report says `packing.packed` false with the notice "The compressed copy (UPX 5.3.0) did
+  not replay correctly on this system, twice (...). It is published unpacked, exactly as built and validated: a larger
+  file, the same program." as `packing.unpacked_reason`.
+- If it passes, the first failure was not reproducible (a loaded host, a race): the first error is raised with a note and
+  a log line saying so ("could not be reproduced (non-deterministic)"), nothing is delivered and nothing is registered, so
+  a later conversion of the same build in the same process is compressed as usual.
+- If the unpacked file fails too, the first error is refused as before, chained to the second.
+
+A file that has not passed every route is never published. Nothing changes when the file was not compressed (the option
+Compress games is off, or UPX already left the build as it was), or when the player stops the conversion. The mechanism
+is shared by every console that replays a compressed copy (not the Super Nintendo); the Neo Geo
+`native-validation.json` reads `validated_candidate: unpacked` with the reason. A genuine native mismatch costs one more
+replay of every route before the conversion is refused.
+
 The X68000 rows were measured afterwards on the same machine and day: the
 uncompressed export by the commit that still left X68000 games as built, the
 compressed one by the commit that packs them. `upx -d` of each compressed game

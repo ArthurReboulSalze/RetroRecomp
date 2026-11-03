@@ -11,7 +11,7 @@ import time
 
 from . import __version__, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
-from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_routes, report_fields,
+from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
                                 require_moving_picture, silent_sound_hash)
 from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
@@ -53,8 +53,11 @@ def route_liveness(trace: Path) -> dict:
     return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
 
 
-def check_routes(executable: Path, project: Path, set_name: str, qualification=None, *, workers=1) -> list[dict]:
-    """Recheck the packed candidate against its fresh pre-learning reference."""
+def check_routes(executable: Path, project: Path, set_name: str, qualification=None, *, workers=1, delivered=None) -> list[dict]:
+    """Recheck the packed candidate against its fresh pre-learning reference.
+
+    With `delivered` (the DeliveredFile whose path is `executable`), the routes are replayed through `replay_packed`: a
+    compressed copy that fails is replaced by the build as built and every route is replayed again on it."""
     directory = project / 'packed-checks'
     directory.mkdir(exist_ok=True)
     checked = []
@@ -83,7 +86,8 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
             'hardware_hash': native['extended_hardware_hash'], 'z80_hash': native['z80_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'], 'liveness': liveness}
     routes = extended_routes(set_name,qualification,aes=aes_available(project))
-    return replay_routes(routes.items(),verify,workers=workers)
+    if delivered is None:return replay_routes(routes.items(),verify,workers=workers)
+    return replay_packed(delivered,routes.items(),verify,workers=workers)
 
 
 def convert(path: Path, **options) -> Path:
@@ -216,11 +220,12 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     if not console_capable:emit('Neo Geo: Arcade Only; AES is not a supported machine for this cartridge.')
     packed=project/'packed-game.exe'
     delivered=deliver_packed(executable,packed,'Neo Geo',emit)
-    notice=delivered.notice
     timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     with stages.phase('packed_replays'):
-        checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
-    # `verify` compared each route with its reference and raised on a difference.
+        checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers,delivered=delivered)
+    # `verify` compared each route with its reference and raised on a difference. A compressed copy that failed was replaced
+    # by the build as built and replayed again (`replay_packed`): the notice is read now, not before.
+    notice=delivered.notice
     delivered.record_match(row['name'] for row in checks)
     # The delivered, compressed executable is the native candidate. Compare
     # every route once against the fresh reference; an earlier uncompressed

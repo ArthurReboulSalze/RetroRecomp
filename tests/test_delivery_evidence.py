@@ -176,6 +176,10 @@ class PackedReplayTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         self.said = []
+        # A failed replay of a compressed copy falls back to the build and registers it with packing (the process-wide state).
+        from retrorecomp import packing
+        self.addCleanup(packing._REPLAY_REFUSED.clear)
+        self.addCleanup(packing._UNPACKED_REASONS.clear)
 
     def delivered(self, *, notice=None, content=b'packed'):
         built, packed = self.root / 'build.exe', self.root / 'packed.exe'
@@ -222,7 +226,9 @@ class PackedReplayTests(unittest.TestCase):
             replay_packed(delivered, ['a', 'b', 'c'], replay, same=lambda route, result: route == 'a',
                           mismatch=lambda route: Failure('differs on ' + route))
         self.assertEqual(str(caught.exception), 'differs on b')
-        self.assertEqual(ran, ['a', 'b', 'c'])   # every replay ran before the judgement
+        # Every replay ran before the judgement; the copy was compressed, so all routes ran again on the build as built
+        # (tests/test_packed_fallback.py), which differs on 'b' too: the first error stands.
+        self.assertEqual(ran, ['a', 'b', 'c', 'a', 'b', 'c'])
         with self.assertRaises(ValueError):
             delivered.validation_fields()
 
@@ -292,7 +298,7 @@ class AdoptionTests(unittest.TestCase):
                                                    'replay_packed(')),
                               ('x68000_conversion', ('liveness_summary(', 'require_moving_picture(', 'deliver_packed(',
                                                      'replay_packed(')),
-                              ('neogeo_conversion', ('deliver_packed(', 'replay_routes(', 'record_match('))):
+                              ('neogeo_conversion', ('deliver_packed(', 'replay_routes(', 'replay_packed(', 'record_match('))):
             for name in names:
                 self.assertIn(name, self.source(module), f'{module} should call {name}')
 
