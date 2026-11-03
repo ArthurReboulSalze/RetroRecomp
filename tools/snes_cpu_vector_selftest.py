@@ -34,6 +34,10 @@ def cases_of(cpu, samples):
     path = fetch(cpu, samples)
     data = json.loads(path.read_text(encoding='utf-8'))
     assert data['revision'] == CORPORA[cpu]['revision'] and data['manifest_sha256'] == CORPORA[cpu]['manifest_sha256']
+    # A format drift would give no case and no difference: the number of cases is what the corpus and the sample say it is.
+    assert len(data['families']) == CORPORA[cpu]['families'], (len(data['families']), CORPORA[cpu]['families'])
+    expected = sum(min(samples, family['available']) for family in data['families'])
+    assert len(data['cases']) == expected and expected >= CORPORA[cpu]['families'] * min(samples, 200), (len(data['cases']), expected)
     return data['cases']
 
 
@@ -136,19 +140,35 @@ def exercise(cpu, samples, details):
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
     lines = run([build_executable(project / 'build', 'vectors'), str(project / 'cases.txt')], timeout=3600).strip().splitlines()
     result = json.loads([line for line in lines if line.startswith('{')][-1])
+    # Every case was read and every case is in exactly one class, for each core that ran it (the harness says how many of its
+    # lines it parsed: a shifted or short file shows here, not as zero differences).
+    assert result['cases'] == len(cases), (result['cases'], len(cases))
+    for core in ('interpreted', 'compiled'):
+        ran = result['compiled_cases'] if (cpu == '65816' and core == 'compiled') else len(cases)
+        tally = sum(result[core].get(key, 0) for key in ('semantic', 'timing', 'ordering', 'skipped', 'passed'))
+        assert tally == ran, (cpu, core, tally, ran)
+    if cpu == 'spc700':
+        assert result['interpreted']['skipped'] < len(cases) // 6, 'too many cases skipped for touching I/O'
+    else:
+        assert result['compiled_cases'] >= len(cases) // 50, 'too few cases reach the compiled core'
     mismatches = [line.split() for line in lines if line.startswith('MISMATCH')]
     names = {1: 'semantic', 2: 'timing', 3: 'ordering'}
     by_family = {}
+    by_mode = {}    # the cases the reference core gets wrong, by class and by 65816 mode (".e" emulation, ".n" native in the family name)
     for line in lines:
         if line.startswith('FAIL'):
             _, index, compiled, klass = line.split()
+            if not int(compiled):
+                family = cases[int(index)]['family']
+                key = f"{names[int(klass)]}:{family.rsplit('.', 1)[1] if '.' in family else 'all'}"
+                by_mode[key] = by_mode.get(key, 0) + 1
             by_family.setdefault((names[int(klass)], cases[int(index)]['family']), []).append(
                 (cases[int(index)]['name'], 'compiled' if int(compiled) else 'interpreted', '', ''))
     for fields in mismatches:   # the first differences, with their detail, replace the bare entries of the same case
         family = cases[int(fields[1])]['family']
         rows = by_family.setdefault((fields[2], family), [])
         rows.insert(0, (cases[int(fields[1])]['name'], fields[3], fields[4], fields[5]))
-    result.update({'cpu': cpu, 'revision': CORPORA[cpu]['revision'], 'manifest_sha256': CORPORA[cpu]['manifest_sha256'],
+    result.update({'interpreted_by_mode': dict(sorted(by_mode.items())), 'cpu': cpu, 'revision': CORPORA[cpu]['revision'], 'manifest_sha256': CORPORA[cpu]['manifest_sha256'],
                    'samples_per_family': samples, 'families': len({case['family'] for case in cases}),
                    'case_counts_by_family': {f'{klass}:{family}': len(rows) for (klass, family), rows in sorted(by_family.items())},
                    'first_mismatches': {f'{klass}:{family}': rows[:2] for (klass, family), rows in

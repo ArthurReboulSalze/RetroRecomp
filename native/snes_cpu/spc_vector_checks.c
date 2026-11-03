@@ -34,13 +34,15 @@ void apu_cpuWrite(Apu *apu, uint16_t adr, uint8_t value) {
     ++log_count; apu->ram[adr] = value;
 }
 
+#define MAX_RAM 64
+#define MAX_CYCLES 64
 typedef struct { int address, value, kind; } Cycle;   /* kind 0 read, 1 write, 2 wait (no bus) */
 typedef struct {
     unsigned index, pc, a, x, y, sp, psw;
     unsigned fpc, fa, fx, fy, fsp, fpsw;
     int nram, nfram, ncycles;
-    int ram[64][2], fram[64][2];
-    Cycle cycles[64];
+    int ram[MAX_RAM][2], fram[MAX_RAM][2];
+    Cycle cycles[MAX_CYCLES];
 } Case;
 
 static unsigned by_class[4];
@@ -120,10 +122,13 @@ int main(int argc, char **argv) {
     while (1) {
         int n;
         if (fscanf(file, " %u %u %u %u %u %u %u %d", &c.index, &c.pc, &c.a, &c.x, &c.y, &c.sp, &c.psw, &c.nram) != 8) break;
+        if (c.nram < 0 || c.nram > MAX_RAM) { fprintf(stderr, "case %u: %d RAM entries (at most %d)\n", c.index, c.nram, MAX_RAM); return 2; }
         for (n = 0; n < c.nram; ++n) fscanf(file, " %d %d", &c.ram[n][0], &c.ram[n][1]);
         fscanf(file, " %u %u %u %u %u %u %d", &c.fpc, &c.fa, &c.fx, &c.fy, &c.fsp, &c.fpsw, &c.nfram);
+        if (c.nfram < 0 || c.nfram > MAX_RAM) { fprintf(stderr, "case %u: %d final RAM entries (at most %d)\n", c.index, c.nfram, MAX_RAM); return 2; }
         for (n = 0; n < c.nfram; ++n) fscanf(file, " %d %d", &c.fram[n][0], &c.fram[n][1]);
         fscanf(file, " %d", &c.ncycles);
+        if (c.ncycles < 0 || c.ncycles > MAX_CYCLES) { fprintf(stderr, "case %u: %d cycles (at most %d)\n", c.index, c.ncycles, MAX_CYCLES); return 2; }
         for (n = 0; n < c.ncycles; ++n) fscanf(file, " %d %d %d", &c.cycles[n].address, &c.cycles[n].value, &c.cycles[n].kind);
         ++total;
         if (touches_io(&c)) { ++counts[0][3]; ++counts[1][3]; continue; }
