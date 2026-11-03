@@ -117,6 +117,29 @@ def adapt_halt_mode3(source: str) -> str:
         '        }\n')
 
 
+def adapt_unused_io_bits(source: str) -> str:
+    """The pinned runtime returns the stored value for the registers it does not model, so a bit that is not wired reads back as it was
+    written. On the original Game Boy such a bit reads 1: the serial control (bits 6 to 1), the timer control (bits 7 to 3), the
+    unmapped registers $FF03 and $FF08-$FF0E, and, outside colour mode, the registers of the colour models ($FF4C, $FF4E, $FF50,
+    $FF57-$FF67, $FF6D-$FF6F, $FF71, $FF78-$FF7F). Mooneye's unused_hwio-GS and boot_hwio test them. Only the last fall-through of the
+    register read is changed, so the joypad, the timer counters, the LCD and the sound registers keep their own paths. The colour palette
+    registers $FF68-$FF6B, which the LCD code answers with the stored value, read $FF outside colour mode."""
+    source = replace_once(source,
+        '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n            gb_sync(ctx);\n            return ppu_read_register((GBPPU*)ctx->ppu, addr);',
+        '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n            if (!gb_is_cgb_mode(ctx)) return 0xFF;\n            gb_sync(ctx);\n            return ppu_read_register((GBPPU*)ctx->ppu, addr);')
+    return replace_once(source,
+        '            return gb_audio_read(ctx, addr);\n        }\n        return ctx->io[addr - 0xFF00];\n    }\n    if (addr < 0xFFFF) return ctx->hram[addr - 0xFF80];',
+        '            return gb_audio_read(ctx, addr);\n        }\n'
+        '        if (addr == 0xFF02) return (uint8_t)(ctx->io[0x02] | (gb_is_cgb_hardware(ctx) ? 0x7Cu : 0x7Eu));\n'
+        '        if (addr == 0xFF07) return (uint8_t)(ctx->io[0x07] | 0xF8u);\n'
+        '        if (addr == 0xFF03 || (addr >= 0xFF08 && addr <= 0xFF0E)) return 0xFF;\n'
+        '        if (!gb_is_cgb_mode(ctx) && (addr == 0xFF4C || addr == 0xFF4E || addr == 0xFF50 || (addr >= 0xFF57 && addr <= 0xFF67) ||\n'
+        '                                     (addr >= 0xFF6D && addr <= 0xFF6F) || addr == 0xFF71 || addr >= 0xFF78)) {\n'
+        '            return 0xFF;\n'
+        '        }\n'
+        '        return ctx->io[addr - 0xFF00];\n    }\n    if (addr < 0xFFFF) return ctx->hram[addr - 0xFF80];')
+
+
 def adapt_ei_delay_interpreter(code: str) -> str:
     return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
                         'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
@@ -296,6 +319,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     source = adapt_wisdom_tree(source)
     source = adapt_ei_delay(source)
+    source = adapt_unused_io_bits(source)
     if halt_mode3_bound:
         source = adapt_halt_mode3(source)
     runtime_cpu.write_text(source, encoding="utf-8")

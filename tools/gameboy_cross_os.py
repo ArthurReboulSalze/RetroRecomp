@@ -40,7 +40,9 @@ def routes_of(executable: Path) -> dict[str, tuple[str, int]]:
     reports = sorted((executable.parent / 'datas' / 'reports').glob('*/conversion-report.json'))
     if not reports:
         raise SystemExit(f'no conversion report beside {executable}')
-    report = json.loads(reports[0].read_text(encoding='utf-8'))
+    # A folder may hold several games (a batch): take the report of this executable, not the first one.
+    loaded = [json.loads(path.read_text(encoding='utf-8')) for path in reports]
+    report = next((item for item in loaded if item.get('executable') == executable.name), loaded[0])
     plan = {check['scenario']: (check.get('input_script') or '', int(check['frames'])) for check in report.get('final_checks', [])}
     if not any(name.startswith('long') for name in plan):
         from retrorecomp.random_routes import gameboy_script, long_routes
