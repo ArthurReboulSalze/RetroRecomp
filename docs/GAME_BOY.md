@@ -318,8 +318,8 @@ leaves out. A tool or a report field named here exists in the tree of this page.
 | G7 Saves | `tools/gameboy_saves_check.py`: six authored cartridges (MBC1, MBC2, MBC3 with clock, MBC5, RAM without battery, battery never written), reload byte for byte, damaged files refused | A game's own save code is not tested |
 | G8 Liveness | `final_checks[].liveness` on every probe; a conversion is refused when its `varied` route never changes the picture | Counts of changes, not proof that the game is played well |
 | G9 Route depth | The reproducible pseudo-random route of the extended and thorough levels; the 1.6.7 campaign (`tools/gameboy_campaign.py`) replays it on the delivered file with six captures a game that a person looks at | Not full games; the pictures are looked at by the specialist agent, not by the owner |
-| G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors' | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions |
-| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`) | They compare the runtime with its own model: no external emulator and no hardware capture is used |
+| G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors'; and the public test ROMs run on the delivered files (below): blargg `cpu_instrs` 11 of 11, `instr_timing`, `mem_timing` 6 of 6, Mooneye's instruction, interrupt, HALT and timing tests all pass, each with native and interpreter identical for the whole run | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions; `STOP` itself is not tested by `cpu_instrs`; the test ROMs run at the quick level, one conversion each |
+| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`); and the console's own tests (below): Mooneye 92 of 94 applicable tests (timer, OAM DMA, PPU and interrupt timing, MBC1, MBC2, MBC5), blargg `oam_bug` 14 of 16, `mem_timing` 6 of 6 | The sound unit fails 18 of the 24 blargg `dmg_sound` tests and two more do not end; two Mooneye tests of the state after the boot ROM fail; no hardware capture is used |
 | G12 Panel | The exact-cartridge panel of the collection (below) | Cartridges that failed or were skipped are listed on that page and in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) |
 | G13 Cross-OS | Windows and Debian 13 (Hermès), each converting the game with the same tree, the same engine revision and an empty library at the quick level, give equal per-frame traces (picture, sound, work RAM and program counter hashes) and equal final states on 15 of 15 routes: boot, two play runs, `varied` and an 18,000-frame pseudo-random route, for Tetris, Exodus and Super Mario Land (3 November 2026); `tools/gameboy_cross_os.py`, section *The cross-OS witness* below | Three of the 606 cartridges, the quick level, no thorough run, so the gate stays `P` in [QUALIFICATION.md](QUALIFICATION.md) (the same bar as the Neo Geo with three sets; the NES reached `Y` with the eight games of its campaign): `Y` would take the games of the campaign above, not these three; the compiler and the SDL build differ by system, which is what the equal traces show to be harmless for these routes, not for every game |
 | G14 Owner | No recorded owner decision | His play test |
@@ -424,6 +424,71 @@ is the resource embedding, which is by design: a `.rc` file on Windows, `embedde
 as a hash per block of samples inside the trace, not as a file. This says that the converter and the runtime give the same game on the
 two systems for these three games and these routes; it says nothing about the other 603 cartridges, the thorough level, the speed on each
 system or hardware fidelity.
+
+### The public test ROMs of blargg and Mooneye (1.6.7, gates G10 and G11)
+
+The two public suites were downloaded on 3 November 2026 and kept **outside the repository** (`.build/gb-testroms/`, one new folder per archive); only
+names, hashes and verdicts are written here. Mooneye is MIT; the blargg archives carry no licence file and no licence text.
+
+| Archive | Source | SHA-256 |
+|---|---|---|
+| Mooneye test suite `mts-20260714-0944-31510e1` (zip) | `gekkio.fi/files/mooneye-test-suite/mts-20260714-0944-31510e1/` | `18aa29462dfe1fcd32a2cb3621733abdc72410074918b9245aa99a6920f7d3f2` |
+| blargg `cpu_instrs.zip` | Internet Archive, item `blargggameboytestroms` (the gbdev mirror did not answer) | `7ad9fd3b8dc61b9fa399ddc687acde37779025b8be307ca9cbc79d44d8ee8cd7` |
+| blargg `instr_timing.zip` | idem | `10d11343126aac60986a57e87cf6816b5b05274da15b8c1ca65154a2853c2f5b` |
+| blargg `mem_timing.zip` / `mem_timing-2.zip` | idem | `23fb8a4ddf3b1b000a62735641dee7c8eafb203d5f5ff35ac9cf239b29fe6e62` / `b55d5016e578cb7259b6423461dcebe67af5e077e5c0a7fc81076bb539025f1f` |
+| blargg `dmg_sound.zip` / `dmg_sound-2.zip` | idem | `76bb61c85ed79d8894fffa9ab47884d0d543fd6fd24428d65b24bb9a767f9f99` / `458e9ac9dd89ab51bfbdad61d7902f5e6c3a9cbdd67f43f60c9f7ad59aa1a2e5` |
+| blargg `oam_bug.zip` / `oam_bug-2.zip` | idem | `305d46d06b4b75f33362a3c402a3a20fcae194f8f1ea15d8c86c2dd27c9e0e63` / `2ad6c4ab79a1a47a32fb3a1940dd136edddfc0d6ebd58d8f59ee96aca22d4c9a` |
+| blargg `cgb_sound.zip` (Game Boy Color only, not run) | idem | `0b8775cdeb9cd3a56656795dd76ae82df8e0ce855777a243f17ee5358acfa6bb` |
+
+`python tools/gameboy_testroms.py convert ROOT --work FOLDER` converts each ROM with the converter (quick level, two conversions at a time, an empty library);
+`run` then runs the delivered file headless in an empty folder and judges it by the protocol of its suite: the six Fibonacci registers (or serial bytes) of
+Mooneye, the word "Passed" or "Failed" on the serial port, or the memory verdict of the newer blargg ROMs (`DE B0 61` at $A001-$A003, 0 at $A000 for a pass).
+The frame limit grows by steps until a verdict shows, and the run is then repeated against the pinned interpreter in lockstep (`--differential`) for as many frames
+as the test needed (26 to 1,051 frames for blargg, 61 to 601 for Mooneye). Every ROM was converted without error (all `supported`).
+
+| Suite and group | Applicable | Passed | Failed | No verdict |
+|---|---|---|---|---|
+| Mooneye `acceptance` (CPU timing, interrupts, HALT, OAM DMA, PPU, timer, serial, boot state) | 66 | 64 | 2 | 0 |
+| Mooneye `emulator-only` (MBC1 13, MBC2 7, MBC5 8) | 28 | 28 | 0 | 0 |
+| blargg `cpu_instrs` (the 11 single ROMs) | 11 | 11 | 0 | 0 |
+| blargg `instr_timing`, `mem_timing` (3), `mem_timing-2` (3) | 7 | 7 | 0 | 0 |
+| blargg `oam_bug` and `oam_bug-2` (8 each) | 16 | 14 | 0 | 2 |
+| blargg `dmg_sound` and `dmg_sound-2` (12 each) | 24 | 4 | 18 | 2 |
+| **Total** | **152** | **128** | **20** (2 Mooneye, 18 blargg) | **4** |
+
+Not applicable (41): 21 Mooneye ROMs (18 for other models: Super Game Boy, Pocket, DMG revision 0, Game Boy Color and Advance; two tools that dump the boot ROM; and `sprite_priority`, a
+test to look at, with no verdict); the 13 `cgb_sound` ROMs; and the 7 blargg ROMs that combine the single ones (the single ones are run). The two
+versions of `dmg_sound` and of `oam_bug` give the same verdicts, ROM for ROM.
+
+*What passes.* All CPU and timing tests, including `cpu_instrs` (the 11 groups of every instruction and flag), `instr_timing`, `mem_timing`, Mooneye's `add_sp_e`,
+`call`, `jp`, `ret`, `push`, `pop`, `rst`, `ld_hl_sp_e`, `di`, `ei`, `halt` (five), `intr_timing`, `daa`, `ie_push`, `rapid_di_ei`; the eight OAM DMA tests; the thirteen
+PPU timing tests (interrupts, STAT, LYC, LCD on); the thirteen timer tests (`tim*`, `div_write`, `tima_reload`, `rapid_toggle`); `mem_oam`, `reg_f`, `boot_regs-dmgABC`,
+`boot_div-dmgABCmgb`; the MBC1, MBC2 and MBC5 bank and RAM tests; and seven of the eight `oam_bug` tests (the OAM corruption bug of the console).
+
+*What fails, and the probable cause.* (Looked at on the screen of each test.)
+
+- **`bits/unused_hwio-GS`** (Mooneye) failed on the main tree: the unwired bits of $FF07 (timer control) and of $FF68 read back as written instead of 1.
+  Fixed in 1.6.7 (`gameboy_runtime.adapt_unused_io_bits`, see [UPGRADES.md](UPGRADES.md)); the test passes on the corrected tree (the 92 of 94 above count it), and on Tetris, Super Mario Land and Exodus the four routes of each (23,400
+  frames, picture, sound, work RAM and program counter of every frame) are identical before and after.
+- **`boot_hwio-dmgABCmgb`** (Mooneye): after the fix it passes $FF00-$FF03 and stops at $FF26 (NR52): the test expects F1 (channel 1 still on after the boot ROM's sound) and reads F0.
+  The runtime starts after the boot ROM with the channel off. The registers after $FF26 are not reached, so they are neither passed nor failed.
+- **`serial/boot_sclk_align-dmgABCmgb`** (Mooneye): measures the phase of the serial clock against the boot ROM; the registers read 14/92 where 12/91-90 are expected. Probable cause: the
+  runtime does not run the boot ROM, so its first cycles are shifted by a few cycles. Not corrected: a shift of the start would move every game.
+- **`dmg_sound` (and `-2`), 9 failures per version**, on the accuracy of the sound unit of the pinned engine (hardware fidelity of the APU, never claimed): `01-registers` (#4, powering the
+  APU affects the wave RAM), `03-trigger` (#3, length clocked in the first half of the period), `04-sweep` (#3, shift 0 must not calculate on trigger), `05-sweep details` (#4, leaving negate mode),
+  `08-len ctr during power`, `09-wave read while on`, `10-wave trigger while on`, `12-wave write while on` (the checksum of the wave RAM access differs), `11-regs after power` (#4, powering off must not
+  affect NR41). `02-len ctr` and `06-overflow on trigger` pass.
+- **No verdict at 10,800 frames (three minutes of game time):** `dmg_sound/07-len sweep period sync` (the title stays on the screen) and `oam_bug/7-timing_effect` (a blank screen), in both versions. The
+  cause is not known: the test most likely waits for an event the model does not produce. They are counted as not passed for the gates.
+
+*A finding on the comparison with the interpreter.* On every test but one the native code and the pinned interpreter agree step by step for the whole run (from 200,000 to 92 million steps). On
+`oam_bug/7-timing_effect` (the first version of the ROM only) the lockstep stops at step 6,717,022 (about 784 frames): the generated code is one four-cycle step behind the interpreter (PC `$2154`, SP `$C0A6`
+against PC `$0038`, SP `$C0A4`, in a loop that executes `RST $38` from a stretch of `$FF`). The same ROM in its second version matches for 10,800 frames. The cause is not found; it is a lockstep result
+on a test that gives no verdict, to look at before this test is counted for anything.
+
+*What it leaves out.* A pass says that the converted file and the console's own test agree on that behaviour; it is not a claim of cycle-exact hardware: the test suites do not cover everything
+(STOP, the Super Game Boy, the whole sound unit, the PPU's pixel details), the boot-state tests are not passed, and no hardware capture was made. These tests were run one conversion each at the quick level; they
+say nothing about a game.
 
 ### Letters missing in a menu of Final Fantasy Legend II
 

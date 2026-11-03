@@ -5,8 +5,8 @@ are written here. Each test is converted by the converter (`RetroRecomp.py batch
 delivered executable is run headless in an empty folder and judged by the protocol of its own suite:
 
 * Mooneye: the six Fibonacci registers (3, 5, 8, 13, 21, 34) at the `LD B,B` sentinel, or the six serial bytes; 0x42 six times is a failure.
-* blargg: the word "Passed" or "Failed" printed on the serial port; the memory verdict at $A000 for oam_bug (`DE B0 61` at $A001 and
-  0 at $A000 passes, 0x80 is not finished).
+* blargg: the word "Passed" or "Failed" printed on the serial port, or the memory verdict of the newer ROMs ($A001-$A003 = `DE B0 61`, then
+  0 at $A000 passes and 0x80 is not finished).
 * the run is repeated in the lock-step mode against the pinned interpreter (`--differential`) for as many frames as the verdict needed.
 
     python tools/gameboy_testroms.py list ROOT
@@ -83,7 +83,7 @@ def discover(root: Path) -> list[dict]:
                 reason = None
             ident = 'blargg-' + group + '-' + re.sub(r'[^A-Za-z0-9_]+', '_', relative[:-3]).strip('_')
             tests.append(dict(id=ident, suite='blargg', source=str(path), name=f'{group}/{relative}',
-                              protocol='oam_bug' if group.startswith('oam_bug') else 'blargg',
+                              protocol='blargg',
                               frames=10800, sha256=sha256(path), not_applicable=reason))
     return tests
 
@@ -108,7 +108,7 @@ def judge(protocol: str, raw: bytes, state: dict | None) -> tuple[str, str]:
             return 'failed', '0x42 six times'
         return 'incomplete', 'no verdict before the frame limit' + (f' (BCDEHL = {registers.hex()})' if registers else '')
     text = serial_text(raw)
-    if protocol == 'oam_bug' and state:
+    if state:
         eram = state.get('eram_a000_a0ff') or []
         if len(eram) > 3 and eram[1:4] == [0xDE, 0xB0, 0x61]:
             if eram[0] == 0:
@@ -169,9 +169,10 @@ def run_one(test: dict, work: Path, differential: bool) -> dict:
         folder = Path(scratch) / 'run'
         state_file = Path(scratch) / 'state.json'
         raw, state, verdict, evidence = b'', None, 'incomplete', ''
-        # The stop options of the runtime do not end a Mooneye run at its sentinel: the frame limit grows until the verdict shows.
-        steps = (60, 150, 300, 600, 1200)
-        limits = [*(limit for limit in steps if limit < test['frames']), test['frames']] if test['protocol'] == 'mooneye' else [test['frames']]
+        # The stop options of the runtime do not end a Mooneye run at its sentinel, and a blargg test that reports in memory does not print: the
+        # frame limit grows until a verdict shows, so that the lock-step comparison below covers no more frames than the test needed.
+        steps = (60, 150, 300, 600, 1200) if test['protocol'] == 'mooneye' else (150, 300, 600, 1200, 2400, 4800)
+        limits = [*(limit for limit in steps if limit < test['frames']), test['frames']]
         for limit in limits:
             flags = ['--limit-frames', str(limit), '--serial-stdout', '--dump-state', str(state_file)]
             if test['protocol'] != 'mooneye':

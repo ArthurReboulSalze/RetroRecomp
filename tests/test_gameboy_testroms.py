@@ -37,12 +37,12 @@ class BlarggVerdictTests(unittest.TestCase):
         raw = b'[GBRT] Passed through\nFrame limit: 10\n'
         self.assertEqual(testroms.judge('blargg', raw, None)[0], 'incomplete')
 
-    def test_oam_bug_reads_the_memory_verdict(self):
+    def test_the_newer_roms_report_in_memory(self):
         state = {'eram_a000_a0ff': [0, 0xDE, 0xB0, 0x61]}
-        self.assertEqual(testroms.judge('oam_bug', b'', state)[0], 'passed')
-        self.assertEqual(testroms.judge('oam_bug', b'', {'eram_a000_a0ff': [1, 0xDE, 0xB0, 0x61]})[0], 'failed')
-        self.assertEqual(testroms.judge('oam_bug', b'', {'eram_a000_a0ff': [0x80, 0xDE, 0xB0, 0x61]})[0], 'incomplete')
-        self.assertEqual(testroms.judge('oam_bug', b'', {'eram_a000_a0ff': [0, 0, 0, 0]})[0], 'incomplete')
+        self.assertEqual(testroms.judge('blargg', b'', state)[0], 'passed')
+        self.assertEqual(testroms.judge('blargg', b'', {'eram_a000_a0ff': [1, 0xDE, 0xB0, 0x61]})[0], 'failed')
+        self.assertEqual(testroms.judge('blargg', b'', {'eram_a000_a0ff': [0x80, 0xDE, 0xB0, 0x61]})[0], 'incomplete')
+        self.assertEqual(testroms.judge('blargg', b'', {'eram_a000_a0ff': [0, 0, 0, 0]})[0], 'incomplete')
 
 
 class ApplicabilityTests(unittest.TestCase):
