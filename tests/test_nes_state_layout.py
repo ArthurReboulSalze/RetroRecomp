@@ -131,6 +131,10 @@ class StateKeyTests(unittest.TestCase):
             rows = state_audit(lambda name: (root / name).read_text(encoding='utf-8'))
             written_code = ''.join((machine / name).read_text() for name in
                                    ('nes_state_main.inc', 'nes_state_apu.inc', 'nes_state_vrc7.inc'))
+
+        def writer_of(struct):
+            body = written_code[written_code.index(f'rr_ser_{struct}('):]
+            return body[:body.index('return b;')]
         self.assertGreater(len(rows), 300)
         left_out = {(row['struct'], row['member']): row for row in rows if not row['written']}
         # Nothing is left out without a reason, and every reason in SKIPPED names exactly one member by its path:
@@ -143,7 +147,8 @@ class StateKeyTests(unittest.TestCase):
                 self.assertFalse(row['type'].endswith('*'), f'{row["struct"]}.{row["member"]} is a pointer')
                 if row['type'] in layout.FIXED_TYPES:
                     # The writer of a struct reaches its members by path; a struct-typed member goes through its own writer.
-                    self.assertIn(f's->{row["member"]}', written_code, f'{row["struct"]}.{row["member"]}')
+                    # prg and chr also name members of Mmc5State, HwNamco, HwJaleco and HwFme7: only the writer of this struct counts.
+                    self.assertIn(f's->{row["member"]}', writer_of(row['struct']), f'{row["struct"]}.{row["member"]}')
 
 
 class AuthoredPrgCartridgeTests(unittest.TestCase):

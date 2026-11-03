@@ -300,6 +300,12 @@ the conversion is refused with the 1.6.6 source and the check passes at two save
 Mega Man 2) F9 was already identical at three save points with the old writer: they write their bank register again within the
 first frame, so how much a played game suffered is not measured; it depends on how soon the game writes the register again.
 
+Why Esper Dream 2 passed the 1.6.6 campaign is not proven. The probable cause: the state check (commit `0ff2b27`) entered the tree on
+1 November 2026 at 14:25, while the 1.6.6 campaign ran for 1 h 44 min and its proof commit is at 15:33, so the campaign probably began
+before the check existed or while it was being written, in the same checkout, and Esper was converted without it. The same 1.6.6 source
+with the same options refuses the game today, and no non-determinism was found in the check. The reports of the 1.6.6 campaign were
+not read again: their folder (`.build/campaign-1.6.6`) no longer exists.
+
 ## NES: the Zapper catalogue holds no database (1.6.7)
 
 *The NES game stamp moves (`nes_catalog.py` is one of its inputs); exports are rebuilt from their learned paths. Which game gets

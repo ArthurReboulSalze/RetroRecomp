@@ -72,7 +72,7 @@ def main() -> int:
     env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', PYINSTALLER_SUPPRESS_SPLASH_SCREEN='1')
     lines = ['# NES play test: games ready for the owner', '',
              f'Prepared {time.strftime("%Y-%m-%d %H:%M")} by `tools/nes_owner_trial.py` from this checkout. The games are in',
-             f'`{out}`. The verdict and the notes are yours.', '',
+             f'`{out}`. They are converted with the options of a player (the packed copy, the shared base, online covers). The verdict and the notes are yours.', '',
              'The pictures in `captures/<game>/play_right_03599.png` are where a scripted run of 3,600 frames ended: a game may still be on '
              'its title or an introduction there. They only say that the game starts and draws.', CHECKLIST, '',
              '| Game | Executable | Why it is here | What to try | Verdict |', '|---|---|---|---|---|']
@@ -83,7 +83,7 @@ def main() -> int:
             print(f'{key}: no ROM starting with {start!r} in {args.roms}', flush=True)
             continue
         game_out = out / 'Games'
-        command = [sys.executable, '-B', 'RetroRecomp.py', 'batch', str(rom), '--system', 'nes', '--jobs', '1', '--no-shared-base', '--no-compress', '--output', str(game_out)]
+        command = [sys.executable, '-B', 'RetroRecomp.py', 'batch', str(rom), '--system', 'nes', '--jobs', '1', '--output', str(game_out)]
         before = set((game_out / 'Nintendo NES').glob('*.exe'))
         print(f'{key}: converting {rom.name} ...', flush=True)
         with (out / f'{key}.log').open('wb') as log:
