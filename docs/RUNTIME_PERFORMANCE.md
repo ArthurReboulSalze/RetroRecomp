@@ -1,5 +1,42 @@
 # Runtime performance without changing the output
 
+## Measured on 3 November 2026 — 1.6.6 against 1.6.7
+
+Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC, best of three, A and B interleaved. A is the 1.6.6
+executable built for the previous comparison. B is the same cartridge converted by the 1.6.7 tree, an empty library, no shared
+base. The 1.6.7 Windows games are packed with LZMA, which makes the start longer. So each pair was also run for two frames,
+best of five, and that time was taken out: per frame = (time for N frames - time for 2 frames) / (N - 2).
+
+| Machine | Game | Frames | Whole process 1.6.6 / 1.6.7 | Start (2 frames) 1.6.6 / 1.6.7 | Per frame 1.6.6 | Per frame 1.6.7 | 1.6.7 / 1.6.6 |
+|---|---|---|---|---|---|---|---|
+| NES | Metroid | 2,400 | 2.25 / 2.33 ms | 57 / 155 ms | 2.23 ms | 2.27 ms | 1.02 |
+| NES (PAL) | Mr. Gimmick | 2,400 | 6.46 / 6.51 ms | 78 / 219 ms | 6.43 ms | 6.42 ms | 1.00 |
+| Super Nintendo | Secret of Mana | 2,400 | 5.76 / 6.04 ms | 95 / 220 ms | 5.72 ms | 5.95 ms | **1.04** |
+| Game Boy | Super Mario Land | 2,400 | 0.54 / 0.56 ms | 42 / 93 ms | 0.52 ms | 0.52 ms | 1.00 |
+| Neo Geo | Puzzle De Pon! R | 7,200 | 1.45 / 1.47 ms | 137 / 178 ms | 1.43 ms | 1.45 ms | 1.01 |
+| Sharp X68000 | R-Type | 4,000 | 0.62 / 0.68 ms | 105 / 237 ms | 0.59 ms | 0.62 ms | **1.05** |
+| Mega Drive | Sonic The Hedgehog | 2,400 | 2.50 / 2.53 ms | not measured | — | — | 1.01 (start included) |
+| Master System | Sonic The Hedgehog | 2,400 | 0.18 / 0.20 ms | 46 / 109 ms | 0.156 ms | 0.157 ms | 1.01 |
+| Game Gear | Sonic The Hedgehog | 2,400 | 0.17 / 0.20 ms | 46 / 110 ms | 0.153 ms | 0.153 ms | 1.00 |
+
+Most of the difference in the whole-process figures comes from the start, which LZMA makes 41 to 140 ms longer here. This matches
+the start-up table of the LZMA section in [UPGRADES.md](UPGRADES.md).
+
+Once the start is taken out, two games are slower than the noise of the method, which is 1 to 2 % here:
+
+- Secret of Mana is 4 % slower, +0.23 ms per frame.
+- R-Type is 5 % slower, +0.03 ms per frame.
+
+The Super Nintendo declared 1.6.7 changes on its hot path without timing them. They are the emulation-flag tests in `RTI`, `TCS`,
+`TXS`, the page-crossing branch and indexed direct-page addressing. Others are the image-size comparison in `cart_getRomPtr` on the
+HiROM path (Secret of Mana is HiROM) and the direct call for RAM code. The X68000 change that costs the time is not identified yet.
+Both are looked into for 1.6.8. A speed-up ships only with identical outputs.
+
+Sonic (Mega Drive) has no start figure. Windows Defender quarantined the temporary copy of the **1.6.6** executable during the two-frame
+run (`Program:Win32/Contebrew.A!ml`, a false positive, the same name as in earlier runs). Its whole-process difference (+84 ms over
+2,400 frames) is the size of its LZMA start in the UPGRADES table (+82 ms). These are host costs on the measured routes, not gameplay
+qualification, hardware fidelity or latency. Results: `.build/release-1.6.7/bench_results.json` and `bench_startup.json`, kept locally.
+
 ## Measured on 1 November 2026 — 1.6.5 against 1.6.6
 
 Same method as the 1.6.4 / 1.6.5 comparison below (one pinned core, best of three, interleaved, whole process divided by

@@ -128,7 +128,19 @@
   report. None of the build changes (reproducible link, manifest) has a shown
   effect on Defender.
 
-**Speed.** [mesure de coût par image 1.6.7 contre 1.6.6 à venir]
+**Speed.** Host time per frame of 1.6.7 against 1.6.6 on a quiet PC (one
+pinned core of a Ryzen 9 3900X, best of three, the same cartridge converted by
+each, the start of the process measured apart and taken out): Mr. Gimmick (PAL),
+Super Mario Land and Sonic (Game Gear) 1.00, Sonic (Master System) and Puzzle De
+Pon! R 1.01, Metroid 1.02, **Secret of Mana 1.04 (+0.23 ms per frame) and R-Type
+(X68000) 1.05 (+0.03 ms per frame)**. These two are small regressions beyond the
+noise of the method. The Super Nintendo and X68000 corrections of this release
+added tests on their hot paths. They are being looked into for the next
+release. Sonic (Mega Drive) is 1.01 with its start included; its start was not
+measured apart, because Windows Defender quarantined the 1.6.6 copy during that
+run (`Program:Win32/Contebrew.A!ml`, a false positive). LZMA makes each start
+41 to 140 ms longer on these games. Details in
+[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md).
 
 These are native-code and CPU-fidelity changes, independent evidence, evidence
 about the delivered file, and a size and packaging change; none of them is a
