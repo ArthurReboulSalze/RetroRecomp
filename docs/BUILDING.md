@@ -187,7 +187,9 @@ NRV method, `packing.LINUX_METHOD`): about 14 % smaller than NRV on average and 
 decompresses a little longer (`python -B tools/startup_cost.py` measures both; it needs a quiet PC). The report's
 `packing.method` says `lzma` or `nrv`. (2) The portable linker writes 0 instead of the link time in the PE header
 (`-Wl,--no-insert-timestamp`, `toolchain.LLVM_LINKER_FLAGS`), so the same game built twice, in any folder, is byte for byte
-the same file. (3) Every Windows game carries an application manifest (`metadata.MANIFEST_XML`, resource 1 of type 24, in the
+the same file; the static SDL2 is built with `-ffile-prefix-map` so that its source folder is written `SDL` in the library (three
+SDL files keep their name for assertions), and the install carries a key (`retro-recomp-sdl.txt`: revision, build flags, toolchain) so that an
+SDL built another way is rebuilt once, never kept silently. (3) Every Windows game carries an application manifest (`metadata.MANIFEST_XML`, resource 1 of type 24, in the
 resource script): it runs as the user who starts it, names Windows 7 to 11, and states the per-monitor DPI awareness the
 host already asks SDL for at start (`SDL_HINT_WINDOWS_DPI_AWARENESS` "permonitorv2"), nothing else. Whether any of this
 changes what an antivirus says about a game is not demonstrated. When UPX fails on a Windows game with a sign of an

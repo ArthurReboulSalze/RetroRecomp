@@ -256,15 +256,22 @@ timestamp or the manifest changes what Defender says about a file.
   `tools/startup_cost.py start` measures it (not measured yet, an estimate of +80 to +280 ms per game; the owner decides on
   the measurement).
 - **A reproducible link.** The portable linker is given `-Wl,--no-insert-timestamp` (`toolchain.LLVM_LINKER_FLAGS`): the PE
-  header carries 0 instead of the link time. Two conversions of Super Mario Land of the same commit in two different trees
-  (`tools/ab_conversion.py --a HEAD --b HEAD`, folders `a` and `b`, both with an empty library and no cover) give the same
-  unpacked build (5,135,872 bytes, SHA-256 `c233ba38...`) and the same packed game (1,158,144 bytes, `83b49fcc...`). What still
-  varies from one player to another, and what is not done here: the three SDL renderer sources (`SDL_render_gl.c`,
-  `SDL_render_gles2.c`, `SDL_render_sw.c`) keep their build-time path in assertion strings, so two players whose
-  `.deps/SDL` sits in different folders get different bytes; the repair is `-ffile-prefix-map=<SDL source folder>=SDL` at the
-  SDL configure in `core.py` plus a rebuild of every existing SDL install, which moves the game stamps (SDL is linked into every
-  game) and was left to a decision. The title, the cover and the player's options change the binary too (that is a different
-  game, not a variation).
+  header carries 0 instead of the link time. The static SDL2 is configured with `-ffile-prefix-map=<its source folder>=SDL`
+  (`core.sdl_compiler_flags`; quoted when the path has a space; not for the Visual Studio fallback, whose `cl.exe` has no such
+  option): without it three SDL files (`SDL_render_gl.c`, `SDL_render_gles2.c`, `SDL_render_sw.c`) kept `<player's folder>/.deps/SDL/src/...`
+  in the game as assertion strings, so two players got different bytes. **An SDL installed by 1.6.6 or before is built again
+  once**: the install now carries a key (`retro-recomp-sdl.txt` beside the library: SDL revision, `SDL_BUILD_FLAGS`, toolchain);
+  `core.ensure_sdl` rebuilds from a clean build folder when the key is missing or different, removes the key first (a build
+  that stops half-way is tried again next time and the conversion that met the failure stops, an old SDL is never used silently),
+  writes it last, and `dependencies_ready` (the window's setup check) reports an unkeyed install as not ready. Measured proof:
+  two detached trees of the same commit, each with its **own SDL clone in a different folder** (`.build/u2/a/.deps/SDL` and
+  `.build/u2/folder with space/bb/.deps/SDL`; the second started from a copied 1.6.6 install, the first from none), empty
+  libraries, no cover: the same unpacked Super Mario Land (5,135,360 bytes, SHA-256 `56bf344c...`) and the same packed game
+  (1,157,632 bytes, `7f55e43c...`), `packed_reference_match` true on 4 routes in both. The binary holds no folder of the machine
+  (no `K:`, `Users`, `.deps`, `.build`, `worktrees`): SDL's three names read `SDL\src\render\...`. What still varies: nothing found;
+  the strings `/home/runner/work/llvm-mingw/...` of the pinned llvm-mingw runtime are the same for every player of the pinned
+  toolchain. The title, the cover and the player's options change the binary too (that is a different game, not a variation).
+  Building SDL again took 153 s on this PC with two builds running at once (the first conversion after the update).
 - **An application manifest.** Every Windows game carries resource 1 of type RT_MANIFEST, written inline in the resource script
   (`metadata.MANIFEST_XML`): `asInvoker`, `supportedOS` for Windows 7 to 11, and the DPI awareness the host already asks SDL for
   at start (`rrhk_main.c`: `SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"`; `dpiAware true/pm` and `dpiAwareness
@@ -301,12 +308,15 @@ decompression of a game on this PC; the real start is measured by `tools/startup
 this tree: the packed game is 1,158,144 bytes (the 1.6.7 call-filter build was 1,367,552 with NRV) and its packed copy replayed
 on 4 routes against the reference and matched (`packed_reference_match` true); `packing.method` reads `lzma`.
 
-Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): the **build stamp of every
-console moves** (`toolchain.py` and `packing.py` are build inputs) and the **host stamp of every console moves**
-(`metadata.py`, which writes the resource script, is a host input); no game stamp moves. No file is added to the stamps
-(`tools/startup_cost.py` and its test are public tools outside them). An export packed or built before this change is
-upgraded from its paths like any host or build change, and is smaller and carries the manifest once rebuilt. SDL is built once per
-player and is not rebuilt by this change.
+Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): **all three stamps of every
+console move**. The build stamp (`toolchain.py`, `packing.py`) and the host stamp (`metadata.py`, which writes the resource script) move
+because of the method, the link flag and the manifest. The **game stamp now moves too, because of `core.py`** (the SDL
+configuration and its key; `core.py` is a game input of every console): the main tree of 1.6.7 already moves every game stamp for other
+reasons, so this adds no reconversion, but it does mean a 1.6.6 export is never taken as current by this change alone. No file is
+added to the stamps (`tools/startup_cost.py` and the two tests are public files outside them). An export is rebuilt from its paths as
+for any such change, and is smaller and carries the manifest once rebuilt. For a player the one visible effect is the first
+conversion after the update: it builds SDL2 again (153 s here) before anything else. A developer who shares one `.deps/SDL`
+between several trees (junctions to the main checkout) rebuilds that shared install once, in the tree that converts first.
 
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
