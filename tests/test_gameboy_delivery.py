@@ -131,5 +131,24 @@ class StateRunTests(unittest.TestCase):
             self.assertEqual(seen, [(folder, False)])                      # gone when the run starts
 
 
+class ProbeStartTests(unittest.TestCase):
+    def test_every_probe_starts_from_an_empty_data_folder(self):
+        from retrorecomp import gameboy
+        with tempfile.TemporaryDirectory() as scratch:
+            build = Path(scratch)
+            (build / 'datas' / 'games' / 'x').mkdir(parents=True)
+            (build / 'datas' / 'games' / 'x' / 'x.sav').write_bytes(b'a save left by the probe before')
+            seen = []
+
+            def fake_run(command, **kwargs):
+                seen.append((kwargs['cwd'], (build / 'datas').exists()))
+                return ''                                                   # no frame-limit line: the probe stops here
+
+            with mock.patch('retrorecomp.gameboy.run', fake_run):
+                with self.assertRaises(ConversionError):
+                    gameboy._probe(build / 'game.exe', build, 5, build / 'x.trace')
+            self.assertEqual(seen, [(build, False)])
+
+
 if __name__ == '__main__':
     unittest.main()

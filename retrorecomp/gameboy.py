@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import time
 import zlib
 from typing import Callable
@@ -121,6 +122,9 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
 
 def _probe(executable: Path, build: Path, frames: int, trace: Path,
            scenario: ProbeScenario = ProbeScenario('boot'), frame_trace: Path | None = None) -> dict:
+    # A game with battery RAM writes its save beside the executable when it ends: the next probe of the same folder would start
+    # from it. Every probe starts from an empty data folder (the probes of one conversion run one after the other).
+    shutil.rmtree(executable.parent / 'datas', ignore_errors=True)
     trace.unlink(missing_ok=True)
     command = [executable, "--headless", "--limit-frames", str(frames),
                "--report-interpreter-hotspots", "--trace-entries", trace]
