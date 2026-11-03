@@ -1,3 +1,166 @@
+# RetroRecomp v1.6.7 — QSound boards join in a tier of their own, Star Ocean and ExHiROM Super Nintendo games convert, smaller reproducible Windows games, independent CPU evidence on more machines
+
+- **Games that did not convert and now do.** Each was investigated, its cause
+  found and fixed in the converter, and taken off the
+  [KNOWN_FAILURES.md](KNOWN_FAILURES.md) list. "Converts" means the conversion
+  and its checks against the reference pass, with the interpreter counts the
+  report shows; it says nothing about gameplay.
+  - Super Nintendo: Star Ocean (S-DD1, 6 MiB, both translations of the library):
+    the cartridge's RAM was served in banks that are the chip's ROM windows, so
+    the game read save RAM instead of its data; the S-DD1 board now has its own
+    clause, and S-DD1 cartridges may be up to 8 MiB. Dragon Quest III and Tales of
+    Phantasia (ExHiROM, 6 MiB, the English translations): the ExHiROM map is now
+    in the bus and the loader. Four cartridges whose header checksum was never
+    filled in (Power Drive Europe, Fireteam Rogue, Steven Seagal Is The Final
+    Option, Wile E Coyote's Revenge) are accepted when the rest of the header is
+    credible. All of them convert with the compressed copy equal to the
+    reference; only what their routes reach is claimed. The Japanese-translated
+    file of Tales of Phantasia has a header the converter cannot validate and
+    stays refused.
+  The other entries of that page stay open, with what was tried; it also lists,
+  for the first time, the games delivered unpacked (Choujin on Debian).
+- **The QSound boards.** The 18 sets that used them (Warriors of Fate, Cadillacs
+  and Dinosaurs, The Punisher, Saturday Night Slam Masters, Muscle Bomber and
+  their clones) are no longer refused with the reason `qsound`: they form the
+  CPS-1.5 tier. The tier is experimental.
+  They need your own QSound DSP ROM (`dl-1425.bin`, or the `qsound.zip`
+  that holds it) chosen in Options → Capcom CPS-1. The Z80 program is decrypted
+  (Kabuki; checked byte for byte against MAME 0.289 on six sets) and the DSP16 is
+  a high-level model after MAME's, not a run of the DSP16 program: the report
+  says so (`audio_model.dsp16`, `executed: false`). The five sets of the test
+  collection convert at the Standard level (5 of 5; 0 interpreted 68000 and Z80
+  instructions on both routes, the compressed copy replayed, a quick state
+  resumed in a fresh process), and against MAME 0.289 their pictures are
+  identical on all but one of the pictures compared (3,599 of 3,600) and their sound is within 0.003 to
+  0.011 dB (median level, each channel). That compares this port of the model
+  with MAME's, not with hardware. These sets say their tier in their reports and
+  stay out of the evidence behind the profile, which keeps its status; a CPS
+  Changer cartridge set stays refused.
+- **Super Nintendo.** Code that lives in RAM and that no scan has seen executing
+  (Secret of Mana's game logic, most sound drivers) no longer goes to the counted
+  interpreter: it runs through the compiled body of its opcode and is counted
+  apart, as `compiled_unobserved`, a third figure per CPU taken out of the
+  native count (the fallback is never folded into it). The independent 65816
+  and SPC700 vectors found five defects of the pinned cores, corrected in our
+  copy: the emulation-mode `RTI`, `TCS` and `TXS`, a taken branch that crosses a
+  page, the direct-page wrap, and the SPC700 `DIV`. Every conversion now
+  replays the compressed copy on every route against the fresh reference and
+  records the liveness of each route (a frozen `play` route is refused). A save
+  file the game cannot use is set aside as `<name>.unusable-N` (never deleted)
+  instead of being kept in place with saving silently off, with a short notice.
+  The cost of the RAM-code change per frame was not measured.
+- **Game Boy.** `EI` now enables interrupts one instruction later, as on the
+  console (the same rule in every path, with the `EI ; HALT` case checked); a
+  game waiting in `HALT` steps through the pixel transfer in longer steps, with
+  the wake-up on the same cycle; the unwired bits of the I/O registers read 1;
+  the comparison with the reference interpreter now covers the whole length of
+  every route from the extended level on; and the guarded helpers that take over
+  recognised routines of writable code are counted apart. Against the 404,358
+  independent SM83 vectors that touch plain memory, 402,589 match. The public
+  test ROMs of blargg and Mooneye run on the delivered files: of 152 applicable
+  DMG tests, 128 pass, 20 fail and 4 give no verdict (the failures are listed in
+  [KNOWN_FAILURES.md](KNOWN_FAILURES.md) with the probable causes, none
+  corrected here). A campaign of twelve games at the extended level converted
+  all twelve with no interpreter cycle on any final route; a Debian 13 PC gave
+  identical hashes on 15 of 15 routes of three games. Nothing here is a
+  gameplay measure beyond the routes run.
+- **NES.** The quick state of 1.6.5 and 1.6.6 left out the cartridge's PRG
+  register on the boards that keep their PRG bank in it (MMC1, MMC2 and MMC4,
+  the VRC boards, VRC6, Bandai, Sunsoft and a few others): after F9 it came back
+  as 0 until the game wrote it again, so a game that does not write it at once ran
+  on bank 0. Found on Esper Dream 2, whose delivered-file check now passes; how
+  much a played game suffered is not measured. Converting a game again with
+  1.6.7 corrects it. The Zapper catalogue no longer carries 122 CRCs taken from a
+  GPL-3 database: the same 19 games of the maintainer's library get the Zapper,
+  from the cartridge header or the exact title. A panel of ten games of other
+  mapper families converted at the thorough level (10 of 10), and the same hashes
+  came out on Windows and on a Debian 13 PC.
+- **Master System and Game Gear.** The acceptance of an interrupt by the banked
+  engine, including inside a repeating block instruction, is proved against the
+  reference CPU on 720 states (it was already right: the proof was missing). The
+  "functions" engine now replays the compressed copy (compared with the final
+  pass of the same build, since its `play` route has no fresh reference) and starts
+  from the documented reset state (`AF` and `SP` at `$FFFF`).
+- **Mega Drive.** The instruction rules found by the independent 68000 vectors
+  are applied: `RTR`, `NEGX` on a zero result, the clocks of the long `ADD`,
+  `SUB`, `AND`, `OR`, `EOR`, `ADDA` and `SUBA`, `CMPA.W`, `BCHG`, `BCLR` and `BSET`
+  by bit number, `Scc Dn`, `BTST Dn,#imm`, and `LINK A7` and `UNLK A7`. Of the
+  2,895 vectors 2,421 agree now (2,315 before); the rest are decimal arithmetic on
+  non-decimal digits and the layout of bus transactions. A game that runs one of
+  these instructions sees slightly different clocks, so frame-timed effects can
+  shift by them. Three games compared A/B and eleven in a campaign all convert
+  with 0 interpreted 68000 and Z80 instructions. The data-dependent rules add a
+  branch on `Scc Dn` and on the bit instructions by number: that cost is declared,
+  not measured.
+- **Neo Geo, Capcom CPS-1 and Sharp X68000: the 68000 reference.** Geolith's
+  Musashi is corrected on the points where the independent vectors and the
+  translated steps agree and Musashi did not: the flags of a divide overflow,
+  `DIVS` of `$80000000` by -1, `CHK`, `MOVE16` (a 68040 instruction, no longer
+  decoded as a 68000 one) and `LINK A7`; `UNLK A7` and `NEGX` on a zero result
+  now follow the vectors too. 2,873 of 2,895 vectors agree on the translated steps
+  and 2,889 on Musashi. On the games compared (NAM-1975, Puzzle De Pon!, 1941,
+  R-Type, Bubble Bobble) the pictures, sound and states are identical before and
+  after: no route ran a case that differs. The Neo Geo also records the liveness of
+  every route and refuses a game whose picture never changes.
+- **Sharp X68000 (experimental).** The palette's intensity bit now lifts red,
+  green and blue together, not green alone: colours move by at most 4 of 255 and,
+  on twelve pictures of Bubble Bobble, 97.03 % of the pixels equal MAME's
+  (93.55 % before). That compares one game's pictures with another emulator, not
+  with hardware. The report states that no universal zero-fallback claim is made. A
+  panel of 21 named games converts on Windows, and the owner's play
+  test of the 1.6.7 executables passed on 3 November 2026; the X68000 stays
+  experimental, and leaving that status remains the owner's explicit decision
+  once every gate is proved.
+- **Windows games, smaller and reproducible.** Windows games are compressed with
+  LZMA: 9 to 24 % smaller than the same games with UPX's default method, on the builds measured. The cost is a start
+  that decompresses a little longer: 48 to 282 ms on a usual start (the largest, a
+  43 MB game, +0.28 s) and up to about half a second on the first launch after a
+  conversion, where the antivirus scan dominates. LZMA is a size choice, not a
+  Defender measure; Linux keeps its method. UPX's call filter is kept when the
+  code leaves it no spare byte value (Super Mario Land 17 % smaller). The link
+  carries no timestamp and SDL is built with a path map, in an install folder
+  named after the build settings, so two players get the same bytes: **the first
+  conversion after the update builds SDL again (about two minutes)**. Every game
+  carries a standard application manifest. When UPX's output is removed by
+  Windows Defender, the same command is retried once; a second failure publishes
+  the game unpacked. A compressed copy that fails its replay twice while the
+  build passes every route is delivered unpacked too, with the reason in the
+  report. None of the build changes (reproducible link, manifest) has a shown
+  effect on Defender.
+
+**Speed.** [mesure de coût par image 1.6.7 contre 1.6.6 à venir]
+
+These are native-code and CPU-fidelity changes, independent evidence, evidence
+about the delivered file, and a size and packaging change; none of them is a
+measure of hardware fidelity, gameplay validation or physical latency, and the
+interpreter fallback is still counted and shown per CPU wherever it is used.
+
+**Your exports and quick states.** 1.6.7 moves the game, host and build stamps
+of every console, so every export of 1.6.6 is rebuilt once on its next
+conversion and comes out smaller; a game the shared base knows still starts from
+its qualified paths with the quick check. F8/F9 quick states written by 1.6.6
+are refused cleanly, with a message, on the Mega Drive, Super Nintendo, Neo Geo,
+CPS-1, NES and X68000, wherever the state's key moved (nothing is lost but that
+state); the Master System, Game Gear and Game Boy have no such key. Cartridge
+saves (battery SRAM, EEPROM, memory cards) are kept; a save the new export cannot
+use is set aside and never crashes or blocks the game. Exports older than 1.6.6
+are converted in full. The details and the evidence are in
+[UPGRADES.md](UPGRADES.md#exports-of-166-in-167).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.6.6 — Capcom CPS-1 is supported, SA-1 Super Nintendo games and the Wisdom Tree Game Boy cartridges convert, the delivered file is replayed on more machines
 
 - **Games that did not convert and now do.** Each was investigated, its cause
