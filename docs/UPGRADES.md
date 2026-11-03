@@ -395,6 +395,13 @@ on the four routes of each, 3,600 frames, the picture, the sound, the work RAM a
 the lockstep comparison takes the same number of steps. The RAM self-test (56,170 checks) asserts the counter of each helper kind; `tests/test_gameboy_helper_counts.py`,
 `tests/test_gameboy_halt_bound.py` and the coverage tests cover the rest. Fable reviews the HALT change and the EI change before they are merged.
 
+*A clean start for every probe.* The probes of a conversion ran one after the other in the folder of the build, and a cartridge with battery RAM writes its save beside the
+executable when it ends, so the second probe of such a game started from the save of the first (seen in the 12-game campaign: the `varied` route of Link's Awakening, run
+twice in the same folder, shows 179 pictures the first time and 184 the second; the 212 its probe reported has other causes that were not isolated). `_probe` (`gameboy.py`) now empties the `datas` folder of the build before each probe, as the state
+check already does for the delivered file. What moves: the Game Boy **game stamp** only (`gameboy.py` is an input), nothing in the exported game or the generated files; the
+probe figures of a battery cartridge (pictures and counters of the second and later probes in `conversion-report.json`) can differ slightly from an earlier conversion of the same
+game, for the better: they now describe a start from nothing.
+
 ## Game Boy: EI enables IME one instruction later (1.6.7)
 
 On the console IME is set after the instruction that follows `EI` (Pan Docs, "Interrupts"; `EI` then `DI` lets no interrupt in between). The pinned runtime
