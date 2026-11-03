@@ -894,6 +894,8 @@
     "System default": "系统默认",
     "` Max speed: %s": "` 最高速度：%s",
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  快进 | `  最高速度 | M  静音",
-    "RAM code: compiled, not observed": "RAM 代码：已编译，未观测"
+    "RAM code: compiled, not observed": "RAM 代码：已编译，未观测",
+    "Save unreadable: set aside": "存档无法读取：已另存",
+    "Save unreadable: saving is off": "存档无法读取：保存已关闭"
   }
 }

@@ -894,6 +894,8 @@
     "System default": "Systemstandard",
     "` Max speed: %s": "` Höchsttempo: %s",
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm",
-    "RAM code: compiled, not observed": "RAM-Code: kompiliert, nicht beobachtet"
+    "RAM code: compiled, not observed": "RAM-Code: kompiliert, nicht beobachtet",
+    "Save unreadable: set aside": "Spielstand unlesbar: beiseite gelegt",
+    "Save unreadable: saving is off": "Spielstand unlesbar: Speichern aus"
   }
 }

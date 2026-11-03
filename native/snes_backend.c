@@ -282,9 +282,9 @@ void rr16_report_details(FILE *file) {
     }
     fprintf(file,",\"coprocessor_commands\":%llu,\"coprocessor_failed_command\":%u",commands,
         cart->dsp1 ? dsp1_hle_failed_command(cart->dsp1) : 0);
-    fprintf(file,",\"sram_bytes\":%u,\"sram_battery\":%u,\"sram_mapping\":%u,\"sram_hash\":\"%016llx\"",
+    fprintf(file,",\"sram_bytes\":%u,\"sram_battery\":%u,\"sram_mapping\":%u,\"sram_hash\":\"%016llx\",\"save_set_aside\":%u",
         g_snes->cart->ramSize,RR_SN_BATTERY,g_snes->cart->type,
-        bytes_hash(g_snes->cart->ram,g_snes->cart->ramSize));
+        bytes_hash(g_snes->cart->ram,g_snes->cart->ramSize),rr_snes_battery_notice());
     fprintf(file, ",\"video_standard\":\"%s\",\"field_lines\":%u,\"ppu_pal\":%u,"
         "\"overscan_seen\":%u,\"interlace_seen\":%u,\"hires_seen\":%u,"
         "\"beam_line\":%u,\"beam_column\":%u,\"irq_latches\":%u,\"irq_overshot\":%u,"
@@ -379,6 +379,7 @@ size_t rr16_audio(int16_t *pcm, size_t capacity) {
 }
 void rr16_pause(bool paused) {}
 uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
+unsigned rr16_save_notice(void) { return rr_snes_battery_notice(); }
 bool rr16_cartridge_save(const wchar_t *path) {
     return g_snes && rr_snes_battery_open(g_snes->cart,RR_SN_BATTERY,path);
 }

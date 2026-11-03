@@ -220,6 +220,8 @@ static const char *const rr_translations[][5] = {
     {"Right: B | Middle: C | Enter: Start","Droit : B | Milieu : C | Entree : Start","Destro: B | Medio: C | Invio: Start","Der.: B | Medio: C | Intro: Start","Rechts: B | Mitte: C | Eingabe: Start"},
     {"Right: cursor | Middle/Enter: gun pause","Droit : curseur | Milieu/Entree : pause gun","Destro: cursore | Medio/Invio: pausa","Der.: cursor | Medio/Intro: pausa","Rechts: Cursor | Mitte/Eingabe: Pause"},
     {"S / pad Start: cartridge Start","S / Start manette : Start jeu","S / Start pad: Start del gioco","S / Start del mando: Start del juego","S / Pad-Start: Modul-Start"},
+    {"Save unreadable: saving is off","Sauvegarde illisible : desactivee","Salvataggio illeggibile: disattivato","Guardado ilegible: desactivado","Spielstand unlesbar: Speichern aus"},
+    {"Save unreadable: set aside","Sauvegarde illisible : mise de cote","Salvataggio illeggibile: messo da parte","Guardado ilegible: apartado","Spielstand unlesbar: beiseite gelegt"},
     {"Saving fallback hints...","Enregistrement des recours...","Salvataggio indizi fallback...","Guardando pistas de fallback...","Fallback-Hinweise speichern..."},
     {"Scanlines","Scanlines","Scanline","Lineas de barrido","Scanlines"},
     {"Select","Select","Select","Select","Select"},

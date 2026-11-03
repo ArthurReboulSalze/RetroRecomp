@@ -119,6 +119,14 @@ for `md` and `snes` through `delivery_evidence()` (the Mega Drive path and its l
 `play` route never changes the picture is refused. Report: `native_validation.packed_reference_match`, `packed_candidate_sha256`.
 `console16.py` is shared with the Mega Drive, the Neo Geo and the CPS-1: their game stamps move with this text.
 
+## Super Nintendo: a save file the game cannot use is set aside, never a reason not to start (1.6.7)
+
+A damaged `.rrsram`, or one made for another cartridge, was kept in place and the game ran without saving. It now follows the rule of
+the X68000: the file is moved to `<name>.unusable-N` (never deleted), the game starts with a blank RAM and saves a new file, and a
+short notice ("Save unreadable: set aside", five game languages) is shown once; if the file cannot be moved it is left alone, nothing
+is saved that session, and the notice says "saving is off". `native/snes_battery.c`, `rrhk_snes.c`, the runtime catalog (two phrases;
+every console's stamp moves with it) and the report key `save_set_aside`. Tested on the nine boards of `tools/snes_saves_check.py`.
+
 ## Tools that change no export (1.6.7)
 
 - `tools/snes_saves_check.py` (gate G7): cartridges written for the purpose, one per board, check the save file, its damaged forms,

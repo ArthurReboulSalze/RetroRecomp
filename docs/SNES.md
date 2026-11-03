@@ -193,7 +193,7 @@ Conversion options: the console tab of **Options** sets the scan level, passes a
 - **Cartridge saves:** battery RAM (LoROM/HiROM RAM, and Super FX types `$15` and `$1A`) is kept separately from quick states
   in `datas/saves/<game-slug>-<rom-sha12>.rrsram`, bound to the full ROM SHA-256, RAM size and mapping with a payload
   integrity hash. Reading creates no folder; writes are debounced, go through a temporary file and an atomic replacement,
-  and are flushed on a normal exit. A corrupt or foreign file is kept and never overwritten with blank RAM. Volatile
+  and are flushed on a normal exit. A corrupt or foreign file never stops the game (since 1.6.7): it is set aside, byte for byte, as `<name>.rrsram.unusable-N` (the first free N from 1 to 99), the game starts with a blank RAM, and a short notice says so in the five game languages; if it cannot be moved it is left untouched and nothing is saved that session (also told). Before 1.6.7 such a file was kept in place and the game ran without saving. Volatile
   cartridge RAM is not persisted. F8/F9 also capture cartridge RAM, so loading an older state restores older progress,
   which is then saved on exit. A conversion probe uses blank RAM and reads a player's save only from an explicit private `--cartridge-save` path.
 - **Compatibility across releases:** only the previous release's quick states keep loading
@@ -214,11 +214,10 @@ acceptance (G14: no decision recorded). The SA-1 and S-DD1 boards of 1.6.6 were 
 with a battery; the SA-1 has its own in `snes_sa1_selftest.py`) and checks, for each: the save file is written with its board
 code, size and whole RAM (the first and the last byte of the RAM included); a second process reads it back; a board without a
 battery writes nothing and starts blank; ten kinds of damaged file (a payload byte, the cartridge identity, the board code, the
-size, the version, the magic, a byte missing or added, an empty file) are refused with exit code 9 and left untouched; the
-valid file loads again afterwards; no temporary file is left; native equals the interpreted reference; the quick states
+size, the version, the magic, a byte missing or added, an empty file) are set aside byte for byte as `.unusable-N` while the game starts
+blank and saves a new file, and a file that cannot be set aside is left untouched; the valid file loads again afterwards; no temporary file is left; native equals the interpreted reference; the quick states
 restore in a fresh process. It proves the adapter and the file format on those boards, not a commercial cartridge's own
-save (Stunt Race FX and Yoshi's Island were not played to a save). A refused file means the game does not start: it never
-starts a blank game over a progress file it cannot read.
+save (Stunt Race FX and Yoshi's Island were not played to a save).
 
 The five measures, kept apart:
 
@@ -293,7 +292,7 @@ are never in the 65816 percentage.
 
 Panic Bomber W runs three times the SA-1 instructions of the other two; no host time was measured for any of them. The
 battery file of a real export is written by the first process and read back by the second (32,880 and 8,304 bytes for the
-first two, bound to the SA-1 board, the BW-RAM is part of the quick state), a damaged file is refused and left as it is.
+first two, bound to the SA-1 board, the BW-RAM is part of the quick state), a damaged file is set aside and the game starts blank.
 
 What the work found and changed (all in the staged copy, none in the pinned checkout, see [UPSTREAMS.md](UPSTREAMS.md)):
 
@@ -329,7 +328,7 @@ master clocks (1,422,555 against 1,424,427 expected over 40 frames), a message a
 with the flags cleared and each handler run once, BW-RAM written by each CPU and read by the other, the coprocessor caught
 up at every sync (behind by at most 48 master clocks when the S-CPU came to it, ahead by at most 12 and 14 after it in NTSC and PAL: measurements on this
 cartridge, not bounds), native equal to the interpreted reference, the BW-RAM saved across two processes (a
-damaged file or a file for another cartridge refused untouched) and a quick state restored in a fresh process.
+damaged file or a file for another cartridge set aside, the game starting blank) and a quick state restored in a fresh process.
 
 **S-DD1.** Street Fighter Alpha 2 (USA; map `$32`, type `$43`, 4 MiB, no RAM) is the reference board and converts with zero
 interpreted 65816 and SPC700 opcodes. The scan runs 57 and 78 decompression DMA sessions (126,368 and 169,376 bytes); the long

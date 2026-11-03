@@ -894,6 +894,8 @@
     "System default": "Predefinito di sistema",
     "` Max speed: %s": "` Velocità max: %s",
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Avanti veloce | `  Velocità max | M  Muto",
-    "RAM code: compiled, not observed": "Codice in RAM: compilato, non osservato"
+    "RAM code: compiled, not observed": "Codice in RAM: compilato, non osservato",
+    "Save unreadable: set aside": "Salvataggio illeggibile: messo da parte",
+    "Save unreadable: saving is off": "Salvataggio illeggibile: disattivato"
   }
 }

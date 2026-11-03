@@ -8,11 +8,12 @@ board the tool converts the cartridge, runs it natively and against the fully in
     back (counter 2), and the markers at both ends of the RAM survive;
   * a board with RAM and no battery writes no file at all, and its RAM starts blank at every boot;
   * a damaged file (payload byte, cartridge identity, board code, size, version, a missing or an extra byte, an empty file)
-    is refused with exit code 9 and left exactly as it was, and the valid file still loads afterwards;
+    never stops the game: it is set aside byte for byte as <name>.unusable-N, the game starts with a blank RAM, saves a new file
+    and says so in its report (`save_set_aside`); a file that cannot be set aside is left untouched and the command asking for
+    the save reports it (exit 9);
   * no half-written file (`*.tmp`) is left behind, and the quick states of the same board restore in a fresh process.
 This checks the adapter and the file format, not the behaviour of any commercial cartridge. The SA-1 board has its own
-fixture in `snes_sa1_selftest.py`. The refusal of a damaged file means the game does not start (it never starts a blank
-game over a progress file it cannot read): the check records that behaviour, it does not judge it.
+fixture in `snes_sa1_selftest.py`.
 """
 from __future__ import annotations
 import json
@@ -114,7 +115,8 @@ def battery_checks(board, exe, folder):
     raw = battery.read_bytes()
     assert raw[HEADER + 0x20] == 2 and raw[HEADER + size - 1] == 0x3c, 'the second process reads the first one back'
     assert one['sram_hash'] != two['sram_hash']
-    # Damaged files: refused with exit code 9, and left exactly as they were.
+    # Damaged files never stop the game: each is set aside as <name>.unusable-N, byte for byte, and the game starts with a blank
+    # RAM and saves a new file (counter 1). The report says so (save_set_aside).
     damages = {
         'payload byte': lambda b: b[:HEADER + 5] + bytes([b[HEADER + 5] ^ 1]) + b[HEADER + 6:],
         'last payload byte': lambda b: b[:-1] + bytes([b[-1] ^ 0x80]),
@@ -128,17 +130,38 @@ def battery_checks(board, exe, folder):
         'empty file': lambda b: b'',
     }
     for label, damage in damages.items():
+        for old in battery.parent.glob(battery.name + '.unusable-*'):
+            old.unlink()
         broken = damage(raw)
         battery.write_bytes(broken)
-        code, _ = boot(exe, battery, folder, 'refused')
-        assert code == 9 and battery.read_bytes() == broken, (label, code)
+        code, report = boot(exe, battery, folder, 'aside')
+        aside = battery.parent / (battery.name + '.unusable-1')
+        assert code == 0 and report['save_set_aside'] == 1, (label, code)
+        assert aside.read_bytes() == broken, (label, 'the unusable file is kept as it was')
+        fresh = battery.read_bytes()
+        assert len(fresh) == HEADER + size and fresh[HEADER + 0x20] == 1 and fresh[HEADER:HEADER + 2] == bytes((0xa5, 0x5a)), (
+            label, 'a blank start, and a new valid save')
+    for old in battery.parent.glob(battery.name + '.unusable-*'):
+        old.unlink()
     battery.write_bytes(raw)
     code, three = boot(exe, battery, folder, 'third')
-    assert code == 0 and battery.read_bytes()[HEADER + 0x20] == 3, 'the valid file still loads after the refusals'
+    assert code == 0 and three['save_set_aside'] == 0 and battery.read_bytes()[HEADER + 0x20] == 3, 'a valid file still loads'
+    # When the file cannot be set aside (all 99 names taken, the last one a folder), it is left alone and nothing is saved:
+    # the game is told so and the command that asked for the save reports it (exit 9).
+    broken = damages['payload byte'](raw)
+    battery.write_bytes(broken)
+    for n in range(1, 99):
+        (battery.parent / (battery.name + f'.unusable-{n}')).write_bytes(bytes([n]))
+    (battery.parent / (battery.name + '.unusable-99')).mkdir()
+    code, _ = boot(exe, battery, folder, 'cannot-aside')
+    assert code == 9 and battery.read_bytes() == broken, 'a file that cannot be set aside is never overwritten'
+    for old in battery.parent.glob(battery.name + '.unusable-*'):
+        old.rmdir() if old.is_dir() else old.unlink()
     leftovers = sorted(path.name for path in battery.parent.iterdir() if path.name != battery.name)
     assert not leftovers, leftovers
     return {'file_bytes': HEADER + size, 'board_code': CODES[board_code], 'counter_after_three_boots': 3,
-            'damaged_cases_refused': len(damages), 'leftover_files': leftovers}
+            'damaged_files_set_aside_and_game_started': len(damages), 'unmovable_file_left_untouched': True,
+            'leftover_files': leftovers}
 
 
 def ram_only_checks(board, exe, folder):
