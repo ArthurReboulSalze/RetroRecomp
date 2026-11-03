@@ -2,7 +2,7 @@
 
 Each of them is checked against the independent SingleStepTests/m68000 vectors (`tools/neogeo_vector_selftest.py`,
 `tools/cps1_vector_selftest.py`, `tools/x68000_vector_selftest.py`): the reference CPU of a conversion, the interpreter that
-runs the instructions the native code does not cover, then agrees with the vectors on these three points, and with the
+runs the instructions the native code does not cover, then agrees with the vectors on these points, and with the
 translated steps. They are applied to the text at conversion time, like every adaptation of a pinned engine: strict
 replacements that refuse a changed pin.
 The Mega Drive does not use this copy of Musashi. Its quick-state key does not hash it either.
@@ -31,6 +31,10 @@ MUSASHI_OPS_FIXES = (
     ('the CHK exception takes 2 clocks more below zero when the value is not above the bound and the comparison does not overflow',
      'USE_CYCLES(CYC_INSTRUCTION[REG_IR] - 10);',
      'USE_CYCLES(CYC_INSTRUCTION[REG_IR] - 10 + (src > bound || src - bound < -32768 ? 0 : 2));', 11),
+    # The vectors (MAME) push the value A7 had before the decrement, as the translated steps now do (m68000_state_rules).
+    ('LINK A7 pushes the stack pointer as it was before the decrement (Musashi pushed it after)',
+     'static void m68k_op_link_16_a7(void)\n{\n\tREG_A[7] -= 4;\n\tm68ki_write_32(REG_A[7], REG_A[7]);\n',
+     'static void m68k_op_link_16_a7(void)\n{\n\tunsigned pushed = REG_A[7];\n\tREG_A[7] -= 4;\n\tm68ki_write_32(REG_A[7], pushed);\n', 1),
     ('the opcodes F620 to F627 are Line-F exceptions on a 68000, not the 68040 MOVE16',
      'static void m68k_op_move16_32(void)\n{\n',
      'static void m68k_op_move16_32(void)\n{\n'

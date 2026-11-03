@@ -63,8 +63,9 @@ class GroupsReplayTests(unittest.TestCase):
         for name, counts in recorded.items():
             self.assertIn(name, sizes)
             self.assertTrue(all(0 < value <= sizes[name] for value in counts.values()), name)
-        # The groups the Mega Drive corrected in 1.6.7 and the X68000 has not: the same defective lines, listed so that they stay visible.
-        self.assertTrue({'LINK', 'UNLINK', 'NEGX.b'} <= set(recorded))
+        # LINK A7, UNLK A7 and NEGX.B were listed until the three machines took the Mega Drive's state rules (1.6.7): only the
+        # decimal instructions on operands that are not digits remain.
+        self.assertEqual(set(recorded), {'ABCD', 'NBCD', 'SBCD'})
 
     def test_a_group_that_agrees_with_the_vectors_and_is_not_listed_passes(self):
         self.assertEqual(selftest.group_problems({'groups': [self.group()]}, {}), [])

@@ -268,7 +268,7 @@ and 864 exception vectors, MIT, generated with MAME) are replayed through the CP
 `tools/cps1_vector_selftest.py`: the translated steps agree with every one of them on registers, SR, PC, written bytes and
 clocks, and since 3 November 2026 the Musashi reference agrees with them too (the converter corrects the pinned copy,
 `retrorecomp/musashi_fixes.py`). The numbers, the two authored trace vectors that neither path delivers and the limits are in
-[CPU_68000.md](CPU_68000.md#tests-and-vectors). **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
+[CPU_68000.md](CPU_68000.md#tests-and-vectors). The 2,895 vectors of `m68k-groups` were replayed too on 3 November 2026 (`python -B tools/cps1_vector_selftest.py m68k-groups`): all clocks equal the vectors'; the CPS-1 now applies the Mega Drive's state rules for `LINK A7`, `UNLK A7` and `NEGX` and Musashi pushes `A7` as it was for `LINK A7`, so the state agrees for 2,873 vectors natively and 2,889 on Musashi, and only the decimal instructions on operands that are not digits differ (`tests/fixtures/m68k-groups/deviations-cps1.json`); the gate's status is unchanged. **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
 Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The native
 and the interpreted path agree on every vector. The pinned core disagreed with the oracle on 899 vectors (flags, WZ, the port address of the
 block output instructions, a few undocumented opcodes): since 1.6.6 the converter carries its own corrections of its copy of the core

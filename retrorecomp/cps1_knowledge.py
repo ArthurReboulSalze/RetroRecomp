@@ -110,13 +110,18 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # divide overflow, DIVS of 0x80000000 by -1, the flags and clocks of CHK, line F on F620-F627). Only the interpreter (the fresh reference
 # and the counted fallback) changes, and only on those cases: the generated code, traces and pictures of 1941 are identical to revision 10
 # (tools/ab_conversion.py); the revision is raised because the pins cover the whole file. No CPS-1 path was qualified, so nothing is lost today.
-GENERATOR_REVISION = 11
+# 12: the translated 68000 steps take the Mega Drive's state rules for `LINK A7`, `UNLK A7` and `NEGX` (`m68000_state_rules`, applied by
+# `cps1_codegen` after `adapt_semantics`, 3 November 2026: the independent vectors of m68k-groups), and Musashi pushes A7 as it was for
+# `LINK A7`. The generated code changes only for those three instructions; the two modules that hold the rules are pinned with the generator.
+# On 1941 the traces and pictures are identical to revision 11 (A/B of 3 November 2026). No CPS-1 path was qualified, so nothing is lost today.
+GENERATOR_REVISION = 12
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',
                  'native/cps1_machine.c', 'native/cps1_machine.h', 'native/md_prefetch.inc')
 GENERATOR_SOURCES = ('retrorecomp/cps1_codegen.py', 'retrorecomp/cps1_build.py', 'retrorecomp/cps1_kabuki.py', 'retrorecomp/m68000.py',
-                     'retrorecomp/neogeo_codegen.py', 'retrorecomp/neogeo_z80.py', 'retrorecomp/megadrive_z80.py')
+                     'retrorecomp/neogeo_codegen.py', 'retrorecomp/neogeo_z80.py', 'retrorecomp/megadrive_z80.py',
+                     'retrorecomp/m68000_state_rules.py', 'retrorecomp/megadrive_rules.py')
 
 
 def text_digest(name: str, root: Path | None = None) -> str:

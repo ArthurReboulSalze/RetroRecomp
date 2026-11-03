@@ -502,7 +502,6 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_cart',
         'retrorecomp.megadrive_dma',
         'retrorecomp.megadrive_evidence',
-        'retrorecomp.megadrive_rules',
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
@@ -719,6 +718,14 @@ INPUTS = _resolve({
         'retrorecomp.cps1_kabuki',
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
+    ),
+    # The three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) that the Neo Geo, the CPS-1 and the X68000 take from the
+    # Mega Drive's rule text (one copy): the text is an input of the four, the module that applies it of the three. Game role.
+    ('cps1', 'md', 'ng', 'x68'): (
+        'retrorecomp.megadrive_rules',
+    ),
+    ('cps1', 'ng', 'x68'): (
+        'retrorecomp.m68000_state_rules',
     ),
     ('sms', 'gg'): (
         'native/video_checks.c',

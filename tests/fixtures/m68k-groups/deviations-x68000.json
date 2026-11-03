@@ -3,26 +3,14 @@
   "native_state": 2,
   "paths": 16
  },
- "LINK": {
-  "native_state": 6,
-  "reference_state": 6
- },
  "NBCD": {
   "native_state": 18,
   "paths": 18,
   "reference_state": 2
  },
- "NEGX.b": {
-  "native_state": 1,
-  "paths": 1
- },
  "SBCD": {
   "native_state": 2,
   "paths": 11,
   "reference_state": 4
- },
- "UNLINK": {
-  "native_state": 4,
-  "paths": 4
  }
 }

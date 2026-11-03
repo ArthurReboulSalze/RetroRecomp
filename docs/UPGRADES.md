@@ -144,9 +144,10 @@ once**, with no table entry, to carry the record. The host stamp does not move (
 
 ## Neo Geo, CPS-1 and X68000: the corrected Musashi (1.6.7)
 
-The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on five points
+The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on six points
 where the independent 68000 vectors and the translated steps agree and Musashi did not: the flags of a divide overflow, `DIVS` of `0x80000000` by
--1, the flags and clocks of `CHK`, and `F620`-`F627` (line F, not the 68040 `MOVE16`). Details and figures:
+-1, the flags and clocks of `CHK`, `F620`-`F627` (line F, not the 68040 `MOVE16`) and, added on 3 November 2026, `LINK A7` (it pushes the stack
+pointer as it was before the decrement, as the vectors do; see [the next section](#neo-geo-cps-1-and-x68000-link-a7-unlk-a7-and-negx-follow-the-vectors-167)). Details and figures:
 [NEOGEO_LOG.md](NEOGEO_LOG.md#the-corrected-musashi-shared-with-the-cps-1-and-the-x68000--3-november-2026).
 
 **What changes in a game.** Only the interpreter (the fresh reference and the counted fallback), and only when the program reaches one of those
@@ -159,6 +160,32 @@ consoles is converted in full once, with no table entry; the CPS-1 generator rev
 CPS-1 path was qualified, so no qualification is lost). The Mega Drive and the other consoles do not move. The **Neo Geo quick-state key moves
 too**: it hashes the fingerprint of `neogeo_build`, which now calls the correction, so a quick state written by an export of 1.6.6 is refused
 cleanly by the 1.6.7 export (no compatibility key from 1.6.5, [GAME_STATES.md](GAME_STATES.md)); the layout of the state is the same.
+
+## Neo Geo, CPS-1 and X68000: LINK A7, UNLK A7 and NEGX follow the vectors (1.6.7)
+
+The 2,895 vectors of `tests/fixtures/m68k-groups` (the fixture that made the Mega Drive correct three instructions in 1.6.7, [below](#mega-drive-instruction-rules-found-by-independent-vectors-167-in-development)) were replayed through the
+generators of the Neo Geo, the CPS-1 and the X68000: the same 33 native vectors differed on all three, because they translate the same pinned interpreter text.
+`LINK A7` (6) pushed the stack pointer after its decrement, on the translated steps and on Musashi; `UNLK A7` (4) ended with the increment of the stack
+pointer instead of the long it popped; `NEGX.B` with a zero result (1) cleared Z where it must stay as it was; the other 22 are the decimal instructions on
+operands that are not digits, which the manual leaves undefined. The three machines now apply the Mega Drive's rules for those three instructions
+(`retrorecomp/m68000_state_rules.py` reads the rule text of `megadrive_rules.py`, so there is one copy; each generator calls it right after `adapt_semantics`), and
+`musashi_fixes.py` makes Musashi push `A7` as it was for `LINK A7`. Both halves are needed: a step that followed the vectors while the reference did not
+would have made a game that runs `LINK A7` fail its own comparison. After the change the state agrees for 2,873 vectors natively and 2,889 on Musashi (2,862
+and 2,883 before), identically on the three machines, and every total of clocks equals the vector's; the 22 decimal vectors are recorded per machine
+(`tests/fixtures/m68k-groups/deviations-<machine>.json`) and each replay checks the list both ways.
+
+**What changes in a game.** Only a program that executes one of those three instructions with the case that was wrong (`LINK A7`, `UNLK A7`, `NEGX.B` with a zero
+result): the registers and the stack after it. A/B of 3 November 2026 (before: main `d53091b`; after: this tree; standard scan level, one conversion per process,
+private library): 1941 (CPS-1) 172 values of the checks compared, 0 differ; NAM-1975 (Neo Geo) 351, 2 differ, both the path of the build folder; R-Type and Bubble Bobble
+(X68000) 252 each, 0 differ; all with 0 interpreted opcodes on every route, the packed copy matching and the states resuming. The traces, pictures, sound hashes and states
+are the same: no route of these games ran a case where the corrected instructions give a different result. It shows that nothing else moved; it does not say that a game that does run one now
+behaves as the original machine, which the vectors (made with MAME) support and no game here exercised.
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (`m68000_state_rules` and `megadrive_rules` join their inputs; the generators and
+`musashi_fixes` changed): they were already moving in 1.6.7 with the corrected Musashi, so players are asked for no further reconversion. The CPS-1 generator
+revision goes from 11 to 12 (`cps1_knowledge.py`, with the two modules pinned; no CPS-1 path was qualified, so no qualification is lost). **The Mega Drive does not
+move**: `megadrive_rules.py`, `megadrive_codegen.py` and its profile are byte for byte what they were, and its stamp and generated code are unchanged (checked against main). The
+other consoles do not move.
 
 ## Lead: unpacked fallback of the packed replay (1.6.7)
 

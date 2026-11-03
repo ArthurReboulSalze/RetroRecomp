@@ -17,6 +17,7 @@ from .paths import ROOT, ASSETS
 from .core import run
 from .library import atomic_json
 from .m68000 import adapt_semantics, operation_bodies, mnemonic_names, instruction_literal
+from .m68000_state_rules import adapt_state_rules
 from .megadrive_codegen import write_changed
 from .neogeo_codegen import canonical_instruction, structural_key, structural_body, shared_registers, decoder_tool
 from .megadrive_z80 import opcode_key
@@ -71,7 +72,7 @@ def _semantics(project: Path):
     from .console16 import REPOSITORIES
     if run(['git', '-C', engine, 'rev-parse', 'HEAD']).strip() != REPOSITORIES['md'][1]:
         raise ValueError('MC68000 translation dependency differs from its qualified pin.')
-    source = adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'), hook_prefix=PREFIX)
+    source = adapt_state_rules(adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'), hook_prefix=PREFIX))
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]
     timing = source[source.index('static int interp_popcount16('):source.index('static void interp_account_cycles(')]
