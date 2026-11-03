@@ -11,9 +11,9 @@ still (identical in three captures or more) is then looked up among those of the
 
 What a match is: the two pictures have the same shape up to a one-to-one change of colours, after cutting each to the box of its
 non-black pixels (the two emulators place the same picture differently in their frames, and MAME shows a 256-line mode on 512
-rows, of which the even rows are the picture). Colours are NOT compared: the game's framebuffer is the pinned base's RGB565, MAME
-expands the palette's intensity bit onto the three channels, so the same palette entry comes out differently. Sound is not
-compared, nor is anything that moves. The match says the two machines draw the same layers in the same places at the same moments
+rows, of which the even rows are the picture). Colours are NOT compared by this tool (the match is up to a one-to-one change of colours;
+the game's colour word reaches the picture as MAME's does for the intensity bit since 1.6.7, but the screen contrast of the system port is
+applied by the base to the palette and by MAME at display, after the raw screen this tool reads). Sound is not compared, nor is anything that moves. The match says the two machines draw the same layers in the same places at the same moments
 of a boot; it says nothing of hardware fidelity (MAME is not hardware, and its x68000 driver is marked imperfect), of gameplay or of
 timing: a disk loads more slowly in MAME, so the pictures come at different frames, and the lag is reported, not corrected.
 

@@ -33,6 +33,7 @@
 #include "../fmgen/fmg_wrap.h"
 #include "../x68k/crtc.h"
 #include "hardware_clock.h"
+#include "colour.h"
 
 #ifdef _WIN32
 #define RR_SLASH "\\"
@@ -61,6 +62,10 @@ uint32_t retrow = 800, retroh = 600;
 static unsigned presented_width(void) { return retrow < RR_SCREEN_WIDTH ? retrow : RR_SCREEN_WIDTH; }
 static unsigned presented_height(void) { return retroh < RR_SCREEN_HEIGHT ? retroh : RR_SCREEN_HEIGHT; }
 uint16_t *videoBuffer = NULL;
+/* What video_cb receives: the machine's colour word widened to XRGB8888 (colour.h). */
+static uint32_t presented_frame[RR_SCREEN_WIDTH * RR_SCREEN_HEIGHT];
+static uint32_t colour_table[65536];
+static int colour_table_ready;
 
 retro_environment_t rr_glue_environ = NULL;
 static retro_video_refresh_t video_cb = NULL;
@@ -399,7 +404,7 @@ void retro_set_controller_port_device(unsigned port, unsigned device)
 void retro_init(void)
 {
    const char *directory = NULL;
-   enum retro_pixel_format format = RETRO_PIXEL_FORMAT_RGB565;
+   enum retro_pixel_format format = RETRO_PIXEL_FORMAT_XRGB8888;
    struct retro_log_callback logging;
 
    rr_glue_system_conf[0] = 0;
@@ -540,6 +545,37 @@ static void deliver_audio(void)
    audio_batch_cb(soundbuf, (size_t)pairs);
 }
 
+/* The machine's picture in the colours the player receives, the first `height` rows of `width` pixels. */
+static const void *convert_frame(unsigned width, unsigned height)
+{
+   unsigned x, y;
+   if (!colour_table_ready) {
+      rr_x68k_colour_table(colour_table);
+      colour_table_ready = 1;
+   }
+   if (videoBuffer) {
+      for (y = 0; y < height; ++y) {
+         const uint16_t *in = videoBuffer + (size_t)y * RR_SCREEN_WIDTH;
+         uint32_t *out = presented_frame + (size_t)y * RR_SCREEN_WIDTH;
+         for (x = 0; x < width; ++x)
+            out[x] = colour_table[in[x]];
+      }
+   }
+   return presented_frame;
+}
+
+/* The whole working buffer, for the host to redraw the picture after it has loaded a saved state (the buffer is part of the state). */
+const void *rr_glue_converted_frame(void)
+{
+   return convert_frame(RR_SCREEN_WIDTH, RR_SCREEN_HEIGHT);
+}
+
+static void present_frame(void)
+{
+   const unsigned width = presented_width(), height = presented_height();
+   video_cb(convert_frame(width, height), width, height, RR_SCREEN_WIDTH * sizeof(uint32_t));
+}
+
 void retro_run(void)
 {
    if (rr_glue_firstcall) {
@@ -572,7 +608,7 @@ void retro_run(void)
    rr_glue_mouse_frame();
    rr_glue_keyboard_frame();
    deliver_audio();
-   video_cb(videoBuffer, presented_width(), presented_height(), RR_SCREEN_WIDTH * 2);
+   present_frame();
 }
 
 void *retro_get_memory_data(unsigned id)

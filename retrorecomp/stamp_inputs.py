@@ -631,6 +631,7 @@ INPUTS = _resolve({
         'native/x68000_machine/base74/x11/windraw.h',
         'native/x68000_machine/base74/x11/winui.h',
         'native/x68000_machine/base74/x11/winx68k.h',
+        'native/x68000_machine/colour.h',
         'native/x68000_machine/glue.h',
         'native/x68000_machine/glue_line.h',
         'native/x68000_machine/input.c',
