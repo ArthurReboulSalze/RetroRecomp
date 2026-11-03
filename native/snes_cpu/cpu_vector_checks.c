@@ -12,6 +12,10 @@
  *     cycles; the core makes no bus access for them, so only cycles with a value are compared, and in order.
  * MVN and MVP move one byte per execution in the core and the whole block in the corpus: the core runs until the
  * instruction is left, the cycles of all the executions are added up.
+ * Emulation-mode cases: the corpus starts some from states the processor cannot hold (a stack pointer outside page 1, 16-bit index
+ * registers, M and X clear). The harness loads them as the processor would hold them: stack pointer = $0100 | (s & $FF), X and Y
+ * limited to 8 bits, M and X set. The expected registers after the instruction are NOT normalized, so a core that mishandles the
+ * page-1 stack is still found. This choice is documented in docs/CPU_65816_SPC700.md.
  * This is independent evidence for the instruction semantics and the order of the bus accesses; it is not hardware proof.
  *
  * Output: one JSON line of counts; a line "FAIL <index> <compiled?> <class 1-3>" per case that differs; and a line
