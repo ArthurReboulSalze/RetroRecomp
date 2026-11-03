@@ -32,7 +32,7 @@ static uint32_t raster[RR16_WIDTH * RR16_HEIGHT];
 static unsigned visible_width=256, raster_height=224, row_density=1, captured_rows;
 static bool field_hires;
 static bool retained_hires[2];
-static uint64_t interpreted, native_entries;
+static uint64_t interpreted, native_entries, compiled_unobserved;
 static double audio_fraction;
 static bool headless_mode;
 static bool overscan_seen, interlace_seen, hires_seen;
@@ -77,6 +77,9 @@ void RtlApuLock(void) {}
 void RtlApuUnlock(void) {}
 void rr16_snes_note_interpreted(uint32_t pc) { ++interpreted; }
 void rr16_snes_note_native(void) { ++native_entries; }
+/* RAM code run through the compiled body of its live opcode at an address no run had seen executing. It is also counted
+ * by note_native (every compiled body is): the report keeps native_entries as the total, and says how many of them these are. */
+void rr16_snes_note_compiled_unobserved(void) { ++compiled_unobserved; }
 void rr16_snes_observe_fallback(uint32_t pc) {
     uint8_t bytes[4];
     if (!rr_snes_read_ram_code(pc, bytes)) return;
@@ -158,7 +161,7 @@ void rr16_reset(void) {
     cpu_state_init(&g_cpu, g_ram);
     RtlReset(1); start_audio_timeline(); rr16_gun_reset(); audio_fraction = 0;
     pcm_samples = pcm_nonzero = pcm_peak = 0; pcm_hash = 14695981039346656037ull;
-    interpreted = native_entries = 0; ram_variant_count = 0;
+    interpreted = native_entries = compiled_unobserved = 0; ram_variant_count = 0;
     ram_observation_overflows=0;memset(ram_observation_slots,0,sizeof ram_observation_slots);
     overscan_seen = interlace_seen = hires_seen = false;
     visible_frames = 0;
@@ -222,7 +225,10 @@ static uint64_t chip_interpreted(void) {
  * and reported on their own line so they can neither hide nor swamp these. */
 uint64_t rr16_interpreted(void) { return interpreted; }
 uint64_t rr16_device_interpreted(void) { return chip_interpreted(); }
+/* Every compiled body, whether its position was observed or not: the unobserved ones are `compiled_unobserved` of them. */
 uint64_t rr16_native_entries(void) { return native_entries; }
+uint64_t rr16_compiled_unobserved(void) { return compiled_unobserved; }
+uint64_t rr16_audio_compiled_unobserved(void) { return rr_spc_compiled_unobserved_opcodes(); }
 uint64_t rr16_audio_interpreted(void) { return rr_spc_interpreted_opcodes(); }
 const char *rr16_audio_cpu(void) {
     return rr_spc_interpreted_opcodes() ? (rr_spc_native_opcodes() ? "hybrid" : "interpreted") :
@@ -255,11 +261,11 @@ void rr16_report_details(FILE *file) {
     if(cart->dsp1)for(unsigned n=0;n<256;n++)commands+=dsp1_command_count(cart->dsp1,n);
     fprintf(file,",\"cartridge_chip\":\"%s\",\"coprocessor_mode\":\"%s\","
         "\"coprocessor_state_hash\":\"%016llx\",\"coprocessor_instructions\":%llu,"
-        "\"coprocessor_failed\":%u,\"main_interpreted_opcodes\":%llu",
+        "\"coprocessor_failed\":%u,\"main_interpreted_opcodes\":%llu,\"compiled_unobserved_opcodes\":%llu",
         cart->cx4 ? "cx4" : cart->dsp1 ? "dsp1" : cart->superfx ? "superfx" : cart->sa1 ? "sa1" : cart->sdd1 ? "sdd1" : "none",
         cart->cx4 || cart->superfx || cart->sa1 ? "interpreted" : cart->dsp1 || cart->sdd1 ? "command_model" : "not_run",chip.hash,
         chip_interpreted(),cart->cx4 ? cx4_locked(cart->cx4) : cart->dsp1 ? dsp1_hle_failed(cart->dsp1) : 0,
-        interpreted);
+        interpreted,compiled_unobserved);
     if(cart->sa1)fprintf(file,",\"sa1_sync_samples\":%llu,\"sa1_behind_max\":%lld,\"sa1_synced_behind_max\":%lld,"
         "\"sa1_ahead_max\":%lld,\"sa1_behind_buckets\":[%llu,%llu,%llu,%llu,%llu]",
         (unsigned long long)sa1_sync_samples,(long long)sa1_behind_max,(long long)sa1_synced_behind_max,
@@ -276,9 +282,9 @@ void rr16_report_details(FILE *file) {
     }
     fprintf(file,",\"coprocessor_commands\":%llu,\"coprocessor_failed_command\":%u",commands,
         cart->dsp1 ? dsp1_hle_failed_command(cart->dsp1) : 0);
-    fprintf(file,",\"sram_bytes\":%u,\"sram_battery\":%u,\"sram_mapping\":%u,\"sram_hash\":\"%016llx\"",
+    fprintf(file,",\"sram_bytes\":%u,\"sram_battery\":%u,\"sram_mapping\":%u,\"sram_hash\":\"%016llx\",\"save_set_aside\":%u",
         g_snes->cart->ramSize,RR_SN_BATTERY,g_snes->cart->type,
-        bytes_hash(g_snes->cart->ram,g_snes->cart->ramSize));
+        bytes_hash(g_snes->cart->ram,g_snes->cart->ramSize),rr_snes_battery_notice());
     fprintf(file, ",\"video_standard\":\"%s\",\"field_lines\":%u,\"ppu_pal\":%u,"
         "\"overscan_seen\":%u,\"interlace_seen\":%u,\"hires_seen\":%u,"
         "\"beam_line\":%u,\"beam_column\":%u,\"irq_latches\":%u,\"irq_overshot\":%u,"
@@ -373,6 +379,7 @@ size_t rr16_audio(int16_t *pcm, size_t capacity) {
 }
 void rr16_pause(bool paused) {}
 uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
+unsigned rr16_save_notice(void) { return rr_snes_battery_notice(); }
 bool rr16_cartridge_save(const wchar_t *path) {
     return g_snes && rr_snes_battery_open(g_snes->cart,RR_SN_BATTERY,path);
 }

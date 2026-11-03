@@ -187,7 +187,9 @@ NOT_INPUTS = (
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
-    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c')
+    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
+    # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
+    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -546,6 +548,7 @@ INPUTS = _resolve({
         'retrorecomp.snes_chips',
         'retrorecomp.snes_codegen',
         'retrorecomp.snes_dma',
+        'retrorecomp.snes_evidence',
         'retrorecomp.snes_gsu',
         'retrorecomp.snes_knowledge',
         'retrorecomp.snes_ppu_bus',

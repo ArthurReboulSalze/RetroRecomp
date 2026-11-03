@@ -63,15 +63,40 @@ static void battery(Cart *cart,const wchar_t *root) {
     CHECK(rr_snes_battery_flush(cart,3000,false));CHECK(GetFileAttributesW(path)!=INVALID_FILE_ATTRIBUTES);
     uint8_t original[8400],changed[8400],again[8400];unsigned n=file_read(path,original,sizeof original);
     CHECK(n==112+8192);memset(ram,0,8192);CHECK(rr_snes_battery_open(cart,true,path));CHECK(ram[8191]==0x7b);
+    /* A damaged file never blocks the game and is never lost: it is set aside byte for byte and a new save starts beside it. */
+    wchar_t aside[32768+16];swprintf_s(aside,32768+16,L"%s.unusable-1",bad);
     for(unsigned off=0;off<n;off+=97){
+        DeleteFileW(bad);DeleteFileW(aside);
         memcpy(changed,original,n);changed[off]^=0x40;file_write(bad,changed,n);memset(ram,0x5a,8192);
-        CHECK(!rr_snes_battery_open(cart,true,bad));CHECK(ram[0]==0x5a && ram[8191]==0x5a);
+        CHECK(rr_snes_battery_open(cart,true,bad));CHECK(rr_snes_battery_notice()==1);CHECK(ram[0]==0x5a && ram[8191]==0x5a);
+        CHECK(GetFileAttributesW(bad)==INVALID_FILE_ATTRIBUTES);
+        CHECK(file_read(aside,again,sizeof again)==n);CHECK(!memcmp(changed,again,n));
         ram[0]=0xaa;CHECK(rr_snes_battery_flush(cart,9000,true));
-        CHECK(file_read(bad,again,sizeof again)==n);CHECK(!memcmp(changed,again,n));
+        CHECK(file_read(bad,again,sizeof again)==n);CHECK(again[112]==0xaa);
+        CHECK(file_read(aside,again,sizeof again)==n);CHECK(!memcmp(changed,again,n));
     }
-    file_write(bad,original,n-1);CHECK(!rr_snes_battery_open(cart,true,bad));
-    memcpy(changed,original,n);changed[n]=1;file_write(bad,changed,n+1);CHECK(!rr_snes_battery_open(cart,true,bad));
-    cart->type=CART_HIROM;CHECK(!rr_snes_battery_open(cart,true,path));cart->type=CART_LOROM;
+    DeleteFileW(bad);DeleteFileW(aside);
+    file_write(bad,original,n-1);CHECK(rr_snes_battery_open(cart,true,bad));CHECK(rr_snes_battery_notice()==1);
+    memcpy(changed,original,n);changed[n]=1;file_write(bad,changed,n+1);CHECK(rr_snes_battery_open(cart,true,bad));CHECK(rr_snes_battery_notice()==1);
+    /* All 99 names taken: nothing is replaced, the file stays where it is, nothing is saved this session (notice 2). */
+    DeleteFileW(bad);
+    for(unsigned k=1;k<=99;k++){
+        wchar_t taken[32768+16];swprintf_s(taken,32768+16,L"%s.unusable-%u",bad,k);
+        uint8_t mark[1]={(uint8_t)k};file_write(taken,mark,1);
+    }
+    memcpy(changed,original,n);changed[0]^=0x40;file_write(bad,changed,n);
+    CHECK(!rr_snes_battery_open(cart,true,bad));CHECK(rr_snes_battery_notice()==2);
+    CHECK(file_read(bad,again,sizeof again)==n);CHECK(!memcmp(changed,again,n));
+    for(unsigned k=1;k<=99;k++){
+        wchar_t taken[32768+16];swprintf_s(taken,32768+16,L"%s.unusable-%u",bad,k);
+        CHECK(file_read(taken,again,sizeof again)==1);CHECK(again[0]==(uint8_t)k);DeleteFileW(taken);
+    }
+    DeleteFileW(bad);
+    /* A good save of another mapping is a foreign file: set aside too (a copy here, the real save stays for the next check). */
+    file_write(bad,original,n);cart->type=CART_HIROM;
+    CHECK(rr_snes_battery_open(cart,true,bad));CHECK(rr_snes_battery_notice()==1);cart->type=CART_LOROM;
+    CHECK(file_read(aside,again,sizeof again)==n);CHECK(!memcmp(original,again,n));
+    DeleteFileW(bad);DeleteFileW(aside);
     CHECK(rr_snes_battery_open(cart,true,path));ram[0]=3;CHECK(rr_snes_battery_flush(cart,9000,true));
     CHECK(rr_snes_battery_open(cart,true,path));CHECK(ram[0]==3 && ram[8191]==0x7b);
     /* No battery means no output, even when RAM changes. */

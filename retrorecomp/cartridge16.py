@@ -129,8 +129,15 @@ def snes_header(data: bytes) -> tuple[int, str] | None:
                    and len(data)==1<<(10+data[offset+23])
                    and reset_offset<len(data) and data[reset_offset] in (0x18,0x78,0xc2,0xe2,0x4c,0x5c)
                    and sum(data)&0xffff==checksum)
+        # A header whose checksum was never filled in (the assembler's default $0000, with the complement $FFFF or also $0000:
+        # Power Drive, Fireteam Rogue and several prototypes). It cannot be told from damage by its checksum, so it must pass
+        # everything else: a regular map byte, a declared size no larger than the image, and a reset vector that points at
+        # a plausible first instruction of the image.
+        unset = (checksum == 0 and complement in (0, 0xffff) and regular
+                 and (1 << (10 + data[offset + 23])) <= len(data) and reset_offset < len(data)
+                 and data[reset_offset] in (0x18, 0x78, 0xc2, 0xe2, 0x4c, 0x5c))
         if (title and (regular or recovered)
-                and checksum ^ complement == 0xffff and checksum != 0
+                and ((checksum ^ complement == 0xffff and checksum != 0) or unset)
                 and vector >= 0x8000 and data[offset + 23] <= 13):
             matches.append((offset, mapping))
     return matches[0] if len(matches) == 1 else None

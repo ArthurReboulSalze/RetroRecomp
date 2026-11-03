@@ -18,7 +18,7 @@ Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-o
 |---|---|
 | Status | Supported (standard profile, DSP-1, CX4, Super FX since 1.5.4). Compatibility is per cartridge and per tested route, not a catalogue guarantee |
 | Files accepted | `.sfc`, `.smc`, `.fig` (the Pro Fighter copier: always a 512-byte header before whole 32 KiB blocks, any other size is refused), identifiable `.bin`/`.rom`, and a ZIP holding one cartridge. A 512-byte copier header is removed from the in-memory build input only; the ROM on disk is never changed. An image stored in a copier's interleaved order (its HiROM header at the LoROM position) is refused with its own message; the four `.fig` dumps of the maintainer's library are plain (checked at both header positions) and convert |
-| Board scope | LoROM or HiROM, up to 4 MiB (FastROM, RAM and battery variants included). A LoROM header whose mode byte is `$32` (the ExLoROM value of the S-DD1 boards) but whose chip type says no circuit (0, 1 or 2) is an ordinary LoROM cartridge and is accepted (Duel: Test Drive II, 1 MiB, converted on 29 October 2026 with zero interpreted 65816 and SPC700 opcodes after one learning pass). ExHiROM, larger images and unlisted circuits are refused before any build |
+| Board scope | LoROM or HiROM, up to 4 MiB (8 MiB for the S-DD1 boards and for ExHiROM, map `$25`/`$35` with no chip; FastROM, RAM and battery variants included). A LoROM header whose mode byte is `$32` (the ExLoROM value of the S-DD1 boards) but whose chip type says no circuit (0, 1 or 2) is an ordinary LoROM cartridge and is accepted (Duel: Test Drive II, 1 MiB, converted on 29 October 2026 with zero interpreted 65816 and SPC700 opcodes after one learning pass). Other larger images (a 6 MiB LoROM such as Wizardry VI) and unlisted circuits are refused before any build |
 | Region | PAL or NTSC from the header's region byte (0, 1, 13, 15 and 16 mean NTSC, anything else PAL), never from the file name; a stated standard that disagrees with the cartridge is refused |
 | Where games are written | `Games/Super Nintendo`, beside the converter (the profile's export folder) |
 | Firmware needed | None. The DSP-1 and CX4 models are firmware-free; no firmware file is read or shipped |
@@ -27,8 +27,8 @@ Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-o
 
 Refused with an explicit message: SPC7110, DSP-2/3/4 and other custom circuitry (`snes_chips.identify`), SA-1 headers other
 than map `$23` with type `$34` or `$35`, S-DD1 headers other than map `$32` with type `$43` or `$45`, extended mappings and
-images above 4 MiB (`supernintendo.validate_cartridge`: Star Ocean, 6 MiB, is refused because it converts and then stays on a
-blank screen, see [Known limits](#known-limits)), ordinary cartridge RAM above 128 KiB, and DSP-1 firmware-dump commands.
+images above 4 MiB (8 MiB for the S-DD1 boards: `supernintendo.validate_cartridge`), ordinary cartridge RAM above 128 KiB, and DSP-1
+firmware-dump commands.
 
 ## Structure of the machine
 
@@ -55,10 +55,33 @@ with interpreted instructions per scenario and per frame; a GSU runs tens of mil
 swamp both CPU percentages if it were added to them. A native 65816 or SPC700 path therefore cannot hide interpreted
 device work, and no zero-total-fallback claim is made for CX4 or Super FX games.
 
-Code that stays on the counted path: RAM code the conversion has not observed, ROM bytes changed at run time, instruction
-fetches from volatile I/O (MMIO), and device instructions. A RAM instruction is selected by its exact PC and opcode, checked on
-the timed bus fetch (done once, never from a stale preview); operands and the M/X widths stay live reads. At most 16,384
-variants are kept per cartridge. The discovery runs only in the converter: a generated game never writes learning files.
+**RAM code nobody has seen (release 1.6.7).** An instruction fetched from RAM (WRAM or the cartridge's RAM for the 65816, the sound
+unit's 64 KiB for the SPC700) whose address and opcode no scan has seen executing used to go to the counted interpreter. It now
+runs through the compiled body of the opcode it has at that moment, read on the fetch, so code that changes keeps working: the
+256 bodies are the interpreter's own (same text, same cycle table), operands and the M/X widths stay live reads on the timed
+bus. The three classes are counted apart and add up to the instructions retired by each CPU; the flat report keys keep
+`native_entries` and `audio_native_opcodes` as the total of compiled bodies (the comparison against the reference sums them with the
+interpreted ones), and say how many of them were unobserved:
+
+| Class | 65816 | SPC700 | Meaning |
+|---|---|---|---|
+| native | `native_entries` minus `compiled_unobserved_opcodes` | `audio_native_opcodes` minus `audio_compiled_unobserved_opcodes` | ROM, or RAM at an address and opcode a scan has seen executing |
+| `compiled_unobserved` | `compiled_unobserved_opcodes` | `audio_compiled_unobserved_opcodes` (and `_cycles`) | RAM compiled by its live opcode at an address no scan has seen |
+| interpreted | `interpreted_opcodes` | `audio_interpreted_opcodes` | no compiled body: device registers (MMIO fetch), changed ROM bytes, device instructions |
+
+The observation goes on: each unobserved instruction is recorded as an interpreted one was, so the second learning pass still
+turns it into a native one and the conversion keeps both passes. What changes is that a path no scan has visited no longer falls
+to the slow interpreter, and that no report can any longer hide that class: it has its own number. The SA-1 has no such
+counter (its program is the cartridge device's, counted on its own line). The fixtures: for the 65816, every one of the 256
+operations in 32 register modes run from WRAM and from the cartridge's RAM at a position no table holds, native against the
+internal reference (state, cycles and bus order equal; 65,890 comparisons in all, both mappings), plus the cases that must stay
+interpreted (device registers, a changed ROM byte); for the SPC700, 65,536 more differential cases (131,396 in all). It says
+nothing about fidelity beyond what the interpreter has: the bodies are shared, not independent.
+
+Code that stays on the counted path: ROM bytes changed at run time, instruction fetches from volatile I/O (MMIO), and device
+instructions. A RAM instruction is checked against its fetched opcode on the timed bus fetch (done once, never from a stale
+preview). At most 16,384 variants are kept per cartridge as observations; since 1.6.7 the cap limits what is recorded, not
+what runs natively. The discovery runs only in the converter: a generated game never writes learning files.
 
 ## Engine and upstream
 
@@ -170,7 +193,7 @@ Conversion options: the console tab of **Options** sets the scan level, passes a
 - **Cartridge saves:** battery RAM (LoROM/HiROM RAM, and Super FX types `$15` and `$1A`) is kept separately from quick states
   in `datas/saves/<game-slug>-<rom-sha12>.rrsram`, bound to the full ROM SHA-256, RAM size and mapping with a payload
   integrity hash. Reading creates no folder; writes are debounced, go through a temporary file and an atomic replacement,
-  and are flushed on a normal exit. A corrupt or foreign file is kept and never overwritten with blank RAM. Volatile
+  and are flushed on a normal exit. A corrupt or foreign file never stops the game (since 1.6.7): it is set aside, byte for byte, as `<name>.rrsram.unusable-N` (the first free N from 1 to 99), the game starts with a blank RAM, and a short notice says so in the five game languages; if it cannot be moved (or all 99 names are taken: a file already set aside is never replaced) it is left untouched and nothing is saved that session (also told). Before 1.6.7 such a file was kept in place and the game ran without saving. Volatile
   cartridge RAM is not persisted. F8/F9 also capture cartridge RAM, so loading an older state restores older progress,
   which is then saved on exit. A conversion probe uses blank RAM and reads a player's save only from an explicit private `--cartridge-save` path.
 - **Compatibility across releases:** only the previous release's quick states keep loading
@@ -178,17 +201,30 @@ Conversion options: the console tab of **Options** sets the scan level, passes a
 
 ## Qualification
 
-Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md). The Super Nintendo column (27 October 2026) reads: met for the
-report contract, native coverage, CPU fidelity run, packed replay, fresh-process states, liveness, panel and shared-knowledge
-safety (G2-G6, G8, G12, G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats there); partial for scope and status wording, saves, route depth, independent CPU and hardware
-evidence, cross-OS witness and honesty (G1, G7, G9-G11, G13, G15); unknown for owner acceptance (G14).
+Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md). The Super Nintendo column (matrix of 27 October 2026, G5 and G8 of
+1 November 2026) reads: met for the report contract, native coverage, CPU fidelity run, delivered file, fresh-process states, panel
+and shared-knowledge safety (G2-G6, G12, G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats
+there); partial for scope and status wording, saves, liveness (a record exists for the cartridges with a coprocessor only),
+route depth, independent CPU and hardware evidence, cross-OS witness and honesty (G1, G7-G11, G13, G15); unknown for owner
+acceptance (G14: no decision recorded). The SA-1 and S-DD1 boards of 1.6.6 were proved on four titles and an authored cartridge
+(section above), which is panel breadth for G12 and nothing more: they do not close any partial gate.
+
+**Saves on every board (release 1.6.7).** `tools/snes_saves_check.py` converts one cartridge written for the purpose per board
+(LoROM 8 KiB and 128 KiB with a battery, LoROM and HiROM with RAM and no battery, HiROM 32 KiB, Super FX, S-DD1 and the HiROM DSP-1
+with a battery; the SA-1 has its own in `snes_sa1_selftest.py`) and checks, for each: the save file is written with its board
+code, size and whole RAM (the first and the last byte of the RAM included); a second process reads it back; a board without a
+battery writes nothing and starts blank; ten kinds of damaged file (a payload byte, the cartridge identity, the board code, the
+size, the version, the magic, a byte missing or added, an empty file) are set aside byte for byte as `.unusable-N` while the game starts
+blank and saves a new file, and a file that cannot be set aside is left untouched; the valid file loads again afterwards; no temporary file is left; native equals the interpreted reference; the quick states
+restore in a fresh process. It proves the adapter and the file format on those boards, not a commercial cartridge's own
+save (Stunt Race FX and Yoshi's Island were not played to a save).
 
 The five measures, kept apart:
 
 | Measure | What exists | What is not claimed |
 |---|---|---|
 | Native code | Zero interpreted 65816 and SPC700 opcodes on the final qualified routes; device instructions counted apart | Zero fallback for every untested path; any native GSU or CX4 code |
-| CPU fidelity | Native against the fully interpreted reference on every scenario of every conversion; authored fixtures for all 256 65816 operations (33,102 state/bus comparisons) and 65,860 SPC700 differential cases | An independent instruction-vector set for the 65816 (none is used) or the SPC700; the reference shares the engine's semantics |
+| CPU fidelity | Native against the fully interpreted reference on every scenario of every conversion; authored fixtures for all 256 65816 operations (65,890 state/bus comparisons) and 131,396 SPC700 differential cases | That the cores equal the chips: the independent vector set (SingleStepTests, 1.6.7) finds the differences listed in [CPU_65816_SPC700.md](CPU_65816_SPC700.md) (none in native-mode 65816 semantics, some in emulation mode and in the SPC700); the conversion's reference shares the engine's semantics |
 | Hardware fidelity | Authored cartridges checked against independent Snes9x, bsnes and the ares contracts (PPU ports, OBJ progression, DMA/HDMA, DSP-1 maths, controller strobe) | Exact or electrical accuracy; sub-dot PPU phases; OAM collisions (the ares and bsnes models disagree and the gate stays open) |
 | Gameplay validation | Bounded scripted routes with picture and PCM activity, packed replays and fresh-process states; hands-on confirmation of Super Scope input | Complete playthroughs; every level or mode; visual and listening review, which stays with the player |
 | Physical latency | Not measured | Any figure |
@@ -201,7 +237,7 @@ Reference and risk cases ([`tools/campaign-risk-cases.json`](../tools/campaign-r
 - Mega Man X2 (CX4): instructions stay interpreted and are reported on their own device line.
 - Super Mario RPG (SA-1): the reference board of the SA-1 work (since 1.6.6); the other 14 SA-1 cartridges of the maintainer's
   library are recognised, three are proved (below).
-- Street Fighter Alpha 2 (S-DD1): the reference board of the S-DD1; Star Ocean (6 MiB) stays refused.
+- Street Fighter Alpha 2 (S-DD1): the reference board of the S-DD1; Star Ocean (6 MiB, both translations of the library) converts since 1.6.7.
 - Super Scope 6 (CRC32 B141EA99) for the gun, NTSC only.
 
 ### Interpreter-fallback survey (29 October 2026)
@@ -220,8 +256,8 @@ one reconversion with the 1.6.4 tree found **no unexplained interpreted 65816 or
   interpreted opcodes and added no RAM site. Scripted random input stays near the first screens, so this says nothing about
   unvisited game modes.
 - So RAM-resident code is the only class that can reach the interpreter on an ordinary cartridge, and it does so by design:
-  a RAM instruction is native only where a scan observed it (see "What is native, what is counted"). A path no scan has
-  visited stays counted, never hidden. Nothing here is a hardware-fidelity, gameplay or latency claim.
+  a RAM instruction was native only where a scan observed it; since 1.6.7 an unobserved one is compiled and counted apart
+  (see "What is native, what is counted"). Nothing is hidden. Nothing here is a hardware-fidelity, gameplay or latency claim.
 - Open, not fixed: the learned set is capped at 16,384 variants per cartridge, keyed by address and four bytes although the
   native table uses only address and opcode (Earthworm Jim: 81 variants at 2 addresses; Secret of Mana: 9,208 variants at
   8,725 address and opcode pairs in the maintainer's library). Past the cap, the highest addresses are dropped when the
@@ -256,7 +292,7 @@ are never in the 65816 percentage.
 
 Panic Bomber W runs three times the SA-1 instructions of the other two; no host time was measured for any of them. The
 battery file of a real export is written by the first process and read back by the second (32,880 and 8,304 bytes for the
-first two, bound to the SA-1 board, the BW-RAM is part of the quick state), a damaged file is refused and left as it is.
+first two, bound to the SA-1 board, the BW-RAM is part of the quick state), a damaged file is set aside and the game starts blank.
 
 What the work found and changed (all in the staged copy, none in the pinned checkout, see [UPSTREAMS.md](UPSTREAMS.md)):
 
@@ -292,7 +328,7 @@ master clocks (1,422,555 against 1,424,427 expected over 40 frames), a message a
 with the flags cleared and each handler run once, BW-RAM written by each CPU and read by the other, the coprocessor caught
 up at every sync (behind by at most 48 master clocks when the S-CPU came to it, ahead by at most 12 and 14 after it in NTSC and PAL: measurements on this
 cartridge, not bounds), native equal to the interpreted reference, the BW-RAM saved across two processes (a
-damaged file or a file for another cartridge refused untouched) and a quick state restored in a fresh process.
+damaged file or a file for another cartridge set aside, the game starting blank) and a quick state restored in a fresh process.
 
 **S-DD1.** Street Fighter Alpha 2 (USA; map `$32`, type `$43`, 4 MiB, no RAM) is the reference board and converts with zero
 interpreted 65816 and SPC700 opcodes. The scan runs 57 and 78 decompression DMA sessions (126,368 and 169,376 bytes); the long
@@ -304,12 +340,35 @@ no decompression error of its own and the picture is the evidence.
 **Not proved, not claimed.** Hardware fidelity of the SA-1 (bus contention between the two CPUs for ROM and BW-RAM, the exact
 cycle placement) and of the S-DD1 (the chip's DMA timing); an independent comparison for either (upstream compared one
 cartridge, Super Mario RPG, with another emulator for 600 frames); the 12 other SA-1 cartridges, converted by nobody here;
-battles and long play; host time per frame. Star Ocean (6 MiB, the only S-DD1 cartridge above 4 MiB) converts, then shows the
-translation's splash and stays on a blank screen while its music plays (force blank on, NMI off, display layers off after four
-decompressions, the S-CPU in its script loop at `$C0:6C1E-6C2A`): not understood, so it stays refused.
+battles and long play; host time per frame. Star Ocean (6 MiB, the only S-DD1 cartridge above 4 MiB; 1.6.7): see the section below.
 
 Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](SNES_SUPERFX.md); the DSP-1/CX4 release
 1.0.0 campaign, the live-RAM guards, bus, DMA/HDMA, PPU and cartridge-decoder work in [SNES_LOG.md](SNES_LOG.md).
+
+**Star Ocean (1.6.7).** The S-DD1 cartridge of 6 MiB (map `$32`, type `$45`, 8 KiB of battery RAM) used to convert and stay on a black
+screen. The cause was the decoding of the cartridge RAM: the clause the pinned engine uses for LoROM boards serves banks `$F0-$FF`,
+addresses `$0000-$7FFF`, as battery RAM, and on an S-DD1 board those banks are the ROM windows of the chip (the board's RAM is in banks
+`$70-$73`). A game's reads of its compressed data in `$F0-$FF` therefore returned save RAM. The S-DD1 board now has its own clause (banks
+`$70-$73` only, `native/snes_cart.h` and `snes_cart.ram_offset`), and the S-DD1 boards may be up to 8 MiB. Both translations of the
+library convert with zero interpreted 65816 and SPC700 opcodes on both routes, the compressed copy matches the reference, and a run of
+2,500 frames shows the title menu (captures looked at by the specialist agent). The same conversion with the old clause ran 1
+decompression session in those 2,500 frames and showed a black picture; with the narrow clause, 1,240 (an earlier attempt that sent the
+CPU reads of `$C0-$FF` to `cart_read` gave the same 1,240, and was dropped once the clause alone was shown to be enough). Street Fighter
+Alpha 2, converted again from an empty library with the before and after trees, gives the same hashes. Not claimed: play beyond the
+title menu, the S-DD1's DMA timing.
+
+**ExHiROM (1.6.7).** Dragon Quest III and Tales of Phantasia (map `$25`/`$35`, 6 MiB, 8 KiB of battery RAM, the header at `$40FFC0`) were refused
+before. The board's map is the HiROM one with the top address line choosing the half of the ROM: banks `$C0-$FF` and the upper half of
+`$80-$BF` reach the first 4 MiB, banks `$40-$7D` and the upper half of `$00-$3F` reach the ROM from 4 MiB up (so the reset vector,
+read at `$00:FFFC`, is at ROM `$40FFFC`). It is written in the bus (`snes_cart.adapt_cart`, for an image above 4 MiB only; a HiROM image of
+4 MiB or less is untouched) and in the loader (the header is read at `$40FFC0`), with no code for any game; the code table is indexed by
+the ROM offset the bus returns, so compiled code above 4 MiB works as below it. `tools/snes_exhirom_selftest.py` checks it on a
+cartridge written for the purpose (one marker byte in each half, read through the four views, native equal to the reference; the map is the
+one of the public SNES documentation written as the expected values, not independent hardware proof, and a deliberately wrong half is
+detected). Both games convert with zero interpreted 65816 and SPC700 opcodes, the compressed copy equal to the reference, and show real
+screens at 2,500 frames (Dragon Quest III: its first menu; Tales of Phantasia: the title screen with its pictures), looked at by the
+specialist agent. Not claimed: play beyond that, the 6 MiB mirror of the second half as the board decodes it. Wizardry VI (6 MiB, LoROM
+header) stays refused: its map is not an ExHiROM one, and no reliable mapping is known.
 
 ## Known limits
 
@@ -321,8 +380,8 @@ Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](
   eleven SA-1 cartridges of the library are only recognised; bus contention between the SA-1 and the S-CPU, cycle placement
   inside an SA-1 instruction and the S-DD1's DMA timing are not modelled or not qualified; no battle of Super Mario RPG was
   reached; the SA-1 interpreter's host cost is not measured (about 35-155 thousand instructions per frame on the three
-  proved titles). Star Ocean (S-DD1, 6 MiB) stays refused: it converts and shows a blank screen after its splash.
-- **Not supported:** SPC7110, DSP-2/3/4, extended mappings, images above 4 MiB (Star Ocean), DSP-1 firmware-dump commands.
+  proved titles).
+- **Not supported:** SPC7110, DSP-2/3/4, ExLoROM images other than the S-DD1 boards (Wizardry VI), images above 4 MiB (8 MiB for the S-DD1 and ExHiROM), DSP-1 firmware-dump commands.
   Recognition of a circuit is not product qualification.
 - **PPU and bus timing:** instruction-internal and parked-CPU phases, DMA launch and release dividers, DMA/HDMA collision
   arbitration, active-display OAM/CGRAM fetch collisions, mid-line blanking and size changes during object fetch, uncommon

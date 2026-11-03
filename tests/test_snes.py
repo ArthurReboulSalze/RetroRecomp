@@ -105,8 +105,10 @@ class SnesNativeTests(unittest.TestCase):
                 self.assertIn('cart->romImageSize == 98304u', text)
                 self.assertIn('bool rr_snes_native_bind(void)', text)
                 self.assertNotIn('g_snes->cart->type', text.split('static const RrSnesNativeOp *rr_sn_lookup')[1])
+        # The ExHiROM board uses the HiROM bus type (its second half is selected by the bank's top bit, in cart_getRomPtr).
+        self.assertIn('cart->type == CART_HIROM', snes_codegen.native_source(source_fixture(), rom, mapping='exhirom'))
         with self.assertRaises(ConversionError):
-            snes_codegen.native_source(source_fixture(), rom, mapping='exhirom')
+            snes_codegen.native_source(source_fixture(), rom, mapping='unknown')
 
     # The two fast-forwards the pinned bridge carries for single cartridges, each with the text of its on/off switch.
     D9FF_SWITCH = ('        const char *_e = getenv("SNESRECOMP_NO_D9FF");\n'
@@ -187,14 +189,64 @@ class SnesNativeTests(unittest.TestCase):
         # One load for the ordinary case; another bank or a second opcode on the same WRAM byte,
         # and cartridge RAM, go to the exact (PC, opcode) search.
         self.assertIn('rr_sn_wram_entry[offset]', guarded)
-        self.assertIn('return rr_sn_ram_search(pc, fetched);', guarded)
+        self.assertIn('const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);', guarded)
+        self.assertIn('return rr_sn_unobserved(pc, fetched);', guarded)
         self.assertIn('((entry >> 8) & 0xffu) == (pc >> 16)', guarded)
         self.assertIn('rr_sn_ram_mapped(pc)', guarded)
         plain = snes_codegen.native_source(source_fixture(), bytes(range(256)))
         self.assertNotIn('rr_sn_wram_entry', plain)
         self.assertNotIn('rr_sn_ram_search', plain)
-        self.assertIn('if (!mapped) return NULL;', plain)
+        # Without any observation RAM code still runs through the body of its live opcode, counted apart.
+        self.assertIn('if (!mapped) return rr_sn_unobserved(pc, fetched);', plain)
 
+    def test_ram_code_nobody_has_seen_runs_through_the_body_of_its_live_opcode_and_is_counted_apart(self):
+        source = snes_codegen.native_source(source_fixture(), bytes(range(256)), [{'address': 0x7e0100, 'bytes': 'a93412ea'}])
+        # The table of unobserved bodies has one entry per opcode, each recording the position before its body runs
+        # (the code may overwrite itself) and counting after it.
+        self.assertEqual(source.count('rr16_snes_note_compiled_unobserved();'), 256)
+        self.assertIn('rr_sn_unobserved_ops[256]', source)
+        wrapper = source.split('static void rr_sn_uop_a9(Interp816 *cpu) {')[1].split('}')[0]
+        self.assertLess(wrapper.index('rr16_snes_observe_fallback(g_interp816_cur_pc)'), wrapper.index('rr_sn_op_a9(cpu)'))
+        self.assertLess(wrapper.index('rr_sn_op_a9(cpu)'), wrapper.index('rr16_snes_note_compiled_unobserved()'))
+        # Only RAM is reached by it: a fetch from device registers has no live byte to read and stays interpreted.
+        function = source.split('static const RrSnesNativeOp *rr_sn_unobserved(')[1].split('static const RrSnesNativeOp *rr_sn_lookup')[0]
+        self.assertIn('cpu_wram_offset', function)
+        self.assertIn('rr_snes_cart_ram_offset', function)
+        self.assertIn('if (offset < 0) return NULL;', function)
+        self.assertIn('fetched < 0 || live == fetched', function)
+        # The ROM path is the one of 1.6.6: a ROM position never reaches the unobserved table.
+        lookup = source.split('static const RrSnesNativeOp *rr_sn_lookup(')[1]
+        self.assertLess(lookup.index('rr_sn_pages[offset >> 8]'), len(lookup))
+        self.assertEqual(lookup.count('rr_sn_unobserved('), 1)
+
+
+class EmulationModeCorrectionTests(unittest.TestCase):
+    """RTI, TCS, TXS and the indexed direct-page wrap of emulation mode (1.6.7), from the independent vectors."""
+    PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/interp816.c'
+
+    @unittest.skipUnless(PINNED.is_file(), 'pinned engine checkout not present')
+    def test_the_corrected_core_has_each_correction_once_and_fails_closed(self):
+        raw = self.PINNED.read_text(encoding='utf-8')
+        text = snes_codegen.correct_emulation_mode(snes_codegen.correct_software_interrupts(raw))
+        self.assertIn('if(!cpu->e) cpu->k = interp816_pullByte(cpu);', text)           # RTI pulls the bank in native mode only
+        self.assertEqual(text.count('if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (the program bank is pulled)'), 1)
+        self.assertIn('cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->a & 0xff)) : cpu->a;', text)   # TCS
+        self.assertIn('cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->x & 0xff)) : cpu->x;', text)   # TXS
+        self.assertEqual(text.count('the index wraps within the page'), 2)                          # dp,X and dp,Y
+        self.assertIn('if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++;', text)         # a branch across a page
+        self.assertIn('cpu->cyclesUsed++; // emulation mode: across a page, one more cycle', text)     # BRA
+        self.assertIn('cpu->dp | ((adr + cpu->x + 1) & 0xff)', text)                                 # (dp,X) too
+        self.assertIn('interp816_readWord(cpu, cpu->dp | adr, cpu->dp | ((adr + 1) & 0xff))', text)  # (dp),Y: the pointer's second byte
+        # Every anchor is checked: a pinned text that changed is refused, not patched around.
+        corrected = snes_codegen.correct_software_interrupts(raw)
+        for anchor in ('case 0x1b: { // tcs imp', 'case 0x9a: { // txs imp', 'interp816_setFlags(cpu, interp816_pullByte(cpu));',
+                       '  bool crossed = (pointer >> 8)'):
+            with self.subTest(anchor=anchor):
+                with self.assertRaises(ConversionError):
+                    snes_codegen.correct_emulation_mode(corrected.replace(anchor, anchor.replace('imp', 'changed')
+                                                                          if 'imp' in anchor else 'X'))
+        # Native mode keeps the pinned text for what it did right.
+        self.assertIn('interp816_pushWord(cpu, cpu->pc - 1);', text)
 
 class SnesCopierFileTests(unittest.TestCase):
     """The Pro Fighter .fig format: a 512-byte copier header before whole 32 KiB blocks, like .smc."""

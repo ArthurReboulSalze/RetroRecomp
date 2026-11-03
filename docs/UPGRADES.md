@@ -75,6 +75,119 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Super Nintendo: RAM code that no scan has seen is compiled and counted apart (1.6.7)
+
+A Super Nintendo game whose code lives in RAM (the game logic of Secret of Mana, most sound drivers, Chrono Trigger, Super
+Turrican) was native only at the addresses and opcodes a scan had seen executing; anywhere else the instruction went to the
+counted interpreter. Since 1.6.7 it runs through the compiled body of the opcode it has when it is fetched (the same bodies,
+the same cycle table, operands read live on the timed bus), for the 65816 in WRAM and in the cartridge's RAM and for the
+SPC700 in the sound unit's RAM outside `$F0-$FF`. Fetches from device registers, changed ROM bytes and device instructions
+stay interpreted and counted.
+
+- **A third counter, `compiled_unobserved`.** Per CPU, native + compiled and not observed + interpreted = the instructions
+  retired. `native_entries` and `audio_native_opcodes` keep their flat meaning (every compiled body); the new figures, part of
+  them, are `compiled_unobserved_opcodes` and `audio_compiled_unobserved_opcodes` (and `_cycles`) in the scenario rows, and the
+  report's per-CPU view subtracts them to give the native count. The fallback is never folded into it.
+- **Both learning passes stay**, and the observation goes on: an unobserved instruction is recorded as an interpreted one
+  was, so the second pass moves it from the new counter to the native one. The pass no longer changes what runs fast or
+  correctly.
+- **The SNES game stamp moves** (the generated map and the two runtimes changed): an export made before 1.6.7 is rebuilt on its
+  next conversion, and a game converted before keeps running as it did.
+- **Proof.** The authored fixtures run every 65816 operation in 32 register modes from WRAM and from the cartridge's RAM at a
+  position no table holds, and every SPC700 operation in 256 register states, against the internal reference (65,890 and
+  131,396 comparisons); five games converted from an empty library with the 1.6.6 tree and with this one give the same
+  picture, sound, CPU, RAM, video-memory and sound-unit hashes as each other and as the fully interpreted reference (see
+  [SNES.md](SNES.md)). Nothing here measures speed, and nothing is claimed about hardware fidelity: the bodies are the
+  interpreter's own.
+
+*Hot path: touched.* An instruction fetched from RAM at a position the observed table does not hold used to go through the
+interpreter's dispatch; it now calls the compiled body of its opcode directly (the 65816 `rr_sn_unobserved`, the SPC700
+`rr_spc_unobserved`, one function pointer indexed by the opcode), and the observation that follows is the same as before. The path of
+observed code and of ROM code is unchanged. The frame cost was not measured for this release (the figures wait for a quiet machine and
+the per-release comparison); the change replaces interpreted instructions by compiled ones where it applies.
+
+## Super Nintendo: corrections found by the independent vectors (1.6.7)
+
+The SingleStepTests vectors ([CPU_65816_SPC700.md](CPU_65816_SPC700.md)) found five defects of the pinned cores, corrected as patches
+of the pinned bodies applied by the converter (each fail-closed on the pinned text): in emulation mode the 65816 `RTI` takes one cycle
+less and pulls no program bank, `TCS` and `TXS` force the stack pointer's high byte to 1, a taken branch that crosses a page takes one
+more cycle, and the direct-page indexed addressing and the `(dp,X)` and `(dp),Y` pointers wrap inside the page when the direct page register is
+page-aligned (`(dp),Y` is not seen by the vectors: the sample has no case where it differs, and the patch follows the processor manual); the SPC700 `DIV YA,X` follows the hardware formula. A game that runs in emulation mode after its reset vector, as every
+cartridge does for a few instructions, is concerned only where it uses these instructions; a game that uses `DIV` gets the hardware
+quotient in the overflow cases. **The SNES game stamp moves** (it already moved for the changes above). Three games (Secret of Mana, Super Mario World, Donkey Kong Country 2) converted from an empty library with the tree before and after
+give the same picture, sound, CPU, RAM, video-memory and sound-unit hashes on every route (19 hash fields in each of the six probe
+files, native, packed copy and reference); what differs is the generated 65816 and SPC700 sources, the compiler's profile data and the
+analysis files, and in Secret of Mana the packed size ratio (0.2107 and 0.2108). Street Fighter Alpha 2, against the tree before the
+S-DD1 clause as well as these corrections, gives the same hashes. These routes leave emulation mode within the first instructions after
+the reset, so no hash moving is what was expected; it says nothing about a game that stays in emulation mode. Not corrected (the list is what the sample found and what was read, not a complete
+inventory of the differences between the cores and the processor): the page-1 wrap of the stack accesses of the instructions the 65816
+added to the 65C02 set (`PER`, `RTL`, `PHD`, `PLD`, `PEA`, `JSL`, `JSR (a,x)`: a push or pull at the edge of page 1 goes on into the next page
+instead of coming back to the start of page 1), `EI`/`DI` timing and the halt timings, listed in [CPU_65816_SPC700.md](CPU_65816_SPC700.md).
+Also not corrected: `interp816_doInterrupt` (the interrupt entry the SA-1 core uses) still stacks the program bank and takes the native
+vectors in emulation mode, so an SA-1 interrupt taken in emulation mode would push four bytes while the corrected `RTI` pulls three; no
+known game does it (the main CPU enters its interrupts through `rr_snes_cpu_interrupt`, which is consistent with the corrected `RTI`), and
+the vectors have no interrupt case to cover a change, so it is left as the pinned text.
+*Hot path: touched, marginally.* The patched bodies of `RTI`, `TCS`, `TXS`, the page-crossing branch and the indexed direct-page
+addressing add one test of the emulation flag each; the SPC700 `DIV` adds a comparison; the rest of the bodies is unchanged. Not timed.
+
+## Super Nintendo: the S-DD1 cartridges may be 8 MiB, and Star Ocean converts (1.6.7)
+
+The cartridge RAM decoding served banks $F0-$FF (addresses $0000-$7FFF) as battery RAM on an S-DD1 board, where those banks are the
+ROM windows of the chip; a game reading its compressed data there got save RAM. The S-DD1 board now has its own clause: its RAM is in
+banks $70-$73 only (`native/snes_cart.h`, `snes_cart.ram_offset`). The S-DD1 boards are accepted up to 8 MiB (the other boards stay at
+4 MiB). Star Ocean (6 MiB) converts: see [KNOWN_FAILURES.md](KNOWN_FAILURES.md). Street Fighter Alpha 2 converted again from an empty
+library with the 1.6.6 tree and with this one gives the same hashes. Hot path: none added (the clause is evaluated for cartridge RAM
+accesses only, as before, and no extra comparison is made on `cpu_read8`). The SNES game stamp moves with the other 1.6.7 changes above.
+
+## Super Nintendo: the delivered file is replayed and its liveness recorded on every conversion (1.6.7, gates G5 and G8)
+
+The Super Nintendo conversion compresses a copy of the build as publication does, replays it on every route against the fresh
+reference of the same route, and records each route's liveness (`final_checks[].liveness`: frames, distinct pictures, picture
+changes, last picture change, distinct sound blocks, and `pcm_nonzero` and `visible_frames` of the route; the audible-frame fields
+are None because this host writes no per-frame audible flag). It was the case for the Mega Drive in 1.6.6; before 1.6.7 the Super
+Nintendo did it only in a developer tool. `retrorecomp/snes_evidence.py` is the Super Nintendo's part, `console16.convert16` calls it
+for `md` and `snes` through `delivery_evidence()` (the Mega Drive path and its log line are unchanged, tested). A conversion whose
+`play` route never changes the picture is refused. Report: `native_validation.packed_reference_match`, `packed_candidate_sha256`.
+`console16.py` is shared with the Mega Drive, the Neo Geo and the CPS-1: their game stamps move with this text.
+
+## Super Nintendo: a save file the game cannot use is set aside, never a reason not to start (1.6.7)
+
+A damaged `.rrsram`, or one made for another cartridge, was kept in place and the game ran without saving. It now follows the rule of
+the X68000: the file is moved to `<name>.unusable-N` (never deleted), the game starts with a blank RAM and saves a new file, and a
+short notice ("Save unreadable: set aside", five game languages) is shown once; if the file cannot be moved it is left alone, nothing
+is saved that session, and the notice says "saving is off". `native/snes_battery.c`, `rrhk_snes.c`, the runtime catalog (two phrases;
+`runtime_catalog.inc` is a host file, so the host stamp of every console moves with it and the exports are rebuilt, not reconverted) and the report key `save_set_aside`. All 99 names `<name>.unusable-1` to `-99` taken: nothing is replaced, the file stays in place and the notice says saving is off. Tested on the nine boards of `tools/snes_saves_check.py`.
+
+## Super Nintendo: the ExHiROM board is accepted (1.6.7)
+
+ExHiROM cartridges (map `$25` or `$35`, no chip, an image above 4 MiB: Dragon Quest III and Tales of Phantasia, 6 MiB) are no longer refused. The
+bus picks the half of the ROM by the bank's top bit and the loader reads the header at `$40FFC0` (`snes_cart.adapt_cart`, `adapt_loader`,
+fail-closed on the pinned text); HiROM and LoROM images are untouched, and the other boards stay at 4 MiB. **The SNES game stamp moves** (it
+already moved for the changes above). *Hot path: touched on the HiROM path.* One comparison of the image size is added to `cart_getRomPtr` on
+the HiROM path (the bus read of a ROM byte), not to LoROM; not timed. Proof: the authored cartridge of `tools/snes_exhirom_selftest.py`, and
+the two games converted (see [SNES.md](SNES.md)).
+
+## Super Nintendo: cartridges whose header checksum was never filled in are accepted (1.6.7)
+
+A cartridge header with a checksum of `$0000` (the complement `$FFFF`, or also `$0000`: the assembler's default, never filled in) was
+refused because it cannot be told from damage by its checksum. It is accepted since 1.6.7 only when everything else about it is
+credible: a regular map byte, a declared size no larger than the image, and a reset vector that points at a plausible first
+instruction. Over the 1,348 files of the maintainer's library exactly four headers change (Power Drive Europe, Fireteam Rogue, Steven
+Seagal Is The Final Option and Wile E Coyote's Revenge, the last three prototypes); each converts, with the compressed copy equal to the
+reference. **Which game stamps move.** The rule lives in `retrorecomp/cartridge16.py`, which every console's game stamp hashes (the
+Mega Drive, Neo Geo and CPS-1 read nothing different from it, but their stamps move); the shared runtime catalogue is a host file, so the host
+stamps of all the consoles move in 1.6.7 (rebuilt, not reconverted), as the notes of the release say. Nothing else about an existing export changes.
+
+## Tools that change no export (1.6.7)
+
+- `tools/snes_saves_check.py` (gate G7): cartridges written for the purpose, one per board, check the save file, its damaged forms,
+  the absence of a file without a battery and the quick states ([SNES.md](SNES.md)).
+- `tools/snes_exhirom_selftest.py`: an authored ExHiROM cartridge (4 MiB and one bank) reads one marker through each of the four views
+  of its two halves ([SNES.md](SNES.md)).
+- `tools/fetch_snes_vectors.py` and `tools/snes_cpu_vector_selftest.py` (gate G10): the 65816 and the SPC700 against the independent
+  SingleStepTests corpora, pinned and fetched into `.deps`; findings in [CPU_65816_SPC700.md](CPU_65816_SPC700.md); the corrections they led to
+  are in their own section above (the tools themselves change no export).
+
 ## Master System and Game Gear: the "functions" engine replays the delivered copy and starts from the reset state (1.6.7)
 
 Two changes of the "functions" engine of the two consoles, and a check that needed no change.
