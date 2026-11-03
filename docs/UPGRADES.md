@@ -321,8 +321,9 @@ the vector model), the RAM executor all 51,654 and the RAM dispatch all 58,153. 
 `EI`: nine cases (ROM code, code copied to WRAM and HRAM, an `EI` at the end of a block, `EI ; DI`, `EI ; EI`, `EI ; HALT`) give the console's answers on the new runtime (the first
 eight were also measured on the 1.6.6 runtime, which gave the same), and the generated code agrees with the interpreter in lockstep. The inline tick against the real `gb_tick`
 (309,676 checks, with the pending flag drawn from 0, 1 and 2), the RAM self-test (56,170) and the bank-boundary self-test (47,104) pass; the vector counts above were run again
-after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch functions. A/B of the corrected tree against 1.6.6 on Tetris, Link's Awakening and Wario Land II (the
-games of the collection with an `EI ; HALT` byte pair, or that wait in HALT): see the entry above. Fable has reviewed the change; both findings are fixed here.
+after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch functions. A/B of the corrected tree against the 1.6.6 tree (`f9d2350`) on Tetris, Link's Awakening and Wario Land II (the
+last two have an `EI ; HALT` byte pair in their ROM; Tetris waits in HALT): on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter
+of every frame are identical to 1.6.6, and so are the final state and the number of steps of the lockstep comparison. Fable has reviewed the change; both findings are fixed here.
 
 ## Game Boy: independent SM83 vectors (1.6.7, gate G10)
 
