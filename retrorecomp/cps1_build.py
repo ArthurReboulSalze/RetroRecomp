@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from .conversion_common import replace_counted, write_if_changed
+from .musashi_fixes import adapt_musashi_ops
 from .paths import ROOT, ASSETS
 from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
@@ -154,7 +155,8 @@ def _engine(project: Path, *, native: bool, kabuki: bool = False) -> None:
     for name in NATIVE_FILES + (AOT_FILES if native else ()):
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
     for name in MUSASHI_FILES:
-        _write(project / 'engine/m68k' / name, (geolith / 'src/m68k' / name).read_text(encoding='utf-8'))
+        text = (geolith / 'src/m68k' / name).read_text(encoding='utf-8')
+        _write(project / 'engine/m68k' / name, adapt_musashi_ops(text) if name == 'm68kops.c' else text)
     _write(project / 'engine/m68k/m68kconf.h', (ASSETS / 'native/cps1_m68kconf.h').read_text(encoding='utf-8'))
     _write(project / 'engine/m68k/m68kcpu.c', musashi_core(geolith, native=native))
     _write(project / 'engine/z80/z80.h', (geolith / 'src/z80/z80.h').read_text(encoding='utf-8'))
