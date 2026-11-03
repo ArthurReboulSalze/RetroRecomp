@@ -106,7 +106,11 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # generated code of a board without a Kabuki is byte for byte that of revision 9 (checked by generating the same set on both
 # trees); the revision is raised because the pins cover the whole generator and the native files changed. No CPS-1 path was
 # qualified, so nothing is lost today.
-GENERATOR_REVISION = 10
+# 11: `cps1_build._engine` copies the Geolith Musashi `m68kops.c` through `musashi_fixes.adapt_musashi_ops` (3 November 2026: the flags of a
+# divide overflow, DIVS of 0x80000000 by -1, the flags and clocks of CHK, line F on F620-F627). Only the interpreter (the fresh reference
+# and the counted fallback) changes, and only on those cases: the generated code, traces and pictures of 1941 are identical to revision 10
+# (tools/ab_conversion.py); the revision is raised because the pins cover the whole file. No CPS-1 path was qualified, so nothing is lost today.
+GENERATOR_REVISION = 11
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

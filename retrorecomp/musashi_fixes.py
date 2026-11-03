@@ -26,7 +26,7 @@ MUSASHI_OPS_FIXES = (
     ('CHK within its bounds clears N (the 16-bit forms)',
      '\tif(src >= 0 && src <= bound)\n\t{\n\t\treturn;\n\t}\n',
      '\tif(src >= 0 && src <= bound)\n\t{\n\t\tFLAG_N = NFLAG_CLEAR;\n\t\treturn;\n\t}\n', 11),
-    # Read from the vectors (165 CHK traps): 38 plus the operand when the value is above the bound or when the 16-bit
+    # Read from the vectors (165 CHK vectors, 149 of them traps): 38 plus the operand when the value is above the bound or when the 16-bit
     # subtraction src - bound overflows, 40 plus the operand otherwise (the value is below zero and not above the bound).
     ('the CHK exception takes 2 clocks more below zero when the value is not above the bound and the comparison does not overflow',
      'USE_CYCLES(CYC_INSTRUCTION[REG_IR] - 10);',

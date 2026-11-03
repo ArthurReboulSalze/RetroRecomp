@@ -13,6 +13,30 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## The corrected Musashi, shared with the CPS-1 and the X68000 — 3 November 2026
+
+The reference CPU of a conversion (and the interpreter that runs what the native code does not cover) is Geolith's copy of Musashi, which
+differed from the independent 68000 vectors on a few points where the translated steps follow them ([QUALIFICATION.md](QUALIFICATION.md), G10).
+`retrorecomp/musashi_fixes.py` now corrects the pinned `m68kops.c` at conversion time, with strict replacements that refuse a changed pin, for the
+Neo Geo, the CPS-1 and the X68000 (stamp group `shares:musashi_fixes`; the Mega Drive does not use this copy): a `DIVU`/`DIVS` overflow leaves V and
+N set, Z and C cleared (22 sites); `DIVS` of `0x80000000` by -1 is an overflow like the others (11); `CHK` clears N when it does not trap (11) and
+takes 38 clocks plus the operand above the bound or when `src - bound` overflows 16 bits and 40 below zero (11, a rule read from the 165 CHK
+vectors); `F620`-`F627` raise the line-F exception instead of running the 68040 `MOVE16` (1). N and Z after a divide overflow, and N after a
+`CHK` that does not trap, are undefined on the 68000: the values are those of the translated steps, which are also the vectors'.
+Result of the three vector selftests (`tools/{cps1,neogeo,x68000}_vector_selftest.py`): the native steps and the Musashi reference agree with every
+vector on state and clocks, in 834 + 2,171 + 864 vectors (the X68000 also with the two trace vectors; the Neo Geo and the CPS-1 Musashi have no
+trace support), and the two paths agree with each other; `REFERENCE_DEVIATIONS` of the selftest is empty. CPU fidelity against an oracle (MAME) on a
+flat bus; nothing of the board, of the hardware or of gameplay.
+
+## Cross-OS witness on Debian, three sets — 3 November 2026
+
+G13 on the 1.6.7 tree (`main` at the merge of the Game Boy branch): `nam1975` (512 KiB), `mslug3` (SMA, banked) and `twinspri` (2 MiB program) converted
+on Windows and on Debian 13 (Hermès, Python 3.13.5, gcc 14.2), standard level, one conversion at a time, in a folder apart on Debian removed afterwards,
+the ROMs and the BIOS copied for the run and deleted. For the 19 route rows (6 + 7 + 6) the native instruction counts, the 0 interpreted 68000 and Z80
+instructions, the CPU, RAM, hardware, Z80, picture and sound hashes and the liveness record are **identical** on the two systems, the compressed copy
+replayed equal to the reference on both, and the state checks of the delivered file passed on both. Native code and CPU fidelity (reference
+comparison) on three sets; nothing on interactive play on Linux, on the screen or on controllers. G13 stays `P` (three sets, as for the CPS-1).
+
 ## Routes measured on exports: the AES attract and a generic two-player route, no rule — 2 November 2026
 
 For 1.6.7, read-only: copies of 16 Export executables (Export itself untouched), headless, standard clocks, a fixed RTC seed, two at a time.

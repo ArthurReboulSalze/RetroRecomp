@@ -142,6 +142,24 @@ nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, i
 once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
 (`neogeo_conversion` is not among the modules it hashes), nor any other console.
 
+## Neo Geo, CPS-1 and X68000: the corrected Musashi (1.6.7)
+
+The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on five points
+where the independent 68000 vectors and the translated steps agree and Musashi did not: the flags of a divide overflow, `DIVS` of `0x80000000` by
+-1, the flags and clocks of `CHK`, and `F620`-`F627` (line F, not the 68040 `MOVE16`). Details and figures:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#the-corrected-musashi-shared-with-the-cps-1-and-the-x68000--3-november-2026).
+
+**What changes in a game.** Only the interpreter (the fresh reference and the counted fallback), and only when the program reaches one of those
+cases; the translated code is untouched. On the games compared with `tools/ab_conversion.py` (NAM-1975, Puzzle De Pon! and 1941) the generated
+code, the traces, the pictures, the sound hashes and the states are identical; what differs is `engine/m68k/m68kops.c` (by construction) and the
+data that follows from compiling it (the profile data of the optimised build and the size ratio of the compressed copy).
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (the new module is in their stamp groups): an export of 1.6.6 of these
+consoles is converted in full once, with no table entry; the CPS-1 generator revision goes from 10 to 11 (`cps1_build.py` is a pinned source; no
+CPS-1 path was qualified, so no qualification is lost). The Mega Drive and the other consoles do not move. The **Neo Geo quick-state key moves
+too**: it hashes the fingerprint of `neogeo_build`, which now calls the correction, so a quick state written by an export of 1.6.6 is refused
+cleanly by the 1.6.7 export (no compatibility key from 1.6.5, [GAME_STATES.md](GAME_STATES.md)); the layout of the state is the same.
+
 ## Lead: unpacked fallback of the packed replay (1.6.7)
 
 Every conversion replays a compressed copy of the build on all its routes against the fresh reference (gate G5). On Linux
