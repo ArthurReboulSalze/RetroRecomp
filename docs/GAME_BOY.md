@@ -373,6 +373,50 @@ leaves out. A tool or a report field named here exists in the tree of this page.
   Mario Land's 44,272 and 60,656 interpreted cycles at bank 3, address `7FF0` reach zero once the JP relay is compiled. These are
   scripted-path evidence, not whole-game coverage.
 
+### The campaign of twelve games (1.6.7, gates G8 and G9)
+
+Twelve cartridges chosen for what each could break (a reason per game in `tools/gameboy_campaign.py`) were converted one at a time at the
+extended level, on the 1.6.7 tree, from an empty library, then replayed on the delivered file with `tools/gameboy_campaign.py`: the
+reproducible pseudo-random route of the conversion for its whole length (18,000 frames) and the `varied` route, each with the per-frame trace
+and six captures put on one sheet, which was looked at. The ROMs are read in place from the player's folder; the sheets and
+the summary stay out of the repository.
+
+All twelve converted to `supported`, with the CPU compared over the whole length of every route (`mode: full`; the long route over its first
+3,600 of 18,000 frames), the compressed copy matching the reference on every route, the states verified in fresh processes and **no
+interpreter cycle on any final route**. What each sheet shows (the specialist agent's reading, not the owner's):
+
+| Game | Mapper | Long route (18,000 frames) | Writable code run one by one |
+|---|---|---|---|
+| Tetris | none | Games of falling pieces (score up to 16, a lost game, the top-score table); the `varied` route stays on the licence page and menus | 17,979 |
+| Super Mario Land | MBC1 | The title, then the first level with the pause shown; the route is paused for most of its length (31 pictures), so it proves little depth | 17,975 |
+| Link's Awakening | MBC1 + RAM | The intro, the title and the name entry on the `varied` route; the long route stays in the first room (2,063 pictures, animations) | 17,901 |
+| Wario Land II | MBC3 + RAM | The title, then levels with enemies and a long route that plays: 2,877 pictures | 925,868 |
+| Pokémon Red, Pokémon Yellow | MBC3, MBC5 + RAM | The logos, the introduction and the first bedroom; menus and dialogue render (855 and 1,002 pictures) | 17,950; 17,807 |
+| Metroid II | MBC1 + RAM | The title, then Samus beside her ship for the whole long route (18 pictures: animation and palette) | 17,981 |
+| Final Fantasy Legend II | MBC1 + RAM | The title, the introduction and the character menu (705 pictures); see the letters below | 36,523 |
+| Mega Man V | MBC1 | The menu, the first level and its enemies, the life counter changing (5,516 pictures) | 77,317 |
+| Contra: The Alien Wars | MBC1 | The title, then a level with enemies and a vehicle (8,690 pictures); upstream issue 24 (it does not start) does not occur on this ROM | 62,241 |
+| Exodus | Wisdom Tree | A maze level: score 100 to 500, the timer running down, objects picked up (9,716 pictures) | 0 |
+| The Ren & Stimpy Show: Veediots! | MBC1 | A level: the money 0 to 0.75, lives 3 to 1, the timer restarting (3,150 pictures); the screen-off wait does not stall | 3,684 |
+
+What this shows: the delivered file is alive on every game of the panel (pictures and sound change, no stall, no crash) and plays a real
+level or game on Tetris, Wario Land II, Mega Man V, Contra, Exodus and Veediots. What it does not show: complete games (the routes press
+buttons, they do not play to a goal), the depth of the others (Super Mario Land paused, Link's Awakening and Metroid II in their first
+room, Pokémon in its bedroom, Final Fantasy Legend II in its menus), hardware fidelity, or latency. The 12 games are 12 of the 606 qualified cartridges.
+
+Two facts about the method. The probes of a game with battery RAM start from the save a previous probe left in the same folder (the
+fresh-process state check empties it, the probes do not), so a probe is not always played from a clean start; the replays of the campaign
+do start clean (Link's Awakening shows 179 pictures on the clean `varied` replay against 212 in its probe, which a save left by an earlier
+probe would explain; it was not isolated). And a route that ends in a menu or on a
+paused game is evidence of liveness, not of depth: the lengths of the table are what the route reached, not what the game offers.
+
+### Letters missing in a menu of Final Fantasy Legend II
+
+On the sheet of Final Fantasy Legend II some letters are missing in the character menu and in the introduction text: the `i` of "Slime" on every
+frame, the `o` of "Robot" on some, the `d` of "and" once. It is not a transition (eight consecutive captures show it). The lockstep comparison
+cannot tell whether it is the game's own behaviour or the pinned PPU model, since the interpreter shares the PPU; no external emulator was
+used. It is recorded here as an unexplained observation about the rendering of this game, not as a claim about the hardware.
+
 ## Known limits
 
 - **Not native code:** the interpreter fallback is always counted and shown per CPU; the one-by-one WRAM and HRAM instructions are
