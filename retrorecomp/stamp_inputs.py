@@ -751,6 +751,11 @@ INPUTS = _resolve({
     'shares:megadrive_codegen': (
         'retrorecomp.megadrive_codegen',
     ),
+    # The corrections of Geolith's Musashi 68000 (m68kops.c) that the Neo Geo, the CPS-1 and the X68000 build from; the Mega Drive
+    # does not use this copy. Game role.
+    'shares:musashi_fixes': (
+        'retrorecomp.musashi_fixes',
+    ),
     # The gates and the evidence about the delivered file (liveness, packed replay) that the converters share;
     # delivery_evidence calls the gates, so a machine that uses it joins this group.
     'shares:conversion_gates': (
