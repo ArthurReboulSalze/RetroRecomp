@@ -121,9 +121,11 @@ def adapt_unused_io_bits(source: str) -> str:
     """The pinned runtime returns the stored value for the registers it does not model, so a bit that is not wired reads back as it was
     written. On the original Game Boy such a bit reads 1: the serial control (bits 6 to 1), the timer control (bits 7 to 3), the
     unmapped registers $FF03 and $FF08-$FF0E, and, outside colour mode, the registers of the colour models ($FF4C, $FF4E, $FF50,
-    $FF57-$FF67, $FF6D-$FF6F, $FF71, $FF78-$FF7F). Mooneye's unused_hwio-GS and boot_hwio test them. Only the last fall-through of the
-    register read is changed, so the joypad, the timer counters, the LCD and the sound registers keep their own paths. The colour palette
-    registers $FF68-$FF6B, which the LCD code answers with the stored value, read $FF outside colour mode."""
+    $FF57-$FF67, $FF6D-$FF6F, $FF71, $FF78-$FF7F). Two anchors in the register read of gbrt.c: its last fall-through, which gets the masks
+    above, and the branch of the colour palette ports $FF68-$FF6B, which the LCD code answers with the stored value and which now returns
+    $FF outside colour mode before gb_sync. The joypad, DIV, IF, the LCD and the sound registers keep their own paths. The engine already
+    reads $FF by itself outside colour mode at $FF4D, $FF4F, $FF51-$FF56, $FF6C, $FF70 and $FF72-$FF77 (gbrt.c:2691-2744). Mooneye's
+    unused_hwio-GS proves it; boot_hwio goes past $FF03 with it and still stops at $FF26 (the sound state after the boot ROM)."""
     source = replace_once(source,
         '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n            gb_sync(ctx);\n            return ppu_read_register((GBPPU*)ctx->ppu, addr);',
         '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n            if (!gb_is_cgb_mode(ctx)) return 0xFF;\n            gb_sync(ctx);\n            return ppu_read_register((GBPPU*)ctx->ppu, addr);')

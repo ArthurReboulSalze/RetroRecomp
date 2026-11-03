@@ -117,6 +117,7 @@ def judge(protocol: str, raw: bytes, state: dict | None) -> tuple[str, str]:
                 return 'failed', f'memory verdict {eram[0]:02X} DE B0 61'
     if re.search(r'\bPassed\b', text):
         return 'passed', text.replace('\n', ' | ')[-100:]
+    # A line of two hexadecimal digits is how blargg's instruction tests list a failed opcode: a heuristic, not part of the protocol.
     if re.search(r'\bFailed\b', text) or re.search(r'(?m)^[0-9A-F]{2}$', text):
         return 'failed', text.replace('\n', ' | ')[-160:]
     return 'incomplete', ('serial: ' + text.replace('\n', ' | ')[-100:]) if text else 'no serial text before the frame limit'

@@ -42,7 +42,9 @@ def routes_of(executable: Path) -> dict[str, tuple[str, int]]:
         raise SystemExit(f'no conversion report beside {executable}')
     # A folder may hold several games (a batch): take the report of this executable, not the first one.
     loaded = [json.loads(path.read_text(encoding='utf-8')) for path in reports]
-    report = next((item for item in loaded if item.get('executable') == executable.name), loaded[0])
+    report = next((item for item in loaded if Path(item.get('executable') or '').stem == executable.stem), None)   # 'game.exe' or 'game' on Linux
+    if report is None:
+        raise SystemExit(f'no conversion report beside {executable} names it as its executable (found {len(loaded)} for other executables)')
     plan = {check['scenario']: (check.get('input_script') or '', int(check['frames'])) for check in report.get('final_checks', [])}
     if not any(name.startswith('long') for name in plan):
         from retrorecomp.random_routes import gameboy_script, long_routes

@@ -91,6 +91,17 @@ class RoutesOfTests(unittest.TestCase):
             self.assertEqual(tool.routes_of(games / 'zzz.exe')['boot'][1], 20)
             self.assertEqual(tool.routes_of(games / 'aaa.exe')['boot'][1], 10)
 
+    def test_an_executable_that_no_report_names_is_refused_not_given_another_report(self):
+        with tempfile.TemporaryDirectory() as folder:
+            games = Path(folder)
+            report = games / 'datas' / 'reports' / 'aaa-aaaaaaaaaaaa'
+            report.mkdir(parents=True)
+            (report / 'conversion-report.json').write_text(json.dumps({'executable': 'aaa.exe', 'rom': {'sha256': 'a' * 64},
+                'final_checks': [{'scenario': 'boot', 'frames': 10, 'input_script': ''}]}), encoding='utf-8')
+            with self.assertRaises(SystemExit) as caught:
+                tool.routes_of(games / 'renamed')
+            self.assertIn('renamed', str(caught.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
