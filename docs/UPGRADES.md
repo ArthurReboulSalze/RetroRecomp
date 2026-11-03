@@ -102,11 +102,12 @@ stay interpreted and counted.
 
 ## Super Nintendo: the S-DD1 cartridges may be 8 MiB, and Star Ocean converts (1.6.7)
 
-A CPU read of the S-DD1 window ($C0-$FF) now goes through the cartridge (`cart_read`) instead of the plain ROM pointer, so the chip's
-decompression can answer it (`snes_cart.adapt_cpu`, a fail-closed patch of the pinned `cpu_read8`), and the S-DD1 boards are accepted
-up to 8 MiB (the other boards stay at 4 MiB). Star Ocean (6 MiB) converts: see [KNOWN_FAILURES.md](KNOWN_FAILURES.md). Street Fighter
-Alpha 2 converted again from an empty library with the 1.6.6 tree and with this one gives the same hashes. The SNES game stamp moves
-with the other 1.6.7 changes above.
+The cartridge RAM decoding served banks $F0-$FF (addresses $0000-$7FFF) as battery RAM on an S-DD1 board, where those banks are the
+ROM windows of the chip; a game reading its compressed data there got save RAM. The S-DD1 board now has its own clause: its RAM is in
+banks $70-$73 only (`native/snes_cart.h`, `snes_cart.ram_offset`). The S-DD1 boards are accepted up to 8 MiB (the other boards stay at
+4 MiB). Star Ocean (6 MiB) converts: see [KNOWN_FAILURES.md](KNOWN_FAILURES.md). Street Fighter Alpha 2 converted again from an empty
+library with the 1.6.6 tree and with this one gives the same hashes. Hot path: none added (the clause is evaluated for cartridge RAM
+accesses only, as before, and no extra comparison is made on `cpu_read8`). The SNES game stamp moves with the other 1.6.7 changes above.
 
 ## Super Nintendo: the delivered file is replayed and its liveness recorded on every conversion (1.6.7, gates G5 and G8)
 

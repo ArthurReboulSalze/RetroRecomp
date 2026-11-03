@@ -346,15 +346,16 @@ Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](
 1.0.0 campaign, the live-RAM guards, bus, DMA/HDMA, PPU and cartridge-decoder work in [SNES_LOG.md](SNES_LOG.md).
 
 **Star Ocean (1.6.7).** The S-DD1 cartridge of 6 MiB (map `$32`, type `$45`, 8 KiB of battery RAM) used to convert and stay on a black
-screen. Its CPU reads of the decompression window never reached the chip: the pinned `cpu_read8` sends only the Super FX, SA-1, CX4 and
-DSP-1 windows to `cart_read`, and every other ROM read to the plain pointer. Banks `$C0-$FF` of an S-DD1 board now go through `cart_read`
-(`snes_cart.adapt_cpu`, fail-closed), and the S-DD1 boards may be up to 8 MiB. Both translations of the library convert with zero
-interpreted 65816 and SPC700 opcodes on both routes, the compressed copy matches the reference, and a run of 2,500 frames shows the
-title menu (captures looked at by the specialist agent). The same conversion without the patch ran 1 decompression session in those
-2,500 frames and showed a black picture; with it, 1,240. Street Fighter Alpha 2, converted again from an empty library with the
-before and after trees, gives the same hashes. The counter `sdd1_cpu_blocks` stays at 0 on these routes, so the mechanism is not
-isolated further than "through `cart_read` it works". Not claimed: play beyond the title menu, the S-DD1's DMA timing, that
-decompression by CPU read is ever used by a game.
+screen. The cause was the decoding of the cartridge RAM: the clause the pinned engine uses for LoROM boards serves banks `$F0-$FF`,
+addresses `$0000-$7FFF`, as battery RAM, and on an S-DD1 board those banks are the ROM windows of the chip (the board's RAM is in banks
+`$70-$73`). A game's reads of its compressed data in `$F0-$FF` therefore returned save RAM. The S-DD1 board now has its own clause (banks
+`$70-$73` only, `native/snes_cart.h` and `snes_cart.ram_offset`), and the S-DD1 boards may be up to 8 MiB. Both translations of the
+library convert with zero interpreted 65816 and SPC700 opcodes on both routes, the compressed copy matches the reference, and a run of
+2,500 frames shows the title menu (captures looked at by the specialist agent). The same conversion with the old clause ran 1
+decompression session in those 2,500 frames and showed a black picture; with the narrow clause, 1,240 (an earlier attempt that sent the
+CPU reads of `$C0-$FF` to `cart_read` gave the same 1,240, and was dropped once the clause alone was shown to be enough). Street Fighter
+Alpha 2, converted again from an empty library with the before and after trees, gives the same hashes. Not claimed: play beyond the
+title menu, the S-DD1's DMA timing.
 
 ## Known limits
 

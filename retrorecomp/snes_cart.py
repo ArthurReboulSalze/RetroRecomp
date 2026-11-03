@@ -50,7 +50,11 @@ def ram_offset(memory, address):
     bank, adr = address >> 16, address & 0xffff
     if bank in (0x7e, 0x7f):
         return None
-    if memory.get('chip')=='dsp1-hi':
+    if memory.get('chip')=='sdd1':
+        # The S-DD1 board's RAM is in banks $70-$73; $C0-$FF are its ROM windows.
+        if 0x70 <= bank < 0x74 and adr < 0x8000:
+            return ((bank & 15) * 0x8000 + (adr & 0x7fff)) & (memory['bytes']-1)
+    elif memory.get('chip')=='dsp1-hi':
         if bank&0x7f>=0x20 and bank&0x7f<0x40 and 0x6000<=adr<0x8000:
             return (adr&0x1fff)&(memory['bytes']-1)
     elif memory['mapping'] == 'lorom':
@@ -152,8 +156,6 @@ def adapt_cpu(source):
     source=replace(source,'''    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SA1)
         return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
 ''','''    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SA1)
-        return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
-    if (g_snes && g_snes->cart && g_snes->cart->type == CART_SDD1 && bank >= 0xc0)
         return cpu_latch_read8(cpu, cart_read(g_snes->cart, bank, addr));
 ''')
     word_start=source.index('uint16 cpu_read16(CpuState *cpu, uint8 bank, uint16 addr) {')

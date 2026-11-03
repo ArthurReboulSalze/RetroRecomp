@@ -177,25 +177,19 @@ class ChipTests(unittest.TestCase):
             sa1(source.replace('sa1->cpu->irqWanted = true;', 'changed'))
 if __name__=='__main__':unittest.main()
 
-class SdDdOneCpuReadTests(unittest.TestCase):
-    """The S-DD1 decompresses on a CPU read of its window: the bus the CPU reads through must reach `cart_read` (1.6.7)."""
-    def pinned(self):
-        path = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/cpu_state.c'
-        if not path.exists():
-            self.skipTest('the pinned engine is not downloaded')
-        return path.read_text(encoding='utf-8')
+class SdDdOneRamWindowTests(unittest.TestCase):
+    """The S-DD1 board's RAM sits in banks $70-$73 only; $C0-$FF are its ROM windows, whatever the address (1.6.7)."""
+    def test_the_ram_is_in_banks_70_to_73_only(self):
+        from retrorecomp.snes_cart import ram_offset
+        memory = {'chip': 'sdd1', 'mapping': 'lorom', 'bytes': 0x2000}
+        self.assertEqual(ram_offset(memory, 0x700000), 0)
+        self.assertEqual(ram_offset(memory, 0x701234), 0x1234)
+        self.assertEqual(ram_offset(memory, 0x731234), 0x1234)       # 8 KiB, mirrored
+        for address in (0xc00000, 0xf00000, 0xf05000, 0xff7fff, 0x740000, 0x70ffff):
+            self.assertIsNone(ram_offset(memory, address), hex(address))
 
-    def test_a_cpu_read_of_the_s_dd1_window_goes_through_the_cartridge(self):
-        from retrorecomp.snes_cart import adapt_cpu
-        adapted = adapt_cpu(self.pinned())
-        line = 'g_snes->cart->type == CART_SDD1 && bank >= 0xc0'
-        self.assertEqual(adapted.count(line), 1)
-        after = adapted.split(line)[1].split(chr(10))[1]
-        self.assertIn('cart_read(g_snes->cart, bank, addr)', after)
-        self.assertIn('bank >= 0xc0', line)   # the S-DD1's own banks only; the others stay on the LoROM path
-
-    def test_the_patch_fails_closed_when_the_pinned_bus_changes(self):
-        from retrorecomp.snes_cart import adapt_cpu
-        text = self.pinned().replace('g_snes->cart->type == CART_SA1)', 'g_snes->cart->type == CART_SA1 || 0)')
-        with self.assertRaises(ConversionError):
-            adapt_cpu(text)
+    def test_the_native_header_has_the_same_clause(self):
+        text = (Path(__file__).resolve().parents[1] / 'native/snes_cart.h').read_text(encoding='utf-8')
+        self.assertIn('if (cart->type==CART_SDD1) {', text)
+        self.assertIn('bank>=0x70 && bank<0x74 && address<0x8000', text)
+        self.assertNotIn('|| cart->type==CART_SDD1', text)    # the LoROM clause (banks $F0-$FF) no longer covers the S-DD1
