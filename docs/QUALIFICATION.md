@@ -56,7 +56,7 @@ x68 = Sharp X68000.
 | G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | P |
-| G13 | P | P | P | P | P | P | P | P | Y |
+| G13 | P | P | P | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | ? | Y | ? | Y | P | ? |
 | G15 | P | P | P | P | P | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
@@ -89,6 +89,8 @@ x68 = Sharp X68000.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
+- NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 from one
+  source, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
 - Master System and Game Gear (1 November 2026): G5 is `P` for both. The replay of the compressed copy exists only with the banked
   engine (the "functions" engine records liveness only), and what is recorded for it is synthetic tests
   (`tests/test_sega_evidence.py`) and runs on three games, not a result per console ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-evidence-about-the-delivered-file-166)).
@@ -274,7 +276,7 @@ the games named in each row.
 | G10 | Y | The separate TriCNES-derived software oracle on NTSC routes (see the validation sections of [NES.md](NES.md)) | PAL has no independent oracle |
 | G11 | P | Authored fixtures of the clock, the APU, the Zapper and the mappers ([NES.md](NES.md#self-tests)) | No external emulator or hardware comparison; fine 2C07 register races and the PAL vblank-clear timing are unconfirmed (NESdev lists it as such) |
 | G12 | P | The eight games below, the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
-| G13 | P | Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | No campaign on Debian for the NES in 1.6.6 |
+| G13 | Y | Windows and Debian 13 (Hermès), each converting the game from the same source at the standard level, replay the six routes of the extended level (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run; 3,600 frames each) with `tools/nes_cross_os.py`: the per-frame trace (program counter and registers, work memory, mapper, PPU and APU hashes, picture and sound hashes) and the SHA-256 of the 48 kHz sound are identical on all 48 routes of the eight games (The Legend of Zelda, Mr. Gimmick, Kirby's Adventure, Castlevania III, Gumshoe, Front Line, Commando, Esper Dream 2: mappers 1, 69, 4, 5, 66, 0, 2 and 26, NTSC and PAL). Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | The two pseudo-random routes of 18,000 frames of the thorough level were not replayed on Debian, nor the ten games of the 1.6.7 panel; the traces were not compared with a reference console. Kirby's Adventure and Castlevania III were built with the corrected state writer on Windows and with the previous one on Debian, which shows that the correction changes no trace |
 | G14 | ? | No recorded owner decision | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [NES.md](NES.md) | The older documents have not all been read for this |
 | G16 | Y | Numeric hints, rechecked and retried without hints on a failed conversion; the RAM entries a conversion adds are permissions the guard checks | |
