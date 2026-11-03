@@ -493,6 +493,36 @@ The 12 October 2026 campaigns and the work that followed are recorded in
 | Lower ROM aliases and protected cartridge RAM | Eight targeted conversions on mappers 23, 25, 80, 82, 4 (PAL) and 69 | No interpreted cycles on the tested paths; 86,400 matching frame pairs on the final EXEs; 2,421,760 lower-ROM matrix comparisons; no mapper-40 retail qualification |
 | RAM-board, DMA and restart qualification (12 October 2026) | Batman: Return of the Joker, Mr. Gimmick, Ufouria, Dragon Ball Z III (supplied translation), Castlevania III, Ninja Gaiden II, Battletoads, Contra | Zero interpreted cycles; 86,400 frame pairs; fresh-process state continuations after 720 and 1,800 input frames |
 
+### Panel of mapper families (3 November 2026)
+
+Ten games chosen on 2 November 2026, each for a mapper family the earlier campaigns did not cover, validated by the lead session
+before the run. Each was converted at the thorough level (eight routes, 57,600 frames compared against the fresh reference, the
+delivered file replayed, fresh-process state continuation, saves in the report), one at a time, with `tools/campaign.py` on the
+maintainer's Windows PC:
+
+| Game | Board | Why it is in the panel | Result | Conversion |
+|---|---|---|---|---|
+| Mike Tyson's Punch-Out!! (Japan, USA) | Mapper 9 (MMC2) | CHR latches that switch banks as the PPU reads tiles | Pass, no interpreted cycles | 1,036 s |
+| Fire Emblem (Japan, translated) | Mapper 10 (MMC4) | The same latches with a 16 KiB PRG window, battery RAM; a translated release | Pass, no interpreted cycles | 988 s |
+| Final Lap (Japan) | Mapper 19 (Namco 163) | Wavetable sound channels and a CHR/nametable mapping of its own | Pass, no interpreted cycles | 2,375 s |
+| Rolling Thunder (USA, unlicensed) | Mapper 64 (Tengen RAMBO-1) | A scanline IRQ with its own counter rules and CHR banking modes | Pass, no interpreted cycles | 1,250 s |
+| Ys III: Wanderers from Ys (Japan, translated) | Mapper 118 (TxSROM) | An MMC3 whose CHR bank bits drive the nametables | Pass, no interpreted cycles | 1,356 s |
+| Akumajou Special: Boku Dracula-kun (Japan, translated) | Mapper 23 (Konami VRC2/VRC4 family) | The address-line wiring variants of the VRC boards | Pass, no interpreted cycles | 1,320 s |
+| Dragon Ball Z III: Ressen Jinzou Ningen (Japan, translated) | Mapper 16 (Bandai FCG) | A cycle-counted IRQ and a serial EEPROM for saves | Pass, no interpreted cycles | 1,386 s |
+| Dragon Warrior IV (USA) | Mapper 1 at 512 KiB (SUROM) | A second outer PRG bank register; the conversion that was set aside on 29 October 2026 | Pass, no interpreted cycles | 1,355 s |
+| Asterix (Europe) | Mapper 2, PAL | The PAL deferred clock on a mapper without an IRQ | Pass, no interpreted cycles | 770 s |
+| Batman: Return of the Joker (USA) | Mapper 69 (FME-7) with the Sunsoft 5B channels | A second cartridge with those channels, beside Mr. Gimmick | Pass, no interpreted cycles | 1,340 s |
+
+Ten of ten pass, none dropped. The verdict is the one of `tools/release_check.py` on each conversion's report: the conversion, the
+agreement of the native code with the project's own reference on the routes played, the interpreter limit and the replay gates. It
+says nothing about hardware fidelity, a whole game played or physical latency, and the routes are first minutes of play only; the
+pictures of these ten games were not looked at one by one.
+
+One thing about how the run was made. The first six games (to Akumajou Special) were converted with the quick-state writer of 1.6.6
+and the last four with the corrected one ([UPGRADES.md](UPGRADES.md)): the writer was fixed while the campaign was running from the same
+checkout, which the specialist's own notes forbid. The six were therefore converted again with the corrected writer at the standard
+level: all six succeed, including the check of states in a fresh process.
+
 ### Independent comparisons
 
 A separate TriCNES-derived software oracle (pinned, not part of the repository) was run on NTSC
