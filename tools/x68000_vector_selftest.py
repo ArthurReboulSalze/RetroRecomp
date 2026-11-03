@@ -1,6 +1,6 @@
 """Independent MC68000 vectors replayed through the X68000 generator path (gate G10, independent CPU evidence).
 
-    python -B tools/x68000_vector_selftest.py [fixture ...]        (default: every fixture)
+    python -B tools/x68000_vector_selftest.py [fixture ...]        (default: every fixture, the groups one with its recorded deviations)
 
 The vectors are the pinned SingleStepTests/m68000 fixtures of the repository (`tests/fixtures`, MIT, generated with MAME, not
 recorded from hardware; synthetic instruction data, no disk, no firmware): the same fixtures and the same reading of them as
@@ -34,6 +34,7 @@ shared = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shared)
 
 FIXTURES = shared.FIXTURES
+GROUPS = shared.GROUPS    # 85 instruction groups no other fixture holds: replayed with a recorded list of deviations (deviations-musashi-machines.json)
 PROGRAM_BYTES = shared.PROGRAM_BYTES
 OBSERVED_BYTES = 16     # the bytes read at a vector's address: enough for the longest instruction (eight words)
 
@@ -85,12 +86,22 @@ endif()
     return result
 
 
+group_deviations = shared.group_deviations
+
+
+group_problems = shared.group_problems
+
+
+def problems(result: dict) -> list[str]:
+    return shared.machine_problems(result)
+
+
 def main(names=None) -> int:
-    results = [replay(name) for name in (names or FIXTURES)]
+    results = [replay(name) for name in (names or FIXTURES + (GROUPS,))]
     failed = 0
     for result in results:
         print(shared.summary(result))
-        for text in shared.problems(result):
+        for text in problems(result):
             failed += 1
             print('PROBLEM', result['fixture'], text)
     print(json.dumps(results))

@@ -101,11 +101,11 @@ target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996;/w
 
 
 def main(names=None) -> int:
-    results = [replay(name) for name in (names or FIXTURES)]
+    results = [replay(name) for name in (names or FIXTURES + (shared.GROUPS,))]
     failed = 0
     for result in results:
         print(shared.summary(result))
-        for text in shared.problems(result):
+        for text in shared.machine_problems(result):
             failed += 1
             print('PROBLEM', result['fixture'], text)
     print(json.dumps(results))
