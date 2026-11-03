@@ -172,7 +172,7 @@ operands that are not digits, which the manual leaves undefined. The three machi
 `musashi_fixes.py` makes Musashi push `A7` as it was for `LINK A7`. Both halves are needed: a step that followed the vectors while the reference did not
 would have made a game that runs `LINK A7` fail its own comparison. After the change the state agrees for 2,873 vectors natively and 2,889 on Musashi (2,862
 and 2,883 before), identically on the three machines, and every total of clocks equals the vector's; the 22 decimal vectors are recorded per machine
-(`tests/fixtures/m68k-groups/deviations-<machine>.json`) and each replay checks the list both ways.
+(one list for the three machines, `tests/fixtures/m68k-groups/deviations-musashi-machines.json`) and each replay checks the list both ways.
 
 **What changes in a game.** Only a program that executes one of those three instructions with the case that was wrong (`LINK A7`, `UNLK A7`, `NEGX.B` with a zero
 result): the registers and the stack after it. A/B of 3 November 2026 (before: main `d53091b`; after: this tree; standard scan level, one conversion per process,
@@ -181,7 +181,11 @@ private library): 1941 (CPS-1) 172 values of the checks compared, 0 differ; NAM-
 are the same: no route of these games ran a case where the corrected instructions give a different result. It shows that nothing else moved; it does not say that a game that does run one now
 behaves as the original machine, which the vectors (made with MAME) support and no game here exercised.
 
-**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (`m68000_state_rules` and `megadrive_rules` join their inputs; the generators and
+**Run-time cost.** None, by reading the rules and the generated shape (not timed): the test of the mnemonic in the shared case is on a key that already holds the opcode word, so the compiler folds it; `NEGX` gains one `!r` test that folds the same way, and `LINK` and `UNLK` with a register other than `A7` gain a local the compiler drops. No timing was taken.
+
+**A stale sentence to correct at the next move of the Mega Drive stamp.** The docstring of `retrorecomp/megadrive_rules.py` still says the rules are "applied by the Mega Drive only"; its three state rules are now also read by the Neo Geo, the CPS-1 and the X68000. The file is not touched here, because any edit moves the Mega Drive game stamp.
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (`m68000_state_rules`, declared by the three profiles as the group `m68000_state_rules`, and `megadrive_rules`, listed under the four machines because the Mega Drive cannot join a group without editing its profile, join their inputs; the generators and
 `musashi_fixes` changed): they were already moving in 1.6.7 with the corrected Musashi, so players are asked for no further reconversion. The CPS-1 generator
 revision goes from 11 to 12 (`cps1_knowledge.py`, with the two modules pinned; no CPS-1 path was qualified, so no qualification is lost). **The Mega Drive does not
 move**: `megadrive_rules.py`, `megadrive_codegen.py` and its profile are byte for byte what they were, and its stamp and generated code are unchanged (checked against main). The

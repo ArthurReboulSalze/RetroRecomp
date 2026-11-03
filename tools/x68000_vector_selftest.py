@@ -34,7 +34,7 @@ shared = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shared)
 
 FIXTURES = shared.FIXTURES
-GROUPS = shared.GROUPS    # 85 instruction groups no other fixture holds: replayed with a recorded list of deviations (deviations-x68000.json)
+GROUPS = shared.GROUPS    # 85 instruction groups no other fixture holds: replayed with a recorded list of deviations (deviations-musashi-machines.json)
 PROGRAM_BYTES = shared.PROGRAM_BYTES
 OBSERVED_BYTES = 16     # the bytes read at a vector's address: enough for the longest instruction (eight words)
 
@@ -89,12 +89,11 @@ endif()
 group_deviations = shared.group_deviations
 
 
-def group_problems(result: dict, recorded: dict | None = None) -> list[str]:
-    return shared.group_problems(result, 'x68000', recorded)
+group_problems = shared.group_problems
 
 
 def problems(result: dict) -> list[str]:
-    return shared.machine_problems(result, 'x68000')
+    return shared.machine_problems(result)
 
 
 def main(names=None) -> int:

@@ -32,6 +32,7 @@ MUSASHI_OPS_FIXES = (
      'USE_CYCLES(CYC_INSTRUCTION[REG_IR] - 10);',
      'USE_CYCLES(CYC_INSTRUCTION[REG_IR] - 10 + (src > bound || src - bound < -32768 ? 0 : 2));', 11),
     # The vectors (MAME) push the value A7 had before the decrement, as the translated steps now do (m68000_state_rules).
+    # `m68k_op_link_32_a7` has the same line and is left as it is: LINK.L is a 68020 instruction, unreachable on a 68000.
     ('LINK A7 pushes the stack pointer as it was before the decrement (Musashi pushed it after)',
      'static void m68k_op_link_16_a7(void)\n{\n\tREG_A[7] -= 4;\n\tm68ki_write_32(REG_A[7], REG_A[7]);\n',
      'static void m68k_op_link_16_a7(void)\n{\n\tunsigned pushed = REG_A[7];\n\tREG_A[7] -= 4;\n\tm68ki_write_32(REG_A[7], pushed);\n', 1),

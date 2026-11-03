@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('cps1_vector_selftest', ROOT / 'tools' / 'cps1_vector_selftest.py')
 shared = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shared)
-MACHINES = ('cps1', 'neogeo', 'x68000')
 
 
 def group(name='ADD.w', cases=10, **bad):
@@ -25,21 +24,23 @@ def group(name='ADD.w', cases=10, **bad):
 
 
 class RecordedDeviationsTests(unittest.TestCase):
-    def recorded(self, machine):
-        return json.loads((ROOT / 'tests/fixtures' / shared.GROUPS / f'deviations-{machine}.json').read_text(encoding='utf-8'))
+    def recorded(self):
+        return json.loads((ROOT / 'tests/fixtures' / shared.GROUPS / shared.DEVIATIONS).read_text(encoding='utf-8'))
 
-    def test_each_machine_records_the_same_decimal_groups_and_nothing_else(self):
+    def test_the_shared_list_records_the_decimal_groups_and_nothing_else(self):
         sizes = {}
         for test in json.loads((ROOT / 'tests/fixtures/m68k-groups/cases.json').read_text(encoding='utf-8'))['tests']:
             sizes[test['group']] = sizes.get(test['group'], 0) + 1
-        for machine in MACHINES:
-            with self.subTest(machine=machine):
-                recorded = self.recorded(machine)
-                self.assertEqual(set(recorded), {'ABCD', 'NBCD', 'SBCD'})
-                for name, counts in recorded.items():
-                    self.assertTrue(all(0 < value <= sizes[name] for value in counts.values()), name)
-        self.assertEqual(self.recorded('cps1'), self.recorded('neogeo'))
-        self.assertEqual(self.recorded('cps1'), self.recorded('x68000'))
+        recorded = self.recorded()
+        self.assertEqual(set(recorded), {'ABCD', 'NBCD', 'SBCD'})
+        for name, counts in recorded.items():
+            self.assertTrue(all(0 < value <= sizes[name] for value in counts.values()), name)
+
+    def test_the_three_replays_use_the_one_list_and_the_one_comparison(self):
+        for path in ('tools/cps1_vector_selftest.py', 'tools/neogeo_vector_selftest.py', 'tools/x68000_vector_selftest.py'):
+            self.assertIn('machine_problems', (ROOT / path).read_text(encoding='utf-8'), path)
+        self.assertIn('vector_deviations.differences', (ROOT / 'tools/cps1_vector_selftest.py').read_text(encoding='utf-8'))
+        self.assertIn('vector_deviations.differences', (ROOT / 'tools/megadrive_groups_selftest.py').read_text(encoding='utf-8'))
 
     def test_the_state_rules_are_the_three_of_the_mega_drive_and_the_text_is_not_copied(self):
         from retrorecomp import m68000_state_rules, megadrive_rules
@@ -76,27 +77,27 @@ class RecordedDeviationsTests(unittest.TestCase):
 
 class JudgementTests(unittest.TestCase):
     def test_a_group_that_agrees_and_is_not_listed_passes(self):
-        self.assertEqual(shared.group_problems({'groups': [group()]}, 'x68000', {}), [])
+        self.assertEqual(shared.group_problems({'groups': [group()]}, {}), [])
 
     def test_a_group_that_differs_and_is_not_listed_is_a_problem_and_a_listed_one_passes(self):
         result = {'groups': [group(native_state=9, paths_equal=9)]}
         self.assertEqual(shared.group_deviations(result), {'ADD.w': {'native_state': 1, 'paths': 1}})
-        self.assertTrue(shared.group_problems(result, 'x68000', {}))
-        self.assertEqual(shared.group_problems(result, 'x68000', {'ADD.w': {'native_state': 1, 'paths': 1}}), [])
+        self.assertTrue(shared.group_problems(result, {}))
+        self.assertEqual(shared.group_problems(result, {'ADD.w': {'native_state': 1, 'paths': 1}}), [])
 
     def test_a_listed_count_that_changed_is_a_problem_in_both_directions(self):
         listed = {'ADD.w': {'native_state': 2}}
-        self.assertTrue(shared.group_problems({'groups': [group(native_state=9)]}, 'x68000', listed))
-        self.assertTrue(shared.group_problems({'groups': [group(native_state=7)]}, 'x68000', listed))
-        self.assertTrue(shared.group_problems({'groups': [group()]}, 'x68000', listed))
+        self.assertTrue(shared.group_problems({'groups': [group(native_state=9)]}, listed))
+        self.assertTrue(shared.group_problems({'groups': [group(native_state=7)]}, listed))
+        self.assertTrue(shared.group_problems({'groups': [group()]}, listed))
 
     def test_a_clock_that_differs_or_a_step_not_run_natively_is_a_problem(self):
         for bad in ({'native_clock': 9}, {'reference_clock': 9}, {'native_executed': 9}):
-            self.assertTrue(shared.group_problems({'groups': [group(**bad)]}, 'x68000', {}), bad)
+            self.assertTrue(shared.group_problems({'groups': [group(**bad)]}, {}), bad)
 
     def test_the_other_fixtures_keep_the_shared_rules(self):
-        self.assertEqual(shared.machine_problems({'fixture': 'm68k-shifts', 'groups': [group()]}, 'cps1'), [])
-        self.assertTrue(shared.machine_problems({'fixture': 'm68k-shifts', 'groups': [group(native_state=9)]}, 'cps1'))
+        self.assertEqual(shared.machine_problems({'fixture': 'm68k-shifts', 'groups': [group()]}), [])
+        self.assertTrue(shared.machine_problems({'fixture': 'm68k-shifts', 'groups': [group(native_state=9)]}))
 
 
 if __name__ == '__main__':

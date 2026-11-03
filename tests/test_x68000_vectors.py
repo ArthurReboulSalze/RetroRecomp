@@ -54,7 +54,7 @@ class GroupsReplayTests(unittest.TestCase):
         return row
 
     def test_the_recorded_deviations_name_groups_of_the_fixture_and_fit_their_size(self):
-        recorded = json.loads((ROOT / 'tests/fixtures/m68k-groups/deviations-x68000.json').read_text(encoding='utf-8'))
+        recorded = json.loads((ROOT / 'tests/fixtures/m68k-groups/deviations-musashi-machines.json').read_text(encoding='utf-8'))
         sizes = {}
         for test in json.loads((ROOT / 'tests/fixtures/m68k-groups/cases.json').read_text(encoding='utf-8'))['tests']:
             sizes[test['group']] = sizes.get(test['group'], 0) + 1

@@ -719,13 +719,11 @@ INPUTS = _resolve({
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
     ),
-    # The three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) that the Neo Geo, the CPS-1 and the X68000 take from the
-    # Mega Drive's rule text (one copy): the text is an input of the four, the module that applies it of the three. Game role.
+    # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
+    # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its
+    # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.
     ('cps1', 'md', 'ng', 'x68'): (
         'retrorecomp.megadrive_rules',
-    ),
-    ('cps1', 'ng', 'x68'): (
-        'retrorecomp.m68000_state_rules',
     ),
     ('sms', 'gg'): (
         'native/video_checks.c',
@@ -770,6 +768,11 @@ INPUTS = _resolve({
     'shares:conversion_gates': (
         'retrorecomp.conversion_gates',
         'retrorecomp.delivery_evidence',
+    ),
+    # The module that applies the Mega Drive's state rules to the translated steps of the Neo Geo, the CPS-1 and the X68000 (the text it
+    # reads, `megadrive_rules`, is listed under the four machines). Game role.
+    'shares:m68000_state_rules': (
+        'retrorecomp.m68000_state_rules',
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',

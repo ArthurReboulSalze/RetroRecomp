@@ -105,7 +105,7 @@ def main(names=None) -> int:
     failed = 0
     for result in results:
         print(shared.summary(result))
-        for text in shared.machine_problems(result, 'neogeo'):
+        for text in shared.machine_problems(result):
             failed += 1
             print('PROBLEM', result['fixture'], text)
     print(json.dumps(results))
