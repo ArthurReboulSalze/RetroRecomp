@@ -99,6 +99,25 @@ class DecoderToolIsolationTests(unittest.TestCase):
             self.assertEqual(users[name], 0)
         self.assertNotIn('md_rules', (ROOT / 'tools/x68000_native.py').read_text(encoding='utf-8'))
 
+    def test_decode_asks_for_the_rules_and_only_the_mega_drive_calls_it(self):
+        # decode() hard-codes md_rules=True: a caller of another machine would get the Mega Drive's rules without knowing it.
+        import re
+        from unittest import mock
+        from retrorecomp import megadrive_codegen
+        asked = []
+        def stop(engine, **options):
+            asked.append(options)
+            raise StopIteration
+        with mock.patch.object(megadrive_codegen, 'decoder_tool', stop), self.assertRaises(StopIteration):
+            megadrive_codegen.decode(Path('engine'), Path('project'), Path('rom'), set())
+        self.assertEqual(asked, [{'md_rules': True}])
+        callers = set()
+        for path in list((ROOT / 'retrorecomp').rglob('*.py')) + list((ROOT / 'tools').glob('*.py')):
+            text = path.read_text(encoding='utf-8')
+            if re.search(r'megadrive_codegen\s+import[^\n]*\bdecode\b|megadrive_codegen\.decode\(', text):
+                callers.add(path.name)
+        self.assertEqual(callers - {'megadrive_native_selftest.py'}, set())
+
 
 if __name__ == '__main__':
     unittest.main()

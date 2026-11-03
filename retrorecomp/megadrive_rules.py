@@ -2,14 +2,15 @@
 
 The pinned `m68k_interp.c` is the text both the translated steps and the reference path are built from. The vectors of
 `tests/fixtures/m68k-groups` (MIT, made with MAME, `tools/megadrive_groups_selftest.py`) differ from it in a few instructions;
-this module corrects the ones the Motorola manual defines. Each rule is a strict one-time replacement of a pinned line: a
-changed upstream fails loudly instead of being half applied. They are applied by the Mega Drive only (the other 68000 machines
-run Musashi or their own text), so only the Mega Drive game stamp moves.
+this module corrects the ones the Motorola manual defines (and, for LINK A7 and UNLK A7, the vectors alone). Each rule is a
+strict one-time replacement of a pinned line: a changed upstream fails loudly instead of being half applied. They are applied
+by the Mega Drive only (the other 68000 machines run Musashi or their own text), so only the Mega Drive game stamp moves.
 
 State (the final registers and memory):
 * `RTR` loads the five condition code bits only (the status register's bits 5 to 7 of the low byte do not exist);
 * `LINK A7` pushes the value A7 had before the decrement, and `UNLK A7` ends with the long it popped (the increment of the
-  stack pointer is overwritten by that load);
+  stack pointer is overwritten by that load); these two follow the vectors (MAME), a literal reading of the manual gives the
+  old behaviour;
 * `NEGX` leaves Z alone when the result is zero (Z is cleared by a non-zero result only).
 
 Clocks (the total of an instruction, as the manual's tables give it):
@@ -24,12 +25,16 @@ Undefined results (the decimal instructions on digits above 9, the flags the man
 from __future__ import annotations
 
 from .core import ConversionError
+from .gun16_runtime import replace as strict_replace
 
 
 def replace(source: str, old: str, new: str) -> str:
-    if source.count(old) != 1:
-        raise ConversionError('Pinned 68000 interpreter changed; the Mega Drive instruction rules are refused (' + old.strip().splitlines()[0][:60] + ').')
-    return source.replace(old, new, 1)
+    # The shared strict one-time replacement; only the message is ours (gun16_runtime is in the stamps of every 16-bit machine).
+    try:
+        return strict_replace(source, old, new)
+    except ConversionError:
+        raise ConversionError('Pinned 68000 interpreter changed; the Mega Drive instruction rules are refused (' + old.strip().splitlines()[0][:60] + ').') from None
+
 
 # The static lines of the cycle estimate (after m68000.adapt_cycle_estimates) and what the manual gives.
 ESTIMATE_RULES = (

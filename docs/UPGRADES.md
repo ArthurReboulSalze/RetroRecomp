@@ -80,10 +80,10 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and
 51 final-state differences between the pinned 68000 interpreter and the oracle. The Mega Drive now corrects the ones the Motorola manual
 defines, in `retrorecomp/megadrive_rules.py` (strict replacements of pinned lines, applied to the steps' text and to the reference path):
-`RTR` loads the five condition code bits only; `LINK A7` pushes the value before the decrement and `UNLK A7` ends with the long it popped;
-`NEGX` keeps Z on a zero result; the long `ADD`, `SUB`, `AND`, `OR`, `EOR`, `ADDA` and `SUBA` with a register or immediate source take two
+`RTR` loads the five condition code bits only; `NEGX` keeps Z on a zero result; the long `ADD`, `SUB`, `AND`, `OR`, `EOR`, `ADDA` and `SUBA` with a register or immediate source take two
 clocks more; `CMPA.W` takes two fewer; `BCHG`, `BCLR` and `BSET` by bit number take two fewer below bit 16; `Scc Dn` takes 4 clocks when
-false; `BTST Dn,#imm` takes two more. Of the 2,895 vectors 2,421 now agree (2,315 before); the 474 left are decimal arithmetic on
+false; `BTST Dn,#imm` takes two more. Two more rules follow the vectors alone, not the manual (read to the letter, the manual gives the
+old behaviour): `LINK A7` pushes the value A7 had before the decrement and `UNLK A7` ends with the long it popped. Of the 2,895 vectors 2,421 now agree (2,315 before); the 474 left are decimal arithmetic on
 non-decimal digits (22, undefined in the manual) and the layout of bus transactions (452, not corrected). `megadrive_cycles_selftest`
 changed one authored expectation: `BCLR D0,D0` with D0 = 0 is 8 clocks, not 10 (the vectors give 8 below bit 16, 10 from bit 16).
 
@@ -97,8 +97,10 @@ call lines added there pass the rules for the Mega Drive generator only, and the
 the rules), and the CPS-1 vector replay gives the same figures on the branch as on 1.6.6 (2,169 of 2,171 native, 2,091 reference on
 `md-prefetch`; 864 and 858 on `md-exceptions`; 834 on `m68k-shifts`). The Neo Geo stamp does not move.
 
-**Cost.** None at run time: the new clocks are constants of the translated steps; the three data-dependent ones (`Scc` false, `BCHG`,
-`BCLR`, `BSET` by bit number) use the hook the register shifts already use. Hot paths: not changed.
+**Cost.** A small one on the hot path of the translated steps. The static clocks are constants and cost nothing, but the three
+data-dependent rules are inserted in the translated bodies: every `Scc Dn` and every `BCHG`, `BCLR` or `BSET` by bit number that runs
+adds one branch, and a call to `rr_md_arithmetic_phase` when the branch is taken (the hook `MULU` and the register shifts already use).
+It is low when the prefetch model is off. The cost per frame is **not measured yet**: it is measured at the release, on a quiet PC.
 
 **Checked (A/B, `tools/ab_conversion.py`, 1.6.6 against this tree, standard scan).** Blockout, Sonic The Hedgehog and Gunstar Heroes
 (USA) convert on both sides with status `supported`, zero interpreted 68000 and Z80 instructions on both routes, native equal to the
