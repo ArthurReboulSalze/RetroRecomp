@@ -149,7 +149,7 @@ The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
 The converter bundles UPX 5.3.0 and compacts each validated game executable
 before replacing the previous export, then has UPX test it. On Windows
-(`assets/tools/upx.exe`, `-9 --compress-resources=0 --compress-icons=0`) every
+(`assets/tools/upx.exe`, `-9 --lzma --compress-resources=0 --compress-icons=0`, 1.6.7) every
 console is packed; resources stay readable. On Linux x86-64
 (`assets/tools/upx-amd64_linux`, `-9`) every console is packed too, the X68000
 included. Both
@@ -181,6 +181,19 @@ that field; the delivered file carries UPX's own SizeOfCode, the patched value e
 output) and packs; the packed file must pass `upx -t` and `upx --fileinfo` must show filter 0x49, else (or if the staged copy
 cannot be patched) the build is put back and packed exactly as before. The report's `packing.call_filter` says when it was used. The packer and its flags are unchanged. Builds whose longest filterable part is under a
 quarter of the code (the NES, 10 MB or more of code) are packed as before.
+**LZMA, a reproducible link and a manifest on Windows (1.6.7).** Three standard choices, none of them an antivirus
+measure. (1) Windows games are packed with UPX's LZMA method (`--lzma`, `packing.WINDOWS_METHOD`; Linux keeps UPX's default
+NRV method, `packing.LINUX_METHOD`): about 14 % smaller than NRV on average and packed about twice as fast, for a start that
+decompresses a little longer (`python -B tools/startup_cost.py` measures both; it needs a quiet PC). The report's
+`packing.method` says `lzma` or `nrv`. (2) The portable linker writes 0 instead of the link time in the PE header
+(`-Wl,--no-insert-timestamp`, `toolchain.LLVM_LINKER_FLAGS`), so the same game built twice, in any folder, is byte for byte
+the same file. (3) Every Windows game carries an application manifest (`metadata.MANIFEST_XML`, resource 1 of type 24, in the
+resource script): it runs as the user who starts it, names Windows 7 to 11, and states the per-monitor DPI awareness the
+host already asks SDL for at start (`SDL_HINT_WINDOWS_DPI_AWARENESS` "permonitorv2"), nothing else. Whether any of this
+changes what an antivirus says about a game is not demonstrated. When UPX fails on a Windows game with a sign of an
+antivirus that removed its output (`IOException`, `Invalid argument`, ...), the validated build is put back and the very same
+command runs once more after 5 seconds (`packing.DEFENDER_RETRY_WAIT`); if it fails again the game is published unpacked as
+before. No other option or form of the file is tried to get past a detection.
 **Compress games (1.6.6).** Windows Defender's machine-learning detection sometimes mistakes a
 freshly built, UPX-packed game for a threat (`Program:Win32/Contebrew.A!ml`, a false positive).
 The global option **Options > Common > Compress games** (preference `compress_games`, on by

@@ -241,6 +241,73 @@ consoles): only the **build stamp of every console moves** (`retrorecomp/packing
 `BUILD_MODULES`); no game stamp and no host stamp moves. A game packed by the 1.6.6 or the 1.6.7 converter before this change
 and rebuilt from its paths is packed again, smaller when it lost its filter.
 
+## Lead: LZMA packing, a reproducible link, a manifest and one identical retry on Windows (1.6.7)
+
+Four changes to how a Windows game is built and packed. None changes what a game does. **None is an antivirus fix**: the
+Defender study of 3 November 2026 reproduced no detection on 280 scans, and nothing shows that the method, the link
+timestamp or the manifest changes what Defender says about a file.
+
+- **LZMA by default (a size choice).** `packing.WINDOWS_METHOD = 'lzma'` adds `--lzma` to the Windows UPX call (`-9 --lzma
+  --compress-resources=0 --compress-icons=0`, the call-filter prefix, `-t` and the `--fileinfo` 0x49 check as before). The
+  method is one named constant per OS (`packing.LINUX_METHOD` stays `'nrv'`, UPX's default: Linux is unchanged until the cost
+  of `--lzma` on a large ELF, 2.7 s against 0.17 s on a slow laptop in 1.6.0, is measured again). `packing.packing_record`
+  and the schema-2 `packed` section carry `method` (`lzma`, `nrv`, or none when the file is not packed); it is optional, a
+  report from before reads `None`, no schema number changes. The cost is a start that decompresses a little longer:
+  `tools/startup_cost.py start` measures it (not measured yet, an estimate of +80 to +280 ms per game; the owner decides on
+  the measurement).
+- **A reproducible link.** The portable linker is given `-Wl,--no-insert-timestamp` (`toolchain.LLVM_LINKER_FLAGS`): the PE
+  header carries 0 instead of the link time. Two conversions of Super Mario Land of the same commit in two different trees
+  (`tools/ab_conversion.py --a HEAD --b HEAD`, folders `a` and `b`, both with an empty library and no cover) give the same
+  unpacked build (5,135,872 bytes, SHA-256 `c233ba38...`) and the same packed game (1,158,144 bytes, `83b49fcc...`). What still
+  varies from one player to another, and what is not done here: the three SDL renderer sources (`SDL_render_gl.c`,
+  `SDL_render_gles2.c`, `SDL_render_sw.c`) keep their build-time path in assertion strings, so two players whose
+  `.deps/SDL` sits in different folders get different bytes; the repair is `-ffile-prefix-map=<SDL source folder>=SDL` at the
+  SDL configure in `core.py` plus a rebuild of every existing SDL install, which moves the game stamps (SDL is linked into every
+  game) and was left to a decision. The title, the cover and the player's options change the binary too (that is a different
+  game, not a variation).
+- **An application manifest.** Every Windows game carries resource 1 of type RT_MANIFEST, written inline in the resource script
+  (`metadata.MANIFEST_XML`): `asInvoker`, `supportedOS` for Windows 7 to 11, and the DPI awareness the host already asks SDL for
+  at start (`rrhk_main.c`: `SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"`; `dpiAware true/pm` and `dpiAwareness
+  PerMonitorV2,PerMonitor`), stated before the first window. No UTF-8 code page, no long-path flag, no common-controls version.
+  SDL 2.32.10 reads the Windows version only through `WIN_IsWindows8OrGreater`, which is true with or without the manifest, and
+  sets its DPI awareness by function pointer: scaling does not change. The manifest is present in the unpacked and the packed
+  game (UPX leaves it readable) and the packed game starts (headless). The Visual Studio fallback toolchain was not tried with
+  it (its linker may want to merge its own manifest).
+- **One identical retry.** When a Windows pack attempt fails with a sign that the antivirus removed UPX's output
+  (`IOException`, `Invalid argument`, `WinError 225`, `virus`, `potentially unwanted`), the validated build is put back, the
+  SizeOfCode of the call-filter attempt is written again if it had one, the process waits `DEFENDER_RETRY_WAIT` (5 s, `time.sleep`)
+  and runs exactly the same command once. A second failure ends there, as before: the game is published unpacked with the notice
+  (and when it was the call-filter attempt, the plain form of the same build is not tried, so that no variant is searched to
+  get past a detection). Other failures are not retried.
+
+Measured with `tools/startup_cost.py pack --determinism` on unpacked builds kept by earlier work (the converter's own packing code,
+the method switched for each call; every result passes `upx -t`, and packing a second copy gave the same bytes for both
+methods in all eight cases; times are pack plus test on a PC shared with two conversions, so only large differences count):
+
+| Build (console) | Unpacked | NRV | LZMA | LZMA / NRV | Pack NRV / LZMA | `upx -t` NRV / LZMA |
+|---|---|---|---|---|---|---|
+| Sonic the Hedgehog (Master System) | 6,056,960 | 1,831,936 | 1,414,144 | 0.772 | 6.1 s / 3.4 s | 0.07 s / 0.13 s |
+| Super Mario Land (Game Boy) | 5,131,776 | 1,367,552 | 1,193,984 | 0.873 | 3.8 s / 3.2 s | 0.06 s / 0.12 s |
+| Metroid (NES) | 12,623,872 | 3,107,840 | 2,371,584 | 0.763 | 13.8 s / 8.7 s | 0.09 s / 0.20 s |
+| Sonic the Hedgehog (Mega Drive) | 8,191,488 | 2,312,704 | 1,961,984 | 0.848 | 8.0 s / 4.7 s | 0.08 s / 0.17 s |
+| DBZ Hyper Dimension (Super Nintendo) | 33,103,360 | 7,424,512 | 6,001,152 | 0.808 | 32.6 s / 19.1 s | 0.48 s / 0.71 s |
+| Puzzle De Pon (Neo Geo) | 11,678,720 | 3,044,864 | 2,553,856 | 0.839 | 10.5 s / 9.5 s | 0.19 s / 0.25 s |
+| Dino (CPS-1) | 23,591,424 | 7,467,520 | 6,686,208 | 0.895 | 16.6 s / 12.1 s | 0.16 s / 0.26 s |
+| R-Type (X68000) | 8,733,184 | 3,716,096 | 3,374,080 | 0.908 | 5.5 s / 4.7 s | 0.13 s / 0.22 s |
+
+`upx -t` decompresses the whole file once, so its difference (+0.05 to +0.23 s here) is an upper bound of the extra start-up
+decompression of a game on this PC; the real start is measured by `tools/startup_cost.py start` (see
+[BUILDING.md](BUILDING.md)): it needs a quiet PC and the owner's agreement. End to end, Super Mario Land converted whole with
+this tree: the packed game is 1,158,144 bytes (the 1.6.7 call-filter build was 1,367,552 with NRV) and its packed copy replayed
+on 4 routes against the reference and matched (`packed_reference_match` true); `packing.method` reads `lzma`.
+
+Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): the **build stamp of every
+console moves** (`toolchain.py` and `packing.py` are build inputs) and the **host stamp of every console moves**
+(`metadata.py`, which writes the resource script, is a host input); no game stamp moves. No file is added to the stamps
+(`tools/startup_cost.py` and its test are public tools outside them). An export packed or built before this change is
+upgraded from its paths like any host or build change, and is smaller and carries the manifest once rebuilt. SDL is built once per
+player and is not rebuilt by this change.
+
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
 The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and
