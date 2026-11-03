@@ -56,7 +56,7 @@ x68 = Sharp X68000.
 | G10 | Y | Y | P | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | P | P | P | P | P | P | P | P | Y |
+| G13 | P | P | P | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | ? | Y | ? | Y | P | ? |
 | G15 | P | P | P | P | P | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
@@ -89,6 +89,10 @@ x68 = Sharp X68000.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
+- NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 with the same
+  engine revision and the same native sources, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
+  The panel of ten mapper families of 1.6.7 passes at the thorough level (G12 stays `P`: the panel size policy is not decided). A defect of
+  the quick-state writer found on the way (the PRG register was not saved, 1.6.5 and 1.6.6) is described in [UPGRADES.md](UPGRADES.md).
 - Master System and Game Gear (1 November 2026, completed 2 November): G5 is `P` for both. The compressed copy is replayed by both
   engines since 1.6.7: the banked engine compares it with the fresh reference of each route, the "functions" engine (which has no
   per-route reference) with the final pass of the same build, and the report says which (`packed_replay` for the functions engine). What
@@ -306,8 +310,8 @@ the games named in each row.
 | G9 | Y | The thorough level runs six authored routes of 3,600 frames (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run) and two pseudo-random routes of 18,000 frames seeded from the exact ROM, 57,600 frames per game. `tools/nes_route_captures.py` replays them on the delivered files and takes the last picture: **all eight games reached play on at least one route**. The Legend of Zelda (the overworld, Link in the field), Mr. Gimmick (the first stage, score 130), Esper Dream 2 (rooms and a dialogue), Gumshoe (a water stage with a score), Front Line (the road, score 300), Commando (the field, then the title with a score of 450: a game over), Castlevania III (stage 1-02) and Kirby's Adventure (Vegetable Valley) | First stages only, not full games. The pictures were looked at by the specialist agent, not by the owner. Kirby stays on its first level on both long routes; Gumshoe's second long route ends on a plain blue picture |
 | G10 | Y | The separate TriCNES-derived software oracle on NTSC routes (see the validation sections of [NES.md](NES.md)) | PAL has no independent oracle |
 | G11 | P | Authored fixtures of the clock, the APU, the Zapper and the mappers ([NES.md](NES.md#self-tests)) | No external emulator or hardware comparison; fine 2C07 register races and the PAL vblank-clear timing are unconfirmed (NESdev lists it as such) |
-| G12 | P | The eight games below, the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
-| G13 | P | Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | No campaign on Debian for the NES in 1.6.6 |
+| G12 | P | The eight games below, the ten games of the 1.6.7 panel of mapper families (mappers 9, 10, 19, 64, 118, 23, 16, 1 at 512 KiB, 2 in PAL and 69: ten of ten pass at the thorough level, [NES.md](NES.md#panel-of-mapper-families-3-november-2026)), the 1.6.4 player-conditions reconversion of Kirby's Adventure and the earlier qualifications of 8 to 12 October | The panel size policy is not decided |
+| G13 | Y | Windows and Debian 13 (Hermès), each converting the game with the same engine revision and the same native sources at the standard level, replay the six routes of the extended level (boot, two play runs, a menu and dialogue run, a Select and second-player run, a varied movement run; 3,600 frames each) with `tools/nes_cross_os.py`: the per-frame trace (program counter and registers, work memory, mapper, PPU and APU hashes, picture and sound hashes) and the SHA-256 of the 48 kHz sound are identical on all 48 routes of the eight games (The Legend of Zelda, Mr. Gimmick, Kirby's Adventure, Castlevania III, Gumshoe, Front Line, Commando, Esper Dream 2: mappers 1, 69, 4, 5, 66, 0, 2 and 26, NTSC and PAL). Quick states resumed across the Visual Studio and portable-toolchain builds (`tools/nes_state_cross.py`) | The two pseudo-random routes of 18,000 frames of the thorough level were not replayed on Debian, nor the ten games of the 1.6.7 panel; the traces were not compared with a reference console. Six of the eight games had identical native sources on both systems; the exception is Kirby's Adventure and Castlevania III, built with the corrected state writer on Windows only and with the previous one on Debian, which shows that the correction changes no trace |
 | G14 | ? | No recorded owner decision | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [NES.md](NES.md) | The older documents have not all been read for this |
 | G16 | Y | Numeric hints, rechecked and retried without hints on a failed conversion; the RAM entries a conversion adds are permissions the guard checks | |
@@ -449,6 +453,47 @@ Then three checks on the machine itself, each on one game of your choice:
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | (to fill) | Sharp X68000 | (to fill) | (to fill) | (to fill) |
+
+### Checklist for Arthur: Nintendo NES play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging.
+`python tools/nes_owner_trial.py --roms <your NES folder>` converts these six games as a player would, one at a time, under
+`.build/nes-owner-trial/` (never into Export), writes `TRIAL.md` there with the same table and takes one picture of each right-hand
+play route. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this
+test".
+
+| | Zelda | Kirby's Adventure | Mr. Gimmick (PAL) | Duck Hunt (Zapper) | Battletoads | Castlevania III |
+|---|---|---|---|---|---|---|
+| Why it is here | MMC1, battery save, long game | MMC3 scanline IRQ, battery save | 50 Hz cartridge, FME-7 sound chip | the Zapper | two players, AxROM, code in RAM | MMC5, extra sound channels |
+| It starts without an error window | | | | | | |
+| Controls: arrows, **W** and **X**, **Enter** (Start), **Shift** (Select); player 2 on the keypad | | | | The mouse aims, the left button shoots, the right button shoots off-screen | Both pads answer | |
+| Sound is the game's (music and effects) | | | The speed and the pitch of a PAL game | | | The extra pulse channels are heard |
+| **F8** in play, move on, **F9** goes back | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | |
+| A save made in the game is still there after closing and starting again | | | not applicable | not applicable | not applicable | not applicable |
+| **F3** changes the picture filter, **F4** the window mode | | | | | | |
+| Nothing odd: a frozen picture, a flickering status bar, a wrong colour | | | | | | |
+
+Then four checks, each on the game that fits:
+
+1. **Battery save.** Start a game in Zelda or Kirby, save in the game, quit, start again and load it. The file is
+   `datas/games/<game>-<12 hex digits>.sav` beside the player; the conversion's own test runs leave none.
+2. **Autofire and extra sprites.** On a gamepad, **F6** turns autofire on and off (a notice shows "Autofire ON" or "Autofire OFF"; a game
+   samples its pad once per frame, so what it makes of it is the game's). **F5** toggles the extra sprites: in a game that flickers
+   (Battletoads, Castlevania III) fewer objects blink; off by default.
+3. **The Zapper.** In Duck Hunt, **F2** then the Zapper page (after the four control pages) changes the reticle: cross or dot, size, red,
+   white or green. The light is an approximation fed by the pixels the PPU emits: say if a shot you think was good counts as a miss, or
+   the opposite, and where on the screen.
+4. **Language.** **F7** changes the language of the player's own menus (the game's text is the cartridge's).
+
+Known limits to keep in mind while you play: the Zapper's light is approximate; one Zapper only (no second gun, no other special
+controller); the Famicom Disk System is not supported; no Dendy timing (NTSC and PAL only). Keep the five measures apart when you judge: the CPU is checked against independent vectors and
+the hardware against authored fixtures, not against a reference console, and a good feel here is neither an exact fidelity nor a
+latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
 
 ## Running the verification campaign
 

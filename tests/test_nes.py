@@ -77,8 +77,15 @@ class NesProfileTests(unittest.TestCase):
     def test_zapper_catalogue_exact_names_header_and_metadata(self):
         for name in ('Duck Hunt (World).zip', "Hogan's Alley.nes", 'Super Mario Bros. + Duck Hunt (USA).nes'):
             self.assertTrue(zapper_game(cartridge(),name))
-        for name in ('Super Mario Bros.nes','Duck Tales.nes','Duck Hunt Fan Sequel.nes'):
+        for name in ("Lone Ranger, The (USA).zip", "The Lone Ranger.nes", "Day Dreamin' Davey (USA).zip",
+                     'Track & Field II (USA).zip', 'Mad City (Japan) (Translated En).nes', 'Gumshoe (USA, Europe).zip'):
+            self.assertTrue(zapper_game(cartridge(), name), name)
+        for name in ('Super Mario Bros.nes','Duck Tales.nes','Duck Hunt Fan Sequel.nes',
+                     'Hunt for Red October, The (USA).zip'):
             self.assertFalse(zapper_game(cartridge(),name))
+        # No CRC table: the same bytes under another name are not recognised (the catalogue holds no ROM-derived value).
+        from retrorecomp import nes_catalog
+        self.assertFalse(hasattr(nes_catalog, 'ZAPPER_PAYLOAD_CRCS'))
         data=bytearray(cartridge(nes2=True));data[15]=8
         self.assertTrue(zapper_game(bytes(data),'Unlabelled.nes'))
         data[15]=9  # Dual Zapper is a separate, unsupported accessory.

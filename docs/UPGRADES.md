@@ -463,6 +463,52 @@ main checkout against the commit this branch left (`tools/ab_conversion.py`): on
 differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
 `states` built from them; timings are not compared).
 
+## NES: a quick state keeps the mapper's PRG register (1.6.7)
+
+*The NES game stamp moves (`nes_state_layout.py` is one of its inputs) and the state key `RR_NES_STATE_ABI` changes: the quick states of
+1.6.5 and 1.6.6 are refused with the usual message and a state is taken again with F8. **The exports of 1.6.5 and 1.6.6 already
+published have this defect on the boards below; converting the game again with 1.6.7 corrects it.***
+
+The 1.6.5 state writer (`RRNESST2`) left out the cartridge's `m.prg` register. Its list of members not to save named the cartridge's
+`prg` pointer by its last name, and that name also belongs to the register in which MMC1, MMC2 and MMC4, the VRC boards, VRC6, Bandai,
+Sunsoft and a few others keep their PRG bank. After F9 the register came back as 0 until the game wrote it again, so a game that reads
+its data through the switchable window and does not write the bank register at once ran on bank 0 after the load. The list now names a
+member by its path: the pointer stays out, the register is in, and the generated writer changes by that one field and nothing else. The
+generator also offers an audit of every member of every saved structure (written, or left out for a declared reason), and a test
+requires that the members left out are exactly the ones in the list, each named by its path, so that a name shared by two members can
+no longer drop one in silence.
+
+What was seen. On Esper Dream 2 (VRC6, a real game), the check that every conversion runs on the delivered file (save at frame 599 of a
+play route, load in a fresh process, compare 180 frames) refused the game with the 1.6.6 source and on `main`: the hardware hash (`hw=`)
+differed on every frame after the load while the CPU, memory, picture and sound hashes stayed equal, and `--state-out` showed
+`cart.prg` 02 before and 00 after; with the change the same conversion passes. On four authored cartridges
+(`tools/nes_state_prg_check.py`: MMC1, VRC6, Bandai and MMC2, a program that selects bank 3 once and never writes the register again)
+the conversion is refused with the 1.6.6 source and the check passes at two save points with 1.6.7. On two real MMC1 games (Metroid,
+Mega Man 2) F9 was already identical at three save points with the old writer: they write their bank register again within the
+first frame, so how much a played game suffered is not measured; it depends on how soon the game writes the register again.
+
+Why Esper Dream 2 passed the 1.6.6 campaign is not proven. The probable cause: the state check (commit `0ff2b27`) entered the tree on
+1 November 2026 at 14:25, while the 1.6.6 campaign ran for 1 h 44 min and its proof commit is at 15:33, so the campaign probably began
+before the check existed or while it was being written, in the same checkout, and Esper was converted without it. The same 1.6.6 source
+with the same options refuses the game today, and no non-determinism was found in the check. The reports of the 1.6.6 campaign were
+not read again: their folder (`.build/campaign-1.6.6`) no longer exists.
+
+## NES: the Zapper catalogue holds no database (1.6.7)
+
+*The NES game stamp moves (`nes_catalog.py` is one of its inputs); exports are rebuilt from their learned paths. Which game gets
+the Zapper does not change for any game of the maintainer's library.* The catalogue that decides whether a cartridge uses the
+Zapper carried 122 payload CRCs taken from MesenNesDB, a file of the GPL-3 Mesen2 repository (the same source as the known-dump
+table of the pinned engine's later revisions, which Retro-Recomp does not take). They are removed. A cartridge now uses the Zapper
+when its NES 2.0 header names it (default expansion device 8) or when its file name is the exact title of a game known to
+support it: the nine licensed games that need it, the licensed and unlicensed ones that support it as an option (as the
+compatible-games list of the Wikipedia article on the NES Zapper names them; facts only), and the aliases already carried.
+
+Checked on the 1,063 files of the maintainer's NES library, before and after: the same 19 games, none lost, none gained (the two
+that only the CRC table recognised, The Lone Ranger and Day Dreamin' Davey, are now named by title). What changes is outside
+that library: a revision, hack or translation of these games whose file name is not one of the titles and whose header does not
+name the Zapper is no longer recognised, and its game runs with the two controllers. The Hunt for Red October is on the
+Wikipedia list but is not taken, since no other source says the NES game uses the gun.
+
 ## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
 
 *The NES game stamp moves; exports are rebuilt from their learned paths. What a player's game does is the same, except in PAL
