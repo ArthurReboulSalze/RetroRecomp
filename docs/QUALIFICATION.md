@@ -51,8 +51,8 @@ x68 = Sharp X68000.
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
-| G8 | P | P | P | Y | P | P | Y | Y | Y |
-| G9 | P | P | P | Y | Y | P | Y | Y | Y |
+| G8 | P | P | Y | Y | P | P | Y | Y | Y |
+| G9 | P | P | Y | Y | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
@@ -89,6 +89,11 @@ x68 = Sharp X68000.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
+- Game Boy (3 November 2026): G8 and G9 moved from `P` to `Y` on the campaign of twelve games of 1.6.7 at the extended level
+  ([GAME_BOY.md](GAME_BOY.md#the-campaign-of-twelve-games-167-gates-g8-and-g9)): every game `supported`, full CPU comparison, the
+  compressed copy identical, no interpreter cycle, states checked. Play is reached on six games (Tetris, Wario Land II, Mega Man V, Contra,
+  Exodus, Veediots); the six others show liveness only (a pause, a first room, menus). The sheets were looked at by the specialist agent,
+  not by the owner; not full games.
 - NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 with the same
   engine revision and the same native sources, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
   The panel of ten mapper families of 1.6.7 passes at the thorough level (G12 stays `P`: the panel size policy is not decided). A defect of

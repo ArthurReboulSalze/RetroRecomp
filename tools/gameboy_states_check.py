@@ -135,6 +135,7 @@ def run_checks(executable: Path, work: Path, frames: int, more: int, failures: l
         check(result['exit'] != 0 and snapshot is None and 'Failed to load execution state' in result['output'],
               f'{label}: the state is refused and no game runs (exit {result["exit"]})')
         check(path.read_bytes() == data, f'{label}: the file is left as it was')
+        check(not (folder / 'datas').exists(), f'{label}: the refused state creates no data folder')     # each run starts from an empty one
         outcomes[label] = result['exit']
     record['refused'] = outcomes
 

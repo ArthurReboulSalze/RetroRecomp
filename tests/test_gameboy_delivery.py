@@ -112,5 +112,24 @@ class ReplayTests(unittest.TestCase):
             DeliveredFile(Path('packed-game.exe'), None, 'cd' * 32).validation_fields()
 
 
+class StateRunTests(unittest.TestCase):
+    """The runs of the state check each start from an empty data folder (a battery save written by one run must not be loaded by the next)."""
+
+    def test_the_data_folder_is_emptied_before_every_run(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            (folder / 'datas' / 'games' / 'x').mkdir(parents=True)
+            (folder / 'datas' / 'games' / 'x' / 'x.sav').write_bytes(b'save')
+            seen = []
+
+            def fake_run(command, **kwargs):
+                seen.append((kwargs['cwd'], (folder / 'datas').exists()))
+                return mock.Mock(returncode=0, stdout='', stderr='')
+
+            with mock.patch('retrorecomp.gameboy_delivery.subprocess.run', fake_run):
+                delivery.launch(folder / 'game.exe', folder, '--limit-frames', 3)
+            self.assertEqual(seen, [(folder, False)])                      # gone when the run starts
+
+
 if __name__ == '__main__':
     unittest.main()
