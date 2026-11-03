@@ -502,6 +502,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_cart',
         'retrorecomp.megadrive_dma',
         'retrorecomp.megadrive_evidence',
+        'retrorecomp.megadrive_rules',
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',

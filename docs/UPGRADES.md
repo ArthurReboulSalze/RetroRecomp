@@ -187,6 +187,49 @@ The **build stamp of every console moves**, because `retrorecomp/packing.py` is 
 (`BUILD_MODULES`). No host stamp moves. A game that replays as before is the same program; exports of 1.6.6 are rebuilt or
 reconverted as the release procedure decides. No quick-state key moves.
 
+## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
+
+The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and
+51 final-state differences between the pinned 68000 interpreter and the oracle. The Mega Drive now corrects the ones the Motorola manual
+defines, in `retrorecomp/megadrive_rules.py` (strict replacements of pinned lines, applied to the steps' text and to the reference path):
+`RTR` loads the five condition code bits only; `NEGX` keeps Z on a zero result; the long `ADD`, `SUB`, `AND`, `OR`, `EOR`, `ADDA` and `SUBA` with a register or immediate source take two
+clocks more; `CMPA.W` takes two fewer; `BCHG`, `BCLR` and `BSET` by bit number take two fewer below bit 16; `Scc Dn` takes 4 clocks when
+false; `BTST Dn,#imm` takes two more. Two more rules follow the vectors alone, not the manual (read to the letter, the manual gives the
+old behaviour): `LINK A7` pushes the value A7 had before the decrement and `UNLK A7` ends with the long it popped. Of the 2,895 vectors 2,421 now agree (2,315 before); the 474 left are decimal arithmetic on
+non-decimal digits (22, undefined in the manual) and the layout of bus transactions (452, not corrected). `megadrive_cycles_selftest`
+changed one authored expectation: `BCLR D0,D0` with D0 = 0 is 8 clocks, not 10 (the vectors give 8 below bit 16, 10 from bit 16).
+
+**What moves.** The Mega Drive game stamp: the steps' clocks and a few results change, so a game that runs one of these instructions
+takes slightly different times (a long `ADD.L D0,D1` is 8 clocks, not 6), and frame-timed effects can shift by those clocks; existing exports
+are rebuilt on the next conversion. Quick-state keys do not move. `retrorecomp/megadrive_codegen.py` is an input of the Mega Drive, X68000
+and CPS-1 stamps (`shares:megadrive_codegen`), so those two stamps move as well, **without any change of behaviour for them**: the four
+call lines added there pass the rules for the Mega Drive generator only, and the Mega Drive decoder tool now builds in a folder of its own
+(`.build/megadrive-step-decoder-rules`) so that the Neo Geo, CPS-1 and X68000 keep the decoder they had. This is guaranteed by
+`tests/test_megadrive_rules.py` (`DecoderToolIsolationTests`: the default decoder writes the very text of 1.6.6; no other machine asks for
+the rules), and the CPS-1 vector replay gives the same figures on the branch as on 1.6.6 (2,169 of 2,171 native, 2,091 reference on
+`md-prefetch`; 864 and 858 on `md-exceptions`; 834 on `m68k-shifts`). The Neo Geo stamp does not move.
+
+**Cost.** A small one on the hot path of the translated steps. The static clocks are constants and cost nothing, but the three
+data-dependent rules are inserted in the translated bodies: every `Scc Dn` and every `BCHG`, `BCLR` or `BSET` by bit number that runs
+adds one branch, and a call to `rr_md_arithmetic_phase` when the branch is taken (the hook `MULU` and the register shifts already use).
+It is low when the prefetch model is off. The cost per frame is **not measured yet**: it is measured at the release, on a quiet PC.
+
+**Checked (A/B, `tools/ab_conversion.py`, 1.6.6 against this tree, standard scan).** Blockout, Sonic The Hedgehog and Gunstar Heroes
+(USA) convert on both sides with status `supported`, zero interpreted 68000 and Z80 instructions on both routes, native equal to the
+fresh reference on every route and the compressed copy equal to the reference. As expected the generated steps, the clocks and the
+hashes of the picture, the sound and the Z80 differ (the report counts, such as the native entries, move by well under 1 percent), and
+the number of distinct pictures of a route stays within 1 percent (Blockout demo 1,592 against 1,591, play 483 against 486; Sonic 2,501 and
+2,669 against 2,500 and 2,670; Gunstar 2,046 and 414 against 2,052 and 415). This shows that the corrected clocks keep the conversions
+valid; it does not show that any frame-timed effect looks the same, which a play test of the games named in the campaign would.
+
+**Checked (campaign of 11 games, one conversion at a time, `batch --system md`).** Sonic The Hedgehog 2 and 3, Streets of Rage 2, Road
+Rash 3, Contra - Hard Corps, Ecco - The Tides of Time, Earthworm Jim 2, Super Street Fighter II, NBA Jam - Tournament Edition, OutRun and
+Shinobi III (all USA), chosen for raster effects, split screens, Z80 drivers, banked and EEPROM cartridges, all convert with status
+`supported`, zero interpreted 68000 and Z80 instructions on both routes, native equal to the fresh reference and the compressed copy
+equal to the reference. The paths of these games are qualified in the base, so the conversion is the 1,200-frame quick check from them,
+not a new discovery; a first series that overlapped another by mistake showed interpreted counts for OutRun and Sonic 2 that the clean
+series did not reproduce, and is not used. No game was dropped and none needs a line in `KNOWN_FAILURES`.
+
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says

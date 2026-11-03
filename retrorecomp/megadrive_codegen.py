@@ -21,18 +21,23 @@ from .m68000 import (_masked, operation_bodies, mnemonic_names,
 
 
 @serialized_setup
-def decoder_tool(engine: Path) -> Path:
-    project = ROOT / '.build/megadrive-step-decoder'
+def decoder_tool(engine: Path, *, md_rules: bool = False) -> Path:
+    """The offline decoder; `md_rules` adds the Mega Drive's own clock rules to its cycle estimate (a build folder of its own, so
+    the other 68000 machines keep the estimate they have)."""
+    project = ROOT / ('.build/megadrive-step-decoder-rules' if md_rules else '.build/megadrive-step-decoder')
     project.mkdir(parents=True, exist_ok=True)
     from .library import entry_lock
     # The thread lock covers one batch process. Independent validation tools
     # and a second converter instance must not write the same MSVC objects.
     with entry_lock(project):
-        return _decoder_tool_locked(engine,project)
+        return _decoder_tool_locked(engine,project,md_rules)
 
 
-def _decoder_tool_locked(engine: Path,project: Path) -> Path:
+def _decoder_tool_locked(engine: Path,project: Path,md_rules: bool = False) -> Path:
     source = adapt_cycle_estimates((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))
+    if md_rules:
+        from .megadrive_rules import adapt_estimate_rules
+        source = adapt_estimate_rules(source)
     timing = source[source.index('static int interp_popcount16('):
                     source.index('static void interp_account_cycles(')]
     timing = timing[:timing.rfind('/* The emit_cycle_accounting')]
@@ -108,7 +113,7 @@ def decode(engine: Path, project: Path, rom_file: Path, addresses: set[int], ram
            *, follow_flow=True) -> list[dict]:
     listing = project / 'instruction-pcs.txt'
     ram = sorted({(item['address'], item['bytes']) for item in ram_variants})
-    tool = decoder_tool(engine)
+    tool = decoder_tool(engine, md_rules=True)
     pending, examined = set(addresses), set()
     data = rom_file.read_bytes() if follow_flow else b''
     while True:
@@ -264,7 +269,9 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
                   (ASSETS / 'native/m68000_state_helpers.h').read_text(encoding='utf-8'))
     from .megadrive_hardware import bank_mapper
     mapper = bank_mapper(rom) is not None
-    source = adapt_reset(adapt_shift_timing(adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))))
+    from .megadrive_rules import adapt_instruction_rules
+    source = adapt_reset(adapt_instruction_rules(adapt_shift_timing(
+        adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')))))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]  # remove coverage section heading
@@ -407,7 +414,8 @@ def write_changed(path: Path, source: str) -> None:
 def adapt_interpreter(source: str) -> str:
     from .megadrive_memory import runtime_source
     source = runtime_source(source, 'interpreter')
-    source = adapt_reset(adapt_shift_timing(adapt_semantics(source)))
+    from .megadrive_rules import adapt_instruction_rules
+    source = adapt_reset(adapt_instruction_rules(adapt_shift_timing(adapt_semantics(source))))
     source = source.replace('#include "m68k_interp.h"',
         '#include "m68k_interp.h"\n#include "retro_md_game.h"\n#include "md_native_steps.h"\n'
         '#include "md_exception_decode.h"\n#include "md_bus_scheduler.h"\nunsigned rr_md_exception_cycles, rr_md_trace_suppressed;\n'

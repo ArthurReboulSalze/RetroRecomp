@@ -235,7 +235,7 @@ native/nes_machine_checks.c tools/nes_machine_selftest.py
 native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
 tools/nes_state_selftest.py
 retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
-retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/megadrive_evidence.py retrorecomp/systems/console16.py
+retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/megadrive_evidence.py retrorecomp/megadrive_rules.py retrorecomp/systems/console16.py
 retrorecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
 native/m68000_decode_rules_checks.c tools/m68000_decode_rules_selftest.py
@@ -366,7 +366,7 @@ native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
-tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py
+tests/test_megadrive_rules.py tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py
 tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE
 docs/MEGADRIVE_PREFETCH.md
 native/md_bus_checks.c tools/megadrive_bus_selftest.py
