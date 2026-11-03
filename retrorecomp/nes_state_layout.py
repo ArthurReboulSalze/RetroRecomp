@@ -171,10 +171,11 @@ def _members(struct: Struct, known: dict[str, Struct], prefix: str, items: list 
             yield from _members(struct, known, prefix + item[2] + '.', item[1], owner=owner)
         else:
             _, type_name, member, array = item
-            if (owner, member) in SKIPPED:
+            # The path decides, not the last name: the pointer `prg` of the cartridge is not the PRG register `m.prg`.
+            if (owner, prefix + member) in SKIPPED:
                 continue
             if type_name.endswith('*'):
-                raise ConversionError(f'NES state layout: {owner}.{member} is a pointer; list it in SKIPPED or save an index')
+                raise ConversionError(f'NES state layout: {owner}.{prefix}{member} is a pointer; list it in SKIPPED or save an index')
             if type_name in known:
                 yield ('struct', type_name, prefix + member, member, owner)
             elif type_name in FIXED_TYPES or (type_name == 'size_t' and not array):
@@ -182,6 +183,28 @@ def _members(struct: Struct, known: dict[str, Struct], prefix: str, items: list 
             else:
                 raise ConversionError(f'NES state layout: {owner}.{member} has the type {type_name}, '
                                       'whose size or layout is not fixed')
+
+
+def _leaves(struct: Struct, prefix: str = '', items: list | None = None, *, owner: str | None = None):
+    """Every member of a struct, nested ones by their path: (owner, path, type, is an array)."""
+    owner = owner or struct.name
+    for item in struct.items if items is None else items:
+        if item[0] == 'nested':
+            yield from _leaves(struct, prefix + item[2] + '.', item[1], owner=owner)
+        elif item[0] == 'field':
+            yield owner, prefix + item[2], item[1], item[3]
+
+
+def audit(known: dict[str, Struct], roots: list[str]) -> list[dict]:
+    """What becomes of each member of the roots and of the structs they contain: written, or left out for the reason
+    SKIPPED gives. Nothing else is possible: `generate` writes every member that is not in SKIPPED by its path."""
+    rows = []
+    for name in _order(roots, known):
+        for owner, path, type_name, array in _leaves(known[name]):
+            reason = SKIPPED.get((owner, path))
+            rows.append({'struct': owner, 'member': path, 'type': type_name, 'array': array,
+                         'written': reason is None, 'reason': reason})
+    return rows
 
 
 def _functions(struct: Struct, known: dict[str, Struct]) -> str:

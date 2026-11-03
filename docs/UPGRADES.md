@@ -276,6 +276,30 @@ main checkout against the commit this branch left (`tools/ab_conversion.py`): on
 differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
 `states` built from them; timings are not compared).
 
+## NES: a quick state keeps the mapper's PRG register (1.6.7)
+
+*The NES game stamp moves (`nes_state_layout.py` is one of its inputs) and the state key `RR_NES_STATE_ABI` changes: the quick states of
+1.6.5 and 1.6.6 are refused with the usual message and a state is taken again with F8. **The exports of 1.6.5 and 1.6.6 already
+published have this defect on the boards below; converting the game again with 1.6.7 corrects it.***
+
+The 1.6.5 state writer (`RRNESST2`) left out the cartridge's `m.prg` register. Its list of members not to save named the cartridge's
+`prg` pointer by its last name, and that name also belongs to the register in which MMC1, MMC2 and MMC4, the VRC boards, VRC6, Bandai,
+Sunsoft and a few others keep their PRG bank. After F9 the register came back as 0 until the game wrote it again, so a game that reads
+its data through the switchable window and does not write the bank register at once ran on bank 0 after the load. The list now names a
+member by its path: the pointer stays out, the register is in, and the generated writer changes by that one field and nothing else. The
+generator also offers an audit of every member of every saved structure (written, or left out for a declared reason), and a test
+requires that the members left out are exactly the ones in the list, each named by its path, so that a name shared by two members can
+no longer drop one in silence.
+
+What was seen. On Esper Dream 2 (VRC6, a real game), the check that every conversion runs on the delivered file (save at frame 599 of a
+play route, load in a fresh process, compare 180 frames) refused the game with the 1.6.6 source and on `main`: the hardware hash (`hw=`)
+differed on every frame after the load while the CPU, memory, picture and sound hashes stayed equal, and `--state-out` showed
+`cart.prg` 02 before and 00 after; with the change the same conversion passes. On four authored cartridges
+(`tools/nes_state_prg_check.py`: MMC1, VRC6, Bandai and MMC2, a program that selects bank 3 once and never writes the register again)
+the conversion is refused with the 1.6.6 source and the check passes at two save points with 1.6.7. On two real MMC1 games (Metroid,
+Mega Man 2) F9 was already identical at three save points with the old writer: they write their bank register again within the
+first frame, so how much a played game suffered is not measured; it depends on how soon the game writes the register again.
+
 ## NES: the Zapper catalogue holds no database (1.6.7)
 
 *The NES game stamp moves (`nes_catalog.py` is one of its inputs); exports are rebuilt from their learned paths. Which game gets

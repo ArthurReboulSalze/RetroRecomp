@@ -43,11 +43,19 @@ class StateLayoutGeneratorTests(unittest.TestCase):
     def test_a_skipped_member_is_not_written_and_any_other_pointer_stops_the_staging(self):
         known = structs('typedef struct { uint8_t *prg; uint32_t len; } HwCart;', 'HwCart')
         code = layout.generate(known, ['HwCart'], preamble=False)
-        self.assertNotRegex(code, r'&s->prg')
+        self.assertNotRegex(code, r'&s->prg\b')
         self.assertIn('sizeof(s->len)', code)
         other = structs('typedef struct { uint8_t *buffer; } Other;', 'Other')
         with self.assertRaises(ConversionError):
             layout.generate(other, ['Other'])
+
+    def test_the_skipped_pointer_is_told_from_a_register_of_the_same_name(self):
+        # The cartridge's `prg` pointer is left out; the mapper's PRG register `m.prg` (MMC1, VRC6...) is a state.
+        known = structs('typedef struct { uint8_t *prg; struct { uint8_t ctrl, prg; } m; } HwCart;', 'HwCart')
+        code = layout.generate(known, ['HwCart'], preamble=False)
+        self.assertNotRegex(code, r'&s->prg\b')
+        self.assertIn('sizeof(s->m.prg)', code)
+        self.assertIn('sizeof(s->m.ctrl)', code)
 
     def test_what_cannot_be_written_safely_stops_the_staging(self):
         for text in ('typedef struct { uint32_t flag : 1; } Bits;',
@@ -100,12 +108,61 @@ class StateKeyTests(unittest.TestCase):
             main = (machine / 'nes_state_main.inc').read_text()
             for name in ('Cpu6502', 'HwMachine', 'HwCart', 'HwPpu', 'Mmc5State', 'NesCartInfo', 'RrMachineState'):
                 self.assertIn(f'rr_ser_{name}(', main)
-            self.assertNotRegex(main, r'&s->(prg|chr)')
+            cart = main[main.index('rr_ser_HwCart('):]
+            cart = cart[:cart.index('return b;')]
+            self.assertNotRegex(cart, r'&s->(prg|chr)\b')
+            # The mapper's own registers are states, among them the PRG register that shares its name with the
+            # cartridge's pointer (1.6.5 and 1.6.6 left it out: after F9 a VRC6 game ran on bank 0).
+            for register in ('m.prg', 'm.ctrl', 'm.chr0', 'm.chr1'):
+                self.assertIn(f'sizeof(s->{register})', main)
             apu = (machine / 'nes_state_apu.inc').read_text()
             self.assertIn('rr_ser_HwApu(', apu)
             self.assertIn('rr_ser_RrAudio(', apu)
-            self.assertNotRegex(apu, r'&s->(ring|head|tail)')
+            audio = apu[apu.index('rr_ser_RrAudio('):]
+            audio = audio[:audio.index('return b;')]
+            self.assertNotRegex(audio, r'&s->(ring|head|tail)\b')
             self.assertIn('rr_ser_OPLL(', (machine / 'nes_state_vrc7.inc').read_text())
+
+    def test_every_member_of_a_saved_structure_is_written_or_left_out_for_a_declared_reason(self):
+        from retrorecomp.nes_machine import prepare_machine, state_audit
+        with tempfile.TemporaryDirectory() as folder:
+            machine = prepare_machine(Path(folder) / 'x', ENGINE)
+            root = machine.parents[1]
+            rows = state_audit(lambda name: (root / name).read_text(encoding='utf-8'))
+            written_code = ''.join((machine / name).read_text() for name in
+                                   ('nes_state_main.inc', 'nes_state_apu.inc', 'nes_state_vrc7.inc'))
+        self.assertGreater(len(rows), 300)
+        left_out = {(row['struct'], row['member']): row for row in rows if not row['written']}
+        # Nothing is left out without a reason, and every reason in SKIPPED names exactly one member by its path:
+        # a name shared by two members of a structure (a pointer and a register) cannot drop one in silence.
+        self.assertEqual(set(left_out), set(layout.SKIPPED))
+        for key, row in left_out.items():
+            self.assertTrue(row['reason'], key)
+        for row in rows:
+            if row['written']:
+                self.assertFalse(row['type'].endswith('*'), f'{row["struct"]}.{row["member"]} is a pointer')
+                if row['type'] in layout.FIXED_TYPES:
+                    # The writer of a struct reaches its members by path; a struct-typed member goes through its own writer.
+                    self.assertIn(f's->{row["member"]}', written_code, f'{row["struct"]}.{row["member"]}')
+
+
+class AuthoredPrgCartridgeTests(unittest.TestCase):
+    def test_each_board_has_its_program_in_the_fixed_bank_and_distinct_banks(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import nes_state_prg_check as check
+        for board, spec in check.BOARDS.items():
+            with self.subTest(board=board):
+                rom = check.authored_cartridge(board)
+                self.assertEqual(rom[:4], b'NES')
+                self.assertEqual(len(rom), 16 + check.PRG_SIZE + 0x2000)
+                self.assertEqual((rom[7] & 0xF0) | (rom[6] >> 4), spec['mapper'])
+                prg = rom[16:16 + check.PRG_SIZE]
+                first = [prg[index * spec['window']] for index in range(check.PRG_SIZE // spec['window'] - 1)]
+                self.assertEqual(len(set(first)), len(first), 'banks must start with different bytes')
+                reset = prg[-4] | prg[-3] << 8
+                self.assertGreaterEqual(reset, spec['fixed'])
+                self.assertEqual(prg[check.PRG_SIZE - (0x10000 - reset)], 0x78, 'the reset vector points at SEI')
 
 
 if __name__ == '__main__':
