@@ -30,10 +30,10 @@ FIXTURES = ('m68k-shifts', 'md-prefetch', 'md-exceptions')
 REGS = [*(f'd{i}' for i in range(8)), *(f'a{i}' for i in range(7)), 'usp', 'ssp', 'sr', 'pc']
 PROGRAM_BYTES = 0x400000
 TRACE_GROUP = 'trace-delivery'    # the two authored vectors with the trace bit set: the CPS-1 Musashi is built without trace
-# Groups where the Musashi reference (the CPS-1 conversions' fresh reference) differs from the MAME-made vectors while the
-# translated steps follow them: DIV flags, CHK flags and clocks, one Line-F stack byte. Anything else is a failure.
-REFERENCE_DEVIATIONS = frozenset(('DIVU-variable', 'DIVS-variable', 'CHK', 'CHK-phases', 'ILLEGAL_LINEF', 'ILLEGAL_LINEF-phases',
-                                  'authored authored-variable'))
+# Groups where the Musashi reference (the conversions' fresh reference) may differ from the vectors while the translated steps
+# follow them. None since the converters correct the pinned Musashi (`retrorecomp/musashi_fixes.py`): any group where the
+# reference differs is a failure.
+REFERENCE_DEVIATIONS = frozenset()
 
 
 def state_literal(state: dict, pc_offset: int = 4) -> str:

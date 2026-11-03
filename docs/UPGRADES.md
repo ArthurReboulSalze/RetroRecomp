@@ -142,6 +142,24 @@ nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, i
 once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
 (`neogeo_conversion` is not among the modules it hashes), nor any other console.
 
+## Neo Geo, CPS-1 and X68000: the corrected Musashi (1.6.7)
+
+The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on five points
+where the independent 68000 vectors and the translated steps agree and Musashi did not: the flags of a divide overflow, `DIVS` of `0x80000000` by
+-1, the flags and clocks of `CHK`, and `F620`-`F627` (line F, not the 68040 `MOVE16`). Details and figures:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#the-corrected-musashi-shared-with-the-cps-1-and-the-x68000--3-november-2026).
+
+**What changes in a game.** Only the interpreter (the fresh reference and the counted fallback), and only when the program reaches one of those
+cases; the translated code is untouched. On the games compared with `tools/ab_conversion.py` (NAM-1975, Puzzle De Pon! and 1941) the generated
+code, the traces, the pictures, the sound hashes and the states are identical; what differs is `engine/m68k/m68kops.c` (by construction) and the
+data that follows from compiling it (the profile data of the optimised build and the size ratio of the compressed copy).
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (the new module is in their stamp groups): an export of 1.6.6 of these
+consoles is converted in full once, with no table entry; the CPS-1 generator revision goes from 10 to 11 (`cps1_build.py` is a pinned source; no
+CPS-1 path was qualified, so no qualification is lost). The Mega Drive and the other consoles do not move. The **Neo Geo quick-state key moves
+too**: it hashes the fingerprint of `neogeo_build`, which now calls the correction, so a quick state written by an export of 1.6.6 is refused
+cleanly by the 1.6.7 export (no compatibility key from 1.6.5, [GAME_STATES.md](GAME_STATES.md)); the layout of the state is the same.
+
 ## Lead: unpacked fallback of the packed replay (1.6.7)
 
 Every conversion replays a compressed copy of the build on all its routes against the fresh reference (gate G5). On Linux
@@ -666,6 +684,38 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
 - **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
+
+## Sharp X68000: the intensity bit of the palette lifts red, green and blue (1.6.7)
+
+A palette entry of the X68000 is `GGGGGRRRRRBBBBBI`: five bits per primary and an intensity bit `I` that adds a half step (one level of the 6-bit
+DAC, 4 of 255) to the three primaries together. The pinned base kept its picture in RGB565, which has no spare bit for red and blue, and put `I` in
+the low bit of green: a pixel with `I` set came out brighter on green only. Arthur agreed to correct it (2 November 2026).
+
+What changes: the machine now keeps the colour word as the X68000 holds it (`host_draw.c` gives the 2014 palette code the masks of that layout, so the
+table it builds is the identity and `Ibit` is bit 0), and widens it when the picture is presented (`native/x68000_machine/colour.h`, new): each primary
+is `(five bits << 1 | I)` as a 6-bit level, extended to 8 bits (`v << 2 | v >> 4`). The picture handed to the host is XRGB8888 instead of RGB565; the
+host kit and the reference host already read both. After a saved state is loaded, the host redraws the picture through the same conversion
+(`rr_x68k_framebuffer` returns the converted frame). The contrast of the system port is still applied by the base on the five-bit primaries, and the
+half-tone and translucency blends keep the base's arithmetic, which does not depend on the layout of the bits (`Pal_HalfMask` and `Pal_Ix2` are derived from the masks). No game is treated apart.
+
+What a player sees: no layout, timing, sound or code change; colours move by at most 4 of 255 on a channel, and a pixel with `I` set is now
+lighter on red and blue too. In the 256-colour graphic mode with special priority, the base adds `Ibit` as an opacity marker to every non-zero
+sprite-priority pixel (`x68k/gvram.c`, lines 1673 and 1812 of the pinned file): that pixel now gains 4 of 255 on red, green and blue instead of green alone. The
+marker is a defect that was already in the base, and the only place where the `I` bit is made up instead of read from the palette; it is kept as the base has it. The picture hash of every route changes (it hashes the new pixel format); the CPU, RAM and PCM hashes do not: a
+conversion of Bubble Bobble before and after gives equal CPU, RAM and PCM hashes on the three routes, 0 interpreted opcodes, a packed copy that
+matches, and states that resume. Against MAME 0.289 on the 12 still pictures of Bubble Bobble that match in shape (2,487,394 pixels, `tools/x68000_mame_compare.py`
+method, no input), the share of pixels identical to MAME's goes from 93.55 to 97.03 percent, and the mean error per channel
+(0.709, 0.770, 0.713 before) is 0.712 on all three after; the largest remaining difference is 24 of 255 (the screen contrast, applied by MAME after
+the raw screen, and rounding; not analysed again here). This compares one game's pictures with another emulator, which is not hardware: it does not
+establish exact colours, and sound is not part of it.
+
+Stamps: the files are game inputs of the Sharp X68000 (`libretro_api.c`, `base74/host_draw.c`, `base74/bridge.c`, the new `colour.h`,
+`x68000_reference/video_checks.c` and `reference_host.c`), so its **game stamp moves** (a full reconversion of every X68000 game; the 1.6.6 exports
+keep their old colours until then; their states are refused by the new build because the state compatibility key `RR_X68K_STATE_ABI` itself changes: it hashes `reference_host.c` and `base74/bridge.c`, which this change edits (`native/x68000_reference/CMakeLists.txt`, compared with `state_store.c`)); host and build stamps and the eight other
+consoles do not move (checked against the previous commit). Cost: one table lookup per presented pixel, at most 800 x 600 a frame (about 2 percent of one
+core at 768 x 512 and 60 frames a second by count; no timing was taken on a quiet machine: the conversion times of the two Bubble Bobble runs, 194 and 197 seconds,
+differ by less than the load of the PC). `tests/test_x68000_colour.py` fixes the conversion without a ROM: the masks and the table of the real palette
+code, and all 65,536 words against a model written from the rule, with `I` at 0 and at 1.
 
 ## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
 

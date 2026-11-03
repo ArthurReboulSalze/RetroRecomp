@@ -266,8 +266,8 @@ fidelity, gameplay or latency.
 **Independent CPU evidence (G10), 68000.** The SingleStepTests vector fixtures of the repository (834 shift, 2,089 prefetch
 and 864 exception vectors, MIT, generated with MAME) are replayed through the CPS-1 generator path by
 `tools/cps1_vector_selftest.py`: the translated steps agree with every one of them on registers, SR, PC, written bytes and
-clocks, and the Musashi reference differs from the vectors in a few named groups (division and `CHK` flags, `CHK` clocks,
-one line-F frame). The numbers, the two authored trace vectors that neither path delivers and the limits are in
+clocks, and since 3 November 2026 the Musashi reference agrees with them too (the converter corrects the pinned copy,
+`retrorecomp/musashi_fixes.py`). The numbers, the two authored trace vectors that neither path delivers and the limits are in
 [CPU_68000.md](CPU_68000.md#tests-and-vectors). **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
 Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The native
 and the interpreted path agree on every vector. The pinned core disagreed with the oracle on 899 vectors (flags, WZ, the port address of the

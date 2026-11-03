@@ -37,7 +37,7 @@ native/x68000_machine/base74/x11/mmsystem.h native/x68000_machine/base74/x11/mou
 native/x68000_machine/base74/x11/prop.h native/x68000_machine/base74/x11/status.h
 native/x68000_machine/base74/x11/timer.h native/x68000_machine/base74/x11/windows.h
 native/x68000_machine/base74/x11/windraw.h native/x68000_machine/base74/x11/winui.h
-native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/glue.h native/x68000_machine/glue_line.h
+native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/colour.h native/x68000_machine/glue.h native/x68000_machine/glue_line.h
 native/x68000_machine/input.c native/x68000_machine/libretro_api.c native/x68000_machine/machine.c
 native/x68000_machine/provenance.json native/x68000_machine/PROVENANCE.md
 native/x68000_machine/state/legacy_stub.c native/x68000_machine/state/rr_state.c
@@ -248,7 +248,7 @@ tests/test_neogeo_converter.py tools/build_neogeo_knowledge.py
 assets/neogeo-catalogue.json
 native/neogeo_input.h native/neogeo_lithogen.c native/neogeo_main.c native/neogeo_reference.h native/neogeo_reference.c
 tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py docs/NEOGEO.md
-retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py
+retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py retrorecomp/musashi_fixes.py
 native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
 native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
 native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
@@ -275,9 +275,10 @@ tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_c
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
-native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py
+native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_musashi_fixes.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
 tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
+tests/test_x68000_colour.py tests/x68000_colour_harness.c
 tools/x68000_mame_compare.py tests/test_x68000_mame_compare.py
 tests/test_x68000_cmake.py
 native/neogeo_z80_vector_checks.c tools/neogeo_z80_vector_selftest.py tests/test_neogeo_z80_vectors.py

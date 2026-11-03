@@ -703,7 +703,10 @@ def generate(source: Path, repo: Path, output: Path, geolith: Path) -> dict:
     for source_file in sorted((geolith / 'src/m68k').glob('*')):
         if source_file.is_file() and source_file.name not in ('m68kconf.h', 'm68kdasm.c'):
             data = source_file.read_bytes()
-            emit('m68000/musashi/' + source_file.name, data, 'geolith-libretro/src/m68k/' + source_file.name, data)
+            from retrorecomp.musashi_fixes import adapt_musashi_ops
+            emit('m68000/musashi/' + source_file.name,
+                 adapt_musashi_ops(data.decode('utf-8')).encode('utf-8') if source_file.name == 'm68kops.c' else data,
+                 'geolith-libretro/src/m68k/' + source_file.name, data)
     config = (COMPAT / 'musashi/m68kconf.h').read_bytes()
     emit('m68000/musashi/m68kconf.h', config, 'native/x68000_machine/base74/musashi/m68kconf.h', config)
     # Our MIT compat headers, where the kept sources look for x11/ and m68000/.

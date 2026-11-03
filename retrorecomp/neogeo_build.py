@@ -102,7 +102,7 @@ def prepare_project(project: Path, *, content: Path | None = None, bios: Path | 
     litho = pinned_dependency('lithogen', 'https://github.com/carmiker/lithogen.git', LITHOGEN_REV)
     project.mkdir(parents=True, exist_ok=True)
     engine = project / 'engine'
-    adapted = {'geo.h', 'geo.c', 'geo_m68k.c', 'geo_z80.c', 'geo_ymfm.c', 'geo_lspc.c', 'ymfm/ymfm_opn.c', 'geo_rtc.c', 'm68k/m68kconf.h', 'z80/z80.c', 'm68k/m68kcpu.c'}
+    adapted = {'geo.h', 'geo.c', 'geo_m68k.c', 'geo_z80.c', 'geo_ymfm.c', 'geo_lspc.c', 'ymfm/ymfm_opn.c', 'geo_rtc.c', 'm68k/m68kconf.h', 'z80/z80.c', 'm68k/m68kcpu.c', 'm68k/m68kops.c'}
     for file in (geo / 'src').rglob('*'):
         if file.is_file():
             destination = engine / file.relative_to(geo / 'src')
@@ -194,6 +194,8 @@ void geo_exec(void) {''',count=1)
                 USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
             }''',count=1)
     write_changed(engine/'m68k/m68kcpu.c',source)
+    from .musashi_fixes import adapt_musashi_ops
+    write_changed(engine/'m68k/m68kops.c',adapt_musashi_ops((geo/'src/m68k/m68kops.c').read_text(encoding='utf-8')))
     # State loading must restore the selected palette pointer as well as its
     # serialized selector. Otherwise a fresh process retains the normal bank.
     source=(geo/'src/geo_lspc.c').read_text(encoding='utf-8')

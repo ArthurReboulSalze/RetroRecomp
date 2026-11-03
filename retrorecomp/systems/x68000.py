@@ -26,7 +26,7 @@ class X68000Profile(SystemProfile):
                    OptionKey('x68_cgrom', kind='path', label='x68_cgrom'),
                    OptionKey('x68_ram', kind='choice', label='RAM (MiB)', choices=(2, 4), default=2))
     developer_only = True
-    stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native')
+    stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native', 'musashi_fixes')
     path_spec = PathSpec(order=8, sections=(('m68k', 'x68'),),
                          source_bounds=(('ipl', (1, 1 << 20)), ('disk', (1, 1 << 30))),
                          shapes=(('m68k', 'x68', dict(roles=('ipl', 'disk'), caps={'insn': 65536, 'span': 4096},
