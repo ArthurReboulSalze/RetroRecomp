@@ -24,7 +24,7 @@ COMMIT = re.compile(r'^[0-9a-f]{40}$')
 # The upstreams the project is known to pin; a reader that finds fewer has lost some.
 KNOWN = {'smsggrecomp', 'z80-recomp-core', 'gb-recompiled', 'nesrecomp', 'segagenesisrecomp', 'm68k-recomp-core',
          'snesrecomp', 'geolith-libretro', 'lithogen', 'ymfm', 'mame', 'px68k', 'px68k-libretro', 'SDL',
-         'llvm-mingw', 'CMake', 'Ninja', 'UPX', 'SingleStepTests/z80', 'SingleStepTests/m68000'}
+         'llvm-mingw', 'CMake', 'Ninja', 'UPX', 'SingleStepTests/z80', 'SingleStepTests/sm83', 'SingleStepTests/m68000'}
 
 
 def declaration_problems(machine_ids, table, reasons):

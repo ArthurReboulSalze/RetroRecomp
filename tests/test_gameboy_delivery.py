@@ -112,5 +112,43 @@ class ReplayTests(unittest.TestCase):
             DeliveredFile(Path('packed-game.exe'), None, 'cd' * 32).validation_fields()
 
 
+class StateRunTests(unittest.TestCase):
+    """The runs of the state check each start from an empty data folder (a battery save written by one run must not be loaded by the next)."""
+
+    def test_the_data_folder_is_emptied_before_every_run(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            (folder / 'datas' / 'games' / 'x').mkdir(parents=True)
+            (folder / 'datas' / 'games' / 'x' / 'x.sav').write_bytes(b'save')
+            seen = []
+
+            def fake_run(command, **kwargs):
+                seen.append((kwargs['cwd'], (folder / 'datas').exists()))
+                return mock.Mock(returncode=0, stdout='', stderr='')
+
+            with mock.patch('retrorecomp.gameboy_delivery.subprocess.run', fake_run):
+                delivery.launch(folder / 'game.exe', folder, '--limit-frames', 3)
+            self.assertEqual(seen, [(folder, False)])                      # gone when the run starts
+
+
+class ProbeStartTests(unittest.TestCase):
+    def test_every_probe_starts_from_an_empty_data_folder(self):
+        from retrorecomp import gameboy
+        with tempfile.TemporaryDirectory() as scratch:
+            build = Path(scratch)
+            (build / 'datas' / 'games' / 'x').mkdir(parents=True)
+            (build / 'datas' / 'games' / 'x' / 'x.sav').write_bytes(b'a save left by the probe before')
+            seen = []
+
+            def fake_run(command, **kwargs):
+                seen.append((kwargs['cwd'], (build / 'datas').exists()))
+                return ''                                                   # no frame-limit line: the probe stops here
+
+            with mock.patch('retrorecomp.gameboy.run', fake_run):
+                with self.assertRaises(ConversionError):
+                    gameboy._probe(build / 'game.exe', build, 5, build / 'x.trace')
+            self.assertEqual(seen, [(build, False)])
+
+
 if __name__ == '__main__':
     unittest.main()

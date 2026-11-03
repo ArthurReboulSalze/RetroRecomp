@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import time
 import zlib
 from typing import Callable
@@ -20,7 +21,7 @@ from .gameboy_build import preserve_unchanged_sources, share_native_bodies, comp
 from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_cartridge import cartridge_memory, cartridge_record, device_entries
 from .gameboy_delivery import liveness_record, replay_delivered, require_moving_main_route, state_checks
-from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
+from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios, scenario_frames, FULL_VALIDATION_LEVELS,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
 from .report_schema import write_report
@@ -42,6 +43,8 @@ CPU_MATCH = re.compile(r"\[DIFF\] Matched generated and interpreter execution fo
 RAM_STEPS = re.compile(r"\[RR-RAM\] ram_stub_instructions=(\d+) ram_stub_cycles=(\d+) "
                       r"ram_single_step_instructions=(\d+) ram_single_step_cycles=(\d+) "
                       r"highmem_stub_instructions=(\d+) highmem_stub_cycles=(\d+)")
+HELPER_KINDS = ("store", "copy", "dma_page", "interrupt_dma")
+HELPERS = re.compile(r"\[RR-HELPERS\] " + " ".join(rf"{kind}_entries=(\d+) {kind}_cycles=(\d+)" for kind in HELPER_KINDS))
 FALLBACK_SITE = re.compile(r"\[INTERP\] Fallback site #\d+ ([0-9A-Fa-f]+):([0-9A-Fa-f]+) "
                           r"reason=(\w+) entries=(\d+) instructions=(\d+) cycles=(\d+)")
 
@@ -119,6 +122,9 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
 
 def _probe(executable: Path, build: Path, frames: int, trace: Path,
            scenario: ProbeScenario = ProbeScenario('boot'), frame_trace: Path | None = None) -> dict:
+    # A game with battery RAM writes its save beside the executable when it ends: the next probe of the same folder would start
+    # from it. Every probe starts from an empty data folder (the probes of one conversion run one after the other).
+    shutil.rmtree(executable.parent / 'datas', ignore_errors=True)
     trace.unlink(missing_ok=True)
     command = [executable, "--headless", "--limit-frames", str(frames),
                "--report-interpreter-hotspots", "--trace-entries", trace]
@@ -146,6 +152,10 @@ def _probe(executable: Path, build: Path, frames: int, trace: Path,
         raise ConversionError("Game Boy writable-code instruction counts could not be measured.")
     (stub_instructions, stub_cycles, single_instructions, single_cycles,
      highmem_instructions, highmem_cycles) = map(int, steps.groups())
+    helpers = HELPERS.search(output)
+    if not helpers:
+        raise ConversionError("Game Boy guarded-helper counts could not be measured.")
+    helper_counts = list(map(int, helpers.groups()))
     sites = [{"bank": int(bank, 16), "address": address.upper(), "reason": reason,
               "entries": int(count), "instructions": int(ops), "cycles": int(ticks)}
              for bank, address, reason, count, ops, ticks in FALLBACK_SITE.findall(output)]
@@ -160,6 +170,11 @@ def _probe(executable: Path, build: Path, frames: int, trace: Path,
             "ram_stub_instructions": stub_instructions, "ram_stub_cycles": stub_cycles,
             "ram_single_step_instructions": single_instructions, "ram_single_step_cycles": single_cycles,
             "highmem_stub_instructions": highmem_instructions, "highmem_stub_cycles": highmem_cycles,
+            # Gate G3: the guarded helpers (native bodies that take over a recognised routine of writable code after checking its
+            # live bytes) are counted too: how many times each kind was entered, and the guest cycles of those entries. They are
+            # neither interpreter sessions nor instructions run one at a time, and they are not hidden in the native figure.
+            "guarded_helpers": {kind: {"entries": helper_counts[2 * index], "cycles": helper_counts[2 * index + 1]}
+                                for index, kind in enumerate(HELPER_KINDS)},
             "interpreter_cycles": cycles, "interpreter_percent": None,
             "fallback_sites": int(inventory.group(1)), "fallback_sites_dropped": int(inventory.group(2)),
             "fallback_details": sites,
@@ -459,9 +474,10 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         emit(f"Game Boy: adding {len(new_entries)} observed ROM entries to the next pass.")
     timings.end_passes()
     require_moving_main_route(final_checks)
-    validation_mode = 'deep' if gb_deep_validation else 'standard'
+    full_length = bool(gb_deep_validation and level in FULL_VALIDATION_LEVELS)
+    validation_mode = 'full' if full_length else 'deep' if gb_deep_validation else 'standard'
     emit(f"Comparing generated execution with the reference CPU ({validation_mode})…")
-    comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation)
+    comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation, full=full_length, long_routes=long_routes)
     for scenario, comparison_frames in comparison_scenarios:
         emit(f"Game Boy CPU {scenario.name}: comparing {comparison_frames} frames "
              "instruction by instruction…")
@@ -470,7 +486,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         scenario, comparison_frames = item
         check_started = time.perf_counter()
         cpu_comparison = _cpu_compare(executable, project, comparison_frames, scenario)
-        return {'scenario': scenario.name, 'frames': comparison_frames,
+        # Gate G4: `frames` is what was compared with the reference, `scenario_frames` the length of the final scenario of the
+        # probes; they are equal when the scenario was compared over its whole length.
+        return {'scenario': scenario.name, 'frames': comparison_frames, 'scenario_frames': scenario_frames(scenario, frames),
                 'input_script': scenario.input_script, 'result': cpu_comparison,
                 'wall_seconds': round(time.perf_counter() - check_started, 6)}
 
@@ -518,8 +536,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         **delivered.report_fields(),
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
-            "mode": validation_mode, "scenarios": cpu_checks, **delivered.validation_fields(),
-            "frames": min(frames, 30), "hardware_accuracy": False, "full_game": False},
+            "mode": validation_mode, "full_length": full_length, "scenarios": cpu_checks, **delivered.validation_fields(),
+            # the frames of the first comparison (the boot); each comparison says its own in `scenarios`
+            "frames": cpu_checks[0]["frames"], "hardware_accuracy": False, "full_game": False},
         "reference_vdp_trace_match": None,
         "video_model": {"standard": "dmg", "visible_pixels": [160, 144],
             "palette": "monochrome grayscale by default; F5 switches directly to/from classic green",

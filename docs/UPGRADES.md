@@ -75,6 +75,118 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: the "functions" engine replays the delivered copy and starts from the reset state (1.6.7)
+
+Two changes of the "functions" engine of the two consoles, and a check that needed no change.
+
+1. **The delivered copy is replayed (gate G5).** The compressed copy of the build is now started on every route, as the banked engine
+   already did, and refused if it differs. The "functions" engine has no fresh reference for the `play` route (only the demo route is
+   compared with the interpreter), so the copy is compared with the final pass of the same build; the report says so
+   (`packed_replay`: `engine`, `compared_with`, `matched`, `routes`) and does not claim `packed_reference_match` for it. Its liveness is
+   the one the report keeps, as for the banked engine.
+2. **The documented reset state.** The pinned runner started the CPU with AF = 0 and SP = $DFF0; the reference CPU and the banked
+   engine start with AF = SP = $FFFF, as the chip does after a reset. A program that pushes AF in its first frame, before any flag
+   instruction, left a different byte on the stack (found on an authored cartridge: the RAM hash of frame 1 differed from the
+   interpreted run, the next frame agreed). The glue now starts at $FFFF with A and F at $FF. Games normally set SP at once; the 15 games
+   below all still match the interpreter after the change.
+3. **No change: the dispatch of a paged address.** The upstream commit `a92717d` (not taken, the pin stays) guards the dispatch of a
+   single compiled variant by the live bank. The converter already carries both of its hunks (1.6.3 for the direct calls, and the
+   single-variant guard in `core.patched_generator_source`). `tools/sega_bank_dispatch_check.py` writes a cartridge of its own that pages
+   $8000 from RAM, bank 2 for 5,000 frames and bank 5 afterwards (the conversion runs 3,600 frames per route, so it learns bank 2 only),
+   converts it with the "functions" engine, checks that the generated dispatch tests the bank, and runs 6,000 frames natively and
+   interpreted: the VDP traces are identical and the late bank went through the counted interpreter (1,001 calls, 0.005 percent of the
+   cycles). It was run once on this tree; it has not been run against an unguarded dispatch.
+
+What was run: 15 games of the 1.6.4 batch, one conversion at a time from an empty learning state, "functions" engine: 15 of 15 match
+the interpreter on the VDP trace and the final RAM, the packed copy matches its build on both routes, and the last pass interprets at most
+4.96 percent of the cycles (Aladdin; the others 0.15 percent or less). Order independence: Action Fighter, Aladdin, Super Columns, The Lost Stars,
+Sonic Spinball (Game Gear) and Triple Trouble, converted in three different orders (6 x 3 = 18 conversions, each order from an empty
+state), give the same number of passes, the same interpreter share per pass, the same dispatch misses and the same pictures in every order.
+The learned state of a game is kept per ROM, so no game depends on another; what can differ is the state of the same game, and
+converting Aladdin, The Lost Stars and Sonic Spinball (Game Gear) again from the state the first conversion left gives the same result in a
+single pass. The packed copy's own digest differs from one conversion to the next (the same build, packed again); it is not compared.
+
+Exports: the game stamp of all nine consoles moves with `core` (the reset state is a patch in `core.py`). The Master System and Game
+Gear exports made with the "functions" engine change only by the reset state of the CPU; the banked engine is unaffected. The reset
+state costs nothing per instruction.
+
+## Master System and Game Gear: the acceptance of an interrupt is checked state by state (1.6.7)
+
+The 1.6.6 review of the banked engine left a doubt: does an accepted interrupt set WZ to the new PC, and is the right return address
+pushed when it falls inside a repeating block instruction? Both were already right (WZ has followed the jump since 0.10.4; the PC
+the step leaves is the instruction itself while the block goes on and the next one after its last iteration). What was missing was the
+proof. `native/banked_runtime.inc` now has the acceptance in two small functions (`banked_after_step`, `banked_accept_irq`) with the
+same statements as before, and `native/banked_cpu_checks.c` (run by `tools/banked_cpu_selftest.py`) runs them against the corrected
+reference CPU on 720 states (360 execute the instruction named, 360 are HALT or NOP states: a halted CPU runs a NOP): fifteen instructions (a NOP, `LD A,I`, `LD A,R`, `EI`, `HALT`, `RETI`, and the first, a middle and the
+last iteration of `LDIR`, `LDDR`, `CPIR`, `CPDR`, `INIR`, `OTIR`, `INDR`, `OTDR`) by IM 0, 1 and 2, interrupts enabled or not,
+a halted CPU or not, two register seeds, two stack positions; 348 of them take the interrupt. Registers, WZ, Q, P, the clock, the stack
+bytes and the RAM agree on all of them, and after a NOP the documented values (13 clocks, 19 in IM 2, return address pushed low byte
+first, two refresh increments, IFF1 and IFF2 cleared, WZ the new PC) are asserted on their own, not through the reference. A deliberate
+fault in the function (WZ one too high) fails the check. What this is not: agreement with the project's reference CPU and the
+documentation, not hardware captures, and the reference cannot show an error it shares.
+
+Exports: the behaviour of the generated game is unchanged; only the text of `runtime_glue.c` (the two functions) differs. The game
+stamps of all nine consoles move (`banked_runtime.inc` and `banked_cpu_checks.c` are inputs of every console in `stamp_inputs.py`; the
+generated game of the other consoles is the same). The interrupt path
+is taken once per interrupt, not once per instruction; the per-instruction loop gains no work.
+
+## Neo Geo: the liveness of every route (1.6.7, gate G8)
+
+The packed replays of a Neo Geo conversion run with `--trace` and every `final_checks[]` row gains `liveness` (`frames`, `distinct_pictures`,
+`picture_changes`, `last_picture_change_frame`, `audible_frames`, `last_audible_frame`, the CPS-1 keys), read from the per-frame trace through
+`delivery_evidence.py` unchanged; a route whose picture never changes stops the conversion. Nothing the game does changes: `tools/ab_conversion.py` on
+nam1975 shows the 42 new fields (6 keys on 7 routes) and nothing else (hashes, images, traces and states identical). Details:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#liveness-of-every-route-gate-g8--2-november-2026).
+
+**What moves.** The Neo Geo game stamp (`neogeo_conversion` is a converter module of its stamp groups): an export of 1.6.6 is **converted in full
+once**, with no table entry, to carry the record. The host stamp does not move (no native file is touched), nor does the quick-state key
+(`neogeo_conversion` is not among the modules it hashes), nor any other console.
+
+## Neo Geo, CPS-1 and X68000: the corrected Musashi (1.6.7)
+
+The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on five points
+where the independent 68000 vectors and the translated steps agree and Musashi did not: the flags of a divide overflow, `DIVS` of `0x80000000` by
+-1, the flags and clocks of `CHK`, and `F620`-`F627` (line F, not the 68040 `MOVE16`). Details and figures:
+[NEOGEO_LOG.md](NEOGEO_LOG.md#the-corrected-musashi-shared-with-the-cps-1-and-the-x68000--3-november-2026).
+
+**What changes in a game.** Only the interpreter (the fresh reference and the counted fallback), and only when the program reaches one of those
+cases; the translated code is untouched. On the games compared with `tools/ab_conversion.py` (NAM-1975, Puzzle De Pon! and 1941) the generated
+code, the traces, the pictures, the sound hashes and the states are identical; what differs is `engine/m68k/m68kops.c` (by construction) and the
+data that follows from compiling it (the profile data of the optimised build and the size ratio of the compressed copy).
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (the new module is in their stamp groups): an export of 1.6.6 of these
+consoles is converted in full once, with no table entry; the CPS-1 generator revision goes from 10 to 11 (`cps1_build.py` is a pinned source; no
+CPS-1 path was qualified, so no qualification is lost). The Mega Drive and the other consoles do not move. The **Neo Geo quick-state key moves
+too**: it hashes the fingerprint of `neogeo_build`, which now calls the correction, so a quick state written by an export of 1.6.6 is refused
+cleanly by the 1.6.7 export (no compatibility key from 1.6.5, [GAME_STATES.md](GAME_STATES.md)); the layout of the state is the same.
+
+## Lead: unpacked fallback of the packed replay (1.6.7)
+
+Every conversion replays a compressed copy of the build on all its routes against the fresh reference (gate G5). On Linux
+one X68000 game builds and runs unpacked and passes `upx -t`, but its compressed copy stops at start (SIGTRAP, exit 133),
+and the failed replay refused the whole conversion. Now `delivery_evidence.replay_packed` does what packing already did
+when UPX itself failed: when the replay of a copy that really was compressed fails (the replay raises, or the comparison
+does not hold), the compressed copy is kept aside and replaced by the build exactly as built, one line says so in the
+conversion log, and every route is replayed again on the unpacked file. The compression is blamed only for a failure that
+repeats: once the build has passed every route, the compressed copy is replayed once more on the first route that failed.
+If it fails again, the unpacked file is delivered (that route is replayed once more on it), `packed_reference_match` is true
+for the file actually delivered, and the build is registered (`packing.refuse_compression`, only now) so that the publication
+leaves it unpacked too; the report says `packing.packed` false with the notice as `packing.unpacked_reason`. If it passes,
+the first error is raised with a note that the failure could not be reproduced (non-deterministic), nothing is delivered and
+nothing is registered. If the build fails too, the first error is raised, chained to the second. A file that has not passed
+every route is never delivered. It changes nothing for a game whose compressed copy replays, for a file that was not
+compressed (option "Compress games" off, UPX failure) or for a user stop. `DeliveredFile` now knows its build; the X68000
+replay copies the delivered file into each route's folder at every attempt; Neo Geo's `check_routes` takes the delivered file
+and replays through `replay_packed`. The text is in [BUILDING.md](BUILDING.md).
+
+Stamps (computed with the tree of `main` before and the tree of this change, `compilation_inputs.role_stamps` of the nine
+consoles): the **game stamp** moves for the eight consoles of `stamp_inputs.sharing('conversion_gates')` (Master System, Game
+Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1), because `retrorecomp/delivery_evidence.py` belongs to that group (Neo
+Geo's and X68000's own converters, edited too, are already inputs of their game stamps); the Super Nintendo's does not move.
+The **build stamp of every console moves**, because `retrorecomp/packing.py` is a build input of every console
+(`BUILD_MODULES`). No host stamp moves. A game that replays as before is the same program; exports of 1.6.6 are rebuilt or
+reconverted as the release procedure decides. No quick-state key moves.
+
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
 The vectors of `tests/fixtures/m68k-groups` ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) showed 83 total-clock and
@@ -117,6 +229,7 @@ Shinobi III (all USA), chosen for raster effects, split screens, Z80 drivers, ba
 equal to the reference. The paths of these games are qualified in the base, so the conversion is the 1,200-frame quick check from them,
 not a new discovery; a first series that overlapped another by mistake showed interpreted counts for OutRun and Sonic 2 that the clean
 series did not reproduce, and is not used. No game was dropped and none needs a line in `KNOWN_FAILURES`.
+
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
 1.6.6 is not published. This section is the index of its changes: one line per section below, with the stamps that section says
@@ -289,6 +402,106 @@ stamp; the shared cartridge builder lives in `tools/gameboy_saves_check.py`. No 
 Super Mario Land converted by the 1.6.6 tree. No defect was found in the state codec. The keys F8 and F9 themselves are not driven (they
 need a window); the file has no checksum, so a byte changed inside a file of the right length is accepted ([GAME_BOY.md](GAME_BOY.md#states-and-saves)).
 
+## Game Boy: HALT steps through mode 3, the guarded helpers are counted, the reference runs over the whole length (1.6.7)
+
+*The halted fast-forward.* While a game waits in HALT, the runtime jumps to the next PPU event in every mode but the pixel transfer, where it stepped one machine
+cycle at a time because the end of the mode depends on the pixel FIFO: about 43 steps a line, in a loop that issues most of the calls of a game that waits for vertical
+blank. The transfer ends when the 160th pixel is pushed, at best one pixel a dot (sprites, the window and the scroll only add dots), so the step may now go to one dot
+before that, on a four-cycle boundary (`gameboy_runtime.adapt_halt_mode3`); the dot where the mode ends, and the interrupt it may raise, is still reached by a four-cycle
+step, so the CPU wakes on the same cycle. It applies once the mode is published as 3 and with more than four pixels left.
+
+*The guarded helpers are counted (gate G3).* The four kinds of native body that take over a recognised routine of writable code (store and increment, copy, DMA page,
+interrupt-bracketed DMA) count their entries and the guest cycles of those entries in host-only counters of the context (outside every saved state). The runtime prints
+them on a `[RR-HELPERS]` line, the probe reads it (a runtime without the line is refused) and the report gives them per scenario, by kind, in `guarded_helpers` beside the
+one-at-a-time counts, never added to the interpreter figures. On the games of the A/B they are mostly zero; Kirby's Dream Land enters the store helper 11,360 times in its
+3,600-frame boot route (90,880 guest cycles).
+
+*The reference comparison (gate G4).* The comparison with the reference interpreter covered 30 frames of the boot and 240 of each route, and never the pseudo-random
+routes. From the extended level on, every scenario of the probes, the pseudo-random routes included, is compared over its whole length, up to 3,600 frames; the report
+says, for each comparison, the frames compared (`frames`) and the length of the scenario (`scenario_frames`), and `native_validation.mode` is `full`. The packed replay uses
+the same lengths. The lockstep run goes at roughly seventeen frames a second on a busy PC (73 s for 1,200 frames of one route), which is why the default and the lower
+levels are unchanged.
+
+*What moves.* The Game Boy **game stamp** (`gameboy.py`, `gameboy_coverage.py`, `gameboy_runtime.py`, `native/gb_ram_helpers.h`, `native/gb_tick_fast.h`, `native/gb_tick_checks.c` and
+`native/gb_ram_checks.c`), once for this whole lot with the EI change above; against the base of the lot every other stamp of every machine is the same. An export of 1.6.6
+plays as before until it is converted again; its report has no `guarded_helpers` and no `scenario_frames`, which read as absent, never as zero.
+
+*Hot path: touched, not timed.* `gb_halt_fast_forward_cycles` runs once per halted step and gains one comparison in mode 3; the steps there become longer (in the test fixture the
+average step inside mode 3 is 106 dots instead of 4, about 26 times fewer steps). The counting of the guarded helpers costs one increment and one addition of 64 bits per helper entry and one read of `total_cycles` per dispatch of code run from WRAM or HRAM
+(`rr_gb_try_store_helper`, taken or not). The gain on a real game is not measured here: it is to be timed on a quiet PC.
+
+*Proof.* `tools/gameboy_halt_selftest.py` builds the runtime with and without the bound and runs a HALT program on random video memory, sprites, window and scroll with
+four kinds of wake-up source in 48 variants: the digest of the whole state is identical after each of 66,843 slices of random length, the sound samples agree at all 288
+frame ends, the build with the bound takes 66,187 long steps inside mode 3 and the other none, and a bound that runs 20 dots too far is caught (43,419 slices differ). A/B
+on five games (Tetris, Super Mario Land, Kirby's Dream Land, Link's Awakening, Wario Land II; old tree before the lot's HALT change, new tree after it, from an empty library):
+on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter of every frame are identical, and so is the final state;
+the lockstep comparison takes the same number of steps. The RAM self-test (56,170 checks) asserts the counter of each helper kind; `tests/test_gameboy_helper_counts.py`,
+`tests/test_gameboy_halt_bound.py` and the coverage tests cover the rest. Fable reviews the HALT change and the EI change before they are merged.
+
+*A clean start for every probe.* The probes of a conversion ran one after the other in the folder of the build, and a cartridge with battery RAM writes its save beside the
+executable when it ends, so the second probe of such a game started from the save of the first (seen in the 12-game campaign: the `varied` route of Link's Awakening, run
+twice in the same folder, shows 179 pictures the first time and 184 the second; the 212 its probe reported has other causes that were not isolated). `_probe` (`gameboy.py`) now empties the `datas` folder of the build before each probe, as the state
+check already does for the delivered file. What moves: the Game Boy **game stamp** only (`gameboy.py` is an input), nothing in the exported game or the generated files; the
+probe figures of a battery cartridge (pictures and counters of the second and later probes in `conversion-report.json`) can differ slightly from an earlier conversion of the same
+game, for the better: they now describe a start from nothing.
+
+## Game Boy: EI enables IME one instruction later (1.6.7)
+
+On the console IME is set after the instruction that follows `EI` (Pan Docs, "Interrupts"; `EI` then `DI` lets no interrupt in between). The pinned runtime
+stored `ime_pending = 1` for `EI` and turned it into IME at the end of the same tick, in the interpreter, the generated code, the upstream stub and our RAM
+executors. The independent SM83 vectors (865 of them) saw it: IME was already set after `EI`. In ordinary flow the interrupt still came after the next
+instruction, by accident, because the interrupt test inside `gb_tick` ran before the pending flag was promoted. The change makes the flag a real delay, the same rule
+everywhere (`gameboy_runtime.adapt_ei_delay`, `native/gb_tick_fast.h`, `native/gb_ram_helpers.h`): 0, 1 (`EI` just ran), 2, then IME; the first thing every tick does is
+advance it, so the interrupt test that follows sees IME in the first tick of the instruction after `EI`. `DI` clears the flag, and an `EI` that finds it armed leaves it
+(`EI`, `EI`: IME is on after the second).
+
+*Two cases the review of the change found, both fixed in `adapt_ei_delay`.* (1) `EI ; HALT` with an interrupt already pending and IME off before the `EI`: the pinned
+`gbrt_execute_halt` saw IME off and took the HALT bug, then the tick of the HALT turned IME on and the dispatch ran with the bug still set, so the first instruction of the
+handler ran twice (a handler that begins with `PUSH AF` unbalances the stack). An armed `EI` (flag 2) now counts as IME about to be on: no HALT bug, the interrupt is taken once
+after the HALT, as in 1.6.6 and on the console. (2) `EI` executed with IME already on and an interrupt pending at once: the dispatch switched IME off and the armed flag
+switched it back on in the middle of the dispatch (a nested interrupt in the handler); the dispatch now clears the flag with IME (the `EI` does nothing there, as on the console).
+Both are asserted in `native/gb_halt_checks.c` (removing either fix makes it fail: the stack comes back unbalanced, or IME stays on) and the `EI ; HALT` case is also in
+`tools/gameboy_ei_check.py` on the delivered file.
+
+*What moves.* The Game Boy **game stamp** (`gameboy_runtime.py`, `gb_tick_fast.h`, `gb_ram_helpers.h`); no host or build stamp. An export of 1.6.6 keeps the old rule until it
+is converted again. The pending flag is part of a quick state: a state taken between an `EI` and the next instruction by this build holds 2, which an older build
+also promotes at its next tick, so no key changes.
+
+*Hot path: touched, not timed.* `gb_tick` and its inline copy test `ime_pending` once per tick as before; the test moved from the end of the function to the start, and the
+value it handles has a third state. No other work is added per tick.
+
+*What it changes in practice.* In the game, on five games, nothing: on Tetris, Super Mario Land, Kirby's Dream Land, Link's Awakening and Wario Land II (one conversion at a
+time from an empty library, old and new tree), the four routes of each (boot, two plays, varied) were replayed on both delivered files for 3,600 frames and the picture,
+the sound, the work RAM and the program counter of every frame are identical, and so is the final state dump. In the lockstep comparison of the conversion, which
+runs one instruction at a time, Super Mario Land takes five more steps in the 30-frame boot comparison and in each 240-frame comparison (Tetris, Kirby's Dream Land and
+Link's Awakening: the same number); on the old tree its one-step loop took one interrupt right after an `EI` (the `EI` at `$042C`, interrupt taken at `$042D`, cycle
+938,248, found with a print in the dispatch) where a normal run took none. Both trees match their own interpreter; the new one takes that interrupt after the next instruction in
+both modes. The five extra steps are not explained further than by that single difference, and no picture, sound, RAM or PC difference goes with them.
+
+*Proof.* `tools/gameboy_sm83_vector_selftest.py`: the interpreter matches 402,589 of 404,358 vectors (the 865 `EI` vectors now match; what is left is `STOP` and `HALT`, conventions of
+the vector model), the RAM executor all 51,654 and the RAM dispatch all 58,153. `tools/gameboy_ei_check.py`, a cartridge authored for it with an interrupt already pending at the
+`EI`: nine cases (ROM code, code copied to WRAM and HRAM, an `EI` at the end of a block, `EI ; DI`, `EI ; EI`, `EI ; HALT`) give the console's answers on the new runtime (the first
+eight were also measured on the 1.6.6 runtime, which gave the same), and the generated code agrees with the interpreter in lockstep. The inline tick against the real `gb_tick`
+(309,676 checks, with the pending flag drawn from 0, 1 and 2), the RAM self-test (56,170) and the bank-boundary self-test (47,104) pass; the vector counts above were run again
+after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch functions. A/B of the corrected tree against the 1.6.6 tree (`f9d2350`) on Tetris, Link's Awakening and Wario Land II (the
+last two have an `EI ; HALT` byte pair in their ROM; Tetris waits in HALT): on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter
+of every frame are identical to 1.6.6, and so are the final state and the number of steps of the lockstep comparison. Fable has reviewed the change; both findings are fixed here.
+
+## Game Boy: independent SM83 vectors (1.6.7, gate G10)
+
+`tools/fetch_sm83_vectors.py` caches the pinned SingleStepTests/sm83 corpus into `.deps` (revision `f9c3021`, MIT, a pinned digest of its
+500 files, a line per vector); `tools/gameboy_sm83_vector_selftest.py` builds `native/gb_sm83_vector_checks.c` against the pinned runtime and
+runs the 404,358 vectors that touch plain memory through the interpreter, the one-instruction RAM executor and the RAM dispatch.
+
+*What moves.* Nothing: developer files, in the public files and in no stamp (the C check is declared out of the stamps like the
+CPS-1 vector checks). No export changes.
+
+*Hot path: not touched.*
+
+*Proof and finding.* 401,724 of 404,358 interpreter vectors matched at the time; the three families that differed were pinned with their numbers
+(`STOP` and `HALT`: conventions of the vector model; `EI`: IME set when `EI` completes instead of one instruction later, see the next entry for the
+fix and for what it changed in practice). Details in [CPU_SM83.md](CPU_SM83.md#6-tests-and-vectors).
+
 ## Game Boy: the report names the cartridge and the sound unit, and every conversion checks the states (1.6.6, gates G2 and G6)
 
 *The report.* Beside the CPU, the Game Boy report (schema 2) now lists two units in `devices`, after the coprocessor entry if a machine has
@@ -317,6 +530,52 @@ executable and every generated file are byte for byte the same (below), so a pla
 main checkout against the commit this branch left (`tools/ab_conversion.py`): on Tetris all 128 compared files are identical and the only
 differences are the new report keys (99 lines: `hardware_devices`, `cartridge_memory` and `game_states`, and the schema-2 `devices`, `saves` and
 `states` built from them; timings are not compared).
+
+## NES: a quick state keeps the mapper's PRG register (1.6.7)
+
+*The NES game stamp moves (`nes_state_layout.py` is one of its inputs) and the state key `RR_NES_STATE_ABI` changes: the quick states of
+1.6.5 and 1.6.6 are refused with the usual message and a state is taken again with F8. **The exports of 1.6.5 and 1.6.6 already
+published have this defect on the boards below; converting the game again with 1.6.7 corrects it.***
+
+The 1.6.5 state writer (`RRNESST2`) left out the cartridge's `m.prg` register. Its list of members not to save named the cartridge's
+`prg` pointer by its last name, and that name also belongs to the register in which MMC1, MMC2 and MMC4, the VRC boards, VRC6, Bandai,
+Sunsoft and a few others keep their PRG bank. After F9 the register came back as 0 until the game wrote it again, so a game that reads
+its data through the switchable window and does not write the bank register at once ran on bank 0 after the load. The list now names a
+member by its path: the pointer stays out, the register is in, and the generated writer changes by that one field and nothing else. The
+generator also offers an audit of every member of every saved structure (written, or left out for a declared reason), and a test
+requires that the members left out are exactly the ones in the list, each named by its path, so that a name shared by two members can
+no longer drop one in silence.
+
+What was seen. On Esper Dream 2 (VRC6, a real game), the check that every conversion runs on the delivered file (save at frame 599 of a
+play route, load in a fresh process, compare 180 frames) refused the game with the 1.6.6 source and on `main`: the hardware hash (`hw=`)
+differed on every frame after the load while the CPU, memory, picture and sound hashes stayed equal, and `--state-out` showed
+`cart.prg` 02 before and 00 after; with the change the same conversion passes. On four authored cartridges
+(`tools/nes_state_prg_check.py`: MMC1, VRC6, Bandai and MMC2, a program that selects bank 3 once and never writes the register again)
+the conversion is refused with the 1.6.6 source and the check passes at two save points with 1.6.7. On two real MMC1 games (Metroid,
+Mega Man 2) F9 was already identical at three save points with the old writer: they write their bank register again within the
+first frame, so how much a played game suffered is not measured; it depends on how soon the game writes the register again.
+
+Why Esper Dream 2 passed the 1.6.6 campaign is not proven. The probable cause: the state check (commit `0ff2b27`) entered the tree on
+1 November 2026 at 14:25, while the 1.6.6 campaign ran for 1 h 44 min and its proof commit is at 15:33, so the campaign probably began
+before the check existed or while it was being written, in the same checkout, and Esper was converted without it. The same 1.6.6 source
+with the same options refuses the game today, and no non-determinism was found in the check. The reports of the 1.6.6 campaign were
+not read again: their folder (`.build/campaign-1.6.6`) no longer exists.
+
+## NES: the Zapper catalogue holds no database (1.6.7)
+
+*The NES game stamp moves (`nes_catalog.py` is one of its inputs); exports are rebuilt from their learned paths. Which game gets
+the Zapper does not change for any game of the maintainer's library.* The catalogue that decides whether a cartridge uses the
+Zapper carried 122 payload CRCs taken from MesenNesDB, a file of the GPL-3 Mesen2 repository (the same source as the known-dump
+table of the pinned engine's later revisions, which Retro-Recomp does not take). They are removed. A cartridge now uses the Zapper
+when its NES 2.0 header names it (default expansion device 8) or when its file name is the exact title of a game known to
+support it: the nine licensed games that need it, the licensed and unlicensed ones that support it as an option (as the
+compatible-games list of the Wikipedia article on the NES Zapper names them; facts only), and the aliases already carried.
+
+Checked on the 1,063 files of the maintainer's NES library, before and after: the same 19 games, none lost, none gained (the two
+that only the CRC table recognised, The Lone Ranger and Day Dreamin' Davey, are now named by title). What changes is outside
+that library: a revision, hack or translation of these games whose file name is not one of the titles and whose header does not
+name the Zapper is no longer recognised, and its game runs with the two controllers. The Hunt for Red October is on the
+Wikipedia list but is not taken, since no other source says the NES game uses the gun.
 
 ## NES: the delivered file replayed, liveness, fresh-process states, saves in the report (1.6.6)
 
@@ -475,6 +734,52 @@ trial of the 1.6.6 executable is still to do). What changes for a player and for
 - **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
   corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
   just before this change). No quick-state key changes.
+
+## Sharp X68000: the intensity bit of the palette lifts red, green and blue (1.6.7)
+
+A palette entry of the X68000 is `GGGGGRRRRRBBBBBI`: five bits per primary and an intensity bit `I` that adds a half step (one level of the 6-bit
+DAC, 4 of 255) to the three primaries together. The pinned base kept its picture in RGB565, which has no spare bit for red and blue, and put `I` in
+the low bit of green: a pixel with `I` set came out brighter on green only. Arthur agreed to correct it (2 November 2026).
+
+What changes: the machine now keeps the colour word as the X68000 holds it (`host_draw.c` gives the 2014 palette code the masks of that layout, so the
+table it builds is the identity and `Ibit` is bit 0), and widens it when the picture is presented (`native/x68000_machine/colour.h`, new): each primary
+is `(five bits << 1 | I)` as a 6-bit level, extended to 8 bits (`v << 2 | v >> 4`). The picture handed to the host is XRGB8888 instead of RGB565; the
+host kit and the reference host already read both. After a saved state is loaded, the host redraws the picture through the same conversion
+(`rr_x68k_framebuffer` returns the converted frame). The contrast of the system port is still applied by the base on the five-bit primaries, and the
+half-tone and translucency blends keep the base's arithmetic, which does not depend on the layout of the bits (`Pal_HalfMask` and `Pal_Ix2` are derived from the masks). No game is treated apart.
+
+What a player sees: no layout, timing, sound or code change; colours move by at most 4 of 255 on a channel, and a pixel with `I` set is now
+lighter on red and blue too. In the 256-colour graphic mode with special priority, the base adds `Ibit` as an opacity marker to every non-zero
+sprite-priority pixel (`x68k/gvram.c`, lines 1673 and 1812 of the pinned file): that pixel now gains 4 of 255 on red, green and blue instead of green alone. The
+marker is a defect that was already in the base, and the only place where the `I` bit is made up instead of read from the palette; it is kept as the base has it. The picture hash of every route changes (it hashes the new pixel format); the CPU, RAM and PCM hashes do not: a
+conversion of Bubble Bobble before and after gives equal CPU, RAM and PCM hashes on the three routes, 0 interpreted opcodes, a packed copy that
+matches, and states that resume. Against MAME 0.289 on the 12 still pictures of Bubble Bobble that match in shape (2,487,394 pixels, `tools/x68000_mame_compare.py`
+method, no input), the share of pixels identical to MAME's goes from 93.55 to 97.03 percent, and the mean error per channel
+(0.709, 0.770, 0.713 before) is 0.712 on all three after; the largest remaining difference is 24 of 255 (the screen contrast, applied by MAME after
+the raw screen, and rounding; not analysed again here). This compares one game's pictures with another emulator, which is not hardware: it does not
+establish exact colours, and sound is not part of it.
+
+Stamps: the files are game inputs of the Sharp X68000 (`libretro_api.c`, `base74/host_draw.c`, `base74/bridge.c`, the new `colour.h`,
+`x68000_reference/video_checks.c` and `reference_host.c`), so its **game stamp moves** (a full reconversion of every X68000 game; the 1.6.6 exports
+keep their old colours until then; their states are refused by the new build because the state compatibility key `RR_X68K_STATE_ABI` itself changes: it hashes `reference_host.c` and `base74/bridge.c`, which this change edits (`native/x68000_reference/CMakeLists.txt`, compared with `state_store.c`)); host and build stamps and the eight other
+consoles do not move (checked against the previous commit). Cost: one table lookup per presented pixel, at most 800 x 600 a frame (about 2 percent of one
+core at 768 x 512 and 60 frames a second by count; no timing was taken on a quiet machine: the conversion times of the two Bubble Bobble runs, 194 and 197 seconds,
+differ by less than the load of the PC). `tests/test_x68000_colour.py` fixes the conversion without a ROM: the masks and the table of the real palette
+code, and all 65,536 words against a model written from the rule, with `I` at 0 and at 1.
+
+## Sharp X68000: the libretro comparison base leaves the build files (1.6.7)
+
+`native/x68000_reference/CMakeLists.txt` no longer carries the `current` machine base (the earlier px68k-libretro reference, kept for private
+comparison): it named four private adapters that were never part of the public sources (`tools/x68000_hardware.py`,
+`x68000_session_hardware.py`, `x68000_disk_hardware.py`, `native/x68000_reference/adapt_upstream.cmake`), so a clean checkout could not build it.
+The hissorii base (74ddbb3) is the only one, and any other value is refused with a message. The program does not change: the generated
+code, the machine and the states are the same (a conversion of R-Type before and after gives the same trace hashes on every route).
+Two files that only that branch compiled leave the tree with it: `native/x68000_reference/session_bridge.c` and `media_probe.c` (no build named them any
+more); they are no longer stamp inputs nor public files. A conversion of R-Type after both changes gives the same CPU, RAM, picture and PCM hashes on the three routes.
+
+Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game, with no change in what
+a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
+file that is absent.
 
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 

@@ -39,8 +39,8 @@ class ProblemTests(unittest.TestCase):
     GOOD = {'groups': [
         {'group': 'ADD.w', 'cases': 10, 'native_executed': 10, 'native_state': 10, 'reference_state': 10, 'native_clock': 10,
          'reference_clock': 10, 'paths_equal': 10, 'paths_clock_equal': 10},
-        {'group': 'DIVU-variable', 'cases': 10, 'native_executed': 10, 'native_state': 10, 'reference_state': 7,
-         'native_clock': 10, 'reference_clock': 10, 'paths_equal': 7, 'paths_clock_equal': 10},
+        {'group': 'DIVU-variable', 'cases': 10, 'native_executed': 10, 'native_state': 10, 'reference_state': 10,
+         'native_clock': 10, 'reference_clock': 10, 'paths_equal': 10, 'paths_clock_equal': 10},
         {'group': f'authored {selftest.TRACE_GROUP}', 'cases': 2, 'native_executed': 2, 'native_state': 0, 'reference_state': 0,
          'native_clock': 0, 'reference_clock': 0, 'paths_equal': 2, 'paths_clock_equal': 2}]}
 
@@ -57,7 +57,8 @@ class ProblemTests(unittest.TestCase):
         self.assertTrue(altered(0, native_executed=9))                    # a vector fell back to the interpreter
         self.assertTrue(altered(0, reference_state=9, paths_equal=9))     # an unlisted group where the reference differs
         self.assertTrue(altered(0, paths_equal=9))                        # paths differ while the reference is right
-        self.assertEqual(altered(1, reference_state=6, paths_equal=6), [])  # a listed group may deviate
+        self.assertTrue(altered(1, reference_state=6, paths_equal=6))     # no group may deviate: the Musashi is corrected
+        self.assertEqual(selftest.REFERENCE_DEVIATIONS, frozenset())
 
 
 if __name__ == '__main__':

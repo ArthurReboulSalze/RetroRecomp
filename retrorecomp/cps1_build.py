@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from .conversion_common import replace_counted, write_if_changed
+from .musashi_fixes import adapt_musashi_ops
 from .paths import ROOT, ASSETS
 from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
@@ -21,7 +22,8 @@ from .platforms import build_executable, cmake_target_args, build_jobs, sdl_inst
 YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
 NATIVE_FILES = ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h',
-                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c')
+                'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h',
+                'cps1_qsound.c', 'cps1_qsound.h')
 AOT_FILES = ('cps1_native.c', 'cps1_native.h', 'cps1_z80_native.h', 'm68000_state_helpers.h')
 MUSASHI_FILES = ('m68k.h', 'm68kcpu.c', 'm68kcpu.h', 'm68kops.c', 'm68kops.h', 'm68kfpu.c', 'm68kmmu.h')
 YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp')
@@ -80,15 +82,22 @@ def musashi_core(geolith: Path, *, native: bool) -> str:
             'void cps1_m68k_state_set(const void *src) { memcpy(&m68ki_cpu, src, cps1_m68k_state_bytes()); }\n')
 
 
-def z80_core(geolith: Path, *, native: bool) -> str:
+def z80_core(geolith: Path, *, native: bool, kabuki: bool = False) -> str:
+    """The Z80 core of the board. `kabuki` reads instruction bytes from the opcode view (retrorecomp/cps1_kabuki.py); the
+    reference core, built once for every set, always does, and answers like the plain core without an opcode image."""
     from .neogeo_z80 import adapt_source
+    from . import cps1_kabuki
     source = adapt_source((geolith / 'src/z80/z80.c').read_text(encoding='utf-8'))
+    fetch, dispatch = 'nextb', Z80_DISPATCH
+    if kabuki or not native:
+        source = cps1_kabuki.patch_core(source)
+        fetch, dispatch = 'nextop', cps1_kabuki.DISPATCH_OP
     if not native:
         return source
-    source = _replace_once(source, Z80_DISPATCH, '''    if(!rr_cps1_z80_try(z,&cyc)) {
+    source = _replace_once(source, dispatch, f'''    if(!rr_cps1_z80_try(z,&cyc)) {{
         rr_cps1_z80_note_fallback(z->pc);
-        const uint8_t opcode=nextb(z);cyc+=exec_opcode(z,opcode);
-    }''', 'Z80 dispatch')
+        const uint8_t opcode={fetch}(z);cyc+=exec_opcode(z,opcode);
+    }}''', 'Z80 dispatch')
     # IM 0 runs the opcode the interrupting device supplies instead of fetching it: always the reference core,
     # so it is counted as interpreted, like the Neo Geo does.
     source = _replace_once(source, Z80_IM0_DISPATCH,
@@ -97,7 +106,7 @@ def z80_core(geolith: Path, *, native: bool) -> str:
     source = _replace_once(source, 'static unsigned exec_opcode(z80* const z, uint8_t opcode);',
         '#include "cps1_z80_native.h"\nstatic int rr_cps1_z80_try(z80*,unsigned*);\n'
         'static unsigned exec_opcode(z80* const z, uint8_t opcode);', 'Z80 declarations')
-    return _replace_once(source, '#undef GET_BIT', '''#include "cps1_z80_steps.inc"
+    helpers = '''#include "cps1_z80_steps.inc"
 static int rr_cps1_z80_try(z80 *z,unsigned *cycles) {
     if(rr_cps1_force_reference || rr_cps1_force_z80_reference)return 0;
     uint32_t offset;const RrCps1Z80Step *op=NULL;
@@ -109,7 +118,10 @@ static int rr_cps1_z80_try(z80 *z,unsigned *cycles) {
     }
     ++rr_cps1_native_z80;*cycles=op->execute(z);return 1;
 }
-#undef GET_BIT''', 'Z80 helpers end')
+#undef GET_BIT'''
+    if kabuki:
+        helpers = _replace_once(helpers, cps1_kabuki.NATIVE_CHECK, cps1_kabuki.NATIVE_CHECK_OP, 'Z80 opcode check')
+    return _replace_once(source, '#undef GET_BIT', helpers, 'Z80 helpers end')
 
 
 def ymfm_source(name: str, text: str) -> str:
@@ -138,16 +150,17 @@ def ymfm_source(name: str, text: str) -> str:
         '\t\tm_regs.cache_operator_data(m_choffs, m_opoffs, m_cache);\n}', 'ymfm operator state')
 
 
-def _engine(project: Path, *, native: bool) -> None:
+def _engine(project: Path, *, native: bool, kabuki: bool = False) -> None:
     geolith, ymfm = sources()
     for name in NATIVE_FILES + (AOT_FILES if native else ()):
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
     for name in MUSASHI_FILES:
-        _write(project / 'engine/m68k' / name, (geolith / 'src/m68k' / name).read_text(encoding='utf-8'))
+        text = (geolith / 'src/m68k' / name).read_text(encoding='utf-8')
+        _write(project / 'engine/m68k' / name, adapt_musashi_ops(text) if name == 'm68kops.c' else text)
     _write(project / 'engine/m68k/m68kconf.h', (ASSETS / 'native/cps1_m68kconf.h').read_text(encoding='utf-8'))
     _write(project / 'engine/m68k/m68kcpu.c', musashi_core(geolith, native=native))
     _write(project / 'engine/z80/z80.h', (geolith / 'src/z80/z80.h').read_text(encoding='utf-8'))
-    _write(project / 'engine/z80/z80.c', z80_core(geolith, native=native))
+    _write(project / 'engine/z80/z80.c', z80_core(geolith, native=native, kabuki=kabuki))
     for name in YMFM_FILES:
         _write(project / 'engine/ymfm' / name, ymfm_source(name, (ymfm / 'src' / name).read_text(encoding='utf-8')))
 
@@ -161,7 +174,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if(MSVC)
   add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)
 endif()
-set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp
+set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c cps1_qsound.c
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c engine/ymfm/ymfm_opm.cpp)
 function(cps1_library name)
   add_library(${name} STATIC ${CPS1_BOARD} ${ARGN})
@@ -190,7 +203,8 @@ target_link_libraries(cps1_trace_probe PRIVATE cps1_reference_trace)
 def prepare_native(project: Path, board: Path, game: dict, observations: dict | None = None) -> dict:
     """Generate the game's translated code and its native CMake project."""
     from .cps1_codegen import generate
-    _engine(project, native=True)
+    # A board with a Kabuki sound CPU has an opcode view of its sound ROM beside the data view (cps1_board.write_board).
+    _engine(project, native=True, kabuki=(board / 'audiocpu-op.bin').is_file())
     geolith, _ = sources()
     from .neogeo_z80 import adapt_source
     analysis = generate(project, board, game, adapt_source((geolith / 'src/z80/z80.c').read_text(encoding='utf-8')),
@@ -230,7 +244,7 @@ def build_native(board: Path, game: dict, observations: dict | None = None,
 
 # ------------------------------------------------------------------ game build
 
-HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_state.c',
+HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'cps1_persistence.c', 'cps1_persistence.h', 'console16_state.c',
               'console16_state.h', 'console16_video.h', 'platform_io.c', 'platform_io.h',
               'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h',
               'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
@@ -239,7 +253,8 @@ HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_state.c',
 NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 'licenses/musashi.md',
                 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
                 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
-PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin')
+PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin', 'qsound.bin',
+                'audiorom_raw.bin', 'qsound_dsp.bin')
 # Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
 ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
            'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}
@@ -310,7 +325,7 @@ def state_config(game_set, title: str) -> str:
     from .core import executable_name, module_fingerprint
     abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
-                 'cps1_host.c', 'cps1_native.c'):
+                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h'):
         abi.update((ASSETS / 'native' / name).read_bytes())
     for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
@@ -328,7 +343,7 @@ def state_config(game_set, title: str) -> str:
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,
-                 presentation: dict | None = None, hints=None) -> dict:
+                 presentation: dict | None = None, hints=None, dsp_rom: bytes | None = None) -> dict:
     """A playable game project: native board, shared 16-bit host and embedded regions.
 
     `hints(board)`, when given, answers more observation rows ({'m68k_ram', 'm68k_gfx', 'z80_ram'}) rebuilt from the
@@ -338,7 +353,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     from . import __version__
     from .cps1_board import write_board
     board = project / 'board'
-    write_board(board, game_set, game)
+    write_board(board, game_set, game, dsp_rom)
     if hints is not None:
         extra = hints(board)
         observations = {name: [*(observations or {}).get(name, ()), *extra.get(name, ())] for name in ('m68k_ram', 'm68k_gfx', 'z80_ram')}
@@ -357,7 +372,8 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     _write(project / 'notices.txt', '\n\n'.join(notices))
     packed = project / 'board.pack'
     payload = pack(board)
-    if not packed.is_file() or packed.read_bytes() != payload:
+    pack_changed = not packed.is_file() or packed.read_bytes() != payload
+    if pack_changed:
         packed.write_bytes(payload)
     from .core import executable_name
     from .metadata import write_game_metadata
@@ -377,6 +393,8 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     _write(project / 'content.rc', '#pragma code_page(65001)\n'
                   f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
                   '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
+    if pack_changed and (project / 'content.rc').is_file():
+        (project / 'content.rc').touch()     # the resource compiler does not track the pack it includes: a new pack must rebuild it
     from .resources import embed_resources
     embed_resources(project, {201: packed, 203: project / 'notices.txt', 205: project / 'export-identity.bin'})
     table = ','.join('{%d,%d,%d,%d}' % row for row in input_table(game))
@@ -398,7 +416,7 @@ endif()
 target_compile_definitions(cps1_native PUBLIC CPS1_FEEDBACK=1)
 set(GEO "{geolith.as_posix()}")
 find_package(SDL2 CONFIG REQUIRED)
-add_executable(game cps1_main.c cps1_host.c {' '.join(hostkit.sources('cps1'))} console16_state.c retro_menu.c
+add_executable(game cps1_main.c cps1_host.c cps1_persistence.c {' '.join(hostkit.sources('cps1'))} console16_state.c retro_menu.c
   "${{GEO}}/deps/miniz/miniz.c")
 target_include_directories(game PRIVATE "${{GEO}}/deps/miniz")
 if(WIN32)

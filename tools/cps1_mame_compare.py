@@ -100,6 +100,7 @@ def unrotate(image):
     return image.transpose(Image.FLIP_TOP_BOTTOM).transpose(Image.TRANSPOSE)
 
 
+QSOUND_RATE = 60e6 / 2 / 1248    # the QSound chip's sample rate (24,038.46 Hz); MAME is asked for 24,038 Hz, the game writes the exact one
 AUDIO_RATE = 55930    # the YM2151 rate, CPS1_AUDIO_RATE in native/cps1_machine.h: both sides are brought to it
 
 
@@ -113,23 +114,48 @@ def read_wav(path: Path):
     return data.reshape(-1, channels).mean(axis=1), rate
 
 
-def compare_sound(wav: Path, pcm: Path, seconds: int | None = None) -> dict:
+def read_wav_channels(path: Path):
+    """The channels of a 16-bit PCM WAV, one array each, and its rate."""
+    import numpy
+    import wave
+    with wave.open(str(path), 'rb') as stream:
+        channels, rate, count = stream.getnchannels(), stream.getframerate(), stream.getnframes()
+        data = numpy.frombuffer(stream.readframes(count), dtype='<i2').astype(numpy.float64)
+    return [data[index::channels] for index in range(channels)], rate
+
+
+def compare_sound(wav: Path, pcm: Path, seconds: int | None = None, rate: int = AUDIO_RATE, channels: int = 1) -> dict:
     """Agreement of MAME's sound with the game's, in one-second windows.
 
-    Both are mono at the YM2151 rate. The game's samples start with its first frame and MAME's with its first frame, so the
-    lag is searched within one frame (936 samples). Per window: the RMS levels in dB, and the cosine similarity of the
+    Mono at the YM2151 rate, or the two channels of the QSound boards at their own rate (each channel compared on its own, under
+    `left` and `right`). The game's samples start with its first frame and MAME's with its first frame, so the
+    lag is searched within one frame (936 samples at the YM2151 rate). Per window: the RMS levels in dB, and the cosine similarity of the
     magnitude spectra. Reported apart: the waveform correlation, which the interpolation of the OKI and MAME's own filter keep
     below what the spectra suggest. Windows where either side is silent are counted, not compared."""
     import numpy
-    mame, rate = read_wav(wav)
-    ours = numpy.frombuffer(pcm.read_bytes(), dtype='<i2').astype(numpy.float64)
-    if rate != AUDIO_RATE:
-        return {'compared': False, 'reason': f'MAME wrote {rate} Hz, expected {AUDIO_RATE}'}
+    ours_all = numpy.frombuffer(pcm.read_bytes(), dtype='<i2').astype(numpy.float64)
+    if channels == 1:
+        mame, wav_rate = read_wav(wav)
+        return _compare_channel(mame, ours_all, wav_rate, rate, seconds)
+    mame_channels, wav_rate = read_wav_channels(wav)
+    if len(mame_channels) != channels:
+        return {'compared': False, 'reason': f'MAME wrote {len(mame_channels)} channels, expected {channels}'}
+    results = {name: _compare_channel(mame_channels[index], ours_all[index::channels], wav_rate, rate, seconds, aligned=True)
+               for index, name in enumerate(('left', 'right'))}
+    return {'compared': all(result.get('compared') for result in results.values()), **results}
+
+
+def _compare_channel(mame, ours, wav_rate: int, rate: int, seconds: int | None, aligned: bool = False) -> dict:
+    import numpy
+    if wav_rate != rate:
+        return {'compared': False, 'reason': f'MAME wrote {wav_rate} Hz, expected {rate}'}
+    # the lag is searched within one frame: 936 samples at the YM2151 rate (steps of 4), 403 at the QSound rate (steps of 2)
+    limit, step = (940, 4) if rate > 40000 else (410, 2)
     # the waveform lag within one frame, from the first seconds with sound
     usable = min(len(mame), len(ours))
     best_lag, best_value = 0, -2.0
-    probe = slice(AUDIO_RATE, min(usable, 6 * AUDIO_RATE))
-    for lag in range(-940, 941, 4):
+    probe = slice(rate, min(usable, 6 * rate))
+    for lag in range(-limit, limit + 1, step):
         a = mame[probe.start + max(lag, 0):probe.stop + min(lag, 0)] if lag >= 0 else mame[probe.start:probe.stop + lag]
         b = ours[probe.start:probe.stop - max(lag, 0)] if lag >= 0 else ours[probe.start - lag:probe.stop]
         n = min(len(a), len(b))
@@ -141,14 +167,14 @@ def compare_sound(wav: Path, pcm: Path, seconds: int | None = None) -> dict:
         mame, ours = mame[best_lag:], ours
     else:
         mame, ours = mame, ours[-best_lag:]
-    windows = min(len(mame), len(ours)) // AUDIO_RATE
+    windows = min(len(mame), len(ours)) // rate
     if seconds:
         windows = min(windows, seconds)
     levels, cosines, silent = [], [], 0
     total_a = total_b = 0.0
     for index in range(windows):
-        a = mame[index * AUDIO_RATE:(index + 1) * AUDIO_RATE]
-        b = ours[index * AUDIO_RATE:(index + 1) * AUDIO_RATE]
+        a = mame[index * rate:(index + 1) * rate]
+        b = ours[index * rate:(index + 1) * rate]
         ra, rb = float(numpy.sqrt((a ** 2).mean())), float(numpy.sqrt((b ** 2).mean()))
         if ra < 1.0 or rb < 1.0:
             silent += 1
@@ -161,7 +187,7 @@ def compare_sound(wav: Path, pcm: Path, seconds: int | None = None) -> dict:
         return {'compared': False, 'reason': 'no window with sound on both sides', 'windows': windows, 'silent_windows': silent}
     # the spectra averaged over all the windows with sound, and their third-octave bands (power in dB)
     averaged = float(numpy.sqrt(total_a) @ numpy.sqrt(total_b) / (numpy.linalg.norm(numpy.sqrt(total_a)) * numpy.linalg.norm(numpy.sqrt(total_b))))
-    frequencies = numpy.fft.rfftfreq(AUDIO_RATE, 1.0 / AUDIO_RATE)
+    frequencies = numpy.fft.rfftfreq(rate, 1.0 / rate)
     low, high = [], []
     edge = 125.0
     while edge * 2 ** (1 / 3) <= 16000:
@@ -171,13 +197,32 @@ def compare_sound(wav: Path, pcm: Path, seconds: int | None = None) -> dict:
             difference = abs(10 * numpy.log10(total_a[band].sum() / total_b[band].sum()))
             (low if upper <= 4000 else high if edge >= 5000 else []).append(float(difference))
         edge = upper
-    correlation = float(numpy.corrcoef(mame[:windows * AUDIO_RATE][:len(ours)], ours[:windows * AUDIO_RATE][:len(mame)])[0, 1])
-    return {'compared': True, 'windows': windows, 'silent_windows': silent, 'lag_samples': best_lag,
+    correlation = float(numpy.corrcoef(mame[:windows * rate][:len(ours)], ours[:windows * rate][:len(mame)])[0, 1])
+    result = {'compared': True, 'windows': windows, 'silent_windows': silent, 'lag_samples': best_lag,
             'level_difference_db_median': float(numpy.median(numpy.abs(levels))), 'level_difference_db_max': float(numpy.max(numpy.abs(levels))),
             'spectrum_cosine_min': float(min(cosines)), 'spectrum_cosine_median': float(numpy.median(cosines)),
             'averaged_spectrum_cosine': averaged,
             'third_octave_max_db_below_4khz': max(low) if low else None, 'third_octave_max_db_5_to_16khz': max(high) if high else None,
             'waveform_correlation': correlation}
+    if aligned:
+        # MAME resamples the QSound chip's 24,038.46 Hz to the 24,038 Hz it was asked for, so the two drift apart by half a sample
+        # a second: the whole-signal correlation above is low whatever the sound. Aligned per window (the lag searched within 40
+        # samples) the waveforms are compared without that drift.
+        values = []
+        for index in range(windows):
+            first = index * rate
+            best = -2.0
+            for lag in range(-40, 41):
+                a = mame[first + max(lag, 0):first + rate + max(lag, 0)]
+                b = ours[first - min(lag, 0):first + rate - min(lag, 0)]
+                n = min(len(a), len(b))
+                if n > rate // 2 and a[:n].std() > 0 and b[:n].std() > 0:
+                    best = max(best, float(numpy.corrcoef(a[:n], b[:n])[0, 1]))
+            if best > -2.0:
+                values.append(best)
+        result['waveform_correlation_aligned_median'] = float(numpy.median(values)) if values else None
+        result['waveform_correlation_aligned_min'] = float(min(values)) if values else None
+    return result
 
 
 def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int, route: str, work: Path, offset: int,
@@ -206,8 +251,10 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
                           'in2': ports[0], 'in3': ports[1],
                           'events': '{' + ','.join('{%d,%d,%d,%d,%d}' % e for e in events) + '}'}, encoding='utf-8')
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
+    qsound = game['machine'] == 'qsound'      # the CPS-1.5 boards: stereo at 24,038 Hz instead of mono at 55,930 Hz
+    rate, channels = (24038, 2) if qsound else (AUDIO_RATE, 1)
     extra_game = ['--pcm', str(work / 'game.pcm')] if sound else []
-    extra_mame = ['-wavwrite', str(work / 'mame.wav'), '-samplerate', str(AUDIO_RATE)] if sound else []
+    extra_mame = ['-wavwrite', str(work / 'mame.wav'), '-samplerate', str(rate)] if sound else []
     subprocess.run([str(exe), '--headless', '--frames', str(frames + 8), '--script', str(work / 'route.inputs'), '--capture',
                     str(work / 'game'), '--capture-every', str(step), *extra_game], env=environment, check=True, capture_output=True,
                    timeout=900, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -241,7 +288,7 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
     summary = {'set': name, 'route': route, 'comparable': True, 'offset': offset, 'compared': len(results), 'identical': identical,
                'first_difference_frame': first, 'frames_run': frames}
     if sound:
-        summary['sound'] = (compare_sound(work / 'mame.wav', work / 'game.pcm') if (work / 'mame.wav').is_file()
+        summary['sound'] = (compare_sound(work / 'mame.wav', work / 'game.pcm', rate=rate, channels=channels) if (work / 'mame.wav').is_file()
                             else {'compared': False, 'reason': 'MAME wrote no sound file'})
     (work / 'report.json').write_text(json.dumps({**summary, 'frames': results}, indent=1), encoding='utf-8')
     return summary

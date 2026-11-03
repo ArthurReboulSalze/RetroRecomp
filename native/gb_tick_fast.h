@@ -82,6 +82,11 @@ static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
     ++rr_gb_tick_fast_calls;
 #endif
 
+    /* The delayed EI, first thing in the tick (after the hand-off above, so that no tick advances it twice): 1 (EI just ran) becomes 2,
+     * 2 becomes IME. The interrupt test below, which stops the compiled code at the instruction boundary, then sees IME in the
+     * first tick of the instruction after EI, so the interrupt is taken after that instruction and not before it. */
+    if (ctx->ime_pending) { if (ctx->ime_pending == 1) ctx->ime_pending = 2; else { ctx->ime = 1; ctx->ime_pending = 0; } }
+
     /* gb_tick: double speed bookkeeping (single speed: the remainder is read, then cleared). */
     const uint8_t previous_system_cycle_remainder = ctx->cgb_system_cycle_remainder & 1u;
     ctx->cgb_system_cycle_remainder = 0;
@@ -156,7 +161,6 @@ static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
         }
     }
 
-    if (ctx->ime_pending) { ctx->ime = 1; ctx->ime_pending = 0; }
 }
 
 /* Every later call in the including file goes through the inline path. The inline function above calls the real gb_tick

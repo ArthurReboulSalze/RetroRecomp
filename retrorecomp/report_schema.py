@@ -46,7 +46,9 @@ missing, because the old readers take a null for a value)::
     schema        {'name': 'retro-recomp-report', 'version': 2}
     read_from     {'schema_version': 1 | 2, 'writer': 'core' | 'gameboy' | ...}
     tool, version, created_utc, target     as written, else None
-    system        {'id', 'name', 'status'}  status as the writer stored it
+    system        {'id', 'name', 'status'[, 'board_tier']}  status as the writer stored it; board_tier, only when
+                  the writer states one, is the tier of the board within a machine (CPS-1: 'supported', or
+                  'experimental' for the QSound boards of the CPS-1.5); read it with .get()
     rom           the writer's ROM record; source_identity (X68000) beside it
     scan          {'level', 'enabled', 'scenario_frames', 'routes': [...]}
     cpus          [{'id': 'main' | 'audio', 'arch', 'role', 'unit': 'instructions',
@@ -59,7 +61,10 @@ missing, because the old readers take a null for a value)::
                                                        'highmem_stub_instructions', 'highmem_stub_cycles'}
                                                       (Game Boy: WRAM/HRAM and 0xFF00-0xFF7F code run one
                                                        instruction at a time by the generated dispatch;
-                                                       neither native nor interpreted)}]}]
+                                                       neither native nor interpreted),
+                                   'guarded_helpers': {kind: {'entries', 'cycles'}} (Game Boy, since 1.6.7: native
+                                                       bodies that take over a recognised routine of writable code;
+                                                       kinds store, copy, dma_page, interrupt_dma, counted apart)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
                   The coprocessor comes first. After it a writer may list units that have no counter
@@ -206,6 +211,11 @@ def _main_scenario(writer, row):
                 'single_step_cycles': _count(row.get('ram_single_step_cycles')),
                 'highmem_stub_instructions': _count(row.get('highmem_stub_instructions')),
                 'highmem_stub_cycles': _count(row.get('highmem_stub_cycles'))}
+        if isinstance(row.get('guarded_helpers'), dict):
+            # The guarded helpers: native bodies that take over a recognised routine of writable code after checking its live
+            # bytes. Counted apart (entries and guest cycles per kind), neither interpreter nor one-at-a-time, not hidden in native.
+            extra['guarded_helpers'] = {kind: {'entries': _count(_dict(value).get('entries')), 'cycles': _count(_dict(value).get('cycles'))}
+                                        for kind, value in row['guarded_helpers'].items()}
     elif writer == 'nes':
         cycles = {'native': _count(row.get('native_cycles')), 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('cycles')), 'interpreted_rom': _count(row.get('interpreter_rom_cycles')),
@@ -374,7 +384,9 @@ def _cpu_scenarios(shape, data, rows):
                 for item in _dict_rows(validation.get('scenarios'))]
     if writer == 'gameboy':
         return [{'name': item.get('scenario'), 'frames': _count(item.get('frames')),
-                 'match': True if 'Matched' in str(item.get('result')) else None, 'checks': None, 'hashes': None}
+                 'match': True if 'Matched' in str(item.get('result')) else None, 'checks': None, 'hashes': None,
+                 # The length of the final scenario of the probes (Game Boy, since 1.6.7); None when the report does not say.
+                 'scenario_frames': _count(item.get('scenario_frames'))}
                 for item in _dict_rows(validation.get('scenarios'))]
     if writer == 'nes':
         return [{'name': item.get('scenario'), 'frames': _count(item.get('frames')),
@@ -646,7 +658,8 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         'read_from': {'schema_version': schema_version, 'writer': shape.writer},
         'tool': data.get('tool'), 'version': data.get('version'), 'created_utc': data.get('created_utc'),
         'target': data.get('target'),
-        'system': {'id': system.get('id'), 'name': system.get('name'), 'status': data.get('status')},
+        'system': {'id': system.get('id'), 'name': system.get('name'), 'status': data.get('status'),
+                   **({'board_tier': data['board_tier']} if data.get('board_tier') is not None else {})},
         'rom': {**_copy(_dict(data.get('rom'))), **({'source_identity': data['source_identity']}
                                                     if 'source_identity' in data else {})},
         'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
@@ -695,12 +708,13 @@ def legacy_view(document) -> dict:
     """The writer's own keys of a report: what ``with_schema_v2`` was given.
 
     Drops the schema-2 sections and the schema-2 parts of the three keys the shapes share
-    (``system.status``, ``rom.source_identity``, the schema-2 keys of ``knowledge``). A report that
+    (``system.status`` and ``system.board_tier``, ``rom.source_identity``, the schema-2 keys of ``knowledge``). A report that
     is not dual-written comes back as a copy.
     """
     legacy = {key: _copy(value) for key, value in document.items() if key not in V2_ONLY_KEYS}
     if isinstance(legacy.get('system'), dict):
         legacy['system'].pop('status', None)
+        legacy['system'].pop('board_tier', None)
     if isinstance(legacy.get('rom'), dict) and 'source_identity' in legacy:
         legacy['rom'].pop('source_identity', None)
     knowledge = legacy.get('knowledge')

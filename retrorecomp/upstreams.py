@@ -137,11 +137,12 @@ YMFM = Upstream(
     'ymfm.h, ymfm_fm.h, ymfm_fm.ipp, ymfm_opm.h, ymfm_opm.cpp',
     _py('retrorecomp/cps1_build.py', 'YMFM_REVISION'), checkout='ymfm')
 MAME = Upstream(
-    'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
-    'no code is built from the checkout; the ROM-free CPS-1 catalogue and the OKI model are adapted from it',
+    'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue, Kabuki keys, QSound model, EEPROM and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
+    'no code is built from the checkout; the ROM-free CPS-1 catalogue, the Kabuki decryption, the QSound and EEPROM models and the OKI model are adapted from it',
     _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/build_cps1_catalogue.py', 'MAME_REVISION'),),
     watch=('src/mame/capcom/cps1.cpp', 'src/mame/capcom/cps1_v.cpp', 'src/mame/capcom/cps1.h',
-           'src/devices/sound/okim6295.cpp'))
+           'src/devices/sound/okim6295.cpp', 'src/mame/capcom/kabuki.cpp', 'src/devices/sound/qsoundhle.cpp',
+           'src/devices/sound/qsoundhle.h', 'src/devices/machine/eepromser.cpp', 'src/devices/machine/eeprom.cpp'))
 PX68K_LIBRETRO = Upstream(
     'px68k-libretro', 'libretro/px68k-libretro', 'master',
     'X68000 libretro port; private comparison mode only (GPL)', 'GPL-2.0',
@@ -181,13 +182,17 @@ SST_Z80 = Upstream(
     'SingleStepTests/z80', 'SingleStepTests/z80', 'main', 'independent Z80 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_z80_vectors.py into .deps; not shipped',
     _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md'))
+SST_SM83 = Upstream(
+    'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
+    'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
+    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb',))
 SST_M68000 = Upstream(
     'SingleStepTests/m68000', 'SingleStepTests/m68000', 'main', 'independent 68000 test vectors (development tests only)',
     'MIT', 'a small extract stored in tests/fixtures (md-prefetch, md-exceptions); not shipped',
     Pin('json', 'tests/fixtures/md-prefetch/cases.json', 'revision'),
     also=(Pin('json', 'tests/fixtures/md-exceptions/cases.json', 'revision'),), shared_by=('md',))
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_M68000)
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),
