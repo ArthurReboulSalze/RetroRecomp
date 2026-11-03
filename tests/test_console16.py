@@ -183,6 +183,35 @@ class Console16Tests(unittest.TestCase):
             with self.assertRaises(ConversionError):
                 read_snes_rom(self.source('Invalid.sfc', payload))
 
+    def test_a_header_whose_checksum_was_never_filled_in_is_accepted_only_when_everything_else_is_credible(self):
+        """Power Drive, Fireteam Rogue and some prototypes: checksum $0000 with the complement $FFFF (or $0000)."""
+        for mapping in ('lorom', 'hirom'):
+            offset = 0x7fc0 if mapping == 'lorom' else 0xffc0
+            with self.subTest(mapping=mapping):
+                base = bytearray(snes(mapping=mapping))
+                base[0 if mapping == 'lorom' else 0x8000] = 0x78            # SEI at the reset vector
+                for complement in ('ffff', '0000'):
+                    payload = bytearray(base)
+                    payload[offset + 28:offset + 32] = bytes.fromhex(complement + '0000')
+                    self.assertEqual(read_snes_rom(self.source('Unset.sfc', payload)).mapping, mapping, complement)
+                payload = bytearray(base)
+                payload[offset + 28:offset + 32] = bytes.fromhex('ffff0000')
+                for label, change in (('a complement that is neither', (offset + 28, 0x34)),
+                                      ('an opcode no reset starts with', (0 if mapping == 'lorom' else 0x8000, 0x00)),
+                                      ('a declared size above the image', (offset + 23, 7)),
+                                      ('a map byte that is not regular', (offset + 21, 0x2c))):
+                    broken = bytearray(payload)
+                    broken[change[0]] = change[1]
+                    if label == 'a complement that is neither':
+                        broken[offset + 29] = 0x12
+                    with self.subTest(case=label):
+                        with self.assertRaises(ConversionError):
+                            read_snes_rom(self.source('Broken.sfc', broken))
+                filled = bytearray(snes(mapping=mapping))   # a checksum that is filled in and wrong stays refused
+                filled[offset + 30] ^= 1
+                with self.assertRaises(ConversionError):
+                    read_snes_rom(self.source('Wrong.sfc', filled))
+
     def test_nonstandard_map_requires_exact_image_checksum_size_and_reset(self):
         for mapping in ('lorom','hirom'):
             offset=0x7fc0 if mapping=='lorom' else 0xffc0
