@@ -327,7 +327,7 @@ def ensure_sdl(cmake, generator, sdl: Path, prefix: Path, log: Path, emit: Calla
     install has no marker until its last step, so an unfinished install is never taken as current."""
     if sdl_install_current(prefix):
         return
-    others = [path for path in sdl.glob("install*") if path != prefix]
+    others = [path for path in sdl.glob("install*") if path.is_dir() and path != prefix]     # INSTALL.txt is not one
     emit("Compilation de SDL2 statique (nouveaux réglages)…" if others
          else "Compilation de SDL2 statique (première utilisation)…")
     sdl_build = sdl / prefix.name.replace("install", "build", 1)        # platforms.sdl_build_folder()

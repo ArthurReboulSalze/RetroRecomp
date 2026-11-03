@@ -188,13 +188,14 @@ decompresses a little longer (`python -B tools/startup_cost.py` measures both; i
 `packing.method` says `lzma` or `nrv`. (2) The portable linker writes 0 instead of the link time in the PE header
 (`-Wl,--no-insert-timestamp`, `toolchain.LLVM_LINKER_FLAGS`), so the same game built twice, in any folder, is byte for byte
 the same file; the static SDL2 is built with `-ffile-prefix-map` so that its source folder is written `SDL` in the library (three
-SDL files keep their name for assertions), and the install carries a key (`retro-recomp-sdl.txt`: revision, build flags, toolchain) so that an
-SDL built another way is rebuilt once, never kept silently. (3) Every Windows game carries an application manifest (`metadata.MANIFEST_XML`, resource 1 of type 24, in the
-resource script): it runs as the user who starts it, names Windows 7 to 11, and states the per-monitor DPI awareness the
+SDL files keep their name for assertions), and the install and the build folder are named after a key of the revision, the build flags and the toolchain
+(`.deps/SDL/install-llvm-<key>`, `platforms.sdl_install`), so that an SDL built another way is built again beside the old one, once, and never
+kept silently, overwritten or deleted (the `convert` and `batch` commands do it once, before the workers start). (3) Every Windows game carries an application manifest (`metadata.MANIFEST_XML`, resource 1 of type 24, in the
+resource script; not for the Visual Studio fallback, whose MSBuild embeds its own): it runs as the user who starts it, names Windows 7 to 11, and states the per-monitor DPI awareness the
 host already asks SDL for at start (`SDL_HINT_WINDOWS_DPI_AWARENESS` "permonitorv2"), nothing else. Whether any of this
 changes what an antivirus says about a game is not demonstrated. When UPX fails on a Windows game with a sign of an
 antivirus that removed its output (`IOException`, `Invalid argument`, ...), the validated build is put back and the very same
-command runs once more after 5 seconds (`packing.DEFENDER_RETRY_WAIT`); if it fails again the game is published unpacked as
+command runs once more after 5 seconds (`packing.DEFENDER_RETRY_WAIT`; once per packing); if it fails again the game is published unpacked as
 before. No other option or form of the file is tried to get past a detection.
 **Compress games (1.6.6).** Windows Defender's machine-learning detection sometimes mistakes a
 freshly built, UPX-packed game for a threat (`Program:Win32/Contebrew.A!ml`, a false positive).

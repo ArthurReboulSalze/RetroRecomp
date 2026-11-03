@@ -14,6 +14,7 @@ class SdlInstallTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.source = self.root / '.deps' / 'SDL'
         self.source.mkdir(parents=True)
+        (self.source / 'INSTALL.txt').write_text('SDL ships a file with this name', encoding='utf-8')
         for patcher in (patch('retrorecomp.paths.ROOT', self.root),
                         patch('retrorecomp.toolchain.active', return_value='llvm'),
                         patch('retrorecomp.toolchain.suffix', return_value='-llvm'),

@@ -257,35 +257,46 @@ timestamp or the manifest changes what Defender says about a file.
   the measurement).
 - **A reproducible link.** The portable linker is given `-Wl,--no-insert-timestamp` (`toolchain.LLVM_LINKER_FLAGS`): the PE
   header carries 0 instead of the link time. The static SDL2 is configured with `-ffile-prefix-map=<its source folder>=SDL`
-  (`core.sdl_compiler_flags`; quoted when the path has a space; not for the Visual Studio fallback, whose `cl.exe` has no such
-  option): without it three SDL files (`SDL_render_gl.c`, `SDL_render_gles2.c`, `SDL_render_sw.c`) kept `<player's folder>/.deps/SDL/src/...`
-  in the game as assertion strings, so two players got different bytes. **An SDL installed by 1.6.6 or before is built again
-  once**: the install now carries a key (`retro-recomp-sdl.txt` beside the library: SDL revision, `SDL_BUILD_FLAGS`, toolchain);
-  `core.ensure_sdl` rebuilds from a clean build folder when the key is missing or different, removes the key first (a build
-  that stops half-way is tried again next time and the conversion that met the failure stops, an old SDL is never used silently),
-  writes it last, and `dependencies_ready` (the window's setup check) reports an unkeyed install as not ready. Measured proof:
-  two detached trees of the same commit, each with its **own SDL clone in a different folder** (`.build/u2/a/.deps/SDL` and
-  `.build/u2/folder with space/bb/.deps/SDL`; the second started from a copied 1.6.6 install, the first from none), empty
-  libraries, no cover: the same unpacked Super Mario Land (5,135,360 bytes, SHA-256 `56bf344c...`) and the same packed game
-  (1,157,632 bytes, `7f55e43c...`), `packed_reference_match` true on 4 routes in both. The binary holds no folder of the machine
-  (no `K:`, `Users`, `.deps`, `.build`, `worktrees`): SDL's three names read `SDL\src\render\...`. What still varies: nothing found;
-  the strings `/home/runner/work/llvm-mingw/...` of the pinned llvm-mingw runtime are the same for every player of the pinned
-  toolchain. The title, the cover and the player's options change the binary too (that is a different game, not a variation).
-  Building SDL again took 153 s on this PC with two builds running at once (the first conversion after the update).
+  (`platforms.sdl_compiler_flags`; quoted when the path has a space; not for the Visual Studio fallback, whose `cl.exe` has no
+  such option): without it three SDL files (`SDL_render_gl.c`, `SDL_render_gles2.c`, `SDL_render_sw.c`) kept
+  `<player's folder>/.deps/SDL/src/...` in the game as assertion strings, so two players got different bytes.
+  **The SDL install and its build folder are named after the build settings** (`platforms.sdl_install_key`: SDL revision,
+  `SDL_BUILD_FLAGS`, toolchain; `.deps/SDL/install-llvm-<8 hex of the key>` and `build-llvm-<same>`). An SDL installed by 1.6.6 or
+  before (`install-llvm`) is therefore never used again by this version, never overwritten and never deleted: the first conversion
+  builds the new one beside it (a tree on an older version keeps its own, and two branches that share a `.deps` do not take turns
+  replacing one library under a game being linked). The install gets its marker (`retro-recomp-sdl.txt`) as its last step; a folder
+  without it is unfinished and is built again, and a build that stops (a timeout, Stop, a crash) keeps its build folder so that the
+  next one goes on from it. The three steps (configure, build, install) have a limit of 3600 s (`core.SDL_STEP_TIMEOUT`) instead of
+  600 s. The `convert` and `batch` commands build the shared pieces once before the workers start (`batch._prepare_shared`,
+  `prepare_shared=True`, outside any compilation budget), so that a batch of several games does not start the same SDL build
+  with the one-job share of each worker; the window already does it before a conversion (`dependencies_ready` now reports a
+  missing key-named install as not ready, and the dialog says "again (new build settings)" in the eight languages).
+  The old `install-llvm` and `build-llvm` stay on disk (about 6 MB and the object files) until the player removes the compiler
+  caches. Measured proof: two detached trees of the same commit, each with its **own SDL clone in a different folder**
+  (`.build/u3/a/.deps/SDL` and `.build/u3/folder with space/bb/.deps/SDL`; the second started from a copied 1.6.6 install and let
+  the `batch` command build the new one), empty libraries, no cover: the same unpacked Super Mario Land (5,135,360 bytes,
+  SHA-256 `56bf344c...`) and the same packed game (1,157,632 bytes, `7f55e43c...`), `packed_reference_match` true on 4 routes in
+  both, and the same bytes as before the keyed folders. The binary holds no folder of the machine (no `K:`, `Users`, `.deps`,
+  `.build`, `worktrees`): SDL's three names read `SDL\src\render\...`. What still varies: nothing found; the strings
+  `/home/runner/work/llvm-mingw/...` of the pinned llvm-mingw runtime are the same for every player of the pinned toolchain. The
+  title, the cover and the player's options change the binary too (that is a different game, not a variation). Building SDL
+  again took 112 s on this PC with two builds running at once (the first conversion after the update; 153 s in an earlier run).
 - **An application manifest.** Every Windows game carries resource 1 of type RT_MANIFEST, written inline in the resource script
   (`metadata.MANIFEST_XML`): `asInvoker`, `supportedOS` for Windows 7 to 11, and the DPI awareness the host already asks SDL for
   at start (`rrhk_main.c`: `SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"`; `dpiAware true/pm` and `dpiAwareness
   PerMonitorV2,PerMonitor`), stated before the first window. No UTF-8 code page, no long-path flag, no common-controls version.
   SDL 2.32.10 reads the Windows version only through `WIN_IsWindows8OrGreater`, which is true with or without the manifest, and
   sets its DPI awareness by function pointer: scaling does not change. The manifest is present in the unpacked and the packed
-  game (UPX leaves it readable) and the packed game starts (headless). The Visual Studio fallback toolchain was not tried with
-  it (its linker may want to merge its own manifest).
+  game (UPX leaves it readable) and the packed game starts (headless). The Visual Studio fallback toolchain gets **no** manifest
+  (`metadata._embeds_manifest`): MSBuild embeds its own as resource 1, and a second one is a duplicate resource or LNK1123; a game
+  built there keeps MSBuild's default manifest. That toolchain was not tried.
 - **One identical retry.** When a Windows pack attempt fails with a sign that the antivirus removed UPX's output
   (`IOException`, `Invalid argument`, `WinError 225`, `virus`, `potentially unwanted`), the validated build is put back, the
   SizeOfCode of the call-filter attempt is written again if it had one, the process waits `DEFENDER_RETRY_WAIT` (5 s, `time.sleep`)
   and runs exactly the same command once. A second failure ends there, as before: the game is published unpacked with the notice
   (and when it was the call-filter attempt, the plain form of the same build is not tried, so that no variant is searched to
-  get past a detection). Other failures are not retried.
+  get past a detection). The wait and the retry happen once per packing, whichever form (shortened SizeOfCode or plain) meets the
+  sign first. Other failures are not retried.
 
 Measured with `tools/startup_cost.py pack --determinism` on unpacked builds kept by earlier work (the converter's own packing code,
 the method switched for each call; every result passes `upx -t`, and packing a second copy gave the same bytes for both
@@ -309,14 +320,15 @@ this tree: the packed game is 1,158,144 bytes (the 1.6.7 call-filter build was 1
 on 4 routes against the reference and matched (`packed_reference_match` true); `packing.method` reads `lzma`.
 
 Stamps (`compilation_inputs.role_stamps` of the nine consoles, the tree of `main` against this one): **all three stamps of every
-console move**. The build stamp (`toolchain.py`, `packing.py`) and the host stamp (`metadata.py`, which writes the resource script) move
-because of the method, the link flag and the manifest. The **game stamp now moves too, because of `core.py`** (the SDL
-configuration and its key; `core.py` is a game input of every console): the main tree of 1.6.7 already moves every game stamp for other
-reasons, so this adds no reconversion, but it does mean a 1.6.6 export is never taken as current by this change alone. No file is
-added to the stamps (`tools/startup_cost.py` and the two tests are public files outside them). An export is rebuilt from its paths as
-for any such change, and is smaller and carries the manifest once rebuilt. For a player the one visible effect is the first
-conversion after the update: it builds SDL2 again (153 s here) before anything else. A developer who shares one `.deps/SDL`
-between several trees (junctions to the main checkout) rebuilds that shared install once, in the tree that converts first.
+console move**. The build stamp (`toolchain.py`, `packing.py`) and the host stamp (`metadata.py`,
+which writes the resource script, and the interface texts) move because of the method, the link flag and the manifest. The **game stamp
+moves too, because of `core.py` and `platforms.py`** (the SDL configuration; both are game inputs of every console): the main tree of 1.6.7 already moves
+every game stamp for other reasons, so this adds no reconversion, but it does mean a 1.6.6 export is never taken as current by this change
+alone. No file is added to the stamps (`tools/startup_cost.py` and the tests are public files outside them). An export is rebuilt from its
+paths as for any such change, and is smaller and carries the manifest once rebuilt. For a player the one visible effect is the first
+conversion after the update: it builds SDL2 again (112 to 153 s here) before anything else, with a progress dialog in the window and one
+build before the workers in a batch. A developer who shares one `.deps/SDL` between several trees (junctions to the main checkout)
+gets the new install beside the old one, built once by the tree that converts first, and the other trees on older code keep theirs.
 
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
