@@ -50,7 +50,7 @@ class NeoGeoProfile(SystemProfile):
                                script_suffix='.inputs')
     shared_knowledge = SharedKnowledge('stable')
     host_adapter = 'adapters/rrhk_ng.c'
-    stamp_groups = ('conversion_gates', 'neogeo_codegen', 'neogeo_build', 'neogeo_native', 'musashi_fixes')
+    stamp_groups = ('conversion_gates', 'neogeo_codegen', 'neogeo_build', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules')
     # A .neo container, or a ZIP whose members are named like a cartridge set (program, sprites, sound).
     identify = Identify(path_order=30)
 

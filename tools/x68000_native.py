@@ -25,6 +25,7 @@ from tools.x68000_reference import ensure_sources, PX68K_REV,prepare_bundle,_ato
 from retrorecomp.core import run,toolchain
 from retrorecomp.platforms import build_executable,cmake_target_args,sdl_install
 from retrorecomp.m68000 import adapt_semantics,operation_bodies,mnemonic_names,instruction_literal
+from retrorecomp.m68000_state_rules import adapt_state_rules
 from retrorecomp.neogeo_codegen import canonical_instruction,structural_key,structural_body
 from retrorecomp.megadrive_codegen import write_changed
 
@@ -348,7 +349,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     write_changed(project/'opcode_lengths.h','static const unsigned char rr_x68k_word_counts[65536]={\n'+
         '\n'.join(','.join(map(str,sizes[n:n+128]))+',' for n in range(0,65536,128))+'\n};\n')
     names=mnemonic_names(engine)
-    semantics=adapt_semantics((engine/'runner/m68k_interp.c').read_text(encoding='utf-8'),hook_prefix='rr_x68k')
+    semantics=adapt_state_rules(adapt_semantics((engine/'runner/m68k_interp.c').read_text(encoding='utf-8'),hook_prefix='rr_x68k'))
     bodies=operation_bodies(semantics)
     bodies['MN_RESET']='''if(!(g_cpu.SR&SR_S))return rr_x68k_instruction_exception(next_pc,8,ins->addr,34);
         rr_x68k_reset_instruction();return M68KI_OK;'''

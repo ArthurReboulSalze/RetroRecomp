@@ -34,10 +34,12 @@ X68000, the runtime code of the current consoles is now stable and already
 highly optimized on Windows and Linux, and further speed gains there should be
 modest. For these consoles, the main ongoing work is breadth: more titles and
 more verified entries in the shared compilation library, added step by step.
-The X68000 continues its experimental phase: independent CPU and hardware
-evidence, a named panel of games, low-power Linux performance and the owner's
-own play test remain before it can leave that phase; automatic disk changes,
-mouse checks and D88 images are in place.
+The X68000 continues its experimental phase. Its panel of 21 named games, the
+Windows and Linux comparison, automatic disk changes, mouse checks and D88 images
+are in place; the independent CPU and hardware evidence is partial (MAME-made
+vectors and a MAME comparison, not silicon) and the owner's own play test, and
+his decision, remain before it can leave that phase
+([QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-evidence-behind-its-column-29-october-2026-status-of-1-november-2026)).
 
 ## Next machines
 

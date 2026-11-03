@@ -17,6 +17,7 @@ from .platforms import build_executable, cmake_target_args, build_jobs
 from .core import run, toolchain, serialized_setup
 from .library import atomic_json
 from .m68000 import adapt_semantics, operation_bodies, mnemonic_names, instruction_literal
+from .m68000_state_rules import adapt_state_rules
 from .megadrive_codegen import write_changed
 
 
@@ -131,7 +132,7 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
     if run(['git','-C',engine,'rev-parse','HEAD']).strip()!=REPOSITORIES['md'][1]:
         raise ValueError('MC68000 translation dependency differs from its qualified pin.')
     names=mnemonic_names(engine)
-    source=adapt_semantics((engine/'runner/m68k_interp.c').read_text(encoding='utf-8'),hook_prefix='rr_ng')
+    source=adapt_state_rules(adapt_semantics((engine/'runner/m68k_interp.c').read_text(encoding='utf-8'),hook_prefix='rr_ng'))
     bodies=operation_bodies(source)
     helper=source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper=helper[:helper.rfind('/* =====')]

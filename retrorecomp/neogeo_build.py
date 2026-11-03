@@ -591,6 +591,8 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     # verified module fingerprint path rather than reading missing source files.
     import importlib
     from .core import module_fingerprint
+    # The modules that hold the 68000 state rules (m68000_state_rules, megadrive_rules) are not hashed here on purpose: they change what
+    # a game does, so the game stamp moves with them, but not the layout of a quick state.
     for name in ('retrorecomp.neogeo_build','retrorecomp.neogeo_codegen','retrorecomp.neogeo_z80'):
         importlib.import_module(name);abi.update(name.encode());abi.update(module_fingerprint(name).encode())
     if os.name != 'nt':

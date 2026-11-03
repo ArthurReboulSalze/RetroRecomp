@@ -170,6 +170,17 @@ the rest of the program, so a Linux game moved without its `datas/reports` is no
 content (like Master System, Game Gear and Game Boy games on Windows); it is
 then kept, never overwritten. Packing is a build input: changing it rebuilds
 exports without rediscovery ([compilation library](COMPILATION_LIBRARY.md)).
+**The call filter on Windows (1.6.7).** Before it compresses the x86-64 code, UPX replaces the relative operands of
+E8, E9 and 0F 8x bytes by absolute addresses (its "call trick" filter, id 0x49 for win64/pe), which shrinks a game by 1 %
+to 25 %. The filter needs one spare byte value that is the first operand byte of no such byte whose target leaves the code,
+and every such byte counts, also inside other instructions and tables. A few MB of code can use up the 256 values
+(Super Mario Land of 1.6.6: 1.5 KB more code, no value left, UPX chose no filter, the packed game grew from 1.33 MB to
+1.65 MB). `retrorecomp/packing.py` runs UPX's own scan on the build (`call_filter_length`); when the whole code has no
+spare value it writes the longest length that has one in the SizeOfCode field of the PE header (UPX bounds its filter by
+that field; the delivered file carries UPX's own SizeOfCode, the patched value exists only in UPX's input and in `upx -d`
+output) and packs; the packed file must pass `upx -t` and `upx --fileinfo` must show filter 0x49, else (or if the staged copy
+cannot be patched) the build is put back and packed exactly as before. The report's `packing.call_filter` says when it was used. The packer and its flags are unchanged. Builds whose longest filterable part is under a
+quarter of the code (the NES, 10 MB or more of code) are packed as before.
 **Compress games (1.6.6).** Windows Defender's machine-learning detection sometimes mistakes a
 freshly built, UPX-packed game for a threat (`Program:Win32/Contebrew.A!ml`, a false positive).
 The global option **Options > Common > Compress games** (preference `compress_games`, on by

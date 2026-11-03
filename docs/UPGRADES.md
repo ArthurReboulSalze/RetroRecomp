@@ -257,9 +257,10 @@ once**, with no table entry, to carry the record. The host stamp does not move (
 
 ## Neo Geo, CPS-1 and X68000: the corrected Musashi (1.6.7)
 
-The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on five points
+The reference 68000 of these three consoles (Geolith's Musashi) is corrected at conversion time by `retrorecomp/musashi_fixes.py` on six points
 where the independent 68000 vectors and the translated steps agree and Musashi did not: the flags of a divide overflow, `DIVS` of `0x80000000` by
--1, the flags and clocks of `CHK`, and `F620`-`F627` (line F, not the 68040 `MOVE16`). Details and figures:
+-1, the flags and clocks of `CHK`, `F620`-`F627` (line F, not the 68040 `MOVE16`) and, added on 3 November 2026, `LINK A7` (it pushes the stack
+pointer as it was before the decrement, as the vectors do; see [the next section](#neo-geo-cps-1-and-x68000-link-a7-unlk-a7-and-negx-follow-the-vectors-167)). Details and figures:
 [NEOGEO_LOG.md](NEOGEO_LOG.md#the-corrected-musashi-shared-with-the-cps-1-and-the-x68000--3-november-2026).
 
 **What changes in a game.** Only the interpreter (the fresh reference and the counted fallback), and only when the program reaches one of those
@@ -272,6 +273,36 @@ consoles is converted in full once, with no table entry; the CPS-1 generator rev
 CPS-1 path was qualified, so no qualification is lost). The Mega Drive and the other consoles do not move. The **Neo Geo quick-state key moves
 too**: it hashes the fingerprint of `neogeo_build`, which now calls the correction, so a quick state written by an export of 1.6.6 is refused
 cleanly by the 1.6.7 export (no compatibility key from 1.6.5, [GAME_STATES.md](GAME_STATES.md)); the layout of the state is the same.
+
+## Neo Geo, CPS-1 and X68000: LINK A7, UNLK A7 and NEGX follow the vectors (1.6.7)
+
+The 2,895 vectors of `tests/fixtures/m68k-groups` (the fixture that made the Mega Drive correct three instructions in 1.6.7, [below](#mega-drive-instruction-rules-found-by-independent-vectors-167-in-development)) were replayed through the
+generators of the Neo Geo, the CPS-1 and the X68000: the same 33 native vectors differed on all three, because they translate the same pinned interpreter text.
+`LINK A7` (6) pushed the stack pointer after its decrement, on the translated steps and on Musashi; `UNLK A7` (4) ended with the increment of the stack
+pointer instead of the long it popped; `NEGX.B` with a zero result (1) cleared Z where it must stay as it was; the other 22 are the decimal instructions on
+operands that are not digits, which the manual leaves undefined. The three machines now apply the Mega Drive's rules for those three instructions
+(`retrorecomp/m68000_state_rules.py` reads the rule text of `megadrive_rules.py`, so there is one copy; each generator calls it right after `adapt_semantics`), and
+`musashi_fixes.py` makes Musashi push `A7` as it was for `LINK A7`. Both halves are needed: a step that followed the vectors while the reference did not
+would have made a game that runs `LINK A7` fail its own comparison. After the change the state agrees for 2,873 vectors natively and 2,889 on Musashi (2,862
+and 2,883 before), identically on the three machines, and every total of clocks equals the vector's; the 22 decimal vectors are recorded per machine
+(one list for the three machines, `tests/fixtures/m68k-groups/deviations-musashi-machines.json`) and each replay checks the list both ways.
+
+**What changes in a game.** Only a program that executes one of those three instructions with the case that was wrong (`LINK A7`, `UNLK A7`, `NEGX.B` with a zero
+result): the registers and the stack after it. A/B of 3 November 2026 (before: main `d53091b`; after: this tree; standard scan level, one conversion per process,
+private library): 1941 (CPS-1) 172 values of the checks compared, 0 differ; NAM-1975 (Neo Geo) 351, 2 differ, both the path of the build folder; R-Type and Bubble Bobble
+(X68000) 252 each, 0 differ; all with 0 interpreted opcodes on every route, the packed copy matching and the states resuming. The traces, pictures, sound hashes and states
+are the same: no route of these games ran a case where the corrected instructions give a different result. It shows that nothing else moved; it does not say that a game that does run one now
+behaves as the original machine, which the vectors (made with MAME) support and no game here exercised.
+
+**Run-time cost.** None, by reading the rules and the generated shape (not timed): the test of the mnemonic in the shared case is on a key that already holds the opcode word, so the compiler folds it; `NEGX` gains one `!r` test that folds the same way, and `LINK` and `UNLK` with a register other than `A7` gain a local the compiler drops. No timing was taken.
+
+**A stale sentence to correct at the next move of the Mega Drive stamp.** The docstring of `retrorecomp/megadrive_rules.py` still says the rules are "applied by the Mega Drive only"; its three state rules are now also read by the Neo Geo, the CPS-1 and the X68000. The file is not touched here, because any edit moves the Mega Drive game stamp.
+
+**What moves.** The game stamp of the Neo Geo, the CPS-1 and the X68000 (`m68000_state_rules`, declared by the three profiles as the group `m68000_state_rules`, and `megadrive_rules`, listed under the four machines because the Mega Drive cannot join a group without editing its profile, join their inputs; the generators and
+`musashi_fixes` changed): they were already moving in 1.6.7 with the corrected Musashi, so players are asked for no further reconversion. The CPS-1 generator
+revision goes from 11 to 12 (`cps1_knowledge.py`, with the two modules pinned; no CPS-1 path was qualified, so no qualification is lost). **The Mega Drive does not
+move**: `megadrive_rules.py`, `megadrive_codegen.py` and its profile are byte for byte what they were, and its stamp and generated code are unchanged (checked against main). The
+other consoles do not move.
 
 ## Lead: unpacked fallback of the packed replay (1.6.7)
 
@@ -299,6 +330,60 @@ Geo's and X68000's own converters, edited too, are already inputs of their game 
 The **build stamp of every console moves**, because `retrorecomp/packing.py` is a build input of every console
 (`BUILD_MODULES`). No host stamp moves. A game that replays as before is the same program; exports of 1.6.6 are rebuilt or
 reconverted as the release procedure decides. No quick-state key moves.
+
+## Lead: the packed Windows game keeps UPX's call filter (1.6.7)
+
+Since 1.6.6 the packed Super Mario Land was 1.65 MB instead of 1.33 MB while its unpacked build grew by 1.5 KB. UPX 5.3.0
+shrinks x86-64 code with a "call trick" filter (win64/pe filter 0x49) that needs one spare byte value: a value that is the
+first operand byte of no E8, E9 or 0F 8x byte whose target leaves the code (every such byte counts, inside other instructions
+and in tables too). The 1.6.5 build left one (162: UPX chose 0xa2), the 1.6.6 build none, so UPX chose no filter
+(`upx --fileinfo`: filter 0x00) and the same compression came out 24 % larger. `--all-filters`, `--brute`, `--ultra-brute`
+and `--filter` cannot repair it (the PE packer has this one filter and the filter itself fails); a larger codebase does it by
+itself, whatever the game: the NES builds (10 MB or more of code) never had a filter.
+
+`retrorecomp/packing.py` now runs UPX's own scan on the build (`call_filter_length`, the first pass of `ctok.h` in Python,
+cross-checked against a brute force in `tests/test_packing.py`; on the thirteen builds below it named the value UPX chose in
+each of the nine that kept a filter and the loss in the four that lost it) and, when the whole code has no spare value, writes the
+longest length that has one in the SizeOfCode field of the PE header before packing. UPX bounds its filter by that field
+(`pefile.cpp`), so it filters that many bytes from BaseOfCode. The delivered packed file carries UPX's own SizeOfCode
+(`oh.codesize = osection[1].vsize`): the patched value exists only in UPX's input and in the output of `upx -d`. The Super Mario
+Land build of 1.6.6 is filtered over 59 % of its code (cto 87 = 0x57) and packs to 1,367,552 bytes (from 1,647,616; 1.33 MB with
+the filter on all the code, which is not possible). The packed file must pass `upx -t` and `upx --fileinfo` must show filter 0x49 (a silent
+no-filter result, seen with a SizeOfCode cut at random, passes the test and is 7 % larger); if that fails, or if the header of
+the staged copy cannot be written (the antivirus may lock it), the validated build is put back and packed exactly as before; a build whose longest filterable part is under a quarter of the code (the NES) is packed exactly as before. A
+build with a spare value over all its code (everything else measured) is untouched: same UPX call, same bytes. The packer, its
+SHA-256 checks and its flags are unchanged; the output is deterministic (the publication repacks to the same bytes, checked).
+`upx -d` of an affected game gives the build with that one header field changed. The scan reads the code as UPX does (the
+section up to its VirtualSize, zeros after) and caps the length at the 16 MiB the filter can address (`max_buf_len`
+0x00ffffff, targets under 2^24 with the added value). The conversion log says "UPX call filter kept over N % of the code" for
+such a game, and `packing.call_filter` ({filter, code_bytes, filtered_bytes}) records it in the report beside the other
+`packing` keys; it is absent for every other game, and the schema-2 `packed` section is unchanged. Windows only: the Linux
+ELF has no such field, its packing is unchanged.
+
+Measured on unpacked builds kept by earlier work (UPX as 1.6.6 calls it, then `packing.compact_windows`; every result passes `upx -t`
+and repacks to the same bytes; the times are pack plus test on a PC shared with other conversions, so only large differences count):
+
+| Build (console) | Unpacked | Packed before | Packed after | Filter before / after |
+|---|---|---|---|---|
+| Super Mario Land 1.6.6 (Game Boy) | 5,131,776 | 1,647,616 | 1,367,552 (-17.0 %) | none / 0x49 |
+| Sonic the Hedgehog (Master System) | 6,056,960 | 1,861,120 | 1,831,936 (-1.6 %) | none / 0x49 |
+| Super Mario Land 1.6.5 and current (Game Boy) | 5,130,240 / 5,134,336 | 1,328,128 / 1,329,152 | same | 0x49 / 0x49 |
+| Sonic the Hedgehog (Mega Drive) | 8,191,488 | 2,312,704 | same | 0x49 / 0x49 |
+| Puzzle De Pon (Neo Geo) | 11,678,720 | 3,044,864 | same | 0x49 / 0x49 |
+| Metroid, Mr. Gimmick (NES) | 12,623,872 / 19,725,312 | 3,107,840 / 4,819,968 | same | none / none |
+| Two Super Nintendo games and a Mega Drive game | 24,783,872 / 36,696,576 / 7,707,136 | 5,220,352 / 8,834,560 / 6,095,360 | same | 0x49 / 0x49 |
+| Dino, Punisher (CPS-1) | 23,591,424 / 25,851,904 | 7,467,520 / 7,809,536 | same | 0x49 / 0x49 |
+
+Time: 4 to 38 s per game before and after, within the noise (the model adds 0.2 to 2 s, the second UPX pack is only run for the
+two games above). The Super Mario Land 1.6.6 game packed this way was converted whole with the 1.6.6 converter and this change
+only in `packing.py`: its packed copy replayed on 4 routes against the reference and matched (`packed_reference_match` true).
+The NES builds keep no filter (10 MB or more of code, every value is taken within the first 80 KB); `--lzma` would make them 24 % smaller (Metroid 3,107,840 to 2,371,584) at a start-up cost
+that was not measured here, a decision for the maintainer.
+
+Stamps (computed with the tree of `main` before and the tree of this change, `compilation_inputs.role_stamps` of the nine
+consoles): only the **build stamp of every console moves** (`retrorecomp/packing.py` is a build input of every console,
+`BUILD_MODULES`); no game stamp and no host stamp moves. A game packed by the 1.6.6 or the 1.6.7 converter before this change
+and rebuilt from its paths is packed again, smaller when it lost its filter.
 
 ## Mega Drive: instruction rules found by independent vectors (1.6.7, in development)
 
@@ -893,6 +978,17 @@ more); they are no longer stamp inputs nor public files. A conversion of R-Type 
 Stamps: that file is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game, with no change in what
 a game does); host and build stamps and the other consoles do not move on this account. `tests/test_x68000_cmake.py` shows that the file names no
 file that is absent.
+
+## Sharp X68000: the report states that no universal zero-fallback claim is made (1.6.7, gate G15)
+
+The conversion report of the CPS-1 and of the Neo Geo carries `qualification_scope.universal_zero_fallback_claim: false`; the X68000's did not, so
+the common `honesty` block read it as unknown (`null`) instead of as a claim the machine does not make. The X68000 report now carries the same block
+(`qualification_scope`: the controls its routes drive, floppy disks only, and `universal_zero_fallback_claim: false`). Nothing reads it back to decide a
+game, and what a game does does not change.
+
+Stamps: `retrorecomp/x68000_conversion.py` is a game input of the Sharp X68000, so its **game stamp moves** (a full reconversion of every X68000 game,
+with no change in what a game does; it comes in the same release as the colour correction above, which moves it already). Host and build stamps, the state
+compatibility key and the other eight consoles do not move (checked against main). `tests/test_report_schema.py` fixes the block.
 
 ## Sharp X68000: D88 images, floppy format read from the content, fuller report (1.6.6)
 
