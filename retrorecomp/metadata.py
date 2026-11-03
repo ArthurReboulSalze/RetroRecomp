@@ -38,6 +38,51 @@ def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
     return values
 
 
+# The application manifest of every Windows game (resource 1, type RT_MANIFEST = 24), written inline in the resource script:
+# no separate file for the resource compiler to forget. It states standard facts and changes no behaviour of the game:
+# it runs as the user who starts it (asInvoker, never an elevation prompt), it names the Windows versions it was written
+# for (7, 8, 8.1, 10 and 11 share the last identifier), and its DPI awareness is the one the host asks SDL for at start
+# (native/hostkit/shell/rrhk_main.c: SDL_HINT_WINDOWS_DPI_AWARENESS "permonitorv2"), stated before the first window
+# instead of after; "true/pm" and the PerMonitor fallback keep Windows 8.1 and older reading it. No other setting (no UTF-8
+# code page, no long paths, no common-controls version), so that file names, dialogs and scaling stay what they were.
+# A standard practice; its effect on antivirus detections is not demonstrated.
+MANIFEST_XML = (
+    "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
+    "<assembly xmlns='urn:schemas-microsoft-com:asm.v1' manifestVersion='1.0'>\n"
+    "  <assemblyIdentity type='win32' name='RetroRecomp.Game' version='1.0.0.0'/>\n"
+    "  <trustInfo xmlns='urn:schemas-microsoft-com:asm.v3'>\n"
+    "    <security><requestedPrivileges>\n"
+    "      <requestedExecutionLevel level='asInvoker' uiAccess='false'/>\n"
+    "    </requestedPrivileges></security>\n"
+    "  </trustInfo>\n"
+    "  <compatibility xmlns='urn:schemas-microsoft-com:compatibility.v1'>\n"
+    "    <application>\n"
+    "      <supportedOS Id='{35138b9a-5d96-4fbd-8e2d-a2440225f93a}'/>\n"
+    "      <supportedOS Id='{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}'/>\n"
+    "      <supportedOS Id='{1f676c76-80e1-4239-95bb-83d0f6d0da78}'/>\n"
+    "      <supportedOS Id='{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}'/>\n"
+    "    </application>\n"
+    "  </compatibility>\n"
+    "  <application xmlns='urn:schemas-microsoft-com:asm.v3'>\n"
+    "    <windowsSettings>\n"
+    "      <dpiAware xmlns='http://schemas.microsoft.com/SMI/2005/WindowsSettings'>true/pm</dpiAware>\n"
+    "      <dpiAwareness xmlns='http://schemas.microsoft.com/SMI/2016/WindowsSettings'>PerMonitorV2,PerMonitor</dpiAwareness>\n"
+    "    </windowsSettings>\n"
+    "  </application>\n"
+    "</assembly>\n")
+
+
+def manifest_resource() -> list[str]:
+    """The resource-script lines of the application manifest: `1 24` (CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST) with
+    the XML as quoted lines (a raw data block gets no terminating NUL; the XML uses single quotes, nothing needs escaping)."""
+    pieces = MANIFEST_XML.splitlines()
+    lines = ['1 24', 'BEGIN']
+    for index, piece in enumerate(pieces):
+        lines.append('  "' + piece + '\\n"' + (',' if index + 1 < len(pieces) else ''))
+    lines.append('END')
+    return lines
+
+
 def _rc_string(value: str) -> str:
     # RC requires doubled quotes, plus backslash escapes for controls. A title
     # cannot close its value and inject another resource statement.
@@ -62,6 +107,7 @@ def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: 
                                                 + b'\n\n' + (ASSETS / 'licenses/llvm-mingw.md').read_bytes())
         lines.append('104 RCDATA "filter_legal.txt"')
     if icon: lines.append('101 ICON "game.ico"')
+    lines += manifest_resource()
     lines += ['1 VERSIONINFO', f'FILEVERSION {numbers}', f'PRODUCTVERSION {numbers}',
         'FILEFLAGSMASK VS_FFI_FILEFLAGSMASK', 'FILEFLAGS 0', 'FILEOS VOS_NT_WINDOWS32',
         'FILETYPE VFT_APP', 'FILESUBTYPE 0', 'BEGIN', '  BLOCK "StringFileInfo"',

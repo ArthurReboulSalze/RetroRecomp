@@ -36,6 +36,9 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   It is the wall time of each phase of the conversion at 0.1 s (retrorecomp/timings.py names the phases;
   ``total`` is the whole conversion of the game and is not one of the phases); the batch writes it. It is
   a measure of this run on this machine, not of the game, and no claim of the report depends on it.
+* ``packed.method`` ('lzma' or 'nrv', UPX's compression method; ``None`` when the file is not packed) was added to schema 2
+  in 1.6.7 without a new schema number, as ``timings`` was: the writer's ``packing`` record carries ``method``, a report
+  from before it reads ``None``, and nothing else in the section changes.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -74,7 +77,7 @@ missing, because the old readers take a null for a value)::
     validation    {'native_code', 'cpu_fidelity', 'hardware_fidelity',
                    'gameplay', 'latency'}
     honesty       the writer's own claim flags, as stored (None when absent)
-    packed        {'packer', ..., 'unpacked', 'published', 'replay'} | None
+    packed        {'packer', ..., 'method', 'unpacked', 'published', 'replay'} | None
     states        {'supported', 'save_key', 'load_key', 'slots', ...} | None
     saves         {'supported', 'reason', 'scope', 'path', 'validation',
                    'cartridge_memory'} | None
@@ -523,7 +526,8 @@ def _packed(shape, data, rows):
     if not record and replay is None:
         return None
     return {'recorded': record.get('recorded', True) if record else None, 'packer': record.get('packer'),
-            'version': record.get('version'), 'level': record.get('level'), 'is_packed': _flag(record.get('packed')),
+            'version': record.get('version'), 'level': record.get('level'), 'method': record.get('method') if isinstance(record.get('method'), str) else None,
+            'is_packed': _flag(record.get('packed')),
             'unpacked': _copy(record.get('unpacked')), 'published': _copy(record.get('published')),
             'size_ratio': _count(record.get('size_ratio')), 'compared_on': record.get('compared_on'),
             'replay': replay}
