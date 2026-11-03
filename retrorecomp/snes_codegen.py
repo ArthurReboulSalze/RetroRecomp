@@ -317,7 +317,7 @@ def correct_emulation_mode(source: str) -> str:
     RTI (the pinned RTI pulled it, and took the native extra cycle, in both modes, while our interrupt entry and the BRK/COP
     correction above stack three bytes there: the stack drifted by one byte after every interrupt taken in emulation mode). TCS
     and TXS load S with the page forced to 1. A taken branch (BRA included) that crosses a page takes one more cycle in emulation mode. With the direct page's low byte 0, the indexed direct-page addresses wrap within
-    the page ((dp,X), dp,X and dp,Y), the pointer's second byte included. Written from the processor manual and checked against
+    the page ((dp,X), dp,X, dp,Y and (dp),Y), the pointer's second byte included. Written from the processor manual and checked against
     SingleStepTests/65816; native mode is untouched, and the compiled operations follow since they come from this same text.
     """
     source = replace_once(source,
@@ -349,11 +349,19 @@ def correct_emulation_mode(source: str) -> str:
             f'    *low = cpu->dp | ((adr + cpu->{index}) & 0xff);\n'
             f'    return cpu->dp | ((adr + cpu->{index} + 1) & 0xff);\n  }}\n'
             f'  *low = (cpu->dp + adr + cpu->{index}) & 0xffff;\n  return (cpu->dp + adr + cpu->{index} + 1) & 0xffff;\n}}')
-    return replace_once(source,
+    source = replace_once(source,
         '  uint16_t pointer = interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n',
         '  uint16_t pointer = (cpu->e && !(cpu->dp & 0xff))\n'
         '      ? interp816_readWord(cpu, cpu->dp | ((adr + cpu->x) & 0xff), cpu->dp | ((adr + cpu->x + 1) & 0xff))\n'
         '      : interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n')
+    # (dp),Y: the pointer is read without the index, and its second byte wraps within the page the same way.
+    return replace_once(source,
+        '  uint16_t pointer = interp816_readWord(cpu, (cpu->dp + adr) & 0xffff, (cpu->dp + adr + 1) & 0xffff);\n'
+        '  bool crossed = ',
+        '  uint16_t pointer = (cpu->e && !(cpu->dp & 0xff))\n'
+        '      ? interp816_readWord(cpu, cpu->dp | adr, cpu->dp | ((adr + 1) & 0xff))\n'
+        '      : interp816_readWord(cpu, (cpu->dp + adr) & 0xffff, (cpu->dp + adr + 1) & 0xffff);\n'
+        '  bool crossed = ')
 
 
 def read_core(engine: Path) -> str:

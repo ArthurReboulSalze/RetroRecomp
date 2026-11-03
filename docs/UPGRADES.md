@@ -111,16 +111,22 @@ the per-release comparison); the change replaces interpreted instructions by com
 The SingleStepTests vectors ([CPU_65816_SPC700.md](CPU_65816_SPC700.md)) found five defects of the pinned cores, corrected as patches
 of the pinned bodies applied by the converter (each fail-closed on the pinned text): in emulation mode the 65816 `RTI` takes one cycle
 less and pulls no program bank, `TCS` and `TXS` force the stack pointer's high byte to 1, a taken branch that crosses a page takes one
-more cycle, and the direct-page indexed addressing and the `(dp,X)` pointer wrap inside the page when the direct page register is
-page-aligned; the SPC700 `DIV YA,X` follows the hardware formula. A game that runs in emulation mode after its reset vector, as every
+more cycle, and the direct-page indexed addressing and the `(dp,X)` and `(dp),Y` pointers wrap inside the page when the direct page register is
+page-aligned (`(dp),Y` is not seen by the vectors: the sample has no case where it differs, and the patch follows the processor manual); the SPC700 `DIV YA,X` follows the hardware formula. A game that runs in emulation mode after its reset vector, as every
 cartridge does for a few instructions, is concerned only where it uses these instructions; a game that uses `DIV` gets the hardware
 quotient in the overflow cases. **The SNES game stamp moves** (it already moved for the changes above). Three games (Secret of Mana, Super Mario World, Donkey Kong Country 2) converted from an empty library with the tree before and after
 give the same picture, sound, CPU, RAM, video-memory and sound-unit hashes on every route (19 hash fields in each of the six probe
 files, native, packed copy and reference); what differs is the generated 65816 and SPC700 sources, the compiler's profile data and the
 analysis files, and in Secret of Mana the packed size ratio (0.2107 and 0.2108). Street Fighter Alpha 2, against the tree before the
 S-DD1 clause as well as these corrections, gives the same hashes. These routes leave emulation mode within the first instructions after
-the reset, so no hash moving is what was expected; it says nothing about a game that stays in emulation mode. Not corrected: the page-1 wrap of the
-stack instructions added by the 65C02, `EI`/`DI` timing and the halt timings, listed in [CPU_65816_SPC700.md](CPU_65816_SPC700.md).
+the reset, so no hash moving is what was expected; it says nothing about a game that stays in emulation mode. Not corrected (the list is what the sample found and what was read, not a complete
+inventory of the differences between the cores and the processor): the page-1 wrap of the stack accesses of the instructions the 65816
+added to the 65C02 set (`PER`, `RTL`, `PHD`, `PLD`, `PEA`, `JSL`, `JSR (a,x)`: a push or pull at the edge of page 1 goes on into the next page
+instead of coming back to the start of page 1), `EI`/`DI` timing and the halt timings, listed in [CPU_65816_SPC700.md](CPU_65816_SPC700.md).
+Also not corrected: `interp816_doInterrupt` (the interrupt entry the SA-1 core uses) still stacks the program bank and takes the native
+vectors in emulation mode, so an SA-1 interrupt taken in emulation mode would push four bytes while the corrected `RTI` pulls three; no
+known game does it (the main CPU enters its interrupts through `rr_snes_cpu_interrupt`, which is consistent with the corrected `RTI`), and
+the vectors have no interrupt case to cover a change, so it is left as the pinned text.
 *Hot path: touched, marginally.* The patched bodies of `RTI`, `TCS`, `TXS`, the page-crossing branch and the indexed direct-page
 addressing add one test of the emulation flag each; the SPC700 `DIV` adds a comparison; the rest of the bodies is unchanged. Not timed.
 
@@ -150,7 +156,7 @@ A damaged `.rrsram`, or one made for another cartridge, was kept in place and th
 the X68000: the file is moved to `<name>.unusable-N` (never deleted), the game starts with a blank RAM and saves a new file, and a
 short notice ("Save unreadable: set aside", five game languages) is shown once; if the file cannot be moved it is left alone, nothing
 is saved that session, and the notice says "saving is off". `native/snes_battery.c`, `rrhk_snes.c`, the runtime catalog (two phrases;
-every console's stamp moves with it) and the report key `save_set_aside`. Tested on the nine boards of `tools/snes_saves_check.py`.
+`runtime_catalog.inc` is a host file, so the host stamp of every console moves with it and the exports are rebuilt, not reconverted) and the report key `save_set_aside`. All 99 names `<name>.unusable-1` to `-99` taken: nothing is replaced, the file stays in place and the notice says saving is off. Tested on the nine boards of `tools/snes_saves_check.py`.
 
 ## Super Nintendo: the ExHiROM board is accepted (1.6.7)
 
@@ -169,8 +175,8 @@ credible: a regular map byte, a declared size no larger than the image, and a re
 instruction. Over the 1,348 files of the maintainer's library exactly four headers change (Power Drive Europe, Fireteam Rogue, Steven
 Seagal Is The Final Option and Wile E Coyote's Revenge, the last three prototypes); each converts, with the compressed copy equal to the
 reference. **Which game stamps move.** The rule lives in `retrorecomp/cartridge16.py`, which every console's game stamp hashes (the
-Mega Drive, Neo Geo and CPS-1 read nothing different from it, but their stamps move); with the shared runtime catalogue, all the stamps
-move in 1.6.7, as the notes of the release say. Nothing else about an existing export changes.
+Mega Drive, Neo Geo and CPS-1 read nothing different from it, but their stamps move); the shared runtime catalogue is a host file, so the host
+stamps of all the consoles move in 1.6.7 (rebuilt, not reconverted), as the notes of the release say. Nothing else about an existing export changes.
 
 ## Tools that change no export (1.6.7)
 

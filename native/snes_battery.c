@@ -28,14 +28,15 @@ static uint64_t hash(const uint8_t *p, size_t n) {
     uint64_t h=14695981039346656037ull;
     for (size_t i=0;i<n;++i) { h^=p[i]; h*=1099511628211ull; } return h;
 }
-/* Moves an unusable file to "<file>.unusable-N" (the first N from 1 to 99 that is free; the last one is replaced when all are
- * taken), like the X68000 does with a disk. Never deletes it. */
+/* Moves an unusable file to "<file>.unusable-N" (the first N from 1 to 99 that is free), like the X68000 does with a disk.
+ * Never deletes it, and never replaces a file already set aside: with all 99 names taken it returns false and the file stays
+ * where it is. */
 static bool set_aside(const wchar_t *file) {
     wchar_t aside[32768+16];
     for (unsigned n=1;n<=99;++n) {
         if (swprintf(aside,32768+16,L"%ls.unusable-%u",file,n)<0) return false;
         FILE *taken=rr_fopen(aside,L"rb");
-        if (taken) { fclose(taken); if (n<99) continue; }
+        if (taken) { fclose(taken); continue; }
         return rr_replace(file,aside)!=0;
     }
     return false;

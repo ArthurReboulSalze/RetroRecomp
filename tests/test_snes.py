@@ -236,9 +236,11 @@ class EmulationModeCorrectionTests(unittest.TestCase):
         self.assertIn('if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++;', text)         # a branch across a page
         self.assertIn('cpu->cyclesUsed++; // emulation mode: across a page, one more cycle', text)     # BRA
         self.assertIn('cpu->dp | ((adr + cpu->x + 1) & 0xff)', text)                                 # (dp,X) too
+        self.assertIn('interp816_readWord(cpu, cpu->dp | adr, cpu->dp | ((adr + 1) & 0xff))', text)  # (dp),Y: the pointer's second byte
         # Every anchor is checked: a pinned text that changed is refused, not patched around.
         corrected = snes_codegen.correct_software_interrupts(raw)
-        for anchor in ('case 0x1b: { // tcs imp', 'case 0x9a: { // txs imp', 'interp816_setFlags(cpu, interp816_pullByte(cpu));'):
+        for anchor in ('case 0x1b: { // tcs imp', 'case 0x9a: { // txs imp', 'interp816_setFlags(cpu, interp816_pullByte(cpu));',
+                       '  bool crossed = (pointer >> 8)'):
             with self.subTest(anchor=anchor):
                 with self.assertRaises(ConversionError):
                     snes_codegen.correct_emulation_mode(corrected.replace(anchor, anchor.replace('imp', 'changed')
