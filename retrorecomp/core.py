@@ -34,6 +34,15 @@ from .toolchain import active as active_toolchain, suffix, describe as toolchain
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "5d249570393f7a37e037abf22cd6012a4cc56a71"
+# How the static SDL2 of a game is built, besides its revision (1.6.7). The key is written beside the installed library
+# (SDL_INSTALL_MARKER) once the build has installed it; an install without the marker, or with another key, is built again
+# before any conversion uses it. Bump SDL_BUILD_FLAGS when the way SDL is configured changes.
+#   path-map-1: -ffile-prefix-map writes the player's SDL folder as `SDL` in the strings the library keeps (SDL_render_gl.c,
+#   SDL_render_gles2.c and SDL_render_sw.c keep their file name for assertions), so that the same game built in two folders is
+#   the same file and no folder of the player's computer is in it.
+SDL_BUILD_FLAGS = "path-map-1"
+SDL_INSTALL_MARKER = "retro-recomp-sdl.txt"
+SDL_PATH_NAME = "SDL"
 _SHARED_SETUP_LOCK = RLock()
 _SHARED_SETUP_DEPTH = 0
 
@@ -303,6 +312,29 @@ def toolchain() -> tuple[Path, str]:
     return chosen.cmake, chosen.generator
 
 
+def sdl_install_key() -> str:
+    """What the installed static SDL2 must have been built with: revision, build flags and toolchain."""
+    return f"sdl={SDL_REV};flags={SDL_BUILD_FLAGS};toolchain={active_toolchain()}"
+
+
+def sdl_install_current() -> bool:
+    """Whether the static SDL2 is installed and was built with sdl_install_key(); a missing marker is an old build."""
+    prefix = sdl_install()
+    try:
+        return ((prefix / sdl_library()).exists()
+                and (prefix / SDL_INSTALL_MARKER).read_text(encoding="utf-8").strip() == sdl_install_key())
+    except OSError:
+        return False
+
+
+def sdl_compiler_flags(source: Path) -> list[str]:
+    """The CMake argument that maps the SDL source folder to `SDL` in the compiled library (quoted when the path has a space)."""
+    if active_toolchain() == "msvc":
+        return []           # cl.exe has no such option; the Visual Studio fallback keeps its folder in the library
+    flag = f"-ffile-prefix-map={source.as_posix()}={SDL_PATH_NAME}"
+    return [f'-DCMAKE_C_FLAGS="{flag}"' if " " in flag else f"-DCMAKE_C_FLAGS={flag}"]
+
+
 def dependencies_ready() -> bool:
     """Whether the shared pieces every conversion needs are already built:
     the pinned engine sources, the Z80 → C translator and the static SDL2."""
@@ -310,9 +342,32 @@ def dependencies_ready() -> bool:
         dep = ROOT / ".deps"
         return ((dep / "smsggrecomp/external/z80-recomp-core/include/sms_runtime.h").exists()
                 and build_executable(dep / ('recompiler-build' + suffix()), 'SmsRecomp').exists()
-                and (sdl_install() / sdl_library()).exists())
+                and sdl_install_current())
     except Exception:
         return False
+
+
+def ensure_sdl(cmake, generator, sdl: Path, prefix: Path, log: Path, emit: Callable[[str], None] = print) -> None:
+    """Build and install the static SDL2 unless the install is current (sdl_install_key)."""
+    if sdl_install_current():
+        return
+    installed = (prefix / sdl_library()).exists()
+    emit("Compilation de SDL2 statique (nouvelle configuration)…" if installed
+         else "Compilation de SDL2 statique (première utilisation)…")
+    # The marker goes first: a build that stops half-way leaves an install that is not current, built again next time,
+    # and the conversion that met the failure stops with it (an old SDL is never used silently, see sdl_install_key).
+    (prefix / SDL_INSTALL_MARKER).unlink(missing_ok=True)
+    sdl_build = sdl / ("build" + suffix())
+    if installed:
+        shutil.rmtree(sdl_build, ignore_errors=True)       # no object of the old configuration is kept
+    run([cmake, "-S", sdl, "-B", sdl_build, "-G", generator, *cmake_target_args(),
+        "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
+        *(["-DSDL_FORCE_STATIC_VCRT=ON"] if active_toolchain() == "msvc" else []),
+        *sdl_compiler_flags(sdl),
+        f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
+    run([cmake, "--build", sdl_build, "--config", "Release", "--parallel", build_jobs()], log=log)
+    run([cmake, "--install", sdl_build, "--config", "Release"], log=log)
+    (prefix / SDL_INSTALL_MARKER).write_text(sdl_install_key() + "\n", encoding="utf-8")
 
 
 @serialized_setup
@@ -375,15 +430,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         run([cmake, "--build", recomp_build, "--config", "Release", "--parallel", build_jobs()], log=log)
         compiled_marker.write_text(expected)
     prefix = sdl_install()
-    if not (prefix / sdl_library()).exists():
-        emit("Compilation de SDL2 statique (première utilisation)…")
-        sdl_build = sdl / ("build" + suffix())
-        run([cmake, "-S", sdl, "-B", sdl_build, "-G", generator, *cmake_target_args(),
-            "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
-            *(["-DSDL_FORCE_STATIC_VCRT=ON"] if active_toolchain() == "msvc" else []),
-            f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
-        run([cmake, "--build", sdl_build, "--config", "Release", "--parallel", build_jobs()], log=log)
-        run([cmake, "--install", sdl_build, "--config", "Release"], log=log)
+    ensure_sdl(cmake, generator, sdl, prefix, log, emit)
     return engine, prefix, cmake, generator
 
 
