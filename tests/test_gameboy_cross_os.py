@@ -79,5 +79,29 @@ class CompareTests(unittest.TestCase):
         return path
 
 
+class RoutesOfTests(unittest.TestCase):
+    def test_the_report_of_the_executable_is_read_in_a_folder_of_several_games(self):
+        with tempfile.TemporaryDirectory() as folder:
+            games = Path(folder)
+            for name, sha in (('aaa', 'a' * 64), ('zzz', 'f' * 64)):
+                report = games / 'datas' / 'reports' / f'{name}-{sha[:12]}'
+                report.mkdir(parents=True)
+                (report / 'conversion-report.json').write_text(json.dumps({'executable': f'{name}.exe', 'rom': {'sha256': sha},
+                    'final_checks': [{'scenario': 'boot', 'frames': 10 if name == 'aaa' else 20, 'input_script': ''}]}), encoding='utf-8')
+            self.assertEqual(tool.routes_of(games / 'zzz.exe')['boot'][1], 20)
+            self.assertEqual(tool.routes_of(games / 'aaa.exe')['boot'][1], 10)
+
+    def test_an_executable_that_no_report_names_is_refused_not_given_another_report(self):
+        with tempfile.TemporaryDirectory() as folder:
+            games = Path(folder)
+            report = games / 'datas' / 'reports' / 'aaa-aaaaaaaaaaaa'
+            report.mkdir(parents=True)
+            (report / 'conversion-report.json').write_text(json.dumps({'executable': 'aaa.exe', 'rom': {'sha256': 'a' * 64},
+                'final_checks': [{'scenario': 'boot', 'frames': 10, 'input_script': ''}]}), encoding='utf-8')
+            with self.assertRaises(SystemExit) as caught:
+                tool.routes_of(games / 'renamed')
+            self.assertIn('renamed', str(caught.exception))
+
+
 if __name__ == '__main__':
     unittest.main()

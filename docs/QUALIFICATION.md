@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy of 3 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -53,7 +53,7 @@ x68 = Sharp X68000.
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
 | G8 | P | P | Y | Y | P | P | Y | Y | Y |
 | G9 | P | P | Y | Y | Y | P | Y | Y | Y |
-| G10 | Y | Y | P | Y | P | P | Y | Y | P |
+| G10 | Y | Y | Y | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
 | G13 | P | P | P | Y | P | P | P | P | Y |
@@ -94,6 +94,12 @@ x68 = Sharp X68000.
   compressed copy identical, no interpreter cycle, states checked. Play is reached on six games (Tetris, Wario Land II, Mega Man V, Contra,
   Exodus, Veediots); the six others show liveness only (a pause, a first room, menus). The sheets were looked at by the specialist agent,
   not by the owner; not full games.
+- Game Boy (3 November 2026): G10 moved from `P` to `Y` on two independent pieces of evidence: the 404,358 SingleStepTests vectors on plain memory (402,589 match the
+  interpreter, all of the RAM executors'), and the public test ROMs run on the delivered files ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)):
+  blargg `cpu_instrs` 11 of 11, `instr_timing`, `mem_timing` 6 of 6, and Mooneye's instruction, interrupt, HALT and timing tests, each with the native code and the pinned interpreter
+  equal step by step for the whole run. Limits: `STOP` is covered by neither (the vectors differ by convention, `cpu_instrs` leaves it out), the test ROMs ran at the quick level,
+  one conversion each, and one lockstep stops early on a ROM that gives no verdict (`oam_bug` `7-timing_effect`, listed in [KNOWN_FAILURES.md](KNOWN_FAILURES.md)). G11 stays `P`: Mooneye
+  passes 92 of 94 applicable tests but the sound unit fails 18 of the 24 `dmg_sound` tests and two tests of the state after the boot ROM fail; no hardware capture was made.
 - NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 with the same
   engine revision and the same native sources, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
   The panel of ten mapper families of 1.6.7 passes at the thorough level (G12 stays `P`: the panel size policy is not decided). A defect of

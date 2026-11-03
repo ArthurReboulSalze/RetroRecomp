@@ -689,6 +689,31 @@ after the two corrections. `tests/test_gameboy_ei_delay.py` covers the patch fun
 last two have an `EI ; HALT` byte pair in their ROM; Tetris waits in HALT): on the four routes of each, 3,600 frames, the picture, the sound, the work RAM and the program counter
 of every frame are identical to 1.6.6, and so are the final state and the number of steps of the lockstep comparison. Fable has reviewed the change; both findings are fixed here.
 
+## Game Boy: the unwired bits of the I/O registers read 1 (1.6.7, gates G10 and G11, spec/gb-167b)
+
+The pinned runtime answers a read of the registers it does not model with the value stored by the last write, so a bit that is not wired on the console reads back
+as it was written. On the original Game Boy such a bit reads 1: bits 6 to 1 of the serial control ($FF02), bits 7 to 3 of the timer control ($FF07), the unmapped
+$FF03 and $FF08-$FF0E, and, outside colour mode, the registers of the colour models ($FF4C, $FF4E, $FF50, $FF57-$FF67, $FF6D-$FF6F, $FF71, $FF78-$FF7F, and the palette ports $FF68-$FF6B).
+The engine already reads $FF by itself outside colour mode at $FF4D, $FF4F, $FF51-$FF56, $FF6C, $FF70 and $FF72-$FF77.
+Mooneye's `unused_hwio-GS` found it (it wrote 0 to $FF07 and read 0, expecting the five high bits at 1). `gameboy_runtime.adapt_unused_io_bits` has two `replace_once` anchors in
+`gbrt_read8_impl`: the last fall-through of the register read, which ORs the masks and returns $FF for the unmapped addresses, and the branch of the palette ports $FF68-$FF6B,
+which now returns $FF outside colour mode before `gb_sync`; the joypad, DIV, IF, the LCD and the sound registers keep their own paths. A moved upstream marker refuses the conversion. `tests/test_gameboy_unused_io.py` covers the patch; the behaviour is proved by
+the test ROM (see [GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)).
+
+*What moves.* The Game Boy **game stamp** only (`gameboy_runtime.py` is an input of the Game Boy game role and of no other machine's); no host or build stamp. An export of 1.6.6
+or of an earlier 1.6.7 build keeps the old reads until it is converted again. Nothing is saved or restored differently: the stored register value is unchanged, only its read.
+
+*Hot path: touched on a rare path.* Only reads of $FF01-$FF03, $FF07-$FF0E, $FF4C, $FF4E, $FF50, $FF57-$FF67 and $FF6D and above reach the final lines, and $FF68-$FF6B the palette branch; the
+joypad, DIV, IF, LCD, sound and HDMA reads return before them. No timing was taken.
+
+*What it changes in practice.* In the game, on three games, nothing: on Tetris, Super Mario Land and Exodus (one conversion at a time from an empty library at the quick level, tree
+before and after) the four routes of each (boot, two plays, one pseudo-random route of 18,000 frames, 23,400 frames a game) give identical pictures, sound, work RAM and program counter on
+every frame, and the final state of Tetris is identical. The conversion's lockstep against the interpreter passes on the three. A game that reads the unwired bits of $FF02 or $FF07 and
+stores them would now store 1s, as on the console; none of the three does.
+
+*Proof.* `tools/gameboy_testroms.py` on the converted Mooneye test: `bits/unused_hwio-GS` failed at $FF07 on the main tree, then at $FF68 with the first version of the patch, and passes
+with the palette ports. `boot_hwio-dmgABCmgb` now goes past $FF03 and stops at $FF26 (the sound state after the boot ROM), which is not changed here.
+
 ## Game Boy: independent SM83 vectors (1.6.7, gate G10)
 
 `tools/fetch_sm83_vectors.py` caches the pinned SingleStepTests/sm83 corpus into `.deps` (revision `f9c3021`, MIT, a pinned digest of its
