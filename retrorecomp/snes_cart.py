@@ -61,7 +61,7 @@ def ram_offset(memory, address):
         full = memory['rom_bytes'] <= 0x200000 and memory['bytes'] <= 0x8000
         if (0x70 <= bank < 0x7e or bank >= 0xf0) and (adr < 0x8000 or full):
             return ((bank & 15) * 0x8000 + (adr & 0x7fff)) & (memory['bytes']-1)
-    elif memory['mapping'] == 'hirom':
+    elif memory['mapping'] in ('hirom', 'exhirom'):
         canonical = bank & 0x7f
         if 0x20 <= canonical < 0x40 and 0x6000 <= adr < 0x8000:
             return ((canonical & 31) * 0x2000 + (adr & 0x1fff)) & (memory['bytes']-1)
@@ -102,6 +102,18 @@ def adapt_cart(source):
     old = '''      if ((((bank >= 0x70 && bank < 0x7e) || bank >= 0xf0)) &&
           adr < 0x8000 && cart->ramSize > 0) return NULL;'''
     source = replace(source, old, '      if (rr_snes_cart_ram_offset(cart,bank,adr)>=0) return NULL;')
+    # ExHiROM boards (an image above 4 MiB): the address line A23 picks the half of the ROM. Banks $80-$FF reach the first 4 MiB,
+    # banks $00-$7D the second. A HiROM image of 4 MiB or less is untouched.
+    source = replace(source, '''    case CART_HIROM: {
+      uint8_t canonical = bank & 0x7f;
+      if (adr < 0x8000 && canonical < 0x40) return NULL;
+      off = ((uint32_t)(canonical & 0x3f) << 16) | adr;
+      break;''', '''    case CART_HIROM: {
+      uint8_t canonical = bank & 0x7f;
+      if (adr < 0x8000 && canonical < 0x40) return NULL;
+      off = ((uint32_t)(canonical & 0x3f) << 16) | adr;
+      if (cart->romImageSize > 0x400000 && !(bank & 0x80)) off += 0x400000;
+      break;''')
     marker = 'static uint8_t cart_readLorom(Cart* cart, uint8_t bank, uint16_t adr) {'
     if source.count(marker) != 1:
         raise ConversionError('Pinned SNES cartridge RAM definitions changed.')
@@ -132,6 +144,10 @@ def adapt_loader(source):
     source='#include "retro_snes_game.h"\n'+source
     source=replace(source,'  if(used & 1) {', '''  // Input is already unheadered and has one Python-validated board mapping.
   // Do not let the loader independently guess a different header/circuit.
+#if RR_SN_EXHIROM
+  // ExHiROM: the header is the one at $40FFC0 (the reset vector is read at $00:FFFC, which is ROM $40FFFC).
+  if(length >= 0x410000) readHeader(data, length, 0x40ffc0, &headers[2]);
+#endif
   used=RR_SN_HIROM ? 2 : 0;
   if(headers[used].coprocessor==0 && headers[used].chips<=2) {
     headers[used].cartType=RR_SN_HIROM ? CART_HIROM : CART_LOROM;

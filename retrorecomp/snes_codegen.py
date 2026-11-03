@@ -65,8 +65,8 @@ def mirrored_rom(rom: bytes) -> bytes:
 
 
 def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',ram_opcodes=()) -> str:
-    if mapping not in ('lorom', 'hirom'):
-        raise ConversionError('SNES native lookup supports ordinary LoROM and HiROM only.')
+    if mapping not in ('lorom', 'hirom', 'exhirom'):
+        raise ConversionError('SNES native lookup supports ordinary LoROM, HiROM and ExHiROM only.')
     bus_rom = mirrored_rom(rom)
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     from .snes_chips import identify

@@ -193,3 +193,59 @@ class SdDdOneRamWindowTests(unittest.TestCase):
         self.assertIn('if (cart->type==CART_SDD1) {', text)
         self.assertIn('bank>=0x70 && bank<0x74 && address<0x8000', text)
         self.assertNotIn('|| cart->type==CART_SDD1', text)    # the LoROM clause (banks $F0-$FF) no longer covers the S-DD1
+
+
+class ExHiRomTests(unittest.TestCase):
+    """The ExHiROM board (map $25/$35, an image above 4 MiB, the header at $40FFC0): accepted, with its own half-selecting map (1.6.7)."""
+    PINNED_CART = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/cart.c'
+    PINNED_LOADER = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/snes_other.c'
+
+    def image(self, mode=0x25, kind=0, size=0x410000):
+        from tools.snes_exhirom_selftest import cartridge
+        data = bytearray(cartridge()[0][:size])
+        header = 0x40ffc0
+        data[header + 21:header + 23] = bytes((mode, kind))
+        total = (sum(data) - sum(data[header + 28:header + 32]) + 0x1fe) & 0xffff
+        data[header + 28:header + 32] = (total ^ 0xffff).to_bytes(2, 'little') + total.to_bytes(2, 'little')
+        return bytes(data)
+
+    def test_the_header_is_read_at_40ffc0_and_the_board_is_accepted(self):
+        data = self.image()
+        self.assertEqual(snes_header(data), (0x40ffc0, 'exhirom'))
+        validate_cartridge(SimpleNamespace(data=data, mapping='exhirom'))
+        validate_cartridge(SimpleNamespace(data=self.image(0x35, 1), mapping='exhirom'))
+
+    def test_a_chip_or_a_foreign_map_byte_is_still_refused(self):
+        for mode, kind in ((0x25, 3), (0x25, 0x13), (0x23, 0)):
+            with self.subTest(mode=mode, kind=kind):
+                with self.assertRaises(ConversionError):
+                    validate_cartridge(SimpleNamespace(data=self.image(mode, kind), mapping='exhirom'))
+
+    def test_lorom_and_hirom_stay_at_4_mib(self):
+        for mapping in ('lorom', 'hirom'):
+            with self.assertRaises(ConversionError):
+                validate_cartridge(SimpleNamespace(data=bytes(0x410000), mapping=mapping))
+
+    def test_the_cartridge_ram_is_the_hirom_window(self):
+        memory = {'chip': 'none', 'mapping': 'exhirom', 'bytes': 0x2000, 'rom_bytes': 0x600000}
+        self.assertEqual(ram_offset(memory, 0x206000), 0)
+        self.assertEqual(ram_offset(memory, 0xa07123), 0x1123)
+        self.assertIsNone(ram_offset(memory, 0x406000))
+
+    def test_the_map_picks_the_half_by_the_top_address_line(self):
+        if not self.PINNED_CART.is_file():
+            self.skipTest('the pinned engine is not downloaded')
+        from retrorecomp.snes_cart import adapt_cart
+        adapted = adapt_cart(self.PINNED_CART.read_text(encoding='utf-8'))
+        line = 'if (cart->romImageSize > 0x400000 && !(bank & 0x80)) off += 0x400000;'
+        self.assertEqual(adapted.count(line), 1)
+        hirom = adapted[adapted.index('case CART_HIROM: {'):]
+        self.assertLess(hirom.index(line), hirom.index('break;'))
+
+    def test_the_loader_reads_the_header_at_40ffc0_only_for_this_board(self):
+        if not self.PINNED_LOADER.is_file():
+            self.skipTest('the pinned engine is not downloaded')
+        from retrorecomp.snes_cart import adapt_loader
+        adapted = adapt_loader(self.PINNED_LOADER.read_text(encoding='utf-8'))
+        self.assertEqual(adapted.count('readHeader(data, length, 0x40ffc0, &headers[2]);'), 1)
+        self.assertLess(adapted.index('#if RR_SN_EXHIROM'), adapted.index('used=RR_SN_HIROM ? 2 : 0;'))

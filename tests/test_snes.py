@@ -105,8 +105,10 @@ class SnesNativeTests(unittest.TestCase):
                 self.assertIn('cart->romImageSize == 98304u', text)
                 self.assertIn('bool rr_snes_native_bind(void)', text)
                 self.assertNotIn('g_snes->cart->type', text.split('static const RrSnesNativeOp *rr_sn_lookup')[1])
+        # The ExHiROM board uses the HiROM bus type (its second half is selected by the bank's top bit, in cart_getRomPtr).
+        self.assertIn('cart->type == CART_HIROM', snes_codegen.native_source(source_fixture(), rom, mapping='exhirom'))
         with self.assertRaises(ConversionError):
-            snes_codegen.native_source(source_fixture(), rom, mapping='exhirom')
+            snes_codegen.native_source(source_fixture(), rom, mapping='unknown')
 
     # The two fast-forwards the pinned bridge carries for single cartridges, each with the text of its on/off switch.
     D9FF_SWITCH = ('        const char *_e = getenv("SNESRECOMP_NO_D9FF");\n'
