@@ -149,7 +149,7 @@ of 1.6.5 still loads (nothing is lost but the state). The other sections of
 SRAM, EEPROM, memory cards) are kept; a save the new export cannot use is set
 aside and never crashes or blocks the game. Exports older than 1.6.5 are
 converted in full. The details and the evidence are in
-[UPGRADES.md](UPGRADES.md#exports-of-165-in-166-in-development).
+[UPGRADES.md](UPGRADES.md#exports-of-165-in-166).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows
