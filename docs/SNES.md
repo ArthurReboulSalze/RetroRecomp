@@ -18,7 +18,7 @@ Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-o
 |---|---|
 | Status | Supported (standard profile, DSP-1, CX4, Super FX since 1.5.4). Compatibility is per cartridge and per tested route, not a catalogue guarantee |
 | Files accepted | `.sfc`, `.smc`, `.fig` (the Pro Fighter copier: always a 512-byte header before whole 32 KiB blocks, any other size is refused), identifiable `.bin`/`.rom`, and a ZIP holding one cartridge. A 512-byte copier header is removed from the in-memory build input only; the ROM on disk is never changed. An image stored in a copier's interleaved order (its HiROM header at the LoROM position) is refused with its own message; the four `.fig` dumps of the maintainer's library are plain (checked at both header positions) and convert |
-| Board scope | LoROM or HiROM, up to 4 MiB (8 MiB for the S-DD1 boards; FastROM, RAM and battery variants included). A LoROM header whose mode byte is `$32` (the ExLoROM value of the S-DD1 boards) but whose chip type says no circuit (0, 1 or 2) is an ordinary LoROM cartridge and is accepted (Duel: Test Drive II, 1 MiB, converted on 29 October 2026 with zero interpreted 65816 and SPC700 opcodes after one learning pass). ExHiROM, larger images and unlisted circuits are refused before any build |
+| Board scope | LoROM or HiROM, up to 4 MiB (8 MiB for the S-DD1 boards and for ExHiROM, map `$25`/`$35` with no chip; FastROM, RAM and battery variants included). A LoROM header whose mode byte is `$32` (the ExLoROM value of the S-DD1 boards) but whose chip type says no circuit (0, 1 or 2) is an ordinary LoROM cartridge and is accepted (Duel: Test Drive II, 1 MiB, converted on 29 October 2026 with zero interpreted 65816 and SPC700 opcodes after one learning pass). Other larger images (a 6 MiB LoROM such as Wizardry VI) and unlisted circuits are refused before any build |
 | Region | PAL or NTSC from the header's region byte (0, 1, 13, 15 and 16 mean NTSC, anything else PAL), never from the file name; a stated standard that disagrees with the cartridge is refused |
 | Where games are written | `Games/Super Nintendo`, beside the converter (the profile's export folder) |
 | Firmware needed | None. The DSP-1 and CX4 models are firmware-free; no firmware file is read or shipped |
@@ -357,6 +357,19 @@ CPU reads of `$C0-$FF` to `cart_read` gave the same 1,240, and was dropped once 
 Alpha 2, converted again from an empty library with the before and after trees, gives the same hashes. Not claimed: play beyond the
 title menu, the S-DD1's DMA timing.
 
+**ExHiROM (1.6.7).** Dragon Quest III and Tales of Phantasia (map `$25`/`$35`, 6 MiB, 8 KiB of battery RAM, the header at `$40FFC0`) were refused
+before. The board's map is the HiROM one with the top address line choosing the half of the ROM: banks `$C0-$FF` and the upper half of
+`$80-$BF` reach the first 4 MiB, banks `$40-$7D` and the upper half of `$00-$3F` reach the ROM from 4 MiB up (so the reset vector,
+read at `$00:FFFC`, is at ROM `$40FFFC`). It is written in the bus (`snes_cart.adapt_cart`, for an image above 4 MiB only; a HiROM image of
+4 MiB or less is untouched) and in the loader (the header is read at `$40FFC0`), with no code for any game; the code table is indexed by
+the ROM offset the bus returns, so compiled code above 4 MiB works as below it. `tools/snes_exhirom_selftest.py` checks it on a
+cartridge written for the purpose (one marker byte in each half, read through the four views, native equal to the reference; the map is the
+one of the public SNES documentation written as the expected values, not independent hardware proof, and a deliberately wrong half is
+detected). Both games convert with zero interpreted 65816 and SPC700 opcodes, the compressed copy equal to the reference, and show real
+screens at 2,500 frames (Dragon Quest III: its first menu; Tales of Phantasia: the title screen with its pictures), looked at by the
+specialist agent. Not claimed: play beyond that, the 6 MiB mirror of the second half as the board decodes it. Wizardry VI (6 MiB, LoROM
+header) stays refused: its map is not an ExHiROM one, and no reliable mapping is known.
+
 ## Known limits
 
 - **Super FX GSU** stays a counted interpreted device. Static recompilation of GSU code (step 6b of
@@ -368,7 +381,7 @@ title menu, the S-DD1's DMA timing.
   inside an SA-1 instruction and the S-DD1's DMA timing are not modelled or not qualified; no battle of Super Mario RPG was
   reached; the SA-1 interpreter's host cost is not measured (about 35-155 thousand instructions per frame on the three
   proved titles).
-- **Not supported:** SPC7110, DSP-2/3/4, extended mappings (ExHiROM), images above 4 MiB (8 MiB for the S-DD1), DSP-1 firmware-dump commands.
+- **Not supported:** SPC7110, DSP-2/3/4, ExLoROM images other than the S-DD1 boards (Wizardry VI), images above 4 MiB (8 MiB for the S-DD1 and ExHiROM), DSP-1 firmware-dump commands.
   Recognition of a circuit is not product qualification.
 - **PPU and bus timing:** instruction-internal and parked-CPU phases, DMA launch and release dividers, DMA/HDMA collision
   arbitration, active-display OAM/CGRAM fetch collisions, mid-line blanking and size changes during object fetch, uncommon

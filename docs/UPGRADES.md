@@ -100,6 +100,30 @@ stay interpreted and counted.
   [SNES.md](SNES.md)). Nothing here measures speed, and nothing is claimed about hardware fidelity: the bodies are the
   interpreter's own.
 
+*Hot path: touched.* An instruction fetched from RAM at a position the observed table does not hold used to go through the
+interpreter's dispatch; it now calls the compiled body of its opcode directly (the 65816 `rr_sn_unobserved`, the SPC700
+`rr_spc_unobserved`, one function pointer indexed by the opcode), and the observation that follows is the same as before. The path of
+observed code and of ROM code is unchanged. The frame cost was not measured for this release (the figures wait for a quiet machine and
+the per-release comparison); the change replaces interpreted instructions by compiled ones where it applies.
+
+## Super Nintendo: corrections found by the independent vectors (1.6.7)
+
+The SingleStepTests vectors ([CPU_65816_SPC700.md](CPU_65816_SPC700.md)) found five defects of the pinned cores, corrected as patches
+of the pinned bodies applied by the converter (each fail-closed on the pinned text): in emulation mode the 65816 `RTI` takes one cycle
+less and pulls no program bank, `TCS` and `TXS` force the stack pointer's high byte to 1, a taken branch that crosses a page takes one
+more cycle, and the direct-page indexed addressing and the `(dp,X)` pointer wrap inside the page when the direct page register is
+page-aligned; the SPC700 `DIV YA,X` follows the hardware formula. A game that runs in emulation mode after its reset vector, as every
+cartridge does for a few instructions, is concerned only where it uses these instructions; a game that uses `DIV` gets the hardware
+quotient in the overflow cases. **The SNES game stamp moves** (it already moved for the changes above). Three games (Secret of Mana, Super Mario World, Donkey Kong Country 2) converted from an empty library with the tree before and after
+give the same picture, sound, CPU, RAM, video-memory and sound-unit hashes on every route (19 hash fields in each of the six probe
+files, native, packed copy and reference); what differs is the generated 65816 and SPC700 sources, the compiler's profile data and the
+analysis files, and in Secret of Mana the packed size ratio (0.2107 and 0.2108). Street Fighter Alpha 2, against the tree before the
+S-DD1 clause as well as these corrections, gives the same hashes. These routes leave emulation mode within the first instructions after
+the reset, so no hash moving is what was expected; it says nothing about a game that stays in emulation mode. Not corrected: the page-1 wrap of the
+stack instructions added by the 65C02, `EI`/`DI` timing and the halt timings, listed in [CPU_65816_SPC700.md](CPU_65816_SPC700.md).
+*Hot path: touched, marginally.* The patched bodies of `RTI`, `TCS`, `TXS`, the page-crossing branch and the indexed direct-page
+addressing add one test of the emulation flag each; the SPC700 `DIV` adds a comparison; the rest of the bodies is unchanged. Not timed.
+
 ## Super Nintendo: the S-DD1 cartridges may be 8 MiB, and Star Ocean converts (1.6.7)
 
 The cartridge RAM decoding served banks $F0-$FF (addresses $0000-$7FFF) as battery RAM on an S-DD1 board, where those banks are the
@@ -128,13 +152,35 @@ short notice ("Save unreadable: set aside", five game languages) is shown once; 
 is saved that session, and the notice says "saving is off". `native/snes_battery.c`, `rrhk_snes.c`, the runtime catalog (two phrases;
 every console's stamp moves with it) and the report key `save_set_aside`. Tested on the nine boards of `tools/snes_saves_check.py`.
 
+## Super Nintendo: the ExHiROM board is accepted (1.6.7)
+
+ExHiROM cartridges (map `$25` or `$35`, no chip, an image above 4 MiB: Dragon Quest III and Tales of Phantasia, 6 MiB) are no longer refused. The
+bus picks the half of the ROM by the bank's top bit and the loader reads the header at `$40FFC0` (`snes_cart.adapt_cart`, `adapt_loader`,
+fail-closed on the pinned text); HiROM and LoROM images are untouched, and the other boards stay at 4 MiB. **The SNES game stamp moves** (it
+already moved for the changes above). *Hot path: touched on the HiROM path.* One comparison of the image size is added to `cart_getRomPtr` on
+the HiROM path (the bus read of a ROM byte), not to LoROM; not timed. Proof: the authored cartridge of `tools/snes_exhirom_selftest.py`, and
+the two games converted (see [SNES.md](SNES.md)).
+
+## Super Nintendo: cartridges whose header checksum was never filled in are accepted (1.6.7)
+
+A cartridge header with a checksum of `$0000` (the complement `$FFFF`, or also `$0000`: the assembler's default, never filled in) was
+refused because it cannot be told from damage by its checksum. It is accepted since 1.6.7 only when everything else about it is
+credible: a regular map byte, a declared size no larger than the image, and a reset vector that points at a plausible first
+instruction. Over the 1,348 files of the maintainer's library exactly four headers change (Power Drive Europe, Fireteam Rogue, Steven
+Seagal Is The Final Option and Wile E Coyote's Revenge, the last three prototypes); each converts, with the compressed copy equal to the
+reference. **Which game stamps move.** The rule lives in `retrorecomp/cartridge16.py`, which every console's game stamp hashes (the
+Mega Drive, Neo Geo and CPS-1 read nothing different from it, but their stamps move); with the shared runtime catalogue, all the stamps
+move in 1.6.7, as the notes of the release say. Nothing else about an existing export changes.
+
 ## Tools that change no export (1.6.7)
 
 - `tools/snes_saves_check.py` (gate G7): cartridges written for the purpose, one per board, check the save file, its damaged forms,
   the absence of a file without a battery and the quick states ([SNES.md](SNES.md)).
+- `tools/snes_exhirom_selftest.py`: an authored ExHiROM cartridge (4 MiB and one bank) reads one marker through each of the four views
+  of its two halves ([SNES.md](SNES.md)).
 - `tools/fetch_snes_vectors.py` and `tools/snes_cpu_vector_selftest.py` (gate G10): the 65816 and the SPC700 against the independent
-  SingleStepTests corpora, pinned and fetched into `.deps`; findings in [CPU_65816_SPC700.md](CPU_65816_SPC700.md). Nothing in the
-  cores changed.
+  SingleStepTests corpora, pinned and fetched into `.deps`; findings in [CPU_65816_SPC700.md](CPU_65816_SPC700.md); the corrections they led to
+  are in their own section above (the tools themselves change no export).
 
 ## Exports of 1.6.5 in 1.6.6 (in development)
 
