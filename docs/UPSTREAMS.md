@@ -46,6 +46,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [ninja-build/ninja](https://github.com/ninja-build/ninja) | all (Windows build) | `1.13.2` | `1.13.2` | `toolchain.NINJA_VERSION` |
 | [upx/upx](https://github.com/upx/upx) | all | `5.3.0` | `5.3.0` | `packing.UPX_VERSION` |
 | [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
+| [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | snes | `307c63f` | `307c63f5673c8c6b861c52f71ddb89212a227480` | `tools/fetch_snes_vectors.REVISION_65816` |
+| [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | snes | `67d15f4` | `67d15f492b2740964abd4efd1229e0ec9c342228` | `tools/fetch_snes_vectors.REVISION_SPC700` |
 | [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | md | `64b2531` | `64b253116a3de04aaac4346c43680960dc9b67e5` | `tests/fixtures/md-prefetch/cases.json` (also `tests/fixtures/md-exceptions/cases.json`) |
 
@@ -83,6 +85,8 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | Independent Z80 vectors, development tests only | MIT | Fetched on demand into `.deps`; not shipped | Identical. Keep. |
 | [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | Independent SM83 vectors, development tests only | MIT | Fetched on demand into `.deps` and checked against a pinned corpus digest; not shipped | Last pushed 10 May 2024. Keep. |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | Independent 68000 vectors, development tests only | MIT | A small extract in `tests/fixtures`; not shipped | Identical. Keep. |
+| [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | Independent 65816 vectors, development tests only | MIT | Fetched on demand into `.deps` (489 MB corpus, a sample of 64 cases per family kept, the whole corpus checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
+| [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | Independent SPC700 vectors, development tests only | MIT | Fetched on demand into `.deps` (16 MB corpus, 128 cases per family kept, checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
 
 Licences of the four engines that PolyForm Noncommercial covers (nesrecomp, segagenesisrecomp, m68k-recomp-core,
 snesrecomp) were compared with upstream on the review day: same terms, same files. Two third parties appear upstream
@@ -392,7 +396,7 @@ quiet machine, so anything that has to be timed waits for that.
 |---|---|---|---|
 | SNES: idle detector with hash buckets | snesrecomp (`interp_bridge.c`) | Same behaviour, faster lookup instead of a linear scan per instruction. Needs a timing measurement. | Next SNES performance pass, with an A/B comparison of frame fingerprints. |
 | SNES: APU advance by blocks | snesrecomp | State of the SPC700/DSP and the sound must be proven equal before any timing. | Same pass. |
-| SNES: revision bump | snesrecomp, about 200 commits | One anchor really breaks (`snes_chips.py`, `dsp1()`); CMake defaults would silently switch to a different native mode on Windows x64; little gain on the code we run. | The planned SNES requalification campaign; it brings DSP-1 compile-time HLE and transactional state loading. |
+| SNES: revision bump | snesrecomp, 252 commits at `66eebe6` (2 November 2026) | Checked mechanically on that tree (our adapters run on it, nothing written): 16 of 20 apply; four break, from three upstream changes: the DMA span rule of `snes.c` (`snes_dma`, then `snes_bus` and `snes_ppu_bus` by cascade) now also looks at `hdmaBeamOff` and the auto-joypad timer, the `stable_rom` read of `interp_bridge.c` (`snes_bus`), and the end of `dsp1()` (`snes_chips`). CMake defaults would silently switch to a different native mode on Windows x64. No 65816, DMA, SPC700 or cartridge fidelity fix in the range; the newest commits are HD Mode 7 presentation. | The planned SNES requalification campaign; it brings DSP-1 compile-time HLE and transactional state loading. |
 | NES: larger known-cartridge database | nesrecomp (195 entries to 3,825) | Its record structure changes and the provenance must be written down. | Before widening NES compatibility. |
 | NES: Famicom Disk System | nesrecomp, about thirty commits | Needs a bump (18 anchors break), a player-supplied BIOS, a Disk action in the host kit and a full NES requalification. Upstream excluded the FDS from its own validation. | A decision to support the FDS. |
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |

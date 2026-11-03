@@ -187,7 +187,9 @@ NOT_INPUTS = (
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
-    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c')
+    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
+    # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
+    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -502,7 +504,6 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_cart',
         'retrorecomp.megadrive_dma',
         'retrorecomp.megadrive_evidence',
-        'retrorecomp.megadrive_rules',
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
@@ -547,6 +548,7 @@ INPUTS = _resolve({
         'retrorecomp.snes_chips',
         'retrorecomp.snes_codegen',
         'retrorecomp.snes_dma',
+        'retrorecomp.snes_evidence',
         'retrorecomp.snes_gsu',
         'retrorecomp.snes_knowledge',
         'retrorecomp.snes_ppu_bus',
@@ -720,6 +722,12 @@ INPUTS = _resolve({
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
     ),
+    # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
+    # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its
+    # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.
+    ('cps1', 'md', 'ng', 'x68'): (
+        'retrorecomp.megadrive_rules',
+    ),
     ('sms', 'gg'): (
         'native/video_checks.c',
         'native/video_mode4.inc',
@@ -763,6 +771,11 @@ INPUTS = _resolve({
     'shares:conversion_gates': (
         'retrorecomp.conversion_gates',
         'retrorecomp.delivery_evidence',
+    ),
+    # The module that applies the Mega Drive's state rules to the translated steps of the Neo Geo, the CPS-1 and the X68000 (the text it
+    # reads, `megadrive_rules`, is listed under the four machines). Game role.
+    'shares:m68000_state_rules': (
+        'retrorecomp.m68000_state_rules',
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',

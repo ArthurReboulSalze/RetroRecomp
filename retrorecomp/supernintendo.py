@@ -90,16 +90,18 @@ def validate_cartridge(rom):
     mode, chip = rom.data[offset + 21], rom.data[offset + 22]
     from .snes_chips import identify
     circuit = identify(rom.data)
-    # The S-DD1's 1 MiB pages reach 8 MiB, but the only cartridge above 4 MiB seen (Star Ocean, 6 MiB) converts and then
-    # stays on a blank screen after the translation's splash (docs/KNOWN_FAILURES.md): it stays refused until that is understood.
-    if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
-        raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
+    # The S-DD1's 1 MiB pages and the ExHiROM board's second half reach 8 MiB (Star Ocean, Dragon Quest III, Tales of
+    # Phantasia, 6 MiB). Anything else stays at 4 MiB.
+    if mapping not in ('lorom', 'hirom', 'exhirom') or len(rom.data) > (0x800000 if circuit == 'sdd1' or mapping == 'exhirom' else 0x400000):
+        raise ConversionError(f'SNES {mapping} cartridges above 4 MiB (8 MiB for the S-DD1 and ExHiROM) or extended mappings '
                               'are not supported by the native runtime yet.')
     # Mode $32 is the ExLoROM byte of the S-DD1 boards (chip type $43/$45, refused by `identify` above). On a
     # LoROM header with no chip (type 0, 1 or 2: nothing, RAM, RAM and battery) it is a mastering quirk of an ordinary
     # LoROM cartridge, which the pinned loader maps as LoROM (Duel: Test Drive II, 1 MiB).
     ordinary_exlorom = mode == 0x32 and mapping == 'lorom' and chip in (0, 1, 2)
-    if circuit not in ('sa1', 'sdd1') and mode not in (0x20, 0x21, 0x30, 0x31) and not ordinary_exlorom and not (mode>>4 not in (2,3) and chip in (0,1,2)):
+    # ExHiROM ($25 or $35, the header at $40FFC0): ROM above 4 MiB, RAM and battery only (no chip).
+    exhirom = mapping == 'exhirom' and mode in (0x25, 0x35) and chip in (0, 1, 2)
+    if circuit not in ('sa1', 'sdd1') and mode not in (0x20, 0x21, 0x30, 0x31) and not ordinary_exlorom and not exhirom and not (mode>>4 not in (2,3) and chip in (0,1,2)):
         raise ConversionError(f'This SNES cartridge uses an unsupported enhancement chip or mapping '
                               f'(map ${mode:02X}, cartridge type ${chip:02X}). '
                               'The native runtime currently supports ordinary LoROM/HiROM cartridges, '
@@ -195,7 +197,8 @@ def write_profile(project: Path, rom, title: str) -> None:
         f'#define RR_SN_TITLE {json.dumps(title, ensure_ascii=True)}\n'
         f'#define RR_SN_ROM_BYTES {len(rom.data)}u\n'
         f'#define RR_SN_SMW {int(profile["legacy_functions"])}\n'
-        f'#define RR_SN_HIROM {int(rom.mapping=="hirom")}\n'
+        f'#define RR_SN_HIROM {int(rom.mapping in ("hirom", "exhirom"))}\n'
+        f'#define RR_SN_EXHIROM {int(rom.mapping == "exhirom")}\n'
         f'#define RR_SN_PAL {int(video_standard(rom) == "pal")}\n', encoding='ascii')
     with (project / 'retro_snes_game.h').open('a', encoding='ascii') as file:
         file.write(f'#define RR_SN_SA1 {int(memory.get("chip") == "sa1")}\n'

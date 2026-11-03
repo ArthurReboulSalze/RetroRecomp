@@ -249,7 +249,7 @@ tests/test_neogeo_converter.py tools/build_neogeo_knowledge.py
 assets/neogeo-catalogue.json
 native/neogeo_input.h native/neogeo_lithogen.c native/neogeo_main.c native/neogeo_reference.h native/neogeo_reference.c
 tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py docs/NEOGEO.md
-retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py retrorecomp/musashi_fixes.py
+retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py retrorecomp/m68000_state_rules.py retrorecomp/musashi_fixes.py
 native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
 native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
 native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
@@ -278,6 +278,7 @@ native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
 native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_musashi_fixes.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
+tests/fixtures/m68k-groups/deviations-musashi-machines.json tools/x68000_owner_trial.py tools/vector_deviations.py tests/test_x68000_owner_trial.py tests/test_vector_groups_deviations.py
 tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
 tests/test_x68000_colour.py tests/x68000_colour_harness.c
 tools/x68000_mame_compare.py tests/test_x68000_mame_compare.py
@@ -321,7 +322,8 @@ native/md_exception_checks.c tools/megadrive_exception_selftest.py
 tests/fixtures/md-exceptions/cases.json tests/fixtures/md-exceptions/LICENSE
 docs/MEGADRIVE_CPU_EXCEPTIONS.md
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
-native/snes_cpu/interrupt_checks.c
+native/snes_cpu/interrupt_checks.c native/snes_cpu/cpu_vector_checks.c native/snes_cpu/spc_vector_checks.c
+tools/fetch_snes_vectors.py tools/snes_cpu_vector_selftest.py tests/test_snes_vectors.py
 retrorecomp/snes_codegen.py retrorecomp/supernintendo.py
 retrorecomp/snes_timing.py native/snes_timing.h
 retrorecomp/snes_video.py
@@ -383,7 +385,7 @@ native/md_z80_resume_checks.c tools/megadrive_z80_resume_selftest.py tools/megad
 retrorecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
-  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tools/snes_sa1_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md retrorecomp/random_routes.py tests/test_random_routes.py retrorecomp/scan_levels.py tests/test_scan_levels.py
+  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tools/snes_sa1_selftest.py tools/snes_saves_check.py tools/snes_exhirom_selftest.py retrorecomp/snes_evidence.py tests/test_snes_evidence.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md retrorecomp/random_routes.py tests/test_random_routes.py retrorecomp/scan_levels.py tests/test_scan_levels.py
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c

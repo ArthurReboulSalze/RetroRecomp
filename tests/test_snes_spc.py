@@ -18,7 +18,7 @@ def fixture():
     return ('static const int cyclesPerOpcode[256] = {' + ','.join(['2'] * 256) + '};\n' +
         'static void spc_doOpcode(Spc* spc, uint8_t opcode) { switch(opcode) {\n' +
         'case 0x00: // first shared label\ncase 0x01: { spc->a += opcode; break; }\n' +
-        '\n'.join(f'case 0x{op:02x}: {{ spc->a += opcode; break; }}' for op in range(2, 256)) +
+        '\n'.join((snes_spc.DIVISION if op == 0x9e else f'case 0x{op:02x}: {{ spc->a += opcode; break; }}') for op in range(2, 256)) +
         '\n} }\n')
 
 
@@ -53,6 +53,33 @@ class SpcConversionTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             snes_spc.boot_bytes('static const uint8_t bootRom[0x40] = {0x00};')
 
+
+    def test_a_position_no_run_has_seen_runs_the_body_of_its_live_opcode_and_is_counted_apart(self):
+        masks = bytearray(snes_spc.MASK_BYTES)
+        masks[0x2000 * 32] = 3
+        text, _ = snes_spc.native_source(fixture(), bytes(64), masks)
+        # Every opcode has an unobserved wrapper: the position is taken before the body (which moves the program counter)
+        # and counted after it (the cycles are known by then).
+        self.assertEqual(text.count('rr_spc_note_unobserved(spc, pc, 0x'), 256)
+        wrapper = text.split('static void rr_spc_uop_a9(Spc *spc) {')[1].split('}')[0]
+        self.assertLess(wrapper.index('uint16_t pc = spc->pc;'), wrapper.index('rr_spc_op_a9(spc);'))
+        self.assertLess(wrapper.index('rr_spc_op_a9(spc);'), wrapper.index('rr_spc_note_unobserved'))
+        lookup = text.split('const RrSpcNativeOp *rr_spc_native_lookup(Spc *spc) {')[1]
+        # Device registers are still never peeked, and the boot ROM and the observed table are asked first.
+        self.assertLess(lookup.index('spc->pc >= 0xf0 && spc->pc <= 0xff) return NULL'), lookup.index('rr_spc_pc_sets[spc->pc]'))
+        self.assertLess(lookup.index('ops[n].opcode == opcode'), lookup.index('return rr_spc_unobserved + opcode;'))
+        self.assertNotIn('if (!id) return NULL;', lookup)
+
+    def test_the_division_is_the_chips_and_is_corrected_once(self):
+        text = snes_spc.corrected(fixture())
+        self.assertIn('hardware division', text)
+        self.assertNotIn('TODO: proper division algorithm', text)
+        self.assertEqual(snes_spc.corrected(text), text)           # idempotent: adapt_core and native_source both apply it
+        self.assertIn('spc->a = 255 - (value - (spc->x << 9)) / (256 - spc->x);', text)
+        with self.assertRaises(ConversionError):
+            snes_spc.corrected(fixture().replace('TODO: proper division algorithm', 'changed'))
+        generated, _ = snes_spc.native_source(fixture(), bytes(64), bytearray(snes_spc.MASK_BYTES))
+        self.assertIn('spc->v = spc->y >= spc->x;', generated)
 
 class SpcMemoryTests(unittest.TestCase):
     def setUp(self):

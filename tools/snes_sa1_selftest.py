@@ -226,16 +226,22 @@ def persistence_check(exe, folder, path):
     raw = battery.read_bytes()
     assert raw[HEADER + 0x20] == 2, 'the counter of the first process is read back by the second'
     assert first['sram_hash'] != second['sram_hash']
-    # A damaged payload, and a file made for another cartridge, are refused and left as they are.
+    # A damaged payload, and a file made for another cartridge, never stop the game: each is set aside as it was and the game
+    # starts with a blank BW-RAM (tools/snes_saves_check.py checks every board for the other forms of damage).
     for label, damage in (('payload', lambda b: b[:HEADER + 5] + bytes([b[HEADER + 5] ^ 1]) + b[HEADER + 6:]),
                           ('cartridge', lambda b: b[:40] + bytes([b[40] ^ 1]) + b[41:])):
+        aside = battery.parent / (battery.name + '.unusable-1')
+        if aside.exists():
+            aside.unlink()
         broken = damage(raw)
         battery.write_bytes(broken)
-        code, _ = boot('refused-' + label)
-        assert code == 9 and battery.read_bytes() == broken, (label, code)
+        code, report = boot('aside-' + label)
+        assert code == 0 and report['save_set_aside'] == 1 and aside.read_bytes() == broken, (label, code)
+        assert battery.read_bytes()[HEADER + 0x20] == 1, 'a blank start'
+    aside.unlink()
     battery.write_bytes(raw)
-    return {'counter_after_two_boots': 2, 'bound_to_board': 'CART_SA1', 'damaged_payload_refused': True,
-            'other_cartridge_refused': True}
+    return {'counter_after_two_boots': 2, 'bound_to_board': 'CART_SA1', 'damaged_payload_set_aside': True,
+            'other_cartridge_set_aside': True}
 
 
 def main():

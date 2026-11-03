@@ -32,7 +32,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from tools import megadrive_prefetch_selftest as replay
+from tools import megadrive_prefetch_selftest as replay, vector_deviations
 
 FIXTURE = 'm68k-groups'
 DEVIATIONS = ROOT / 'tests/fixtures' / FIXTURE / 'deviations.json'
@@ -69,10 +69,7 @@ def counts(found: dict[tuple[str, str], str]) -> dict[str, dict[str, int]]:
 def problems(observed: dict, known: dict, same_paths: bool) -> list[str]:
     """Differences between what the replay saw and the list of known deviations (empty: the list is exact)."""
     text = [] if same_paths else ['the native steps and the reference path do not fail on the same vectors']
-    for group in sorted(set(observed) | set(known)):
-        if observed.get(group, {}) != known.get(group, {}):
-            text.append(f'{group}: seen {observed.get(group, {}) or "none"}, listed {known.get(group, {}) or "none"}')
-    return text
+    return text + vector_deviations.differences(observed, known)
 
 
 def main() -> int:

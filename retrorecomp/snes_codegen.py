@@ -65,8 +65,8 @@ def mirrored_rom(rom: bytes) -> bytes:
 
 
 def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',ram_opcodes=()) -> str:
-    if mapping not in ('lorom', 'hirom'):
-        raise ConversionError('SNES native lookup supports ordinary LoROM and HiROM only.')
+    if mapping not in ('lorom', 'hirom', 'exhirom'):
+        raise ConversionError('SNES native lookup supports ordinary LoROM, HiROM and ExHiROM only.')
     bus_rom = mirrored_rom(rom)
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     from .snes_chips import identify
@@ -82,6 +82,14 @@ def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',r
     do {{ {bodies[opcode]} }} while (0);
 }}
 static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_op_{opcode:02x}}};
+/* The same body for RAM code whose address and opcode no run has been seen executing: it is recorded (before the
+ * body, which may overwrite the code) and counted as compiled and not observed. */
+static void rr_sn_uop_{opcode:02x}(Interp816 *cpu) {{
+    rr16_snes_observe_fallback(g_interp816_cur_pc);
+    rr_sn_op_{opcode:02x}(cpu);
+    rr16_snes_note_compiled_unobserved();
+}}
+static const RrSnesNativeOp rr_sn_unobserved_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_uop_{opcode:02x}}};
 ''')
     pages, page_ids = [], {}
     slots = []
@@ -107,6 +115,8 @@ static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_o
         'rr_sn_ram[] = {' + ','.join(f'{{{pc},&rr_sn_entry_{op:02x}}}' for pc,op in ram) + '};\n') if ram else ''
     operations = ('static const RrSnesNativeOp *const rr_sn_ops[256] = {' +
                   ','.join(f'&rr_sn_entry_{opcode:02x}' for opcode in range(256)) + '};\n')
+    unobserved_ops = ('static const RrSnesNativeOp *const rr_sn_unobserved_ops[256] = {' +
+                      ','.join(f'&rr_sn_unobserved_entry_{opcode:02x}' for opcode in range(256)) + '};\n')
     # The exact PC and opcode of a RAM instruction are looked up in a table indexed by the WRAM
     # byte it sits at (one load for the ordinary case). An entry holds the first bank and opcode
     # seen there; a WRAM byte reached under another bank (the low-bank mirrors) or with a second
@@ -149,18 +159,27 @@ static void rr_sn_wram_fill(void) {{
     }}
 }}
 ''' if ram else ''
+    # An instruction fetched from RAM whose (address, opcode) no run has been seen executing still runs through the
+    # compiled body of its live opcode (`rr_sn_unobserved`, counted apart). The observation stays a coverage record.
     ram_lookup = '''if (!mapped) {
         int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
         if (offset >= 0) {
             uint32_t entry = rr_sn_wram_entry[offset];
-            if (!entry) return NULL;
-            uint8_t live = g_ram[offset];
-            if (((entry >> 8) & 0xffu) == (pc >> 16) && (entry & 0xffu) == live)
-                return fetched<0 || live==fetched ? rr_sn_ops[live] : NULL;
-            if (!(entry & 0x20000u)) return NULL;
+            if (entry) {
+                uint8_t live = g_ram[offset];
+                if (((entry >> 8) & 0xffu) == (pc >> 16) && (entry & 0xffu) == live)
+                    return fetched<0 || live==fetched ? rr_sn_ops[live] : NULL;
+                if (entry & 0x20000u) {
+                    const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);
+                    if (found) return found;
+                }
+            }
+        } else {
+            const RrSnesNativeOp *found = rr_sn_ram_search(pc, fetched);
+            if (found) return found;
         }
-        return rr_sn_ram_search(pc, fetched);
-    }''' if ram else 'if (!mapped) return NULL;'
+        return rr_sn_unobserved(pc, fetched);
+    }''' if ram else 'if (!mapped) return rr_sn_unobserved(pc, fetched);'
     fill = 'rr_sn_wram_fill();' if ram else ''
     if cart_type == 'CART_SA1':
         # The SA-1 board's memory pointer may aim at its I-RAM or its BW-RAM, which are other objects than the ROM:
@@ -191,7 +210,7 @@ static void rr_sn_wram_fill(void) {{
     return ('/* Generated ROM-PC operation map. LakeSnes/snesrecomp notices retained. */\n'
         '#include <string.h>\n#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
         '#include "snes/cart.h"\n#include "snes_cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
-        '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + f'''
+        '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + unobserved_ops + f'''
 {sa1_cpu}{ram_search}static bool rr_sn_enabled, rr_sn_bound, rr_sn_active;
 static Cart *rr_sn_cart;
 /* The cartridge is loaded once, before the first instruction: its board, storage and image
@@ -223,6 +242,19 @@ bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
 }}
 static uint8_t *rr_sn_rom_ptr(uint8_t bank, uint16_t adr) {{
     {rom_ptr}
+}}
+/* Code in WRAM or in the cartridge's RAM that the table of observed positions does not hold: the body of the opcode it
+ * has now, if the fetched byte is that opcode. Anything else (device registers, open bus) is not RAM and is not here. */
+static const RrSnesNativeOp *rr_sn_unobserved(uint32_t pc, int fetched) {{
+    uint8_t live;
+    int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
+    if (offset >= 0) live = g_ram[offset];
+    else {{
+        offset = rr_snes_cart_ram_offset(rr_sn_cart, (uint8_t)(pc >> 16), (uint16_t)pc);
+        if (offset < 0) return NULL;
+        live = rr_sn_cart->ram[offset];
+    }}
+    return fetched < 0 || live == fetched ? rr_sn_unobserved_ops[live] : NULL;
 }}
 static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_active) return NULL;
@@ -278,10 +310,64 @@ def correct_software_interrupts(source: str) -> str:
         '          : interp816_readWord(cpu, 0xffe4, 0xffe5);\n')
 
 
+def correct_emulation_mode(source: str) -> str:
+    """Give RTI, TCS, TXS and the direct-page indexing the 65816 emulation mode's behaviour (found by the independent vectors).
+
+    In emulation mode the chip keeps the stack in page 1 and the program bank is neither stacked by an interrupt nor pulled by
+    RTI (the pinned RTI pulled it, and took the native extra cycle, in both modes, while our interrupt entry and the BRK/COP
+    correction above stack three bytes there: the stack drifted by one byte after every interrupt taken in emulation mode). TCS
+    and TXS load S with the page forced to 1. A taken branch (BRA included) that crosses a page takes one more cycle in emulation mode. With the direct page's low byte 0, the indexed direct-page addresses wrap within
+    the page ((dp,X), dp,X, dp,Y and (dp),Y), the pointer's second byte included. Written from the processor manual and checked against
+    SingleStepTests/65816; native mode is untouched, and the compiled operations follow since they come from this same text.
+    """
+    source = replace_once(source,
+        '      interp816_setFlags(cpu, interp816_pullByte(cpu));\n'
+        '      cpu->cyclesUsed++; // native mode: 1 extra cycle\n'
+        '      cpu->pc = interp816_pullWord(cpu);\n'
+        '      cpu->k = interp816_pullByte(cpu);\n',
+        '      interp816_setFlags(cpu, interp816_pullByte(cpu));\n'
+        '      if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (the program bank is pulled)\n'
+        '      cpu->pc = interp816_pullWord(cpu);\n'
+        '      if(!cpu->e) cpu->k = interp816_pullByte(cpu);\n')
+    source = replace_once(source, '    case 0x1b: { // tcs imp\n      cpu->sp = cpu->a;\n',
+                          '    case 0x1b: { // tcs imp\n      cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->a & 0xff)) : cpu->a;\n')
+    source = replace_once(source, '    case 0x9a: { // txs imp\n      cpu->sp = cpu->x;\n',
+                          '    case 0x9a: { // txs imp\n      cpu->sp = cpu->e ? (uint16_t)(0x100 | (cpu->x & 0xff)) : cpu->x;\n')
+    source = replace_once(source,
+        '    cpu->cyclesUsed++; // taken branch: 1 extra cycle'+chr(10)+'    cpu->pc += (int8_t) value;'+chr(10),
+        '    cpu->cyclesUsed++; // taken branch: 1 extra cycle'+chr(10)+'    uint16_t from = cpu->pc;'+chr(10)+'    cpu->pc += (int8_t) value;'+chr(10)+
+        '    if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++; // emulation mode: a taken branch across a page takes one more'+chr(10))
+    source = replace_once(source,
+        '    case 0x80: { // bra rel'+chr(10)+'      uint8_t offset = interp816_readOpcode(cpu);'+chr(10)+'      cpu->pc += (int8_t) offset;'+chr(10),
+        '    case 0x80: { // bra rel'+chr(10)+'      uint8_t offset = interp816_readOpcode(cpu);'+chr(10)+'      uint16_t from = cpu->pc;'+chr(10)+
+        '      cpu->pc += (int8_t) offset;'+chr(10)+
+        '      if(cpu->e && ((from ^ cpu->pc) & 0xff00)) cpu->cyclesUsed++; // emulation mode: across a page, one more cycle'+chr(10))
+    for index in ('x', 'y'):
+        source = replace_once(source,
+            f'  *low = (cpu->dp + adr + cpu->{index}) & 0xffff;\n  return (cpu->dp + adr + cpu->{index} + 1) & 0xffff;\n}}',
+            f'  if(cpu->e && !(cpu->dp & 0xff)) {{ /* emulation mode, direct page aligned: the index wraps within the page */\n'
+            f'    *low = cpu->dp | ((adr + cpu->{index}) & 0xff);\n'
+            f'    return cpu->dp | ((adr + cpu->{index} + 1) & 0xff);\n  }}\n'
+            f'  *low = (cpu->dp + adr + cpu->{index}) & 0xffff;\n  return (cpu->dp + adr + cpu->{index} + 1) & 0xffff;\n}}')
+    source = replace_once(source,
+        '  uint16_t pointer = interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n',
+        '  uint16_t pointer = (cpu->e && !(cpu->dp & 0xff))\n'
+        '      ? interp816_readWord(cpu, cpu->dp | ((adr + cpu->x) & 0xff), cpu->dp | ((adr + cpu->x + 1) & 0xff))\n'
+        '      : interp816_readWord(cpu, (cpu->dp + adr + cpu->x) & 0xffff, (cpu->dp + adr + cpu->x + 1) & 0xffff);\n')
+    # (dp),Y: the pointer is read without the index, and its second byte wraps within the page the same way.
+    return replace_once(source,
+        '  uint16_t pointer = interp816_readWord(cpu, (cpu->dp + adr) & 0xffff, (cpu->dp + adr + 1) & 0xffff);\n'
+        '  bool crossed = ',
+        '  uint16_t pointer = (cpu->e && !(cpu->dp & 0xff))\n'
+        '      ? interp816_readWord(cpu, cpu->dp | adr, cpu->dp | ((adr + 1) & 0xff))\n'
+        '      : interp816_readWord(cpu, (cpu->dp + adr) & 0xffff, (cpu->dp + adr + 1) & 0xffff);\n'
+        '  bool crossed = ')
+
+
 def read_core(engine: Path) -> str:
-    """The pinned interpreter source with the BRK/COP correction: what both readers use."""
-    return correct_software_interrupts(
-        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8'))
+    """The pinned interpreter source with the BRK/COP and emulation-mode corrections: what both readers use."""
+    return correct_emulation_mode(correct_software_interrupts(
+        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')))
 
 
 def adapt_core(source: str) -> str:

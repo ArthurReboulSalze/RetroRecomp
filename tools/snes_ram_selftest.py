@@ -45,7 +45,10 @@ def exercise(case):
     native=probe16(exe,work,20,scenario='discovery')
     reference=probe16(exe,work,20,reference=True,scenario='discovery')
     assert not reference_differences('snes',native,reference)
-    assert native['interpreted_opcodes']==6, native['interpreted_opcodes']  # INC/DEC and each RTL.
+    # INC/DEC and each RTL: RAM code no scan has seen runs through its live opcode's compiled body, counted apart (1.6.7);
+    # before, these six went to the interpreter. Native equals the interpreted reference (checked above).
+    assert native['interpreted_opcodes']==0, native['interpreted_opcodes']
+    assert native['compiled_unobserved_opcodes']==6, native['compiled_unobserved_opcodes']
     added=supernintendo.learn_ram_variants(rom,[native]);assert added==4,added
     # Retain one literal per PC/opcode, rather than every operand value.
     # The last INC now changes its operand without an exact four-byte hint.
@@ -60,7 +63,7 @@ def exercise(case):
     native=probe16(exe,work,20,scenario='qualified')
     reference=probe16(exe,work,20,reference=True,scenario='qualified')
     assert not reference_differences('snes',native,reference)
-    assert native['interpreted_opcodes']==0
+    assert native['interpreted_opcodes']==0 and native['compiled_unobserved_opcodes']==0
     battery=work/'persistent'/'counter.rrsram'
     def boot(name):
         report=work/(name+'.json')
@@ -74,7 +77,7 @@ def exercise(case):
     second=boot('second');raw=battery.read_bytes();assert raw[112+0x100:112+0x102]==bytes((2,0))
     assert first['sram_hash']!=second['sram_hash']
     state=check(exe,work/'state',13,11)
-    result={'mapping':mapping,'pal':pal,'rom_sha256':rom.sha256,'initial_fallback':6,
+    result={'mapping':mapping,'pal':pal,'rom_sha256':rom.sha256,'initial_fallback':0,'initial_compiled_unobserved':6,
             'learned_variants':added,'retained_pc_opcodes':len(retained),'live_operand_mutation_native':True,'final_fallback':0,'persistent_counter':2,
             'state':state,'passed':True}
     (work/'result.json').write_text(json.dumps(result,indent=2)+'\n');return result

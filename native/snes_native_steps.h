@@ -28,6 +28,7 @@ void rr_snes_sa1_before(int64_t behind);
 void rr_snes_sa1_after(int64_t behind);
 #endif
 void rr16_snes_note_native(void);
+void rr16_snes_note_compiled_unobserved(void);
 void rr16_snes_note_interpreted(uint32_t pc);
 void rr16_snes_observe_fallback(uint32_t pc);
 bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]);

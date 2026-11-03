@@ -14,6 +14,10 @@ static wchar_t save_path[32768];
 static bool active, pending, battery_enabled;
 static unsigned mapping;
 static uint64_t last_check, last_changed, retry_at;
+/* 1: a save file the game could not use was set aside and the game started blank; 2: it could not be set aside, so the
+ * file is left alone and nothing is saved this session. Never a reason for the game not to start. */
+static unsigned notice_state;
+unsigned rr_snes_battery_notice(void) { return notice_state; }
 static void put32(uint8_t *p, uint32_t n) {
     for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(n>>(i*8));
 }
@@ -24,12 +28,25 @@ static uint64_t hash(const uint8_t *p, size_t n) {
     uint64_t h=14695981039346656037ull;
     for (size_t i=0;i<n;++i) { h^=p[i]; h*=1099511628211ull; } return h;
 }
+/* Moves an unusable file to "<file>.unusable-N" (the first N from 1 to 99 that is free), like the X68000 does with a disk.
+ * Never deletes it, and never replaces a file already set aside: with all 99 names taken it returns false and the file stays
+ * where it is. */
+static bool set_aside(const wchar_t *file) {
+    wchar_t aside[32768+16];
+    for (unsigned n=1;n<=99;++n) {
+        if (swprintf(aside,32768+16,L"%ls.unusable-%u",file,n)<0) return false;
+        FILE *taken=rr_fopen(aside,L"rb");
+        if (taken) { fclose(taken); continue; }
+        return rr_replace(file,aside)!=0;
+    }
+    return false;
+}
 bool rr_snes_battery_path(wchar_t *path, size_t capacity) {
     return rr_game_data_file(path,capacity,"saves",RR16_STATE_NAME,RR16_STATE_ROM,".rrsram");
 }
 bool rr_snes_battery_open(Cart *bus, bool battery, const wchar_t *path) {
     battery_enabled=battery; mapping=bus ? bus->type : 0;
-    active=pending=false; last_check=last_changed=retry_at=0; save_path[0]=0;
+    active=pending=false; last_check=last_changed=retry_at=0; save_path[0]=0; notice_state=0;
     if (!bus) return false;
     if (!path || !(bus->ram && bus->ramSize) || !battery_enabled) return true;
     if (!bus->ramSize || bus->ramSize>sizeof saved || !path[0] || wcslen(path)>32000) return false;
@@ -48,8 +65,13 @@ bool rr_snes_battery_open(Cart *bus, bool battery, const wchar_t *path) {
         if (fclose(file)!=0) valid=false;
         if (valid) memcpy(bus->ram,payload,bus->ramSize);
         free(payload);
-        /* Never replace a damaged/wrong-cartridge file with blank progress. */
-        if (!valid) return false;
+        /* A damaged or wrong-cartridge file never blocks the game and is never deleted or overwritten: it is kept under
+         * another name and the game starts with a blank RAM. If it cannot be moved it stays where it is, untouched, and
+         * nothing is saved this session. */
+        if (!valid) {
+            if (!set_aside(path)) { notice_state=2; return false; }
+            notice_state=1;
+        }
     }
     memcpy(saved,bus->ram,bus->ramSize); memcpy(observed,saved,bus->ramSize);
     active=true; return true;

@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from retrorecomp import cps1_build, cps1_codegen
 from retrorecomp.core import run, toolchain
+from tools import vector_deviations
 from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
 
 FIXTURES = ('m68k-shifts', 'md-prefetch', 'md-exceptions')
@@ -136,12 +137,51 @@ def problems(result: dict) -> list[str]:
     return found
 
 
+GROUPS = 'm68k-groups'    # 85 instruction groups no other fixture holds: replayed with a recorded list of deviations
+DEVIATIONS = 'deviations-musashi-machines.json'    # shared by the three machines built on Geolith's Musashi
+
+
+def group_deviations(result: dict) -> dict:
+    """Per group, how many vectors differ: the native steps' state, the reference's state, the two paths with each other."""
+    found = {}
+    for group in result['groups']:
+        cases = group['cases']
+        counts = {'native_state': cases - group['native_state'], 'reference_state': cases - group['reference_state'],
+                  'paths': cases - group['paths_equal']}
+        if any(counts.values()):
+            found[group['group']] = {key: value for key, value in counts.items() if value}
+    return found
+
+
+def group_problems(result: dict, recorded: dict | None = None) -> list[str]:
+    """What the groups replay must satisfy: every vector runs as a native step, every total of clocks equals the vector's on both
+    paths, and the vectors that differ are exactly the ones in `deviations-musashi-machines.json` (the list the Neo Geo, the CPS-1
+    and the X68000 share, compared by `tools/vector_deviations.py`: a group not listed that differs fails, and so does a count that
+    changed, so the list can only shrink when a rule is corrected)."""
+    if recorded is None:
+        recorded = json.loads((ROOT / 'tests/fixtures' / GROUPS / DEVIATIONS).read_text(encoding='utf-8'))
+    found = []
+    for group in result['groups']:
+        name, cases = group['group'], group['cases']
+        if group['native_executed'] != cases:
+            found.append(f'{name}: {cases - group["native_executed"]} vector(s) not run as a native step')
+        if group['native_clock'] != cases or group['reference_clock'] != cases or group['paths_clock_equal'] != cases:
+            found.append(f'{name}: the clocks differ from the vectors (native {group["native_clock"]}/{cases}, '
+                         f'reference {group["reference_clock"]}/{cases})')
+    return found + vector_deviations.differences(group_deviations(result), recorded)
+
+
+def machine_problems(result: dict) -> list[str]:
+    """`problems` for the fixtures of the three, `group_problems` for the groups one."""
+    return group_problems(result) if result['fixture'] == GROUPS else problems(result)
+
+
 def main(names=None) -> int:
-    results = [replay(name) for name in (names or FIXTURES)]
+    results = [replay(name) for name in (names or FIXTURES + (GROUPS,))]
     failed = 0
     for result in results:
         print(summary(result))
-        for text in problems(result):
+        for text in machine_problems(result):
             failed += 1
             print('PROBLEM', result['fixture'], text)
     print(json.dumps(results))

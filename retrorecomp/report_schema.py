@@ -64,7 +64,12 @@ missing, because the old readers take a null for a value)::
                                                        neither native nor interpreted),
                                    'guarded_helpers': {kind: {'entries', 'cycles'}} (Game Boy, since 1.6.7: native
                                                        bodies that take over a recognised routine of writable code;
-                                                       kinds store, copy, dma_page, interrupt_dma, counted apart)}]}]
+                                                       kinds store, copy, dma_page, interrupt_dma, counted apart),
+                                   'compiled_unobserved' (Super Nintendo main and audio CPUs, since 1.6.7: instructions
+                                                       of writable memory no earlier run had seen as code, run by the
+                                                       compiled body of their opcode; not part of 'native', which
+                                                       counts observed code only; the audio 'cycles' carry the same
+                                                       key)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
                   The coprocessor comes first. After it a writer may list units that have no counter
@@ -227,6 +232,7 @@ def _main_scenario(writer, row):
         interpreted = _count(_first(row.get('main_interpreted_opcodes'), row.get('interpreted_opcodes')))
         if row.get('retired_interpreted_opcodes') is not None:
             extra['retired_interpreted'] = _count(row.get('retired_interpreted_opcodes'))
+        native = _without_unobserved(native, row, 'compiled_unobserved_opcodes', extra)
         if row.get('interpreter_cycles') is not None:
             # No writer of an instruction shape stores it; a row from outside the writers might.
             cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
@@ -234,15 +240,37 @@ def _main_scenario(writer, row):
             'interpreted_percent': _count(row.get('interpreter_percent')), 'cycles': cycles, **extra}
 
 
+def _without_unobserved(native, row, key, extra):
+    """The native count without the compiled bodies run where no earlier run had seen code (`key`), which go to
+    `extra['compiled_unobserved']`.
+
+    Since 1.6.7 a writer may run an instruction of writable memory that no earlier run had observed as code through the
+    compiled body of its opcode (Super Nintendo, both CPUs). Its own total of native entries includes them; the report
+    keeps three figures apart: native (observed code), compiled_unobserved and interpreted. A writer without the counter
+    has no key, and its native figure is unchanged."""
+    if key not in row:
+        return native
+    unobserved = _count(row.get(key))
+    extra['compiled_unobserved'] = unobserved
+    if native is not None and unobserved is not None and unobserved <= native:
+        return native - unobserved
+    return native
+
+
 def _audio_scenario(row):
-    cycles = None
+    cycles, extra = None, {}
     if row.get('audio_native_cycles') is not None or row.get('audio_interpreted_cycles') is not None:
         cycles = {'native': _count(row.get('audio_native_cycles')),
                   'interpreted': _count(row.get('audio_interpreted_cycles')), 'total': None}
+        if 'audio_compiled_unobserved_cycles' in row:
+            unobserved = {}
+            cycles['native'] = _without_unobserved(cycles['native'], row, 'audio_compiled_unobserved_cycles', unobserved)
+            cycles['compiled_unobserved'] = unobserved['compiled_unobserved']
+    native = _without_unobserved(_count(row.get('audio_native_opcodes')), row, 'audio_compiled_unobserved_opcodes', extra)
     return {'name': _scenario_name(row), 'frames': _count(row.get('frames')),
-            'native': _count(row.get('audio_native_opcodes')),
+            'native': native,
             'interpreted': _count(row.get('audio_interpreted_opcodes')),
-            'interpreted_percent': None, 'cycles': cycles}
+            'interpreted_percent': None, 'cycles': cycles, **extra}
 
 
 def _fallback_state(scenarios):
@@ -860,6 +888,14 @@ def fallback_summary(report, *, lenient=False) -> dict:
         'interpreter_cycles': max(((s['cycles'] or {}).get('interpreted') or 0 for s in scenarios), default=0),
         'reference_vdp_trace_match': report['legacy'].get('reference_vdp_trace_match'),
     }
+    if any('compiled_unobserved' in scenario for scenario in scenarios):
+        # Super Nintendo since 1.6.7: compiled bodies run where no earlier run had seen code, neither native code
+        # observed nor interpreter; a maximum over the scenarios, kept per CPU. The keys exist only for a writer that
+        # counts them.
+        summary['compiled_unobserved_opcodes'] = max((s.get('compiled_unobserved') or 0 for s in scenarios), default=0)
+        if audio and any('compiled_unobserved' in s for s in audio['scenarios']):
+            summary['audio_compiled_unobserved_opcodes'] = max(
+                (s.get('compiled_unobserved') or 0 for s in audio['scenarios']), default=0)
     if any('ram_single_step' in scenario for scenario in scenarios):
         # Game Boy: WRAM/HRAM instructions run one at a time (the runtime's stub and the single-instruction executor),
         # counted apart from the interpreter, a maximum over the scenarios like the other figures. The keys exist

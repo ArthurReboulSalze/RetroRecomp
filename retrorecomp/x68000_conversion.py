@@ -655,6 +655,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'video_model':{'standard':'native','frameskip':False,'fps':actual['fps']},
           'runtime_data':{'directory':'datas','shared_config':'datas/Retro-Recomp.ini','game_directory':'datas/games/x68-'+manifest.sha256},
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
+          'qualification_scope':{'controls':'joystick, keyboard and mouse routes; the validation routes are bounded scripts',
+                                 'media':'floppy disks only','universal_zero_fallback_claim':False},
           'conversion_wall_seconds':round(time.perf_counter()-started,3)}
         write_report(output/'conversion-report.json',report)
         # Written in the library, whatever folder the earlier ones were read from (that one is left as it is).
