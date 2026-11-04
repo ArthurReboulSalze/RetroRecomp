@@ -1,7 +1,7 @@
 # RetroRecomp roadmap
 
-The current public packages have seven supported console profiles on Windows
-plus the experimental Capcom CPS-1 and Sharp X68000, and a native Linux
+The current public packages have eight supported console profiles on Windows
+(Capcom CPS-1 since 1.6.6) plus the experimental Sharp X68000, and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -19,11 +19,15 @@ common menus, quick states and multi-disk sequences are in place; gameplay
 coverage, hardware edge cases and low-power Linux performance are still being
 improved before it leaves the experimental stage. See [X68000 status](X68000.md).
 
-Capcom CPS-1 has been included in public downloads as an experimental profile
-since 1.2.7: MAME/FBNeo ZIP romsets of the standard boards (no QSound), DIP
+Capcom CPS-1 has been included in public downloads since 1.2.7 and is supported
+since 1.6.6: MAME/FBNeo ZIP romsets of the standard boards (no QSound), DIP
 switches, up to four players and quick states. Broader gameplay coverage is
-still being built before it leaves the experimental stage. See
-[the CPS-1 profile](CPS1.md).
+still being built. See [the CPS-1 profile](CPS1.md) and its
+[qualification](QUALIFICATION.md).
+
+A next step for the board family is the QSound sets (CPS-1.5), now in
+development, which the CPS-1 profile does not take yet. They would start in the
+experimental tier; no date and no outcome is promised.
 
 ## Stable runtimes and a growing library — 1.2.0
 

@@ -70,7 +70,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Game Boy](docs/GAME_BOY.md) | Supported | Original Game Boy, quick states, grayscale or classic green |
 | [NES](docs/NES.md) | Supported | Validated cartridge layouts, PAL/NTSC, quick states and Zapper |
 | [Mega Drive](docs/MEGADRIVE.md) | Supported | Standard cartridges, PAL/NTSC, SRAM and EEPROM saves, quick states and Menacer |
-| [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges, LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
+| [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges and boards with a DSP-1, CX4, Super FX, SA-1 or S-DD1 chip, LoROM/HiROM/ExHiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |

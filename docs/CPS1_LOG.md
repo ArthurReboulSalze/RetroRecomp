@@ -114,7 +114,7 @@ at 55,930.4 Hz), so waveform correlation is lower than the spectra suggest
   CPS-1 path was qualified yet, so nothing was lost. The observations are
   private build hints (`m68k_gfx`) of the player's library: they cannot be tied
   to a ROM image, so they are counted and never shared. Details:
-  [UPGRADES.md](UPGRADES.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
+  [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
 - The quick state changed format (magic `CPS1S002` instead of `CPS1S001`, every
   structure written field by field): 1.6.3 states are refused cleanly
   ([GAME_STATES.md](GAME_STATES.md)).
@@ -341,7 +341,7 @@ Two sets are not comparable (PAL dumps missing from the romsets). `sf2hf` differ
 pixels, every pixel); against MAME's frame one before or after, other frames differ instead (offset test at step 1): a one-frame
 slip, independent of the input phase between 5 and 40 lines. The King of Dragons and Mega Twins no longer slip. Sound not repeated.
 
-**Linux witness** (Debian 13, Hermès, Python 3.13.5, gcc 14.2; one conversion of `sf2ce`, standard level, in a folder apart that
+**Linux witness** (a Debian 13 PC, Python 3.13.5, gcc 14.2; one conversion of `sf2ce`, standard level, in a folder apart that
 was removed afterwards; the ROM was copied for the run and deleted): 0 interpreted 68000 and Z80 instructions, 129,196,735 native
 68000 and 40,478,778 native Z80 instructions over both routes, the reference comparison, the packed replay and the fresh-process state
 check passed, and the CPU, RAM, image and sound hashes and the trace hashes of both routes are **identical** to the Windows conversion
@@ -397,7 +397,7 @@ The waveform correlation is low because the OKI is interpolated linearly here an
 phase-aligned below the sample; it is not claimed. `sf2hf` is the set whose picture slips by a frame in the same run. Physical audio and latency are
 not measured.
 
-**Linux witness 3** (Debian 13, Hermès, one conversion of `1941`, standard level, in a folder apart removed afterwards, the ROM copied for the run
+**Linux witness 3** (a Debian 13 PC, one conversion of `1941`, standard level, in a folder apart removed afterwards, the ROM copied for the run
 and deleted, archive of `main` and a copy of the dependency cache; `.deps` of the existing checkout read, nothing else touched): 0 interpreted 68000 and
 Z80 instructions, 101,209,464 native 68000 and 44,659,319 native Z80 instructions over both routes, every check passed, and the CPU, RAM, picture and
 sound hashes and the trace hashes of both routes are **identical** to the Windows conversion (attract picture `5bd0c5a2c01d5df5`, play `4def87fdac4ed72a`).

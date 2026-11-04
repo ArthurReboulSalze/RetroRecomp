@@ -20,13 +20,12 @@ on a route; it says nothing about what the picture shows or how far into the gam
 """
 from __future__ import annotations
 
-from functools import cache
 from pathlib import Path
 from typing import Callable, Iterator
 
 from .core import ConversionError
-from .delivery_evidence import (FNV_BASIS, FNV_MASK, FNV_PRIME, FrameRow, deliver_packed, liveness_summary, replay_packed,
-                                report_fields, require_moving_picture)
+from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed,
+                                report_fields, require_moving_picture, silent_hashes)
 
 # The report keys of a route's liveness, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
@@ -41,16 +40,10 @@ TRACE_COLUMNS = ('frame', 'frame_hash', 'audio_hash')
 MAX_FRAME_SAMPLES = 4096
 
 
-@cache
 def silent_blocks() -> frozenset:
     """The sound hash (16 hex digits, as the trace writes it) of a frame of silence, for every even number of samples a frame can
-    carry. The multiplies of `silent_sound_hash` are taken once in a row."""
-    value, blocks = FNV_BASIS, set()
-    for samples in range(MAX_FRAME_SAMPLES + 1):
-        if samples % 2 == 0:
-            blocks.add(f'{value:016x}')
-        value = (value * FNV_PRIME) & FNV_MASK
-    return frozenset(blocks)
+    carry (`delivery_evidence.silent_hashes`)."""
+    return silent_hashes(MAX_FRAME_SAMPLES, 2)
 
 
 def trace_rows(trace: Path) -> Iterator[FrameRow]:

@@ -31,7 +31,7 @@ flat bus; nothing of the board, of the hardware or of gameplay.
 ## Cross-OS witness on Debian, three sets — 3 November 2026
 
 G13 on the 1.6.7 tree (`main` at the merge of the Game Boy branch): `nam1975` (512 KiB), `mslug3` (SMA, banked) and `twinspri` (2 MiB program) converted
-on Windows and on Debian 13 (Hermès, Python 3.13.5, gcc 14.2), standard level, one conversion at a time, in a folder apart on Debian removed afterwards,
+on Windows and on a Debian 13 PC (Python 3.13.5, gcc 14.2), standard level, one conversion at a time, in a folder apart on Debian removed afterwards,
 the ROMs and the BIOS copied for the run and deleted. For the 19 route rows (6 + 7 + 6) the native instruction counts, the 0 interpreted 68000 and Z80
 instructions, the CPU, RAM, hardware, Z80, picture and sound hashes and the liveness record are **identical** on the two systems, the compressed copy
 replayed equal to the reference on both, and the state checks of the delivered file passed on both. Native code and CPU fidelity (reference
@@ -138,7 +138,7 @@ Seven gave fallback, the Z80 never: Breakers Revenge, Rage of the Dragons, Matri
   already translated it). A screenshot sequence of Breakers Revenge shows the BIOS logo at that point. The routes of a conversion stop at
   3,600 frames (attract) or enter a game at about 2,400 (play), so they never reached it. Fallback is 0.0007 % of the instructions there.
 - **The rule.** One attract route of at least 7,200 frames for every cartridge (`BIOS_RESTART_FRAMES`), described in
-  [UPGRADES.md](UPGRADES.md#neo-geo-an-attract-route-that-reaches-the-bios-restart-165). The NAM-1975 receipt keeps its routes.
+  [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-an-attract-route-that-reaches-the-bios-restart-165). The NAM-1975 receipt keeps its routes.
 - **Proof.** `tools/ab_conversion.py` on nam1975, the tree before and after: identical. Matrimelee, Strikers 1945 Plus and Rage of the Dragons
   converted alone with the new tree: zero interpreted opcodes on every route of the conversion, and on a 9,000-frame attract and the first
   18,000-frame pseudo-random route run on the produced executables (the same 8.3 million RAM instructions, now native). The packed-replay
@@ -1405,7 +1405,7 @@ The Geolith Z80 shared with the CPS-1 is corrected in the converter's copy (`neo
 (`tools/ab_conversion.py`, same empty library): picture and sound hashes identical on every route; the Z80, RAM and hardware hashes of the AES
 play route of `nam1975` differ from frame 2380 (cause: `LD A,R`, which the game reads, now leaves the X and Y bits of the result in F, and an
 interrupt pushes that F into the Z80 RAM), and the per-frame state checks of `mslug3` from row 506 (WZ of `LD IX,(nn)`, then `IN r,(C)`).
-The Neo Geo game stamp and quick-state key move ([UPGRADES.md](UPGRADES.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)).
+The Neo Geo game stamp and quick-state key move ([UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)).
 
 ## Scan levels
 

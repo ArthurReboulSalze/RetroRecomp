@@ -42,7 +42,7 @@ Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-o
   needs the MVS BIOS archive (neogeo.zip): choose it in Options, Neo Geo page,
   then convert again." (before 1.6.4 this was an internal `NoneType` error).
 
-Details and evidence: [UPGRADES.md](UPGRADES.md#neo-geo-a-coloured-edge-mask-is-painted-black-on-screen-164-lot-nge),
+Details and evidence: [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-a-coloured-edge-mask-is-painted-black-on-screen-164-lot-nge),
 [RELEASE_NOTES.md](RELEASE_NOTES.md) and [NEOGEO_LOG.md](NEOGEO_LOG.md).
 
 **Converting.** Add the cartridge with **Automatic** detection or choose **Neo
