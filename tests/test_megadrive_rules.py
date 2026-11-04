@@ -4,7 +4,7 @@ The rules themselves are replayed against independent vectors by tools/megadrive
 from pathlib import Path
 import unittest
 
-from retrorecomp import m68000, megadrive_rules
+from retrorecomp import m68000, megadrive_bus_rules, megadrive_rules
 from retrorecomp.core import ConversionError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,10 +17,12 @@ class InstructionRulesTests(unittest.TestCase):
     def setUpClass(cls):
         cls.raw = PINNED.read_text(encoding='utf-8')
         cls.shared = m68000.adapt_semantics(cls.raw)
-        cls.adapted = megadrive_rules.adapt_instruction_rules(cls.shared)
+        cls.rules_only = megadrive_rules.adapt_instruction_rules(cls.shared)
+        cls.adapted = megadrive_bus_rules.adapt_bus_order_rules(cls.rules_only)
 
     def test_every_rule_replaces_exactly_one_pinned_line(self):
-        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_rules.CLOCK_RULES):
+        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_bus_rules.BUS_ORDER_RULES,
+                         *megadrive_rules.CLOCK_RULES):
             self.assertEqual(self.shared.count(old), 1, old.splitlines()[0])
             self.assertEqual(self.adapted.count(new), 1, new.splitlines()[0])
 
@@ -61,6 +63,49 @@ class InstructionRulesTests(unittest.TestCase):
             self.assertNotIn('uint32_t pushed', other, prefix)
         for name in ('retrorecomp/neogeo_codegen.py', 'retrorecomp/cps1_codegen.py', 'tools/x68000_native.py'):
             self.assertNotIn('megadrive_rules', (ROOT / name).read_text(encoding='utf-8'), name)
+
+
+    def test_the_bus_order_rules_write_low_word_first_and_leave_the_state_rules_alone(self):
+        text = self.adapted
+        self.assertIn('static int s_low_first;', text)
+        self.assertIn('s_low_first = rmw && sz == M68K_SIZE_L;', text)
+        self.assertLess(text.index('m68k_write16(a + 2u, (uint16_t)v);'), text.index('m68k_write16(a, (uint16_t)(v >> 16));'))
+        split = text[text.index('static void mem_write_split'):][:300]
+        self.assertLess(split.index('m68k_write16(a + 2u'), split.index('rr_md_prefetch_release();'))
+        self.assertLess(split.index('rr_md_prefetch_release();'), split.index('m68k_write16(a, (uint16_t)(v >> 16));'))
+        # m68000_state_rules reads STATE_RULES by position: the bus order rules are a tuple of their own.
+        self.assertEqual(len(megadrive_rules.STATE_RULES), 4)
+        for other in ('m68000_state_rules',):
+            self.assertNotIn('BUS_ORDER', (ROOT / 'retrorecomp' / (other + '.py')).read_text(encoding='utf-8'))
+
+
+class PrefetchPlanTests(unittest.TestCase):
+    """The static bus setup of a few forms (the live preparation and the plan are replayed against each other by
+    tools/megadrive_prefetch_plan_selftest.py)."""
+
+    @staticmethod
+    def plan(name, **fields):
+        from retrorecomp import megadrive_codegen
+        instruction = {'word_count': 1, 'src_ea': 0, 'dst_ea': 0, 'size': 1, 'dst_is_ea': 0, 'predec_mem_form': 0,
+                       'words': [0, 0, 0], **fields}
+        return [int(value) for value in megadrive_codegen.prefetch_plan(instruction, name).strip('{}').split(',')]
+
+    def test_the_predecrement_forms_calculate_the_first_address_before_the_first_read(self):
+        kind, count, advance, idle, tail, flags, dst_advance, dst_idle = self.plan('MN_ADDX', predec_mem_form=1, src_ea=11)
+        self.assertEqual(idle, 2)
+        self.assertEqual(self.plan('MN_ADDX', predec_mem_form=0, src_ea=11)[3], 0)       # the register form has no calculation
+
+    def test_a_byte_immediate_with_a_memory_destination_reads_the_next_word_before_the_calculation(self):
+        row = self.plan('MN_ADDI', size=0, word_count=3, src_ea=0x34)                      # ADDI.B #,(d8,A4,Xn)
+        self.assertEqual((row[3], row[5] & 128), (2, 128))
+        self.assertEqual(self.plan('MN_ADDI', size=2, word_count=4, src_ea=0x34)[5] & 128, 0)   # the long forms are not proved
+        self.assertEqual(self.plan('MN_BCLR', size=0, word_count=2, src_ea=0x24, words=[0x08a0, 0])[5] & 128, 128)
+        self.assertEqual(self.plan('MN_BCLR', size=0, word_count=1, src_ea=0x24, words=[0x01a0, 0])[5] & 128, 0)   # by data register
+
+    def test_link_and_movep_fetch_their_last_word_after_their_writes(self):
+        for name in ('MN_LINK', 'MN_MOVEP'):
+            self.assertEqual(self.plan(name, word_count=2)[5] & 4, 0, name)
+        self.assertEqual(self.plan('MN_ADD', word_count=1)[5] & 4, 4)
 
 
 @unittest.skipUnless(PINNED.is_file(), 'pinned segagenesisrecomp sources are not cached')

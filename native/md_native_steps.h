@@ -48,7 +48,8 @@ typedef struct {
 } RrMdPrefetchPlan;
 enum {
     RR_PF_CONTROL=1, RR_PF_PENDING=2, RR_PF_BEFORE_WRITE=4,
-    RR_PF_PRIVILEGED=8, RR_PF_LOCKED=16, RR_PF_BCC=32, RR_PF_DBCC=64
+    RR_PF_PRIVILEGED=8, RR_PF_LOCKED=16, RR_PF_BCC=32, RR_PF_DBCC=64,
+    RR_PF_IDLE_AFTER_FIRST=128
 };
 typedef struct {
     M68KInstr instruction;

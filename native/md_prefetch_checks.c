@@ -75,6 +75,15 @@ static void fail(const CorpusCase *test, const char *field, uint32_t expected, u
     fprintf(stderr, "FAIL %s %s %s expected=%08x actual=%08x\n",
             test->name, force_reference ? "reference" : "native", field, expected, got);
     if (!collecting) exit(1);
+    if (getenv("RR_MD_COLLECT_TX")) {   /* the ordered bus transactions of the vector and of the run: kind@clock address data */
+        fprintf(stderr, "  vector:");
+        for (unsigned i = 0; i < test->transaction_count; ++i)
+            fprintf(stderr, " %c@%u:%06x=%04x", test->transactions[i].kind, test->transactions[i].clock, test->transactions[i].address, test->transactions[i].data);
+        fprintf(stderr, "\n  actual:");
+        for (unsigned i = 0; i < tx_count; ++i)
+            fprintf(stderr, " %c@%u:%06x=%04x", observed[i].kind, observed[i].clock, observed[i].address, observed[i].data);
+        fprintf(stderr, "\n");
+    }
     ++failed_cases;
     longjmp(case_failed, 1);
 }

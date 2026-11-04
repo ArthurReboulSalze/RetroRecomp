@@ -501,6 +501,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive',
         'retrorecomp.megadrive_audio',
         'retrorecomp.megadrive_bus',
+        'retrorecomp.megadrive_bus_rules',
         'retrorecomp.megadrive_cart',
         'retrorecomp.megadrive_dma',
         'retrorecomp.megadrive_evidence',

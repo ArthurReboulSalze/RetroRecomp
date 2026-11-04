@@ -93,6 +93,30 @@ static unsigned rr_pf_extensions(int ea,M68KSize size) {
     return mode==5 || mode==6?1u:mode!=7?0u:reg==1?2u:
         reg==4?(size==M68K_SIZE_L?2u:1u):reg<4?1u:0u;
 }
+/* The predecrement forms of ABCD, SBCD, ADDX and SUBX calculate the first address before their first read. */
+static int rr_pf_predecrement_pair(const M68KInstr *ins) {
+    switch(ins->mnemonic) {
+    case MN_ADDX:case MN_SUBX:case MN_ABCD:case MN_SBCD:return ins->predec_mem_form;
+    default:return 0;
+    }
+}
+/* A byte or word immediate (or a bit number) with a memory destination reads the word after the immediate, then calculates
+ * the address; the other operations calculate it first. */
+static int rr_pf_idle_after_first(const M68KInstr *ins) {
+    switch(ins->mnemonic) {
+    case MN_ADDI:case MN_SUBI:case MN_ANDI:case MN_ORI:case MN_EORI:return ins->size!=M68K_SIZE_L;
+    case MN_BTST:case MN_BCHG:case MN_BCLR:case MN_BSET:return !(ins->words[0]&0x100u);
+    default:return 0;
+    }
+}
+/* The operations on the condition code register read the word of the queue's second slot again before the usual prefetch. */
+static unsigned rr_pf_refetch_idle(const M68KInstr *ins) {
+    switch(ins->mnemonic) {
+    case MN_ANDI_TO_CCR:case MN_ORI_TO_CCR:case MN_EORI_TO_CCR:return 8;
+    case MN_MOVE_CCR:return ins->dst_is_ea?0u:4u;
+    default:return 0;
+    }
+}
 uint16_t rr_md_operand_extension(uint32_t pc,unsigned index,uint16_t original) {
     return rr_md_prefetch_active() && rr_pf_move?
         rr_md_instruction_word(pc+index*2u):original;
@@ -177,17 +201,21 @@ static void rr_pf_prepare(const M68KInstr *ins) {
              mode==5 || (mode==7 && (reg==0 || reg==2))?2u:0u;
     } else if(ins->mnemonic==MN_BSR)idle=2;
     else if(rr_pf_control || ins->mnemonic==MN_STOP)idle=0;
-    if(idle)rr_md_cpu_idle(idle);
+    else if(rr_pf_predecrement_pair(ins))idle=2;
+    int after_first=idle && rr_pf_idle_after_first(ins);
+    if(idle && !after_first)rr_md_cpu_idle(idle);
     for(unsigned n=0;n<count && n<8;++n) {
         if(n<=advance) {
             rr_pf_image[n]=rr_md_prefetch.words[0];
             if(n<advance)rr_pf_advance();
         } else rr_pf_image[n]=rr_md_prefetch.words[1];
+        if(after_first && !n)rr_md_cpu_idle(idle);
     }
     rr_pf_image_count=count;
     rr_pf_image_valid=(1u<<count)-1u;
     rr_pf_pending=!rr_pf_control && ins->mnemonic!=MN_STOP;
-    rr_pf_before_write=ins->mnemonic!=MN_MOVE && ins->mnemonic!=MN_MOVEM && !rr_pf_control;
+    rr_pf_before_write=ins->mnemonic!=MN_MOVE && ins->mnemonic!=MN_MOVEM && !rr_pf_control &&
+        ins->mnemonic!=MN_LINK && ins->mnemonic!=MN_MOVEP;
     if(ins->mnemonic==MN_MOVE && ((ins->dst_ea>>3)&7)==4)rr_pf_before_write=1;
     if(ins->mnemonic==MN_PEA && (ins->src_ea==0x38 || ins->src_ea==0x39))rr_pf_before_write=0;
     if(ins->mnemonic==MN_LEA || ins->mnemonic==MN_PEA) {
@@ -229,12 +257,14 @@ static void rr_pf_prepare_native(const M68KInstr *ins,const RrMdPrefetchPlan *p)
         }
         return;
     }
-    if(p->idle)rr_md_cpu_idle(p->idle);
+    int after_first=p->idle && (flags&RR_PF_IDLE_AFTER_FIRST);
+    if(p->idle && !after_first)rr_md_cpu_idle(p->idle);
     for(unsigned n=0;n<count && n<8;++n) {
         if(n<=p->advance) {
             rr_pf_image[n]=rr_md_prefetch.words[0];
             if(n<p->advance)rr_pf_advance();
         } else rr_pf_image[n]=rr_md_prefetch.words[1];
+        if(after_first && !n)rr_md_cpu_idle(p->idle);
     }
     rr_pf_image_count=count;rr_pf_image_valid=(1u<<count)-1u;
     rr_pf_pending=!!(flags&RR_PF_PENDING);rr_pf_before_write=!!(flags&RR_PF_BEFORE_WRITE);
@@ -246,6 +276,12 @@ static void rr_pf_prepare_native(const M68KInstr *ins,const RrMdPrefetchPlan *p)
 }
 void rr_md_prefetch_before_write(void) {
     if(rr_md_prefetch_active() && rr_pf_pending && rr_pf_before_write && !rr_md_exception_cycles) {
+        rr_pf_pending=0;rr_pf_advance();
+    }
+}
+void rr_md_prefetch_hold(void) { rr_pf_before_write=0; }
+void rr_md_prefetch_release(void) {
+    if(rr_md_prefetch_active() && rr_pf_pending && !rr_md_exception_cycles) {
         rr_pf_pending=0;rr_pf_advance();
     }
 }
@@ -271,6 +307,11 @@ static void rr_pf_finish(const M68KInstr *ins,uint32_t next) {
         if(rr_md_prefetch.valid!=1 || rr_md_prefetch.pc!=(next&0xffffffu))rr_md_prefetch_target(next);
         rr_pf_fill();
     } else if(rr_pf_pending) {
+        unsigned refetch=rr_pf_refetch_idle(ins);
+        if(refetch) {
+            rr_md_cpu_idle(refetch);
+            (void)rr_md_read_instruction_word((rr_md_prefetch.pc+2u)&0xffffffu);
+        }
         while(rr_pf_pending) {--rr_pf_pending;rr_pf_advance();}
     }
     rr_pf_image_count=0;
