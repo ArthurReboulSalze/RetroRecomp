@@ -286,8 +286,13 @@ class StackPageCorrectionTests(unittest.TestCase):
             self.assertIn(call, text, call)
         # The 6502 instructions keep the wrapping functions.
         self.assertIn('interp816_pushByte(cpu, cpu->db);', text)     # PHB
+        # PEA pushes its operand and has no other effect: the engine's own game hack (Y zeroed for $C2AE) is gone from both readers.
+        self.assertIn('if (w == 0xC2AE)', raw)
+        self.assertNotIn('0xC2AE', text)
+        pea = text.split('case 0xf4: { // pea imm(l)')[1].split('break;')[0]
+        self.assertNotIn('cpu->y', pea)
         # Every anchor is checked: a pinned text that changed is refused, not patched around.
-        for anchor in ('case 0x0b: { // phd imp', 'case 0x2b: { // pld imp', 'interp816_pushWord(cpu, w);',
+        for anchor in ('case 0x0b: { // phd imp', 'case 0x2b: { // pld imp', 'if (w == 0xC2AE)',
                        'interp816_pushWord(cpu, cpu->pc + (int16_t) value);', 'cpu->k = interp816_pullByte(cpu);',
                        'uint16_t value = interp816_adrIax(cpu);'):
             with self.subTest(anchor=anchor):

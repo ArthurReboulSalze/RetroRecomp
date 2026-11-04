@@ -413,8 +413,10 @@ def correct_stack_pages(source: str) -> str:
                           '    case 0x0b: { // phd imp\n      interp816_pushWordNew(cpu, cpu->dp);\n      interp816_stackPage(cpu);\n')
     source = replace_once(source, '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWord(cpu);\n',
                           '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWordNew(cpu);\n      interp816_stackPage(cpu);\n')
-    source = replace_once(source, '        cpu->y = 0;\n      interp816_pushWord(cpu, w);\n',
-                          '        cpu->y = 0;\n      interp816_pushWordNew(cpu, w);\n      interp816_stackPage(cpu);\n')
+    # PEA pushes its operand and nothing else. The pinned text zeroes Y when the operand is $C2AE, a hack of the engine's own game (it
+    # has no counterpart on the chip: no register is a side effect of PEA); it is left out of both readers, with the new stack steps.
+    source = replace_once(source, '      if (w == 0xC2AE)\n        cpu->y = 0;\n      interp816_pushWord(cpu, w);\n',
+                          '      interp816_pushWordNew(cpu, w);\n      interp816_stackPage(cpu);\n')
     source = replace_once(source, '      interp816_pushWord(cpu, interp816_readWord(cpu, low, high));\n',
                           '      interp816_pushWordNew(cpu, interp816_readWord(cpu, low, high));\n      interp816_stackPage(cpu);\n')
     source = replace_once(source, '      interp816_pushWord(cpu, cpu->pc + (int16_t) value);\n',
