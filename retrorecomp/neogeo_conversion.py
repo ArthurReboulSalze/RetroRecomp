@@ -12,7 +12,7 @@ import time
 from . import __version__, timings as stages
 from .conversion_common import check_exit, resolve_scan_level, spawn
 from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
-                                require_moving_picture, silent_sound_hash)
+                                require_moving_picture, silent_hash, silent_sound_hash)
 from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
 from .report_schema import write_report
@@ -33,15 +33,12 @@ def trace_rows(trace: Path):
     """The per-frame rows of a route's trace (frame, cpu, hardware, z80, image, pcm, samples) for `delivery_evidence`.
 
     A frame is audible when its sound hash is not the hash of silence for its number of samples."""
-    silence = {}
     for line in trace.read_text(encoding='ascii').splitlines():
         fields = line.split(',')
         if len(fields) != 7 or not fields[0].isdigit():   # the first line names the columns
             continue
         frame, image, sound, samples = int(fields[0]), fields[4], fields[5], int(fields[6])
-        if samples not in silence:
-            silence[samples] = f'{silent_sound_hash(samples):016x}'
-        yield FrameRow(frame, image, sound=sound, audible=sound != silence[samples])
+        yield FrameRow(frame, image, sound=sound, audible=sound != silent_hash(samples))
 
 
 def route_liveness(trace: Path) -> dict:

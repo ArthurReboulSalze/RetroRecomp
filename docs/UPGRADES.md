@@ -102,6 +102,13 @@ From 1.6.8, `core.follow_pin` brings both checkouts to their pins through the sh
 What a game does is unchanged: the pins themselves do not move, and a library already at the pins runs the same commands as
 before plus the edit check. `tests/test_dependency_pins.py` covers each case with local repositories (no network).
 
+*Review retouches (1.6.8, structure only).* The hash of a silent sound frame is now read in one place: `delivery_evidence.silent_hash`
+(per number of samples, the Neo Geo and the CPS-1) and `silent_hashes` (every even count, the Super Nintendo), instead of three
+readings of the same multiplies; the sets are the same as before (checked value for value). The DSP-1 and CX4 adaptations of the
+Super Nintendo find their pinned text through `snes_chips.anchor`, so a moved text refuses the conversion with its message instead
+of a Python error. Game stamps that move: every console (`delivery_evidence`), already moving with the pins above; what a game
+does is unchanged.
+
 ## Game Boy: the state after the boot ROM, the serial clock phase and the sound unit (1.6.8, gates G10 and G11)
 
 The public test ROMs ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)) showed where the runtime differs from the console right after the boot ROM and in the sound unit.

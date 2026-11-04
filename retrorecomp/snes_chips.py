@@ -3,6 +3,15 @@ from .cartridge16 import snes_header
 from .core import ConversionError
 from .snes_timing import replace
 
+
+def anchor(source, text, start=0):
+    """The position of a pinned text, like `str.index`, but a moved text refuses the conversion instead of raising ValueError."""
+    position = source.find(text, start)
+    if position < 0:
+        raise ConversionError('Pinned SNES coprocessor source changed; refusing an ambiguous patch.')
+    return position
+
+
 # Super FX (MARIO chip, GSU-1, GSU-2) boards: map $20, cartridge type $13-$15 or
 # $1A. The GSU itself runs on the pinned engine's counted instruction core.
 SUPERFX_TYPES=(0x13,0x14,0x15,0x1a)
@@ -115,8 +124,8 @@ def cart_header(source):
 
 
 def loader(source):
-    start=source.index('  bool has_smk_title =')
-    end=source.index('  if (has_smk_dsp1_map)',start)
+    start=anchor(source,'  bool has_smk_title =')
+    end=anchor(source,'  if (has_smk_dsp1_map)',start)
     return source[:start]+'''  bool has_smk_dsp1_hirom = has_nec_dsp && headers[used].speed==3 &&
       headers[used].type==1 && (headers[used].chips==3 || headers[used].chips==5);
 '''+source[end:]
@@ -170,8 +179,8 @@ def cart(source):
 def dsp1(source):
     # The search for a firmware file is never compiled: the model needs none (the project selects the engine's HLE build, see
     # `SNESRECOMP_DSP1_IMPL` in console16). What is left of the function is the HLE branch of the pinned text, then `return 0`.
-    start=source.index('  const char *env = getenv("SNESRECOMP_DSP1_ROM");',source.index('int dsp1_load_firmware('))
-    end=source.index('  return 0;\n}\n',start)
+    start=anchor(source,'  const char *env = getenv("SNESRECOMP_DSP1_ROM");',anchor(source,'int dsp1_load_firmware('))
+    end=anchor(source,'  return 0;\n}\n',start)
     source=source[:start]+source[end:]
     source=replace(source,'  sli->func(sli, &d->hle, sizeof(d->hle));',
         '  sli->func(sli, &d->hle, sizeof(d->hle));\n  sli->func(sli,&d->last_master,sizeof d->last_master);')
@@ -196,8 +205,8 @@ def dsp1(source):
 
 
 def cx4(source):
-    start=source.index('  char buf[1024];',source.index('int cx4_load_firmware('))
-    end=source.index('  return 1;\n}',start)
+    start=anchor(source,'  char buf[1024];',anchor(source,'int cx4_load_firmware('))
+    end=anchor(source,'  return 1;\n}',start)
     source=source[:start]+source[end:]
     return '#include "retro_snes_game.h"\n'+replace(source,'kSnesMasterHz = 21477272,',
         'kSnesMasterHz = RR_SN_PAL ? 21281370 : 21477272,')
@@ -210,8 +219,8 @@ def dsp1_model(source):
         '  command=rr_dsp1_command(command);\n  uint8_t expected_inputs;\n  uint8_t expected_outputs;')
     source=replace(source,'bool dsp1_hle_execute_state(',
         '#include "snes_dsp1_projection.inc"\n\nbool dsp1_hle_execute_state(')
-    start=source.index('    case 0x02: {',source.index('bool dsp1_hle_execute_state('))
-    end=source.index('    case 0x06: {',start)
+    start=anchor(source,'    case 0x02: {',anchor(source,'bool dsp1_hle_execute_state('))
+    end=anchor(source,'    case 0x06: {',start)
     source=source[:start]+'''    case 0x02: {
       if(!rr_dsp1_projection(state,input,output))return false;
       break;

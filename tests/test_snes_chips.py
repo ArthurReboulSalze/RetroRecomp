@@ -249,3 +249,12 @@ class ExHiRomTests(unittest.TestCase):
         adapted = adapt_loader(self.PINNED_LOADER.read_text(encoding='utf-8'))
         self.assertEqual(adapted.count('readHeader(data, length, 0x40ffc0, &headers[2]);'), 1)
         self.assertLess(adapted.index('#if RR_SN_EXHIROM'), adapted.index('used=RR_SN_HIROM ? 2 : 0;'))
+
+
+class CoprocessorAnchorTests(unittest.TestCase):
+    def test_a_moved_pinned_text_refuses_the_conversion(self):
+        from retrorecomp import snes_chips
+        self.assertEqual(snes_chips.anchor('ab\ncd\n', 'cd'), 3)
+        for adapt in (snes_chips.dsp1, snes_chips.cx4, snes_chips.dsp1_model):
+            with self.assertRaises(ConversionError):
+                adapt('int unrelated(void) { return 0; }\n')

@@ -15,7 +15,9 @@ differed: the final state (registers or memory), the clocks (the total of an ins
 or clock position of the transactions). `tests/fixtures/m68k-groups/deviations.json` is the list of what is known to differ, per
 group and per kind; the replay fails when a group differs that is not listed, when a count changes in either direction (a fix has
 to shrink the list, a regression is refused), or when the native steps and the reference path do not fail on the same vectors.
-`--record` writes the observed counts to that file; the causes are written by hand in docs/CPU_68000.md.
+`--record` writes the observed counts to that file; the causes are written by hand in docs/CPU_68000.md. With `RR_MD_COLLECT_TX`
+also set in the environment, the harness prints under each failure the ordered bus transactions of the vector and of the run
+(`kind@clock:address=data`), to read a bus difference by hand; nothing else changes.
 
 What it shows and what it does not: CPU behaviour of the native steps and of the reference interpreter against an oracle neither was
 written from. It shows nothing of the Mega Drive bus, of hardware fidelity (the oracle is MAME) or of gameplay.

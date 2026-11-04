@@ -57,6 +57,7 @@ refused, as before.
 """
 from __future__ import annotations
 
+from functools import cache
 from pathlib import Path
 import shutil
 from typing import Any, Callable, Hashable, Iterable, Mapping, NamedTuple
@@ -90,6 +91,24 @@ def silent_sound_hash(samples: int) -> int:
     for _ in range(samples):
         value = (value * FNV_PRIME) & FNV_MASK
     return value
+
+
+@cache
+def silent_hash(samples: int) -> str:
+    """`silent_sound_hash` as a trace writes it (16 hex digits), computed once per number of samples."""
+    return f'{silent_sound_hash(samples):016x}'
+
+
+@cache
+def silent_hashes(max_samples: int, step: int = 1) -> frozenset:
+    """The trace form of the silence hash for 0, `step`, 2 * `step` ... up to `max_samples` samples, for a trace that does not
+    record how many samples a frame carried (Super Nintendo). The multiplies are taken once in a row."""
+    value, hashes = FNV_BASIS, set()
+    for samples in range(max_samples + 1):
+        if samples % step == 0:
+            hashes.add(f'{value:016x}')
+        value = (value * FNV_PRIME) & FNV_MASK
+    return frozenset(hashes)
 
 
 def liveness_summary(rows: Iterable[FrameRow]) -> dict:
