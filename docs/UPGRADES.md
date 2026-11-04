@@ -165,9 +165,16 @@ prefetch switches on four mnemonics (`rr_pf_refetch_idle`). The lead measures th
   The exception is the play route of Shinobi III (PAL): the two runs equal each other up to frame 1,096, then at the end of frame 1,097 the 68000 of the new
   tree stands five instructions further (PC `$1924` against `$1912`, Z flag different), the picture hash of that frame is still equal, and the sound and
   the later pictures differ. Both addresses are in the same straight-line routine of the ROM (it reads script bytes with `(A5)+` and writes the fields of
-  an object: `MOVE.B D0,$10(A0)` at `$1912`, `MOVE.W (A5)+,$12(A0)` at `$1924`, then `RTS`), so neither run is polling anything there: the frame boundary
-  falls five instructions later, which points to a bus wait earlier in the frame that came out shorter or longer (a VDP, Z80 or I/O access that fell on the
-  other side of a window), not proved. Which access, and in which frame earlier than 1,097, is not identified: the trace has one line per frame. The interpreted counts of this campaign are **not**
+  an object), so neither run is polling anything there. The cause was traced with every 68000 bus access and every instruction retirement of frame 1,097
+  logged on both trees (kept builds with a log added in their private copy of the glue, rebuilt and run with `--frames 1200 --play`; nothing of it is in the
+  repository): (1) the 68000 and the Z80 meet at the scheduler's rendezvous, a budget of a few clocks set by the Z80's timeline; the old tree yields at the
+  access to `$14D4` at clock 92 and the Z80's last instruction overshoots by 5 clocks, the new tree yields elsewhere (clocks 88, 115, 123, 127), because the
+  corrected layout moved the 68000's accesses by a few clocks, so the same instructions fall on the other side of a rendezvous; (2) from the fifth
+  instruction of the frame the two timelines differ by 5 to 13 clocks (the new tree earlier by 13 at `$0520`); (3) the vertical-blank interrupt, asserted at the
+  same absolute clock, is accepted at the next instruction boundary: the old tree takes it after the instruction at `$0520` (vector read of `$78` at clock
+  109,578), the new tree runs the loop `$0512`-`$0522` once more and takes it 5 clocks later, so the frame ends five instructions apart. It is the
+  arbitration approximation between the two processors that already made BUSACK dating a limit (the rendezvous is not the hardware's cycle-exact bus
+  sharing), not a poll of the VDP, the horizontal-vertical counter or the Z80 bus request. The interpreted counts of this campaign are **not**
   comparable with 1.6.7's: the 1.6.8 tree started with an empty private library, so the quick check had no learned variants of RAM code (OutRun
   171,603 and 126,569 interpreted instructions, Contra play 52,785, Sonic 2's Z80 8,604 and 8,346, Sonic 3 two); OutRun converted again with a
   standard scan and no shared base reaches 0 interpreted in its second pass (2.9 and 3.0 million in the first), as any discovery does.
