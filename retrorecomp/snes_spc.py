@@ -132,11 +132,29 @@ def corrected(source):
     different quotient, remainder and flags whenever Y >= X (24 of the 128 sampled cases of SingleStepTests/spc700). Written
     from the public descriptions of the divider (anomie's SPC700 document, fullsnes, bsnes), checked against the vectors. X = 0
     gives the divider's own answer: Y >= X, so the second formula, with 256 - 0 as the divisor. Idempotent."""
-    if 'hardware division' in source:
-        return source
-    if source.count(DIVISION) != 1:
-        raise ConversionError('Pinned SPC700 division changed.')
-    return source.replace(DIVISION, HARDWARE_DIVISION, 1)
+    if 'hardware division' not in source:
+        if source.count(DIVISION) != 1:
+            raise ConversionError('Pinned SPC700 division changed.')
+        source = source.replace(DIVISION, HARDWARE_DIVISION, 1)
+    return interrupt_flag_cycles(source)
+
+
+def interrupt_flag_cycles(source):
+    """EI and DI take 3 cycles (the pinned table gives them 2); the vectors of SingleStepTests/spc700 and the chip's own
+    timing agree. Only these two entries of the table change; a table that holds another value there is refused. Idempotent."""
+    head, table_start = 'static const int cyclesPerOpcode[256] = {', None
+    if source.count(head) != 1:
+        raise ConversionError('Pinned SPC700 cycle table changed.')
+    table_start = source.index(head) + len(head)
+    table_end = source.index('};', table_start)
+    values = [value.strip() for value in source[table_start:table_end].split(',')]
+    if len(values) != 256:
+        raise ConversionError('Pinned SPC700 cycle table changed.')
+    for opcode in (0xa0, 0xc0):
+        if values[opcode] not in ('2', '3'):
+            raise ConversionError('Pinned SPC700 cycle table changed.')
+        values[opcode] = '3'
+    return source[:table_start] + ', '.join(values) + source[table_end:]
 
 
 def operation_bodies(source):
