@@ -4,7 +4,7 @@ The rules themselves are replayed against independent vectors by tools/megadrive
 from pathlib import Path
 import unittest
 
-from retrorecomp import m68000, megadrive_rules
+from retrorecomp import m68000, megadrive_bus_rules, megadrive_rules
 from retrorecomp.core import ConversionError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,10 +17,11 @@ class InstructionRulesTests(unittest.TestCase):
     def setUpClass(cls):
         cls.raw = PINNED.read_text(encoding='utf-8')
         cls.shared = m68000.adapt_semantics(cls.raw)
-        cls.adapted = megadrive_rules.adapt_instruction_rules(cls.shared)
+        cls.rules_only = megadrive_rules.adapt_instruction_rules(cls.shared)
+        cls.adapted = megadrive_bus_rules.adapt_bus_order_rules(cls.rules_only)
 
     def test_every_rule_replaces_exactly_one_pinned_line(self):
-        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_rules.BUS_ORDER_RULES,
+        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_bus_rules.BUS_ORDER_RULES,
                          *megadrive_rules.CLOCK_RULES):
             self.assertEqual(self.shared.count(old), 1, old.splitlines()[0])
             self.assertEqual(self.adapted.count(new), 1, new.splitlines()[0])
