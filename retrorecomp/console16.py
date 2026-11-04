@@ -1005,7 +1005,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         # What the Super Nintendo's conversion does not claim (gate G15): read back by the common `honesty` block.
         **({'qualification_scope': {
             'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
-            'devices': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
+            'coprocessors': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
             'universal_zero_fallback_claim': False}} if system_id == 'snes' else {}),
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
