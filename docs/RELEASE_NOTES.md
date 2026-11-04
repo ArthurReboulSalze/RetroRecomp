@@ -79,8 +79,19 @@
   that no independent CPU oracle backs the reference. A Linux build gives the same
   per-frame traces as Windows on four games and twelve routes. Quick states of
   1.6.7 are refused cleanly on the Super Nintendo.
-- **Sharp X68000 (experimental).** [TODO: texte du spécialiste à insérer : cause
-  du +5 % de coût par image de R-Type en 1.6.7]
+- **Sharp X68000 (experimental).** The 5 % that R-Type cost more in 1.6.7 comes
+  from the colour correction of that release: the conversion of the picture to
+  32-bit pixels, which until 1.6.6 lived in the window kit and so never ran in a
+  headless run, moved into the machine and ran on every frame, even when nothing
+  reads the picture (65,536 pixels a frame on R-Type). The machine now converts
+  only when the host reads the picture (libretro's video-enabled bit; the
+  reference host answers from what it does with it: a trace, a report, a capture
+  or a window). Counted on R-Type over 900 frames: 0 frames converted without a
+  report, 899 with one; a state saved at frame 800 is the same file either way,
+  and the hashes of a conversion of R-Type and of Bubble Bobble are unchanged. In a
+  window nothing changes for the player. **The gain is not measured yet**; the
+  measurement on a quiet PC comes before the release. Quick states of 1.6.7 are
+  refused cleanly on the X68000.
 
 **Speed.** The Secret of Mana cost of 1.6.7 (1.04 against 1.6.6) is expected to
 fall with the Super Nintendo change above; no frame cost of 1.6.8 is measured
@@ -96,8 +107,8 @@ counted and shown per CPU wherever it is used.
 (the library fix is in the shared `core`) and no host or build stamp, so every
 export of 1.6.7 is rebuilt once on its next conversion; a game the shared base
 knows still starts from its qualified paths with the quick check. F8/F9 quick
-states written by 1.6.7 are refused cleanly, with a message, on the Mega Drive
-and the Super Nintendo, where the state's key moved (nothing is lost but that
+states written by 1.6.7 are refused cleanly, with a message, on the Mega Drive,
+the Super Nintendo and the Sharp X68000, where the state's key moved (nothing is lost but that
 state); the other consoles keep theirs. Cartridge saves (battery SRAM, EEPROM,
 memory cards) are kept; a save the new export cannot use is set aside and never
 crashes or blocks the game. Exports older than 1.6.7 are converted in full. The
