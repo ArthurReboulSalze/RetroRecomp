@@ -79,6 +79,30 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.6.7 in 1.6.8
+
+1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section
+below, with the stamps that section says move. Each section computed its stamps for its own change alone; the totals are under the table.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Lead: the engine sources and SDL follow their pins in an older library](#lead-the-engine-sources-and-sdl-follow-their-pins-in-an-older-library-168) (with the review retouches at its end) | all nine consoles (`core.py`, `delivery_evidence.py`) | none | no key moves |
+| [Game Boy: the state after the boot ROM, the serial clock phase and the sound unit](#game-boy-the-state-after-the-boot-rom-the-serial-clock-phase-and-the-sound-unit-168-gates-g10-and-g11) | Game Boy | none | no key (the Game Boy has none) |
+| [Sharp X68000: the picture is converted only when the host reads it](#sharp-x68000-the-picture-is-converted-only-when-the-host-reads-it-168-frame-cost) | Sharp X68000 | none | **`RR_X68K_STATE_ABI` moves**: states of 1.6.7 refused |
+| [Super Nintendo: the ROM address without a division, the 65816 stack pages, the SPC700 EI and DI, the evidence](#super-nintendo-the-rom-address-without-a-division-the-65816-stack-pages-the-spc700-ei-and-di-the-evidence-168) | Super Nintendo, Mega Drive, Neo Geo, CPS-1 (`console16.py`) | none | **the Super Nintendo and Mega Drive keys move** (the snesrecomp pin): states of 1.6.7 refused |
+| [Mega Drive: the bus layout of the 68000 follows the independent vectors, and the Z80 hash of the report is portable](#mega-drive-the-bus-layout-of-the-68000-follows-the-independent-vectors-and-the-z80-hash-of-the-report-is-portable-168) | Mega Drive (and the X68000 and CPS-1, with no change of behaviour for them) | none | **the Mega Drive key moves**: states of 1.6.7 refused |
+| Notices: the SameBoy palette tables of the Game Boy runtime, and the machines no longer called experimental in the notices | none | **host stamp of every console** (`THIRD_PARTY_NOTICES.md` and the licence pages are host inputs) | none |
+
+Taken together (`compilation_inputs.role_stamps` of the nine consoles, the tree of `v1.6.7` against the tree of this release, computed on
+4 November 2026): **the game stamp and the host stamp of every console move; no build stamp moves.** `LEGACY_GAME_STAMPS` stays empty, as in
+every release since 1.6.4: the pins section changes `core.py`, which every game stamp hashes, and proving that a console's games come out
+the same from it would take a real receipt per console. So every export of 1.6.7 is converted again from its paths when it is upgraded.
+
+**Quick states.** The keys move for **the Mega Drive, the Super Nintendo and the X68000**: a quick state written by a 1.6.7 export is refused
+cleanly there (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the Neo Geo, the
+CPS-1 and the NES do not move (the files they hash did not change), so their 1.6.7 quick states load. The Master System, the Game Gear and the
+Game Boy have no key of this kind. **Cartridge saves** are kept on every console.
+
 ## Lead: the engine sources and SDL follow their pins in an older library (1.6.8)
 
 Every conversion of every console first prepares the shared pieces in `.deps` (`core.dependencies()`): the Master System and
@@ -268,7 +292,7 @@ behind a build selection (fused ROM reads, fused DSP mixing, APU spans, HD Mode 
 (the last picture of each route, gate G9), `tools/snes_game_saves_check.py` (the battery save of a delivered game across three processes,
 gate G7). `tools/snes_cpu_vector_selftest.py` takes the larger sample with `--samples 256`.
 
-## Mega Drive: the bus layout of the 68000 follows the independent vectors, and the Z80 hash of the report is portable (1.6.8, in development)
+## Mega Drive: the bus layout of the 68000 follows the independent vectors, and the Z80 hash of the report is portable (1.6.8)
 
 The 452 vectors of `tests/fixtures/m68k-groups` that still differed from the Mega Drive after 1.6.7 (the total of clocks was right, the
 layout of the bus transactions was not, [CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) are corrected: **2,873 of 2,895
