@@ -73,17 +73,17 @@ shipped; you supply your own IPL and font ROM.
 | xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
 | SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |
-| arcanite24/gb-recompiled (Game Boy compiler and generated runtime) | MIT; copyright arcanite24 | [Full text](licenses/gb-recompiled.md) |
+| arcanite24/gb-recompiled (Game Boy compiler and generated runtime; its colour compatibility palette tables come from SameBoy) | MIT; copyright arcanite24. SameBoy tables: Expat (MIT); copyright Lior Halphon | [Full text](licenses/gb-recompiled.md) |
 | Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
 | mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |
 | emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
-| segagenesisrecomp and m68k-recomp-core (experimental Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
-| RetroPortingToolKit/snesrecomp (experimental SNES) | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences | [Notices](licenses/snesrecomp.md) |
-| Geolith (experimental Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
+| segagenesisrecomp and m68k-recomp-core (Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
+| RetroPortingToolKit/snesrecomp (Super Nintendo) | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences | [Notices](licenses/snesrecomp.md) |
+| Geolith (Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
 | lithogen and the ROM-free Neo Geo layout catalogue | BSD-3-Clause; Rupert Carmichael and attributed MAME contributors | [Full text and attribution](licenses/lithogen.md) |
 | Musashi MC680x0 core (Geolith copy; Neo Geo and X68000) | MIT, Karl Stenerud; `m68kmmu.h` BSD-3-Clause | [Full text](licenses/musashi.md) |
 | Sharp X68000 machine (hissorii/px68k `74ddbb3`; experimental, fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
-| Capcom CPS-1 board catalogue, DIP switches and machine runtime (experimental; adapted from MAME's CPS-1 driver and OKI MSM6295 at `61a2229`) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner and MAME contributors | [Full text](licenses/cps1-machine.md) |
+| Capcom CPS-1 board catalogue, DIP switches and machine runtime (adapted from MAME's CPS-1 driver and OKI MSM6295 at `61a2229`) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner and MAME contributors | [Full text](licenses/cps1-machine.md) |
 | ymfm YM2151 (OPM) in the CPS-1 runtime | BSD-3-Clause; Aaron Giles | [Full text](licenses/cps1-ymfm.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
@@ -93,7 +93,7 @@ not automatically covered by the root MIT license and are not distributed here.
 
 ## Packaged Windows converter
 
-The experimental Neo Geo converter profile and developer tool use
+The Neo Geo converter profile and developer tool use
 [Geolith](https://github.com/libretro/geolith-libretro/tree/2dc88e3fa72ff404213a65d6eb5bb33baa687f73)
 and [lithogen](https://github.com/carmiker/lithogen/tree/ef0f9bd94e31689def44b49e0f8351e0206b622d).
 Their BSD-3-Clause notices, Musashi/Z80/miniz MIT notices, YMFM/Speex notices,

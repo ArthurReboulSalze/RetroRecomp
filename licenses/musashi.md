@@ -2,7 +2,7 @@
 
 Used through the Geolith copy pinned at
 [`2dc88e3fa72ff404213a65d6eb5bb33baa687f73`](https://github.com/libretro/geolith-libretro/tree/2dc88e3fa72ff404213a65d6eb5bb33baa687f73/src/m68k)
-by the Neo Geo, Capcom CPS-1 (experimental) and Sharp X68000 (experimental) runtimes. Retro-Recomp
+by the Neo Geo, Capcom CPS-1 and Sharp X68000 (experimental) runtimes. Retro-Recomp
 supplies its own `m68kconf.h` for the X68000 (MC68000 only, interrupt acknowledge, trace and
 address errors). Notices reproduced from the source headers.
 
