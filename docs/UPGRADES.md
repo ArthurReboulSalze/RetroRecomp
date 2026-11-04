@@ -149,13 +149,13 @@ their four routes (boot, two play runs and the pseudo-random route of 18,000 fra
 | Final Fantasy Legend II | 0 | 0 / 0 / 0 / 0 | 20,448 |
 | Link's Awakening | 0 | 0 / 0 / 0 / 0 | 2,373 |
 | Mega Man V | 3 | 4 / 0 / 4 / 0 | 0 |
-| Metroid II | 0 | 3 / 0 / 0 / 0 | 166 |
+| Metroid II | 0 | 3 / 0 / 2 / 0 | 166 |
 | Pokémon Red | 0 | 0 / 0 / 0 / 0 | 4,334 |
 | Pokémon Yellow | 4 | 0 / 0 / 0 / 0 | 1,257 |
 | Super Mario Land | 1 | 0 / 0 / 0 / 0 | 453 |
-| Tetris | 0 | 3 / 0 / 3 / 0 | 16,948 |
+| Tetris | 0 | 3 / 0 / 3 / 0 | 17,021 |
 | The Ren & Stimpy Show: Veediots! | 2 | 4 / 0 / 4 / 4 | 0 |
-| Wario Land II | 0 | 4 / 0 / 4 / 0 | 0 |
+| Wario Land II | 0 | 4 / 0 / 4 / 4 | 0 |
 
 The routes are the boot, the two play runs and the pseudo-random route of 18,000 frames of each conversion (quick level, an empty library); with the sound rules alone the picture, the work RAM and the program counter are equal to 1.6.7 on every route of every game. Final Fantasy Legend II shows another picture on nearly every frame (its title and menus animate on the timing); this was not looked at screen by screen.
 
