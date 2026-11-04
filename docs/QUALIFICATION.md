@@ -91,7 +91,7 @@ x68 = Sharp X68000.
   that state they are C models, with `hardware_fidelity_validated: false` (like the NES, with no counter for a device that runs no program); G3 no interpreter instruction on any final route of the twelve
   games, the writable code run one by one listed per game (Wario Land II 925,868 instructions, the others 0 to 77,317), the native count and the fallback percentage stay unknown; G4 the CPU,
   memory, picture and sound of native code and interpreter equal over every route of the twelve games at the extended level (the long route over its first 3,600 of 18,000 frames) and, since 1.6.8, on the
-  152 test ROMs frame by frame; G15 the audit of 3 November repeated on every public line that names the machine (README, documents, eight interface languages, converter strings), no claim of exactness,
+  151 of the 152 test ROMs frame by frame plus one documented divergence (`oam_bug` 7, first version, at step 6,717,022); G15 the audit of 3 November repeated on every public line that names the machine (README, documents, eight interface languages, converter strings), no claim of exactness,
   zero latency or hardware fidelity found. Limits: G4 is agreement of two executions of the same machine model, not an independent oracle (G10 is); the long route is compared on its first 3,600 frames;
   the audit is a search of the words of exactness, accuracy and completeness with the matches read, not a reading of every page. **G11** stays `P`: Mooneye passes 94 of 94 applicable tests since 1.6.8 (the state
   after the boot ROM now matches the DMG ABC) and `dmg_sound` 18 of 24, but the three wave-channel tests of each version fail, `oam_bug` `7-timing_effect` gives no verdict and no hardware capture was made.

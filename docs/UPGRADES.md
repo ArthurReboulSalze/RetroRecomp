@@ -109,8 +109,10 @@ Four corrections, all `replace_once` patches of the private generated project (a
 
 - **The sound unit starts where the boot ROM leaves it** (`gameboy_hardware.adapt_post_boot_apu`): channel 1 is on at volume 0 with the 64 of the length counter the boot ROM's note wrote, so `$FF26` reads
   `$F1` (it read `$F0`). The mix is unchanged: the channel is silent.
-- **The LCD starts at line 0** (`gameboy_runtime.adapt_boot_ppu_phase`): the pinned reset has the LCD where the first revision of the console leaves it, at line 145; the common revision (DMG ABC) is at line 0,
-  4,104 dots later. In a DMG without boot ROM the PPU is stepped by those 4,104 dots after its reset (no vertical-blank edge is crossed).
+- **The LCD starts where the common console leaves it** (`gameboy_runtime.adapt_boot_ppu_phase`): the pinned reset has the LCD where the first revision of the console leaves it, at line 145; the common revision
+  (DMG ABC) leaves it in vertical blank with LY already reading 0 (STAT `$85`), late in line 153. Mooneye's `boot_hwio` accepts a window of phases (it passes at the steps tried from 3,950 to 4,108 dots after the reset and fails
+  at 3,900 and below and at 4,150 and above); the PPU is stepped by 4,096 dots after its reset in a DMG without boot ROM (line 153, dot 452, mode 1, LY reading 0; no vertical-blank edge is crossed). The exact dot within
+  the window is not measured. Only the PPU is stepped, the divider keeps its value: the phase between DIV and the PPU is not tested.
 - **A serial transfer with the internal clock ends on the phase of the divider** (`gameboy_runtime.adapt_serial_phase`): the first bit comes at the next falling edge of bit 8 of the divider, not 4,096 dots after the start.
 - **Rules of the sound unit** (`gameboy_hardware.adapt_power_off`, `adapt_length_clock`, `adapt_sweep_calculation`): the power switch of `$FF26` keeps the wave RAM and the length counters, and the length part of
   NR11, NR21, NR31 and NR41 is writable while the unit is off; enabling a length in the first half of a length period clocks it once and a trigger of an empty counter loads one less; a sweep with a shift of 0 still
@@ -122,7 +124,7 @@ Four corrections, all `replace_once` patches of the private generated project (a
 channel read, trigger and write while it plays) still fail.
 
 *Hot path: not touched.* The generated code and the per-sample mix are unchanged. The serial rule runs when a transfer starts, the PPU rule once at reset, the sound rules on writes to the
-power switch, NR10, NRx1 and NRx4 and on the 128 Hz sweep clock. No timing was taken.
+power switch, NR10, NRx1 and NRx4 and on the 128 Hz sweep clock. Channel 1 is enabled from the reset, so its timer and its 64 Hz envelope step from frame 0 (a contribution of 0 at volume 0). No timing was taken.
 
 | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- |
@@ -133,7 +135,7 @@ their four routes (boot, two play runs and the pseudo-random route of 18,000 fra
 
 - **The sound rules alone change no picture, no work RAM and no program counter on any frame of the 48 routes**; the sound hash of the frame differs on ten of the twelve games (not on Contra or Pokémon Yellow),
   probably from the phase of channel 1, which now runs from the boot ROM on, and where a length edge case occurs. This was not heard against a console.
-- **A behaviour change, decided on 4 November 2026: the LCD starts at line 0, the console's real start (the DMG ABC, confirmed by `boot_hwio`).** The game starts nine lines later in the frame. A game of 1.6.7 that is converted
+- **A behaviour change, decided on 4 November 2026: the LCD starts where the common console leaves it (the DMG ABC, LY reading 0 in vertical blank, confirmed by `boot_hwio`).** The game starts 4,096 dots (nine lines) later in the frame. A game of 1.6.7 that is converted
   again **no longer replays frame for frame what it did**: the program counter and the work RAM at the end of a frame differ from the first frames on most games (table below), and what depends on the timing follows
   (Tetris deals other pieces on its long route; animations and random numbers elsewhere). All twelve stay alive: the number of different pictures per route stays within a few percent except Metroid II's boot route and
   the long routes of Final Fantasy Legend II, Pokémon Red and Tetris, which show more because the game reaches other screens. Same policy as the corrections found by the independent vectors.
