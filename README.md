@@ -75,6 +75,26 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
 
+<!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->
+
+**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a partial one),
+drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five measures, and it never
+decides a status: leaving the experimental status is the owner's own decision.
+
+| Console | Status | Qualification progress |
+| --- | --- | --- |
+| Master System | supported | `██████░░░░` 63 % |
+| Game Gear | supported | `██████░░░░` 60 % |
+| Game Boy | supported | `█████████░` 91 % |
+| Nintendo NES | supported | `█████████░` 91 % |
+| Mega Drive | supported | `████████░░` 84 % |
+| Super Nintendo | supported | `█████████░` 88 % |
+| Neo Geo | supported | `█████████░` 94 % |
+| Capcom CPS-1 | supported | `█████████░` 90 % |
+| Sharp X68000 | experimental | `█████████░` 90 % |
+
+<!-- qualification-gauges:end -->
+
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
