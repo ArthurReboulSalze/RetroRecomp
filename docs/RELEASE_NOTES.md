@@ -105,9 +105,18 @@ start-state corrections; none of them is a measure of hardware fidelity,
 gameplay validation or physical latency, and the interpreter fallback is still
 counted and shown per CPU wherever it is used.
 
+**Documentation and notices.** The qualification matrix reads with symbols, and
+a progress bar per console (the share of the gates met, approximate and not a
+quality score) sits in [QUALIFICATION.md](QUALIFICATION.md) and the README,
+written from the matrix by a tool and checked by a test. The notices now credit
+SameBoy (Expat licence, Lior Halphon) for the colour compatibility palette
+tables of the Game Boy runtime, which every Game Boy export carries, and no
+longer call the Mega Drive, Super Nintendo, Neo Geo and CPS-1 experimental.
+
 **Your exports and quick states.** 1.6.8 moves the game stamp of every console
-(the library fix is in the shared `core`) and no host or build stamp, so every
-export of 1.6.7 is rebuilt once on its next conversion; a game the shared base
+(the library fix is in the shared `core`) and the host stamp of every console
+(the notices), no build stamp, so every export of 1.6.7 is rebuilt once on its
+next conversion; a game the shared base
 knows still starts from its qualified paths with the quick check. F8/F9 quick
 states written by 1.6.7 are refused cleanly, with a message, on the Mega Drive,
 the Super Nintendo and the Sharp X68000, where the state's key moved (nothing is lost but that
