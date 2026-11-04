@@ -178,7 +178,7 @@ of both). Found by reading and counting, nothing timed. R-Type draws 256 x 256 p
 in this way: until 1.6.6 the core handed its RGB565 buffer to the host as it was, and the conversion to the window's pixels lived in the window kit
 (`player_picture`, only reached when a window is open). 1.6.7 moved the work into the core: every frame, `convert_frame` reads the machine's 16-bit
 colour word of each pixel, looks it up in a 65,536-entry table and writes a 32-bit pixel, whatever the host does with the picture. A headless run
-(the benchmark, the conversion's own routes without a report, a user's `--headless`) reads nothing, so it paid 65,536 lookups, loads and stores a frame
+(the benchmark, a user's `--headless`) reads nothing, so it paid 65,536 lookups, loads and stores a frame
 for no one: about one cycle a pixel is 22 microseconds on a 3 GHz core, which is the size of the +28 microseconds measured, the rest being the 256 KB
 table and the 256 KB of 32-bit pixels competing for the cache with the emulation. The other candidates were read and eliminated by count: the
 Musashi corrections touch only the overflow path of `DIVU` and `DIVS`, `CHK`, `LINK A7` and the opcodes `F620`-`F627`; the shared state rules touch
@@ -190,8 +190,8 @@ The reference host, which is also the host of a window, answers from what it doe
 keeps it; a headless run with none of these does not read it, and the core hands it the last converted picture again. The machine, its state,
 its sound and every hash are untouched. A host that does not answer is treated as wanting the picture. A saved state redraws through the full
 conversion whatever the answer (`rr_x68k_framebuffer`). In a window nothing changes for the player: the conversion still runs each frame, and it is
-**not more expensive than in 1.6.6**, where the kit converted the same pixels with three multiplications and divisions each; now a table lookup in the core and
-a plain copy in the kit.
+expected not to be more expensive than in 1.6.6 (a table lookup in the core and a plain copy in the kit, against three multiplications and divisions per pixel in
+the kit), not timed. In a window in fast forward the core converts every frame while the kit reads one in eight: that is outside the measured path, left as it is.
 
 **Proof.** (1) Counted, not timed: a build of this tree with a counter in `present_frame` (not kept) ran R-Type for 900 frames. Headless with no report,
 as the benchmark runs it: 0 frames converted, 899 skipped. Headless with `--report`: 899 frames converted (138,870,784 pixels, the start-up pictures

@@ -106,6 +106,7 @@ class PresentationSourceTests(unittest.TestCase):
         self.assertIn('RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE', glue)
         self.assertRegex(glue, r'video_cb\(video_wanted\(\) \? convert_frame\(width, height\) : presented_frame,')
         self.assertIn('return mask & 1;', glue)
+        self.assertIn('return 1;', glue[glue.index('static int video_wanted'):glue.index('static void present_frame')])    # a host that does not answer wants the picture
         self.assertEqual(glue.count('convert_frame(width, height)'), 1)    # the only conversion of a presented frame
         host = Path(ROOT / 'native/x68000_reference/reference_host.c').read_text(encoding='utf-8')
         self.assertIn('case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: *(int *)data=2|((hash_video||keep_pixels)?1:0); return true;', host)
