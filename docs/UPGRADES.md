@@ -162,9 +162,12 @@ prefetch switches on four mnemonics (`rr_pf_refetch_idle`). The lead measures th
   `megadrive_exception_selftest` 864 of 864; `megadrive_cycles_selftest`, `megadrive_native_selftest`, `megadrive_timing_selftest` passed.
 - *Campaign of 11 games* (the 1.6.7 list, `batch --system md`, one conversion at a time, quick check from the base), compared with the 1.6.7 tree:
   all `supported`; the hashes of the last frame, of the sequence of frames and of the CPU/prefetch state are **identical on 21 of 22 routes**.
-  The exception is the play route of Shinobi III (PAL): the two runs equal each other up to frame 1,096, then at frame 1,097 the 68000 stands five
-  instructions apart in a wait loop (PC `$1912` against `$1924`, Z flag different), the picture hash of that frame is still equal, and the sound and
-  the later pictures differ: a timing effect of the corrected layout, not analysed further. The interpreted counts of this campaign are **not**
+  The exception is the play route of Shinobi III (PAL): the two runs equal each other up to frame 1,096, then at the end of frame 1,097 the 68000 of the new
+  tree stands five instructions further (PC `$1924` against `$1912`, Z flag different), the picture hash of that frame is still equal, and the sound and
+  the later pictures differ. Both addresses are in the same straight-line routine of the ROM (it reads script bytes with `(A5)+` and writes the fields of
+  an object: `MOVE.B D0,$10(A0)` at `$1912`, `MOVE.W (A5)+,$12(A0)` at `$1924`, then `RTS`), so neither run is polling anything there: the frame boundary
+  falls five instructions later, which points to a bus wait earlier in the frame that came out shorter or longer (a VDP, Z80 or I/O access that fell on the
+  other side of a window), not proved. Which access, and in which frame earlier than 1,097, is not identified: the trace has one line per frame. The interpreted counts of this campaign are **not**
   comparable with 1.6.7's: the 1.6.8 tree started with an empty private library, so the quick check had no learned variants of RAM code (OutRun
   171,603 and 126,569 interpreted instructions, Contra play 52,785, Sonic 2's Z80 8,604 and 8,346, Sonic 3 two); OutRun converted again with a
   standard scan and no shared base reaches 0 interpreted in its second pass (2.9 and 3.0 million in the first), as any discovery does.
