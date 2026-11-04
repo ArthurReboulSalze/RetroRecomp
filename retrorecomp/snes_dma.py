@@ -10,7 +10,8 @@ def bus(source):
     end=source.index('      break;\n    }\n    case 0x420c:',start)
     source=source[:start]+'''      rr_snes_dma_run(snes->dma,val);
 '''+source[end:]
-    source=replace(source,'''    if (check_irq && v < RR_SN_VBLANK_LINE && h < 1024u && span > 1024u - h)
+    source=replace(source,'''    if (check_irq && v < RR_SN_VBLANK_LINE && h < 1024u && span > 1024u - h &&
+        (!snes->hdmaBeamOff || snes->autoJoyTimer))
       span = 1024u - h;''','''    if(check_irq && !snes->hdmaBeamOff) {
       uint32_t edge=(v==0 && h<12u) ? 12u : 1104u;
       if(v<RR_SN_VBLANK_LINE && h<edge && span>edge-h)span=edge-h;
@@ -147,7 +148,10 @@ def frame_driver(source):
     source=replace(source,'  snes_set_hdma_beam_enabled(g_snes, false);',
         '  snes_set_hdma_beam_enabled(g_snes, true);',count=2)
     source=replace(source,'  dma_initHdma(g_snes->dma);','')
-    source=replace(source,'  dma_primeHdmaFirstLine(g_snes->dma);','')
+    # The frame model's start-of-frame HDMA slot (a prime of the first line in the pinned text, a plain line since the pre-render
+    # slot was consumed upstream): the beam-owned HDMA of this host runs it, so the call goes. The two-space anchor starts after a
+    # line break: the four-space call of the line loop below holds the same text and is removed on its own.
+    source=replace(source,'\n  dma_doHdma(g_snes->dma);','')
     source=replace(source,'    if (ppu_rasterTakeHdmaen(&hdmaen))\n      dma_startDma(g_snes->dma, hdmaen, true);','')
     source=replace(source,'    dma_doHdma(g_snes->dma);','')
     return source

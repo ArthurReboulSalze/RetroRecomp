@@ -279,16 +279,19 @@ const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc,uint8_t opcode) 
 def correct_software_interrupts(source: str) -> str:
     """Give BRK and COP the 65816 manual's stack, cycles and vector in both modes.
 
-    The pinned interpreter counts a native-mode BRK as 7 cycles (the manual says 8:
-    K is stacked, one cycle more than in emulation mode) and runs COP as if the CPU
+    The engine now counts a native-mode BRK as 8 cycles itself (the manual says 8: K is stacked, one cycle more than in
+    emulation mode; the pin before 1.6.8 said 7 and this converter corrected it) and runs COP as if the CPU
     were always in native mode (in emulation mode COP does not stack K, takes 7
     cycles and vector $FFF4, not $FFE4). The operation bodies compiled natively and
     the interpreter copy written into the project both come from this one corrected
     text, so the two stay equal. Written from the manual, not from the upstream fix.
     """
-    brk = '        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
-    source = replace_once(source, brk,
-        brk + '        if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles\n')
+    # BRK: the engine counts the native-mode cycle itself since the pin of 1.6.8 (the correction this converter carried until 1.6.7
+    # is retired: a second one would count 9). The line is required, so an engine text that lost it is refused, not patched around.
+    brk = ('        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
+           '        if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (as COP)\n')
+    if source.count(brk) != 1:
+        raise ConversionError('Pinned 65816 BRK cycle count changed.')
     return replace_once(source,
         '      interp816_readOpcode(cpu);\n'
         '      interp816_pushByte(cpu, cpu->k);\n'

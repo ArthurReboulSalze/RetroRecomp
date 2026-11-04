@@ -16,10 +16,15 @@ def bridge(source):
     source=replace(source,'    if (bridge_is_apu_port(adr)) bridge_apu_flush(cpu);',
         '    if(s_interp_bus_timing_active)rr_snes_cpu_read_begin(adr);\n'
         '    if (bridge_is_apu_port(adr)) bridge_apu_flush(cpu);')
-    source=replace(source,'    uint8_t value=cpu_read8(cpu,(uint8)((adr>>16)&0xff),(uint16)adr);',
-        '    uint8_t mdr=cpu->open_bus;\n'
-        '    uint8_t value=cpu_read8(cpu,(uint8)((adr>>16)&0xff),(uint16)adr);\n'
-        '    if((adr&0x40fc00u)==0x4000u)cpu->open_bus=mdr;\n'
+    # The pinned read is a statement of an `if (!stable_rom)` whose fused ROM path is compiled out (SNESRECOMP_INTERP_FUSED_ROM_READ
+    # is 0): the whole read, with the open-bus and timing steps around it, goes in braces. `rr_snes_cpu_read_end` ends the read on
+    # the path that took the bus and on the one that did not, as before.
+    source=replace(source,'    if (!stable_rom)\n        value=cpu_read8(cpu,(uint8)((adr>>16)&0xff),(uint16)adr);',
+        '    if (!stable_rom) {\n'
+        '        uint8_t mdr=cpu->open_bus;\n'
+        '        value=cpu_read8(cpu,(uint8)((adr>>16)&0xff),(uint16)adr);\n'
+        '        if((adr&0x40fc00u)==0x4000u)cpu->open_bus=mdr;\n'
+        '    }\n'
         '    if(s_interp_bus_timing_active)rr_snes_cpu_read_end();')
     source=replace(source,'    if (is_apu_port) bridge_apu_flush(cpu);\n'
         '    cpu_write8(cpu, (uint8)((adr >> 16) & 0xFF), (uint16)(adr & 0xFFFF), val);',

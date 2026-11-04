@@ -22,7 +22,7 @@ from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadri
 
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
-    'snes': ('RetroPortingToolKit/snesrecomp', 'a00df26a87831113fec91b9225bf16b049d40775', 'snesrecomp'),
+    'snes': ('RetroPortingToolKit/snesrecomp', 'fb8cf15d9296c59e7653e495ef38c9136546e9c1', 'snesrecomp'),
 }
 SUPPORTED_SYSTEMS = ('md', 'snes')
 # Later pseudo-random routes may continue from the saved end state of the
@@ -359,6 +359,7 @@ endif()
         prefix = staged.as_posix()
         common += f'''set(SNESRECOMP_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
 set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
+set(SNESRECOMP_DSP1_IMPL HLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")

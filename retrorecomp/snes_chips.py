@@ -168,14 +168,16 @@ def cart(source):
 
 
 def dsp1(source):
+    # The search for a firmware file is never compiled: the model needs none (the project selects the engine's HLE build, see
+    # `SNESRECOMP_DSP1_IMPL` in console16). What is left of the function is the HLE branch of the pinned text, then `return 0`.
     start=source.index('  const char *env = getenv("SNESRECOMP_DSP1_ROM");',source.index('int dsp1_load_firmware('))
-    end=source.index('  d->hle_active = 1;',start)
+    end=source.index('  return 0;\n}\n',start)
     source=source[:start]+source[end:]
     source=replace(source,'  sli->func(sli, &d->hle, sizeof(d->hle));',
         '  sli->func(sli, &d->hle, sizeof(d->hle));\n  sli->func(sli,&d->last_master,sizeof d->last_master);')
-    source=replace(source,'provide DSP-1 firmware to continue','this command is not supported by the firmware-free model')
-    source=replace(source,'[dsp1] no firmware found; using firmware-free HLE. ', '[dsp1] using the firmware-free command model. ')
-    source=replace(source,'Unverified commands stop execution and request firmware.', 'Unsupported commands stop validation.')
+    source=replace(source,'rebuild with SNESRECOMP_DSP1_IMPL=LLE and provide firmware','this command is not supported by the firmware-free model')
+    source=replace(source,'[dsp1] firmware inputs ignored by HLE build; ', '[dsp1] using the firmware-free command model. ')
+    source=replace(source,'"unverified commands stop execution.\\n"', '"Unsupported commands stop validation.\\n"')
     source=replace(source,'  d->command_count[command]++;\n  d->hle.command = command;',
         '  d->command_count[command]++;\n  command=rr_dsp1_command(command);\n  d->hle.command = command;')
     source=replace(source,'''  if (!dsp1_hle_command_shape(command, &input_words, &output_words)) {
