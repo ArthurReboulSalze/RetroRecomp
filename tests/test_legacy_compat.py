@@ -5,11 +5,11 @@ only it. The tree of 1.6.2 listed 1.6.1 and only it. The tree of 1.6.3 listed 1.
 of 1.6.4 lists NO game stamp of 1.6.3 in `LEGACY_GAME_STAMPS`: 1.6.4 is a structural release with a full reconversion of
 every console (decision of the maintainer, 29 October 2026; the release procedure of docs/COMPILATION_LIBRARY.md lists no
 console whose game the release really changes), because SDL 2.32.10 is linked into every game, the profile registry moves
-every game stamp, and six consoles change in their own way (docs/UPGRADES.md, "Exports of 1.6.3 in 1.6.4"). The 1.6.2
+every game stamp, and six consoles change in their own way (docs/UPGRADES_HISTORY.md, "Exports of 1.6.3 in 1.6.4"). The 1.6.2
 stamps are dropped. The quick-state keys of 1.6.3 are listed where the serialized bytes did not change and the key moved
 (Neo Geo only; the Mega Drive and Super Nintendo keys did not move, the CPS-1 and NES states changed: docs/GAME_STATES.md,
 "States written by release 1.6.3"). The values below are frozen: they were computed from the `v1.6.0` to `v1.6.3` tags
-(docs/UPGRADES.md; docs/GAME_STATES.md), the game, host and build stamps of 1.6.3 with Python 3.14.5 (Windows) and 3.13.5
+(docs/UPGRADES_HISTORY_OLDER.md; docs/GAME_STATES.md), the game, host and build stamps of 1.6.3 with Python 3.14.5 (Windows) and 3.13.5
 (Linux), the state keys with Python 3.14.5. The release that follows 1.6.4 replaces them with those of 1.6.4; the
 mechanisms are driven here with synthetic values as well.
 """
@@ -221,7 +221,7 @@ class LegacyStampTests(unittest.TestCase):
         for system in NINE:
             self.assertNotEqual(GAME_STAMPS_163[system], GAME_STAMPS_163_LINUX[system], system)
         for system in sorted(inputs.SYSTEMS & set(NINE)):
-            # The registry refactor and the SDL pin move the game stamp of every console (docs/UPGRADES.md).
+            # The registry refactor and the SDL pin move the game stamp of every console (docs/UPGRADES_HISTORY.md).
             current = inputs.role_stamps(system)['game']
             self.assertNotEqual(current, GAME_STAMPS_163[system], system)
             self.assertNotEqual(current, GAME_STAMPS_163_LINUX[system], system)

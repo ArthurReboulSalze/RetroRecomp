@@ -128,6 +128,6 @@ agreement, hardware fidelity, gameplay and physical latency remain separate meas
 |---|---|
 | 1.1.3 (18 Oct 2026) | Twelve cartridges qualified; shared bank from one to thirteen exact revisions |
 | 1.5.0 | Cartridge Start on Enter, menu on P |
-| 1.6.3 | Host kit move (phase 4), see [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4) |
+| 1.6.3 | Host kit move (phase 4), see [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4) |
 | 1.6.4 | "Functions" engine fixes; Factory Panic converts with it |
 | 1.6.5 (in preparation) | F5 sprite flicker reduction on the Game Gear, off by default |

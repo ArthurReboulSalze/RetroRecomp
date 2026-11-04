@@ -102,7 +102,7 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # counting, the X68000 payload paths), and the release procedure lists no console in that case. The game stamps of
 # release 1.6.3 (tag v1.6.3, commit bb2aa95; Windows with Python 3.14.5, Linux with Python 3.13.5), computed for all nine
 # consoles, are kept as evidence in docs/COMPILATION_LIBRARY.md ("Release 1.6.3 entries") and tests/test_legacy_compat.py,
-# unlisted. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.3 in 1.6.4". The X68000 would have no entry in any
+# unlisted. Evidence and limits: docs/UPGRADES_HISTORY.md, "Exports of 1.6.3 in 1.6.4". The X68000 would have no entry in any
 # case: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
 LEGACY_GAME_STAMPS: dict[str, tuple[str, ...]] = {}
 

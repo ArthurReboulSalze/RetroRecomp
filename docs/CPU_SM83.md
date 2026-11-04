@@ -153,7 +153,7 @@ defensible denominator of total cycles. The report gives the counts themselves, 
 - **CPU-side changes we carry on the pinned runtime** (CPU fidelity of the translated code only; none says anything about
   hardware fidelity, gameplay or latency):
   - writable-memory code executed one instruction at a time and counted: **1.6.4**, with the `gb` game stamp moving
-    ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-164-writable-memory-code),
+    ([UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code),
     [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164));
   - the return of generated calls and jumps to the dispatch loop (a bounded host stack for a loop of 65,535 guest
     calls): **0.22.0**, 9 October 2026; the interrupt-bracketed sprite-DMA helper: **0.23.0**, 10 October 2026; live
@@ -217,7 +217,7 @@ executors. A vector whose final value is altered by one is caught on all three p
 
 - [GAME_BOY.md](GAME_BOY.md): the machine, the host, scan levels, validation budgets and limits.
 - [GAME_BOY_LOG.md](GAME_BOY_LOG.md): the dated journal with the figures of each campaign.
-- [UPGRADES.md](UPGRADES.md#game-boy-exports-in-164-writable-memory-code): what the 1.6.4 executors change for exports and
+- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code): what the 1.6.4 executors change for exports and
   stamps.
 - [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164): the pin, the scope of the counts, and the checks.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md): how entries are kept, shared and requalified.

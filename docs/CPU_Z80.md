@@ -252,7 +252,7 @@ run.
 - [MEGADRIVE_LOG.md](MEGADRIVE_LOG.md#mega-drive-native-sound-cpu): the Mega Drive native sound CPU.
 - [NEOGEO_LOG.md](NEOGEO_LOG.md#reusing-the-existing-68000): the Neo Geo Z80 emitter and its guards.
 - [CPS1.md](CPS1.md): the CPS-1 sound CPU and its comparison with MAME.
-- [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-164-lot-f): what the 1.6.4 "functions" engine
+- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-164-lot-f): what the 1.6.4 "functions" engine
   fixes change for existing exports.
 - [UPSTREAMS.md](UPSTREAMS.md): pins, licence rule, patches carried.
 - [NEW_MACHINE.md](NEW_MACHINE.md#reuse-by-cpu) and [STANDARDS.md](STANDARDS.md): what a new Z80 machine reuses and must declare.

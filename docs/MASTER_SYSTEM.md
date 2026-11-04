@@ -107,7 +107,7 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 
 The banked engine generates the same sources before and after the 1.6.3 and 1.6.4 functions patches (checked on Bank
-Panic). Release effects on existing exports are in [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
+Panic). Release effects on existing exports are in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
 How the Z80 is recompiled, the path shape and the CPU tests are described in [CPU_Z80.md](CPU_Z80.md); this page does
 not repeat them.
 
@@ -221,7 +221,7 @@ uses Bank Panic (Europe). Factory Panic and OutRun belong to the compilation lib
 | 0.10.9 / 0.10.10 | Scanline mode-4 renderer; frame limits and host stops wait for the end of a CPU step |
 | 0.10.12 / 0.10.15 | F8/F9 quick states; PAL scanline, clock and V-counter timing |
 | 9 Oct 2026 | Campaign of 258 cartridges |
-| 1.6.3 | Player shell moves to the host kit (phase 4); "functions" engine no longer calls paged addresses directly; Master System game stamp moves, existing exports are upgraded ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4)) |
+| 1.6.3 | Player shell moves to the host kit (phase 4); "functions" engine no longer calls paged addresses directly; Master System game stamp moves, existing exports are upgraded ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4)) |
 | 1.6.4 | "Functions" engine: HALT, interrupt acceptance and top-level return fixed; Alex Kidd in Miracle World and Factory Panic convert with it |
 
 The fuller dated records stay in [COMPATIBILITY.md](COMPATIBILITY.md), [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) and

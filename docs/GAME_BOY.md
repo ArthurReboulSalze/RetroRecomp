@@ -269,7 +269,7 @@ peripherals, complete gameplay or physical latency. Timings and their conditions
 - **Quick state.** F8 saves and F9 loads one state (slot 1, ROM identity by SHA-256), taken between two frames; it is the runtime's own
   file under the game's folder. The Game Boy has its own codec ([GAME_STATES.md](GAME_STATES.md)); the APU corrections did not change its
   layout. There is no Game Boy quick-state key: the RAM counters are host-only context fields outside every state, and a state of a 1.6.2 export loads in a
-  1.6.3 export and the reverse ([UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)).
+  1.6.3 export and the reverse ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-163-host-kit-phase-5)).
   Since 1.6.6 `tools/gameboy_states_check.py` (gate G6) drives the two functions the keys call (`gb_context_save_state_file` and
   `gb_context_load_state_file`, through the headless flags `--save-state-file` and `--load-state-file`) in separate processes, on a
   cartridge authored for it (screen on, a square channel playing, vertical-blank and timer interrupts, a foreground counter) and on
