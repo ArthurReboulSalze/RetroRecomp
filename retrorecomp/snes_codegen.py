@@ -195,15 +195,17 @@ static void rr_sn_wram_fill(void) {{
                '    return g_snes && g_snes->cart && g_snes->cart->sa1 && cpu->mem == (void *)g_snes->cart->sa1;\n'
                '}\n') if cart_type == 'CART_SA1' else ''
     if cart_type == 'CART_SUPERFX':
-        rom_ptr = '''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
+        # The lookup runs only once `rr_snes_native_bind` has checked that the ROM is exactly this long, so the remainder is by a
+        # constant (a mask for the usual power of two) and not by a division.
+        rom_ptr = f'''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
      * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
      * ($40-$5F) views; the fetched-opcode check below still rejects a byte the
      * GSU bus replaced while the coprocessor owns ROM. */
     uint8_t b = bank & 0x7f;
     if (b < 0x40 && adr >= 0x8000)
-        return &rr_sn_cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % rr_sn_cart->romSize];
+        return &rr_sn_cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % {len(bus_rom)}u];
     if (b >= 0x40 && b < 0x60)
-        return &rr_sn_cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % rr_sn_cart->romSize];
+        return &rr_sn_cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % {len(bus_rom)}u];
     return NULL;'''
     else:
         rom_ptr = 'return cart_getRomPtr(rr_sn_cart, bank, adr);'

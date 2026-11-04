@@ -114,6 +114,17 @@ def adapt_cart(source):
       off = ((uint32_t)(canonical & 0x3f) << 16) | adr;
       if (cart->romImageSize > 0x400000 && !(bank & 0x80)) off += 0x400000;
       break;''')
+    # Every ROM byte the CPU, the instruction fetch or a DMA reads goes through this function (about 97,000 times a frame in Secret
+    # of Mana) and ended in a 32-bit division by the ROM size. The size is a power of two for every image the loader pads, and then
+    # the remainder is the mask; any other size keeps the division, so the address is the same in every case.
+    source = replace(source, '''  }
+  return &cart->rom[off % cart->romSize];
+}
+''', '''  }
+  uint32_t rom_size = cart->romSize;
+  return &cart->rom[(rom_size & (rom_size - 1)) ? off % rom_size : off & (rom_size - 1)];
+}
+''')
     marker = 'static uint8_t cart_readLorom(Cart* cart, uint8_t bank, uint16_t adr) {'
     if source.count(marker) != 1:
         raise ConversionError('Pinned SNES cartridge RAM definitions changed.')

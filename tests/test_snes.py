@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from retrorecomp.core import ConversionError
-from retrorecomp import snes_codegen, supernintendo
+from retrorecomp import snes_cart, snes_codegen, supernintendo
 
 
 def source_fixture():
@@ -45,6 +45,25 @@ class SnesNativeTests(unittest.TestCase):
         self.assertIn('CART_SA1', text)
         self.assertIn('if (rr_at < rr_base || rr_at - rr_base >= 32768u) return NULL;', text)
         self.assertNotIn('(size_t)(mapped - rr_sn_cart->rom)', text)
+
+    def test_the_rom_remainder_is_a_mask_or_a_constant_on_the_hot_path(self):
+        # cart_getRomPtr ended in a division by the ROM size on every ROM byte read; the Super FX board's code lookup did too.
+        header = bytearray(0x10000)
+        header[0x7fd5:0x7fd7] = bytes((0x20, 0x13))
+        header[0x7fdc:0x7fe0] = bytes.fromhex('cb ed 34 12')
+        header[0x7fc0:0x7fd5] = b'RR SUPERFX FIXTURE'.ljust(21, b' ')
+        header[0x7ffc:0x7ffe] = bytes((0, 0x80))
+        text = snes_codegen.native_source(source_fixture(), bytes(header), mapping='lorom')
+        self.assertIn('CART_SUPERFX', text)
+        self.assertIn('% 65536u]', text)
+        self.assertNotIn('% rr_sn_cart->romSize', text)
+        pinned = self.PINNED / 'runner/src/snes/cart.c'
+        if pinned.is_file():
+            raw = pinned.read_text(encoding='utf-8')
+            adapted = snes_cart.adapt_cart(raw)
+            self.assertEqual(adapted.count('(rom_size & (rom_size - 1)) ? off % rom_size : off & (rom_size - 1)'), 1)
+            with self.assertRaises(ConversionError):
+                snes_cart.adapt_cart(raw.replace('  return &cart->rom[off % cart->romSize];'+chr(10)+'}', '  return 0;'+chr(10)+'}'))
 
     def test_missing_operation_rejected(self):
         text = source_fixture().replace('case 0xff:', 'case 0xfe:')
