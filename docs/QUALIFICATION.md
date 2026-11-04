@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4 and G15 of the Game Boy and G8 of the Mega Drive of 4 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy and G8 of the Mega Drive of 4 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -56,7 +56,7 @@ x68 = Sharp X68000.
 | G10 | Y | Y | Y | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | P | P | P | Y | P | P | P | P | Y |
+| G13 | P | P | Y | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
 | G15 | P | P | Y | P | P | P | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
@@ -86,7 +86,7 @@ x68 = Sharp X68000.
   G6: every conversion checks the quick states in a fresh process, and `tools/gameboy_states_check.py` does it on an authored
   cartridge and on Super Mario Land. G7: `tools/gameboy_saves_check.py` on six cartridges written for it ([GAME_BOY.md](GAME_BOY.md)).
   G8 is `P`: the liveness record exists on every conversion, but no campaign of captures was inspected for the Game Boy.
-- Game Boy (4 November 2026): G1, G2, G3, G4 and G15 moved from `P` to `Y`; G11 and G13 stay `P`. Evidence in [GAME_BOY.md](GAME_BOY.md#the-sixteen-gates-with-their-evidence-167):
+- Game Boy (4 November 2026): G1, G2, G3, G4, G13 and G15 moved from `P` to `Y`; G11 stays `P`. Evidence in [GAME_BOY.md](GAME_BOY.md#the-sixteen-gates-with-their-evidence-167):
   G1 `tools/status_lint.py` shows 0 contradictions and 0 drift items; G2 the report of every one of the twelve campaign games has the SM83's counters per route and the mapper and the sound unit as devices
   that state they are C models, with `hardware_fidelity_validated: false` (like the NES, with no counter for a device that runs no program); G3 no interpreter instruction on any final route of the twelve
   games, the writable code run one by one listed per game (Wario Land II 925,868 instructions, the others 0 to 77,317), the native count and the fallback percentage stay unknown; G4 the CPU,
@@ -95,7 +95,8 @@ x68 = Sharp X68000.
   zero latency or hardware fidelity found. Limits: G4 is agreement of two executions of the same machine model, not an independent oracle (G10 is); the long route is compared on its first 3,600 frames;
   the audit is a search of the words of exactness, accuracy and completeness with the matches read, not a reading of every page. **G11** stays `P`: Mooneye passes 94 of 94 applicable tests since 1.6.8 (the state
   after the boot ROM now matches the DMG ABC) and `dmg_sound` 18 of 24, but the three wave-channel tests of each version fail, `oam_bug` `7-timing_effect` gives no verdict and no hardware capture was made.
-  **G13** stays `P`: the witness covers 3 of the 12 games; `Y` takes the twelve of the campaign on Debian (Hermès, one specialist at a time), which waits for a slot and for the 1.6.8 tree to be frozen.
+  **G13** `Y`: Windows and Debian 13 (Hermès) convert the twelve games of the campaign from the same tree (`5ff5595`, quick level, empty library) and give equal per-frame traces (picture, sound, work RAM, program counter) and final
+  states on 48 of 48 routes (280,800 frames per system); the generated sources are equal but the embedded resources. Limits: twelve of the 606 cartridges, the quick level, four routes each, no thorough run, no comparison with a console.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
