@@ -159,6 +159,42 @@ their four routes (boot, two play runs and the pseudo-random route of 18,000 fra
 
 The routes are the boot, the two play runs and the pseudo-random route of 18,000 frames of each conversion (quick level, an empty library); with the sound rules alone the picture, the work RAM and the program counter are equal to 1.6.7 on every route of every game. Final Fantasy Legend II shows another picture on nearly every frame (its title and menus animate on the timing); this was not looked at screen by screen.
 
+## Sharp X68000: the picture is converted only when the host reads it (1.6.8, frame cost)
+
+*Frame cost (1.6.8 item).* R-Type measured 1.05 against 1.6.6 on 3 November 2026 (+0.028 ms a frame, 0.591 to 0.619, quiet PC, start-up taken out
+of both). Found by reading and counting, nothing timed. R-Type draws 256 x 256 pixels a frame (read from the report of a headless run: 65,536 pixels).
+**The cause is the colour correction of 1.6.7** ([the intensity bit](#sharp-x68000-the-intensity-bit-of-the-palette-lifts-red-green-and-blue-167)),
+in this way: until 1.6.6 the core handed its RGB565 buffer to the host as it was, and the conversion to the window's pixels lived in the window kit
+(`player_picture`, only reached when a window is open). 1.6.7 moved the work into the core: every frame, `convert_frame` reads the machine's 16-bit
+colour word of each pixel, looks it up in a 65,536-entry table and writes a 32-bit pixel, whatever the host does with the picture. A headless run
+(the benchmark, the conversion's own routes without a report, a user's `--headless`) reads nothing, so it paid 65,536 lookups, loads and stores a frame
+for no one: about one cycle a pixel is 22 microseconds on a 3 GHz core, which is the size of the +28 microseconds measured, the rest being the 256 KB
+table and the 256 KB of 32-bit pixels competing for the cache with the emulation. The other candidates were read and eliminated by count: the
+Musashi corrections touch only the overflow path of `DIVU` and `DIVS`, `CHK`, `LINK A7` and the opcodes `F620`-`F627`; the shared state rules touch
+`LINK`, `UNLK` and `NEGX`, a local variable and one test that fold at compile time; the libretro comparison base leaves the build files without a
+change of compile flag (`-O2`, no profile-guided build for this machine, so no profile to go stale); the host kit changed only in the Super Nintendo adapter.
+
+**The fix.** The core asks libretro's "video enabled" bit (`RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE`) at each frame and converts only when it is set.
+The reference host, which is also the host of a window, answers from what it does with the picture: a trace or a report hashes it, a capture or a window
+keeps it; a headless run with none of these does not read it, and the core hands it the last converted picture again. The machine, its state,
+its sound and every hash are untouched. A host that does not answer is treated as wanting the picture. A saved state redraws through the full
+conversion whatever the answer (`rr_x68k_framebuffer`). In a window nothing changes for the player: the conversion still runs each frame, and it is
+**not more expensive than in 1.6.6**, where the kit converted the same pixels with three multiplications and divisions each; now a table lookup in the core and
+a plain copy in the kit.
+
+**Proof.** (1) Counted, not timed: a build of this tree with a counter in `present_frame` (not kept) ran R-Type for 900 frames. Headless with no report,
+as the benchmark runs it: 0 frames converted, 899 skipped. Headless with `--report`: 899 frames converted (138,870,784 pixels, the start-up pictures
+being larger than the 256 x 256 of the game), 0 skipped. (2) The machine is untouched: both runs saved a state at frame 800 (`--state-slot`, `--state-save-at`)
+and the two files are the same, 19,410,352 bytes, same SHA-256. (3) The fingerprints are the same: the conversion hashes the picture of every route, so its runs convert every
+frame: a conversion of R-Type on this tree has the CPU, RAM, picture and sound hashes of the same conversion before the change, on the three routes
+(R-Type and Bubble Bobble, 253 values of the checks compared, 0 differ in hashes, counters and interpreted opcodes; the one difference is the report field `packed.method`, added to main after the baseline was converted). (4) `tests/test_x68000_colour.py` fixes the contract in the sources.
+The speed itself is not timed here: the measurement on a quiet PC is the lead's.
+
+**What moves.** The Sharp X68000 game stamp (`libretro_api.c` and `reference_host.c` are game inputs): an export of 1.6.7 stays as it is, and a 1.6.8 export is
+a full reconversion. **The state compatibility key `RR_X68K_STATE_ABI` moves too** (it hashes `reference_host.c`): a quick state written by a 1.6.7 export is
+refused cleanly by a 1.6.8 game (no compatibility key, no crash, no overwrite); the layout of the state is the same. Host and build stamps and the other
+consoles do not move.
+
 ## Super Nintendo: the ROM address without a division, the 65816 stack pages, the SPC700 EI and DI, the evidence (1.6.8)
 
 *Frame cost (1.6.8 item 1).* Secret of Mana measured 1.04 against 1.6.6 on 3 November 2026 (+0.23 ms a frame, quiet PC, start-up taken
