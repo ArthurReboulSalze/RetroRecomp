@@ -1,3 +1,122 @@
+# RetroRecomp v1.6.8 — An older library follows the pinned sources again, the Mega Drive 68000 and the Game Boy start closer to the console, the Super Nintendo ROM read loses its division
+
+- **An older library no longer refuses every conversion.** Every conversion first
+  prepares the shared sources in `.deps`: the engine of the Master System and
+  Game Gear and SDL2. Up to 1.6.7, a checkout of another revision than the pin
+  was refused ("unexpected SDL version"), and nothing converted: a library whose
+  `.deps` an old release had made did that from 1.6.4 on, when SDL moved from
+  2.32.8 to 2.32.10 (found on 3 November 2026, reusing an old workspace).
+  Now a clean checkout of another revision fetches the pinned one, checks it out
+  and rebuilds what depends on it, once ("Updating SDL to the pinned
+  revision…", in the eight languages of the window). The conversion still stops,
+  and leaves the folder as it is, with a message of its own for each case:
+  tracked files carry local edits, the folder is not a git checkout, or the
+  pinned revision cannot be fetched (offline). Untracked files, such as the SDL
+  build and install folders, are not edits. No game changes for this: the pins do
+  not move.
+- **Mega Drive.** The 452 test vectors for which the 68000's bus layout was still
+  wrong are corrected: the order of the accesses of a long read-modify-write to
+  memory, of `ADDX.L` and `SUBX.L` on two predecrement operands, of the internal
+  clocks before the first read, of `ANDI`, `ORI`, `EORI` and `MOVE` to the
+  condition code register, and of `LINK` and `MOVEP`. 2,873 of the 2,895
+  independent vectors now agree on every check; the 22 left are `ABCD`, `SBCD`
+  and `NBCD` on operands that are not decimal digits, which the manual leaves
+  undefined. The total clocks of an instruction do not change, only where its
+  accesses fall, so a frame-timed effect can still shift (on the eleven-game
+  campaign, 21 of 22 routes are identical to 1.6.7; on the play route of Shinobi
+  III the 68000 and the Z80 meet at the scheduler's rendezvous on the other side
+  of a few clocks, and the frame ends five instructions apart, which is the
+  approximation between the two processors and not a bug of one of them). The
+  report's Z80 hash is now taken field by field, so the same Z80 gives the same
+  value on Windows and on Linux; **a report of 1.6.7 and one of 1.6.8 are no
+  longer comparable on that one field.** The liveness of each route is recorded
+  (gate G8). A Debian 13 PC gives identical hashes on 6 of 6 routes of three games
+  (Sonic The Hedgehog 2, NBA Jam Tournament Edition, Streets of Rage 2). A first
+  comparison with MAME 0.289 on eleven games, no input on either side, matches 78
+  of the 80 still pictures of MAME in shape and in the level of every colour
+  channel; the two emulators write the eight levels of a channel with different
+  tables (at most 3 of 255 apart), which was not changed, and sound is not
+  compared. MAME is not hardware. The cost of the corrected layout on the
+  translated steps is small and not measured. **Mega Drive quick states of 1.6.7
+  are refused cleanly.**
+- **Game Boy.** The state right after the boot ROM is closer to the console: the
+  sound unit starts with channel 1 on at volume 0 (`$FF26` reads `$F1`), the LCD
+  starts where the common console (the DMG ABC) leaves it, in vertical blank with
+  LY reading 0, and a serial transfer with the internal clock ends on the phase
+  of the divider. The sound unit also follows the power switch, the length
+  counters and the sweep calculation as the test ROMs expect. On the 152 test ROMs
+  of blargg and Mooneye run on the delivered files, 144 pass (128 in 1.6.7): all 94
+  of Mooneye, and 18 of the 24 `dmg_sound` tests. The eight left are listed in
+  [KNOWN_FAILURES.md](KNOWN_FAILURES.md): six `dmg_sound` tests on the wave
+  channel read, trigger and write while it plays, and the two `oam_bug`
+  `7-timing_effect` ROMs, for which the cause of the difference between the
+  generated code and the interpreter was found and not corrected. **The LCD
+  starts nine lines later in the frame, so a game of 1.6.7 that is converted
+  again no longer replays frame for frame what it did:** on twelve games the
+  program counter and the work RAM at the end of a frame differ from the first
+  frames on most of them (Tetris deals other pieces on its long route), and all
+  twelve stay alive. The sound rules alone change no picture, no work RAM and no
+  program counter on any of the 48 routes. A Windows and a Debian 13 build give
+  identical per-frame traces on those 48 routes. This was not heard against a
+  console.
+- **Super Nintendo.** The pinned engine ended every ROM byte read in a 32-bit
+  division. It is now a mask when the image size is a power of two (every image
+  the loader pads) and stays the division for any other size, so the address is the
+  same in every case. This is the cause found, by reading the code and counting
+  calls, of the 4 % that Secret of Mana cost more in 1.6.7; **the gain is not
+  measured yet**, the measurement on a quiet PC comes before the release. The
+  engine moves to `snesrecomp` `fb8cf15`: on eight games, one per board, the 21
+  hash fields of the six probe files are the same at the old and at the new pin,
+  and the twelve games of the panel convert with 0 interpreted 65816 and SPC700
+  opcodes. In emulation mode the 65816 stack instructions (`PEA`, `PEI`, `PER`,
+  `PHD`, `PLD`, `JSL`, `RTL` and `JSR (a,x)`) step the stack pointer as the
+  independent vectors expect, and `PEA` loses a hack of the pinned engine that
+  zeroed Y for the operand `$C2AE` (six cartridges that hold those bytes convert
+  with identical hashes on the standard routes). The SPC700 `EI` and `DI` take 3
+  cycles, not 2: only Chrono Trigger's sound driver runs them among the games
+  compared, and its conversion keeps the same pictures in the demo with another
+  sound hash. Every final check records its audible frames, and the report says
+  that no independent CPU oracle backs the reference. A Linux build gives the same
+  per-frame traces as Windows on four games and twelve routes. Quick states of
+  1.6.7 are refused cleanly on the Super Nintendo.
+- **Sharp X68000 (experimental).** [TODO: texte du spécialiste à insérer : cause
+  du +5 % de coût par image de R-Type en 1.6.7]
+
+**Speed.** The Secret of Mana cost of 1.6.7 (1.04 against 1.6.6) is expected to
+fall with the Super Nintendo change above; no frame cost of 1.6.8 is measured
+yet. [mesure de coût par image 1.6.8 contre 1.6.7 à venir]. The Mega Drive layout
+and the Game Boy changes add small tests on their hot paths, not timed.
+
+These are native-code and CPU-fidelity changes, independent evidence and
+start-state corrections; none of them is a measure of hardware fidelity,
+gameplay validation or physical latency, and the interpreter fallback is still
+counted and shown per CPU wherever it is used.
+
+**Your exports and quick states.** 1.6.8 moves the game stamp of every console
+(the library fix is in the shared `core`) and no host or build stamp, so every
+export of 1.6.7 is rebuilt once on its next conversion; a game the shared base
+knows still starts from its qualified paths with the quick check. F8/F9 quick
+states written by 1.6.7 are refused cleanly, with a message, on the Mega Drive
+and the Super Nintendo, where the state's key moved (nothing is lost but that
+state); the other consoles keep theirs. Cartridge saves (battery SRAM, EEPROM,
+memory cards) are kept; a save the new export cannot use is set aside and never
+crashes or blocks the game. Exports older than 1.6.7 are converted in full. The
+details and the evidence are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.6.7 — QSound boards join in a tier of their own, Star Ocean and ExHiROM Super Nintendo games convert, smaller reproducible Windows games, independent CPU evidence on more machines
 
 - **Games that did not convert and now do.** Each was investigated, its cause
