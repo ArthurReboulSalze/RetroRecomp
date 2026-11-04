@@ -40,9 +40,11 @@ python -B -m unittest discover -s tests -q
 python -B tools/prepare_publication.py --tracked
 python -B tools/check_doc_links.py --public
 python -B tools/gui_smoke.py
+python -B tools/qualification_gauges.py --check
 ```
 
-The first two are the public CI job. Native self-tests in `tools/*_selftest.py`
+The first two are the public CI job. The matrix of [QUALIFICATION.md](QUALIFICATION.md) is written in letters; its gauges and symbol
+table are generated from it (`--write` rewrites them, never edit that block by hand). Native self-tests in `tools/*_selftest.py`
 build C code and need a compiler (see [BUILDING.md](BUILDING.md)). Anything
 that converts a real game needs the player's own ROM, outside the repository.
 

@@ -16,26 +16,72 @@ yes.
 
 ## Gates
 
-| # | Gate | Defined by |
-|---|---|---|
-| G1 | Scope and status stated consistently | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G2 | Report contract | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G3 | Native coverage on every final scenario | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G4 | CPU fidelity: fresh reference run | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G5 | Packed replay of the delivered file | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G6 | Fresh-process states | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G7 | Saves | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G8 | Liveness | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G9 | Route depth | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G10 | Independent CPU evidence | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G11 | Independent hardware evidence | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G12 | Panel | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G13 | Cross-OS witness | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G14 | Owner acceptance | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
-| G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| # | Gate | Short name | Defined by |
+|---|---|---|---|
+| G1 | Scope and status stated consistently | Status | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G2 | Report contract | Report | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G3 | Native coverage on every final scenario | Native code | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G4 | CPU fidelity: fresh reference run | CPU check | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G5 | Packed replay of the delivered file | Delivered file | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G6 | Fresh-process states | States | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G7 | Saves | Saves | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G8 | Liveness | Liveness | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G9 | Route depth | Route depth | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G10 | Independent CPU evidence | CPU vectors | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G11 | Independent hardware evidence | Hardware proof | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G12 | Panel | Panel | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G13 | Cross-OS witness | Cross-OS | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G14 | Owner acceptance | Owner OK | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
+| G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
 ## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026)
+
+<!-- qualification-gauges:begin (written by tools/qualification_gauges.py: edit the matrix in letters, not this block) -->
+
+**Progress through the qualification list.** One line per console: how many of the gates that apply to it are met (a half for a partial
+one). `unknown` and `no` count 0 and `not applicable` is left out. It is **approximate and not a quality score**: it does not mix the five
+measures (native code, CPU fidelity, hardware fidelity, gameplay validation, physical latency), which stay separate in every report, and a
+console's status is never a threshold of this bar: leaving the experimental status is the owner's own decision (G14, see
+[Leaving the experimental status](#leaving-the-experimental-status)). The status column is read from the profile registry.
+
+| Console | Status | Progress | Gates |
+| --- | --- | --- | --- |
+| Master System | supported | `██████░░░░` 63 % | ✅ 5 · 🟡 9 · ❔ 1 |
+| Game Gear | supported | `██████░░░░` 60 % | ✅ 4 · 🟡 10 · ❔ 1 |
+| Game Boy | supported | `█████████░` 91 % | ✅ 14 · 🟡 1 · ❔ 1 |
+| Nintendo NES | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
+| Mega Drive | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
+| Super Nintendo | supported | `█████████░` 88 % | ✅ 13 · 🟡 2 · ❔ 1 |
+| Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
+| Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+| Sharp X68000 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+
+**The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
+
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G2 Report | 🟡 | 🟡 | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G5 Delivered file | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G6 States | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ |
+| G8 Liveness | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G9 Route depth | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
+| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 |
+| G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
+
+<!-- qualification-gauges:end -->
+
+<details>
+<summary>The matrix in letters: the source that the tools read</summary>
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -60,6 +106,8 @@ x68 = Sharp X68000.
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
+
+</details>
 
 ### Caveats
 
