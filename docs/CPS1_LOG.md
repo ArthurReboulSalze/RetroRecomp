@@ -114,7 +114,7 @@ at 55,930.4 Hz), so waveform correlation is lower than the spectra suggest
   CPS-1 path was qualified yet, so nothing was lost. The observations are
   private build hints (`m68k_gfx`) of the player's library: they cannot be tied
   to a ROM image, so they are counted and never shared. Details:
-  [UPGRADES.md](UPGRADES.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
+  [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
 - The quick state changed format (magic `CPS1S002` instead of `CPS1S001`, every
   structure written field by field): 1.6.3 states are refused cleanly
   ([GAME_STATES.md](GAME_STATES.md)).

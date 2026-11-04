@@ -459,14 +459,14 @@ Phase 4 (1.6.3) adds the Master System and the Game Gear to the owners of the sh
 compile the kit from the common runtime folder: `core.prepare_native_source` stages it beside `native/CMakeLists.txt`
 (`hostkit.stage(native_source, "sms")`), the one converter edit, game role, owned by every console like the rest of
 `core.py`. `native/host.c`, `controls.c/.h` and `ui.c/.h` are removed from the host stamp of every console (they were owned
-by all of them). See [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4).
+by all of them). See [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4).
 
 Phase 5 (1.6.3) adds the Game Boy to the owners of the shell files, of `console16_video.h` and of `retrorecomp.hostkit`; the
 adapter `rrhk_gb.inc` is a host file owned by the Game Boy alone. The Game Boy compiles the kit inside the runtime library of its
 project: `gameboy_host.adapt_shell` stages it (`hostkit.stage(project, "gb")`, adapter included but not listed as a source: the patched
 `platform_sdl.cpp` includes it) and `gameboy_runtime` lists the shell in its CMake file, both game role (the stamp of the Game Boy
 moves once). `gb_menu.inc`, `gb_audio_output.inc`, `gb_input_refresh.inc` and `gameboy_timing.py` are gone from the stamps. See
-[UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5).
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-163-host-kit-phase-5).
 
 Status after phase 1: the stamp inputs are explicit lists, so every kit file is
 listed in `retrorecomp/stamp_inputs.py` (host role, owned by Mega Drive, SNES,
@@ -481,7 +481,7 @@ every later kit edit is host-only (`tests/test_compilation_inputs.py`). Phase 3 
 of the shell files and of `console16_video.h`; its adapter `rrhk_x68k.inc` is a host file owned by the X68000 alone and
 replaces `player_ui.inc`; the X68000 compiles the kit from the tree and has no staging call, but `reference_host.c` and
 its CMake file (game role) change, which moves the X68000 game stamp, the SDK stamp and the quick-state key once
-([UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)). Phase 2 (1.6.2)
+([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#x68000-exports-in-163-host-kit-phase-3)). Phase 2 (1.6.2)
 adds the NES to the owners of the shell files and of `retrorecomp.hostkit`
 (`rrhk_nes.c` by the NES alone, `rrhk_ring.c` with the shell); the staging call entered
 the game-role module `nes_runtime.py` once, which moves the NES game stamp once. The
@@ -581,7 +581,7 @@ moved unchanged in its logic (`RRHK_AUDIO_RING`, selected by the adapter; the 16
 The runner's quick-state functions (`rr_nes_state_*`, `nes_state.c`) are called as they were: the state file, its magic,
 its ABI key and the datas path are untouched, so exports and quick states of 1.6.0 and 1.6.1 carry over. Staging goes
 through `hostkit.stage(project, 'nes')`, called once from `nes_runtime.py` (the one converter edit; it moves the NES game
-stamp once, see [UPGRADES.md](UPGRADES.md#nes-exports-of-161-in-162-host-kit-phase-2)).
+stamp once, see [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#nes-exports-of-161-in-162-host-kit-phase-2)).
 
 Kit switches the NES needed, each one a named per-machine setting of `RrhkMachine`, not an `if` on the machine:
 `audio_model` / `audio_rate` / `audio_enable` (ring output), `pointer_section` and
@@ -731,7 +731,7 @@ for its first frame):
   host exactly as decided (a new press starts on; Button B pulses; the old host pulsed Button A by the parity of the frame).
 * Script `states` (F9 with nothing saved, F8, F9 without input): a load returns the machine to the saved frame in both
   hosts; the state of the kit host is one frame earlier (divergence 12). The quick-state key of the X68000 hashes
-  `reference_host.c`, so it moves (see [UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)); a state written by
+  `reference_host.c`, so it moves (see [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#x68000-exports-in-163-host-kit-phase-3)); a state written by
   the old host is refused, as between any two releases of the X68000.
 * Pad slots on the kit host (`tools/hostkit_ab.py pads` scenarios `one`, `two`, `twin`, `twin-unplug`, `next-missing`,
   `replug`, `persist`, `capture`): all probes on the right player; the F2 binding of a player without a pad says "No

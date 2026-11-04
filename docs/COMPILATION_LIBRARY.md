@@ -78,13 +78,13 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 **The rule (28 October 2026): the previous release only.** `compilation_inputs.LEGACY_GAME_STAMPS` lists the game
 stamps of the release before the one being built, never those of older releases, and the quick-state keys
 (`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
-table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES.md](UPGRADES.md#exports-of-160-in-161)); the
-tree of 1.6.2 listed those of 1.6.1 ([UPGRADES.md](UPGRADES.md#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2,
+table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-160-in-161)); the
+tree of 1.6.2 listed those of 1.6.1 ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2,
 two per console (the Windows converter's and the Linux converter's), for the Master System, Game Gear, Game Boy and NES
 only ([below](#release-162-entries-29-october-2026-windows-and-linux);
-[UPGRADES.md](UPGRADES.md#exports-of-162-in-163), with the evidence and what it does not prove); the tree of 1.6.4 lists none,
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163), with the evidence and what it does not prove); the tree of 1.6.4 lists none,
 because 1.6.4 is a structural release that reconverts every console ([below](#release-163-entries-29-october-2026-windows-and-linux);
-[UPGRADES.md](UPGRADES.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
+[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
 real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
@@ -300,7 +300,7 @@ batch`), not by the packaged `Retro-Recomp.exe`, which showed a start-up picture
 not run again. The packaged executable's `_compilation-stamps` equals the tag's `engine_stamp` for the seven consoles it lists
 (CPS-1 is not among them). All 12 receipts matched the listed stamps, the generated sources of the same 12 games are
 identical to 1.6.0's apart from the version text, the host shell and the state keys, and 1.5.6 exports of those consoles
-were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES.md](UPGRADES.md#exports-of-156-in-160-history);
+were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-156-in-160-history);
 the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156-history). No entry for the Super Nintendo, the Neo
 Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
 
@@ -347,7 +347,7 @@ of the maintainer, 29 October 2026): the stamps below were computed for all nine
 decided which are listed, and **none is**. The game stamp of `v1.6.3` (commit `bb2aa95`) is the one of an archive of the tag
 exported into an empty folder, then `compilation_inputs.role_stamps(system)`, under Python 3.14.5 (Windows) and 3.13.5 (the
 Linux build host, in a temporary folder deleted afterwards). The host and build stamps, recorded the same way, are in
-[UPGRADES.md](UPGRADES.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
+[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
 
 | Console | Windows | Linux | Listed in 1.6.4 |
 | --- | --- | --- | --- |

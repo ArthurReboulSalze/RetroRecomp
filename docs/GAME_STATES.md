@@ -128,7 +128,7 @@ operators and channels untouched, and the serializer saved them, so a window of 
 leftovers of the process's heap, pieces of its environment text among them (the `PATH`). The chip's storage is now zeroed
 when it is allocated (`tools/x68000_base74.py`, `adapt_fmg_wrap`); the layout and the size of the state do not change, and
 the X68000 state key moves (X68000 states are refused between releases, as the tables below show). The other consoles' state
-writers were read for the same pattern ([UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)).
+writers were read for the same pattern ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#x68000-exports-in-163-host-kit-phase-3)).
 
 ## Validation and limits
 
@@ -312,7 +312,7 @@ run on Linux.
 export loads in 1.6.1 exports and not in 1.6.2 ones.*
 
 1.6.1 changes the quick-state key of three consoles. Mega Drive: `native/md_z80_bus.inc` (the deferred sound-CPU payment,
-see [UPGRADES.md](UPGRADES.md#mega-drive-exports-of-160-in-161)) and `native/md_boundary_checks.c` are listed native files of
+see [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#mega-drive-exports-of-160-in-161)) and `native/md_boundary_checks.c` are listed native files of
 the console, and the key hashes them. Neo Geo and CPS-1: their keys hash the fingerprints of `neogeo_build` and
 `cps1_build`, which changed (packing notice, removal of the pre-1.6.0 keys, and now the compatibility line itself). The
 serialized states did not change. The release adds the 1.6.0 key of each as a compatibility key, so the states of the
@@ -354,7 +354,7 @@ export loads in 1.6.2 exports and not in 1.6.3 ones.*
 
 1.6.2 changes the quick-state key of all four consoles that list one, for two reasons. Mega Drive and Super Nintendo:
 `native/runtime_catalog.inc`, the eight-language runtime catalogue (five strings of the pad slot policy join it, see
-[UPGRADES.md](UPGRADES.md#exports-of-161-in-162-host-kit-f2-capture-and-autofire-notice)), is a listed native file of
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-161-in-162-host-kit-f2-capture-and-autofire-notice)), is a listed native file of
 both consoles and the key hashes it. Neo Geo and CPS-1: their keys hash the fingerprints of `neogeo_build` and
 `cps1_build`, which are edited by this very rollover (the 1.6.0 constants and lines are removed and replaced by the
 1.6.1 ones); the catalogue is not among their hashed files. `cps1_build.py` is a pinned CPS-1 generator source, so
@@ -406,7 +406,7 @@ previous release keep loading (the rule: the previous release only), and drops t
 The states and the export upgrade are two questions. The compatibility line is written by the build of the console
 (`write_config`, `state_config`), so every 1.6.3 export of the Mega Drive, Super Nintendo, Neo Geo and CPS-1 accepts the
 quick states of 1.6.2, whether the export was upgraded or converted in full: the Mega Drive, Super Nintendo, Neo Geo and
-CPS-1 exports of 1.6.2 are converted in full ([UPGRADES.md](UPGRADES.md#exports-of-162-in-163): the release changes what a game
+CPS-1 exports of 1.6.2 are converted in full ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163): the release changes what a game
 does on their CPUs), and the states of the games they played still resume in the new exports.
 
 | Console | Key written by 1.6.2 (Windows) | Moved in 1.6.3 | Where it is listed |
@@ -415,13 +415,13 @@ does on their CPUs), and the states of the games they played still resume in the
 | Super Nintendo | `b9fbf76dc2cc49459420ff111d143c64c72cd72b440a1264d91b38be21bcb5c4` | yes | `console16_state.SNES_STATE_ABI_162`, written by `write_config` |
 | Neo Geo | `0d361a5f02f0f6838bf555dce0b89dd8fa1dce8cd23045fd2811653fec0720df` | yes | `neogeo_build.STATE_ABI_162`, in `state_config` |
 | CPS-1 | `b24053cfe60639a1a464f74e63d155dcb351ac0713796e554937edd65821d8e9` | yes | `cps1_build.LEGACY_STATE_ABI_162`, in `state_config` |
-| Master System, Game Gear, Game Boy | no key of this kind | none | nothing to list: a state of an export of 1.6.2 loads in an export of 1.6.3 and the reverse ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4), [Game Boy](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5)) |
+| Master System, Game Gear, Game Boy | no key of this kind | none | nothing to list: a state of an export of 1.6.2 loads in an export of 1.6.3 and the reverse ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4), [Game Boy](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-163-host-kit-phase-5)) |
 | NES | `RR_NES_STATE_ABI`, no compatibility line | no: every input it hashes (`nes_machine.py`, the state files, `retro_nes.h`, the PPU includes) is unchanged since the tag | nothing to list; not recomputed from a real build |
 | X68000 | refused (the key carries the compiler's identity by design, and `reference_host.c` moved onto the host kit) | yes | none |
 
 The compatibility lines are written on Windows only (`os.name == 'nt'`): the key of a Linux build also hashes its target,
 and no Linux 1.6.2 key was recorded. **Where the keys come from**: as for 1.6.1, each key was computed from the `v1.6.2`
-tag (the same archive the legacy game stamps were computed from, [UPGRADES.md](UPGRADES.md#exports-of-162-in-163)) by
+tag (the same archive the legacy game stamps were computed from, [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163)) by
 calling the console's own `write_config` or `state_config` on a fixed synthetic project (Python 3.14.5, the Python of the
 packaged Windows converter); `tests/test_legacy_compat.py` pins them. Only the Mega Drive key hashes files alone; the
 Super Nintendo, Neo Geo and CPS-1 ones also hash the bytecode fingerprints of their modules, so they are the Python 3.14
@@ -447,7 +447,7 @@ Super Nintendo keys move because `native/video_mode4.inc` and `native/video_chec
 the Neo Geo key moves with `neogeo_build` (the Windows 1.6.3 compatibility key `STATE_ABI_163` is removed).
 
 In 1.6.6 the Neo Geo and CPS-1 sound CPU is corrected (`retrorecomp/neogeo_z80.py`,
-[UPGRADES.md](UPGRADES.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)). The Neo Geo key hashes the fingerprint of that module, so a
+[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)). The Neo Geo key hashes the fingerprint of that module, so a
 Neo Geo state of 1.6.5 is refused cleanly; the CPS-1 key does not, and the 34-byte block that holds the Z80 registers did not change, so a
 CPS-1 state of 1.6.5 still loads. Nothing else moves any key.
 
@@ -489,7 +489,7 @@ archive of the tag exported into an empty folder, Python 3.14.5) and from the tr
   accepted key would be a change of the loader, which this release does not make; the bytes that differ are padding, but that
   was not tested by loading a 1.6.3 state in a 1.6.4 build, so no claim is made that it would work.
 - **Master System, Game Gear, Game Boy:** no key of this kind. None of the changes of this release touches a saved state (the Game
-  Boy counters are host-only context fields, outside every saved state: [UPGRADES.md](UPGRADES.md#game-boy-exports-in-164-writable-memory-code);
+  Boy counters are host-only context fields, outside every saved state: [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code);
   the "functions" engine of the Master System and Game Gear only adds run-time variables). Not run across releases.
 - **X68000:** the key is a value of the CMake build (`RR_X68K_STATE_ABI`: the hashes of `reference_host.c`, `hardware_clock.c`,
   `state_store.h`, `media_session.h`, the machine base files and tools, the generated CPU, and the compiler's identity). None of the

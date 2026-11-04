@@ -82,7 +82,7 @@ x68 = Sharp X68000.
   with the banked engine, see below), and ng, cps1, x68 and (since 1.6.6) nes and gb run G6 inside every conversion. Read G5 and G6
   as "met per conversion" only for those.
 - Game Boy (1 November 2026): G5 and G6 `Y` per conversion, G7 `Y`, G8 `P`. G5: after the lockstep comparisons the compressed copy is
-  replayed on the same routes and must give the same verdict line (`retrorecomp/gameboy_delivery.py`; [UPGRADES.md](UPGRADES.md#game-boy-the-packed-replay-and-the-liveness-record-166-gates-g5-and-g8)).
+  replayed on the same routes and must give the same verdict line (`retrorecomp/gameboy_delivery.py`; [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-the-packed-replay-and-the-liveness-record-166-gates-g5-and-g8)).
   G6: every conversion checks the quick states in a fresh process, and `tools/gameboy_states_check.py` does it on an authored
   cartridge and on Super Mario Land. G7: `tools/gameboy_saves_check.py` on six cartridges written for it ([GAME_BOY.md](GAME_BOY.md)).
   G8 is `P`: the liveness record exists on every conversion, but no campaign of captures was inspected for the Game Boy.

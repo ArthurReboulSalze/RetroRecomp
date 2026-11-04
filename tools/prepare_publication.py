@@ -80,7 +80,7 @@ tests/test_installers.py docs/INSTALLING.md
 retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py
 retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
 tests/test_game_cards.py tests/test_disk_sets.py
-docs/COMPILED_GAMES.md docs/UPGRADES.md
+docs/COMPILED_GAMES.md docs/UPGRADES.md docs/UPGRADES_HISTORY.md docs/UPGRADES_HISTORY_OLDER.md
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
 tests/test_compiled_games.py
 retrorecomp/credits_demo.py retrorecomp/credits_music.py retrorecomp/dialogs.py
