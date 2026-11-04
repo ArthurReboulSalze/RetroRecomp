@@ -173,6 +173,8 @@ def prefetch_plan(ins: dict, name: str) -> str:
     src, dst = ins['src_ea'], ins['dst_ea']
     sm, sr, dm = (src >> 3) & 7, src & 7, (dst >> 3) & 7
     ea_idle = 2 if sm in (4, 6) or (sm == 7 and sr == 3) else 0
+    if name in ('MN_ADDX', 'MN_SUBX', 'MN_ABCD', 'MN_SBCD') and ins['predec_mem_form']:
+        ea_idle = 2        # the first address is calculated before the first read
     control = name in ('MN_JMP', 'MN_JSR', 'MN_BRA', 'MN_BSR', 'MN_Bcc',
                        'MN_DBcc', 'MN_RTS', 'MN_RTE', 'MN_RTR')
     privileged = (name in ('MN_STOP', 'MN_RTE', 'MN_RESET', 'MN_MOVE_USP',
@@ -211,8 +213,11 @@ def prefetch_plan(ins: dict, name: str) -> str:
             idle = 0
         if not control and name != 'MN_STOP':
             flags |= 2
-        if not control and not (name == 'MN_PEA' and src in (0x38, 0x39)):
+        if not control and not (name == 'MN_PEA' and src in (0x38, 0x39)) and name not in ('MN_LINK', 'MN_MOVEP'):
             flags |= 4
+        if idle and (name in ('MN_ADDI', 'MN_SUBI', 'MN_ANDI', 'MN_ORI', 'MN_EORI') and ins['size'] != 2 or
+                     name in ('MN_BTST', 'MN_BCHG', 'MN_BCLR', 'MN_BSET') and not ins['words'][0] & 0x100):
+            flags |= 128   # the word after the immediate is read before the address is calculated
         if name in ('MN_LEA', 'MN_PEA') and ea_idle:
             tail = 2
         if name == 'MN_TAS':
@@ -269,9 +274,10 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
                   (ASSETS / 'native/m68000_state_helpers.h').read_text(encoding='utf-8'))
     from .megadrive_hardware import bank_mapper
     mapper = bank_mapper(rom) is not None
+    from .megadrive_bus_rules import adapt_bus_order_rules
     from .megadrive_rules import adapt_instruction_rules
-    source = adapt_reset(adapt_instruction_rules(adapt_shift_timing(
-        adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')))))
+    source = adapt_reset(adapt_bus_order_rules(adapt_instruction_rules(adapt_shift_timing(
+        adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))))))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]  # remove coverage section heading
@@ -414,8 +420,9 @@ def write_changed(path: Path, source: str) -> None:
 def adapt_interpreter(source: str) -> str:
     from .megadrive_memory import runtime_source
     source = runtime_source(source, 'interpreter')
+    from .megadrive_bus_rules import adapt_bus_order_rules
     from .megadrive_rules import adapt_instruction_rules
-    source = adapt_reset(adapt_instruction_rules(adapt_shift_timing(adapt_semantics(source))))
+    source = adapt_reset(adapt_bus_order_rules(adapt_instruction_rules(adapt_shift_timing(adapt_semantics(source)))))
     source = source.replace('#include "m68k_interp.h"',
         '#include "m68k_interp.h"\n#include "retro_md_game.h"\n#include "md_native_steps.h"\n'
         '#include "md_exception_decode.h"\n#include "md_bus_scheduler.h"\nunsigned rr_md_exception_cycles, rr_md_trace_suppressed;\n'
