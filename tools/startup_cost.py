@@ -101,7 +101,7 @@ def method_constant() -> str:
 def pack_copy(source: Path, target: Path, method: str) -> dict:
     """Copy `source` to `target` and pack it with `method` through the converter's code: {packed, seconds, bytes, notice}."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, target)
+    shutil.copy(source, target)                     # keeps the executable bit (Linux), not the times
     name, saved = method_constant(), getattr(packing, method_constant())
     setattr(packing, name, method)
     try:
@@ -230,7 +230,7 @@ def start_table(games, work: Path, runs: int, frames: int, core: int | None) -> 
                 shutil.rmtree(folder, ignore_errors=True)
                 folder.mkdir(parents=True)
                 copy = folder / files[variant].name.replace('.' + variant, '')
-                shutil.copyfile(files[variant], copy)                                  # a fresh file every repetition
+                shutil.copy(files[variant], copy)                                      # a fresh file every repetition, executable
                 limit = max(120.0, 20 * source.stat().st_size / 1e6)
                 series[variant]['first'].append(start_once(machine, copy, folder, frames, core, limit))
                 series[variant]['second'].append(start_once(machine, copy, folder, frames, core, limit))

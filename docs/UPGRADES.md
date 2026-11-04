@@ -137,6 +137,14 @@ Super Nintendo find their pinned text through `snes_chips.anchor`, so a moved te
 of a Python error. Game stamps that move: every console (`delivery_evidence`), already moving with the pins above; what a game
 does is unchanged.
 
+*Linux keeps NRV packing (measured, 1.6.8).* The start-up cost of UPX `--lzma` on Linux was measured on 4 November 2026 with
+`tools/startup_cost.py` (pack `--determinism`, then start `--runs 9`, one pinned core) on a Debian 13 PC (Intel Core i7-6600U, 2015),
+four games converted unpacked from the 1.6.8 tree. LZMA makes the files 25 to 50 % smaller (Secret of Mana 6.8 MB against 13.7 MB) but
+adds 100 to 150 ms to the start of the small games and **451 ms** to the largest (Kirby's Adventure and Secret of Mana: 0.62 to 0.67 s
+against 0.16 to 0.21 s), beyond the margin of about 0.3 s that decided Windows in 1.6.7. So `packing.LINUX_METHOD` stays `'nrv'`; a faster
+machine would likely show less, which is not measured. Both methods passed `upx -t` and packed to the same bytes twice. The tool now
+copies with `shutil.copy`, which keeps the executable bit that UPX needs on Linux (it copied with `copyfile`). No stamp moves.
+
 ## Game Boy: the state after the boot ROM, the serial clock phase and the sound unit (1.6.8, gates G10 and G11)
 
 The public test ROMs ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)) showed where the runtime differs from the console right after the boot ROM and in the sound unit.
