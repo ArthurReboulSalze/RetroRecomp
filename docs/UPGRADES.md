@@ -125,6 +125,9 @@ stack pointer without wrapping and set its high byte back to 1 only at the end; 
 (`snes_codegen.correct_stack_pages`, fail-closed on the pinned text; native mode is the same text as before, and `JSL` is cheaper: no flag test
 after each byte). The vectors: 0 semantic differences in the 130,448 cases of the larger run (it was 11) and in the 32,768 of the usual one.
 A game that stays in emulation mode and keeps its stack at the edge of page 1 is the only one concerned.
+`PEA` also loses a hack of the pinned engine, which zeroed Y when the operand was `$C2AE` (no counterpart on the chip; Super Metroid holds 38 sites of those
+bytes and is the likely target). Six cartridges that hold the bytes convert with identical hashes before and after on the standard routes (Super Metroid, Axelay,
+Breath of Fire, Terranigma, Samurai Shodown, Battle Clash); a game whose later routes run that exact `PEA` could still move, and would then be showing what the chip does.
 
 *SPC700 `EI` and `DI`* take 3 cycles (the pinned table said 2; the chip's timing and the vectors agree, `snes_spc.interrupt_flag_cycles`).
 This one changes what a game does where its sound driver runs these instructions: **Chrono Trigger's driver does** (the observed
