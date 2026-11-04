@@ -151,11 +151,11 @@ beyond the anchors: the engine counts the native-mode `BRK` cycle itself (our co
 its UTF-8 manifest resource is left out of the Windows link (the game carries the converter's manifest; two do not link). Not enabled: what the range offers
 behind a build selection (fused ROM reads, fused DSP mixing, APU spans, HD Mode 7).
 
-*Stamps* (`compilation_inputs.role_stamps`, the tree of 1.6.7 against this one): the game stamps of the Super Nintendo move, and those of the
-Mega Drive, the Neo Geo and the CPS-1 with them (`console16.py` is a game input of the four and holds the pin and the report block); the other
-five and every host and build stamp do not (the game stamps of all nine already move with the pins of the lead's section above). The quick-state key
-of the Super Nintendo moves (it hashes the pinned revisions and the fingerprints of the `snes_*` modules): a quick state of 1.6.7 is refused
-cleanly, a battery save is not concerned.
+*Stamps* (`compilation_inputs.role_stamps`, the tree of 1.6.7 against this one):
+
+| Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- |
+| the Super Nintendo, the Mega Drive, the Neo Geo and the CPS-1 (`console16.py` is a game input of the four: it holds the pin and the report block); the other five do not (the game stamps of all nine already move with the pins of the lead's section above) | none | the Super Nintendo's `RR16_STATE_ABI` moves (it hashes the pinned revisions and the fingerprints of the `snes_*` modules); so does the Mega Drive's, because `console16_state.write_config` hashes the whole `revisions` dictionary, which holds the snesrecomp pin (moot for the release, which moves it anyway): a quick state of 1.6.7 is refused cleanly; a battery save is not concerned |
 
 *Tools that change no export.* `tools/snes_cross_os.py` (the per-frame witness between two systems, gate G13), `tools/snes_route_captures.py`
 (the last picture of each route, gate G9), `tools/snes_game_saves_check.py` (the battery save of a delivered game across three processes,

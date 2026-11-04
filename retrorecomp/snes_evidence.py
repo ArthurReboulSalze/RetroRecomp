@@ -36,7 +36,8 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 RESULT_FIELDS = ('pcm_nonzero', 'visible_frames')
 MAIN_ROUTE = 'play'
 TRACE_COLUMNS = ('frame', 'frame_hash', 'audio_hash')
-# A frame is 48 kHz stereo: about 1,600 samples (NTSC) or 1,920 (PAL); the table goes well past both.
+# A frame is 48 kHz stereo: about 1,600 samples (NTSC) or 1,920 (PAL); the table goes well past both. A silent frame of more than this many
+# samples (a host that would deliver 2,048 sample pairs or more in one frame) would not be found in the table and would read as audible.
 MAX_FRAME_SAMPLES = 4096
 
 

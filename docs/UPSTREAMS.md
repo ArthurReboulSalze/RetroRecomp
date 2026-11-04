@@ -223,7 +223,7 @@ revision. They are rewritten from the processor manuals. They are CPU fidelity f
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
 | 68000: `ROXL`/`ROXR` with a register count of zero (modulo 64) must copy X into C, and `ASL.L` by 31 must compute the overflow mask without a 32-bit shift | md, ng, cps1, x68 | `m68000.py` (`adapt_semantics`) | those four consoles |
-| 65816: `BRK` in native mode takes 8 cycles (7 in emulation mode) because the program bank is pushed; `COP` follows the mode (in emulation mode no bank pushed, 7 cycles, vector $FFF4) | snes | `snes_codegen.py` (`read_core`) | snes |
+| 65816: `BRK` in native mode takes 8 cycles (7 in emulation mode) because the program bank is pushed (the `BRK` part is retired in 1.6.8: upstream counts it; the `COP` part stays); `COP` follows the mode (in emulation mode no bank pushed, 7 cycles, vector $FFF4) | snes | `snes_codegen.py` (`read_core`) | snes |
 | Z80: a direct call to a paged address must go through the dispatch that checks the bank in place (the "functions" engine only; the default "banked" engine is not affected, and no game is known to trigger it) | sms, gg | `core.py` (`patched_generator_source`) | sms, gg |
 
 Each is described in the section "CPU fixes carried from the upstream review in 1.6.3" of [UPGRADES.md](UPGRADES.md),
