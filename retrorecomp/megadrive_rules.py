@@ -76,6 +76,48 @@ STATE_RULES = (
      '            flags_sub(0u, a, r, sz);\n'
      '            if (ins->mnemonic == MN_NEGX && !r) g_cpu.SR = (uint16_t)((g_cpu.SR & ~SR_Z) | kept_z);\n'),
 )
+# The order of the two words of a long write that reads the operand first (the arithmetic and logic read-modify-write forms,
+# NEG, NEGX, NOT and CLR, which the shared text reads first as the 68000 does): the low word goes first.
+BUS_ORDER_RULES = (
+    ('static void mem_write(M68KSize sz, uint32_t a, uint32_t v) {\n'
+     '    switch (sz) { case M68K_SIZE_B: m68k_write8(a, (uint8_t)v); break;\n'
+     '                  case M68K_SIZE_L: m68k_write32(a, v);        break;\n',
+     'static int s_low_first;     /* a long read-modify-write writes its low word first */\n'
+     'static void mem_write(M68KSize sz, uint32_t a, uint32_t v) {\n'
+     '    switch (sz) { case M68K_SIZE_B: m68k_write8(a, (uint8_t)v); break;\n'
+     '                  case M68K_SIZE_L: if (s_low_first) { m68k_write16(a + 2u, (uint16_t)v); m68k_write16(a, (uint16_t)(v >> 16)); }\n'
+     '                                    else m68k_write32(a, v);   break;\n'),
+    ('static void write_ea_ex(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, uint32_t val, int rmw) {\n',
+     'static void write_ea_body(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, uint32_t val, int rmw) {\n'),
+    ('static void write_ea(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, uint32_t val) {\n',
+     'static void write_ea_ex(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, uint32_t val, int rmw) {\n'
+     '    s_low_first = rmw && sz == M68K_SIZE_L;\n'
+     '    write_ea_body(ins, ea, sz, er, val, rmw);\n'
+     '    s_low_first = 0;\n'
+     '}\n'
+     'static void write_ea(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, uint32_t val) {\n'),
+    # ADDX.L and SUBX.L on two predecrement operands: each long is read from its low word, and the result is written low word,
+    # next prefetch, high word.
+    ('static uint32_t read_ea_ex(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, int rmw) {\n',
+     'static uint32_t mem_read_low_first(M68KSize sz, uint32_t a) {\n'
+     '    if (sz != M68K_SIZE_L) return mem_read(sz, a);\n'
+     '    uint32_t lo = m68k_read16(a + 2u);\n'
+     '    return ((uint32_t)m68k_read16(a) << 16) | lo;\n'
+     '}\n'
+     'static void mem_write_split(uint32_t a, uint32_t v) {\n'
+     '    rr_md_prefetch_hold();\n'
+     '    m68k_write16(a + 2u, (uint16_t)v);\n'
+     '    rr_md_prefetch_release();\n'
+     '    m68k_write16(a, (uint16_t)(v >> 16));\n'
+     '}\n'
+     'static uint32_t read_ea_ex(const M68KInstr *ins, int ea, M68KSize sz, ExtR *er, int rmw) {\n'),
+    ('        g_cpu.A[src] -= ay_dec; b = mem_read(sz, g_cpu.A[src]) & m;\n'
+     '        g_cpu.A[dst] -= ax_dec; a = mem_read(sz, g_cpu.A[dst]) & m;\n',
+     '        g_cpu.A[src] -= ay_dec; b = mem_read_low_first(sz, g_cpu.A[src]) & m;\n'
+     '        g_cpu.A[dst] -= ax_dec; a = mem_read_low_first(sz, g_cpu.A[dst]) & m;\n'),
+    ('    if (ins->predec_mem_form) mem_write(sz, g_cpu.A[dst], r);\n',
+     '    if (ins->predec_mem_form) { if (sz == M68K_SIZE_L) mem_write_split(g_cpu.A[dst], r); else mem_write(sz, g_cpu.A[dst], r); }\n'),
+)
 CLOCK_RULES = (
     ('        uint8_t val = eval_cond(cc) ? 0xFFu : 0x00u;\n',
      '        uint8_t val = eval_cond(cc) ? 0xFFu : 0x00u;\n'
@@ -97,6 +139,6 @@ def adapt_estimate_rules(source: str) -> str:
 def adapt_instruction_rules(source: str) -> str:
     """The estimate rules, the state rules and the data-dependent clocks, for the interpreter text of the Mega Drive."""
     source = adapt_estimate_rules(source)
-    for old, new in STATE_RULES + CLOCK_RULES:
+    for old, new in STATE_RULES + BUS_ORDER_RULES + CLOCK_RULES:
         source = replace(source, old, new)
     return source

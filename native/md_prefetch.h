@@ -12,6 +12,9 @@ void rr_md_cpu_bus_lock(int locked);
 void rr_md_prefetch_reset(void);
 uint16_t rr_md_instruction_word(uint32_t pc);
 void rr_md_prefetch_before_write(void);
+/* ADDX.L and SUBX.L with memory operands: the pending prefetch goes between the two halves of the write. */
+void rr_md_prefetch_hold(void);
+void rr_md_prefetch_release(void);
 void rr_md_prefetch_target(uint32_t pc);
 void rr_md_prefetch_refill(uint32_t pc);
 uint16_t rr_md_read_instruction_word(uint32_t pc);

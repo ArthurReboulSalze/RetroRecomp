@@ -20,7 +20,8 @@ class InstructionRulesTests(unittest.TestCase):
         cls.adapted = megadrive_rules.adapt_instruction_rules(cls.shared)
 
     def test_every_rule_replaces_exactly_one_pinned_line(self):
-        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_rules.CLOCK_RULES):
+        for old, new in (*megadrive_rules.ESTIMATE_RULES, *megadrive_rules.STATE_RULES, *megadrive_rules.BUS_ORDER_RULES,
+                         *megadrive_rules.CLOCK_RULES):
             self.assertEqual(self.shared.count(old), 1, old.splitlines()[0])
             self.assertEqual(self.adapted.count(new), 1, new.splitlines()[0])
 
