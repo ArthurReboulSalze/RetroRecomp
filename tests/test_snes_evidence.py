@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from retrorecomp import snes_evidence as evidence
+from retrorecomp import delivery_evidence, snes_evidence as evidence
 from retrorecomp.core import ConversionError
 from retrorecomp.delivery_evidence import DeliveredFile
 
@@ -27,11 +27,23 @@ class SnesEvidenceTests(unittest.TestCase):
             self.line(1, 'p1', 's1'), self.line(2, 'p1', 's1'), self.line(3, 'p2', 's2'), self.line(4, 'p2', 's2')]),
             {'pcm_nonzero': 1234, 'visible_frames': 4})
         self.assertEqual(record, {'frames': 4, 'distinct_pictures': 2, 'picture_changes': 1, 'last_picture_change_frame': 3,
-                                  'audible_frames': None, 'last_audible_frame': None, 'distinct_sound_blocks': 2,
+                                  'audible_frames': 4, 'last_audible_frame': 4, 'distinct_sound_blocks': 2,
                                   'pcm_nonzero': 1234, 'visible_frames': 4})
 
+    def test_a_frame_of_silence_is_not_audible(self):
+        # The host's per-frame sound hash of n zero samples is the FNV basis times the prime n times; every even n a frame can
+        # carry (NTSC 1,598, PAL 1,920, none) is a silent block, and a hash that is any other value is a frame with a sample.
+        silent = lambda samples: f'{delivery_evidence.silent_sound_hash(samples):016x}'
+        record = evidence.route_liveness(self.trace([
+            self.line(1, 'p1', silent(1598)), self.line(2, 'p2', silent(1598)), self.line(3, 'p3', 'ffffffffffffffff'),
+            self.line(4, 'p4', silent(1920)), self.line(5, 'p5', silent(0))]))
+        self.assertEqual((record['audible_frames'], record['last_audible_frame']), (1, 3))
+        self.assertEqual(len(evidence.silent_blocks()), evidence.MAX_FRAME_SAMPLES // 2 + 1)
+        for samples in (0, 2, 1598, 1920, evidence.MAX_FRAME_SAMPLES):
+            self.assertIn(silent(samples), evidence.silent_blocks(), samples)
+
     def test_what_the_host_does_not_write_is_none_not_zero(self):
-        # No per-frame audible flag exists on this host: "no evidence", never "silent".
+        # A trace without a sound column says nothing about the sound: "no evidence", never "silent".
         record = evidence.route_liveness(self.trace(['1,pa', '2,pb', '3,pb'], header='frame,frame_hash'))
         self.assertEqual((record['distinct_pictures'], record['picture_changes']), (2, 1))
         for key in ('audible_frames', 'last_audible_frame', 'distinct_sound_blocks', 'pcm_nonzero', 'visible_frames'):

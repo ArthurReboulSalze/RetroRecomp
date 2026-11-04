@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from retrorecomp.core import ConversionError
-from retrorecomp import snes_codegen, supernintendo
+from retrorecomp import snes_cart, snes_codegen, supernintendo
 
 
 def source_fixture():
@@ -46,6 +46,25 @@ class SnesNativeTests(unittest.TestCase):
         self.assertIn('if (rr_at < rr_base || rr_at - rr_base >= 32768u) return NULL;', text)
         self.assertNotIn('(size_t)(mapped - rr_sn_cart->rom)', text)
 
+    def test_the_rom_remainder_is_a_mask_or_a_constant_on_the_hot_path(self):
+        # cart_getRomPtr ended in a division by the ROM size on every ROM byte read; the Super FX board's code lookup did too.
+        header = bytearray(0x10000)
+        header[0x7fd5:0x7fd7] = bytes((0x20, 0x13))
+        header[0x7fdc:0x7fe0] = bytes.fromhex('cb ed 34 12')
+        header[0x7fc0:0x7fd5] = b'RR SUPERFX FIXTURE'.ljust(21, b' ')
+        header[0x7ffc:0x7ffe] = bytes((0, 0x80))
+        text = snes_codegen.native_source(source_fixture(), bytes(header), mapping='lorom')
+        self.assertIn('CART_SUPERFX', text)
+        self.assertIn('% 65536u]', text)
+        self.assertNotIn('% rr_sn_cart->romSize', text)
+        pinned = self.PINNED / 'runner/src/snes/cart.c'
+        if pinned.is_file():
+            raw = pinned.read_text(encoding='utf-8')
+            adapted = snes_cart.adapt_cart(raw)
+            self.assertEqual(adapted.count('(rom_size & (rom_size - 1)) ? off % rom_size : off & (rom_size - 1)'), 1)
+            with self.assertRaises(ConversionError):
+                snes_cart.adapt_cart(raw.replace('  return &cart->rom[off % cart->romSize];'+chr(10)+'}', '  return 0;'+chr(10)+'}'))
+
     def test_missing_operation_rejected(self):
         text = source_fixture().replace('case 0xff:', 'case 0xfe:')
         with self.assertRaises(ConversionError):
@@ -56,27 +75,30 @@ class SnesNativeTests(unittest.TestCase):
             snes_codegen.cycle_costs(source_fixture().replace('2,2,2', '2,2', 1))
 
     PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp'
-    BRK_CYCLE = 'if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles'
+    BRK_CYCLE = 'if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (as COP)'      # the engine's own, since 1.6.8
+    COP_CYCLE = 'if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles'      # this converter's
 
     @unittest.skipUnless((PINNED / 'runner/src/snes/interp816.c').is_file(), 'pinned engine checkout not present')
     def test_brk_and_cop_cost_the_extra_cycle_in_native_mode_in_both_readers(self):
         raw = (self.PINNED / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
-        self.assertNotIn(self.BRK_CYCLE, snes_codegen.operation_bodies(raw)[0x00])
+        self.assertEqual(snes_codegen.operation_bodies(raw)[0x00].count(self.BRK_CYCLE), 1)    # BRK: the engine's own
+        self.assertNotIn(self.COP_CYCLE, snes_codegen.operation_bodies(raw)[0x02])             # COP: ours
         source = snes_codegen.read_core(self.PINNED)
         self.assertEqual(snes_codegen.cycle_costs(source)[0x00], 7)
         bodies = snes_codegen.operation_bodies(source)
         # Native body (what generate() compiles) and adapted copy (what console16 writes).
         self.assertEqual(bodies[0x00].count(self.BRK_CYCLE), 1)
-        self.assertEqual(bodies[0x02].count(self.BRK_CYCLE), 1)
+        self.assertEqual(bodies[0x02].count(self.COP_CYCLE), 1)
         self.assertIn('if(!cpu->e) interp816_pushByte(cpu, cpu->k);', bodies[0x02])
         self.assertIn('0xfff4', bodies[0x02])
         adapted = snes_codegen.adapt_core(source)
-        self.assertEqual(adapted.count(self.BRK_CYCLE), 2)
+        self.assertEqual((adapted.count(self.BRK_CYCLE), adapted.count(self.COP_CYCLE)), (1, 1))
         compiled = snes_codegen.native_source(source, bytes(range(256)))
-        self.assertEqual(compiled.count(self.BRK_CYCLE), 2)
+        self.assertEqual((compiled.count(self.BRK_CYCLE), compiled.count(self.COP_CYCLE)), (1, 1))
 
     def test_software_interrupt_correction_fails_loudly_when_the_engine_moves(self):
-        brk = ('        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n')
+        brk = ('        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
+               '        if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (as COP)\n')
         for source in ('', 'changed', brk, brk * 2):
             with self.subTest(source=source[:12], copies=source.count(brk)):
                 with self.assertRaises(ConversionError):
@@ -247,6 +269,36 @@ class EmulationModeCorrectionTests(unittest.TestCase):
                                                                           if 'imp' in anchor else 'X'))
         # Native mode keeps the pinned text for what it did right.
         self.assertIn('interp816_pushWord(cpu, cpu->pc - 1);', text)
+
+class StackPageCorrectionTests(unittest.TestCase):
+    """The stack of the instructions the 65816 added, in emulation mode (1.6.8), from the independent vectors."""
+    PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/interp816.c'
+
+    @unittest.skipUnless(PINNED.is_file(), 'pinned engine checkout not present')
+    def test_the_eight_instructions_step_the_stack_without_wrapping_and_fail_closed(self):
+        raw = self.PINNED.read_text(encoding='utf-8')
+        text = snes_codegen.correct_stack_pages(raw)
+        self.assertEqual(text.count('interp816_stackPage(cpu);'), 8 + 0)
+        for call in ('interp816_pushWordNew(cpu, cpu->dp);', 'cpu->dp = interp816_pullWordNew(cpu);', 'interp816_pushWordNew(cpu, w);',
+                     'interp816_pushWordNew(cpu, interp816_readWord(cpu, low, high));',
+                     'interp816_pushWordNew(cpu, cpu->pc + (int16_t) value);', 'interp816_pushByteNew(cpu, cpu->k);',
+                     'cpu->pc = interp816_pullWordNew(cpu) + 1;', 'interp816_pushWordNew(cpu, cpu->pc - 1);'):
+            self.assertIn(call, text, call)
+        # The 6502 instructions keep the wrapping functions.
+        self.assertIn('interp816_pushByte(cpu, cpu->db);', text)     # PHB
+        # PEA pushes its operand and has no other effect: the engine's own game hack (Y zeroed for $C2AE) is gone from both readers.
+        self.assertIn('if (w == 0xC2AE)', raw)
+        self.assertNotIn('0xC2AE', text)
+        pea = text.split('case 0xf4: { // pea imm(l)')[1].split('break;')[0]
+        self.assertNotIn('cpu->y', pea)
+        # Every anchor is checked: a pinned text that changed is refused, not patched around.
+        for anchor in ('case 0x0b: { // phd imp', 'case 0x2b: { // pld imp', 'if (w == 0xC2AE)',
+                       'interp816_pushWord(cpu, cpu->pc + (int16_t) value);', 'cpu->k = interp816_pullByte(cpu);',
+                       'uint16_t value = interp816_adrIax(cpu);'):
+            with self.subTest(anchor=anchor):
+                self.assertEqual(raw.count(anchor) >= 1, True)
+                with self.assertRaises(ConversionError):
+                    snes_codegen.correct_stack_pages(raw.replace(anchor, 'X' + anchor))
 
 class SnesCopierFileTests(unittest.TestCase):
     """The Pro Fighter .fig format: a 512-byte copier header before whole 32 KiB blocks, like .smc."""

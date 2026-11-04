@@ -195,15 +195,17 @@ static void rr_sn_wram_fill(void) {{
                '    return g_snes && g_snes->cart && g_snes->cart->sa1 && cpu->mem == (void *)g_snes->cart->sa1;\n'
                '}\n') if cart_type == 'CART_SA1' else ''
     if cart_type == 'CART_SUPERFX':
-        rom_ptr = '''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
+        # The lookup runs only once `rr_snes_native_bind` has checked that the ROM is exactly this long, so the remainder is by a
+        # constant (a mask for the usual power of two) and not by a division.
+        rom_ptr = f'''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
      * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
      * ($40-$5F) views; the fetched-opcode check below still rejects a byte the
      * GSU bus replaced while the coprocessor owns ROM. */
     uint8_t b = bank & 0x7f;
     if (b < 0x40 && adr >= 0x8000)
-        return &rr_sn_cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % rr_sn_cart->romSize];
+        return &rr_sn_cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % {len(bus_rom)}u];
     if (b >= 0x40 && b < 0x60)
-        return &rr_sn_cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % rr_sn_cart->romSize];
+        return &rr_sn_cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % {len(bus_rom)}u];
     return NULL;'''
     else:
         rom_ptr = 'return cart_getRomPtr(rr_sn_cart, bank, adr);'
@@ -277,16 +279,19 @@ const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc,uint8_t opcode) 
 def correct_software_interrupts(source: str) -> str:
     """Give BRK and COP the 65816 manual's stack, cycles and vector in both modes.
 
-    The pinned interpreter counts a native-mode BRK as 7 cycles (the manual says 8:
-    K is stacked, one cycle more than in emulation mode) and runs COP as if the CPU
+    The engine now counts a native-mode BRK as 8 cycles itself (the manual says 8: K is stacked, one cycle more than in
+    emulation mode; the pin before 1.6.8 said 7 and this converter corrected it) and runs COP as if the CPU
     were always in native mode (in emulation mode COP does not stack K, takes 7
     cycles and vector $FFF4, not $FFE4). The operation bodies compiled natively and
     the interpreter copy written into the project both come from this one corrected
     text, so the two stay equal. Written from the manual, not from the upstream fix.
     """
-    brk = '        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
-    source = replace_once(source, brk,
-        brk + '        if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles\n')
+    # BRK: the engine counts the native-mode cycle itself since the pin of 1.6.8 (the correction this converter carried until 1.6.7
+    # is retired: a second one would count 9). The line is required, so an engine text that lost it is refused, not patched around.
+    brk = ('        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
+           '        if(!cpu->e) cpu->cyclesUsed++; // native mode: 1 extra cycle (as COP)\n')
+    if source.count(brk) != 1:
+        raise ConversionError('Pinned 65816 BRK cycle count changed.')
     return replace_once(source,
         '      interp816_readOpcode(cpu);\n'
         '      interp816_pushByte(cpu, cpu->k);\n'
@@ -364,10 +369,74 @@ def correct_emulation_mode(source: str) -> str:
         '  bool crossed = ')
 
 
+def correct_stack_pages(source: str) -> str:
+    """The stack of the 65816's own instructions in emulation mode does not wrap inside page 1 (found by the independent vectors).
+
+    The 6502 instructions (PHA, PLA, PHP, PLP, JSR, RTS, RTI, BRK, PHX...) keep the stack pointer in page 1 after every byte they
+    push or pull, so a push at the bottom of the page continues at the top of it. The instructions the 65816 added that move more
+    than one byte (`PEA`, `PEI`, `PER`, `PHD`, `PLD`, `JSL`, `RTL`, `JSR (a,x)`) step the 16-bit pointer: a push at $0100 writes
+    $0100, then $00FF, and a pull at $01FF reads $0200; only when the instruction ends is the pointer's high byte set back to 1.
+    The pinned core wraps after every byte in both. Native mode is the same text as before (the new byte functions never wrap
+    and the final step is for emulation mode only), and the compiled operations follow since they come from this same text.
+    """
+    source = replace_once(source,
+        'static void interp816_pushWord(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByte(cpu, value >> 8);\n'
+        '  interp816_pushByte(cpu, value & 0xff);\n'
+        '}\n',
+        'static void interp816_pushWord(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByte(cpu, value >> 8);\n'
+        '  interp816_pushByte(cpu, value & 0xff);\n'
+        '}\n'
+        '/* The stack of the instructions the 65816 added: the 16-bit pointer steps without wrapping, and an instruction ends\n'
+        ' * with the pointer back in page 1 in emulation mode. */\n'
+        'static void interp816_pushByteNew(Interp816* cpu, uint8_t value) {\n'
+        '  interp816_write(cpu, cpu->sp, value);\n'
+        '  cpu->sp--;\n'
+        '}\n'
+        'static void interp816_pushWordNew(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByteNew(cpu, value >> 8);\n'
+        '  interp816_pushByteNew(cpu, value & 0xff);\n'
+        '}\n'
+        'static uint8_t interp816_pullByteNew(Interp816* cpu) {\n'
+        '  cpu->sp++;\n'
+        '  return interp816_read(cpu, cpu->sp);\n'
+        '}\n'
+        'static uint16_t interp816_pullWordNew(Interp816* cpu) {\n'
+        '  uint8_t value = interp816_pullByteNew(cpu);\n'
+        '  return value | (interp816_pullByteNew(cpu) << 8);\n'
+        '}\n'
+        'static void interp816_stackPage(Interp816* cpu) {\n'
+        '  if(cpu->e) cpu->sp = (cpu->sp & 0xff) | 0x100;\n'
+        '}\n')
+    source = replace_once(source, '    case 0x0b: { // phd imp\n      interp816_pushWord(cpu, cpu->dp);\n',
+                          '    case 0x0b: { // phd imp\n      interp816_pushWordNew(cpu, cpu->dp);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWord(cpu);\n',
+                          '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWordNew(cpu);\n      interp816_stackPage(cpu);\n')
+    # PEA pushes its operand and nothing else. The pinned text zeroes Y when the operand is $C2AE, a hack of the engine's own game (it
+    # has no counterpart on the chip: no register is a side effect of PEA); it is left out of both readers, with the new stack steps.
+    source = replace_once(source, '      if (w == 0xC2AE)\n        cpu->y = 0;\n      interp816_pushWord(cpu, w);\n',
+                          '      interp816_pushWordNew(cpu, w);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '      interp816_pushWord(cpu, interp816_readWord(cpu, low, high));\n',
+                          '      interp816_pushWordNew(cpu, interp816_readWord(cpu, low, high));\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '      interp816_pushWord(cpu, cpu->pc + (int16_t) value);\n',
+                          '      interp816_pushWordNew(cpu, cpu->pc + (int16_t) value);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source,
+        '      interp816_pushByte(cpu, cpu->k);\n      interp816_pushWord(cpu, cpu->pc - 1);\n      cpu->pc = value;\n      /* Do not mask PB',
+        '      interp816_pushByteNew(cpu, cpu->k);\n      interp816_pushWordNew(cpu, cpu->pc - 1);\n      interp816_stackPage(cpu);\n'
+        '      cpu->pc = value;\n      /* Do not mask PB')
+    source = replace_once(source,
+        '      cpu->pc = interp816_pullWord(cpu) + 1;\n      cpu->k = interp816_pullByte(cpu);\n',
+        '      cpu->pc = interp816_pullWordNew(cpu) + 1;\n      cpu->k = interp816_pullByteNew(cpu);\n      interp816_stackPage(cpu);\n')
+    return replace_once(source,
+        '      uint16_t value = interp816_adrIax(cpu);\n      interp816_pushWord(cpu, cpu->pc - 1);\n',
+        '      uint16_t value = interp816_adrIax(cpu);\n      interp816_pushWordNew(cpu, cpu->pc - 1);\n      interp816_stackPage(cpu);\n')
+
+
 def read_core(engine: Path) -> str:
-    """The pinned interpreter source with the BRK/COP and emulation-mode corrections: what both readers use."""
-    return correct_emulation_mode(correct_software_interrupts(
-        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')))
+    """The pinned interpreter source with the BRK/COP, emulation-mode and stack corrections: what both readers use."""
+    return correct_stack_pages(correct_emulation_mode(correct_software_interrupts(
+        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8'))))
 
 
 def adapt_core(source: str) -> str:

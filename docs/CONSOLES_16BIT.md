@@ -104,7 +104,7 @@ These profiles use pinned sources downloaded into `.deps` on first conversion:
 | Component | Revision |
 | --- | --- |
 | [segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | `00c60bc855a7998f92e5614585d52bca8fffcaf2` |
-| [snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | `a00df26a87831113fec91b9225bf16b049d40775` |
+| [snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | `fb8cf15d9296c59e7653e495ef38c9136546e9c1` |
 
 A C++ toolchain is required for conversion; the converter offers to install it.
 Since 1.4.1, every SNES cartridge, Super Mario World included, uses the

@@ -11,7 +11,7 @@ gathered, and a costed plan. Nothing here is a fidelity or latency claim.
 
 ## Summary
 
-- The pinned engine (`RetroPortingToolKit/snesrecomp` at `a00df26`) already
+- The pinned engine (`RetroPortingToolKit/snesrecomp`; at `a00df26` when this page was written) already
   contains a **Super FX instruction-level core** (`runner/src/snes/superfx.c`,
   936 lines), wired to the cartridge bus, the shared master clock, the IRQ
   line and save states. Its header states that its instruction, pixel and

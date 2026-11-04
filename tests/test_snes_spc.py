@@ -81,6 +81,22 @@ class SpcConversionTests(unittest.TestCase):
         generated, _ = snes_spc.native_source(fixture(), bytes(64), bytearray(snes_spc.MASK_BYTES))
         self.assertIn('spc->v = spc->y >= spc->x;', generated)
 
+    def test_ei_and_di_take_three_cycles_and_nothing_else_changes(self):
+        from retrorecomp.snes_codegen import cycle_costs
+        before, after = cycle_costs(fixture()), cycle_costs(snes_spc.corrected(fixture()))
+        self.assertEqual([op for op in range(256) if before[op] != after[op]], [0xa0, 0xc0])
+        self.assertEqual((after[0xa0], after[0xc0]), (3, 3))
+        self.assertEqual(snes_spc.interrupt_flag_cycles(snes_spc.corrected(fixture())), snes_spc.corrected(fixture()))
+        # A table that holds another value at EI or DI, or another size, is refused.
+        wrong = fixture().replace('= {' + ','.join(['2'] * 256), '= {' + ','.join(['2'] * 160 + ['9'] + ['2'] * 95), 1)
+        with self.assertRaises(ConversionError):
+            snes_spc.corrected(wrong)
+        with self.assertRaises(ConversionError):
+            snes_spc.corrected(fixture().replace('cyclesPerOpcode[256]', 'cyclesPerOpcode[255]'))
+        # The compiled operations carry the same count.
+        generated, _ = snes_spc.native_source(fixture(), bytes(64), bytearray(snes_spc.MASK_BYTES))
+        self.assertIn('spc->cyclesUsed = 3;', generated.split('static void rr_spc_op_a0(Spc *spc)')[1].split('}')[0])
+
 class SpcMemoryTests(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()

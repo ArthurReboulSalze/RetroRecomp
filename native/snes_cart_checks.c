@@ -45,6 +45,26 @@ static void mapping(Cart *cart) {
         }
     }
 }
+/* The ROM pointer of every bank and address in the LoROM and HiROM views, for sizes the remainder is a mask for (powers of two)
+ * and for sizes it is not (3 MiB, 5 MiB): the pointer is the one the plain remainder gives. */
+static void rom_pointer(Cart *cart) {
+    const unsigned sizes[]={65536,262144,1048576,3145728,4194304,5242880,8388608};
+    const unsigned addresses[]={0,1,0x1fff,0x5fff,0x6000,0x7fff,0x8000,0x8001,0xbfff,0xc000,0xfffe,0xffff};
+    unsigned old_size=cart->romSize,old_ram=cart->ramSize;
+    uintptr_t base=(uintptr_t)cart->rom;
+    cart->ramSize=0;
+    for(unsigned map=1;map<=2;map++)for(unsigned s=0;s<sizeof sizes/sizeof *sizes;s++){
+        cart->type=map;cart->romSize=sizes[s];cart->romImageSize=sizes[s]>4194304?sizes[s]:4194304;
+        for(unsigned bank=0;bank<256;bank++)for(unsigned a=0;a<sizeof addresses/sizeof *addresses;a++){
+            unsigned adr=addresses[a],canonical=bank&0x7f;uint8_t *got=cart_getRomPtr(cart,(uint8_t)bank,(uint16_t)adr);
+            if(bank==126||bank==127||(adr<0x8000&&canonical<0x40)){CHECK(got==NULL);continue;}
+            unsigned off=map==1?((canonical<<15)|(adr&0x7fff)):(((canonical&0x3f)<<16)|adr);
+            if(map==2&&sizes[s]>4194304&&!(bank&0x80))off+=0x400000;
+            CHECK((uintptr_t)got==base+off%sizes[s]);
+        }
+    }
+    cart->romSize=old_size;cart->ramSize=old_ram;
+}
 static unsigned file_read(const wchar_t *path,uint8_t *out,unsigned capacity) {
     FILE *f=_wfopen(path,L"rb");CHECK(f!=NULL);unsigned n=(unsigned)fread(out,1,capacity,f);CHECK(!ferror(f));CHECK(!fclose(f));return n;
 }
@@ -112,6 +132,7 @@ int main(int argc,char **argv) {
     uint8_t *old_ram=cart->ram;unsigned old_size=cart->ramSize,old_type=cart->type,old_image=cart->romImageSize;
     uint8_t *old_sram=g_sram;int old_sram_size=g_sram_size;g_sram=ram;g_sram_size=sizeof ram;
     cart->ram=ram;mapping(cart);battery(cart,folder);
+    rom_pointer(cart);
     g_sram=old_sram;g_sram_size=old_sram_size;
     cart->ram=old_ram;cart->ramSize=old_size;cart->type=old_type;cart->romImageSize=old_image;
     for(unsigned n=0;n<RR_SN_RAM_VARIANT_LIMIT;n++) {

@@ -7,10 +7,11 @@ that starts the delivered file on a route. It is the counterpart of `megadrive_e
 without a coprocessor (before, only a cartridge with a counted device had a liveness check, `supernintendo.validate_device_liveness`).
 
 The trace (`native/console16_main.c`, `--trace FILE`) has one line per frame, with a header:
-`frame,frame_hash,native,interpreted,audio_hash`. The Super Nintendo host writes no per-frame audible flag and no program
-counter, so the record gives them as None (never 0: "no evidence", not "silent"); what it knows of the sound is how many
-distinct audio blocks the route produced, and the route's own result adds `pcm_nonzero` (non-zero samples over the whole
-route) and `visible_frames`.
+`frame,frame_hash,native,interpreted,audio_hash`. The Super Nintendo host writes no program counter, so that key is None
+(never 0: "no evidence"). A frame is audible when its `audio_hash` is not the hash of silence: the host folds the frame's
+16-bit samples into an FNV-1a hash, and all-zero samples leave only the multiplies (`delivery_evidence.silent_sound_hash`),
+so a silent frame's hash is one of a short list, by its (even) number of samples; the Neo Geo and the CPS-1 read their traces
+the same way. The route's own result adds `pcm_nonzero` (non-zero samples over the whole route) and `visible_frames`.
 
 Only the `play` route must show a moving picture: it is the route that presses the buttons. The attract route presses none,
 and a game that waits for Start on a still title shows one picture on it; the long and authored routes may sit in a menu.
@@ -19,12 +20,13 @@ on a route; it says nothing about what the picture shows or how far into the gam
 """
 from __future__ import annotations
 
+from functools import cache
 from pathlib import Path
 from typing import Callable, Iterator
 
 from .core import ConversionError
-from .delivery_evidence import (FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields,
-                                require_moving_picture)
+from .delivery_evidence import (FNV_BASIS, FNV_MASK, FNV_PRIME, FrameRow, deliver_packed, liveness_summary, replay_packed,
+                                report_fields, require_moving_picture)
 
 # The report keys of a route's liveness, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
@@ -34,6 +36,21 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 RESULT_FIELDS = ('pcm_nonzero', 'visible_frames')
 MAIN_ROUTE = 'play'
 TRACE_COLUMNS = ('frame', 'frame_hash', 'audio_hash')
+# A frame is 48 kHz stereo: about 1,600 samples (NTSC) or 1,920 (PAL); the table goes well past both. A silent frame of more than this many
+# samples (a host that would deliver 2,048 sample pairs or more in one frame) would not be found in the table and would read as audible.
+MAX_FRAME_SAMPLES = 4096
+
+
+@cache
+def silent_blocks() -> frozenset:
+    """The sound hash (16 hex digits, as the trace writes it) of a frame of silence, for every even number of samples a frame can
+    carry. The multiplies of `silent_sound_hash` are taken once in a row."""
+    value, blocks = FNV_BASIS, set()
+    for samples in range(MAX_FRAME_SAMPLES + 1):
+        if samples % 2 == 0:
+            blocks.add(f'{value:016x}')
+        value = (value * FNV_PRIME) & FNV_MASK
+    return frozenset(blocks)
 
 
 def trace_rows(trace: Path) -> Iterator[FrameRow]:
@@ -51,7 +68,8 @@ def trace_rows(trace: Path) -> Iterator[FrameRow]:
         if len(fields) != len(header) or not fields[column['frame']].isdigit():
             continue
         sound = fields[column['audio_hash']] if 'audio_hash' in column else None
-        yield FrameRow(int(fields[column['frame']]), fields[column['frame_hash']], sound=sound)
+        audible = None if sound is None else sound not in silent_blocks()
+        yield FrameRow(int(fields[column['frame']]), fields[column['frame_hash']], sound=sound, audible=audible)
 
 
 def route_liveness(trace: Path, result: dict | None = None) -> dict:

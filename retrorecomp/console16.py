@@ -22,7 +22,7 @@ from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadri
 
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
-    'snes': ('RetroPortingToolKit/snesrecomp', 'a00df26a87831113fec91b9225bf16b049d40775', 'snesrecomp'),
+    'snes': ('RetroPortingToolKit/snesrecomp', 'fb8cf15d9296c59e7653e495ef38c9136546e9c1', 'snesrecomp'),
 }
 SUPPORTED_SYSTEMS = ('md', 'snes')
 # Later pseudo-random routes may continue from the saved end state of the
@@ -359,8 +359,12 @@ endif()
         prefix = staged.as_posix()
         common += f'''set(SNESRECOMP_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
 set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
+set(SNESRECOMP_DSP1_IMPL HLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
+# The engine adds a manifest of its own (a UTF-8 code page) on Windows; the game carries the converter's (game_resources.rc) and
+# the host opens files with wide paths, so the engine's resource is left out: two manifests do not link.
+list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "snesrecomp_utf8_manifest\\.rc$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
 add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
   ${{RESOURCE_SOURCES}} ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
@@ -981,6 +985,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                               'reference_before_learning': reference_before_learning,
                               'cpu_fidelity_validated': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False,
+                              # The reference is the engine's own interpreter; the independent evidence is the vector run of the
+                              # release (docs/CPU_65816_SPC700.md), not part of a conversion.
+                              **({'independent_cpu_oracle': False} if system_id == 'snes' else {}),
                               **(delivered.validation_fields() if delivered else {})},
         'video_model': {'standard': standard, 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256,
                         checks[-1].get('visible_height', 224)],
@@ -995,6 +1002,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             max(1, check['native_entries'] + check.get('main_interpreted_opcodes', check['interpreted_opcodes'])), 6)
             for check in checks],
         **({'cartridge_device': device} if system_id == 'snes' and (device := device_entry(checks)) else {}),
+        # What the Super Nintendo's conversion does not claim (gate G15): read back by the common `honesty` block.
+        **({'qualification_scope': {
+            'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
+            'coprocessors': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
+            'universal_zero_fallback_claim': False}} if system_id == 'snes' else {}),
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, video standard and runtime ABI'},
