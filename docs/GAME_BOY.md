@@ -309,21 +309,21 @@ leaves out. A tool or a report field named here exists in the tree of this page.
 
 | Gate | Evidence for the Game Boy | What it leaves out |
 |---|---|---|
-| G1 Status | `supported`: the profile (`retrorecomp/systems/game_boy.py` takes the default status), the first line of this page and the README table say so; [COMPATIBILITY.md](COMPATIBILITY.md) and [INDEX.md](INDEX.md) describe the machine without any experimental mark | The status rests on the gates below; it claims neither hardware fidelity nor complete games nor latency |
-| G2 Report | Schema 2: the SM83 as the main CPU (cycles and instructions), the mapper and the sound unit as two devices with no counter, `saves.cartridge_memory`, `states`, `packed` | The mapper and the sound unit are C models of the runtime; their fidelity is stated as not validated |
-| G3 Native coverage | `final_checks[]`: `interpreter_instructions` and `interpreter_cycles`, the one-by-one counts of writable code (`ram_*`, `highmem_*`), `guarded_helpers` by kind; the fallback percentage stays unknown (no honest denominator) | Only the routes run; helpers are counted as entries and cycles, not as instructions |
-| G4 CPU fidelity | Lockstep against the pinned interpreter: 30 boot frames and 240 per route; from the extended level on, every scenario over its whole length up to 3,600 frames (`native_validation.scenarios[]`, `mode: full`) | The interpreter shares the runtime's devices, so this is no independent oracle for them; its own fidelity is G10 |
+| G1 Status | `supported`: the profile (`retrorecomp/systems/game_boy.py` takes the default status), the first line of this page and the README table say so; [COMPATIBILITY.md](COMPATIBILITY.md) and [INDEX.md](INDEX.md) describe the machine without any experimental mark; `tools/status_lint.py` shows 0 contradictions and 0 drift items (4 November 2026) | The status rests on the gates below; it claims neither hardware fidelity nor complete games nor latency |
+| G2 Report | Schema 2: the SM83 as the main CPU (cycles and instructions, per route), the mapper and the sound unit as two devices with no counter (C models of the runtime, no program to interpret: `mode: c_model`, `hardware_fidelity_validated: false`), `saves.cartridge_memory`, `states`, `packed`; read on the reports of the twelve campaign games on 4 November 2026 | The mapper and the sound unit are C models of the runtime; their fidelity is stated as not validated |
+| G3 Native coverage | `final_checks[]`: `interpreter_instructions` and `interpreter_cycles`, the one-by-one counts of writable code (`ram_*`, `highmem_*`), `guarded_helpers` by kind; the fallback percentage stays unknown (no honest denominator); no interpreter instruction on any final route of the twelve campaign games (below), the writable code run one by one is listed per game | Only the routes run; helpers are counted as entries and cycles, not as instructions |
+| G4 CPU fidelity | Lockstep against the pinned interpreter: 30 boot frames and 240 per route; from the extended level on, every scenario over its whole length up to 3,600 frames (`native_validation.scenarios[]`, `mode: full`; the long route of 18,000 frames over its first 3,600): the twelve campaign games at the extended level, and 151 of the 152 test ROMs below frame by frame with the picture and the sound, plus one documented divergence (`oam_bug` 7, first version, at step 6,717,022) | The interpreter shares the runtime's devices, so this is no independent oracle for them; its own fidelity is G10 |
 | G5 Delivered file | The compressed copy replayed on the same routes with the same verdict (`packed_reference_match`, `packed_candidate_sha256`) | Same routes and lengths as G4 |
 | G6 States | Every conversion checks quick states in fresh processes on that copy (`game_states.fresh_process_verified`); `tools/gameboy_states_check.py` on an authored cartridge and a game | F8 and F9 themselves are not driven; the state file has no checksum |
 | G7 Saves | `tools/gameboy_saves_check.py`: six authored cartridges (MBC1, MBC2, MBC3 with clock, MBC5, RAM without battery, battery never written), reload byte for byte, damaged files refused | A game's own save code is not tested |
 | G8 Liveness | `final_checks[].liveness` on every probe; a conversion is refused when its `varied` route never changes the picture | Counts of changes, not proof that the game is played well |
 | G9 Route depth | The reproducible pseudo-random route of the extended and thorough levels; the 1.6.7 campaign (`tools/gameboy_campaign.py`) replays it on the delivered file with six captures a game that a person looks at | Not full games; the pictures are looked at by the specialist agent, not by the owner |
 | G10 Independent CPU | `tools/gameboy_sm83_vector_selftest.py`: 402,589 of 404,358 vectors of SingleStepTests/sm83 on plain memory match the interpreter, all of the RAM executors'; and the public test ROMs run on the delivered files (below): blargg `cpu_instrs` 11 of 11, `instr_timing`, `mem_timing` 6 of 6, Mooneye's instruction, interrupt, HALT and timing tests all pass, each with native and interpreter identical for the whole run | The vectors do not run the generated code (the lockstep carries the interpreter to it); the vector model is not a console; `STOP` and `HALT` differ by its conventions; `STOP` itself is not tested by `cpu_instrs`; the test ROMs run at the quick level, one conversion each |
-| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`); and the console's own tests (below): Mooneye 92 of 94 applicable tests (timer, OAM DMA, PPU and interrupt timing, MBC1, MBC2, MBC5), blargg `oam_bug` 14 of 16, `mem_timing` 6 of 6 | The sound unit fails 18 of the 24 blargg `dmg_sound` tests and two more do not end; two Mooneye tests of the state after the boot ROM fail; no hardware capture is used |
+| G11 Independent hardware | The upstream's PPU dot-timing, OAM DMA bus and sound checks (`tools/gameboy_hardware_selftest.py`); and the console's own tests (below): Mooneye 94 of 94 applicable tests (timer, OAM DMA, PPU and interrupt timing, boot state, MBC1, MBC2, MBC5), blargg `oam_bug` 14 of 16, `mem_timing` 6 of 6, `dmg_sound` 18 of 24 (1.6.8) | The wave-channel accesses of `dmg_sound` (3 tests of 12, in both versions) still fail and `oam_bug` `7-timing_effect` gives no verdict; the DMG ABC model only (the other revisions of the console are not applicable); after the reset only the PPU is stepped to the console's start and the divider keeps its value, so the phase between DIV and the PPU is not tested; no hardware capture is used |
 | G12 Panel | The exact-cartridge panel of the collection (below) | Cartridges that failed or were skipped are listed on that page and in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) |
-| G13 Cross-OS | Windows and Debian 13 (Hermès), each converting the game with the same tree, the same engine revision and an empty library at the quick level, give equal per-frame traces (picture, sound, work RAM and program counter hashes) and equal final states on 15 of 15 routes: boot, two play runs, `varied` and an 18,000-frame pseudo-random route, for Tetris, Exodus and Super Mario Land (3 November 2026); `tools/gameboy_cross_os.py`, section *The cross-OS witness* below | Three of the 606 cartridges, the quick level, no thorough run, so the gate stays `P` in [QUALIFICATION.md](QUALIFICATION.md) (the same bar as the Neo Geo with three sets; the NES reached `Y` with the eight games of its campaign): `Y` would take the games of the campaign above, not these three; the compiler and the SDL build differ by system, which is what the equal traces show to be harmless for these routes, not for every game |
+| G13 Cross-OS | Windows and Debian 13 (Hermès), each converting the game with the same tree (commit `5ff5595`, 4 November 2026), the same engine revision and an empty library at the quick level, give equal per-frame traces (picture, sound, work RAM and program counter hashes) and equal final states on 48 of 48 routes (boot, two play runs and an 18,000-frame pseudo-random route: 280,800 frames per system) for the twelve games of the campaign; the generated sources are equal file for file but the embedded resources; `tools/gameboy_cross_os.py`, section *The cross-OS witness* below | Twelve of the 606 cartridges, the quick level, four routes each (the `varied` route of the 1.6.7 witness is not part of the quick level), no thorough run; the compiler and the SDL build differ by system, which is what the equal traces show to be harmless for these routes, not for every game; the traces were not compared with a console |
 | G14 Owner | No recorded owner decision | His play test |
-| G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the interface and the report say "tested scenarios" and "not native" where it applies; the audit of 3 November 2026 of this page, [CPU_SM83.md](CPU_SM83.md) and the strings of the report found no claim of exactness, zero latency or hardware fidelity | Words in other pages and in the interface strings of other machines are not covered |
+| G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the interface and the report say "tested scenarios" and "not native" where it applies; the audit of 3 November 2026 of this page, [CPU_SM83.md](CPU_SM83.md) and the strings of the report found no claim of exactness, zero latency or hardware fidelity; repeated on 4 November 2026 on every public line that names the machine (README, `docs/*.md`, the interface texts of the eight languages and the converter strings, searched for the words of exactness, accuracy, perfection, zero latency and completeness, and the matches read): none claims more than the five separate measures | Words in other pages and in the interface strings of other machines are not covered |
 | G16 Shared knowledge | Hints are numbers about a ROM (addresses, positions), rechecked on the exact ROM, and the conversion retries without them on failure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)) | A hint qualifies a path only after a conversion by another player reaches it and checks it against the reference |
 
 - **Collection campaign, October 2026.** The supplied DMG collection was qualified with 6 concurrent conversions, up to six discovery
@@ -425,6 +425,15 @@ as a hash per block of samples inside the trace, not as a file. This says that t
 two systems for these three games and these routes; it says nothing about the other 603 cartridges, the thorough level, the speed on each
 system or hardware fidelity.
 
+*Twelve games, 1.6.8.* The witness was repeated on 4 November 2026 on the tree of the commit `5ff5595` (spec/gb-168) with the twelve games of the campaign above (Tetris, Exodus, Super Mario Land,
+Contra: The Alien Wars, Final Fantasy Legend II, Link's Awakening, Mega Man V, Metroid II, Pokémon Red, Pokémon Yellow, The Ren & Stimpy Show: Veediots! and Wario Land II): each game converted once on each system,
+one at a time, at the quick level from an empty library (`batch --no-shared-base --no-online-cover --scan-level quick`), with the pinned engine (`9150f87d`) and the pinned SDL (`5d249570`) on each side (20 to 220 s on the PC,
+130 s to more than 17 minutes on Hermès). The routes of each conversion (boot, two play runs and one pseudo-random route of 18,000 frames, 280,800 frames per system) were then replayed on the delivered file of each system
+with `tools/gameboy_cross_os.py trace` and compared with `compare`: the per-frame traces and the final states are **equal on all 48 routes**. The generated sources (107 to 312 files per game) are equal file for
+file but `embedded_resources.c`, which only Linux has (a `.rc` file stands in on Windows, by design). It says that the converter and the runtime give the same game on the two systems for these twelve games and these
+routes; it says nothing about the other 594 cartridges, the thorough level, the speed on each system or hardware fidelity. Hermès was used in its own folder, with its SDL checkout kept apart (its own was at another
+revision); the ROMs were copied for the run and everything was deleted afterwards.
+
 ### The public test ROMs of blargg and Mooneye (1.6.7, gates G10 and G11)
 
 The two public suites were downloaded on 3 November 2026 and kept **outside the repository** (`.build/gb-testroms/`, one new folder per archive); only
@@ -446,15 +455,18 @@ Mooneye, the word "Passed" or "Failed" on the serial port, or the memory verdict
 The frame limit grows by steps until a verdict shows, and the run is then repeated against the pinned interpreter in lockstep (`--differential`) for as many frames
 as the test needed (26 to 1,051 frames for blargg, 61 to 601 for Mooneye). Every ROM was converted without error (all `supported`).
 
-| Suite and group | Applicable | Passed | Failed | No verdict |
+The first run (1.6.7 tree) gave 128 of 152. The whole set was converted and run again on the 1.6.8 tree, with the state of the console after the boot ROM, the phase
+of the serial clock and the rules of the sound unit that the tests pointed at ([UPGRADES.md](UPGRADES.md#game-boy-the-state-after-the-boot-rom-the-serial-clock-phase-and-the-sound-unit-168-gates-g10-and-g11)); the third column gives both runs.
+
+| Suite and group | Applicable | Passed 1.6.8 (1.6.7) | Failed | No verdict |
 |---|---|---|---|---|
-| Mooneye `acceptance` (CPU timing, interrupts, HALT, OAM DMA, PPU, timer, serial, boot state) | 66 | 64 | 2 | 0 |
-| Mooneye `emulator-only` (MBC1 13, MBC2 7, MBC5 8) | 28 | 28 | 0 | 0 |
-| blargg `cpu_instrs` (the 11 single ROMs) | 11 | 11 | 0 | 0 |
-| blargg `instr_timing`, `mem_timing` (3), `mem_timing-2` (3) | 7 | 7 | 0 | 0 |
-| blargg `oam_bug` and `oam_bug-2` (8 each) | 16 | 14 | 0 | 2 |
-| blargg `dmg_sound` and `dmg_sound-2` (12 each) | 24 | 4 | 18 | 2 |
-| **Total** | **152** | **128** | **20** (2 Mooneye, 18 blargg) | **4** |
+| Mooneye `acceptance` (CPU timing, interrupts, HALT, OAM DMA, PPU, timer, serial, boot state) | 66 | 66 (64) | 0 | 0 |
+| Mooneye `emulator-only` (MBC1 13, MBC2 7, MBC5 8) | 28 | 28 (28) | 0 | 0 |
+| blargg `cpu_instrs` (the 11 single ROMs) | 11 | 11 (11) | 0 | 0 |
+| blargg `instr_timing`, `mem_timing` (3), `mem_timing-2` (3) | 7 | 7 (7) | 0 | 0 |
+| blargg `oam_bug` and `oam_bug-2` (8 each) | 16 | 14 (14) | 0 | 2 |
+| blargg `dmg_sound` and `dmg_sound-2` (12 each) | 24 | 18 (4) | 6 | 0 |
+| **Total** | **152** | **144** (128) | **6** (blargg) | **2** |
 
 Not applicable (41): 21 Mooneye ROMs (18 for other models: Super Game Boy, Pocket, DMG revision 0, Game Boy Color and Advance; two tools that dump the boot ROM; and `sprite_priority`, a
 test to look at, with no verdict); the 13 `cgb_sound` ROMs; and the 7 blargg ROMs that combine the single ones (the single ones are run). The two
@@ -462,32 +474,30 @@ versions of `dmg_sound` and of `oam_bug` give the same verdicts, ROM for ROM.
 
 *What passes.* All CPU and timing tests, including `cpu_instrs` (the 11 groups of every instruction and flag), `instr_timing`, `mem_timing`, Mooneye's `add_sp_e`,
 `call`, `jp`, `ret`, `push`, `pop`, `rst`, `ld_hl_sp_e`, `di`, `ei`, `halt` (five), `intr_timing`, `daa`, `ie_push`, `rapid_di_ei`; the eight OAM DMA tests; the thirteen
-PPU timing tests (interrupts, STAT, LYC, LCD on); the thirteen timer tests (`tim*`, `div_write`, `tima_reload`, `rapid_toggle`); `mem_oam`, `reg_f`, `boot_regs-dmgABC`,
-`boot_div-dmgABCmgb`; the MBC1, MBC2 and MBC5 bank and RAM tests; and seven of the eight `oam_bug` tests (the OAM corruption bug of the console).
+PPU timing tests (interrupts, STAT, LYC, LCD on); the thirteen timer tests (`tim*`, `div_write`, `tima_reload`, `rapid_toggle`); `mem_oam`, `reg_f`, `unused_hwio-GS`, `boot_regs-dmgABC`,
+`boot_div-dmgABCmgb`, and since 1.6.8 `boot_hwio-dmgABCmgb` and `serial/boot_sclk_align-dmgABCmgb` (the state of the registers, the LCD line and the serial clock right after the boot
+ROM, for the DMG ABC); the MBC1, MBC2 and MBC5 bank and RAM tests; seven of the eight `oam_bug` tests (the OAM corruption bug of the console); and nine of the twelve `dmg_sound` tests
+(registers, length counter, trigger, sweep, sweep details, overflow on trigger, length and sweep period sync, length counter during power, registers after power).
 
 *What fails, and the probable cause.* (Looked at on the screen of each test.)
 
-- **`bits/unused_hwio-GS`** (Mooneye) failed on the main tree: the unwired bits of $FF07 (timer control) and of $FF68 read back as written instead of 1.
-  Fixed in 1.6.7 (`gameboy_runtime.adapt_unused_io_bits`, see [UPGRADES.md](UPGRADES.md)); the test passes on the corrected tree (the 92 of 94 above count it), and on Tetris, Super Mario Land and Exodus the four routes of each (23,400
-  frames, picture, sound, work RAM and program counter of every frame) are identical before and after.
-- **`boot_hwio-dmgABCmgb`** (Mooneye): after the fix it passes $FF00-$FF03 and stops at $FF26 (NR52): the test expects F1 (channel 1 still on after the boot ROM's sound) and reads F0.
-  The runtime starts after the boot ROM with the channel off. The registers after $FF26 are not reached, so they are neither passed nor failed.
-- **`serial/boot_sclk_align-dmgABCmgb`** (Mooneye): measures the phase of the serial clock against the boot ROM; the registers read 14/92 where 12/91-90 are expected. Probable cause: the
-  runtime does not run the boot ROM, so its first cycles are shifted by a few cycles. Not corrected: a shift of the start would move every game.
-- **`dmg_sound` (and `-2`), 9 failures per version**, on the accuracy of the sound unit of the pinned engine (hardware fidelity of the APU, never claimed): `01-registers` (#4, powering the
-  APU affects the wave RAM), `03-trigger` (#3, length clocked in the first half of the period), `04-sweep` (#3, shift 0 must not calculate on trigger), `05-sweep details` (#4, leaving negate mode),
-  `08-len ctr during power`, `09-wave read while on`, `10-wave trigger while on`, `12-wave write while on` (the checksum of the wave RAM access differs), `11-regs after power` (#4, powering off must not
-  affect NR41). `02-len ctr` and `06-overflow on trigger` pass.
-- **No verdict at 10,800 frames (three minutes of game time):** `dmg_sound/07-len sweep period sync` (the title stays on the screen) and `oam_bug/7-timing_effect` (a blank screen), in both versions. The
-  cause is not known: the test most likely waits for an event the model does not produce. They are counted as not passed for the gates.
+- **`dmg_sound` `09-wave read while on`, `10-wave trigger while on`, `12-wave write while on`** (both versions): the three read or write the wave RAM, or trigger the wave channel, while it plays, and
+  expect the byte the channel is reading at that very cycle (a window of two clocks, and corruption of the RAM on a trigger). The runtime advances the wave channel with the sample clock of the audio
+  unit, not by cycle, so the byte it hands back is not the console's. Not attempted: it needs a wave channel exact to the cycle in a unit that is the upstream's (hardware fidelity of the APU
+  is not claimed). No game of the 12-game campaign shows the difference.
+- **No verdict at 10,800 frames (three minutes of game time):** `oam_bug/7-timing_effect`, in both versions (a blank screen). The test derails before it ends (see below); why it
+  leaves its path is not known. It is counted as not passed for the gates. `dmg_sound/07-len sweep period sync`, which had no verdict on the 1.6.7 tree, now passes.
 
-*A finding on the comparison with the interpreter.* On every test but one the native code and the pinned interpreter agree step by step for the whole run (from 200,000 to 92 million steps). On
-`oam_bug/7-timing_effect` (the first version of the ROM only) the lockstep stops at step 6,717,022 (about 784 frames): the generated code is one four-cycle step behind the interpreter (PC `$2154`, SP `$C0A6`
-against PC `$0038`, SP `$C0A4`, in a loop that executes `RST $38` from a stretch of `$FF`). The same ROM in its second version matches for 10,800 frames. The cause is not found; it is a lockstep result
-on a test that gives no verdict, to look at before this test is counted for anything.
+*A finding on the comparison with the interpreter.* On every test but one the native code and the pinned interpreter agree step by step for the whole run (from 200,000 to 92 million steps), on the picture
+and the sound as well as on the CPU. On `oam_bug/7-timing_effect` (the first version of the ROM only) the lockstep stops at step 6,717,022 (about 784 frames): the generated code is one four-cycle step behind
+the interpreter (PC `$2154`, SP `$C0A6` against PC `$0038`, SP `$C0A4`). Found on 4 November 2026: at that step the program fetches its instructions from the ROM while an OAM DMA transfer is under way. The
+pinned interpreter then reads `$FF` for the opcode (its model of the bus conflict: on a console the CPU reads the byte the transfer is moving when the transfer uses the bus the code is fetched from; a transfer whose source is in video RAM leaves the ROM and the work RAM readable) and executes `RST $38`; the generated code executes the instruction it translated. A program that fetched from the bus the transfer uses would read the transfer's bytes on a console, not its code, so this is a run that has already left its path, not a difference a game can reach; the interpreter's `$FF` is a model too. It is **not corrected**: checking
+every instruction fetch against the state of the transfer would put a test in the hot path of every game for a case no game has. The second version of the ROM does not get there and matches for
+10,800 frames. Why the first version leaves its path (in the native code and in the interpreter alike) is not found.
 
 *What it leaves out.* A pass says that the converted file and the console's own test agree on that behaviour; it is not a claim of cycle-exact hardware: the test suites do not cover everything
-(STOP, the Super Game Boy, the whole sound unit, the PPU's pixel details), the boot-state tests are not passed, and no hardware capture was made. These tests were run one conversion each at the quick level; they
+(STOP, the Super Game Boy, the whole sound unit, the PPU's pixel details), the state after the boot ROM is the one of the DMG ABC revision only (the other revisions are not applicable and not
+modelled), only the PPU is stepped to it and the divider keeps its value (the phase between DIV and the PPU is not tested), and no hardware capture was made. These tests were run one conversion each at the quick level; they
 say nothing about a game.
 
 ### Letters missing in a menu of Final Fantasy Legend II

@@ -102,6 +102,63 @@ From 1.6.8, `core.follow_pin` brings both checkouts to their pins through the sh
 What a game does is unchanged: the pins themselves do not move, and a library already at the pins runs the same commands as
 before plus the edit check. `tests/test_dependency_pins.py` covers each case with local repositories (no network).
 
+## Game Boy: the state after the boot ROM, the serial clock phase and the sound unit (1.6.8, gates G10 and G11)
+
+The public test ROMs ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)) showed where the runtime differs from the console right after the boot ROM and in the sound unit.
+Four corrections, all `replace_once` patches of the private generated project (a moved upstream marker refuses the conversion; `tests/test_gameboy_boot_apu.py`):
+
+- **The sound unit starts where the boot ROM leaves it** (`gameboy_hardware.adapt_post_boot_apu`): channel 1 is on at volume 0 with the 64 of the length counter the boot ROM's note wrote, so `$FF26` reads
+  `$F1` (it read `$F0`). The mix is unchanged: the channel is silent.
+- **The LCD starts where the common console leaves it** (`gameboy_runtime.adapt_boot_ppu_phase`): the pinned reset has the LCD where the first revision of the console leaves it, at line 145; the common revision
+  (DMG ABC) leaves it in vertical blank with LY already reading 0 (STAT `$85`), late in line 153. Mooneye's `boot_hwio` accepts a window of phases (it passes at the steps tried from 3,950 to 4,108 dots after the reset and fails
+  at 3,900 and below and at 4,150 and above); the PPU is stepped by 4,096 dots after its reset in a DMG without boot ROM (line 153, dot 452, mode 1, LY reading 0; no vertical-blank edge is crossed). The exact dot within
+  the window is not measured. Only the PPU is stepped, the divider keeps its value: the phase between DIV and the PPU is not tested.
+- **A serial transfer with the internal clock ends on the phase of the divider** (`gameboy_runtime.adapt_serial_phase`): the first bit comes at the next falling edge of bit 8 of the divider, not 4,096 dots after the start.
+- **Rules of the sound unit** (`gameboy_hardware.adapt_power_off`, `adapt_length_clock`, `adapt_sweep_calculation`): the power switch of `$FF26` keeps the wave RAM and the length counters, and the length part of
+  NR11, NR21, NR31 and NR41 is writable while the unit is off; enabling a length in the first half of a length period clocks it once and a trigger of an empty counter loads one less; a sweep with a shift of 0 still
+  calculates at every sweep clock (nothing is written back, an overflow turns the channel off); leaving negate mode after a calculation made in it turns channel 1 off. The negate flag lives in the unused `freq` field of
+  channel 1, so the saved sound state keeps its size.
+
+*Proof.* On the 152 test ROMs of blargg and Mooneye, 128 passed on the 1.6.7 tree and 144 pass now: `boot_hwio-dmgABCmgb` and `boot_sclk_align-dmgABCmgb` pass, and `dmg_sound` goes from 4 to 18 of 24
+(both versions of each test). Native code and interpreter stay equal step by step on every test but `oam_bug` `7-timing_effect` (see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)). Six `dmg_sound` tests (the wave
+channel read, trigger and write while it plays) still fail.
+
+*Hot path: not touched.* The generated code and the per-sample mix are unchanged. The serial rule runs when a transfer starts, the PPU rule once at reset, the sound rules on writes to the
+power switch, NR10, NRx1 and NRx4 and on the 128 Hz sweep clock. Channel 1 is enabled from the reset, so its timer and its 64 Hz envelope step from frame 0 (a contribution of 0 at volume 0). No timing was taken.
+
+| Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- |
+| Game Boy only (`retrorecomp.gameboy_runtime` and `retrorecomp.gameboy_hardware` are inputs of its `game` stamp; read with `compilation_inputs.role_stamps` against the base of the branch: the other eight consoles do not move) | none | no key moves (the saved sound state keeps its size) |
+
+*What it changes in practice, measured on twelve games.* The twelve games of the 1.6.7 campaign were converted on the 1.6.8 tree and replayed with the three runtimes (1.6.7, the new sound unit alone, everything) on
+their four routes (boot, two play runs and the pseudo-random route of 18,000 frames), comparing the picture, sound, work RAM and program counter of every frame (`tools/gameboy_cross_os.py`):
+
+- **The sound rules alone change no picture, no work RAM and no program counter on any frame of the 48 routes**; the sound hash of the frame differs on ten of the twelve games (not on Contra or Pokémon Yellow),
+  probably from the phase of channel 1, which now runs from the boot ROM on, and where a length edge case occurs. This was not heard against a console.
+- **A behaviour change, decided on 4 November 2026: the LCD starts where the common console leaves it (the DMG ABC, LY reading 0 in vertical blank, confirmed by `boot_hwio`).** The game starts 4,096 dots (nine lines) later in the frame. A game of 1.6.7 that is converted
+  again **no longer replays frame for frame what it did**: the program counter and the work RAM at the end of a frame differ from the first frames on most games (table below), and what depends on the timing follows
+  (Tetris deals other pieces on its long route; animations and random numbers elsewhere). All twelve stay alive: the number of different pictures per route stays within a few percent except Metroid II's boot route and
+  the long routes of Final Fantasy Legend II, Pokémon Red and Tetris, which show more because the game reaches other screens. Same policy as the corrections found by the independent vectors.
+- One figure to read with care: the count of frames with a non-zero sample falls on some games (Metroid II 17,645 to 14,304 frames of 18,000). It counts a constant offset of the output filter left at silence
+  (142 on each side of 32,768 on Metroid II in 1.6.7), which the new start does not keep; the mixed channels are silent in both.
+
+| Game | Routes (of 4) with the sound hash of 1.6.7, sound rules alone | Routes (of 4) equal to 1.6.7 in picture / sound / work RAM / program counter, everything | Frames with another picture (of 21,600) |
+|---|---|---|---|
+| Contra: The Alien Wars | 4 | 0 / 0 / 0 / 0 | 768 |
+| Exodus | 3 | 4 / 0 / 0 / 0 | 0 |
+| Final Fantasy Legend II | 0 | 0 / 0 / 0 / 0 | 20,448 |
+| Link's Awakening | 0 | 0 / 0 / 0 / 0 | 2,373 |
+| Mega Man V | 3 | 4 / 0 / 4 / 0 | 0 |
+| Metroid II | 0 | 3 / 0 / 2 / 0 | 166 |
+| Pokémon Red | 0 | 0 / 0 / 0 / 0 | 4,334 |
+| Pokémon Yellow | 4 | 0 / 0 / 0 / 0 | 1,257 |
+| Super Mario Land | 1 | 0 / 0 / 0 / 0 | 453 |
+| Tetris | 0 | 3 / 0 / 3 / 0 | 17,021 |
+| The Ren & Stimpy Show: Veediots! | 2 | 4 / 0 / 4 / 4 | 0 |
+| Wario Land II | 0 | 4 / 0 / 4 / 4 | 0 |
+
+The routes are the boot, the two play runs and the pseudo-random route of 18,000 frames of each conversion (quick level, an empty library); with the sound rules alone the picture, the work RAM and the program counter are equal to 1.6.7 on every route of every game. Final Fantasy Legend II shows another picture on nearly every frame (its title and menus animate on the timing); this was not looked at screen by screen.
+
 ## Mega Drive: the bus layout of the 68000 follows the independent vectors, and the Z80 hash of the report is portable (1.6.8, in development)
 
 The 452 vectors of `tests/fixtures/m68k-groups` that still differed from the Mega Drive after 1.6.7 (the total of clocks was right, the

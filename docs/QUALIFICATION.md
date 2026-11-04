@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G8 of the Mega Drive of 4 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy and G8 of the Mega Drive of 4 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -44,10 +44,10 @@ x68 = Sharp X68000.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
 |---|---|---|---|---|---|---|---|---|---|
-| G1 | P | P | P | Y | Y | P | Y | Y | Y |
-| G2 | P | P | P | Y | P | Y | Y | Y | Y |
-| G3 | Y | Y | P | Y | Y | Y | Y | Y | Y |
-| G4 | Y | Y | P | Y | Y | Y | Y | Y | Y |
+| G1 | P | P | Y | Y | Y | P | Y | Y | Y |
+| G2 | P | P | Y | Y | P | Y | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
@@ -56,9 +56,9 @@ x68 = Sharp X68000.
 | G10 | Y | Y | Y | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | P | P | P | Y | P | P | P | P | Y |
+| G13 | P | P | Y | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
-| G15 | P | P | P | P | P | P | Y | Y | Y |
+| G15 | P | P | Y | P | P | P | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
 ### Caveats
@@ -86,6 +86,17 @@ x68 = Sharp X68000.
   G6: every conversion checks the quick states in a fresh process, and `tools/gameboy_states_check.py` does it on an authored
   cartridge and on Super Mario Land. G7: `tools/gameboy_saves_check.py` on six cartridges written for it ([GAME_BOY.md](GAME_BOY.md)).
   G8 is `P`: the liveness record exists on every conversion, but no campaign of captures was inspected for the Game Boy.
+- Game Boy (4 November 2026): G1, G2, G3, G4, G13 and G15 moved from `P` to `Y`; G11 stays `P`. Evidence in [GAME_BOY.md](GAME_BOY.md#the-sixteen-gates-with-their-evidence-167):
+  G1 `tools/status_lint.py` shows 0 contradictions and 0 drift items; G2 the report of every one of the twelve campaign games has the SM83's counters per route and the mapper and the sound unit as devices
+  that state they are C models, with `hardware_fidelity_validated: false` (like the NES, with no counter for a device that runs no program); G3 no interpreter instruction on any final route of the twelve
+  games, the writable code run one by one listed per game (Wario Land II 925,868 instructions, the others 0 to 77,317), the native count and the fallback percentage stay unknown; G4 the CPU,
+  memory, picture and sound of native code and interpreter equal over every route of the twelve games at the extended level (the long route over its first 3,600 of 18,000 frames) and, since 1.6.8, on the
+  151 of the 152 test ROMs frame by frame plus one documented divergence (`oam_bug` 7, first version, at step 6,717,022); G15 the audit of 3 November repeated on every public line that names the machine (README, documents, eight interface languages, converter strings), no claim of exactness,
+  zero latency or hardware fidelity found. Limits: G4 is agreement of two executions of the same machine model, not an independent oracle (G10 is); the long route is compared on its first 3,600 frames;
+  the audit is a search of the words of exactness, accuracy and completeness with the matches read, not a reading of every page. **G11** stays `P`: Mooneye passes 94 of 94 applicable tests since 1.6.8 (the state
+  after the boot ROM now matches the DMG ABC) and `dmg_sound` 18 of 24, but the three wave-channel tests of each version fail, `oam_bug` `7-timing_effect` gives no verdict and no hardware capture was made.
+  **G13** `Y`: Windows and Debian 13 (Hermès) convert the twelve games of the campaign from the same tree (`5ff5595`, quick level, empty library) and give equal per-frame traces (picture, sound, work RAM, program counter) and final
+  states on 48 of 48 routes (280,800 frames per system); the generated sources are equal but the embedded resources. Limits: twelve of the 606 cartridges, the quick level, four routes each, no thorough run, no comparison with a console.
 - NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
   its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
   looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
@@ -98,8 +109,8 @@ x68 = Sharp X68000.
   interpreter, all of the RAM executors'), and the public test ROMs run on the delivered files ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)):
   blargg `cpu_instrs` 11 of 11, `instr_timing`, `mem_timing` 6 of 6, and Mooneye's instruction, interrupt, HALT and timing tests, each with the native code and the pinned interpreter
   equal step by step for the whole run. Limits: `STOP` is covered by neither (the vectors differ by convention, `cpu_instrs` leaves it out), the test ROMs ran at the quick level,
-  one conversion each, and one lockstep stops early on a ROM that gives no verdict (`oam_bug` `7-timing_effect`, listed in [KNOWN_FAILURES.md](KNOWN_FAILURES.md)). G11 stays `P`: Mooneye
-  passes 92 of 94 applicable tests but the sound unit fails 18 of the 24 `dmg_sound` tests and two tests of the state after the boot ROM fail; no hardware capture was made.
+  one conversion each, and one lockstep stops early on a ROM that gives no verdict (`oam_bug` `7-timing_effect`, listed in [KNOWN_FAILURES.md](KNOWN_FAILURES.md)). G11 stays `P`: on 3 November Mooneye
+  passed 92 of 94 applicable tests and the sound unit failed 18 of the 24 `dmg_sound` tests (figures of 1.6.8 in the next entry); no hardware capture was made.
 - Mega Drive (4 November 2026): G8 moved from `P` to `Y` on the liveness record read on 14 conversions (28 routes) and the captures of 11 games
   ([below](#mega-drive-evidence-behind-its-column-4-november-2026)); the routes that rest on a menu are listed there. G2, G10, G11 and G13 stay `P` with
   fresh evidence and a precise list of what is missing. The captures were looked at by the specialist agent, not by the owner.
