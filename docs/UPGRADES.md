@@ -157,6 +157,89 @@ their four routes (boot, two play runs and the pseudo-random route of 18,000 fra
 
 The routes are the boot, the two play runs and the pseudo-random route of 18,000 frames of each conversion (quick level, an empty library); with the sound rules alone the picture, the work RAM and the program counter are equal to 1.6.7 on every route of every game. Final Fantasy Legend II shows another picture on nearly every frame (its title and menus animate on the timing); this was not looked at screen by screen.
 
+## Mega Drive: the bus layout of the 68000 follows the independent vectors, and the Z80 hash of the report is portable (1.6.8, in development)
+
+The 452 vectors of `tests/fixtures/m68k-groups` that still differed from the Mega Drive after 1.6.7 (the total of clocks was right, the
+layout of the bus transactions was not, [CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)) are corrected: **2,873 of 2,895
+vectors now agree on every check, on the native steps and on the reference path; the 22 left are `ABCD`, `SBCD` and `NBCD` on operands that
+are not decimal digits, which the manual leaves undefined.** The causes, by instruction:
+
+| Cause | Vectors | Where it is corrected |
+|---|---|---|
+| a long read-modify-write to memory (`ADD`, `SUB`, `AND`, `OR`, `EOR`, `NEG`, `NEGX`, `NOT`, `CLR`) writes its low word first | 111 | `retrorecomp/megadrive_bus_rules.py` (the executor's `mem_write`) |
+| `ADDX.L`, `SUBX.L` on two predecrement operands: each long is read from its low word; the result is written low word, next prefetch, high word | 13 | the same module (`mem_write_split`) and `rr_md_prefetch_hold`/`release` in `native/md_prefetch.inc` |
+| the two internal clocks of the predecrement forms of `ABCD`, `SBCD`, `ADDX`, `SUBX` come before the first read | 98 (the 13 above included) | `native/md_prefetch.inc` (live preparation) and `megadrive_codegen.prefetch_plan` (static plan) |
+| a byte or word immediate (or a bit number) with a memory destination: the internal clocks come after the word that follows the immediate | 17 | the same two places, plan flag `RR_PF_IDLE_AFTER_FIRST` |
+| `ANDI`, `ORI`, `EORI`, `MOVE` to the condition code register read the second word of the queue again after 8 (4 for `MOVE`) internal clocks, then prefetch as usual | 147 | `rr_pf_finish` |
+| `LINK` and `MOVEP` fetch their last word after their writes, not before | 79 | `RR_PF_BEFORE_WRITE` is off for them, in the live preparation and in the plan |
+
+**Not proved:** the long immediate forms with a memory destination that needs an address calculation (`ADDI.L`, `SUBI.L`, `ANDI.L`, `ORI.L`, `EORI.L` and `CMPI.B`, `.W`, `.L` on `-(An)` or `(d8,An,Xn)`) have no vector in the
+fixture; their layout stays the pinned model's. The corrections change where the transactions of an instruction fall, not the total of its
+clocks, so a frame-timed effect can still shift by the clocks between two accesses (VDP, Z80 and I/O ports see the order and the instant of
+each access).
+
+**Z80 hash of the report.** `z80_cpu_hash` (the Mega Drive's report and trace field) hashed the bytes of the Z80 structure: that structure holds a
+`unsigned long` (32 bits on Windows, 64 on Linux), bit fields and padding, so the same Z80 gave a different value on the two systems. It is now
+taken field by field (`z80_state_hash`, `native/md_backend.c`: registers, flags, interrupt state and the low 32 bits of the cycle count). What reads
+it: `retrorecomp/console16.py` (`MD_AUDIO_FIELDS`: copied into each route's `final_checks` row and compared between the native run and the
+reference run of the same conversion) and `tools/state_checks.py` (`GUEST_FIELDS`: compared between a run and the run resumed from a quick state).
+Both compare two values taken by the same executable, so they are unaffected; no golden, no shared path and no knowledge record holds it. **A report of
+1.6.7 and a report of 1.6.8 are no longer comparable on this one field (on Windows too: the value of the same state is different), and the
+tool that compares reports across systems (`tools/megadrive_cross_os.py`) must be given two reports of 1.6.8 or later.** Elsewhere: the Neo Geo and
+the CPS-1 do not use this structure for their hash (`rr_ng_z80_state_hash` and `cps1_cpu_hash` read registers one at a time; the CPS-1 writes
+its Z80 field by field in its states); the engine's machine snapshot, which the Mega Drive quick states use, still writes the Z80 structure as it is,
+and is not changed (a state is not claimed portable between systems; changing its layout would need a compat key).
+
+**What moves.** The Mega Drive game stamp (the generated steps and the runtime change). `native/md_prefetch.inc` and `megadrive_codegen.py` are
+inputs of the X68000 stamp (`native/md_prefetch.inc`) and of the X68000 and CPS-1 stamps (`megadrive_codegen.py`, `shares:megadrive_codegen`): their
+**game stamps move too, with no change of behaviour**: they take only the arithmetic part of `md_prefetch.inc` and apply none of the Mega Drive's rules; the replays of the vectors give the same figures as before (X68000: 2,873 native and
+2,889 Musashi of 2,895 on `m68k-groups`, 2,171 of 2,171 on `md-prefetch`; CPS-1: the same, 864 of 864 on `md-exceptions`, 834 of 834 on
+`m68k-shifts`). The Neo Geo stamp **does not move**: the new rules are in a module of their own, `megadrive_bus_rules.py`, because
+`megadrive_rules.py` is an input of the Neo Geo stamp (it reads the state rules) and is left as it was. Host and build stamps of every console:
+unchanged (checked on the stamp baseline, `tools/std_baseline.py`, before and after). **The quick-state key of the Mega Drive moves**: `RR16_STATE_ABI` hashes the native files the console owns
+(`console16_state.write_config` through `compilation_inputs.state_native_files`), and `md_backend.c`, `md_prefetch.inc`, `md_native_steps.h` and
+`md_prefetch.h` changed (digest `366b24f1…` on `main`, `5bf4260b…` here). The Mega Drive quick states written by a 1.6.7 game are therefore
+**refused cleanly by a 1.6.8 game** (the N-1 rule of this page: no compat key, no crash, no overwrite); cartridge saves are not affected. The state
+layout itself is not touched. The keys of the Neo Geo, the CPS-1 and the Super Nintendo do not move (same digests; the X68000 does not read that
+digest). **CPS-1 path identities:** `retrorecomp/cps1_knowledge.py` lists `native/md_prefetch.inc` in its `NATIVE_INPUTS`, so the identities of the
+`cps1-m68k` and `cps1-z80` paths move with this change; the behaviour is unchanged (the CPS-1 and the Neo Geo cut only the multiply and divide part
+out of that file, which this change does not touch), and whether to raise `GENERATOR_REVISION` is the CPS-1 specialist's call. New files and their roles: `retrorecomp/megadrive_bus_rules.py` (game, owner Mega Drive), the new tools
+`tools/megadrive_mame_compare.py` and `tools/megadrive_cross_os.py` (no stamp), all in `PUBLIC_FILES`.
+
+**Cost.** On the hot path of the translated steps, small and **not measured**: the long read-modify-write sets and clears one flag around its write
+and takes one branch in `mem_write`; the preparation of an instruction tests one more plan flag; the end of every instruction with a pending
+prefetch switches on four mnemonics (`rr_pf_refetch_idle`). The lead measures the cost per frame at the release, on a quiet PC.
+
+**Checked.**
+
+- *Vectors:* `megadrive_groups_selftest` 2,873 of 2,895 (the 22 listed, same on both paths); `megadrive_prefetch_selftest` 2,171 of 2,171 (with the 82
+  authored cases), on `m68k-shifts` 834 of 834; `megadrive_prefetch_plan_selftest` (live preparation against static plan) passed;
+  `megadrive_exception_selftest` 864 of 864; `megadrive_cycles_selftest`, `megadrive_native_selftest`, `megadrive_timing_selftest` passed.
+- *Campaign of 11 games* (the 1.6.7 list, `batch --system md`, one conversion at a time, quick check from the base), compared with the 1.6.7 tree:
+  all `supported`; the hashes of the last frame, of the sequence of frames and of the CPU/prefetch state are **identical on 21 of 22 routes**.
+  The exception is the play route of Shinobi III (PAL): the two runs equal each other up to frame 1,096, then at the end of frame 1,097 the 68000 of the new
+  tree stands five instructions further (PC `$1924` against `$1912`, Z flag different), the picture hash of that frame is still equal, and the sound and
+  the later pictures differ. Both addresses are in the same straight-line routine of the ROM (it reads script bytes with `(A5)+` and writes the fields of
+  an object), so neither run is polling anything there. The cause was traced with every 68000 bus access and every instruction retirement of frame 1,097
+  logged on both trees (kept builds with a log added in their private copy of the glue, rebuilt and run with `--frames 1200 --play`; nothing of it is in the
+  repository): (1) the 68000 and the Z80 meet at the scheduler's rendezvous, a budget of a few clocks set by the Z80's timeline; the old tree yields at the
+  access to `$14D4` at clock 92 and the Z80's last instruction overshoots by 5 clocks, the new tree yields elsewhere (clocks 88, 115, 123, 127), because the
+  corrected layout moved the 68000's accesses by a few clocks, so the same instructions fall on the other side of a rendezvous; (2) from the fifth
+  instruction of the frame the two timelines differ by 5 to 13 clocks (the new tree earlier by 13 at `$0520`); (3) the vertical-blank interrupt, asserted at the
+  same absolute clock, is accepted at the next instruction boundary: the old tree takes it after the instruction at `$0520` (vector read of `$78` at clock
+  109,578), the new tree runs the loop `$0512`-`$0522` once more and takes it 5 clocks later, so the frame ends five instructions apart. It is the
+  arbitration approximation between the two processors that already made BUSACK dating a limit (the rendezvous is not the hardware's cycle-exact bus
+  sharing), not a poll of the VDP, the horizontal-vertical counter or the Z80 bus request. The interpreted counts of this campaign are **not**
+  comparable with 1.6.7's: the 1.6.8 tree started with an empty private library, so the quick check had no learned variants of RAM code (OutRun
+  171,603 and 126,569 interpreted instructions, Contra play 52,785, Sonic 2's Z80 8,604 and 8,346, Sonic 3 two); OutRun converted again with a
+  standard scan and no shared base reaches 0 interpreted in its second pass (2.9 and 3.0 million in the first), as any discovery does.
+- *Cross-OS witness (gate G13)*, three games (Sonic The Hedgehog 2, NBA Jam - Tournament Edition, Streets of Rage 2, all USA) converted with the
+  same tree on Windows and on Debian 13 (Hermès), standard scan, no shared base, empty library: the demo and play routes of 3,600 frames of each, **6 of 6
+  routes identical** on every field of `final_checks` (picture, frame sequence, CPU/prefetch, VDP, RAM, Z80, YM, counters of native and interpreted
+  68000 and Z80 instructions, bus and Z80 timing misses). A first round showed `z80_cpu_hash` different on all six: the cause above. Not covered: the
+  other cartridges of the panel, long and authored routes, interactive play on Linux.
+- *MAME 0.289, pictures (gate G11):* see [QUALIFICATION.md](QUALIFICATION.md#mega-drive-evidence-behind-its-column-4-november-2026).
+
 ## Exports of 1.6.6 in 1.6.7
 
 1.6.7 is the release after 1.6.6 (published on 1 November 2026). This section is the index of its changes: one line per section below, with the stamps

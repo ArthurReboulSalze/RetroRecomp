@@ -92,7 +92,7 @@ class DeviationTests(unittest.TestCase):
         for row in recorded.values():
             self.assertTrue(row and set(row) <= set(selftest.KINDS))
         total = sum(sum(row.values()) for row in recorded.values())
-        self.assertEqual(total, 474)
+        self.assertEqual(total, 22)      # the decimal instructions on operands that are not digits (undefined in the manual)
 
 
 if __name__ == '__main__':
