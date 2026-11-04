@@ -2,8 +2,8 @@
 
 ## Current scope
 
-Release **1.0.3** supports seven console profiles within their documented scopes,
-including **Neo Geo**, following renewed user gameplay validation.
+Since release **1.0.3**, seven console profiles are supported within their documented scopes,
+including **Neo Geo**, following renewed user gameplay validation. Capcom CPS-1 joined them in 1.6.6 (see the end of this section).
 The following CPU/reference results remain valid for
 their tested paths, but do not establish complete rendering or hardware fidelity.
 The latest eight-game Neo Geo expansion adds 49 packed/reference comparisons
@@ -190,7 +190,7 @@ is supported since 1.6.6 for MAME or FBNeo ZIP romsets of the standard boards,
 within [its documented scope](CPS1.md): each conversion compares the guarded
 native code with a fresh interpreted reference run, and the report keeps board
 fidelity against real hardware, complete gameplay and physical latency outside
-what is claimed. The owner's play trial of the 1.6.6 executable is still to do
+what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 November 2026
 ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The
 **Sharp X68000** prototype is experimental; it converts DIM, XDF and D88 disks and
 ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and

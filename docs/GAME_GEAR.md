@@ -90,11 +90,11 @@ export of 1.6.3 and the reverse. Cartridge saves (battery RAM) are not validated
 
 ## Qualification
 
-Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026):
+Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, G5 of 1 November 2026):
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P | P | Y | Y | Y | P | - | P | P | Y | P | P | P | ? | P | Y |
+| P | P | Y | Y | P | P | - | P | P | Y | P | P | P | ? | P | Y |
 
 **The 18 October 2026 qualification, included in 1.1.3,** adds twelve exact cartridges: Sonic, Sonic 2, Tails Adventures, GG
 Aleste, Gunstar Heroes, Dynamite Headdy, OutRun, Super Columns, Vampire / Master of Darkness, Wonder Boy: The Dragon's Trap,
@@ -130,4 +130,4 @@ agreement, hardware fidelity, gameplay and physical latency remain separate meas
 | 1.5.0 | Cartridge Start on Enter, menu on P |
 | 1.6.3 | Host kit move (phase 4), see [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4) |
 | 1.6.4 | "Functions" engine fixes; Factory Panic converts with it |
-| 1.6.5 (in preparation) | F5 sprite flicker reduction on the Game Gear, off by default |
+| 1.6.5 | F5 sprite flicker reduction on the Game Gear, off by default |
