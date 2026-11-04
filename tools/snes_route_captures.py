@@ -1,12 +1,14 @@
 """Pictures from the end of each route of a converted Super Nintendo game (gate G9 evidence: did the route reach play?).
 
-    python tools/snes_route_captures.py EXE [--out DIR] [--routes play long-1 ...]
+    python tools/snes_route_captures.py EXE [--out DIR] [--routes play long-1 ...] [--checkpoints 4]
 
 The conversion's routes are not stored with the game: `tools/snes_cross_os.py` writes them again from the report beside the
 executable (the same pseudo-random and authored routes, the same seeds), and this tool runs the delivered executable headless
 (SDL dummy drivers, no window) with each route's input script, asking for the last frame as a picture. Chained routes continue
 from the end state of the one before, as in the conversion. It reads the game and writes only under --out (default
 `.build/snes-route-captures/<game>`): one PNG per route and a `captures.json` with the frames and the report's picture counters.
+With `--checkpoints K` a route is also run to K - 1 earlier frames (its script cut there: the host refuses a script longer than
+the run), for a route whose last frame is a fade or a black screen: one more PNG per checkpoint, `<route>-<frame>.png`.
 A picture shows what the screen held at the end of a route; it does not say how far into the game the route is, and a person
 (or a specialist agent) still has to look at it.
 """
@@ -56,7 +58,7 @@ def ppm_to_png(source: Path, target: Path) -> None:
                        chunk(b'IDAT', zlib.compress(rows, 9)) + chunk(b'IEND', b''))
 
 
-def capture(exe: Path, out: Path, only: list[str] | None) -> dict:
+def capture(exe: Path, out: Path, only: list[str] | None, checkpoints: int = 1) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
     summary = {'executable': exe.name, 'routes': {}}
@@ -84,6 +86,21 @@ def capture(exe: Path, out: Path, only: list[str] | None) -> dict:
                                   creationflags=NO_WINDOW, timeout=7200)
             if done.returncode or not picture.is_file():
                 raise SystemExit(f'{name}: the game exited with {done.returncode}: {done.stdout[-300:]!r}')
+            if (not only or name in only) and checkpoints > 1 and item['script'] and not item['continues_from']:
+                lines = Path(item['script']).read_text(encoding='ascii').splitlines()
+                for step in range(1, checkpoints):
+                    frames = item['frames'] * step // checkpoints
+                    cut = folder / f'{name}-{frames}.txt'
+                    kept = [line for line in lines if not line.strip() or line.startswith('#') or int(line.split()[0]) <= frames]
+                    cut.write_text('\n'.join(kept) + '\n', encoding='ascii')
+                    early = folder / f'{name}-{frames}.ppm'
+                    done = subprocess.run([str(game), '--frames', str(frames), '--report', str(folder / f'{name}-{frames}.json'),
+                                           '--frame-image', str(early), '--input-script', str(cut), '--play'], cwd=folder,
+                                          env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                          creationflags=NO_WINDOW, timeout=7200)
+                    if done.returncode or not early.is_file():
+                        raise SystemExit(f'{name} at {frames}: the game exited with {done.returncode}')
+                    ppm_to_png(early, out / f'{name}-{frames}.png')
             if not only or name in only:
                 ppm_to_png(picture, out / f'{name}.png')
                 data = json.loads(report.read_text(encoding='utf-8'))
@@ -99,9 +116,10 @@ def main() -> int:
     parser.add_argument('exe', type=Path)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--routes', nargs='*')
+    parser.add_argument('--checkpoints', type=int, default=1)
     args = parser.parse_args()
     out = args.out or Path('.build/snes-route-captures') / args.exe.stem
-    capture(args.exe.resolve(), out.resolve(), args.routes)
+    capture(args.exe.resolve(), out.resolve(), args.routes, args.checkpoints)
     return 0
 
 

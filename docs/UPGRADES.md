@@ -102,6 +102,53 @@ From 1.6.8, `core.follow_pin` brings both checkouts to their pins through the sh
 What a game does is unchanged: the pins themselves do not move, and a library already at the pins runs the same commands as
 before plus the edit check. `tests/test_dependency_pins.py` covers each case with local repositories (no network).
 
+## Super Nintendo: the ROM address without a division, the 65816 stack pages, the SPC700 EI and DI, the evidence (1.6.8)
+
+*Frame cost (1.6.8 item 1).* Secret of Mana measured 1.04 against 1.6.6 on 3 November 2026 (+0.23 ms a frame, quiet PC, start-up taken
+out). Found by reading and counting, nothing timed: the training run of the conversion (1,800 frames, `hardware-profile.profdata`)
+counts, per frame, 97,126 calls of `cart_getRomPtr`, 52,020 of `cpu_read8` and 41,870 evaluations of `rr_snes_cart_ram_offset`. The
+pinned `cart_getRomPtr` ended every ROM byte read (the CPU, the instruction fetch, a DMA) in `off % cart->romSize`, a 32-bit division,
+inlined in `cpu_read8`, `bridge_bus_read`, `rr_snes_cpu_read_begin` and the interpreter's step. What 1.6.7 added on that path is small by the
+same count: the image-size comparison of the ExHiROM board in the HiROM read (two instructions), the S-DD1 board test in
+`rr_snes_cart_ram_offset`, the emulation-flag tests of the branches and of the indexed direct-page addressing; the hot functions grew by
+13 to 38 instructions (`interp816_runOpcode` 439 to 477, `cpu_read8` 373 to 406, `cart_getRomPtr` 186 to 201) and the step's frame by 16 bytes. That is
+about half a million instructions a frame at most, under 1 %: it does not explain 4 % alone, and a code layout that moved is a reasonable
+remainder. The change: the remainder is the mask when the size is a power of two (every image the loader pads), and is the division for any other
+size, so the address is the same in every case (`snes_cart.adapt_cart`, `native/snes_cart_checks.c` compares the pointers of 7 sizes, 2 of them not
+powers of two, over every bank); the Super FX board's code lookup, which had its own remainder, divides by the constant length that
+`rr_snes_native_bind` has already checked. *Hot path: touched, expected faster, not timed* (the lead asks Arthur for the quiet-PC slot).
+Proof: A/B of the 1.6.7 tree and this one, from an empty library, Secret of Mana: the 19 hash fields of each of the six probe files
+(native, packed copy, reference; demo and play) are equal; what differs is `cart.c`, the compiler's profile data and the analysis file.
+
+*Stack pages of the 65816 in emulation mode (gate G10).* `PEA`, `PEI`, `PER`, `PHD`, `PLD`, `JSL`, `RTL` and `JSR (a,x)` step the 16-bit
+stack pointer without wrapping and set its high byte back to 1 only at the end; the 6502 instructions keep wrapping after every byte
+(`snes_codegen.correct_stack_pages`, fail-closed on the pinned text; native mode is the same text as before, and `JSL` is cheaper: no flag test
+after each byte). The vectors: 0 semantic differences in the 130,448 cases of the larger run (it was 11) and in the 32,768 of the usual one.
+A game that stays in emulation mode and keeps its stack at the edge of page 1 is the only one concerned.
+
+*SPC700 `EI` and `DI`* take 3 cycles (the pinned table said 2; the chip's timing and the vectors agree, `snes_spc.interrupt_flag_cycles`).
+This one changes what a game does where its sound driver runs these instructions: **Chrono Trigger's driver does** (the observed
+positions hold four of them), and its conversion, A/B against the tree before, keeps the same pictures in the demo but a different count of APU
+cycles (+11), a different sound hash and a main CPU that is 390 cycles shorter over the 24,000 frames; the other games of the panel that do not
+use them are identical. It is its own commit (`878ec77`): it can be left out of a release that wants every hash identical.
+
+*Audible frames.* A frame is audible when its sound hash is not the hash of silence for its number of samples (`snes_evidence.silent_blocks`,
+the method of the Neo Geo and the CPS-1; the host does not change). Every final check now carries `liveness.audible_frames` and
+`last_audible_frame` instead of `None` (gate G8).
+
+*Report.* `qualification_scope.universal_zero_fallback_claim: false` and `native_validation.independent_cpu_oracle: false` (the conversion's
+reference is the engine's own interpreter), read back by the common `honesty` block (gate G15).
+
+*Stamps* (`compilation_inputs.role_stamps`, the tree of 1.6.7 against this one): the game stamps of the Super Nintendo move, and those of the
+Mega Drive, the Neo Geo and the CPS-1 with them (`console16.py` is a game input of the four and holds the pin and the report block); the other
+five and every host and build stamp do not (the game stamps of all nine already move with the pins of the lead's section above). The quick-state key
+of the Super Nintendo moves (it hashes the pinned revisions and the fingerprints of the `snes_*` modules): a quick state of 1.6.7 is refused
+cleanly, a battery save is not concerned.
+
+*Tools that change no export.* `tools/snes_cross_os.py` (the per-frame witness between two systems, gate G13), `tools/snes_route_captures.py`
+(the last picture of each route, gate G9), `tools/snes_game_saves_check.py` (the battery save of a delivered game across three processes,
+gate G7). `tools/snes_cpu_vector_selftest.py` takes the larger sample with `--samples 256`.
+
 ## Exports of 1.6.6 in 1.6.7
 
 1.6.7 is the release after 1.6.6 (published on 1 November 2026). This section is the index of its changes: one line per section below, with the stamps

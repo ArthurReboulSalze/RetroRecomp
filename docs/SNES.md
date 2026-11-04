@@ -85,7 +85,7 @@ what runs natively. The discovery runs only in the converter: a generated game n
 
 ## Engine and upstream
 
-The pinned engine is [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) at `a00df26`
+The pinned engine is [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) at `fb8cf15` (`a00df26` until 1.6.7)
 (`console16.REPOSITORIES['snes']`), downloaded into `.deps` on the first conversion. Its terms are PolyForm Noncommercial
 1.0.0 plus MIT, ISC and other vendor licences ([licenses/snesrecomp.md](../licenses/snesrecomp.md)); Retro-Recomp's MIT
 licence does not replace them. We use its 65816 interpreter (LakeSnes lineage), its SPC700/DSP core, its Super FX core
