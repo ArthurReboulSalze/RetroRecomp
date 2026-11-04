@@ -144,15 +144,18 @@ def adapt_unused_io_bits(source: str) -> str:
 
 def adapt_boot_ppu_phase(source: str) -> str:
     """The pinned reset puts the LCD where the first revision of the console (DMG0) has it at the end of the boot ROM: line 145 in vertical
-    blank. The original console in common use (DMG ABC) is at line 0, which is nine lines (4,104 dots) later in the frame. Mooneye's
-    boot_hwio-dmgABCmgb reads LY at its first registers and expects the later phase. The PPU is stepped by those 4,104 dots after its
-    reset, in a DMG that skips the boot ROM, so every internal field comes out of its own state machine; no vertical-blank edge is crossed
-    (line 144 is behind), so no interrupt is raised."""
+    blank. The original console in common use (DMG ABC) leaves it in vertical blank with LY already reading 0 (STAT $85, Pan Docs "Power Up
+    Sequence"), that is in line 153 after its fourth dot, late in the frame. Mooneye's boot_hwio-dmgABCmgb reads LY and STAT at its first
+    registers and constrains that phase to a window: it passes at the steps tried from 3,950 to 4,108 dots after the reset (line 153 from its dot 306
+    to line 0 dot 8) and fails at 3,900 and below and at 4,150 and above. The step is 4,096 dots, inside the window and still in line 153 (dot 452,
+    mode 1, LY reading 0); the exact dot within the window is not measured. The PPU is stepped in a DMG that skips the boot ROM, so every internal
+    field comes out of its own state machine; no vertical-blank edge is crossed (the vertical blank began at line 144, behind), so no interrupt
+    is raised. Only the PPU is stepped: the divider keeps its value, so the phase between DIV and the PPU is not measured."""
     return replace_once(source,
         '    if (ctx->ppu) {\n        ppu_reset((GBPPU*)ctx->ppu, ctx);\n    }\n}',
         '    if (ctx->ppu) {\n        ppu_reset((GBPPU*)ctx->ppu, ctx);\n'
         '        if (skip_bootrom && !gb_is_cgb_mode(ctx) && !gb_is_cgb_compat_mode(ctx)) {\n'
-        '            ppu_tick((GBPPU*)ctx->ppu, ctx, 4104u);\n'
+        '            ppu_tick((GBPPU*)ctx->ppu, ctx, 4096u);\n'
         '        }\n    }\n}')
 
 
