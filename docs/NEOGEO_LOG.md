@@ -31,7 +31,7 @@ flat bus; nothing of the board, of the hardware or of gameplay.
 ## Cross-OS witness on Debian, three sets — 3 November 2026
 
 G13 on the 1.6.7 tree (`main` at the merge of the Game Boy branch): `nam1975` (512 KiB), `mslug3` (SMA, banked) and `twinspri` (2 MiB program) converted
-on Windows and on Debian 13 (Hermès, Python 3.13.5, gcc 14.2), standard level, one conversion at a time, in a folder apart on Debian removed afterwards,
+on Windows and on a Debian 13 PC (Python 3.13.5, gcc 14.2), standard level, one conversion at a time, in a folder apart on Debian removed afterwards,
 the ROMs and the BIOS copied for the run and deleted. For the 19 route rows (6 + 7 + 6) the native instruction counts, the 0 interpreted 68000 and Z80
 instructions, the CPU, RAM, hardware, Z80, picture and sound hashes and the liveness record are **identical** on the two systems, the compressed copy
 replayed equal to the reference on both, and the state checks of the delivered file passed on both. Native code and CPU fidelity (reference

@@ -51,7 +51,7 @@
     ],
     "cps1": [
       {"title": "Street Fighter II': Champion Edition", "set": "sf2ce", "category": "ram-code", "reason": "Runs part of its code from graphics RAM, which native code does not cover: 75,546 interpreted instructions (0.06 percent)", "source": "docs/CPS1.md"},
-      {"title": "Final Fight", "set": "ffight", "category": "cross-os-witness", "reason": "Gave the same route hashes on Windows and Debian 13; the Windows/Hermes witness", "source": "docs/CPS1.md"},
+      {"title": "Final Fight", "set": "ffight", "category": "cross-os-witness", "reason": "Gave the same route hashes on Windows and Debian 13; the Windows/Debian witness", "source": "docs/CPS1.md"},
       {"title": "Captain Commando", "set": "captcomm", "category": "four-players", "reason": "Four players; attract mode compared pixel for pixel with MAME", "source": "docs/CPS1.md"},
       {"title": "Strider", "set": "strider", "category": "mame-compared", "reason": "Compared with MAME 0.289 pixel for pixel on attract and credited play", "source": "docs/CPS1.md"},
       {"title": "Warriors of Fate", "set": "wof", "category": "qsound", "reason": "QSound board (CPS-1.5): Kabuki-encrypted Z80, serial EEPROM, QSound (high-level model) from the player's own DSP ROM; the experimental tier, its reports say so", "source": "docs/CPS1.md"}

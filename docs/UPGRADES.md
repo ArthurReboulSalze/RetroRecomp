@@ -309,7 +309,7 @@ prefetch switches on four mnemonics (`rr_pf_refetch_idle`). The lead measures th
   171,603 and 126,569 interpreted instructions, Contra play 52,785, Sonic 2's Z80 8,604 and 8,346, Sonic 3 two); OutRun converted again with a
   standard scan and no shared base reaches 0 interpreted in its second pass (2.9 and 3.0 million in the first), as any discovery does.
 - *Cross-OS witness (gate G13)*, three games (Sonic The Hedgehog 2, NBA Jam - Tournament Edition, Streets of Rage 2, all USA) converted with the
-  same tree on Windows and on Debian 13 (Hermès), standard scan, no shared base, empty library: the demo and play routes of 3,600 frames of each, **6 of 6
+  same tree on Windows and on a Debian 13 PC, standard scan, no shared base, empty library: the demo and play routes of 3,600 frames of each, **6 of 6
   routes identical** on every field of `final_checks` (picture, frame sequence, CPU/prefetch, VDP, RAM, Z80, YM, counters of native and interpreted
   68000 and Z80 instructions, bus and Z80 timing misses). A first round showed `z80_cpu_hash` different on all six: the cause above. Not covered: the
   other cartridges of the panel, long and authored routes, interactive play on Linux.

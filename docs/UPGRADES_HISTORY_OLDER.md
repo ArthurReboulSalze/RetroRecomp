@@ -182,8 +182,8 @@ with Python 3.14) and the Linux one (built with Python 3.13) stamp differently: 
 were checked against the published converters themselves on 28 October 2026: the `Retro-Recomp.exe` and
 `Retro-Recomp-linux-x86_64` assets of the v1.6.1 release (SHA-256 checked against its `SHA256SUMS.txt`) were run with
 their internal `_compilation-inputs` command, and the game, host and build stamps recomputed from their own input
-fingerprints equal, on all nine consoles, the stamps of `git archive v1.6.1` under Python 3.14 (Windows) and 3.13 (Hermès,
-the Linux build host). Without the Linux entries a Linux export of 1.6.1 would be converted in full.
+fingerprints equal, on all nine consoles, the stamps of `git archive v1.6.1` under Python 3.14 (Windows) and 3.13 (the Linux build host,
+a Debian 13 PC). Without the Linux entries a Linux export of 1.6.1 would be converted in full.
 
 **Evidence, and what is not proved.** No game was converted for these entries and `Export/` holds no receipt written by
 1.6.1: the only schema 3 receipt of 1.6.0 or later there is one Mega Drive game of 1.6.0. The claim rests on the list of
@@ -448,7 +448,7 @@ that made Linux games such as the Neo Geo Metal Slug 3 publish unpacked. `packin
 of every console moves**: an export of 1.6.1 is rebuilt from the paths it already learned, rechecked on the quick routes
 and packed by the new UPX, like any export whose build changed. The host stamps move too (`licenses/UPX.md` and
 `THIRD_PARTY_NOTICES.md` are host inputs); the game stamps do not move for this reason. The Linux fallback (a game UPX cannot pack and test is published unpacked, with the reason in the log and the report) stays as a
-safety net; with 5.3.0 the known case is gone: converted on Debian 13 (Hermès) from the 1.6.2 tree on 28 October 2026,
+safety net; with 5.3.0 the known case is gone: converted on a Debian 13 PC from the 1.6.2 tree on 28 October 2026,
 Metal Slug 3 is published packed (78,492,880 bytes unpacked, 45,086,824 packed, UPX 5.3.0 -9), `upx -t` passes on it and
 its five packed replays match the reference.
 

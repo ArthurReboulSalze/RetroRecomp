@@ -311,7 +311,7 @@ old for 1.6.4 and is converted in full.*
 
 The rule applied to the release after 1.6.2: the stamps below were computed for all nine consoles and verified, then the
 release procedure (below) decided which are listed. The game stamp of `v1.6.2` (commit `5bbfe12`) is the one of an archive of
-the tag under Python 3.14.5 (Windows) and 3.13.5 (the Linux build host, Hermès), and equals, on all nine consoles, the stamp
+the tag under Python 3.14.5 (Windows) and 3.13.5 (the Linux build host, a Debian 13 PC), and equals, on all nine consoles, the stamp
 that the published `Retro-Recomp.exe` and `Retro-Recomp-linux-x86_64` of v1.6.2 (SHA-256 checked against `SHA256SUMS.txt`)
 give with their own `_compilation-inputs`.
 
@@ -1600,7 +1600,7 @@ and leave the base in use as it is: installing the program again does not change
 is not older than the installer's copy is the one in use.
 
 Measured on the 72 uploads in the maintainer's cache plus the 1,609 campaign records (1,723 games, 26 October
-2026, Hermes test service): the entries come to 128.8 MB of JSON in line 3 against 173.6 MB in line 2, the complete
+2026, Linux test service): the entries come to 128.8 MB of JSON in line 3 against 173.6 MB in line 2, the complete
 base is 27.7 MB (line 3) against 42.2 MB (line 2), the index is the same size, and no record lacked a schema 3 form.
 The change of the file is paid once: a converter on line 3 downloads differences of the new format, which for
 the same games are smaller too.
@@ -1821,7 +1821,7 @@ fresh reference runs, so an upload holding the path proves it), for CPS-1 from c
   and the promoted record stayed empty (the bogus paths are not what a fresh reference run executed, so they never
   re-enter the shared record). The guards are the live-byte comparisons of `guarded_step` and
   `rr_cps1_ram_native_lookup` / `rr_cps1_z80_ram_lookup`: a variant whose bytes the game never puts at that address never runs.
-- *End to end on the Hermès test service* (`std/cps1-base` of the private site deployed there; production untouched; the
+- *End to end on the Linux test service* (`std/cps1-base` of the private site deployed there; production untouched; the
   converter header is patched to 1.6.0 in the script, the number the worktree does not carry yet). No available CPS-1 set runs
   RAM code, so the "discovery" is built with `promote()` from windows of **real instruction bytes of the real Pnickies
   program and sound images** (the instructions a game would copy to RAM), decoded by the generator's own decoder; the
