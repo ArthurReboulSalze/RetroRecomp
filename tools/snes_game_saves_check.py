@@ -9,7 +9,10 @@ steps on the executable of a converted game, headless (SDL dummy drivers, no win
      battery. A game with no battery must write no file; a game with one must write exactly one file of 112 bytes of header plus
      the whole RAM, the board code of the report, and a payload whose hash is the `sram_hash` the game reported at its last frame;
   2. a second process loads that file and runs a single frame: its report must give back the same `sram_hash` as the file (the
-     game found its save and had not touched it in one frame), and the file must still hold the same bytes;
+     game found its save and had not touched it in one frame) and the file must still hold the same bytes; or, when the game
+     rewrote part of its save in that frame (some do, a checksum or a counter), a RAM that is not the one of a start without a
+     file, and a file that holds the RAM the game ended with. A game that wrote nothing in its save RAM during the run has no
+     file to check and is reported as not exercised;
   3. a copy of the file with one payload byte changed is set aside by a third process (`<name>.unusable-1`, byte for byte), which
      starts with a blank RAM and says so in its report (`save_set_aside`).
 
@@ -66,6 +69,11 @@ def check(exe: Path, frames: int, out: Path) -> dict:
             assert not save.exists() and not list(save.parent.glob('*')) if save.parent.exists() else True, 'a game with no battery wrote a file'
             verdict['result'] = 'no battery, no file'
             return verdict
+        if not save.is_file():
+            # A save file is written when the RAM changes: a game that left its save RAM as it found it in this many frames has
+            # nothing to write, and this check has not exercised it.
+            verdict['result'] = f'not exercised: the game wrote nothing in its save RAM in {frames} frames, so no file was written'
+            return verdict
         raw = save.read_bytes()
         size = first['sram_bytes']
         assert len(raw) == HEADER + size, (len(raw), size)
@@ -75,10 +83,18 @@ def check(exe: Path, frames: int, out: Path) -> dict:
         assert fnv(raw[HEADER:]) == first['sram_hash'], 'the payload is the RAM the game ended with'
         assert not list(save.parent.glob('*.tmp')), 'a half-written file was left behind'
         verdict.update(file_bytes=len(raw), written_nonzero=sum(1 for byte in raw[HEADER:] if byte), sram_hash=first['sram_hash'])
+        blank = boot(game, folder / 'blank' / 'game.rrsram', folder, 'blank', 1, False)
         second = boot(game, save, folder, 'second', 1, False)
-        assert second['sram_hash'] == first['sram_hash'], 'the second process did not find the first one\'s RAM'
-        assert save.read_bytes() == raw, 'the second process changed the file'
-        verdict['reloaded'] = True
+        if second['sram_hash'] == first['sram_hash']:
+            assert save.read_bytes() == raw, 'the second process changed the file'
+            verdict['reloaded'] = 'as it was'
+        else:
+            # The game rewrote part of its save RAM during its first frame (a checksum, a counter), and did so from what it
+            # loaded: a start without a file gives another RAM.
+            assert second['sram_hash'] != blank['sram_hash'], 'the second process did not find the first one\'s RAM'
+            assert fnv(save.read_bytes()[HEADER:]) == second['sram_hash'], 'the file does not hold the RAM the game ended with'
+            verdict['reloaded'] = 'found, then rewritten by the game in its first frame'
+            raw = save.read_bytes()
         damaged = bytearray(raw)
         damaged[HEADER + size // 2] ^= 0x40
         save.write_bytes(damaged)
