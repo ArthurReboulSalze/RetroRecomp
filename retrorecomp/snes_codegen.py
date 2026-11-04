@@ -366,10 +366,72 @@ def correct_emulation_mode(source: str) -> str:
         '  bool crossed = ')
 
 
+def correct_stack_pages(source: str) -> str:
+    """The stack of the 65816's own instructions in emulation mode does not wrap inside page 1 (found by the independent vectors).
+
+    The 6502 instructions (PHA, PLA, PHP, PLP, JSR, RTS, RTI, BRK, PHX...) keep the stack pointer in page 1 after every byte they
+    push or pull, so a push at the bottom of the page continues at the top of it. The instructions the 65816 added that move more
+    than one byte (`PEA`, `PEI`, `PER`, `PHD`, `PLD`, `JSL`, `RTL`, `JSR (a,x)`) step the 16-bit pointer: a push at $0100 writes
+    $0100, then $00FF, and a pull at $01FF reads $0200; only when the instruction ends is the pointer's high byte set back to 1.
+    The pinned core wraps after every byte in both. Native mode is the same text as before (the new byte functions never wrap
+    and the final step is for emulation mode only), and the compiled operations follow since they come from this same text.
+    """
+    source = replace_once(source,
+        'static void interp816_pushWord(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByte(cpu, value >> 8);\n'
+        '  interp816_pushByte(cpu, value & 0xff);\n'
+        '}\n',
+        'static void interp816_pushWord(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByte(cpu, value >> 8);\n'
+        '  interp816_pushByte(cpu, value & 0xff);\n'
+        '}\n'
+        '/* The stack of the instructions the 65816 added: the 16-bit pointer steps without wrapping, and an instruction ends\n'
+        ' * with the pointer back in page 1 in emulation mode. */\n'
+        'static void interp816_pushByteNew(Interp816* cpu, uint8_t value) {\n'
+        '  interp816_write(cpu, cpu->sp, value);\n'
+        '  cpu->sp--;\n'
+        '}\n'
+        'static void interp816_pushWordNew(Interp816* cpu, uint16_t value) {\n'
+        '  interp816_pushByteNew(cpu, value >> 8);\n'
+        '  interp816_pushByteNew(cpu, value & 0xff);\n'
+        '}\n'
+        'static uint8_t interp816_pullByteNew(Interp816* cpu) {\n'
+        '  cpu->sp++;\n'
+        '  return interp816_read(cpu, cpu->sp);\n'
+        '}\n'
+        'static uint16_t interp816_pullWordNew(Interp816* cpu) {\n'
+        '  uint8_t value = interp816_pullByteNew(cpu);\n'
+        '  return value | (interp816_pullByteNew(cpu) << 8);\n'
+        '}\n'
+        'static void interp816_stackPage(Interp816* cpu) {\n'
+        '  if(cpu->e) cpu->sp = (cpu->sp & 0xff) | 0x100;\n'
+        '}\n')
+    source = replace_once(source, '    case 0x0b: { // phd imp\n      interp816_pushWord(cpu, cpu->dp);\n',
+                          '    case 0x0b: { // phd imp\n      interp816_pushWordNew(cpu, cpu->dp);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWord(cpu);\n',
+                          '    case 0x2b: { // pld imp\n      cpu->dp = interp816_pullWordNew(cpu);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '        cpu->y = 0;\n      interp816_pushWord(cpu, w);\n',
+                          '        cpu->y = 0;\n      interp816_pushWordNew(cpu, w);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '      interp816_pushWord(cpu, interp816_readWord(cpu, low, high));\n',
+                          '      interp816_pushWordNew(cpu, interp816_readWord(cpu, low, high));\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source, '      interp816_pushWord(cpu, cpu->pc + (int16_t) value);\n',
+                          '      interp816_pushWordNew(cpu, cpu->pc + (int16_t) value);\n      interp816_stackPage(cpu);\n')
+    source = replace_once(source,
+        '      interp816_pushByte(cpu, cpu->k);\n      interp816_pushWord(cpu, cpu->pc - 1);\n      cpu->pc = value;\n      /* Do not mask PB',
+        '      interp816_pushByteNew(cpu, cpu->k);\n      interp816_pushWordNew(cpu, cpu->pc - 1);\n      interp816_stackPage(cpu);\n'
+        '      cpu->pc = value;\n      /* Do not mask PB')
+    source = replace_once(source,
+        '      cpu->pc = interp816_pullWord(cpu) + 1;\n      cpu->k = interp816_pullByte(cpu);\n',
+        '      cpu->pc = interp816_pullWordNew(cpu) + 1;\n      cpu->k = interp816_pullByteNew(cpu);\n      interp816_stackPage(cpu);\n')
+    return replace_once(source,
+        '      uint16_t value = interp816_adrIax(cpu);\n      interp816_pushWord(cpu, cpu->pc - 1);\n',
+        '      uint16_t value = interp816_adrIax(cpu);\n      interp816_pushWordNew(cpu, cpu->pc - 1);\n      interp816_stackPage(cpu);\n')
+
+
 def read_core(engine: Path) -> str:
-    """The pinned interpreter source with the BRK/COP and emulation-mode corrections: what both readers use."""
-    return correct_emulation_mode(correct_software_interrupts(
-        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')))
+    """The pinned interpreter source with the BRK/COP, emulation-mode and stack corrections: what both readers use."""
+    return correct_stack_pages(correct_emulation_mode(correct_software_interrupts(
+        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8'))))
 
 
 def adapt_core(source: str) -> str:

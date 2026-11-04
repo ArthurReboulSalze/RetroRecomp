@@ -267,6 +267,31 @@ class EmulationModeCorrectionTests(unittest.TestCase):
         # Native mode keeps the pinned text for what it did right.
         self.assertIn('interp816_pushWord(cpu, cpu->pc - 1);', text)
 
+class StackPageCorrectionTests(unittest.TestCase):
+    """The stack of the instructions the 65816 added, in emulation mode (1.6.8), from the independent vectors."""
+    PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/interp816.c'
+
+    @unittest.skipUnless(PINNED.is_file(), 'pinned engine checkout not present')
+    def test_the_eight_instructions_step_the_stack_without_wrapping_and_fail_closed(self):
+        raw = self.PINNED.read_text(encoding='utf-8')
+        text = snes_codegen.correct_stack_pages(raw)
+        self.assertEqual(text.count('interp816_stackPage(cpu);'), 8 + 0)
+        for call in ('interp816_pushWordNew(cpu, cpu->dp);', 'cpu->dp = interp816_pullWordNew(cpu);', 'interp816_pushWordNew(cpu, w);',
+                     'interp816_pushWordNew(cpu, interp816_readWord(cpu, low, high));',
+                     'interp816_pushWordNew(cpu, cpu->pc + (int16_t) value);', 'interp816_pushByteNew(cpu, cpu->k);',
+                     'cpu->pc = interp816_pullWordNew(cpu) + 1;', 'interp816_pushWordNew(cpu, cpu->pc - 1);'):
+            self.assertIn(call, text, call)
+        # The 6502 instructions keep the wrapping functions.
+        self.assertIn('interp816_pushByte(cpu, cpu->db);', text)     # PHB
+        # Every anchor is checked: a pinned text that changed is refused, not patched around.
+        for anchor in ('case 0x0b: { // phd imp', 'case 0x2b: { // pld imp', 'interp816_pushWord(cpu, w);',
+                       'interp816_pushWord(cpu, cpu->pc + (int16_t) value);', 'cpu->k = interp816_pullByte(cpu);',
+                       'uint16_t value = interp816_adrIax(cpu);'):
+            with self.subTest(anchor=anchor):
+                self.assertEqual(raw.count(anchor) >= 1, True)
+                with self.assertRaises(ConversionError):
+                    snes_codegen.correct_stack_pages(raw.replace(anchor, 'X' + anchor))
+
 class SnesCopierFileTests(unittest.TestCase):
     """The Pro Fighter .fig format: a 512-byte copier header before whole 32 KiB blocks, like .smc."""
     def setUp(self):
