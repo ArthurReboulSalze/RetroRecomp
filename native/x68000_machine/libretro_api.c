@@ -570,10 +570,21 @@ const void *rr_glue_converted_frame(void)
    return convert_frame(RR_SCREEN_WIDTH, RR_SCREEN_HEIGHT);
 }
 
+/* Whether the host reads the picture of this frame (libretro's "video enabled" bit). A host that does not answer wants it. */
+static int video_wanted(void)
+{
+   int mask = 3;
+   if (rr_glue_environ && rr_glue_environ(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &mask))
+      return mask & 1;
+   return 1;
+}
+
+/* A host that reads nothing (a headless run with no trace, report or capture) is handed the last converted picture again: the
+ * conversion of up to 800 x 600 pixels is not made for nobody. The machine's own buffer, its state and its sound are not touched. */
 static void present_frame(void)
 {
    const unsigned width = presented_width(), height = presented_height();
-   video_cb(convert_frame(width, height), width, height, RR_SCREEN_WIDTH * sizeof(uint32_t));
+   video_cb(video_wanted() ? convert_frame(width, height) : presented_frame, width, height, RR_SCREEN_WIDTH * sizeof(uint32_t));
 }
 
 void retro_run(void)

@@ -213,7 +213,9 @@ static bool environment(unsigned cmd, void *data) {
    case RETRO_ENVIRONMENT_GET_LANGUAGE: *(unsigned *)data=RETRO_LANGUAGE_ENGLISH; return true;
    case RETRO_ENVIRONMENT_GET_CAN_DUPE: *(bool *)data=true; return true;
    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: *(bool *)data=false; return true;
-   case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: *(int *)data=3; return true;
+   /* Bit 0: the picture is read (traces and reports hash it, captures and the window keep it); a headless run with none of those leaves
+    * the core free not to convert it. Bit 1: the sound is read. */
+   case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: *(int *)data=2|((hash_video||keep_pixels)?1:0); return true;
    case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS: return true;
    case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION: *(unsigned *)data=0; return true;
    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE:

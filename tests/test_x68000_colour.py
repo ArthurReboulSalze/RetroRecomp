@@ -88,7 +88,7 @@ class PresentationSourceTests(unittest.TestCase):
         self.assertIn('RETRO_PIXEL_FORMAT_XRGB8888', source)
         self.assertNotIn('RETRO_PIXEL_FORMAT_RGB565', source)
         self.assertIn('rr_x68k_colour_table', source)
-        self.assertRegex(source, r'video_cb\(convert_frame\(width, height\), width, height, RR_SCREEN_WIDTH \* sizeof\(uint32_t\)\)')
+        self.assertRegex(source, r'convert_frame\(width, height\) : presented_frame, width, height, RR_SCREEN_WIDTH \* sizeof\(uint32_t\)\)')
 
     def test_the_redraw_after_a_loaded_state_uses_the_same_pictures(self):
         # The host redraws the picture from the machine's framebuffer once a state is loaded: it must be the converted one,
@@ -97,6 +97,24 @@ class PresentationSourceTests(unittest.TestCase):
         self.assertIn('rr_x68k_framebuffer(void) { return rr_glue_converted_frame(); }', bridge)
         host = Path(ROOT / 'native/x68000_reference/reference_host.c').read_text(encoding='utf-8')
         self.assertIn('video(core.framebuffer(),width,height,800*(pixel_format==RETRO_PIXEL_FORMAT_RGB565?2:4))', host)
+
+    def test_the_picture_is_converted_only_when_the_host_reads_it(self):
+        # In 1.6.6 the colour conversion lived in the window kit (player_picture), which a headless run never reaches; moved into the
+        # core it ran on every frame, read or not. The core now asks libretro's "video enabled" bit, and the reference host answers
+        # from what it does with the picture: a trace or a report hashes it, a capture or the window keeps it.
+        glue = Path(ROOT / 'native/x68000_machine/libretro_api.c').read_text(encoding='utf-8')
+        self.assertIn('RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE', glue)
+        self.assertRegex(glue, r'video_cb\(video_wanted\(\) \? convert_frame\(width, height\) : presented_frame,')
+        self.assertIn('return mask & 1;', glue)
+        self.assertIn('return 1;', glue[glue.index('static int video_wanted'):glue.index('static void present_frame')])    # a host that does not answer wants the picture
+        self.assertEqual(glue.count('convert_frame(width, height)'), 1)    # the only conversion of a presented frame
+        host = Path(ROOT / 'native/x68000_reference/reference_host.c').read_text(encoding='utf-8')
+        self.assertIn('case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE: *(int *)data=2|((hash_video||keep_pixels)?1:0); return true;', host)
+        # keep_pixels is true in a window and with a capture, hash_video with a trace or a report: nothing else needs the picture.
+        self.assertIn('hash_video=trace_path[0] || report[0]; keep_pixels=hash_video || capture_path[0] || !headless;', host)
+        # A state load redraws through the full conversion, whatever the host answered.
+        bridge = Path(ROOT / 'native/x68000_machine/base74/bridge.c').read_text(encoding='utf-8')
+        self.assertIn('rr_x68k_framebuffer(void) { return rr_glue_converted_frame(); }', bridge)
 
     def test_the_machine_masks_are_the_colour_word(self):
         source = Path(ROOT / 'native/x68000_machine/base74/host_draw.c').read_text(encoding='utf-8')

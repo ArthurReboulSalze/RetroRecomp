@@ -29,8 +29,8 @@ Once the start is taken out, two games are slower than the noise of the method, 
 
 The Super Nintendo declared 1.6.7 changes on its hot path without timing them. They are the emulation-flag tests in `RTI`, `TCS`,
 `TXS`, the page-crossing branch and indexed direct-page addressing. Others are the image-size comparison in `cart_getRomPtr` on the
-HiROM path (Secret of Mana is HiROM) and the direct call for RAM code. The X68000 change that costs the time is not identified yet.
-Both are looked into for 1.6.8. A speed-up ships only with identical outputs.
+HiROM path (Secret of Mana is HiROM) and the direct call for RAM code. The X68000 cost is found: the colour conversion of the picture, moved in 1.6.7 from the window kit into the machine, ran on every frame even in a headless run that reads no picture; from 1.6.8 it runs only when the host reads the picture ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-picture-is-converted-only-when-the-host-reads-it-168-frame-cost)).
+Only the Super Nintendo is still to be looked at for 1.6.8, and the measurement on a quiet PC will confirm both. A speed-up ships only with identical outputs.
 
 Sonic (Mega Drive) has no start figure. Windows Defender quarantined the temporary copy of the **1.6.6** executable during the two-frame
 run (`Program:Win32/Contebrew.A!ml`, a false positive, the same name as in earlier runs). Its whole-process difference (+84 ms over
