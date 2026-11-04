@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026)
+## Status matrix (27 October 2026; G1, G7-G10 and G15 of the Super Nintendo of 4 November 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -44,21 +44,21 @@ x68 = Sharp X68000.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
 |---|---|---|---|---|---|---|---|---|---|
-| G1 | P | P | P | Y | Y | P | Y | Y | Y |
+| G1 | P | P | P | Y | Y | Y | Y | Y | Y |
 | G2 | P | P | P | Y | P | Y | Y | Y | Y |
 | G3 | Y | Y | P | Y | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | Y | Y | Y | Y | Y | Y |
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | P | Y | - | Y |
-| G8 | P | P | Y | Y | P | P | Y | Y | Y |
-| G9 | P | P | Y | Y | Y | P | Y | Y | Y |
-| G10 | Y | Y | Y | Y | P | P | Y | Y | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y |
+| G8 | P | P | Y | Y | P | Y | Y | Y | Y |
+| G9 | P | P | Y | Y | Y | Y | Y | Y | Y |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
 | G13 | P | P | P | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
-| G15 | P | P | P | P | P | P | Y | Y | Y |
+| G15 | P | P | P | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
 ### Caveats
@@ -116,6 +116,9 @@ x68 = Sharp X68000.
   with a coprocessor only (`supernintendo.validate_device_liveness`), none for an ordinary cartridge; the Neo Geo has no liveness record
   yet (`retrorecomp/neogeo_conversion.py` uses `deliver_packed` and `replay_routes`, not `liveness_summary`). See the section
   *Shared evidence helper*.
+- Super Nintendo (4 November 2026): G1, G7, G8, G9, G10 and G15 moved from `P` to `Y` on the evidence of the section *Super Nintendo: evidence behind its
+  column* below (twenty-four conversions of two trees, the vectors of both CPUs, captures of the routes inspected by the specialist agent, not by the owner). G8
+  returns to `Y` after its move to `P` of 1 November. G11 stays `P`, G14 stays `?`. G13 stays `P` with fresh evidence: four games, 12 routes of 12 identical between Windows and Debian 13 (see the section).
 - Neo Geo (2 November 2026): G10 moved from `P` to `Y`. Both CPUs replay independent vectors through the Neo Geo generator, the same ones
   as the CPS-1 and with the same figures ([NEOGEO.md](NEOGEO.md#qualification), [NEOGEO_LOG.md](NEOGEO_LOG.md)). 68000
   (`tools/neogeo_vector_selftest.py`): the three SingleStepTests fixtures (834 + 2,171 + 864 vectors, the 82 authored cases included) all run
@@ -193,14 +196,14 @@ game carries `pic=` (the hash of the rendered 256 x 240 picture), `snd=` (the ha
 sample was not zero), the liveness record of each route is read from it, the delivered copy is replayed on every route and its
 trace and PCM compared with the fresh reference, and the machine is in the `conversion_gates` group.
 
-The machine that does not use it yet for ordinary cartridges, what it already writes per frame, and the smallest change to feed it (a plan, not a
-record: nothing below runs yet):
+The Super Nintendo uses it since 1.6.7 (`retrorecomp/snes_evidence.py`), for every cartridge with or without a coprocessor, as the Mega Drive does
+(`megadrive_evidence.py`): the 16-bit host's `--trace` line (frame, picture hash, counters, sound hash) feeds the same record, a frame is audible when its
+sound hash is not the hash of silence for its number of samples (since 1.6.8, as the Neo Geo and the CPS-1 do; the host writes no extra column), the
+program counter is `None`, and `frozen_route` refuses a `play` route whose picture never changed (the other routes may sit in a menu). The record is in
+`final_checks[].liveness` of every conversion, with the route's own `pcm_nonzero` and `visible_frames`; `supernintendo.validate_device_liveness` still
+judges the cartridges that have a counted device.
 
-| Machine | Per-frame data today | Missing | Smallest change |
-|---|---|---|---|
-| Super Nintendo | The same `--trace` without the Mega Drive columns (frame hash, counters, audio hash); the report already holds `last_picture_change_frame`, `last_audible_frame`, `last_device_frame`, `visible_frames`, `pcm_nonzero`, which `validate_device_liveness` reads for device cartridges only | The trace carries no audible flag and the conversion does not request it; the report has no counts of pictures or audible frames, so an ordinary cartridge has no liveness record | Pass `--trace`, add the non-zero count of the frame's PCM to the trace line (one column, shared with the Mega Drive adapter); keep `validate_device_liveness` and its windowed rule (picture, device and sound all quiet for the last quarter of the run) for the device cartridges and give an ordinary cartridge `frozen_route` on the same record |
-
-The packed replay (G5) needs, for each of these, a callback that starts the compressed copy with the same arguments as the
+The packed replay (G5) needs, for each machine, a callback that starts the compressed copy with the same arguments as the
 probe that made the reference and compares the same fields (Mega Drive and Super Nintendo: `reference_differences`;
 Master System and Game Gear: `compare_execution`; NES: the `.hash` lines and the PCM; Game Boy: the verdict line of the
 build), and the group `conversion_gates` in the machine's `stamp_groups`.
@@ -363,6 +366,33 @@ the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets
 on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
 its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
 The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
+
+## Super Nintendo: evidence behind its column (4 November 2026, release 1.6.8)
+
+The Super Nintendo is **supported within the boards and the routes below**. This is what the gates that moved on 4 November 2026 rest on, with the
+file or the measure that shows it and what is still missing. `Y` is the letter the evidence supports, proposed by the specialist session; the status
+matrix above carries the letters the lead has accepted. Nothing here says exact hardware, complete gameplay or latency.
+
+Two sets of conversions gave the evidence. The campaign of the 1.6.7 tree (twelve games at the thorough level, 2 and 3 November 2026: Dragon Ball Z -
+Hyper Dimension, Marvelous, Masters New - Harukanaru Augusta 3, Jikkyou Oshaberi Parodius, SD F-1 Grand Prix, Kirby's Dream Land 3, Stunt Race FX,
+Super Mario World 2, Mega Man X3, Suzuka 8 Hours, Star Ocean, Street Fighter Alpha 2) gave the long routes; the panel of the 1.6.8 tree (twelve games at the
+standard level from an empty library, pin `fb8cf15`: Secret of Mana, Super Mario World, Chrono Trigger, Lock On, Donkey Kong Country 2, Street Fighter Alpha 2,
+Star Fox, Mega Man X3, Kirby Super Star, Dragon Quest III (ExHiROM), Super Mario Kart, Star Ocean) gave the rest. All twenty-four: native equal to the
+reference on every route, the compressed copy equal to it, 0 interpreted opcodes of the 65816 and of the SPC700; the SA-1, Super FX and CX4 programs are counted as
+interpreted device instructions on their own line, the DSP-1 and the S-DD1 are command models.
+
+| Gate | Letter | Evidence | Still missing |
+|---|---|---|---|
+| G1 Scope and status | Y | `retrorecomp/systems/console16.py` (status `supported`), the README row, [COMPATIBILITY.md](COMPATIBILITY.md), the board scope of [SNES.md](SNES.md) and the interface note of the Options window in the eight languages say the same board scope since 4 November (ExHiROM and the 8 MiB S-DD1 were missing from two of them); `tools/status_lint.py` shows 0 contradictions | The README row is shorter than the scope (it does not name the coprocessor boards) |
+| G7 Saves | Y | `tools/snes_saves_check.py`: one cartridge written for the purpose per board (9 boards), the file, its ten damaged forms, no battery no file, the quick states; `tools/snes_game_saves_check.py` on delivered games, across three processes: Super Mario World (LoROM, 2 KiB), Dragon Quest III (ExHiROM, 8 KiB), Star Ocean (S-DD1, 8 KiB) and Kirby Super Star (SA-1, 8 KiB: the game rewrites part of its save in its first frame, from what it loaded) write their file, read it back, and set a damaged copy aside byte for byte | Secret of Mana, Chrono Trigger and Donkey Kong Country 2 wrote nothing in their save RAM in 2,000 frames (they start it from their menus): not exercised. A save made by a player from a game's menu is not reached by the routes |
+| G8 Liveness | Y | Every conversion records `final_checks[].liveness` per route: pictures, picture changes, last picture change, and since 1.6.8 the audible frames and the last audible frame (a frame is audible when its sound hash is not the hash of silence); a frozen `play` route is refused; the pictures of the routes were looked at for G9 | The pictures were looked at by the specialist agent, not by the owner; Dragon Quest III's demo is silent (0 audible frames of 3,600) |
+| G9 Route depth | Y | `tools/snes_route_captures.py` replays the routes of the twelve thorough conversions on their delivered files and takes the last picture (and, for a route that ends on a fade, four pictures): **11 of the 12 games reached play on at least one route**: a fight (Dragon Ball Z, Street Fighter Alpha 2), a round of golf (Augusta 3), a race (SD F-1, Stunt Race FX, Suzuka 8 Hours), a level (Kirby's Dream Land 3, Super Mario World 2, Marvelous), the game's dialogue scenes (Star Ocean), and Parodius at its continue screen (after a game over) | Mega Man X3 stays in its introduction on every route (the pseudo-random input does not leave it in 18,000 frames); first stages only, not full games; the pictures were looked at by the specialist agent, not by the owner |
+| G10 Independent CPU evidence | Y | The SingleStepTests vectors on both CPUs ([CPU_65816_SPC700.md](CPU_65816_SPC700.md)): 65816 **0 differences of semantics** in 32,768 cases (native and emulation mode) and in 130,448 of the larger run; SPC700 **0** in 29,959; the compiled operations equal the interpreted ones. The differences that remain are of timing (the 65816's `WAI` and `STP`, the SPC700's `SLEEP` and `STOP`) and of bus order (dummy accesses the cores do not make) | The reference of a conversion is the engine's own interpreter (the report says `independent_cpu_oracle: false`); the vectors are a development-time evidence; the SA-1 core's interrupt entry in emulation mode is not corrected and not measured |
+| G13 Cross-OS witness | P | Four games converted on Windows and on Debian 13 (Hermès, GCC) from the same tree, the same engine revision and an empty library at the standard level, replayed with `tools/snes_cross_os.py`: Secret of Mana (HiROM), Super Mario World (LoROM), Star Fox (Super FX), Kirby Super Star (SA-1). **12 routes of 12 give the same per-frame trace** (picture, counters and sound hash of every frame) **and the same report hashes** (CPU, RAM, video, colour and sprite memory, sound RAM, PCM, program counter, cycles): the attract route and the play route of 3,600 frames, and one pseudo-random route of 18,000 frames of each game (the standard level makes none: the tool adds it, from the ROM's identity, like the conversion's). The GCC build of the new engine builds and runs | Four of the 314 known identities, two boards of the coprocessor kind; the long routes of the thorough level and the chained ones were not replayed on Debian; quick states across the two systems and interactive play on Linux are not witnessed; the DSP-1, CX4 and S-DD1 boards and ExHiROM have no Debian witness |
+| G15 Honesty | Y | The five measures stay separate in the report (`honesty`, `qualification_scope.universal_zero_fallback_claim: false`, `native_validation.independent_cpu_oracle: false`) and in [SNES.md](SNES.md). Read on 4 November 2026 for this gate: the README, [COMPATIBILITY.md](COMPATIBILITY.md), [SNES.md](SNES.md), [SNES_SUPERFX.md](SNES_SUPERFX.md), [CPU_65816_SPC700.md](CPU_65816_SPC700.md), [GUNS_16BIT.md](GUNS_16BIT.md) and the interface strings that name the machine in the eight languages (a word search for exact, perfect, accurate, zero latency, 100 % and their translations, then a read of each hit): no claim of exact hardware, complete gameplay, zero latency or zero fallback was found | The older dated journals ([SNES_LOG.md](SNES_LOG.md)) were searched, not read in full |
+
+Unchanged and still partial: **G11** (the independent hardware evidence is authored cartridges against the contracts of Snes9x, bsnes and ares, not an external
+emulator or hardware comparison; [SNES.md](SNES.md#qualification)), G14 (no owner decision recorded).
 
 ## Panel sizes
 

@@ -139,6 +139,18 @@ the method of the Neo Geo and the CPS-1; the host does not change). Every final 
 *Report.* `qualification_scope.universal_zero_fallback_claim: false` and `native_validation.independent_cpu_oracle: false` (the conversion's
 reference is the engine's own interpreter), read back by the common `honesty` block (gate G15).
 
+*Engine pin* (`snesrecomp` from `a00df26` to `fb8cf15`, the reasons and the four reworked adapters in [UPSTREAMS.md](UPSTREAMS.md#super-nintendo-the-pin-of-168)).
+What a game does is unchanged on the panel: the tree of this release at the old pin and at the new one give the same 21 hash fields (picture, sequence,
+CPU, RAM, video, colour and sprite memory, sound RAM, PCM, program counter, cycles, device state) in each of the six probe files (native, compressed copy,
+reference; demo and play) on eight games, one per board: Secret of Mana (HiROM), Super Mario World (LoROM), Lock On (DSP-1 on HiROM), Street Fighter Alpha 2
+(S-DD1), Star Fox (Super FX), Mega Man X3 (CX4), Kirby Super Star (SA-1) and Dragon Quest III (ExHiROM). The twelve games of the panel convert at the new
+pin with the native run equal to the reference, the compressed copy equal to it, and 0 interpreted opcodes of the 65816 and of the SPC700. The Linux build (GCC)
+of the new engine builds and runs; its per-frame traces equal the Windows ones on four games and twelve routes (Secret of Mana, Super Mario World, Star Fox and
+Kirby Super Star: the attract and play routes of 3,600 frames and one pseudo-random route of 18,000 frames of each, `tools/snes_cross_os.py`). Two adaptations are
+beyond the anchors: the engine counts the native-mode `BRK` cycle itself (our correction of 1.6.3 is retired, the adapter requires the engine's line), and
+its UTF-8 manifest resource is left out of the Windows link (the game carries the converter's manifest; two do not link). Not enabled: what the range offers
+behind a build selection (fused ROM reads, fused DSP mixing, APU spans, HD Mode 7).
+
 *Stamps* (`compilation_inputs.role_stamps`, the tree of 1.6.7 against this one): the game stamps of the Super Nintendo move, and those of the
 Mega Drive, the Neo Geo and the CPS-1 with them (`console16.py` is a game input of the four and holds the pin and the report block); the other
 five and every host and build stamp do not (the game stamps of all nine already move with the pins of the lead's section above). The quick-state key

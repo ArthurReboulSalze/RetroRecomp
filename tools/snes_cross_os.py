@@ -4,7 +4,8 @@
     python tools/snes_cross_os.py compare DIR_A DIR_B
 
 `trace` reads the routes the conversion of EXE played from the report beside it (`datas/reports/*/conversion-report.json`: each final
-scenario with its frames and, for a pseudo-random or authored route, how it was made), writes the input scripts again the same way
+scenario with its frames and, for a pseudo-random or authored route, how it was made; one pseudo-random route of 18,000 frames is added when
+the scan level made none), writes the input scripts again the same way
 (`random_routes.write_route`) and runs the delivered executable on each route headless, from a private copy in an empty folder so
 that no battery file of an earlier run is read. It keeps, in DIR, the per-frame trace of the runtime (`--trace`: picture, counters
 and sound hashes of every frame), the hashes of the route's report (CPU, RAM, video memory, colour memory, sprite memory, sound
@@ -30,6 +31,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
+LONG_FRAMES = 18000
 # What a route's report says about the machine at its last frame, besides the frame count.
 REPORT_HASHES = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'oam_hash', 'high_oam_hash',
                  'apu_ram_hash', 'cpu_pc', 'cpu_cycles', 'master_cycles', 'apu_cycles', 'pcm_hash', 'audio_fingerprint',
@@ -70,6 +72,12 @@ def routes_of(executable: Path, scratch: Path) -> list[dict]:
         plan.append({'name': name, 'frames': int(check['frames']), 'play': name != 'demo',
                      'script': write_route(route, scratch) if route is not None else None,
                      'continues_from': getattr(route, 'continues_from', None) if route is not None else None})
+    if not any(item['name'].startswith('long') for item in plan):
+        # A scan level without pseudo-random routes (the standard one): the witness adds one of the usual length, made from the
+        # ROM's identity like the conversion's own, so that the comparison goes well beyond the 3,600 frames of the other routes.
+        extra = long_routes('snes', sha, count=1, frames=LONG_FRAMES, chain=False)[0]
+        plan.append({'name': extra.name, 'frames': LONG_FRAMES, 'play': True, 'script': write_route(extra, scratch),
+                     'continues_from': None})
     continued = {item['continues_from'] for item in plan if item['continues_from']}
     for item in plan:
         item['save_state'] = item['name'] in continued

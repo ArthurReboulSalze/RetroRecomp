@@ -201,13 +201,14 @@ Conversion options: the console tab of **Options** sets the scan level, passes a
 
 ## Qualification
 
-Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md). The Super Nintendo column (matrix of 27 October 2026, G5 and G8 of
-1 November 2026) reads: met for the report contract, native coverage, CPU fidelity run, delivered file, fresh-process states, panel
-and shared-knowledge safety (G2-G6, G12, G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats
-there); partial for scope and status wording, saves, liveness (a record exists for the cartridges with a coprocessor only),
-route depth, independent CPU and hardware evidence, cross-OS witness and honesty (G1, G7-G11, G13, G15); unknown for owner
-acceptance (G14: no decision recorded). The SA-1 and S-DD1 boards of 1.6.6 were proved on four titles and an authored cartridge
-(section above), which is panel breadth for G12 and nothing more: they do not close any partial gate.
+Gates and the matrix: [QUALIFICATION.md](QUALIFICATION.md#super-nintendo-evidence-behind-its-column-4-november-2026-release-168). The Super
+Nintendo column reads, since 4 November 2026 (release 1.6.8): met for scope and status wording, the report contract, native coverage, CPU fidelity run,
+delivered file, fresh-process states, saves, liveness, route depth, independent CPU evidence, panel, shared-knowledge safety and honesty (G1-G10, G12, G15,
+G16; G5 and G6 are campaign steps, not run inside every conversion, see the caveats there); partial for independent hardware evidence (G11) and the
+cross-OS witness (G13: four games, 12 routes of 12 identical between Windows and Debian 13, too few games and boards to be `Y`); unknown for owner acceptance (G14: no decision recorded). The `Y` of G7 rests on four delivered games
+that write their save in 2,000 frames and nine authored boards, not on a player's own save; the `Y` of G9 on eleven of twelve games that reach play on one
+route, by pictures looked at by the specialist agent; the `Y` of G10 on vectors that agree on every semantic and differ only in the timing of halts and
+in dummy bus accesses ([CPU_65816_SPC700.md](CPU_65816_SPC700.md)).
 
 **Saves on every board (release 1.6.7).** `tools/snes_saves_check.py` converts one cartridge written for the purpose per board
 (LoROM 8 KiB and 128 KiB with a battery, LoROM and HiROM with RAM and no battery, HiROM 32 KiB, Super FX, S-DD1 and the HiROM DSP-1
