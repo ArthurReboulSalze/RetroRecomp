@@ -81,9 +81,36 @@ class PageTests(unittest.TestCase):
             self.assertIn(measure, block)
         self.assertIn('owner\'s own decision', block)
 
-    def test_the_compact_form_has_one_line_per_console(self):
-        lines = qg.short(_page()).splitlines()
-        self.assertEqual(len(lines), 2 + len(ALL_PROFILES))
+    def test_the_compact_form_has_one_line_per_console_and_says_what_it_is(self):
+        text = qg.short(_page())
+        rows = [line for line in text.splitlines() if line.startswith('| ')]
+        self.assertEqual(len(rows), 2 + len(ALL_PROFILES))
+        self.assertIn('not a quality score', text)
+        self.assertIn(qg.ANCHOR, text)
+
+
+class ReadmeTests(unittest.TestCase):
+    def test_the_readme_block_agrees_with_the_matrix(self):
+        readme = qg.README.read_text(encoding='utf-8')
+        self.assertTrue(qg.readme_in_agreement(readme, _page()), 'run python tools/qualification_gauges.py --write')
+        self.assertEqual(qg.rewritten(readme, True, _page()), readme)
+
+    def test_the_readme_names_the_experimental_status_in_clear_and_every_console(self):
+        block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
+        for profile in ALL_PROFILES:
+            line = next(row for row in block.splitlines() if row.startswith('| ' + profile.name + ' |'))
+            self.assertIn(' ' + profile.status + ' ', line)
+        self.assertIn('| experimental |', block)
+
+    def test_the_link_of_the_readme_reaches_a_heading_of_the_page(self):
+        page = _page()
+        self.assertIn('\n### Progress through the qualification list\n', page)
+        self.assertTrue(qg.ANCHOR.endswith('#progress-through-the-qualification-list'))
+
+    def test_the_check_command_succeeds_and_fails_on_a_drifted_readme(self):
+        self.assertEqual(qg.main(['--check']), 0)
+        readme = qg.README.read_text(encoding='utf-8')
+        self.assertFalse(qg.readme_in_agreement(readme.replace('63 %', '99 %', 1), _page()))
 
 
 if __name__ == '__main__':

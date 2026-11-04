@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw the qualification progress and the readable matrix of docs/QUALIFICATION.md from its matrix in letters.
+"""Draw the qualification progress and the readable matrix of docs/QUALIFICATION.md, and its short form in README.md, from the matrix in letters.
 
 The matrix G1..G16 x nine consoles, written in letters (`Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable), is
 the one source of truth; test_machine_registry reads it too. This tool writes, between two markers of the same page,
@@ -10,7 +10,9 @@ the one source of truth; test_machine_registry reads it too. This tool writes, b
   list. It is not a quality score, it mixes none of the five measures (native code, CPU fidelity, hardware fidelity,
   gameplay validation, physical latency) and it never decides a status: leaving the experimental status is the owner's
   decision (gate G14);
-* the matrix with symbols, the console names and the short name of each gate (the third column of the "Gates" table).
+* the matrix with symbols, the console names and the short name of each gate (the third column of the "Gates" table);
+* in README.md, between two markers of its own, the short form: one line per console with its bar, its percentage and its status.
+  Both blocks come from the same matrix and the same `--check`, so the README cannot drift from it.
 
     python tools/qualification_gauges.py --check    # exit 1 when the page differs from what the matrix says
     python tools/qualification_gauges.py --write    # rewrite the block between the markers
@@ -25,8 +27,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / 'docs' / 'QUALIFICATION.md'
+README = REPO / 'README.md'
 BEGIN = '<!-- qualification-gauges:begin (written by tools/qualification_gauges.py: edit the matrix in letters, not this block) -->'
 END = '<!-- qualification-gauges:end -->'
+README_BEGIN = '<!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->'
+ANCHOR = 'docs/QUALIFICATION.md#progress-through-the-qualification-list'
 SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
@@ -99,7 +104,7 @@ def render(text: str) -> str:
     facts = profile_facts()
     rows = gauges(text)
     out = [
-        '**Progress through the qualification list.** One line per console: how many of the gates that apply to it are met (a half for a partial',
+        'One line per console: how many of the gates that apply to it are met (a half for a partial',
         'one). `unknown` and `no` count 0 and `not applicable` is left out. It is **approximate and not a quality score**: it does not mix the five',
         'measures (native code, CPU fidelity, hardware fidelity, gameplay validation, physical latency), which stay separate in every report, and a',
         'console\'s status is never a threshold of this bar: leaving the experimental status is the owner\'s own decision (G14, see',
@@ -121,25 +126,37 @@ def render(text: str) -> str:
 
 
 def short(text: str) -> str:
-    """The compact form, one line per console, that a README could carry under its list of consoles."""
-    lines = ['| Console | Status | Qualification progress (approximate) |', '| --- | --- | --- |']
+    """The short form for the README: a sentence, then one line per console."""
+    lines = ['**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a partial one),',
+             f'drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five measures, and it never',
+             "decides a status: leaving the experimental status is the owner's own decision.",
+             '',
+             '| Console | Status | Qualification progress |', '| --- | --- | --- |']
     for row in gauges(text):
         lines.append(f"| {row['name']} | {row['status']} | `{row['bar']}` {row['percent']} % |")
     return '\n'.join(lines)
 
 
-def _split_block(text: str) -> tuple[str, str, str]:
-    start, end = text.index(BEGIN), text.index(END)
-    return text[:start + len(BEGIN)], text[start + len(BEGIN):end], text[end:]
+def _split_block(text: str, begin: str = BEGIN, end: str = END) -> tuple[str, str, str]:
+    start, stop = text.index(begin), text.index(end)
+    return text[:start + len(begin)], text[start + len(begin):stop], text[stop:]
 
 
-def current_block(text: str) -> str:
-    return _split_block(text)[1].strip('\n')
+def current_block(text: str, begin: str = BEGIN, end: str = END) -> str:
+    return _split_block(text, begin, end)[1].strip('\n')
 
 
-def rewritten(text: str) -> str:
+def rewritten(text: str, readme: bool = False, matrix_text: str | None = None) -> str:
+    """The page with its block rebuilt. For the README, matrix_text is the text of QUALIFICATION.md."""
+    if readme:
+        before, _, after = _split_block(text, README_BEGIN, END)
+        return before + '\n\n' + short(matrix_text) + '\n\n' + after
     before, _, after = _split_block(text)
     return before + '\n\n' + render(text) + '\n\n' + after
+
+
+def readme_in_agreement(readme_text: str, matrix_text: str) -> bool:
+    return current_block(readme_text, README_BEGIN, END) == short(matrix_text)
 
 
 def main(argv=None) -> int:
@@ -150,22 +167,29 @@ def main(argv=None) -> int:
     mode.add_argument('--short', action='store_true')
     args = parser.parse_args(argv)
     text = PAGE.read_text(encoding='utf-8')
+    readme_text = README.read_text(encoding='utf-8')
     if args.short:
         print(short(text))
         return 0
     if args.write:
-        new = rewritten(text)
-        if new != text:
-            PAGE.write_text(new, encoding='utf-8', newline='')
-            print('docs/QUALIFICATION.md: gauges and symbol matrix rewritten')
-        else:
-            print('docs/QUALIFICATION.md: already in agreement with the matrix')
+        for path, old, new in ((PAGE, text, rewritten(text)), (README, readme_text, rewritten(readme_text, True, text))):
+            name = path.relative_to(REPO).as_posix()
+            if new != old:
+                path.write_text(new, encoding='utf-8', newline='')
+                print(f'{name}: rewritten')
+            else:
+                print(f'{name}: already in agreement with the matrix')
         return 0
+    bad = []
     if current_block(text) != render(text):
-        print('docs/QUALIFICATION.md: the block between the qualification-gauges markers does not match the matrix; '
+        bad.append('docs/QUALIFICATION.md')
+    if not readme_in_agreement(readme_text, text):
+        bad.append('README.md')
+    if bad:
+        print(f"{', '.join(bad)}: the block between the qualification-gauges markers does not match the matrix; "
               'run python tools/qualification_gauges.py --write')
         return 1
-    print('docs/QUALIFICATION.md: the gauges and the symbol matrix match the matrix in letters')
+    print('docs/QUALIFICATION.md and README.md: the gauges match the matrix in letters')
     return 0
 
 
