@@ -133,13 +133,29 @@ their four routes (boot, two play runs and the pseudo-random route of 18,000 fra
 
 - **The sound rules alone change no picture, no work RAM and no program counter on any frame of the 48 routes**; the sound hash of the frame differs on ten of the twelve games (not on Contra or Pokémon Yellow),
   probably from the phase of channel 1, which now runs from the boot ROM on, and where a length edge case occurs. This was not heard against a console.
-- **The start of the LCD changes what every game does**: the game starts nine lines later in the frame, so the program counter and the work RAM at the end of a frame differ from the first frames on all twelve games.
-  The pictures stay equal on every frame for Exodus, Mega Man V, The Ren & Stimpy Show: Veediots! and Wario Land II, and on the boot and play routes of Tetris and the play and long routes of Metroid II; on the others some frames differ
-  (animations and random numbers that depend on the timing: Tetris deals other pieces on its long route). All twelve stay alive (the number of different pictures per route stays within a few percent, except
-  Metroid II's boot route and the long routes of Final Fantasy Legend II, Pokémon Red and Tetris, which show more because the game reaches other screens). It is the console's start, and it is **not** meant to leave a game unchanged: a
-  game of 1.6.7 that is converted again does not replay frame for frame what it did.
+- **A behaviour change, decided on 4 November 2026: the LCD starts at line 0, the console's real start (the DMG ABC, confirmed by `boot_hwio`).** The game starts nine lines later in the frame. A game of 1.6.7 that is converted
+  again **no longer replays frame for frame what it did**: the program counter and the work RAM at the end of a frame differ from the first frames on most games (table below), and what depends on the timing follows
+  (Tetris deals other pieces on its long route; animations and random numbers elsewhere). All twelve stay alive: the number of different pictures per route stays within a few percent except Metroid II's boot route and
+  the long routes of Final Fantasy Legend II, Pokémon Red and Tetris, which show more because the game reaches other screens. Same policy as the corrections found by the independent vectors.
 - One figure to read with care: the count of frames with a non-zero sample falls on some games (Metroid II 17,645 to 14,304 frames of 18,000). It counts a constant offset of the output filter left at silence
   (142 on each side of 32,768 on Metroid II in 1.6.7), which the new start does not keep; the mixed channels are silent in both.
+
+| Game | Routes (of 4) with the sound hash of 1.6.7, sound rules alone | Routes (of 4) equal to 1.6.7 in picture / sound / work RAM / program counter, everything | Frames with another picture (of 21,600) |
+|---|---|---|---|
+| Contra: The Alien Wars | 4 | 0 / 0 / 0 / 0 | 768 |
+| Exodus | 3 | 4 / 0 / 0 / 0 | 0 |
+| Final Fantasy Legend II | 0 | 0 / 0 / 0 / 0 | 20,448 |
+| Link's Awakening | 0 | 0 / 0 / 0 / 0 | 2,373 |
+| Mega Man V | 3 | 4 / 0 / 4 / 0 | 0 |
+| Metroid II | 0 | 3 / 0 / 0 / 0 | 166 |
+| Pokémon Red | 0 | 0 / 0 / 0 / 0 | 4,334 |
+| Pokémon Yellow | 4 | 0 / 0 / 0 / 0 | 1,257 |
+| Super Mario Land | 1 | 0 / 0 / 0 / 0 | 453 |
+| Tetris | 0 | 3 / 0 / 3 / 0 | 16,948 |
+| The Ren & Stimpy Show: Veediots! | 2 | 4 / 0 / 4 / 4 | 0 |
+| Wario Land II | 0 | 4 / 0 / 4 / 0 | 0 |
+
+The routes are the boot, the two play runs and the pseudo-random route of 18,000 frames of each conversion (quick level, an empty library); with the sound rules alone the picture, the work RAM and the program counter are equal to 1.6.7 on every route of every game. Final Fantasy Legend II shows another picture on nearly every frame (its title and menus animate on the timing); this was not looked at screen by screen.
 
 ## Exports of 1.6.6 in 1.6.7
 
