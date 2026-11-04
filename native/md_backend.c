@@ -306,6 +306,23 @@ unsigned rr16_player_x(void) { return RR_MD_SONIC ? (g_ram[0xd008] << 8) | g_ram
 int rr16_visible_width(void) { return (g_machine.vdp.reg[12] & 1) ? 320 : 256; }
 int rr16_visible_height(void) { return gvdp_output_height(&g_machine.vdp); }
 int rr16_raster_height(void) { return gvdp_screen_height(&g_machine.vdp); }
+/* The Z80's registers, one field at a time: the structure holds a `unsigned long` (32 bits on Windows, 64 on Linux), bit fields and
+ * padding, so hashing its bytes gave a different value for the same Z80 on the two systems (gate G13). */
+static uint64_t z80_state_hash(const z80 *z) {
+    const uint16_t words[] = {z->pc, z->sp, z->ix, z->iy, z->mem_ptr};
+    const uint8_t bytes[] = {z->a, z->b, z->c, z->d, z->e, z->h, z->l, z->a_, z->b_, z->c_, z->d_, z->e_, z->h_, z->l_, z->f_,
+        z->i, z->r, (uint8_t)(z->sf | z->zf << 1 | z->yf << 2 | z->hf << 3 | z->xf << 4 | z->pf << 5 | z->nf << 6 | (unsigned)z->cf << 7),
+        z->iff_delay, z->interrupt_mode, z->int_data,
+        (uint8_t)(z->iff1 | z->iff2 << 1 | z->halted << 2 | z->int_pending << 3 | z->nmi_pending << 4)};
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = 0; i < sizeof words / sizeof *words; ++i) {
+        hash ^= words[i] & 0xffu; hash *= 1099511628211ull;
+        hash ^= words[i] >> 8; hash *= 1099511628211ull;
+    }
+    for (size_t i = 0; i < sizeof bytes; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
+    for (unsigned shift = 0; shift < 32; shift += 8) { hash ^= ((uint32_t)z->cyc >> shift) & 0xffu; hash *= 1099511628211ull; }
+    return hash;
+}
 static uint64_t bytes_hash(const void *data, size_t size) {
     uint64_t hash = 14695981039346656037ull;
     const uint8_t *bytes = data;
@@ -339,8 +356,6 @@ void rr16_report_details(FILE *file) {
             gbus_sram_size(&g_machine.bus),g_machine.bus.sram_base,g_machine.bus.sram_end,
             g_machine.bus.sram_stride,g_machine.bus.sram_battery,g_machine.bus.sram_enabled,
             bytes_hash(g_machine.bus.sram,gbus_sram_size(&g_machine.bus)));
-    z80 cpu = g_machine.z80;
-    cpu.read_byte = NULL; cpu.write_byte = NULL; cpu.port_in = NULL; cpu.port_out = NULL; cpu.userdata = NULL;
     fprintf(file, ",\"fm_samples\":%llu,\"fm_nonzero\":%llu,\"fm_peak\":%u,\"fm_hash\":\"%016llx\","
             "\"psg_samples\":%llu,\"psg_nonzero\":%llu,\"psg_peak\":%u,\"psg_hash\":\"%016llx\","
             "\"fm_active_frames\":%llu,\"psg_active_frames\":%llu,"
@@ -350,7 +365,7 @@ void rr16_report_details(FILE *file) {
             fm_active_frames, psg_active_frames,
             g_machine.z80.pc, (uint64_t)g_machine.z80.cyc,
             bytes_hash(g_machine.bus.z80_ram, sizeof g_machine.bus.z80_ram),
-            bytes_hash(&cpu, sizeof cpu),
+            z80_state_hash(&g_machine.z80),
             bytes_hash(rr16_md_ym_state(), sizeof(RrMdYmTimers)));
     fprintf(file, ",\"visible_width\":%d,\"visible_height\":%d,\"raster_lines\":%u,\"frame_master_clocks\":%u,\"master_clock_hz\":%u,\"cpu_pc\":%u,\"cpu_sr\":%u,\"cpu_usp\":%u,\"cpu_ssp\":%u,\"cpu_stopped\":%u,\"console_version\":%u,\"execution_fault\":%s,"
             "\"rom_fallback_opcodes\":%llu,\"ram_fallback_opcodes\":%llu,"
