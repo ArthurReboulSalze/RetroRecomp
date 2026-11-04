@@ -75,6 +75,33 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Lead: the engine sources and SDL follow their pins in an older library (1.6.8)
+
+Every conversion of every console first prepares the shared pieces in `.deps` (`core.dependencies()`): the Master System and
+Game Gear engine sources (`.deps/smsggrecomp`, `core.ENGINE_REV`) and the SDL2 sources (`.deps/SDL`, `core.SDL_REV`). Up to
+1.6.7, a checkout of another revision than the pin was refused ("Version inattendue de SDL"), and nothing converted. SDL moved
+in 1.6.4 (2.32.8 to 2.32.10), so a library whose `.deps` a release up to 1.6.3 had made refused every conversion from 1.6.4 on
+(found on 3 November 2026 by the CPS-1 release check, which reused an old workspace). Deleting `.deps/SDL` was the workaround.
+
+From 1.6.8, `core.follow_pin` brings both checkouts to their pins through the shared `conversion_common.pinned_checkout`:
+
+- a clean checkout of another revision fetches the pinned revision (no fetch when the checkout already has it), checks it out
+  detached and updates its submodules; the window and the log say "Updating SDL to the pinned revision…". The SDL install is
+  keyed by its revision (`platforms.sdl_install_key`) and the Z80 → C translator by its patched sources, so both rebuild by
+  themselves, once;
+- untracked files (the SDL build and install folders live inside `.deps/SDL`) are not edits;
+- the conversion still stops, and the folder is left as it is, when tracked files carry edits (now also at the pinned
+  revision, as the other consoles' engines already did), when the folder is not a git checkout, or when the revision cannot be
+  fetched (offline). Each case has its own message in the log, in French and English; the window's steps are in the eight
+  interface languages. A missing or empty folder is cloned, as before.
+
+| Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- |
+| all nine consoles (`retrorecomp.core` is a game input of every console; read with `compilation_inputs.role_stamps` before and after) | none (`i18n`, `gui_updates` and the locales are interface files) | no key moves (no native file changes) |
+
+What a game does is unchanged: the pins themselves do not move, and a library already at the pins runs the same commands as
+before plus the edit check. `tests/test_dependency_pins.py` covers each case with local repositories (no network).
+
 ## Exports of 1.6.6 in 1.6.7
 
 1.6.7 is the release after 1.6.6 (published on 1 November 2026). This section is the index of its changes: one line per section below, with the stamps

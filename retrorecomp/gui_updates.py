@@ -406,6 +406,8 @@ class UpdatesMixin:
         # The shared pieces (engine sources, Z80 → C translator, static SDL2)
         # follow the tools, so the first conversion starts at once.
         steps = {'Téléchargement de smsggrecomp…': 'deps_step_engine', 'Téléchargement de SDL…': 'deps_step_sdl_fetch',
+                 'Mise à jour de smsggrecomp vers la version épinglée…': 'deps_step_engine_update',
+                 'Mise à jour de SDL vers la version épinglée…': 'deps_step_sdl_update',
                  'Compilation du traducteur Z80 → C…': 'deps_step_translator',
                  'Compilation de SDL2 statique (première utilisation)…': 'deps_step_sdl',
                  'Compilation de SDL2 statique (nouveaux réglages)…': 'deps_step_sdl_again'}

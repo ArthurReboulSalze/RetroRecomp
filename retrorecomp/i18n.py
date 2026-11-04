@@ -204,6 +204,8 @@ STRINGS = {
     'deps_step_start': ('Preparing the shared dependencies…', 'Préparation des dépendances communes…'),
     'deps_step_engine': ('Downloading the engine sources…', 'Téléchargement des sources du moteur…'),
     'deps_step_sdl_fetch': ('Downloading the SDL2 sources…', 'Téléchargement des sources de SDL2…'),
+    'deps_step_engine_update': ('Updating the engine sources to the pinned revision…', 'Mise à jour des sources du moteur vers la version épinglée…'),
+    'deps_step_sdl_update': ('Updating the SDL2 sources to the pinned revision…', 'Mise à jour des sources de SDL2 vers la version épinglée…'),
     'deps_step_translator': ('Compiling the Z80 → C translator…', 'Compilation du traducteur Z80 → C…'),
     'deps_step_sdl': ('Compiling the static SDL2 (first use)…', 'Compilation de SDL2 statique (première utilisation)…'),
     'deps_step_sdl_again': ('Compiling the static SDL2 again (new build settings)…', 'Compilation de SDL2 statique (nouveaux réglages)…'),
@@ -734,6 +736,15 @@ LOG_PATTERNS = [
     (r'^(.*) nouvelles entrées repérées : recompilation à la passe suivante.$', r'\1 new entries found: recompiling on the next pass.'),
     (r'^Comparaison CPU/VDP de référence : identique.$', r'Reference CPU/VDP comparison: matching.'),
     (r'^Comparaison CPU/VDP de référence : divergence à examiner.$', r'Reference CPU/VDP comparison: differences to investigate.'),
+    # core.follow_pin: the engine sources and SDL of dependencies() follow their pins.
+    (r'^Mise à jour de (.*) vers la version épinglée…$', r'Updating \1 to the pinned revision…'),
+    (r'^Impossible de récupérer la version épinglée de (.*) \((.*)\) depuis (.*) : vérifie la connexion, puis relance la conversion \(détails dans (.*)\)\.$',
+     r'Cannot fetch the pinned revision of \1 (\2) from \3: check the connection, then convert again (details in \4).'),
+    (r'^Le dossier (.*) n’est pas un dépôt git : il n’est ni utilisé ni remplacé\. Supprime-le pour qu’il soit téléchargé à nouveau\.$',
+     r'The folder \1 is not a git checkout: it is neither used nor replaced. Delete it so that it is downloaded again.'),
+    (r'^Le dossier (.*) contient des modifications locales : il n’est ni utilisé ni remplacé\. Annule-les, ou supprime le dossier pour qu’il soit téléchargé à nouveau\.$',
+     r'The folder \1 has local changes: it is neither used nor replaced. Undo them, or delete the folder so that it is downloaded again.'),
+    (r'^Version inattendue de (.*) : (.*)\. Attendu : (.*)\.$', r'Unexpected revision of \1: \2. Expected: \3.'),
 ]
 
 

@@ -38,6 +38,8 @@
     "deps_step_start": "共通の依存関係を準備しています…",
     "deps_step_engine": "エンジンのソースをダウンロードしています…",
     "deps_step_sdl_fetch": "SDL2 のソースをダウンロードしています…",
+    "deps_step_engine_update": "エンジンのソースを固定版に更新しています…",
+    "deps_step_sdl_update": "SDL2 のソースを固定版に更新しています…",
     "deps_step_translator": "Z80 → C 変換器をコンパイルしています…",
     "deps_step_sdl": "静的 SDL2 をコンパイルしています（初回のみ）…",
     "deps_step_sdl_again": "静的 SDL2 を再コンパイルしています（新しいコンパイル設定）…",
