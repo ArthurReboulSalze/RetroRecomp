@@ -142,6 +142,29 @@ def adapt_unused_io_bits(source: str) -> str:
         '        return ctx->io[addr - 0xFF00];\n    }\n    if (addr < 0xFFFF) return ctx->hram[addr - 0xFF80];')
 
 
+def adapt_boot_ppu_phase(source: str) -> str:
+    """The pinned reset puts the LCD where the first revision of the console (DMG0) has it at the end of the boot ROM: line 145 in vertical
+    blank. The original console in common use (DMG ABC) is at line 0, which is nine lines (4,104 dots) later in the frame. Mooneye's
+    boot_hwio-dmgABCmgb reads LY at its first registers and expects the later phase. The PPU is stepped by those 4,104 dots after its
+    reset, in a DMG that skips the boot ROM, so every internal field comes out of its own state machine; no vertical-blank edge is crossed
+    (line 144 is behind), so no interrupt is raised."""
+    return replace_once(source,
+        '    if (ctx->ppu) {\n        ppu_reset((GBPPU*)ctx->ppu, ctx);\n    }\n}',
+        '    if (ctx->ppu) {\n        ppu_reset((GBPPU*)ctx->ppu, ctx);\n'
+        '        if (skip_bootrom && !gb_is_cgb_mode(ctx) && !gb_is_cgb_compat_mode(ctx)) {\n'
+        '            ppu_tick((GBPPU*)ctx->ppu, ctx, 4104u);\n'
+        '        }\n    }\n}')
+
+
+def adapt_serial_phase(source: str) -> str:
+    """A transfer with the internal clock shifts a bit at every falling edge of bit 8 of the divider (every 512 dots), so it ends after
+    4,096 dots only when it starts on an edge; otherwise the first bit comes sooner by the phase of the divider. Mooneye's
+    boot_sclk_align-dmgABCmgb measures that phase right after the boot ROM."""
+    return replace_once(source,
+        'ctx->serial_transfer.fast_clock ? 128u : 4096u;',
+        'ctx->serial_transfer.fast_clock ? 128u : 4096u - (uint32_t)(ctx->div_counter & 0x1FFu);')
+
+
 def adapt_ei_delay_interpreter(code: str) -> str:
     return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
                         'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
@@ -322,6 +345,8 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = adapt_wisdom_tree(source)
     source = adapt_ei_delay(source)
     source = adapt_unused_io_bits(source)
+    source = adapt_boot_ppu_phase(source)
+    source = adapt_serial_phase(source)
     if halt_mode3_bound:
         source = adapt_halt_mode3(source)
     runtime_cpu.write_text(source, encoding="utf-8")
