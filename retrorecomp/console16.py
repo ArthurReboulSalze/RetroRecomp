@@ -362,6 +362,9 @@ set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
 set(SNESRECOMP_DSP1_IMPL HLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
+# The engine adds a manifest of its own (a UTF-8 code page) on Windows; the game carries the converter's (game_resources.rc) and
+# the host opens files with wide paths, so the engine's resource is left out: two manifests do not link.
+list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "snesrecomp_utf8_manifest\\.rc$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
 add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
   ${{RESOURCE_SOURCES}} ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
