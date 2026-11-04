@@ -21,6 +21,7 @@
   <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a> ·
   <a href="https://retro-recomp.com">Website</a>
 </p>
+<p align="center"><sub>Powered by <a href="https://github.com/mstan">mstan</a> &amp; <a href="https://github.com/RetroPortingToolKit">RetroPortingToolKit</a></sub></p>
 
 https://github.com/user-attachments/assets/818d3278-d698-491e-a58b-e11edc602923
 
