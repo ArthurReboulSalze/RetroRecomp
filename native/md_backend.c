@@ -309,19 +309,17 @@ int rr16_raster_height(void) { return gvdp_screen_height(&g_machine.vdp); }
 /* The Z80's registers, one field at a time: the structure holds a `unsigned long` (32 bits on Windows, 64 on Linux), bit fields and
  * padding, so hashing its bytes gave a different value for the same Z80 on the two systems (gate G13). */
 static uint64_t z80_state_hash(const z80 *z) {
+    uint8_t packed[48];
+    size_t n = 0;
     const uint16_t words[] = {z->pc, z->sp, z->ix, z->iy, z->mem_ptr};
+    for (size_t i = 0; i < sizeof words / sizeof *words; ++i) { packed[n++] = (uint8_t)words[i]; packed[n++] = (uint8_t)(words[i] >> 8); }
     const uint8_t bytes[] = {z->a, z->b, z->c, z->d, z->e, z->h, z->l, z->a_, z->b_, z->c_, z->d_, z->e_, z->h_, z->l_, z->f_,
         z->i, z->r, (uint8_t)(z->sf | z->zf << 1 | z->yf << 2 | z->hf << 3 | z->xf << 4 | z->pf << 5 | z->nf << 6 | (unsigned)z->cf << 7),
         z->iff_delay, z->interrupt_mode, z->int_data,
         (uint8_t)(z->iff1 | z->iff2 << 1 | z->halted << 2 | z->int_pending << 3 | z->nmi_pending << 4)};
-    uint64_t hash = 14695981039346656037ull;
-    for (size_t i = 0; i < sizeof words / sizeof *words; ++i) {
-        hash ^= words[i] & 0xffu; hash *= 1099511628211ull;
-        hash ^= words[i] >> 8; hash *= 1099511628211ull;
-    }
-    for (size_t i = 0; i < sizeof bytes; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
-    for (unsigned shift = 0; shift < 32; shift += 8) { hash ^= ((uint32_t)z->cyc >> shift) & 0xffu; hash *= 1099511628211ull; }
-    return hash;
+    memcpy(packed + n, bytes, sizeof bytes); n += sizeof bytes;
+    for (unsigned shift = 0; shift < 32; shift += 8) packed[n++] = (uint8_t)((uint32_t)z->cyc >> shift);
+    return bytes_hash(packed, n);
 }
 static uint64_t bytes_hash(const void *data, size_t size) {
     uint64_t hash = 14695981039346656037ull;

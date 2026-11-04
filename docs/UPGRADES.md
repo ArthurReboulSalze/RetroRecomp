@@ -118,7 +118,7 @@ are not decimal digits, which the manual leaves undefined.** The causes, by inst
 | `ANDI`, `ORI`, `EORI`, `MOVE` to the condition code register read the second word of the queue again after 8 (4 for `MOVE`) internal clocks, then prefetch as usual | 147 | `rr_pf_finish` |
 | `LINK` and `MOVEP` fetch their last word after their writes, not before | 79 | `RR_PF_BEFORE_WRITE` is off for them, in the live preparation and in the plan |
 
-**Not proved:** the long immediate forms with a memory destination that needs an address calculation (`ADDI.L #,-(An)`) have no vector in the
+**Not proved:** the long immediate forms with a memory destination that needs an address calculation (`ADDI.L`, `SUBI.L`, `ANDI.L`, `ORI.L`, `EORI.L` and `CMPI.B`, `.W`, `.L` on `-(An)` or `(d8,An,Xn)`) have no vector in the
 fixture; their layout stays the pinned model's. The corrections change where the transactions of an instruction fall, not the total of its
 clocks, so a frame-timed effect can still shift by the clocks between two accesses (VDP, Z80 and I/O ports see the order and the instant of
 each access).
@@ -133,7 +133,7 @@ Both compare two values taken by the same executable, so they are unaffected; no
 tool that compares reports across systems (`tools/megadrive_cross_os.py`) must be given two reports of 1.6.8 or later.** Elsewhere: the Neo Geo and
 the CPS-1 do not use this structure for their hash (`rr_ng_z80_state_hash` and `cps1_cpu_hash` read registers one at a time; the CPS-1 writes
 its Z80 field by field in its states); the engine's machine snapshot, which the Mega Drive quick states use, still writes the Z80 structure as it is,
-and is not changed (a state is not claimed portable between systems; changing it would move the quick-state key).
+and is not changed (a state is not claimed portable between systems; changing its layout would need a compat key).
 
 **What moves.** The Mega Drive game stamp (the generated steps and the runtime change). `native/md_prefetch.inc` and `megadrive_codegen.py` are
 inputs of the X68000 stamp (`native/md_prefetch.inc`) and of the X68000 and CPS-1 stamps (`megadrive_codegen.py`, `shares:megadrive_codegen`): their
@@ -141,8 +141,14 @@ inputs of the X68000 stamp (`native/md_prefetch.inc`) and of the X68000 and CPS-
 2,889 Musashi of 2,895 on `m68k-groups`, 2,171 of 2,171 on `md-prefetch`; CPS-1: the same, 864 of 864 on `md-exceptions`, 834 of 834 on
 `m68k-shifts`). The Neo Geo stamp **does not move**: the new rules are in a module of their own, `megadrive_bus_rules.py`, because
 `megadrive_rules.py` is an input of the Neo Geo stamp (it reads the state rules) and is left as it was. Host and build stamps of every console:
-unchanged (checked on the stamp baseline, `tools/std_baseline.py`, before and after). Quick-state keys and `RR16_STATE_COMPAT_ABI`: unchanged;
-the state layout is not touched. New files and their roles: `retrorecomp/megadrive_bus_rules.py` (game, owner Mega Drive), the new tools
+unchanged (checked on the stamp baseline, `tools/std_baseline.py`, before and after). **The quick-state key of the Mega Drive moves**: `RR16_STATE_ABI` hashes the native files the console owns
+(`console16_state.write_config` through `compilation_inputs.state_native_files`), and `md_backend.c`, `md_prefetch.inc`, `md_native_steps.h` and
+`md_prefetch.h` changed (digest `366b24f1…` on `main`, `5bf4260b…` here). The Mega Drive quick states written by a 1.6.7 game are therefore
+**refused cleanly by a 1.6.8 game** (the N-1 rule of this page: no compat key, no crash, no overwrite); cartridge saves are not affected. The state
+layout itself is not touched. The keys of the Neo Geo, the CPS-1 and the Super Nintendo do not move (same digests; the X68000 does not read that
+digest). **CPS-1 path identities:** `retrorecomp/cps1_knowledge.py` lists `native/md_prefetch.inc` in its `NATIVE_INPUTS`, so the identities of the
+`cps1-m68k` and `cps1-z80` paths move with this change; the behaviour is unchanged (the CPS-1 and the Neo Geo cut only the multiply and divide part
+out of that file, which this change does not touch), and whether to raise `GENERATOR_REVISION` is the CPS-1 specialist's call. New files and their roles: `retrorecomp/megadrive_bus_rules.py` (game, owner Mega Drive), the new tools
 `tools/megadrive_mame_compare.py` and `tools/megadrive_cross_os.py` (no stamp), all in `PUBLIC_FILES`.
 
 **Cost.** On the hot path of the translated steps, small and **not measured**: the long read-modify-write sets and clears one flag around its write
