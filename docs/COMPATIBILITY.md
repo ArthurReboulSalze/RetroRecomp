@@ -25,12 +25,12 @@ and 260 malformed-state rejections. Their packed gameplay captures are inspected
 The qualified bank now covers 42 exact Neo Geo cartridge/BIOS identities;
 new samples do not imply full playthroughs or a new hardware-fidelity measurement.
 The **Super Nintendo standard profile is no longer experimental**: ordinary
-LoROM/HiROM up to 4 MiB, PAL/NTSC, quick states, battery saves and Super Scope.
+LoROM/HiROM up to 4 MiB (ExHiROM and the S-DD1 boards up to 8 MiB), PAL/NTSC, quick states, battery saves and Super Scope.
 DSP-1, CX4 and Super FX boards are also qualified within [their circuit scope](SNES.md)
-([Super FX](SNES_SUPERFX.md)). SA-1 boards (map `$23`, type `$34` or `$35`) and S-DD1 boards up to 4 MiB (map `$32`, type `$43` or
-`$45`) convert since 1.6.6; the SA-1 program is a counted interpreted device, and only three SA-1 titles and Street Fighter
+([Super FX](SNES_SUPERFX.md)). SA-1 boards (map `$23`, type `$34` or `$35`) and S-DD1 boards (map `$32`, type `$43` or
+`$45`; up to 8 MiB since 1.6.7) convert since 1.6.6; the SA-1 program is a counted interpreted device, and only three SA-1 titles and Street Fighter
 Alpha 2 have been played (the other cartridges are recognised, not proved). CX4, GSU and SA-1 instruction interpretation stays
-visible. Other enhancement circuits, extended maps and DSP-1 firmware-dump commands remain unsupported.
+visible. Other enhancement circuits, extended maps other than ExHiROM and DSP-1 firmware-dump commands remain unsupported.
 
 The bundled ROM-free bank includes **1,609 exact revisions**, including
 **227 Mega Drive and 314 Super Nintendo records** (counted in `assets/compilation-knowledge.json.gz` on 29 October 2026). Unknown eligible cartridges
@@ -84,7 +84,7 @@ Super Nintendo supports ordinary LoROM/HiROM, native
 main and sound CPU paths, PAL/NTSC, quick states and qualified Super Scope input.
 Hires, pseudo-hires, interlace and overscan now have original display/clock
 fixtures and targeted cartridge checks; see [SNES development](SNES.md).
-Unsupported enhancement chips, extended mappings and finer PPU cases remain
+Unsupported enhancement chips, extended mappings other than ExHiROM and finer PPU cases remain
 unfinished. Ordinary cartridge save files are implemented and qualified within
 the documented mapping scope. Recognizing valid Japanese header titles
 recovers rejected inputs; it does not qualify those cartridges for gameplay.

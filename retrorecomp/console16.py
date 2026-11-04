@@ -982,6 +982,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                               'reference_before_learning': reference_before_learning,
                               'cpu_fidelity_validated': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False,
+                              # The reference is the engine's own interpreter; the independent evidence is the vector run of the
+                              # release (docs/CPU_65816_SPC700.md), not part of a conversion.
+                              **({'independent_cpu_oracle': False} if system_id == 'snes' else {}),
                               **(delivered.validation_fields() if delivered else {})},
         'video_model': {'standard': standard, 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256,
                         checks[-1].get('visible_height', 224)],
@@ -996,6 +999,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             max(1, check['native_entries'] + check.get('main_interpreted_opcodes', check['interpreted_opcodes'])), 6)
             for check in checks],
         **({'cartridge_device': device} if system_id == 'snes' and (device := device_entry(checks)) else {}),
+        # What the Super Nintendo's conversion does not claim (gate G15): read back by the common `honesty` block.
+        **({'qualification_scope': {
+            'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
+            'devices': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
+            'universal_zero_fallback_claim': False}} if system_id == 'snes' else {}),
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, video standard and runtime ABI'},

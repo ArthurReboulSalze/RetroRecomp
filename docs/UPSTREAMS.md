@@ -33,7 +33,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, x68 | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
 | [mstan/m68k-recomp-core](https://github.com/mstan/m68k-recomp-core) (submodule) | md, ng, cps1, x68 | `921f67b` | `921f67b1e62bf24ee0a8f2aaad0ff50cbbc4b41a` | submodule `external/m68k-recomp-core` of segagenesisrecomp |
 | [RetroPortingToolKit/rbengine](https://github.com/RetroPortingToolKit/rbengine) (submodule) | md | `2a03e73` | `2a03e73693acee0fb78076ea058642c931bef12e` | submodule `external/rbengine` of segagenesisrecomp |
-| [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | snes | `a00df26` | `a00df26a87831113fec91b9225bf16b049d40775` | `console16.REPOSITORIES['snes']` |
+| [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | snes | `fb8cf15` | `fb8cf15d9296c59e7653e495ef38c9136546e9c1` | `console16.REPOSITORIES['snes']` |
 | [libretro/geolith-libretro](https://github.com/libretro/geolith-libretro) | ng, cps1, x68 | `2dc88e3` | `2dc88e3fa72ff404213a65d6eb5bb33baa687f73` | `neogeo_build.GEOLITH_REV` |
 | [carmiker/lithogen](https://github.com/carmiker/lithogen) | ng | `ef0f9bd` | `ef0f9bd94e31689def44b49e0f8351e0206b622d` | `neogeo_build.LITHOGEN_REV` (also `neogeo_catalogue.LOADER`) |
 | [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | cps1 | `81aec25` | `81aec25ccbb98f4873a255f7551ac4dadac59b4a` | `cps1_build.YMFM_REVISION` |
@@ -70,7 +70,7 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | Mega Drive recompiler and runner; source of the 68000 instruction bodies of four machines | PolyForm Noncommercial 1.0.0 plus retained vendor licences | Recompiler, `runner/`, `m68k_interp.c` (adapted by `m68000.adapt_semantics`); the CD code is not used | 106 ahead. A bump breaks 6 anchors. A 68000 fix is carried as our patch in 1.6.3. Keep. |
 | [mstan/m68k-recomp-core](https://github.com/mstan/m68k-recomp-core) | 68000 decoder | PolyForm Noncommercial 1.0.0 | `common/m68k_decoder.h`, read by four generators | 11 ahead; a stricter decode validator, not shown to matter for us. Keep. |
 | [RetroPortingToolKit/rbengine](https://github.com/RetroPortingToolKit/rbengine) | Rollback engine, submodule of the Mega Drive engine | MIT | Nothing: initialised with the checkout, linked only by upstream's own tests | Identical. Keep. |
-| [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | Super Nintendo interpreter and runner | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other vendor licences | The 65816 interpreter, SPC700/DSP core and `runner/`; not the analyser | 200 ahead. A bump breaks an anchor. A 65816 timing fix is carried as our patch in 1.6.3. Keep. Checked 29 October 2026: hardware NMI/IRQ entry does not need upstream's `interp816_doInterrupt` (reached only through the SA-1 core, which Retro-Recomp refuses). The adapter's entry `rr_snes_cpu_interrupt` (since 1.0.0) stacks the bank only in native mode, charges 7 cycles in emulation mode and 8 in native, and takes `$FFFA/$FFFE` in emulation mode, `$FFEA/$FFEE` in native (`native/snes_bus_checks.c`, both modes). |
+| [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | Super Nintendo interpreter and runner | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other vendor licences | The 65816 interpreter, SPC700/DSP core and `runner/`; not the analyser | Bumped on 4 November 2026 (release 1.6.8) from `a00df26` to `fb8cf15`, the tip of `main` that day: 275 commits, 20 of 20 adapters apply ([the bump](#super-nintendo-the-pin-of-168)). 65816 timing fixes are carried as our patches. Checked 29 October 2026: hardware NMI/IRQ entry does not need upstream's `interp816_doInterrupt` (reached only through the SA-1 core, which Retro-Recomp refuses). The adapter's entry `rr_snes_cpu_interrupt` (since 1.0.0) stacks the bank only in native mode, charges 7 cycles in emulation mode and 8 in native, and takes `$FFFA/$FFFE` in emulation mode, `$FFEA/$FFEE` in native (`native/snes_bus_checks.c`, both modes). |
 | [libretro/geolith-libretro](https://github.com/libretro/geolith-libretro) | Neo Geo hardware runtime; its Musashi 68000 is the reference CPU of Neo Geo, CPS-1 and X68000 | BSD-3-Clause | Machine, video and audio sources, `src/m68k` | Identical. Keep. |
 | [carmiker/lithogen](https://github.com/carmiker/lithogen) | Neo Geo cartridge layout knowledge | BSD-3-Clause | The loader behind our ROM-free layout catalogue | Identical. Keep. |
 | [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | YM2151 emulation for CPS-1 | BSD-3-Clause | `ymfm.h`, `ymfm_fm.h`, `ymfm_fm.ipp`, `ymfm_opm.h`, `ymfm_opm.cpp` | Identical. Keep. |
@@ -190,6 +190,30 @@ from the number of commits.
 
 The review scripts are not part of this repository; the method above is enough to rebuild them. Run Python on
 exported upstream trees with `python -I`, so that a file of the export cannot shadow a module.
+
+## Super Nintendo: the pin of 1.6.8
+
+Release 1.6.8 moves the Super Nintendo's engine from `a00df26` to `fb8cf15` (4 November 2026, 275 commits, the tip of `main` that day). The
+reasons are the November bus fixes (the HDMA slot before the first visible line, the single owner of the RDNMI edge, no synthetic
+HVBJOY clocks for independently clocked reads, the mosaic spans bounded), the DSP-1 chosen at build time (`SNESRECOMP_DSP1_IMPL`), and the
+work upstream did on its own speed items, which we had listed as deferred. The rules of this page apply: one console at a time, the anchors
+repaired, the qualified paths of the base lapse with the pin ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)), a requalification
+on the panel ([UPGRADES.md](UPGRADES.md)).
+
+- **Licence.** Read first: `LICENSE` and the `third_party/` notices are the same files as at the old pin (PolyForm Noncommercial 1.0.0 plus the
+  vendor licences); no new third party appears in the range. Nothing is copied; the anchors are search strings and the replacements are ours.
+- **The anchors.** The method of this page, run on the new tree before any change: 16 of 20 adapters applied, four did not. The four are
+  reworked in `snes_dma` (the HBlank split now reads `(!hdmaBeamOff || autoJoyTimer)`; our replacement, which owns the split on a beam-owned
+  host, keeps its behaviour), `snes_bus` (the read of the bridge is the statement of an `if (!stable_rom)` whose fused ROM path is compiled out; our
+  steps go in braces), `snes_chips` (the DSP-1 is chosen at build time: the project sets `SNESRECOMP_DSP1_IMPL` to HLE, and the search for a
+  firmware file is still removed from the source we compile) and the frame driver (the start-of-frame HDMA slot is a plain line now). `snes_ppu_bus`
+  failed by cascade only.
+- **What the engine now does that we carried.** A native-mode `BRK` takes 8 cycles in the engine itself; the correction we carried since 1.6.3 is
+  retired (the adapter now requires the engine's line and refuses a text that lost it), so no stamp-visible cycle changes.
+- **What the range offers behind a build selection and we do not enable.** The fused read of immutable ROM bytes
+  (`SNESRECOMP_INTERP_FUSED_ROM_READ`), the fused dry and echo mixing of the DSP, the selectable native APU spans, the batched legacy Mode 7
+  line images and the HD Mode 7 and render-worker machinery. Each one is a speed or presentation choice with its own proof; none is on
+  here. They are the candidates of the next performance pass, which needs a timing on a quiet PC.
 
 ## Fixes carried as our own patches in 1.6.3
 
@@ -396,7 +420,6 @@ quiet machine, so anything that has to be timed waits for that.
 |---|---|---|---|
 | SNES: idle detector with hash buckets | snesrecomp (`interp_bridge.c`) | Same behaviour, faster lookup instead of a linear scan per instruction. Needs a timing measurement. | Next SNES performance pass, with an A/B comparison of frame fingerprints. |
 | SNES: APU advance by blocks | snesrecomp | State of the SPC700/DSP and the sound must be proven equal before any timing. | Same pass. |
-| SNES: revision bump | snesrecomp, 252 commits at `66eebe6` (2 November 2026) | Checked mechanically on that tree (our adapters run on it, nothing written): 16 of 20 apply; four break, from three upstream changes: the DMA span rule of `snes.c` (`snes_dma`, then `snes_bus` and `snes_ppu_bus` by cascade) now also looks at `hdmaBeamOff` and the auto-joypad timer, the `stable_rom` read of `interp_bridge.c` (`snes_bus`), and the end of `dsp1()` (`snes_chips`). CMake defaults would silently switch to a different native mode on Windows x64. No 65816, DMA, SPC700 or cartridge fidelity fix in the range; the newest commits are HD Mode 7 presentation. | The planned SNES requalification campaign; it brings DSP-1 compile-time HLE and transactional state loading. |
 | NES: larger known-cartridge database | nesrecomp (195 entries to 3,825) | Its record structure changes and the provenance must be written down. | Before widening NES compatibility. |
 | NES: Famicom Disk System | nesrecomp, about thirty commits | Needs a bump (18 anchors break), a player-supplied BIOS, a Disk action in the host kit and a full NES requalification. Upstream excluded the FDS from its own validation. | A decision to support the FDS. |
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |
