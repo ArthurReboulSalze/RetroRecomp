@@ -63,8 +63,9 @@
   division. It is now a mask when the image size is a power of two (every image
   the loader pads) and stays the division for any other size, so the address is the
   same in every case. This is the cause found, by reading the code and counting
-  calls, of the 4 % that Secret of Mana cost more in 1.6.7; **the gain is not
-  measured yet**, the measurement on a quiet PC comes before the release. The
+  calls, of the 4 % that Secret of Mana cost more in 1.6.7. On a quiet PC
+  Secret of Mana now takes 13 % less host time per frame than in 1.6.7 (with the
+  engine move below; the two were not separated). The
   engine moves to `snesrecomp` `fb8cf15`: on eight games, one per board, the 21
   hash fields of the six probe files are the same at the old and at the new pin,
   and the twelve games of the panel convert with 0 interpreted 65816 and SPC700
@@ -89,14 +90,15 @@
   or a window). Counted on R-Type over 900 frames: 0 frames converted without a
   report, 899 with one; a state saved at frame 800 is the same file either way,
   and the hashes of a conversion of R-Type and of Bubble Bobble are unchanged. In a
-  window nothing changes for the player. **The gain is not measured yet**; the
-  measurement on a quiet PC comes before the release. Quick states of 1.6.7 are
+  window nothing changes for the player. On a quiet PC R-Type takes 5 % less
+  host time per frame than in 1.6.7 (headless). Quick states of 1.6.7 are
   refused cleanly on the X68000.
 
-**Speed.** The Secret of Mana cost of 1.6.7 (1.04 against 1.6.6) is expected to
-fall with the Super Nintendo change above; no frame cost of 1.6.8 is measured
-yet. [mesure de coût par image 1.6.8 contre 1.6.7 à venir]. The Mega Drive layout
-and the Game Boy changes add small tests on their hot paths, not timed.
+**Speed.** Measured on a quiet PC against 1.6.7, one pinned core, nine games:
+Secret of Mana 0.87 and R-Type 0.95 of their 1.6.7 time per frame, the seven
+others between 0.99 and 1.02, within the noise of the method
+([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). Host time only: it says
+nothing about fidelity, gameplay or latency.
 
 These are native-code and CPU-fidelity changes, independent evidence and
 start-state corrections; none of them is a measure of hardware fidelity,

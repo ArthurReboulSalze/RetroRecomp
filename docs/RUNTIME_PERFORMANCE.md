@@ -1,5 +1,32 @@
 # Runtime performance without changing the output
 
+## Measured on 4 November 2026 — 1.6.7 against 1.6.8
+
+Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC (every agent stopped), best of three, A and B interleaved
+after one dropped warm-up each, headless from boot with the machine's play route. A is the 1.6.7 executable built for the previous
+comparison; B is the same cartridge converted by the 1.6.8 tree (`main` with the X68000 and Super Nintendo changes merged), an
+empty library, no shared base. Both are packed with LZMA, so the start is the same kind on both sides and is left in: the figures
+are the whole process divided by the frames (`.build/release-1.6.8/bench_timing.py`, results in `bench_results.json` there).
+
+| Machine | Game | Frames | 1.6.7 | 1.6.8 | 1.6.8 / 1.6.7 |
+|---|---|---|---|---|---|
+| NES | Metroid | 2,400 | 2.369 ms | 2.347 ms | 0.99 |
+| NES (PAL) | Mr. Gimmick | 2,400 | 6.592 ms | 6.582 ms | 1.00 |
+| Super Nintendo | Secret of Mana | 2,400 | 6.064 ms | 5.282 ms | **0.87** |
+| Game Boy | Super Mario Land | 2,400 | 0.558 ms | 0.552 ms | 0.99 |
+| Neo Geo | Puzzle De Pon! R | 7,200 | 1.479 ms | 1.476 ms | 1.00 |
+| Sharp X68000 | R-Type | 4,000 | 0.684 ms | 0.651 ms | **0.95** |
+| Mega Drive | Sonic The Hedgehog | 2,400 | 2.578 ms | 2.598 ms | 1.01 |
+| Master System | Sonic The Hedgehog | 2,400 | 0.207 ms | 0.211 ms | 1.02 |
+| Game Gear | Sonic The Hedgehog | 2,400 | 0.203 ms | 0.203 ms | 1.00 |
+
+The two costs of 1.6.7 are gone. Secret of Mana is 13 % faster than in 1.6.7 (-0.78 ms a frame), which also puts it ahead of 1.6.6
+(5.76 ms whole process): the ROM read without a division and the move to `snesrecomp` `fb8cf15` both landed in 1.6.8, and their
+shares were not separated. R-Type is 5 % faster (-0.03 ms a frame), the cost the colour conversion had added. The seven others move
+by -1 to +2 %, within the noise of the method; Sonic on the Master System (+2 %) is 0.004 ms a frame and its game code did not change
+in 1.6.8. This measures host time per frame only: nothing about the native code share, CPU fidelity, hardware fidelity, gameplay
+validation or physical latency.
+
 ## Measured on 3 November 2026 — 1.6.6 against 1.6.7
 
 Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC, best of three, A and B interleaved. A is the 1.6.6
@@ -30,7 +57,7 @@ Once the start is taken out, two games are slower than the noise of the method, 
 The Super Nintendo declared 1.6.7 changes on its hot path without timing them. They are the emulation-flag tests in `RTI`, `TCS`,
 `TXS`, the page-crossing branch and indexed direct-page addressing. Others are the image-size comparison in `cart_getRomPtr` on the
 HiROM path (Secret of Mana is HiROM) and the direct call for RAM code. The X68000 cost is found: the colour conversion of the picture, moved in 1.6.7 from the window kit into the machine, ran on every frame even in a headless run that reads no picture; from 1.6.8 it runs only when the host reads the picture ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-picture-is-converted-only-when-the-host-reads-it-168-frame-cost)).
-Only the Super Nintendo is still to be looked at for 1.6.8, and the measurement on a quiet PC will confirm both. A speed-up ships only with identical outputs.
+The Super Nintendo cost was found in the ROM read (a division per byte, now a mask). Both were confirmed on a quiet PC on 4 November 2026 (above). A speed-up ships only with identical outputs.
 
 Sonic (Mega Drive) has no start figure. Windows Defender quarantined the temporary copy of the **1.6.6** executable during the two-frame
 run (`Program:Win32/Contebrew.A!ml`, a false positive, the same name as in earlier runs). Its whole-process difference (+84 ms over
