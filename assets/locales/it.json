@@ -38,6 +38,8 @@
     "deps_step_start": "Preparazione delle dipendenze comuni…",
     "deps_step_engine": "Download dei sorgenti del motore…",
     "deps_step_sdl_fetch": "Download dei sorgenti di SDL2…",
+    "deps_step_engine_update": "Aggiornamento dei sorgenti del motore alla revisione fissata…",
+    "deps_step_sdl_update": "Aggiornamento dei sorgenti di SDL2 alla revisione fissata…",
     "deps_step_translator": "Compilazione del traduttore Z80 → C…",
     "deps_step_sdl": "Compilazione della SDL2 statica (primo utilizzo)…",
     "deps_step_sdl_again": "Nuova compilazione della SDL2 statica (nuove impostazioni di compilazione)…",

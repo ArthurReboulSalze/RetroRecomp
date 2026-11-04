@@ -38,6 +38,8 @@
     "deps_step_start": "Preparando las dependencias comunes…",
     "deps_step_engine": "Descargando las fuentes del motor…",
     "deps_step_sdl_fetch": "Descargando las fuentes de SDL2…",
+    "deps_step_engine_update": "Actualizando las fuentes del motor a la revisión fijada…",
+    "deps_step_sdl_update": "Actualizando las fuentes de SDL2 a la revisión fijada…",
     "deps_step_translator": "Compilando el traductor Z80 → C…",
     "deps_step_sdl": "Compilando la SDL2 estática (primer uso)…",
     "deps_step_sdl_again": "Compilando de nuevo la SDL2 estática (nuevos ajustes de compilación)…",

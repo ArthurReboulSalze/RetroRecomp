@@ -38,6 +38,8 @@
     "deps_step_start": "正在准备公共依赖…",
     "deps_step_engine": "正在下载引擎源码…",
     "deps_step_sdl_fetch": "正在下载 SDL2 源码…",
+    "deps_step_engine_update": "正在将引擎源码更新到固定版本…",
+    "deps_step_sdl_update": "正在将 SDL2 源码更新到固定版本…",
     "deps_step_translator": "正在编译 Z80 → C 翻译器…",
     "deps_step_sdl": "正在编译静态 SDL2（首次使用）…",
     "deps_step_sdl_again": "正在重新编译静态 SDL2（新的编译设置）…",

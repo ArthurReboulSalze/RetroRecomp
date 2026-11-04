@@ -38,6 +38,8 @@
     "deps_step_start": "Gemeinsame Abhängigkeiten werden vorbereitet…",
     "deps_step_engine": "Engine-Quellen werden heruntergeladen…",
     "deps_step_sdl_fetch": "SDL2-Quellen werden heruntergeladen…",
+    "deps_step_engine_update": "Engine-Quellen werden auf die festgelegte Revision aktualisiert…",
+    "deps_step_sdl_update": "SDL2-Quellen werden auf die festgelegte Revision aktualisiert…",
     "deps_step_translator": "Z80 → C-Übersetzer wird kompiliert…",
     "deps_step_sdl": "Statische SDL2 wird kompiliert (erste Nutzung)…",
     "deps_step_sdl_again": "Statische SDL2 wird neu kompiliert (neue Build-Einstellungen)…",

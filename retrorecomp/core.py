@@ -19,8 +19,8 @@ from pathlib import Path
 from typing import Callable
 from .library import GameMemory, entry_lock, library_root, read_observations, write_manifest, write_code_patterns
 from .report_schema import write_report
-from .conversion_common import (check_run_budget, convert_single, prepare_game_icon, probe_environment, replace_counted,
-                                resolve_scan_level, spawn)
+from .conversion_common import (check_run_budget, convert_single, pinned_checkout, prepare_game_icon, probe_environment,
+                                replace_counted, resolve_scan_level, spawn)
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
 from . import __version__, hostkit, timings
 from .i18n import log_text
@@ -342,6 +342,61 @@ def ensure_sdl(cmake, generator, sdl: Path, prefix: Path, log: Path, emit: Calla
     (prefix / SDL_INSTALL_MARKER).write_text(sdl_install_key() + "\n", encoding="utf-8")
 
 
+def follow_pin(checkout: Path, url: str, revision: str, log: Path, emit: Callable[[str], None] = print) -> None:
+    """Make `checkout` a clean git checkout of `revision` of `url` (the engine sources and SDL of dependencies()).
+
+    A missing or empty folder is cloned. A clean checkout of another revision, such as the .deps of a release made
+    before the pin moved, fetches the pinned revision and checks it out: the SDL install is keyed by its revision
+    (platforms.sdl_install_key) and the Z80 → C translator by its patched sources, so both rebuild by themselves.
+    Nothing is used or written when the folder is not a git checkout, when tracked files carry edits, or when the
+    revision cannot be fetched (offline): the conversion stops with the reason."""
+    name = checkout.name
+
+    def git(*arguments, **options):
+        return run(["git", "-C", checkout, *arguments], **options)
+
+    def clone():
+        emit(f"Téléchargement de {name}…")
+        run(["git", "clone", url, checkout], log=log)
+        git("checkout", "--detach", revision, log=log)
+
+    def known() -> bool:
+        try:
+            git("cat-file", "-e", revision + "^{commit}")
+        except StopRequested:
+            raise
+        except ConversionError:
+            return False
+        return True
+
+    def move(head: str) -> None:
+        emit(f"Mise à jour de {name} vers la version épinglée…")
+        if not known():
+            try:
+                git("fetch", url, revision, log=log)
+            except StopRequested:
+                raise
+            except ConversionError as error:
+                raise ConversionError(f"Impossible de récupérer la version épinglée de {name} ({revision[:7]}) depuis "
+                                      f"{url} : vérifie la connexion, puis relance la conversion "
+                                      f"(détails dans {log}).") from error
+        git("checkout", "--detach", revision, log=log)
+        if (checkout / ".gitmodules").is_file():
+            git("submodule", "update", "--init", "--recursive", log=log)
+        current = git("rev-parse", "HEAD").strip()
+        if current != revision:
+            raise ConversionError(f"Version inattendue de {name} : {current}. Attendu : {revision}.")
+
+    present = (checkout / ".git").exists()
+    if not present and checkout.exists() and not (checkout.is_dir() and not any(checkout.iterdir())):
+        raise ConversionError(f"Le dossier {checkout} n’est pas un dépôt git : il n’est ni utilisé ni remplacé. "
+                              "Supprime-le pour qu’il soit téléchargé à nouveau.")
+    pinned_checkout(checkout, revision, git, present=present, clone=clone, moved=move, dirty_first=True,
+                    dirty=lambda: ConversionError(f"Le dossier {checkout} contient des modifications locales : il n’est "
+                                                  "ni utilisé ni remplacé. Annule-les, ou supprime le dossier pour "
+                                                  "qu’il soit téléchargé à nouveau."))
+
+
 @serialized_setup
 def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path, str]:
     cmake, generator = toolchain()
@@ -353,13 +408,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
     sdl = dep / "SDL"
     for path, url, revision in ((engine, "https://github.com/mstan/smsggrecomp.git", ENGINE_REV),
                                 (sdl, "https://github.com/libsdl-org/SDL.git", SDL_REV)):
-        if not path.exists():
-            emit(f"Téléchargement de {path.name}…")
-            run(["git", "clone", url, path], log=log)
-            run(["git", "-C", path, "checkout", "--detach", revision], log=log)
-        current = run(["git", "-C", path, "rev-parse", "HEAD"]).strip()
-        if current != revision:
-            raise ConversionError(f"Version inattendue de {path.name} : {current}. Attendu : {revision}.")
+        follow_pin(path, url, revision, log, emit)
     if not (engine / "external/z80-recomp-core/include/sms_runtime.h").exists():
         run(["git", "-C", engine, "submodule", "update", "--init", "--recursive"], log=log)
     # The runner mirrors oversized Sega bank register values onto physical ROM.
