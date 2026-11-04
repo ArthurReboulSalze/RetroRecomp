@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G8 of the Mega Drive of 4 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -51,7 +51,7 @@ x68 = Sharp X68000.
 | G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | P | Y | - | Y |
-| G8 | P | P | Y | Y | P | P | Y | Y | Y |
+| G8 | P | P | Y | Y | Y | P | Y | Y | Y |
 | G9 | P | P | Y | Y | Y | P | Y | Y | Y |
 | G10 | Y | Y | Y | Y | P | P | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
@@ -100,6 +100,9 @@ x68 = Sharp X68000.
   equal step by step for the whole run. Limits: `STOP` is covered by neither (the vectors differ by convention, `cpu_instrs` leaves it out), the test ROMs ran at the quick level,
   one conversion each, and one lockstep stops early on a ROM that gives no verdict (`oam_bug` `7-timing_effect`, listed in [KNOWN_FAILURES.md](KNOWN_FAILURES.md)). G11 stays `P`: Mooneye
   passes 92 of 94 applicable tests but the sound unit fails 18 of the 24 `dmg_sound` tests and two tests of the state after the boot ROM fail; no hardware capture was made.
+- Mega Drive (4 November 2026): G8 moved from `P` to `Y` on the liveness record read on 14 conversions (28 routes) and the captures of 11 games
+  ([below](#mega-drive-evidence-behind-its-column-4-november-2026)); the routes that rest on a menu are listed there. G2, G10, G11 and G13 stay `P` with
+  fresh evidence and a precise list of what is missing. The captures were looked at by the specialist agent, not by the owner.
 - NES (3 November 2026): G13 moved from `P` to `Y`: the eight games of the campaign, converted on Windows and on Debian 13 with the same
   engine revision and the same native sources, give identical per-frame traces and sound on all six routes of 3,600 frames (48 routes). See the row of the NES table below.
   The panel of ten mapper families of 1.6.7 passes at the thorough level (G12 stays `P`: the panel size policy is not decided). A defect of
@@ -363,6 +366,28 @@ the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets
 on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
 its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
 The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
+
+## Mega Drive: evidence behind its column (4 November 2026)
+
+What the specialist agent measured for the gates that were `P` on 3 November, on the 1.6.8 tree (the Mega Drive's column otherwise stands on
+the matrix above and on [MEGADRIVE.md](MEGADRIVE.md#qualification)). Nothing here says hardware fidelity, gameplay coverage or latency: MAME is a
+model, not hardware, and the numbers are of the delivered files on the routes run. The captures were looked at by the specialist agent, not by the
+owner.
+
+| Gate | Mega Drive | Evidence | What is missing |
+|---|---|---|---|
+| G2 | P | Common report v2 with the 68000 and the Z80 as separate sections, `native_validation` per route, `final_checks[].liveness`, `packed` with its replay (`report_schema.py`) | Read through `read_report` on a 1.6.8 report, these sections are empty: (a) `validation.cpu_fidelity.scenarios[].hashes` (the writer holds the hashes in `final_checks` but `report_schema._cpu_scenarios` writes `None` for the `console16` writer); (b) `states` has `supported`, keys and compatibility only: no `schema`, `machine`, `rom_identity`, `fresh_process_verified` or `validation`, although the conversion chains the end state of a route into the next process; (c) `saves` has the cartridge memory layout and no `ordinary_saves` verdict (the proof is `tools/megadrive_save_selftest.py`, as for the X68000); (d) `runtime.input_players` and `peripheral` are `None` (pad type, guns); (e) the main CPU has no `mode`, `reported_label`, `interpreted_percent` or `cycles` (counts are in instructions); (f) `build.*` (backend, engine and SDL revisions, compiler signature, executable size) is `None`. All of it lives in `console16.py` and `report_schema.py`, which the Super Nintendo shares and whose G2 is `Y` on the same record: either the criterion is met for both or for neither, which is the lead's call, not a Mega Drive change |
+| G8 | Y | The liveness record of the delivered file on every route of every conversion (`megadrive_evidence.py` through `delivery_evidence.py`, the same record and the same refusal of a frozen `play` route as the other machines; no third copy). Read on 14 conversions, 28 routes: the 11 games of the 1.6.7 list at the quick level (1,200 frames) and three at the standard level (3,600 frames). The picture changes on every route (101 to 2,126 distinct pictures), the FM or the PSG gives a non-zero sample on every frame of every route (28 of 28), and the last picture change falls in the last 30 frames on 21 of 28 routes. Captures of the 11 games at frame 1,200, demo and play: gameplay or an attract run in Earthworm Jim 2, OutRun, Road Rash 3, Shinobi III and the Sonic 3 intro, a title or a menu in the six others (Contra, Ecco, NBA Jam, Sonic 2, Streets of Rage 2, Super Street Fighter II) | A route may rest on a title or a menu: the `play` route of Streets of Rage 2 stays on its menu from frame 688 (101 pictures in 3,600 frames), Ecco's stops changing at 1,046 of 1,200, OutRun's at 1,114, and the attract routes of Contra (969) and Road Rash 3 (1,076) end early; the two NBA Jam routes of the quick level repeat the logo animation. "Audible" is a non-zero FM or PSG sample, not music. Fourteen conversions, not every cartridge of the panel |
+| G10 | P | 2,873 of 2,895 vectors of 85 instruction groups agree on every check, on the native steps and on the reference path ([CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166)); with the 2,171 prefetch vectors (82 authored cases included), the 864 exception vectors and the 834 shift vectors, all of which agree; the Z80 vectors | The oracle is MAME, not silicon; the 22 vectors left are the decimal instructions on operands that are not digits (undefined in the manual, not modelled); the long immediate forms with a memory destination that needs an address calculation have no vector; odd-address and bus errors, `TAS`, `TRAPV` and the interrupt pins are outside the fixtures |
+| G11 | P | MAME 0.289 (`genesis` NTSC, `megadriv` PAL) against the delivered file on 11 games, no input on either side, `tools/megadrive_mame_compare.py` (first run, 4 November 2026): of the **80 pictures of MAME that stand still, 78 have the same shape in the game** (the first 3,000 frames: logos, titles, menus, attract screens), and **on all 78 the 8 levels of every colour channel are the same pixel by pixel**; the game's picture comes a few frames after MAME's (4 to 6 on Sonic 2; the lag is reported, not corrected, and not read on the others) | The two emulators write the 8 levels of a channel differently: MAME 0, 52, 87, 116, 144, 172, 206, 255, the game 0, 49, 87, 119, 146, 174, 206, 255 (at most 3 of 255 apart, four levels of eight), so the share of pixels with the same 24-bit colour is 33 to 100 percent by game (mean 0.90 Contra, 0.33 Road Rash 3, 1.0 Ecco): not a different picture, a different table, and which table is closer to a real console is **not** known (not changed). Two pictures of MAME have no match (the Emerald Hill title card of Sonic 2, an interlaced picture, and one picture of Super Street Fighter II): not explained. **Sound is not compared**: the delivered executable has no option that writes its sound to a file. Nothing that moves, no raster effect, no timing; MAME is not hardware |
+| G13 | P | Windows and Debian 13 (Hermès) convert Sonic The Hedgehog 2, NBA Jam - Tournament Edition and Streets of Rage 2 with the same tree (standard scan, no shared base, empty library) and the demo and play routes of 3,600 frames give **the same value on every field of `final_checks`** (`tools/megadrive_cross_os.py compare`): 6 of 6 routes, the picture, frame sequence, CPU/prefetch, VDP, RAM, Z80 and YM hashes, the counters of native and interpreted instructions and the timing misses | Three games of 24 + 8; the long and authored routes were not replayed on Debian, nor was interactive play. A first round differed on `z80_cpu_hash` for all six routes: the hash read the bytes of a structure that holds a `long` (32 bits on Windows, 64 on Linux); it is taken field by field since 1.6.8 ([UPGRADES.md](UPGRADES.md)) |
+
+Plan for G11, in order (none started): (1) an option of the delivered executable that writes the PCM it mixed to a WAV file (the Mega Drive host has none:
+about half an AI hour in `native/console16_main.c`, shared with the Super Nintendo, so the lead's), then the comparison of level and averaged spectrum on
+the first 20 seconds, as `tools/cps1_mame_compare.py` does for the CPS-1; (2) the same route on both sides with input, MAME's pad read replaced by a tap
+on `$A10003` as the CPS-1 tool does for its ports, on the 12 raster-effect games of the 1.6.7 list; (3) frame-by-frame comparison of a raster effect
+(Sonic 2's split screen, Ecco, Contra - Hard Corps) with the lag measured and not corrected; (4) the choice of the colour table, a decision that moves every
+Mega Drive picture hash. Results are always written as "model against MAME".
 
 ## Panel sizes
 

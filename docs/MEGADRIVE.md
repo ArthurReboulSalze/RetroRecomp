@@ -171,7 +171,7 @@ in turn; the older signatures are no longer recognised ([UPGRADES.md](UPGRADES.m
 Gates and their numbering: [QUALIFICATION.md](QUALIFICATION.md) and [STANDARDS.md](STANDARDS.md#supported-checklist).
 The matrix of 27 October 2026 gives Mega Drive: met for scope (G1), native coverage (G3), CPU fidelity against the
 fresh reference (G4), packed replay (G5), fresh-process states (G6), saves (G7), route depth (G9), panel (G12),
-owner acceptance (G14) and shared-knowledge safety (G16); partial for the report contract (G2), liveness (G8),
+owner acceptance (G14) and shared-knowledge safety (G16), and since 4 November 2026 liveness (G8); partial for the report contract (G2),
 independent CPU evidence (G10), independent hardware evidence (G11), the cross-OS witness (G13) and honesty (G15).
 Read the caveats there before quoting a letter. The panel is 24 + 8 cartridges.
 

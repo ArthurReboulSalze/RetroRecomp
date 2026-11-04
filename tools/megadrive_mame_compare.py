@@ -1,18 +1,20 @@
 """Compare a converted Mega Drive game with MAME 0.289 on its first seconds (development check, nothing here is shipped).
 
-    python -B tools/megadrive_mame_compare.py GAME.exe ROM.zip --mame MAME.exe [--mame-frames 3000] [--game-frames 3100]
-                                              [--min-run 15] [--work DIR]
+    python -B tools/megadrive_mame_compare.py GAME.exe ROM.zip --mame MAME.exe [--machine genesis|megadriv] [--mame-frames 3000]
+                                              [--game-frames 3100] [--min-run 15] [--work DIR]
 
-Both sides start the same cartridge from power on and receive no input. MAME runs its `genesis` driver (NTSC, USA; no firmware is
-needed) headless with a Lua script that saves the raw screen every 10 frames. The delivered game
+Both sides start the same cartridge from power on and receive no input. MAME runs its `genesis` driver (NTSC, USA) or, for a game
+the converter runs as PAL (`--machine megadriv`: Europe, 50 Hz), headless, with no firmware needed, with a Lua script that saves the raw screen every 10 frames. The delivered game
 replays headless with `--trace`; its trace gives a picture hash per frame, so the game is captured once for each run of at least
 `--min-run` frames that stands still (`--frames N --frame-image FILE` keeps the picture of frame N). Every picture of MAME that stands
 still (identical in three captures or more) is then looked up among those of the game.
 
-Two measures per picture of MAME, both about the picture only (a picture that is black on both sides counts as a match):
+Three measures per picture of MAME, all about the picture only (a picture that is black on both sides counts as a match):
   * `shape`: the two pictures have the same shape up to a one-to-one change of colours, after cutting each to the box of its
     non-black pixels (the two emulators may place a picture differently in their frames);
-  * `identical`: the share of pixels that have the very same colour in the best placement of the same-shape picture.
+  * `identical`: the share of pixels that have the very same 24-bit colour in the best same-shape picture of the game;
+  * `same_level`: the share of pixels whose three channels have the same one of the 8 levels of the VDP's colour, whatever value
+    each emulator gives that level (the two tables differ by at most 3 of 255 for four of the eight levels, see LEVELS).
 Sound is NOT compared: the delivered executable has no option that writes its sound to a file yet (the plan in
 docs/QUALIFICATION.md names the smallest change).
 
@@ -39,6 +41,9 @@ ROOT = Path(__file__).resolve().parents[1]
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 MAME_STEP = 10
 MIN_MAME_RUN = 20       # frames: three captures of the same picture
+# The 8 values of one colour channel as each side writes them (nine-bit colour, three bits per channel): read from a capture of each
+# side, not from a source. They are the same on every picture of every game.
+LEVELS = {'mame': (0, 52, 87, 116, 144, 172, 206, 255), 'game': (0, 49, 87, 119, 146, 174, 206, 255)}
 ROM_SUFFIXES = ('.md', '.bin', '.gen', '.smd')
 
 LUA = '''local out = "%(out)s"
@@ -124,24 +129,31 @@ def shape_key(image) -> str | None:
     return hashlib.sha1(f'{cut.size}'.encode() + bytes(data)).hexdigest()
 
 
-def identical_share(a, b) -> float:
-    """The share of pixels that have the same colour, for two pictures of the same size after cutting."""
+def level(value: int, table: tuple) -> int:
+    return min(range(8), key=lambda index: abs(table[index] - value))
+
+
+def identical_share(a, b) -> tuple[float, float]:
+    """(the share of pixels with the same 24-bit colour, the share with the same level in each channel) of two pictures of
+    the same size after cutting; `a` is MAME's, `b` the game's."""
     first, second = box(a), box(b)
     if first is None and second is None:
-        return 1.0
+        return 1.0, 1.0
     if first is None or second is None or first.size != second.size:
-        return 0.0
-    same = sum(1 for p, q in zip(first.getdata(), second.getdata()) if p == q)
-    return same / (first.size[0] * first.size[1])
+        return 0.0, 0.0
+    pairs = list(zip(first.getdata(), second.getdata()))
+    same = sum(1 for p, q in pairs if p == q)
+    levels = sum(1 for p, q in pairs if all(level(x, LEVELS['mame']) == level(y, LEVELS['game']) for x, y in zip(p, q)))
+    return same / len(pairs), levels / len(pairs)
 
 
-def run_mame(mame: Path, rom: Path, frames: int, work: Path) -> Path:
+def run_mame(mame: Path, rom: Path, frames: int, work: Path, machine: str) -> Path:
     out = work / 'mame'
     out.mkdir(parents=True, exist_ok=True)
     lua = work / 'capture.lua'
     lua.write_text(LUA % {'out': out.as_posix(), 'step': MAME_STEP, 'last': frames}, encoding='utf-8')
     # MAME runs from its own folder, so every path is absolute.
-    result = subprocess.run([str(mame), 'genesis', '-cart', str(rom.resolve()), '-video', 'none', '-sound', 'none',
+    result = subprocess.run([str(mame), machine, '-cart', str(rom.resolve()), '-video', 'none', '-sound', 'none',
                              '-nothrottle', '-skip_gameinfo', '-nomouse',
                              '-seconds_to_run', str(frames // 60 + 600), '-autoboot_script', str(lua.resolve()),
                              '-cfg_directory', str((work / 'cfg').resolve()), '-nvram_directory', str((work / 'nvram').resolve())],
@@ -167,11 +179,12 @@ def trace_rows(path: Path) -> list[tuple[int, str]]:
     return [(int(row[frame]), row[picture]) for row in rows[1:] if len(row) == len(rows[0]) and row[frame].isdigit()]
 
 
-def compare(exe: Path, rom: Path, mame: Path, mame_frames: int, game_frames: int, min_run: int, work: Path) -> dict:
+def compare(exe: Path, rom: Path, mame: Path, mame_frames: int, game_frames: int, min_run: int, work: Path,
+            machine: str) -> dict:
     from PIL import Image
     cartridge_file = cartridge(rom, work)
     try:
-        out = run_mame(mame, cartridge_file, mame_frames, work)
+        out = run_mame(mame, cartridge_file, mame_frames, work, machine)
     finally:
         if cartridge_file != rom:
             cartridge_file.unlink(missing_ok=True)       # no ROM byte is kept
@@ -196,15 +209,18 @@ def compare(exe: Path, rom: Path, mame: Path, mame_frames: int, game_frames: int
         picture = Image.frombuffer('RGBA', (width, height), raw, 'raw', 'BGRA', 0, 1).convert('RGB')
         key = shape_key(picture)
         matches = index.get(key) if key else None
-        row = {'mame_first': first, 'mame_last': last, 'shape': bool(matches), 'game_runs': None, 'identical': None}
+        row = {'mame_first': first, 'mame_last': last, 'shape': bool(matches), 'game_runs': None, 'identical': None,
+               'same_level': None}
         if matches:
             row['game_runs'] = [[a, b] for a, b, _ in matches]
-            row['identical'] = round(max(identical_share(picture, image) for _, _, image in matches), 4)
+            best = max((identical_share(picture, image) for _, _, image in matches), key=lambda pair: pair[1])
+            row['identical'], row['same_level'] = round(best[0], 4), round(best[1], 4)
         results.append(row)
     matched = [r for r in results if r['shape']]
-    summary = {'rom': rom.name, 'mame_frames': mame_frames, 'game_frames': game_frames,
+    summary = {'rom': rom.name, 'machine': machine, 'mame_frames': mame_frames, 'game_frames': game_frames,
                'game_still_pictures': len(still), 'mame_still_pictures': len(results), 'shape_matched': len(matched),
                'identical_share_mean': (round(sum(r['identical'] for r in matched) / len(matched), 4) if matched else None),
+               'same_level_share_mean': (round(sum(r['same_level'] for r in matched) / len(matched), 4) if matched else None),
                'unmatched_mame_runs': [[r['mame_first'], r['mame_last']] for r in results if not r['shape']]}
     return {**summary, 'results': results}
 
@@ -214,6 +230,7 @@ def main() -> int:
     parser.add_argument('exe', type=Path)
     parser.add_argument('rom', type=Path, help='the cartridge the game was converted from (a zip or a plain file), read in place')
     parser.add_argument('--mame', type=Path, default=os.environ.get('RETRO_RECOMP_MAME'), help='mame.exe of MAME 0.289')
+    parser.add_argument('--machine', choices=['genesis', 'megadriv'], default='genesis', help='genesis: NTSC USA; megadriv: PAL Europe')
     parser.add_argument('--mame-frames', type=int, default=3000)
     parser.add_argument('--game-frames', type=int, default=3100)
     parser.add_argument('--min-run', type=int, default=15, help='frames a picture of the game stands still to be captured')
@@ -223,7 +240,7 @@ def main() -> int:
         parser.error('--mame (or RETRO_RECOMP_MAME) is required')
     options.work.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='run-', dir=options.work))
-    summary = compare(options.exe, options.rom, options.mame, options.mame_frames, options.game_frames, options.min_run, work)
+    summary = compare(options.exe, options.rom, options.mame, options.mame_frames, options.game_frames, options.min_run, work, options.machine)
     (work / 'report.json').write_text(json.dumps(summary, indent=1), encoding='utf-8')
     print(json.dumps({key: value for key, value in summary.items() if key != 'results'}))
     return 0
