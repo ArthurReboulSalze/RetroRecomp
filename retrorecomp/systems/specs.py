@@ -121,6 +121,10 @@ class ObservedCode:
     step_type: str
     # (lowest address, first address that is no pc, end of the aperture) of each window where code may be observed.
     apertures: tuple
+    # The language of the steps the generator writes: the extension of `steps/partNN` and `steps/index` (".c", or ".cpp" for bodies that are C++ templates)
+    # and the text each step file starts with (the machine's own header, `extern "C"` and the like).
+    source_extension: str = '.c'
+    steps_head: str = '#include "step_semantics.h"\n'
 
     def load_bodies(self, engine):
         module, _, function = self.bodies.partition(':')

@@ -190,7 +190,7 @@ def write_steps(project: Path, samples: list, *, observed: ObservedCode, bodies:
     steps = project / 'steps'
     steps.mkdir(exist_ok=True)
     for n, chunk in enumerate(chunks):
-        write_changed(steps / f'part{n:02}.c', '#include "step_semantics.h"\n' + alias(''.join(chunk)))
+        write_changed(steps / f'part{n:02}{observed.source_extension}', observed.steps_head + alias(''.join(chunk)))
     groups = []
     last = None
     for index, ins in enumerate(instructions):
@@ -224,5 +224,5 @@ def write_steps(project: Path, samples: list, *, observed: ObservedCode, bodies:
     source += code_view
     source += GUARDED.replace('__P__', prefix).replace('__STEP__', observed.step_type)
     source += index_tail(links)
-    write_changed(steps / 'index.c', source)
+    write_changed(steps / f'index{observed.source_extension}', source)
     return Steps(instructions, forms, groups, links)

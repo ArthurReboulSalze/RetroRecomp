@@ -88,11 +88,11 @@ class BodiesTests(unittest.TestCase):
 
 
 class StepsTests(unittest.TestCase):
-    def generate(self, prefix='rr_test_', step='RrTestStep'):
+    def generate(self, prefix='rr_test_', step='RrTestStep', **language):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         project = Path(folder.name)
-        observed = ObservedCode('m68k_observed:recompiler_bodies', prefix, step, ((0, 0xc00000, 0xc00000),))
+        observed = ObservedCode('m68k_observed:recompiler_bodies', prefix, step, ((0, 0xc00000, 0xc00000),), **language)
         bodies = m68k_observed.InstructionBodies(['MN_OTHER', 'MN_NOP', 'MN_RTS'] + ['MN_X'] * 8, {'MN_X': 'return M68KI_OK;'}, 'HELPER', 'TIMING', 'f' * 64)
         decoded = [instruction(0x6000, 0x4e71), instruction(0x6002, 0x4e75), instruction(0x6000, 0x4e71), instruction(0x7000, 0x4e71)]
         for item in decoded:
@@ -130,6 +130,16 @@ class StepsTests(unittest.TestCase):
         self.assertIn('M68kiStatus rr_test_form_0(', part)
         self.assertEqual((project / 'snapshots.txt').read_text(encoding='ascii').splitlines()[0], '006000 4e71')
         self.assertIn('bffe00 4e71', (project / 'snapshots.txt').read_text(encoding='ascii'), 'the authored guard fixtures join the samples')
+
+    def test_the_language_of_the_steps_is_the_machines(self):
+        # C by default (the X68000); a machine whose bodies are C++ templates names its extension and the head of each step file.
+        project, _, _ = self.generate()
+        self.assertTrue((project / 'steps' / 'index.c').is_file() and (project / 'steps' / 'part00.c').is_file())
+        self.assertTrue((project / 'steps' / 'part00.c').read_text(encoding='utf-8').startswith('#include "step_semantics.h"\n'))
+        project, _, _ = self.generate('rr_amiga_', 'RrAmigaStep', source_extension='.cpp', steps_head='#include "moira_steps.h"\nextern "C" {\n')
+        names = sorted(path.name for path in (project / 'steps').iterdir())
+        self.assertEqual(names, ['index.cpp'] + [f'part{n:02}.cpp' for n in range(16)])
+        self.assertTrue((project / 'steps' / 'part03.cpp').read_text(encoding='utf-8').startswith('#include "moira_steps.h"\nextern "C" {\n'))
 
     def test_another_machines_prefix_and_step_type_replace_every_name(self):
         project, _, _ = self.generate('rr_amiga_', 'RrAmigaStep')
