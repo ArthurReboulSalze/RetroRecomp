@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.8-d4a737" alt="Release version 1.6.8">
-  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Sharp X68000">
+  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -74,7 +74,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Capcom CPS-1.5](docs/CPS1.md) | Experimental | The 18 QSound sets (Warriors of Fate, Cadillacs and Dinosaurs, The Punisher, Saturday Night Slam Masters…): Kabuki-encrypted Z80 decrypted, QSound sound from a high-level model; needs your own QSound DSP ROM in **Options → Capcom CPS-1** |
-| [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
+| [Sharp X68000](docs/X68000.md) | Supported | Floppy games: DIM, XDF and D88 disks and multi-disk sets (up to ten disks), quick states, mouse and keyboard; needs your own IPL and font ROM; no hard-disk images, and the few games that play only through an external Roland MIDI module run silent (the report says so) |
 
 **In development** (experimental first, no date promised): Capcom CPS-2, PC Engine / TurboGrafx-16 and Game Boy Advance.
 Planned after them: Atari ST, Amiga 500 and 1200, Nintendo 64 and PlayStation. Per-machine plans are in the
@@ -96,7 +96,7 @@ decides a status: leaving the experimental status is the owner's own decision.
 | Super Nintendo | supported | `█████████░` 88 % |
 | Neo Geo | supported | `█████████░` 94 % |
 | Capcom CPS-1 | supported | `█████████░` 90 % |
-| Sharp X68000 | experimental | `█████████░` 90 % |
+| Sharp X68000 | supported | `█████████░` 93 % |
 
 <!-- qualification-gauges:end -->
 

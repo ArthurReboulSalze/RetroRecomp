@@ -150,7 +150,7 @@ upgraded exports, a state written by the old one being resumed by the new one):
   window, so only the final video trace (Master System, Game Gear) or the final state dump
   (Game Boy) of the old and the upgraded executable were compared: identical.
 - X68000: the state key carries the compiler's identity by design, so a 1.4.1 state is refused
-  cleanly ("Requested startup state rejected") by an upgraded export; the profile is experimental.
+  cleanly ("Requested startup state rejected") by an upgraded export; the profile was experimental then.
   The X68000 is not in the list, so it is converted in full anyway.
 
 The Super Nintendo analysis cache identity changed once (the removed Super Mario World repository
@@ -1918,8 +1918,8 @@ disables both the bundled and imported knowledge.
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
 NES, Mega Drive, Super Nintendo and, since 1.5.4, Neo Geo (see *The shared
-base*): the X68000 (experimental) is never sent and counts for nothing
-on the leaderboard until it joins the shared base in a later version, and the CPS-1 sends only its numeric paths
+base*): the X68000 is never sent and counts for nothing
+on the leaderboard (it stays local), and the CPS-1 sends only its numeric paths
 as the experimental tier of the base (the converter says so when sending). The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed

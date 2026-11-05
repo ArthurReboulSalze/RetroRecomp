@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Sharp X68000: the profile is supported (1.6.9)
+
+On 5 November 2026 the owner decided that the X68000 leaves the experimental status ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The change is the
+status and the sentences that stated it: the profile (`status = 'supported'`), the status that the conversion writes in its report and the log line that
+said "experimental profile" (`x68000_conversion.py`), three interface texts in the eight languages (the options note, the credits line and the
+scope of the sharing, which now says the machine stays local), the tests and the golden report that pinned the old status, and the documents.
+
+**What moves.** Computed with `compilation_inputs.role_stamps` on the commit of the profile and the interface against its parent: **the X68000 game stamp
+and nothing else**. The game stamps of the other eight consoles, and the host and build stamps of all nine, are identical. The quick-state key of the
+X68000 (`RR_X68K_STATE_ABI`) hashes the reference host and the machine bridge, which this change does not touch: it does not move for this change.
+
+**Impact on existing exports.** An X68000 export of 1.6.8 keeps playing as it is; its report says `experimental` until it is converted again. Upgraded by 1.6.9 it is
+converted in full again (its game stamp moved) and its report says `supported`. The generated code, the pictures, the sound, the saves and the hashes of every
+route are not changed by this commit: the one thing that differs in the report of a game is the word `status` (see the A/B in QUALIFICATION.md).
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section

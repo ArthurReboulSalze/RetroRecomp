@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 of the X68000 of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -57,7 +57,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Super Nintendo | supported | `█████████░` 88 % | ✅ 13 · 🟡 2 · ❔ 1 |
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| Sharp X68000 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+| Sharp X68000 | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -76,7 +76,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 |
+| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ |
 | G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
 
@@ -105,7 +105,7 @@ x68 = Sharp X68000.
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
 | G13 | P | P | Y | Y | P | P | P | P | Y |
-| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
+| G14 | ? | ? | ? | Y | Y | ? | Y | Y | Y |
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
@@ -126,6 +126,11 @@ x68 = Sharp X68000.
 
 - X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
   four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
+
+- X68000 (5 November 2026): the profile is `supported` since 1.6.9. G14 moved from `P` to `Y` on the owner's decision of 5 November 2026
+  (quoted in *Owner acceptance*), taken with G10 and G11 still `P`: 22 vectors of undefined decimal arithmetic, and MAME on five games
+  with the sound not compared. The Mega Drive stands with G10 `P`, and every supported machine with G11 `P`. The scope and the follow-ups are
+  in [the exit section](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026).
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md, nes and gb run G5 inside every conversion (sms and gg too, but only
@@ -274,12 +279,12 @@ build), and the group `conversion_gates` in the machine's `stamp_groups`.
 
 ## Sharp X68000: evidence behind its column (29 October 2026, status of 1 November 2026)
 
-The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that
+The X68000 is **supported** since 1.6.9 (owner's decision of 5 November 2026, [below](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)). This is what each gate rests on today and what is still missing, with the file that
 shows it. `P` means a part is shown and the rest is named; nothing here says exact hardware, gameplay coverage or latency.
 
 | Gate | X68000 | Evidence | What is missing |
 |---|---|---|---|
-| G1 | Y | `retrorecomp/systems/x68000.py` (status `experimental`), [X68000.md](X68000.md), `tests/test_system_profiles.py` | |
+| G1 | Y | `retrorecomp/systems/x68000.py` (status `supported` since 1.6.9), [X68000.md](X68000.md), `tests/test_system_profiles.py`, `tools/status_lint.py` | |
 | G2 | Y | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`, golden `tests/x68000_common_golden.json`). Since 1.6.6 the sections are filled from the conversion itself: `cpus` (one 68000, native and interpreted counts per route), `validation.cpu_fidelity` (digests of the CPU, RAM, image and PCM traces per route), `scan.routes` (frames, steps and script digest of each exploration route), `states.validation` (fresh process, compressed copy, the frame of the save and the 400 continued frames), `saves`, `input_players`, `peripheral`, `packed.replay` | `devices` is empty and there is no audio CPU section: the machine has no cartridge device and its sound is part of the reference machine, so a counter per device does not apply. `saves.validation.checked_in_this_conversion` is false (the proof is the test and the tool named there, not a step of the conversion) |
 | G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
@@ -292,7 +297,7 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`); MAME 0.289 (its `x68000` driver, run with the IPL and font ROM it expects: the hashes of the owner's firmware are the ones MAME lists) against the delivered game on five games, no input on either side (`tools/x68000_mame_compare.py`, 2 November 2026): **90 of the 104 pictures of MAME that stand still have the same shape in the game** (R-Type 14 of 16, Lemmings 19 of 24, Star Luster 26 of 31, Quarth 19 of 20, Bubble Bobble 12 of 13), the first 200 frames (the Human68k start-up screen) are identical to the pixel on R-Type, and after the disk has loaded the two emulators advance image for image at a constant lag (665 frames on R-Type) | Sound is **not** compared, and colours only on Bubble Bobble: the palette's intensity bit now lifts the three channels as in MAME (the game's picture is XRGB8888 from the machine's own colour word, UPGRADES 1.6.7) and 97.03 percent of the pixels of its 12 matched pictures are identical to MAME's (93.55 before; the shape match of the tool does not depend on colours); the rest comes from the screen contrast of the system port, applied to the palette by the base but by MAME at display, after the raw screen this tool reads, and from rounding. Of the 14 pictures with no match, 4 are explained (2 of R-Type fall beyond the 3,000 frames captured on the game side, 2 are transition frames that agree on 99.97 percent of their pixels) and 10 are **not explained** (Lemmings 5, Star Luster 4, Bubble Bobble 1). Disks load more slowly in MAME, so the lag is per game and not calibrated. MAME is not hardware and marks its driver imperfect |
 | G12 | Y | **The owner chose option B (2 November 2026): 21 named games, each with its written reason, none dropped for failing** (the panel and its rule are [below](#sharp-x68000-the-panel-2-november-2026)); all 21 are converted on Windows (22 conversions with R-Type again at 4 MiB), 0 interpreted opcodes on every route, the compressed copy matching, F8/F9 resumed in a fresh process; the collection holds 418 images, 33 multi-disk sets and 84 reviewed mouse sets | The panel covers the categories it names, not the whole collection; the two sets that used to stop the reference (Tetris v5, TF4G v0.3A09) and Pensan CD (silent on its keys) are in it and convert |
 | G13 | Y | Windows and Debian trace hashes (CPU, RAM, picture and PCM, main, mouse and keyboard routes) are equal on the 21 games of the panel (2 November 2026) | One game, Choujin, is delivered on Debian unpacked: its UPX-compressed copy stops at start there, so the shared packing step replays it twice and publishes the validated build instead, with the reason in the report (see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)); its hashes equal those of Windows |
-| G14 | P | Play test passed on 3 November 2026 (five games, owner-acceptance table) | The owner's decision to leave the experimental status, once G10 and G11 are proved |
+| G14 | Y | Play test passed on 3 November 2026 (five games); five more games, drawn at random, played on 5 November 2026 (Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, converted with the 1.6.8 tree), and the owner's decision of the same day to leave the experimental status (quoted in the owner-acceptance table) | The decision was given with G10 and G11 `P`; it is the owner's and he can revert it. Five games drawn at random and played are not a campaign: no claim of gameplay beyond them |
 | G15 | Y | The five measures stay separate in the report and in [X68000.md](X68000.md). Read on 3 November 2026 for this gate: every string of the interface that names the machine, in the eight languages, the README and every public document that names the machine, the local documents (`docs/history/x68000`, the research page, the specifications), the host kit's lines and the report writer. No claim of exact hardware, complete gameplay, zero latency or zero fallback was found; the report now states `universal_zero_fallback_claim: false` like the CPS-1 and the Neo Geo (its common `honesty` block read `null` for it), and the roadmap paragraph that still listed the panel and the Linux comparison as missing was rewritten | The word "exact" appears in the documents for media identities and for redraw marks, never for fidelity; the generic help text of the converter ("sometimes beyond the original machine") is not specific to this machine |
 | G16 | - | The X68000 shares no paths yet | |
 
@@ -539,6 +544,23 @@ the journal says the compressed copy failed its replay and the unpacked build is
 panel (R-Type) stayed compressed, with no fallback line. So 21 of the 21 are delivered on Debian, one of them unpacked. These checks say that the native code, the picture and the sound of the routes run are the same on the two systems;
 they say nothing of complete gameplay, exact hardware or latency.
 
+### Sharp X68000: scope and follow-ups at the exit (5 November 2026)
+
+**What the exit stands on.** The column above, with every gate `Y` except G10 and G11, which stay `P` as they do for the other supported 68000
+machines (G10: 22 of 2,895 vectors of undefined decimal arithmetic; G11: MAME, a model and not hardware). The owner decided with both open, after the
+play trials of 3 and 5 November 2026. Nothing here says exact hardware, complete gameplay or physical latency.
+
+**Scope stated at the exit** (also in [X68000.md](X68000.md#8-known-limits)): floppy games only; no hard-disk images, no set of more than ten
+disks, no copy-protected D88; the few games that play only through an external Roland MIDI module run silent and the report says so (a decision
+of 29 October 2026 for this machine only); the mouse and the keyboard are checked by routes and by play on a few games; saves are proved by an
+authored program and by file time stamps of real games; the machine stays local (G16 not applicable); the screen contrast of the system port is a
+known difference with MAME, not changed.
+
+**Follow-ups** (none of them blocks the exit; each can move a hash and says so when it does): the sound of the five games compared with MAME
+(the CPS-1's is within 0.42 dB), the colours compared on the four games that have none, the ten pictures of MAME that no picture of the game matches
+(Lemmings 5, Star Luster 4, Bubble Bobble 1), authored vectors for the long immediate forms with a memory destination, the thorough scan level and
+disk requests late in a game, a game that saves on purpose, interactive play witnessed on Linux, and a new review of the px68k upstreams.
+
 ## Owner acceptance
 
 Owner play tests (gate G14), one row per test. The table starts empty; the
@@ -553,6 +575,7 @@ owner fills it in.
 | 3 November 2026 | Nintendo NES | The Legend of Zelda, Kirby's Adventure, Mr. Gimmick, Duck Hunt, Battletoads, Castlevania III, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The trial list of the NES checklist below; G14 `Y`. |
 | 3 November 2026 | Capcom CPS-1 | 1941, Street Fighter II' Champion Edition, Final Fight, Captain Commando, Strider, Mercs, converted with the 1.6.7 tree (generator revision 12) in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play trial list of `CPS1_ACCEPTATION.md`, which the row of 1 November left to do; G14 moves from `P` to `Y`. |
 | 3 November 2026 | Sharp X68000 | R-Type, Metal Sight, Lemmings, Super Hang-On, Bubble Bobble, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play test passed. It is not a decision to leave the experimental status: G10 and G11 are still `P`, and the exit stays the owner's explicit decision once every gate is proved. G14 is `P`. |
+| 5 November 2026 | Sharp X68000 | Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, drawn at random (seed 20261105) among the games of his collection not yet in `Export`, converted with the 1.6.8 tree in a player's conditions and delivered in `Export` | Arthur: « Bon, je viens de tester les derniers jeux que tu m'as sortis là sur Sharp X68000 et sur le CPS. Les deux marchent parfaitement. Tu peux sortir le Sharp de l'expérimental, même si on aura forcément quelques évolutions à faire derrière. » | The decision to leave the experimental status, given with G10 and G11 still `P`; it also counts as his last trial on the tree of the exit, whose commit changes the status written in the report and nothing in the player. G14 `Y`. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
