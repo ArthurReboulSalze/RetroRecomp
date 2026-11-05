@@ -792,16 +792,31 @@ class ProfileWiringTests(unittest.TestCase):
 
 
 class StartChoiceTests(unittest.TestCase):
-    def test_a_variant_that_freezes_early_loses_to_one_that_keeps_moving(self):
-        # Bonk's Adventure, 5 November 2026: the third Run press paused the game at frame 721.
-        variants = {1: {'last_picture_change_frame': 3600, 'picture_changes': 40, 'audible_frames': 3000},
-                    2: {'last_picture_change_frame': 3600, 'picture_changes': 900, 'audible_frames': 3500},
-                    3: {'last_picture_change_frame': 721, 'picture_changes': 339, 'audible_frames': 688}}
-        self.assertEqual(pce_conversion.choose_start(variants), 2)
+    def variant(self, last, divergence):
+        return {'liveness': {'last_picture_change_frame': last, 'picture_changes': 100, 'audible_frames': 0},
+                'divergence': divergence}
+
+    def test_bonks_adventure_of_5_november(self):
+        # One press: the demo went on, no picture differs from the route without input. Three: the third pressed
+        # pause at frame 720. Two: alive to the end and the input changed 3,118 pictures.
+        variants = {1: self.variant(3600, 0), 2: self.variant(3597, 3118), 3: self.variant(721, 3118)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 2)
 
     def test_a_tie_keeps_the_fewest_presses(self):
-        same = {'last_picture_change_frame': 3600, 'picture_changes': 10, 'audible_frames': 0}
-        self.assertEqual(pce_conversion.choose_start({1: same, 2: same, 3: same}), 1)
+        variants = {1: self.variant(3600, 50), 2: self.variant(3600, 50), 3: self.variant(3600, 50)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 1)
+
+    def test_when_none_stays_alive_the_livelier_is_kept(self):
+        variants = {1: self.variant(900, 0), 2: self.variant(1500, 0), 3: self.variant(721, 10)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 2)
+
+    def test_divergence_counts_pictures_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            head = 'frame,cpu,ram,image,pcm,samples\n'
+            base, other = Path(folder) / 'base.csv', Path(folder) / 'other.csv'
+            base.write_text(head + '1,a,r1,p1,s,0\n2,a,r2,p2,s,0\n', encoding='ascii')
+            other.write_text(head + '1,b,x1,p1,s,0\n2,b,x2,q2,s,0\n', encoding='ascii')
+            self.assertEqual(pce_conversion.divergence(other, base), 1)
 
     def test_the_presses_set_the_start_of_play_and_long_routes(self):
         for presses in pce_conversion.START_PRESSES:

@@ -112,9 +112,28 @@ def liveness_score(liveness: dict) -> tuple:
             liveness.get('audible_frames') or 0)
 
 
-def choose_start(results: dict) -> int:
-    """The number of Run presses whose play route stayed the most alive (ties: the fewest presses)."""
-    return max(sorted(results), key=lambda presses: (liveness_score(results[presses]), -presses))
+def divergence(trace: Path, baseline: Path) -> int:
+    """Frames whose picture differs from the same frame of the route without input: what the input changed on screen.
+    A variant whose presses the game ignored (it kept playing its demo) has none; work RAM is not used, since the
+    game's pad reader stores the input even when nothing else reacts (Bonk's Adventure, 5 November 2026)."""
+    def rows(path):
+        return {fields[0]: fields[3] for fields in
+                (line.split(',') for line in Path(path).read_text(encoding='ascii').splitlines()[1:]) if len(fields) == 6}
+    ours, theirs = rows(trace), rows(baseline)
+    return sum(1 for frame, value in ours.items() if theirs.get(frame) != value)
+
+
+def choose_start(results: dict, frames: int) -> int:
+    """The number of Run presses for the play route. `results` maps presses to {'liveness', 'divergence'}.
+
+    A variant must keep the picture moving until its last 120 frames (a press too many pauses the game); among those,
+    the one the input changed the most from the demo wins (a press too few leaves the game in its attract loop; ties:
+    the fewest presses). When none stays alive, the livelier one is kept."""
+    alive = [presses for presses, result in results.items()
+             if (result['liveness'].get('last_picture_change_frame') or 0) >= frames - 120]
+    if alive:
+        return max(sorted(alive), key=lambda presses: (results[presses]['divergence'], -presses))
+    return max(sorted(results), key=lambda presses: (liveness_score(results[presses]['liveness']), -presses))
 
 
 # ------------------------------------------------------------------ runs and traces
@@ -253,20 +272,26 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             with stages.phase('reference_and_native_runs'):
                 if not reference:
                     emit('PC Engine: fresh reference runs (every instruction interpreted).')
-                    # The start of the play route: each variant is played on the reference, the livelier one is kept
-                    # for play and the long routes (a press too many pauses the game; one too few stays on a menu).
+                    # The start of the play route: each variant is played on the reference against the same frames
+                    # without input (choose_start), and the one kept drives play and the long routes.
                     play_count = next(count for name, count, _ in plan if name == 'play')
-                    variants = {}
+                    baseline = checks / 'inputs' / 'play-start0.inputs'
+                    baseline.write_text(_script([]), encoding='ascii', newline='\n')
+                    variants = {0: run(candidate, checks / 'reference', 'play-start0', play_count, baseline, '--reference')}
                     for presses in START_PRESSES:
                         script = checks / 'inputs' / f'play-start{presses}.inputs'
                         script.write_text(_script(play_rows(play_count, int(card.sha256[:8], 16), presses)),
                                           encoding='ascii', newline='\n')
                         variants[presses] = run(candidate, checks / 'reference', f'play-start{presses}', play_count,
                                                 script, '--reference')
-                    start = {presses: route_liveness(Path(result['trace'])) for presses, result in variants.items()}
-                    presses = choose_start(start)
-                    route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()}}
-                    emit(f'PC Engine: play route starts with Run pressed {presses} time(s) (the livelier variant).')
+                    start = {presses: {'liveness': route_liveness(Path(result['trace'])),
+                                       'divergence': divergence(result['trace'], variants[0]['trace'])}
+                             for presses, result in variants.items() if presses}
+                    presses = choose_start(start, play_count)
+                    route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()},
+                                   'rule': 'alive until the last 120 frames, then most frames changed by the input'}
+                    emit(f'PC Engine: play route starts with Run pressed {presses} time(s) '
+                         f'({start[presses]["divergence"]} frames changed by the input).')
                     plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
                     for name, count, text in plan:
                         scripts[name].write_text(text, encoding='ascii', newline='\n')
