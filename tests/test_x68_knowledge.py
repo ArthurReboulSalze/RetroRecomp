@@ -86,7 +86,22 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(spans, [(LOAD, 0x400, len(PROGRAM))])
         self.assertEqual(ipl_rows, [])
         self.assertEqual((counts['ram']['observed'], counts['ram']['tied'], counts['ram']['private'], counts['ram']['spans']), (4, 4, 0, 1))
+        self.assertEqual(counts['ram']['anchored'], 4)           # a span of 14 bytes is a place of the disks
 
+    def test_a_short_instruction_found_by_chance_is_tied_but_not_anchored(self):
+        # `rts` is somewhere in any image: it is tied (a ceiling, and a valid hint) but a two-byte span proves nothing about where the code comes from.
+        spans, _, counts = x68_knowledge.translate(disk(), None, [variant(0x7000, RTS)], [])
+        self.assertEqual((len(spans), counts['ram']['tied'], counts['ram']['anchored']), (1, 1, 0))
+        self.assertEqual(x68_knowledge.ANCHOR_BYTES, 8)
+
+    def test_an_instruction_that_no_even_offset_holds_is_found_private_without_a_search_of_the_image(self):
+        image = x68_knowledge._Image(disk())
+        self.assertFalse(image.may_contain(bytes.fromhex(BSR)))
+        self.assertEqual(image.find(bytes.fromhex(BSR)), -1)
+        self.assertEqual(image.find(PROGRAM), 0x400)
+        self.assertEqual(image.find(PROGRAM), 0x400, 'the answer is kept')
+        # A false alarm of the hashed table is searched and found absent, never reported present.
+        self.assertEqual(image.find_run(bytes.fromhex('303c12344e7199')), -1)
     def test_what_is_not_in_the_disks_stays_private_and_is_counted(self):
         variants = program_variants() + [variant(0x7000, BSR), variant(0xe00010, RTS)]
         spans, _, counts = x68_knowledge.translate(disk(), None, variants, [])
@@ -238,6 +253,29 @@ class RecordTests(unittest.TestCase):
         other_images, _ = x68_knowledge.promote(IDENTITY, disk(b'\x00\x00'), None, program_variants(), [])
         self.assertEqual(x68_knowledge.merged(IDENTITY, first, other_images), first)
         self.assertEqual(x68_knowledge.merged(IDENTITY, {}, first), first)
+
+    def test_two_players_with_the_same_disks_and_different_ipls_hold_records_of_the_same_game(self):
+        ipl = ipl_image()
+        other = bytearray(ipl)
+        other[0x300:0x302] = b'\x00\x00'
+        other = bytes(other)
+        mine = a_record()                                           # disk paths and the IPL rows of `ipl`
+        yours, _ = x68_knowledge.promote(IDENTITY, disk(), other, program_variants()[:2] + [variant(0x6100, MOVE_W)], ipl_spans(other, entries=((0x100, 2),)))
+        bare = a_record(with_ipl=False)                             # a record with no IPL row names no IPL
+        self.assertTrue(x68_knowledge.same_images(mine, yours))
+        self.assertTrue(x68_knowledge.same_images(mine, bare))
+        both = x68_knowledge.merged(IDENTITY, mine, yours)
+        # The disk paths of both are kept; the IPL rows only of one IPL (the first's), never mixed.
+        self.assertEqual(set(x68_knowledge.rows(both)[0]), set(x68_knowledge.rows(mine)[0]) | set(x68_knowledge.rows(yours)[0]))
+        self.assertEqual(x68_knowledge.rows(both)[1], x68_knowledge.rows(mine)[1])
+        self.assertEqual(both['identity']['sources']['ipl'], mine['identity']['sources']['ipl'])
+        # A record with no IPL rows takes the other's; the same IPL unites the rows.
+        merged_bare = x68_knowledge.merged(IDENTITY, bare, mine)
+        self.assertEqual(x68_knowledge.rows(merged_bare)[1], x68_knowledge.rows(mine)[1])
+        richer, _ = x68_knowledge.promote(IDENTITY, disk(), ipl, [], ipl_spans(ipl, entries=((0x108, 1),)))
+        united = x68_knowledge.merged(IDENTITY, mine, richer)
+        self.assertEqual(len(x68_knowledge.rows(united)[1]), 3)
+        self.assertEqual(x68_knowledge.merged(IDENTITY, bare, a_record(with_ipl=False)), bare)
 
     def test_the_hints_are_for_these_disks_and_this_ipl_only(self):
         record, ipl = a_record(), ipl_image()

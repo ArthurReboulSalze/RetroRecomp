@@ -22,6 +22,7 @@ from .platforms import build_jobs, cmake_target_args, build_executable, target_i
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 from .library import atomic_json, entry_lock, file_sha256, library_root
 from .report_schema import write_report
+from .systems import get_profile
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
 
@@ -668,7 +669,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         record,promotion=(x68_knowledge.promote(source.game_key,disk_image,ipl,fresh_observations['variants'],fresh_observations.get('spans',()),
                                                 previous=x68_knowledge.library_record(source.game_key)) if disk_image is not None else (None,None))
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
-          'system':{'id':'x68','name':'Sharp X68000'},'status':'supported','private_development_only':False,
+          'system':{'id':'x68','name':'Sharp X68000'},'status':get_profile('x68').status,'private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
           'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,

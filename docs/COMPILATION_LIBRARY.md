@@ -1876,7 +1876,12 @@ name (the CPS-1 behaviour is unchanged).
 (`SharedKnowledge.quick_check_from_shared = False`): its mouse and keyboard routes are found by replaying them and the player's mouse controls follow.
 
 **Size.** Twins: 3,691 spans and 8,276 IPL rows from a standard scan (125 KB of JSON), 4,139 and 8,276 from an extended one; 26,464 of the 30,280 RAM
-instructions of the extended scan are tied to a position (87 %), 3,816 stay private. The exchange file of the extended record is 20,200 bytes. About 60 % of a
+instructions of the extended scan are tied to a position (87 %), 3,816 stay private. *Tied* is a ceiling: an instruction counts when its bytes sit at an even offset of
+the disks, and a two-byte one sits somewhere by chance. The report also counts the instructions that lie in a span of at least eight bytes (*anchored*, the ones that
+really come from the disks): 22,999 of the 28,734 of Twins' standard scan (80 %), 24,094 of the 25,263 of Pac-Land (95 %). The short ones are shared too, as hints that
+the receiver rebuilds from its own bytes. The search for the instructions that no disk holds uses an index of the 16-bit words and of the 4-byte windows of the disks
+built once, so a game that unpacks its code costs seconds, not minutes (Twins 6.6 s against 14.5 s, Danger Area 18.8 s against 40.0 s, 6,000 private instructions on a
+5 MiB image 4.7 s against 30.2 s; the records are byte for byte the same). The exchange file of the extended record is 20,200 bytes. About 60 % of a
 record is the IPL rows, the same for every game of one IPL. The web service has to accept records of this size (the maintainer's tools, not this repository).
 
 **Proof** (Twins, Windows, standard scan, headless; the NAS read in place; `.build/x68-share-169`): two empty libraries. A, with an extended scan, makes the record;

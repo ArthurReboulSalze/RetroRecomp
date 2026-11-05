@@ -24,6 +24,16 @@ class PathCapsTests(unittest.TestCase):
                     self.assertIs(type(cap), int)
                     self.assertGreater(cap, 0)
 
+    def test_the_module_of_a_machine_is_declared_by_its_profile(self):
+        from retrorecomp.systems import ALL_PROFILES
+        declared = {p.id: p.shared_knowledge.module for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.module}
+        self.assertEqual(declared, {'cps1': 'cps1_knowledge', 'x68': 'x68_knowledge'})
+        self.assertEqual(set(declared), set(pp.SCHEMA3_ONLY))
+        self.assertIs(knowledge.schema3_module('cps1'), cps1_knowledge)
+        self.assertIs(knowledge.schema3_module('x68'), x68_knowledge)
+        for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'zx'):
+            self.assertIsNone(knowledge.schema3_module(system), system)
+
     def test_the_names_are_those_of_entry_set_and_the_values_the_profile_ceilings(self):
         cps1_names = {name for name, _ in cps1_knowledge.entry_set(cps1_tests.a_record())}
         x68_names = {name for name, _ in x68_knowledge.entry_set(x68_tests.a_record())}

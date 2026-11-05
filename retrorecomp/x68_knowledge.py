@@ -44,6 +44,7 @@ LONGEST_INSTRUCTION = 16          # eight words, the bound of `native.observatio
 SPAN_LIMIT = 16384                # rows of the span block (the profile's cap)
 IPL_LIMIT = 65536                 # rows of the IPL block (the profile's cap)
 SPAN_BYTES = 4 << 20              # bytes the spans of a record may cover (`path_profiles.SPAN_BYTES`)
+ANCHOR_BYTES = 8                  # a span of at least this many bytes is a place of the disks; a shorter one may be a coincidence of the data
 DISK, IPL = 'disk', 'ipl'
 # The ceiling of each kind of path, by the name `entry_set` gives it (the one form every schema 3 module exposes: the site's base builder reads it).
 # The first counts span rows (their bytes are bounded too, SPAN_BYTES), the second IPL instruction rows.
@@ -246,8 +247,10 @@ def entry_set(record) -> set:
 
 
 def same_images(first: dict, second: dict) -> bool:
-    """Two records point into the very same images: same disks, same IPL, same layout."""
-    return first['game'] == second['game'] and first['identity'] == second['identity']
+    """Two records point into the very same disks (and have the same layout). The IPL is not part of this: a record names its IPL only when it holds IPL
+    rows, so two players with the same disks and different IPLs hold records of the same game."""
+    one, two = first['identity'], second['identity']
+    return first['game'] == second['game'] and one['layout'] == two['layout'] and one['sources'].get(DISK) == two['sources'].get(DISK)
 
 
 def rebuild(skeleton: dict, hints, *, core: str | None = None) -> dict:
@@ -262,8 +265,9 @@ def rebuild(skeleton: dict, hints, *, core: str | None = None) -> dict:
 
 
 def merged(identity: str, first: dict, second: dict) -> dict:
-    """Union of two records of one disk set. Records of another engine or other images never mix: the one built by the
-    current engine is kept, else the first. ValueError when the union exceeds a bound."""
+    """Union of two records of one disk set. Records of another engine or other disks never mix: the one built by the current engine is
+    kept, else the first. The disk paths are united; the IPL paths only when both records were made with the same IPL (a record keeps the IPL
+    paths it has, the first's when both have some for different IPLs). ValueError when the union exceeds a bound."""
     if not second:
         return first
     if not first:
@@ -271,7 +275,17 @@ def merged(identity: str, first: dict, second: dict) -> dict:
     if not same_images(first, second) or record_engine(first) != record_engine(second):
         current = engine()
         return second if record_engine(second) == current and record_engine(first) != current else first
-    return rebuild(first, entry_set(first) | entry_set(second))
+    spans = set(rows(first)[0]) | set(rows(second)[0])
+    ipl_first, ipl_second = rows(first)[1], rows(second)[1]
+    facts_first, facts_second = first['identity']['sources'].get(IPL), second['identity']['sources'].get(IPL)
+    if not ipl_first and ipl_second:
+        chosen, ipl_rows = facts_second, ipl_second
+    elif ipl_first and ipl_second and facts_first == facts_second:
+        chosen, ipl_rows = facts_first, set(ipl_first) | set(ipl_second)
+    else:
+        chosen, ipl_rows = facts_first, ipl_first
+    sources = {DISK: first['identity']['sources'][DISK], **({IPL: chosen} if ipl_rows and chosen else {})}
+    return validate_record(_assemble(identity, sources, spans, ipl_rows if sources.get(IPL) else (), record_engine(first)))
 
 
 def salvaged_record(identity: str, record) -> dict | None:
@@ -303,15 +317,53 @@ def _instruction(words) -> bytes | None:
     return raw if len(raw) == 2 * word_count(raw[0] << 8 | raw[1]) else None
 
 
-def _longest(image: bytes, raws: list) -> tuple[int, int]:
-    """(how many instructions of the run begin a string found in the image, where), (0, -1) when not even the first does."""
-    at = _find_even(image, b''.join(raws))
+def _slot(window: bytes) -> int:
+    return (int.from_bytes(window, 'big') * 2654435761 >> 8) & 0xffffff
+
+
+class _Image:
+    """The ordered disks and a cheap way to know that a string is NOT in them: an instruction that no even offset of the disks begins is private,
+    and finding that out by a search of the whole image costs milliseconds each (a game that unpacks its code has tens of thousands). Two tables
+    built once: the 16-bit words found at even offsets, and a bit per 4-byte window at even offsets (hashed, so a hit may be a false alarm and is then
+    searched; a miss is certain). The answer for one instruction is kept, many addresses carry the same bytes."""
+
+    def __init__(self, data: bytes):
+        self.data = data
+        self.words = words = bytearray(65536)
+        self.quads = quads = bytearray(1 << 24)
+        for at in range(0, len(data) - 1, 2):
+            words[data[at] << 8 | data[at + 1]] = 1
+        for at in range(0, len(data) - 3, 2):
+            quads[_slot(data[at:at + 4])] = 1
+        self.kept: dict = {}
+
+    def may_contain(self, raw: bytes) -> bool:
+        if not self.words[raw[0] << 8 | raw[1]]:
+            return False
+        return len(raw) < 4 or bool(self.quads[_slot(raw[:4])])
+
+    def find(self, raw: bytes) -> int:
+        """The first even offset of `raw` in the disks, -1 when there is none (the same answer is not searched twice)."""
+        if raw not in self.kept:
+            self.kept[raw] = _find_even(self.data, raw) if self.may_contain(raw) else -1
+        return self.kept[raw]
+
+    def find_run(self, blob: bytes) -> int:
+        return _find_even(self.data, blob) if self.may_contain(blob) else -1
+
+
+def _longest(image: _Image, raws: list, start: int) -> tuple[int, int]:
+    """(how many instructions from `start` on begin a string found in the image, where), (0, -1) when not even the first does."""
+    if image.find(raws[start]) < 0:
+        return 0, -1
+    count = len(raws) - start
+    at = image.find_run(b''.join(raws[start:]))
     if at >= 0:
-        return len(raws), at
-    low, high, best = 1, len(raws) - 1, (0, -1)
+        return count, at
+    low, high, best = 1, count - 1, (1, image.find(raws[start]))
     while low <= high:
         middle = (low + high) // 2
-        at = _find_even(image, b''.join(raws[:middle]))
+        at = image.find_run(b''.join(raws[start:start + middle]))
         if at >= 0:
             best, low = (middle, at), middle + 1
         else:
@@ -323,8 +375,8 @@ def translate(disk: bytes, ipl: bytes | None, variants, spans) -> tuple[list, li
     """Paths for the observations of the fresh reference runs that sit in the player's own images.
 
     `variants` are the observed `{'pc', 'words'}` rows and `spans` the IPL spans of the observation file (`schema` 2). Returns the
-    sorted span rows (disk), the sorted IPL rows and the counts: observed, tied to an image, kept private (and why). Nothing but
-    numbers is returned."""
+    sorted span rows (disk), the sorted IPL rows and the counts: observed, tied to an image (a ceiling) and anchored (in a long enough span), kept
+    private (and why). Nothing but numbers is returned."""
     from tools.x68000_native import IPL_CODE_END, IPL_SPANS
     ram, other, malformed = {}, 0, 0
     for row in variants:
@@ -337,19 +389,23 @@ def translate(disk: bytes, ipl: bytes | None, variants, spans) -> tuple[list, li
         else:
             other += 1
     # Runs of consecutive addresses: the next instruction starts where the last one ends.
-    span_rows, tied, private, run = [], 0, 0, []
+    span_rows, tied, anchored, private, run = [], 0, 0, 0, []
+    image = _Image(disk)
 
     def close():
-        nonlocal tied, private
+        nonlocal tied, anchored, private
+        raws = [raw for _, raw in run]
         start = 0
         while start < len(run):
-            count, at = _longest(disk, [raw for _, raw in run[start:]])
+            count, at = _longest(image, raws, start)
             if not count:
                 private += 1
                 start += 1
                 continue
-            span_rows.append((run[start][0], at, sum(len(raw) for _, raw in run[start:start + count])))
+            length = sum(len(raw) for raw in raws[start:start + count])
+            span_rows.append((run[start][0], at, length))
             tied += count
+            anchored += count if length >= ANCHOR_BYTES else 0
             start += count
         run.clear()
 
@@ -376,7 +432,9 @@ def translate(disk: bytes, ipl: bytes | None, variants, spans) -> tuple[list, li
                 continue
             ipl_rows.append((address + position, (offset + position) % IPL_BYTES, size))
     span_rows, ipl_rows = sorted(set(span_rows)), sorted(set(ipl_rows))
-    counts = {'ram': {'observed': sum(len(v) for v in ram.values()), 'tied': tied, 'private': private, 'spans': len(span_rows)},
+    # `tied` is a ceiling: an instruction counts when its bytes sit at an even offset of the disks, and a short one (two bytes) sits somewhere by chance;
+    # `anchored` counts only those in a span of at least ANCHOR_BYTES bytes, the instructions that really come from the disks. Both are shared.
+    counts = {'ram': {'observed': sum(len(v) for v in ram.values()), 'tied': tied, 'anchored': anchored, 'private': private, 'spans': len(span_rows)},
               'other_windows': {'observed': other, 'tied': 0, 'private': other},
               'malformed': malformed,
               'ipl': {'observed': ipl_seen, 'tied': len(ipl_rows), 'private': ipl_private}}

@@ -37,7 +37,7 @@ class X68000Profile(SystemProfile):
                                                       contained=True, length=(2, 16), length_align=2,
                                                       offset_align=2, address_align=2, span_max=131072)),))
     # Shares its paths as the experimental tier of the shared base, like the CPS-1: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md).
-    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False)
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='x68_knowledge')
     report_shape = ReportShape('x68000_conversion', 'exploration_checks')
     catalogues = Catalogues(libretro='libretro-thumbnails/Sharp_-_X68000', cover_references=True)
     library_layout = LibraryLayout(folder='x68', summary_glob='*/compilation.json')

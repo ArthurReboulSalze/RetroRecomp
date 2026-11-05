@@ -85,6 +85,9 @@ that converts a real game needs the player's own ROM, outside the repository.
   (bump a pin or carry a fix as our patch) and the review record;
   `python -B tools/check_upstreams.py` shows where each upstream stands.
   `tests/test_upstreams.py` fails when a pin is missing from the page.
+- **Four 68000 files are pinned twice.** `retrorecomp/m68000.py`, `m68000_state_rules.py`, `megadrive_rules.py` and `neogeo_codegen.py` are generator sources of both the CPS-1
+  (`tests/cps1_generator_pins.json`) and the X68000 (`tests/x68_generator_pins.json`). An edit made for the Mega Drive or the Neo Geo in one of them fails both pin
+  tests until `GENERATOR_REVISION` is raised in `cps1_knowledge.py` and in `x68_knowledge.py` and both pin files are updated.
 - Text files are LF (`.gitattributes`). A user-visible string is translated in
   the eight interface languages; characters must exist in the font subsets
   (`tests/test_languages.py` checks this).

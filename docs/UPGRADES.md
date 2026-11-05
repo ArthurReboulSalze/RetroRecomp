@@ -108,8 +108,9 @@ qualified by others exist (the X68000 does, every other machine keeps the quick 
 (the layout and source checks for the X68000, the dispatch of the schema 3 module, the generic collector, the guard of the quick check, the new field). Computed with
 `compilation_inputs.role_stamps` on this branch against the exit commit: the game stamp of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo,
 Neo Geo, CPS-1 and X68000 moves; no host stamp moves (the host stamps move with the notices commit of the exit, already counted), no build stamp moves.
-`LEGACY_GAME_STAMPS` stays empty: **every export of 1.6.8 is converted again, once, when it is upgraded.** No file of the other eight machines' own conversions
-changes, and the CPS-1 exchange tests pass unchanged.
+`LEGACY_GAME_STAMPS` stays empty: **every export of 1.6.8 is converted again, once, when it is upgraded.** The CPS-1 module gains one line (`PATH_CAPS`, the ceilings of its paths by name, the same form as the X68000's) and its profile one argument (`module`, the name
+of its knowledge module): no value of the CPS-1 changes, its game stamp was already moving with the files above, so this adds no impact, and the CPS-1 exchange
+tests pass unchanged. The profile now declares the module of a machine without a schema 1 form (`SharedKnowledge.module`) instead of the sharing code naming it.
 
 **Quick states.** No key moves for this change (`RR_X68K_STATE_ABI` hashes the reference host and the bridge, untouched).
 
