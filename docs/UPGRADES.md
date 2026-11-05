@@ -193,7 +193,7 @@ only player 1's controller does.** A player whose pad column the adapter leaves 
 of a board that has them get keyboard keys of their own ([CONTROLS.md](CONTROLS.md#players-3-and-4)); a key or button bound in
 F2 swaps with the action that had it.
 
-**What moves.** Computed with `compilation_inputs.role_stamps` of the nine consoles, against main at `a637502`: **the host stamp
+**What moves.** Computed with `compilation_inputs.role_stamps` of the nine consoles, against main at `a637502` and again after merging `850db7e`: **the host stamp
 of all nine consoles** (`native/hostkit/shell/*`, `hostkit_internal.h` and the CPS-1 adapter are host inputs). **No game stamp
 and no build stamp moves**: an export of 1.6.8 that has nothing else to rebuild is upgraded (rebuilt from its paths, no
 rediscovery).
