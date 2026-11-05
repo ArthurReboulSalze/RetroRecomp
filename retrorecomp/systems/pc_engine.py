@@ -33,6 +33,7 @@ class PcEngineProfile(SystemProfile):
     # Quick states use the 16-bit family's file (console16_state.c: header, hash, atomic write); the payload is the
     # engine's in-memory checkpoint. The window is the host kit's.
     quick_state_family = 'rr16'
+    stamp_groups = ('conversion_gates',)  # delivery_evidence (packed replay, liveness) calls the gates
     host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({17})
     fallback_display = 'opcodes'
