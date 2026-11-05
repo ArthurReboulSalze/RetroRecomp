@@ -44,9 +44,8 @@ NET_REV = '8c76fb643339144a3a84d5ba8f5defe6250dcd26'
 RBENGINE_REV = '2a03e73693acee0fb78076ea058642c931bef12e'
 LICENSE = 'PolyForm Noncommercial 1.0.0'
 BOOT_FRAMES = 600
-# The engine stops a run on a frame and the generated code and the interpreter account the cycles of the last instruction
-# one apart (seen on every cartridge: the picture is identical and the counts differ by exactly one); more than this is a
-# real difference in where the two ran.
+# The cycle count of the snapshot is the guest's, taken at the same machine cycle by both runs: it is expected to be equal; the
+# tolerance only keeps one cycle of accounting from refusing a run whose memories and registers agree.
 CYCLE_TOLERANCE = 2
 
 
@@ -90,10 +89,13 @@ def _matches(native, reference) -> bool | None:
     reference run ended."""
     if reference is None or reference.returncode or native.returncode:
         return None
-    if native.cycles is None or reference.cycles is None:
+    if native.cycles is None or reference.cycles is None or not native.mem_hash or not reference.mem_hash:
         return False
+    # The picture, the guest's cycle count and the state of the machine (memories, device registers, CPU registers) at the first
+    # VBlank after the frame limit, which both runs reach at the same machine cycle.
     return bool(native.frame_sha256 and native.frame_sha256 == reference.frame_sha256
-                and abs(native.cycles - reference.cycles) <= CYCLE_TOLERANCE)
+                and abs(native.cycles - reference.cycles) <= CYCLE_TOLERANCE
+                and native.mem_hash == reference.mem_hash and native.cpu_hash == reference.cpu_hash)
 
 
 def convert(path: Path, *, output: Path | None = None, title: str | None = None, passes: int = 3, frames: int = 3600,
@@ -196,7 +198,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         row['reference_match'] = _matches(runs[name], reference)
     checked = [row for row in rows if row['reference_match'] is not None]
     validation = {'passed': (all(row['reference_match'] for row in checked) if checked else None),
-                  'method': "final picture and cycle count against the engine's own interpreter, same scenario",
+                  'method': "final picture, guest cycle count and a hash of the machine state (memories, device registers, CPU registers) at the first VBlank after the frame limit, against the engine's own interpreter, same scenario",
                   'scope': "bounded scripted scenarios; the interpreter is the engine's, not an independent oracle",
                   'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                   'scenarios': [{'scenario': row['scenario'], 'frames': row['frames'], 'match': row['reference_match']}

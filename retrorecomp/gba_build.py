@@ -58,7 +58,9 @@ class Run:
     iwram: bytes | None
     aborted: str = ''
     frame_sha256: str = ''
-    cycles: int | None = None
+    cycles: int | None = None        # the guest's cycle count at the common VBlank of the snapshot, not the engine's idle counter
+    mem_hash: str = ''               # work RAM, IWRAM, VRAM, OAM, palette and I/O registers at that VBlank
+    cpu_hash: str = ''               # the CPU registers there
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
@@ -168,7 +170,7 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
               # run: unpinned, the two runs see different seconds and a game that shows the time differs by a frame. In every
               # scenario the clock starts from a fixed time and advances with the guest's cycles (an anchored patch of the engine);
               # the exported player played by a person keeps the host's clock.
-              'GBARECOMP_RTC_GUEST_EPOCH': RTC_EPOCH}
+              'GBARECOMP_RTC_GUEST_EPOCH': RTC_EPOCH, 'GBARECOMP_VBLANK_SNAPSHOT': '1'}
     if script is not None:
         values['GBARECOMP_INPUT_REPLAY'] = str(script)
     if reference:
@@ -187,9 +189,11 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
                     if 'overflow' in line or 'abort' in line.lower() or 'FATAL' in line), '') if result.returncode else ''
     (work / 'output.log').write_text(result.stdout, encoding='utf-8', errors='replace')
     picture = work / 'frame.png'
-    cycles = re.search(r'\bcycles=(\d+)', result.stdout)
+    # The engine's final line also prints `cycles=`: the cycles it spent in its idle pump, which stopped growing after the first
+    # seconds of every cartridge seen (62,191,750 on three of them). The snapshot is taken at the first VBlank after the frame limit.
+    snapshot = re.search(r'vblank_snapshot frame=\d+ cycles=(\d+) mem=([0-9a-f]+) cpu=([0-9a-f]+)', result.stdout)
     return Run(scenario, frames, result.returncode, result.stdout, data,
                miss.read_text(encoding='utf-8') if miss.is_file() else '',
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
-               int(cycles[1]) if cycles else None)
+               int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '')

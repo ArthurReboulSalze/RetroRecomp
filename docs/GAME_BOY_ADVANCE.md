@@ -76,7 +76,7 @@ hardware fidelity or gameplay validation, and the interpreter is the engine's, n
 | Cartridge (by what it exposed) | Interpreted after the loop | Generated code against the engine's interpreter |
 | --- | --- | --- |
 | An authored ARM test | none | same picture, same cycles on both scenarios |
-| One with a generated call stack overflow before the fix (a routine of 864 bytes the cartridge holds twice) | none (19 entries learned, the two copies read as one source) | boot same; the scripted scenario ends in the same scene, with 135 pixels of a title animation different at frame 400 (the CPU state is equal at the 3 M matched cycle stamps compared, so the difference is in a device, not yet found) |
+| One with a generated call stack overflow before the fix (a routine of 864 bytes the cartridge holds twice) | none (19 entries learned, the two copies read as one source) | boot same; the scripted scenario ended in the same scene with 135 pixels of a title animation different at frame 400, which came from where the two runs stopped, not from the machine (see the correction below): equal at 400 frames now |
 | One that reaches menus quickly | none (21 entries learned) | same picture, same cycle count (228,998,554) on both scenarios |
 | Two large action cartridges | none (the first needed no entry learned, the second 26) | same picture, same cycles |
 
@@ -86,6 +86,19 @@ new wait states in the interpreter and with the old ones in the generated code (
 interpreter follows the generated code now), and a scripted key word was applied between two dispatches, at different cycles in
 the two modes (it is applied inside the VBlank tick now). A one-cycle offset at the end of a run is how the engine stops; the
 report tolerates two cycles and says so.
+
+**Correction of 5 November 2026 (the panel of stage 6).** Three things in this table were weaker than they read. (1) The "same cycles"
+were the engine's `cycles=` of its final line, which is the cycles of its idle pump (the waits in HALT): it stops growing after the first
+seconds and read 62,191,750 on three different cartridges, so it never compared anything. (2) A cartridge with a clock (Pokémon
+Emerald) read the host's wall clock, and the interpreter replay lasts a hundred times longer than the native run, so the two saw different
+seconds; every check now starts the clock from a fixed time and advances it with the guest's cycles, and a person playing keeps the host's
+clock. (3) The interpreter left a bounded run as the frame counter changed, the generated code at the first VBlank unwind after it: on an animated
+screen the final pictures differed by one step with equal CPU state (Emerald at frames 288, 290 and 600; the 135 pixels of the second
+cartridge). The interpreter alone now waits for the same VBlank (two more anchored patches, `docs/UPSTREAMS.md`). What is compared now, for
+each scenario, is the final picture, the guest's cycle count at the first VBlank after the frame limit (the same machine cycle in both
+modes) and a hash of work RAM, IWRAM, VRAM, OAM, palette and I/O registers and one of the CPU registers taken there. Emerald agrees
+on all of it at 600 frames (168,734,720 cycles, equal hashes); the other cartridges of this table have not been replayed with the
+stronger check.
 
 ## Independent evidence (stage 5)
 

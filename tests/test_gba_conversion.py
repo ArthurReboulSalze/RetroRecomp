@@ -186,7 +186,8 @@ class BuildTests(unittest.TestCase):
     def test_a_scenario_collects_what_the_host_reports(self):
         class Done:
             returncode, stdout = 3, 'runtime_arm: generated call-return stack overflow at return_pc=0x0805FB7A\n' \
-                                    'final_pc=0x08000532 cycles=62191750 ppu_vcount=211\n'
+                                    'final_pc=0x08000532 cycles=62191750 ppu_vcount=211\n' \
+                                    'vblank_snapshot frame=600 cycles=168538800 mem=00112233445566ff cpu=aabbccdd00112233\n'
 
         def fake_spawn(command, **options):
             work = Path(options['cwd'])
@@ -203,7 +204,8 @@ class BuildTests(unittest.TestCase):
                                          'generic', 600, Path('script.txt'))
             reference = build.run_scenario(Path('host.exe'), Path('rom.gba'), 'ab' * 20, Path('bios.bin'), Path(folder),
                                            'generic', 600, Path('script.txt'), reference=True)
-        self.assertEqual((outcome.returncode, outcome.cycles, outcome.coverage['interpreted_insns']), (3, 62191750, 12))
+        self.assertEqual((outcome.returncode, outcome.cycles, outcome.coverage['interpreted_insns']), (3, 168538800, 12))        # the snapshot's cycles, not the idle counter of the final line
+        self.assertEqual((outcome.mem_hash, outcome.cpu_hash), ('00112233445566ff', 'aabbccdd00112233'))
         self.assertIn('overflow', outcome.aborted)
         self.assertEqual(len(outcome.frame_sha256), 64)
         self.assertEqual(len(outcome.iwram), 32)
@@ -214,11 +216,14 @@ class BuildTests(unittest.TestCase):
 
 class ConversionTests(unittest.TestCase):
     def test_the_agreement_of_a_run_with_the_engines_interpreter(self):
-        make = lambda sha, cycles, code=0: build.Run('s', 10, code, '', {}, '', None, '', sha, cycles)
+        make = lambda sha, cycles, code=0, mem='m', cpu='c': build.Run('s', 10, code, '', {}, '', None, '', sha, cycles, mem, cpu)
         self.assertTrue(gba_conversion._matches(make('a', 5), make('a', 5)))
         self.assertFalse(gba_conversion._matches(make('a', 5), make('b', 5)))
         self.assertTrue(gba_conversion._matches(make('a', 5), make('a', 6)))
         self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5 + gba_conversion.CYCLE_TOLERANCE + 1)))
+        self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, mem='other')))       # the memories differ
+        self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, cpu='other')))       # the CPU registers differ
+        self.assertFalse(gba_conversion._matches(make('a', 5, mem=''), make('a', 5, mem='')))    # no snapshot: no agreement claimed
         self.assertIsNone(gba_conversion._matches(make('a', 5), None))
         self.assertIsNone(gba_conversion._matches(make('a', 5, 3), make('a', 5)))
         self.assertIsNone(gba_conversion._matches(make('', None), make('', None, 1)))
