@@ -59,12 +59,12 @@ fidelity, gameplay validation and physical latency; the last three are not valid
 | Raster interrupt (`ssf2`, attract from frame 6,818, counter 1 reloaded at 148) | frames 6,800 to 7,000 compared one by one with MAME: identical, 152 of the 183 raster frames at the same frame number and the rest at the nearest of three neighbours |
 | Quick state | saved at frame 900 and loaded in a fresh process: the same CPU and RAM hashes at frame 1,500 |
 | Saves | the windowed host writes a 224-byte file at the first run and leaves it unchanged at the second |
+| Conversion through the converter (profile `cps2`, developer installations; 5 November 2026, tree of the branch `spec/cps2-170`, standard scan level, `--no-online-cover`) | The eight sets of the panel convert: each with a fresh reference run of every instruction, 0 interpreted 68000 and 0 interpreted Z80 instructions on the attract and credited play routes, the compressed copy equal to the reference, a quick state saved and continued in a fresh process, a truncated state refused; 100 to 145 seconds a set on one Windows PC, executables of about 20 MiB. The report says `experimental` and keeps hardware fidelity, gameplay and latency as not validated |
 | Non-regression (earlier tree, before the profile) | a CPS-1 set (`1941`): generated code and checks identical to the previous tree; a CPS-1.5 set (`wof`): generated steps identical, 3,600-frame traces identical, 0 interpreted |
 
 ## Known limits
 
-* The evidence above comes from a development build driven with MAME's own route; the conversion through the converter (fresh reference,
-  packed copy, states) is being run set by set and is not reported here before it has passed.
+* The pictures and sound above come from a development build driven with MAME's own route; the conversions below were not compared with MAME again.
 * `mmatrix`: the title animation of the picture is one frame ahead of MAME's from frame 775 to 783 (the same pictures, shifted by one frame), although
   every bus access of the game, graphics RAM included, is equal to MAME's; the cause is not found. Every other frame of the route is equal.
 * Timing inside an instruction: the 68000 here reads and writes at the start of an instruction, MAME's clock a few bus cycles later (about 5 pixels
