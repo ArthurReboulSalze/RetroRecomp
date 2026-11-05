@@ -105,10 +105,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.6.8.** An older library follows the pinned engine and SDL sources again instead of refusing every conversion; the
-Game Boy starts closer to the console after its boot ROM (144 of 152 public test ROMs pass); the Mega Drive 68000 bus order follows
-independent vectors; Secret of Mana and R-Type lose the frame cost they had gained in 1.6.7; a progress bar per console shows its
-qualification. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; Capcom CPS-2 and the PC Engine open as experimental machines (your own key file and QSound DSP ROM for the CPS-2); players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

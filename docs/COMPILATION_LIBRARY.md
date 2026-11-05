@@ -84,7 +84,7 @@ two per console (the Windows converter's and the Linux converter's), for the Mas
 only ([below](#release-162-entries-29-october-2026-windows-and-linux);
 [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163), with the evidence and what it does not prove); the tree of 1.6.4 lists none,
 because 1.6.4 is a structural release that reconverts every console ([below](#release-163-entries-29-october-2026-windows-and-linux);
-[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
 real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
@@ -348,7 +348,7 @@ of the maintainer, 29 October 2026): the stamps below were computed for all nine
 decided which are listed, and **none is**. The game stamp of `v1.6.3` (commit `bb2aa95`) is the one of an archive of the tag
 exported into an empty folder, then `compilation_inputs.role_stamps(system)`, under Python 3.14.5 (Windows) and 3.13.5 (the
 Linux build host, in a temporary folder deleted afterwards). The host and build stamps, recorded the same way, are in
-[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
 
 | Console | Windows | Linux | Listed in 1.6.4 |
 | --- | --- | --- | --- |
