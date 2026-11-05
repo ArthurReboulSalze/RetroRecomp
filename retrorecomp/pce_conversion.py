@@ -68,11 +68,15 @@ def _script(rows) -> str:
     return ''.join(f'{frame} {p1:03x} {p2:03x}\n' for frame, p1, p2 in rows) or '0 000 000\n'
 
 
-def play_rows(frames: int, seed: int) -> list:
-    """Run pressed three times during the title (most HuCards start on Run), then a deterministic walk: a held
-    direction changing every second or so, I and II tapped, Run never pressed again after the start (it pauses)."""
+START_PRESSES = (1, 2, 3)        # the start variants a conversion tries on its play route (fresh reference runs)
+
+
+def play_rows(frames: int, seed: int, presses: int = 3) -> list:
+    """Run pressed `presses` times during the title (most HuCards start on Run, some need a second press to leave
+    a menu), then a deterministic walk: a held direction changing every second or so, I and II tapped, Run never
+    pressed again (it pauses). One press too many pauses the game: `choose_start` keeps the livelier variant."""
     rows = []
-    for at in (240, 480, 720):
+    for at in (240, 480, 720)[:presses]:
         rows += [(at, RUN, 0), (at + 6, 0, 0)]
     state = seed & 0xFFFFFFFF or 1
     directions = (RIGHT, RIGHT | UP, RIGHT | DOWN, LEFT, UP, DOWN, RIGHT)
@@ -90,15 +94,27 @@ def play_rows(frames: int, seed: int) -> list:
     return rows
 
 
-def routes(identity: str, *, frames: int, level: str) -> list[tuple[str, int, str]]:
+def routes(identity: str, *, frames: int, level: str, presses: int = 3) -> list[tuple[str, int, str]]:
     """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels."""
     seed = int(identity[:8], 16)
     rows = [] if level == 'quick' else [('attract', frames, _script([]))]
     play = max(frames, 1800)
-    rows.append(('play', play, _script(play_rows(play, seed))))
+    rows.append(('play', play, _script(play_rows(play, seed, presses))))
     for index in range(LONG_ROUTES[level]):
-        rows.append((f'long-{index + 1}', LONG_FRAMES, _script(play_rows(LONG_FRAMES, seed + 7919 * (index + 1)))))
+        rows.append((f'long-{index + 1}', LONG_FRAMES,
+                     _script(play_rows(LONG_FRAMES, seed + 7919 * (index + 1), presses))))
     return rows
+
+
+def liveness_score(liveness: dict) -> tuple:
+    """How alive a route stayed: the latest picture change first, then the number of changes, then audible frames."""
+    return (liveness.get('last_picture_change_frame') or 0, liveness.get('picture_changes') or 0,
+            liveness.get('audible_frames') or 0)
+
+
+def choose_start(results: dict) -> int:
+    """The number of Run presses whose play route stayed the most alive (ties: the fewest presses)."""
+    return max(sorted(results), key=lambda presses: (liveness_score(results[presses]), -presses))
 
 
 # ------------------------------------------------------------------ runs and traces
@@ -198,7 +214,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     output.mkdir(parents=True, exist_ok=True)
     from .feedback import ingest
     feedback = ingest('pce', card.sha256, output, emit=emit)
-    plan = routes(card.sha256, frames=max(600, min(int(frames or 3600), 10000)), level=level)
+    plan_frames = max(600, min(int(frames or 3600), 10000))
+    plan = routes(card.sha256, frames=plan_frames, level=level)
+    route_start = None
     timings = {}
     # Short folders: the engine names its module's object library after a 64-digit hash, and Visual Studio's 260-character
     # paths must still hold it under the build folder.
@@ -235,8 +253,26 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             with stages.phase('reference_and_native_runs'):
                 if not reference:
                     emit('PC Engine: fresh reference runs (every instruction interpreted).')
+                    # The start of the play route: each variant is played on the reference, the livelier one is kept
+                    # for play and the long routes (a press too many pauses the game; one too few stays on a menu).
+                    play_count = next(count for name, count, _ in plan if name == 'play')
+                    variants = {}
+                    for presses in START_PRESSES:
+                        script = checks / 'inputs' / f'play-start{presses}.inputs'
+                        script.write_text(_script(play_rows(play_count, int(card.sha256[:8], 16), presses)),
+                                          encoding='ascii', newline='\n')
+                        variants[presses] = run(candidate, checks / 'reference', f'play-start{presses}', play_count,
+                                                script, '--reference')
+                    start = {presses: route_liveness(Path(result['trace'])) for presses, result in variants.items()}
+                    presses = choose_start(start)
+                    route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()}}
+                    emit(f'PC Engine: play route starts with Run pressed {presses} time(s) (the livelier variant).')
+                    plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
+                    for name, count, text in plan:
+                        scripts[name].write_text(text, encoding='ascii', newline='\n')
                     for name, count, _ in plan:
-                        reference[name] = run(candidate, checks / 'reference', name, count, scripts[name], '--reference')
+                        reference[name] = (variants[presses] if name == 'play' else
+                                           run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
@@ -329,6 +365,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
         'build_directory': str(project), **delivered.report_fields(), 'scan_level': level,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
+        'route_start': route_start,
         'qualification_scope': {
             'controls': f'{prepared["pad_buttons"]}-button pads, players 1 to {prepared["players"]}; the validation '
                         'routes drive player 1',

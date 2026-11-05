@@ -21,19 +21,22 @@ from zipfile import ZipFile, BadZipFile
 from .specs import (Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,  # noqa: F401
                     SharedKnowledge)
 
-MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
-                          '.gg': 4 * 1024 * 1024 + 512,
-                          '.gb': 8 * 1024 * 1024,
-                          '.nes': 128 * 1024 * 1024 + 528,
-                          '.md': 8 * 1024 * 1024,
-                          '.gen': 8 * 1024 * 1024,
-                          '.sfc': 8 * 1024 * 1024 + 512,
-                          '.smc': 8 * 1024 * 1024 + 512,
-                          '.fig': 8 * 1024 * 1024 + 512,
-                          # PC Engine HuCards: up to the 2.5 MiB Street Fighter II board, plus a copier header.
-                          '.pce': 2621440 + 512,
-                          '.bin': 8 * 1024 * 1024,
-                          '.rom': 8 * 1024 * 1024}
+# The cartridge names a ZIP may hold and the most bytes each may have. Every machine declares its own on its profile
+# (`SystemProfile.archived_rom_limits`); the headerless names below belong to no machine. `MAX_ARCHIVED_ROM_BYTES` (read
+# on access) is the union, so a new machine adds its limits on its own profile and moves no other machine's stamp.
+GENERIC_ARCHIVED_ROM_BYTES = {'.bin': 8 * 1024 * 1024,
+                              '.rom': 8 * 1024 * 1024}
+
+
+def archived_rom_limits() -> dict[str, int]:
+    """Extension -> most bytes of a cartridge read from a ZIP: every registered profile's, then the generic names."""
+    limits: dict[str, int] = {}
+    for profile in _registry().all_profiles():
+        for extension, size in profile.archived_rom_limits:
+            if extension in limits and limits[extension] != size:
+                raise ValueError(f'{extension} has two archive limits')
+            limits[extension] = size
+    return {**limits, **GENERIC_ARCHIVED_ROM_BYTES}
 
 
 class UnsupportedConsoleError(ValueError):
@@ -57,10 +60,11 @@ def discover_roms(folder: Path) -> list[Path]:
 
 def archive_rom(path: Path) -> tuple[str, bytes]:
     """Read one cartridge from a ZIP without extracting beside the source."""
+    limits = archived_rom_limits()
     try:
         with ZipFile(path) as archive:
             candidates = [entry for entry in archive.infolist()
-                          if not entry.is_dir() and Path(entry.filename).suffix.casefold() in MAX_ARCHIVED_ROM_BYTES]
+                          if not entry.is_dir() and Path(entry.filename).suffix.casefold() in limits]
             if not candidates:
                 raise UnsupportedConsoleError(
                     'Unknown console in ZIP: no supported cartridge extension found.')
@@ -68,7 +72,7 @@ def archive_rom(path: Path) -> tuple[str, bytes]:
                 raise ValueError('ZIP must contain exactly one supported cartridge.')
             entry = candidates[0]
             suffix = Path(entry.filename).suffix.casefold()
-            maximum = MAX_ARCHIVED_ROM_BYTES[suffix]
+            maximum = limits[suffix]
             if entry.file_size > maximum:
                 raise ValueError('Archived ROM exceeds the cartridge size limit.')
             with archive.open(entry) as source:
@@ -151,6 +155,8 @@ class SystemProfile(ABC):
     linux: str = 'witnessed'
     # Runtime-feedback record kinds (feedback.py) this console may write.
     feedback_kinds: frozenset = frozenset()
+    # (extension, most bytes) of the cartridges this machine reads from a ZIP (systems.archived_rom_limits).
+    archived_rom_limits: tuple[tuple[str, int], ...] = ()
     default_frames: int = 3600
     quick_frames: int = 1800
     # How the result summary counts the fallback: 'cycles' or 'opcodes'.
@@ -251,6 +257,8 @@ def __getattr__(name: str):
     """The lists and the profile constants are read from the registry when asked for."""
     if name.startswith('__') or name == 'registry':
         raise AttributeError(name)
+    if name == 'MAX_ARCHIVED_ROM_BYTES':
+        return archived_rom_limits()
     try:
         return _registry().exported(name)
     except KeyError:

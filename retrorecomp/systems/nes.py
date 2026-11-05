@@ -12,6 +12,7 @@ class NesProfile(SystemProfile):
     id = "nes"
     name = "Nintendo NES"
     extensions = (".nes",)
+    archived_rom_limits = (('.nes', 128 * 1024 * 1024 + 528),)
     export_folder = "Nintendo NES"
     video_modes = ("ntsc", "pal")
     cpus = (Cpu("6502", "main", "cycles"),)

@@ -20,6 +20,8 @@ class PcEngineProfile(SystemProfile):
     id = 'pce'
     name = 'PC Engine'
     extensions = ('.pce',)
+    # HuCards: up to the 2.5 MiB Street Fighter II board, plus a copier header.
+    archived_rom_limits = (('.pce', 0x280000 + 512),)
     export_folder = 'PC Engine'
     video_modes = ('ntsc',)
     status = 'experimental'

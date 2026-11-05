@@ -791,5 +791,27 @@ class ProfileWiringTests(unittest.TestCase):
                     self.assertTrue((ASSETS / name).is_file())
 
 
+class StartChoiceTests(unittest.TestCase):
+    def test_a_variant_that_freezes_early_loses_to_one_that_keeps_moving(self):
+        # Bonk's Adventure, 5 November 2026: the third Run press paused the game at frame 721.
+        variants = {1: {'last_picture_change_frame': 3600, 'picture_changes': 40, 'audible_frames': 3000},
+                    2: {'last_picture_change_frame': 3600, 'picture_changes': 900, 'audible_frames': 3500},
+                    3: {'last_picture_change_frame': 721, 'picture_changes': 339, 'audible_frames': 688}}
+        self.assertEqual(pce_conversion.choose_start(variants), 2)
+
+    def test_a_tie_keeps_the_fewest_presses(self):
+        same = {'last_picture_change_frame': 3600, 'picture_changes': 10, 'audible_frames': 0}
+        self.assertEqual(pce_conversion.choose_start({1: same, 2: same, 3: same}), 1)
+
+    def test_the_presses_set_the_start_of_play_and_long_routes(self):
+        for presses in pce_conversion.START_PRESSES:
+            plan = pce_conversion.routes('ab' * 32, frames=3600, level='thorough', presses=presses)
+            for name, _, text in plan:
+                if name == 'attract':
+                    continue
+                runs = [line for line in text.splitlines() if int(line.split()[1], 16) & pce_conversion.RUN]
+                self.assertEqual(len(runs), presses, name)
+
+
 if __name__ == '__main__':
     unittest.main()

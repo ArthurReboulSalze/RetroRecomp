@@ -12,6 +12,7 @@ class GameBoyProfile(SystemProfile):
     id = "gb"
     name = "Game Boy"
     extensions = (".gb",)
+    archived_rom_limits = (('.gb', 8 * 1024 * 1024),)
     export_folder = "Game Boy"
     video_modes = ("dmg",)
     cpus = (Cpu("sm83", "main", "cycles"),)

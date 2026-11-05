@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Next release: the archive limits move onto the profiles (branch `spec/pce-170`)
+
+Visible when the PC Engine branch is merged. The table of the cartridge names a ZIP may hold and their size limits
+(`systems.MAX_ARCHIVED_ROM_BYTES`) was a literal in `retrorecomp/systems/__init__.py`, so a new machine that reads ZIPs
+edited a module every console's game stamp hashes. Each machine now declares its own limits on its profile
+(`SystemProfile.archived_rom_limits`), and the table is built from the registered profiles plus the generic `.bin` and
+`.rom` (`systems.GENERIC_ARCHIVED_ROM_BYTES`). The values of the nine consoles are unchanged
+(`tests/test_registration_surface.py` compares them with the former table); `.pce` is added by the PC Engine profile.
+
+- **Exports of the previous release:** the game stamp of every console moves once (the module `systems` and the profile
+  modules of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo are edited), so their exports are
+  reconverted, as for any game-stamp change; no `LEGACY_GAME_STAMPS` entry is owed for it. No host or build stamp moves.
+- **Machines added later** (the Game Boy Advance first) declare their limits on their own profile: the stamps of the
+  others no longer move for it.
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section
