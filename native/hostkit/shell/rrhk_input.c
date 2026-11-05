@@ -24,14 +24,71 @@ const char *rrhk_tr(const char *english, const char *french) {
 /* A machine reset or load forgets which buttons were already held down. */
 void rrhk_autofire_reset(void) { memset(fire_state, 0, sizeof fire_state); }
 
+/* Default keys of players 3 and 4 when the adapter lists none for them (a board with more players than the two keyboard layouts
+ * of player 1 and 2): free physical keys, the same letters on QWERTY and AZERTY, clear of player 1's letters (W X C A S D V Q E
+ * and their AZERTY places Z and Q), player 2's numeric keypad and the kit's keys (function keys, Esc, Enter, Shift, Tab, `, M,
+ * P, the arrows). Directions, the first three buttons (FACE, in table order), Start and the button player 1 has on Shift (Coin,
+ * Select, Mode); the arcade convention puts Start 3-4 on 3 and 4 and their coins on 7 and 8. F2 binds the rest. */
+enum { EXTRA_BUTTONS = 3 };
+static const struct { SDL_Scancode up, down, left, right, button[EXTRA_BUTTONS], start, coin; } extra_keys[RRHK_MAX_PLAYERS - 2] = {
+    {SDL_SCANCODE_T, SDL_SCANCODE_G, SDL_SCANCODE_F, SDL_SCANCODE_H, {SDL_SCANCODE_R, SDL_SCANCODE_Y, SDL_SCANCODE_B}, SDL_SCANCODE_3, SDL_SCANCODE_7},
+    {SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_J, SDL_SCANCODE_L, {SDL_SCANCODE_U, SDL_SCANCODE_O, SDL_SCANCODE_N}, SDL_SCANCODE_4, SDL_SCANCODE_8}};
+
+static bool kit_key[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];   /* the key is one of these defaults, not the adapter's or the player's */
+
+static bool key_listed(SDL_Scancode key) {
+    for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < RRHK_MAX_ACTIONS; ++a) if (rrhk.keys[p][a] == key) return true;
+    return false;
+}
+
+static void extra_player_keys(const RrhkMachine *m, int p) {
+    for (int a = 0; a < m->action_count; ++a) if (rrhk.keys[p][a] != SDL_SCANCODE_UNKNOWN) return;   /* the adapter chose */
+    int face = 0;
+    bool coin = false;
+    for (int a = 0; a < m->action_count; ++a) {
+        const RrhkAction *action = &m->actions[a];
+        SDL_Scancode key = SDL_SCANCODE_UNKNOWN;
+        if (a == m->up) key = extra_keys[p - 2].up;
+        else if (a == m->down) key = extra_keys[p - 2].down;
+        else if (a == m->left) key = extra_keys[p - 2].left;
+        else if (a == m->right) key = extra_keys[p - 2].right;
+        else if (a == m->start) key = extra_keys[p - 2].start;
+        else if (action->group == RRHK_FACE) { if (face < EXTRA_BUTTONS) key = extra_keys[p - 2].button[face]; ++face; }
+        /* Select, Coin or Mode: the action player 1 has on Shift (CONTROLS.md); a host action (bit 0) gets none. */
+        else if (action->bit && !coin && rr_keyboard_shift_twin(action->key[0]) != SDL_SCANCODE_UNKNOWN) {
+            key = extra_keys[p - 2].coin; coin = true;
+        }
+        if (key != SDL_SCANCODE_UNKNOWN && !key_listed(key)) { rrhk.keys[p][a] = key; kit_key[p][a] = true; }
+    }
+}
+
+/* Once player 1's letters follow the layout and the saved bindings are read: a default of players 3 and 4 that another binding
+ * now uses (a key saved before these defaults existed, a letter of player 1 on another layout) is dropped, never shared. */
+static void drop_shadowed_extras(const RrhkMachine *m) {
+    for (int p = 2; p < m->table_players && p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < m->action_count; ++a) {
+        if (!kit_key[p][a] || rrhk.keys[p][a] == SDL_SCANCODE_UNKNOWN) continue;
+        for (int q = 0; q < m->table_players && q < RRHK_MAX_PLAYERS; ++q) for (int b = 0; b < m->action_count; ++b)
+            if ((q != p || b != a) && !kit_key[q][b] && rrhk.keys[q][b] == rrhk.keys[p][a]) { rrhk.keys[p][a] = SDL_SCANCODE_UNKNOWN; kit_key[p][a] = false; }
+    }
+}
+
 void rrhk_bind(const RrhkMachine *machine) {
     rrhk.machine = machine;
     memset(rrhk.keys, 0, sizeof rrhk.keys);
     memset(rrhk.buttons, 0, sizeof rrhk.buttons);
+    memset(kit_key, 0, sizeof kit_key);
     for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < machine->action_count; ++a) {
         rrhk.keys[p][a] = machine->actions[a].key[p];
         rrhk.buttons[p][a] = machine->actions[a].pad[p];
     }
+    /* Pads are laid out alike: a player whose buttons the adapter leaves empty (every one 0, SDL's A) gets player 1's, so raising
+     * a machine's player count never maps all its actions to A. A column the adapter wrote (CPS-1's PADS) stays as it is. */
+    for (int p = 1; p < RRHK_MAX_PLAYERS; ++p) {
+        bool empty = machine->action_count > 1;
+        for (int a = 0; a < machine->action_count; ++a) if (machine->actions[a].pad[p] != 0) empty = false;
+        if (empty) for (int a = 0; a < machine->action_count; ++a) rrhk.buttons[p][a] = rrhk.buttons[0][a];
+    }
+    for (int p = 2; p < machine->table_players && p < RRHK_MAX_PLAYERS; ++p) extra_player_keys(machine, p);
     if (machine->video_section) swprintf(rrhk.video_section, 64, L"%ls", machine->video_section);
     else swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
     if (machine->pointer_section) swprintf(rrhk.pointer_section, 64, L"%ls", machine->pointer_section);
@@ -95,20 +152,22 @@ void rrhk_load_bindings(void) {
     for (int a = 0; a < m->action_count; ++a)
         if (m->actions[a].letter) rrhk.keys[0][a] = rr_keyboard_letter(m->actions[a].letter, m->actions[a].key[0]);
     rrhk_settings_path();
-    if (!rrhk.ini_file[0]) return;
+    if (!rrhk.ini_file[0]) { drop_shadowed_extras(m); return; }
     rr_display_load(rrhk.read_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
     if (m->settings_loaded) m->settings_loaded(&rrhk);
     wchar_t sec[64], entry[48];
-    const int lowest_button = m->bindings_clearable ? -1 : 0, lowest_key = m->bindings_clearable ? 0 : 1;
+    /* A stored key 0 or button -1 is "no binding" on every machine: F2 writes it when a swap leaves an action without its key
+     * (rrhk_assign), and the Delete of a clearable machine (X68000) writes it too. A missing entry keeps the default. */
+    enum { MISSING = -1000000 };
     for (int p = 0; p < m->players(); ++p) for (int mode = 0; mode < 2; ++mode) {
         for (int a = 0; a < m->action_count; ++a) {
-            int old = mode ? rrhk.buttons[p][a] : rrhk.keys[p][a];
             binding_entry(sec, entry, p, a, mode != 0);
-            int value = rr_ini_int(sec, entry, old, rrhk.read_file);
-            if (mode && value >= lowest_button && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
-            if (!mode && value >= lowest_key && value < SDL_NUM_SCANCODES) rrhk.keys[p][a] = (SDL_Scancode)value;
+            const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
+            if (mode && value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
+            if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
     }
+    drop_shadowed_extras(m);
     for (int p = 0; p < m->players(); ++p) load_choice(p);
     /* A machine that read its former preferences in settings_loaded (Game Boy: its own file) has set the language and the
      * autofire these start from; the kit's keys win when present. */
@@ -136,12 +195,30 @@ void rrhk_load_bindings(void) {
     if (rr_to_utf8(device, text, sizeof text)) snprintf(rrhk.audio_device, sizeof rrhk.audio_device, "%s", text);
 }
 
-void rrhk_store_binding(void) {
+static void store_entry(int p, int action, bool pad) {
     if (!rrhk_write_ready()) return;
     wchar_t sec[64], entry[48], value[16];
-    binding_entry(sec, entry, rrhk.player, rrhk.row, rrhk.gamepad_page != 0);
-    swprintf(value, 16, L"%d", rrhk.gamepad_page ? rrhk.buttons[rrhk.player][rrhk.row] : rrhk.keys[rrhk.player][rrhk.row]);
+    binding_entry(sec, entry, p, action, pad);
+    swprintf(value, 16, L"%d", pad ? rrhk.buttons[p][action] : rrhk.keys[p][action]);
     rr_ini_set(sec, entry, value, rrhk.ini_file);
+}
+
+void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk.row, rrhk.gamepad_page != 0); }
+
+/* F2 binds a key or a pad button to one action. The keyboard is shared: a key that already drives another action, of any player
+ * in play, would make both act at once, so the two actions swap their keys (the other one gets the key this action had, perhaps
+ * none). A pad belongs to its player: a button another action of the same player uses swaps the same way. Both are kept. */
+void rrhk_assign(int p, int action, bool pad, int value) {
+    const RrhkMachine *m = rrhk.machine;
+    const int old = pad ? (int)rrhk.buttons[p][action] : (int)rrhk.keys[p][action];
+    if (old != value) for (int q = 0; q < m->players(); ++q) for (int a = 0; a < m->action_count; ++a) {
+        if ((pad && q != p) || (q == p && a == action)) continue;
+        if (pad && rrhk.buttons[q][a] == (SDL_GameControllerButton)value) { rrhk.buttons[q][a] = (SDL_GameControllerButton)old; store_entry(q, a, true); }
+        if (!pad && rrhk.keys[q][a] == (SDL_Scancode)value) { rrhk.keys[q][a] = (SDL_Scancode)old; kit_key[q][a] = false; store_entry(q, a, false); }
+    }
+    if (pad) rrhk.buttons[p][action] = (SDL_GameControllerButton)value;
+    else { rrhk.keys[p][action] = (SDL_Scancode)value; kit_key[p][action] = false; }
+    store_entry(p, action, pad);
 }
 
 /* Delete on a binding row (machines with clearable bindings): no key, no button. */

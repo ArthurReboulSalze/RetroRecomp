@@ -311,6 +311,16 @@ def a_record(extra=()):
     return cps1_knowledge.rebuild(record, cps1_knowledge.entry_set(record) | set(extra)) if extra else record
 
 
+class UploadCutTests(unittest.TestCase):
+    def test_an_upload_carries_only_the_paths_the_local_base_lacks(self):
+        full = a_record()
+        entries = cps1_knowledge.entry_set(full)
+        one = sorted(entries)[0]
+        cut = kx.without_known('cps1', full, cps1_knowledge.rebuild(full, {one}))
+        self.assertEqual(cps1_knowledge.entry_set(cut), entries - {one})
+        self.assertIsNone(kx.without_known('cps1', full, full))
+
+
 class SideBankTests(unittest.TestCase):
     def setUp(self):
         Library().start(self)

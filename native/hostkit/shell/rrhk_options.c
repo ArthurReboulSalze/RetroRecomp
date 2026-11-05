@@ -32,8 +32,26 @@ bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture)
     return rr_options_event(event, menu, binding_capture);
 }
 bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
-bool rrhk_options_quit(int menu) { return rr_options_quit(menu); }
-bool rrhk_options_restart(int menu) { return rr_options_restart(menu); }
+/* The gamepad Quit and Restart combinations are held on player 1's pad only, as the F2 capture takes the selected player's:
+ * on an arcade board Start+Coin is any player's normal play, and another player's hold must not restart or quit the game for
+ * everyone (docs/HOST_KIT.md, D13). Player 1 without a pad: no gamepad combination (the keyboard ones, Shift+F1 and Esc remain).
+ * game_options.h tracks every pad it has seen; for the two checks the kit hides the buttons of the pads that are not player 1's
+ * (looked up at each poll, so hot-plug and the Gamepad row of F2 are followed) and gives them back at once. It is done here and
+ * not in game_options.h, whose bytes the Mega Drive and Super Nintendo quick-state keys hash. */
+static bool player1_only(bool (*check)(int), int menu) {
+    const SDL_JoystickID owner = rrhk.pads[0] ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[0])) : -1;
+    const int count = (int)(sizeof rr_options.pads / sizeof rr_options.pads[0]);
+    Uint32 held[sizeof rr_options.pads / sizeof rr_options.pads[0]];
+    for (int i = 0; i < count; ++i) {
+        held[i] = rr_options.pads[i].mask;
+        if (owner < 0 || rr_options.pads[i].id != owner) rr_options.pads[i].mask = 0;
+    }
+    const bool fired = check(menu);
+    for (int i = 0; i < count; ++i) rr_options.pads[i].mask = held[i];
+    return fired;
+}
+bool rrhk_options_quit(int menu) { return player1_only(rr_options_quit, menu); }
+bool rrhk_options_restart(int menu) { return player1_only(rr_options_restart, menu); }
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     rr_options_audio(pcm, frames, channels, floating, rate);
 }

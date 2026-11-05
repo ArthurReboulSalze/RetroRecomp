@@ -256,6 +256,21 @@ class OnlineTests(unittest.TestCase):
         self.assertIsNone(online.account())
         self.assertFalse((self.data / 'account.json').exists())
 
+    def test_an_upload_leaves_out_the_paths_the_local_base_holds(self):
+        engine, rom = 'a' * 40, 0x10000
+        record = lambda entries: {'engine': engine, 'rom_bytes': rom, 'rom_entries': [[e] for e in entries]}
+        new, old = '1' * 64, '2' * 64
+        found = {'payload': {'schema': 1, 'consoles': {'md': {new: record([0x200, 0x300, 0x400]), old: record([0x200])}}},
+                 'titles': {'md': {new: 'New', old: 'Old'}}, 'levels': {'md': {new: 'standard', old: 'standard'}},
+                 'observations': {}}
+        base = {new: record([0x200, 0x300]), old: record([0x200, 0x500])}
+        with patch('retrorecomp.knowledge_exchange._bundled', side_effect=lambda system, identity: base[identity]):
+            sent = online._restrict(found, {f'md:{new}', f'md:{old}'})
+        self.assertEqual(sent['payload']['consoles'], {'md': {new: record([0x400])}})
+        self.assertEqual(sent['titles'], {'md': {new: 'New'}}, 'a game with nothing new travels no record')
+        self.assertEqual(sent['levels'], {'md': {new: 'standard'}})
+        self.assertEqual(sent['discoveries'], 1)
+
     def test_upload_is_the_rom_free_file_and_marks_only_after_success(self):
         self.sign_in()
         found = collected()
