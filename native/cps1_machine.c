@@ -80,6 +80,11 @@ static struct {
     uint16_t output[6];                         /* 0x400000-0x40000b: base, unknown, priorities, unknown, x and y offsets */
     uint16_t pri_ctrl;                          /* the priorities word latched with the sprites */
     uint8_t objram_bank, z80_run, extra_ram[0x4002];
+    /* the CPS-B-21 raster counters (MAME's cps_state::raster_scanline): two line counters with reloads, an interrupt position in the line */
+    uint16_t raster_counter[3], raster_reload[3];
+    uint8_t raster_pending, irq4;
+    int rendered_rows;                          /* rows of the picture drawn so far in this frame (partial updates at raster interrupts) */
+    uint64_t line_start;                        /* 68000 cycle at which the current line started */
 } M;
 
 /* ---------------------------------------------------------------- board */
@@ -449,6 +454,7 @@ static const uint8_t *tile_row(int size, int half, int code, int y)
 
 /* One tilemap pass, a tile row at a time: each scanline is cut into runs that
  * stay in one tile, whose code, attributes and pens are looked up once. */
+static int row_first, row_last = CPS1_SCREEN_H;     /* the picture rows a draw call may touch (the whole picture, or the part between two raster interrupts) */
 static int tile_priority;           /* CPS-2: the value (1, 2 or 4) OR-ed into the priority plane under each opaque tile pixel */
 
 static void draw_layer(int layer, int high)
@@ -465,7 +471,7 @@ static void draw_layer(int layer, int high)
     for (int i = 0; i < 4; i++)
         mask[i] = M.board.priority[i] != -1 ? M.cps_b[M.board.priority[i] / 2] : 0;
     const int flip = M.cps_a[A_VIDEO] >> 15 & 1, step = flip ? -1 : 1;
-    for (int y = 0; y < CPS1_SCREEN_H; y++) {
+    for (int y = row_first; y < row_last; y++) {
         const int raster_y = flip ? LINES - 1 - (y + VISIBLE_Y) : y + VISIBLE_Y;
         const int ty = (raster_y + scroll_y) & extent, row = ty / size;
         int line_x = scroll_x;
@@ -523,7 +529,7 @@ static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int s
     const uint16_t colour = (uint16_t)(color * 16);
     for (int y = 0; y < 16; y++) {
         const int raster_y = sy + y;
-        if (raster_y < VISIBLE_Y || raster_y >= VISIBLE_Y + CPS1_SCREEN_H) continue;
+        if (raster_y < VISIBLE_Y + row_first || raster_y >= VISIBLE_Y + row_last) continue;
         const uint8_t *src = tile_row(16, 0, code, flipy ? 15 - y : y);
         const int line = (raster_y - VISIBLE_Y) * CPS1_SCREEN_W + sx - VISIBLE_X;
         for (int x = x0; x < x1; x++) {
@@ -664,9 +670,10 @@ static void render_frame(void)
 /* The CPS-2 frame (MAME's cps2_state::render_layers): the sprite layer of the layer-control word is taken out, the three tile
  * layers are drawn in the order it gives, each writing its value (1, 2, 4) into the priority plane, and the sprites last, each
  * tested against the plane with the mask its own priority and the latched priority word select. */
-static void render_frame_cps2(void)
+static void render_rows_cps2(int first, int last)
 {
-    for (size_t i = 0; i < CPS1_SCREEN_W * CPS1_SCREEN_H; i++) { M.pens[i] = 0xbff; M.priority[i] = 0; }
+    row_first = first; row_last = last;
+    for (size_t i = (size_t)first * CPS1_SCREEN_W; i < (size_t)last * CPS1_SCREEN_W; i++) { M.pens[i] = 0xbff; M.priority[i] = 0; }
     const uint16_t control = M.cps_b[M.board.layer_control / 2];
     int l0 = control >> 6 & 3, l1 = control >> 8 & 3, l2 = control >> 10 & 3, l3 = control >> 12 & 3;
     int p0 = M.pri_ctrl >> (4 * l0) & 15, p1 = M.pri_ctrl >> (4 * l1) & 15, p2 = M.pri_ctrl >> (4 * l2) & 15;
@@ -694,12 +701,30 @@ static void render_frame_cps2(void)
     }
     tile_priority = 0;
     draw_sprites_cps2(primasks);
+    row_first = 0; row_last = CPS1_SCREEN_H;
+}
+
+/* The rest of the picture at VBLANK, or the rows up to the line of a raster interrupt (MAME's update_partial): the registers the game
+ * changes after the interrupt apply from the next row on. */
+static void render_to_row(int last)
+{
+    if (last > CPS1_SCREEN_H) last = CPS1_SCREEN_H;
+    if (last <= M.rendered_rows) return;
+    render_rows_cps2(M.rendered_rows, last);
+    M.rendered_rows = last;
 }
 
 /* ---------------------------------------------------------------- 68000 bus */
 
 static uint16_t cps_b_read(int offset)
 {
+    if (M.board.cps2) {
+        if (offset == 0x0e / 2) {                 /* the position in the line, relative to counter 3, and the unknown bit 0 */
+            const int pixel = (int)((m68k_now() - M.line_start) * PIXEL_CLOCK / M.board.cpu_clock) / 2;
+            return (uint16_t)((((int)M.raster_counter[2] - pixel) << 1 & 0x1fe) | (M.cps_b[0x0e / 2] & 1));
+        }
+        if (offset == 0x10 / 2 || offset == 0x12 / 2) return M.raster_counter[offset & 1] & 0x1ff;
+    }
     /* As in MAME, an absent register (-1) compares as offset -1 / 2 == 0. */
     const cps1_board *b = &M.board;
     if (offset == b->id_address / 2) return (uint16_t)b->id_value;
@@ -820,6 +845,11 @@ static void cps2_write_bus(uint32_t address, uint16_t data, uint16_t mask)
     if ((address >= 0x800140 && address < 0x800180) || (address >= 0x804140 && address < 0x804180)) {
         const int offset = (int)(address & 0x3f) / 2;
         M.cps_b[offset] = (uint16_t)((M.cps_b[offset] & ~mask) | (data & mask));
+        if (offset == 0x0e / 2) M.raster_reload[2] = M.cps_b[offset] >> 1 & 0xff;
+        else if (offset == 0x10 / 2 || offset == 0x12 / 2) {
+            M.raster_reload[offset & 1] = M.cps_b[offset] & 0x1ff;
+            if (M.cps_b[offset] >> 15 & 1) M.raster_counter[offset & 1] = M.raster_reload[offset & 1];     /* manual reload */
+        }
         return;
     }
     if (address == 0x8040e0) { if (mask & 0x00ff) M.objram_bank = data & 1; return; }
@@ -980,7 +1010,7 @@ void cps1_trace_instruction(unsigned pc)
 int cps1_m68k_int_ack(int level)
 {
     (void)level;
-    M.irq2 = 0;
+    M.irq2 = 0; M.irq4 = 0;
     m68k_set_irq(0);
     if (iack_model) {
         uint64_t now = m68k_now() + (uint64_t)iack_offset;
@@ -1007,7 +1037,8 @@ int cps1_m68k_int_ack(int level)
 static void vblank(void)
 {
     if (M.board.cps2) {
-        render_frame_cps2();
+        render_to_row(CPS1_SCREEN_H);
+        M.rendered_rows = 0;
         /* the object RAM bank the output registers select and the priority word are latched after the frame is drawn */
         M.pri_ctrl = M.output[CPS2_PRI];
         memcpy(M.obj2, M.objram[M.objram_bank & 1], sizeof M.obj2);
@@ -1022,13 +1053,52 @@ static void vblank(void)
         m68k_running = 0;
     }
     M.irq2 = 1;
-    m68k_set_irq(2);
+    m68k_set_irq(2 | (M.irq4 ? 4 : 0));
+}
+
+/* MAME's cps_state::raster_scanline, at the start of line `scanline` of the 262: the two counters reload on line 0 and count down, and a
+ * counter reaching zero schedules the interrupt (IPL2) at the position in the line the third register gives. */
+static void raster_line(int scanline)
+{
+    int pending = 0;
+    for (int i = 0; i < 2; i++) {
+        if (scanline == 0) M.raster_counter[i] = M.raster_reload[i];
+        else M.raster_counter[i] = (uint16_t)((M.raster_counter[i] - 1) & 0x1ff);
+        if (M.raster_counter[i] == 0) pending = 1;
+    }
+    M.raster_counter[2] = M.raster_reload[2];
+    M.raster_pending = (uint8_t)pending;
+}
+
+static void raster_fire(void)
+{
+    M.irq4 = 1;
+    m68k_set_irq(4 | (M.irq2 ? 2 : 0));
+    /* the picture is drawn up to this line: what the game's handler changes next applies below it */
+    render_to_row(M.line - VISIBLE_Y + 1);
 }
 
 static void run_line(void)
 {
     M.lines_run++;
+    M.line_start = M.m68k_target;
     M.m68k_target = M.lines_run * (uint64_t)M.board.cpu_clock * LINE_PIXELS / PIXEL_CLOCK;
+    if (M.board.cps2 && M.raster_pending) {
+        uint64_t fire = M.line_start + (uint64_t)M.raster_reload[2] * 2 * M.board.cpu_clock / PIXEL_CLOCK;
+        if (fire > M.m68k_target) fire = M.m68k_target;
+        while (M.m68k_cycles < fire) {
+            m68k_running = 1;
+            M.m68k_cycles += (uint64_t)m68k_execute((int)(fire - M.m68k_cycles));
+            m68k_running = 0;
+        }
+        if (M.m68k_cycles - fire < IRQ_SAMPLE_CYCLES) {         /* the 68000 samples its lines before the last cycles of an instruction */
+            m68k_running = 1;
+            M.m68k_cycles += (uint64_t)m68k_execute(1);
+            m68k_running = 0;
+        }
+        M.raster_pending = 0;
+        raster_fire();
+    }
     while (M.m68k_cycles < M.m68k_target) {
         m68k_running = 1;
         M.m68k_cycles += (uint64_t)m68k_execute((int)(M.m68k_target - M.m68k_cycles));
@@ -1055,6 +1125,7 @@ void cps1_run_frame(void)
     do {
         run_line();
         M.line = (M.line + 1) % LINES;
+        if (M.board.cps2) raster_line(M.line);
         if (M.line == VBLANK_LINE) { vblank(); drawn = 1; }
     } while (!drawn || M.line != COLOUR_LINE);
     apply_palette();
@@ -1101,6 +1172,9 @@ void cps1_reset(void)
     memset(M.output, 0, sizeof M.output);
     memset(M.extra_ram, 0, sizeof M.extra_ram);
     M.pri_ctrl = 0; M.objram_bank = 0; M.z80_run = 1;
+    memset(M.raster_counter, 0, sizeof M.raster_counter); memset(M.raster_reload, 0, sizeof M.raster_reload);
+    M.raster_reload[0] = M.raster_reload[1] = 0x1ff;
+    M.raster_pending = 0; M.irq4 = 0; M.rendered_rows = 0; M.line_start = 0;
     {   /* the EEPROM keeps its contents through a reset; its lines start low */
         uint8_t kept[CPS1_EEPROM_BYTES];
         memcpy(kept, M.eeprom.data, sizeof kept);

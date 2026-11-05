@@ -20,15 +20,32 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from retrorecomp import cps1_catalogue
+from retrorecomp import cps1_catalogue, cps2_catalogue
 from retrorecomp.cps1_conversion import routes
 
 CPS_B_BASE = 0x800140
+CPS1_TAPS = '''
+taps[1] = space:install_read_tap(0x800000, 0x800007, "rr_in1", function(offset, data, mem_mask) return pick("in1", offset, data, mem_mask)[2] end)
+taps[2] = space:install_read_tap(0x800018, 0x800019, "rr_in0", function(offset, data, mem_mask) return ((pick("in0", offset, data, mem_mask)[1] & 0xff) << 8) | 0xff end)
+if port_in2 > 0 then
+  taps[3] = space:install_read_tap(%(base_address)d + port_in2, %(base_address)d + port_in2 + 1, "rr_in2", function(offset, data, mem_mask) return pick("in2", offset, data, mem_mask)[3] end)
+end
+if port_in3 > 0 then
+  taps[4] = space:install_read_tap(%(base_address)d + port_in3, %(base_address)d + port_in3 + 1, "rr_in3", function(offset, data, mem_mask) return pick("in3", offset, data, mem_mask)[4] end)
+end
+'''
+# The CPS-2 board: IN0 and IN1 at 0x804000 and 0x804010, IN2 at 0x804020 where bit 0 is the EEPROM's DO line, which stays MAME's.
+CPS2_TAPS = '''
+taps[1] = space:install_read_tap(0x804000, 0x804001, "rr_in0", function(offset, data, mem_mask) return pick("in0", offset, data, mem_mask)[1] end)
+taps[2] = space:install_read_tap(0x804010, 0x804011, "rr_in1", function(offset, data, mem_mask) return pick("in1", offset, data, mem_mask)[2] end)
+taps[3] = space:install_read_tap(0x804020, 0x804021, "rr_in2", function(offset, data, mem_mask) return (pick("in2", offset, data, mem_mask)[3] & 0xfffe) | (data & 1) end)
+'''
 LUA = r'''
 local out = "%(out)s"
 local last = %(last)d
@@ -56,14 +73,7 @@ local function pick(name, offset, data, mem_mask)
   return state
 end
 taps = {}   -- global on purpose: a tap lives only as long as its handle
-taps[1] = space:install_read_tap(0x800000, 0x800007, "rr_in1", function(offset, data, mem_mask) return pick("in1", offset, data, mem_mask)[2] end)
-taps[2] = space:install_read_tap(0x800018, 0x800019, "rr_in0", function(offset, data, mem_mask) return ((pick("in0", offset, data, mem_mask)[1] & 0xff) << 8) | 0xff end)
-if port_in2 > 0 then
-  taps[3] = space:install_read_tap(%(base_address)d + port_in2, %(base_address)d + port_in2 + 1, "rr_in2", function(offset, data, mem_mask) return pick("in2", offset, data, mem_mask)[3] end)
-end
-if port_in3 > 0 then
-  taps[4] = space:install_read_tap(%(base_address)d + port_in3, %(base_address)d + port_in3 + 1, "rr_in3", function(offset, data, mem_mask) return pick("in3", offset, data, mem_mask)[4] end)
-end
+%(taps)s
 subscription = emu.add_machine_frame_notifier(function()
   local f = screen:frame_number()
   if f %% step == 0 then
@@ -228,13 +238,18 @@ def _compare_channel(mame, ours, wav_rate: int, rate: int, seconds: int | None, 
 def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int, route: str, work: Path, offset: int,
             phase: int = 22, sound: bool = False) -> dict:
     from PIL import Image, ImageChops
-    game = cps1_catalogue.by_set()[name]
+    game = cps1_catalogue.by_set().get(name) or cps2_catalogue.by_set()[name]
     six = any(n in ('button4', 'button5', 'button6') for port in game['inputs'].values() for _, n, _ in port.get('inputs', ()))
-    report = json.loads(next((exe.parent / 'datas' / 'reports').glob('*/conversion-report.json')).read_text(encoding='utf-8'))
+    reports = list((exe.parent / 'datas' / 'reports').glob('*/conversion-report.json'))
+    if reports:
+        report = json.loads(reports[0].read_text(encoding='utf-8'))
+    else:                                   # a development build has no report: the identity comes from the romset itself
+        from retrorecomp import cps2
+        report = {'rom': {'sha256': cps2.read_set(Path(str(roms).split(';')[0]) / f'{name}.zip', set_name=name).sha256}, 'scan': {'routes': []}}
     plan = {row[0]: row for row in routes(report['rom']['sha256'], frames=3600, level='standard', six_buttons=six)}
     _, route_frames, script = plan[route]
-    wanted = next(r['script_sha256'] for r in report['scan']['routes'] if r['name'] == route)
-    assert hashlib.sha256(script.encode('ascii')).hexdigest() == wanted, 'the route script differs from the conversion\'s'
+    wanted = next((r['script_sha256'] for r in report['scan']['routes'] if r['name'] == route), None)
+    assert wanted is None or hashlib.sha256(script.encode('ascii')).hexdigest() == wanted, 'the route script differs from the conversion\'s'
     frames = min(frames, route_frames)
     work = work / name / route
     (work / 'mame').mkdir(parents=True, exist_ok=True)
@@ -245,13 +260,15 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
     events = port_values(game, script)
     initial = ','.join(str(v) for v in events[0][1:]) if events and events[0][0] == 0 else ','.join(
         str(game['inputs'].get(p, {}).get('default', 0xffff)) for p in ('IN0', 'IN1', 'IN2', 'IN3'))
-    ports = game['ports']
+    ports = game.get('ports', (0, 0, 0))
     lua = work / 'capture.lua'
-    lua.write_text(LUA % {'out': (work / 'mame').as_posix(), 'last': frames + 8, 'step': step, 'initial': initial, 'base_address': CPS_B_BASE, 'phase': phase,
+    for stale in ('cfg', 'nvram'):          # MAME keeps the EEPROM between runs: a game that starts blank is compared with a blank one
+        shutil.rmtree(work / stale, ignore_errors=True)
+    lua.write_text(LUA % {'out': (work / 'mame').as_posix(), 'last': frames + 8, 'step': step, 'initial': initial, 'base_address': CPS_B_BASE, 'phase': phase, 'taps': (CPS2_TAPS if game['machine'] == 'cps2' else CPS1_TAPS) % {'base_address': CPS_B_BASE},
                           'in2': ports[0], 'in3': ports[1],
                           'events': '{' + ','.join('{%d,%d,%d,%d,%d}' % e for e in events) + '}'}, encoding='utf-8')
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
-    qsound = game['machine'] == 'qsound'      # the CPS-1.5 boards: stereo at 24,038 Hz instead of mono at 55,930 Hz
+    qsound = game['machine'] in ('qsound', 'cps2')      # the CPS-1.5 and CPS-2 boards: stereo at 24,038 Hz instead of mono at 55,930 Hz
     rate, channels = (24038, 2) if qsound else (AUDIO_RATE, 1)
     extra_game = ['--pcm', str(work / 'game.pcm')] if sound else []
     extra_mame = ['-wavwrite', str(work / 'mame.wav'), '-samplerate', str(rate)] if sound else []
