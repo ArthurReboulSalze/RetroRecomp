@@ -79,6 +79,10 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Capcom CPS-1.5 leaves the experimental tier (1.6.9)
+
+The QSound boards (18 sets) are a supported part of the CPS-1 since 5 November 2026, on the owner's decision ([CPS1.md](CPS1.md#cps-15-qsound-boards)). The catalogue (`assets/cps1-catalogue.json`) now reads `tier = supported` on every row, so the CPS-1 game stamp moves (and no other: the CPS-1 host and build stamps and the other consoles' stamps are unchanged, checked with `compilation_inputs.role_stamps`). An export of 1.6.8 is rebuilt once on its next conversion, with the same code, pictures and sound; its report then says `completed` and `board_tier: supported` instead of `experimental`. The quick-state key does not move (it does not hash the catalogue), so quick states and cartridge saves are kept. The QSound sets now take part in the shared base of paths; reports of 1.6.8 say `board_tier: experimental` and are not collected.
+
 ## Game Boy: the one-by-one line names the 0xFF00-0xFF7F range (1.6.9)
 
 The window line and the conversion log counted the instructions run one by one in RAM and in the `0xFF00-0xFF7F` range but
@@ -426,7 +430,7 @@ then 1.6.4 and before).
 | [Lead: unpacked fallback of the packed replay](#lead-unpacked-fallback-of-the-packed-replay-167) | Master System, Game Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1 (`delivery_evidence.py`) | build stamp of every console (`packing.py`) | no key moves |
 | [Lead: the packed Windows game keeps UPX's call filter](#lead-the-packed-windows-game-keeps-upxs-call-filter-167) | none | build stamp of every console | none |
 | [Lead: LZMA packing, a reproducible link, a manifest and one identical retry on Windows](#lead-lzma-packing-a-reproducible-link-a-manifest-and-one-identical-retry-on-windows-167) | every console (`core.py`, `platforms.py`) | **host, build and game stamps of every console** | not stated |
-| [Capcom CPS-1.5, the QSound boards (experimental tier)](CPS1.md#cps-15-qsound-boards-experimental-tier) | CPS-1 (new files `cps1_kabuki.py`, `cps1_qsound.c` and others; see the machine page) | not stated | not stated |
+| [Capcom CPS-1.5, the QSound boards](CPS1.md#cps-15-qsound-boards) | CPS-1 (new files `cps1_kabuki.py`, `cps1_qsound.c` and others; see the machine page) | not stated | not stated |
 
 Taken together, **the game stamp, the host stamp and the build stamp of every console** move between 1.6.6 and 1.6.7 (the LZMA row alone moves all three of
 every console). What the release does with `LEGACY_GAME_STAMPS` is the release procedure's decision (the rule above).

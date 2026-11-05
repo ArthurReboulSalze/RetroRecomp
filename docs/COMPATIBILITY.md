@@ -187,7 +187,7 @@ a newly implemented Master System Pause/NMI interrupt.
 
 Two more profiles are registered beyond the seven consoles above. **Capcom CPS-1**
 is supported since 1.6.6 for MAME or FBNeo ZIP romsets of the standard boards,
-within [its documented scope](CPS1.md): each conversion compares the guarded
+within [its documented scope](CPS1.md) (the QSound boards of the CPS-1.5 included since 5 November 2026, with your own QSound DSP ROM; the DSP16 is a model after MAME's): each conversion compares the guarded
 native code with a fresh interpreted reference run, and the report keeps board
 fidelity against real hardware, complete gameplay and physical latency outside
 what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 November 2026
