@@ -82,7 +82,9 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertNotIn('fprintf(o,"        sms_halt();\\n");', text)
         halt = text.index('static void emit_op(FILE *o, const Z80Insn *in){')
         body = text[halt:text.index('switch (in->prefix){', halt)]
-        for needed in ('uint16_t _hsp = s->sp;', 'g_dbg_pc = (uint16_t)(g_dbg_pc + 1);', 'sms_halt();',
+        for needed in ('uint16_t _hsp = s->sp;', 'g_dbg_pc = (uint16_t)(g_dbg_pc + %u);', 'sms_halt();',
+                       # DD 76 and FD 76 are a HALT too (1.6.9): the same emission, for the length of the instruction
+                       '(in->prefix == Z80_PFX_DD || in->prefix == Z80_PFX_FD) && in->opcode == 0x76',
                        'if ((int16_t)(s->sp - _hsp) > 0) return;'):
             self.assertEqual(body.count(needed), 1, needed)
         self.assertLess(body.index('_hsp = s->sp'), body.index('sms_halt();'))

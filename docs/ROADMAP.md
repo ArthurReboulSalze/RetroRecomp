@@ -36,8 +36,10 @@ quality score, and it never decides a status.
   test ROMs and reference emulators are what we can offer, and the reports say so.
 - **The shared base.** A converter will send only the paths its base does not know yet, so the online service grows
   slowly between releases.
-- **The common host kit.** A five-player adapter (PC Engine multitap, Super Nintendo multitap) is planned; today the kit
-  takes four players.
+- **Up to four players (and five), planned for 1.7.** The common host kit already takes four players with their own keys and
+  pads, and the CPS boards use them. The consoles' own multiplayer adapters come next, each modelled in its machine: the NES
+  Four Score, the Mega Drive Team Player and EA 4-Way Play, the Super Nintendo Super Multitap (five players, like the PC Engine
+  multitap), with the kit passing every player's pad to the machine.
 - **Shared code.** The Windows/Linux comparison tools and the MAME capture tools of several machines become one module
   each.
 

@@ -66,7 +66,7 @@ class RecordedDeviationsTests(unittest.TestCase):
             m68000_state_rules.adapt_state_rules(text + text)
 
     def test_the_three_generators_apply_the_rules_after_adapt_semantics(self):
-        for path in ('retrorecomp/cps1_codegen.py', 'retrorecomp/neogeo_codegen.py', 'tools/x68000_native.py'):
+        for path in ('retrorecomp/cps1_codegen.py', 'retrorecomp/neogeo_codegen.py', 'retrorecomp/m68k_observed.py'):
             self.assertIn('adapt_state_rules(adapt_semantics(', (ROOT / path).read_text(encoding='utf-8'), path)
 
     def test_the_mega_drive_generator_does_not_use_the_module_of_the_three(self):

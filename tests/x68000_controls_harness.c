@@ -23,7 +23,7 @@ static void drain(void){
     }
 }
 static void sample(void){
-    xa.pad[0]=input_focus?rrhk_pad_word(0,input_frame):0;xa.pad[1]=input_focus?rrhk_pad_word(1,input_frame):0;
+    ca.pad[0]=input_focus?rrhk_pad_word(0,input_frame):0;ca.pad[1]=input_focus?rrhk_pad_word(1,input_frame):0;
     fast_forward=rrhk_adapter()->fast_forward();
     frame_number++;input_poll();
 }
@@ -45,7 +45,7 @@ int main(void){
     SDL_FlushEvents(SDL_FIRSTEVENT,SDL_LASTEVENT);
     {wchar_t ini[4096];rr_executable_directory(ini,4000);rr_wide_append(ini,4096,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");rr_remove(ini);}
     rrhk_bind(rrhk_adapter());rrhk_load_bindings();rrhk_options_init(L"X68000");rrhk_options_keyboard("X68000",10);
-    xa.windowed=true;input_focus=true;release_all();
+    ca.windowed=true;input_focus=true;release_all();
     check(rrhk_ui()->keys[0][X_A]==SDL_GetScancodeFromKey(SDLK_w)&&rrhk_ui()->keys[0][X_B]==SDL_GetScancodeFromKey(SDLK_x),"unsaved defaults use logical W and X");
     check(rrhk_ui()->buttons[0][X_PAUSE]==X_NO_PAD&&rrhk_ui()->keys[0][X_PAUSE]==SDL_SCANCODE_UNKNOWN&&X_ACTIONS==X_PAUSE+1,"no pause binding by default and no restart row");
     first=SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER,SDL_CONTROLLER_AXIS_MAX,SDL_CONTROLLER_BUTTON_MAX,0);
@@ -105,20 +105,20 @@ int main(void){
     release_all();
     /* Autofire: the common rule (decision D4, 28 October 2026): each new press starts on, per button, guest frames. */
     held()[SDL_GetScancodeFromKey(SDLK_w)]=1;rrhk_ui()->autofire=1;input_frame=0;
-    xa.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: a new press starts on");
-    input_frame=1;xa.pad[0]=rrhk_pad_word(0,input_frame);check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: the next guest frame releases");
-    input_frame=2;xa.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: one pulse per two guest frames");
-    input_frame=3;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    ca.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: a new press starts on");
+    input_frame=1;ca.pad[0]=rrhk_pad_word(0,input_frame);check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: the next guest frame releases");
+    input_frame=2;ca.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: one pulse per two guest frames");
+    input_frame=3;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!guest_key(RETROK_w),"the key bound to the button is the button: both release on the same guest frame");
-    input_frame=4;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    input_frame=4;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&guest_key(RETROK_w),"keyboard and joystick share the autofire press phase");
-    held()[SDL_GetScancodeFromKey(SDLK_x)]=1;input_frame=5;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    held()[SDL_GetScancodeFromKey(SDLK_x)]=1;input_frame=5;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(joy(0,RETRO_DEVICE_ID_JOYPAD_A)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire is per button: a second button pressed later starts on its own");
-    release_all();input_frame=7;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    release_all();input_frame=7;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_A),"released buttons stay released");
-    rrhk_ui()->keys[0][X_A]=SDL_SCANCODE_Q;held()[SDL_SCANCODE_Q]=1;input_frame=1;rrhk_autofire_reset();xa.pad[0]=rrhk_pad_word(0,input_frame);
+    rrhk_ui()->keys[0][X_A]=SDL_SCANCODE_Q;held()[SDL_SCANCODE_Q]=1;input_frame=1;rrhk_autofire_reset();ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&guest_key(RETROK_q),"a rebound fire key starts on at its own press, whatever the frame parity");
-    input_frame=2;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    input_frame=2;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!guest_key(RETROK_q),"rebound fire key also releases both input paths");
     guest_keyboard=true;
     check(guest_key(RETROK_q),"full computer typing is never pulsed");
@@ -140,15 +140,15 @@ int main(void){
     automatic_loading=false;
     /* Mouse games: the buttons are the first two buttons, the directions and the stick move the pointer. */
     mouse_game=true;input_frame=1;release_all();rrhk_ui()->autofire=1;rrhk_autofire_reset();
-    held()[SDL_GetScancodeFromKey(SDLK_w)]=1;input_frame=0;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    held()[SDL_GetScancodeFromKey(SDLK_w)]=1;input_frame=0;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(input_state(0,RETRO_DEVICE_MOUSE,0,RETRO_DEVICE_ID_MOUSE_LEFT),"mouse-controlled game accepts the bound fire key as the left button");
-    input_frame=1;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    input_frame=1;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(!input_state(0,RETRO_DEVICE_MOUSE,0,RETRO_DEVICE_ID_MOUSE_LEFT),"mouse-controlled first button shares the autofire release phase");
-    rrhk_ui()->autofire=0;release_all();held()[SDL_SCANCODE_RIGHT]=1;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    rrhk_ui()->autofire=0;release_all();held()[SDL_SCANCODE_RIGHT]=1;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(input_state(0,RETRO_DEVICE_MOUSE,0,RETRO_DEVICE_ID_MOUSE_X)>0,"mouse-controlled game accepts keyboard directions");
-    release_all();held()[SDL_SCANCODE_LEFT]=1;xa.pad[0]=rrhk_pad_word(0,input_frame);
+    release_all();held()[SDL_SCANCODE_LEFT]=1;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(input_state(0,RETRO_DEVICE_MOUSE,0,RETRO_DEVICE_ID_MOUSE_X)<0,"left mouse emulation preserves signed movement");
-    mouse_game=false;release_all();xa.pad[0]=0;
+    mouse_game=false;release_all();ca.pad[0]=0;
     /* The mouse is captured by a click on an unknown computer game, never from a menu. */
     rrhk_ui()->menu=1;mouse_grab=false;
     SDL_Event click;SDL_zero(click);click.type=SDL_MOUSEBUTTONDOWN;click.button.button=SDL_BUTTON_LEFT;

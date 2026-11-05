@@ -67,8 +67,8 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification progress |
 | --- | --- | --- |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `███████░░░` 70 % |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `███████░░░` 67 % |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `██████████` 97 % |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
 | [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |

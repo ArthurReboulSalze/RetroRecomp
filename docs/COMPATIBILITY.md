@@ -103,9 +103,9 @@ extended native coverage and quick states. Selectable PAL/NTSC timing, two playe
 catalogue-selected Light Phaser input apply to Master System. Game Gear uses
 one controller, Start input, NTSC timing and the 160 × 144 LCD view.
 The native LCD window is always used; games are not patched.
-See [Game Gear](GAME_GEAR.md). For the Sega profiles, Codemasters mapper, cartridge saves,
-FM sound, hardware Pause/NMI and complete pixel-clock raster effects are not
-validated or supported. PAL and NTSC timing support is not a claim of exact
+See [Game Gear](GAME_GEAR.md). For the Sega profiles, the Codemasters mapper, cartridge RAM saves,
+the FM unit and the hardware Pause/NMI are not modelled, so neither validated nor supported (a cartridge that needs one converts and may
+not start), and complete pixel-clock raster effects are not validated. PAL and NTSC timing support is not a claim of exact
 hardware fidelity; see [video evidence](VIDEO.md).
 
 The Game Boy profile uses a separate pinned SM83 compiler and runtime. It

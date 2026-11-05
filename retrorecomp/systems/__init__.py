@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 
-from .specs import (Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,  # noqa: F401
+from .specs import (Catalogues, Identify, InputLayout, LibraryLayout, ObservedCode, PathSpec, ReportShape,  # noqa: F401
                     SharedKnowledge)
 
 MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
@@ -175,6 +175,8 @@ class SystemProfile(ABC):
     library_layout: LibraryLayout | None = None
     input_layout: InputLayout | None = None
     shared_knowledge: SharedKnowledge | None = None
+    # The 68000 computers that run their programs from RAM declare where their instruction bodies come from (m68k_observed.py).
+    observed_code: ObservedCode | None = None
     # The host-kit adapter file below native/hostkit (hostkit.py), for the machines on the common host kit.
     host_adapter: str | None = None
     # Recognition of a file (systems.profile_for_path) and the machine's presence in an installation.

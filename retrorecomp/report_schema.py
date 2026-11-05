@@ -39,6 +39,13 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
 * ``packed.method`` ('lzma' or 'nrv', UPX's compression method; ``None`` when the file is not packed) was added to schema 2
   in 1.6.7 without a new schema number, as ``timings`` was: the writer's ``packing`` record carries ``method``, a report
   from before it reads ``None``, and nothing else in the section changes.
+* ``honesty.route_warnings`` was added to schema 2 in 1.6.9 without a new schema number: a list of words about the routes whose
+  picture stopped changing early (a writer that sees a route freeze in the first tenth of its frames names it), ``None`` when the
+  writer does not provide it, an empty list when it looked and found none. It is optional and compatible: a reader of 1.6.8 reads
+  the section it finds and ignores the key (checked by reading a 1.6.9 report with the 1.6.8 module), and no consumer depends on it.
+  The device kind ``video_unit`` (a video chip run by the runtime's C code, listed beside ``cartridge_mapper`` and ``audio_unit``)
+  and, for the Master System and Game Gear main CPU, the scenario keys ``native`` (instructions), ``halted_steps`` and
+  ``native_guarded`` come with it on the same terms.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -109,8 +116,9 @@ REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'targe
                  'cpus', 'devices', 'validation', 'honesty', 'packed', 'states', 'saves', 'runtime',
                  'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
-# The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own.
-HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit')
+# The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own
+# (`video_unit` since 1.6.9).
+HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit', 'video_unit')
 
 
 class ReportShapeError(ValueError):
@@ -203,6 +211,13 @@ def _main_scenario(writer, row):
         frames = _count(row.get('requested_frames'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('total_cycles'))}
+        # The banked engine counts the instructions it runs natively, the byte-guarded RAM encodings among them
+        # (retrorecomp/sega_evidence.py reads the count from the run's log), and its halted steps. The interpreter is counted in cycles
+        # only, by both engines: `interpreted` stays None, never a guess from the cycles.
+        native = _count(row.get('native_instructions'))
+        for key, field in (('halted_steps', 'halted_steps'), ('guarded_native_instructions', 'native_guarded')):
+            if row.get(key) is not None:
+                extra[field] = _count(row.get(key))
     elif writer == 'gameboy':
         interpreted = _count(row.get('interpreter_instructions'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
@@ -452,7 +467,17 @@ def _cpu_fidelity(shape, data, rows):
         evidence = {key: data.get(key) for key in ('reference_vdp_trace_match', 'reference_final_ram_match',
                                                    'reference_final_cpu_match', 'reference_final_png_match')
                     if key in data}
-    if passed is None:
+    scenarios = _cpu_scenarios(shape, data, rows) if validation else []
+    if shape.writer == 'core' and not validation and data.get('backend') == 'functions' and 'reference_vdp_trace_match' in data:
+        # The "functions" engine stores no validation record: its conversion is refused unless the demo route equals the interpreter's
+        # (picture trace, last picture, RAM). Only that route is compared with a reference run.
+        checks = {'vdp_trace': data.get('reference_vdp_trace_match'), 'final_vdp': data.get('reference_final_vdp_match'),
+                  'final_ram': data.get('reference_final_ram_match'), 'final_image': data.get('reference_final_png_match')}
+        passed = all(value is True for value in checks.values())
+        scenarios = [{'name': 'demo', 'frames': None, 'match': passed, 'checks': checks, 'hashes': None}]
+        claim = ("agreement with the project's own reference on the demo route only, no independent CPU oracle; the other routes are "
+                 'not compared with a reference run' if passed else 'did not pass')
+    elif passed is None:
         claim = 'not reported'
     elif not passed:
         claim = 'did not pass'
@@ -463,7 +488,7 @@ def _cpu_fidelity(shape, data, rows):
     return {'passed': passed, 'reference': _reference_kind(shape, data),
             'validated_flag': _flag(validation.get('cpu_fidelity_validated')),
             'independent_cpu_oracle': oracle, 'agreement': _flag(validation.get('cpu_agreement')),
-            'scenarios': _cpu_scenarios(shape, data, rows) if validation else [],
+            'scenarios': scenarios,
             'evidence': evidence, 'claim': claim}
 
 
@@ -538,7 +563,9 @@ def _honesty(data, validation):
             'physical_latency_measured': validation['latency']['measured'],
             'independent_cpu_oracle': _flag(native.get('independent_cpu_oracle')),
             'cpu_fidelity_validated': _flag(native.get('cpu_fidelity_validated')),
-            'universal_zero_fallback_claim': _flag(_dict(data.get('qualification_scope')).get('universal_zero_fallback_claim'))}
+            'universal_zero_fallback_claim': _flag(_dict(data.get('qualification_scope')).get('universal_zero_fallback_claim')),
+            # The routes whose picture stopped changing early, in words (since 1.6.9, optional); None when the writer does not provide it.
+            'route_warnings': _copy(data.get('route_warnings'))}
 
 
 # ---------------------------------------------------------------- the other sections

@@ -79,6 +79,50 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: two defects of the "functions" engine found by the panel (1.6.9)
+
+The 1.6.9 panel of twelve games (see [MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-panel-of-twelve-games-169-gates-g2-g5-g6-g8-g9)) converted with the "functions"
+engine showed four games the reference check refuses. Two general causes were found and fixed in the converter's copy of the generator
+(`core.patched_generator_source`):
+
+1. **A HALT behind a prefix.** `DD 76` and `FD 76` are a HALT; the decoder calls only the plain `76` a halt, and the generic path wrote through an `ea` that nothing
+   declares, so a function the walk found in data made the C build fail (Shining Force II). They now emit the HALT of the plain opcode, with the length of the instruction
+   for the address the interrupt pushes.
+2. **A callee that returns through another address than the one pushed.** A routine that reads the data after its `CALL` or `RST` (`EX (SP),HL`, `LD E,(HL)`, `INC HL`,
+   `EX (SP),HL`, `RET`) returns with the stack where the call left it but to a later address; the C call stack resumed at the next instruction of the caller and ran the data
+   bytes as code (Shining Force II: a register changed, a stack byte differed at frame 14). Each call site now compares the address the callee popped (the slot below SP)
+   with the one it pushed and, when they differ, continues there as the Z80 does (`RR_CHECK_RET`, the nested continuation of the local-RET rule). A tail jump already did so.
+
+Authored cases for both are in `tools/cpu_selftest.py` (`DB`-after-`CALL` and `DD 76` in dead code); the check now sets `RETRO_RECOMP_STILL_ROUTE_OK=1`, because its programs have no
+picture and the liveness refusal of 1.6.6 stopped them (developer checks only; a player's conversion never sets it).
+
+What was run: the 15 games of the 1.6.4 batch plus Micro Machines, Streets of Rage and Gunstar Heroes, "functions" engine, empty library: the 15 give the same
+reference match, number of passes and interpreter share as in 1.6.7 (Alex Kidd in Miracle World was run with the shared base then, one pass; it now takes three and ends at 0 percent); Shining Force II now builds and differs from frame 15 instead of frame 14
+(1,103 differing frames instead of 3,586); Streets of Rage (frame 7), Gunstar Heroes (569) and Micro Machines (1,493) are unchanged. **Not solved.** Streets of Rage:
+the first divergence is a `RET` at `$7DB3` that continues at `$7893` (the continuation of a call up the C stack) where the Z80 continues at `$7B84`, an address pushed inside
+the called routine, across a chain of tail jumps. The others are not explained.
+
+**Cost.** Each call site of the "functions" engine executes one more call, `rr_ret_moved`, that reads two bytes of RAM and compares them; the banked engine, the default,
+is not touched. Not measured. **What moves.** `core.py` is an input of every console: the game stamp of all nine consoles moves; the games of the "functions" engine are
+generated differently (the other consoles and the banked engine are unchanged by the generator).
+
+## Master System and Game Gear: the report names the devices and the routes that stall, and the evidence of the panel (1.6.9)
+
+A lot of evidence and documentation: the way games are converted does not change.
+
+- **The report** (`retrorecomp/sega_evidence.py`, called by `systems/master_system.py` after the conversion for both engines) gains `hardware_devices`
+  (the mapper, with a Codemasters header named and marked `not_modelled`; the video chip; the sound chip: none runs a program, none has a counter,
+  all say `hardware_fidelity_validated: false`), `route_warnings` (the routes whose picture last changed in the first tenth of their frames), and for
+  the banked engine the native instruction count and the halted steps of each final route (`final_checks[]`). The schema reader (`report_schema.py`) shows
+  them under `devices`, `cpus[].scenarios[]` and `honesty.route_warnings` (an optional, compatible addition to report v2, described in the module text of
+  `report_schema.py`: a 1.6.8 reader ignores it; no schema number changes), adds the device kind `video_unit`, and reads the reference comparison of the "functions"
+  engine (which stores no validation record) as agreement on the demo route only.
+- **Tools**: `tools/sega_campaign.py` (the panel of twelve, two conversions at a time, replay of the delivered file and the sheets of captures); the
+  fresh-process check of 1.6.6 (`tools/sega_states_selftest.py`) run on the twelve harness builds.
+- **What moves.** The game stamps of the Master System and of the Game Gear: `sega_evidence` and the two profile modules are inputs of their groups, and an
+  export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
+  stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
+
 ## Capcom CPS-1.5 leaves the experimental tier (1.6.9)
 
 The QSound boards (18 sets) are a supported part of the CPS-1 since 5 November 2026, on the owner's decision ([CPS1.md](CPS1.md#cps-15-qsound-boards)). The catalogue (`assets/cps1-catalogue.json`) now reads `tier = supported` on every row, so the CPS-1 game stamp moves (and no other: the CPS-1 host and build stamps and the other consoles' stamps are unchanged, checked with `compilation_inputs.role_stamps`). An export of 1.6.8 is rebuilt once on its next conversion, with the same code, pictures and sound; its report then says `completed` and `board_tier: supported` instead of `experimental`. The quick-state key does not move (it does not hash the catalogue), so quick states and cartridge saves are kept. The QSound sets now take part in the shared base of paths; reports of 1.6.8 say `board_tier: experimental` and are not collected.
@@ -164,6 +208,39 @@ defaults, and a default of player 3 or 4 that a saved key of another action alre
 A stored key 0 or button -1 now reads as "no binding" on every console (the X68000 alone read it so before): F2 writes it when a
 swap leaves an action without a key. Two actions that already shared a key in a saved file keep sharing it until one of them is
 bound again in F2.
+
+## Sharp X68000: the generator of native code and the computer part of the adapter are shared (1.6.9)
+
+The Amiga reuses what the X68000 does with the instructions it runs from RAM instead of copying it, so two files moved and one declaration was added; **nothing a
+game does changes**.
+
+- `retrorecomp/m68k_observed.py` holds the generator that `tools/x68000_native.py` held: the decoder tool, the word-count table, the step semantics file, the forms, the guarded
+  steps, the page table and the index (`write_steps`), for a machine's C prefix and step type. A profile declares what is its own with
+  `SystemProfile.observed_code` (`ObservedCode`: the entry point of its instruction bodies, `module:function`, the prefix, the address apertures, and since the second commit
+  the extension and the head of the step files). The X68000 declares `m68k_observed:recompiler_bodies` (the Mega Drive recompiler's semantics with the shared state rules,
+  executed by Musashi) declares its address apertures as data in its profile (`ObservedCode.apertures`) and keeps in `tools/x68000_native.py` its bus (`CODE_VIEW`), its Musashi template, its native run and its guard fixtures. No machine is
+  named in the shared module (a test reads it), and a machine whose bodies are not Musashi's (the Amiga's Moira, C++ templates) gives with its bodies the text of a step and the header every step file includes
+  (`InstructionBodies.step_text`, `semantics_text`) instead of editing the module (a test does it with a fake profile).
+- `native/hostkit/adapters/rrhk_computer.inc` holds what `rrhk_x68k.inc` held that every disk computer shares: the guest keyboard and its Ctrl+Alt chords, the captured mouse and the
+  mouse-game pad, the floppy drives (swap, eject), the fast-loading key, the function keys, the second help page, the window preferences. The adapter tells it its actions by macros
+  (`RRC_*`) and the frontend provides the variables it reads (the list is in the file's header); the machine table, the pad mapping, the picture, the sound and the state stay in
+  `rrhk_x68k.inc`. The host kit's shell is not touched.
+
+**Proof that the output is the same.** The generated native project (`cpu.c`, `cpu.h`, the 16 step files, the index, the tables, `generation.json`, the semantics and the word counts)
+of three games of the collection (Twins, Double Target, Pac-Land) was written with the converter of `main` and with this tree from the same observations: **120 files, 0 differences**.
+The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, so no qualified path is lost; the pins list the new module. A/B of conversions: see the end of this section.
+
+**What moves** (`compilation_inputs.role_stamps`, this branch against the commit it branches from, `e1424c7`): **the game stamp of all nine consoles** (`retrorecomp/systems/specs.py` and
+`retrorecomp/systems/__init__.py` are inputs of every console and gain `ObservedCode` and `SystemProfile.observed_code`), and **the host stamp of the X68000** (the adapter files); no
+host stamp of another console, no build stamp. The quick-state key of the X68000 (`RR_X68K_STATE_ABI` hashes the reference host and the bridge) does not move. Every export of 1.6.8 is converted
+again once when it is upgraded, as the rest of 1.6.9 already says.
+
+**A/B of conversions** (Windows, standard scan, an empty library each, headless; R-Type, Bubble Bobble, Metal Sight with its five disks and Lemmings with the mouse): the CPU, RAM, picture and PCM hashes of the
+three routes are equal to those of the panel replayed on the tree of the exit (12 routes, 0 difference), 0 interpreted opcodes, the compressed copy matching, the same numbers of pictures and audio blocks, the two automatic
+disk changes of Metal Sight. The sharing record of Twins made by this tree has the digest of the one made before the move (0c77fd2d4abf65d5, same counts, same engine). The window code of the adapter
+(the computer's part) is compiled by every conversion and exercised by the SDL harnesses of `tests/x68000_controls_harness.c` and `x68000_menu_harness.c` (virtual controllers, the guest keyboard, the mouse game,
+autofire, the menus and the help page), which pass with one change: the state of the windowed player is `ca` (the computer's) instead of `xa`. What a real window does with a real mouse and a real second
+floppy is still the owner's next play to confirm.
 
 ## Exports of 1.6.7 in 1.6.8
 
