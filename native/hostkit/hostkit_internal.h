@@ -63,6 +63,7 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
 /* input.c */
 void rrhk_settings_path(void);
 void rrhk_store_binding(void);
+void rrhk_assign(int player, int action, bool pad, int value);   /* F2: bind, swapping with an action that had it; kept */
 void rrhk_clear_binding(void);
 const wchar_t *rrhk_autofire_section(void);
 void rrhk_open_pads(void);

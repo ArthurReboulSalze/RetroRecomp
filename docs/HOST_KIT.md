@@ -236,7 +236,7 @@ X68000 too, without asking again**.
   every machine" means harmonising up, never removing a feature; this settles open question 10). Phase 5 had retired five things the
   upstream Game Boy shell offered behind keys no page listed; they are kit features, with their former keys and behaviour, on the nine
   consoles:
-  * **Fast-forward**: **Tab held** or the **right trigger** (a pad a player holds; past the stick threshold, D1): 250% of the machine's
+  * **Fast-forward**: **Tab held** or the **right trigger** (player 1's pad since 1.6.9, any player's pad before, D13; past the stick threshold, D1): 250% of the machine's
     speed. **Maximum speed**: **backquote** (`SDL_SCANCODE_GRAVE`) or the **left trigger** toggles 500% until pressed again. Both ran at
     those ratios upstream (`GB_FAST_FORWARD_SPEED_PERCENT` 250, `GB_MAX_SHORTCUT_SPEED_PERCENT` 500), and the maximum wins over the hold.
     Only the pacing changes: the deadline of each guest frame is divided by the speed, the picture of every frame is still presented,
@@ -273,6 +273,30 @@ X68000 too, without asking again**.
   * **Not restored**: the upstream speed slider (10 to 500%, not kept between runs), the audio latency setting and the second binding
     of each button: it needs a second key and button per action in the contract (`RrhkAction`, the binding pages and the preferences),
     which is a contract change and a divergence of its own; it stays retired, and no other console has it.
+
+* <a id="d13"></a>**D13 — Nothing in the kit blocks a third or fourth player** (1.6.9, lead; the rule of D9 applied to play). The kit
+  carries `RRHK_MAX_PLAYERS` 4 players; a machine exposes as many as its adapter's `players()` says (today the CPS-1 boards, up
+  to four; the other adapters 1 or 2, as their hardware). Four rules hold for any machine, now or when an adapter raises its count:
+  * **Player 1 owns the whole-game controls of a pad**: the gamepad Quit and Restart combinations (L3+R3, Start+Select by default)
+    and the trigger speed controls (right trigger fast-forward, left trigger maximum speed) are watched on player 1's pad only
+    (`rrhk_options.c` hides the other pads' buttons from the two checks of `game_options.h`, which is left unchanged because the
+    Mega Drive and Super Nintendo quick-state keys hash it; `rrhk_events.c` for the triggers). On an arcade board
+    Start+Coin is every player's normal play: before 1.6.9 any player's Start+Coin held one second restarted the game for everyone.
+    Player 1 without a pad has no gamepad combination; the keyboard combinations, Shift+F1, Esc, Tab and backquote remain.
+  * **Default pad buttons for every player**: a player whose pad column the adapter leaves empty (every entry 0, SDL's A) gets
+    player 1's buttons (`rrhk_bind`), so pads 3 and 4 of a two-column table are laid out like pad 1, never all on A. A column the
+    adapter writes (CPS-1's `PADS()`) is kept as it is.
+  * **Default keys for players 3 and 4** when the adapter lists none and declares the rows (`table_players` 3 or 4): the kit's
+    table in `rrhk_input.c`, physical keys with the same letters on QWERTY and AZERTY, clear of player 1's letters, player 2's
+    numeric keypad and the kit's keys. Player 3: T/G/F/H (up, down, left, right), R/Y/B (the first three buttons), 3 (Start),
+    7 (Coin); player 4: I/K/J/L, U/O/N, 4, 8 (Start and coin on the digits as in the arcade convention). The fourth to sixth
+    buttons have no default key there (the keyboard has no clean room for them): F2 binds them. A key another player already has is
+    never given twice. Layout in [CONTROLS.md](CONTROLS.md#players-3-and-4).
+  * **No silent duplicate in F2**: binding a key that another action already uses, of any player in play (the keyboard is
+    shared), swaps the two actions' keys; binding a pad button another action of the same player uses swaps the two buttons.
+    Both entries are written (`rrhk_assign`).
+  A ROM-free check runs the real loop with four virtual pads on a four- and a two-player CPS-1 adapter build
+  (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
