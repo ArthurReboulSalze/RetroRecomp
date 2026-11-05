@@ -194,6 +194,8 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio = a_audio; machine.interpreted = a_interpreted; machine.audio_interpreted = a_zero;
       machine.state_path = a_state_path; machine.state_ready = a_state_ready; machine.state_file = a_state_file; machine.input_frame = a_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
+      /* The F2 row "Keyboard (Ctrl+Alt+K): game controls / computer only" of rrhk_computer.inc, kept per game in player.cfg. */
+      machine.option_rows = x_option_rows; machine.key_event = x_key_event;
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
