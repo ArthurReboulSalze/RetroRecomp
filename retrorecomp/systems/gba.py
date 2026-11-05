@@ -32,6 +32,7 @@ class GameBoyAdvanceProfile(SystemProfile):
     # The player's own system ROM (BIOS), hash-checked; the exported game holds code derived from it and stays private.
     firmware = ('bios',)
     quick_state_family = 'gba'
+    host_adapter = "adapters/rrhk_gba.c"
     capabilities = Capabilities(battery=True)
     linux = 'pending'
     feedback_kinds = frozenset({18})

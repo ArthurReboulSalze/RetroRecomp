@@ -42,11 +42,16 @@ class AnalysisTests(unittest.TestCase):
         self.assertGreaterEqual(length, 0x100)
         self.assertEqual(live[start:start + length], rom[source:source + length])
 
-    def test_ambiguous_or_unknown_bytes_are_left_to_the_interpreter(self):
+    def test_a_stretch_the_cartridge_holds_twice_is_one_source_and_unknown_bytes_are_left_to_the_interpreter(self):
         rom = bytearray(pseudo_random(0x2000, 7))
-        rom[0x1000:0x1100] = rom[0x100:0x200]                  # the same stretch twice: ambiguous
+        rom[0x1000:0x1100] = rom[0x100:0x200]                  # the same code twice: whichever copy the game read
         live = bytearray(pseudo_random(0x400, 5))
         live[0x40:0x140] = rom[0x100:0x200]
+        start, source, length = analysis.find_source(bytes(rom), bytes(live), analysis.IWRAM[0], 0x80)
+        self.assertEqual((start, source), (0x40, 0x100))       # the lowest address of equal copies
+        self.assertEqual(live[start:start + length], rom[source:source + length])
+        for copy in range(5):                                  # more copies than are read as one source: ambiguous
+            rom[0x1200 + copy * 0x100:0x1300 + copy * 0x100] = rom[0x100:0x200]
         self.assertIsNone(analysis.find_source(bytes(rom), bytes(live), analysis.IWRAM[0], 0x80))
         live[0x40:0x140] = pseudo_random(0x100, 31)            # written at run time
         self.assertIsNone(analysis.find_source(bytes(rom), bytes(live), analysis.IWRAM[0], 0x80))

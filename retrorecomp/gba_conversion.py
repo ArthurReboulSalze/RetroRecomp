@@ -97,9 +97,10 @@ def _matches(native, reference) -> bool | None:
 
 
 def convert(path: Path, *, output: Path | None = None, title: str | None = None, passes: int = 3, frames: int = 3600,
-            scan_level: str | None = None, gba_bios=None, emit=print, **options) -> Path:
-    """Convert one cartridge with the pinned engine. Returns the probe host (no player yet); the report is written
-    beside `output` when it is given, else in the project folder."""
+            scan_level: str | None = None, gba_bios=None, emit=print, player: bool = True, cover: Path | None = None,
+            boxart_dir: Path | None = None, online_cover: bool = True, use_cover: bool = True, **options) -> Path:
+    """Convert one cartridge with the pinned engine. With `output` the player is built and returned (the report goes
+    to `output`, the batch publishes the executable: compaction, the games folder); `player=False`, or no `output`, returns the headless probe host (the report goes to the project)."""
     from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_patches, path_profiles, timings
     from .conversion_common import check_run_budget, resolve_scan_level, write_if_changed
     from .core import slug, toolchain
@@ -125,10 +126,10 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
     project.mkdir(parents=True, exist_ok=True)
     emit(f'Game Boy Advance: {title}, {rom.size // 1024} KB, {rom.save_type}, CRC32 {rom.crc32:08X}.')
     checkout = engine.checkout(emit)
-    digest = engine.patch_digest(gba_patches.PATCHES)
+    digest = engine.patch_digest(gba_patches.PATCHES, gba_patches.ADDED_FILES)
     key = f'{ENGINE_REV[:8]}-{digest[:8]}'
     stage_root = ROOT / '.deps' / f'gbarecomp-stage-{key}'
-    _, notes = engine.stage(stage_root, checkout, gba_patches.PATCHES)
+    _, notes = engine.stage(stage_root, checkout, gba_patches.PATCHES, gba_patches.ADDED_FILES)
     recompile = build.recompiler(stage_root, key, cmake, generator, emit)
     bios_code = build.generate_bios(recompile, stage_root, bios, project / 'bios', emit)
     rom_file = project / 'rom.gba'
@@ -206,13 +207,40 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                 'unit': 'interpreted ARM and Thumb instructions, counted by the engine'}
     compiler = {'url': ENGINE_URL, 'revision': ENGINE_REV, 'license': LICENSE, 'arm_core_revision': ARM_CORE_REV,
                 'patch_digest': digest, 'patches': notes, 'bios': "generated from the player's own system ROM, private"}
+    exported = artwork = None
+    if player and output is not None:
+        exported, artwork = _export_player(project, stage_root, bios_code, bios, rom_file, rom, title, sha1, emit,
+                                           {'rom_path': rom.path, 'cover': cover, 'boxart_dir': boxart_dir,
+                                            'online_cover': online_cover, 'use_cover': use_cover, 'emit': emit})
     report = report_of(rom, level, rows, validation=validation, coverage=coverage, compiler=compiler,
-                       extra={'history': history, 'backend': 'gbarecomp-probe-host', 'executable': build.HOST_NAME,
-                              'build_directory': str(project),
+                       extra={'history': history, 'backend': 'gbarecomp-player' if exported else 'gbarecomp-probe-host',
+                              'executable': exported.name if exported else build.HOST_NAME,
+                              'build_executable': str(exported) if exported else str(host),
+                              'build_directory': str(project), 'artwork': artwork,
                               'conversion_wall_seconds': round(time.perf_counter() - started, 6),
-                              'player': 'none yet: the probe host has no window and no sound'})
+                              'player': ('host kit: window, controls, menus, sound at 32768 Hz mono, quick state, battery save'
+                                         if exported else 'none: the probe host has no window and no sound')})
     destination = (output.resolve() if output else project) / 'conversion-report.json'
     destination.parent.mkdir(parents=True, exist_ok=True)
     write_report(destination, report)
     emit('Game Boy Advance run checked on tested scenarios; gameplay and hardware fidelity remain unverified.')
-    return host
+    return exported or host
+
+
+def _export_player(project: Path, stage_root: Path, bios_code: Path, bios: Path, rom_file: Path, rom, title: str, sha1: str,
+                   emit, presentation: dict | None = None) -> tuple[Path, dict | None]:
+    """Build the player of this cartridge on the host kit. The publication (compaction, the games folder) is the batch's."""
+    from . import __version__, gba_player
+    from .core import dependencies, executable_name, toolchain
+    from .platforms import sdl_install, sdl_library
+    cmake, generator = toolchain()
+    sdl = sdl_install()
+    if not (sdl / sdl_library()).is_file():
+        _, sdl, cmake, generator = dependencies(emit)
+    file_name = executable_name(title)
+    player = project / 'player'
+    artwork = gba_player.prepare(player, stage_root, project / 'generated', bios_code, rom_file, bios, title=title,
+                       name=Path(file_name).stem, sha1=sha1, sha256=rom.sha256, version=__version__, presentation=presentation)
+    built = gba_player.build(player, cmake, generator, sdl, emit)
+    emit(f'Game Boy Advance player: {file_name}.')
+    return built, artwork

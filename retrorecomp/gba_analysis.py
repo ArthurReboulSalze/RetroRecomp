@@ -27,6 +27,7 @@ IWRAM = (0x03000000, 0x03008000)
 EWRAM = (0x02000000, 0x02040000)
 THUMB = 1
 # A stretch of live bytes this long that occurs once in the cartridge is taken as copied from it.
+MAX_COPIES = 4          # copies of one stretch in a cartridge that are still read as one source (see find_source)
 MATCH_WINDOWS = (48, 96, 192, 384)
 SECTION = ('arm7tdmi', 'gba')
 
@@ -68,31 +69,48 @@ def in_window(address: int, window: tuple[int, int]) -> bool:
     return window[0] <= address < window[1]
 
 
-def find_source(rom: bytes, live: bytes, window_start: int, offset: int):
-    """Where the live bytes at `offset` of a RAM image come from in the cartridge, or None.
-
-    Returns (RAM offset of the stretch, cartridge offset of the stretch, length): the stretch around `offset` where the
-    two are equal. The live bytes must occur exactly once in the cartridge: more than once is ambiguous, none is data
-    written at run time, and both are left to the interpreter (counted)."""
-    found = None
-    for window in MATCH_WINDOWS:
-        needle = live[offset:offset + window]
-        if len(needle) < window or needle.count(0) == len(needle) or len(set(needle)) < 4:
-            continue
-        first = rom.find(needle)
-        if first < 0:
-            return None
-        if rom.find(needle, first + 1) < 0:
-            found = first
-            break
-    if found is None:
-        return None
+def _stretch(rom: bytes, live: bytes, offset: int, found: int) -> tuple[int, int]:
+    """How far the live bytes keep equal to the cartridge's before and after `offset` (the cartridge's at `found`)."""
     back = 0
     while offset - back > 0 and found - back > 0 and live[offset - back - 1] == rom[found - back - 1]:
         back += 1
     ahead = 0
     while offset + ahead < len(live) and found + ahead < len(rom) and live[offset + ahead] == rom[found + ahead]:
         ahead += 1
+    return back, ahead
+
+
+def find_source(rom: bytes, live: bytes, window_start: int, offset: int):
+    """Where the live bytes at `offset` of a RAM image come from in the cartridge, or None.
+
+    Returns (RAM offset of the stretch, cartridge offset of the stretch, length): the stretch around `offset` where the
+    two are equal. The live bytes must occur in the cartridge and nowhere else, with one exception: a stretch that
+    occurs at several places of the cartridge byte for byte (a library routine a cartridge holds twice) is the same
+    code whichever copy the game read, so the longest copy is taken (the lowest address when equal). None is data
+    written at run time and is left to the interpreter (counted), as are bytes that differ between their copies."""
+    found, candidates = None, []
+    for window in MATCH_WINDOWS:
+        needle = live[offset:offset + window]
+        if len(needle) < window or needle.count(0) == len(needle) or len(set(needle)) < 4:
+            continue
+        here = []
+        position = rom.find(needle)
+        while position >= 0 and len(here) <= MAX_COPIES:
+            here.append(position)
+            position = rom.find(needle, position + 1)
+        if not here:                                           # a longer window no longer matches: the shorter ones decide
+            if not candidates:
+                return None
+            break
+        candidates = here
+        if len(candidates) == 1:
+            found = candidates[0]
+            break
+    if found is None:
+        if not 1 < len(candidates) <= MAX_COPIES:
+            return None
+        found = max(candidates, key=lambda position: (sum(_stretch(rom, live, offset, position)), -position))
+    back, ahead = _stretch(rom, live, offset, found)
     start, length = offset - back, back + ahead
     skew = start & 1
     return start + skew, found - back + skew, (length - skew) & ~1

@@ -419,7 +419,7 @@ sources, and `GENESIS_Z80_RECOMP` is never defined. Nothing to patch; `tests/tes
 
 The engine is staged per conversion and patched by anchored text replacements (`retrorecomp/gba_patches.py`, applied by
 `gba_engine.stage`; an anchor that is not found exactly once refuses the pinned engine instead of patching blindly). The pins
-do not move. The 20 patches are general: none names a game. They were found by the gate of 5 November 2026 (public vectors,
+do not move. The 30 patches are general: none names a game. They were found by the gate of 5 November 2026 (public vectors,
 authored hardware tests and four commercial cartridges), kept as small as the defect, and checked after the fact: the eight
 authored ROMs that can pass (ARM, Thumb, BIOS, memory and the four save variants) pass with them, and the call-stack fix
 changes nothing on three of the four cartridges (same return code, coverage, picture hash and cycle count over 3,600 frames).
@@ -433,10 +433,13 @@ changes nothing on three of the four cartridges (same return code, coverage, pic
 | Thumb `CMP PC, Rm` (and the other test operations) is not an exception return: no `SPSR` restore, in generated code and in the interpreter | CPU fidelity | `arm_codegen.cpp`, `interpreter.cpp` | 5 |
 | Interrupt and software-interrupt entry swap the FIQ bank `R8-R12`; a register-offset operand `Rm = R15` reads the pipeline value, as the generated code does | CPU fidelity | `interpreter.cpp` | 3 |
 | Generated call-return stack: the interrupt handler's entry drops the call-return entries it pushed when it finishes (it left them, so a game that takes many interrupts inside deep calls overflowed the 1,024-entry stack and the run aborted) | native code (runtime) | `src/armv4t/runtime_arm.cpp` | 2 |
+| The opcode fetch of an instruction is charged with the wait states of before it ran (a store to WAITCNT changes the next fetches, not its own), as the generated code does | CPU fidelity (timing) | `interpreter.cpp` | 2 |
+| A scripted key word of a headless run is applied inside the VBlank tick, at one machine cycle in both execution modes | harness (the probe host) | `src/runtime/runtime.cpp` | 2 |
+| The player's seam: a driver called by `run_game()` in place of its loop, and the cartridge and system ROM taken from images linked into the executable (`native/gba_driver.h`, added to the staged copy as `src/runtime/rr_driver.h`) | host (the player) | `src/runtime/runtime.cpp`, `src/runtime/asset_picker.cpp` | 6 |
 
 To propose upstream (the maintainer posts): the call-stack fix, the save-bus
 fixes and the VRAM mirror, each as a small pull request to `mstan/gbarecomp` with the authored test ROM that shows it. The
-`arm-recomp-core` fixes go to its own repository (MIT). A bump of the pin re-checks the 20 anchors before anything else.
+`arm-recomp-core` fixes go to its own repository (MIT). A bump of the pin re-checks the 30 anchors before anything else.
 
 ## Deferred
 

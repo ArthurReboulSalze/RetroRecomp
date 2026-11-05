@@ -58,7 +58,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| Game Boy Advance | experimental | `█░░░░░░░░░` 6 % | ✅ 0 · 🟡 2 · ❔ 14 |
+| Game Boy Advance | experimental | `███░░░░░░░` 28 % | ✅ 0 · 🟡 9 · ❔ 7 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -66,18 +66,18 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G2 Report | 🟡 | 🟡 | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G5 Delivered file | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G6 States | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ❔ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G5 Delivered file | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G6 States | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | 🟡 |
 | G8 Liveness | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G9 Route depth | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ |
-| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 | ❔ |
+| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 | 🟡 |
 | G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ | ❔ |
 
@@ -95,24 +95,35 @@ x68 = Sharp X68000, gba = Game Boy Advance.
 |---|---|---|---|---|---|---|---|---|---|---|
 | G1 | P | P | Y | Y | Y | Y | Y | Y | Y | P |
 | G2 | P | P | Y | Y | P | Y | Y | Y | Y | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G5 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
-| G6 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | ? |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G5 | P | P | Y | Y | Y | Y | Y | Y | Y | P |
+| G6 | P | P | Y | Y | Y | Y | Y | Y | Y | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | P |
 | G8 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
 | G9 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | ? |
-| G11 | P | P | P | P | P | P | P | P | P | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | ? |
 | G13 | P | P | Y | Y | P | P | P | P | Y | ? |
-| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P | ? |
+| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P | P |
 | G15 | P | P | Y | P | P | Y | Y | Y | Y | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - | ? |
 
 </details>
 
 ### Caveats
+
+- Game Boy Advance (5 November 2026, tree of `spec/gba-170`): the machine is experimental and developer-only. G3 and G4 are `P`: four
+  cartridges converted, three entirely native and equal to the engine's own interpreter (same picture, same cycles) over 600 and
+  3,600 frames and one with an unexplained 135-pixel title animation difference; the interpreter is the engine's, not an
+  independent oracle, and `release_check.py` was not run. G5 `P`: a compressed copy of the delivered player runs and draws the
+  same picture, without the packed replay of the tools. G6 `P`: a quick state saved and loaded in the same process gives the same
+  picture; no fresh-process check. G7 `P`: the four authored save tests pass and the battery file is written; no game save was
+  loaded back. G11 `P`: the authored hardware tests (jsmolka, MIT) pass with the staged patches; no external emulator. G14 `P`:
+  the owner played the delivered Sonic Advance on 5 November 2026 and wrote that it "works perfectly"; a play test, not a decision
+  to leave the experimental status or to open the machine. G10 stays `?` until the vector tool is in the repository (the stage-1
+  measurement, 93.1 % of the interpreter's single steps, was a development trial).
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags

@@ -76,13 +76,41 @@ hardware fidelity or gameplay validation, and the interpreter is the engine's, n
 | Cartridge (by what it exposed) | Interpreted after the loop | Generated code against the engine's interpreter |
 | --- | --- | --- |
 | An authored ARM test | none | same picture, same cycles on both scenarios |
-| One with a generated call stack overflow before the fix | 3.2 M and 11.5 M instructions (19 entries learned; two IWRAM routines not yet resolved: their bytes were not matched to the cartridge, cause not yet found) | boot same; scripted scenario differs in the last picture |
-| One that reaches menus quickly | none after a third run (21 entries learned) | boot same; the scripted scenario agrees for 250 frames, then the cycle counts drift (65 cycles at frame 300, 33,000 at 1,200) and the pictures differ from about frame 400 |
-| Two large action cartridges | none (the first needed no entry learned, the second 26) | same picture, the cycle counts one apart |
+| One with a generated call stack overflow before the fix (a routine of 864 bytes the cartridge holds twice) | none (19 entries learned, the two copies read as one source) | boot same; the scripted scenario ends in the same scene, with 135 pixels of a title animation different at frame 400 (the CPU state is equal at the 3 M matched cycle stamps compared, so the difference is in a device, not yet found) |
+| One that reaches menus quickly | none (21 entries learned) | same picture, same cycle count (228,998,554) on both scenarios |
+| Two large action cartridges | none (the first needed no entry learned, the second 26) | same picture, same cycles |
 
-The one-cycle offset is how the engine stops a run: the report tolerates two cycles and says so. The drift on two cartridges
-shows that the generated code and the interpreter do not account some cycles the same way (bus waits, a halt, a DMA are the
-candidates); which of the two is right is not known and is for the independent evidence of stage 5, not for a per-game fix here.
+Two causes had made the cycle counts of the generated code and of the interpreter drift on the third cartridge, and both were
+the harness's or the engine's accounting, not the CPU: a store to WAITCNT charged the opcode fetch of that instruction with the
+new wait states in the interpreter and with the old ones in the generated code (the hardware had fetched it already: the
+interpreter follows the generated code now), and a scripted key word was applied between two dispatches, at different cycles in
+the two modes (it is applied inside the VBlank tick now). A one-cycle offset at the end of a run is how the engine stops; the
+report tolerates two cycles and says so.
+
+## The player (stage 4)
+
+The exported game is a Windows executable that links the engine's runtime, the cartridge's generated code, the code generated
+from the player's own BIOS, the host kit's shell and `native/hostkit/adapters/rrhk_gba.c`, and carries the cartridge and the
+system ROM as resources (it stays private to its player). The engine's window loop is not used: `native/gba_driver.h` is the seam
+(a driver installed before `run_game()`, called once the machine is built, instead of the loop), `native/gba_machine.cpp` is the
+driver and the machine's side of the adapter. The machine steps one frame from VBlank to VBlank; the kit does the window, the
+pacing, the controls, the menus, the quick state and the sound.
+
+| | |
+| --- | --- |
+| Picture | 240 x 160, the engine's latched frame (RGB888) turned into the kit's 0xAARRGGBB |
+| Sound | the engine's mono blocks at 32,768 Hz times a power of two, averaged down to 32,768 Hz, into the kit's ring |
+| Controls | ten buttons (A, B, L, R, Select, Start, the pad), one player; the kit's bindings, autofire and controllers |
+| Quick state | F8 / F9, one slot: the engine's own container (magic, version, ROM SHA-1), 0.6 MB, in `datas/states` |
+| Battery | SRAM, Flash or EEPROM, the engine's raw file in `datas/saves`, written at most every two seconds when it changed and at exit |
+| Reset | a power cycle: the machine is built again in the same process (the window is created again) |
+| Honesty | the interpreter's instruction count and the engine's coverage report (with the addresses it ran), in `datas/learning` |
+| Not yet | the RTC and the sensors beyond what the engine does, the box-art icon on a first conversion without the network, Linux, compression of the executable, the gameplay feedback record |
+
+Checked on the first game (a hidden window, no sound device, development measurements): the player's picture at frame 300 is
+pixel for pixel the probe host's; a quick state saved at frame 200 and loaded at frame 260 gives the same picture 60 frames later;
+the machine produces sound (a peak of 19,200 on a 16-bit scale after a few seconds); a power cycle builds the machine again and
+runs on; the pacing is 59.7275 Hz. None of this is a gameplay validation.
 
 ## Paths
 
@@ -99,11 +127,12 @@ share its paths until its engine is stable (it is outside the shared base).
 | --- | --- |
 | Profile (developer-only, experimental) | `retrorecomp/systems/gba.py` |
 | Cartridge reader: header, checksum, hash, save chip by library identification strings, BIOS hash | `retrorecomp/gba.py` |
-| Engine pin, the conversion loop (observe, learn paths, rebuild), the report | `retrorecomp/gba_conversion.py` |
+| Engine pin, the conversion loop (observe, learn paths, rebuild), the player export, the report | `retrorecomp/gba_conversion.py` |
+| The player: the project of the executable, its resources, the kit | `retrorecomp/gba_player.py`, `native/gba_machine.cpp`, `native/gba_machine.h`, `native/gba_driver.h`, `native/hostkit/adapters/rrhk_gba.c` |
 | Checkout of the pinned engine and the staged, patched copy | `retrorecomp/gba_engine.py`, `retrorecomp/gba_patches.py` |
 | Misses to roots and RAM routines, the engine's configuration | `retrorecomp/gba_analysis.py` |
 | Recompiler, BIOS and game generation, the headless probe host, the key scripts | `retrorecomp/gba_build.py` |
-| Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py` |
+| Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py`, `tests/test_gba_player.py` |
 
 The report is written by the common builder (`report_schema.write_report`) with the status read from the profile and the five
 measures unclaimed; interpreted instructions are counted per CPU, in one unit.

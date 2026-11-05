@@ -17,7 +17,7 @@ from typing import Callable, Iterable
 from .conversion_common import replace_counted, write_if_changed
 from .core import ConversionError, run, serialized_setup
 from .gba_conversion import ARM_CORE_REV, ENGINE_REV, ENGINE_URL, NET_REV, RBENGINE_REV
-from .paths import ROOT
+from .paths import ASSETS, ROOT
 
 # The submodules the engine's tree records, and the revision each must be at.
 SUBMODULES = (('external/arm-recomp-core', ARM_CORE_REV), ('external/recomp-net', NET_REV),
@@ -65,9 +65,16 @@ def checkout(emit: Callable[[str], None]) -> Path:
     return engine
 
 
-def patch_digest(patches: Iterable[tuple]) -> str:
-    """Names the patch set: part of the recompiler's and the game's build identity."""
-    return hashlib.sha256(json.dumps([list(patch) for patch in patches], sort_keys=True).encode('utf-8')).hexdigest()
+def added_text(source: str) -> bytes:
+    """Our file `native/<source>` as the staged copy holds it (LF)."""
+    return (ASSETS / 'native' / source).read_bytes().replace(b'\r\n', b'\n')
+
+
+def patch_digest(patches: Iterable[tuple], added: Iterable[tuple] = ()) -> str:
+    """Names the patch set and the files it adds: part of the recompiler's and the game's build identity."""
+    names = [list(patch) for patch in patches]
+    names += [[target, hashlib.sha256(added_text(source)).hexdigest()] for target, source in added]
+    return hashlib.sha256(json.dumps(names, sort_keys=True).encode('utf-8')).hexdigest()
 
 
 def patched_text(file: str, text: str, edits: Iterable[tuple]) -> tuple[str, list[str]]:
@@ -101,8 +108,9 @@ def apply_patches(root: Path, patches: Iterable[tuple]) -> list[str]:
     return notes
 
 
-def stage(project: Path, engine: Path, patches: Iterable[tuple]) -> tuple[Path, list[str]]:
-    """The copy of the engine a conversion builds, patched. Returns (its folder, the notes of the patches applied).
+def stage(project: Path, engine: Path, patches: Iterable[tuple], added: Iterable[tuple] = ()) -> tuple[Path, list[str]]:
+    """The copy of the engine a conversion builds, patched, with our own files added (`added`: target, native source).
+    Returns (its folder, the notes of the patches applied).
 
     A patched file is written once, already patched, so a second call leaves every file as it was."""
     target = project / 'engine'
@@ -121,6 +129,8 @@ def stage(project: Path, engine: Path, patches: Iterable[tuple]) -> tuple[Path, 
             text, applied = patched_text(relative.as_posix(), data.decode('utf-8'), edits[relative.as_posix()])
             data, notes = text.encode('utf-8'), notes + applied
         write_if_changed(target / relative, data)
+    for name, source in added:
+        write_if_changed(target / name, added_text(source))
     missing = sorted(set(edits) - {name for name in edits if (engine / name).is_file()})
     if missing:
         raise ConversionError(f'The pinned Game Boy Advance engine has no {missing[0]} any more.')

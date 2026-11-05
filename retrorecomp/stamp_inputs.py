@@ -691,12 +691,16 @@ INPUTS = _resolve({
     ),
     ('gba',): (
         'licenses/gbarecomp.md',
+        'native/gba_driver.h',
+        'native/gba_machine.cpp',
+        'native/gba_machine.h',
         'retrorecomp.gba',
         'retrorecomp.gba_analysis',
         'retrorecomp.gba_build',
         'retrorecomp.gba_conversion',
         'retrorecomp.gba_engine',
         'retrorecomp.gba_patches',
+        'retrorecomp.gba_player',
     ),
     ('cps1',): (
         'assets/cps1-catalogue.json',

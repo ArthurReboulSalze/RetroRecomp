@@ -12,6 +12,9 @@ from __future__ import annotations
 
 HARDWARE_NOTES = "bus and memory behaviours found with the authored test ROMs (jsmolka gba-tests, MIT)"
 
+# Files of ours the staged copy gains: (path under the engine, name of our file under native/).
+ADDED_FILES: tuple[tuple[str, str], ...] = (('src/runtime/rr_driver.h', 'gba_driver.h'),)
+
 PATCHES: tuple[tuple[str, str, str, str], ...] = (
     # Hardware found with the authored test ROMs (jsmolka gba-tests, MIT): the VRAM mirror, the 8-bit save bus, byte stores to
     # video memory (a development trial: 5 failing authored ROMs passed, the other 6 kept their result).
@@ -99,4 +102,50 @@ PATCHES: tuple[tuple[str, str, str, str], ...] = (
      "    g_irq_iret_depth = saved_iret;  // restore an enclosing IRQ's expectation\n    g_call_return_floor = saved_floor;\n    --g_irq_nest_depth;\n}",
      "    g_irq_iret_depth = saved_iret;  // restore an enclosing IRQ's expectation\n    g_call_return_floor = saved_floor;\n    // The handler has executed its iret: every guest call-return entry it pushed is dead (its host frames are gone).\n    // Left in place they pile up, one or more per interrupt, until the fixed stack overflows at the next IRQ.\n    if (g_call_return_depth > entry_call_depth) {\n        g_call_return_depth = entry_call_depth;\n        clamp_call_return_hostless();\n    }\n    --g_irq_nest_depth;\n}",
      'runtime_irq: drop the call-return entries of a finished handler'),
+    # Timing: the interpreter charged an instruction's own opcode fetch with the wait states in force AFTER it ran, the generated
+    # code with those in force before it; they differ by a cycle on the store that changes WAITCNT, and every later cycle count
+    # (and any code that polls the scanline) moved with it. The generated code follows the hardware (the opcode was already
+    # fetched), so the interpreter is brought to it.
+    ('external/arm-recomp-core/profiles/armv4t_gba/interpreter.cpp',
+     '    uint32_t mem_cycles = 0;\n    uint32_t extra_cycles = 0;\n',
+     '    uint32_t mem_cycles = 0;\n    uint32_t extra_cycles = 0;\n    // The opcode of this instruction was fetched under the wait states in force before it ran: a store to WAITCNT changes\n    // the waits of the fetches after it, not of this one (the generated code reads them before the instruction too).\n    const uint32_t fetch_wait_s = bus.code_wait(i.pc, i.thumb, true);\n    const uint32_t fetch_wait_n = bus.code_wait(i.pc, i.thumb, false);\n',
+     'interpreter: remember the opcode-fetch waits before the instruction runs'),
+    ('external/arm-recomp-core/profiles/armv4t_gba/interpreter.cpp',
+     '        const uint32_t fetch_s = bus.code_wait(i.pc, i.thumb, true);\n        const bool fetch_n = next_fetch_nonsequential(i.op);\n        c += fetch_n ? bus.code_wait(i.pc, i.thumb, false) : fetch_s;\n',
+     '        const bool fetch_n = next_fetch_nonsequential(i.op);\n        c += fetch_n ? fetch_wait_n : fetch_wait_s;\n',
+     'interpreter: charge the opcode fetch with the waits of before the instruction'),
+    # Input: a scripted key word of a headless run reaches the machine at one cycle in every mode (see the comment of the text).
+    ('src/runtime/runtime.cpp',
+     '    if (input_replay_requested) apply_input_replay();\n    if (args.window) pump_host_input();\n',
+     '    if (input_replay_requested) apply_input_replay();\n    if (args.window) pump_host_input();\n    // A scripted key word of a headless run is applied inside the VBlank tick, at the same machine cycle in the generated code\n    // and in the interpreter. Applied between two dispatches it took effect at different cycles in the two (the generated code\n    // runs to the next VBlank unwind, the interpreter checks after every instruction), so a game that polls KEYINPUT around\n    // the VBlank read different keys and the two runs diverged without any difference in the CPU.\n    if (input_replay_requested && !args.window)\n        runtime_set_vblank_input_hook([&]() { apply_input_replay(); });\n',
+     'headless input replay: apply the key word inside the VBlank tick (deterministic in both execution modes)'),
+    ('src/runtime/runtime.cpp',
+     '            if (!(args.window && diag.recording())) apply_input_replay();\n',
+     '            if (args.window && !diag.recording()) apply_input_replay();\n',
+     'headless input replay: no application between dispatches'),
+    # The player: the host kit drives the machine one frame at a time (native/gba_driver.h), with the cartridge and the system ROM linked in.
+    ('src/runtime/runtime.cpp',
+     '#include "runtime.h"\n',
+     '#include "runtime.h"\n#include "rr_driver.h"\n',
+     'runtime.cpp: include the player seam'),
+    ('src/runtime/runtime.cpp',
+     'void runtime_set_vblank_input_hook(std::function<void()>);\n',
+     'void runtime_set_vblank_input_hook(std::function<void()>);\n\nnamespace gbarecomp {\nint (*g_rr_driver)(const RrDriverApi&) = nullptr;\nRrEmbedded g_rr_embedded_bios;\nRrEmbedded g_rr_embedded_rom;\n}  // namespace gbarecomp\n',
+     'runtime.cpp: the player seam (driver and embedded images), null for the probe host'),
+    ('src/runtime/runtime.cpp',
+     '    if (args.tcp_port > 0) {\n        // ── Free-run threading model',
+     '    if (g_rr_driver) {\n        // The Retro-Recomp player: the host kit owns the loop and asks for one frame at a time. The machine is built, the saves\n        // are loaded, the generated code is linked; what the window loop does around it (pacing, presentation, the battery\n        // flush, the exit) is the player\'s, through this table.\n        RrDriverApi api;\n        api.step_frame = [&]() { return step_frame(); };\n        api.set_keyinput = [&](uint16_t keys) { bus.io().set_keyinput(keys); };\n        api.picture = [&](int* width, int* height) -> const uint8_t* {\n            *width = static_cast<int>(ppu.render_width());\n            *height = static_cast<int>(ppu.render_height());\n            return ppu.latched_framebuffer();\n        };\n        api.drain_audio = [&](int16_t* out, size_t capacity, uint32_t* rate) -> size_t {\n            uint32_t block_rate = 0;\n            const size_t count = bus.audio().drain_sample_block(out, capacity, block_rate);\n            *rate = block_rate;\n            return count;\n        };\n        api.save_state = [&](std::vector<uint8_t>& bytes, std::string& error) { return do_savestate_save_bytes(bytes, error); };\n        api.load_state = [&](const std::vector<uint8_t>& bytes, std::string& error) { return do_savestate_load_bytes(bytes, error); };\n        api.flush_save = [&]() { return flush_save() != SaveFlush::Failed; };\n        api.save_dirty = [&]() { return bus.save().dirty(); };\n        api.interpreted_instructions = [&]() { return static_cast<uint64_t>(self_heal_interpreted_insns()); };\n        api.frames = [&]() { return static_cast<uint64_t>(ppu.frame_count()); };\n        const int driver_status = g_rr_driver(api);\n        const bool driver_save_ok = flush_save() != SaveFlush::Failed;\n        write_session_diagnostics(opts, "exit", ppu.frame_count());\n        emit_exit_diagnostics();\n        gbarecomp::overlay_loader_shutdown();\n        runtime_shutdown();\n        return (driver_status == 0 && driver_save_ok) ? 0 : 1;\n    }\n    if (args.tcp_port > 0) {\n        // ── Free-run threading model',
+     'runtime.cpp: hand the built machine to the player instead of running a loop'),
+    ('src/runtime/asset_picker.cpp',
+     '#include "../gba/sha1.h"\n',
+     '#include "../gba/sha1.h"\n#include "rr_driver.h"\n#include <cstring>\n',
+     'asset_picker.cpp: include the player seam'),
+    ('src/runtime/asset_picker.cpp',
+     'AssetResult load_and_validate(const std::string& path,\n                              const AssetSpec& spec) {\n    AssetResult r;\n    r.path = path;\n    std::string err;\n    r.bytes = read_file(path, &err);\n',
+     'const RrEmbedded& embedded_for(const AssetSpec& spec) {\n    static const RrEmbedded none;\n    if (spec.cache_filename && std::strcmp(spec.cache_filename, "bios.cfg") == 0) return g_rr_embedded_bios;\n    if (spec.cache_filename && std::strcmp(spec.cache_filename, "rom.cfg") == 0) return g_rr_embedded_rom;\n    return none;\n}\n\nAssetResult load_and_validate(const std::string& path,\n                              const AssetSpec& spec) {\n    AssetResult r;\n    r.path = path;\n    std::string err;\n    if (embedded_for(spec).data) {            // the player carries its own copy: same checks, no file\n        const RrEmbedded& image = embedded_for(spec);\n        r.bytes.assign(image.data, image.data + image.size);\n    } else {\n        r.bytes = read_file(path, &err);\n    }\n',
+     'asset_picker.cpp: an image linked into the player stands in for the file'),
+    ('src/runtime/asset_picker.cpp',
+     '    const std::string cache = cache_path(exe_dir, spec.cache_filename);\n',
+     '    const std::string cache = cache_path(exe_dir, spec.cache_filename);\n    if (embedded_for(spec).data) return load_and_validate("(embedded)", spec);\n',
+     'asset_picker.cpp: take the linked image before any path, cache or picker'),
 )

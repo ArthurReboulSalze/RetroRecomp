@@ -20,7 +20,8 @@ retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.
 retrorecomp/systems/x68000.py docs/X68000.md
 retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
 retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
-tests/test_gba_profile.py tests/test_gba_conversion.py licenses/gbarecomp.md
+retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
+tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
