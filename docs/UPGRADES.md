@@ -241,20 +241,37 @@ disk changes of Metal Sight. The sharing record of Twins made by this tree has t
 (the computer's part) is compiled by every conversion and exercised by the SDL harnesses of `tests/x68000_controls_harness.c` and `x68000_menu_harness.c` (virtual controllers, the guest keyboard, the mouse game,
 autofire, the menus and the help page), which pass with one change: the state of the windowed player is `ca` (the computer's) instead of `xa`. What a real window does with a real mouse and a real second
 floppy is still the owner's next play to confirm.
-## Next release: the archive limits move onto the profiles (branch `spec/pce-170`)
+## PC Engine: an experimental machine (1.6.9)
 
-Visible when the PC Engine branch is merged. The table of the cartridge names a ZIP may hold and their size limits
-(`systems.MAX_ARCHIVED_ROM_BYTES`) was a literal in `retrorecomp/systems/__init__.py`, so a new machine that reads ZIPs
-edited a module every console's game stamp hashes. Each machine now declares its own limits on its profile
-(`SystemProfile.archived_rom_limits`), and the table is built from the registered profiles plus the generic `.bin` and
-`.rom` (`systems.GENERIC_ARCHIVED_ROM_BYTES`). The values of the nine consoles are unchanged
-(`tests/test_registration_surface.py` compares them with the former table); `.pce` is added by the PC Engine profile.
+The PC Engine / TurboGrafx-16 is added as an **experimental** machine ([PC_ENGINE.md](PC_ENGINE.md)): the converter reads HuCard
+dumps (`.pce`, or a ZIP holding one), builds a standalone Windows game on the engine
+[rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp) pinned at `81b5c231e452`, and reports native and interpreted
+instructions per route. The machine is listed when the installation carries its native files (`PC_ENGINE.available()`); there is
+no developer switch any more.
 
-- **Exports of the previous release:** the game stamp of every console moves once (the module `systems` and the profile
-  modules of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo are edited), so their exports are
-  reconverted, as for any game-stamp change; no `LEGACY_GAME_STAMPS` entry is owed for it. No host or build stamp moves.
-- **Machines added later** (the Game Boy Advance first) declare their limits on their own profile: the stamps of the
-  others no longer move for it.
+**The archive limits move onto the profiles.** The table of the cartridge names a ZIP may hold and their size limits
+(`systems.MAX_ARCHIVED_ROM_BYTES`) was a literal in `retrorecomp/systems/__init__.py`, so a new machine that reads ZIPs edited a
+module every console's game stamp hashes. Each machine now declares its own limits on its profile
+(`SystemProfile.archived_rom_limits`), and the table is built from the registered profiles plus the generic `.bin` and `.rom`
+(`systems.GENERIC_ARCHIVED_ROM_BYTES`). The values of the nine consoles are unchanged (`tests/test_registration_surface.py`
+compares them with the former table); `.pce` is added by the PC Engine profile. Machines added later (the Game Boy Advance first)
+declare their limits on their own profile, so the stamps of the others no longer move for it.
+
+**What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
+nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
+of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
+quick-state key moves.** The PC Engine's own stamps are new (game `34b609edb4f8`, host `5e41158c895c`, build `66d912662e5c`, first twelve characters). An
+export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
+
+**Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
+CMake, start choice), the registry test (`tests/test_machine_registry.py` lists the machine in every registry it needs and declines
+`random_routes` and `memory_view` on the record), the language test (the PC Engine strings in eight languages, in the font
+subsets), and `tools/gui_smoke.py` (the options page of the new machine). Games, ROMs and the engine are not in the repository.
+
+**What a PC Engine export is.** Two players, quick states (F8/F9), the host kit's window and controls
+([CONTROLS.md](CONTROLS.md#pc-engine)); the report keeps native code, CPU fidelity, hardware fidelity, gameplay and physical latency
+apart. The first panel (ten cards) and its limits (the engine's 65,536 instruction identities per module, SuperGrafx refused) are in
+[PC_ENGINE.md](PC_ENGINE.md#the-first-panel-5-november-2026).
 
 ## Exports of 1.6.7 in 1.6.8
 
