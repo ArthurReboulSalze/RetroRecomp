@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.8-d4a737" alt="Release version 1.6.8">
+  <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
   <img src="https://img.shields.io/badge/console_profiles-11-626262" alt="Eleven console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
