@@ -1,18 +1,19 @@
 # Capcom CPS-2
 
-**Experimental** machine, in development (5 November 2026): the Capcom CPS-2 arcade board (1993 to 2004), a 16 MHz 68000 with an
-encrypted program, the CPS graphics chips with an object chip of its own, and the QSound sound board of the
-[CPS-1.5](CPS1.md#cps-15-qsound-boards). This page says what exists and what has been measured. The profile `cps2` is registered
-(developer installations only, like the X68000 was): it reuses the CPS-1 pipeline, and the first conversions are being run.
+**Experimental** machine, open to players in 1.6.9 on the owner's decision of 5 November 2026 (« OK pour CPS2 en expérimental sur la 1.6.9 »):
+the Capcom CPS-2 arcade board (1993 to 2004), a 16 MHz 68000 with an encrypted program, the CPS graphics chips with an object chip of its own,
+and the QSound sound board of the [CPS-1.5](CPS1.md#cps-15-qsound-boards). This page says what exists and what has been measured. The profile
+`cps2` reuses the CPS-1 pipeline; it is not in the shared base of paths (nothing is shared, nothing is imported), and it will leave the
+experimental status only on the owner's decision.
 
-Sources and licences of the board model: [cps1-machine.md](../licenses/cps1-machine.md) (MAME's CPS-2 driver and decryption,
-BSD-3-Clause). Until the conversion exists, the dated measurements are on this page.
+Sources and licences of the board model, and where the keys come from: [cps1-machine.md](../licenses/cps1-machine.md) (MAME's CPS-2 driver
+and decryption, BSD-3-Clause; the keys are files of your own romset, never supplied). The dated measurements are on this page.
 
 ## At a glance
 
 | | |
 |---|---|
-| Status | Experimental, in development: the board and its evidence exist as a development build; the profile is registered and hidden outside developer installations; no export is delivered yet |
+| Status | Experimental (1.6.9): eight sets of the panel convert through the converter; the evidence is below, and what is not measured is named in the limits |
 | Scope of the first release | The standard A-board with the player's own key: 258 sets of MAME's CPS-2 driver (Capcom and licensed games); 236 of them are complete in the owner's FBNeo romsets by file names. Out: bootlegs (47), dead boards (2), network adapter (7), spinner and paddle games (10, later), `gigaman2` |
 | Keys | A set's 20-byte decryption key is a file of the player's own romset (`ssf2.key`). The converter reads it from the archive; it never supplies, embeds or downloads one, and refuses a romset that has none |
 | Sound | The QSound chip, with the player's own `dl-1425.bin` (the same option as the CPS-1.5); the DSP16 is not executed: a high-level model, as MAME's by default |

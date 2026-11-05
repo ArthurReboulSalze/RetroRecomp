@@ -344,7 +344,7 @@ class ProfileContractTests(unittest.TestCase):
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
         self.assertEqual(tuple(p.id for p in registry.convertible_profiles()[-1:]),
-                         ('cps2',) if get_profile('cps2').available() else ('x68',) if get_profile('x68').available() else ('cps1',))
+                         ('x68',) if get_profile('x68').available() else ('cps2',))
 
 
 class ConvertedOptionsTests(unittest.TestCase):

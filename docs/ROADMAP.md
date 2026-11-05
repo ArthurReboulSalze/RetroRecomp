@@ -84,6 +84,14 @@ Next: the Linux witness on more games. Then the DSP-2 and DSP-4 chips (Dungeon M
 Next: the Linux witness on more games. Fight Fever needs another dump. Other BIOS
 revisions, boards and peripherals keep their own scope.
 
+### Capcom CPS-2
+
+Experimental since 1.6.9 (the owner's decision of 5 November 2026): its own profile built on the CPS-1 and CPS-1.5 modules, with the 68000's
+encrypted program decrypted by the key file of the player's own romset (keys are never shipped), the CPS-2 object chip and raster effects,
+and QSound sound. First scope: the 236 standard boards; the spinner and paddle games later. Next: more of the 236 sets converted and played,
+the Linux witness, the sharing of paths, the sets whose files differ from the catalogue's (`1944`, `19xx`, `progear`, `avsp`), and the
+decision to leave the experimental status.
+
 ### Capcom CPS-1 and CPS-1.5
 
 Next: the Linux witness of the QSound games. Then the rotary-dial boards (Forgotten Worlds, Lost Worlds), done together with the
@@ -104,9 +112,6 @@ planned. Hard-disk images stay out of scope. The screen contrast of the system p
 Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
 on the owner's decision after the qualification list.
 
-- **Capcom CPS-2.** Its own experimental profile built on the CPS-1 and CPS-1.5 modules: the 68000's encrypted program,
-  decrypted with the key file of the player's own romset (keys are never shipped), the CPS-2 sprite chip and raster
-  effects, QSound sound. First scope: the standard boards; spinner and paddle games later.
 - **PC Engine / TurboGrafx-16.** HuCards first, on a pinned open recompiler we contribute to upstream; SuperGrafx and
   CD-ROM² later, with the player's own System Card.
 - **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the

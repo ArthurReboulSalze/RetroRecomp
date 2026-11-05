@@ -99,6 +99,18 @@ The choice is kept per game; conversions always check the default settings.
 to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
 three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
 
+### Capcom CPS-2 (experimental)
+
+The controls are the CPS-1's: six buttons, a coin and a Start for each of up to four players, with the keys of players 3 and 4 above. The board
+has no DIP switches. A game keeps its settings (the number of players, coinage, difficulty, language) in its EEPROM, and changes them in its
+own test menu, which the board's service switch opens. The DIP switches page of a CPS-2 game therefore has one setting, **Service switch (the
+game's test menu)**: set it to *On* and restart with Shift+F1; the test menu opens, with player 1's Up/Down and button 1 to choose and
+Left/Right to change; choose *Save and exit*, then set the switch back to *Off* and restart. The settings are kept in the game's save file.
+
+A game that has never been started begins with the number of players its EEPROM gives it: four in Dungeons & Dragons: Tower of Doom, three in
+Armored Warriors, but two in Dungeons & Dragons: Shadow over Mystara and Battle Circuit, whose players 3 and 4 do nothing until the test
+menu (Configuration, System, *Chute type* in Shadow over Mystara) is set to more players.
+
 ## Speed and sound
 
 Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are

@@ -31,8 +31,7 @@ class Cps2Profile(SystemProfile):
     title_from_romset = True
     # Not converted or played on Linux yet.
     linux = 'pending'
-    # Visible only in a developer installation until the owner decides otherwise (as the X68000 was).
-    developer_only = True
+    # Open to players as an experimental machine in 1.6.9 (the owner's decision of 5 November 2026); supported in a later release.
     # The paths schema lists it after the X68000; its sources are the decrypted program (the image the code is translated from) and the
     # sound program. Nothing is shared with other players yet: the machine is not in the shared base.
     path_spec = PathSpec(order=9, sections=(('m68k', 'cps2'), ('z80', 'cps2-sound')),
@@ -54,10 +53,6 @@ class Cps2Profile(SystemProfile):
     stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build', 'musashi_fixes', 'm68000_state_rules')
     # A romset ZIP whose program ROMs are in the CPS-2 catalogue (by CRC, never by name), or any ZIP when chosen.
     identify = Identify(path_order=25)
-
-    def available(self) -> bool:
-        from ..paths import ASSETS
-        return (Path(ASSETS) / 'assets' / 'cps2-catalogue.json').is_file()
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix != '.zip' or selected_system not in (None, self.id):

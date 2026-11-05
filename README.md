@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 (experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -76,7 +76,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
-| [Capcom CPS-2](docs/CPS2.md) | experimental | `█░░░░░░░░░` 7 % |
+| [Capcom CPS-2](docs/CPS2.md) | experimental | `███████░░░` 67 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
@@ -94,7 +94,6 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 
 | Machine | Stage |
 | --- | --- |
-| Capcom CPS-2 | experimental profile, hidden outside developer installations (row above) |
 | PC Engine / TurboGrafx-16 | in development, HuCards first |
 | Game Boy Advance | in development |
 | Commodore Amiga 500, then Amiga 1200 | study |
