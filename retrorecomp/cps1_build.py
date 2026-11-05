@@ -23,7 +23,7 @@ YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
 NATIVE_FILES = ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h',
                 'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h',
-                'cps1_qsound.c', 'cps1_qsound.h')
+                'cps1_qsound.c', 'cps1_qsound.h', 'cps1_cps2_board.inc')
 AOT_FILES = ('cps1_native.c', 'cps1_native.h', 'cps1_z80_native.h', 'm68000_state_helpers.h')
 MUSASHI_FILES = ('m68k.h', 'm68kcpu.c', 'm68kcpu.h', 'm68kops.c', 'm68kops.h', 'm68kfpu.c', 'm68kmmu.h')
 YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp')
@@ -212,7 +212,8 @@ def prepare_native(project: Path, board: Path, game: dict, observations: dict | 
     from .neogeo_z80 import adapt_source
     analysis = generate(project, board, game, adapt_source((geolith / 'src/z80/z80.c').read_text(encoding='utf-8')),
                         observations)
-    _write(project / 'CMakeLists.txt', CMAKE_HEAD + ('set(RR_CPS2 ON)\n' if (board / 'maincpu-op.bin').is_file() else '') + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
+    from .cps1_board import board_kind
+    _write(project / 'CMakeLists.txt', CMAKE_HEAD + ('set(RR_CPS2 ON)\n' if board_kind(board) == 'cps2' else '') + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
 cps1_library(cps1_native cps1_native.c cps1_arithmetic.c ${CPS1_STEPS})
 target_compile_definitions(cps1_native PUBLIC CPS1_NATIVE=1)
 add_executable(cps1_native_probe cps1_probe.c)
@@ -333,7 +334,7 @@ def state_config(game_set, title: str) -> str:
     from .core import executable_name, module_fingerprint
     abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
-                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h'):
+                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h', 'cps1_cps2_board.inc'):
         abi.update((ASSETS / 'native' / name).read_bytes())
     for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())

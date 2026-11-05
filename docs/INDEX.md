@@ -3,8 +3,8 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Nine machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1 and Sharp X68000.
+never hidden. Ten machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+Geo, Capcom CPS-1, Sharp X68000 and, experimental, Capcom CPS-2.
 
 **Where to start**
 

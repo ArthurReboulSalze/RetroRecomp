@@ -695,6 +695,7 @@ INPUTS = _resolve({
         'assets/cps1-catalogue.json',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
+        'native/cps1_cps2_board.inc',
         'native/cps1_eeprom.c',
         'native/cps1_eeprom.h',
         'native/cps1_host.c',

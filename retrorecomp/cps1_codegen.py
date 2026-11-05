@@ -102,7 +102,8 @@ def _semantics(project: Path):
     helper = helper[:helper.rfind('/* =====')]
     timing = source[source.index('static int interp_popcount16('):source.index('static void interp_account_cycles(')]
     timing = timing[:timing.rfind('/* The emit_cycle_accounting')]
-    if (project / 'board' / 'maincpu-op.bin').is_file():
+    from .cps1_board import board_kind
+    if board_kind(project / 'board') == 'cps2':
         helper = adapt_decrypted_reads(helper)
     write_changed(project / 'cps1_step_semantics.h',
         '/* Qualified MC68000 helpers; see embedded GenesisRecomp notices. */\n'
@@ -353,7 +354,8 @@ static const RrCps1Z80Step *{PREFIX}_z80_ram_lookup(uint16_t pc) {{
 def generate(project: Path, board: Path, game: dict, z80_source: str, observations: dict | None = None) -> dict:
     observations = observations or {}
     # a CPS-2 board has two views of its program: the translated code is the one the instruction fetches see (cps2_crypt.py)
-    image = board / 'maincpu-op.bin' if (board / 'maincpu-op.bin').is_file() else board / 'maincpu.bin'
+    from .cps1_board import board_kind
+    image = board / ('maincpu-op.bin' if board_kind(board) == 'cps2' else 'maincpu.bin')
     program = image.read_bytes()[:program_size(game)]
     audio = (board / 'audiocpu.bin').read_bytes()
     opcodes = (board / 'audiocpu-op.bin').read_bytes() if (board / 'audiocpu-op.bin').is_file() else None

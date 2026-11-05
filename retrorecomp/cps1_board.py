@@ -90,6 +90,20 @@ def assemble(game: dict, files: dict) -> dict:
     return regions
 
 
+def board_kind(board: Path) -> str:
+    """'cps2', 'qsound' (the CPS-1.5) or 'cps1': what a board folder describes, read from its `board.txt` (the descriptor of the catalogue's `machine`).
+
+    The one answer to "is this the CPS-2 board" for everything that works from the folder (the code generator, the build); a region file left
+    in a reused folder decides nothing."""
+    descriptor_file = Path(board) / 'board.txt'
+    if not descriptor_file.is_file():
+        return 'cps1'
+    for line in descriptor_file.read_text(encoding='ascii').splitlines():
+        if line.startswith('machine '):
+            return line.split()[1]
+    return 'cps1'
+
+
 def descriptor(game: dict) -> str:
     """Plain key/value text read by the C runtime (no JSON parser there)."""
     data = cps1_catalogue.catalogue()
@@ -124,14 +138,14 @@ def descriptor(game: dict) -> str:
 def write_board(directory: Path, game_set, game: dict | None = None, dsp_rom: bytes | None = None) -> dict:
     """The board folder of a set. A QSound board also gets `dsp_rom`, the player's own dump of the chip's internal ROM."""
     game = game or (cps2_catalogue.by_set() if getattr(game_set, 'system_id', 'cps1') == 'cps2' else cps1_catalogue.by_set())[game_set.set_name]
-    regions = assemble(game, member_bytes(game_set))
+    files = member_bytes(game_set)
+    regions = assemble(game, files)
     if dsp_rom is not None:
         regions['qsound_dsp'] = dsp_rom
     if game['machine'] == 'cps2':
         # The 68000 sees its program twice: instruction fetches (opcodes, extension words, PC-relative operands) through the
         # decrypted image, everything else through the stored one (retrorecomp/cps2_crypt.py). The key is the player's own file.
         from . import cps2_catalogue, cps2_crypt
-        files = member_bytes(game_set)
         regions['maincpu-op'] = cps2_crypt.decrypt(bytes(regions['maincpu']), files[cps2_catalogue.key_file(game)['name']])
     keys = cps1_kabuki.keys_for(game)
     if keys:
@@ -142,10 +156,12 @@ def write_board(directory: Path, game_set, game: dict | None = None, dsp_rom: by
     directory.mkdir(parents=True, exist_ok=True)
     written = {}
     for tag in RUNTIME_REGIONS:
+        path = directory / (tag + '.bin')
         if tag in regions:
-            path = directory / (tag + '.bin')
             path.write_bytes(bytes(regions[tag]))
             written[tag] = path
+        elif path.is_file():
+            path.unlink()               # a region of an earlier board in a reused folder (the decrypted program of a CPS-2) is not this board's
     (directory / 'board.txt').write_text(descriptor(game), encoding='ascii', newline='\n')
     written['board'] = directory / 'board.txt'
     return written

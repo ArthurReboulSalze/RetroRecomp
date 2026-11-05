@@ -1,8 +1,8 @@
 {
  "revision": 13,
  "sources": {
-  "retrorecomp/cps1_build.py": "9ca367e8b308b04e005ae9bc36ad02bf9dca963f1e31491f5ba0f1e22957aa36",
-  "retrorecomp/cps1_codegen.py": "1fa8a803b3a1a9c281d14a0484921bddee4835b65e0e55c28d90225d0c954dfd",
+  "retrorecomp/cps1_build.py": "0ba0a431ceae334933139f7d2d71b2215589569fbefbce9cbdffece2cf6f9750",
+  "retrorecomp/cps1_codegen.py": "bfacdf2644da9d03ca918bd571b695d3426c62532e3247d92e2eada72a01f385",
   "retrorecomp/cps1_kabuki.py": "94487779c79c9513773f1ebe4b2f876abefeacc1891b2a1496a616212f54d8e5",
   "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
   "retrorecomp/m68000_state_rules.py": "d948cc0c91bae785821b9aedc702b52df3f03880127573fa6d798ea8ec31f26b",

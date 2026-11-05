@@ -59,8 +59,9 @@ class CapcomSet:
     def metadata(self):
         return {'console': self.system_id, 'title': self.title, 'set': self.set_name,
                 'parent': self.parent, 'sha256': self.sha256,
+                # the key file of a CPS-2 set is read to decrypt the program and never appears in a report (not even its name or hashes)
                 'members': [{k: v for k, v in item.items() if k not in ('archive', 'archive_path')}
-                            for item in self.members],
+                            for item in self.members if item.get('region') != 'key'],
                 'support': self.support, 'reason': self.reason, 'rotation': self.rotation,
                 'board': self.board, 'mapper': self.mapper, 'alternatives': list(self.alternatives), 'tier': self.tier}
 

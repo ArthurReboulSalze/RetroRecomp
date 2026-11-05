@@ -127,7 +127,8 @@ A lot of evidence and documentation: the way games are converted does not change
 
 The CPS-2 (profile `cps2`, [CPS2.md](CPS2.md)) is open to players in 1.6.9 as an **experimental** machine, on the owner's decision of 5 November 2026. It is
 new: no export of it exists before this release, so nothing is upgraded, and it takes no path from the shared base and gives none (it is not in the
-base). Its games ask for the key file of your own romset and for your own QSound DSP ROM; a set without its key is refused by name.
+base). Its games ask for the key file of your own romset and for your own QSound DSP ROM; a set without its key is refused by name. The key never appears
+in a report.
 
 What the change moves, computed with `compilation_inputs.role_stamps` on `main` (fb984e7) and on the branch `spec/cps2-170` (game, host, build, first 12
 hexadecimal digits of each stamp):
@@ -141,24 +142,29 @@ hexadecimal digits of each stamp):
 | md | dd2a92249c7c → dd2a92249c7c (same) | 8fd26081db07 → 9717d27a6f58 | same |
 | snes | 01dee3a63706 → 01dee3a63706 (same) | 4ba2df72b1cb → 53b167647e5b | same |
 | ng | e577a1ef4123 → e577a1ef4123 (same) | e2589892f5d8 → 3943a838d9ce | same |
-| cps1 | 9beae602c913 → cf23da0c1bc0 (moves) | 98d1c885071c → 9e772d75d0df | same |
+| cps1 | 9beae602c913 → 2063dbf59c68 (moves) | 98d1c885071c → 9e772d75d0df | same |
 | x68 | 1181dc548b13 → 1181dc548b13 (same) | c0a085c83403 → 7cc6da88f2a7 | same |
-| cps2 (new) | 5865144476cd | 72b0b61ab40d | 81a51ad49349 |
+| cps2 (new) | 4e8d3e280080 | 72b0b61ab40d | 81a51ad49349 |
 
-- **Only the CPS-1 family's game stamp moves**, and it covers the CPS-1.5: the CPS-2 is built from the same board model, so `native/cps1_machine.c`,
-  `cps1_eeprom.*`, `cps1_main.c`, `cps1_probe.c`, `cps1_m68kconf.h` and the modules `cps1_build`, `cps1_codegen`, `cps1_board`, `cps1_conversion`,
-  `cps1_knowledge`, `cps1`, `cps1_catalogue` and the new `capcom_catalogue` and `capcom_sets` are inputs of both. An export of 1.6.8 of a CPS-1 or
-  CPS-1.5 game is rebuilt once on its next conversion. `random_routes.py` is untouched: the CPS-2 plays the CPS-1's routes, so no other console's game stamp moves.
+- **Only the CPS-1 family's game stamp moves**, and it covers the CPS-1.5: the CPS-2 is built from the same board model, so `native/cps1_machine.c`, the new
+  `native/cps1_cps2_board.inc` (the CPS-2 board, included by the machine file), `cps1_eeprom.*`, `cps1_main.c`, `cps1_probe.c`, `cps1_m68kconf.h` and the modules
+  `cps1_build`, `cps1_codegen`, `cps1_board`, `cps1_conversion`, `cps1_knowledge`, `cps1`, `cps1_catalogue` and the new `capcom_catalogue` and `capcom_sets`
+  are inputs of both. An export of 1.6.8 of a CPS-1 or CPS-1.5 game is rebuilt once on its next conversion. `random_routes.py` is untouched: the CPS-2 plays
+  the CPS-1's routes, so no other console's game stamp moves.
 - **The host stamp of the nine consoles moves** because `THIRD_PARTY_NOTICES.md` now names MAME's CPS-2 driver and decryption and the provenance of the
   keys (and the licence page `licenses/cps1-machine.md` for the two Capcom consoles); the host stamp was already moving in 1.6.9 with the kit. No build stamp moves.
-- **Quick states of CPS-1 and CPS-1.5 exports of 1.6.8 are refused cleanly** (the state key hashes the machine's source; it is `dbc04189ac81…` on `main` and
-  `7bc6a0d52def…` on the branch); the cartridge saves (the 93C46 EEPROM files, named by the romset) are kept and read as before.
+- **Quick states of CPS-1 and CPS-1.5 exports of 1.6.8 are refused cleanly** (the state key hashes the machine's source); the cartridge saves (the 93C46 EEPROM
+  files, named by the romset) are kept and read as before.
+- **A hot path of the CPS-1 changed, its cost is not measured.** Reading and writing the 68000's bus now tests the board kind first (`if (M.board.cps2)` in
+  `read_word` and `write_word`, a branch per access), and drawing a tile pixel is guarded by `if (tile_priority)` (the CPS-2 writes a priority plane the
+  CPS-1 does not need). Both are meant to cost nothing noticeable and the pictures and sounds are identical, but the frame cost of the CPS-1 and CPS-1.5 is
+  to be measured with the 1.6.9 comparison of frame costs, on a quiet PC.
 - **Nothing about the behaviour of a CPS-1 or CPS-1.5 game changes.** The final A/B comparison (`tools/ab_conversion.py`, one conversion of `1941` and one of `wof` with
   `main` and with the branch, each in its own empty library): the generated 68000 and Z80 steps, the board folder and every piece of evidence (CPU, RAM,
-  picture and sound hashes, traces, states, the compressed copy) are identical. The files that differ are the eight changed native sources
-  (`CMakeLists.txt`, `cps1_eeprom.c` and `.h`, `cps1_machine.c` and `.h`, `cps1_main.c`, `cps1_probe.c`, `m68kconf.h`, in which the CPS-2 code is
-  compiled out for a CPS-1 board), `notices.txt` (the licence page), and in the report the host stamp of the receipt, the engine identifier and the digests of the
-  record that carry it (`knowledge.cores`, `record_sha256`), and the compression ratio of `1941` (0.2351 to 0.2354, the executable being slightly larger).
+  picture and sound hashes, traces, states, the compressed copy) are identical. The files that differ are the changed native sources (`CMakeLists.txt`,
+  `cps1_eeprom.c` and `.h`, `cps1_machine.c` and `.h`, `cps1_main.c`, `cps1_probe.c`, `m68kconf.h`, and the new `cps1_cps2_board.inc`, which a CPS-1
+  board never uses), `notices.txt` (the licence page), and in the report the host stamp of the receipt, the engine identifier and the digests of the record
+  that carry it (`knowledge.cores`, `record_sha256`), and the compression ratio (the executable being slightly larger).
 - **The first conversions of the CPS-2** (eight sets of the panel, 100 to 145 seconds each, executables of 17.8 to 29.8 MiB): 0 interpreted 68000 and Z80
   instructions on both routes, the compressed copy equal to the reference, a quick state continued in a fresh process; the owner played the eight
   ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)).

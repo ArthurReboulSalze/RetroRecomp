@@ -172,10 +172,14 @@ class BoardTests(unittest.TestCase):
             cps1_codegen._semantics(project)
             plain = (project / 'cps1_step_semantics.h').read_text(encoding='utf-8')
             (project / 'board').mkdir()
-            (project / 'board' / 'maincpu-op.bin').write_bytes(b'00')
+            (project / 'board' / 'maincpu-op.bin').write_bytes(b'00')       # a stale file in a reused folder decides nothing
+            cps1_codegen._semantics(project)
+            stale = (project / 'cps1_step_semantics.h').read_text(encoding='utf-8')
+            (project / 'board' / 'board.txt').write_text('cps1-board 1\nmachine cps2\n', encoding='ascii')
             cps1_codegen._semantics(project)
             decrypted = (project / 'cps1_step_semantics.h').read_text(encoding='utf-8')
         self.assertNotIn('mem_read_pc', plain)
+        self.assertNotIn('mem_read_pc', stale)
         self.assertEqual(decrypted.count('return mem_read_pc(sz,'), 2)       # (d16,PC) and (d8,PC,Xn) operands
         self.assertEqual(decrypted.count('movem_pc ? mem_read_pc('), 2)       # MOVEM from a PC-relative address, long and word
         self.assertIn('m68k_read_pcrelative_32', decrypted)

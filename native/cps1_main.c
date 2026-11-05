@@ -301,6 +301,7 @@ static int execute(int argc, char **argv)
     free(text);
     if (!parsed) { fprintf(stderr, "%s\n", error); free(content); SDL_Quit(); return 3; }
     if (!board.qsound && !regions[4].data) { free(content); SDL_Quit(); return 3; }   /* the OKI samples */
+    if (board.cps2 && !regions[10].data) { free(content); SDL_Quit(); return 3; }       /* the CPS-2's decrypted program: without it the encrypted one would run as code */
     cps1_regions rom = {regions[1].data, regions[1].size, regions[2].data, regions[2].size, regions[3].data,
                         regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size,
                         regions[6].data, regions[6].size, regions[7].data, regions[7].size, regions[8].data, regions[8].size,

@@ -222,6 +222,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     if not game_set.supported:
         raise ConversionError(f'{label} set {game_set.set_name} is not supported yet: {game_set.reason}')
     game = cps1_catalogue.by_set()[game_set.set_name]
+    if (game['machine'] == 'cps2') != cps2:
+        raise ConversionError(f'{label} set {game_set.set_name} is a {game["machine"]} board.')
     # A QSound board needs the chip's own ROM, which only the player has: refused with its reason when it is not there.
     from . import cps1_qsound
     dsp_rom = None
@@ -424,7 +426,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
                         'validation routes drive players 1 and 2',
-            'dip_switches': 'catalogue defaults during validation; adjustable in play (F2)',
+            'dip_switches': ("the board has none: its settings are in the game's test menu, opened by the service switch of the F2 switch page" if cps2
+                             else 'catalogue defaults during validation; adjustable in play (F2)'),
             'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
     emit(f'{label}: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
