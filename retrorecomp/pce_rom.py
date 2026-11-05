@@ -95,14 +95,27 @@ def board_for(rom_bytes: int) -> str:
     return 'sf2' if rom_bytes == SF2_BYTES else 'base'
 
 
-def read_hucard(path) -> HuCard:
+def file_bytes(path) -> bytes:
+    """The HuCard file's bytes: a loose .pce, or the one .pce of a ZIP (the common reader, systems.archive_rom: a
+    ZIP with several cartridges or none is refused there; a SuperGrafx .sgx is not a cartridge it reads)."""
     path = Path(path).resolve(strict=True)
-    if path.suffix.casefold() != '.pce':
-        raise PcEngineRomError('The PC Engine profile reads .pce HuCard images.')
-    with path.open('rb') as source:
-        data = source.read(MAX_FILE_BYTES + 1)
+    suffix = path.suffix.casefold()
+    if suffix == '.zip':
+        from .systems import archive_rom
+        suffix, data = archive_rom(path)
+    elif suffix == '.pce':
+        with path.open('rb') as source:
+            data = source.read(MAX_FILE_BYTES + 1)
+    if suffix != '.pce':
+        raise PcEngineRomError('The PC Engine profile reads .pce HuCard images, loose or alone in a ZIP.')
     if len(data) > MAX_FILE_BYTES:
         raise PcEngineRomError('The HuCard image exceeds 2.5 MiB (plus a 512-byte header).')
+    return data
+
+
+def read_hucard(path) -> HuCard:
+    path = Path(path).resolve(strict=True)
+    data = file_bytes(path)
     rom, header, encoding = decode(data)
     return HuCard(path, hashlib.sha256(data).hexdigest(), len(data), hashlib.sha256(rom).hexdigest(), len(rom),
                   header, encoding, board_for(len(rom)), _vector(rom), path.stem)

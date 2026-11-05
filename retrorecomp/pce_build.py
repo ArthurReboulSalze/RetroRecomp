@@ -179,7 +179,8 @@ def prepare_game(project: Path, card, *, title: str, module: Path | None = None,
     notices = [(ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES if (ASSETS / name).is_file()]
     _write(project / 'notices.txt', '\n\n'.join(notices))
     rom = project / 'hucard.pce'
-    data = Path(card.path).read_bytes()
+    from .pce_rom import file_bytes
+    data = file_bytes(card.path)
     if hashlib.sha256(data).hexdigest() != card.sha256:
         raise PceBuildError('The HuCard changed while it was being converted.')
     rom_changed = not rom.is_file() or rom.read_bytes() != data

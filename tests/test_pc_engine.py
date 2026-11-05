@@ -4,17 +4,23 @@ Every HuCard image is built here from synthetic bytes (a reset vector and zeros)
 ROM is read and nothing is written elsewhere. Nothing here reaches the user's preferences.
 """
 import hashlib
+import json
+import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from retrorecomp import path_profiles, pce_conversion, report_schema, upstreams
+from retrorecomp import (compilation_inputs, hostkit, path_profiles, pce_build, pce_conversion, report_schema,
+                         upstreams)
 from retrorecomp.core import ConversionError
 from retrorecomp.pce_rom import (BANK, HEADER, SF2_BYTES, HuCard, PcEngineRomError, board_for, decode,
                                  read_hucard)
 from retrorecomp.systems import (ALL_PROFILES, PROFILES, ROM_CANDIDATE_EXTENSIONS, UnsupportedConsoleError,
                                  get_profile, profile_for_path)
 from retrorecomp.systems.registry import convertible_profiles
+from retrorecomp.systems.pc_engine import PC_ENGINE
 
 KIB = 1024
 MIB = 1024 * 1024
@@ -362,6 +368,427 @@ class PathsAndUpstreamTests(unittest.TestCase):
         self.assertRegex(pin, r'^[0-9a-f]{40}$')
         self.assertEqual(pin, upstreams.pin_of(declared[0]))
         self.assertEqual(pce_conversion.ENGINE_REPO, declared[0].repo)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The conversion layer, without compiling, running a game, the network or a ROM.
+
+IDENTITY = hashlib.sha256(b'synthetic identity one').hexdigest()
+OTHER_IDENTITY = hashlib.sha256(b'synthetic identity two').hexdigest()
+LEVEL_ROUTES = {'quick': ['play'], 'standard': ['attract', 'play'],
+                'extended': ['attract', 'play', 'long-1'], 'thorough': ['attract', 'play', 'long-1', 'long-2']}
+
+
+def parse_script(text):
+    """The rules of load_script in native/pce_main.c: 'frame p1 p2' (frame decimal, masks hex), frames never going
+    back, masks at most 0xfff, at most 8192 lines; '#' and blank lines are skipped. Returns [(frame, p1, p2)]."""
+    rows, last = [], 0
+    for line in text.splitlines(True):
+        if line[0] in '#\r\n':
+            continue
+        assert len(rows) < 8192, 'more than 8192 lines'
+        fields = line.split()
+        assert len(fields) in (3, 5), f'bad field count: {line!r}'
+        frame, masks = int(fields[0]), [int(field, 16) for field in fields[1:]]
+        assert frame >= last, f'frame goes back: {line!r}'
+        assert all(mask <= 0xFFF for mask in masks), f'mask over 0xfff: {line!r}'
+        last = frame
+        rows.append((frame, *masks[:2]))
+    assert rows, 'an empty script'
+    return rows
+
+
+class RouteTests(unittest.TestCase):
+    def test_the_routes_of_each_level(self):
+        for level, names in LEVEL_ROUTES.items():
+            with self.subTest(level):
+                found = pce_conversion.routes(IDENTITY, frames=3600, level=level)
+                self.assertEqual(names, [name for name, _, _ in found])
+
+    def test_the_frame_counts_of_the_routes(self):
+        found = {name: count for name, count, _ in pce_conversion.routes(IDENTITY, frames=3600, level='thorough')}
+        self.assertEqual({'attract': 3600, 'play': 3600, 'long-1': 18000, 'long-2': 18000}, found)
+        self.assertEqual(18000, pce_conversion.LONG_FRAMES)
+        # A short request still plays at least 1800 frames; the attract route keeps the requested count.
+        found = {name: count for name, count, _ in pce_conversion.routes(IDENTITY, frames=600, level='standard')}
+        self.assertEqual({'attract': 600, 'play': 1800}, found)
+
+    def test_every_script_follows_the_rules_of_the_native_reader(self):
+        for frames in (600, 3600, 10000):
+            for name, count, text in pce_conversion.routes(IDENTITY, frames=frames, level='thorough'):
+                with self.subTest(name=name, frames=frames):
+                    rows = parse_script(text)
+                    self.assertLessEqual(len(rows), 8192)
+                    self.assertTrue(text.endswith('\n'))
+                    self.assertTrue(all(row[0] < count for row in rows) or name == 'attract')
+                    self.assertEqual(rows, sorted(rows, key=lambda row: row[0]))
+
+    def test_attract_presses_nothing(self):
+        found = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='standard')}
+        self.assertEqual([(0, 0, 0)], parse_script(found['attract']))
+
+    def test_the_scripts_are_deterministic_and_depend_on_the_identity(self):
+        first = pce_conversion.routes(IDENTITY, frames=3600, level='thorough')
+        self.assertEqual(first, pce_conversion.routes(IDENTITY, frames=3600, level='thorough'))
+        other = pce_conversion.routes(OTHER_IDENTITY, frames=3600, level='thorough')
+        self.assertEqual([name for name, _, _ in first], [name for name, _, _ in other])
+        for (name, _, mine), (_, _, theirs) in zip(first, other):
+            if name != 'attract':
+                with self.subTest(name):
+                    self.assertNotEqual(mine, theirs)
+
+    def test_the_long_routes_differ_from_each_other_and_from_play(self):
+        texts = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='thorough')}
+        self.assertEqual(3, len({texts['play'], texts['long-1'], texts['long-2']}))
+
+    def test_run_is_pressed_at_240_480_and_720_of_play(self):
+        for frames in (600, 3600):
+            plan = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=frames, level='standard')}
+            with self.subTest(frames=frames):
+                pressed = [row[0] for row in parse_script(plan['play']) if row[1] & pce_conversion.RUN]
+                self.assertEqual([240, 480, 720], pressed)
+                rows = {row[0]: row for row in parse_script(plan['play'])}
+                for at in (240, 480, 720):
+                    self.assertEqual((at, pce_conversion.RUN, 0), rows[at])
+                    self.assertEqual((at + 6, 0, 0), rows[at + 6])      # released a few frames later
+
+    def test_no_route_pushes_run_after_frame_900(self):
+        for name, _, text in pce_conversion.routes(IDENTITY, frames=10000, level='thorough'):
+            with self.subTest(name):
+                late = [row for row in parse_script(text) if row[0] > 900 and (row[1] | row[2]) & pce_conversion.RUN]
+                self.assertEqual([], late)
+
+    def test_the_second_pad_stays_idle(self):
+        for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='thorough'):
+            with self.subTest(name):
+                self.assertEqual({0}, {row[2] for row in parse_script(text)})
+
+    def test_the_script_helper_refuses_what_the_native_reader_refuses(self):
+        for bad in ('10 000 000\n5 000 000\n', '0 1000 000\n', '0 000\n', '0 zzz 000\n'):
+            with self.subTest(bad):
+                with self.assertRaises((AssertionError, ValueError)):
+                    parse_script(bad)
+
+
+def write_trace(path, rows):
+    header = 'frame,cpu,ram,image,pcm,samples\n'
+    path.write_text(header + ''.join(','.join(str(field) for field in row) + '\n' for row in rows), encoding='ascii')
+
+
+class LivenessTests(TempFiles):
+    SAMPLES = 735
+
+    def silent(self):
+        from retrorecomp.delivery_evidence import silent_hash
+        return silent_hash(self.SAMPLES)
+
+    def trace(self, pictures, loud):
+        """One row per frame from 1: the pictures named, audible where the frame number is in `loud`."""
+        silent = self.silent()
+        rows = [(frame, f'{frame:016x}', f'{frame + 1000:016x}', picture,
+                 f'{0xDEADBEEF + frame:016x}' if frame in loud else silent, self.SAMPLES)
+                for frame, picture in enumerate(pictures, 1)]
+        path = self.root / 'route.csv'
+        write_trace(path, rows)
+        return path
+
+    def test_the_rows_carry_the_picture_and_the_audible_flag(self):
+        path = self.trace(['0000000000000001', '0000000000000001', '0000000000000002'], loud={2})
+        rows = list(pce_conversion.trace_rows(path))
+        self.assertEqual([1, 2, 3], [row.frame for row in rows])
+        self.assertEqual(['0000000000000001', '0000000000000001', '0000000000000002'], [row.picture for row in rows])
+        self.assertEqual([False, True, False], [row.audible for row in rows])
+        self.assertEqual(f'{0xDEADBEEF + 2:016x}', rows[1].sound)
+        self.assertEqual(self.silent(), rows[0].sound)
+
+    def test_lines_that_are_not_frames_are_skipped(self):
+        silent = self.silent()
+        path = self.root / 'odd.csv'
+        path.write_text('frame,cpu,ram,image,pcm,samples\n'
+                        f'1,a,b,c,{silent},{self.SAMPLES}\n'
+                        '# a comment\n\n'
+                        '2,a,b,c\n'                                  # too few fields
+                        f'x,a,b,c,{silent},{self.SAMPLES}\n'         # not a frame number
+                        f'3,a,b,d,{silent},{self.SAMPLES}\n', encoding='ascii')
+        self.assertEqual([1, 3], [row.frame for row in pce_conversion.trace_rows(path)])
+
+    def test_the_liveness_of_a_moving_and_audible_route(self):
+        pictures = ['p1', 'p1', 'p2', 'p2', 'p3', 'p3', 'p3']
+        record = pce_conversion.route_liveness(self.trace(pictures, loud={2, 6}))
+        self.assertEqual({'frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame',
+                          'audible_frames', 'last_audible_frame'}, set(record))
+        self.assertEqual(7, record['frames'])
+        self.assertEqual(3, record['distinct_pictures'])
+        self.assertEqual(2, record['picture_changes'])
+        self.assertEqual(5, record['last_picture_change_frame'])
+        self.assertEqual(2, record['audible_frames'])
+        self.assertEqual(6, record['last_audible_frame'])
+
+    def test_a_picture_that_comes_back_is_a_change_but_not_a_new_picture(self):
+        record = pce_conversion.route_liveness(self.trace(['a', 'b', 'a', 'b'], loud=set()))
+        self.assertEqual((2, 3, 4), (record['distinct_pictures'], record['picture_changes'],
+                                     record['last_picture_change_frame']))
+
+    def test_a_silent_frozen_route(self):
+        from retrorecomp.delivery_evidence import frozen_route
+        record = pce_conversion.route_liveness(self.trace(['same'] * 5, loud=set()))
+        self.assertEqual((5, 1, 0, 0), (record['frames'], record['distinct_pictures'], record['picture_changes'],
+                                        record['last_picture_change_frame']))
+        self.assertEqual((0, 0), (record['audible_frames'], record['last_audible_frame']))   # silent, not unknown
+        self.assertTrue(frozen_route(record))
+
+    def test_a_moving_route_is_not_frozen(self):
+        from retrorecomp.delivery_evidence import frozen_route
+        self.assertFalse(frozen_route(pce_conversion.route_liveness(self.trace(['a', 'b'], loud=set()))))
+
+    def test_the_silence_hash_depends_on_the_sample_count(self):
+        from retrorecomp.delivery_evidence import silent_hash
+        silent = silent_hash(self.SAMPLES)
+        path = self.root / 'counts.csv'
+        write_trace(path, [(1, 'c', 'r', 'p', silent, self.SAMPLES), (2, 'c', 'r', 'p', silent, self.SAMPLES + 2)])
+        self.assertEqual([False, True], [row.audible for row in pce_conversion.trace_rows(path)])
+
+
+class Sentinel(Exception):
+    """What a patched build step raises: the test proves it is the first thing to run."""
+
+
+class ClosedMachineTests(TempFiles):
+    def setUp(self):
+        super().setUp()
+        patches = [mock.patch.dict(os.environ), mock.patch('retrorecomp.feedback.ingest', return_value={}),
+                   mock.patch('retrorecomp.paths.ROOT', self.root / 'repo')]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        os.environ.pop('RETRO_RECOMP_PCE', None)
+        self.path = self.write(card(16))
+
+    def steps(self, **errors):
+        """ensure_engine, prepare_game and build_game replaced by mocks that raise their `errors` (default: Sentinel)."""
+        mocks = {}
+        for name in ('ensure_engine', 'prepare_game', 'build_game'):
+            patch = mock.patch.object(pce_build, name, side_effect=errors.get(name, Sentinel(name)))
+            mocks[name] = patch.start()
+            self.addCleanup(patch.stop)
+        return mocks
+
+    def open_machine(self):
+        os.environ['RETRO_RECOMP_PCE'] = '1'          # restored by the patch.dict of setUp
+
+    def convert(self, **options):
+        return pce_conversion.convert(self.path, output=self.root / 'out', emit=lambda *_: None, **options)
+
+    def test_the_machine_is_closed_without_the_variable(self):
+        self.assertFalse(PC_ENGINE.available())
+        for value in ('0', '', 'true', 'yes'):
+            with self.subTest(value), mock.patch.dict(os.environ, {'RETRO_RECOMP_PCE': value}):
+                self.assertFalse(PC_ENGINE.available())
+
+    def test_the_variable_opens_the_machine(self):
+        with mock.patch.dict(os.environ, {'RETRO_RECOMP_PCE': '1'}):
+            self.assertTrue(PC_ENGINE.available())
+            self.assertTrue(get_profile('pce').available())
+        self.assertFalse(PC_ENGINE.available())
+
+    def test_a_closed_machine_refuses_before_any_build(self):
+        mocks = self.steps()
+        with self.assertRaises(ConversionError) as caught:
+            self.convert()
+        self.assertEqual(pce_conversion.NOT_YET, str(caught.exception))
+        for name, step in mocks.items():
+            with self.subTest(name):
+                step.assert_not_called()
+        self.assertFalse((self.root / 'out').exists())              # nothing was written either
+
+    def test_a_closed_machine_still_reads_the_card_first(self):
+        mocks = self.steps()
+        with self.assertRaises(PcEngineRomError):
+            pce_conversion.convert(self.write(bytes(100), 'junk.pce'), output=self.root / 'out')
+        mocks['ensure_engine'].assert_not_called()
+
+    def test_an_open_machine_reaches_the_engine_first(self):
+        self.open_machine()
+        mocks = self.steps()
+        with self.assertRaises(Sentinel) as caught:
+            self.convert()
+        self.assertEqual('ensure_engine', str(caught.exception))
+        mocks['ensure_engine'].assert_called_once()
+        mocks['prepare_game'].assert_not_called()
+        mocks['build_game'].assert_not_called()
+
+    def test_an_open_machine_then_prepares_the_game(self):
+        self.open_machine()
+        mocks = self.steps(ensure_engine=None)
+        with self.assertRaises(Sentinel) as caught:
+            self.convert()
+        self.assertEqual('prepare_game', str(caught.exception))
+        mocks['prepare_game'].assert_called_once()
+        mocks['build_game'].assert_not_called()
+        self.assertIsNone(mocks['prepare_game'].call_args.kwargs['module'])   # the first pass is all interpreted
+
+    def test_a_pal_override_is_refused_before_any_step(self):
+        self.open_machine()
+        mocks = self.steps()
+        for override in ('pal', 'PAL', 'secam'):
+            with self.subTest(override), self.assertRaises(ConversionError):
+                self.convert(standard_override=override)
+        for step in mocks.values():
+            step.assert_not_called()
+
+    def test_ntsc_and_auto_overrides_are_accepted(self):
+        self.open_machine()
+        self.steps()
+        for override in (None, 'ntsc', 'auto'):
+            with self.subTest(override), self.assertRaises(Sentinel):
+                self.convert(standard_override=override)
+
+    def test_a_cartridge_profile_is_refused_before_any_step(self):
+        self.open_machine()
+        mocks = self.steps()
+        with self.assertRaises(ConversionError) as caught:
+            self.convert(profile=self.root / 'game.toml')
+        self.assertIn('TOML', str(caught.exception))
+        for step in mocks.values():
+            step.assert_not_called()
+
+    def test_a_bad_title_or_scan_level_is_refused_before_any_step(self):
+        self.open_machine()
+        mocks = self.steps()
+        for options in ({'title': 'bad\ntitle'}, {'title': 'x' * 161}, {'scan_level': 'impossible'}):
+            with self.subTest(options), self.assertRaises(ConversionError):
+                self.convert(**options)
+        for step in mocks.values():
+            step.assert_not_called()
+
+
+class StateConfigTests(TempFiles):
+    def config(self, title='Synthetic Game'):
+        return pce_build.state_config(read_hucard(self.write(card(16))), title)
+
+    def value(self, text, key):
+        return re.search(rf'^#define {key} (.+)$', text, re.M).group(1)
+
+    def test_the_defines(self):
+        found = read_hucard(self.write(card(16)))
+        text = pce_build.state_config(found, 'Synthetic Game')
+        self.assertTrue(text.startswith('#pragma once\n'))
+        self.assertTrue(text.endswith('\n'))
+        self.assertEqual('5', self.value(text, 'RR16_STATE_SYSTEM'))
+        self.assertEqual('0', self.value(text, 'RR16_STATE_PAL'))
+        self.assertEqual(json.dumps(found.sha256), self.value(text, 'RR16_STATE_ROM'))
+        self.assertEqual(found.sha256, json.loads(self.value(text, 'RR16_STATE_ROM')))
+        abi = json.loads(self.value(text, 'RR16_STATE_ABI'))
+        self.assertRegex(abi, r'^[0-9a-f]{64}$')
+        name = json.loads(self.value(text, 'RR16_STATE_NAME'))
+        self.assertTrue(name and name.isprintable())
+        self.assertIn('Synthetic', name)
+
+    def test_the_system_number_is_the_modules(self):
+        self.assertEqual(5, pce_build.STATE_SYSTEM)
+
+    def test_the_abi_follows_the_engine_revision(self):
+        before = self.value(self.config(), 'RR16_STATE_ABI')
+        self.assertEqual(before, self.value(self.config(), 'RR16_STATE_ABI'))
+        with mock.patch.object(pce_conversion, 'ENGINE_REV', '0' * 40):
+            after = self.value(self.config(), 'RR16_STATE_ABI')
+        self.assertNotEqual(before, after)
+        self.assertRegex(json.loads(after), r'^[0-9a-f]{64}$')
+        self.assertEqual(before, self.value(self.config(), 'RR16_STATE_ABI'))     # the patch is gone
+
+    def test_the_rom_follows_the_card_and_the_name_the_title(self):
+        one = pce_build.state_config(read_hucard(self.write(card(16), 'a.pce')), 'First')
+        two = pce_build.state_config(read_hucard(self.write(card(8), 'b.pce')), 'Second')
+        self.assertNotEqual(self.value(one, 'RR16_STATE_ROM'), self.value(two, 'RR16_STATE_ROM'))
+        self.assertNotEqual(self.value(one, 'RR16_STATE_NAME'), self.value(two, 'RR16_STATE_NAME'))
+        self.assertEqual(self.value(one, 'RR16_STATE_ABI'), self.value(two, 'RR16_STATE_ABI'))
+
+    def test_no_other_machine_uses_number_5(self):
+        sources = Path(pce_build.__file__).parent
+        numbers = {}
+        for path in sorted(sources.rglob('*.py')):
+            for line in path.read_text(encoding='utf-8').splitlines():
+                if 'RR16_STATE_SYSTEM' not in line:
+                    continue
+                found = re.findall(r'RR16_STATE_SYSTEM (\d+)', line)
+                if '{STATE_SYSTEM}' in line:   # pce_build.py names its constant
+                    found = [pce_build.STATE_SYSTEM]
+                elif not found:                # console16_state.py picks it from the machine: '1' if md else '2'
+                    found = re.findall(r"'(\d+)'", line)
+                numbers.setdefault(path.name, set()).update(int(number) for number in found)
+        self.assertEqual({'console16_state.py': {1, 2}, 'neogeo_build.py': {3}, 'cps1_build.py': {4},
+                          'pce_build.py': {5}}, numbers)
+        everything = [number for found in numbers.values() for number in sorted(found)]
+        self.assertEqual(len(everything), len(set(everything)))     # one number per machine
+
+
+class GameCmakeTests(TempFiles):
+    def test_without_a_module_the_engine_provides_none(self):
+        text = pce_build.game_cmake(None, '1.2.3')
+        engine = pce_build.checkout_path().as_posix()
+        self.assertIn(f'pce_add_native_module(PCE_MODULE MODULE "{engine}/runtime/src/no_module.cpp")', text)
+        self.assertNotIn('MANIFEST', text)
+
+    def test_with_a_module_folder_the_module_and_its_manifest_are_named(self):
+        module = self.root / 'module-1'
+        text = pce_build.game_cmake(module, '1.2.3')
+        self.assertIn(f'MODULE "{(module / "module.cpp").as_posix()}" MANIFEST "{(module / "module.json").as_posix()}"',
+                      text)
+        self.assertNotIn('no_module.cpp', text)
+
+    def test_what_every_game_project_has(self):
+        for module in (None, self.root / 'module-1'):
+            text = pce_build.game_cmake(module, '1.2.3')
+            engine = pce_build.checkout_path().as_posix()
+            with self.subTest(module=module):
+                self.assertIn(f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)', text)
+                self.assertIn('target_link_libraries(game PRIVATE pce-runtime SDL2::SDL2-static)', text)
+                self.assertIn('$<TARGET_OBJECTS:${PCE_MODULE}>', text)
+                self.assertIn('RR_RECOMP_VERSION="1.2.3"', text)
+                self.assertTrue(text.endswith('\n'))
+                self.assertLess(text.index('add_subdirectory'), text.index('pce_add_native_module'))
+                self.assertLess(text.index('pce_add_native_module'), text.index('add_executable(game'))
+
+    def test_the_sources_of_the_game_executable_are_in_one_statement(self):
+        text = pce_build.game_cmake(None, '1.0')
+        statement = text[text.index('add_executable(game'):]
+        statement = statement[:statement.index(')\n') + 1]
+        for name in ('pce_main.c', 'pce_machine.cpp', 'console16_state.c', *hostkit.sources('pce'),
+                     '$<TARGET_OBJECTS:${PCE_MODULE}>'):
+            self.assertIn(name, statement)
+
+    def test_the_kit_has_the_shell_and_the_adapter(self):
+        kit = hostkit.sources('pce')
+        self.assertIn('hostkit/adapters/rrhk_pce.c', kit)
+        self.assertTrue(all(name.endswith('.c') for name in kit))
+        self.assertEqual(len(kit), len(set(kit)))
+
+
+class ProfileWiringTests(unittest.TestCase):
+    def test_the_quick_state_family_and_the_adapter(self):
+        profile = get_profile('pce')
+        self.assertEqual('rr16', profile.quick_state_family)
+        self.assertEqual('adapters/rrhk_pce.c', profile.host_adapter)
+        self.assertEqual('adapters/rrhk_pce.c', hostkit.ADAPTERS['pce'])
+        from retrorecomp.paths import ASSETS
+        self.assertTrue((ASSETS / 'native/hostkit' / profile.host_adapter).is_file())
+
+    def test_the_compilation_inputs_of_the_machine(self):
+        names = compilation_inputs.manifest_names('pce')
+        for name in ('native/pce_main.c', 'native/pce_machine.cpp', 'native/pce_machine.h', 'retrorecomp.pce_build',
+                     'retrorecomp.pce_conversion', 'retrorecomp.pce_rom'):
+            with self.subTest(name):
+                self.assertIn(name, names)
+        # Native files are listed by their path below the repository root: the adapter below native/hostkit.
+        self.assertIn('native/hostkit/adapters/rrhk_pce.c', names)
+        self.assertIn(f'native/hostkit/{hostkit.ADAPTERS["pce"]}', names)
+
+    def test_every_listed_native_input_exists(self):
+        from retrorecomp.paths import ASSETS
+        for name in compilation_inputs.manifest_names('pce'):
+            if not name.startswith('retrorecomp'):
+                with self.subTest(name):
+                    self.assertTrue((ASSETS / name).is_file())
 
 
 if __name__ == '__main__':

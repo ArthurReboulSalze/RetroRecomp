@@ -30,6 +30,8 @@ MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
                           '.sfc': 8 * 1024 * 1024 + 512,
                           '.smc': 8 * 1024 * 1024 + 512,
                           '.fig': 8 * 1024 * 1024 + 512,
+                          # PC Engine HuCards: up to the 2.5 MiB Street Fighter II board, plus a copier header.
+                          '.pce': 2621440 + 512,
                           '.bin': 8 * 1024 * 1024,
                           '.rom': 8 * 1024 * 1024}
 
