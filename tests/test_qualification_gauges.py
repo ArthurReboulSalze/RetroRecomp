@@ -100,7 +100,8 @@ class ReadmeTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             line = next(row for row in block.splitlines() if row.startswith('| ' + profile.name + ' |'))
             self.assertIn(' ' + profile.status + ' ', line)
-        self.assertIn('| experimental |', block)
+        # No machine of the list is experimental since 1.6.9: the status column reads the profile, so a new experimental machine shows up here.
+        self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in ALL_PROFILES))
 
     def test_the_link_of_the_readme_reaches_a_heading_of_the_page(self):
         page = _page()
