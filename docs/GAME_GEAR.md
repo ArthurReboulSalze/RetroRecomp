@@ -41,7 +41,7 @@ The project's own checks do not establish hardware fidelity, complete gameplay o
 | **Sprite flicker reduction (F5)** | `native/hostkit/adapters/rrhk_sms.c` | Both Sega consoles since 1.6.5, off by default, saved in `[GameGear.Video] reduce_sprite_flicker`, F2 row, help line and pause page. Before 1.6.5 the option was never offered here: F5 answered "Config unavailable" (since 0.25.0, not a 1.6.3 regression) |
 
 The wider internal raster is never revealed in this version, and games are not patched. That avoids incomplete graphics
-at the borders and keeps the result faithful to the handheld's visible area. See the
+at the borders and shows the handheld's visible area of 160 × 144 pixels. See the
 [Game Gear VDP technical reference](https://www.smspower.org/Development/GGVDP) and
 [Sega's hardware documentation](https://www.smspower.org/Development/GGOfficialDocs).
 
@@ -78,7 +78,7 @@ moves the game stamps of both consoles.
 - **Display.** The 160 × 144 picture, whole-pixel scaling, F3 filters, F4 display modes as on the other consoles
   ([CONTROLS.md](CONTROLS.md), [VIDEO.md](VIDEO.md)). Audio: [AUDIO.md](AUDIO.md).
 - **F5** (sprite flicker reduction), new in 1.6.5 and off by default: it draws the sprites beyond the eighth of a line (the Game Gear
-  VDP has the same limit) and stabilises confirmed rapid sprite-list reversals, exactly as on the
+  VDP has the same limit) and stabilises confirmed rapid sprite-list reversals, in the same way as on the
   [Master System](MASTER_SYSTEM.md#controls-and-options); collision and overflow flags keep using the original eight. It changes
   the presentation only, never the ROM. Exports of 1.6.4 and before answered "Config unavailable" and show no F2 row until rebuilt.
 
@@ -90,11 +90,11 @@ export of 1.6.3 and the reverse. Cartridge saves (battery RAM) are not validated
 
 ## Qualification
 
-Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, G5 of 1 November 2026):
+Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, the 1.6.9 evidence of 5 November 2026):
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P | P | Y | Y | P | P | - | P | P | Y | P | P | P | ? | P | Y |
+| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | ? | Y | Y |
 
 **The 18 October 2026 qualification, included in 1.1.3,** adds twelve exact cartridges: Sonic, Sonic 2, Tails Adventures, GG
 Aleste, Gunstar Heroes, Dynamite Headdy, OutRun, Super Columns, Vampire / Master of Darkness, Wonder Boy: The Dragon's Trap,
@@ -112,13 +112,32 @@ reference CPU on those routes, and the Z80 vectors of the shared engine), **hard
 the VDP model is shared by both paths), **gameplay validation** (two scripted routes, the "play" route also presses Start) and
 **physical latency** (not measured).
 
+### The sixteen gates, with their evidence (1.6.9)
+
+The letters are in [QUALIFICATION.md](QUALIFICATION.md). The Game Gear shares the engine, the runtime, the adapter and the checks of the
+Master System; the table of [MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-sixteen-gates-with-their-evidence-169) holds the evidence of every gate, and this
+one says what the Game Gear's six cartridges of the 1.6.9 panel add to it. The panel, with the reason for each choice, is in
+[MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-panel-of-twelve-games-169-gates-g2-g5-g6-g8-g9).
+
+| Gate | The Game Gear's evidence | What it leaves out |
+|---|---|---|
+| G1 Status | `supported` here, in the Master System page, the README table and COMPATIBILITY.md; the same perimeter (below) | |
+| G2 Report | the reports of the six Game Gear conversions of the panel carry the mapper, the 160 x 144 video chip and the sound chip with stereo ports as devices | the same limits as the Master System's |
+| G3 Native code | no interpreter cycle on the 18 final routes of the six cartridges (banked engine) | tested routes only |
+| G5 Delivered file | the compressed copy matches the fresh reference on every route of the six (banked); the functions engine replays it against its own final pass on three of them (Sonic The Hedgehog, Factory Panic, Sonic Spinball) and does not export the other three (Streets of Rage and Gunstar Heroes differ from the interpreter, Shining Force II does not build) | |
+| G6 States | the fresh-process check passes on the six harness builds | the picture of Shining Force II never moves, so its comparison shows nothing about a restore |
+| G8 and G9 | Sonic The Hedgehog, Factory Panic, Streets of Rage, Gunstar Heroes and Sonic Spinball reach a screen of the game; Shining Force II does not start (cartridge RAM, not modelled); Gunstar Heroes shows the game's own error screen on its pseudo-random route (unexplained) | pad routes only, no full game; looked at by the specialist agent |
+| G11, G12, G13 | partial: no external comparison of the video chip or the PSG; the Game Gear panel is the twelve cartridges of 18 October and these six; no Debian 13 witness of the panel yet | |
+| G15 Honesty | the audit of 5 November 2026 (see the Master System table) corrected two sentences of this page: "faithful to the handheld's visible area" now says what is shown, and "exactly as" now says "in the same way" | |
+
 ## Known limits
 
 These targeted automated checks do not establish complete game compatibility or hardware fidelity. Native code coverage, CPU
 agreement, hardware fidelity, gameplay and physical latency remain separate measures.
 
 - Off-screen pixels of the VDP raster are not shown and games are not patched.
-- The Codemasters mapper, cartridge saves and any PAL Game Gear timing are not validated.
+- The Codemasters mapper, cartridge RAM saves, the FM unit and the Pause/NMI are not modelled, so neither validated nor supported (Shining Force II, which needs
+  the cartridge RAM, shows a plain screen on every route of the 1.6.9 panel); PAL Game Gear timing is not validated.
 - The scanline model, the unvalidated pixel-clock effects and the functions-engine limits are those of the
   [Master System](MASTER_SYSTEM.md#known-limits).
 

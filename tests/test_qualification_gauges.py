@@ -110,7 +110,9 @@ class ReadmeTests(unittest.TestCase):
     def test_the_check_command_succeeds_and_fails_on_a_drifted_readme(self):
         self.assertEqual(qg.main(['--check']), 0)
         readme = qg.README.read_text(encoding='utf-8')
-        self.assertFalse(qg.readme_in_agreement(readme.replace('63 %', '99 %', 1), _page()))
+        import re
+        first = re.search(r'(\d+) %', readme)[1]       # the first console's bar, whatever its value is now
+        self.assertFalse(qg.readme_in_agreement(readme.replace(f'{first} %', '99 %' if first != '99' else '98 %', 1), _page()))
 
 
 if __name__ == '__main__':

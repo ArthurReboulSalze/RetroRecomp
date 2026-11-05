@@ -79,6 +79,22 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: the report names the devices and the routes that stall, and the evidence of the panel (1.6.9)
+
+A lot of evidence and documentation: the way games are converted does not change.
+
+- **The report** (`retrorecomp/sega_evidence.py`, called by `systems/master_system.py` after the conversion for both engines) gains `hardware_devices`
+  (the mapper, with a Codemasters header named and marked `not_modelled`; the video chip; the sound chip: none runs a program, none has a counter,
+  all say `hardware_fidelity_validated: false`), `route_warnings` (the routes whose picture last changed in the first tenth of their frames), and for
+  the banked engine the native instruction count and the halted steps of each final route (`final_checks[]`). The schema reader (`report_schema.py`) shows
+  them under `devices`, `cpus[].scenarios[]` and `honesty.route_warnings`, adds the kind `video_unit`, and reads the reference comparison of the "functions"
+  engine (which stores no validation record) as agreement on the demo route only.
+- **Tools**: `tools/sega_campaign.py` (the panel of twelve, two conversions at a time, replay of the delivered file and the sheets of captures); the
+  fresh-process check of 1.6.6 (`tools/sega_states_selftest.py`) run on the twelve harness builds.
+- **What moves.** The game stamps of the Master System and of the Game Gear: `sega_evidence` and the two profile modules are inputs of their groups, and an
+  export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
+  stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section
