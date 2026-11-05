@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from retrorecomp import amiga_codegen
+from retrorecomp.systems import get_profile
 
 
 def table(path, override=None):
@@ -55,7 +56,8 @@ class AmigaCodegenTest(unittest.TestCase):
         self.assertIn('return s->run;', amiga_codegen.index_tail([]))
 
     def test_the_declaration_the_profile_will_carry(self):
-        observed = amiga_codegen.OBSERVED
+        observed = get_profile('amiga').observed_code
+        self.assertEqual((observed.source_extension, observed.index_extension), (amiga_codegen.SOURCE_EXTENSION, amiga_codegen.INDEX_EXTENSION))
         self.assertEqual((observed.prefix, observed.step_type, observed.source_extension, observed.index_extension),
                          ('rr_amiga_', 'RrAmigaStep', '.cpp', '.c'))
         observed.check_sample(0x1ffffe, '4e75')

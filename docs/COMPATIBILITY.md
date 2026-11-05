@@ -199,6 +199,12 @@ Each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency. The owner's decision of 5 November 2026 and his play
 trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance).
 
+The **Commodore Amiga** profile is experimental and for developer installations only, not in a release: it converts Amiga 500 games installed for
+WHDLoad (an `.lha` with one `.Slave`) that need no Kickstart, within [its documented scope](AMIGA.md). It has no list of compatible games: native
+code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too, and only the first three are
+partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
+Amiga 1200 are not converted.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

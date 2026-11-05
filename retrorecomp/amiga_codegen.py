@@ -19,7 +19,6 @@ from pathlib import Path
 
 from . import m68k_observed
 from .m68000 import mnemonic_names
-from .systems.specs import ObservedCode
 
 FORMAT = 1
 _MAP: dict[int, tuple[str, int, int, int]] = {}
@@ -96,9 +95,3 @@ def index_tail(links: list) -> str:
 STEPS_HEAD = '#include "step_semantics.h"\n'
 SOURCE_EXTENSION = '.cpp'
 INDEX_EXTENSION = '.c'
-
-# What the Amiga will declare in its profile (an Amiga 500 with up to 2 MiB of chip RAM, 8 MiB of fast RAM and 1.5 MiB of slow RAM); the engine gate
-# uses it until the profile exists.
-OBSERVED = ObservedCode('amiga_codegen:moira_bodies', 'rr_amiga_', 'RrAmigaStep',
-                        ((0, 0x200000, 0x200000), (0x200000, 0xa00000, 0xa00000), (0xc00000, 0xdc0000, 0xdc0000)),
-                        source_extension=SOURCE_EXTENSION, steps_head=STEPS_HEAD, index_extension=INDEX_EXTENSION)

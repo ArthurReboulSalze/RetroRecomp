@@ -71,10 +71,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # no other console's stamp moves (docs/NEW_MACHINE.md).
                                'registry',
                                # The definition of the stamps: see the docstring above.
-                               'compilation_inputs', 'stamp_inputs',
-                               # Amiga (stage 2, no profile yet): the WHDLoad install readers are used by no machine,
-                               # so they are in no stamp; they move into INPUTS under the Amiga profile when it exists.
-                               'amiga_lha', 'amiga_whdload', 'amiga_codegen'))
+                               'compilation_inputs', 'stamp_inputs'))
 
 # Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
 # A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
@@ -153,7 +150,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -192,10 +189,7 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
-    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
-    # Amiga (stage 2, no profile yet): the WHDLoad resload layer is built into no game today; it moves into INPUTS
-    # under the Amiga profile when it exists.
-    'native/amiga_whdload/')
+    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -605,6 +599,30 @@ INPUTS = _resolve({
         'retrorecomp.neogeo_persistence_checks',
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',
+    ),
+    # The Commodore Amiga (experimental, developer installations only): its converter modules, the WHDLoad resload layer
+    # (MIT, our own), the vAmiga machine session (MPL-2.0 engine, patched at build time by amiga_vamiga) and its host-kit
+    # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
+    # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
+    # is listed here, not under every console (that would move every host stamp).
+    ('amiga',): (
+        'licenses/vamiga.md',
+        'native/amiga_machine/CMakeLists.txt',
+        'native/amiga_machine/amiga_player.c',
+        'native/amiga_machine/amiga_session.cpp',
+        'native/amiga_machine/amiga_session.h',
+        'native/amiga_machine/moira_map.cpp',
+        'native/amiga_whdload/rr_decrunch.c',
+        'native/amiga_whdload/rr_decrunch.h',
+        'native/amiga_whdload/rr_resload.c',
+        'native/amiga_whdload/rr_resload.h',
+        'native/hostkit/adapters/rrhk_amiga.inc',
+        'retrorecomp.amiga',
+        'retrorecomp.amiga_codegen',
+        'retrorecomp.amiga_conversion',
+        'retrorecomp.amiga_lha',
+        'retrorecomp.amiga_vamiga',
+        'retrorecomp.amiga_whdload',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',

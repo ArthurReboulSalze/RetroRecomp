@@ -12,6 +12,7 @@ detection is not this one: each profile declares its own `identify` orders.
 from __future__ import annotations
 
 from . import SystemProfile
+from .amiga import AMIGA
 from .cps1 import CPS1
 from .game_boy import GAME_BOY
 from .game_gear import GAME_GEAR
@@ -54,7 +55,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, AMIGA):
     register(_profile)
 del _profile
 

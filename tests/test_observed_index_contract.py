@@ -48,10 +48,7 @@ def amiga_hooks(folder):
 
 
 def declarations():
-    found = [(profile.id, profile.observed_code) for profile in ALL_PROFILES if profile.observed_code is not None]
-    if not any(name == 'amiga' for name, _ in found):
-        found.append(('amiga', amiga_codegen.OBSERVED))          # until the Amiga has its profile
-    return found
+    return [(profile.id, profile.observed_code) for profile in ALL_PROFILES if profile.observed_code is not None]
 
 
 def cmake_tool():

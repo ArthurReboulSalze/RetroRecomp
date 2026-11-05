@@ -111,7 +111,7 @@ SEGAGENESISRECOMP = Upstream(
     Pin('dict', 'retrorecomp/console16.py', 'REPOSITORIES', 'md', 1), checkout='segagenesisrecomp')
 M68K_RECOMP_CORE = Upstream(
     'm68k-recomp-core', 'mstan/m68k-recomp-core', 'main', '68000 decoder (submodule of segagenesisrecomp)',
-    'PolyForm Noncommercial 1.0.0', 'common/m68k_decoder.h, read by the Mega Drive, Neo Geo, CPS-1 and X68000 generators',
+    'PolyForm Noncommercial 1.0.0', 'common/m68k_decoder.h, read by the Mega Drive, Neo Geo, CPS-1 and X68000 generators and by the index of native steps of the Amiga',
     Pin('submodule', path='external/m68k-recomp-core'), parent=SEGAGENESISRECOMP)
 RBENGINE = Upstream(
     'rbengine', 'RetroPortingToolKit/rbengine', 'main', 'rollback engine (submodule of segagenesisrecomp)', 'MIT',
@@ -155,6 +155,13 @@ PX68K_HISSORII = Upstream(
     'the device sources of x68k/, fmgen/ and the x11 line composition, adapted by tools/x68000_base74.py',
     _py('tools/x68000_reference.py', 'HISSORII_REV'), also=(_py('tools/x68000_base74.py', 'COMMIT'),),
     checkout='px68k-hissorii')
+VAMIGA = Upstream(
+    'vamiga', 'dirkwhoffmann/vAmiga', 'master',
+    'Amiga machine (Agnus, Denise, Paula, CIAs, floppy) with its 68000 core Moira, driven frame by frame by the Amiga export',
+    'MPL-2.0 per file (Core); Moira, the CPU inside it, is MIT; the application, not used, is GPL-3.0 or later',
+    'Core/ only, copied into a build folder and adapted by retrorecomp/amiga_vamiga.py (each replacement must find its pinned '
+    'text exactly once); the application and its tests are not used',
+    _py('retrorecomp/amiga_vamiga.py', 'VAMIGA_REV'), checkout='vamiga')
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -218,6 +225,9 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'ng': (GEOLITH, LITHOGEN, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
+    # The decoder of m68k-recomp-core structures the guarded native steps of the Amiga (the bodies are Moira's); segagenesisrecomp
+    # is listed because that decoder is its submodule.
+    'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

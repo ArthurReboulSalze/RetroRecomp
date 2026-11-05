@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 and the Amiga column of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -58,27 +58,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
+| Commodore Amiga | experimental | `███░░░░░░░` 31 % | ✅ 1 · 🟡 8 · ❔ 6 · ❌ 1 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Commodore Amiga |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❌ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
 
 <!-- qualification-gauges:end -->
 
@@ -88,26 +89,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000.
+x68 = Sharp X68000, amiga = Commodore Amiga (experimental).
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
-|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P |
-| G11 | P | P | P | P | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | amiga |
+|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P |
+| G11 | P | P | P | P | P | P | P | P | P | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | ? |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | N |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | ? |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | ? |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -122,10 +123,19 @@ The page of each console, which the README links its line to (a console of the m
 | ng | [NEOGEO.md](NEOGEO.md) |
 | cps1 | [CPS1.md](CPS1.md) |
 | x68 | [X68000.md](X68000.md) |
+| amiga | [AMIGA.md](AMIGA.md) |
 
 </details>
 
 ### Caveats
+
+- Amiga (5 November 2026): the profile is `experimental` and for developer installations only; the column is mostly `?`. G1 `Y`: the profile, `docs/AMIGA.md` and
+  `tools/status_lint.py` agree. G2, G3, G4, G5, G6, G8 `P`: one game converted (Rick Dangerous, Standard level, 5 November 2026): a schema 2 report, 0 interpreted
+  instructions on two routes of 3,000 frames, every frame equal to the fresh interpreted reference, the compressed copy too, a quick state continued by a fresh
+  process (CPU, RAM and picture; the sound samples after a load are not compared), liveness recorded. G10 `P`: Moira (MIT) was compared with the SingleStepTests
+  68000 vectors and its deviations are recorded in 15 families. G11 `P`: six installs compared picture by picture with an independent emulator running the real
+  WHDLoad (private; 49 to 59 of 59 reference pictures matched on five, and all 59 of Pinball Dreams NTSC once looked for at any offset); that is not a fidelity
+  claim. G13 `N`: the profile is `linux = 'pending'`. Not yet: saves, deeper routes, a panel, owner acceptance ([AMIGA.md](AMIGA.md#3-the-five-measures)).
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
