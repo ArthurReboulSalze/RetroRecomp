@@ -316,6 +316,10 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_driver = driver;
     load_script();
     g_selftest = getenv("RETRORECOMP_GBA_SELFTEST") != nullptr;
+    // Every check (a scripted run, the self-test, the kit's frame limit) starts the cartridge's clock from a fixed time and moves it
+    // with the guest's cycles, so two runs of the same script see the same seconds; a person playing keeps the host's clock.
+    if ((g_scripted || g_selftest || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
+        set_environment("GBARECOMP_RTC_GUEST_EPOCH", "1767225600");
     // The player compiles nothing at run time (the engine's self-heal recompiler stays off) and keeps what the engine says about
     // its own coverage, with the addresses the interpreter ran, in `datas/learning`, not beside the executable.
     if (!getenv("GBARECOMP_SELFHEAL_RECOMPILE")) set_environment("GBARECOMP_SELFHEAL_RECOMPILE", "0");

@@ -43,6 +43,7 @@ target_sources(gba_probe PRIVATE "${CMAKE_CURRENT_LIST_DIR}/main.cpp")
 '''
 HOST_NAME = 'gba_probe'
 SHARD_COUNT = 8
+RTC_EPOCH = '1767225600'      # 2026-01-01 00:00:00 UTC: the start of the guest-timed clock of the scenarios (seconds since 1970)
 
 
 @dataclass(frozen=True)
@@ -162,7 +163,12 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
     work.mkdir(parents=True, exist_ok=True)
     coverage, miss, dump = work / 'coverage.json', work / 'miss.toml.frag', work / 'iwram.bin'
     values = {'GBARECOMP_COVERAGE_JSON': str(coverage), 'GBARECOMP_MISS_FRAG': str(miss),
-              'GBARECOMP_IWRAM_DUMP': str(dump), 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy'}
+              'GBARECOMP_IWRAM_DUMP': str(dump), 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy',
+              # A clock cartridge reads the host's wall clock, and the interpreter replay lasts a hundred times longer than the native
+              # run: unpinned, the two runs see different seconds and a game that shows the time differs by a frame. In every
+              # scenario the clock starts from a fixed time and advances with the guest's cycles (an anchored patch of the engine);
+              # the exported player played by a person keeps the host's clock.
+              'GBARECOMP_RTC_GUEST_EPOCH': RTC_EPOCH}
     if script is not None:
         values['GBARECOMP_INPUT_REPLAY'] = str(script)
     if reference:
