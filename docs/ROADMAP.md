@@ -64,8 +64,10 @@ board variants and RAM-bearing layouts, longer gameplay routes. The Famicom Disk
 ### Mega Drive
 
 Next: the report contract and the Linux witness on more games, a first MAME comparison of the sound, and two open choices
-(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left are undefined in the manual and
-stay as they are. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
+(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left (`ABCD`, `SBCD`,
+`NBCD` on operands that are not digits) are undefined in the manual; Moira (MIT), the 68000 core of the Amiga's reference
+machine, agrees with all 22, so its results are a candidate rule for a later release, once for the four 68000 machines
+(Mega Drive, Neo Geo, CPS, X68000) in the shared state rules. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
 stay out of scope.
 
 ### Super Nintendo
