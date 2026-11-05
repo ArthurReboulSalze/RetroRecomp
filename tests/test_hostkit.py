@@ -240,6 +240,14 @@ class X68000Tests(unittest.TestCase):
         for name in hostkit.SHELL:
             self.assertIn(Path(name).stem.removeprefix('rrhk_'), cmake.split('foreach(RR_KIT_FILE', 1)[1].split(')', 1)[0], name)
         self.assertEqual(inputs.role('native/hostkit/adapters/rrhk_x68k.inc'), 'host')
+        # What the disk computers share is its own file, included by the adapter, and a host file too.
+        self.assertIn('#include "hostkit/adapters/rrhk_computer.inc"', adapter)
+        self.assertEqual(inputs.role('native/hostkit/adapters/rrhk_computer.inc'), 'host')
+        computer = (KIT / 'adapters/rrhk_computer.inc').read_text(encoding='utf-8')
+        for name in ('x_event', 'x_sync_mouse', 'x_keyboard_pad', 'x_action_held', 'x_game_rect', 'player_host_fkey', 'player_load'):
+            self.assertIn(name, computer)
+            self.assertNotIn('static ' + name, adapter.replace('static int player_joy', ''), name)
+        self.assertNotIn('X68000', computer.split('*/', 1)[1])        # the machine's name is the including adapter's, by macro
         self.assertEqual(inputs.role('native/x68000_reference/reference_host.c'), 'game')
 
     def test_the_old_player_ui_is_gone(self):
