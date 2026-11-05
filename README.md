@@ -67,12 +67,12 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification progress |
 | --- | --- | --- |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `██████░░░░` 63 % |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `██████░░░░` 60 % |
-| [Game Boy](docs/GAME_BOY.md) | supported | `█████████░` 91 % |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `███████░░░` 70 % |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `███████░░░` 67 % |
+| [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
 | [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |
-| [Super Nintendo](docs/SNES.md) | supported | `█████████░` 88 % |
+| [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |

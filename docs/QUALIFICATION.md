@@ -49,12 +49,12 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Console | Status | Progress | Gates |
 | --- | --- | --- | --- |
-| Master System | supported | `██████░░░░` 63 % | ✅ 5 · 🟡 9 · ❔ 1 |
-| Game Gear | supported | `██████░░░░` 60 % | ✅ 4 · 🟡 10 · ❔ 1 |
-| Game Boy | supported | `█████████░` 91 % | ✅ 14 · 🟡 1 · ❔ 1 |
+| Master System | supported | `███████░░░` 70 % | ✅ 6 · 🟡 9 · ❔ 0 |
+| Game Gear | supported | `███████░░░` 67 % | ✅ 5 · 🟡 10 · ❔ 0 |
+| Game Boy | supported | `██████████` 97 % | ✅ 15 · 🟡 1 · ❔ 0 |
 | Nintendo NES | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Mega Drive | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| Super Nintendo | supported | `█████████░` 88 % | ✅ 13 · 🟡 2 · ❔ 1 |
+| Super Nintendo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
@@ -76,7 +76,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
 
@@ -105,7 +105,7 @@ x68 = Sharp X68000.
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
 | G13 | P | P | Y | Y | P | P | P | P | Y |
-| G14 | ? | ? | ? | Y | Y | ? | Y | Y | Y |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P |
 
@@ -231,10 +231,9 @@ The page of each console, which the README links its line to (a console of the m
   Debian 13 give the same instruction counts, 0 interpreted instructions and the same CPU, RAM, hardware, Z80, picture and sound hashes on all
   19 route rows ([NEOGEO_LOG.md](NEOGEO_LOG.md#cross-os-witness-on-debian-three-sets--3-november-2026)). Three sets of the 134 identities; interactive play
   on Linux is not witnessed.
-- G14 for SNES, SMS, GG and GB means "no recorded owner
-  decision found", not proof that none exists. The NES, CPS-1 and X68000 play
-  tests of 3 November 2026 are in the owner-acceptance table below; the X68000
-  one is a passed play test, not a decision to leave the experimental status.
+- Master System, Game Gear, Game Boy and Super Nintendo (5 November 2026): G14 moved from `?` to `Y` on the owner's play test of
+  two games per console converted with the tree of `main` at `491e845` (owner-acceptance table). Two games per console are a play test,
+  not a campaign: no claim of gameplay beyond them, and nothing about hardware fidelity or latency.
 
 ## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
 
@@ -607,6 +606,10 @@ owner fills it in.
 | 5 November 2026 | Capcom CPS-1.5 (QSound boards) | The Punisher, Cadillacs and Dinosaurs, Warriors of Fate, converted with the 1.6.8 tree (`cc46a1b`, generator revision 12) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » (the day before, about these games and the Sharp X68000 ones: « Les deux marchent parfaitement ») | G14 `Y` for the QSound boards: they leave the experimental tier and join the CPS-1 and the shared base of paths. It validates how the games behave; it says nothing of the DSP16 (a model after MAME's), of hardware fidelity or of latency. |
 | 3 November 2026 | Sharp X68000 | R-Type, Metal Sight, Lemmings, Super Hang-On, Bubble Bobble, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play test passed. It is not a decision to leave the experimental status: G10 and G11 are still `P`, and the exit stays the owner's explicit decision once every gate is proved. G14 is `P`. |
 | 5 November 2026 | Sharp X68000 | Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, drawn at random (seed 20261105) among the games of his collection not yet in `Export`, converted with the 1.6.8 tree in a player's conditions and delivered in `Export` | Arthur: « Bon, je viens de tester les derniers jeux que tu m'as sortis là sur Sharp X68000 et sur le CPS. Les deux marchent parfaitement. Tu peux sortir le Sharp de l'expérimental, même si on aura forcément quelques évolutions à faire derrière. » | The decision to leave the experimental status, given with G10 and G11 still `P`; it also counts as his last trial on the tree of the exit, whose commit changes the status written in the report and nothing in the player. G14 `Y`. |
+| 5 November 2026 | Master System | Sonic The Hedgehog, Wonder Boy III - The Dragon's Trap (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Game Gear | Sonic The Hedgehog, Super Columns (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Game Boy | The Legend of Zelda: Link's Awakening, Kirby's Dream Land, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Super Nintendo | Super Mario World, The Legend of Zelda: A Link to the Past, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
