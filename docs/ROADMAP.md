@@ -12,31 +12,34 @@ fallback stays counted and shown wherever it is used.
 
 | Machine | Status | Qualification progress | Next step |
 | --- | --- | --- | --- |
-| Master System | supported | 63 % | the evidence lot below |
-| Game Gear | supported | 60 % | the evidence lot below |
-| Game Boy | supported | 91 % | owner play test; Game Boy Color as a profile of its own |
+| Master System | supported | 70 % | the evidence lot below |
+| Game Gear | supported | 67 % | the evidence lot below |
+| Game Boy | supported | 97 % | Game Boy Color as a profile of its own |
 | NES | supported | 91 % | broader panel |
 | Mega Drive | supported | 84 % | report and Linux witness; MAME sound comparison |
-| Super Nintendo | supported | 88 % | owner play test, Linux witness; DSP-2 and DSP-4 |
+| Super Nintendo | supported | 94 % | Linux witness; DSP-2 and DSP-4 |
 | Neo Geo | supported | 94 % | Linux witness on more games |
 | Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
-| Sharp X68000 | experimental | 90 % | the remaining gates, then the owner's decision |
+| Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.
 
 ## Across all machines
 
-- **The owner's play test (gate G14).** The Master System, Game Gear, Game Boy and Super Nintendo still wait for it.
+- **The owner's play test (gate G14)** is passed on every machine: the Master System, Game Gear, Game Boy and Super Nintendo
+  joined on 5 November 2026.
 - **Linux witnesses (gate G13).** The Mega Drive, Super Nintendo, Neo Geo and CPS-1 compare Windows and Linux on a few games
   only; the plan is a small campaign per machine on a Debian 13 PC.
 - **Hardware evidence (gate G11)** stays partial on every machine: without measurements of real hardware, comparisons with
   test ROMs and reference emulators are what we can offer, and the reports say so.
 - **The shared base.** A converter will send only the paths its base does not know yet, so the online service grows
   slowly between releases.
-- **The common host kit.** A five-player adapter (PC Engine multitap, Super Nintendo multitap) is planned; today the kit
-  takes four players.
+- **Up to four players (and five), planned for 1.7.** The common host kit already takes four players with their own keys and
+  pads, and the CPS boards use them. The consoles' own multiplayer adapters come next, each modelled in its machine: the NES
+  Four Score, the Mega Drive Team Player and EA 4-Way Play, the Super Nintendo Super Multitap (five players, like the PC Engine
+  multitap), with the kit passing every player's pad to the machine.
 - **Shared code.** The Windows/Linux comparison tools and the MAME capture tools of several machines become one module
   each.
 
@@ -51,7 +54,7 @@ flicker reduction, offered as on the Master System.
 
 ### Game Boy
 
-Next: the owner's play test. Then the **Game Boy Color** as a profile of its own: the pinned engine already runs the
+Next: the **Game Boy Color** as a profile of its own: the pinned engine already runs the
 Color mode, but its timing tests do not all pass yet in that mode, and Color-only cartridges stay refused until then.
 The remaining test ROMs (the wave channel read while it plays, the `oam_bug` timing effect) are listed in
 [KNOWN_FAILURES.md](KNOWN_FAILURES.md) and have a low priority: no game of the campaigns shows them.
@@ -64,13 +67,15 @@ board variants and RAM-bearing layouts, longer gameplay routes. The Famicom Disk
 ### Mega Drive
 
 Next: the report contract and the Linux witness on more games, a first MAME comparison of the sound, and two open choices
-(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left are undefined in the manual and
-stay as they are. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
+(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left (`ABCD`, `SBCD`,
+`NBCD` on operands that are not digits) are undefined in the manual; Moira (MIT), the 68000 core of the Amiga's reference
+machine, agrees with all 22, so its results are a candidate rule for a later release, once for the four 68000 machines
+(Mega Drive, Neo Geo, CPS, X68000) in the shared state rules. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
 stay out of scope.
 
 ### Super Nintendo
 
-Next: the owner's play test and the Linux witness on more games. Then the DSP-2 and DSP-4 chips (Dungeon Master, Top Gear
+Next: the Linux witness on more games. Then the DSP-2 and DSP-4 chips (Dungeon Master, Top Gear
 3000), then the SPC7110. The Super FX runs as a counted interpreted device; a native Super FX is planned in stages
 ([SNES_SUPERFX.md](SNES_SUPERFX.md)). Native CX4 and finer CPU phases remain later work.
 
@@ -87,10 +92,12 @@ and the CPS-2. Pang! 3, the CPS Changer cartridges and bootlegs stay out of scop
 
 ### Sharp X68000
 
-The X68000 stays experimental until its remaining gates are met and the owner decides
+The X68000 is supported since 1.6.9, on the owner's decision of 5 November 2026
 ([QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-evidence-behind-its-column-29-october-2026-status-of-1-november-2026)).
-Next: the independent CPU evidence (gate G10) and a wider play test by the owner. Sound-free routes stay accepted and
-reported; a Roland MIDI model is not planned. Hard-disk images stay out of scope.
+Its gates G10 and G11 stay partial. Next: the sound and the colours compared with MAME on more games, the ten pictures of the
+comparison that no picture of the game matches, deeper evidence for disk changes late in a game and for a game that saves on
+purpose, and a Linux witness of interactive play. Sound-free routes stay accepted and reported; a Roland MIDI model is not
+planned. Hard-disk images stay out of scope. The screen contrast of the system port stays a documented difference with MAME.
 
 ## Machines in development
 

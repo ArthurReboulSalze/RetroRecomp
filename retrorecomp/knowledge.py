@@ -135,10 +135,14 @@ SIDE_GAMES = 4096
 def schema3_module(system: str):
     """The module that checks, merges and compares the records of a schema 3-only machine, else None (also
     while the machine is withdrawn from the sharing: `path_profiles.EXPERIMENTAL_SHARED`)."""
-    if system == 'cps1' and system in path_profiles.SHARED_SYSTEMS:
-        from . import cps1_knowledge
-        return cps1_knowledge
-    return None
+    if system not in path_profiles.SHARED_SYSTEMS:
+        return None
+    from .systems import find_profile
+    shared = getattr(find_profile(system), 'shared_knowledge', None)
+    if shared is None or not shared.module:
+        return None
+    import importlib
+    return importlib.import_module('.' + shared.module, __package__)
 
 
 def qualified_v3_path() -> Path:

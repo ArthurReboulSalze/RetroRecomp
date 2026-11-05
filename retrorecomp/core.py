@@ -522,7 +522,15 @@ def patched_generator_source(generator_source: str) -> str:
         "/* A tail jump to another function: if the callee returned with SP below this function's own return slot, it consumed\\n"
         " * a continuation this function pushed, so the Z80 continues there (the popped address) and not in the caller. */\\n"
         "#define RR_TAIL(call) do { call; if ((int16_t)(g_z80.sp - _esp) < 2) { "
-        "uint16_t _p = sms_read16((uint16_t)(g_z80.sp - 2)); RR_LOCAL(_p); } return; } while (0)\\n\\n", pfx, pfx);''')
+        "uint16_t _p = sms_read16((uint16_t)(g_z80.sp - 2)); RR_LOCAL(_p); } return; } while (0)\\n"
+        "/* After a call: the callee returned at the SP the call left, but through another address than the one this call site pushed (it\\n"
+        " * rewrote its own return slot, as RST routines that read inline data do: ex (sp),hl ... ret). The slot below SP still holds the address\\n"
+        " * it popped: the Z80 goes on there, not at the next instruction of this function. */\\n"
+        "static int rr_ret_moved(uint16_t csp, uint16_t ret){\\n"
+        "    if (g_z80.sp != csp || sms_read16((uint16_t)(csp - 2)) == ret) return 0;\\n"
+        "    uint16_t q = sms_read16((uint16_t)(csp - 2)); RR_LOCAL(q); return 1;\\n"
+        "}\\n"
+        "#define RR_CHECK_RET(csp, ret) do { if (rr_ret_moved((csp), (ret))) return; } while (0)\\n\\n", pfx, pfx);''')
     generator_source = replace_once(generator_source,
         '        if (nm) fprintf(o,"%s(); return; }\\n", nm);\n        else    fprintf(o,"call_by_address(0x%04X); return; }\\n", T);',
         '        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);\n        else    fprintf(o,"RR_TAIL(call_by_address(0x%04X)); }\\n", T);')
@@ -602,6 +610,15 @@ def patched_generator_source(generator_source: str) -> str:
     generator_source = replace_once(generator_source,
         '        if (extra) fprintf(o,"s->cyc += %d; ", extra);\n        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);',
         '        if (extra) fprintf(o,"s->cyc += %d; ", extra);\n        if (rr_wz_taken) fprintf(o,"s->wz = 0x%04X; ", T);\n        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);')
+    # The call sites check that the callee came back through the address they pushed (RR_CHECK_RET above).
+    generator_source = replace_once(generator_source,
+        '''        fprintf(o,"        if (%s) { s->cyc += %d; uint16_t _csp = s->sp; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, 0x%04X); %s if ((int16_t)(s->sp - _csp) > 0) return; }\\n",
+                condexpr, extra, ret, call);''',
+        '''        fprintf(o,"        if (%s) { s->cyc += %d; uint16_t _csp = s->sp; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, 0x%04X); %s if ((int16_t)(s->sp - _csp) > 0) return; RR_CHECK_RET(_csp, 0x%04X); }\\n",
+                condexpr, extra, ret, call, ret);''')
+    generator_source = replace_once(generator_source,
+        '''        fprintf(o,"        { uint16_t _csp = s->sp; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, 0x%04X); %s if ((int16_t)(s->sp - _csp) > 0) return; }\\n", ret, call);''',
+        '''        fprintf(o,"        { uint16_t _csp = s->sp; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, 0x%04X); %s if ((int16_t)(s->sp - _csp) > 0) return; RR_CHECK_RET(_csp, 0x%04X); }\\n", ret, call, ret);''')
     generator_source = replace_once(generator_source,
         '            emit_call_target(o, in->target, next, NULL, 0);',
         '            fprintf(o,"        s->wz = 0x%04X;\\n", in->target);\n            emit_call_target(o, in->target, next, NULL, 0);')
@@ -648,10 +665,12 @@ def patched_generator_source(generator_source: str) -> str:
     #    and the run ended (Factory Panic). SP above its value at the HALT now ends the function.
     generator_source = replace_once(generator_source,
         '    if (in->is_halt){ fprintf(o,"        sms_halt();\\n"); return; }',
-        '''    if (in->is_halt){
+        '''    if (in->is_halt || ((in->prefix == Z80_PFX_DD || in->prefix == Z80_PFX_FD) && in->opcode == 0x76)){
         /* Retro-Recomp: the interrupt that ends a HALT pushes the address after it, and a handler
-         * that dropped the halted frame (SP above its value here) ends this function. */
-        fprintf(o,"        { uint16_t _hsp = s->sp; g_dbg_pc = (uint16_t)(g_dbg_pc + 1); sms_halt(); if ((int16_t)(s->sp - _hsp) > 0) return; }\\n");
+         * that dropped the halted frame (SP above its value here) ends this function. DD 76 and FD 76 are a HALT behind a prefix
+         * that does nothing: the decoder calls only the unprefixed one a halt, and the generic path wrote through an `ea` that
+         * nothing declares (a function found in data made the build fail: Shining Force II). */
+        fprintf(o,"        { uint16_t _hsp = s->sp; g_dbg_pc = (uint16_t)(g_dbg_pc + %u); sms_halt(); if ((int16_t)(s->sp - _hsp) > 0) return; }\\n", (unsigned)in->length);
         return;
     }''')
     generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")

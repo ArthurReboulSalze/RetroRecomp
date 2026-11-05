@@ -100,7 +100,8 @@ class ReadmeTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             line = next(row for row in block.splitlines() if row.startswith('| [' + profile.name + '](docs/'))
             self.assertIn(' ' + profile.status + ' ', line)
-        self.assertIn('| experimental |', block)
+        # No machine of the list is experimental since 1.6.9: the status column reads the profile, so a new experimental machine shows up here.
+        self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in ALL_PROFILES))
 
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()
@@ -118,7 +119,10 @@ class ReadmeTests(unittest.TestCase):
     def test_the_check_command_succeeds_and_fails_on_a_drifted_readme(self):
         self.assertEqual(qg.main(['--check']), 0)
         readme = qg.README.read_text(encoding='utf-8')
-        self.assertFalse(qg.readme_in_agreement(readme.replace('63 %', '99 %', 1), _page()))
+        first = qg.gauges(_page())[0]['percent']
+        drifted = readme.replace(f'` {first} % |', f'` {(first + 1) % 100} % |', 1)
+        self.assertNotEqual(drifted, readme)
+        self.assertFalse(qg.readme_in_agreement(drifted, _page()))
 
 
 if __name__ == '__main__':

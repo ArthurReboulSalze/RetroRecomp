@@ -69,6 +69,25 @@ class KnowledgeExchangeTests(unittest.TestCase):
                                                          md([0x200]), md([0x300], OTHER)), 1)
         self.assertFalse(knowledge_exchange.adds_to('md', md([]), {}))
 
+    def test_an_upload_carries_only_what_the_local_base_lacks(self):
+        cut = knowledge_exchange.without_known('md', md([0x200, 0x300, 0x400]), md([0x200, 0x300]))
+        self.assertEqual(cut['rom_entries'], [[0x400]])
+        self.assertEqual((cut['engine'], cut['rom_bytes']), (ENGINE, 0x10000))
+        self.assertIsNone(knowledge_exchange.without_known('md', md([0x200]), md([0x200, 0x300])))
+        whole = md([0x200, 0x300])
+        self.assertIs(knowledge_exchange.without_known('md', whole, {}), whole)
+        other_rom = {**md([0x200]), 'rom_bytes': 0x20000}
+        self.assertIs(knowledge_exchange.without_known('md', whole, other_rom), whole)
+        # The SPC references of a Super Nintendo record are bound to each other: they travel whole.
+        snes = {'engine': ENGINE, 'rom_bytes': 0x10000, 'ram_refs': [[0x200, 1, 2], [0x300, 1, 2]],
+                'spc_refs': [[0x200, 7], [0x300, 9]]}
+        known = {'engine': ENGINE, 'rom_bytes': 0x10000, 'ram_refs': [[0x200, 1, 2]], 'spc_refs': [[0x200, 7]]}
+        self.assertIs(knowledge_exchange.without_known('snes', snes, known), snes)
+        # Only main-CPU paths known: they are cut, the SPC part stays as it was.
+        known_ram = {**known, 'spc_refs': []}
+        cut = knowledge_exchange.without_known('snes', snes, known_ram)
+        self.assertEqual((cut['ram_refs'], cut['spc_refs']), ([[0x300, 1, 2]], [[0x200, 7], [0x300, 9]]))
+
     def test_import_is_additive_and_reports_each_outcome(self):
         sha = [hashlib.sha256(bytes([n])).hexdigest() for n in range(4)]
         first = self.write('first.rrknowledge', self.document(
@@ -156,7 +175,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
         games = [moved,
                  SimpleNamespace(system='md', identity='0' * 64, title='Missing', source=str(self.root / 'none.md'), report='r'),
                  SimpleNamespace(system='md', identity='2' * 64, title='Old engine', source=str(source), report=''),
-                 SimpleNamespace(system='x68', identity='1' * 64, title='Computer', source=str(source), report='')]
+                 SimpleNamespace(system='psx', identity='1' * 64, title='Computer', source=str(source), report='')]
         bundled = {'schema': 1, 'consoles': {'md': {rom.sha256: md([0x200])}}}
         profile = SimpleNamespace(read_rom=lambda path: rom)
         qualified = {('md', rom.sha256): {}, ('md', '0' * 64): {}}

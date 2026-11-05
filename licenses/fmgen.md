@@ -1,7 +1,7 @@
 # FMGEN (YM2151 OPM sound generator)
 
 FM Sound Generator with OPN/OPM interface, copyright (C) cisc 1998, 2003
-(cisc@retropc.net). Used by the experimental Sharp X68000 runtime for the
+(cisc@retropc.net). Used by the Sharp X68000 runtime for the
 YM2151 (OPM) only, from the copy in hissorii/px68k
 [`74ddbb3`](https://github.com/hissorii/px68k/tree/74ddbb37b4e12b77362a4e12f28ceb5aaa593684/fmgen): `fmgen.cpp`, `fmtimer.cpp`, `opm.cpp`,
 `fmg_wrap.cpp` and their headers. The OPN/PSG parts and the Mercury Unit

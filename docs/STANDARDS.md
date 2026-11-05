@@ -108,7 +108,7 @@ the same limits are generated for the website's checks. Machines that share a
 CPU share its path kinds. *Schema 3 is `retrorecomp/path_profiles.py`; the seven
 older consoles still keep schema 1 banks, CPS-1 (shared since
 1.6.0, still the experimental tier of the base) exists only as schema 3 documents with its own versioned record and
-engine identity, and the X68000 has no paths yet. A machine still in
+engine identity, and so does the X68000 (shared since 1.6.9, the experimental tier too). A machine still in
 development is listed in `path_profiles.EXPERIMENTAL_SHARED`: emptying that list
 withdraws it from the sharing in one move (see COMPILATION_LIBRARY.md).*
 
