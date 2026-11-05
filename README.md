@@ -74,6 +74,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | Experimental, in development | `.gba` cartridges are identified, nothing is converted yet and installations do not list it; will need your own BIOS |
 
 <!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->
 
@@ -92,6 +93,7 @@ decides a status: leaving the experimental status is the owner's own decision.
 | Neo Geo | supported | `█████████░` 94 % |
 | Capcom CPS-1 | supported | `█████████░` 90 % |
 | Sharp X68000 | experimental | `█████████░` 90 % |
+| Game Boy Advance | experimental | `█░░░░░░░░░` 6 % |
 
 <!-- qualification-gauges:end -->
 

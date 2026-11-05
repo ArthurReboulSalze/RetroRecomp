@@ -689,6 +689,11 @@ INPUTS = _resolve({
         'tools/x68000_reference_check.py',
         'tools/x68000_state_hardware.py',
     ),
+    ('gba',): (
+        'licenses/gbarecomp.md',
+        'retrorecomp.gba',
+        'retrorecomp.gba_conversion',
+    ),
     ('cps1',): (
         'assets/cps1-catalogue.json',
         'licenses/cps1-machine.md',

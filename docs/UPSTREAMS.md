@@ -20,7 +20,7 @@ below. `tests/test_upstreams.py` fails when a machine has no declaration, when a
 when a pin or a repository is missing from this page.
 
 Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md` Mega Drive, `snes` Super Nintendo,
-`ng` Neo Geo, `cps1` Capcom CPS-1, `x68` Sharp X68000.
+`ng` Neo Geo, `cps1` Capcom CPS-1, `x68` Sharp X68000, `gba` Game Boy Advance.
 
 ## The pins
 
@@ -40,6 +40,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [mamedev/mame](https://github.com/mamedev/mame) | cps1 | `61a2229` | `61a222977fd29f22ce11fbea3f7c290fd7ced091` | `cps1_catalogue.MAME_REVISION` (also `tools/build_cps1_catalogue.MAME_REVISION`) |
 | [hissorii/px68k](https://github.com/hissorii/px68k) | x68 | `74ddbb3` | `74ddbb37b4e12b77362a4e12f28ceb5aaa593684` | `tools/x68000_reference.HISSORII_REV` (also `tools/x68000_base74.COMMIT`) |
 | [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | x68 | `0ad84d7` | `0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6` | `tools/x68000_reference.PX68K_REV` (also `native/x68000_machine/provenance.json`) |
+| [mstan/gbarecomp](https://github.com/mstan/gbarecomp) | gba | `c1a5fda` | `c1a5fda36fb41c2fcba6c901692006ac69d50555` | `gba_conversion.ENGINE_REV` |
+| [mstan/arm-recomp-core](https://github.com/mstan/arm-recomp-core) (submodule) | gba | `63dd32d` | `63dd32dd210a8bf18bbd11933393a7b87f9b3bf6` | submodule `external/arm-recomp-core` of gbarecomp |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | all | `5d24957` (release 2.32.10) | `5d249570393f7a37e037abf22cd6012a4cc56a71` | `core.SDL_REV` |
 | [mstorsjo/llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | all (Windows build) | `20261006` | `20261006` | `toolchain.LLVM_MINGW_VERSION` |
 | [Kitware/CMake](https://github.com/Kitware/CMake) | all (Windows build) | `4.4.4` | `4.4.4` | `toolchain.CMAKE_VERSION` |
@@ -77,6 +79,8 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [mamedev/mame](https://github.com/mamedev/mame) | CPS-1 board data, Kabuki keys, QSound and EEPROM models and OKI MSM6295 reference | BSD-3-Clause | No code is built from a checkout: the ROM-free catalogue, the Kabuki decryption of the CPS-1.5 sound CPU (`kabuki.cpp`, four numbers per game family and the algorithm; checked against MAME 0.289 byte for byte), the high-level QSound model (`qsoundhle.cpp`), the 93C46 EEPROM (`eepromser.cpp`, `eeprom.cpp`) and the OKI model are adapted from the driver | No change to the CPS-1 driver files, `cps1_v.cpp`, `cps1.h`, `kabuki.cpp`, `qsoundhle.cpp`, the EEPROM files or the OKI model since the pin (the rest of the repository moves daily and is not followed). Keep. |
 | [hissorii/px68k](https://github.com/hissorii/px68k) | X68000 machine base, inactive since 2014 | Kenjo noncommercial terms, BSD-2-Clause (NONAKA), FMGEN freeware terms | Device sources (`x68k/`, `fmgen/`, line composition) adapted by `tools/x68000_base74.py` | Identical. Keep. |
 | [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | X68000 libretro port, private comparison mode only | GPL-2.0 | Nothing is compiled or shipped | 23 ahead. Reviewed on 29 October 2026 from the public pull-request texts only (no code read): two fixes carried as our own patches in 1.6.5, one not adopted ("Deferred"). Keep. |
+| [mstan/gbarecomp](https://github.com/mstan/gbarecomp) | Game Boy Advance recompiler and machine runtime | PolyForm Noncommercial 1.0.0 plus two MPL-2.0 files (`bios_hle.*`, derived from mGBA) | The recompiler and the machine runtime; the netplay, mod, upscaling and launcher parts and the two MPL-2.0 files are not used | Pinned on 5 November 2026 at the head of `main` (31 Oct); read, built with our toolchain and run headless in a development trial, never copied here. The author's permission is held by the maintainer. |
+| [mstan/arm-recomp-core](https://github.com/mstan/arm-recomp-core) | ARM and Thumb decoder, IR, interpreter and C emitter, submodule of the Game Boy Advance engine | MIT | The decoder, the IR, the reference interpreter and the ARMv4T emitter, at the revision the engine records (not the head of this repository) | The engine records `63dd32d`; the head is newer. Keep the engine's own revision. |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | Window, audio and input library | zlib | The SDL2 library built from source and linked into the games | Moved from release 2.32.8 to the release 2.32.10 commit in 1.6.4 (36 commits, modest fixes: Switch Pro stick calibration and sensor coefficients, Pipewire device formats on Linux). Moves every console's game stamp. The newest SDL2 release; the branch is 88 commits ahead with unreleased work, not followed. Keep. |
 | [mstorsjo/llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | Portable Windows C toolchain | Apache-2.0 with LLVM exceptions; permissive runtime licences | Release archive checked by SHA-256 | `20261020` (LLVM 23.1.4) exists. Corrective. Keep. |
 | [Kitware/CMake](https://github.com/Kitware/CMake) | Build generator | BSD-3-Clause | Release archive checked by SHA-256 | 4.4.5 exists. Corrective. Keep. |

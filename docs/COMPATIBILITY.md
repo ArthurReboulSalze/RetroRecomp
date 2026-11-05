@@ -195,7 +195,9 @@ what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 Nov
 **Sharp X68000** prototype is experimental; it converts DIM, XDF and D88 disks and
 ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
 each export is compared with a fresh reference run on bounded routes, which
-does not establish hardware fidelity, complete gameplay or physical latency.
+does not establish hardware fidelity, complete gameplay or physical latency. The
+**Game Boy Advance** profile is experimental and in development ([status](GAME_BOY_ADVANCE.md)): it identifies
+cartridges and writes reports, converts nothing yet, and no installation lists it.
 
 ## Local game regression set
 

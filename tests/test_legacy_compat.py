@@ -337,7 +337,7 @@ class LegacyReceiptTests(unittest.TestCase):
         # 1.6.4 lists nothing: the game stamp a real 1.6.3 receipt carries (Windows or Linux converter) is not recognised,
         # whatever the console, so every export of 1.6.3 is converted in full (the base of qualified paths still applies).
         from retrorecomp import freshness
-        for system in sorted(inputs.SYSTEMS - {'x68'}):
+        for system in sorted((inputs.SYSTEMS & set(GAME_STAMPS_163)) - {'x68'}):
             with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
                 item, parts = self.parts(system)
                 self.assertEqual(parts['legacy_games'], [])
