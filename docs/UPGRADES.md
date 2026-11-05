@@ -83,6 +83,17 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 The QSound boards (18 sets) are a supported part of the CPS-1 since 5 November 2026, on the owner's decision ([CPS1.md](CPS1.md#cps-15-qsound-boards)). The catalogue (`assets/cps1-catalogue.json`) now reads `tier = supported` on every row, so the CPS-1 game stamp moves (and no other: the CPS-1 host and build stamps and the other consoles' stamps are unchanged, checked with `compilation_inputs.role_stamps`). An export of 1.6.8 is rebuilt once on its next conversion, with the same code, pictures and sound; its report then says `completed` and `board_tier: supported` instead of `experimental`. The quick-state key does not move (it does not hash the catalogue), so quick states and cartridge saves are kept. The QSound sets now take part in the shared base of paths; reports of 1.6.8 say `board_tier: experimental` and are not collected.
 
+## An account upload carries only the paths the local base lacks (1.6.9)
+
+An upload to the account (`online._restrict`, the files that "Send" makes) now cuts each record down to the paths the local
+base does not hold for the same ROM (`knowledge_exchange.without_known`); a game left with nothing new travels no record (its
+conversion note still travels for the rewards). Exchange files written for another player are unchanged: they keep every
+qualified path, since the reader may have no base. The owner chose this simple rule on 5 November 2026 to keep the uploads
+and the online database small; the service now counts a player's `used` outcomes as the confirmation that a second upload of
+the same path used to be. A Super Nintendo record keeps its SPC part whole when part of it is known, and a Neo Geo record
+travels whole (their parts are bound to each other). `retrorecomp.online` and `retrorecomp.knowledge_exchange` are interface
+modules (`stamp_inputs.INTERFACE_MODULES`): no stamp and no quick-state key moves for this change.
+
 ## Game Boy: the one-by-one line names the 0xFF00-0xFF7F range (1.6.9)
 
 The window line and the conversion log counted the instructions run one by one in RAM and in the `0xFF00-0xFF7F` range but

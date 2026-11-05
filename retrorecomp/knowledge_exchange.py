@@ -123,6 +123,34 @@ def unknown_hints(system: str, record: dict, *known: dict) -> int:
     return len(entries)
 
 
+def without_known(system: str, record: dict, *known: dict) -> dict | None:
+    """`record` cut down to the hints none of `known` holds for the same ROM: what an account upload carries (1.6.9).
+    The local base already sent the rest to the service; leaving it out keeps the uploads and the online database
+    small (a few confirmations of paths of a base not purged yet are given up, by the owner's choice of 5 November
+    2026: simple and light). None when nothing is left. The SPC references of the Super Nintendo and a Neo Geo record
+    travel whole: their parts are bound to each other."""
+    entries = _entries(system, record)
+    keep = set(entries)
+    for other in known:
+        if other and _same_rom(system, other, record):
+            keep -= _entries(system, other)
+    if not keep:
+        return None
+    if keep == entries or system == 'ng':
+        return record
+    module = schema3_module(system)
+    if module is not None:
+        return module.rebuild(record, keep)
+    from .snes_knowledge import SPC_FIELDS
+    if system == 'snes' and any(name == 'spc' for name, _ in entries - keep):
+        return record
+    out = dict(record)
+    for name in FIELDS.get(system, ()):
+        if name not in SPC_FIELDS and name in record:
+            out[name] = [entry for entry in record[name] if (name, tuple(entry)) in keep]
+    return out
+
+
 def adds_to(system: str, record: dict, known: dict) -> bool:
     """True when `record` holds a hint `known` lacks for the same compiler."""
     return unknown_hints(system, record, known) > 0
