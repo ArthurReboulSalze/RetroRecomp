@@ -21,9 +21,11 @@ typedef struct cps1_eeprom {
     uint64_t cs_rise_time, ready_time;
     uint32_t ticks_per_usec;   /* the caller's clock ticks in a microsecond (not part of a state) */
     uint8_t wide;              /* 1: 16-bit organisation, words kept big-endian in `data` (a board constant, not part of a state) */
+    uint32_t khz;              /* the caller's clock in kHz when it is not a whole number of MHz (the CPS-2's 11.8 MHz); 0: ticks_per_usec * 1000 */
 } cps1_eeprom;
 
 void cps1_eeprom_reset(cps1_eeprom *chip, uint32_t ticks_per_usec);   /* blank contents (0xff) and lines low, 8-bit organisation */
+void cps1_eeprom_set_clock_khz(cps1_eeprom *chip, uint32_t khz);      /* right after a reset: the exact clock the write cycles are counted on */
 void cps1_eeprom_set_wide(cps1_eeprom *chip, int wide);               /* right after a reset: the CPS-2 board's 16-bit organisation */
 /* The CPS-2 board's output port: data 0x1000 DI, 0x2000 CLK, 0x4000 CS (the word MAME's EEPROMOUT port sees). */
 void cps1_eeprom_write_port16(cps1_eeprom *chip, unsigned value, uint64_t time);

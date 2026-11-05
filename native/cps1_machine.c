@@ -718,14 +718,27 @@ static void render_to_row(int last)
 
 /* ---------------------------------------------------------------- 68000 bus */
 
+/* The 68000 here reads at the start of an instruction, MAME's clock reads it a few bus cycles later (a MOVE.W from an absolute address
+ * reads in its last four cycles). The raster counters change every line, so a read near the end of a line must see the same line:
+ * measured on mmatrix against MAME's taps (reads about 5 pixels, writes about 10 pixels later than ours), 8 cycles. */
+#define CPS2_READ_DELAY 8
+
 static uint16_t cps_b_read(int offset)
 {
     if (M.board.cps2) {
+        const uint64_t now = m68k_now() + CPS2_READ_DELAY;
         if (offset == 0x0e / 2) {                 /* the position in the line, relative to counter 3, and the unknown bit 0 */
-            const int pixel = (int)((m68k_now() - M.line_start) * PIXEL_CLOCK / M.board.cpu_clock) / 2;
+            const int pixel = (int)((now - M.line_start) * PIXEL_CLOCK / M.board.cpu_clock) / 2;
             return (uint16_t)((((int)M.raster_counter[2] - pixel) << 1 & 0x1fe) | (M.cps_b[0x0e / 2] & 1));
         }
-        if (offset == 0x10 / 2 || offset == 0x12 / 2) return M.raster_counter[offset & 1] & 0x1ff;
+        if (offset == 0x10 / 2 || offset == 0x12 / 2) {
+            /* MAME's counter changes at the start of the line, on the clock; the 68000 here runs a line in one slice, so a read made past the end
+             * of the line by an instruction that crosses it sees the next line's value */
+            uint16_t value = M.raster_counter[offset & 1];
+            if (now >= M.m68k_target)
+                value = (M.line + 1) % LINES == 0 ? M.raster_reload[offset & 1] : (uint16_t)(value - 1);
+            return value & 0x1ff;
+        }
     }
     /* As in MAME, an absent register (-1) compares as offset -1 / 2 == 0. */
     const cps1_board *b = &M.board;
@@ -765,7 +778,9 @@ static void io_trace(char kind, uint32_t address, uint16_t value)
 {
     static FILE *file; static int opened;
     if (!opened) { opened = 1; const char *path = getenv("RR_IOTRACE"); file = path ? fopen(path, "w") : NULL; }
-    if (file && address >= 0x400000 && address < 0x900000) fprintf(file, "%c %06x %04x\n", kind, address, value);
+    if (file && address >= 0x400000 && address < 0x900000)
+        fprintf(file, "%llu %c %06x %04x %d %d\n", (unsigned long long)M.frame_number, kind, address, value, M.line,
+                (int)((m68k_now() - M.line_start) * PIXEL_CLOCK / M.board.cpu_clock));
 }
 #endif
 
@@ -793,6 +808,10 @@ static uint16_t cps2_read_bus(uint32_t address)
     if (address == 0x804010) return M.ports[CPS1_IN1];
     if (address == 0x804020) return (uint16_t)((M.ports[CPS1_IN2] & ~1u) | (cps1_eeprom_read_port(&M.eeprom, m68k_now()) & 1u));
     if (address == 0x804030) return 0xe021;                 /* the digital volume at its maximum, no extra memory, no network adapter */
+    /* The three switch banks of the development hardware (MAME's lr8 handlers at 0x8040b0 to 0x8040b2): a production board reads them
+     * released, and some games do read them (mmatrix at boot). One byte each, on the high lane for the even addresses. */
+    if (address == 0x8040b0) return (uint16_t)((M.ports[CPS1_DSWA] & 0xff) << 8 | (M.ports[CPS1_DSWB] & 0xff));
+    if (address == 0x8040b2) return (uint16_t)((M.ports[CPS1_DSWC] & 0xff) << 8);
     return 0;
 }
 
@@ -1145,6 +1164,7 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     if (M.board.qsound && (!M.rom.dsp_rom || M.rom.dsp_rom_size < CPS1_QSOUND_DSP_BYTES || !M.rom.qsound)) return 0;   /* the player's own DSP ROM and the samples */
     cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
     cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
+    cps1_eeprom_set_clock_khz(&M.eeprom, M.board.cpu_clock / 1000u);
     if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
     if (!M.opm) return 0;
@@ -1182,6 +1202,7 @@ void cps1_reset(void)
         memcpy(kept, M.eeprom.data, sizeof kept);
         cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
         cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
+        cps1_eeprom_set_clock_khz(&M.eeprom, M.board.cpu_clock / 1000u);
         memcpy(M.eeprom.data, kept, sizeof kept);
     }
     M.qsound_irq_clock = QSOUND_IRQ_CLOCKS; M.qsound_done = 0;
@@ -1500,7 +1521,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     if (M.board.qsound) {
         const uint8_t *extra = buffer + r.used + opm_size;
         memcpy(qram, extra, sizeof qram);
-        eeprom.wide = M.eeprom.wide;
+        eeprom.wide = M.eeprom.wide; eeprom.khz = M.eeprom.khz;
         if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, eeprom_ticks())) return 0;
         /* what the state holds and the EEPROM kept differ: the game's next save must write what is now the EEPROM's */
         if (memcmp(eeprom.data, M.eeprom.data, CPS1_EEPROM_BYTES)) eeprom.changed = 1;

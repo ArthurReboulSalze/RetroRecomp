@@ -20,6 +20,7 @@ void cps1_eeprom_reset(cps1_eeprom *chip, uint32_t ticks_per_usec)
 }
 
 void cps1_eeprom_set_wide(cps1_eeprom *chip, int wide) { chip->wide = wide != 0; }
+void cps1_eeprom_set_clock_khz(cps1_eeprom *chip, uint32_t khz) { chip->khz = khz; }
 
 /* `opcode` is the two bits after the start bit; for opcode 0 the top two address bits pick the operation. */
 static void parse_command(cps1_eeprom *chip)
@@ -45,7 +46,10 @@ static void parse_command(cps1_eeprom *chip)
 
 /* The times of eeprom.cpp: write 1750 us, erase 1000 us, write all and erase all 8000 us. */
 enum { WRITE_US = 1750, ERASE_US = 1000, ALL_US = 8000 };
-static void busy(cps1_eeprom *chip, unsigned microseconds) { chip->ready_time = now_time + (uint64_t)microseconds * chip->ticks_per_usec; }
+static void busy(cps1_eeprom *chip, unsigned microseconds)
+{
+    chip->ready_time = now_time + (chip->khz ? (uint64_t)microseconds * chip->khz / 1000u : (uint64_t)microseconds * chip->ticks_per_usec);
+}
 static int ready(const cps1_eeprom *chip, uint64_t time) { return time >= chip->ready_time; }
 
 /* A cell: one byte, or one big-endian word of the 16-bit organisation. */
@@ -214,6 +218,7 @@ int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in, uint32_t ticks_p
     next.ready_time = get_le(p, 8);
     next.ticks_per_usec = ticks_per_usec;
     next.wide = chip->wide;
+    next.khz = chip->khz;
     if (next.state > WAIT_COMPLETION || next.cs > 1 || next.clk > 1 || next.di > 1 || next.locked > 1 || next.command > CMD_ERASEALL ||
         next.address >= CPS1_EEPROM_BYTES || next.changed > 1) return 0;
     *chip = next;
