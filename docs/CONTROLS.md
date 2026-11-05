@@ -187,6 +187,14 @@ keyboard, keep working without Ctrl, and every function key acts on Retro-Recomp
 while a menu is open. Ctrl+F1–F12 also work with the row on Retro-Recomp and in
 full guest typing (Ctrl+Alt+K), which still sends F2–F10 to the computer.
 
+### Keyboard games on a computer
+
+A game played at the keyboard needs its keys, while the keys bound to the pad would press the joystick at the same time. The
+options page of F2 has a row **Keyboard (Ctrl+Alt+K): game controls / computer only**, the same switch as Ctrl+Alt+K. On
+"computer only" the whole keyboard goes to the computer, the keys bound to the pad stop, and a real gamepad plays the joystick
+(a notice says when none is connected); Ctrl+Alt chords and Ctrl+F1–F12 keep working, so the player can always switch back.
+The choice is kept per game, in the game's own `player.cfg`; each game starts with the game controls.
+
 ## Game options (1.1.8)
 
 The audio filter is on the options page, the last page of F2; the controller

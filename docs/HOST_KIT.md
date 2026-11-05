@@ -711,7 +711,8 @@ picture stays, "Paused" is drawn, Esc still quits).
 
 Settings the kit gained for this family (each one a named per-machine field, none an `if` on the machine):
 `video_section`, `autofire_section` and `indexed_bindings` (the preferences keep the layout of the first host, divergences
-14 and 15 being "later": `[X68000] filter`, `display_mode`, `autofire`, `guest_keyboard`, `p<player>_key<n>`,
+14 and 15 being "later": `[X68000] filter`, `display_mode`, `autofire`, `guest_keyboard` (until 1.6.8; since 1.6.9 the keyboard's
+owner is kept per game in `player.cfg` and chosen from an F2 row, [UPGRADES.md](UPGRADES.md)), `p<player>_key<n>`,
 `p<player>_pad<n>`, `[X68000.Options] fkeys_machine`), `bindings_clearable` (Delete clears a binding: the old page had
 it; the other consoles are not given it by this phase), `audio_rate` for the queue model (44,100 Hz stereo), `audio_chunked`
 (more than one buffer of sound per frame), `machine_fkeys`, and the hooks `event`, `keyboard_pad`, `action_held`,

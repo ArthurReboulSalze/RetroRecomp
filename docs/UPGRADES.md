@@ -255,6 +255,23 @@ A stored key 0 or button -1 now reads as "no binding" on every console (the X680
 swap leaves an action without a key. Two actions that already shared a key in a saved file keep sharing it until one of them is
 bound again in F2.
 
+## Computers: the keyboard goes to the game or to the computer, per game, from F2 (1.6.9)
+
+A keyboard game on a computer (the X68000 now, the Amiga when it opens) needs its keys, while the keys bound to the pad would
+press the joystick at the same time. The switch that hands the whole keyboard to the computer (Ctrl+Alt+K) is now also a row
+of the F2 options page, **Keyboard (Ctrl+Alt+K): game controls / computer only**. On "computer only" the keys bound to the pad
+stop and a real gamepad plays the joystick; a notice says so when no gamepad is connected. The choice is **kept per game** in the
+game's own `player.cfg`, written at once: a game no longer starts in the mode of the last game played, and each game starts with
+the game controls until the player chooses. The texts are English and French for now (the five-language catalogue is left
+untouched in 1.6.9 so that the Mega Drive and Super Nintendo quick states stay valid; the other languages come in 1.7).
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles before and after the change: **the host stamp
+of the X68000** only (`native/hostkit/adapters/rrhk_computer.inc` and `rrhk_x68k.inc`). No game or build stamp moves, no quick-state
+key moves.
+
+**Preferences.** `[X68000] guest_keyboard` of `datas/Retro-Recomp.ini` is no longer read or written; a game converted by 1.6.8
+keeps its own choice, which `player.cfg` already held (`keyboard=`).
+
 ## Sharp X68000: the generator of native code and the computer part of the adapter are shared (1.6.9)
 
 The Amiga reuses what the X68000 does with the instructions it runs from RAM instead of copying it, so two files moved and one declaration was added; **nothing a
