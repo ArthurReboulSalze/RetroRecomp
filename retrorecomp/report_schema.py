@@ -110,7 +110,7 @@ REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'targe
                  'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
 # The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own.
-HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit')
+HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit', 'video_unit')
 
 
 class ReportShapeError(ValueError):
@@ -203,6 +203,13 @@ def _main_scenario(writer, row):
         frames = _count(row.get('requested_frames'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('total_cycles'))}
+        # The banked engine counts the instructions it runs natively, the byte-guarded RAM encodings among them
+        # (retrorecomp/sega_evidence.py reads the count from the run's log), and its halted steps. The interpreter is counted in cycles
+        # only, by both engines: `interpreted` stays None, never a guess from the cycles.
+        native = _count(row.get('native_instructions'))
+        for key, field in (('halted_steps', 'halted_steps'), ('guarded_native_instructions', 'native_guarded')):
+            if row.get(key) is not None:
+                extra[field] = _count(row.get(key))
     elif writer == 'gameboy':
         interpreted = _count(row.get('interpreter_instructions'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
@@ -452,7 +459,17 @@ def _cpu_fidelity(shape, data, rows):
         evidence = {key: data.get(key) for key in ('reference_vdp_trace_match', 'reference_final_ram_match',
                                                    'reference_final_cpu_match', 'reference_final_png_match')
                     if key in data}
-    if passed is None:
+    scenarios = _cpu_scenarios(shape, data, rows) if validation else []
+    if shape.writer == 'core' and not validation and data.get('backend') == 'functions' and 'reference_vdp_trace_match' in data:
+        # The "functions" engine stores no validation record: its conversion is refused unless the demo route equals the interpreter's
+        # (picture trace, last picture, RAM). Only that route is compared with a reference run.
+        checks = {'vdp_trace': data.get('reference_vdp_trace_match'), 'final_vdp': data.get('reference_final_vdp_match'),
+                  'final_ram': data.get('reference_final_ram_match'), 'final_image': data.get('reference_final_png_match')}
+        passed = all(value is True for value in checks.values())
+        scenarios = [{'name': 'demo', 'frames': None, 'match': passed, 'checks': checks, 'hashes': None}]
+        claim = ("agreement with the project's own reference on the demo route only, no independent CPU oracle; the other routes are "
+                 'not compared with a reference run' if passed else 'did not pass')
+    elif passed is None:
         claim = 'not reported'
     elif not passed:
         claim = 'did not pass'
@@ -463,7 +480,7 @@ def _cpu_fidelity(shape, data, rows):
     return {'passed': passed, 'reference': _reference_kind(shape, data),
             'validated_flag': _flag(validation.get('cpu_fidelity_validated')),
             'independent_cpu_oracle': oracle, 'agreement': _flag(validation.get('cpu_agreement')),
-            'scenarios': _cpu_scenarios(shape, data, rows) if validation else [],
+            'scenarios': scenarios,
             'evidence': evidence, 'claim': claim}
 
 

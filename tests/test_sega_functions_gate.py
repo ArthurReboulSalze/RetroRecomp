@@ -30,10 +30,13 @@ class FunctionsGateTests(unittest.TestCase):
         return convert
 
     def run_with(self, report, **options):
-        rom = SimpleNamespace(sha256='a' * 64)
+        rom = SimpleNamespace(sha256='a' * 64, data=b'rom')
         with patch('retrorecomp.core.convert', side_effect=self.converter(report)), \
+             patch('retrorecomp.sega_evidence.enrich_report') as enrich, \
              patch.object(type(MASTER_SYSTEM), 'read_rom', return_value=rom):
-            return MASTER_SYSTEM.convert(Path('game.sms'), output=self.output, **options)
+            result = MASTER_SYSTEM.convert(Path('game.sms'), output=self.output, **options)
+        self.enriched = enrich.call_args_list
+        return result
 
     def test_a_divergence_fails_like_banked(self):
         report = {**MATCHING, 'reference_vdp_trace_match': False, 'reference_final_ram_match': False}
@@ -50,14 +53,21 @@ class FunctionsGateTests(unittest.TestCase):
         self.run_with({}, backend='banked', publish_result=False)
         self.assertFalse(self.seen[-1][1])
 
+    def test_both_engines_describe_the_devices_in_the_report_they_wrote(self):
+        for backend in ('functions', 'banked'):
+            self.run_with(MATCHING, backend=backend, publish_result=False)
+            self.assertEqual([call.args for call in self.enriched],
+                             [(self.output / 'conversion-report.json', 'sms', b'rom')], backend)
+
     def test_a_batch_retry_keeps_its_own_set_aside(self):
         with knowledge.imported_set_aside(MASTER_SYSTEM.id, 'a' * 64):
             self.run_with(MATCHING, backend='functions', publish_result=False)
             self.assertIn((MASTER_SYSTEM.id, 'a' * 64), knowledge._SET_ASIDE)
 
     def test_game_gear_uses_the_same_gate(self):
-        rom = SimpleNamespace(sha256='b' * 64)
+        rom = SimpleNamespace(sha256='b' * 64, data=b'rom')
         with patch('retrorecomp.core.convert', side_effect=self.converter({})), \
+             patch('retrorecomp.sega_evidence.enrich_report'), \
              patch.object(type(GAME_GEAR), 'read_rom', return_value=rom):
             with self.assertRaises(ConversionError):
                 GAME_GEAR.convert(Path('game.gg'), output=self.output, backend='functions', publish_result=False)

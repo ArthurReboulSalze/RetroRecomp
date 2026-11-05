@@ -104,3 +104,88 @@ def replay_delivered(executable: Path, packed: Path, directory: Path, checks: li
     for check in checks:
         require_main_route_moving(check['scenario'], results[check['scenario']]['liveness'], directory)
     return delivered, results
+
+
+# ---------------------------------------------------------------- the report's devices and counters (gate G2)
+
+def codemasters_header(rom: bytes) -> bool:
+    """Whether the cartridge carries a Codemasters header: the checksum word at $7FE6 and its complement at $7FE8 add up to $10000.
+
+    A header-based reading of the dump (the Master System has no mapper register to read back); an all-zero or all-one pair does not
+    count. It names the cartridge's mapper in the report. The runtime does not model the Codemasters registers (its switch stays
+    off), so such a cartridge is converted and compared with the reference, but it is not a validated mapper."""
+    if len(rom) < 0x8000:
+        return False
+    checksum = int.from_bytes(rom[0x7FE6:0x7FE8], 'little')
+    inverse = int.from_bytes(rom[0x7FE8:0x7FEA], 'little')
+    return checksum not in (0, 0xFFFF) and (checksum + inverse) & 0xFFFF == 0
+
+
+def hardware_devices(system_id: str, rom: bytes) -> list:
+    """The `hardware_devices` the report stores for a Master System or Game Gear cartridge: the mapper, the video chip and the sound chip.
+
+    None of them is a CPU with a program, so none has an interpreter counter (the schema reads `fallback_present` as not applicable,
+    not as zero); each says it is a C model of the runtime and that its hardware fidelity is not validated."""
+    codemasters = codemasters_header(rom)
+    game_gear = system_id == 'gg'
+    mapper = {'id': 'codemasters' if codemasters else 'sega', 'kind': 'cartridge_mapper',
+              'mode': 'not_modelled' if codemasters else 'c_model',
+              'details': {'rom_bytes': len(rom), 'rom_banks_16k': -(-len(rom) // 0x4000), 'slots': 3,
+                          'registers': '$FFFD-$FFFF (the Sega mapper)', 'codemasters_header_found': codemasters,
+                          'codemasters_registers_modelled': False, 'cartridge_ram_modelled': False,
+                          'translated_from_rom': False,
+                          'interpreter': 'none: the mapper is C code in the runtime, driven by the writes the program makes',
+                          'hardware_fidelity_validated': False}}
+    video = {'id': 'vdp_mode4', 'kind': 'video_unit', 'mode': 'c_model',
+             'details': {'display': 'mode 4, scanline renderer', 'visible_pixels': [160, 144] if game_gear else [256, 192],
+                         'sprites_per_line': 8, 'translated_from_rom': False,
+                         'interpreter': 'none: the video chip is C code in the runtime, not a CPU with a program',
+                         'known_limits': ['no pixel-clock timing (palette changes are taken at the line)', 'no other display modes'],
+                         'hardware_fidelity_validated': False}}
+    sound = {'id': 'sn76489', 'kind': 'audio_unit', 'mode': 'c_model',
+             'details': {'channels': 4, 'stereo_ports': game_gear, 'fm_unit_modelled': False, 'translated_from_rom': False,
+                         'interpreter': 'none: the sound chip is C code in the runtime, not a CPU with a program',
+                         'hardware_fidelity_validated': False}}
+    return [mapper, video, sound]
+
+
+def _runtime_log(report: dict, scenario: str) -> str:
+    """The log of the last pass of one route, from the kept build the report names ('' when it was removed)."""
+    build = Path(str(report.get('build_directory') or ''))
+    final = len(report.get('history') or ()) // max(1, len(report.get('final_checks') or ()))
+    try:
+        return (build / 'checks' / f'pass{final}_{scenario}' / 'runtime.log').read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return ''
+
+
+def step_counters(log: str) -> dict:
+    """The banked engine's instruction counts from a run's log (`[banked] native_steps=… halt_steps=…`, `[banked-guards]`).
+
+    `native_instructions` counts every instruction the generated code completed, byte-guarded RAM encodings included
+    (`guarded_native_instructions`); `halted_steps` the steps spent halted. Empty for the "functions" engine and for a log without
+    the lines: no counter is invented."""
+    import re
+    found = re.search(r'\[banked\] native_steps=(\d+) halt_steps=(\d+)', log)
+    if not found:
+        return {}
+    result = {'native_instructions': int(found[1]), 'halted_steps': int(found[2])}
+    guarded = re.search(r'\[banked-guards\] native_steps=(\d+)', log)
+    if guarded:
+        result['guarded_native_instructions'] = int(guarded[1])
+    return result
+
+
+def enrich_report(report_path: Path, system_id: str, rom: bytes) -> dict:
+    """Add what the conversion's own report lacks (gate G2) and write it again through the common builder.
+
+    `hardware_devices` for the mapper, video and sound chips, and on the banked engine the instruction counts of each final route.
+    Nothing a conversion decides is touched; the keys are only added."""
+    import json
+    from .report_schema import write_report
+    report = json.loads(Path(report_path).read_text(encoding='utf-8'))
+    report['hardware_devices'] = hardware_devices(system_id, rom)
+    if report.get('backend') == 'banked':
+        for row in report.get('final_checks') or ():
+            row.update(step_counters(_runtime_log(report, row.get('scenario', ''))))
+    return write_report(report_path, report)
