@@ -8,11 +8,13 @@ machine that declines a registry says so by leaving its field empty (docs/NEW_MA
 
 The values are copied from those registries as they were in 1.6.2 and the tests pin that they are still equal
 to them (tests/test_system_profiles.py). Later, the registries read these fields instead of holding a copy.
-This module holds data definitions only; it imports nothing.
+This module holds data definitions only; it imports no module of the converter.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
+import re
 
 # (minimum, maximum) bytes of a standard cartridge image as the paths schema bounds it.
 CARTRIDGE_BOUNDS = (8192, 128 * 1024 * 1024 + 528)
@@ -105,6 +107,34 @@ class SharedKnowledge:
     # A machine with no schema 1 form keeps its records in a module of the package (`retrorecomp.<module>`) that checks, merges and compares them
     # (`knowledge.schema3_module`); its name is declared here, not tested for in the sharing code.
     module: str | None = None
+
+
+@dataclass(frozen=True)
+class ObservedCode:
+    """What a 68000 computer declares to use the shared generator of guarded native code for the instructions it runs from RAM
+    (retrorecomp/m68k_observed.py): where the bodies of the instructions come from, the prefix of its C symbols and the apertures where code
+    may be observed."""
+    # "module:function" ("module" relative to the package `retrorecomp`): function(engine: Path, prefix: str) -> m68k_observed.InstructionBodies.
+    bodies: str
+    # The prefix of the machine's C symbols ("rr_x68k_") and the name of its native step type.
+    prefix: str
+    step_type: str
+    # (lowest address, first address that is no pc, end of the aperture) of each window where code may be observed.
+    apertures: tuple
+
+    def load_bodies(self, engine):
+        module, _, function = self.bodies.partition(':')
+        return getattr(importlib.import_module('retrorecomp.' + module), function)(engine, self.prefix)
+
+    def check_sample(self, pc, words) -> None:
+        """ValueError for an observed instruction that no aperture of the machine can hold."""
+        if type(pc) is not int or pc & 1 or not any(low <= pc < last for low, last, _ in self.apertures):
+            raise ValueError('Unsupported observed code aperture.')
+        if not isinstance(words, str) or not re.fullmatch('[0-9a-f]{4,32}', words) or len(words) % 4:
+            raise ValueError('Invalid bounded CPU words.')
+        end = next(end for low, last, end in self.apertures if low <= pc < last)
+        if pc + len(words) // 2 > end:
+            raise ValueError('CPU sample crosses a mapping boundary.')
 
 
 @dataclass(frozen=True)

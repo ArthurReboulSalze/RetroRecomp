@@ -782,6 +782,10 @@ INPUTS = _resolve({
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',
     ),
+    # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
+    'shares:m68k_observed': (
+        'retrorecomp.m68k_observed',
+    ),
     'family:rr16': (
         'native/console16_main.c',
         'native/console16_state.c',
