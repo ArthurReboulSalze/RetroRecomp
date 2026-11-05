@@ -353,13 +353,25 @@ declare their limits on their own profile, so the stamps of the others no longer
 **What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
 nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
 of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
-quick-state key moves.** The PC Engine's own stamps are new (game `faae9f7f463d`, host `36739da167de`, build `66d912662e5c`, first twelve characters). An
+quick-state key moves.** The PC Engine's own stamps are new (game `c8545bf9018e`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the deep-folder fix below). An
 export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
 
 **Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
 CMake, start choice), the registry test (`tests/test_machine_registry.py` lists the machine in every registry it needs and declines
 `random_routes` and `memory_view` on the record), the language test (the PC Engine strings in eight languages, in the font
 subsets), and `tools/gui_smoke.py` (the options page of the new machine). Games, ROMs and the engine are not in the repository.
+
+**Deep application folders (release check, 5 November 2026).** The engine names the object library of a module `pce-module-<64 hex>`, and Visual Studio
+wrote `pce-module-<64 hex>.dir\Release\pce-module-<64 hex>.lib` below the game's CMake build folder: 166 characters that, under an application folder of
+about 60 characters or more (`...\AppData\Local\Programs\Retro-Recomp`, a Downloads folder), passed the 260-character limit of Windows and stopped the link
+with `LNK1104`. The engine's target is still created (it validates the manifest and lists the sources) but is never built: the game compiles the module's
+sources in an object library of its own, `pce_module` (`pce_build.game_cmake`), so no engine source is patched. **What moves:** only the PC Engine's game
+stamp (`pce_build.py` is an input of it); its host and build stamps and every other console's stamps do not. **Limit:** a conversion now works with an
+application folder of up to **123 characters** (the folder that holds `.build`, measured: 119 converts Bonk's Adventure with no interpreted instruction and the
+packed replay and F8/F9 gates passing, 124 stops). Beyond that the limit is no longer the PC Engine's: it is CMake's own compiler check, which writes
+`<build folder>\CMakeFiles\CMakeScratch\TryCompile-xxxxxx\...` (104 characters) in the first configure of any game's build folder, which here is
+`<app>\.build\pce\<12 hex>\n\build` (32 characters below the application folder), so the build folder may hold 155 characters; every machine's game builds go through
+the same check.
 
 **Disk space.** The clean-up after a publication and Options › Common › Disk space know the PC Engine's build folders (`.build/pce/<12 hex>/`, locked while a conversion runs), like the CPS-1's.
 
