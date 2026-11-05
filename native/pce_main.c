@@ -26,8 +26,8 @@ int rr_pce_sdl_main(const char *title, int scale);
 
 static unsigned frame;
 static int headless, frames, scripted, diagnostics, reference, native_only;
-static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path;
-static unsigned save_at;
+static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path, *capture_dir;
+static unsigned save_at, capture_every = 600;
 static int ignore_load_error, state_loaded, load_rejected, save_failed;
 static FILE *trace_file, *pcm;
 static uint64_t pcm_hash = FNV_BASIS, image_hash = FNV_BASIS, samples, nonzero, energy;
@@ -142,6 +142,23 @@ int rr_pce_host_frame(const uint16_t pads[4])
                 (unsigned long long)pce_machine_cpu_hash(), (unsigned long long)pce_machine_ram_hash(),
                 (unsigned long long)image, (unsigned long long)sound, (unsigned long long)frame_audio_count);
     if (save_path && save_at == frame && !state_file(save_path, 0)) save_failed = 1;
+    if (capture_dir && !(frame % capture_every)) {
+        /* A binary PPM of the visible picture: headless checks look at it, no window is opened. */
+        char path[4096];
+        unsigned width, height;
+        const uint32_t *pixels = pce_machine_pixels(&width, &height);
+        snprintf(path, sizeof path, "%s/frame-%06u.ppm", capture_dir, frame);
+        FILE *image = file_open(path, L"wb");
+        if (!image) { snprintf(fault, sizeof fault, "picture capture failed"); return 0; }
+        fprintf(image, "P6\n%u %u\n255\n", width, height);
+        for (unsigned y = 0; y < height; y++)
+            for (unsigned x = 0; x < width; x++) {
+                uint32_t value = pixels[y * PCE_MAX_WIDTH + x];
+                unsigned char rgb[3] = {(unsigned char)(value >> 16), (unsigned char)(value >> 8), (unsigned char)value};
+                fwrite(rgb, 1, 3, image);
+            }
+        if (fclose(image)) { snprintf(fault, sizeof fault, "picture capture failed"); return 0; }
+    }
     return 1;
 }
 
@@ -250,11 +267,13 @@ static int execute(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--load-state")) load_path = argv[++i];
         else if (!strcmp(argv[i], "--ignore-load-error")) ignore_load_error = 1;
         else if (i + 1 < argc && !strcmp(argv[i], "--trace")) trace_path = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--code-capture")) code_capture_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--script")) { if (!load_script(argv[++i])) return 2; }
         else return 2;
     }
-    if (frames < 0 || frames > 1000000 || (headless && !frames) || (reference && native_only)) return 2;
+    if (frames < 0 || frames > 1000000 || (headless && !frames) || (reference && native_only) || !capture_every) return 2;
     diagnostics = report_path || trace_path;
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     size_t size = 0;
