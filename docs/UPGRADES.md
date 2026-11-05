@@ -79,6 +79,35 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.6.8 in 1.6.9
+
+1.6.9 is the release after 1.6.8 (published on 4 November 2026). This section is the index of its changes, one line per section
+below, with the stamps that section says move. Each section computed its stamps for its own change alone; the totals are under the table.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Master System and Game Gear: two defects of the "functions" engine](#master-system-and-game-gear-two-defects-of-the-functions-engine-found-by-the-panel-169) and [the evidence of the panel](#master-system-and-game-gear-the-report-names-the-devices-and-the-routes-that-stall-and-the-evidence-of-the-panel-169) | Master System, Game Gear | none | no key (they have none) |
+| [Capcom CPS-2 opens as an experimental machine](#capcom-cps-2-opens-as-an-experimental-machine-169) | CPS-1 (the board shared with the CPS-2) | host stamp of all nine consoles (the notices) | **the CPS-1 key moves**: CPS-1 and CPS-1.5 states of 1.6.8 refused |
+| [Capcom CPS-1.5 leaves the experimental tier](#capcom-cps-15-leaves-the-experimental-tier-169) | CPS-1 (the catalogue) | none | no key moves |
+| [An account upload carries only the paths the local base lacks](#an-account-upload-carries-only-the-paths-the-local-base-lacks-169) | none (interface modules) | none | no key moves |
+| [Game Boy: the one-by-one line names the 0xFF00-0xFF7F range](#game-boy-the-one-by-one-line-names-the-0xff00-0xff7f-range-169) | Game Boy | none | no key (the Game Boy has none) |
+| [Sharp X68000: the profile is supported](#sharp-x68000-the-profile-is-supported-169) and [the paths travel, both ways](#sharp-x68000-the-paths-travel-both-ways-169) | all nine consoles (the `*` group of `stamp_inputs`) | host stamp of every console (the notices) | no key moves |
+| [Host kit: nothing blocks a third or fourth player](#host-kit-nothing-blocks-a-third-or-fourth-player-169) | none | **host stamp of all nine consoles** | no key moves (`game_options.h` and the catalogue untouched) |
+| [Computers: the keyboard goes to the game or to the computer, per game, from F2](#computers-the-keyboard-goes-to-the-game-or-to-the-computer-per-game-from-f2-169) | none | X68000 host | no key moves |
+| [Sharp X68000: the generator of native code and the computer part of the adapter are shared](#sharp-x68000-the-generator-of-native-code-and-the-computer-part-of-the-adapter-are-shared-169) | all nine consoles (`systems/specs.py`, `systems/__init__.py`) | X68000 host | no key moves |
+| [PC Engine: an experimental machine](#pc-engine-an-experimental-machine-169) | all nine consoles (the profile modules); the PC Engine's own stamps are new | host stamp of all nine consoles (the notices) | the PC Engine's key is new |
+
+Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.8` against the tree of this release, computed on
+5 November 2026): **the game stamp and the host stamp of the nine consoles of 1.6.8 move; no build stamp moves.** The CPS-2 and the PC Engine
+are new. `LEGACY_GAME_STAMPS` stays empty, as in every release since 1.6.4: the X68000 sections change modules of the `*` group, which every game
+stamp hashes. So every export of 1.6.8 is converted again from its paths, once, when it is upgraded.
+
+**Quick states.** Only **the CPS-1 key** moves (it hashes the board sources the CPS-2 now shares): a quick state written by a CPS-1 or CPS-1.5
+export of 1.6.8 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The files
+the keys of the Mega Drive, the Super Nintendo, the Neo Geo, the NES and the X68000 hash did not change between `v1.6.8` and this release (checked
+with `git diff` on each key's inputs), so their 1.6.8 quick states load. The Master System, the Game Gear and the Game Boy have no key of this kind.
+**Cartridge saves** are kept on every console, the CPS-1 EEPROM included.
+
 ## Master System and Game Gear: two defects of the "functions" engine found by the panel (1.6.9)
 
 The 1.6.9 panel of twelve games (see [MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-panel-of-twelve-games-169-gates-g2-g5-g6-g8-g9)) converted with the "functions"
@@ -304,6 +333,7 @@ disk changes of Metal Sight. The sharing record of Twins made by this tree has t
 (the computer's part) is compiled by every conversion and exercised by the SDL harnesses of `tests/x68000_controls_harness.c` and `x68000_menu_harness.c` (virtual controllers, the guest keyboard, the mouse game,
 autofire, the menus and the help page), which pass with one change: the state of the windowed player is `ca` (the computer's) instead of `xa`. What a real window does with a real mouse and a real second
 floppy is still the owner's next play to confirm.
+
 ## PC Engine: an experimental machine (1.6.9)
 
 The PC Engine / TurboGrafx-16 is added as an **experimental** machine ([PC_ENGINE.md](PC_ENGINE.md)): the converter reads HuCard
