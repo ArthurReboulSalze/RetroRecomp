@@ -301,6 +301,12 @@ X68000 too, without asking again**.
     which every machine reads back as "no binding" (only the X68000, `bindings_clearable`, did before 1.6.9).
   A ROM-free check runs the real loop with four virtual pads on a four- and a two-player CPS-1 adapter build
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
+* <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (planned, owner's decision of 5 November 2026; not
+  implemented). On the 2D machines F3 cycles the picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the
+  name for 1.8 s. On the 3D machines under study (Nintendo 64, Sega Saturn, PlayStation) the same key will open a
+  graphics options page instead, where the player switches the options of that machine's renderer (internal resolution,
+  filtering, scanlines, aspect ratio and the like). The page is the kit's (one menu for every 3D machine, declared by the
+  adapter, no `if console ==`); each machine says which options it offers.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

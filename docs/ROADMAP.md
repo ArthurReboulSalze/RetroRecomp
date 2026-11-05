@@ -124,6 +124,7 @@ on the owner's decision after the qualification list.
 - Amiga 500 (WHDLoad-based)
 - Amiga 1200 AGA (WHDLoad-based)
 - Nintendo 64
+- Sega Saturn
 - PlayStation
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
