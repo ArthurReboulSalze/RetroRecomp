@@ -723,7 +723,11 @@ class GameCmakeTests(TempFiles):
             with self.subTest(module=module):
                 self.assertIn(f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)', text)
                 self.assertIn('target_link_libraries(game PRIVATE pce-runtime SDL2::SDL2-static)', text)
-                self.assertIn('$<TARGET_OBJECTS:${PCE_MODULE}>', text)
+                self.assertIn('$<TARGET_OBJECTS:pce_module>', text)
+                self.assertNotIn('TARGET_OBJECTS:${PCE_MODULE}', text)      # the engine's 75-character target is never built
+                self.assertIn('get_target_property(PCE_MODULE_SOURCES ${PCE_MODULE} SOURCES)', text)
+                self.assertLess(text.index('pce_add_native_module'), text.index('add_library(pce_module OBJECT'))
+                self.assertLess(text.index('add_library(pce_module OBJECT'), text.index('add_executable(game'))
                 self.assertIn('RR_RECOMP_VERSION="1.2.3"', text)
                 self.assertTrue(text.endswith('\n'))
                 self.assertLess(text.index('add_subdirectory'), text.index('pce_add_native_module'))
@@ -734,7 +738,7 @@ class GameCmakeTests(TempFiles):
         statement = text[text.index('add_executable(game'):]
         statement = statement[:statement.index(')\n') + 1]
         for name in ('pce_main.c', 'pce_machine.cpp', 'console16_state.c', *hostkit.sources('pce'),
-                     '$<TARGET_OBJECTS:${PCE_MODULE}>'):
+                     '$<TARGET_OBJECTS:pce_module>'):
             self.assertIn(name, statement)
 
     def test_the_kit_has_the_shell_and_the_adapter(self):
