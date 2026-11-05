@@ -26,9 +26,14 @@ static void puts_at(uint32_t a, const char *s) { memcpy(mem + a, s, strlen(s) + 
 static const unsigned char file_main[] = "main program bytes";
 static unsigned char disk1[4096];
 
+/* An RNC1 file and its unpacked bytes, written by tests/test_amiga_resload.py with its own encoder. */
+static unsigned char *packed_file, *expected_file;
+static uint32_t packed_size, expected_size;
+
 static int lookup(void *u, const char *name, const uint8_t **data, uint32_t *size) {
     (void)u;
     if (!strcmp(name, "main")) { *data = file_main; *size = sizeof file_main - 1; return 1; }
+    if (!strcmp(name, "packed") && packed_file) { *data = packed_file; *size = packed_size; return 1; }
     if (!strcmp(name, "Disk.1")) { *data = disk1; *size = sizeof disk1; return 1; }
     return 0;
 }
@@ -105,12 +110,16 @@ static void crc_and_control(void) {
 static void refusals(void) {
     RrResload r = make(17, 0);
     uint32_t regs[16] = {0};
-    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "Decrunch"));
+    memcpy(mem + 0x8000, "IMP!", 4);                        /* a format recognised but not unpacked yet */
+    regs[8] = 0x8000; regs[9] = 0x9000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "Imploder"));
+    memcpy(mem + 0x8000, "DATA", 4);                        /* unpacked data: size 0, as WHDLoad */
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_RETURN && regs[0] == 0);
     CHECK(rr_resload_call(&r, 0x5C, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "ProtectSMC"));
     CHECK(rr_resload_call(&r, 0x90, regs) == RR_RESLOAD_REFUSED);
     RrResload old = make(4, 0);                             /* Control needs ws_Version 5 */
     CHECK(rr_resload_call(&old, 0x34, regs) == RR_RESLOAD_REFUSED && strstr(old.message, "newer slave"));
-    CHECK(r.calls[0x18 / 4] == 1 && r.calls[0x5C / 4] == 1);
+    CHECK(r.calls[0x18 / 4] == 2 && r.calls[0x5C / 4] == 1);
     put32(0x7000 + 4, 0); put32(0x7000 + 8, 3); put32(0x7000 + 12, 4);   /* Abort(0, 3, 4) on the stack */
     regs[15] = 0x7000;
     CHECK(rr_resload_call(&r, 0x04, regs) == RR_RESLOAD_ABORT && r.abort_reason[1] == 3 && r.abort_reason[2] == 4);
@@ -258,13 +267,49 @@ static void relocate(void) {
     CHECK(get32(a + 36) == 0 && regs[0] == 48);
 }
 
-int main(void) {
+static unsigned char *read_all(const char *path, uint32_t *size) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *d = (unsigned char *)malloc((size_t)n + 1);
+    *size = (uint32_t)fread(d, 1, (size_t)n, f);
+    fclose(f);
+    return d;
+}
+
+/* RNC1: LoadFileDecrunch from a file, Decrunch in memory, GetFileSizeDec, and a damaged copy refused. */
+static void rnc1(void) {
+    RrResload r = make(17, 0);
+    uint32_t regs[16] = {0};
+    puts_at(0x2300, "packed");
+    regs[8] = 0x2300; regs[9] = 0x100000;
+    CHECK(rr_resload_call(&r, 0x70, regs) == RR_RESLOAD_RETURN && regs[0] == expected_size);
+    regs[8] = 0x2300; regs[9] = 0x100000;
+    CHECK(rr_resload_call(&r, 0x1C, regs) == RR_RESLOAD_RETURN && regs[0] == expected_size);
+    CHECK(!memcmp(mem + 0x100000, expected_file, expected_size));
+    memcpy(mem + 0x200000, packed_file, packed_size);
+    regs[8] = 0x200000; regs[9] = 0x300000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_RETURN && regs[0] == expected_size);
+    CHECK(!memcmp(mem + 0x300000, expected_file, expected_size));
+    mem[0x200000 + packed_size - 1] ^= 0x40;                  /* a damaged packed byte: its CRC no longer matches */
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "CRC"));
+}
+
+int main(int argc, char **argv) {
     files_and_disks();
     crc_and_control();
     refusals();
     patches();
     patch_segments();
     relocate();
+    if (argc > 2) {
+        packed_file = read_all(argv[1], &packed_size);
+        expected_file = read_all(argv[2], &expected_size);
+        CHECK(packed_file && expected_file);
+        if (packed_file && expected_file) rnc1();
+    }
     printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
     return failures;
 }

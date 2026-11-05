@@ -1,5 +1,6 @@
 /* Retro-Recomp: resload services of a WHDLoad slave (MIT). See rr_resload.h. */
 #include "rr_resload.h"
+#include "rr_decrunch.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -444,6 +445,52 @@ static int control(RrResload *r, uint32_t regs[16]) {
     return RR_RESLOAD_RETURN;
 }
 
+/* ---- Packed data ---------------------------------------------------------------------------------------------- */
+
+/* Unpacks `data` to guest `dest`. Returns 1 and the size, 0 when it is not packed, -1 (refused) for a packed format
+   this layer does not unpack or a damaged one. */
+static int unpack_to(RrResload *r, const uint8_t *data, uint32_t size, uint32_t dest, uint32_t *unpacked) {
+    int format = rr_pack_format(data, size);
+    if (format == RR_PACK_NONE) return 0;
+    uint32_t want = rr_pack_unpacked_size(data, size);
+    uint8_t *out = (uint8_t *)malloc(want ? want : 1);
+    const char *why = "out of memory";
+    uint32_t got = out ? rr_unpack(data, size, out, want, &why) : 0;
+    if (!got) {
+        free(out);
+        r->refused_offset = RL_DECRUNCH;
+        snprintf(r->message, sizeof r->message, "%s data: %s", rr_pack_name(format), why ? why : "not unpacked");
+        return -1;
+    }
+    copy_in(r, dest, out, got);
+    free(out);
+    *unpacked = got;
+    return 1;
+}
+
+static int decrunch(RrResload *r, uint32_t regs[16]) {
+    uint8_t head[18];
+    for (uint32_t i = 0; i < sizeof head; i++) head[i] = rd8(r, regs[A0] + i);
+    int format = rr_pack_format(head, sizeof head);
+    if (format == RR_PACK_NONE) { regs[D0] = 0; return RR_RESLOAD_RETURN; }    /* unknown data: size 0, as WHDLoad */
+    uint32_t total = format == RR_PACK_RNC1 || format == RR_PACK_RNC2 ? 18 + (head[8] << 24 | head[9] << 16 | head[10] << 8 | head[11]) : 0;
+    if (!total) {
+        r->refused_offset = RL_DECRUNCH;
+        snprintf(r->message, sizeof r->message, "resload_Decrunch: %s is not unpacked yet", rr_pack_name(format));
+        return RR_RESLOAD_REFUSED;
+    }
+    uint8_t *packed = (uint8_t *)malloc(total);
+    if (!packed) return refuse(r, RL_DECRUNCH, "resload_Decrunch: out of memory%s", "");
+    for (uint32_t i = 0; i < total; i++) packed[i] = rd8(r, regs[A0] + i);
+    uint32_t size = 0;
+    int done = unpack_to(r, packed, total, regs[A1], &size);
+    free(packed);
+    if (done < 0) return RR_RESLOAD_REFUSED;
+    regs[D0] = size;
+    flush(r);
+    return RR_RESLOAD_RETURN;
+}
+
 /* ---- The table ------------------------------------------------------------------------------------------------ */
 
 int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
@@ -479,6 +526,24 @@ int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
         guest_name(r, regs[A0], name, sizeof name);
         regs[D0] = find(r, name, &data, &size) ? size : 0;
         return RR_RESLOAD_RETURN;
+    case RL_GETFILESIZEDEC:
+        guest_name(r, regs[A0], name, sizeof name);
+        if (!find(r, name, &data, &size)) { regs[D0] = 0; return RR_RESLOAD_RETURN; }
+        { uint32_t dec = rr_pack_unpacked_size(data, size); regs[D0] = dec ? dec : size; }
+        return RR_RESLOAD_RETURN;
+    case RL_LOADFILEDECRUNCH: {
+        guest_name(r, regs[A0], name, sizeof name);
+        if (!find(r, name, &data, &size)) return failed(r, regs, RR_DOS_OBJECT_NOT_FOUND, offset, name);
+        uint32_t unpacked = 0;
+        int done = unpack_to(r, data, size, regs[A1], &unpacked);
+        if (done < 0) return RR_RESLOAD_REFUSED;
+        if (!done) { copy_in(r, regs[A1], data, size); unpacked = size; }
+        regs[D0] = unpacked;
+        regs[D1] = 0;
+        flush(r);
+        return RR_RESLOAD_RETURN;
+    }
+    case RL_DECRUNCH: return decrunch(r, regs);
     case RL_DISKLOAD: {
         snprintf(name, sizeof name, "Disk.%u", (unsigned)(regs[D2] & 0xFF));
         if (!find(r, name, &data, &size)) return failed(r, regs, RR_DOS_OBJECT_NOT_FOUND, offset, name);
