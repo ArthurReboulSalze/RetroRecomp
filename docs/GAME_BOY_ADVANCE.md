@@ -87,6 +87,26 @@ interpreter follows the generated code now), and a scripted key word was applied
 the two modes (it is applied inside the VBlank tick now). A one-cycle offset at the end of a run is how the engine stops; the
 report tolerates two cycles and says so.
 
+## Independent evidence (stage 5)
+
+Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
+player and stays outside the repository (hashes and counts only are written here).
+
+* `tools/gba_hardware_selftest.py` converts the authored hardware tests (jsmolka's gba-tests, MIT) through the converter's own
+  probe and judges the final picture against the suites' passing screen. The eight self-checking suites (ARM, Thumb, memory, BIOS and
+  the four save variants) **pass**, all with the same picture, none with an instruction on the interpreter once the observations of
+  a first run are learned; the three picture tests are not judged and are never counted as passed.
+* `tools/gba_vector_selftest.py` (with `tools/fetch_gba_vectors.py`, pinned to revision `e3097d88`, 45 files of 50,000) stages the
+  patched engine and runs SingleStepTests/ARM7TDMI (MIT, generated from NanoBoyAdvance: a model, not hardware) against the engine's
+  interpreter (all 2,250,000 vectors) and the generated code (a sample of 45,000). On 5 November 2026 with the 30 patches: the
+  interpreter agrees on **93.96 %** (the 136,000 failures are 75,516 coprocessor instructions, 11,554 multiply carries, 48,476
+  encodings with R15 as an operand and unpredictable cases, and **385 other**, of them 247 `LDM`/`STM`, 88 Thumb `LDM`/`STM` and 50
+  `PUSH`/`POP`); the generated code agrees on **91.08 %** (3,000 coprocessor, 230 multiply carry, 774 R15, **11 other**). The patches
+  moved the interpreter by about 18,000 vectors (the FIQ bank on interrupt entry among them) and the generated code by 12. The
+  coprocessor instructions are not implemented in generated code, by the engine's design, and the multiply carry and R15 cases are
+  where the model and the architecture's unpredictable results meet; the short tail of `LDM`/`STM`/`PUSH`/`POP` is unexplained and is
+  the next thing to look at. This is CPU fidelity against a model, not against hardware.
+
 ## The player (stage 4)
 
 The exported game is a Windows executable that links the engine's runtime, the cartridge's generated code, the code generated
@@ -145,7 +165,7 @@ measures unclaimed; interpreted instructions are counted per CPU, in one unit.
 | 2. Profile | this page, the reader, the report, the path section, translations, registry, stamps, upstreams | G1 |
 | 3. Conversion | staged copy and anchored patches, analysis with code copies and roots from our paths, observation at conversion, sharded build, counters per CPU, the report writer | G2, G3, G4 |
 | 4. Host | the machine's player on the common host kit: pad, picture, sound, quick states, saves, counters | G5, G6, G7 |
-| 5. Independent evidence | vector self-test, authored hardware tests, comparison with independent models | G10, G11 |
+| 5. Independent evidence | vector self-test and authored hardware tests (done, see above); comparison with an independent emulator (not done) | G10, G11 |
 | 6. Panel and fixes | a small panel chosen by risk, general fixes only | G8, G9, G12 |
 | 7. Release candidate | documents, release check, Linux witness | G13 |
 

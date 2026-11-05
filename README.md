@@ -93,7 +93,7 @@ decides a status: leaving the experimental status is the owner's own decision.
 | Neo Geo | supported | `█████████░` 94 % |
 | Capcom CPS-1 | supported | `█████████░` 90 % |
 | Sharp X68000 | experimental | `█████████░` 90 % |
-| Game Boy Advance | experimental | `███░░░░░░░` 28 % |
+| Game Boy Advance | experimental | `███░░░░░░░` 31 % |
 
 <!-- qualification-gauges:end -->
 
