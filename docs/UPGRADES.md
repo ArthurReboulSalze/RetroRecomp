@@ -90,6 +90,8 @@ scope of the sharing, which now says the machine stays local), the tests and the
 and nothing else**. The game stamps of the other eight consoles, and the host and build stamps of all nine, are identical. The quick-state key of the
 X68000 (`RR_X68K_STATE_ABI`) hashes the reference host and the machine bridge, which this change does not touch: it does not move for this change.
 
+**The notices (a second commit, which can be left out).** `THIRD_PARTY_NOTICES.md` and the four licence pages that said "experimental" of the X68000 (and, in one of them, of the Neo Geo) are host inputs of every console: with that commit **the host stamp of all nine consoles moves** (no game stamp beyond the X68000's, no build stamp), as the notices commit of 1.6.8 did. Without it, five lines of the public notices would still call the machine experimental.
+
 **Impact on existing exports.** An X68000 export of 1.6.8 keeps playing as it is; its report says `experimental` until it is converted again. Upgraded by 1.6.9 it is
 converted in full again (its game stamp moved) and its report says `supported`. The generated code, the pictures, the sound, the saves and the hashes of every
 route are not changed by this commit: the one thing that differs in the report of a game is the word `status` (see the A/B in QUALIFICATION.md).

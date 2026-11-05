@@ -4,7 +4,7 @@ Source: https://github.com/mstan/segagenesisrecomp
 
 Copyright (c) 2026 Matthew Stan (mstan), as stated in
 `external/m68k-recomp-core/LICENSE`. The 68000 decoder and instruction semantics
-are also reused by the experimental Neo Geo and Sharp X68000 runtimes. The
+are also reused by the Neo Geo and Sharp X68000 runtimes. The
 project owner reports mstan's agreement to that noncommercial use with
 attribution; the PolyForm terms below still apply unchanged.
 
