@@ -79,6 +79,24 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## The index of native steps may have its own language (1.7, the Amiga's branch)
+
+The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
+C (its page tables are array designators); the Amiga's steps are C++ (they call Moira's instruction templates), and a C++ index needed a warning switched
+off. `ObservedCode.index_extension` (`retrorecomp/systems/specs.py`) names the extension of `steps/index` when it differs from the steps'; `None`, the
+default, keeps the steps' extension. The Amiga sets `'.c'`: its steps are C++ functions with C linkage and its index is C. One line of `write_steps`
+reads the field; no other line of the shared module changes. A contract test (`tests/test_observed_index_contract.py`) writes the index of every
+machine that declares an `ObservedCode` and compiles it, warnings as errors, in the language its extension names; the former C++ index of the Amiga fails it.
+
+**Proof that the X68000 does not change.** The native project of two games (R-Type and Lemmings, the variants of their recorded observations) was written
+with the converter of `main` and with this tree: **78 files, 0 differences** (the decoder's build folder and the logs name the tree and are left out).
+The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, as for the move of the generator in 1.6.9, so no qualified path is lost; the
+digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is updated.
+
+**What moves**: `retrorecomp/systems/specs.py` is an input of the game stamp of all nine consoles, so **the game stamp of every console moves**;
+`retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
+identical, but an export upgraded across this change is converted again once, as the stamps say.
+
 ## Master System and Game Gear: two defects of the "functions" engine found by the panel (1.6.9)
 
 The 1.6.9 panel of twelve games (see [MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-panel-of-twelve-games-169-gates-g2-g5-g6-g8-g9)) converted with the "functions"

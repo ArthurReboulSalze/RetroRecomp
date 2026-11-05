@@ -26,10 +26,11 @@ class AmigaCodegenTest(unittest.TestCase):
         table(self.path, {0xd240: ('AddEaRg', 2, 0, 2), 0x4e75: ('Rts', 77, 12, 0)})
         amiga_codegen.load_opcode_map(self.path)
         definition, declaration = amiga_codegen._step('rr_amiga_form_3', {'words': [0xd240, 0, 0]}, 'MN_ADD', '')
-        self.assertIn('void rr_amiga_form_3(vamiga::moira::Moira &m, uint16_t op)', definition)
+        # C++ calling Moira's template, with C linkage and an opaque machine: the index that lists the step is C.
+        self.assertIn('extern "C" void rr_amiga_form_3(void *m, uint16_t op)', definition)
         self.assertIn('RrAmigaSteps::run_AddEaRg<vamiga::moira::Core::C68000, (vamiga::moira::Instr)2, '
-                      '(vamiga::moira::Mode)0, (vamiga::moira::Size)2>(m, op);', definition)
-        self.assertEqual(declaration, 'void rr_amiga_form_3(vamiga::moira::Moira &m, uint16_t op);\n')
+                      '(vamiga::moira::Mode)0, (vamiga::moira::Size)2>(*static_cast<vamiga::moira::Moira *>(m), op);', definition)
+        self.assertEqual(declaration, 'void rr_amiga_form_3(void *m, uint16_t op);\n')
 
     def test_the_header_has_one_forwarder_per_handler_inside_the_friend(self):
         table(self.path, {0xd240: ('AddEaRg', 2, 0, 2)})
@@ -49,8 +50,18 @@ class AmigaCodegenTest(unittest.TestCase):
 
     def test_the_index_hooks(self):
         self.assertIn('#define MSB_FIRST 1', amiga_codegen.INDEX_HEAD)
-        self.assertIn('struct RrAmigaStep', amiga_codegen.INDEX_HEAD)
+        self.assertIn('typedef struct RrAmigaStep {', amiga_codegen.INDEX_HEAD)
+        self.assertNotIn('vamiga', amiga_codegen.INDEX_HEAD + amiga_codegen.CODE_VIEW, 'the index is C')
         self.assertIn('return s->run;', amiga_codegen.index_tail([]))
+
+    def test_the_declaration_the_profile_will_carry(self):
+        observed = amiga_codegen.OBSERVED
+        self.assertEqual((observed.prefix, observed.step_type, observed.source_extension, observed.index_extension),
+                         ('rr_amiga_', 'RrAmigaStep', '.cpp', '.c'))
+        observed.check_sample(0x1ffffe, '4e75')
+        observed.check_sample(0xc00000, '4e75')
+        with self.assertRaises(ValueError):
+            observed.check_sample(0xbfe000, '4e75')
 
 
 if __name__ == '__main__':
