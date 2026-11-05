@@ -67,9 +67,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
-                               # The CPS-2 romset reading and catalogue loader: no CPS-2 profile exists yet, so no stamp reads them;
-                               # with the profile they become game inputs of the CPS-2 like their CPS-1 counterparts.
-                               'cps2', 'cps2_catalogue',
+                               # The CPS-2 romset reader: no CPS-2 profile exists yet, so no stamp reads it; with the profile it becomes
+                               # a game input of the CPS-2 like its CPS-1 counterpart.
+                               'cps2',
                                # The registration list of the machines: a new machine adds one line there and
                                # no other console's stamp moves (docs/NEW_MACHINE.md).
                                'registry',
@@ -720,6 +720,10 @@ INPUTS = _resolve({
         'native/cps1_z80_native.h',
         'retrorecomp.capcom_catalogue',
         'retrorecomp.capcom_sets',
+        # read by cps1_board, which writes the CPS-2 board folders too (the profile of the CPS-2 will own them with the CPS-1)
+        'retrorecomp.cps2_catalogue',
+        'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_tables',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
         'retrorecomp.cps1_build',

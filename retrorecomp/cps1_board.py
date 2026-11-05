@@ -10,13 +10,13 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 
-from . import cps1_catalogue, cps1_kabuki
+from . import cps1_catalogue, cps1_kabuki, cps2_catalogue
 
 # (group size, skip, reversed) per load operation.
 LAYOUTS = {'load': (1, 0, False), 'load16_byte': (1, 1, False), 'load16_word': (1, 0, False),
            'load16_word_swap': (2, 0, True), 'load32_byte': (1, 3, False),
            'load64_byte': (1, 7, False), 'load64_word': (2, 6, False)}
-RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars', 'audiocpu-op', 'qsound', 'audiorom_raw', 'qsound_dsp')
+RUNTIME_REGIONS = ('maincpu', 'audiocpu', 'gfx', 'oki', 'stars', 'audiocpu-op', 'qsound', 'audiorom_raw', 'qsound_dsp', 'maincpu-op')
 PORTS = ('IN0', 'IN1', 'IN2', 'IN3', 'DSWA', 'DSWB', 'DSWC')
 
 
@@ -95,7 +95,8 @@ def descriptor(game: dict) -> str:
     data = cps1_catalogue.catalogue()
     board, mapper = data['boards'][game['board']], data['mappers'][game['mapper']]
     qsound = game['machine'] == 'qsound'      # the CPS-1.5 board: a 12 MHz CPS-1 with a Kabuki Z80 and a QSound chip
-    clock = 12000000 if game['machine'] == 'cps1_12MHz' or qsound else 10000000
+    cps2 = game['machine'] == 'cps2'          # the CPS-2 board: a 16 MHz 68000 with encrypted opcodes, the object chip and a QSound chip
+    clock = 16000000 if cps2 else 12000000 if game['machine'] == 'cps1_12MHz' or qsound else 10000000
     lines = ['cps1-board 1', 'set ' + game['set'], f'cpu_clock {clock}',
              f'id {board["id_address"]} {board["id_value"]}',
              'mult {} {} {} {}'.format(board['mult_factor1'], board['mult_factor2'],
@@ -105,10 +106,12 @@ def descriptor(game: dict) -> str:
              f'palette_control {board["palette_control"]}',
              'layer_enable ' + ' '.join(map(str, board['layer_enable'])),
              'bank_sizes ' + ' '.join(map(str, mapper['bank_sizes'])),
-             'ports ' + ' '.join(map(str, game['ports'])), f'kludge {game["kludge"]}',
+             'ports ' + ' '.join(map(str, game.get('ports', (0, 0, 0)))), f'kludge {game.get("kludge", 0)}',
              f'rotation {game["rotation"]}']
     if qsound:
         lines += ['machine qsound', 'z80_clock 8000000']
+    elif cps2:
+        lines += ['machine cps2', 'z80_clock 8000000']
     lines += ['range ' + ' '.join(map(str, row)) for row in mapper['ranges']]
     for port in PORTS:
         if port in game['inputs']:
@@ -118,10 +121,16 @@ def descriptor(game: dict) -> str:
 
 def write_board(directory: Path, game_set, game: dict | None = None, dsp_rom: bytes | None = None) -> dict:
     """The board folder of a set. A QSound board also gets `dsp_rom`, the player's own dump of the chip's internal ROM."""
-    game = game or cps1_catalogue.by_set()[game_set.set_name]
+    game = game or (cps2_catalogue.by_set() if getattr(game_set, 'system_id', 'cps1') == 'cps2' else cps1_catalogue.by_set())[game_set.set_name]
     regions = assemble(game, member_bytes(game_set))
     if dsp_rom is not None:
         regions['qsound_dsp'] = dsp_rom
+    if game['machine'] == 'cps2':
+        # The 68000 sees its program twice: instruction fetches (opcodes, extension words, PC-relative operands) through the
+        # decrypted image, everything else through the stored one (retrorecomp/cps2_crypt.py). The key is the player's own file.
+        from . import cps2_catalogue, cps2_crypt
+        files = member_bytes(game_set)
+        regions['maincpu-op'] = cps2_crypt.decrypt(bytes(regions['maincpu']), files[cps2_catalogue.key_file(game)['name']])
     keys = cps1_kabuki.keys_for(game)
     if keys:
         # A Kabuki sound CPU sees its ROM twice: instruction fetches through the opcode image, everything else through
