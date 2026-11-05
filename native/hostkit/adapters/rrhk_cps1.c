@@ -12,7 +12,8 @@
 #include "hostkit/hostkit.h"
 
 /* Bits follow cps1_host.h; each game maps them to its own ports. Players 3 and
- * 4 have no default keys (the keyboard is full); F2 binds them. */
+ * 4 list no keys: the kit gives them its own (rrhk_input.c: directions, buttons
+ * 1-3, Start and Coin), and F2 binds the rest. */
 #define PADS(button) {button, button, button, button}
 enum { A, B, C, X, Y, Z, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {

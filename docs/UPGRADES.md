@@ -202,6 +202,31 @@ tests pass unchanged. The profile now declares the module of a machine without a
 **Exchange files and the base.** A version 3 file and line 3 of the base carry X68000 records; a converter of 1.6.8 reads a record it does not know as it reads
 any unknown machine (skipped), and a version 2 file leaves the games out. The service has to accept records of 90 to 130 KB of JSON (20 KB compressed).
 
+## Host kit: nothing blocks a third or fourth player (1.6.9)
+
+The rules of [HOST_KIT.md D13](HOST_KIT.md#d13), on every console: the gamepad Quit and Restart combinations and the trigger
+speed controls are watched on player 1's pad only (any player's Start+Coin held one second restarted a CPS-1 or Neo Geo game
+for everyone). **On two-player consoles too, player 2 holding Start+Select (or L3+R3) no longer restarts (or quits) the game;
+only player 1's controller does.** A player whose pad column the adapter leaves empty gets player 1's buttons; players 3 and 4
+of a board that has them get keyboard keys of their own ([CONTROLS.md](CONTROLS.md#players-3-and-4)); a key or button bound in
+F2 swaps with the action that had it.
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the nine consoles, against main at `a637502` and again after merging `850db7e`: **the host stamp
+of all nine consoles** (`native/hostkit/shell/*`, `hostkit_internal.h` and the CPS-1 adapter are host inputs). **No game stamp
+and no build stamp moves**: an export of 1.6.8 that has nothing else to rebuild is upgraded (rebuilt from its paths, no
+rediscovery).
+
+**Quick states.** The kit commit moves **no quick-state key**: `native/game_options.h` and the catalogue are left byte-identical
+on purpose (the kit hides the other players' pads from the checks of `game_options.h` in `rrhk_options.c`), and the shell files lie
+below `native/hostkit`, which no key hashes. A one-line CPS-1 help naming the keys of players 2 to 4 is held back for 1.7: its
+strings would change `native/runtime_catalog.inc`, which the Mega Drive and Super Nintendo keys hash.
+
+**Preferences.** Nothing is renamed. A file written by 1.6.8 keeps its meaning; keys saved for players 3 and 4 win over the new
+defaults, and a default of player 3 or 4 that a saved key of another action already uses is dropped (no key drives two actions).
+A stored key 0 or button -1 now reads as "no binding" on every console (the X68000 alone read it so before): F2 writes it when a
+swap leaves an action without a key. Two actions that already shared a key in a saved file keep sharing it until one of them is
+bound again in F2.
+
 ## Sharp X68000: the generator of native code and the computer part of the adapter are shared (1.6.9)
 
 The Amiga reuses what the X68000 does with the instructions it runs from RAM instead of copying it, so two files moved and one declaration was added; **nothing a
