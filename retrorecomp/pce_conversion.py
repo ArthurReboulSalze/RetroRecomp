@@ -43,6 +43,7 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 I, II, SELECT, RUN, UP, RIGHT, DOWN, LEFT = 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080
 LONG_ROUTES = {'quick': 0, 'standard': 0, 'extended': 1, 'thorough': 2}
 LONG_FRAMES = 18000
+CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile
 
 
 def identification_report(card, level: str = 'standard') -> dict:
@@ -194,6 +195,47 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
 
+def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):
+    """(capture, frames): a complete capture of the start of a route whose full capture lost identities, or (None, 0)."""
+    frames = int(result['capture_first_drop_frame']) - 1
+    for attempt in range(3):
+        if frames < 60:
+            emit(f'PC Engine {name}: the engine met more than {CAPTURE_IDENTITY_LIMIT} distinct code identities '
+                 'within the first minute: no observation can be kept from this route.')
+            return None, 0
+        capture = folder / f'{name}-prefix{attempt}-capture.json'
+        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture))
+        if not again.get('capture_dropped'):
+            emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames '
+                 f'({again.get("capture_identities")} identities).')
+            return capture, frames
+        frames = int(again['capture_first_drop_frame']) - 1
+    return None, 0
+
+
+def compose_fitting(captures: list, out: Path, work: Path):
+    """Compose the captures that fit one profile (the engine's union bound is 65,536 identities, never a silent
+    drop): each one is tried in order, a capture that would overflow is left out. (kept, skipped)."""
+    from .pce_build import PceBuildError, compose
+    kept, skipped = [], []
+    for capture in captures:
+        trial = work / 'trial-profile.json'
+        trial.unlink(missing_ok=True)
+        try:
+            compose([*kept, capture], trial)
+        except PceBuildError as error:
+            if 'capacity exceeded' not in str(error):
+                raise
+            skipped.append(capture)
+            continue
+        kept.append(capture)
+    if not kept:
+        raise ConversionError('No capture of this card fits one native module.')
+    out.unlink(missing_ok=True)
+    compose(kept, out)
+    return kept, skipped
+
+
 def observed(capture: Path) -> int:
     try:
         return len(json.loads(capture.read_text(encoding='utf-8')).get('observations', ()))
@@ -254,6 +296,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'online_cover': online_cover, 'boxart_dir': boxart_dir, 'emit': emit}
         pce_build.ensure_engine(emit)
         reference, results, captures, module, prepared = {}, {}, [], None, None
+        emitted, skipped_captures = None, 0
         attempts = max(1, min(int(passes or 1), 10))
         for attempt in range(attempts):
             stages.begin_pass(attempt + 1)
@@ -304,6 +347,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     results[name] = run(candidate, capture.parent, name, count, scripts[name],
                                         '--code-capture', str(capture))
                     results[name]['capture'] = capture
+                    results[name]['capture_frames'] = count
+                    if results[name].get('capture_dropped'):
+                        # The engine keeps at most 65,536 distinct code identities (address, the eight bank registers
+                        # and the bytes) per capture and drops the rest: such a capture cannot become a module. The
+                        # same route is played again up to the frame before the first drop, which is complete.
+                        results[name]['capture'], results[name]['capture_frames'] = complete_prefix(
+                            candidate, capture.parent, name, scripts[name], results[name], emit)
             for name, _, _ in plan:
                 require_same_file(results[name]['trace'], reference[name]['trace'], lambda: ConversionError(
                     f'PC Engine {name}: native and reference CPU/RAM/picture/PCM traces differ; existing export preserved.'))
@@ -315,7 +365,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             fallback = sum(results[name]['interpreted_instructions'] for name, _, _ in plan)
             if not fallback:
                 break
-            captures += [results[name]['capture'] for name, _, _ in plan if observed(results[name]['capture'])]
+            # The play route first: it is the one that reaches the game; the others add what still fits.
+            order = sorted(plan, key=lambda row: row[0] != 'play')
+            captures += [results[name]['capture'] for name, _, _ in order
+                         if results[name]['capture'] and observed(results[name]['capture'])]
             if attempt + 1 == attempts or not captures:
                 emit(f'PC Engine: {fallback} interpreted instructions remain; they stay counted and reported.')
                 break
@@ -323,12 +376,19 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             with stages.phase('code_generation'):
                 profile_path = work / f'observations-{attempt + 1}.json'
                 profile_path.unlink(missing_ok=True)
-                pce_build.compose(captures, profile_path)
-                module = work / f'module-{attempt + 1}'
-                shutil.rmtree(module, ignore_errors=True)
-                manifest = pce_build.emit_module(profile_path, module)
+                kept, skipped = compose_fitting(captures, profile_path, work)
+                skipped_captures += len(skipped)
+                captures = kept
+                new_module = work / f'module-{attempt + 1}'
+                shutil.rmtree(new_module, ignore_errors=True)
+                manifest = pce_build.emit_module(profile_path, new_module)
             emit(f'PC Engine: {manifest.get("native_instructions_emitted", 0)} instructions in '
-                 f'{manifest.get("native_contexts", 0)} bank contexts emitted.')
+                 f'{manifest.get("native_contexts", 0)} bank contexts emitted'
+                 + (f' ({len(skipped)} capture(s) left out: the engine keeps at most 65,536 identities).' if skipped else '.'))
+            if manifest.get('native_instructions_emitted') == emitted:
+                emit('PC Engine: nothing new fits in the module; the remaining interpreted instructions stay counted.')
+                break
+            module, emitted = new_module, manifest.get('native_instructions_emitted')
         stages.end_passes()
         if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
             emit('PC Engine: no route produced sound (reported, not refused: a silent title screen is possible).')
@@ -372,7 +432,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                           'native_instructions_emitted': manifest.get('native_instructions_emitted', 0),
                           'native_contexts': manifest.get('native_contexts', 0),
                           'translation_units': len(manifest.get('translation_units', ())),
-                          'observation_sources': len(captures)},
+                          'observation_sources': len(captures), 'captures_left_out': skipped_captures,
+                          'capture_identity_limit': CAPTURE_IDENTITY_LIMIT,
+                          'capture_frames': {name: results[name].get('capture_frames') for name, _, _ in plan}},
         'final_checks': checks_rows,
         'native_validation': {'passed': True, **delivered.validation_fields(), 'reference_before_learning': True,
             'reference_kind': "the same build with every instruction through the engine's interpreter",

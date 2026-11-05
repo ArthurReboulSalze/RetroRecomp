@@ -49,6 +49,13 @@ std::uint32_t pixels[PCE_MAX_WIDTH * PCE_MAX_HEIGHT];
 unsigned picture_width, picture_height;
 std::uint64_t last_sequence, frames, cropped_frames;
 std::vector<std::int16_t> audio;
+std::uint64_t capture_first_drop_frame;
+
+// The engine's capture reports its totals as JSON text only: read one named number from it.
+std::uint64_t summary_number(const std::string &json, const char *key) {
+    const auto at = json.find(std::string("\"") + key + "\":");
+    return at == std::string::npos ? 0 : std::strtoull(json.c_str() + at + std::strlen(key) + 3, nullptr, 10);
+}
 
 void message(char *error, std::size_t size, const char *text) {
     if (error && size) std::snprintf(error, size, "%s", text);
@@ -184,6 +191,8 @@ int pce_machine_run_frame(char *error, size_t error_size) {
         }
         last_sequence = bus.vdc.video.sequence();
         ++frames;
+        if (capture && !capture_first_drop_frame && summary_number(capture->summary_json(), "dropped_instructions"))
+            capture_first_drop_frame = frames;
         publish();
         drain();
     });
@@ -262,9 +271,17 @@ void pce_machine_free(void *data) { std::free(data); }
 int pce_machine_capture_begin(const char *path, unsigned capacity, char *error, size_t error_size) {
     return guarded(error, error_size, [&] {
         if (capture) throw pce::Fault("code capture already started");
+        capture_first_drop_frame = 0;
         const auto name = std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(path)));
         capture = std::make_unique<pce::CodeCapture>(name, capacity);
     });
+}
+
+void pce_machine_capture_status(uint64_t *identities, uint64_t *dropped, uint64_t *first_drop_frame) {
+    const std::string json = capture ? capture->summary_json() : std::string();
+    if (identities) *identities = summary_number(json, "identity_count");
+    if (dropped) *dropped = summary_number(json, "dropped_instructions");
+    if (first_drop_frame) *first_drop_frame = capture_first_drop_frame;
 }
 
 int pce_machine_capture_finish(char *error, size_t error_size) {

@@ -33,6 +33,7 @@ static FILE *trace_file, *pcm;
 static uint64_t pcm_hash = FNV_BASIS, image_hash = FNV_BASIS, samples, nonzero, energy;
 static unsigned peak, nonuniform_frames;
 static char fault[256];
+static uint64_t capture_identities, capture_dropped, capture_first_drop_frame;
 typedef struct { unsigned frame, pads[4]; } Input;
 static Input script[8192];
 static unsigned script_count, script_pos;
@@ -240,7 +241,8 @@ static int report(void)
                "\"native_only\":%s,\"image_hash\":\"%016llx\",\"pcm_hash\":\"%016llx\",\"pcm_samples\":%llu,"
                "\"nonzero_samples\":%llu,\"peak\":%u,\"rms\":%.4f,\"nonuniform_frames\":%u,\"pcm_rate\":%u,"
                "\"pcm_channels\":2,\"cpu_hash\":\"%016llx\",\"ram_hash\":\"%016llx\",\"cropped_frames\":%llu,"
-               "\"state_loaded\":%s,\"load_rejected\":%s,\"save_failed\":%s,\"fault\":\"%s\"}\n",
+               "\"state_loaded\":%s,\"load_rejected\":%s,\"save_failed\":%s,\"capture_identities\":%llu,"
+               "\"capture_dropped\":%llu,\"capture_first_drop_frame\":%llu,\"fault\":\"%s\"}\n",
             RR_PCE_BOARD == PCE_BOARD_SF2 ? "sf2" : "base", frame, (unsigned long long)counters.native,
             (unsigned long long)counters.interpreted, (unsigned long long)counters.guard_misses,
             (unsigned long long)counters.irq_entries, reference ? "true" : "false", native_only ? "true" : "false",
@@ -248,7 +250,9 @@ static int report(void)
             (unsigned long long)nonzero, peak, samples ? sqrt((double)energy / (double)samples) : 0.0,
             nonuniform_frames, PCE_AUDIO_RATE, (unsigned long long)pce_machine_cpu_hash(),
             (unsigned long long)pce_machine_ram_hash(), (unsigned long long)counters.cropped_frames,
-            state_loaded ? "true" : "false", load_rejected ? "true" : "false", save_failed ? "true" : "false", escaped);
+            state_loaded ? "true" : "false", load_rejected ? "true" : "false", save_failed ? "true" : "false",
+            (unsigned long long)capture_identities, (unsigned long long)capture_dropped,
+            (unsigned long long)capture_first_drop_frame, escaped);
     int okay = !ferror(f);
     return fclose(f) == 0 && okay;
 }
@@ -307,6 +311,7 @@ static int execute(int argc, char **argv)
         ran = !fault[0];
     }
     if (save_path && !save_at && !state_file(save_path, 0)) save_failed = 1;
+    if (code_capture_path) pce_machine_capture_status(&capture_identities, &capture_dropped, &capture_first_drop_frame);
     if (code_capture_path && !pce_machine_capture_finish(fault, sizeof fault)) ran = 0;
     if (!ran) fprintf(stderr, "%s\n", fault);
     int okay = report() && ran && !save_failed && !host_result;
