@@ -57,7 +57,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Super Nintendo | supported | `█████████░` 88 % | ✅ 13 · 🟡 2 · ❔ 1 |
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| Sharp X68000 | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
+| Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -78,7 +78,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
 | G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ |
 | G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
 
 <!-- qualification-gauges:end -->
 

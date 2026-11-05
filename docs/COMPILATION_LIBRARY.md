@@ -1842,6 +1842,51 @@ fresh reference runs, so an upload holding the path proves it), for CPS-1 from c
   inputs, the side banks and their bytes, exchange files of both versions, the base with a moving engine, the switch, the
   experimental label, kind 14) and the updated schema tests.
 
+## X68000 joins the base (1.6.9, 5 November 2026)
+
+Arthur approved it on 5 November 2026 ("on fait comme tu as dit"), and asked that the converter also **take** the paths of others, not only send its own.
+The repository's rule says the same: a `supported` machine is in `path_profiles.SHARED_SYSTEMS` (gate G16). The X68000 follows the CPS-1: the experimental
+tier of the base, schema 3 only, withdrawn by emptying `path_profiles.EXPERIMENTAL_SHARED` (derived from the profile's `shared_knowledge`), a path qualified only
+for the engine revision that validated it, a record format of its own (`x68_knowledge.FORMAT`, a reader skips a format it does not know), numbers only.
+
+**What a path is** (`retrorecomp/x68_knowledge.py`, [X68000.md](X68000.md#shared-paths)). A game loads its program from the floppy into RAM and runs it
+there. The fresh reference runs of a conversion (every instruction interpreted) see all of it:
+- The observed RAM instructions of one run of consecutive addresses are searched, as one string of bytes, at an even offset of the **ordered disk
+  images** (`disk` source: the contents of the disks one after the other, with its SHA-256). A run found there is a row `[address, offset, length]` of a
+  `span` (at most 16,384 rows, 131,072 bytes each). The instruction starts inside a span are not stored: they are decoded from the first word of each
+  instruction by the 68000 word-count table (`word_count`, the table the pinned decoder writes), and a span is made only when that decoding gives exactly the
+  observed instructions.
+- The observed IPL instructions are rows `[address, offset, length]` of the **IPL** (`ipl` source, 128 KiB, with its SHA-256), `insn` rows valid only for an
+  IPL with that hash; a record read with another IPL keeps its disk paths and ignores these, and says so (`knowledge.use.ignored`).
+- What cannot be tied to an image (code unpacked, relocated or built at run time, text VRAM, the SCSI stub) **stays private** and is counted in the report.
+
+**The engine identity** (`cores`, `x68_knowledge.engine`): the pins of the decoder, Geolith and px68k, the text of `native/x68000_native/`, and
+`GENERATOR_REVISION` for the Python that generates (`tests/x68_generator_pins.json` pins those sources, as for the CPS-1). Qualified means a path reached
+and validated against the fresh reference by a conversion that received it from another player; none is yet.
+
+**Both directions.** `x68000_conversion` promotes a record only from the fresh reference runs of a conversion that passed every check (never from feedback rows
+or from hints), writes it into the library (`<library>/x68/<game>/compilation.json`, key `record`) and into the report (`knowledge`: counts, record digest,
+engine, what was used). Before its first pass it reads the qualified side bank, the imported side bank and its own library record, expands them from the
+player's own disks and IPL, and gives the instructions to the generator as build input only (never added to its private observations). A conversion that
+fails with imported discoveries starts again without them (the batch's rule, unchanged). A version 3 exchange file and line 3 of the base carry the records; a
+version 2 file leaves the games out and counts them (`schema3_only_left_out`). `knowledge_exchange._collect_schema3` replaced the CPS-1 collector's hard-coded
+name (the CPS-1 behaviour is unchanged).
+
+**The quick check does not apply.** For every other machine, a path qualified by others lets the batch replay the main route only. The X68000 declines
+(`SharedKnowledge.quick_check_from_shared = False`): its mouse and keyboard routes are found by replaying them and the player's mouse controls follow.
+
+**Size.** Twins: 3,691 spans and 8,276 IPL rows from a standard scan (125 KB of JSON), 4,139 and 8,276 from an extended one; 26,464 of the 30,280 RAM
+instructions of the extended scan are tied to a position (87 %), 3,816 stay private. The exchange file of the extended record is 20,200 bytes. About 60 % of a
+record is the IPL rows, the same for every game of one IPL. The web service has to accept records of this size (the maintainer's tools, not this repository).
+
+**Proof** (Twins, Windows, standard scan, headless; the NAS read in place; `.build/x68-share-169`): two empty libraries. A, with an extended scan, makes the record;
+its exchange file (version 3) holds no window of 16 bytes of the disk or of the IPL. B imports the file and converts at the standard level: 34,740
+instructions guide the first pass, the CPU, RAM, picture, PCM and trace hashes of the three routes equal those of a conversion with no hint, 0 interpreted
+opcodes, one pass as without them, and the generator receives 1,044 instructions more than its own routes found (38,054 against 37,010). C does the same through a
+local base built offline and fetched by `online.prepare_batch` (the qualified side bank). D converts with an IPL changed by one letter of its debugger help
+(another SHA-256): the disk paths (26,464 instructions) are used, the IPL paths are ignored with `another IPL`, and the hashes are equal too. Tests:
+`tests/test_x68_knowledge.py` (36), the contract test of the profile field (`tests/test_system_profiles.py`) and a batch test (`tests/test_shared_sync.py`).
+
 ## Sharing discoveries between converters
 
 The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.

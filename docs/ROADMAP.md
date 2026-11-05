@@ -21,7 +21,7 @@ fallback stays counted and shown wherever it is used.
 | Neo Geo | supported | 94 % | Linux witness on more games |
 | Capcom CPS-1 | supported | 90 % | count every Z80 step; rotary-dial boards |
 | Capcom CPS-1.5 (QSound) | experimental tier of the CPS-1 | — | owner play test |
-| Sharp X68000 | supported | 93 % | MAME sound and colours on more games; deeper disk-change and save evidence |
+| Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.

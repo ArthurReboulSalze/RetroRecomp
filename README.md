@@ -96,7 +96,7 @@ decides a status: leaving the experimental status is the owner's own decision.
 | Super Nintendo | supported | `█████████░` 88 % |
 | Neo Geo | supported | `█████████░` 94 % |
 | Capcom CPS-1 | supported | `█████████░` 90 % |
-| Sharp X68000 | supported | `█████████░` 93 % |
+| Sharp X68000 | supported | `█████████░` 91 % |
 
 <!-- qualification-gauges:end -->
 

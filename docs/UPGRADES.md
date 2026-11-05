@@ -96,6 +96,26 @@ X68000 (`RR_X68K_STATE_ABI`) hashes the reference host and the machine bridge, w
 converted in full again (its game stamp moved) and its report says `supported`. The generated code, the pictures, the sound, the saves and the hashes of every
 route are not changed by this commit: the one thing that differs in the report of a game is the word `status` (see the A/B in QUALIFICATION.md).
 
+## Sharp X68000: the paths travel, both ways (1.6.9)
+
+The X68000 joins the experimental tier of the shared base ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#x68000-joins-the-base-169-5-november-2026)): its
+conversions make a numeric record (`x68_knowledge`), take the records of others as hints, and the conversion's report gains a `knowledge` section; the
+library's game summary gains a `record`. A new field of the profile, `SharedKnowledge.quick_check_from_shared`, lets a machine keep its scan level when paths
+qualified by others exist (the X68000 does, every other machine keeps the quick check).
+
+**What moves, in black and white: the game stamp of all nine consoles.** `retrorecomp.path_profiles`, `retrorecomp.knowledge`, `retrorecomp.knowledge_exchange`,
+`retrorecomp.batch` and `retrorecomp.systems.specs` are inputs of the game stamp of every console (the `*` group of `stamp_inputs`), and this branch edits them
+(the layout and source checks for the X68000, the dispatch of the schema 3 module, the generic collector, the guard of the quick check, the new field). Computed with
+`compilation_inputs.role_stamps` on this branch against the exit commit: the game stamp of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo,
+Neo Geo, CPS-1 and X68000 moves; no host stamp moves (the host stamps move with the notices commit of the exit, already counted), no build stamp moves.
+`LEGACY_GAME_STAMPS` stays empty: **every export of 1.6.8 is converted again, once, when it is upgraded.** No file of the other eight machines' own conversions
+changes, and the CPS-1 exchange tests pass unchanged.
+
+**Quick states.** No key moves for this change (`RR_X68K_STATE_ABI` hashes the reference host and the bridge, untouched).
+
+**Exchange files and the base.** A version 3 file and line 3 of the base carry X68000 records; a converter of 1.6.8 reads a record it does not know as it reads
+any unknown machine (skipped), and a version 2 file leaves the games out. The service has to accept records of 90 to 130 KB of JSON (20 KB compressed).
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section

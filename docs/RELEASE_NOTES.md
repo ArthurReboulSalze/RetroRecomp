@@ -12,6 +12,13 @@
   difference with MAME; the machine stays local (no shared paths, nothing on the leaderboard). Only the X68000 game stamp moves: an export of 1.6.8
   is converted again when it is upgraded, and no picture or sound changes
   ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-profile-is-supported-169), [QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)).
+- **The X68000 shares its paths, in both directions.** What a conversion discovers is sent as numbers about your own disks and your own IPL (never a byte of
+  either) and the paths other players found are taken as hints before the first pass, as the CPS-1 does: the base's withdrawable development tier, a path qualified only
+  for the engine revision that validated it, the whole sharing withdrawn by one line. On the proof game, 34,740 received instructions guide the first pass; the CPU,
+  RAM, picture and sound hashes of the three routes are the same as without them. The X68000 keeps its full scan when paths exist (it finds its mouse and
+  keyboard routes by replaying them), so a conversion is not shortened by the base. A game of an IPL that differs from the sender's keeps the disk paths and ignores the
+  IPL ones. **The game stamp of all nine consoles moves** (the exchange and the batch code are inputs of every console): every export of 1.6.8 is converted again
+  once when it is upgraded ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-paths-travel-both-ways-169)).
 
 # RetroRecomp v1.6.8 — An older library follows the pinned sources again, the Mega Drive 68000 and the Game Boy start closer to the console, the Super Nintendo ROM read loses its division
 
