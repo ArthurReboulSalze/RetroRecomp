@@ -1,7 +1,7 @@
 """Sharp X68000 profile (supported since 1.6.9: see docs/X68000.md)."""
 from pathlib import Path
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class X68000Profile(SystemProfile):
@@ -31,11 +31,13 @@ class X68000Profile(SystemProfile):
     stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules')
     path_spec = PathSpec(order=8, sections=(('m68k', 'x68'),),
                          source_bounds=(('ipl', (1, 1 << 20)), ('disk', (1, 1 << 30))),
-                         shapes=(('m68k', 'x68', dict(roles=('ipl', 'disk'), caps={'insn': 65536, 'span': 4096},
+                         shapes=(('m68k', 'x68', dict(roles=('ipl', 'disk'), caps={'insn': 65536, 'span': 16384},
                                                       windows=((0, 0xc00000), (0xe00000, 0xe80000),
                                                                (0xea0000, 0xea2000), (0xfc0000, 0xfffffe)),
                                                       contained=True, length=(2, 16), length_align=2,
                                                       offset_align=2, address_align=2, span_max=131072)),))
+    # Shares its paths as the experimental tier of the shared base, like the CPS-1: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md).
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True)
     report_shape = ReportShape('x68000_conversion', 'exploration_checks')
     catalogues = Catalogues(libretro='libretro-thumbnails/Sharp_-_X68000', cover_references=True)
     library_layout = LibraryLayout(folder='x68', summary_glob='*/compilation.json')

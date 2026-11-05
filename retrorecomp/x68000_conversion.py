@@ -99,6 +99,34 @@ def _read_observations(native, paths, ipl):
                               f'format, or spans of another IPL); they are kept unchanged: {error}') from error
 
 
+def shared_hints(source, disk, ipl, native, work):
+    """(pairs, info): the (pc, words) that the shared base, an imported file and this player's own library name for these disks,
+    rebuilt from their own images, and what each gave or why it was ignored (`x68_knowledge.shared_rows`).
+
+    Build input only: the pairs go to the generator and are never added to the private observations the library keeps. They are
+    read through the same checks as any observation file, so a record that names something the generator cannot take fails the
+    conversion (and the batch then converts again without the imported discoveries)."""
+    from . import knowledge, x68_knowledge
+    rows,info=x68_knowledge.shared_rows(source.game_key,disk,ipl,qualified=knowledge.qualified_game('x68',source.game_key),
+        imported=knowledge.imported_game('x68',source.game_key),library=x68_knowledge.library_record(source.game_key))
+    if not rows:return [],info
+    hints=work/'shared-hints.json'
+    atomic_json(hints,{'schema':1,'truncated':False,'variants':[{'pc':pc,'words':words,'hits':1} for pc,words in sorted(set(rows))]})
+    return _read_observations(native,[hints],ipl),info
+
+
+def knowledge_block(record, promotion, hints_used):
+    """The report's `knowledge` section. `shared` says whether the X68000 is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`),
+    not that this conversion shared anything."""
+    from . import path_profiles, x68_knowledge
+    from .systems.x68000 import X68000Profile
+    return {'machine_status':X68000Profile.status,'shared':'x68' in path_profiles.SHARED_SYSTEMS,'record_format':x68_knowledge.FORMAT,
+            'cores':x68_knowledge.engine(),'record_sha256':x68_knowledge.record_digest(record),'paths':promotion['paths'],
+            'promotion':{key:promotion[key] for key in ('ram','other_windows','malformed','ipl','truncated')},
+            'source':'fresh reference runs of this conversion','use':dict(hints_used),
+            'raw_words_stored':False,'fresh_validation_required':True}
+
+
 def game_entry(source):
     return library_root('x68')/source.game_key
 
@@ -480,6 +508,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             more=json.loads((folder/'observations.json').read_text())
             mouse_calls+=mouse_reads(more)[1]
             observations,_=extend_observations(observations,more,ipl)
+        # The shared paths are numbers made only from these fresh reference runs: never from the library's memory, the feedback rows
+        # or the hints below.
+        fresh_observations=compact_observations(json.loads(json.dumps(observations)),ipl)
         mouse_game=listed if listed is not None else mouse_calls>=MOUSE_GAME_READS or remembered
         emit('X68000: mouse controls '+('on' if mouse_game else 'off')+
              (' (reviewed list)' if listed is not None else '')+
@@ -499,6 +530,11 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 observations['variants'].append({'pc':row.address,'words':row.data.hex(),'hits':1})
         observations=compact_observations(observations,ipl)
         observation=work/'discovered.json';atomic_json(observation,observations)
+        from . import x68_knowledge
+        disk_image=x68_knowledge.disk_content(source.disks)
+        shared_pairs,hints_used=shared_hints(source,disk_image,ipl,native,work)
+        if shared_pairs:
+            emit(f'X68000: {len(shared_pairs)} instructions named by shared or library paths guide the first pass (rechecked like any other).')
         project=work/'native';payload_dir=work/'payload';payload_dir.mkdir(parents=True,exist_ok=True)
         from .artwork import prepare_icon
         artwork={'embedded':False,'source':'missing','online_enabled':False}
@@ -509,7 +545,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         for attempt in range(max(1,min(int(passes),10))):
             timings.begin_pass(attempt+1)
             with timings.phase('code_generation'):
-                generation=native.generate(project,_read_observations(native,[observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
+                generation=native.generate(project,sorted(set(_read_observations(native,[observation],ipl))|set(shared_pairs)),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
             with timings.phase('compile'):
                 candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
             # Run copied alone, with only its own embedded immutable inputs.
@@ -626,6 +662,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 **trace_digests(folder/'trace.tsv'),'steps':len(route.events),'script_sha256':digest(script),
                 'automatic_disk_changes':result.get('automatic_disk_changes',0),
                 'media_events':result.get('media_events',[])})
+        # The shared path record: numbers about this disk set's own images, made only from the fresh reference runs of this
+        # conversion (every check above passed). What cannot be tied to an image stays private and is counted.
+        record,promotion=x68_knowledge.promote(source.game_key,disk_image,ipl,fresh_observations['variants'],fresh_observations.get('spans',()),
+                                               previous=x68_knowledge.library_record(source.game_key))
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
           'system':{'id':'x68','name':'Sharp X68000'},'status':'supported','private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
@@ -657,6 +697,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
           'qualification_scope':{'controls':'joystick, keyboard and mouse routes; the validation routes are bounded scripts',
                                  'media':'floppy disks only','universal_zero_fallback_claim':False},
+          'knowledge':knowledge_block(record,promotion,hints_used),
           'conversion_wall_seconds':round(time.perf_counter()-started,3)}
         write_report(output/'conversion-report.json',report)
         # Written in the library, whatever folder the earlier ones were read from (that one is left as it is).
@@ -678,6 +719,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 'schema':1,'title':title,'system':'x68','game':source.game_key,'source_identity':manifest.sha256,
                 'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation],ipl)),
                 'private_development_only':True,'fresh_reference_passed':True,
+                # The schema 3 record the base shares (numbers only), and where it came from.
+                'record':record,'record_format':x68_knowledge.FORMAT,'cores':x68_knowledge.engine(),'record_source':'fresh reference runs',
+                'record_counts':promotion,
                 # Only observed reads are remembered, never the reviewed list's choice.
                 'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
         emit('X68000: validated standalone player ready.')

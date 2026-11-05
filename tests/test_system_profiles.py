@@ -283,14 +283,14 @@ class ProfileContractTests(unittest.TestCase):
                              if p.shared_knowledge and p.shared_knowledge.tier == tier)
                  for tier in ('stable', 'experimental')}
         self.assertEqual(tiers['stable'], path_profiles.STABLE_SHARED)
-        self.assertEqual(tiers['experimental'], path_profiles.EXPERIMENTAL_SHARED)
-        self.assertEqual(tiers['stable'] + tiers['experimental'], path_profiles.SHARED_SYSTEMS)
+        self.assertEqual(sorted(tiers['experimental']), sorted(path_profiles.EXPERIMENTAL_SHARED))
+        self.assertEqual(sorted(tiers['stable'] + tiers['experimental']), sorted(path_profiles.SHARED_SYSTEMS))
         self.assertEqual(tiers['stable'], compiled_games_view.SHARED_CONSOLES)
         self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.site_builder),
                          knowledge_build.SYSTEMS)
-        self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
-                         path_profiles.WITHDRAWABLE)
-        self.assertIsNone(get_profile('x68').shared_knowledge)
+        self.assertEqual(sorted(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
+                         sorted(path_profiles.WITHDRAWABLE))
+        self.assertEqual(get_profile('x68').shared_knowledge.tier, 'experimental')
 
     def test_host_adapter_equals_the_host_kit_table(self):
         from retrorecomp import hostkit

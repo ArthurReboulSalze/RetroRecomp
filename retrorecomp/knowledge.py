@@ -138,6 +138,9 @@ def schema3_module(system: str):
     if system == 'cps1' and system in path_profiles.SHARED_SYSTEMS:
         from . import cps1_knowledge
         return cps1_knowledge
+    if system == 'x68' and system in path_profiles.SHARED_SYSTEMS:
+        from . import x68_knowledge
+        return x68_knowledge
     return None
 
 
