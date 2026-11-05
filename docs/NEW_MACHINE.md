@@ -60,7 +60,7 @@ Two costs the numbers still hide:
 
 ## Experimental, then supported
 
-A machine enters as `experimental` and may stay incomplete for a long time (the X68000 has much work left; CPS-1 stayed experimental until 1.6.6).
+A machine enters as `experimental` and may stay incomplete for a long time (CPS-1 stayed experimental until 1.6.6 and the X68000 until 1.6.9).
 The profile's `status` says so; nothing else may contradict it (`tools/status_lint.py`).
 
 | | Experimental (minimum to add it) | Supported |
@@ -198,8 +198,10 @@ artwork or the memory window with a reason in `DECLINED` of `tests/test_machine_
 Russian text to be in `assets/font-coverage.json` (a new character means rebuilding the font subsets with fontTools; the dry run
 reworded instead). The games themselves speak five languages ([LANGUAGES.md](LANGUAGES.md)).
 
-**13. Documents.** README (tagline, badge, "Console support" row, count), COMPATIBILITY, SYSTEM_PROFILES, STANDARDS (count), UPGRADES (kit row), CONTROLS,
-ROADMAP, QUALIFICATION (a column, `?` for what is not measured), the machine's own page. Prose that counts consoles ("nine") is
+**13. Documents.** README (tagline, badge, count; its "Console support" table is written by `tools/qualification_gauges.py --write`,
+and a machine still in development has a row in its "In development" table instead), COMPATIBILITY, SYSTEM_PROFILES, STANDARDS (count),
+UPGRADES (kit row), CONTROLS, ROADMAP, QUALIFICATION (a column of the matrix in letters, `?` for what is not measured, and a row in its
+"Console | Page" table), the machine's own page. Prose that counts consoles ("nine") is
 hand-written in about ten places.
 
 **14. Licences and credits.** `licenses/<engine>.md` listed under the machine's own owner group (a licence listed for all consoles moves every

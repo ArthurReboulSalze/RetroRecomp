@@ -65,7 +65,7 @@ def sms_report(system_id='sms', *, cycles=0, banked=True):
             'hardware_accuracy_validated': False, 'full_game_validated': False,
             'reference_vdp_trace_match': True, 'reference_scope': 'CPU comparison with interpreter over the SAME runtime',
             'reference_final_ram_match': True, 'reference_final_cpu_match': True, 'reference_final_png_match': True,
-            'strict_checks': [], 'final_checks': rows, 'history': list(rows), 'build_directory': 'C:/build',
+            'reference_final_vdp_match': True, 'strict_checks': [], 'final_checks': rows, 'history': list(rows), 'build_directory': 'C:/build',
             'learning': {'before': {}, 'after': {}}}
 
 
@@ -244,7 +244,7 @@ def x68_report(*, interpreted=0):
     exploration = [row(1200, {'route': 'mouse-1', 'trace_sha256': '9' * 64, 'automatic_disk_changes': 0,
                               'media_events': []})]
     return {'tool': 'Retro-Recomp', 'version': '1.5.5', 'created_utc': '2026-10-27T10:00:00+00:00',
-            'system': {'id': 'x68', 'name': 'Sharp X68000'}, 'status': 'experimental', 'private_development_only': False,
+            'system': {'id': 'x68', 'name': 'Sharp X68000'}, 'status': 'supported', 'private_development_only': False,
             'target': 'windows-x86_64', 'rom': {'name': 'g.dim', 'sha256': SHA}, 'machine': {'model': 'x'},
             'source_identity': 'b' * 64, 'qualification_directory': 'C:/q', 'source_rom': 'C:/roms/g.dim',
             'executable': 'G.exe', 'build_executable': 'C:/b/g.exe', 'toolchain': {},
@@ -442,11 +442,14 @@ class SchemaShape(unittest.TestCase):
         gb = read_report(gb_report())
         self.assertIsNone(gb['honesty']['independent_cpu_oracle'])
         self.assertIsNone(gb['honesty']['universal_zero_fallback_claim'])
-        # Master System with the functions backend stores no validation record at all.
+        # Master System with the functions backend stores no validation record: the reader takes the demo route's reference flags.
         gg = read_report(sms_report('gg', banked=False))
-        self.assertIsNone(gg['validation']['cpu_fidelity']['passed'])
-        self.assertEqual(gg['validation']['cpu_fidelity']['claim'], 'not reported')
-        self.assertEqual(gg['validation']['cpu_fidelity']['scenarios'], [])
+        self.assertIs(gg['validation']['cpu_fidelity']['passed'], True)
+        self.assertIn('demo route only', gg['validation']['cpu_fidelity']['claim'])
+        self.assertEqual([item['name'] for item in gg['validation']['cpu_fidelity']['scenarios']], ['demo'])
+        broken = sms_report('gg', banked=False)
+        broken['reference_final_ram_match'] = False
+        self.assertIs(read_report(broken)['validation']['cpu_fidelity']['passed'], False)
         self.assertIsNone(gb['created_utc'])
         self.assertIsNone(gb['target'])
         self.assertIsNone(gb['system']['status'])

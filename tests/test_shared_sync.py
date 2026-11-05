@@ -215,6 +215,22 @@ class SharedBaseTests(unittest.TestCase):
         record, profile, report, _ = self.convert(item, force=True)
         self.assertNotIn('shared_paths', report)
 
+    def test_a_machine_that_declines_the_quick_check_keeps_its_scan_and_its_received_paths(self):
+        from dataclasses import replace
+        from retrorecomp.systems import get_profile
+        item = self.cartridge(5)
+        key = f'sms:{item.sha256}'
+        self.server.store = {key: [{'id': 4, 'record': sms_record(0x100), 'level': 'extended'}]}
+        shared = online.prepare_batch([key])['paths']
+        profile = get_profile('sms')
+        with patch.object(profile, 'shared_knowledge', replace(profile.shared_knowledge, quick_check_from_shared=False)):
+            record, call, report, messages = self.convert(item, shared_paths=shared, console_scan={'sms': {'level': 'standard'}})
+        self.assertEqual(record['succeeded'], 1)
+        self.assertNotEqual(call.call_args.kwargs.get('scan_level'), 'quick')
+        self.assertEqual(report['shared_paths'], {'level': 'extended', 'records': 1, 'quick': False})
+        self.assertTrue(any('standard discovery starting from them' in m for m in messages))
+        self.assertTrue(knowledge.imported_record('sms', item.sha256), 'the received paths are still there to guide the first pass')
+
     def test_a_failure_with_shared_paths_converts_again_without_them(self):
         item = self.cartridge(2)
         key = f'sms:{item.sha256}'

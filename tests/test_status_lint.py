@@ -38,6 +38,10 @@ class SentenceStatusTests(unittest.TestCase):
         self.assertEqual(
             sentence_status("Super Nintendo leaves experimental status."), "supported")
 
+    def test_no_longer_call_reads_as_supported(self):
+        self.assertEqual(
+            sentence_status("The notices no longer call the Mega Drive and CPS-1 experimental."), "supported")
+
     def test_unsupported_word_states_nothing(self):
         self.assertIsNone(
             sentence_status("Game Boy Color-only cartridges remain unsupported."))
@@ -54,6 +58,16 @@ class SyntheticLintTests(unittest.TestCase):
         merged = dict(self.ATTRS)
         merged.update(attrs)
         return lint_data(merged, readme, compat, release, list(pairs))
+
+    def test_other_machines_of_a_name_are_not_that_profile(self):
+        from tools.status_lint import alias_pattern
+        cps1, gb = alias_pattern("cps1"), alias_pattern("gb")
+        self.assertIsNone(cps1.search("Capcom CPS-1.5 | Experimental"))
+        self.assertIsNone(cps1.search("Capcom CPS-2 is in development, experimental first."))
+        self.assertIsNotNone(cps1.search("Capcom CPS-1 | Supported"))
+        self.assertIsNone(gb.search("Game Boy Advance, experimental first."))
+        self.assertIsNone(gb.search("Game Boy Color as a profile of its own"))
+        self.assertIsNotNone(gb.search("Game Boy | Supported"))
 
     def test_consistent_statuses_pass(self):
         result = self.lint({"sms": None, "snes": False, "cps1": True},

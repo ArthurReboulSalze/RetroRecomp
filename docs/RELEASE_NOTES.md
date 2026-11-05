@@ -1,3 +1,25 @@
+# RetroRecomp v1.6.9 — The Sharp X68000 is supported
+
+- **Sharp X68000: supported.** On 5 November 2026 the owner played five more converted games (Double Target, Fancy Qix, Twins, Danger
+  Area and Pac-Land, drawn at random from his collection) and decided that it is no longer experimental. The profile says `supported`, the
+  conversion report writes it, and the window (the options note, the credits line and the scope of the sharing) no longer calls the
+  machine experimental, in the eight languages. It stands on a panel of 21 named games converted on Windows and on a Debian 13 PC with the same
+  CPU, memory, picture and sound hashes, no interpreted instruction on the routes run, the compressed copy matching the fresh reference, and a quick
+  state resumed in a fresh process. It does not say exact hardware, complete gameplay or physical latency: the independent CPU evidence and the
+  hardware evidence stay partial (22 vectors of undefined decimal arithmetic out of 2,895; MAME compared on five games, the sound not compared),
+  as they do for the other supported machines. Scope: floppy games (DIM, XDF, a standard D88 and sets of up to ten disks), no hard-disk images; the few
+  games that play only through an external Roland MIDI module run silent and the report says so; the screen contrast of the system port is a known
+  difference with MAME; the machine stays local (no shared paths, nothing on the leaderboard). Only the X68000 game stamp moves: an export of 1.6.8
+  is converted again when it is upgraded, and no picture or sound changes
+  ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-profile-is-supported-169), [QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)).
+- **The X68000 shares its paths, in both directions.** What a conversion discovers is sent as numbers about your own disks and your own IPL (never a byte of
+  either) and the paths other players found are taken as hints before the first pass, as the CPS-1 does: the base's withdrawable development tier, a path qualified only
+  for the engine revision that validated it, the whole sharing withdrawn by one line. On the proof game, 34,740 received instructions guide the first pass; the CPU,
+  RAM, picture and sound hashes of the three routes are the same as without them. The X68000 keeps its full scan when paths exist (it finds its mouse and
+  keyboard routes by replaying them), so a conversion is not shortened by the base. A game of an IPL that differs from the sender's keeps the disk paths and ignores the
+  IPL ones. **The game stamp of all nine consoles moves** (the exchange and the batch code are inputs of every console): every export of 1.6.8 is converted again
+  once when it is upgraded ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-paths-travel-both-ways-169)).
+
 # RetroRecomp v1.6.8 — An older library follows the pinned sources again, the Mega Drive 68000 and the Game Boy start closer to the console, the Super Nintendo ROM read loses its division
 
 - **An older library no longer refuses every conversion.** Every conversion first

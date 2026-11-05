@@ -47,10 +47,12 @@ static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) {
 /* The sound and speed keys of every console (decision D12), the Game Boy host's former keys: Tab held is the fast-forward,
  * the backquote key toggles the maximum speed, M mutes. A key a player has bound to a control stays that control; the
  * keys are not offered to a machine that has the keyboard (the X68000's full guest typing), and a menu with text entry
- * never gets them. The same holds for the triggers: the right one held is the fast-forward, the left one toggles the maximum
- * speed (a trigger is no button of any control). */
+ * never gets them. The same holds for the triggers of player 1's pad: the right one held is the fast-forward, the left one
+ * toggles the maximum speed (a trigger is no button of any control). Another player's triggers change nothing, as the Quit and
+ * Restart combinations are watched on player 1's pad only: the speed is the whole game's. */
 enum { HOLD_KEY = 1, HOLD_TRIGGER = 2 };
-static bool trigger_down[2][RRHK_MAX_PLAYERS];     /* [0] right, [1] left: past the threshold since the last event */
+static bool trigger_down[2];     /* [0] right, [1] left of player 1's pad: past the threshold since the last event */
+static SDL_JoystickID trigger_pad = -1;   /* the pad those are of: another pad for player 1 forgets them */
 
 static bool key_bound(SDL_Scancode key) {
     const RrhkMachine *m = rrhk.machine;
@@ -76,6 +78,13 @@ static void toggle_mute(void) {
 
 /* The speed events that come before everything else, so that a key released in a menu or a lost window never stays held. */
 static void speed_event(const SDL_Event *event) {
+    /* Player 1 changed pads (the Gamepad row of F2, a redeal after hot-plug): a trigger held on the former pad never sticks. */
+    const SDL_JoystickID owner = rrhk.pads[0] ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[0])) : -1;
+    if (owner != trigger_pad) {
+        trigger_pad = owner;
+        rrhk.fast_hold &= ~HOLD_TRIGGER;
+        memset(trigger_down, 0, sizeof trigger_down);
+    }
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
              !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
@@ -90,15 +99,13 @@ static void speed_event(const SDL_Event *event) {
         memset(trigger_down, 0, sizeof trigger_down);
     } else if (event->type == SDL_CONTROLLERAXISMOTION &&
                (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
-        const int p = event_player(event->caxis.which), side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
-        if (p < 0) return;
+        const int side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
+        if (event_player(event->caxis.which) != 0) return;
         const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
-        const bool pressed = down && !trigger_down[side][p];
-        trigger_down[side][p] = down;
+        const bool pressed = down && !trigger_down[side];
+        trigger_down[side] = down;
         if (!side) {
-            bool any = false;
-            for (int q = 0; q < RRHK_MAX_PLAYERS; ++q) any = any || trigger_down[0][q];
-            if (!any) rrhk.fast_hold &= ~HOLD_TRIGGER;
+            if (!down) rrhk.fast_hold &= ~HOLD_TRIGGER;
             else if (!rrhk.menu && sound_keys_open()) rrhk.fast_hold |= HOLD_TRIGGER;
         } else if (pressed && !rrhk.menu && sound_keys_open()) toggle_max_speed();
     }
@@ -133,8 +140,8 @@ void rrhk_poll_events(RrhkRun *run) {
             /* Which pad may bind (divergence 3, decided 28 October 2026): the selected player's pad only, on every console. */
             if (rrhk.pads[rrhk.player] &&
                 event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
-                rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)event.cbutton.button;
-                rrhk_store_binding(); rrhk.capturing = 0; rrhk.status[0] = 0;
+                rrhk_assign(rrhk.player, rrhk.row, true, event.cbutton.button);
+                rrhk.capturing = 0; rrhk.status[0] = 0;
             }
             continue;
         }
@@ -170,7 +177,7 @@ void rrhk_poll_events(RrhkRun *run) {
             if (key == SDL_SCANCODE_ESCAPE) rrhk.capturing = 0;
             else if (!rrhk.gamepad_page && key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES &&
                      !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12)) {
-                rrhk.keys[rrhk.player][rrhk.row] = key; rrhk_store_binding(); rrhk.capturing = 0;
+                rrhk_assign(rrhk.player, rrhk.row, false, key); rrhk.capturing = 0;
             }
             continue;
         }

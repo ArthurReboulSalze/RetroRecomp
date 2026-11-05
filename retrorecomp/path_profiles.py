@@ -504,6 +504,10 @@ def _validate_sources(system, sources) -> dict:
         _need(not p & 1 and not m1 & (m1 - 1) and p + m1 <= cart, 'Inconsistent Neo Geo compilation region sizes.')
     if system == 'cps1':
         _need(not sources['maincpu']['bytes'] & 1, 'Inconsistent CPS-1 compilation region sizes.')
+    if system == 'x68':
+        # The disks (their contents one after the other) and, when the record holds IPL paths, the 128 KiB IPL they belong to.
+        _need(all(not source['bytes'] & 1 for name, source in sources.items() if name != 'ipl'), 'Inconsistent X68000 disk size.')
+        _need('ipl' not in sources or sources['ipl']['bytes'] == 128 * 1024, 'Inconsistent X68000 IPL source.')
     return sources
 
 
@@ -519,7 +523,9 @@ def _validate_layout(system, layout) -> None:
               and (type(layout.get('format', 1)) is int and 1 <= layout.get('format', 1) <= 255), 'Invalid CPS-1 layout.')
     elif system == 'x68':
         drives = layout.get('initial_drives', [])
-        _need(set(layout) <= {'ram_mib', 'initial_drives'} and type(layout.get('ram_mib', 0)) is int
+        # `format` is the version of the X68000 record (a reader skips what it does not know).
+        _need(set(layout) <= {'ram_mib', 'initial_drives', 'format'} and type(layout.get('ram_mib', 0)) is int
+              and type(layout.get('format', 1)) is int and 1 <= layout.get('format', 1) <= 255
               and isinstance(drives, list) and all(type(v) is int for v in drives), 'Invalid X68000 layout.')
     else:
         _need(layout == {}, 'Invalid layout.')

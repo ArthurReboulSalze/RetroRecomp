@@ -414,7 +414,8 @@ class DetectionTableTests(unittest.TestCase):
                 self.assertIs(type(caught.exception), UnsupportedConsoleError)
                 self.assertIn('unavailable in this installation', str(caught.exception))
             self.assertEqual(systems.get_profile('x68').id, 'x68')  # still readable for an existing export
-        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['x68'])
+        # No console of the list is experimental any more (the X68000 left it in 1.6.9).
+        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], [])
 
     def test_the_documented_orders_of_the_lists_are_kept(self):
         self.assertEqual(systems.system_ids()[:len(CONSOLES)], CONSOLES)

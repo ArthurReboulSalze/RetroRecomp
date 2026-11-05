@@ -29,7 +29,7 @@ int main(int argc,char **argv){
     rr_executable_directory(path,4000);rr_wide_append(path,4096,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");
     if(!verify)rr_remove(path);
     rrhk_bind(rrhk_adapter());rrhk_load_bindings();rrhk_options_init(L"X68000");rrhk_options_keyboard("X68000",10);
-    ui=rrhk_ui();xa.windowed=true;
+    ui=rrhk_ui();ca.windowed=true;
     check(rr_menu_init(renderer),"shared font atlas initializes");
     if(verify){
         check(ui->filter==3,"scanlines persist across a fresh process");
@@ -52,7 +52,7 @@ int main(int argc,char **argv){
         ui->keys[0][X_PAUSE]=SDL_SCANCODE_UNKNOWN;
         /* Escape closes a menu entirely before it can do anything else. */
         ui->menu=1;
-        check(!press(SDL_SCANCODE_ESCAPE,KMOD_NONE)&&xa.escape_held,"menu Escape starts as the frontend's");
+        check(!press(SDL_SCANCODE_ESCAPE,KMOD_NONE)&&ca.escape_held,"menu Escape starts as the frontend's");
         ui->menu=0;
         check(press(SDL_SCANCODE_ESCAPE,KMOD_NONE),"menu Escape is consumed until release");
         {SDL_Event again;memset(&again,0,sizeof(again));again.type=SDL_KEYDOWN;again.key.repeat=1;again.key.keysym.scancode=SDL_SCANCODE_ESCAPE;
@@ -60,13 +60,13 @@ int main(int argc,char **argv){
         static Uint8 *state;state=(Uint8*)SDL_GetKeyboardState(NULL);keys=state;state[SDL_SCANCODE_ESCAPE]=1;guest_keyboard=true;
         check(!input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"menu Escape never leaks into the full guest keyboard");
         lift(SDL_SCANCODE_ESCAPE);
-        check(!xa.escape_held&&input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"release restores ordinary guest Escape handling");
+        check(!ca.escape_held&&input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"release restores ordinary guest Escape handling");
         guest_keyboard=false;state[SDL_SCANCODE_ESCAPE]=0;
         /* Help and its second page. */
         ui->menu=RRHK_MENU_HELP;check(!x_help_page(ui,&(RrhkMenuCtx){renderer,0,0,1}),"the first help page is the kit's");
-        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==1,"Tab exposes computer keyboard and disk shortcuts");
-        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==0,"Tab returns to the shared page");ui->menu=0;
-        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==0,"Tab outside help is the guest's");
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(ca.help_page==1,"Tab exposes computer keyboard and disk shortcuts");
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(ca.help_page==0,"Tab returns to the shared page");ui->menu=0;
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(ca.help_page==0,"Tab outside help is the guest's");
         /* Ctrl+Alt chords belong to the computer and always win. */
         check(press(SDL_SCANCODE_H,CHORD)&&ui->menu==RRHK_MENU_HELP,"Ctrl+Alt+H opens help");
         press(SDL_SCANCODE_H,CHORD);check(!ui->menu,"Ctrl+Alt+H closes it");
@@ -93,14 +93,14 @@ int main(int argc,char **argv){
         /* Every shared page renders in every game language, on the real renderer. */
         for(int lang=0;lang<RR_LANGUAGE_COUNT;lang++){
             rr_language_set(lang);ui->language=lang;
-            ui->menu=RRHK_MENU_HELP;xa.help_page=0;SDL_RenderClear(renderer);rrhk_menu_draw(renderer);
-            xa.help_page=1;rrhk_menu_draw(renderer);xa.help_page=0;
+            ui->menu=RRHK_MENU_HELP;ca.help_page=0;SDL_RenderClear(renderer);rrhk_menu_draw(renderer);
+            ca.help_page=1;rrhk_menu_draw(renderer);ca.help_page=0;
             ui->menu=RRHK_MENU_CONTROLS;rrhk_menu_draw(renderer);
             ui->menu=RRHK_MENU_OPTIONS;rrhk_menu_draw(renderer);
             ui->menu=0;ui->paused=1;rrhk_menu_draw(renderer);ui->paused=0;
         }
         check(!core_error,"all menu pages render in every game language");
-        rr_language_set(0);ui->language=0;ui->menu=RRHK_MENU_HELP;xa.help_page=1;
+        rr_language_set(0);ui->language=0;ui->menu=RRHK_MENU_HELP;ca.help_page=1;
         SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);rrhk_menu_draw(renderer);
         {
             int w,h;SDL_GetRendererOutputSize(renderer,&w,&h);
@@ -109,7 +109,7 @@ int main(int argc,char **argv){
             check(preview&&SDL_RenderReadPixels(renderer,NULL,preview->format->format,preview->pixels,preview->pitch)==0&&SDL_SaveBMP(preview,name)==0,"menu preview captured from the actual SDL renderer");
             if(preview)SDL_FreeSurface(preview);SDL_free(base);
         }
-        ui->menu=0;xa.help_page=0;
+        ui->menu=0;ca.help_page=0;
         /* What a fresh process finds: the kit's settings and the legacy layout of the first host. */
         ui->player=0;ui->row=X_A;ui->gamepad_page=0;ui->keys[0][X_A]=SDL_GetScancodeFromKey(SDLK_z);rrhk_store_binding();
         ui->row=X_PAUSE;ui->gamepad_page=1;ui->buttons[0][X_PAUSE]=SDL_CONTROLLER_BUTTON_LEFTSTICK;rrhk_store_binding();ui->gamepad_page=0;

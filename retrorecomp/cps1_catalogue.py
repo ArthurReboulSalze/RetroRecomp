@@ -10,7 +10,7 @@ import json
 from .paths import ASSETS
 
 RESOURCE = 'assets/cps1-catalogue.json'
-SHA256 = 'c026949db4da913e1d70cc72d235f6a229e54ffe7a61e5b669546738ddc50413'
+SHA256 = '1465bcc1c3d6b3ddfcb4fec244ecd4363f5e88770bfcb77655ac42245d01c125'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 MAX_BYTES = 2 * 1024 * 1024
 # Phase 1 runs standard 10/12 MHz boards: 68000, Z80, YM2151, OKI MSM6295.
@@ -95,13 +95,14 @@ def supported(game: dict) -> bool:
 
 
 def tier(game: dict) -> str:
-    """'supported' for the CPS-1 boards, 'experimental' for the board families that joined later (the QSound boards of the
-    CPS-1.5, since 1.6.7): a column of the catalogue, so the status of a conversion never depends on the name of a set."""
+    """'supported' for every board of the catalogue today: the QSound boards of the CPS-1.5 were 'experimental' from 1.6.7 and left that
+    tier on 5 November 2026 (docs/CPS1.md). A column of the catalogue, so the status of a conversion never depends on the name of a set,
+    and ready for the next board family that joins in a tier of its own."""
     return game.get('tier', 'supported')
 
 
 def qualification_candidate(game: dict) -> bool:
-    """MAME-guessed graphics mappers and suspect dumps never count as evidence, nor does a board of the experimental tier
+    """MAME-guessed graphics mappers and suspect dumps never count as evidence, nor does a board of an experimental tier
     (its evidence is its own, docs/CPS1.md)."""
     return supported(game) and tier(game) == 'supported' and game['mapper_verified'] and not any(item['bad_dump'] for item in files(game))
 

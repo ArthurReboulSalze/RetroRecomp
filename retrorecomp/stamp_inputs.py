@@ -150,7 +150,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -683,6 +683,7 @@ INPUTS = _resolve({
         'retrorecomp.x68000_media',
         'retrorecomp.x68000_program',
         'retrorecomp.x68000_scan',
+        'retrorecomp.x68_knowledge',
         'tools/x68000_base74.py',
         'tools/x68000_native.py',
         'tools/x68000_reference.py',
@@ -790,6 +791,14 @@ INPUTS = _resolve({
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',
+    ),
+    # What the host kit's adapters of the disk computers share (the guest keyboard, the captured mouse, the floppy drives...), included by each adapter. Host role.
+    'shares:hostkit_computer': (
+        'native/hostkit/adapters/rrhk_computer.inc',
+    ),
+    # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
+    'shares:m68k_observed': (
+        'retrorecomp.m68k_observed',
     ),
     'family:rr16': (
         'native/console16_main.c',
