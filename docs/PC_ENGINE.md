@@ -139,7 +139,7 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 | Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on the played routes of 8 of the 9 converted games; Street Fighter II' CE keeps a counted interpreted share |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported. No independent hardware comparison exists |
-| Gameplay validation | Not validated: the routes show a moving picture and sound, no one has played a game through |
+| Gameplay validation | One owner play trial: eight of the nine converted cards were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). That is a trial, not a coverage claim: no game was checked end to end |
 | Physical latency | Not reported and not measured |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
@@ -162,7 +162,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 1. Independent evidence for the processor, with a tool of ours for the vectors.
 2. A speed measure on a quiet PC.
-3. More HuCards through the same loop, then the owner's play trials.
+3. More HuCards through the same loop, then more of the owner's play trials.
 4. The Linux witness, then SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine

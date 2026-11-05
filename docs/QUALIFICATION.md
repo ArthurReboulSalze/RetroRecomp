@@ -58,7 +58,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| PC Engine | experimental | `████░░░░░░` 36 % | ✅ 0 · 🟡 10 · ❔ 4 |
+| PC Engine | experimental | `████░░░░░░` 39 % | ✅ 0 · 🟡 11 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -77,7 +77,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ |
 
@@ -106,7 +106,7 @@ x68 = Sharp X68000, pce = PC Engine.
 | G11 | P | P | P | P | P | P | P | P | P | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - |
 
@@ -529,7 +529,7 @@ Mega Drive picture hash. Results are always written as "model against MAME".
 
 The PC Engine is **experimental since 1.6.9** ([PC_ENGINE.md](PC_ENGINE.md)): HuCards are converted and the first panel of ten real
 cards was run on 5 November 2026. `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
-fidelity, gameplay coverage or latency, and the owner has not played the games yet.
+fidelity, gameplay coverage or latency; the owner's play trial of eight games is in the owner-acceptance table.
 
 | Gate | PC Engine | Evidence | What is missing |
 |---|---|---|---|
@@ -546,7 +546,7 @@ fidelity, gameplay coverage or latency, and the owner has not played the games y
 | G11 | ? | No independent hardware comparison | |
 | G12 | P | Ten real cards tried (nine converted, one SuperGrafx card refused); the panel is the owner's library, read in place | A broader panel |
 | G13 | ? | The Linux build is not witnessed | |
-| G14 | ? | The owner has not played the exports | |
+| G14 | P | The owner played eight exports on 5 November 2026 and reported that all eight work (owner-acceptance table) | Those exports come from the tree before the merge of `main`; the exports of the 1.6.9 tree are not played yet; no decision to leave the experimental status |
 | G15 | P | Nothing is claimed beyond "native equals the engine's interpreter": all five measures are kept apart in [PC_ENGINE.md](PC_ENGINE.md) | A read of the interface and the exported game |
 | G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
 
@@ -648,6 +648,7 @@ owner fills it in.
 | 5 November 2026 | Game Gear | Sonic The Hedgehog, Super Columns (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | Game Boy | The Legend of Zelda: Link's Awakening, Kirby's Dream Land, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | Super Nintendo | Super Mario World, The Legend of Zelda: A Link to the Past, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | PC Engine | Blazing Lazers, Bomberman '93, Gradius, Raiden, Santatlantean, Space Harrier, Splatterhouse, Street Fighter II' Champion Edition (the eight HuCards of `Export\Games\PC Engine`), converted with the tree of `spec/pce-170` **before** its merge of `main` (commits up to `ad4d7ec`, the host kit without the four-player change; every one 0 interpreted instructions on the tested routes except Street Fighter II', which keeps a counted interpreted share) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Je viens de faire une campagne de test des jeux CPS-2 et PC Engine. J'ai testé les 8 jeux de chaque console et les 8 marchent parfaitement. Bravo! » | A play trial that passed, **not** a decision to leave the experimental status: the PC Engine stays experimental and G14 reads `P`. The exports played come from a tree older than the one that opens the machine in 1.6.9 and are not the exports of that tree. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
