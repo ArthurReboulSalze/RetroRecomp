@@ -1,4 +1,4 @@
-"""Sharp X68000 profile (experimental: see docs/X68000.md)."""
+"""Sharp X68000 profile (supported since 1.6.9: see docs/X68000.md)."""
 from pathlib import Path
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
@@ -10,7 +10,9 @@ class X68000Profile(SystemProfile):
     extensions = ('.dim', '.xdf', '.m3u', '.d88', '.88d', '.hdm', '.2hd', '.dup')
     export_folder = 'Sharp X68000'
     video_modes = ('native',)
-    status = 'experimental'
+    # Left the experimental status in 1.6.9 on the owner's decision of 5 November 2026, with the evidence in docs/QUALIFICATION.md
+    # (G10 and G11 stay partial there, as for the other 68000 machines). Floppy games only, local (no shared paths).
+    status = 'supported'
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('disk',)
     firmware = ('ipl', 'cgrom')
@@ -50,7 +52,7 @@ class X68000Profile(SystemProfile):
             return None
         if not self.available():
             raise UnsupportedConsoleError(
-                'The experimental Sharp X68000 profile is unavailable in this installation.')
+                'The Sharp X68000 profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', self.id)
         return self

@@ -627,7 +627,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 'automatic_disk_changes':result.get('automatic_disk_changes',0),
                 'media_events':result.get('media_events',[])})
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
-          'system':{'id':'x68','name':'Sharp X68000'},'status':'experimental','private_development_only':False,
+          'system':{'id':'x68','name':'Sharp X68000'},'status':'supported','private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
           'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
@@ -680,5 +680,5 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 'private_development_only':True,'fresh_reference_passed':True,
                 # Only observed reads are remembered, never the reviewed list's choice.
                 'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
-        emit('X68000: validated standalone player ready (experimental profile).')
+        emit('X68000: validated standalone player ready.')
         return candidate

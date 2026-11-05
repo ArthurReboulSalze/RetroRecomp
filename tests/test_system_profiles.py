@@ -113,7 +113,7 @@ class ProfileDataTests(unittest.TestCase):
         statuses = {system: status for system, status in statuses.items() if system in IDS}
         self.assertEqual(statuses, {'sms': 'supported', 'gg': 'supported', 'gb': 'supported', 'nes': 'supported',
                                     'md': 'supported', 'snes': 'supported', 'ng': 'supported',
-                                    'cps1': 'supported', 'x68': 'experimental'})
+                                    'cps1': 'supported', 'x68': 'supported'})
         for profile in ALL_PROFILES:
             self.assertIn(profile.status, STATUSES)
             # Read-only compatibility with the former attribute.
