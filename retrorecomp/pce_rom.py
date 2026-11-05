@@ -31,6 +31,18 @@ class PcEngineRomError(ValueError):
     """The file is not a HuCard image this converter reads."""
 
 
+# What a PC Engine conversion needs from the installation itself (the engine's sources are fetched at their pinned
+# revision on the first conversion, like the other machines' dependencies; the HuCard always comes from the player).
+CONVERTER_FILES = ('native/pce_machine.cpp', 'native/pce_machine.h', 'native/pce_main.c',
+                   'native/hostkit/adapters/rrhk_pce.c')
+
+
+def converter_available() -> bool:
+    """True when this installation carries the PC Engine converter's own native files."""
+    from .paths import ASSETS
+    return all((ASSETS / name).is_file() for name in CONVERTER_FILES)
+
+
 @dataclass(frozen=True)
 class HuCard:
     path: Path

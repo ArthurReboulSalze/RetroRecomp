@@ -106,6 +106,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Neo Geo** — [NEOGEO.md](NEOGEO.md); log: [NEOGEO_LOG.md](NEOGEO_LOG.md).
 - **Capcom CPS-1** — [CPS1.md](CPS1.md) (supported since 1.6.6: conversion, controls, qualified sets); log: [CPS1_LOG.md](CPS1_LOG.md).
 - **Sharp X68000** — [X68000.md](X68000.md) (supported since 1.6.9: floppy games, availability and licences).
+- **PC Engine** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 
 ## Running the project
 

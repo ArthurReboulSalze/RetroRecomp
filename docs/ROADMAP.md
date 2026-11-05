@@ -22,6 +22,7 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
 | Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
+| PC Engine | experimental (since 1.6.9) | 36 % | a speed measure, independent processor evidence, more HuCards, the Linux witness |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.
@@ -99,6 +100,13 @@ comparison that no picture of the game matches, deeper evidence for disk changes
 purpose, and a Linux witness of interactive play. Sound-free routes stay accepted and reported; a Roland MIDI model is not
 planned. Hard-disk images stay out of scope. The screen contrast of the system port stays a documented difference with MAME.
 
+### PC Engine
+
+Experimental since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the Street Fighter II board, NTSC,
+two players. Next: a speed measure on a quiet PC, a processor check with a vector tool of our own, more HuCards through the same
+loop and the owner's play trials, then the Linux witness. A card that needs more than the engine's 65,536 instruction identities
+stays partly native. SuperGrafx and CD-ROM² are separate later studies.
+
 ## Machines in development
 
 Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
@@ -107,8 +115,6 @@ on the owner's decision after the qualification list.
 - **Capcom CPS-2.** Its own experimental profile built on the CPS-1 and CPS-1.5 modules: the 68000's encrypted program,
   decrypted with the key file of the player's own romset (keys are never shipped), the CPS-2 sprite chip and raster
   effects, QSound sound. First scope: the standard boards; spinner and paddle games later.
-- **PC Engine / TurboGrafx-16.** HuCards first, on a pinned open recompiler we contribute to upstream; SuperGrafx and
-  CD-ROM² later, with the player's own System Card.
 - **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the
   real-time clock first, sensors (tilt, gyroscope, solar) later.
 

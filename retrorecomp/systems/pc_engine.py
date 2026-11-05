@@ -25,7 +25,7 @@ class PcEngineProfile(SystemProfile):
     export_folder = 'PC Engine'
     video_modes = ('ntsc',)
     status = 'experimental'
-    scope_note = 'HuCards only; no CD-ROM2 and no SuperGrafx. Four players at most (the multitap takes five).'
+    scope_note = 'HuCards only; no CD-ROM2 and no SuperGrafx (a SuperGrafx game is refused when its picture never appears). Four players at most (the multitap takes five).'
     # The PSG is part of the HuC6280 chip: the machine has one processor. The engine counts retired
     # instructions, native and interpreted apart.
     cpus = (Cpu('huc6280', 'main', 'instructions'),)
@@ -38,7 +38,6 @@ class PcEngineProfile(SystemProfile):
     feedback_kinds = frozenset({17})
     fallback_display = 'opcodes'
     linux = 'pending'
-    developer_only = True
     # Provisional paths (stage 3 decides them): ROM code as (decoded offset, logical pc) on 8 KiB banks, and
     # instructions run from work RAM (physical $1F0000..$1F1FFF). The engine's own identity also holds the
     # eight MPRs; a shape for that context is a stage 3 question.
@@ -53,9 +52,8 @@ class PcEngineProfile(SystemProfile):
     library_layout = LibraryLayout(folder='pce')
 
     def available(self) -> bool:
-        # Closed to players until the owner opens the machine; a developer converts with RETRO_RECOMP_PCE=1.
-        import os
-        return os.environ.get('RETRO_RECOMP_PCE') == '1'
+        from ..pce_rom import converter_available
+        return converter_available()
 
     def read_rom(self, path: Path):
         from ..pce_rom import read_hucard

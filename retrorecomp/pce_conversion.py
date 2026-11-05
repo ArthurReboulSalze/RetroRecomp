@@ -1,4 +1,4 @@
-"""PC Engine conversion (experimental, developer-only; docs/PC_ENGINE.md).
+"""PC Engine conversion (experimental; docs/PC_ENGINE.md).
 
 Every route runs twice in the same build of the game: once with every instruction forced through the engine's
 interpreter (`--reference`, the fresh reference) and once with the guarded native module. Their per-frame CPU, work
@@ -7,8 +7,8 @@ saved timeline in a fresh process. The native module comes from what the runs ob
 its static analysis stops at the first TAM, so a HuCard is never translated from the ROM alone). Interpreted
 instructions that remain are counted and reported; the code they ran becomes guarded native code in the next pass.
 
-Until the owner opens the machine (`PC_ENGINE.available()`), a conversion is refused with `NOT_YET` and a report
-can only state an identification. Nothing is written beside the ROMs.
+An installation without the machine's native files (`PC_ENGINE.available()`) refuses a conversion with `NOT_YET`.
+Nothing is written beside the ROMs.
 """
 from __future__ import annotations
 
@@ -33,8 +33,7 @@ ENGINE_REPO = 'rages4calm/pcenginerecomp'
 ENGINE_REV = '81b5c231e452c6879d58585c8863012e438f1d55'
 ENGINE_ABI = 29
 
-NOT_YET = ('The PC Engine profile is in development: it identifies HuCards (header, bit order, board) '
-           'but does not convert them yet.')
+NOT_YET = 'The PC Engine converter files are missing from this installation.'
 STATE_SETTLE = 600          # frames continued after a quick state is loaded
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
                    'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',

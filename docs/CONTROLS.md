@@ -97,6 +97,15 @@ chosen. Most boards read their switches at power-on: restart with Shift+F1.
 The choice is kept per game; conversions always check the default settings.
 Captain Commando needs **Play Mode: 4 Players** for four players.
 
+### PC Engine
+
+Arrows move; **X** is button I, **W** is button II, **Enter** is Run and **Shift** is Select. Player 2 uses the numeric
+keypad (9 and 8 for I and II, Enter for Run, 0 for Select). On a controller, B is I, A is II, Start is Run and Back is
+Select. Games that use the six-button pad (the Street Fighter II board) read **C / A / S / D** as III to VI (controller: X, Y
+and the two shoulder buttons). Most games pause on Run, so the first press of a new game may be a pause. F8/F9 quick states,
+F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
+game is built for two today and the fifth multitap player is never offered.
+
 ## Speed and sound
 
 Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are

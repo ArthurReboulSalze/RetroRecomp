@@ -247,49 +247,34 @@ class ReaderTests(TempFiles):
 
 
 class ProfileTests(TempFiles):
-    def test_the_profile_is_experimental_developer_only_and_unavailable(self):
+    def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
         profile = get_profile('pce')
         self.assertEqual('experimental', profile.status)
-        self.assertTrue(profile.developer_only)
-        self.assertFalse(profile.available())
+        self.assertFalse(profile.developer_only)
+        self.assertTrue(profile.available())          # this checkout carries the native files
         self.assertIn(profile, ALL_PROFILES)
-        self.assertNotIn(profile, PROFILES)
-        self.assertNotIn(profile, convertible_profiles())
+        self.assertIn(profile, PROFILES)
+        self.assertIn(profile, convertible_profiles())
         self.assertEqual(1, len(profile.cpus))
         cpu = profile.cpus[0]
         self.assertEqual(('huc6280', 'main', 'instructions'), (cpu.arch, cpu.role, cpu.unit))
         self.assertEqual(('ntsc',), profile.video_modes)
         self.assertEqual(('.pce',), profile.extensions)
 
-    def test_a_pce_file_is_a_candidate_but_an_unknown_console(self):
+    def test_a_pce_file_is_a_candidate_and_identified(self):
         self.assertIn('.pce', ROM_CANDIDATE_EXTENSIONS)
         path = self.write(card(16))
-        with self.assertRaises(UnsupportedConsoleError):
-            profile_for_path(path)
+        self.assertIs(get_profile('pce'), profile_for_path(path))
+
+    def test_this_checkout_carries_the_converter_files(self):
+        from retrorecomp.pce_rom import CONVERTER_FILES
+        from retrorecomp.paths import ROOT
+        for name in CONVERTER_FILES:
+            self.assertTrue((ROOT / name).is_file(), name)
 
     def test_read_rom_is_the_reader(self):
         path = self.write(card(16))
         self.assertEqual(read_hucard(path), get_profile('pce').read_rom(path))
-
-    def test_convert_identifies_then_stops(self):
-        profile = get_profile('pce')
-        path = self.write(card(16))
-        with self.assertRaises(ConversionError) as caught:
-            profile.convert(path)
-        self.assertEqual(pce_conversion.NOT_YET, str(caught.exception))
-        with self.assertRaises(ConversionError):
-            pce_conversion.convert(path)
-
-    def test_a_file_that_is_not_a_hucard_fails_in_the_reader_first(self):
-        profile = get_profile('pce')
-        path = self.write(bytes(100), 'junk.pce')
-        with self.assertRaises(PcEngineRomError):
-            profile.convert(path)
-        with self.assertRaises(PcEngineRomError):
-            profile.read_rom(path)
-
-    def test_the_default_video_mode_is_ntsc(self):
-        self.assertEqual('ntsc', get_profile('pce').default_video_mode(self.write(card(8))))
 
 
 class ReportTests(TempFiles):
@@ -553,15 +538,16 @@ class Sentinel(Exception):
     """What a patched build step raises: the test proves it is the first thing to run."""
 
 
-class ClosedMachineTests(TempFiles):
+class MissingFilesTests(TempFiles):
     def setUp(self):
         super().setUp()
-        patches = [mock.patch.dict(os.environ), mock.patch('retrorecomp.feedback.ingest', return_value={}),
+        self.installed = False
+        patches = [mock.patch('retrorecomp.pce_rom.converter_available', side_effect=lambda: self.installed),
+                   mock.patch('retrorecomp.feedback.ingest', return_value={}),
                    mock.patch('retrorecomp.paths.ROOT', self.root / 'repo')]
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
-        os.environ.pop('RETRO_RECOMP_PCE', None)
         self.path = self.write(card(16))
 
     def steps(self, **errors):
@@ -574,24 +560,18 @@ class ClosedMachineTests(TempFiles):
         return mocks
 
     def open_machine(self):
-        os.environ['RETRO_RECOMP_PCE'] = '1'          # restored by the patch.dict of setUp
+        self.installed = True
 
     def convert(self, **options):
         return pce_conversion.convert(self.path, output=self.root / 'out', emit=lambda *_: None, **options)
 
-    def test_the_machine_is_closed_without_the_variable(self):
+    def test_the_machine_needs_its_native_files(self):
         self.assertFalse(PC_ENGINE.available())
-        for value in ('0', '', 'true', 'yes'):
-            with self.subTest(value), mock.patch.dict(os.environ, {'RETRO_RECOMP_PCE': value}):
-                self.assertFalse(PC_ENGINE.available())
+        self.installed = True
+        self.assertTrue(PC_ENGINE.available())
+        self.assertTrue(get_profile('pce').available())
 
-    def test_the_variable_opens_the_machine(self):
-        with mock.patch.dict(os.environ, {'RETRO_RECOMP_PCE': '1'}):
-            self.assertTrue(PC_ENGINE.available())
-            self.assertTrue(get_profile('pce').available())
-        self.assertFalse(PC_ENGINE.available())
-
-    def test_a_closed_machine_refuses_before_any_build(self):
+    def test_missing_files_refuse_before_any_build(self):
         mocks = self.steps()
         with self.assertRaises(ConversionError) as caught:
             self.convert()
@@ -601,13 +581,13 @@ class ClosedMachineTests(TempFiles):
                 step.assert_not_called()
         self.assertFalse((self.root / 'out').exists())              # nothing was written either
 
-    def test_a_closed_machine_still_reads_the_card_first(self):
+    def test_missing_files_still_read_the_card_first(self):
         mocks = self.steps()
         with self.assertRaises(PcEngineRomError):
             pce_conversion.convert(self.write(bytes(100), 'junk.pce'), output=self.root / 'out')
         mocks['ensure_engine'].assert_not_called()
 
-    def test_an_open_machine_reaches_the_engine_first(self):
+    def test_an_installed_machine_reaches_the_engine_first(self):
         self.open_machine()
         mocks = self.steps()
         with self.assertRaises(Sentinel) as caught:
@@ -617,7 +597,7 @@ class ClosedMachineTests(TempFiles):
         mocks['prepare_game'].assert_not_called()
         mocks['build_game'].assert_not_called()
 
-    def test_an_open_machine_then_prepares_the_game(self):
+    def test_an_installed_machine_then_prepares_the_game(self):
         self.open_machine()
         mocks = self.steps(ensure_engine=None)
         with self.assertRaises(Sentinel) as caught:

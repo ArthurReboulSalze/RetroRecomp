@@ -1,8 +1,9 @@
 # PC Engine
 
-Experimental profile (`pce`), **in development and developer-only**: NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in
-the United States. Today the profile identifies HuCard images and converts nothing. Players see no PC Engine entry in
-the interface, and a `.pce` file is refused as an unknown console. Nothing of the machine is distributed.
+Experimental profile (`pce`), **available since 1.6.9**: NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
+United States. It converts the player's own HuCard dumps (`.pce`, or a ZIP holding one) into a standalone game. The native
+code comes from what the game was seen to run; every instruction that was not seen stays interpreted, counted and
+reported. It is experimental: no gate of the qualification list is claimed beyond what was measured.
 
 ## Contents
 
@@ -19,12 +20,12 @@ the interface, and a `.pce` file is refused as an unknown console. Nothing of th
 
 | | |
 |---|---|
-| Status | **Experimental, developer-only**: stage 2 of 7. The profile identifies HuCards and converts nothing |
-| Input | `.pce` HuCard images (read by its content, [below](#3-how-a-hucard-file-is-read)) |
+| Status | **Experimental**, available since 1.6.9 |
+| Input | `.pce` HuCard images, or a ZIP holding exactly one (read by its content, [below](#3-how-a-hucard-file-is-read)) |
 | Processor | One HuC6280 (a 65C02 derivative that also holds the sound generator); fallback counted in instructions |
 | Engine | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp), MIT, pinned by commit; runtime ABI 29 |
-| Reports | Common report v2 through `write_report`; an identification only, no measure reported |
-| Exports | None yet |
+| Reports | Common report v2 through `write_report`: native and interpreted instructions per route, guard misses, the five measures kept apart |
+| Exports | A standalone Windows game per card; quick states (F8/F9); two players, six buttons for the Street Fighter II board |
 
 ## 2. Scope
 
@@ -32,11 +33,15 @@ Decided on 5 November 2026.
 
 - **Cards:** HuCards only. No CD-ROM2 and no SuperGrafx.
 - **Video:** NTSC.
-- **Pads:** 2- and 6-button pads, and the multitap read for 4 players (the console takes 5; Bomberman is the named case).
+- **Pads:** the two-button pad, and the six-button pad of the Street Fighter II board. The multitap seats four players at
+  most (the console takes five; Bomberman is the named case): the fifth player is not offered. A converted game is built
+  for two players today; the build recipe supports the four-seat variant, which no option of the converter selects yet.
 - **Boards:** the standard boards from 8 KiB to 1 MiB, including the 384 KiB and 768 KiB mirror maps, and the Street
   Fighter II board (2.5 MiB).
-- **Not recognised:** the Populous RAM board, SuperGrafx images and CD images. ZIP archives are deferred: reading them
-  needs a size-limit entry in a shared module, which is not touched at this stage.
+- **Not recognised:** the Populous RAM board, SuperGrafx images and CD images. A ZIP holds exactly one `.pce` (several or
+  none are refused, and a `.sgx` is refused). The size limit of a ZIP member is declared by the profile.
+- **A SuperGrafx game** (a `.pce` that needs the second video chip) cannot be told from its bytes: it starts on one chip,
+  shows no picture, and the conversion refuses it ("no picture was produced"). Dai Makaimura is the example tried.
 - **Saves:** HuCards have no save memory.
 
 ## 3. How a HuCard file is read
@@ -64,14 +69,17 @@ HuCards since 28 October 2026) means re-emitting, rebuilding and requalifying. N
 (BSD) and the PCECD_seek notice that the engine carries, are in [pcenginerecomp.md](../licenses/pcenginerecomp.md); the
 pin, the review record and the rules for bumping it are in [UPSTREAMS.md](UPSTREAMS.md).
 
-The engine is fetched at that revision when a conversion needs it; no copy is kept in the repository, and nothing of it
-is compiled into a game yet.
+The engine is fetched at that revision when a conversion needs it; no copy is kept in the repository. The converted game
+is built from the engine's runtime plus the machine bridge and the host kit's adapter of Retro-Recomp.
 
 | Where | What |
 |---|---|
 | `retrorecomp/systems/pc_engine.py` | The `SystemProfile`: identity, extension `.pce`, status, CPU, path shape, report shape |
 | `retrorecomp/pce_rom.py` | The HuCard reader ([above](#3-how-a-hucard-file-is-read)) |
-| `retrorecomp/pce_conversion.py` | The identification report; `convert` refuses with "not converted yet" |
+| `retrorecomp/pce_conversion.py` | The conversion loop: routes, reference and native runs, captures, composition, packed replay, F8/F9 checks |
+| `retrorecomp/pce_build.py` | The engine checkout, the module emission, the game project and its build |
+| `native/pce_machine.cpp`, `native/pce_main.c` | The bridge to the engine's runtime and the game's entry point |
+| `native/hostkit/adapters/rrhk_pce.c` | The adapter of the common host kit (window, menus, audio ring, controls) |
 | `licenses/pcenginerecomp.md` | The engine's notices |
 | `retrorecomp/stamp_inputs.py` | Roles and owners of these files ([AGENTS_GUIDE.md](AGENTS_GUIDE.md)) |
 
@@ -94,40 +102,68 @@ was used. It measures the pinned engine, not a Retro-Recomp conversion.
   MAME (BSD) and ares (ISC). No copied expression was found. This is a screening, not a legal opinion.
 - **Speed:** not measured yet. It needs a quiet PC and the owner's go.
 
+### The first panel (5 November 2026)
+
+Ten real HuCards from the owner's own library were tried one at a time, read in place (no ROM is kept in the
+repository). Each conversion plays two routes of 3,600 frames (the attract loop and a play route), runs every route twice in
+the same build (every instruction interpreted, then the guarded native module), and requires the per-frame CPU, work RAM,
+picture and PCM traces to be identical. The compressed executable is replayed against the same reference, and a quick state
+saved with F8 is loaded in a fresh process and must continue the saved timeline; a truncated state must be refused.
+
+| Result | Games |
+|---|---|
+| Native on the routes played, 0 interpreted, 0 guard misses, traces equal, packed replay equal, F8/F9 in a fresh process | Bonk's Adventure, Blazing Lazers, Raiden, Space Harrier, Splatterhouse, Bomberman '93, Gradius, Santatlantean |
+| Partly native, the rest interpreted, counted and reported; traces equal | Street Fighter II' Champion Edition |
+| Refused: the picture never appears (a SuperGrafx game, one video chip only) | Dai Makaimura |
+
+- **What "100 % native" means here:** on the played routes, every instruction that ran was translated code. Code the
+  routes did not reach stays interpreted and counted in the report when a player reaches it. It says nothing about
+  the whole game.
+- **Street Fighter II' CE** (2.5 MiB, 466 bank-register contexts) reaches the engine's own bound: a code capture and a
+  composed module hold 65,536 instruction identities at most. The conversion keeps each capture up to the frame before the
+  first dropped identity, unites captures only while they fit, and leaves the rest interpreted. On the delivered file the
+  attract route ran 71.7 million instructions natively against 28.6 million interpreted, and the play route 66.3 million
+  against 35.1 million. The report lists the captures left out.
+- **Pictures:** the contact sheets of every route show moving pictures; the attract loop of Space Harrier and Santatlantean
+  has no input and its picture stops changing after a few frames, while their play routes move.
+- **The Run button** pauses most games on a third press, so the play route chooses its start on the reference by how
+  much the picture differs from the no-input run (1, 2 or 3 presses), not by a fixed count.
+- **Conversion time** was 10 to 26 minutes per game with the MSVC toolchain. It is not a measure of the game's speed.
+
 ## 6. The five measures
 
-They stay separate everywhere ([STANDARDS.md](STANDARDS.md)). While nothing is converted, all five are **not reported**.
+They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
 | Measure | State |
 |---|---|
-| Native code | Not reported: no game is converted. The engine gate above ran authored cards, not games |
-| CPU fidelity | Not reported for a conversion. The vectors above are on the pinned engine, measured outside the repository's own tools |
+| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on the played routes of 8 of the 9 converted games; Street Fighter II' CE keeps a counted interpreted share |
+| CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported. No independent hardware comparison exists |
-| Gameplay validation | Not reported. No game has been played |
+| Gameplay validation | Not validated: the routes show a moving picture and sound, no one has played a game through |
 | Physical latency | Not reported and not measured |
 
-Interpreter fallback will be counted per CPU and per device once a conversion exists. The report carries
-`converted: false` and `latency_ms: null`.
+Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 7. Known limits
 
-- Nothing is converted, no game executable exists, and the interface does not offer the machine.
-- The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code cannot come from
-  reading the ROM alone; stage 3 takes it from observed runs.
+- Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
+- A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
+  engine's design.
+- The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
+  runs, never from the ROM alone.
 - Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter.
-- Out of scope today: CD-ROM2, SuperGrafx, PAL timing, the Populous RAM board, ZIP archives, and the fifth multitap
-  player.
+- Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
+  multitap player. A converted game is built for two players.
+- The Linux build is not witnessed yet; the host kit is shared, and the first PC Engine export was made on Windows.
+- Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
 ## 8. Next stages
 
-The profile is at stage 2 of 7: it identifies HuCards and converts nothing. The rest:
-
-3. The conversion loop, driven by captures: unseen code stays interpreted and counted.
-4. The host-kit adapter.
-5. Independent evidence, with a tool of ours for the vectors.
-6. A panel of ten HuCards, converted one at a time.
-7. An experimental release.
+1. Independent evidence for the processor, with a tool of ours for the vectors.
+2. A speed measure on a quiet PC.
+3. More HuCards through the same loop, then the owner's play trials.
+4. The Linux witness, then SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
 must do is in [NEW_MACHINE.md](NEW_MACHINE.md).

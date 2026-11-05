@@ -58,7 +58,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| PC Engine | experimental | `█░░░░░░░░░` 14 % | ✅ 0 · 🟡 4 · ❔ 10 |
+| PC Engine | experimental | `████░░░░░░` 36 % | ✅ 0 · 🟡 10 · ❔ 4 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -66,16 +66,16 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
@@ -95,16 +95,16 @@ x68 = Sharp X68000, pce = PC Engine.
 |---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | - |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P |
 | G11 | P | P | P | P | P | P | P | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P |
@@ -527,17 +527,27 @@ Mega Drive picture hash. Results are always written as "model against MAME".
 
 ## PC Engine: evidence behind its column (5 November 2026)
 
-The PC Engine is **experimental, in development and developer-only** (stage 2 of 7 in [PC_ENGINE.md](PC_ENGINE.md)): the profile
-identifies HuCards and converts nothing, so every gate that needs a conversion is `?`. Only the gates below have anything to show.
-`P` means a part is shown and the rest is named; nothing here says hardware fidelity, gameplay coverage or latency.
+The PC Engine is **experimental since 1.6.9** ([PC_ENGINE.md](PC_ENGINE.md)): HuCards are converted and the first panel of ten real
+cards was run on 5 November 2026. `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
+fidelity, gameplay coverage or latency, and the owner has not played the games yet.
 
 | Gate | PC Engine | Evidence | What is missing |
 |---|---|---|---|
-| G1 | P | `retrorecomp/systems/pc_engine.py` (status `experimental`, `developer_only`), [PC_ENGINE.md](PC_ENGINE.md) | Partial: the machine is not offered to players, and its own test and interface strings are written alongside this page in stage 2 |
-| G2 | P | The report writer (`retrorecomp/pce_conversion.py`) goes through `report_schema.write_report` and reports an identification only: `converted: false`, no measure, `latency_ms: null` | No conversion fills the sections (`cpus`, `validation`, `scan`, `states`): they come with the conversion loop of stage 3 |
+| G1 | P | `retrorecomp/systems/pc_engine.py` (status `experimental`), [PC_ENGINE.md](PC_ENGINE.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | Linux `pending`; no owner acceptance |
+| G2 | P | `retrorecomp/pce_conversion.py` goes through `report_schema.write_report`: native and interpreted instructions per route, guard misses, `latency_ms: null` | Scenario and state sections are filled for the routes played only |
+| G3 | P | Eight of nine converted panel cards: 0 interpreted instructions and 0 guard misses on the played routes; Street Fighter II' CE keeps 28.6 and 35.1 million interpreted instructions on its two routes (the engine bounds a module at 65,536 identities) | Only observed code is native; no whole-game claim |
+| G4 | P | The native module equals the engine's interpreter frame by frame (CPU hash, work RAM, picture, PCM) on every route of the nine cards | Agreement with the engine, not with a real HuC6280 |
+| G5 | P | The compressed executable is replayed against the fresh reference on every route | Windows only; no second-machine replay |
+| G6 | P | F8/F9 continue the saved timeline in a fresh process for 600 frames; a truncated state is refused | A longer continuation and corrupted-state cases |
 | G7 | - | HuCards have no save memory | |
-| G10 | P | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) on the pinned engine, 5 November 2026: on its interpreter 563,514 of the 572,519 comparable vectors agree (three known differences: the TSB/TRB Z flag, ST0-2 at 5 cycles against 4, TMA #0); natively 9,091 cases show 0 differences with that interpreter. Measured outside the repository's own tools | A tool of ours that replays the vectors comes at stage 5; the oracle is an emulator, not silicon |
-| G15 | P | Nothing is claimed: all five measures read "not reported" in [PC_ENGINE.md](PC_ENGINE.md) and in the report | The interface strings, the host kit and the report of a real conversion are read when they exist |
+| G8 | P | Every route must show a moving picture (an attract loop with no input of Space Harrier and Santatlantean stops after a few frames and is reported) | Only 3,600-frame routes |
+| G9 | ? | Not measured: no random-route levels | |
+| G10 | P | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) on the pinned engine, 5 November 2026: on its interpreter 563,514 of the 572,519 comparable vectors agree (three known differences: the TSB/TRB Z flag, ST0-2 at 5 cycles against 4, TMA #0); natively 9,091 cases show 0 differences with that interpreter. Measured outside the repository's own tools | A tool of ours that replays the vectors; the oracle is an emulator, not silicon |
+| G11 | ? | No independent hardware comparison | |
+| G12 | P | Ten real cards tried (nine converted, one SuperGrafx card refused); the panel is the owner's library, read in place | A broader panel |
+| G13 | ? | The Linux build is not witnessed | |
+| G14 | ? | The owner has not played the exports | |
+| G15 | P | Nothing is claimed beyond "native equals the engine's interpreter": all five measures are kept apart in [PC_ENGINE.md](PC_ENGINE.md) | A read of the interface and the exported game |
 | G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
 
 ## Panel sizes

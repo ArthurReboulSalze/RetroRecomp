@@ -198,6 +198,13 @@ ordered M3U sets (up to ten disks) with your own IPL and font ROM, within [its d
 Each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency. The owner's decision of 5 November 2026 and his play
 trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance).
+The **PC Engine** is experimental since 1.6.9: it converts HuCard dumps (`.pce`, or a ZIP holding one) of the standard boards
+and the Street Fighter II board, within [its documented scope](PC_ENGINE.md#2-scope) (no CD-ROM2, no SuperGrafx, NTSC only, two
+players, no multitap fifth player). The native code is taken from what each game was seen to run; the rest is interpreted,
+counted and reported. Eight of the nine cards converted in the first panel ran 0 interpreted instructions on their played
+routes and matched a fresh interpreted reference frame by frame, and Street Fighter II' Champion Edition is partly native
+because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
+engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
 ## Local game regression set
 
