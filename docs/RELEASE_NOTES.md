@@ -96,7 +96,11 @@
   the 68000 instructions it runs from RAM is a shared module, so another computer can
   reuse it; on three games the 120 generated files are byte for byte the same.
 
-**Speed.** [mesure de coût par image 1.6.9 contre 1.6.8 à venir]. The CPS-1 and
+**Speed.** Measured on a quiet PC against 1.6.8, one pinned core, nine games:
+eight between 0.96 and 1.01 of their 1.6.8 time per frame, within the noise of the
+method; R-Type on the X68000 at 1.03, which a run twice as long shows to be a start
+about 70 ms longer, not a cost per frame (cause not found yet;
+[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). Host time only. The CPS-1 and
 the QSound boards now test the board kind on every bus access and the CPS-2's
 priority plane on every drawn tile pixel; the pictures and sounds are identical and
 the cost was not measured.
