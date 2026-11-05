@@ -156,8 +156,10 @@ again once when it is upgraded, as the rest of 1.6.9 already says.
 
 **A/B of conversions** (Windows, standard scan, an empty library each, headless; R-Type, Bubble Bobble, Metal Sight with its five disks and Lemmings with the mouse): the CPU, RAM, picture and PCM hashes of the
 three routes are equal to those of the panel replayed on the tree of the exit (12 routes, 0 difference), 0 interpreted opcodes, the compressed copy matching, the same numbers of pictures and audio blocks, the two automatic
-disk changes of Metal Sight. The sharing record of Twins made by this tree has the digest of the one made before the move (see the report of the branch). The window code of the adapter
-(the computer's part) is a text move compiled by every conversion; what it does in a window is not exercised by a headless run, so the owner's next play of a mouse game and of a multi-disk game is the check of that part.
+disk changes of Metal Sight. The sharing record of Twins made by this tree has the digest of the one made before the move (0c77fd2d4abf65d5, same counts, same engine). The window code of the adapter
+(the computer's part) is compiled by every conversion and exercised by the SDL harnesses of `tests/x68000_controls_harness.c` and `x68000_menu_harness.c` (virtual controllers, the guest keyboard, the mouse game,
+autofire, the menus and the help page), which pass with one change: the state of the windowed player is `ca` (the computer's) instead of `xa`. What a real window does with a real mouse and a real second
+floppy is still the owner's next play to confirm.
 
 ## Exports of 1.6.7 in 1.6.8
 
