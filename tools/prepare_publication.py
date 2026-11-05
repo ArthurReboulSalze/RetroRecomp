@@ -295,7 +295,7 @@ retrorecomp/cps1_kabuki.py tools/cps1_kabuki_check.py tools/cps1_kabuki_selftest
 tools/cps1_eeprom_selftest.py native/cps1_eeprom_checks.c tests/test_cps1_eeprom.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
-retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
+retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md docs/CPS2.md
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
 tools/campaign.py tools/campaign-risk-cases.json tests/test_campaign.py
 native/retro_console16.h native/console16_main.c native/scanlines.h

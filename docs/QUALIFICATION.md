@@ -109,6 +109,20 @@ x68 = Sharp X68000.
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
+The page of each console, which the README links its line to (a console of the matrix needs one):
+
+| Console | Page |
+|---|---|
+| sms | [MASTER_SYSTEM.md](MASTER_SYSTEM.md) |
+| gg | [GAME_GEAR.md](GAME_GEAR.md) |
+| gb | [GAME_BOY.md](GAME_BOY.md) |
+| nes | [NES.md](NES.md) |
+| md | [MEGADRIVE.md](MEGADRIVE.md) |
+| snes | [SNES.md](SNES.md) |
+| ng | [NEOGEO.md](NEOGEO.md) |
+| cps1 | [CPS1.md](CPS1.md) |
+| x68 | [X68000.md](X68000.md) |
+
 </details>
 
 ### Caveats
@@ -421,15 +435,28 @@ not how fast anything runs.
 The checks themselves are run by `tools/campaign.py`, `tools/nes_route_captures.py`, `tools/nes_saves_check.py` and
 `tools/nes_state_selftest.py`; none of them needs a ROM in the repository.
 
-### CPS-1.5 (QSound boards): the experimental tier of the CPS-1
+### CPS-1.5 (QSound boards): in the CPS-1 column since 5 November 2026
 
-Not a column of the matrix: the machine stays `supported` and these boards are a tier of their own (`board_tier: experimental` in their
-reports, a column of the catalogue), outside the evidence above. What exists on the 1.6.7 tree, dated 2 November 2026, detail in
-[CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
+Not a column of the matrix: these boards were a tier of the CPS-1 (`board_tier: experimental` in their reports, a column of the catalogue) from 1.6.7 and
+left it on 5 November 2026 on the owner's decision (G14 below); the CPS-1 column now covers them, with the limits listed here. What exists, dated 2 November 2026 on the
+1.6.7 tree and 5 November on the 1.6.8 tree, detail in [CPS1.md](CPS1.md#cps-15-qsound-boards) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
 the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets of the test collection (one per family, of 18) agree with MAME 0.289
 on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
 its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
-The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
+The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026).
+
+| Gate | Letter for the QSound boards | Evidence | Still missing |
+|---|---|---|---|
+| G3, G4, G5, G6 | Y on the five sets | 0 interpreted 68000 and Z80 instructions, native equal to the fresh reference, packed copy replayed, quick state continued in a fresh process, a truncated state refused | the other 13 sets were not converted: they are not in the owner's collection |
+| G7 saves | Y | the 93C46 EEPROM file written by the delivered executables of the five sets (224 bytes, unchanged at a second run), `tools/cps1_eeprom_selftest.py` and `tools/cps1_persistence_selftest.py` | the service and test buttons are not wired: the settings kept in the EEPROM cannot be changed in play |
+| G10 CPU | P | the 68000 and Z80 are the cores of the CPS-1 (independent vectors, G10 `Y` there); the Kabuki decryption equals MAME's on six sets | no independent vectors for the Kabuki Z80 itself or the QSound path |
+| G11 hardware | P | pictures 3,599 of 3,600 equal to MAME 0.289, sound compared with MAME's high-level model, which MAME plays by default | a comparison with MAME is not hardware; the DSP16 program is not run, the sound is a model |
+| G12 panel | P | the 5 sets of the owner's collection (one per family of 18) | 13 sets not owned and never converted |
+| G13 Linux | N | no QSound game was run on Linux | a Linux witness of at least one QSound game |
+| G14 owner | **Y** | 5 November 2026 (row below) | |
+| G16 shared paths | P | 8 paths of `slammast` shared and reused by a second empty library with identical results (CPS1.md); numeric, rechecked by every conversion | only one set of five learns paths; the Z80 side has nothing to share; no QSound path is qualified in the base |
+
+The letters of the CPS-1 column of the matrix above are not changed by this tier; where a gate is `P` or `N` here, the QSound boards have it open although the column reads `Y`.
 
 ## Super Nintendo: evidence behind its column (4 November 2026, release 1.6.8)
 
@@ -552,6 +579,7 @@ owner fills it in.
 | 1 November 2026 | Neo Geo | none recorded (owner acceptance, no game list written) | accepted by the owner (Arthur), who uses these machines and validated them as supported; no written play checklist for this row | Recorded on 1 November 2026 at the maintainer's confirmation of the `Y` of the matrix. |
 | 3 November 2026 | Nintendo NES | The Legend of Zelda, Kirby's Adventure, Mr. Gimmick, Duck Hunt, Battletoads, Castlevania III, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The trial list of the NES checklist below; G14 `Y`. |
 | 3 November 2026 | Capcom CPS-1 | 1941, Street Fighter II' Champion Edition, Final Fight, Captain Commando, Strider, Mercs, converted with the 1.6.7 tree (generator revision 12) in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play trial list of `CPS1_ACCEPTATION.md`, which the row of 1 November left to do; G14 moves from `P` to `Y`. |
+| 5 November 2026 | Capcom CPS-1.5 (QSound boards) | The Punisher, Cadillacs and Dinosaurs, Warriors of Fate, converted with the 1.6.8 tree (`cc46a1b`, generator revision 12) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » (the day before, about these games and the Sharp X68000 ones: « Les deux marchent parfaitement ») | G14 `Y` for the QSound boards: they leave the experimental tier and join the CPS-1 and the shared base of paths. It validates how the games behave; it says nothing of the DSP16 (a model after MAME's), of hardware fidelity or of latency. |
 | 3 November 2026 | Sharp X68000 | R-Type, Metal Sight, Lemmings, Super Hang-On, Bubble Bobble, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play test passed. It is not a decision to leave the experimental status: G10 and G11 are still `P`, and the exit stays the owner's explicit decision once every gate is proved. G14 is `P`. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)

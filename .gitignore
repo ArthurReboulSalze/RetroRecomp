@@ -93,6 +93,7 @@ docs/*
 !docs/NES.md
 !docs/NEOGEO.md
 !docs/CPS1.md
+!docs/CPS2.md
 !docs/SNES.md
 !docs/SNES_SUPERFX.md
 !docs/CONSOLES_16BIT.md
