@@ -332,6 +332,12 @@ section 8.
 | 21 | Help language lookup: inline `TR(en,fr)` pairs (SMS/GG), `tr()`+`rr_tr()` mix (NES, 16-bit), catalogue only (X68000, GB partly) | One lookup: the shared catalogue for everything; the inline pairs retire; rendered help must stay pixel-identical per language (EN, FR, IT, ES, DE) | `host-divergences.md:259-274`; `hosts.md:147,315-316,490-495` |
 | 22 | Fast-forward, maximum speed, mute, volume and output device: the Game Boy upstream shell only (behind keys no page listed), none elsewhere | **Decided on 29 October 2026 (maintainer, D12)**: kit features with the Game Boy's former keys and behaviour on every console; see D12 above, and the measurements in "Sound and speed controls: A/B" after phase 5 | `docs/CONTROLS.md` |
 
+* <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (planned, owner's decision of 5 November 2026; not
+  implemented). On the 2D machines F3 cycles the picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the
+  name for 1.8 s. On the 3D machines under study (Nintendo 64, Sega Saturn, PlayStation) the same key will open a
+  graphics options page instead, where the player switches the options of that machine's renderer (internal resolution,
+  filtering, scanlines, aspect ratio and the like). The page is the kit's (one menu for every 3D machine, declared by the
+  adapter, no `if console ==`); each machine says which options it offers.
 ## 4. Preferences: one English layout, old keys still read
 
 Files: Windows and POSIX use `datas/Retro-Recomp.ini`; Game Boy used to add
