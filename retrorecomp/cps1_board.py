@@ -96,7 +96,9 @@ def descriptor(game: dict) -> str:
     board, mapper = data['boards'][game['board']], data['mappers'][game['mapper']]
     qsound = game['machine'] == 'qsound'      # the CPS-1.5 board: a 12 MHz CPS-1 with a Kabuki Z80 and a QSound chip
     cps2 = game['machine'] == 'cps2'          # the CPS-2 board: a 16 MHz 68000 with encrypted opcodes, the object chip and a QSound chip
-    clock = 16000000 if cps2 else 12000000 if game['machine'] == 'cps1_12MHz' or qsound else 10000000
+    # The CPS-2's 68000 is a 16 MHz part; MAME runs it at 16 MHz x 0.7375 = 11.8 MHz for the waitstates it does not emulate, and so does
+    # this board (the working model of docs/CPS2.md: hardware fidelity of the speed is not validated).
+    clock = 11800000 if cps2 else 12000000 if game['machine'] == 'cps1_12MHz' or qsound else 10000000
     lines = ['cps1-board 1', 'set ' + game['set'], f'cpu_clock {clock}',
              f'id {board["id_address"]} {board["id_value"]}',
              'mult {} {} {} {}'.format(board['mult_factor1'], board['mult_factor2'],
@@ -114,7 +116,7 @@ def descriptor(game: dict) -> str:
         lines += ['machine cps2', 'z80_clock 8000000']
     lines += ['range ' + ' '.join(map(str, row)) for row in mapper['ranges']]
     for port in PORTS:
-        if port in game['inputs']:
+        if port in game['inputs'] and not (cps2 and port.startswith('DSW')):      # the CPS-2's switches exist on development boards only
             lines.append(f'input {port} {game["inputs"][port]["default"]}')
     return '\n'.join(lines) + '\n'
 

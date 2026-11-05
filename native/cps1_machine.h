@@ -39,7 +39,8 @@ typedef struct cps1_board {
     int range_count;
     int ports[3];             /* in2, in3, out2 CPS-B offsets (0 = absent) */
     int kludge, rotation;
-    int qsound;               /* 1: the QSound board (CPS-1.5), see cps1_machine.c */
+    int qsound;               /* 1: the QSound board (CPS-1.5), see cps1_machine.c; also set on the CPS-2 board, which has the same sound side */
+    int cps2;                 /* 1: the CPS-2 board (encrypted 68000 opcodes, object chip, 16-bit EEPROM), see cps1_machine.c */
     uint32_t z80_clock;       /* sound CPU clock: CPS1_YM_CLOCK, or 8 MHz on the QSound board */
     uint16_t port_default[CPS1_PORTS];
     uint8_t port_present[CPS1_PORTS];
@@ -55,6 +56,7 @@ typedef struct cps1_regions {
     const uint8_t *qsound; size_t qsound_size;             /* QSound board: the sample ROM */
     const uint8_t *audiorom_raw; size_t audiorom_raw_size; /* QSound board (Slam Masters): sound ROM read by the 68000 at 0xf00000 */
     const uint8_t *dsp_rom; size_t dsp_rom_size;           /* QSound board: the DSP's internal ROM (dl-1425.bin), the player's own dump */
+    const uint8_t *maincpu_op; size_t maincpu_op_size;     /* CPS-2: the instruction-fetch view of maincpu (decrypted opcodes); NULL: none */
 } cps1_regions;
 
 /* Parse the board.txt description written by smsrecomp/cps1_board.py. */

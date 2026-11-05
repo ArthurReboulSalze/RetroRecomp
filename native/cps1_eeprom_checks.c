@@ -98,6 +98,40 @@ int main(void)
     expect("a state taken during a write cycle loads", cps1_eeprom_state_get(&copy, state, 12) == 1);
     expect("the cycle is still running after the load", cps1_eeprom_read_port(&copy, now) == 0);
     expect("and ends on time", cps1_eeprom_read_port(&copy, now + 12 * 1800) == 1);
+    /* the 16-bit organisation of the CPS-2 board: 64 words, the port's DI/CLK/CS on bits 12 to 14 of the word, 6 address bits */
+    cps1_eeprom_reset(&chip, 12);
+    cps1_eeprom_set_wide(&chip, 1);
+    {
+        #define W_SELECT() do { now += 100; cps1_eeprom_write_port16(&chip, 0x4000, now); } while (0)
+        #define W_DESELECT() do { now += 100; cps1_eeprom_write_port16(&chip, 0, now); } while (0)
+        #define W_BIT(v) do { const unsigned d = (v) ? 0x1000u : 0; \
+            now += 100; cps1_eeprom_write_port16(&chip, d | 0x4000u, now); \
+            now += 100; cps1_eeprom_write_port16(&chip, d | 0x2000u | 0x4000u, now); \
+            now += 100; cps1_eeprom_write_port16(&chip, d | 0x4000u, now); } while (0)
+        #define W_BITS(value, count) do { for (int n = (count) - 1; n >= 0; n--) W_BIT(((value) >> n) & 1); } while (0)
+        #define W_COMMAND(opcode, address) do { W_BITS(1, 1); W_BITS(opcode, 2); W_BITS(address, 6); } while (0)
+        unsigned word;
+        W_SELECT(); W_COMMAND(2, 5);
+        word = 0; for (int n = 0; n < 16; n++) { W_BIT(0); word = word << 1 | cps1_eeprom_read_port(&chip, now); }
+        W_DESELECT();
+        expect("a blank wide chip reads 0xffff", word == 0xffff);
+        W_SELECT(); W_COMMAND(0, 0x30); W_DESELECT();                            /* EWEN: opcode 00, address 11xxxx */
+        W_SELECT(); W_COMMAND(1, 5); W_BITS(0xa7c3u, 16); W_DESELECT();
+        expect("a wide write lands as one big-endian word", chip.data[10] == 0xa7 && chip.data[11] == 0xc3 && cps1_eeprom_take_changed(&chip));
+        now += 12 * 1800;
+        W_SELECT(); W_COMMAND(2, 5);
+        word = 0; for (int n = 0; n < 16; n++) { W_BIT(0); word = word << 1 | cps1_eeprom_read_port(&chip, now); }
+        W_DESELECT();
+        expect("the word reads back", word == 0xa7c3);
+        W_SELECT(); W_COMMAND(1, 63); W_BITS(0x1234u, 16); W_DESELECT();
+        expect("the last word is addressable", chip.data[126] == 0x12 && chip.data[127] == 0x34);
+        now += 12 * 1800;
+        W_SELECT(); W_COMMAND(3, 5); W_DESELECT();                               /* ERASE word 5 */
+        expect("an erase sets the word back to 0xffff", chip.data[10] == 0xff && chip.data[11] == 0xff);
+        W_SELECT();
+        expect("DO is low while the erase cycle runs", cps1_eeprom_read_port(&chip, now) == 0);
+        W_DESELECT();
+    }
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);
     return failed ? 1 : 0;
 }

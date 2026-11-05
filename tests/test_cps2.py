@@ -151,5 +151,35 @@ class IdentificationTests(unittest.TestCase):
             cps1.identify_set(path)
 
 
+
+class BoardTests(unittest.TestCase):
+    def test_the_board_description_of_a_cps2_set(self):
+        from retrorecomp import cps1_board
+        lines = cps1_board.descriptor(cps2_catalogue.by_set()['ssf2']).splitlines()
+        self.assertIn('machine cps2', lines)
+        self.assertIn('z80_clock 8000000', lines)
+        # 16 MHz x 0.7375, MAME's compensation for the waitstates it does not emulate (docs/CPS2.md)
+        self.assertIn('cpu_clock 11800000', lines)
+        self.assertIn('kludge 0', lines)
+        self.assertTrue(any(line.startswith('input IN2 ') for line in lines))
+        self.assertFalse(any(line.startswith('input DSW') for line in lines))      # a production CPS-2 board has no switches
+
+    @unittest.skipUnless((ROOT / '.deps' / 'segagenesisrecomp' / 'runner' / 'm68k_interp.c').is_file(), 'the MC68000 translation engine is not checked out')
+    def test_translated_pc_relative_reads_use_the_decrypted_view_only_on_a_cps2_board(self):
+        from retrorecomp import cps1_codegen
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            cps1_codegen._semantics(project)
+            plain = (project / 'cps1_step_semantics.h').read_text(encoding='utf-8')
+            (project / 'board').mkdir()
+            (project / 'board' / 'maincpu-op.bin').write_bytes(b'00')
+            cps1_codegen._semantics(project)
+            decrypted = (project / 'cps1_step_semantics.h').read_text(encoding='utf-8')
+        self.assertNotIn('mem_read_pc', plain)
+        self.assertEqual(decrypted.count('return mem_read_pc(sz,'), 2)       # (d16,PC) and (d8,PC,Xn) operands
+        self.assertEqual(decrypted.count('movem_pc ? mem_read_pc('), 2)       # MOVEM from a PC-relative address, long and word
+        self.assertIn('m68k_read_pcrelative_32', decrypted)
+
+
 if __name__ == '__main__':
     unittest.main()

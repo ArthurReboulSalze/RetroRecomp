@@ -178,6 +178,9 @@ set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c cps1_qsound.
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c engine/ymfm/ymfm_opm.cpp)
 function(cps1_library name)
   add_library(${name} STATIC ${CPS1_BOARD} ${ARGN})
+  if(RR_CPS2)
+    target_compile_definitions(${name} PUBLIC RR_CPS2=1)
+  endif()
   target_include_directories(${name} PUBLIC . engine/m68k engine/z80 engine/ymfm)
   if(MSVC)
     target_compile_definitions(${name} PUBLIC __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
@@ -209,7 +212,7 @@ def prepare_native(project: Path, board: Path, game: dict, observations: dict | 
     from .neogeo_z80 import adapt_source
     analysis = generate(project, board, game, adapt_source((geolith / 'src/z80/z80.c').read_text(encoding='utf-8')),
                         observations)
-    _write(project / 'CMakeLists.txt', CMAKE_HEAD + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
+    _write(project / 'CMakeLists.txt', CMAKE_HEAD + ('set(RR_CPS2 ON)\n' if (board / 'maincpu-op.bin').is_file() else '') + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
 cps1_library(cps1_native cps1_native.c cps1_arithmetic.c ${CPS1_STEPS})
 target_compile_definitions(cps1_native PUBLIC CPS1_NATIVE=1)
 add_executable(cps1_native_probe cps1_probe.c)
@@ -254,7 +257,7 @@ NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 
                 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
                 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin', 'qsound.bin',
-                'audiorom_raw.bin', 'qsound_dsp.bin')
+                'audiorom_raw.bin', 'qsound_dsp.bin', 'maincpu-op.bin')
 # Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
 ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
            'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}

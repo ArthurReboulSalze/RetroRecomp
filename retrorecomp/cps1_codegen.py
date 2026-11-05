@@ -64,6 +64,31 @@ def ram_variants(records, size: int = RAM_BYTES) -> list[tuple[int, bytes]]:
     return sorted(unique)
 
 
+def adapt_decrypted_reads(helper: str) -> str:
+    """The translated instructions of a CPS-2 board read their PC-relative operands through the instruction-fetch view, as the
+    68000 does (MAME's `opcodes` space, the decrypted program): the same helpers with those reads redirected, nothing else changed."""
+    def once(old: str, new: str) -> None:
+        nonlocal helper
+        if helper.count(old) != 1:
+            raise ValueError('The MC68000 helpers changed: check the PC-relative reads of the CPS-2 board.')
+        helper = helper.replace(old, new)
+    once('static uint32_t read_ea_ex(',
+         'extern unsigned m68k_read_pcrelative_8(unsigned), m68k_read_pcrelative_16(unsigned), m68k_read_pcrelative_32(unsigned);\n'
+         'static uint32_t mem_read_pc(M68KSize sz, uint32_t a) {\n'
+         '    switch (sz) { case M68K_SIZE_B: return m68k_read_pcrelative_8(a);\n'
+         '                  case M68K_SIZE_L: return m68k_read_pcrelative_32(a);\n'
+         '                  default:          return m68k_read_pcrelative_16(a); }\n}\n\n'
+         'static uint32_t read_ea_ex(')
+    once('return mem_read(sz, (uint32_t)((int32_t)pc + (int32_t)d16)); }', 'return mem_read_pc(sz, (uint32_t)((int32_t)pc + (int32_t)d16)); }')
+    once('return mem_read(sz, (uint32_t)(pc + xv + (int32_t)d8)); }', 'return mem_read_pc(sz, (uint32_t)(pc + xv + (int32_t)d8)); }')
+    once('    int sb = (sz == M68K_SIZE_L) ? 4 : 2;\n\n    ExtR er2;',
+         '    int sb = (sz == M68K_SIZE_L) ? 4 : 2;\n    const int movem_pc = (mode == 7 && (reg == 2 || reg == 3));\n\n    ExtR er2;')
+    once('uint32_t v = m68k_read32(mb); mb += 4;', 'uint32_t v = movem_pc ? mem_read_pc(M68K_SIZE_L, mb) : m68k_read32(mb); mb += 4;')
+    once('uint32_t v = (uint32_t)(int32_t)(int16_t)m68k_read16(mb); mb += 2;',
+         'uint32_t v = (uint32_t)(int32_t)(int16_t)(movem_pc ? mem_read_pc(M68K_SIZE_W, mb) : m68k_read16(mb)); mb += 2;')
+    return helper
+
+
 def _semantics(project: Path):
     engine = ROOT / '.deps/segagenesisrecomp'
     if not (engine / 'external/m68k-recomp-core/common/m68k_decoder.h').is_file():
@@ -77,6 +102,8 @@ def _semantics(project: Path):
     helper = helper[:helper.rfind('/* =====')]
     timing = source[source.index('static int interp_popcount16('):source.index('static void interp_account_cycles(')]
     timing = timing[:timing.rfind('/* The emit_cycle_accounting')]
+    if (project / 'board' / 'maincpu-op.bin').is_file():
+        helper = adapt_decrypted_reads(helper)
     write_changed(project / 'cps1_step_semantics.h',
         '/* Qualified MC68000 helpers; see embedded GenesisRecomp notices. */\n'
         '#pragma once\n#include "m68kcpu.h"\n#include "cps1_native.h"\n#include <stddef.h>\n'
@@ -325,7 +352,9 @@ static const RrCps1Z80Step *{PREFIX}_z80_ram_lookup(uint16_t pc) {{
 
 def generate(project: Path, board: Path, game: dict, z80_source: str, observations: dict | None = None) -> dict:
     observations = observations or {}
-    program = (board / 'maincpu.bin').read_bytes()[:program_size(game)]
+    # a CPS-2 board has two views of its program: the translated code is the one the instruction fetches see (cps2_crypt.py)
+    image = board / 'maincpu-op.bin' if (board / 'maincpu-op.bin').is_file() else board / 'maincpu.bin'
+    program = image.read_bytes()[:program_size(game)]
     audio = (board / 'audiocpu.bin').read_bytes()
     opcodes = (board / 'audiocpu-op.bin').read_bytes() if (board / 'audiocpu-op.bin').is_file() else None
     result = {'schema': 1, 'set': game['set'],

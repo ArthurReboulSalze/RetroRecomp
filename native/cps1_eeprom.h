@@ -1,4 +1,5 @@
-/* 93C46 serial EEPROM, 8-bit organisation (128 bytes), as wired on the CPS-1.5 (QSound) boards.
+/* 93C46 serial EEPROM (128 bytes): 8-bit organisation as wired on the CPS-1.5 (QSound) boards, 16-bit organisation (64 words) as
+ * wired on the CPS-2 boards (`cps1_eeprom_set_wide`).
  *
  * The command set, the order of the bits and the line behaviour follow MAME's eepromser.cpp at the revision the CPS-1
  * catalogue is pinned to (BSD-3-Clause, copyright Aaron Giles; see licenses/cps1-machine.md). The internal write cycle is
@@ -19,9 +20,13 @@ typedef struct cps1_eeprom {
     uint32_t shift;
     uint64_t cs_rise_time, ready_time;
     uint32_t ticks_per_usec;   /* the caller's clock ticks in a microsecond (not part of a state) */
+    uint8_t wide;              /* 1: 16-bit organisation, words kept big-endian in `data` (a board constant, not part of a state) */
 } cps1_eeprom;
 
-void cps1_eeprom_reset(cps1_eeprom *chip, uint32_t ticks_per_usec);   /* blank contents (0xff) and lines low */
+void cps1_eeprom_reset(cps1_eeprom *chip, uint32_t ticks_per_usec);   /* blank contents (0xff) and lines low, 8-bit organisation */
+void cps1_eeprom_set_wide(cps1_eeprom *chip, int wide);               /* right after a reset: the CPS-2 board's 16-bit organisation */
+/* The CPS-2 board's output port: data 0x1000 DI, 0x2000 CLK, 0x4000 CS (the word MAME's EEPROMOUT port sees). */
+void cps1_eeprom_write_port16(cps1_eeprom *chip, unsigned value, uint64_t time);
 /* The three input lines of the board's output port (bit 0 DI, bit 6 CLK, bit 7 CS), applied in that order. `time` is any
  * increasing clock: a CLK edge at the same time as the CS edge is ignored. */
 void cps1_eeprom_write_port(cps1_eeprom *chip, unsigned value, uint64_t time);

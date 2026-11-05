@@ -74,6 +74,12 @@ static struct {
     uint64_t qsound_irq_clock;                  /* Z80 clock of the next 250 Hz interrupt */
     uint64_t qsound_done;                       /* QSound samples made so far */
     cps1_qsound qchip;
+    /* CPS-2 board */
+    uint16_t objram[2][0x1000];                 /* the two object RAM banks (0x2000 bytes each) */
+    uint16_t obj2[0x1000];                      /* the copy latched at VBLANK that the sprites are drawn from */
+    uint16_t output[6];                         /* 0x400000-0x40000b: base, unknown, priorities, unknown, x and y offsets */
+    uint16_t pri_ctrl;                          /* the priorities word latched with the sprites */
+    uint8_t objram_bank, z80_run, extra_ram[0x4002];
 } M;
 
 /* ---------------------------------------------------------------- board */
@@ -121,7 +127,7 @@ int cps1_board_parse(cps1_board *board, const char *text, char *error, size_t er
         else if (!strcmp(key, "ports")) ok = read_ints(rest, board->ports, 3);
         else if (!strcmp(key, "kludge")) ok = read_ints(rest, &board->kludge, 1);
         else if (!strcmp(key, "rotation")) ok = read_ints(rest, &board->rotation, 1);
-        else if (!strcmp(key, "machine")) { board->qsound = !strcmp(rest, "qsound"); ok = board->qsound; }
+        else if (!strcmp(key, "machine")) { board->cps2 = !strcmp(rest, "cps2"); board->qsound = board->cps2 || !strcmp(rest, "qsound"); ok = board->qsound; }
         else if (!strcmp(key, "z80_clock")) { ok = read_ints(rest, v, 1); board->z80_clock = (uint32_t)v[0]; }
         else if (!strcmp(key, "range")) {
             if (board->range_count >= CPS1_MAX_RANGES) { snprintf(error, error_size, "too many ranges"); return 0; }
@@ -137,7 +143,9 @@ int cps1_board_parse(cps1_board *board, const char *text, char *error, size_t er
         } else { snprintf(error, error_size, "unknown board key %s", key); return 0; }
         if (!ok) { snprintf(error, error_size, "malformed board line: %s", line); return 0; }
     }
-    if (version != 1 || !board->set[0] || (board->cpu_clock != 10000000u && board->cpu_clock != 12000000u) ||
+    /* the CPS-2's 16 MHz 68000 as MAME runs it: slowed by 0.7375 for the waitstates it does not emulate (docs/CPS2.md) */
+    const int cps2_clock = board->cps2 && board->cpu_clock == 11800000u;
+    if (version != 1 || !board->set[0] || (board->cpu_clock != 10000000u && board->cpu_clock != 12000000u && !cps2_clock) ||
         !board->range_count || board->kludge || (board->qsound ? board->z80_clock != 8000000u : board->z80_clock != CPS1_YM_CLOCK)) {
         snprintf(error, error_size, "unsupported CPS-1 board description");
         return 0;
@@ -376,16 +384,42 @@ static void free_gfx(void)
     gfx_pens = sprite_blank = NULL;
 }
 
+/* The CPS-2 graphics ROMs are stored shuffled: in each 2 MiB bank the 8-byte items are permuted by MAME's recursive `unshuffle`
+ * (cps2_state::unshuffle), after which the bank has the CPS-1 layout. */
+static void unshuffle(uint64_t *buffer, size_t length)
+{
+    if (length == 2) return;
+    length /= 2;
+    unshuffle(buffer, length);
+    unshuffle(buffer + length, length);
+    for (size_t i = 0; i < length / 2; i++) {
+        const uint64_t item = buffer[length / 2 + i];
+        buffer[length / 2 + i] = buffer[length + i];
+        buffer[length + i] = item;
+    }
+}
+
 static int decode_gfx(void)
 {
     free_gfx();
     const size_t groups = M.rom.gfx_size / 4, sprites = M.rom.gfx_size / 128;
     if (!groups) return 1;
+    uint8_t *shuffled = NULL;
+    const uint8_t *source = M.rom.gfx;
+    if (M.board.cps2) {
+        const size_t bank = 0x200000;
+        if (M.rom.gfx_size % bank) return 0;
+        shuffled = malloc(M.rom.gfx_size);
+        if (!shuffled) return 0;
+        memcpy(shuffled, M.rom.gfx, M.rom.gfx_size);
+        for (size_t at = 0; at < M.rom.gfx_size; at += bank) unshuffle((uint64_t *)(void *)(shuffled + at), bank / 8);
+        source = shuffled;
+    }
     gfx_pens = malloc(groups * 8);
     sprite_blank = malloc(sprites ? sprites : 1);
-    if (!gfx_pens || !sprite_blank) { free_gfx(); return 0; }
+    if (!gfx_pens || !sprite_blank) { free_gfx(); free(shuffled); return 0; }
     for (size_t g = 0; g < groups; g++) {
-        const uint8_t *p = M.rom.gfx + g * 4;
+        const uint8_t *p = source + g * 4;
         for (int x = 0; x < 8; x++) {
             const int bit = 7 - x;
             gfx_pens[g * 8 + (size_t)x] =
@@ -398,6 +432,7 @@ static int decode_gfx(void)
         while (n < 256 && pens[n] == 15) n++;
         sprite_blank[s] = n == 256;
     }
+    free(shuffled);
     return 1;
 }
 
@@ -414,6 +449,8 @@ static const uint8_t *tile_row(int size, int half, int code, int y)
 
 /* One tilemap pass, a tile row at a time: each scanline is cut into runs that
  * stay in one tile, whose code, attributes and pens are looked up once. */
+static int tile_priority;           /* CPS-2: the value (1, 2 or 4) OR-ed into the priority plane under each opaque tile pixel */
+
 static void draw_layer(int layer, int high)
 {
     static const int sizes[3] = {8, 16, 32}, types[3] = {GFX_SCROLL1, GFX_SCROLL2, GFX_SCROLL3};
@@ -464,7 +501,7 @@ static void draw_layer(int layer, int high)
                 const uint16_t colour = (uint16_t)(((attr & 0x1f) + colors[layer]) * 16);
                 for (int k = 0; k < run; k++, px += advance) {
                     const int pen = src[px];
-                    if (pen != 15) pens[x + k] = (uint16_t)(colour + pen);
+                    if (pen != 15) { pens[x + k] = (uint16_t)(colour + pen); priority[x + k] |= (uint8_t)tile_priority; }
                 }
             }
             x += run;
@@ -472,7 +509,7 @@ static void draw_layer(int layer, int high)
     }
 }
 
-static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int sy)
+static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int sy, uint32_t pmask)
 {
     const size_t count = M.rom.gfx_size / 128;
     if (!count || sprite_blank[(unsigned)code % count]) return;
@@ -496,7 +533,7 @@ static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int s
             /* MAME prio_transpen with pmask 0x02 plus its implicit bit 31: a
              * high tile (1) or an earlier sprite (31) keeps the pixel, so the
              * first sprite of the list stays on top. */
-            if (!((1u << (M.priority[at] & 0x1f)) & 0x80000002u)) M.pens[at] = (uint16_t)(colour + pen);
+            if (!((1u << (M.priority[at] & 0x1f)) & (pmask | 0x80000000u))) M.pens[at] = (uint16_t)(colour + pen);
             M.priority[at] = 31;
         }
     }
@@ -521,11 +558,48 @@ static void draw_sprites(void)
                     const int sx = (x + nxs * 16) & 0x1ff;
                     const int column = flipx ? (code + (nx - 1) - nxs) & 0xf : (code + nxs) & 0xf;
                     const int row = 0x10 * (flipy ? ny - 1 - nys : nys);
-                    draw_sprite((code & ~0xf) + column + row, col, flipx, flipy, sx, sy);
+                    draw_sprite((code & ~0xf) + column + row, col, flipx, flipy, sx, sy, 0x02);
                 }
             }
         } else {
-            draw_sprite(code, col, flipx, flipy, x & 0x1ff, y & 0x1ff);
+            draw_sprite(code, col, flipx, flipy, x & 0x1ff, y & 0x1ff, 0x02);
+        }
+    }
+}
+
+/* The CPS-2 object chip (MAME's cps2_render_sprites): 0x400 sprites of four words in the latched object RAM, drawn from the last
+ * one down, each with its own 3-bit priority against the tile layers, 10-bit coordinates, block sprites, and the offsets of the
+ * output registers. Sprites address the graphics ROM linearly (no bank mapper). */
+#define CPS2_XOFFS 4
+#define CPS2_YOFFS 5
+#define CPS2_PRI 2
+static void draw_sprites_cps2(const uint32_t primasks[8])
+{
+    int last = 0x1000 - 4;
+    for (int offset = 0; offset < 0x1000; offset += 4)
+        if (M.obj2[offset + 1] >= 0x8000 || M.obj2[offset + 3] >= 0xff00) { last = offset - 4; break; }
+    const int xoffs = 64 - M.output[CPS2_XOFFS], yoffs = 16 - M.output[CPS2_YOFFS];
+    for (int i = last; i >= 0; i -= 4) {
+        const uint16_t *s = &M.obj2[i];
+        int x = s[0], y = s[1];
+        const int priority = x >> 13 & 7, code = s[2] + ((y & 0x6000) << 3), colour = s[3], col = colour & 0x1f;
+        const int flipx = colour >> 5 & 1, flipy = colour >> 6 & 1;
+        const uint32_t pmask = primasks[priority];
+        if (colour & 0x80) { x += M.output[CPS2_XOFFS]; y += M.output[CPS2_YOFFS]; }
+        if (colour & 0xff00) {
+            const int nx = ((colour & 0x0f00) >> 8) + 1, ny = ((colour & 0xf000) >> 12) + 1;
+            for (int nys = 0; nys < ny; nys++) {
+                const int sy = (y + nys * 16 + yoffs) & 0x3ff;
+                for (int nxs = 0; nxs < nx; nxs++) {
+                    const int sx = (x + nxs * 16 + xoffs) & 0x3ff;
+                    int block;
+                    if (flipy) block = flipx ? code + (nx - 1) - nxs + 0x10 * (ny - 1 - nys) : code + nxs + 0x10 * (ny - 1 - nys);
+                    else block = flipx ? code + (nx - 1) - nxs + 0x10 * nys : (code & ~0xf) + ((code + nxs) & 0xf) + 0x10 * nys;
+                    draw_sprite(block, col, flipx, flipy, sx, sy, pmask);
+                }
+            }
+        } else {
+            draw_sprite(code, col, flipx, flipy, (x + xoffs) & 0x3ff, (y + yoffs) & 0x3ff, pmask);
         }
     }
 }
@@ -587,6 +661,41 @@ static void render_frame(void)
     }
 }
 
+/* The CPS-2 frame (MAME's cps2_state::render_layers): the sprite layer of the layer-control word is taken out, the three tile
+ * layers are drawn in the order it gives, each writing its value (1, 2, 4) into the priority plane, and the sprites last, each
+ * tested against the plane with the mask its own priority and the latched priority word select. */
+static void render_frame_cps2(void)
+{
+    for (size_t i = 0; i < CPS1_SCREEN_W * CPS1_SCREEN_H; i++) { M.pens[i] = 0xbff; M.priority[i] = 0; }
+    const uint16_t control = M.cps_b[M.board.layer_control / 2];
+    int l0 = control >> 6 & 3, l1 = control >> 8 & 3, l2 = control >> 10 & 3, l3 = control >> 12 & 3;
+    int p0 = M.pri_ctrl >> (4 * l0) & 15, p1 = M.pri_ctrl >> (4 * l1) & 15, p2 = M.pri_ctrl >> (4 * l2) & 15;
+    const int p3 = M.pri_ctrl >> (4 * l3) & 15;
+    if (l0 == 0) { l0 = l1; l1 = 0; p0 = p1; }
+    if (l1 == 0) { l1 = l2; l2 = 0; p1 = p2; }
+    if (l2 == 0) { l2 = l3; l3 = 0; p2 = p3; }
+    uint32_t primasks[8], mask0 = 0xaa, mask1 = 0xcc;
+    if (p0 > p1) mask0 &= ~0x88u;
+    if (p0 > p2) mask0 &= ~0xa0u;
+    if (p1 > p2) mask1 &= ~0xc0u;
+    primasks[0] = 0xff;
+    for (int i = 1; i < 8; i++) {
+        if (i <= p0 && i <= p1 && i <= p2) { primasks[i] = 0xfe; continue; }
+        primasks[i] = 0;
+        if (i <= p0) primasks[i] |= mask0;
+        if (i <= p1) primasks[i] |= mask1;
+        if (i <= p2) primasks[i] |= 0xf0;
+    }
+    const int layers[3] = {l0, l1, l2};
+    for (int i = 0; i < 3; i++) {
+        if (!layers[i]) continue;
+        tile_priority = 1 << i;
+        render_layer(layers[i], 0);
+    }
+    tile_priority = 0;
+    draw_sprites_cps2(primasks);
+}
+
 /* ---------------------------------------------------------------- 68000 bus */
 
 static uint16_t cps_b_read(int offset)
@@ -620,9 +729,116 @@ static int qsound_read(uint32_t address, uint16_t *word)
     return 0;
 }
 
+/* The CPS-2 board's 68000 space (MAME's cps2_state::cps2_map): the program ROM, the object chip's output registers, the RAM shared
+ * with the Z80 (low bytes), two object RAM banks, the CPS-A/B registers (mirrored), the inputs with the EEPROM's DO bit, the volume
+ * register, the graphics RAM and the work RAM. */
+#ifdef RR_CPS2_IOTRACE
+/* Development only: the hardware accesses (0x400000-0x8fffff) of the first frames, to compare with MAME's taps on the same bus. */
+static void io_trace(char kind, uint32_t address, uint16_t value)
+{
+    static FILE *file; static int opened;
+    if (!opened) { opened = 1; const char *path = getenv("RR_IOTRACE"); file = path ? fopen(path, "w") : NULL; }
+    if (file && address >= 0x400000 && address < 0x900000) fprintf(file, "%c %06x %04x\n", kind, address, value);
+}
+#endif
+
+static uint16_t cps2_read_bus(uint32_t address);
+static uint16_t cps2_read(uint32_t address)
+{
+    const uint16_t value = cps2_read_bus(address);
+#ifdef RR_CPS2_IOTRACE
+    io_trace('R', address, value);
+#endif
+    return value;
+}
+
+static uint16_t cps2_read_bus(uint32_t address)
+{
+    if (address < 0x400000) return address + 1 < M.rom.maincpu_size ? (uint16_t)(M.rom.maincpu[address] << 8 | M.rom.maincpu[address + 1]) : 0;
+    if (address >= 0xff0000) return (uint16_t)(M.ram[address & 0xffff] << 8 | M.ram[(address & 0xffff) + 1]);
+    if (address >= 0x900000 && address < 0x900000 + GFXRAM_BYTES) return M.gfxram[(address - 0x900000) / 2];
+    if (address >= 0x400000 && address < 0x40000c) return M.output[(address - 0x400000) / 2];
+    if (address >= 0x618000 && address < 0x61a000) return (uint16_t)(M.qram[0][(address - 0x618000) / 2] | 0xff00);
+    if (address >= 0x660000 && address < 0x664002) return (uint16_t)(M.extra_ram[address - 0x660000] << 8 | M.extra_ram[address - 0x660000 + 1]);
+    if (address >= 0x708000 && address < 0x710000) return M.objram[M.objram_bank ^ 1][(address & 0x1fff) / 2];
+    if ((address >= 0x800140 && address < 0x800180) || (address >= 0x804140 && address < 0x804180)) return cps_b_read((int)(address & 0x3f) / 2);
+    if (address == 0x804000) return M.ports[CPS1_IN0];
+    if (address == 0x804010) return M.ports[CPS1_IN1];
+    if (address == 0x804020) return (uint16_t)((M.ports[CPS1_IN2] & ~1u) | (cps1_eeprom_read_port(&M.eeprom, m68k_now()) & 1u));
+    if (address == 0x804030) return 0xe021;                 /* the digital volume at its maximum, no extra memory, no network adapter */
+    return 0;
+}
+
+static void cps2_write_bus(uint32_t address, uint16_t data, uint16_t mask);
+static void cps2_write(uint32_t address, uint16_t data, uint16_t mask)
+{
+#ifdef RR_CPS2_IOTRACE
+    io_trace('W', address, data);
+#endif
+    cps2_write_bus(address, data, mask);
+}
+
+static void cps2_write_bus(uint32_t address, uint16_t data, uint16_t mask)
+{
+    if (address >= 0xff0000) {
+        if (mask & 0xff00) M.ram[address & 0xffff] = (uint8_t)(data >> 8);
+        if (mask & 0x00ff) M.ram[(address & 0xffff) + 1] = (uint8_t)data;
+        return;
+    }
+    if (address >= 0x900000 && address < 0x900000 + GFXRAM_BYTES) {
+        uint16_t *word = &M.gfxram[(address - 0x900000) / 2];
+        *word = (uint16_t)((*word & ~mask) | (data & mask));
+        return;
+    }
+    if (address >= 0x400000 && address < 0x40000c) {
+        uint16_t *word = &M.output[(address - 0x400000) / 2];
+        *word = (uint16_t)((*word & ~mask) | (data & mask));
+        return;
+    }
+    if (address >= 0x618000 && address < 0x61a000) { if (mask & 0x00ff) M.qram[0][(address - 0x618000) / 2] = (uint8_t)data; return; }
+    if (address >= 0x660000 && address < 0x664002) {
+        if (mask & 0xff00) M.extra_ram[address - 0x660000] = (uint8_t)(data >> 8);
+        if (mask & 0x00ff) M.extra_ram[address - 0x660000 + 1] = (uint8_t)data;
+        return;
+    }
+    if (address >= 0x700000 && address < 0x702000) {
+        uint16_t *word = &M.objram[M.objram_bank][(address - 0x700000) / 2];
+        *word = (uint16_t)((*word & ~mask) | (data & mask));
+        return;
+    }
+    if (address >= 0x708000 && address < 0x710000) {
+        uint16_t *word = &M.objram[M.objram_bank ^ 1][(address & 0x1fff) / 2];
+        *word = (uint16_t)((*word & ~mask) | (data & mask));
+        return;
+    }
+    if ((address >= 0x800100 && address < 0x800140) || (address >= 0x804100 && address < 0x804140)) {
+        const int offset = (int)(address & 0x3f) / 2;
+        M.cps_a[offset] = (uint16_t)((M.cps_a[offset] & ~mask) | (data & mask));
+        if (offset == A_PALETTE) build_palette();
+        return;
+    }
+    if ((address >= 0x800140 && address < 0x800180) || (address >= 0x804140 && address < 0x804180)) {
+        const int offset = (int)(address & 0x3f) / 2;
+        M.cps_b[offset] = (uint16_t)((M.cps_b[offset] & ~mask) | (data & mask));
+        return;
+    }
+    if (address == 0x8040e0) { if (mask & 0x00ff) M.objram_bank = data & 1; return; }
+    if (address == 0x804040) {
+        if (mask & 0xff00) cps1_eeprom_write_port16(&M.eeprom, data & 0x7000u, m68k_now());
+        if (mask & 0x00ff) {                      /* bit 3 lets the Z80 run (held in reset while it is low); the coin lines have no visible state */
+            const int run = data >> 3 & 1;
+            if (!run && M.z80_run) z80_reset(&M.cpu);
+            M.z80_run = (uint8_t)run;
+        }
+        return;
+    }
+    /* 0x8040a0 and the other unknown writes: no visible state */
+}
+
 static uint16_t read_word(uint32_t address)
 {
     address &= 0xfffffe;
+    if (M.board.cps2) return cps2_read(address);
     if (M.board.qsound && address >= 0xf00000 && address < 0xff0000) {
         uint16_t word;
         if (qsound_read(address, &word)) return word;
@@ -652,6 +868,7 @@ static int qsound_write(uint32_t address, uint16_t data, uint16_t mask)
 static void write_word(uint32_t address, uint16_t data, uint16_t mask)
 {
     address &= 0xfffffe;
+    if (M.board.cps2) { cps2_write(address, data, mask); return; }
     if (M.board.qsound && qsound_write(address, data, mask)) return;
     if (address >= 0xff0000) {
         if (mask & 0xff00) M.ram[address & 0xffff] = (uint8_t)(data >> 8);
@@ -712,6 +929,25 @@ void m68k_write_memory_32(unsigned address, unsigned value)
     cps1_m68k_write16(address, (uint16_t)(value >> 16));
     cps1_m68k_write16(address + 2, (uint16_t)value);
 }
+#ifdef RR_CPS2
+/* The CPS-2 68000 fetches instruction words, extension words and PC-relative operands through its decryption (MAME's `opcodes`
+ * space): the decrypted image over the program ROM, the ordinary bus elsewhere. Data reads keep the stored words. */
+static unsigned op_word(unsigned address)
+{
+    address &= 0xfffffe;
+    if (address < 0x400000 && M.rom.maincpu_op) return address + 1 < M.rom.maincpu_op_size ? (unsigned)(M.rom.maincpu_op[address] << 8 | M.rom.maincpu_op[address + 1]) : 0;
+    return read_word(address);
+}
+unsigned m68k_read_immediate_16(unsigned address) { return op_word(address); }
+unsigned m68k_read_immediate_32(unsigned address) { return op_word(address) << 16 | op_word(address + 2); }
+unsigned m68k_read_pcrelative_8(unsigned address) { return op_word(address) >> (8 * (1 - (address & 1))) & 0xff; }
+unsigned m68k_read_pcrelative_16(unsigned address) { return (address & 1) ? ((op_word(address - 1) << 8) | (op_word(address + 1) >> 8)) & 0xffff : op_word(address); }
+unsigned m68k_read_pcrelative_32(unsigned address)
+{
+    return (address & 1) ? (op_word(address - 1) << 24) | (op_word(address + 1) << 8) | (op_word(address + 3) >> 8) : op_word(address) << 16 | op_word(address + 2);
+}
+#endif
+
 unsigned m68k_read_disassembler_8(unsigned address) { return m68k_read_memory_8(address); }
 unsigned m68k_read_disassembler_16(unsigned address) { return m68k_read_memory_16(address); }
 unsigned m68k_read_disassembler_32(unsigned address) { return m68k_read_memory_32(address); }
@@ -770,8 +1006,15 @@ int cps1_m68k_int_ack(int level)
 
 static void vblank(void)
 {
-    render_frame();
-    memcpy(M.buffered_obj, video_base(A_OBJ, 0x800), sizeof M.buffered_obj);
+    if (M.board.cps2) {
+        render_frame_cps2();
+        /* the object RAM bank the output registers select and the priority word are latched after the frame is drawn */
+        M.pri_ctrl = M.output[CPS2_PRI];
+        memcpy(M.obj2, M.objram[M.objram_bank & 1], sizeof M.obj2);
+    } else {
+        render_frame();
+        memcpy(M.buffered_obj, video_base(A_OBJ, 0x800), sizeof M.buffered_obj);
+    }
     M.frame_number++;
     if (M.m68k_cycles - M.m68k_target < IRQ_SAMPLE_CYCLES) {
         m68k_running = 1;
@@ -792,6 +1035,10 @@ static void run_line(void)
         m68k_running = 0;
     }
     const uint64_t z80_target = M.lines_run * (uint64_t)M.board.z80_clock * LINE_PIXELS / PIXEL_CLOCK;
+    if (M.board.cps2 && !M.z80_run) {                   /* held in reset: time passes, nothing runs */
+        M.z80_clock = z80_target;
+        while (M.qsound_irq_clock <= z80_target) M.qsound_irq_clock += QSOUND_IRQ_CLOCKS;
+    }
     while (M.z80_clock < z80_target) {
         if (M.board.qsound) {
             if (M.z80_clock >= M.qsound_irq_clock) { z80_pulse_irq(&M.cpu, 0xff); M.qsound_irq_clock += QSOUND_IRQ_CLOCKS; }
@@ -823,7 +1070,8 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     M.board = *board;
     M.rom = *regions;
     if (M.board.qsound && (!M.rom.dsp_rom || M.rom.dsp_rom_size < CPS1_QSOUND_DSP_BYTES || !M.rom.qsound)) return 0;   /* the player's own DSP ROM and the samples */
-    cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
+    cps1_eeprom_reset(&M.eeprom, (M.board.cpu_clock + 500000u) / 1000000u);
+    cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
     if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
     if (!M.opm) return 0;
@@ -848,10 +1096,16 @@ void cps1_reset(void)
     memset(M.palette, 0, sizeof M.palette);
     memset(M.z80_ram, 0, sizeof M.z80_ram);
     memset(M.qram, 0, sizeof M.qram);
+    memset(M.objram, 0, sizeof M.objram);
+    memset(M.obj2, 0, sizeof M.obj2);
+    memset(M.output, 0, sizeof M.output);
+    memset(M.extra_ram, 0, sizeof M.extra_ram);
+    M.pri_ctrl = 0; M.objram_bank = 0; M.z80_run = 1;
     {   /* the EEPROM keeps its contents through a reset; its lines start low */
         uint8_t kept[CPS1_EEPROM_BYTES];
         memcpy(kept, M.eeprom.data, sizeof kept);
-        cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
+        cps1_eeprom_reset(&M.eeprom, (M.board.cpu_clock + 500000u) / 1000000u);
+        cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
         memcpy(M.eeprom.data, kept, sizeof kept);
     }
     M.qsound_irq_clock = QSOUND_IRQ_CLOCKS; M.qsound_done = 0;
@@ -1195,9 +1449,12 @@ const uint8_t *rr_cps1_code_bytes(uint32_t address, uint32_t *region, uint32_t *
     address &= 0xffffffu;
     if (address & 1) return NULL;
     if (address < 0x400000u) {
-        if (address + 2 > M.rom.maincpu_size) return NULL;
-        *region = 1; *offset = address; *available = (unsigned)(M.rom.maincpu_size - address);
-        return M.rom.maincpu + address;
+        /* the CPS-2 translates, and checks, the decrypted image: that is what its instruction fetches see */
+        const uint8_t *image = M.rom.maincpu_op ? M.rom.maincpu_op : M.rom.maincpu;
+        const size_t size = M.rom.maincpu_op ? M.rom.maincpu_op_size : M.rom.maincpu_size;
+        if (address + 2 > size) return NULL;
+        *region = 1; *offset = address; *available = (unsigned)(size - address);
+        return image + address;
     }
     if (address >= 0xff0000u) {
         *region = 3; *offset = address & 0xffffu; *available = 0x10000u - *offset;
