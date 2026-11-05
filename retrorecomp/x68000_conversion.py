@@ -531,8 +531,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         observations=compact_observations(observations,ipl)
         observation=work/'discovered.json';atomic_json(observation,observations)
         from . import x68_knowledge
-        disk_image=x68_knowledge.disk_content(source.disks)
-        shared_pairs,hints_used=shared_hints(source,disk_image,ipl,native,work)
+        try:disk_image=x68_knowledge.disk_content(source.disks)
+        except (OSError,ValueError):disk_image=None    # the sharing is left out; the conversion goes on and meets the same problem where it matters
+        shared_pairs,hints_used=shared_hints(source,disk_image,ipl,native,work) if disk_image is not None else ([],{'qualified':0,'library':0,'imported':0,'ignored':{'disks':'unreadable'}})
         if shared_pairs:
             emit(f'X68000: {len(shared_pairs)} instructions named by shared or library paths guide the first pass (rechecked like any other).')
         project=work/'native';payload_dir=work/'payload';payload_dir.mkdir(parents=True,exist_ok=True)
@@ -664,8 +665,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 'media_events':result.get('media_events',[])})
         # The shared path record: numbers about this disk set's own images, made only from the fresh reference runs of this
         # conversion (every check above passed). What cannot be tied to an image stays private and is counted.
-        record,promotion=x68_knowledge.promote(source.game_key,disk_image,ipl,fresh_observations['variants'],fresh_observations.get('spans',()),
-                                               previous=x68_knowledge.library_record(source.game_key))
+        record,promotion=(x68_knowledge.promote(source.game_key,disk_image,ipl,fresh_observations['variants'],fresh_observations.get('spans',()),
+                                                previous=x68_knowledge.library_record(source.game_key)) if disk_image is not None else (None,None))
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
           'system':{'id':'x68','name':'Sharp X68000'},'status':'supported','private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
@@ -697,7 +698,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
           'qualification_scope':{'controls':'joystick, keyboard and mouse routes; the validation routes are bounded scripts',
                                  'media':'floppy disks only','universal_zero_fallback_claim':False},
-          'knowledge':knowledge_block(record,promotion,hints_used),
+          **({'knowledge':knowledge_block(record,promotion,hints_used)} if record else {}),
           'conversion_wall_seconds':round(time.perf_counter()-started,3)}
         write_report(output/'conversion-report.json',report)
         # Written in the library, whatever folder the earlier ones were read from (that one is left as it is).
@@ -720,8 +721,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation],ipl)),
                 'private_development_only':True,'fresh_reference_passed':True,
                 # The schema 3 record the base shares (numbers only), and where it came from.
-                'record':record,'record_format':x68_knowledge.FORMAT,'cores':x68_knowledge.engine(),'record_source':'fresh reference runs',
-                'record_counts':promotion,
+                **({'record':record,'record_format':x68_knowledge.FORMAT,'cores':x68_knowledge.engine(),'record_source':'fresh reference runs',
+                    'record_counts':promotion} if record else {}),
                 # Only observed reads are remembered, never the reviewed list's choice.
                 'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
         emit('X68000: validated standalone player ready.')

@@ -57,11 +57,11 @@ REQUIRED_SOURCES = {'ng': ['cart', 'p', 'bios', 'm1', 'sm1'],
  'snes': ['rom']}
 HASHED_SOURCES = {'ng': ['cart', 'bios'], 'cps1': ['maincpu', 'audiocpu']}
 STABLE_SHARED = ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng']
-EXPERIMENTAL_SHARED = ['cps1']
-SHARED_SYSTEMS = ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1']
-WITHDRAWABLE = ['cps1']
+EXPERIMENTAL_SHARED = ['cps1', 'x68']
+SHARED_SYSTEMS = ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68']
+WITHDRAWABLE = ['cps1', 'x68']
 WITHDRAWN = []
-SCHEMA3_ONLY = ['cps1']
+SCHEMA3_ONLY = ['cps1', 'x68']
 LEGACY_FIELDS = {'sms': {'rom_entries': [5, 65536], 'pattern_refs': [1, 4096]},
  'gg': {'rom_entries': [5, 65536], 'pattern_refs': [1, 4096]},
  'gb': {'rom_entries': [2, 65536]},
@@ -90,7 +90,7 @@ PROFILE_SYSTEMS = {'m68k/md': ['md'],
  'spc700/snes': ['snes']}
 PROFILE_ORDER = ['m68k/md', 'm68k/ng', 'm68k/cps1', 'm68k/x68', 'z80/sms', 'z80/md-sound', 'z80/ng-sound',
  'z80/cps1-sound', 'sm83/gb', 'mos6502/nes', 'w65c816/snes', 'spc700/snes']
-PROFILES_SHA256 = '17ddc4ce725fbe489d28fced9611cd3b50becbd1af8b70faca1c24ec924493a9'
+PROFILES_SHA256 = '872556aebc11efeba3bdc75081f73ce2a4382945969e5cffc155408f0bcc71bd'   # 1.6.9: the X68000's span cap is 16,384 rows
 OTHER_NAMES = ['DEVICES', 'GAMES_PER_SYSTEM', 'HEX40', 'HEX64', 'KINDS', 'LEGACY_WIDTHS', 'NG_CPU_SOURCES',
                'NG_IDENTITY_FIELDS', 'NG_REGIONS', 'SCHEMA', 'SEQ_ENCODINGS', 'SHAPES', 'SOURCE_NAME', 'SPAN_BYTES',
                'STRICTER_THAN_V2', 'U32']

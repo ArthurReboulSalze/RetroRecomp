@@ -156,7 +156,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
         games = [moved,
                  SimpleNamespace(system='md', identity='0' * 64, title='Missing', source=str(self.root / 'none.md'), report='r'),
                  SimpleNamespace(system='md', identity='2' * 64, title='Old engine', source=str(source), report=''),
-                 SimpleNamespace(system='x68', identity='1' * 64, title='Computer', source=str(source), report='')]
+                 SimpleNamespace(system='psx', identity='1' * 64, title='Computer', source=str(source), report='')]
         bundled = {'schema': 1, 'consoles': {'md': {rom.sha256: md([0x200])}}}
         profile = SimpleNamespace(read_rom=lambda path: rom)
         qualified = {('md', rom.sha256): {}, ('md', '0' * 64): {}}
