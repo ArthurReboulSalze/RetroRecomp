@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; the PC Engine column of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -58,27 +58,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+| PC Engine | experimental | `█░░░░░░░░░` 14 % | ✅ 0 · 🟡 4 · ❔ 10 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G2 Report | 🟡 | 🟡 | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G5 Delivered file | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G6 States | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ |
-| G8 Liveness | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G9 Route depth | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 |
-| G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | PC Engine |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G2 Report | 🟡 | 🟡 | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G5 Delivered file | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G6 States | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ |
+| G8 Liveness | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G9 Route depth | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ |
+| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 | ❔ |
+| G15 Honesty | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -88,26 +89,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000.
+x68 = Sharp X68000, pce = PC Engine.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
-|---|---|---|---|---|---|---|---|---|---|
-| G1 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G2 | P | P | Y | Y | P | Y | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y |
-| G8 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G9 | P | P | Y | Y | Y | Y | Y | Y | Y |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P |
-| G11 | P | P | P | P | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | P | P | Y | Y | P | P | P | P | Y |
-| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
-| G15 | P | P | Y | P | P | Y | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | pce |
+|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | P | P | Y | Y | Y | Y | Y | Y | Y | P |
+| G2 | P | P | Y | Y | P | Y | Y | Y | Y | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G5 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
+| G6 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | - |
+| G8 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
+| G9 | P | P | Y | Y | Y | Y | Y | Y | Y | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P |
+| G11 | P | P | P | P | P | P | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | ? |
+| G13 | P | P | Y | Y | P | P | P | P | Y | ? |
+| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P | ? |
+| G15 | P | P | Y | P | P | Y | Y | Y | Y | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | - | - |
 
 </details>
 
@@ -479,6 +480,21 @@ the first 20 seconds, as `tools/cps1_mame_compare.py` does for the CPS-1; (2) th
 on `$A10003` as the CPS-1 tool does for its ports, on the 12 raster-effect games of the 1.6.7 list; (3) frame-by-frame comparison of a raster effect
 (Sonic 2's split screen, Ecco, Contra - Hard Corps) with the lag measured and not corrected; (4) the choice of the colour table, a decision that moves every
 Mega Drive picture hash. Results are always written as "model against MAME".
+
+## PC Engine: evidence behind its column (5 November 2026)
+
+The PC Engine is **experimental, in development and developer-only** (stage 2 of 7 in [PC_ENGINE.md](PC_ENGINE.md)): the profile
+identifies HuCards and converts nothing, so every gate that needs a conversion is `?`. Only the gates below have anything to show.
+`P` means a part is shown and the rest is named; nothing here says hardware fidelity, gameplay coverage or latency.
+
+| Gate | PC Engine | Evidence | What is missing |
+|---|---|---|---|
+| G1 | P | `retrorecomp/systems/pc_engine.py` (status `experimental`, `developer_only`), [PC_ENGINE.md](PC_ENGINE.md) | Partial: the machine is not offered to players, and its own test and interface strings are written alongside this page in stage 2 |
+| G2 | P | The report writer (`retrorecomp/pce_conversion.py`) goes through `report_schema.write_report` and reports an identification only: `converted: false`, no measure, `latency_ms: null` | No conversion fills the sections (`cpus`, `validation`, `scan`, `states`): they come with the conversion loop of stage 3 |
+| G7 | - | HuCards have no save memory | |
+| G10 | P | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) on the pinned engine, 5 November 2026: on its interpreter 563,514 of the 572,519 comparable vectors agree (three known differences: the TSB/TRB Z flag, ST0-2 at 5 cycles against 4, TMA #0); natively 9,091 cases show 0 differences with that interpreter. Measured outside the repository's own tools | A tool of ours that replays the vectors comes at stage 5; the oracle is an emulator, not silicon |
+| G15 | P | Nothing is claimed: all five measures read "not reported" in [PC_ENGINE.md](PC_ENGINE.md) and in the report | The interface strings, the host kit and the report of a real conversion are read when they exist |
+| G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
 
 ## Panel sizes
 

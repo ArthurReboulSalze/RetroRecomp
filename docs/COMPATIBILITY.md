@@ -196,6 +196,9 @@ what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 Nov
 ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
 each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency.
+The **PC Engine** is experimental, in development and developer-only: its HuCards are
+identified and nothing is converted yet ([status](PC_ENGINE.md)), so no measure of native code,
+CPU fidelity, hardware fidelity, gameplay or latency is reported for it.
 
 ## Local game regression set
 

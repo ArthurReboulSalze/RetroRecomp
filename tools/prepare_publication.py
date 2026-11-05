@@ -18,6 +18,8 @@ from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
+retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
+licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h

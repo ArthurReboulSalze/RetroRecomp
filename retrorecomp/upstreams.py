@@ -122,6 +122,12 @@ SNESRECOMP = Upstream(
     'PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences',
     'the 65816 interpreter, SPC700/DSP core and runner/ (runtime and adapters); the analyser is not used',
     Pin('dict', 'retrorecomp/console16.py', 'REPOSITORIES', 'snes', 1), checkout='snesrecomp')
+PCENGINERECOMP = Upstream(
+    'pcenginerecomp', 'rages4calm/pcenginerecomp', 'main',
+    'PC Engine HuC6280 recompiler (Python analysis and emitter) and C++ runtime', 'MIT (with the BSD MAME opcode notice and '
+    'the MIT PCECD_seek notice it carries: licenses/pcenginerecomp.md)',
+    'nothing yet: the profile identifies HuCards only; the conversion loop will fetch the emitter and pce-runtime at the pin',
+    _py('retrorecomp/pce_conversion.py', 'ENGINE_REV'), checkout='pcenginerecomp')
 GEOLITH = Upstream(
     'geolith-libretro', 'libretro/geolith-libretro', 'master',
     'Neo Geo hardware runtime; its Musashi 68000 is the reference CPU of Neo Geo, CPS-1 and X68000', 'BSD-3-Clause',
@@ -218,6 +224,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'ng': (GEOLITH, LITHOGEN, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
+    'pce': (PCENGINERECOMP,),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

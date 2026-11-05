@@ -37,6 +37,8 @@ it. Exports go to `Games/CPS-1` with the shared 16-bit host. See
 The experimental **Sharp X68000** profile (`x68`) converts `.dim`, `.xdf` and `.d88` disks (the format is read from the content)
 and `.m3u` disk sets with the player's own IPL and font ROM, and exports to
 `Games/Sharp X68000`; see [X68000](X68000.md).
+The experimental **PC Engine** profile (`pce`) is in development and developer-only: it identifies `.pce` HuCards
+(header, bit order and board read from the content) and converts nothing yet; see [PC Engine](PC_ENGINE.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
