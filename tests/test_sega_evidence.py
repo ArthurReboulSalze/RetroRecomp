@@ -65,6 +65,13 @@ class TraceTests(unittest.TestCase):
             sega_evidence.require_main_route_moving('play', frozen, self.directory)
         self.assertIn('picture never changed', str(raised.exception))
 
+    def test_the_developer_switch_lets_a_picture_less_program_through(self):
+        frozen = sega_evidence.route_liveness(trace(self.directory, 'frozen2.csv', [('a', '1', 's', 0)] * 5))
+        with patch.dict('os.environ', {sega_evidence.STILL_ROUTE_OK: '1'}):
+            sega_evidence.require_main_route_moving('play', frozen, self.directory)
+        with patch.dict('os.environ', {sega_evidence.STILL_ROUTE_OK: '0'}), self.assertRaises(ConversionError):
+            sega_evidence.require_main_route_moving('play', frozen, self.directory)
+
     def test_a_silent_play_route_is_not_refused(self):
         silent = sega_evidence.route_liveness(trace(self.directory, 'silent.csv', [('a', '1', 's', 0), ('b', '1', 's', 0)]))
         sega_evidence.require_main_route_moving('play', silent, self.directory)

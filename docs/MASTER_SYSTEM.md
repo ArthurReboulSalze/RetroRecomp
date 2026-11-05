@@ -269,8 +269,9 @@ shares the engine, the runtime and the adapter, so the evidence below is for bot
 - RAM code beyond what the converter has seen still runs in the counted interpreter; up to 4,096 RAM windows are learned per
   ROM. Zero fallback is a result on tested routes, never a general promise. A strict conversion refuses any fallback.
 - The functions engine meets the reference check on the 15 games of the 1.6.4 batch since 1.6.7 and on eight of the twelve games of the 1.6.9 panel.
-  It refuses three of them (Micro Machines, Streets of Rage, Gunstar Heroes: the picture differs from the interpreter, from frame 1,492, 7 and 569) and
-  does not build a fourth (Shining Force II: the generator emits `sms_write8(ea, ...)` for a `DD 76` or `FD 76` it decoded in data, with no `ea`).
+  It refuses four of them: Micro Machines, Streets of Rage and Gunstar Heroes differ from the interpreter from frame 1,493, 7 and 569, and Shining Force II from frame 15
+  (the scroll registers). Since 1.6.9 the last one builds (the generator wrote `sms_write8(ea, ...)` for a `DD 76` or `FD 76` it decoded in data, with no `ea`) and
+  its first RAM difference, a register left by a routine that reads inline data after an `RST`, is gone; what is left is not explained.
   The banked engine, the default, converts all twelve. The functions engine is the optional one; do not rely on it for a cartridge outside the lists above.
 - Sprite flicker reduction is a display enhancement, not console behaviour.
 - The stereo audio ring of the Master System and Game Gear is the one duplicate of the host kit's ring still left; merging

@@ -19,6 +19,7 @@ route goes, and nothing about hardware fidelity or latency.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -62,8 +63,16 @@ def route_liveness(trace: Path) -> dict:
     return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
 
 
+STILL_ROUTE_OK = 'RETRO_RECOMP_STILL_ROUTE_OK'
+
+
 def require_main_route_moving(scenario: str, liveness: dict, directory: Path) -> None:
-    """Refuse a conversion whose main (`play`) route showed a picture that never changed."""
+    """Refuse a conversion whose main (`play`) route showed a picture that never changed.
+
+    Developer checks that convert a program of a few instructions (`tools/cpu_selftest.py`: it has no picture, only a result in RAM)
+    set `RETRO_RECOMP_STILL_ROUTE_OK=1`; a player's conversion never does."""
+    if os.environ.get(STILL_ROUTE_OK) == '1':
+        return
     if scenario == MAIN_ROUTE:
         require_moving_picture(liveness, lambda: ConversionError(
             f'Master System / Game Gear {scenario}: the picture never changed during the route; the game is stuck or never '
