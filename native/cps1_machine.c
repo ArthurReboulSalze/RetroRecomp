@@ -33,6 +33,8 @@
  * chip makes a sample every 1248 DSP cycles of a 30 MHz clock (24,038.46 Hz: 5 samples per 1664 Z80 clocks). */
 #define QSOUND_IRQ_CLOCKS 32000u
 #define QSOUND_SHARED 0x1000
+/* the EEPROM's clock ticks in a microsecond: the same figure everywhere the chip is created or restored */
+#define eeprom_ticks() ((M.board.cpu_clock + 500000u) / 1000000u)
 
 enum { A_OBJ, A_SCROLL1, A_SCROLL2, A_SCROLL3, A_OTHER, A_PALETTE, A_S1X, A_S1Y, A_S2X, A_S2Y,
        A_S3X, A_S3Y, A_STAR1X, A_STAR1Y, A_STAR2X, A_STAR2Y, A_ROWSCROLL, A_VIDEO };
@@ -1141,7 +1143,7 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     M.board = *board;
     M.rom = *regions;
     if (M.board.qsound && (!M.rom.dsp_rom || M.rom.dsp_rom_size < CPS1_QSOUND_DSP_BYTES || !M.rom.qsound)) return 0;   /* the player's own DSP ROM and the samples */
-    cps1_eeprom_reset(&M.eeprom, (M.board.cpu_clock + 500000u) / 1000000u);
+    cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
     cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
     if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
@@ -1178,7 +1180,7 @@ void cps1_reset(void)
     {   /* the EEPROM keeps its contents through a reset; its lines start low */
         uint8_t kept[CPS1_EEPROM_BYTES];
         memcpy(kept, M.eeprom.data, sizeof kept);
-        cps1_eeprom_reset(&M.eeprom, (M.board.cpu_clock + 500000u) / 1000000u);
+        cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
         cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
         memcpy(M.eeprom.data, kept, sizeof kept);
     }
@@ -1281,6 +1283,12 @@ uint64_t cps1_cpu_hash(void)
 
 #define STATE_MAGIC "CPS1S002"
 #define STATE_MAGIC_QSOUND "CPS1Q002"   /* the QSound board saves more: another magic keeps the two apart */
+#define STATE_MAGIC_CPS2 "CPS2Q001"     /* the CPS-2 board saves the QSound side and its own video, bank and raster state */
+#define state_magic() (M.board.cps2 ? STATE_MAGIC_CPS2 : M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC)
+/* the CPS-2 board's own state, after the QSound side: the two object RAM banks and the latched copy, the output registers, the
+ * priorities, the bank and Z80 reset lines, the extra RAM, the raster counters and the partial-picture bookkeeping */
+#define CPS2_TAIL_BYTES (sizeof M.objram + sizeof M.obj2 + sizeof M.output + sizeof M.pri_ctrl + 2 + sizeof M.extra_ram + \
+                         sizeof M.raster_counter + sizeof M.raster_reload + 2 + 4 + 8)
 unsigned cps1_m68k_state_bytes(void);
 void cps1_m68k_state_get(void *dst);
 void cps1_m68k_state_set(const void *src);
@@ -1389,7 +1397,7 @@ static void oki_voices_get(reader_t *r, cps1_oki_voice *voice)
 size_t cps1_state_save(uint8_t *buffer, size_t capacity)
 {
     writer_t w = {buffer, capacity, 0, 0};
-    put(&w, M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC, 8);
+    put(&w, state_magic(), 8);
 #define SAVE(field) put(&w, &field, sizeof field);
     STATE_FIELDS_BEFORE_QUEUE(SAVE)
     latch_queue_put(&w, M.latch_queue);
@@ -1422,6 +1430,13 @@ size_t cps1_state_save(uint8_t *buffer, size_t capacity)
         put(&w, chip, cps1_qsound_state_put(&M.qchip, chip));
         free(chip);
     }
+    if (M.board.cps2) {
+        put(&w, M.objram, sizeof M.objram); put(&w, M.obj2, sizeof M.obj2); put(&w, M.output, sizeof M.output);
+        put(&w, &M.pri_ctrl, sizeof M.pri_ctrl); put(&w, &M.objram_bank, 1); put(&w, &M.z80_run, 1);
+        put(&w, M.extra_ram, sizeof M.extra_ram); put(&w, M.raster_counter, sizeof M.raster_counter);
+        put(&w, M.raster_reload, sizeof M.raster_reload); put(&w, &M.raster_pending, 1); put(&w, &M.irq4, 1);
+        put_le(&w, (uint32_t)M.rendered_rows, 4); put_le(&w, M.line_start, 8);
+    }
     if (!buffer) return w.used;
     return w.overflow ? 0 : w.used;
 }
@@ -1431,7 +1446,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     reader_t r = {buffer, size, 0, 0};
     char magic[8];
     get(&r, magic, 8);
-    if (r.bad || memcmp(magic, M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC, 8)) return 0;
+    if (r.bad || memcmp(magic, state_magic(), 8)) return 0;
     /* Read into a copy first so a truncated or foreign state leaves the
      * running machine untouched. */
     static uint8_t ram[sizeof M.ram], gfxram[sizeof M.gfxram];
@@ -1466,7 +1481,8 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     const uint8_t *context = buffer + r.used;
     r.used += context_size;
     get(&r, &opm_size, sizeof opm_size);
-    const size_t qsound_bytes = M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0;
+    const size_t qsound_bytes = (M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0) +
+                                (M.board.cps2 ? CPS2_TAIL_BYTES : 0);
     if (r.bad || r.used + opm_size + qsound_bytes != size || line < 0 || line >= LINES || latch_count < 0 ||
         latch_count > LATCH_QUEUE || sound_bank > (M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
     for (int i = 0; i < 4; i++)
@@ -1475,15 +1491,32 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     cps1_eeprom eeprom = {{0}};
     uint64_t qsound_irq_clock = 0, qsound_done = 0;
     cps1_qsound chip = M.qchip;
+    static uint16_t objram[2][0x1000], obj2[0x1000];
+    uint16_t output[6], pri_ctrl = 0, raster_counter[3], raster_reload[3];
+    static uint8_t extra_ram[sizeof M.extra_ram];
+    uint8_t objram_bank = 0, z80_run = 1, raster_pending = 0, irq4 = 0;
+    int rendered_rows = 0;
+    uint64_t line_start = 0;
     if (M.board.qsound) {
         const uint8_t *extra = buffer + r.used + opm_size;
         memcpy(qram, extra, sizeof qram);
-        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, M.board.cpu_clock / 1000000u)) return 0;
+        eeprom.wide = M.eeprom.wide;
+        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, eeprom_ticks())) return 0;
         /* what the state holds and the EEPROM kept differ: the game's next save must write what is now the EEPROM's */
         if (memcmp(eeprom.data, M.eeprom.data, CPS1_EEPROM_BYTES)) eeprom.changed = 1;
         reader_t tail = {extra + sizeof qram + CPS1_EEPROM_STATE_BYTES, 16 + cps1_qsound_state_bytes(), 0, 0};
         qsound_irq_clock = get_le(&tail, 8); qsound_done = get_le(&tail, 8);
         if (!cps1_qsound_state_get(&chip, tail.data + tail.used)) return 0;
+        if (M.board.cps2) {
+            reader_t more = {tail.data + tail.used + cps1_qsound_state_bytes(), CPS2_TAIL_BYTES, 0, 0};
+            get(&more, objram, sizeof objram); get(&more, obj2, sizeof obj2); get(&more, output, sizeof output);
+            get(&more, &pri_ctrl, sizeof pri_ctrl); get(&more, &objram_bank, 1); get(&more, &z80_run, 1);
+            get(&more, extra_ram, sizeof extra_ram); get(&more, raster_counter, sizeof raster_counter);
+            get(&more, raster_reload, sizeof raster_reload); get(&more, &raster_pending, 1); get(&more, &irq4, 1);
+            rendered_rows = (int)get_le(&more, 4); line_start = get_le(&more, 8);
+            if (more.bad || objram_bank > 1 || z80_run > 1 || raster_pending > 1 || irq4 > 1 || rendered_rows < 0 ||
+                rendered_rows > CPS1_SCREEN_H) return 0;
+        }
     }
     if (!cps1_opm_load(M.opm, buffer + r.used, opm_size)) return 0;
     memcpy(M.ram, ram, sizeof ram); memcpy(M.gfxram, gfxram, sizeof gfxram);
@@ -1501,6 +1534,12 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     if (M.board.qsound) {
         memcpy(M.qram, qram, sizeof qram); M.eeprom = eeprom;
         M.qsound_irq_clock = qsound_irq_clock; M.qsound_done = qsound_done; M.qchip = chip;
+    }
+    if (M.board.cps2) {
+        memcpy(M.objram, objram, sizeof objram); memcpy(M.obj2, obj2, sizeof obj2); memcpy(M.output, output, sizeof output);
+        M.pri_ctrl = pri_ctrl; M.objram_bank = objram_bank; M.z80_run = z80_run; memcpy(M.extra_ram, extra_ram, sizeof extra_ram);
+        memcpy(M.raster_counter, raster_counter, sizeof raster_counter); memcpy(M.raster_reload, raster_reload, sizeof raster_reload);
+        M.raster_pending = raster_pending; M.irq4 = irq4; M.rendered_rows = rendered_rows; M.line_start = line_start;
     }
     cps1_m68k_state_set(context);
 #ifdef CPS1_NATIVE
