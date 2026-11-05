@@ -18,6 +18,10 @@ from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
+retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
+licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
+retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
+native/hostkit/adapters/rrhk_pce.c
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
@@ -275,10 +279,13 @@ tools/neogeo_persistence_selftest.py
 tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
+retrorecomp/capcom_catalogue.py retrorecomp/capcom_sets.py tools/mame_driver_parse.py
+retrorecomp/cps2.py retrorecomp/cps2_catalogue.py assets/cps2-catalogue.json tools/build_cps2_catalogue.py tests/test_cps2.py
+retrorecomp/cps2_crypt.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py
 retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
-native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
+native/cps1_machine.c native/cps1_cps2_board.inc native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
 native/cps1_qsound.c native/cps1_qsound.h retrorecomp/cps1_qsound.py tests/test_cps1_qsound.py
 tools/cps1_qsound_selftest.py native/cps1_qsound_checks.c tests/test_cps1_qsound_model.py
 tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py
@@ -300,7 +307,7 @@ retrorecomp/cps1_kabuki.py tools/cps1_kabuki_check.py tools/cps1_kabuki_selftest
 tools/cps1_eeprom_selftest.py native/cps1_eeprom_checks.c tests/test_cps1_eeprom.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
-retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
+retrorecomp/systems/cps1.py retrorecomp/systems/cps2.py tests/test_cps1_integration.py docs/CPS1.md docs/CPS2.md
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
 tools/campaign.py tools/campaign-risk-cases.json tests/test_campaign.py
 native/retro_console16.h native/console16_main.c native/scanlines.h

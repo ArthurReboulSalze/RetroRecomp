@@ -3,8 +3,8 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Nine machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1 and Sharp X68000.
+never hidden. Eleven machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+Geo, Capcom CPS-1, Sharp X68000 and, experimental, Capcom CPS-2 and the PC Engine.
 
 **Where to start**
 
@@ -40,6 +40,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Neo Geo](NEOGEO.md) | main | sound | none | none | none |
 | [Capcom CPS-1](CPS1.md) | main | sound | none | none | none |
 | [Sharp X68000](X68000.md) | main | none | none | none | none |
+| [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
 | [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
@@ -107,6 +108,8 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Neo Geo** — [NEOGEO.md](NEOGEO.md); log: [NEOGEO_LOG.md](NEOGEO_LOG.md).
 - **Capcom CPS-1** — [CPS1.md](CPS1.md) (supported since 1.6.6: conversion, controls, qualified sets); log: [CPS1_LOG.md](CPS1_LOG.md).
 - **Sharp X68000** — [X68000.md](X68000.md) (supported since 1.6.9: floppy games, availability and licences).
+- **Capcom CPS-2** — [CPS2.md](CPS2.md) (experimental since 1.6.9: the standard boards, with the key file of your own romset and your own QSound DSP ROM).
+- **PC Engine** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental, developer installations only: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
 
 ## Running the project

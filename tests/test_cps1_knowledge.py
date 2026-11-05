@@ -909,9 +909,9 @@ class LabelTests(unittest.TestCase):
         import inspect
         self.assertEqual(CPS1_KINDS, {14, 15, 16})
         source = inspect.getsource(cps1_conversion.feedback_rows)
-        self.assertIn(', 15)', source)
-        self.assertIn(', 16)', source)
-        self.assertNotIn(', 14)', source)
+        self.assertIn(', 15 + shift)', source)      # the CPS-2's kinds are these plus three
+        self.assertIn(', 16 + shift)', source)
+        self.assertNotIn(', 14', source)
         # And no shared observation row exists for it: CPS-1 shares none.
         with self.assertRaises(ValueError):
             document = {'format': kx.FORMAT, 'version': 3, 'converter': '1.6.0', 'titles': {},

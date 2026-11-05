@@ -1,4 +1,4 @@
-# Capcom CPS-1 board catalogue and machine
+# Capcom CPS-1 and CPS-2 board catalogues and machine
 
 The CPS-1 machine runtime (`native/cps1_machine.c`, `native/cps1_machine.h`)
 adapts the board logic of the same MAME driver files to C: memory map,
@@ -30,6 +30,20 @@ the disassembled program of the chip's DSP16. It reads the chip's internal ROM, 
 The 93C46 EEPROM model (`native/cps1_eeprom.c`) follows MAME's `src/devices/machine/eepromser.cpp` and `eeprom.cpp` at the same revision
 (`license:BSD-3-Clause`, `copyright-holders:Aaron Giles`). The memory maps of the QSound board come from `cps1.cpp` (Paul Leaman).
 
+The Capcom CPS-2 board (profile `cps2`, experimental) adds to the same runtime the object chip, the raster interrupts and the 16-bit
+EEPROM organisation, adapted from MAME's `src/mame/capcom/cps2.cpp` (`license:BSD-3-Clause`, `copyright-holders:Paul Leaman, Andreas
+Naive, Nicola Salmoria`) and `cps1_v.cpp` at the same revision. The opcode decryption (`retrorecomp/cps2_crypt.py`, with the tables of
+`retrorecomp/cps2_tables.py`, generated from the file by `tools/build_cps2_tables.py`) follows the algorithm and the tables of
+`src/mame/capcom/cps2crypt.cpp` (`license:BSD-3-Clause`, `copyright-holders:Paul Leaman, Andreas Naive, Nicola Salmoria, Charles
+MacDonald`; the encryption was broken by Andreas Naive). The CPS-2 catalogue (`assets/cps2-catalogue.json`) is read from `cps2.cpp` by
+`tools/build_cps2_catalogue.py`; it records, for each set, the name, size and hashes of the key file, never its bytes.
+
+**Where the keys come from.** The 20-byte key of a CPS-2 game is data of the player's own romset: a file named after the set (`ssf2.key`)
+that MAME and FBNeo romsets carry. Retro-Recomp supplies, embeds, publishes and downloads no key. The converter reads the key from the
+player's archive while it converts, uses it once to decrypt the program, and a romset without its key file is refused by name. The key
+file is not copied into the generated project, the report or the export; the export carries the program and its decrypted copy, as every
+export carries the ROMs of its owner, and is for that owner. No key byte is in the repository.
+
 Retro-Recomp's CPS-1 board catalogue (`assets/cps1-catalogue.json`) is derived
 from MAME's CPS-1 driver at revision
 [`61a222977fd29f22ce11fbea3f7c290fd7ced091`](https://github.com/mamedev/mame/tree/61a222977fd29f22ce11fbea3f7c290fd7ced091/src/mame/capcom):
@@ -48,7 +62,7 @@ Retro-Recomp is noncommercial. The terms below come from MAME's
 `docs/legal/BSD-3-Clause` at the same revision, with the copyright lines taken
 from the source headers (no year is stated there).
 
-Copyright Paul Leaman; Mirko Buffoni; Aaron Giles; Andrew Gardner; Nicola Salmoria; superctr; Valley Bell
+Copyright Paul Leaman; Mirko Buffoni; Aaron Giles; Andrew Gardner; Nicola Salmoria; superctr; Valley Bell; Andreas Naive; Charles MacDonald
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are

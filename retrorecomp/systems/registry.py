@@ -14,12 +14,14 @@ from __future__ import annotations
 from . import SystemProfile
 from .amiga import AMIGA
 from .cps1 import CPS1
+from .cps2 import CPS2
 from .game_boy import GAME_BOY
 from .game_gear import GAME_GEAR
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO
 from .master_system import MASTER_SYSTEM
 from .neogeo import NEOGEO
 from .nes import NES
+from .pc_engine import PC_ENGINE
 from .x68000 import X68000
 
 # Extensions of files that are cartridge images or disks of machines the converter does not handle, plus the
@@ -27,7 +29,7 @@ from .x68000 import X68000
 # window can say "unknown console" instead of skipping them silently. Each machine's own extensions are added
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
-    '.zip', '.bin', '.rom', '.gbc', '.gba', '.fds', '.n64', '.z64', '.v64', '.smd', '.pce',
+    '.zip', '.bin', '.rom', '.gbc', '.gba', '.fds', '.n64', '.z64', '.v64', '.smd',
     '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
 })
 
@@ -55,7 +57,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, AMIGA):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, AMIGA):
     register(_profile)
 del _profile
 

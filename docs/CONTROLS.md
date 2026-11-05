@@ -95,7 +95,30 @@ of players…); Up/Down choose one, Enter/A or + the next setting, - the
 previous. Switches that only apply under another setting appear when it is
 chosen. Most boards read their switches at power-on: restart with Shift+F1.
 The choice is kept per game; conversions always check the default settings.
-Captain Commando needs **Play Mode: 4 Players** for four players.
+**Captain Commando starts as a two-player board.** For four players: F2, the DIP switches page, **Play Mode: 4 Players**, then Shift+F1
+to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
+three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
+
+### Capcom CPS-2 (experimental)
+
+The controls are the CPS-1's: six buttons, a coin and a Start for each of up to four players, with the keys of players 3 and 4 above. The board
+has no DIP switches. A game keeps its settings (the number of players, coinage, difficulty, language) in its EEPROM, and changes them in its
+own test menu, which the board's service switch opens. The DIP switches page of a CPS-2 game therefore has one setting, **Service switch (the
+game's test menu)**: set it to *On* and restart with Shift+F1; the test menu opens, with player 1's Up/Down and button 1 to choose and
+Left/Right to change; choose *Save and exit*, then set the switch back to *Off* and restart. The settings are kept in the game's save file.
+
+A game that has never been started begins with the number of players its EEPROM gives it: four in Dungeons & Dragons: Tower of Doom, three in
+Armored Warriors, but two in Dungeons & Dragons: Shadow over Mystara and Battle Circuit, whose players 3 and 4 do nothing until the test
+menu (Configuration, System, *Chute type* in Shadow over Mystara) is set to more players.
+
+### PC Engine
+
+Arrows move; **X** is button I, **W** is button II, **Enter** is Run and **Shift** is Select. Player 2 uses the numeric
+keypad (9 and 8 for I and II, Enter for Run, 0 for Select). On a controller, B is I, A is II, Start is Run and Back is
+Select. Games that use the six-button pad (the Street Fighter II board) read **C / A / S / D** as III to VI (controller: X, Y
+and the two shoulder buttons). Most games pause on Run, so the first press of a new game may be a pause. F8/F9 quick states,
+F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
+game is built for two today and the fifth multitap player is never offered.
 
 ## Speed and sound
 
@@ -163,6 +186,14 @@ Ctrl+F5 accelerates loading. F11 (pause) and F12, absent from the X68000
 keyboard, keep working without Ctrl, and every function key acts on Retro-Recomp
 while a menu is open. Ctrl+F1–F12 also work with the row on Retro-Recomp and in
 full guest typing (Ctrl+Alt+K), which still sends F2–F10 to the computer.
+
+### Keyboard games on a computer
+
+A game played at the keyboard needs its keys, while the keys bound to the pad would press the joystick at the same time. The
+options page of F2 has a row **Keyboard (Ctrl+Alt+K): game controls / computer only**, the same switch as Ctrl+Alt+K. On
+"computer only" the whole keyboard goes to the computer, the keys bound to the pad stop, and a real gamepad plays the joystick
+(a notice says when none is connected); Ctrl+Alt chords and Ctrl+F1–F12 keep working, so the player can always switch back.
+The choice is kept per game, in the game's own `player.cfg`; each game starts with the game controls.
 
 ## Game options (1.1.8)
 

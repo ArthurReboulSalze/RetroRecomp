@@ -37,7 +37,10 @@ int main(int argc,char **argv){
         check(ui->language==1&&rr_language_get()==1,"language persists across a fresh process");
         check(ui->buttons[0][X_PAUSE]==SDL_CONTROLLER_BUTTON_LEFTSTICK,"explicit L3 assignment persists");
         check(ui->keys[0][X_A]==SDL_GetScancodeFromKey(SDLK_z),"explicit fire binding overrides the new W default after restart");
-        check(guest_keyboard&&ui->autofire,"the guest keyboard and autofire persist across a fresh process");
+        check(!guest_keyboard&&ui->autofire,"autofire persists across a fresh process; the keyboard starts with the game controls (its owner is per game)");
+        {FILE *f;snprintf(player_config,sizeof(player_config),"%s","menu-player.cfg");f=fopen(player_config,"wb");
+         if(f){fputs("fullscreen=0 keyboard=1 autofire=0 width=768 height=576\n",f);fclose(f);}
+         player_load(NULL);check(guest_keyboard,"the game's own player.cfg gives the keyboard back to the computer");remove(player_config);}
     }else{
         /* Pause: F11, or the Pause binding of a player. */
         check(press(SDL_SCANCODE_F11,KMOD_NONE)&&ui->paused,"F11 pauses without consuming a letter key");
@@ -74,6 +77,10 @@ int main(int argc,char **argv){
         press(SDL_SCANCODE_K,CHORD);check(guest_keyboard,"Ctrl+Alt+K hands the keyboard to the guest");
         press(SDL_SCANCODE_H,CHORD);check(ui->menu==RRHK_MENU_HELP,"explicit computer chord regains host help in full typing");ui->menu=0;
         press(SDL_SCANCODE_K,CHORD);check(!guest_keyboard,"Ctrl+Alt+K returns to game shortcuts");
+        /* The F2 options row (1.6.9) is the same switch; only its pseudo-key reaches it, never a real key. */
+        check(rrhk_adapter()->key_event(ui,(SDL_Scancode)RRC_ROW_KEYBOARD,&harness_running)&&guest_keyboard,"the F2 row hands the keyboard to the computer");
+        check(rrhk_adapter()->key_event(ui,(SDL_Scancode)RRC_ROW_KEYBOARD,&harness_running)&&!guest_keyboard,"the F2 row gives it back to the game controls");
+        check(!rrhk_adapter()->key_event(ui,SDL_SCANCODE_K,&harness_running)&&!guest_keyboard,"a real K is never the row");
         press(SDL_SCANCODE_F,CHORD);check(ui->autofire,"Ctrl+Alt+F is the kit's autofire");press(SDL_SCANCODE_F,CHORD);check(!ui->autofire,"and turns it off again");
         check(harness_running,"nothing quit so far");press(SDL_SCANCODE_Q,CHORD);check(!harness_running,"Ctrl+Alt+Q quits");harness_running=true;
         press(SDL_SCANCODE_PAGEDOWN,CHORD);check(want_swap&&swap_direction==1&&!swap_drive,"Ctrl+Alt+Page Down is the next disk of FDD0");want_swap=false;
@@ -119,7 +126,8 @@ int main(int argc,char **argv){
         {char text[8192]="";size_t n=0;char narrow[4096];FILE *f;
          rr_to_utf8(ui->ini_file,narrow,sizeof(narrow));
          f=fopen(narrow,"rb");if(f){n=fread(text,1,sizeof(text)-1,f);fclose(f);}text[n]=0;
-         check(strstr(text,"p0_key4=")&&strstr(text,"p0_pad7=")&&strstr(text,"[X68000]"),"bindings keep the layout of the first host: [X68000] p<player>_key<n> and p<player>_pad<n>");}
+         check(strstr(text,"p0_key4=")&&strstr(text,"p0_pad7=")&&strstr(text,"[X68000]"),"bindings keep the layout of the first host: [X68000] p<player>_key<n> and p<player>_pad<n>");
+         check(!strstr(text,"guest_keyboard="),"the keyboard's owner is no longer a console-wide preference");}
     }
     player_shutdown();rr_menu_shutdown();SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
     printf("{\"checks\":%u,\"failures\":%u,\"fresh_process\":%s}\n",checks,failures,verify?"true":"false");

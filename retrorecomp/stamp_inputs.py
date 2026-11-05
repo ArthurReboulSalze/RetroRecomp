@@ -164,7 +164,7 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
 BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
-RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json'))
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -714,10 +714,12 @@ INPUTS = _resolve({
         'tools/x68000_reference_check.py',
         'tools/x68000_state_hardware.py',
     ),
-    ('cps1',): (
+    # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
+    ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
+        'native/cps1_cps2_board.inc',
         'native/cps1_eeprom.c',
         'native/cps1_eeprom.h',
         'native/cps1_host.c',
@@ -738,6 +740,8 @@ INPUTS = _resolve({
         'native/cps1_qsound.c',
         'native/cps1_qsound.h',
         'native/cps1_z80_native.h',
+        'retrorecomp.capcom_catalogue',
+        'retrorecomp.capcom_sets',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
         'retrorecomp.cps1_build',
@@ -747,6 +751,24 @@ INPUTS = _resolve({
         'retrorecomp.cps1_kabuki',
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
+    ),
+    # What only the CPS-2 adds: its catalogue, its romset reader and the key decryption of its program.
+    ('cps2',): (
+        'assets/cps2-catalogue.json',
+        'retrorecomp.cps2',
+        'retrorecomp.cps2_catalogue',
+        'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_tables',
+    ),
+    # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
+    ('pce',): (
+        'licenses/pcenginerecomp.md',
+        'native/pce_machine.cpp',
+        'native/pce_machine.h',
+        'native/pce_main.c',
+        'retrorecomp.pce_build',
+        'retrorecomp.pce_conversion',
+        'retrorecomp.pce_rom',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its

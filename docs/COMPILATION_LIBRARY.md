@@ -168,7 +168,7 @@ fallback: conversion flow, not the generated game), `retrorecomp/console16.py` (
 value, found the same way as the 1.4.1 ones:
 
 1. computed from the `v1.5.1` tag (commit `3ef2222`) with Python 3.14.5,
-   `role_stamps(system)['game']`, for the nine consoles;
+   `role_stamps(system)['game']`, for every console;
 2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.1
    (SHA-256 `8018b0444fcdd784c0777b9c2274253fc2f65045c64efc6fdecbeed932a4ad8b`), from the command
    line, in its own workspace (its own `.deps`, `datas` and `Games`), quick scan level, local box
@@ -222,7 +222,7 @@ Outside the Super Nintendo these change no generated game: build-only in the sen
 below. The stamps were found as for 1.5.1:
 
 1. computed from the `v1.5.2` tag (commit `b59575c`) with Python 3.14.5,
-   `role_stamps(system)['game']`, for the nine consoles;
+   `role_stamps(system)['game']`, for every console;
 2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.2, downloaded
    with `gh release download v1.5.2` (SHA-256
    `923f5c8ec5aefb8fa9781ccb55c4684b2e8adc437b3ca1a7bb9bd4ac4b828735`, as in `SHA256SUMS.txt`),

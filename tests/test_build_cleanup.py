@@ -80,6 +80,7 @@ class IdentificationTests(unittest.TestCase):
             ('ng-289e4a4de23c0ff534ea',): ('ng', '289e4a4de23c0ff534ea'),
             ('ng-4354046cd98c5c7985e2-fe62d3e8',): ('ng', '4354046cd98c5c7985e2'),
             ('cps1', 'ffight-22897b4338a7'): ('cps1', '22897b4338a7'),
+            ('pce', '22897b4338a7'): ('pce', '22897b4338a7'),
             ('x68', 'win', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
             ('x68', 'win-llvm', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
             ('x68', 'linux', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
@@ -121,6 +122,7 @@ class IdentificationTests(unittest.TestCase):
                      ('md', 'md-rom-' + SHA, EXE[0]), ('snes', 'snes-rom-' + SHA[:16], 'build/game'),
                      ('ng', 'ng-289e4a4de23c0ff534ea-native', EXE[0]),
                      ('cps1', 'cps1/ffight-' + SHA[:12], 'native/build/Release/game.exe'),
+                     ('pce', 'pce/' + SHA[:12], 'n/build/Release/game.exe'),
                      ('x68', 'x68/win/013098655eb5/' + SHA[:16], 'native/build/reference/Release/RetroRecomp-X68000-Native.exe'),
                      ('x68', 'x68/linux/013098655eb5/' + SHA[:16], 'native/build/reference/RetroRecomp-X68000-Native')]
             for system, name, executable in cases:
@@ -212,6 +214,11 @@ class RemovalTests(unittest.TestCase):
         self.assertTrue(game.exists())
         cps1 = files(self.build / 'cps1' / ('ffight-' + SHA[:12]))
         self.assertEqual(game_projects('cps1', SHA, {'build_directory': str(cps1 / 'native')}, self.root), [cps1])
+        pce = files(self.build / 'pce' / SHA[:12])
+        self.assertEqual(game_projects('pce', SHA, {'build_directory': str(pce / 'n')}, self.root), [pce])
+        # Another cartridge's folder under pce/ is not this conversion's project.
+        files(self.build / 'pce' / OTHER[:12])
+        self.assertEqual(game_projects('pce', SHA, {'build_directory': str(pce / 'n')}, self.root), [pce])
         # A report whose project carries another cartridge's identity removes nothing.
         stray = files(self.build / f'gb_Tetris_{OTHER[:12]}_9150f87d')
         self.assertEqual(game_projects('gb', SHA, {'build_directory': str(stray)}, self.root), [])
@@ -265,20 +272,21 @@ class RemovalTests(unittest.TestCase):
         old = age(files(self.build / f'sms_Alex_Kidd_887D9F6B_{SHA[:12]}_banked'))
         fresh = files(self.build / f'nes_Zelda_{OTHER[:12]}_1b0c621a_ntsc')
         locked = age(files(self.build / 'cps1' / ('ffight-' + SHA[:12])))
+        pce = age(files(self.build / 'pce' / SHA[:12]))
         x68 = age(files(self.build / 'x68/win/013098655eb5' / SHA[:16]))
         interrupted = age(files(self.build / (REMOVING + '0123456789abcdef')))
         with entry_lock(locked, timeout=1):
             age(locked)     # held, not recent: the lock alone keeps it
             found = {project.path: project for project in leftover_projects(self.root)}
-            self.assertEqual(set(found), {old, fresh, locked, x68, interrupted})
+            self.assertEqual(set(found), {old, fresh, locked, pce, x68, interrupted})
             self.assertEqual({path for path, project in found.items() if project.in_use}, {fresh, locked})
             self.assertEqual(found[old].size, 2000)
             self.assertEqual(found[x68].system, 'x68')
             outcome = remove_projects(found.values(), self.root, emit=self.log.append)
         self.assertEqual((outcome['removed'], outcome['freed'], outcome['kept'], outcome['errors']),
-                         (3, 6000, 2, []))
+                         (4, 8000, 2, []))
         self.assertTrue(fresh.exists() and locked.exists())
-        self.assertFalse(old.exists() or x68.exists() or interrupted.exists())
+        self.assertFalse(old.exists() or pce.exists() or x68.exists() or interrupted.exists())
         self.assertTrue((self.build / 'x68/win/013098655eb5/discovery').is_dir())
         self.assertShared()
         # An interrupted removal is finished by the next one.

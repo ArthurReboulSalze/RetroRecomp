@@ -1,8 +1,8 @@
 # Standards for adding to Retro-Recomp
 
-Retro-Recomp converts games for nine machines (Master System, Game Gear, Game
-Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000) and
-more are planned. This page states the rules every change follows and the
+Retro-Recomp converts games for eleven machines (Master System, Game Gear, Game
+Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000 and, as
+experimental machines, Capcom CPS-2 and the PC Engine) and more are planned. This page states the rules every change follows and the
 shape the code is converging to, so that a new machine costs a profile, a CPU
 core and a host adapter, not a copy of everything. The inventory behind it
 (27 October 2026) measured where the code is today; the target sections say
@@ -41,7 +41,7 @@ today is described in [ARCHITECTURE.md](ARCHITECTURE.md).
    The definition of the stamps (`compilation_inputs`, `stamp_inputs`) is never
    an input itself, so editing a console's file list or the interface list moves
    no stamp. A stamp computed from a release tag must equal the stamp of the
-   released executable (`RetroRecomp.py _compilation-stamps`, nine consoles);
+   released executable (`RetroRecomp.py _compilation-stamps`, eleven consoles);
    module fingerprints are bytecode, so the Python version must match too.
    `tests/test_stamp_inputs.py` pins all of this.
 6. **Formats are versioned.** Paths, shared-base archives, quick states,
@@ -96,7 +96,7 @@ In code (`retrorecomp/systems/__init__.py`) the data attributes are `status`,
 `option_keys` (`OptionKey`: the console-specific converter options and whether
 each one enters the request signature). Defaults sit on the base class; the
 `request_identity` hook adds a console's firmware or machine to the request.
-`ALL_PROFILES` and `system_ids()` list the nine consoles whether or not this
+`ALL_PROFILES` and `system_ids()` list the eleven consoles whether or not this
 installation can convert them.
 
 ### Paths (discovery)

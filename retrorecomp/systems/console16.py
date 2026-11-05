@@ -9,6 +9,7 @@ class MegaDriveProfile(SystemProfile):
     id = 'md'
     name = 'Mega Drive'
     extensions = ('.md', '.gen')
+    archived_rom_limits = (('.md', 8 * 1024 * 1024), ('.gen', 8 * 1024 * 1024))
     export_folder = 'Mega Drive'
     video_modes = ('ntsc', 'pal')
     cpus = (Cpu('m68000', 'main', 'instructions'), Cpu('z80', 'sound', 'cycles'))
@@ -66,6 +67,8 @@ class SnesProfile(SystemProfile):
     name = 'Super Nintendo'
     # .fig is the Pro Fighter copier's extension: a 512-byte copier header before the image, like .smc.
     extensions = ('.sfc', '.smc', '.fig')
+    archived_rom_limits = (('.sfc', 8 * 1024 * 1024 + 512), ('.smc', 8 * 1024 * 1024 + 512),
+                           ('.fig', 8 * 1024 * 1024 + 512))
     export_folder = 'Super Nintendo'
     video_modes = ('ntsc', 'pal')
     cpus = (Cpu('65816', 'main', 'instructions'), Cpu('spc700', 'sound', 'instructions'))

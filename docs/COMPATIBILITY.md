@@ -185,7 +185,7 @@ within existing hardware support; it does not add X1-017 IRQ circuitry.
 On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.
 
-Two more profiles are registered beyond the seven consoles above. **Capcom CPS-1**
+Three more profiles are registered beyond the seven consoles above. **Capcom CPS-1**
 is supported since 1.6.6 for MAME or FBNeo ZIP romsets of the standard boards,
 within [its documented scope](CPS1.md) (the QSound boards of the CPS-1.5 included since 5 November 2026, with your own QSound DSP ROM; the DSP16 is a model after MAME's): each conversion compares the guarded
 native code with a fresh interpreted reference run, and the report keeps board
@@ -197,7 +197,14 @@ ordered M3U sets (up to ten disks) with your own IPL and font ROM, within [its d
 (no hard-disk images; the few games that play only through an external Roland MIDI module run silent, and the report says so).
 Each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency. The owner's decision of 5 November 2026 and his play
-trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance).
+trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance). The **Capcom CPS-2** profile is experimental (since 1.6.9): it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
+The **PC Engine** is experimental since 1.6.9: it converts HuCard dumps (`.pce`, or a ZIP holding one) of the standard boards
+and the Street Fighter II board, within [its documented scope](PC_ENGINE.md#2-scope) (no CD-ROM2, no SuperGrafx, NTSC only, two
+players, no multitap fifth player). The native code is taken from what each game was seen to run; the rest is interpreted,
+counted and reported. Eight of the nine cards converted in the first panel ran 0 interpreted instructions on their played
+routes and matched a fresh interpreted reference frame by frame, and Street Fighter II' Champion Edition is partly native
+because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
+engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
 The **Commodore Amiga** profile is experimental and for developer installations only, not in a release: it converts Amiga 500 games installed for
 WHDLoad (an `.lha` with one `.Slave`) that need no Kickstart, within [its documented scope](AMIGA.md). It has no list of compatible games: native

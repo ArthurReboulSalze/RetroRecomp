@@ -59,7 +59,7 @@ ROOT_ENV = 'RETRO_RECOMP_ROMS'
 # Folder names of a Batocera-style ROM share (override with --folder). They are the share's own names, not the
 # profile's: a machine that is not listed is looked for in a folder named after its id.
 SHARE_FOLDERS = {'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive',
-                 'snes': 'snes', 'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'}
+                 'snes': 'snes', 'ng': 'neogeo', 'cps1': 'fbneo', 'cps2': 'fbneo', 'x68': 'x68000', 'pce': 'pcengine'}
 # Files a share keeps beside the profile's own extensions (headered and headerless Mega Drive dumps).
 SHARE_EXTRA_EXTENSIONS = {'md': ('.smd', '.bin')}
 DEFAULT_FOLDERS = {profile.id: SHARE_FOLDERS.get(profile.id, profile.id) for profile in ALL_PROFILES}
@@ -173,6 +173,9 @@ def arcade_catalogue(console: str) -> dict:
         from retrorecomp import cps1_catalogue
         return {game['set']: {'parent': game['parent'], 'ok': cps1_catalogue.supported(game)}
                 for game in cps1_catalogue.games()}
+    if console == 'cps2':
+        from retrorecomp import cps2_catalogue
+        return {game['set']: {'parent': game['parent'], 'ok': game['support'] == 'phase1'} for game in cps2_catalogue.games()}
     from retrorecomp import neogeo_catalogue
     return {game['set']: {'parent': game['parent'], 'ok': True} for game in neogeo_catalogue.catalogue()}
 
@@ -454,7 +457,7 @@ def console_options(console: str, args) -> tuple[list[str], list[str]]:
         flags.append('--require-states')
     if console == 'ng' and args.ng_bios:
         extra += ['--ng-bios', Path(args.ng_bios).as_posix()]
-    if console == 'cps1' and getattr(args, 'qsound_rom', None):
+    if console in ('cps1', 'cps2') and getattr(args, 'qsound_rom', None):
         extra += ['--qsound-rom', Path(args.qsound_rom).as_posix()]
     if console == 'x68':
         for option, value in (('--x68-ipl', args.x68_ipl), ('--x68-cgrom', args.x68_cgrom)):
@@ -1040,7 +1043,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument('--retry-failed', action='store_true', help='Run again the games whose verdict is fail')
     run.add_argument('--redo', action='store_true', help='Run again every selected game')
     run.add_argument('--ng-bios', type=Path, help='Neo Geo BIOS archive')
-    run.add_argument('--qsound-rom', type=Path, help='QSound DSP ROM (dl-1425.bin or qsound.zip), for the CPS-1.5 sets')
+    run.add_argument('--qsound-rom', type=Path, help='QSound DSP ROM (dl-1425.bin or qsound.zip), for the CPS-1.5 and CPS-2 sets')
     run.add_argument('--x68-ipl', type=Path)
     run.add_argument('--x68-cgrom', type=Path)
     run.set_defaults(handler=command_run)

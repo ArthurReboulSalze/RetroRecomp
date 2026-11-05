@@ -20,7 +20,7 @@ HEADER = struct.Struct('<8sIII8s64sI')
 RECORD = struct.Struct('<BBHII16sI')
 MAX_BYTES = HEADER.size + LIMIT * RECORD.size
 # Both come from the profiles (feedback_kinds): sms 1, gg 1, gb 2, nes 3-4,
-# md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16.
+# md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16, cps2 17-19, pce 20.
 SYSTEMS = set(system_ids())
 KINDS = {profile.id: set(profile.feedback_kinds) for profile in ALL_PROFILES}
 

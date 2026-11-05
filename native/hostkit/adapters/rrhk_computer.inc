@@ -12,7 +12,9 @@
  * and its frontend (the file that includes the adapter) defines these variables, which the libretro callbacks and the kit's loop share:
  *   guest_keyboard mouse_grab mouse_game input_focus fast_forward loading_holdoff want_swap swap_drive swap_direction want_eject
  *   keys mouse_dx mouse_dy mouse_buttons width height aspect_ratio player_config
- * What the computer does not decide stays in the adapter: the actions themselves, the picture, the sound, the state, the machine table. */
+ * What the computer does not decide stays in the adapter: the actions themselves, the picture, the sound, the state, the machine table.
+ * The machine table wires the computer's hooks: settings_loaded, option_rows, key_event, help_lines, help_controls, frame_start,
+ * finished, event, keyboard_pad, fast_forward, game_rect, help_page and action_held (the x_ functions below). */
 
 /* The state of the windowed player that the computer's functions keep. */
 static struct {
@@ -21,6 +23,11 @@ static struct {
    int help_page, escape_held;
    bool started, relative;
 } ca;
+
+/* The F2 options row that hands the whole keyboard to the computer, as Ctrl+Alt+K does: a pseudo-key past every scancode,
+ * which no keyboard sends, so only the row reaches the machine's key hook (decision of 5 November 2026: a keyboard game
+ * keeps its keys, the pad keys bound on the keyboard stop, and only a real gamepad plays the joystick). */
+#define RRC_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
 
 static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && (ui->menu || ui->paused); }
 static int player_escape_held(void) { return ca.windowed && ca.escape_held; }
@@ -140,8 +147,34 @@ static void player_save(void) {
       (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0, guest_keyboard, rrhk_ui()->autofire != 0, w, h); fclose(f); }
 }
 static void x_finished(double elapsed) { (void)elapsed; player_save(); }
+/* The keyboard's owner is kept per game, in the game's own player.cfg (player_load at the first frame): a game never
+ * inherits it from the last game played. Each game starts with the game controls until the player chooses. */
 static void x_settings_loaded(RrhkUi *ui) {
-   guest_keyboard = rr_ini_int(RRC_INI_SECTION, L"guest_keyboard", 0, ui->ini_file) != 0;
+   (void)ui;
+   guest_keyboard = false;
+}
+
+/* Ctrl+Alt+K and the F2 row: the keyboard goes to the computer (the keys bound to the pad stop, a real gamepad still plays)
+ * or back to the game controls. The choice is written at once, so a game closed any way keeps it. */
+/* Its texts are English and French through rrhk_tr, like the other computer notices: the five-language catalogue
+ * (native/runtime_catalog.inc) is left untouched in 1.6.9 because the Mega Drive and Super Nintendo quick-state keys hash it. */
+static void x_toggle_keyboard(void) {
+   guest_keyboard = !guest_keyboard;
+   if (guest_keyboard && !rrhk_ui()->pads[0])
+      player_notice(rrhk_tr("Computer keyboard: no gamepad connected", "Clavier de l'ordinateur : aucune manette connectee"));
+   else player_notice(guest_keyboard ? RRC_KEYBOARD_ON : "Game shortcuts: ON (F8/F9 save and load)");
+   player_save();
+}
+static void x_option_rows(int slot, RrhkOptionRows *rows) {
+   if (slot == 1)
+      rrhk_option_row(rows, RRC_ROW_KEYBOARD, rrhk_tr("Keyboard (Ctrl+Alt+K): %s", "Clavier (Ctrl+Alt+K) : %s"),
+                      guest_keyboard ? rrhk_tr("computer only", "ordinateur seul") : rrhk_tr("game controls", "commandes du jeu"));
+}
+static bool x_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
+   (void)ui; (void)running;
+   if ((int)key != RRC_ROW_KEYBOARD) return false;
+   x_toggle_keyboard();
+   return true;
 }
 
 /* The mouse is captured (relative) only while the game runs in a focused window. */
@@ -199,10 +232,8 @@ static bool x_event(const SDL_Event *e, bool *running) {
       else if (sym == SDLK_o) ui->menu = RRHK_MENU_OPTIONS;
       else if (sym == SDLK_RETURN) rrhk_cycle_display();
       else if (sym == SDLK_q) *running = false;
-      else if (sym == SDLK_k) {
-         guest_keyboard = !guest_keyboard;
-         player_notice(guest_keyboard ? RRC_KEYBOARD_ON : "Game shortcuts: ON (F8/F9 save and load)");
-      } else if (sym == SDLK_f) rrhk_toggle_autofire();
+      else if (sym == SDLK_k) x_toggle_keyboard();
+      else if (sym == SDLK_f) rrhk_toggle_autofire();
       else if (sym == SDLK_m) { mouse_grab = !mouse_grab; player_notice(mouse_grab ? "Mouse captured (Ctrl+Alt+M to release)" : "Mouse released"); }
       else if (sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN) { want_swap = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; swap_direction = sym == SDLK_PAGEUP ? -1 : 1; }
       else if (sym == SDLK_BACKSPACE) { want_eject = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; }
@@ -243,10 +274,9 @@ static bool x_help_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
    return true;
 }
 
-/* Preferences written when the game closes, as the former host did. */
+/* Preferences written when the game closes, as the former host did (the keyboard's owner is the game's own, in player.cfg). */
 static void player_store_exit(void) {
    const RrhkUi *ui = rrhk_ui();
    if (!ca.windowed || !ui->ini_file[0]) return;
-   rr_display_save(ui->ini_file, ui->data_dir, RRC_INI_SECTION, L"guest_keyboard", guest_keyboard);
    rr_display_save(ui->ini_file, ui->data_dir, RRC_INI_SECTION, L"autofire", ui->autofire != 0);
 }

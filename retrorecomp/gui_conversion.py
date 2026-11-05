@@ -134,10 +134,11 @@ class ConversionMixin:
                     validate_bios(bios)
                 except ValueError as exc:
                     raise ValueError(self.tr('ng_bios_invalid', error=str(exc))) from exc
-            if any(self.items[row].system == 'cps1' and not self.items[row].error for row in chosen_rows):
+            if any(self.items[row].system in ('cps1', 'cps2') and not self.items[row].error for row in chosen_rows):
                 from . import cps1_qsound
-                if any(cps1_qsound.path_needs_dsp_rom(self.items[row].path) for row in chosen_rows
-                       if self.items[row].system == 'cps1' and not self.items[row].error):
+                # every CPS-2 set has the QSound board; only the QSound sets of the CPS-1 do
+                if any(self.items[row].system == 'cps2' or cps1_qsound.path_needs_dsp_rom(self.items[row].path) for row in chosen_rows
+                       if self.items[row].system in ('cps1', 'cps2') and not self.items[row].error):
                     try:
                         cps1_qsound.validate_dsp_rom(options.get('qsound_rom'))
                     except ValueError as exc:
