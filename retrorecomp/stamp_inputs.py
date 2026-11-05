@@ -726,6 +726,10 @@ INPUTS = _resolve({
     # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
     ('pce',): (
         'licenses/pcenginerecomp.md',
+        'native/pce_machine.cpp',
+        'native/pce_machine.h',
+        'native/pce_main.c',
+        'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_rom',
     ),

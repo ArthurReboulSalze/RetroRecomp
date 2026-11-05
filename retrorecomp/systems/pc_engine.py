@@ -28,8 +28,10 @@ class PcEngineProfile(SystemProfile):
     # instructions, native and interpreted apart.
     cpus = (Cpu('huc6280', 'main', 'instructions'),)
     media_kinds = ('cartridge',)
-    # Its own family until the host-kit adapter is written (stage 4 of docs/PC_ENGINE.md).
-    quick_state_family = 'pce'
+    # Quick states use the 16-bit family's file (console16_state.c: header, hash, atomic write); the payload is the
+    # engine's in-memory checkpoint. The window is the host kit's.
+    quick_state_family = 'rr16'
+    host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({17})
     fallback_display = 'opcodes'
     linux = 'pending'
@@ -48,8 +50,9 @@ class PcEngineProfile(SystemProfile):
     library_layout = LibraryLayout(folder='pce')
 
     def available(self) -> bool:
-        # Nothing converts yet; the conversion loop of stage 3 makes this depend on the pinned engine's files.
-        return False
+        # Closed to players until the owner opens the machine; a developer converts with RETRO_RECOMP_PCE=1.
+        import os
+        return os.environ.get('RETRO_RECOMP_PCE') == '1'
 
     def read_rom(self, path: Path):
         from ..pce_rom import read_hucard
