@@ -260,13 +260,15 @@ declare their limits on their own profile, so the stamps of the others no longer
 **What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
 nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
 of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
-quick-state key moves.** The PC Engine's own stamps are new (game `34b609edb4f8`, host `5e41158c895c`, build `66d912662e5c`, first twelve characters). An
+quick-state key moves.** The PC Engine's own stamps are new (game `faae9f7f463d`, host `36739da167de`, build `66d912662e5c`, first twelve characters). An
 export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
 
 **Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
 CMake, start choice), the registry test (`tests/test_machine_registry.py` lists the machine in every registry it needs and declines
 `random_routes` and `memory_view` on the record), the language test (the PC Engine strings in eight languages, in the font
 subsets), and `tools/gui_smoke.py` (the options page of the new machine). Games, ROMs and the engine are not in the repository.
+
+**Disk space.** The clean-up after a publication and Options › Common › Disk space know the PC Engine's build folders (`.build/pce/<12 hex>/`, locked while a conversion runs), like the CPS-1's.
 
 **What a PC Engine export is.** Two players, quick states (F8/F9), the host kit's window and controls
 ([CONTROLS.md](CONTROLS.md#pc-engine)); the report keeps native code, CPU fidelity, hardware fidelity, gameplay and physical latency

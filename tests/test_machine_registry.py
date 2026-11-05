@@ -43,13 +43,13 @@ LEGACY_TAB_KEYS = {'sms': 'options_master_system', 'gg': 'options_game_gear', 'g
 # decision (a new machine adds itself here, in the same change, only with a sentence saying why).
 DECLINED = {
     # Random long routes: the X68000 plays routes of its own (x68000_scan.long_routes), in its own script format.
-    # The PC Engine converts nothing yet: its pad layout and script format come with its conversion loop.
+    # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
     'random_routes': {'x68', 'pce'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): no repository
     # was ever chosen for the arcade board.
     'artwork': {'cps1'},
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
-    # writes no conversion record yet, so there is nothing to summarise.
+    # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
     'memory_view': {'cps1', 'pce'},
 }
 

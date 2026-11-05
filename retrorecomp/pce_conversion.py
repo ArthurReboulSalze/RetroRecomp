@@ -338,8 +338,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     for name, count, text in plan:
                         scripts[name].write_text(text, encoding='ascii', newline='\n')
                     for name, count, _ in plan:
-                        reference[name] = (variants[presses] if name == 'play' else
-                                           run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
+                        # The attract route is the play route without input: the same script over the same frames is played
+                        # once (play-start0) and its trace is the attract reference.
+                        if name == 'attract' and count == play_count and scripts[name].read_text() == baseline.read_text():
+                            reference[name] = variants[0]
+                        else:
+                            reference[name] = (variants[presses] if name == 'play' else
+                                               run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
@@ -420,7 +425,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] for row in checks_rows)
     manifest = json.loads((module / 'module.json').read_text(encoding='utf-8')) if module else {}
-    report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': 'experimental',
+    report = {'tool': 'Retro-Recomp', 'version': __version__,
         'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': 'pce', 'name': 'PC Engine'},
         'rom': card.metadata(), 'converted': True,
         'compiler': {'engine': ENGINE_REPO, 'engine_revision': ENGINE_REV, 'runtime_abi': ENGINE_ABI,

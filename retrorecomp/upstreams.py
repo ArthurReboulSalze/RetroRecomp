@@ -126,7 +126,7 @@ PCENGINERECOMP = Upstream(
     'pcenginerecomp', 'rages4calm/pcenginerecomp', 'main',
     'PC Engine HuC6280 recompiler (Python analysis and emitter) and C++ runtime', 'MIT (with the BSD MAME opcode notice and '
     'the MIT PCECD_seek notice it carries: licenses/pcenginerecomp.md)',
-    'nothing yet: the profile identifies HuCards only; the conversion loop will fetch the emitter and pce-runtime at the pin',
+    'the Python analysis and emitter and the C++ pce-runtime, fetched at the pin when a conversion needs them (no copy in the repository)',
     _py('retrorecomp/pce_conversion.py', 'ENGINE_REV'), checkout='pcenginerecomp')
 GEOLITH = Upstream(
     'geolith-libretro', 'libretro/geolith-libretro', 'master',

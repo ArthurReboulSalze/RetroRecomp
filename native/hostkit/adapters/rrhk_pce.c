@@ -78,7 +78,8 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
                                    "Fleches; X : I, W : II; Entree Run; Maj Select"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_PCE_PAD_BUTTONS == 6 ? rrhk_tr("C/A/S/D: III-VI (six-button pad)",
                                                                               "C/A/S/D : III-VI (manette six boutons)")
-                                                                   : rrhk_tr("Up to four players", "Jusqu'a quatre joueurs"));
+                                                                   : RR_PCE_PLAYERS > 2 ? rrhk_tr("Up to four players", "Jusqu'a quatre joueurs")
+                                                                                        : rrhk_tr("Two players", "Deux joueurs"));
 }
 
 const RrhkMachine *rrhk_adapter(void) {

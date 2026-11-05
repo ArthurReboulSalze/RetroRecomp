@@ -198,6 +198,15 @@ class ExtensionSetTests(unittest.TestCase):
         owners = [profile.id for profile in ALL_PROFILES if '.fig' in profile.extensions]
         self.assertEqual(owners, ['snes'])
         self.assertIn('.fig', systems.MAX_ARCHIVED_ROM_BYTES)
+        before = {'sms': ('.sms',), 'gg': ('.gg',), 'gb': ('.gb',), 'nes': ('.nes',), 'md': ('.md', '.gen'),
+                  'snes': ('.sfc', '.smc'), 'ng': ('.neo',), 'x68': ('.dim', '.xdf', '.m3u'), 'cps1': ('.zip',)}
+        for profile in ALL_PROFILES:
+            if profile.id in before:
+                self.assertEqual(tuple(profile.extensions)[:len(before[profile.id])], before[profile.id], profile.id)
+                # 1.6.6: the X68000 gained D88 and the other names of raw 2HD disks (after the three it had).
+                if profile.id not in ('snes', 'x68'):
+                    self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
+        self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
     def test_the_archive_limits_come_from_the_profiles_and_keep_the_values_of_the_table_they_replace(self):
         # Until 1.6.8 a literal table in systems/__init__.py; each machine now declares its own (archived_rom_limits),
@@ -213,15 +222,6 @@ class ExtensionSetTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             self.assertLessEqual({extension for extension, _ in profile.archived_rom_limits}, set(profile.extensions),
                                  profile.id)
-        before = {'sms': ('.sms',), 'gg': ('.gg',), 'gb': ('.gb',), 'nes': ('.nes',), 'md': ('.md', '.gen'),
-                  'snes': ('.sfc', '.smc'), 'ng': ('.neo',), 'x68': ('.dim', '.xdf', '.m3u'), 'cps1': ('.zip',)}
-        for profile in ALL_PROFILES:
-            if profile.id in before:
-                self.assertEqual(tuple(profile.extensions)[:len(before[profile.id])], before[profile.id], profile.id)
-                # 1.6.6: the X68000 gained D88 and the other names of raw 2HD disks (after the three it had).
-                if profile.id not in ('snes', 'x68'):
-                    self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
-        self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
 
 # --- the detection table ----------------------------------------------------------------------------

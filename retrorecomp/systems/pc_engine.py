@@ -1,9 +1,10 @@
-"""PC Engine / TurboGrafx-16 HuCard profile (experimental, in development: see docs/PC_ENGINE.md).
+"""PC Engine / TurboGrafx-16 HuCard profile (experimental since 1.6.9: see docs/PC_ENGINE.md).
 
 Scope decided on 5 November 2026: HuCards only (no CD-ROM2, no SuperGrafx), NTSC, 2- and 6-button pads, the
-Street Fighter II mapper, the multitap read for four players (the console takes five: Bomberman is the named case).
-Engine: rages4calm/pcenginerecomp (MIT), pinned in upstreams.py. Developer-only until the conversion loop exists:
-players see no PC Engine entry, and a .pce file is refused as an unknown console.
+Street Fighter II mapper, the multitap read for four players (the console takes five: Bomberman is the named case; a converted
+game is built for two players today).
+Engine: rages4calm/pcenginerecomp (MIT), pinned in upstreams.py. Listed to players when the installation carries the converter
+files (available()); a .pce file is refused as an unknown console only when those files are missing.
 """
 from __future__ import annotations
 
