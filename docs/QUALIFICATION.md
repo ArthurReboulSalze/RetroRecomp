@@ -561,6 +561,8 @@ known difference with MAME, not changed.
 (Lemmings 5, Star Luster 4, Bubble Bobble 1), authored vectors for the long immediate forms with a memory destination, the thorough scan level and
 disk requests late in a game, a game that saves on purpose, interactive play witnessed on Linux, and a new review of the px68k upstreams.
 
+**Replay on the tree of the exit (5 November 2026, Windows).** The 21 games of the panel and R-Type at 4 MiB were converted again with the tree of the exit commit (standard level, an empty private library for each, no shared base, no online cover, two conversions at a time, 122 to 325 seconds each): **0 interpreted opcodes on all 66 routes** (22 conversions, three routes each), the compressed copy matching the fresh reference on all 22, F8/F9 resumed in a fresh process on all 22, the report says `supported`, sound on 21 of the 22 (Uno is accepted as silent, as before) and the two automatic disk changes of Metal Sight. Against the panel of 2 November (the 1.6.6 tree): the **CPU, RAM and PCM hashes are equal on all 66 routes**; the picture hashes differ on all 66, as expected (the 1.6.7 colour of the intensity bit, [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md)); the numbers of different pictures and of audio blocks of every route are equal. Two further conversions (Twins, Fancy Qix) against the 1.6.8 tree give 513 values each of which only the status and the timings differ: the CPU, RAM, picture and PCM hashes and the trace digest of the three routes are equal. The Debian replay of the same tree is still to do (G13 stands on the 1.6.6 tree until then).
+
 ## Owner acceptance
 
 Owner play tests (gate G14), one row per test. The table starts empty; the
