@@ -49,10 +49,10 @@ def environment(library: Path) -> dict:
                 RETRO_RECOMP_LIBRARY_DIR=str(library))
 
 
-def convert(slugs: list, roms: Path, out: Path, library: Path, jobs: int) -> tuple[int, float, str]:
+def convert(slugs: list, roms: Path, out: Path, library: Path, jobs: int, backend: str) -> tuple[int, float, str]:
     """One batch of all the chosen games: `jobs` conversions at a time, extended level, empty library, no network."""
     command = [sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'batch', '--scan-level', 'extended', '--no-online-cover', '--no-shared-base',
-               '--keep-build', '--jobs', str(jobs), '--output', str(out)]
+               '--keep-build', '--jobs', str(jobs), '--backend', backend, '--output', str(out)]
     command += [str(roms / FOLDERS[GAMES[slug][0]] / GAMES[slug][1]) for slug in slugs]
     started = time.perf_counter()
     result = subprocess.run(command, env=environment(library), capture_output=True, text=True, timeout=4 * 3600, cwd=ROOT)
@@ -99,10 +99,12 @@ def sheet(shots: list, target: Path) -> Path | None:
     return target
 
 
-def replay(slug: str, report: dict, work: Path) -> dict:
+def replay(slug: str, report_path: Path, report: dict, work: Path) -> dict:
     """The delivered file on every final route of the conversion: liveness numbers, and the sheet of captures."""
     from retrorecomp.sega_evidence import route_liveness
-    executable = Path(report['published_directory']) / report['executable']
+    # The banked engine stores the folder it published to; the "functions" engine does not: the console folder of the export is the
+    # fourth parent of the report (<console>/datas/reports/<game>/conversion-report.json).
+    executable = Path(report.get('published_directory') or report_path.parents[3]) / report['executable']
     result = {'executable': str(executable), 'routes': {}}
     folder = work / 'replay' / slug
     shot_rows = []
@@ -129,6 +131,7 @@ def summarise(report: dict) -> dict:
             'mapper': next((d['id'] for d in report.get('hardware_devices') or () if d['kind'] == 'cartridge_mapper'), None),
             'native_validation_passed': (report.get('native_validation') or {}).get('passed'),
             'packed_reference_match': (report.get('native_validation') or {}).get('packed_reference_match'),
+            'packed_replay': report.get('packed_replay'), 'reference_vdp_trace_match': report.get('reference_vdp_trace_match'),
             'states': (report.get('game_states') or {}).get('supported'),
             'scenarios': [{'scenario': c['scenario'], 'frames': c['requested_frames'], 'interpreter_cycles': c.get('interpreter_cycles'),
                            'interpreter_percent': c.get('interpreter_percent'), 'native_instructions': c.get('native_instructions'),
@@ -142,6 +145,7 @@ def main() -> int:
     parser.add_argument('--work', type=Path, default=ROOT / '.build' / 'sega-campaign')
     parser.add_argument('--only', action='append', choices=sorted(GAMES))
     parser.add_argument('--jobs', type=int, default=2)
+    parser.add_argument('--backend', choices=('banked', 'functions'), default='banked')
     parser.add_argument('--reuse', action='store_true', help='keep the conversions already done in the work folder')
     args = parser.parse_args()
     work = args.work.resolve()
@@ -151,7 +155,7 @@ def main() -> int:
     summary_path = work / 'summary.json'
     summary = {'games': {}}
     if not args.reuse or not reports(out):
-        code, seconds, tail = convert(slugs, args.roms, out, work / 'library', args.jobs)
+        code, seconds, tail = convert(slugs, args.roms, out, work / 'library', args.jobs, args.backend)
         summary['batch'] = {'exit': code, 'wall_seconds': round(seconds, 1)}
         if code:
             summary['batch']['tail'] = tail
@@ -164,7 +168,13 @@ def main() -> int:
         else:
             path, report = found[Path(name).stem]
             row.update(converted=True, report=str(path), **summarise(report))
-            row['replay'] = replay(slug, report, work)
+            published = Path(report.get('published_directory') or path.parents[3]) / report['executable']
+            if published.is_file():
+                row['replay'] = replay(slug, path, report, work)
+            else:
+                # The "functions" engine refuses an export that differs from the interpreter: the report stays, the game does not.
+                row['refused'] = {'reference_vdp_trace_match': report.get('reference_vdp_trace_match'),
+                                  'first_mismatched_frames': (report.get('reference_vdp_mismatched_frames') or [])[:3]}
         summary['games'][slug] = row
         print(f'== {slug}: ' + json.dumps({key: row.get(key) for key in ('converted', 'mapper', 'video')}), flush=True)
     summary_path.write_text(json.dumps(summary, indent=1) + '\n', encoding='utf-8')
