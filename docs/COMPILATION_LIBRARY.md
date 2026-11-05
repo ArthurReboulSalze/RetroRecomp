@@ -144,7 +144,8 @@ upgraded exports, a state written by the old one being resumed by the new one):
 - NES: the key covers the engine files as written in the player's project folder, including
   its path, so it is the same before and after the upgrade in the same workspace (checked: the
   tag and this branch give the same key for the same path, and that key is in the released
-  executable). It never moved between workspaces.
+  executable). It never moved between workspaces. This describes the key of that time: since
+  1.6.5 (commit `c71038a`) the NES key no longer depends on the project folder or on any path.
 - Master System, Game Gear, Game Boy: the state header holds the ROM identity, a schema number
   and sizes; the state code is byte for byte the one of 1.4.1. They cannot be saved without a
   window, so only the final video trace (Master System, Game Gear) or the final state dump
