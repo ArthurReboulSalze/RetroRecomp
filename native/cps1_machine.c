@@ -1505,7 +1505,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     const size_t qsound_bytes = (M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0) +
                                 (M.board.cps2 ? CPS2_TAIL_BYTES : 0);
     if (r.bad || r.used + opm_size + qsound_bytes != size || line < 0 || line >= LINES || latch_count < 0 ||
-        latch_count > LATCH_QUEUE || sound_bank > (M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
+        latch_count > LATCH_QUEUE || sound_bank > (M.board.cps2 ? 15 : M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
     for (int i = 0; i < 4; i++)
         if (oki.voice[i].step < 0 || oki.voice[i].step > 48) return 0;
     uint8_t qram[2][QSOUND_SHARED] = {{0}};
@@ -1673,6 +1673,12 @@ int rr_cps1_force_z80_reference;
 int rr_cps1_observe = 1;
 #ifdef CPS1_FEEDBACK
 #include "runtime_feedback.h"
+/* The CPS-2 game has record kinds of its own (17 to 19), the three of the CPS-1 shifted by three. */
+#ifdef RR_CPS2
+#define FB_KIND(kind) ((kind) + 3)
+#else
+#define FB_KIND(kind) (kind)
+#endif
 #endif
 
 static void note_miss(miss_t *table, uint32_t pc, uint16_t word)
@@ -1693,7 +1699,7 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
         uint32_t region, offset; unsigned available;
         const uint8_t *bytes = rr_cps1_code_bytes(pc, &region, &offset, &available);
         if (bytes && available >= 2 && region != CODE_GFX)
-            rr_feedback_note(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM, offset, 0, bytes,
+            rr_feedback_note(FB_KIND(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM), offset, 0, bytes,
                              region == 3 ? (available < 16 ? available & ~1u : 16) : 2);
     }
 #endif
@@ -1724,7 +1730,7 @@ void rr_cps1_z80_note_fallback(uint16_t pc)
         uint8_t bytes[4] = {0};
         for (unsigned n = 0; n < 4; n++) rr_cps1_z80_code_byte((uint16_t)(pc + n), &bytes[n]);
         rr_cps1_z80_code_byte_m1(pc, 1, &bytes[0]);
-        rr_feedback_note(RR_FB_CPS1_Z80, pc, 0, bytes, 4);
+        rr_feedback_note(FB_KIND(RR_FB_CPS1_Z80), pc, 0, bytes, 4);
     }
 #endif
     if (!rr_cps1_observe) return;

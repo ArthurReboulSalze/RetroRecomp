@@ -381,17 +381,18 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     from .core import executable_name
     from .metadata import write_game_metadata
     icon, artwork = False, {'embedded': False, 'source': 'disabled'}
+    system = getattr(game_set, 'system_id', 'cps1')
     if presentation is not None:
         from .artwork import prepare_icon
         from .paths import boxart_cache_directory
         artwork = prepare_icon(project, presentation['rom_path'], title,
             presentation.get('boxart_dir') or ROOT / 'BoxArt', explicit=presentation.get('cover'),
             online=presentation.get('online_cover', True), enabled=presentation.get('use_cover', True),
-            cache_directory=boxart_cache_directory('cps1'), system_id='cps1', emit=presentation.get('emit', print))
+            cache_directory=boxart_cache_directory(system), system_id=system, emit=presentation.get('emit', print))
         icon = artwork['embedded']
     (project / 'artwork.json').write_text(json.dumps(artwork, indent=2), encoding='utf-8')
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=icon,
-                                   standard='arcade', system_id='cps1')
+                                   standard='arcade', system_id=system)
     (project / 'export-identity.bin').write_bytes(b'[Retro-Recomp]\0' + game_set.sha256.encode('ascii') + b'\0')
     _write(project / 'content.rc', '#pragma code_page(65001)\n'
                   f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
@@ -441,7 +442,7 @@ endif()
 '''
     _write(project / 'CMakeLists.txt', cmake)
     from .feedback import stage
-    stage(project, 'cps1', game_set.sha256)
+    stage(project, system, game_set.sha256)
     return {'analysis': analysis, 'artwork': artwork, 'windows_metadata': metadata,
             'packed_sha256': hashlib.sha256(payload).hexdigest()}
 

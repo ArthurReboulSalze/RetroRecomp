@@ -67,9 +67,6 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
-                               # The CPS-2 romset reader: no CPS-2 profile exists yet, so no stamp reads it; with the profile it becomes
-                               # a game input of the CPS-2 like its CPS-1 counterpart.
-                               'cps2',
                                # The registration list of the machines: a new machine adds one line there and
                                # no other console's stamp moves (docs/NEW_MACHINE.md).
                                'registry',
@@ -181,8 +178,6 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
-    # The CPS-2 catalogue: no CPS-2 profile exists yet, so no stamp reads it (it joins the CPS-2 owners with the profile).
-    'assets/cps2-catalogue.json',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
     'licenses/SingleStepTests-sm83.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
@@ -694,7 +689,8 @@ INPUTS = _resolve({
         'tools/x68000_reference_check.py',
         'tools/x68000_state_hardware.py',
     ),
-    ('cps1',): (
+    # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
+    ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
@@ -720,10 +716,6 @@ INPUTS = _resolve({
         'native/cps1_z80_native.h',
         'retrorecomp.capcom_catalogue',
         'retrorecomp.capcom_sets',
-        # read by cps1_board, which writes the CPS-2 board folders too (the profile of the CPS-2 will own them with the CPS-1)
-        'retrorecomp.cps2_catalogue',
-        'retrorecomp.cps2_crypt',
-        'retrorecomp.cps2_tables',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
         'retrorecomp.cps1_build',
@@ -733,6 +725,14 @@ INPUTS = _resolve({
         'retrorecomp.cps1_kabuki',
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
+    ),
+    # What only the CPS-2 adds: its catalogue, its romset reader and the key decryption of its program.
+    ('cps2',): (
+        'assets/cps2-catalogue.json',
+        'retrorecomp.cps2',
+        'retrorecomp.cps2_catalogue',
+        'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_tables',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its

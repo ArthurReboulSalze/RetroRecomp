@@ -185,7 +185,7 @@ within existing hardware support; it does not add X1-017 IRQ circuitry.
 On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.
 
-Two more profiles are registered beyond the seven consoles above. **Capcom CPS-1**
+Three more profiles are registered beyond the seven consoles above. **Capcom CPS-1**
 is supported since 1.6.6 for MAME or FBNeo ZIP romsets of the standard boards,
 within [its documented scope](CPS1.md) (the QSound boards of the CPS-1.5 included since 5 November 2026, with your own QSound DSP ROM; the DSP16 is a model after MAME's): each conversion compares the guarded
 native code with a fresh interpreted reference run, and the report keeps board
@@ -195,7 +195,9 @@ what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 Nov
 **Sharp X68000** prototype is experimental; it converts DIM, XDF and D88 disks and
 ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
 each export is compared with a fresh reference run on bounded routes, which
-does not establish hardware fidelity, complete gameplay or physical latency.
+does not establish hardware fidelity, complete gameplay or physical latency. The **Capcom CPS-2** profile is experimental and visible in a
+developer installation only: it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board
+model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
 
 ## Local game regression set
 

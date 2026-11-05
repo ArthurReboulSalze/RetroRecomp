@@ -224,7 +224,7 @@ class ProfileContractTests(unittest.TestCase):
                 if catalogues.local_catalogue:
                     self.assertIn(catalogues.local_catalogue, stamp_inputs.RAW_FILES)
                     self.assertTrue((REPO / catalogues.local_catalogue).is_file())
-        self.assertEqual({p.id for p in ALL_PROFILES if p.catalogues.local_catalogue}, {'ng', 'cps1'})
+        self.assertEqual({p.id for p in ALL_PROFILES if p.catalogues.local_catalogue}, {'ng', 'cps1', 'cps2'})
 
     def test_library_layout_equals_the_library_root_and_the_memory_window(self):
         import os
@@ -329,13 +329,13 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_identification_orders_follow_the_documented_priority(self):
         from retrorecomp.systems import registry
-        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'ng'])
+        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'cps2', 'ng'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
         self.assertEqual(tuple(p.id for p in registry.convertible_profiles()[-1:]),
-                         ('x68',) if get_profile('x68').available() else ('cps1',))
+                         ('cps2',) if get_profile('cps2').available() else ('x68',) if get_profile('x68').available() else ('cps1',))
 
 
 class ConvertedOptionsTests(unittest.TestCase):

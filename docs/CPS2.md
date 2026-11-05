@@ -2,8 +2,8 @@
 
 **Experimental** machine, in development (5 November 2026): the Capcom CPS-2 arcade board (1993 to 2004), a 16 MHz 68000 with an
 encrypted program, the CPS graphics chips with an object chip of its own, and the QSound sound board of the
-[CPS-1.5](CPS1.md#cps-15-qsound-boards). This page says what exists and what has been measured. The profile is not
-registered in the converter yet: the board runs from a development build, not from the converter's window.
+[CPS-1.5](CPS1.md#cps-15-qsound-boards). This page says what exists and what has been measured. The profile `cps2` is registered
+(developer installations only, like the X68000 was): it reuses the CPS-1 pipeline, and the first conversions are being run.
 
 Sources and licences of the board model: [cps1-machine.md](../licenses/cps1-machine.md) (MAME's CPS-2 driver and decryption,
 BSD-3-Clause). Until the conversion exists, the dated measurements are on this page.
@@ -12,7 +12,7 @@ BSD-3-Clause). Until the conversion exists, the dated measurements are on this p
 
 | | |
 |---|---|
-| Status | Experimental, in development: the board and its evidence exist as a development build; no profile, no conversion, no export |
+| Status | Experimental, in development: the board and its evidence exist as a development build; the profile is registered and hidden outside developer installations; no export is delivered yet |
 | Scope of the first release | The standard A-board with the player's own key: 258 sets of MAME's CPS-2 driver (Capcom and licensed games); 236 of them are complete in the owner's FBNeo romsets by file names. Out: bootlegs (47), dead boards (2), network adapter (7), spinner and paddle games (10, later), `gigaman2` |
 | Keys | A set's 20-byte decryption key is a file of the player's own romset (`ssf2.key`). The converter reads it from the archive; it never supplies, embeds or downloads one, and refuses a romset that has none |
 | Sound | The QSound chip, with the player's own `dl-1425.bin` (the same option as the CPS-1.5); the DSP16 is not executed: a high-level model, as MAME's by default |
@@ -54,13 +54,22 @@ fidelity, gameplay validation and physical latency; the last three are not valid
 | Bus accesses (`0x400000` to `0x8fffff`) of the first 80 frames | the same 61,657 accesses, values included, as MAME |
 | `ssf2` attract, 90 pictures from frame 100 to 9,000 | identical to MAME's, pixel for pixel |
 | `ssf2` credited play route, 3,600 frames | 360 pictures sampled, 360 identical to MAME's; QSound sound: median level difference 0.008 dB, averaged spectrum cosine 0.9997, aligned waveform correlation 0.97 (MAME runs the same high-level model) |
+| Panel of eight sets, the same credited play route and the same sampling (MAME 0.289) | `ssf2`, `ddtod`, `dimahoo`, `xmvsf`, `mvsc`, `msh`: 360 of 360 pictures identical; `sfa3`: 359 of 360 (one picture at frame 100); `mmatrix`: 92 of 360, see the limits. Sound on all eight: median level difference 0.004 to 0.026 dB, averaged spectrum cosine 0.9968 to 0.9997; the waveform agrees at 0.98 to 0.99 (median of the best-lag correlation per 0.1 s window), with a lag that drifts by under one sample per second: MAME runs the chip at 24,038 Hz and the game at 24,038.46 Hz |
+| Bus accesses (`0x400000` to `0x92ffff`: object output, shared RAM, object RAM, CPS registers, inputs, EEPROM port, graphics RAM) of the whole route | `sfa3` (2,000 frames) and `msh` (2,200 frames): the same accesses, values included, as MAME; `mmatrix`: the same for the first 1,340 frames |
+| Raster interrupt (`ssf2`, attract from frame 6,818, counter 1 reloaded at 148) | frames 6,800 to 7,000 compared one by one with MAME: identical, 152 of the 183 raster frames at the same frame number and the rest at the nearest of three neighbours |
 | Quick state | saved at frame 900 and loaded in a fresh process: the same CPU and RAM hashes at frame 1,500 |
 | Saves | the windowed host writes a 224-byte file at the first run and leaves it unchanged at the second |
-| Non-regression | a CPS-1 set (`1941`): generated code and checks identical to the previous tree; a CPS-1.5 set (`wof`): generated steps identical, 3,600-frame traces identical, 0 interpreted |
+| Non-regression (earlier tree, before the profile) | a CPS-1 set (`1941`): generated code and checks identical to the previous tree; a CPS-1.5 set (`wof`): generated steps identical, 3,600-frame traces identical, 0 interpreted |
 
 ## Known limits
 
-* No conversion, no profile, no panel yet; the evidence above is `ssf2` (and the panel of the log once it exists).
+* The evidence above comes from a development build driven with MAME's own route; the conversion through the converter (fresh reference,
+  packed copy, states) is being run set by set and is not reported here before it has passed.
+* `mmatrix`: the title animation of the picture is one frame ahead of MAME's from frame 775 to 783 (the same pictures, shifted by one frame), although
+  every bus access of the game, graphics RAM included, is equal to MAME's; the cause is not found. Every other frame of the route is equal.
+* Timing inside an instruction: the 68000 here reads and writes at the start of an instruction, MAME's clock a few bus cycles later (about 5 pixels
+  for a read, 10 for a write). The raster counters are read with 8 cycles added to compensate; a game that reads a counter near the end of a line can
+  still see the next line's value earlier or later than MAME does.
 * Hardware fidelity: the speed (0.7375), MAME's one-frame lag of the sprites and its defects (for example the 32x32 tiles of
   Marvel vs. Capcom at super-move flashes) are in the reference; a picture equal to MAME's can still differ from the board's.
 * The DSP16 of the QSound chip is not run; the sound is MAME's high-level model.

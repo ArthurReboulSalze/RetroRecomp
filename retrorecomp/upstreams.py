@@ -218,6 +218,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'snes': (SNESRECOMP,),
     'ng': (GEOLITH, LITHOGEN, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
+    'cps2': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

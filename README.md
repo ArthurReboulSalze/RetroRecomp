@@ -76,6 +76,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Sharp X68000](docs/X68000.md) | experimental | `█████████░` 90 % |
+| [Capcom CPS-2](docs/CPS2.md) | experimental | `█░░░░░░░░░` 7 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
@@ -93,7 +94,7 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 
 | Machine | Stage |
 | --- | --- |
-| Capcom CPS-2 | in development |
+| Capcom CPS-2 | experimental profile, hidden outside developer installations (row above) |
 | PC Engine / TurboGrafx-16 | in development, HuCards first |
 | Game Boy Advance | in development |
 | Commodore Amiga 500, then Amiga 1200 | study |
