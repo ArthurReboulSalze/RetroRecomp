@@ -74,7 +74,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'compilation_inputs', 'stamp_inputs',
                                # Amiga (stage 2, no profile yet): the WHDLoad install readers are used by no machine,
                                # so they are in no stamp; they move into INPUTS under the Amiga profile when it exists.
-                               'amiga_lha', 'amiga_whdload'))
+                               'amiga_lha', 'amiga_whdload', 'amiga_codegen'))
 
 # Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
 # A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
