@@ -1,221 +1,125 @@
 # RetroRecomp roadmap
 
-The current public packages have eight supported console profiles on Windows
-(Capcom CPS-1 since 1.6.6) plus the experimental Sharp X68000, and a native Linux
-x86-64 package. Support remains bounded to documented cartridge hardware;
-Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
+This page says what is planned for each machine, in the order we expect to work on it. It states intentions, not dates or
+compatibility promises: a plan can change when evidence says so. Each machine's progress through the common qualification
+list is in [QUALIFICATION.md](QUALIFICATION.md); the games that do not convert are in [KNOWN_FAILURES.md](KNOWN_FAILURES.md).
 
-RetroRecomp converts supported Master System, Game Gear, original Game Boy
-and NES ROMs, includes a supported Mega Drive standard-cartridge profile
-and a supported standard Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
-their documented hardware scope. The
-priorities below describe areas to improve, not compatibility or delivery promises.
+Five measures stay separate in every step below: native code, CPU fidelity, hardware fidelity, gameplay validation and
+physical latency. Native execution alone guarantees neither complete compatibility nor zero latency, and the interpreter
+fallback stays counted and shown wherever it is used.
 
-## X68000 and future machines
+## Where things stand (1.6.8, November 2026)
 
-The Sharp X68000 is the first classic computer profile. It has been included
-in public downloads as an experimental profile since 1.1.9. Native RAM code,
-common menus, quick states and multi-disk sequences are in place; gameplay
-coverage, hardware edge cases and low-power Linux performance are still being
-improved before it leaves the experimental stage. See [X68000 status](X68000.md).
+| Machine | Status | Qualification progress | Next step |
+| --- | --- | --- | --- |
+| Master System | supported | 63 % | the evidence lot below |
+| Game Gear | supported | 60 % | the evidence lot below |
+| Game Boy | supported | 91 % | owner play test; Game Boy Color as a profile of its own |
+| NES | supported | 91 % | broader panel |
+| Mega Drive | supported | 84 % | report and Linux witness; MAME sound comparison |
+| Super Nintendo | supported | 88 % | owner play test, Linux witness; DSP-2 and DSP-4 |
+| Neo Geo | supported | 94 % | Linux witness on more games |
+| Capcom CPS-1 | supported | 90 % | count every Z80 step; rotary-dial boards |
+| Capcom CPS-1.5 (QSound) | experimental tier of the CPS-1 | — | owner play test |
+| Sharp X68000 | experimental | 90 % | the remaining gates, then the owner's decision |
 
-Capcom CPS-1 has been included in public downloads since 1.2.7 and is supported
-since 1.6.6: MAME/FBNeo ZIP romsets of the standard boards (no QSound), DIP
-switches, up to four players and quick states. Broader gameplay coverage is
-still being built. See [the CPS-1 profile](CPS1.md) and its
-[qualification](QUALIFICATION.md).
+The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
+quality score, and it never decides a status.
 
-A next step for the board family is the QSound sets (CPS-1.5), now in
-development, which the CPS-1 profile does not take yet. They would start in the
-experimental tier; no date and no outcome is promised.
+## Across all machines
 
-## Stable runtimes and a growing library — 1.2.0
+- **The owner's play test (gate G14).** The Master System, Game Gear, Game Boy and Super Nintendo still wait for it.
+- **Linux witnesses (gate G13).** The Mega Drive, Super Nintendo, Neo Geo and CPS-1 compare Windows and Linux on a few games
+  only; the plan is a small campaign per machine on a Debian 13 PC.
+- **Hardware evidence (gate G11)** stays partial on every machine: without measurements of real hardware, comparisons with
+  test ROMs and reference emulators are what we can offer, and the reports say so.
+- **The shared base.** A converter will send only the paths its base does not know yet, so the online service grows
+  slowly between releases.
+- **The common host kit.** A five-player adapter (PC Engine multitap, Super Nintendo multitap) is planned; today the kit
+  takes four players.
+- **Shared code.** The Windows/Linux comparison tools and the MAME capture tools of several machines become one module
+  each.
 
-Release 1.2.0 completes a performance pass over every console profile, with
-identical traces on the comparison routes; see the
-[performance notes](RUNTIME_PERFORMANCE.md). Apart from the experimental Sharp
-X68000, the runtime code of the current consoles is now stable and already
-highly optimized on Windows and Linux, and further speed gains there should be
-modest. For these consoles, the main ongoing work is breadth: more titles and
-more verified entries in the shared compilation library, added step by step.
-The X68000 continues its experimental phase. Its panel of 21 named games, the
-Windows and Linux comparison, automatic disk changes, mouse checks and D88 images
-are in place; the independent CPU and hardware evidence is partial (MAME-made
-vectors and a MAME comparison, not silicon) and the owner's own play test, and
-his decision, remain before it can leave that phase
+## Per machine
+
+### Master System and Game Gear
+
+Next: an evidence lot like the Game Boy's in 1.6.8, with no change to how games convert: the Linux witness, a capture
+campaign for liveness and route depth, per-device interpreter counters in the report, an honesty audit of the pages.
+Then the six cartridges the "functions" engine still fails on (Action Fighter among them). Later: the Game Gear's sprite
+flicker reduction, offered as on the Master System.
+
+### Game Boy
+
+Next: the owner's play test. Then the **Game Boy Color** as a profile of its own: the pinned engine already runs the
+Color mode, but its timing tests do not all pass yet in that mode, and Color-only cartridges stay refused until then.
+The remaining test ROMs (the wave channel read while it plays, the `oam_bug` timing effect) are listed in
+[KNOWN_FAILURES.md](KNOWN_FAILURES.md) and have a low priority: no game of the campaigns shows them.
+
+### NES
+
+Next: a broader panel (gate G12) and an honesty pass on the pages (gate G15). Later: more
+board variants and RAM-bearing layouts, longer gameplay routes. The Famicom Disk System stays out of scope.
+
+### Mega Drive
+
+Next: the report contract and the Linux witness on more games, a first MAME comparison of the sound, and two open choices
+(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left are undefined in the manual and
+stay as they are. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
+stay out of scope.
+
+### Super Nintendo
+
+Next: the owner's play test and the Linux witness on more games. Then the DSP-2 and DSP-4 chips (Dungeon Master, Top Gear
+3000), then the SPC7110. The Super FX runs as a counted interpreted device; a native Super FX is planned in stages
+([SNES_SUPERFX.md](SNES_SUPERFX.md)). Native CX4 and finer CPU phases remain later work.
+
+### Neo Geo
+
+Next: the Linux witness on more games. Fight Fever needs another dump. Other BIOS
+revisions, boards and peripherals keep their own scope.
+
+### Capcom CPS-1 and CPS-1.5
+
+Next: count every instruction the Z80 runs on the reference core (one interrupt mode is not counted yet), and the owner's
+play test of the QSound games. Then the rotary-dial boards (Forgotten Worlds, Lost Worlds), done together with the
+CPS-2's spinner so the two share one input. Later: a low-level model of the QSound sound chip, done once for the CPS-1.5
+and the CPS-2. Pang! 3, the CPS Changer cartridges and bootlegs stay out of scope.
+
+### Sharp X68000
+
+The X68000 stays experimental until its remaining gates are met and the owner decides
 ([QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-evidence-behind-its-column-29-october-2026-status-of-1-november-2026)).
+Next: the independent CPU evidence (gate G10) and a wider play test by the owner. Sound-free routes stay accepted and
+reported; a Roland MIDI model is not planned. Hard-disk images stay out of scope.
 
-## Next machines
+## Machines in development
 
-More consoles and classic computers will join after this work. The technical
-groundwork for each has been reviewed. Existing 68000 and Z80 components will
-be reused where appropriate, and each machine will receive its own experimental
-phase, validation and compatibility scope. Planned order:
+Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
+on the owner's decision after the qualification list.
 
-- Capcom CPS-2 arcade boards
-- PC Engine / TurboGrafx-16
-- Game Boy Advance
+- **Capcom CPS-2.** Its own experimental profile built on the CPS-1 and CPS-1.5 modules: the 68000's encrypted program,
+  decrypted with the key file of the player's own romset (keys are never shipped), the CPS-2 sprite chip and raster
+  effects, QSound sound. First scope: the standard boards; spinner and paddle games later.
+- **PC Engine / TurboGrafx-16.** HuCards first, on a pinned open recompiler we contribute to upstream; SuperGrafx and
+  CD-ROM² later, with the player's own System Card.
+- **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the
+  real-time clock first, sensors (tilt, gyroscope, solar) later.
+
+## Planned after that
+
 - Atari ST
 - Amiga 500 (WHDLoad-based)
 - Amiga 1200 AGA (WHDLoad-based)
 - Nintendo 64
 - PlayStation
 
-This list states intentions, not dates or compatibility promises.
-
-
-## Delivered in 1.1.5 — 19 October 2026
-
-Persistent Compiled Games, favorites, cached covers and manual short game-info
-lookup are available on Windows and Linux. Per-console source folders support
-exact-ROM recovery for regeneration. Game Memory loads one console with cached
-summaries; compact controls and credits retain the approved visual identity.
-The qualified 1,105-identity knowledge snapshot is unchanged. See
-[compiled games](COMPILED_GAMES.md) and [release notes](RELEASE_NOTES.md).
-
-## Delivered in 1.1.4 — 19 October 2026
-
-The converter gains an animated credits demo, direct four-channel ChipLoom MOD
-playback, percussion-driven spheres and centered Options. These interface-only
-changes retain the 1,105-identity knowledge library and existing game exports.
-See [credits](CREDITS.md) and [release notes](RELEASE_NOTES.md).
-
-## Delivered in 1.1.3 — 18 October 2026
-
-This release includes general Game Boy compiler improvements, without retrying
-its problematic cartridges individually. Sonic performance on the Debian test
-machine has improved but is not fully fluid; further work remains separate.
-
-The [final local review](QUALITY_REVIEW.md) adds safer concurrent GB/NES
-learning, stable source/packaged adapter identities, bounded export reads and
-long-filename fixes on Windows and Linux, without scanning more games.
-
-- Per-console compiler fingerprints keep exports after interface-only changes;
-  exact settings, binary hashes, runtime changes and new fallback hints still
-  invalidate them. Interrupted batches recover their unfinished rows explicitly.
-- Concurrent conversions share compiler capacity. Game Boy incremental source
-  hashing uses bounded buffers and retains all translation/validation budgets.
-- NES removes duplicate sprite selection work; Mega Drive guards invalid banked
-  feedback offsets. No whole-game speed gain is inferred from numeric checks.
-- Twelve Game Gear cartridges and the previously failed 3 Count Bout pass fresh
-  qualification. The local snapshot has 1,105 identities, including 13 GG and
-  66 Neo Geo. Lossless SPC reference compaction reduces the compressed bank to
-  8.3 MiB; all 606 existing Game Boy records are unchanged.
-- Next: broader Linux distribution baselines, targeted runtime profiling when
-  useful, and bounded hardware/gameplay cases rather than unbounded campaigns.
-
-| Priority | Work needed |
-| --- | --- |
-| Runtime performance | The 1.2.0 performance pass is complete and the current runtimes are stable. Keep measuring low-power Linux targets, especially the Mega Drive; desktop speed, sound quality and physical latency need target testing. See [performance notes](RUNTIME_PERFORMANCE.md). |
-| Neo Geo | Broaden MVS/AES gameplay, guarded RAM coverage and independent rendering evidence. Other BIOS revisions, boards and peripherals have separate scope. See [evidence and remaining work](NEOGEO.md). |
-| Broader game coverage | Explore more gameplay paths and guarded RAM variants; reduce reported interpreter fallback. |
-| Video and peripherals | Refine hardware timing and edge cases using independent fixtures and game evidence. |
-| Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |
-| Input response | Measure end-to-end controller latency before making performance claims. |
-| NES | Broaden VRC/Taito guarded-RAM and lower-ROM-alias qualification, PAL, peripheral and gameplay validation. |
-| Mega Drive | Extend gameplay and unusual cartridge circuits beyond the qualified standard profile; refine electrical, field and bus-error behavior with independent evidence. |
-| Super Nintendo | Extend gameplay beyond the completed standard-profile qualification; refine instruction-internal and parked-CPU phases, disputed OAM access and CX4 native coverage. Other cartridge circuits have separate support gates. |
-| Knowledge size | Lossless SPC compaction is included; continue tracking growth within the bounded 128 MiB decompressed budget (64 MiB until the Mega Drive collection campaign) and every qualification gate. |
-
-## Recompilation priorities after 0.25.0
-
-### NES
-
-NES is now treated as a supported profile within its documented cartridge scope.
-Native entries cover every physical PRG ROM byte, including bank-switched code.
-The wider qualification set spans eight games and eight mapper families;
-see [NES evidence](NES.md#broader-cartridge-validation).
-
-The local follow-ups add guarded RAM entries and fetch-time handling for the
-PPU-dependent MMC1/MMC1A and mapper-153 configurations, including enabled
-FME-7 RAM and mapper 153's ordinary RAM mode. The Zelda, Kirby and FME-7 cases
-use live operands instead of unconditional RAM fallback. DMA audio/sprite
-arbitration, pending interrupts/reset, later fresh-process states and bounded
-TriCNES comparisons extend the qualification. Continue longer, varied gameplay
-and additional RAM-bearing board layouts; unobserved entry/opcode variants
-and contended hardware windows remain visibly interpreted.
-The current development also covers mapper-40/FME-7 ROM aliases at $6000-$7FFF
-and the accessible VRC2/VRC4 and Taito X1 RAM windows. Mapper protection latches,
-registers and open bus are not treated as RAM code. Expand real-cartridge paths
-and board variants beyond this bounded qualification.
-Optional advanced NES scanning now adds menu/dialogue and varied-input paths,
-with complete per-pass CPU/image/PCM checks. Content-checked source paths
-reuse identical compiled ROM bodies after RAM discoveries. Continue guided
-later-game states and more cartridge revisions; broader independent PAL
-qualification remains separate from these internal checks.
-PAL/NTSC, quick states and Zapper already exist; extend their validation across
-more cartridges and hands-on gameplay. Mega Drive is the next development
-priority, followed by Super Nintendo.
-
-### Mega Drive
-
-Release 0.25.0 includes the standard cartridge profile's completed qualification: three
-groups of eight new cartridges plus eight feature regressions, PAL/NTSC,
-advanced conversion, compressed-export replay, CPU/video/PCM agreement,
-fresh-process states and corrupt-state rejection. Five routes extend to
-36,000 frames. The common VDP row-fetch fix was reapplied to every new export.
-Verified shared hints now cover 82 exact ROMs; this is not a cartridge allowlist
-or a guarantee of complete interpreter-free playthroughs.
-
-Supported scope includes linear ROM, declared Sega 512 KiB mapping, ordinary
-SRAM, qualified X24C01/X24C02/24C04 wiring, shared controllers, quick states and
-Menacer. Continue targeted gameplay and game-menu save checks. Other EEPROM
-boards, mappers, SVP/Pico/CD/32X and lock-on require separate integration.
-
-Further hardware work concerns electrical request/acknowledge precision,
-remaining VDP access collisions/field details and address/bus-error handling.
-These limits remain explicit without indefinitely blocking the completed
-standard profile. See [compatibility evidence](COMPATIBILITY.md),
-[video](MEGADRIVE_VIDEO.md), [CPU exceptions](MEGADRIVE_CPU_EXCEPTIONS.md),
-[EEPROM](MEGADRIVE_EEPROM.md) and [mapping](MEGADRIVE_MAPPERS.md).
-
-### Super Nintendo
-
-Verified local compilation hints now cover 40 exact revisions, including LoROM,
-HiROM and a qualified European PAL LoROM case. Japanese single-byte header
-titles are recognized, recovering previously rejected inputs; those newly
-identified inputs still need execution qualification. The earlier regression
-set includes 3 MiB storage mirroring.
-The shared scheduler preserves WAI/deadline handoffs and RTI task
-switches; authored fixtures cover those boundaries independently. Continue
-varied-input qualification of more ordinary cartridges. DSP-1 board/command modelling and CX4 are integrated within their documented
-limits, with CX4 device interpretation counted explicitly. Clipped DSP-1 camera
-paths and the first HDMA scanline now have independent numeric/image checks;
-Pilotwings passes the tested routes and Mario Kart reaches a short race.
-Super FX (GSU-1/GSU-2) boards are integrated and qualified within [their documented limits](SNES_SUPERFX.md), the GSU running as a counted interpreted device; the SA-1 and S-DD1 boards convert since 1.6.6 (the SA-1 as a counted interpreted device); SPC7110, DSP-2/3/4 and other circuits still require separate integration.
-Native CX4 and finer hardware phases remain future work; the common CPU/DMA/HDMA fixes are qualified within their documented limits.
-Recognizing headers or having upstream code is not product qualification.
-PAL now has 312 raster lines, the PPU region bit, full-field IRQ scheduling and
-a fractional audio-clock mapping independent of video. Its first qualification
-covers progressive 224-line output. The audio/display follow-up now retains hires dots,
-both interlace fields and 239-line overscan, with busy mode-switch and APU-word
-ordering checks; [SNES evidence](SNES.md) records the remaining independent limits.
-F8/F9 quick states and ordinary battery cartridge saves are implemented.
-Guarded code now includes ordinary SRAM windows; its bounded observation table
-and binary PC lookup cover more RAM routines without relaxing live-byte guards.
-The sound SPC700
-now uses guarded native operations; extend varied-input sound-driver checks
-alongside the main CPU coverage. Broader graphics, DMA and interrupt checks must
-accompany each expansion of the cartridge scope.
-
-The released standard profile, qualified DSP-1, CX4 and Super FX boards, and the SA-1 and S-DD1 boards (proved on a few titles) are supported. Expanding the observed cartridge set
-does not by itself remove its hardware and gameplay gaps; the regression catalogue
-is not an allowlist. The full Mega Drive and SNES campaigns remain paused until
-explicitly resumed; concentrate on the shared compiler and recorded failures.
-
-For each stage, record native coverage, CPU comparison, hardware evidence,
-hands-on gameplay and physical latency separately. Start with a small, varied
-cartridge set for the relevant hardware paths rather than rebuilding a whole
-collection after every change.
+This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
+[RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Improvement loop
 
-We want to explore more paths using a local decision or vision model:
-observation, input choice, deterministic replay, guarded compilation and
-comparison before regeneration. A stopping threshold could combine native
-coverage, regression stability and exploration budget. More explored paths
-do not prove complete gameplay or hardware fidelity.
-
-The current version reuses verified observations and checks candidates. The
-AI player/autonomous exploration loop is not implemented. No model weights,
-API credentials or online-model integration are distributed.
+We want to explore more paths using a local decision or vision model: observation, input choice, deterministic replay,
+guarded compilation and comparison before regeneration. More explored paths do not prove complete gameplay or hardware
+fidelity. The current version reuses verified observations and checks candidates; the autonomous exploration loop is not
+implemented, and no model weights, API credentials or online-model integration are distributed.

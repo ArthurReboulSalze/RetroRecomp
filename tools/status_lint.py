@@ -50,7 +50,7 @@ EXPERIMENTAL_KEYWORDS = {
     "zh": ("实验",),
 }
 
-_NEGATED_EXPERIMENTAL = ("no longer experimental", "leaves experimental status")
+_NEGATED_EXPERIMENTAL = ("no longer experimental", "leaves experimental status", "no longer call")
 _EXPERIMENTAL_RE = re.compile(r"experimental", re.IGNORECASE)
 _SUPPORTED_RE = re.compile(r"\bsupports?\b|\bsupported\b", re.IGNORECASE)
 # A colon is not a sentence border: "Experimental profile: DIM/XDF" states the
@@ -58,9 +58,14 @@ _SUPPORTED_RE = re.compile(r"\bsupports?\b|\bsupported\b", re.IGNORECASE)
 _SENTENCE_SPLIT = re.compile(r"(?<=[.;!?])\s+")
 
 
+# A name followed by these is another machine: the CPS-1.5 tier or the CPS-2 board family, the Game Boy Color or
+# Advance; they are not statements about this profile.
+_OTHER_MACHINE = r"(?!\.\d)(?!\s+(?:Advance|Color)\b)"
+
+
 def alias_pattern(console_id: str) -> re.Pattern[str]:
     names = "|".join(re.escape(alias) for alias in ALIASES[console_id])
-    return re.compile(rf"\b(?:{names})\b")
+    return re.compile(rf"\b(?:{names})\b{_OTHER_MACHINE}")
 
 
 def sentence_status(sentence: str) -> str | None:

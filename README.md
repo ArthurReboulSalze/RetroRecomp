@@ -73,7 +73,12 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges and boards with a DSP-1, CX4, Super FX, SA-1 or S-DD1 chip, LoROM/HiROM/ExHiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
 | [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
+| [Capcom CPS-1.5](docs/CPS1.md) | Experimental | The 18 QSound sets (Warriors of Fate, Cadillacs and Dinosaurs, The Punisher, Saturday Night Slam Masters…): Kabuki-encrypted Z80 decrypted, QSound sound from a high-level model; needs your own QSound DSP ROM in **Options → Capcom CPS-1** |
 | [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
+
+**In development** (experimental first, no date promised): Capcom CPS-2, PC Engine / TurboGrafx-16 and Game Boy Advance.
+Planned after them: Atari ST, Amiga 500 and 1200, Nintendo 64 and PlayStation. Per-machine plans are in the
+[roadmap](docs/ROADMAP.md).
 
 <!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->
 
