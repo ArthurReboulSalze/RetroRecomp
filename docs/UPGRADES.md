@@ -79,6 +79,50 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System and Game Gear: two defects of the "functions" engine found by the panel (1.6.9)
+
+The 1.6.9 panel of twelve games (see [MASTER_SYSTEM.md](MASTER_SYSTEM.md#the-panel-of-twelve-games-169-gates-g2-g5-g6-g8-g9)) converted with the "functions"
+engine showed four games the reference check refuses. Two general causes were found and fixed in the converter's copy of the generator
+(`core.patched_generator_source`):
+
+1. **A HALT behind a prefix.** `DD 76` and `FD 76` are a HALT; the decoder calls only the plain `76` a halt, and the generic path wrote through an `ea` that nothing
+   declares, so a function the walk found in data made the C build fail (Shining Force II). They now emit the HALT of the plain opcode, with the length of the instruction
+   for the address the interrupt pushes.
+2. **A callee that returns through another address than the one pushed.** A routine that reads the data after its `CALL` or `RST` (`EX (SP),HL`, `LD E,(HL)`, `INC HL`,
+   `EX (SP),HL`, `RET`) returns with the stack where the call left it but to a later address; the C call stack resumed at the next instruction of the caller and ran the data
+   bytes as code (Shining Force II: a register changed, a stack byte differed at frame 14). Each call site now compares the address the callee popped (the slot below SP)
+   with the one it pushed and, when they differ, continues there as the Z80 does (`RR_CHECK_RET`, the nested continuation of the local-RET rule). A tail jump already did so.
+
+Authored cases for both are in `tools/cpu_selftest.py` (`DB`-after-`CALL` and `DD 76` in dead code); the check now sets `RETRO_RECOMP_STILL_ROUTE_OK=1`, because its programs have no
+picture and the liveness refusal of 1.6.6 stopped them (developer checks only; a player's conversion never sets it).
+
+What was run: the 15 games of the 1.6.4 batch plus Micro Machines, Streets of Rage and Gunstar Heroes, "functions" engine, empty library: the 15 give the same
+reference match, number of passes and interpreter share as in 1.6.7 (Alex Kidd in Miracle World was run with the shared base then, one pass; it now takes three and ends at 0 percent); Shining Force II now builds and differs from frame 15 instead of frame 14
+(1,103 differing frames instead of 3,586); Streets of Rage (frame 7), Gunstar Heroes (569) and Micro Machines (1,493) are unchanged. **Not solved.** Streets of Rage:
+the first divergence is a `RET` at `$7DB3` that continues at `$7893` (the continuation of a call up the C stack) where the Z80 continues at `$7B84`, an address pushed inside
+the called routine, across a chain of tail jumps. The others are not explained.
+
+**Cost.** Each call site of the "functions" engine executes one more call, `rr_ret_moved`, that reads two bytes of RAM and compares them; the banked engine, the default,
+is not touched. Not measured. **What moves.** `core.py` is an input of every console: the game stamp of all nine consoles moves; the games of the "functions" engine are
+generated differently (the other consoles and the banked engine are unchanged by the generator).
+
+## Master System and Game Gear: the report names the devices and the routes that stall, and the evidence of the panel (1.6.9)
+
+A lot of evidence and documentation: the way games are converted does not change.
+
+- **The report** (`retrorecomp/sega_evidence.py`, called by `systems/master_system.py` after the conversion for both engines) gains `hardware_devices`
+  (the mapper, with a Codemasters header named and marked `not_modelled`; the video chip; the sound chip: none runs a program, none has a counter,
+  all say `hardware_fidelity_validated: false`), `route_warnings` (the routes whose picture last changed in the first tenth of their frames), and for
+  the banked engine the native instruction count and the halted steps of each final route (`final_checks[]`). The schema reader (`report_schema.py`) shows
+  them under `devices`, `cpus[].scenarios[]` and `honesty.route_warnings` (an optional, compatible addition to report v2, described in the module text of
+  `report_schema.py`: a 1.6.8 reader ignores it; no schema number changes), adds the device kind `video_unit`, and reads the reference comparison of the "functions"
+  engine (which stores no validation record) as agreement on the demo route only.
+- **Tools**: `tools/sega_campaign.py` (the panel of twelve, two conversions at a time, replay of the delivered file and the sheets of captures); the
+  fresh-process check of 1.6.6 (`tools/sega_states_selftest.py`) run on the twelve harness builds.
+- **What moves.** The game stamps of the Master System and of the Game Gear: `sega_evidence` and the two profile modules are inputs of their groups, and an
+  export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
+  stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
+
 ## Capcom CPS-1.5 leaves the experimental tier (1.6.9)
 
 The QSound boards (18 sets) are a supported part of the CPS-1 since 5 November 2026, on the owner's decision ([CPS1.md](CPS1.md#cps-15-qsound-boards)). The catalogue (`assets/cps1-catalogue.json`) now reads `tier = supported` on every row, so the CPS-1 game stamp moves (and no other: the CPS-1 host and build stamps and the other consoles' stamps are unchanged, checked with `compilation_inputs.role_stamps`). An export of 1.6.8 is rebuilt once on its next conversion, with the same code, pictures and sound; its report then says `completed` and `board_tier: supported` instead of `experimental`. The quick-state key does not move (it does not hash the catalogue), so quick states and cartridge saves are kept. The QSound sets now take part in the shared base of paths; reports of 1.6.8 say `board_tier: experimental` and are not collected.

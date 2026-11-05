@@ -65,6 +65,13 @@ class TraceTests(unittest.TestCase):
             sega_evidence.require_main_route_moving('play', frozen, self.directory)
         self.assertIn('picture never changed', str(raised.exception))
 
+    def test_the_developer_switch_lets_a_picture_less_program_through(self):
+        frozen = sega_evidence.route_liveness(trace(self.directory, 'frozen2.csv', [('a', '1', 's', 0)] * 5))
+        with patch.dict('os.environ', {sega_evidence.STILL_ROUTE_OK: '1'}):
+            sega_evidence.require_main_route_moving('play', frozen, self.directory)
+        with patch.dict('os.environ', {sega_evidence.STILL_ROUTE_OK: '0'}), self.assertRaises(ConversionError):
+            sega_evidence.require_main_route_moving('play', frozen, self.directory)
+
     def test_a_silent_play_route_is_not_refused(self):
         silent = sega_evidence.route_liveness(trace(self.directory, 'silent.csv', [('a', '1', 's', 0), ('b', '1', 's', 0)]))
         sega_evidence.require_main_route_moving('play', silent, self.directory)
@@ -162,6 +169,79 @@ class ConvertWiringTests(unittest.TestCase):
         self.assertIn('(g_audio_sink || g_vdp_trace) && cyc > g_psg_cyc', text)
         self.assertIn('(g_audio_sink || g_vdp_trace) && smsrecomp_measured_guest_cycles > g_psg_cyc', text)
         self.assertIn('if (g_vdp_trace) for (size_t i = 0; i < n * 2; ++i){', text)
+
+
+class ReportDeviceTests(unittest.TestCase):
+    """Gate G2: the devices and the instruction counts the report gains (retrorecomp/sega_evidence.py)."""
+
+    @staticmethod
+    def codemasters_rom():
+        rom = bytearray(0x40000)
+        rom[0x7FE6:0x7FEA] = bytes([0xB4, 0xB5, 0x4C, 0x4A])
+        return bytes(rom)
+
+    def test_the_codemasters_header_is_the_checksum_pair_and_nothing_else(self):
+        self.assertTrue(sega_evidence.codemasters_header(self.codemasters_rom()))
+        self.assertFalse(sega_evidence.codemasters_header(bytes(0x40000)))                       # all zero: no header
+        blank = bytearray([0xff]) * 0x8000
+        self.assertFalse(sega_evidence.codemasters_header(bytes(blank)))                          # erased flash is not a header
+        self.assertFalse(sega_evidence.codemasters_header(bytes(0x4000)))                         # too small to hold one
+
+    def test_the_devices_run_no_program_and_claim_no_hardware_fidelity(self):
+        devices = sega_evidence.hardware_devices('sms', bytes(0x20000))
+        self.assertEqual([(d['id'], d['kind']) for d in devices],
+                         [('sega', 'cartridge_mapper'), ('vdp_mode4', 'video_unit'), ('sn76489', 'audio_unit')])
+        for device in devices:
+            self.assertIs(device['details']['hardware_fidelity_validated'], False)
+            self.assertIs(device['details']['translated_from_rom'], False)
+        self.assertEqual(devices[0]['details']['rom_banks_16k'], 8)
+        game_gear = sega_evidence.hardware_devices('gg', bytes(0x20000))
+        self.assertEqual(game_gear[1]['details']['visible_pixels'], [160, 144])
+        self.assertIs(game_gear[2]['details']['stereo_ports'], True)
+        self.assertIs(devices[2]['details']['stereo_ports'], False)
+
+    def test_a_codemasters_cartridge_is_reported_as_a_mapper_the_runtime_does_not_model(self):
+        mapper = sega_evidence.hardware_devices('sms', self.codemasters_rom())[0]
+        self.assertEqual((mapper['id'], mapper['mode']), ('codemasters', 'not_modelled'))
+        self.assertIs(mapper['details']['codemasters_registers_modelled'], False)
+
+    def test_step_counters_are_read_from_the_banked_log_and_never_invented(self):
+        log = '[banked] native_steps=27098091 halt_steps=12 fallback_steps=3 banks_seen=1/1/1\n[banked-guards] native_steps=400\n'
+        self.assertEqual(sega_evidence.step_counters(log),
+                         {'native_instructions': 27098091, 'halted_steps': 12, 'guarded_native_instructions': 400})
+        self.assertEqual(sega_evidence.step_counters('[exec] hybrid(interp): 0 calls'), {})
+        self.assertEqual(sega_evidence.step_counters(''), {})
+
+    def test_a_route_that_stops_changing_early_is_reported_and_a_live_one_is_not(self):
+        rows = [{'scenario': 'play', 'liveness': {'frames': 3600, 'last_picture_change_frame': 7}},
+                {'scenario': 'demo', 'liveness': {'frames': 3600, 'last_picture_change_frame': 3600}},
+                {'scenario': 'long-1', 'liveness': {'frames': 18000, 'last_picture_change_frame': 1800}},
+                {'scenario': 'odd', 'liveness': {}}]
+        self.assertEqual(sega_evidence.route_warnings(rows), ['play: the picture stopped changing at frame 7 of 3600'])
+        self.assertEqual(sega_evidence.route_warnings([]), [])
+
+    def test_the_enriched_report_reads_back_with_devices_and_native_counts(self):
+        import json
+        from retrorecomp.report_schema import read_report
+        from tests.test_report_schema import sms_report
+        with tempfile.TemporaryDirectory() as temp:
+            build = Path(temp) / 'build'
+            report = sms_report()
+            report['build_directory'] = str(build)
+            for scenario in ('demo', 'play'):
+                folder = build / 'checks' / f'pass1_{scenario}'
+                folder.mkdir(parents=True)
+                (folder / 'runtime.log').write_text('[banked] native_steps=1000 halt_steps=5 fallback_steps=0 banks_seen=1/1/1\n',
+                                                    encoding='utf-8')
+            report['history'] = report['final_checks']          # one pass: the final pass is pass 1
+            path = Path(temp) / 'conversion-report.json'
+            path.write_text(json.dumps(report), encoding='utf-8')
+            sega_evidence.enrich_report(path, 'sms', bytes(0x20000))
+            read = read_report(json.loads(path.read_text(encoding='utf-8')))
+        self.assertEqual([d['id'] for d in read['devices']], ['sega', 'vdp_mode4', 'sn76489'])
+        self.assertTrue(all(d['fallback_present'] is None for d in read['devices']))
+        scenario = read['cpus'][0]['scenarios'][0]
+        self.assertEqual((scenario['native'], scenario['interpreted'], scenario['halted_steps']), (1000, None, 5))
 
 
 if __name__ == '__main__':
