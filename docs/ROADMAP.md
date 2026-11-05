@@ -19,8 +19,8 @@ fallback stays counted and shown wherever it is used.
 | Mega Drive | supported | 84 % | report and Linux witness; MAME sound comparison |
 | Super Nintendo | supported | 88 % | owner play test, Linux witness; DSP-2 and DSP-4 |
 | Neo Geo | supported | 94 % | Linux witness on more games |
-| Capcom CPS-1 | supported | 90 % | count every Z80 step; rotary-dial boards |
-| Capcom CPS-1.5 (QSound) | experimental tier of the CPS-1 | — | owner play test |
+| Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
+| Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
 | Sharp X68000 | experimental | 90 % | the remaining gates, then the owner's decision |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
@@ -81,8 +81,7 @@ revisions, boards and peripherals keep their own scope.
 
 ### Capcom CPS-1 and CPS-1.5
 
-Next: count every instruction the Z80 runs on the reference core (one interrupt mode is not counted yet), and the owner's
-play test of the QSound games. Then the rotary-dial boards (Forgotten Worlds, Lost Worlds), done together with the
+Next: the Linux witness of the QSound games. Then the rotary-dial boards (Forgotten Worlds, Lost Worlds), done together with the
 CPS-2's spinner so the two share one input. Later: a low-level model of the QSound sound chip, done once for the CPS-1.5
 and the CPS-2. Pang! 3, the CPS Changer cartridges and bootlegs stay out of scope.
 
