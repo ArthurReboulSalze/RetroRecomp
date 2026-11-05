@@ -555,7 +555,9 @@ def _honesty(data, validation):
             'physical_latency_measured': validation['latency']['measured'],
             'independent_cpu_oracle': _flag(native.get('independent_cpu_oracle')),
             'cpu_fidelity_validated': _flag(native.get('cpu_fidelity_validated')),
-            'universal_zero_fallback_claim': _flag(_dict(data.get('qualification_scope')).get('universal_zero_fallback_claim'))}
+            'universal_zero_fallback_claim': _flag(_dict(data.get('qualification_scope')).get('universal_zero_fallback_claim')),
+            # Master System and Game Gear (since 1.6.9): the routes whose picture stopped changing early; None for a writer without it.
+            'route_warnings': _copy(data.get('route_warnings'))}
 
 
 # ---------------------------------------------------------------- the other sections

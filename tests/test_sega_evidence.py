@@ -205,6 +205,14 @@ class ReportDeviceTests(unittest.TestCase):
         self.assertEqual(sega_evidence.step_counters('[exec] hybrid(interp): 0 calls'), {})
         self.assertEqual(sega_evidence.step_counters(''), {})
 
+    def test_a_route_that_stops_changing_early_is_reported_and_a_live_one_is_not(self):
+        rows = [{'scenario': 'play', 'liveness': {'frames': 3600, 'last_picture_change_frame': 7}},
+                {'scenario': 'demo', 'liveness': {'frames': 3600, 'last_picture_change_frame': 3600}},
+                {'scenario': 'long-1', 'liveness': {'frames': 18000, 'last_picture_change_frame': 1800}},
+                {'scenario': 'odd', 'liveness': {}}]
+        self.assertEqual(sega_evidence.route_warnings(rows), ['play: the picture stopped changing at frame 7 of 3600'])
+        self.assertEqual(sega_evidence.route_warnings([]), [])
+
     def test_the_enriched_report_reads_back_with_devices_and_native_counts(self):
         import json
         from retrorecomp.report_schema import read_report

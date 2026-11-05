@@ -176,6 +176,24 @@ def step_counters(log: str) -> dict:
     return result
 
 
+STALLED_SHARE = 0.10    # a route whose picture last changed in the first tenth of its frames is reported as stalled
+
+
+def route_warnings(final_checks: list) -> list:
+    """Words about the routes whose picture stopped changing early (the game may never have started on them).
+
+    The conversion refuses a main route whose picture never changes; a route that changes a few times and then stays still is
+    accepted and compared with the reference like any other, and this list says so instead of leaving it to be read from the
+    numbers. A threshold on the last change, not a verdict on the game: a title waiting for a button is still a start."""
+    warnings = []
+    for row in final_checks:
+        live = row.get('liveness') or {}
+        frames, last = live.get('frames'), live.get('last_picture_change_frame')
+        if frames and last is not None and last < frames * STALLED_SHARE:
+            warnings.append(f"{row.get('scenario')}: the picture stopped changing at frame {last} of {frames}")
+    return warnings
+
+
 def enrich_report(report_path: Path, system_id: str, rom: bytes) -> dict:
     """Add what the conversion's own report lacks (gate G2) and write it again through the common builder.
 
@@ -185,6 +203,7 @@ def enrich_report(report_path: Path, system_id: str, rom: bytes) -> dict:
     from .report_schema import write_report
     report = json.loads(Path(report_path).read_text(encoding='utf-8'))
     report['hardware_devices'] = hardware_devices(system_id, rom)
+    report['route_warnings'] = route_warnings(report.get('final_checks') or [])
     if report.get('backend') == 'banked':
         for row in report.get('final_checks') or ():
             row.update(step_counters(_runtime_log(report, row.get('scenario', ''))))
