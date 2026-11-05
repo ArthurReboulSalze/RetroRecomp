@@ -109,6 +109,20 @@ x68 = Sharp X68000.
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
+The page of each console, which the README links its line to (a console of the matrix needs one):
+
+| Console | Page |
+|---|---|
+| sms | [MASTER_SYSTEM.md](MASTER_SYSTEM.md) |
+| gg | [GAME_GEAR.md](GAME_GEAR.md) |
+| gb | [GAME_BOY.md](GAME_BOY.md) |
+| nes | [NES.md](NES.md) |
+| md | [MEGADRIVE.md](MEGADRIVE.md) |
+| snes | [SNES.md](SNES.md) |
+| ng | [NEOGEO.md](NEOGEO.md) |
+| cps1 | [CPS1.md](CPS1.md) |
+| x68 | [X68000.md](X68000.md) |
+
 </details>
 
 ### Caveats

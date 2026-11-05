@@ -98,9 +98,17 @@ class ReadmeTests(unittest.TestCase):
     def test_the_readme_names_the_experimental_status_in_clear_and_every_console(self):
         block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
         for profile in ALL_PROFILES:
-            line = next(row for row in block.splitlines() if row.startswith('| ' + profile.name + ' |'))
+            line = next(row for row in block.splitlines() if row.startswith('| [' + profile.name + '](docs/'))
             self.assertIn(' ' + profile.status + ' ', line)
         self.assertIn('| experimental |', block)
+
+    def test_every_console_of_the_matrix_has_a_page_that_exists(self):
+        page = _page()
+        ids, _ = qg.read_matrix(page)
+        pages = qg.read_pages(page)
+        self.assertEqual(sorted(pages), sorted(ids))
+        for name in pages.values():
+            self.assertTrue((qg.REPO / 'docs' / name).is_file(), name)
 
     def test_the_link_of_the_readme_reaches_a_heading_of_the_page(self):
         page = _page()
