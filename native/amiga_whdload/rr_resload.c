@@ -407,8 +407,36 @@ static int relocate(RrResload *r, uint32_t regs[16]) {
 
 /* ---- Control -------------------------------------------------------------------------------------------------- */
 
+/* whdload_time (whdload.i): days since 1978-01-01, minutes, ticks, then year (78..177), month, day, hour, min, sec. */
+static void write_time(RrResload *r, uint32_t at) {
+    uint32_t days = r->time_days, y = 1978;
+    for (;;) {
+        uint32_t len = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 366 : 365;
+        if (days < len) break;
+        days -= len;
+        y++;
+    }
+    static const uint8_t month_len[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    uint32_t m = 0;
+    for (; m < 12; m++) {
+        uint32_t len = month_len[m] + (m == 1 && (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)));
+        if (days < len) break;
+        days -= len;
+    }
+    wr32(r, at, r->time_days);
+    wr32(r, at + 4, r->time_mins);
+    wr32(r, at + 8, r->time_ticks);
+    wr8(r, at + 12, (uint8_t)(y % 100));                     /* 78..99 then 0..77 */
+    wr8(r, at + 13, (uint8_t)(m + 1));
+    wr8(r, at + 14, (uint8_t)(days + 1));
+    wr8(r, at + 15, (uint8_t)(r->time_mins / 60));
+    wr8(r, at + 16, (uint8_t)(r->time_mins % 60));
+    wr8(r, at + 17, (uint8_t)(r->time_ticks / 50));
+}
+
 static int control(RrResload *r, uint32_t regs[16]) {
     uint32_t tags = regs[A0];
+    int success = 1;
     for (int guard = 0; tags && guard < 256; guard++) {
         uint32_t tag = rd32(r, tags), slot = tags + 4;
         if (tag == 0) break;                                /* TAG_DONE */
@@ -428,6 +456,11 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 17: wr32(r, slot, RR_RESLOAD_WHDLOAD_VERSION); break;   /* VERSION_GET */
         case 18: wr32(r, slot, 0); break;                            /* REVISION_GET */
         case 19: wr32(r, slot, 0); break;                            /* BUILD_GET */
+        case 20:                                                     /* TIME_GET: pointer to a whdload_time */
+            if (!r->scratch) return refuse(r, RL_CONTROL, "Control TIME_GET needs a scratch area%s", "");
+            write_time(r, r->scratch);
+            wr32(r, slot, r->scratch);
+            break;
         case 21: wr32(r, slot, 0x0200); break;                       /* BPLCON0_GET: the system's colour burst */
         case 22: wr32(r, slot, r->keytrans); break;                  /* KEYTRANS_GET */
         case 27: wr32(r, slot, 0); break;                            /* LANG_GET: no selection */
@@ -435,13 +468,15 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 23: case 24: case 25: case 26: case 28: case 29: case 30: case 32: case 33: case 34: case 35:
             break;                                                   /* Snoop and debugger settings: no effect here */
         default:
-            snprintf(r->message, sizeof r->message, "Control tag 0x%08X not provided", (unsigned)tag);
-            r->refused_offset = RL_CONTROL;
-            return RR_RESLOAD_REFUSED;
+            /* as WHDLoad: an item it does not process makes the call return FALSE; it is noted, never pretended */
+            snprintf(r->message, sizeof r->message, "Control tag 0x%08X not processed", (unsigned)tag);
+            r->unknown_tags++;
+            success = 0;
+            break;
         }
         tags += 8;
     }
-    regs[D0] = 0xFFFFFFFFu;
+    regs[D0] = success ? 0xFFFFFFFFu : 0;
     return RR_RESLOAD_RETURN;
 }
 

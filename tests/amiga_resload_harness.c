@@ -102,9 +102,17 @@ static void crc_and_control(void) {
     regs[8] = 0x6100;
     CHECK(rr_resload_call(&r, 0x34, regs) == RR_RESLOAD_RETURN && regs[0] == 0xFFFFFFFFu);
     CHECK(get32(0x6104) == RR_RESLOAD_WHDLOAD_VERSION && get32(0x610C) == 3 && get32(0x611C) == 709379u);
-    put32(0x6200, 0x88000003u); put32(0x6208, 0);         /* a private tag: refused, not ignored */
+    r.scratch = 0x6800; r.time_days = 8035; r.time_mins = 13 * 60 + 7; r.time_ticks = 50 * 9;   /* 2000-01-01 13:07:09 */
+    put32(0x6300, 0x88000014u); put32(0x6304, 0); put32(0x6308, 0);     /* TIME_GET */
+    regs[8] = 0x6300;
+    CHECK(rr_resload_call(&r, 0x34, regs) == RR_RESLOAD_RETURN && get32(0x6304) == 0x6800);
+    CHECK(get32(0x6800) == 8035 && mem[0x680C] == 0 && mem[0x680D] == 1 && mem[0x680E] == 1);
+    CHECK(mem[0x680F] == 13 && mem[0x6810] == 7 && mem[0x6811] == 9);
+    r.time_days = 365 + 31 + 28;                            /* 1979-03-01 */
+    CHECK(rr_resload_call(&r, 0x34, regs) == RR_RESLOAD_RETURN && mem[0x680C] == 79 && mem[0x680D] == 3 && mem[0x680E] == 1);
+    put32(0x6200, 0x88000003u); put32(0x6208, 0);         /* a private tag: FALSE and noted, as WHDLoad */
     regs[8] = 0x6200;
-    CHECK(rr_resload_call(&r, 0x34, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "0x88000003"));
+    CHECK(rr_resload_call(&r, 0x34, regs) == RR_RESLOAD_RETURN && regs[0] == 0 && r.unknown_tags == 1 && strstr(r.message, "0x88000003"));
 }
 
 static void refusals(void) {

@@ -48,7 +48,10 @@ typedef struct RrResload {
     uint32_t exp_mem_size;
     uint32_t keytrans;                 /* guest address of the 128-byte raw-key table, 0: none */
     uint32_t cbswitch, cbaf;           /* functions the slave registered (kept, never called: no OS switch here) */
+    uint32_t scratch;                  /* guest address of 256 bytes the host reserves for answers (TIME_GET), 0: none */
+    uint32_t time_days, time_mins, time_ticks;   /* the fixed start time TIME_GET reports (days since 1978-01-01) */
     uint32_t io_error;                 /* last DOS error of a service */
+    uint32_t unknown_tags;             /* Control items not processed (the call returned FALSE) */
     uint32_t calls[RR_RESLOAD_ENTRIES];
     uint32_t refused_offset;           /* entry or reason of the last refusal */
     uint32_t abort_reason[3];          /* resload_Abort arguments: success, primary, secondary */
