@@ -151,7 +151,7 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
     has_start = layout.get('start', True)
     emit(0)
     frame = layout['opening'] + rng.randint(0, 120)
-    if console in ('ng', 'cps1', 'cps2'):
+    if console in ('ng', 'cps1'):
         # Arcade boards need a credit before Start does anything.
         if opening:
             emit(frame, coin=1)
@@ -165,7 +165,7 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
         frame = tap(frame, {'start'}, 4, pressed=opening and has_start) + rng.randint(120, 240)
     for _ in range(rng.randint(1, 3)):
         frame = tap(frame, {rng.choice(main)}, 6, pressed=opening) + rng.randint(60, 150)
-    if console in ('cps1', 'cps2') and opening:
+    if console == 'cps1' and opening:
         # Some boards ignore coins during a long start-up test (Ghouls'n
         # Ghosts: about 1,300 frames), so a second credit and Start follow the
         # menus, from frame 1,320 on. No number is drawn, so the body that

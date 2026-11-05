@@ -57,15 +57,16 @@ def route_liveness(trace: Path) -> dict:
     return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
 
 
-def routes(identity: str, *, frames: int, level: str, six_buttons: bool, system: str = 'cps1') -> list[tuple[str, int, str]]:
+def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list[tuple[str, int, str]]:
     """(name, frames, script): attract, a credited play route, then long routes."""
+    # The CPS-2 plays the CPS-1's routes (the same pad, the same credit rule): random_routes.py is shared by every console and names only the CPS-1.
     from .random_routes import long_route, long_routes, cps1_script
     from .scan_levels import cps1_budget
     budget = cps1_budget(level)
-    play = replace(long_route(system, identity, 1000, frames=max(frames, 1800), six_buttons=six_buttons), name='play')
+    play = replace(long_route('cps1', identity, 1000, frames=max(frames, 1800), six_buttons=six_buttons), name='play')
     rows = [('attract', frames, '0 000 000\n')] if budget['attract'] else []
     rows.append(('play', play.frames, cps1_script(play)))
-    for route in long_routes(system, identity, count=budget['route_count'], frames=budget['route_frames'],
+    for route in long_routes('cps1', identity, count=budget['route_count'], frames=budget['route_frames'],
                              six_buttons=six_buttons):
         rows.append((route.name, route.frames, cps1_script(route)))
     return rows
@@ -266,7 +267,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         return rows
     six = any(name in ('button4', 'button5', 'button6') for port in game['inputs'].values()
               for _, name, _ in port.get('inputs', ()))
-    plan = routes(game_set.sha256, frames=max(600, min(int(frames or 3600), 10000)), level=level, six_buttons=six, system=family)
+    plan = routes(game_set.sha256, frames=max(600, min(int(frames or 3600), 10000)), level=level, six_buttons=six)
     workers = max(1, min(4, os.cpu_count() or 1))
     timings = {}
     work = ROOT / '.build' / family / f'{game_set.set_name}-{game_set.sha256[:12]}'
