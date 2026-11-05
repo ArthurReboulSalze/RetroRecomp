@@ -71,7 +71,10 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # no other console's stamp moves (docs/NEW_MACHINE.md).
                                'registry',
                                # The definition of the stamps: see the docstring above.
-                               'compilation_inputs', 'stamp_inputs'))
+                               'compilation_inputs', 'stamp_inputs',
+                               # Amiga (stage 2, no profile yet): the WHDLoad install readers are used by no machine,
+                               # so they are in no stamp; they move into INPUTS under the Amiga profile when it exists.
+                               'amiga_lha', 'amiga_whdload'))
 
 # Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
 # A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
@@ -189,7 +192,10 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
-    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
+    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
+    # Amiga (stage 2, no profile yet): the WHDLoad resload layer is built into no game today; it moves into INPUTS
+    # under the Amiga profile when it exists.
+    'native/amiga_whdload/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
