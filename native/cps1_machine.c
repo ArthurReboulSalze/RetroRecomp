@@ -784,6 +784,8 @@ static void io_trace(char kind, uint32_t address, uint16_t value)
 }
 #endif
 
+#define CPS2_SERVICE_BIT 0x80u       /* bit 7 of the third switch bank: the service switch, clear = pressed */
+
 static uint16_t cps2_read_bus(uint32_t address);
 static uint16_t cps2_read(uint32_t address)
 {
@@ -806,12 +808,15 @@ static uint16_t cps2_read_bus(uint32_t address)
     if ((address >= 0x800140 && address < 0x800180) || (address >= 0x804140 && address < 0x804180)) return cps_b_read((int)(address & 0x3f) / 2);
     if (address == 0x804000) return M.ports[CPS1_IN0];
     if (address == 0x804010) return M.ports[CPS1_IN1];
-    if (address == 0x804020) return (uint16_t)((M.ports[CPS1_IN2] & ~1u) | (cps1_eeprom_read_port(&M.eeprom, m68k_now()) & 1u));
+    /* The board's service switch (IN2 bit 1, active low, MAME's PORT_SERVICE_NO_TOGGLE) is the switch page's "test menu" setting: bit 7 of the
+     * third bank, which the game never sees there (a production board has no switch banks, the game reads them as released). */
+    if (address == 0x804020) return (uint16_t)(((M.ports[CPS1_IN2] & ~1u) | (cps1_eeprom_read_port(&M.eeprom, m68k_now()) & 1u)) &
+                                              ((M.ports[CPS1_DSWC] & CPS2_SERVICE_BIT) ? 0xffffu : ~2u));
     if (address == 0x804030) return 0xe021;                 /* the digital volume at its maximum, no extra memory, no network adapter */
     /* The three switch banks of the development hardware (MAME's lr8 handlers at 0x8040b0 to 0x8040b2): a production board reads them
      * released, and some games do read them (mmatrix at boot). One byte each, on the high lane for the even addresses. */
     if (address == 0x8040b0) return (uint16_t)((M.ports[CPS1_DSWA] & 0xff) << 8 | (M.ports[CPS1_DSWB] & 0xff));
-    if (address == 0x8040b2) return (uint16_t)((M.ports[CPS1_DSWC] & 0xff) << 8);
+    if (address == 0x8040b2) return (uint16_t)(((M.ports[CPS1_DSWC] | CPS2_SERVICE_BIT) & 0xff) << 8);
     return 0;
 }
 

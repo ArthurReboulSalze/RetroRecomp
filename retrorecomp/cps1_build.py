@@ -305,6 +305,11 @@ def dip_table(game: dict) -> tuple[int, str]:
             ','.join(str(value) for value, _ in settings), ','.join(json.dumps(label) for _, label in settings),
             '%d,%d,%d,%d' % (DIP_PORTS.index(condition[0]), int(condition[2]), condition[1], condition[3])
             if condition else '-1,0,0,0'))
+    if game.get('machine') == 'cps2':
+        # The CPS-2 board has no switches: the game's settings (number of players, difficulty, coinage) live in its test menu, which the
+        # service switch opens. The switch is one setting of the page, bit 7 of the third bank (native/cps1_machine.c, CPS2_SERVICE_BIT).
+        rows.append('{%d,128,128,%s,2,{128,0},{%s,%s},-1,0,0,0}' % (DIP_PORTS.index('DSWC'), json.dumps("Service switch (the game's test menu)"),
+                                                                 json.dumps('Off'), json.dumps('On: open the test menu')))
     return len(rows), ','.join(rows) or '{0}'
 
 

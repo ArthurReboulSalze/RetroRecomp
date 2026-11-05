@@ -67,7 +67,9 @@ of players…); Up/Down choose one, Enter/A or + the next setting, - the
 previous. Switches that only apply under another setting appear when it is
 chosen. Most boards read their switches at power-on: restart with Shift+F1.
 The choice is kept per game; conversions always check the default settings.
-Captain Commando needs **Play Mode: 4 Players** for four players.
+**Captain Commando starts as a two-player board.** For four players: F2, the DIP switches page, **Play Mode: 4 Players**, then Shift+F1
+to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
+three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
 
 ## Speed and sound
 

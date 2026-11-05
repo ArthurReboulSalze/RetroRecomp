@@ -62,6 +62,23 @@ fidelity, gameplay validation and physical latency; the last three are not valid
 | Conversion through the converter (profile `cps2`, developer installations; 5 November 2026, tree of the branch `spec/cps2-170`, standard scan level, `--no-online-cover`) | The eight sets of the panel convert: each with a fresh reference run of every instruction, 0 interpreted 68000 and 0 interpreted Z80 instructions on the attract and credited play routes, the compressed copy equal to the reference, a quick state saved and continued in a fresh process, a truncated state refused; 100 to 145 seconds a set on one Windows PC, executables of about 20 MiB. The report says `experimental` and keeps hardware fidelity, gameplay and latency as not validated |
 | Non-regression (earlier tree, before the profile) | a CPS-1 set (`1941`): generated code and checks identical to the previous tree; a CPS-1.5 set (`wof`): generated steps identical, 3,600-frame traces identical, 0 interpreted |
 
+## Players, switches and the test menu
+
+The board has no DIP switches: a game's settings (number of players, coinage, difficulty, language) are kept in its EEPROM and changed in the
+game's own test menu, which the board's service switch opens. The F2 DIP page of an exported game therefore has one setting, **Service
+switch (the game's test menu)**: set it to *On*, restart with Shift+F1, and the test menu appears; move with player 1's joystick and
+button 1, change a setting with Left and Right, choose *Save and exit*, then set the switch back to *Off* and restart. The setting is kept
+per game like the CPS-1's switches; the game's own settings are kept in the save file. Read on 5 November 2026 with a blank EEPROM (a game that
+was never started), by playing four credited players from the title screen:
+
+| Set | Players on a blank EEPROM | Where the number is set |
+|---|---|---|
+| `ddtod` | 4 | |
+| `armwar` | 3 | |
+| `ddsom` | 2 (a third and fourth player do nothing) | test menu, 7 Configuration, 1 System, *Chute type* (2, 3 or 4 players) |
+| `batcir` | 2 | the test menu, not read further |
+| `avsp` | not read (the owner's romset holds older graphics dumps the converter does not identify) | |
+
 ## Known limits
 
 * The pictures and sound above come from a development build driven with MAME's own route; the conversions below were not compared with MAME again.
