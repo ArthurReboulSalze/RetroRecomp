@@ -56,6 +56,13 @@
       {"title": "Strider", "set": "strider", "category": "mame-compared", "reason": "Compared with MAME 0.289 pixel for pixel on attract and credited play", "source": "docs/CPS1.md"},
       {"title": "Warriors of Fate", "set": "wof", "category": "qsound", "reason": "QSound board (CPS-1.5): Kabuki-encrypted Z80, serial EEPROM, QSound (high-level model) from the player's own DSP ROM; the experimental tier, its reports say so", "source": "docs/CPS1.md"}
     ],
+    "cps2": [
+      {"title": "Super Street Fighter II: The New Challengers", "set": "ssf2", "category": "raster", "reason": "Raster interrupt in its attract demonstration from frame 6,818; six buttons", "source": "docs/CPS2.md"},
+      {"title": "Dungeons & Dragons: Tower of Doom", "set": "ddtod", "category": "four-players", "reason": "Four players on a blank EEPROM; the only panel set above two players", "source": "docs/CPS2.md"},
+      {"title": "Dungeons & Dragons: Shadow over Mystara", "set": "ddsom", "category": "four-players", "reason": "Starts as a two-player board on a blank EEPROM: players 3 and 4 need the service switch and the test menu", "source": "docs/CPS2.md"},
+      {"title": "Marvel Super Heroes", "set": "msh", "category": "sound-bank", "reason": "Selects a QSound sound bank above 5, which the quick-state loader once refused", "source": "docs/CPS2.md"},
+      {"title": "Mars Matrix", "set": "mmatrix", "category": "timing", "reason": "Reads the raster counter next to a line boundary: its title animation runs one frame ahead of MAME's for frames 775 to 783", "source": "docs/CPS2.md"}
+    ],
     "x68": [
       {"title": "R-Type (Irem)", "category": "single-disk", "reason": "Single-disk control case", "source": "docs/X68000.md"},
       {"title": "Metal Sight (System Sacom)", "category": "disk-changes", "reason": "Five-disk set whose disk changes follow the game's own requests", "source": "docs/X68000.md"},

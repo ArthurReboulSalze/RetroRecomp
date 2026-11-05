@@ -117,7 +117,11 @@ PATH_CAPS = {'m68k_ram': ROW_LIMIT, 'z80_ram': ROW_LIMIT}
 # `cps1_codegen` after `adapt_semantics`, 3 November 2026: the independent vectors of m68k-groups), and Musashi pushes A7 as it was for
 # `LINK A7`. The generated code changes only for those three instructions; the two modules that hold the rules are pinned with the generator.
 # On 1941 the traces and pictures are identical to revision 11 (A/B of 3 November 2026). No CPS-1 path was qualified, so nothing is lost today.
-GENERATOR_REVISION = 12
+# 13: the CPS-2 board (5 November 2026): a board with a decrypted program image (`maincpu-op.bin`) translates that image, and its translated
+# PC-relative operand reads go through the instruction-fetch view (`adapt_decrypted_reads`). The generated code of every other board is
+# byte for byte that of revision 12 (checked by generating the same sets on both trees); the revision is raised because the pins cover the
+# whole generator. No CPS-1 path was qualified, so nothing is lost today.
+GENERATOR_REVISION = 13
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

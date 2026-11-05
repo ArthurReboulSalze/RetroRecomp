@@ -4,8 +4,9 @@
 
 enum { IN_RESET, WAIT_START, WAIT_COMMAND, READING, WAIT_DATA, WAIT_COMPLETION };
 enum { CMD_INVALID, CMD_READ, CMD_WRITE, CMD_ERASE, CMD_LOCK, CMD_UNLOCK, CMD_WRITEALL, CMD_ERASEALL };
-#define ADDRESS_BITS 7
-#define DATA_BITS 8
+#define address_bits(chip) ((chip)->wide ? 6u : 7u)
+#define data_bits(chip) ((chip)->wide ? 16u : 8u)
+#define cells(chip) ((chip)->wide ? 64u : 128u)
 
 static uint64_t now_time;     /* the time of the event being handled */
 
@@ -18,15 +19,18 @@ void cps1_eeprom_reset(cps1_eeprom *chip, uint32_t ticks_per_usec)
     chip->locked = 1;
 }
 
+void cps1_eeprom_set_wide(cps1_eeprom *chip, int wide) { chip->wide = wide != 0; }
+void cps1_eeprom_set_clock_khz(cps1_eeprom *chip, uint32_t khz) { chip->khz = khz; }
+
 /* `opcode` is the two bits after the start bit; for opcode 0 the top two address bits pick the operation. */
 static void parse_command(cps1_eeprom *chip)
 {
-    const unsigned address = chip->accumulator & ((1u << ADDRESS_BITS) - 1), opcode = chip->accumulator >> ADDRESS_BITS;
+    const unsigned bits = address_bits(chip), address = chip->accumulator & ((1u << bits) - 1), opcode = chip->accumulator >> bits;
     chip->command = CMD_INVALID;
     chip->address = (uint8_t)address;
     switch (opcode) {
     case 0:
-        switch (address >> (ADDRESS_BITS - 2)) {
+        switch (address >> (bits - 2)) {
         case 0: chip->command = CMD_LOCK; break;
         case 1: chip->command = CMD_WRITEALL; break;
         case 2: chip->command = CMD_ERASEALL; break;
@@ -42,12 +46,24 @@ static void parse_command(cps1_eeprom *chip)
 
 /* The times of eeprom.cpp: write 1750 us, erase 1000 us, write all and erase all 8000 us. */
 enum { WRITE_US = 1750, ERASE_US = 1000, ALL_US = 8000 };
-static void busy(cps1_eeprom *chip, unsigned microseconds) { chip->ready_time = now_time + (uint64_t)microseconds * chip->ticks_per_usec; }
+static void busy(cps1_eeprom *chip, unsigned microseconds)
+{
+    chip->ready_time = now_time + (chip->khz ? (uint64_t)microseconds * chip->khz / 1000u : (uint64_t)microseconds * chip->ticks_per_usec);
+}
 static int ready(const cps1_eeprom *chip, uint64_t time) { return time >= chip->ready_time; }
 
-static void store(cps1_eeprom *chip, unsigned address, uint8_t value)
+/* A cell: one byte, or one big-endian word of the 16-bit organisation. */
+static unsigned cell(const cps1_eeprom *chip, unsigned address)
 {
-    if (chip->data[address] != value) { chip->data[address] = value; chip->changed = 1; }
+    return chip->wide ? (unsigned)(chip->data[2 * address] << 8 | chip->data[2 * address + 1]) : chip->data[address];
+}
+
+static void store(cps1_eeprom *chip, unsigned address, unsigned value)
+{
+    if (cell(chip, address) == (chip->wide ? value & 0xffffu : value & 0xffu)) return;
+    if (chip->wide) { chip->data[2 * address] = (uint8_t)(value >> 8); chip->data[2 * address + 1] = (uint8_t)value; }
+    else chip->data[address] = (uint8_t)value;
+    chip->changed = 1;
 }
 
 static void execute_command(cps1_eeprom *chip)
@@ -59,7 +75,7 @@ static void execute_command(cps1_eeprom *chip)
     case CMD_WRITE: case CMD_WRITEALL: chip->shift = 0; chip->state = WAIT_DATA; break;
     case CMD_ERASE:
         if (chip->locked) { chip->state = IN_RESET; break; }
-        store(chip, chip->address, 0xff);
+        store(chip, chip->address, 0xffff);
         busy(chip, ERASE_US);
         chip->state = WAIT_COMPLETION;
         break;
@@ -67,7 +83,7 @@ static void execute_command(cps1_eeprom *chip)
     case CMD_UNLOCK: chip->locked = 0; chip->state = IN_RESET; break;
     case CMD_ERASEALL:
         if (chip->locked) { chip->state = IN_RESET; break; }
-        for (unsigned n = 0; n < CPS1_EEPROM_BYTES; n++) store(chip, n, 0xff);
+        for (unsigned n = 0; n < cells(chip); n++) store(chip, n, 0xffff);
         busy(chip, ALL_US);
         chip->state = WAIT_COMPLETION;
         break;
@@ -78,8 +94,8 @@ static void execute_command(cps1_eeprom *chip)
 static void execute_write(cps1_eeprom *chip)
 {
     if (chip->locked) { chip->state = IN_RESET; return; }
-    if (chip->command == CMD_WRITE) { store(chip, chip->address, (uint8_t)chip->shift); busy(chip, WRITE_US); }
-    else { for (unsigned n = 0; n < CPS1_EEPROM_BYTES; n++) store(chip, n, (uint8_t)(chip->data[n] & chip->shift)); busy(chip, ALL_US); }
+    if (chip->command == CMD_WRITE) { store(chip, chip->address, chip->shift); busy(chip, WRITE_US); }
+    else { for (unsigned n = 0; n < cells(chip); n++) store(chip, n, cell(chip, n) & chip->shift); busy(chip, ALL_US); }
     chip->state = WAIT_COMPLETION;
 }
 
@@ -101,15 +117,15 @@ static void event(cps1_eeprom *chip, int what, uint64_t time)
     case WAIT_COMMAND:
         if (what == CLK_RISING) {
             chip->accumulator = (uint16_t)((chip->accumulator << 1) | chip->di);
-            if (++chip->bits == 2 + ADDRESS_BITS) execute_command(chip);
+            if (++chip->bits == 2 + address_bits(chip)) execute_command(chip);
         } else if (what == CS_FALLING) chip->state = IN_RESET;
         break;
     case READING:
         if (what == CLK_RISING) {
             const unsigned index = chip->bits;
             if (chip->bits < 0xffff) chip->bits++;
-            if (index % DATA_BITS == 0 && index == 0)       /* no streaming: only the cell addressed is read */
-                chip->shift = (uint32_t)chip->data[chip->address & (CPS1_EEPROM_BYTES - 1)] << (32 - DATA_BITS);
+            if (index == 0)                                 /* no streaming: only the cell addressed is read */
+                chip->shift = (uint32_t)cell(chip, chip->address & (cells(chip) - 1)) << (32 - data_bits(chip));
             else
                 chip->shift = (chip->shift << 1) | 1;
         } else if (what == CS_FALLING) chip->state = IN_RESET;
@@ -117,7 +133,7 @@ static void event(cps1_eeprom *chip, int what, uint64_t time)
     case WAIT_DATA:
         if (what == CLK_RISING) {
             chip->shift = (chip->shift << 1) | chip->di;
-            if (++chip->bits == DATA_BITS) execute_write(chip);
+            if (++chip->bits == data_bits(chip)) execute_write(chip);
         } else if (what == CS_FALLING) chip->state = IN_RESET;
         break;
     case WAIT_COMPLETION:
@@ -140,6 +156,11 @@ void cps1_eeprom_write_port(cps1_eeprom *chip, unsigned value, uint64_t time)
         if (cs) chip->cs_rise_time = time;
         event(chip, cs ? CS_RISING : CS_FALLING, time);
     }
+}
+
+void cps1_eeprom_write_port16(cps1_eeprom *chip, unsigned value, uint64_t time)
+{
+    cps1_eeprom_write_port(chip, (value >> 12 & 1) | (value >> 13 & 1) << 6 | (value >> 14 & 1) << 7, time);
 }
 
 unsigned cps1_eeprom_read_port(const cps1_eeprom *chip, uint64_t time)
@@ -196,6 +217,8 @@ int cps1_eeprom_state_get(cps1_eeprom *chip, const uint8_t *in, uint32_t ticks_p
     next.cs_rise_time = get_le(p, 8); p += 8;
     next.ready_time = get_le(p, 8);
     next.ticks_per_usec = ticks_per_usec;
+    next.wide = chip->wide;
+    next.khz = chip->khz;
     if (next.state > WAIT_COMPLETION || next.cs > 1 || next.clk > 1 || next.di > 1 || next.locked > 1 || next.command > CMD_ERASEALL ||
         next.address >= CPS1_EEPROM_BYTES || next.changed > 1) return 0;
     *chip = next;

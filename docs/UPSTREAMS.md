@@ -20,7 +20,7 @@ below. `tests/test_upstreams.py` fails when a machine has no declaration, when a
 when a pin or a repository is missing from this page.
 
 Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md` Mega Drive, `snes` Super Nintendo,
-`ng` Neo Geo, `cps1` Capcom CPS-1, `x68` Sharp X68000.
+`ng` Neo Geo, `cps1` Capcom CPS-1, `cps2` Capcom CPS-2, `x68` Sharp X68000.
 
 ## The pins
 
@@ -30,14 +30,14 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
 | [arcanite24/gb-recompiled](https://github.com/arcanite24/gb-recompiled) | gb | `9150f87` | `9150f87d82fa98abcb6ea22329170463f9702eb8` | `gameboy.ENGINE_REV` |
 | [mstan/nesrecomp](https://github.com/mstan/nesrecomp) | nes | `1b0c621` | `1b0c621a927db17afa9723bf456a89ad15809907` | `nes.ENGINE_REV` |
-| [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, x68 | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
-| [mstan/m68k-recomp-core](https://github.com/mstan/m68k-recomp-core) (submodule) | md, ng, cps1, x68 | `921f67b` | `921f67b1e62bf24ee0a8f2aaad0ff50cbbc4b41a` | submodule `external/m68k-recomp-core` of segagenesisrecomp |
+| [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, cps2, x68 | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
+| [mstan/m68k-recomp-core](https://github.com/mstan/m68k-recomp-core) (submodule) | md, ng, cps1, cps2, x68 | `921f67b` | `921f67b1e62bf24ee0a8f2aaad0ff50cbbc4b41a` | submodule `external/m68k-recomp-core` of segagenesisrecomp |
 | [RetroPortingToolKit/rbengine](https://github.com/RetroPortingToolKit/rbengine) (submodule) | md | `2a03e73` | `2a03e73693acee0fb78076ea058642c931bef12e` | submodule `external/rbengine` of segagenesisrecomp |
 | [RetroPortingToolKit/snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | snes | `fb8cf15` | `fb8cf15d9296c59e7653e495ef38c9136546e9c1` | `console16.REPOSITORIES['snes']` |
-| [libretro/geolith-libretro](https://github.com/libretro/geolith-libretro) | ng, cps1, x68 | `2dc88e3` | `2dc88e3fa72ff404213a65d6eb5bb33baa687f73` | `neogeo_build.GEOLITH_REV` |
+| [libretro/geolith-libretro](https://github.com/libretro/geolith-libretro) | ng, cps1, cps2, x68 | `2dc88e3` | `2dc88e3fa72ff404213a65d6eb5bb33baa687f73` | `neogeo_build.GEOLITH_REV` |
 | [carmiker/lithogen](https://github.com/carmiker/lithogen) | ng | `ef0f9bd` | `ef0f9bd94e31689def44b49e0f8351e0206b622d` | `neogeo_build.LITHOGEN_REV` (also `neogeo_catalogue.LOADER`) |
-| [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | cps1 | `81aec25` | `81aec25ccbb98f4873a255f7551ac4dadac59b4a` | `cps1_build.YMFM_REVISION` |
-| [mamedev/mame](https://github.com/mamedev/mame) | cps1 | `61a2229` | `61a222977fd29f22ce11fbea3f7c290fd7ced091` | `cps1_catalogue.MAME_REVISION` (also `tools/build_cps1_catalogue.MAME_REVISION`) |
+| [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | cps1, cps2 | `81aec25` | `81aec25ccbb98f4873a255f7551ac4dadac59b4a` | `cps1_build.YMFM_REVISION` |
+| [mamedev/mame](https://github.com/mamedev/mame) | cps1, cps2 | `61a2229` | `61a222977fd29f22ce11fbea3f7c290fd7ced091` | `cps1_catalogue.MAME_REVISION` (also `tools/mame_driver_parse.MAME_REVISION`, `cps2_catalogue.MAME_REVISION`) |
 | [hissorii/px68k](https://github.com/hissorii/px68k) | x68 | `74ddbb3` | `74ddbb37b4e12b77362a4e12f28ceb5aaa593684` | `tools/x68000_reference.HISSORII_REV` (also `tools/x68000_base74.COMMIT`) |
 | [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | x68 | `0ad84d7` | `0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6` | `tools/x68000_reference.PX68K_REV` (also `native/x68000_machine/provenance.json`) |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | all | `5d24957` (release 2.32.10) | `5d249570393f7a37e037abf22cd6012a4cc56a71` | `core.SDL_REV` |

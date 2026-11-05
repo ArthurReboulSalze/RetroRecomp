@@ -1,4 +1,4 @@
-"""Capcom CPS-1 native conversion through the shared batch/export contract.
+"""Capcom CPS-1 and CPS-2 native conversion through the shared batch/export contract (`family`).
 
 Every route runs twice in the same build: once with every instruction forced
 through the reference interpreters (the fresh reference) and once with the
@@ -59,6 +59,7 @@ def route_liveness(trace: Path) -> dict:
 
 def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list[tuple[str, int, str]]:
     """(name, frames, script): attract, a credited play route, then long routes."""
+    # The CPS-2 plays the CPS-1's routes (the same pad, the same credit rule): random_routes.py is shared by every console and names only the CPS-1.
     from .random_routes import long_route, long_routes, cps1_script
     from .scan_levels import cps1_budget
     budget = cps1_budget(level)
@@ -72,7 +73,7 @@ def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list
 
 
 def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *extra: str,
-        ends_at: int | None = None) -> dict:
+        ends_at: int | None = None, label: str = 'CPS-1') -> dict:
     report, trace = folder / (name + '.json'), folder / (name + '.csv')
     completed = spawn([str(executable), '--headless', '--frames', str(frames), '--script', str(script),
                        '--trace', str(trace), '--report', str(report), *extra],
@@ -80,11 +81,11 @@ def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *e
 
     def failure(result):
         detail = (result.stderr or result.stdout).strip().splitlines()[-1:] or ['no output']
-        return ConversionError(f'CPS-1 {name} run failed ({result.returncode}): {detail[0]}')
+        return ConversionError(f'{label} {name} run failed ({result.returncode}): {detail[0]}')
     check_exit(completed, failure)
     result = json.loads(report.read_text(encoding='utf-8'))
     if result['frames'] != (frames if ends_at is None else ends_at) or result['save_failed']:
-        raise ConversionError(f'CPS-1 {name} run ended early or could not save its state.')
+        raise ConversionError(f'{label} {name} run ended early or could not save its state.')
     result['trace'] = trace
     return result
 
@@ -116,15 +117,16 @@ def learned(identity: str, memory: Path) -> dict:
     return observations
 
 
-def feedback_rows(identity: str) -> dict:
+def feedback_rows(identity: str, system: str = 'cps1') -> dict:
     """The player's opt-in gameplay feedback (kinds 15 and 16) as build hints. They have no provenance: they are
     used by this conversion, which checks the native code against the fresh reference, but never written into
     the library's observations and never shared. Kind 14 (a ROM instruction left interpreted) is not read: the
     program ROM is swept whole, so there is nothing a path could add (see `cps1_knowledge`)."""
     from .feedback import records
-    return {'m68k_ram': [{'offset': r.address, 'words': r.data.hex()} for r in records('cps1', identity, 15)
+    shift = 3 if system == 'cps2' else 0       # the CPS-2's record kinds are the CPS-1's plus three (native/cps1_machine.c, FB_KIND)
+    return {'m68k_ram': [{'offset': r.address, 'words': r.data.hex()} for r in records(system, identity, 15 + shift)
                          if not r.address & 1 and r.address < 0x10000 and len(r.data) % 2 == 0],
-            'z80_ram': [{'address': r.address, 'bytes': r.data.hex()} for r in records('cps1', identity, 16)
+            'z80_ram': [{'address': r.address, 'bytes': r.data.hex()} for r in records(system, identity, 16 + shift)
                         if 0xd000 <= r.address < 0xd800 and len(r.data) == 4]}
 
 
@@ -137,21 +139,21 @@ def fresh_observations(reference: dict) -> dict:
     return rows
 
 
-def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
+def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path, label: str = 'CPS-1') -> dict:
     """F8 at a frame, F9 in a fresh process: the continued timeline must match."""
     at = max(60, frames - STATE_SETTLE - 60)
     state = folder / 'quick.rrstate'
-    run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
-    run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
+    run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at), label=label)
+    run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE, label=label)
     rows = expected.read_text(encoding='ascii').splitlines()[1:]
     resumed = (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:]
     require(continuation_difference(rows, resumed, at, STATE_SETTLE) is None,
-            lambda: ConversionError('CPS-1 F9 continuation differs from its saved timeline; existing export preserved.'))
+            lambda: ConversionError(f'{label} F9 continuation differs from its saved timeline; existing export preserved.'))
     invalid = folder / 'invalid.rrstate'
     invalid.write_bytes(state.read_bytes()[:-17])
     rejected = spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
                      cwd=folder, timeout=120, capture_output=True)
-    require(rejected.returncode == 4, lambda: ConversionError('CPS-1 accepted a truncated quick state.'))
+    require(rejected.returncode == 4, lambda: ConversionError(f'{label} accepted a truncated quick state.'))
     return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
@@ -170,22 +172,25 @@ def audio_model(dsp_rom: bytes | None) -> dict:
                                               'hardware or about a run of the DSP16 program'}}
 
 
-def ordinary_saves(dsp_rom: bytes | None) -> dict:
+def ordinary_saves(dsp_rom: bytes | None, family: str = 'cps1') -> dict:
+    if family == 'cps2':
+        return {'supported': True, 'memory': '93C46 serial EEPROM, 128 bytes (16-bit words)', 'file': 'datas/saves/CPS1-<sha256 of the romset>.rrsave',   # the prefix is the board model's, the hash the romset's
+                'interactive_play_only': True}
     if dsp_rom is None:
         return {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'}
     return {'supported': True, 'memory': '93C46 serial EEPROM, 128 bytes', 'file': 'datas/saves/CPS1-<sha256 of the romset>.rrsave',
             'interactive_play_only': True}
 
 
-def knowledge_block(record: dict, promotion: dict, hints_used: dict, board_tier: str = 'supported') -> dict:
+def knowledge_block(record: dict | None, promotion: dict, hints_used: dict, board_tier: str = 'supported', family: str = 'cps1') -> dict:
     """The report's `knowledge` section. `shared` says whether CPS-1 is in the sharing at all
     (`path_profiles.EXPERIMENTAL_SHARED`), not that this conversion shared anything."""
     from . import cps1_knowledge
-    from .systems.cps1 import CPS1
+    from .systems import get_profile
     return {
-        'machine_status': CPS1.status, 'shared': 'cps1' in path_profiles.SHARED_SYSTEMS and board_tier == 'supported',
-        'record_format': cps1_knowledge.FORMAT,
-        'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
+        'machine_status': get_profile(family).status, 'shared': family in path_profiles.SHARED_SYSTEMS and board_tier == 'supported',
+        'record_format': cps1_knowledge.FORMAT if record else None,
+        'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record) if record else None,
         'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'm68k_gfx', 'z80_ram', 'truncated')},
         'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
         'raw_ram_words_stored': False, 'fresh_validation_required': True}
@@ -193,50 +198,65 @@ def knowledge_block(record: dict, promotion: dict, hints_used: dict, board_tier:
 
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True,
             boxart_dir=None, passes=3, frames=3600, scan_level=None, standard_override=None, profile=None,
-            qsound_rom=None, emit=print, **unused) -> Path:
+            qsound_rom=None, emit=print, family='cps1', **unused) -> Path:
     started = time.perf_counter()
-    from .cps1 import read_set
-    from . import cps1_catalogue
+    if family not in ('cps1', 'cps2'):
+        raise ConversionError(f'Unknown Capcom board family {family!r}.')
+    cps2 = family == 'cps2'
+    label = 'CPS-2' if cps2 else 'CPS-1'
+    if cps2:
+        from .cps2 import read_set
+        from . import cps2_catalogue as cps1_catalogue
+    else:
+        from .cps1 import read_set
+        from . import cps1_catalogue
     from .cps1_build import prepare_game, build_game, player_count, YMFM_REVISION
     from .neogeo_build import GEOLITH_REV as GEOLITH_REVISION
     MAME_REVISION = cps1_catalogue.catalogue()['source']['revision']
     level = resolve_scan_level(scan_level)
     if standard_override not in (None, 'arcade', 'auto'):
-        raise ConversionError('CPS-1 timing follows its board (59.637 Hz); PAL/NTSC overrides do not apply.')
+        raise ConversionError(f'{label} timing follows its board (59.637 Hz); PAL/NTSC overrides do not apply.')
     if profile is not None:
-        raise ConversionError('CPS-1 identifies romsets by CRC; TOML cartridge profiles do not apply.')
+        raise ConversionError(f'{label} identifies romsets by CRC; TOML cartridge profiles do not apply.')
     game_set = read_set(Path(path))
     if not game_set.supported:
-        raise ConversionError(f'CPS-1 set {game_set.set_name} is not supported yet: {game_set.reason}')
+        raise ConversionError(f'{label} set {game_set.set_name} is not supported yet: {game_set.reason}')
     game = cps1_catalogue.by_set()[game_set.set_name]
+    if (game['machine'] == 'cps2') != cps2:
+        raise ConversionError(f'{label} set {game_set.set_name} is a {game["machine"]} board.')
     # A QSound board needs the chip's own ROM, which only the player has: refused with its reason when it is not there.
     from . import cps1_qsound
     dsp_rom = None
-    if cps1_qsound.needs_dsp_rom(game):
+    if cps2 or cps1_qsound.needs_dsp_rom(game):
         try:
             dsp_rom = cps1_qsound.internal_rom(qsound_rom)
         except ValueError as error:
-            raise ConversionError(f'CPS-1.5 set {game_set.set_name} needs the QSound DSP ROM (dl-1425.bin, CRC d6cf5ef5), which is your own '
+            raise ConversionError(f'{"CPS-2" if cps2 else "CPS-1.5"} set {game_set.set_name} needs the QSound DSP ROM (dl-1425.bin, CRC d6cf5ef5), which is your own '
                                   f'dump and is never shipped or downloaded: select it in Options or give --qsound-rom. {error}') from error
     title = title or game_set.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
-        raise ConversionError('Invalid CPS-1 game title.')
+        raise ConversionError(f'Invalid {label} game title.')
     if output is None:
         from .paths import games_directory
-        output = games_directory(system_id='cps1') / 'datas/reports' / game_set.sha256
+        output = games_directory(system_id=family) / 'datas/reports' / game_set.sha256
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     from .feedback import ingest
     from .library import library_root
-    feedback = ingest('cps1', game_set.sha256, output, emit=emit)
-    memory = library_root('cps1') / game_set.sha256
+    feedback = ingest(family, game_set.sha256, output, emit=emit)
+    memory = library_root(family) / game_set.sha256
     observations = learned(game_set.sha256, memory)
     from . import cps1_knowledge, knowledge
-    from .systems.cps1 import CPS1
+    from .systems import get_profile
+    profile_of_family = get_profile(family)
     hints_used = {}
 
     def shared_hints(board):
         """Rows rebuilt from the shared and library records for the player's own images (build input only)."""
+        if cps2:                  # nothing is shared yet: the CPS-2 builds from what this player's own conversions observed
+            rows = {'m68k_ram': [], 'm68k_gfx': [], 'z80_ram': []}
+            merge(rows, feedback_rows(game_set.sha256, family))
+            return rows
         images = cps1_knowledge.images_from_board(board, game)
         # A board of the experimental tier takes nothing from the shared base and gives nothing to it (docs/CPS1.md).
         local = cps1_catalogue.tier(game) != 'supported'
@@ -244,7 +264,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             game_set.sha256, images, qualified=None if local else knowledge.qualified_game('cps1', game_set.sha256),
             imported=None if local else knowledge.imported_game('cps1', game_set.sha256),
             library=cps1_knowledge.library_record(game_set.sha256))
-        merge(rows, feedback_rows(game_set.sha256))
+        merge(rows, feedback_rows(game_set.sha256, family))
         hints_used.update(info)
         return rows
     six = any(name in ('button4', 'button5', 'button6') for port in game['inputs'].values()
@@ -252,7 +272,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     plan = routes(game_set.sha256, frames=max(600, min(int(frames or 3600), 10000)), level=level, six_buttons=six)
     workers = max(1, min(4, os.cpu_count() or 1))
     timings = {}
-    work = ROOT / '.build' / 'cps1' / f'{game_set.set_name}-{game_set.sha256[:12]}'
+    work = ROOT / '.build' / family / f'{game_set.set_name}-{game_set.sha256[:12]}'
     with entry_lock(work, timeout=1800):
         project, checks = work / 'native', work / 'checks'
         shutil.rmtree(checks, ignore_errors=True)
@@ -261,7 +281,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             scripts[name] = checks / 'inputs' / (name + '.inputs')
             scripts[name].parent.mkdir(parents=True, exist_ok=True)
             scripts[name].write_text(text, encoding='ascii', newline='\n')
-        emit(f'CPS-1 {game_set.set_name}: scan level {level}, routes ' +
+        emit(f'{label} {game_set.set_name}: scan level {level}, routes ' +
              ', '.join(f'{name} ({count} frames)' for name, count, _ in plan) + '.')
         presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
                         'online_cover': online_cover, 'boxart_dir': boxart_dir, 'emit': emit}
@@ -270,7 +290,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         for attempt in range(attempts):
             stages.begin_pass(attempt + 1)
             phase = time.perf_counter()
-            emit(f'CPS-1: translating the 68000 program and Z80 sound code (pass {attempt + 1}).')
+            emit(f'{label}: translating the 68000 program and Z80 sound code (pass {attempt + 1}).')
             with stages.phase('code_generation'):
                 prepared = prepare_game(project, game_set, game, title=title, observations=observations,
                                         presentation=presentation, hints=shared_hints, dsp_rom=dsp_rom)
@@ -283,24 +303,24 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             shutil.copy2(executable, candidate)
             jobs = []
             if not reference:
-                emit('CPS-1: fresh reference runs (every instruction interpreted).')
+                emit(f'{label}: fresh reference runs (every instruction interpreted).')
                 jobs += [('reference', name, count) for name, count, _ in plan]
             jobs += [('native', name, count) for name, count, _ in plan]
             # The reference and native replays share one pool: their wall time is not told apart.
             with stages.phase('native_runs' if reference else 'reference_and_native_runs'), \
                     ThreadPoolExecutor(max_workers=workers) as pool:
                 done = list(pool.map(lambda job: (job, run(candidate, checks / job[0] / f'pass-{attempt + 1}', job[1], job[2],
-                                                          scripts[job[1]], *(['--reference'] if job[0] == 'reference' else []))),
+                                                          scripts[job[1]], *(['--reference'] if job[0] == 'reference' else []), label=label)),
                                      jobs))
             for (kind, name, _), result in done:
                 (reference if kind == 'reference' else results)[name] = result
             for name, count, _ in plan:
                 require_same_file(results[name]['trace'], reference[name]['trace'], lambda: ConversionError(
-                    f'CPS-1 {name}: native and reference CPU/RAM/image/PCM traces differ; existing export preserved.'))
+                    f'{label} {name}: native and reference CPU/RAM/image/PCM traces differ; existing export preserved.'))
                 if not results[name]['nonuniform_frames']:
-                    raise ConversionError(f'CPS-1 {name}: no picture was produced.')
+                    raise ConversionError(f'{label} {name}: no picture was produced.')
                 require_moving_picture(route_liveness(Path(results[name]['trace'])), lambda: ConversionError(
-                    f'CPS-1 {name}: the picture never changed during the route; the game is stuck.'))
+                    f'{label} {name}: the picture never changed during the route; the game is stuck.'))
             timings[f'routes_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
             fallback = sum(results[name]['interpreted_68000'] + results[name]['interpreted_z80'] for name, _, _ in plan)
             if not fallback:
@@ -309,46 +329,51 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             for name, _, _ in plan:
                 progress = merge(observations, results[name]['fallback']) or progress
             if not progress or attempt + 1 == attempts:
-                emit(f'CPS-1: {fallback} interpreted instructions remain; they stay counted and reported.')
+                emit(f'{label}: {fallback} interpreted instructions remain; they stay counted and reported.')
                 break
-            emit(f'CPS-1: {fallback} interpreted instructions observed; extending guarded native code.')
+            emit(f'{label}: {fallback} interpreted instructions observed; extending guarded native code.')
         stages.end_passes()
         if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
-            raise ConversionError('CPS-1 validation produced no sound on any route.')
+            raise ConversionError(f'{label} validation produced no sound on any route.')
         phase = time.perf_counter()
         packed = project / 'packed-game.exe' if os.name == 'nt' else project / 'packed-game'
-        delivered = deliver_packed(executable, packed, 'CPS-1', emit)
+        delivered = deliver_packed(executable, packed, label, emit)
         with stages.phase('packed_replays'):
             final = {row[0]: result for row, result in zip(plan, replay_packed(
-                delivered, plan, lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]]),
+                delivered, plan, lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]], label=label),
                 same=lambda row, result: same_trace(result['trace'], reference[row[0]]['trace']),
-                mismatch=lambda row: ConversionError(f'CPS-1 {row[0]}: compressed executable differs from the reference.'),
+                mismatch=lambda row: ConversionError(f'{label} {row[0]}: compressed executable differs from the reference.'),
                 workers=workers))}
         timings['packed_replays'] = round(time.perf_counter() - phase, 3)
         phase = time.perf_counter()
-        emit('CPS-1: checking F8/F9 in a fresh process and rejecting an invalid state.')
+        emit(f'{label}: checking F8/F9 in a fresh process and rejecting an invalid state.')
         play = next(row for row in plan if row[0] == 'play')
         with stages.phase('state_checks'):
-            states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'])
+            states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'], label)
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
         # The shared path record: numbers about this romset's own images, made only from the fresh reference
         # runs of this conversion (every check above passed), never from feedback rows or from the hints
         # it was offered. What cannot be tied to a ROM stays private (counted below).
         from .cps1_codegen import ram_instruction_lengths
-        images = cps1_knowledge.images_from_board(project / 'board', game)
         fresh = fresh_observations(reference)
-        record, promotion = cps1_knowledge.promote(
-            game_set.sha256, images, fresh, lambda windows: ram_instruction_lengths(project, windows),
-            previous=cps1_knowledge.library_record(game_set.sha256))
+        if cps2:       # no shared path record yet: only the counts of what the fresh reference runs observed
+            record = None
+            promotion = {'paths': 0, 'm68k_ram': len(fresh['m68k_ram']), 'm68k_gfx': len(fresh['m68k_gfx']), 'z80_ram': len(fresh['z80_ram']),
+                         'truncated': False}
+        else:
+            images = cps1_knowledge.images_from_board(project / 'board', game)
+            record, promotion = cps1_knowledge.promote(
+                game_set.sha256, images, fresh, lambda windows: ram_instruction_lengths(project, windows),
+                previous=cps1_knowledge.library_record(game_set.sha256))
         memory.mkdir(parents=True, exist_ok=True)
         atomic_json(memory / 'observations.json', observations)
         atomic_json(memory / 'compilation.json', {
-            'schema': 1, 'system': 'cps1', 'title': title, 'set': game_set.set_name, 'source_identity': game_set.sha256,
+            'schema': 1, 'system': family, 'title': title, 'set': game_set.set_name, 'source_identity': game_set.sha256,
             'guarded_ram_variants': len(observations['m68k_ram']), 'guarded_gfx_variants': len(observations['m68k_gfx']),
             'guarded_z80_ram_variants': len(observations['z80_ram']),
             'fresh_reference_passed': True, 'version': __version__,
-            # The schema 3 record the base shares (numbers only), and where it came from.
-            'record': record, 'record_format': cps1_knowledge.FORMAT, 'cores': cps1_knowledge.engine(),
+            # The schema 3 record the base shares (numbers only), and where it came from (none for a machine that shares nothing yet).
+            'record': record, 'record_format': cps1_knowledge.FORMAT if record else None, 'cores': cps1_knowledge.engine(),
             'record_source': 'fresh reference runs', 'record_counts': promotion})
     checks_rows = []
     for name, count, text in plan:
@@ -364,17 +389,16 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'trace_sha256': file_sha256(native['trace']),
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
-    from .systems.cps1 import CPS1
-    board_tier = cps1_catalogue.tier(game)
+    board_tier = 'experimental' if cps2 else cps1_catalogue.tier(game)
     analysis = prepared['analysis']
     report = {'tool': 'Retro-Recomp', 'version': __version__,
         # The machine is supported; a board of the experimental tier (the QSound boards of the CPS-1.5, a catalogue column)
         # reports `experimental` whatever its coverage.
-        'status': 'completed' if not CPS1.experimental and board_tier == 'supported' and native_coverage else 'experimental',
+        'status': 'completed' if not profile_of_family.experimental and board_tier == 'supported' and native_coverage else 'experimental',
         'board_tier': board_tier,
-        'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': 'cps1', 'name': 'Capcom CPS-1'},
+        'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': family, 'name': profile_of_family.name},
         'rom': game_set.metadata(),
-        'compiler': {'board': 'Retro-Recomp CPS-1 board adapted from MAME (BSD-3-Clause)', 'mame_revision': MAME_REVISION,
+        'compiler': {'board': f'Retro-Recomp {label} board adapted from MAME (BSD-3-Clause)', 'mame_revision': MAME_REVISION,
                      'cpu_cores_revision': GEOLITH_REVISION, 'ymfm_revision': YMFM_REVISION,
                      'native_cpu': 'guarded 68000 (static sweep of the program ROM) and guarded Z80 at every byte'},
         'native_analysis': {'m68000': {k: analysis['m68000'].get(k) for k in ('decoded', 'translated_rom_positions',
@@ -393,18 +417,19 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'physical_latency_measured': False, 'latency_ms': None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',
                         'compatibility': 'exact romset, board model and runtime ABI', 'validation': states},
-        'ordinary_saves': ordinary_saves(dsp_rom),
+        'ordinary_saves': ordinary_saves(dsp_rom, family),
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
         **delivered.report_fields(), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'knowledge': knowledge_block(record, promotion, hints_used, board_tier),
+        'knowledge': knowledge_block(record, promotion, hints_used, board_tier, family),
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
                         'validation routes drive players 1 and 2',
-            'dip_switches': 'catalogue defaults during validation; adjustable in play (F2)',
+            'dip_switches': ("the board has none: its settings are in the game's test menu, opened by the service switch of the F2 switch page" if cps2
+                             else 'catalogue defaults during validation; adjustable in play (F2)'),
             'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'CPS-1: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
+    emit(f'{label}: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
     # Publishing compacts this same build again (UPX is deterministic).
     return executable

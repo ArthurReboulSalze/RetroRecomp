@@ -368,6 +368,7 @@ def main(argv=None) -> int:
     parser.add_argument('--backend', choices=('functions', 'banked'),
                         help='the Master System / Game Gear engine, passed to the batch (default: the converter default)')
     parser.add_argument('--ng-bios', type=Path, help='the Neo Geo BIOS archive (read in place), for a Neo Geo game')
+    parser.add_argument('--qsound-rom', help='the QSound DSP ROM (dl-1425.bin or qsound.zip, read in place), for a QSound set of the CPS-1.5 or a CPS-2 set')
     parser.add_argument('--x68-ipl', type=Path, help='the X68000 IPL ROM (read in place), for an X68000 game')
     parser.add_argument('--x68-cgrom', type=Path, help='the X68000 font ROM (read in place), for an X68000 game')
     parser.add_argument('--keep-work', action='store_true',
@@ -387,6 +388,8 @@ def main(argv=None) -> int:
     extra = ['--scan-level', options.scan_level] if options.scan_level else []
     if options.backend:
         extra += ['--backend', options.backend]
+    if options.qsound_rom:
+        extra += ['--qsound-rom', options.qsound_rom]
     if options.ng_bios:
         extra += ['--ng-bios', options.ng_bios.resolve()]
     if options.x68_ipl and options.x68_cgrom:

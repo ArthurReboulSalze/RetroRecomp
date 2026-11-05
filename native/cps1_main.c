@@ -287,10 +287,10 @@ static int execute(int argc, char **argv)
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     performance_frequency = SDL_GetPerformanceFrequency();
     static const char *const names[] = {"board.txt", "maincpu.bin", "audiocpu.bin", "gfx.bin", "oki.bin", "stars.bin", "audiocpu-op.bin",
-                                         "qsound.bin", "audiorom_raw.bin", "qsound_dsp.bin"};
-    Region regions[10] = {{0}};
+                                         "qsound.bin", "audiorom_raw.bin", "qsound_dsp.bin", "maincpu-op.bin"};
+    Region regions[11] = {{0}};
     uint8_t *content = NULL;
-    if (!unpack(&content, regions, names, 10) || !regions[0].data || !regions[1].data || !regions[2].data ||
+    if (!unpack(&content, regions, names, 11) || !regions[0].data || !regions[1].data || !regions[2].data ||
         !regions[3].data) { SDL_Quit(); return 3; }
     char *text = malloc(regions[0].size + 1);
     if (!text) { free(content); SDL_Quit(); return 3; }
@@ -301,10 +301,11 @@ static int execute(int argc, char **argv)
     free(text);
     if (!parsed) { fprintf(stderr, "%s\n", error); free(content); SDL_Quit(); return 3; }
     if (!board.qsound && !regions[4].data) { free(content); SDL_Quit(); return 3; }   /* the OKI samples */
+    if (board.cps2 && !regions[10].data) { free(content); SDL_Quit(); return 3; }       /* the CPS-2's decrypted program: without it the encrypted one would run as code */
     cps1_regions rom = {regions[1].data, regions[1].size, regions[2].data, regions[2].size, regions[3].data,
                         regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size,
                         regions[6].data, regions[6].size, regions[7].data, regions[7].size, regions[8].data, regions[8].size,
-                        regions[9].data, regions[9].size};
+                        regions[9].data, regions[9].size, regions[10].data, regions[10].size};
     if (!cps1_init(&board, &rom)) { free(content); SDL_Quit(); return 3; }
     if (dips_given) rr_cps1_set_dip_values(dips);
     rr_cps1_apply_pads(0, 0);

@@ -14,7 +14,13 @@
 #define M68K_EMULATE_020            OPT_OFF
 #define M68K_EMULATE_030            OPT_OFF
 #define M68K_EMULATE_040            OPT_OFF
+/* The CPS-2 board's 68000 fetches its instruction stream (opcodes, extension words, PC-relative operands) through the decryption:
+ * cps1_machine.c defines the separate immediate and PC-relative reads when RR_CPS2 is set. Every other board reads one way. */
+#ifdef RR_CPS2
+#define M68K_SEPARATE_READS         OPT_ON
+#else
 #define M68K_SEPARATE_READS         OPT_OFF
+#endif
 #define M68K_SIMULATE_PD_WRITES     OPT_OFF
 
 int cps1_m68k_int_ack(int level);

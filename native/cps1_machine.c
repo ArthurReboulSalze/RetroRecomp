@@ -33,6 +33,8 @@
  * chip makes a sample every 1248 DSP cycles of a 30 MHz clock (24,038.46 Hz: 5 samples per 1664 Z80 clocks). */
 #define QSOUND_IRQ_CLOCKS 32000u
 #define QSOUND_SHARED 0x1000
+/* the EEPROM's clock ticks in a microsecond: the same figure everywhere the chip is created or restored */
+#define eeprom_ticks() ((M.board.cpu_clock + 500000u) / 1000000u)
 
 enum { A_OBJ, A_SCROLL1, A_SCROLL2, A_SCROLL3, A_OTHER, A_PALETTE, A_S1X, A_S1Y, A_S2X, A_S2Y,
        A_S3X, A_S3Y, A_STAR1X, A_STAR1Y, A_STAR2X, A_STAR2Y, A_ROWSCROLL, A_VIDEO };
@@ -74,6 +76,17 @@ static struct {
     uint64_t qsound_irq_clock;                  /* Z80 clock of the next 250 Hz interrupt */
     uint64_t qsound_done;                       /* QSound samples made so far */
     cps1_qsound qchip;
+    /* CPS-2 board */
+    uint16_t objram[2][0x1000];                 /* the two object RAM banks (0x2000 bytes each) */
+    uint16_t obj2[0x1000];                      /* the copy latched at VBLANK that the sprites are drawn from */
+    uint16_t output[6];                         /* 0x400000-0x40000b: base, unknown, priorities, unknown, x and y offsets */
+    uint16_t pri_ctrl;                          /* the priorities word latched with the sprites */
+    uint8_t objram_bank, z80_run, extra_ram[0x4002];
+    /* the CPS-B-21 raster counters (MAME's cps_state::raster_scanline): two line counters with reloads, an interrupt position in the line */
+    uint16_t raster_counter[3], raster_reload[3];
+    uint8_t raster_pending, irq4;
+    int rendered_rows;                          /* rows of the picture drawn so far in this frame (partial updates at raster interrupts) */
+    uint64_t line_start;                        /* 68000 cycle at which the current line started */
 } M;
 
 /* ---------------------------------------------------------------- board */
@@ -121,7 +134,7 @@ int cps1_board_parse(cps1_board *board, const char *text, char *error, size_t er
         else if (!strcmp(key, "ports")) ok = read_ints(rest, board->ports, 3);
         else if (!strcmp(key, "kludge")) ok = read_ints(rest, &board->kludge, 1);
         else if (!strcmp(key, "rotation")) ok = read_ints(rest, &board->rotation, 1);
-        else if (!strcmp(key, "machine")) { board->qsound = !strcmp(rest, "qsound"); ok = board->qsound; }
+        else if (!strcmp(key, "machine")) { board->cps2 = !strcmp(rest, "cps2"); board->qsound = board->cps2 || !strcmp(rest, "qsound"); ok = board->qsound; }
         else if (!strcmp(key, "z80_clock")) { ok = read_ints(rest, v, 1); board->z80_clock = (uint32_t)v[0]; }
         else if (!strcmp(key, "range")) {
             if (board->range_count >= CPS1_MAX_RANGES) { snprintf(error, error_size, "too many ranges"); return 0; }
@@ -137,7 +150,9 @@ int cps1_board_parse(cps1_board *board, const char *text, char *error, size_t er
         } else { snprintf(error, error_size, "unknown board key %s", key); return 0; }
         if (!ok) { snprintf(error, error_size, "malformed board line: %s", line); return 0; }
     }
-    if (version != 1 || !board->set[0] || (board->cpu_clock != 10000000u && board->cpu_clock != 12000000u) ||
+    /* the CPS-2's 16 MHz 68000 as MAME runs it: slowed by 0.7375 for the waitstates it does not emulate (docs/CPS2.md) */
+    const int cps2_clock = board->cps2 && board->cpu_clock == 11800000u;
+    if (version != 1 || !board->set[0] || (board->cpu_clock != 10000000u && board->cpu_clock != 12000000u && !cps2_clock) ||
         !board->range_count || board->kludge || (board->qsound ? board->z80_clock != 8000000u : board->z80_clock != CPS1_YM_CLOCK)) {
         snprintf(error, error_size, "unsupported CPS-1 board description");
         return 0;
@@ -376,16 +391,30 @@ static void free_gfx(void)
     gfx_pens = sprite_blank = NULL;
 }
 
+/* The CPS-2 graphics ROMs are stored shuffled (cps1_cps2_board.inc). */
+static void unshuffle(uint64_t *buffer, size_t length);
+
 static int decode_gfx(void)
 {
     free_gfx();
     const size_t groups = M.rom.gfx_size / 4, sprites = M.rom.gfx_size / 128;
     if (!groups) return 1;
+    uint8_t *shuffled = NULL;
+    const uint8_t *source = M.rom.gfx;
+    if (M.board.cps2) {
+        const size_t bank = 0x200000;
+        if (M.rom.gfx_size % bank) return 0;
+        shuffled = malloc(M.rom.gfx_size);
+        if (!shuffled) return 0;
+        memcpy(shuffled, M.rom.gfx, M.rom.gfx_size);
+        for (size_t at = 0; at < M.rom.gfx_size; at += bank) unshuffle((uint64_t *)(void *)(shuffled + at), bank / 8);
+        source = shuffled;
+    }
     gfx_pens = malloc(groups * 8);
     sprite_blank = malloc(sprites ? sprites : 1);
-    if (!gfx_pens || !sprite_blank) { free_gfx(); return 0; }
+    if (!gfx_pens || !sprite_blank) { free_gfx(); free(shuffled); return 0; }
     for (size_t g = 0; g < groups; g++) {
-        const uint8_t *p = M.rom.gfx + g * 4;
+        const uint8_t *p = source + g * 4;
         for (int x = 0; x < 8; x++) {
             const int bit = 7 - x;
             gfx_pens[g * 8 + (size_t)x] =
@@ -398,6 +427,7 @@ static int decode_gfx(void)
         while (n < 256 && pens[n] == 15) n++;
         sprite_blank[s] = n == 256;
     }
+    free(shuffled);
     return 1;
 }
 
@@ -414,6 +444,9 @@ static const uint8_t *tile_row(int size, int half, int code, int y)
 
 /* One tilemap pass, a tile row at a time: each scanline is cut into runs that
  * stay in one tile, whose code, attributes and pens are looked up once. */
+static int row_first, row_last = CPS1_SCREEN_H;     /* the picture rows a draw call may touch (the whole picture, or the part between two raster interrupts) */
+static int tile_priority;           /* CPS-2: the value (1, 2 or 4) OR-ed into the priority plane under each opaque tile pixel */
+
 static void draw_layer(int layer, int high)
 {
     static const int sizes[3] = {8, 16, 32}, types[3] = {GFX_SCROLL1, GFX_SCROLL2, GFX_SCROLL3};
@@ -428,7 +461,7 @@ static void draw_layer(int layer, int high)
     for (int i = 0; i < 4; i++)
         mask[i] = M.board.priority[i] != -1 ? M.cps_b[M.board.priority[i] / 2] : 0;
     const int flip = M.cps_a[A_VIDEO] >> 15 & 1, step = flip ? -1 : 1;
-    for (int y = 0; y < CPS1_SCREEN_H; y++) {
+    for (int y = row_first; y < row_last; y++) {
         const int raster_y = flip ? LINES - 1 - (y + VISIBLE_Y) : y + VISIBLE_Y;
         const int ty = (raster_y + scroll_y) & extent, row = ty / size;
         int line_x = scroll_x;
@@ -464,7 +497,7 @@ static void draw_layer(int layer, int high)
                 const uint16_t colour = (uint16_t)(((attr & 0x1f) + colors[layer]) * 16);
                 for (int k = 0; k < run; k++, px += advance) {
                     const int pen = src[px];
-                    if (pen != 15) pens[x + k] = (uint16_t)(colour + pen);
+                    if (pen != 15) { pens[x + k] = (uint16_t)(colour + pen); if (tile_priority) priority[x + k] |= (uint8_t)tile_priority; }
                 }
             }
             x += run;
@@ -472,7 +505,7 @@ static void draw_layer(int layer, int high)
     }
 }
 
-static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int sy)
+static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int sy, uint32_t pmask)
 {
     const size_t count = M.rom.gfx_size / 128;
     if (!count || sprite_blank[(unsigned)code % count]) return;
@@ -486,7 +519,7 @@ static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int s
     const uint16_t colour = (uint16_t)(color * 16);
     for (int y = 0; y < 16; y++) {
         const int raster_y = sy + y;
-        if (raster_y < VISIBLE_Y || raster_y >= VISIBLE_Y + CPS1_SCREEN_H) continue;
+        if (raster_y < VISIBLE_Y + row_first || raster_y >= VISIBLE_Y + row_last) continue;
         const uint8_t *src = tile_row(16, 0, code, flipy ? 15 - y : y);
         const int line = (raster_y - VISIBLE_Y) * CPS1_SCREEN_W + sx - VISIBLE_X;
         for (int x = x0; x < x1; x++) {
@@ -496,7 +529,7 @@ static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int s
             /* MAME prio_transpen with pmask 0x02 plus its implicit bit 31: a
              * high tile (1) or an earlier sprite (31) keeps the pixel, so the
              * first sprite of the list stays on top. */
-            if (!((1u << (M.priority[at] & 0x1f)) & 0x80000002u)) M.pens[at] = (uint16_t)(colour + pen);
+            if (!((1u << (M.priority[at] & 0x1f)) & (pmask | 0x80000000u))) M.pens[at] = (uint16_t)(colour + pen);
             M.priority[at] = 31;
         }
     }
@@ -521,15 +554,19 @@ static void draw_sprites(void)
                     const int sx = (x + nxs * 16) & 0x1ff;
                     const int column = flipx ? (code + (nx - 1) - nxs) & 0xf : (code + nxs) & 0xf;
                     const int row = 0x10 * (flipy ? ny - 1 - nys : nys);
-                    draw_sprite((code & ~0xf) + column + row, col, flipx, flipy, sx, sy);
+                    draw_sprite((code & ~0xf) + column + row, col, flipx, flipy, sx, sy, 0x02);
                 }
             }
         } else {
-            draw_sprite(code, col, flipx, flipy, x & 0x1ff, y & 0x1ff);
+            draw_sprite(code, col, flipx, flipy, x & 0x1ff, y & 0x1ff, 0x02);
         }
     }
 }
 
+/* The CPS-2 object chip's output registers (cps1_cps2_board.inc draws its sprites). */
+#define CPS2_XOFFS 4
+#define CPS2_YOFFS 5
+#define CPS2_PRI 2
 static void draw_stars(void)
 {
     const uint16_t layers = M.cps_b[M.board.layer_control / 2];
@@ -589,8 +626,12 @@ static void render_frame(void)
 
 /* ---------------------------------------------------------------- 68000 bus */
 
+static int cps2_cps_b_read(int offset, uint16_t *value);
+
 static uint16_t cps_b_read(int offset)
 {
+    uint16_t counter;
+    if (M.board.cps2 && cps2_cps_b_read(offset, &counter)) return counter;
     /* As in MAME, an absent register (-1) compares as offset -1 / 2 == 0. */
     const cps1_board *b = &M.board;
     if (offset == b->id_address / 2) return (uint16_t)b->id_value;
@@ -620,9 +661,19 @@ static int qsound_read(uint32_t address, uint16_t *word)
     return 0;
 }
 
+/* The CPS-2 board (cps1_cps2_board.inc, included after the state code): its bus, the frame and the raster counters. */
+static uint16_t cps2_read(uint32_t address);
+static void cps2_write(uint32_t address, uint16_t data, uint16_t mask);
+static void render_to_row(int last);
+static void raster_line(int scanline);
+static void raster_fire(void);
+static void cps2_raster_in_line(void);
+static void cps2_reset_board(void);
+
 static uint16_t read_word(uint32_t address)
 {
     address &= 0xfffffe;
+    if (M.board.cps2) return cps2_read(address);
     if (M.board.qsound && address >= 0xf00000 && address < 0xff0000) {
         uint16_t word;
         if (qsound_read(address, &word)) return word;
@@ -652,6 +703,7 @@ static int qsound_write(uint32_t address, uint16_t data, uint16_t mask)
 static void write_word(uint32_t address, uint16_t data, uint16_t mask)
 {
     address &= 0xfffffe;
+    if (M.board.cps2) { cps2_write(address, data, mask); return; }
     if (M.board.qsound && qsound_write(address, data, mask)) return;
     if (address >= 0xff0000) {
         if (mask & 0xff00) M.ram[address & 0xffff] = (uint8_t)(data >> 8);
@@ -712,6 +764,25 @@ void m68k_write_memory_32(unsigned address, unsigned value)
     cps1_m68k_write16(address, (uint16_t)(value >> 16));
     cps1_m68k_write16(address + 2, (uint16_t)value);
 }
+#ifdef RR_CPS2
+/* The CPS-2 68000 fetches instruction words, extension words and PC-relative operands through its decryption (MAME's `opcodes`
+ * space): the decrypted image over the program ROM, the ordinary bus elsewhere. Data reads keep the stored words. */
+static unsigned op_word(unsigned address)
+{
+    address &= 0xfffffe;
+    if (address < 0x400000 && M.rom.maincpu_op) return address + 1 < M.rom.maincpu_op_size ? (unsigned)(M.rom.maincpu_op[address] << 8 | M.rom.maincpu_op[address + 1]) : 0;
+    return read_word(address);
+}
+unsigned m68k_read_immediate_16(unsigned address) { return op_word(address); }
+unsigned m68k_read_immediate_32(unsigned address) { return op_word(address) << 16 | op_word(address + 2); }
+unsigned m68k_read_pcrelative_8(unsigned address) { return op_word(address) >> (8 * (1 - (address & 1))) & 0xff; }
+unsigned m68k_read_pcrelative_16(unsigned address) { return (address & 1) ? ((op_word(address - 1) << 8) | (op_word(address + 1) >> 8)) & 0xffff : op_word(address); }
+unsigned m68k_read_pcrelative_32(unsigned address)
+{
+    return (address & 1) ? (op_word(address - 1) << 24) | (op_word(address + 1) << 8) | (op_word(address + 3) >> 8) : op_word(address) << 16 | op_word(address + 2);
+}
+#endif
+
 unsigned m68k_read_disassembler_8(unsigned address) { return m68k_read_memory_8(address); }
 unsigned m68k_read_disassembler_16(unsigned address) { return m68k_read_memory_16(address); }
 unsigned m68k_read_disassembler_32(unsigned address) { return m68k_read_memory_32(address); }
@@ -744,7 +815,7 @@ void cps1_trace_instruction(unsigned pc)
 int cps1_m68k_int_ack(int level)
 {
     (void)level;
-    M.irq2 = 0;
+    M.irq2 = 0; M.irq4 = 0;
     m68k_set_irq(0);
     if (iack_model) {
         uint64_t now = m68k_now() + (uint64_t)iack_offset;
@@ -770,8 +841,16 @@ int cps1_m68k_int_ack(int level)
 
 static void vblank(void)
 {
-    render_frame();
-    memcpy(M.buffered_obj, video_base(A_OBJ, 0x800), sizeof M.buffered_obj);
+    if (M.board.cps2) {
+        render_to_row(CPS1_SCREEN_H);
+        M.rendered_rows = 0;
+        /* the object RAM bank the output registers select and the priority word are latched after the frame is drawn */
+        M.pri_ctrl = M.output[CPS2_PRI];
+        memcpy(M.obj2, M.objram[M.objram_bank & 1], sizeof M.obj2);
+    } else {
+        render_frame();
+        memcpy(M.buffered_obj, video_base(A_OBJ, 0x800), sizeof M.buffered_obj);
+    }
     M.frame_number++;
     if (M.m68k_cycles - M.m68k_target < IRQ_SAMPLE_CYCLES) {
         m68k_running = 1;
@@ -779,19 +858,25 @@ static void vblank(void)
         m68k_running = 0;
     }
     M.irq2 = 1;
-    m68k_set_irq(2);
+    m68k_set_irq(2 | (M.irq4 ? 4 : 0));
 }
 
 static void run_line(void)
 {
     M.lines_run++;
+    M.line_start = M.m68k_target;
     M.m68k_target = M.lines_run * (uint64_t)M.board.cpu_clock * LINE_PIXELS / PIXEL_CLOCK;
+    if (M.board.cps2 && M.raster_pending) cps2_raster_in_line();
     while (M.m68k_cycles < M.m68k_target) {
         m68k_running = 1;
         M.m68k_cycles += (uint64_t)m68k_execute((int)(M.m68k_target - M.m68k_cycles));
         m68k_running = 0;
     }
     const uint64_t z80_target = M.lines_run * (uint64_t)M.board.z80_clock * LINE_PIXELS / PIXEL_CLOCK;
+    if (M.board.cps2 && !M.z80_run) {                   /* held in reset: time passes, nothing runs */
+        M.z80_clock = z80_target;
+        while (M.qsound_irq_clock <= z80_target) M.qsound_irq_clock += QSOUND_IRQ_CLOCKS;
+    }
     while (M.z80_clock < z80_target) {
         if (M.board.qsound) {
             if (M.z80_clock >= M.qsound_irq_clock) { z80_pulse_irq(&M.cpu, 0xff); M.qsound_irq_clock += QSOUND_IRQ_CLOCKS; }
@@ -808,6 +893,7 @@ void cps1_run_frame(void)
     do {
         run_line();
         M.line = (M.line + 1) % LINES;
+        if (M.board.cps2) raster_line(M.line);
         if (M.line == VBLANK_LINE) { vblank(); drawn = 1; }
     } while (!drawn || M.line != COLOUR_LINE);
     apply_palette();
@@ -822,8 +908,11 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     memset(&M, 0, sizeof M);
     M.board = *board;
     M.rom = *regions;
+    if (M.board.cps2 && (!M.rom.maincpu_op || M.rom.maincpu_op_size < M.rom.maincpu_size)) return 0;   /* the encrypted program would run as code */
     if (M.board.qsound && (!M.rom.dsp_rom || M.rom.dsp_rom_size < CPS1_QSOUND_DSP_BYTES || !M.rom.qsound)) return 0;   /* the player's own DSP ROM and the samples */
-    cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
+    cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
+    cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
+    cps1_eeprom_set_clock_khz(&M.eeprom, M.board.cpu_clock / 1000u);
     if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
     if (!M.opm) return 0;
@@ -848,10 +937,13 @@ void cps1_reset(void)
     memset(M.palette, 0, sizeof M.palette);
     memset(M.z80_ram, 0, sizeof M.z80_ram);
     memset(M.qram, 0, sizeof M.qram);
+    cps2_reset_board();
     {   /* the EEPROM keeps its contents through a reset; its lines start low */
         uint8_t kept[CPS1_EEPROM_BYTES];
         memcpy(kept, M.eeprom.data, sizeof kept);
-        cps1_eeprom_reset(&M.eeprom, M.board.cpu_clock / 1000000u);
+        cps1_eeprom_reset(&M.eeprom, eeprom_ticks());
+        cps1_eeprom_set_wide(&M.eeprom, M.board.cps2);
+        cps1_eeprom_set_clock_khz(&M.eeprom, M.board.cpu_clock / 1000u);
         memcpy(M.eeprom.data, kept, sizeof kept);
     }
     M.qsound_irq_clock = QSOUND_IRQ_CLOCKS; M.qsound_done = 0;
@@ -953,6 +1045,12 @@ uint64_t cps1_cpu_hash(void)
 
 #define STATE_MAGIC "CPS1S002"
 #define STATE_MAGIC_QSOUND "CPS1Q002"   /* the QSound board saves more: another magic keeps the two apart */
+#define STATE_MAGIC_CPS2 "CPS2Q001"     /* the CPS-2 board saves the QSound side and its own video, bank and raster state */
+#define state_magic() (M.board.cps2 ? STATE_MAGIC_CPS2 : M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC)
+/* the CPS-2 board's own state, after the QSound side: the two object RAM banks and the latched copy, the output registers, the
+ * priorities, the bank and Z80 reset lines, the extra RAM, the raster counters and the partial-picture bookkeeping */
+#define CPS2_TAIL_BYTES (sizeof M.objram + sizeof M.obj2 + sizeof M.output + sizeof M.pri_ctrl + 2 + sizeof M.extra_ram + \
+                         sizeof M.raster_counter + sizeof M.raster_reload + 2 + 4 + 8)
 unsigned cps1_m68k_state_bytes(void);
 void cps1_m68k_state_get(void *dst);
 void cps1_m68k_state_set(const void *src);
@@ -970,6 +1068,17 @@ static void get(reader_t *r, void *data, size_t size)
     memcpy(data, r->data + r->used, size);
     r->used += size;
 }
+
+/* The CPS-2 board's own state (cps1_cps2_board.inc): what a state file holds after the QSound side, checked before anything is applied. */
+typedef struct {
+    uint16_t objram[2][0x1000], obj2[0x1000], output[6], pri_ctrl, raster_counter[3], raster_reload[3];
+    uint8_t extra_ram[0x4002], objram_bank, z80_run, raster_pending, irq4;
+    int rendered_rows;
+    uint64_t line_start;
+} cps2_tail;
+static void cps2_state_put(writer_t *w);
+static int cps2_state_get(cps2_tail *tail, const uint8_t *data);
+static void cps2_state_commit(const cps2_tail *tail);
 
 /* Every byte of a state is defined by construction: arrays of plain integers
  * are written as they are, and every structure (the Z80, the sound-latch queue,
@@ -1061,7 +1170,7 @@ static void oki_voices_get(reader_t *r, cps1_oki_voice *voice)
 size_t cps1_state_save(uint8_t *buffer, size_t capacity)
 {
     writer_t w = {buffer, capacity, 0, 0};
-    put(&w, M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC, 8);
+    put(&w, state_magic(), 8);
 #define SAVE(field) put(&w, &field, sizeof field);
     STATE_FIELDS_BEFORE_QUEUE(SAVE)
     latch_queue_put(&w, M.latch_queue);
@@ -1094,6 +1203,7 @@ size_t cps1_state_save(uint8_t *buffer, size_t capacity)
         put(&w, chip, cps1_qsound_state_put(&M.qchip, chip));
         free(chip);
     }
+    if (M.board.cps2) cps2_state_put(&w);
     if (!buffer) return w.used;
     return w.overflow ? 0 : w.used;
 }
@@ -1103,7 +1213,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     reader_t r = {buffer, size, 0, 0};
     char magic[8];
     get(&r, magic, 8);
-    if (r.bad || memcmp(magic, M.board.qsound ? STATE_MAGIC_QSOUND : STATE_MAGIC, 8)) return 0;
+    if (r.bad || memcmp(magic, state_magic(), 8)) return 0;
     /* Read into a copy first so a truncated or foreign state leaves the
      * running machine untouched. */
     static uint8_t ram[sizeof M.ram], gfxram[sizeof M.gfxram];
@@ -1138,24 +1248,28 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     const uint8_t *context = buffer + r.used;
     r.used += context_size;
     get(&r, &opm_size, sizeof opm_size);
-    const size_t qsound_bytes = M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0;
+    const size_t qsound_bytes = (M.board.qsound ? sizeof M.qram + CPS1_EEPROM_STATE_BYTES + 16 + cps1_qsound_state_bytes() : 0) +
+                                (M.board.cps2 ? CPS2_TAIL_BYTES : 0);
     if (r.bad || r.used + opm_size + qsound_bytes != size || line < 0 || line >= LINES || latch_count < 0 ||
-        latch_count > LATCH_QUEUE || sound_bank > (M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
+        latch_count > LATCH_QUEUE || sound_bank > (M.board.cps2 ? 15 : M.board.qsound ? 5 : 1) || oki.pin7 > 1) return 0;
     for (int i = 0; i < 4; i++)
         if (oki.voice[i].step < 0 || oki.voice[i].step > 48) return 0;
     uint8_t qram[2][QSOUND_SHARED] = {{0}};
     cps1_eeprom eeprom = {{0}};
     uint64_t qsound_irq_clock = 0, qsound_done = 0;
     cps1_qsound chip = M.qchip;
+    static cps2_tail loaded;
     if (M.board.qsound) {
         const uint8_t *extra = buffer + r.used + opm_size;
         memcpy(qram, extra, sizeof qram);
-        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, M.board.cpu_clock / 1000000u)) return 0;
+        eeprom.wide = M.eeprom.wide; eeprom.khz = M.eeprom.khz;
+        if (!cps1_eeprom_state_get(&eeprom, extra + sizeof qram, eeprom_ticks())) return 0;
         /* what the state holds and the EEPROM kept differ: the game's next save must write what is now the EEPROM's */
         if (memcmp(eeprom.data, M.eeprom.data, CPS1_EEPROM_BYTES)) eeprom.changed = 1;
         reader_t tail = {extra + sizeof qram + CPS1_EEPROM_STATE_BYTES, 16 + cps1_qsound_state_bytes(), 0, 0};
         qsound_irq_clock = get_le(&tail, 8); qsound_done = get_le(&tail, 8);
         if (!cps1_qsound_state_get(&chip, tail.data + tail.used)) return 0;
+        if (M.board.cps2 && !cps2_state_get(&loaded, tail.data + tail.used + cps1_qsound_state_bytes())) return 0;
     }
     if (!cps1_opm_load(M.opm, buffer + r.used, opm_size)) return 0;
     memcpy(M.ram, ram, sizeof ram); memcpy(M.gfxram, gfxram, sizeof gfxram);
@@ -1174,6 +1288,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
         memcpy(M.qram, qram, sizeof qram); M.eeprom = eeprom;
         M.qsound_irq_clock = qsound_irq_clock; M.qsound_done = qsound_done; M.qchip = chip;
     }
+    if (M.board.cps2) cps2_state_commit(&loaded);
     cps1_m68k_state_set(context);
 #ifdef CPS1_NATIVE
     { extern void rr_cps1_native_discontinuity(void); rr_cps1_native_discontinuity(); }
@@ -1181,6 +1296,8 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     M.audio_count = 0;
     return 1;
 }
+
+#include "cps1_cps2_board.inc"
 
 /* ------------------------------------------------- native code view/fallback */
 
@@ -1195,9 +1312,12 @@ const uint8_t *rr_cps1_code_bytes(uint32_t address, uint32_t *region, uint32_t *
     address &= 0xffffffu;
     if (address & 1) return NULL;
     if (address < 0x400000u) {
-        if (address + 2 > M.rom.maincpu_size) return NULL;
-        *region = 1; *offset = address; *available = (unsigned)(M.rom.maincpu_size - address);
-        return M.rom.maincpu + address;
+        /* the CPS-2 translates, and checks, the decrypted image: that is what its instruction fetches see */
+        const uint8_t *image = M.rom.maincpu_op ? M.rom.maincpu_op : M.rom.maincpu;
+        const size_t size = M.rom.maincpu_op ? M.rom.maincpu_op_size : M.rom.maincpu_size;
+        if (address + 2 > size) return NULL;
+        *region = 1; *offset = address; *available = (unsigned)(size - address);
+        return image + address;
     }
     if (address >= 0xff0000u) {
         *region = 3; *offset = address & 0xffffu; *available = 0x10000u - *offset;
@@ -1282,6 +1402,12 @@ int rr_cps1_force_z80_reference;
 int rr_cps1_observe = 1;
 #ifdef CPS1_FEEDBACK
 #include "runtime_feedback.h"
+/* The CPS-2 game has record kinds of its own (17 to 19), the three of the CPS-1 shifted by three. */
+#ifdef RR_CPS2
+#define FB_KIND(kind) ((kind) + 3)
+#else
+#define FB_KIND(kind) (kind)
+#endif
 #endif
 
 static void note_miss(miss_t *table, uint32_t pc, uint16_t word)
@@ -1302,7 +1428,7 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
         uint32_t region, offset; unsigned available;
         const uint8_t *bytes = rr_cps1_code_bytes(pc, &region, &offset, &available);
         if (bytes && available >= 2 && region != CODE_GFX)
-            rr_feedback_note(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM, offset, 0, bytes,
+            rr_feedback_note(FB_KIND(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM), offset, 0, bytes,
                              region == 3 ? (available < 16 ? available & ~1u : 16) : 2);
     }
 #endif
@@ -1333,7 +1459,7 @@ void rr_cps1_z80_note_fallback(uint16_t pc)
         uint8_t bytes[4] = {0};
         for (unsigned n = 0; n < 4; n++) rr_cps1_z80_code_byte((uint16_t)(pc + n), &bytes[n]);
         rr_cps1_z80_code_byte_m1(pc, 1, &bytes[0]);
-        rr_feedback_note(RR_FB_CPS1_Z80, pc, 0, bytes, 4);
+        rr_feedback_note(FB_KIND(RR_FB_CPS1_Z80), pc, 0, bytes, 4);
     }
 #endif
     if (!rr_cps1_observe) return;

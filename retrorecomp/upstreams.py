@@ -139,8 +139,9 @@ YMFM = Upstream(
 MAME = Upstream(
     'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue, Kabuki keys, QSound model, EEPROM and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
     'no code is built from the checkout; the ROM-free CPS-1 catalogue, the Kabuki decryption, the QSound and EEPROM models and the OKI model are adapted from it',
-    _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/build_cps1_catalogue.py', 'MAME_REVISION'),),
+    _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/mame_driver_parse.py', 'MAME_REVISION'), _py('retrorecomp/cps2_catalogue.py', 'MAME_REVISION')),
     watch=('src/mame/capcom/cps1.cpp', 'src/mame/capcom/cps1_v.cpp', 'src/mame/capcom/cps1.h',
+           'src/mame/capcom/cps2.cpp', 'src/mame/capcom/cps2crypt.cpp',
            'src/devices/sound/okim6295.cpp', 'src/mame/capcom/kabuki.cpp', 'src/devices/sound/qsoundhle.cpp',
            'src/devices/sound/qsoundhle.h', 'src/devices/machine/eepromser.cpp', 'src/devices/machine/eeprom.cpp'))
 PX68K_LIBRETRO = Upstream(
@@ -217,6 +218,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'snes': (SNESRECOMP,),
     'ng': (GEOLITH, LITHOGEN, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
+    'cps2': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

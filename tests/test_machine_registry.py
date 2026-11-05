@@ -46,9 +46,9 @@ DECLINED = {
     'random_routes': {'x68'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): no repository
     # was ever chosen for the arcade board.
-    'artwork': {'cps1'},
+    'artwork': {'cps1', 'cps2'},
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py).
-    'memory_view': {'cps1'},
+    'memory_view': {'cps1', 'cps2'},
 }
 
 QUALIFICATION_CELLS = set('YPN?-')

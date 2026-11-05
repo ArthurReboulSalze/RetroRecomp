@@ -23,7 +23,7 @@ YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
 NATIVE_FILES = ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h',
                 'cps1_opm.cpp', 'cps1_opm.h', 'cps1_probe.c', 'cps1_eeprom.c', 'cps1_eeprom.h',
-                'cps1_qsound.c', 'cps1_qsound.h')
+                'cps1_qsound.c', 'cps1_qsound.h', 'cps1_cps2_board.inc')
 AOT_FILES = ('cps1_native.c', 'cps1_native.h', 'cps1_z80_native.h', 'm68000_state_helpers.h')
 MUSASHI_FILES = ('m68k.h', 'm68kcpu.c', 'm68kcpu.h', 'm68kops.c', 'm68kops.h', 'm68kfpu.c', 'm68kmmu.h')
 YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp')
@@ -178,6 +178,9 @@ set(CPS1_BOARD cps1_machine.c cps1_oki.c cps1_opm.cpp cps1_eeprom.c cps1_qsound.
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c engine/ymfm/ymfm_opm.cpp)
 function(cps1_library name)
   add_library(${name} STATIC ${CPS1_BOARD} ${ARGN})
+  if(RR_CPS2)
+    target_compile_definitions(${name} PUBLIC RR_CPS2=1)
+  endif()
   target_include_directories(${name} PUBLIC . engine/m68k engine/z80 engine/ymfm)
   if(MSVC)
     target_compile_definitions(${name} PUBLIC __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
@@ -209,7 +212,8 @@ def prepare_native(project: Path, board: Path, game: dict, observations: dict | 
     from .neogeo_z80 import adapt_source
     analysis = generate(project, board, game, adapt_source((geolith / 'src/z80/z80.c').read_text(encoding='utf-8')),
                         observations)
-    _write(project / 'CMakeLists.txt', CMAKE_HEAD + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
+    from .cps1_board import board_kind
+    _write(project / 'CMakeLists.txt', CMAKE_HEAD + ('set(RR_CPS2 ON)\n' if board_kind(board) == 'cps2' else '') + '''file(GLOB CPS1_STEPS "${CMAKE_CURRENT_SOURCE_DIR}/steps/cps1_step_*.c")
 cps1_library(cps1_native cps1_native.c cps1_arithmetic.c ${CPS1_STEPS})
 target_compile_definitions(cps1_native PUBLIC CPS1_NATIVE=1)
 add_executable(cps1_native_probe cps1_probe.c)
@@ -254,7 +258,7 @@ NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 
                 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
                 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin', 'audiocpu-op.bin', 'qsound.bin',
-                'audiorom_raw.bin', 'qsound_dsp.bin')
+                'audiorom_raw.bin', 'qsound_dsp.bin', 'maincpu-op.bin')
 # Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
 ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
            'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}
@@ -302,6 +306,11 @@ def dip_table(game: dict) -> tuple[int, str]:
             ','.join(str(value) for value, _ in settings), ','.join(json.dumps(label) for _, label in settings),
             '%d,%d,%d,%d' % (DIP_PORTS.index(condition[0]), int(condition[2]), condition[1], condition[3])
             if condition else '-1,0,0,0'))
+    if game.get('machine') == 'cps2':
+        # The CPS-2 board has no switches: the game's settings (number of players, difficulty, coinage) live in its test menu, which the
+        # service switch opens. The switch is one setting of the page, bit 7 of the third bank (native/cps1_machine.c, CPS2_SERVICE_BIT).
+        rows.append('{%d,128,128,%s,2,{128,0},{%s,%s},-1,0,0,0}' % (DIP_PORTS.index('DSWC'), json.dumps("Service switch (the game's test menu)"),
+                                                                 json.dumps('Off'), json.dumps('On: open the test menu')))
     return len(rows), ','.join(rows) or '{0}'
 
 
@@ -325,7 +334,7 @@ def state_config(game_set, title: str) -> str:
     from .core import executable_name, module_fingerprint
     abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
-                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h'):
+                 'cps1_host.c', 'cps1_native.c', 'cps1_eeprom.c', 'cps1_eeprom.h', 'cps1_qsound.c', 'cps1_qsound.h', 'cps1_cps2_board.inc'):
         abi.update((ASSETS / 'native' / name).read_bytes())
     for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
@@ -378,17 +387,18 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     from .core import executable_name
     from .metadata import write_game_metadata
     icon, artwork = False, {'embedded': False, 'source': 'disabled'}
+    system = getattr(game_set, 'system_id', 'cps1')
     if presentation is not None:
         from .artwork import prepare_icon
         from .paths import boxart_cache_directory
         artwork = prepare_icon(project, presentation['rom_path'], title,
             presentation.get('boxart_dir') or ROOT / 'BoxArt', explicit=presentation.get('cover'),
             online=presentation.get('online_cover', True), enabled=presentation.get('use_cover', True),
-            cache_directory=boxart_cache_directory('cps1'), system_id='cps1', emit=presentation.get('emit', print))
+            cache_directory=boxart_cache_directory(system), system_id=system, emit=presentation.get('emit', print))
         icon = artwork['embedded']
     (project / 'artwork.json').write_text(json.dumps(artwork, indent=2), encoding='utf-8')
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=icon,
-                                   standard='arcade', system_id='cps1')
+                                   standard='arcade', system_id=system)
     (project / 'export-identity.bin').write_bytes(b'[Retro-Recomp]\0' + game_set.sha256.encode('ascii') + b'\0')
     _write(project / 'content.rc', '#pragma code_page(65001)\n'
                   f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
@@ -438,7 +448,7 @@ endif()
 '''
     _write(project / 'CMakeLists.txt', cmake)
     from .feedback import stage
-    stage(project, 'cps1', game_set.sha256)
+    stage(project, system, game_set.sha256)
     return {'analysis': analysis, 'artwork': artwork, 'windows_metadata': metadata,
             'packed_sha256': hashlib.sha256(payload).hexdigest()}
 
