@@ -14,11 +14,12 @@ extern "C" {
 #endif
 
 /* The picture handed to the player: hires pixels (two texels of vAmiga's super-hires texture each), 352 lores pixels of
- * overscan wide, lines doubled. PAL shows 280 lines, NTSC 236. */
+ * overscan wide, one row per line (the host shows each line twice as tall: its scanline filter needs the real lines).
+ * PAL shows 280 lines, NTSC 236. */
 #define RR_AMIGA_PICTURE_WIDTH 704
 #define RR_AMIGA_PICTURE_LINES_PAL 280
 #define RR_AMIGA_PICTURE_LINES_NTSC 236
-#define RR_AMIGA_PICTURE_MAX_HEIGHT (2 * RR_AMIGA_PICTURE_LINES_PAL)
+#define RR_AMIGA_PICTURE_MAX_HEIGHT RR_AMIGA_PICTURE_LINES_PAL
 #define RR_AMIGA_AUDIO_RATE 48000u
 
 /* Joystick bits of port 2 (the game port). */

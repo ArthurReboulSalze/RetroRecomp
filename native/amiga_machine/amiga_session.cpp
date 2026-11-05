@@ -371,18 +371,17 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
             s->pcm[i] = (int16_t)(v > 32767.0f ? 32767 : v < -32768.0f ? -32768 : (int)v);
         }
     }
-    // The picture: hires pixels of the overscan window, lines doubled.
+    // The picture: hires pixels of the overscan window, one row per line.
     const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
     const uint32_t *px = (const uint32_t *)tex.pixels.ptr;
     int first = s->ntsc ? FIRST_LINE_NTSC : FIRST_LINE_PAL;
     for (int y = 0; y < s->lines; y++) {
         const uint32_t *row = px + (size_t)(first + y) * Tex::width + FIRST_TEXEL;
-        uint32_t *out = s->picture.data() + (size_t)(2 * y) * RR_AMIGA_PICTURE_WIDTH;
+        uint32_t *out = s->picture.data() + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
         for (int x = 0; x < RR_AMIGA_PICTURE_WIDTH; x++) {
             uint32_t c = row[2 * x];
             out[x] = 0xFF000000u | (c & 0xFFu) << 16 | (c & 0xFF00u) | (c >> 16 & 0xFFu);
         }
-        memcpy(out + RR_AMIGA_PICTURE_WIDTH, out, RR_AMIGA_PICTURE_WIDTH * sizeof(uint32_t));
     }
     return 0;
 }
@@ -390,7 +389,7 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
 extern "C" const char *rr_amiga_error(const RrAmigaSession *s) { return s->error.c_str(); }
 
 extern "C" const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height) {
-    *width = RR_AMIGA_PICTURE_WIDTH; *height = 2 * s->lines;
+    *width = RR_AMIGA_PICTURE_WIDTH; *height = s->lines;
     return s->picture.data();
 }
 
@@ -423,7 +422,7 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     for (int i = 0; i < 8; i++) { info->d[i] = amiga.cpu.getD(i); info->a[i] = amiga.cpu.getA(i); }
     info->samples = (uint32_t)(s->pcm.size() / 2);
     for (size_t i = 0; i < s->pcm.size() && !info->audible; i++) info->audible = s->pcm[i] != 0;
-    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * 2 * s->lines && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
+    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
 }
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {

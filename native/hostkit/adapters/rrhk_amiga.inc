@@ -134,7 +134,9 @@ static void a_inputs(void) {
 
 static const uint32_t *a_pixels(void) { int w, h; return rr_amiga_picture(session, &w, &h); }
 static int a_width(void) { return (int)width; }
-static int a_height(void) { return (int)height; }
+/* The picture's own rows (one per Amiga line): the kit's scanline filter draws one line per row, so the rows must be the real
+ * lines. The placement (x_game_rect of rrhk_computer.inc) uses `height`, the display height, twice the lines. */
+static int a_height(void) { int w, h; rr_amiga_picture(session, &w, &h); return h; }
 
 static size_t a_audio(int16_t *pcm, size_t capacity) {
    size_t n = aa.audio_count - aa.audio_taken;
