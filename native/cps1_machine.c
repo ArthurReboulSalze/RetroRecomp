@@ -778,7 +778,7 @@ static void io_trace(char kind, uint32_t address, uint16_t value)
 {
     static FILE *file; static int opened;
     if (!opened) { opened = 1; const char *path = getenv("RR_IOTRACE"); file = path ? fopen(path, "w") : NULL; }
-    if (file && address >= 0x400000 && address < 0x900000)
+    if (file && address >= 0x400000 && address < 0x930000)
         fprintf(file, "%llu %c %06x %04x %d %d\n", (unsigned long long)M.frame_number, kind, address, value, M.line,
                 (int)((m68k_now() - M.line_start) * PIXEL_CLOCK / M.board.cpu_clock));
 }
