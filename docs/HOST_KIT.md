@@ -397,7 +397,8 @@ document until the kit lands, like the other local documents listed in
 
 These stay behind capabilities in the adapter (`hosts.md:156-199`):
 
-* **X68000** (adapter `rrhk_x68k.inc`): full guest keyboard (scancode map, guest keyboard mode, F1-F10
+* **X68000** (adapter `rrhk_x68k.inc`; since 1.6.9 what every disk computer shares, from the guest keyboard to the window preferences, is the separate
+  `rrhk_computer.inc` that the adapter includes, told its actions by `RRC_*` macros): full guest keyboard (scancode map, guest keyboard mode, F1-F10
   handover, Ctrl+Alt chords), captured relative mouse with the mouse-game
   profile, floppy drives (swap, eject, saved choices, disk snapshots,
   `--disk-events`), the fast-loading detector, variable resolution and

@@ -129,6 +129,36 @@ tests pass unchanged. The profile now declares the module of a machine without a
 **Exchange files and the base.** A version 3 file and line 3 of the base carry X68000 records; a converter of 1.6.8 reads a record it does not know as it reads
 any unknown machine (skipped), and a version 2 file leaves the games out. The service has to accept records of 90 to 130 KB of JSON (20 KB compressed).
 
+## Sharp X68000: the generator of native code and the computer part of the adapter are shared (1.6.9)
+
+The Amiga reuses what the X68000 does with the instructions it runs from RAM instead of copying it, so two files moved and one declaration was added; **nothing a
+game does changes**.
+
+- `retrorecomp/m68k_observed.py` holds the generator that `tools/x68000_native.py` held: the decoder tool, the word-count table, the step semantics file, the forms, the guarded
+  steps, the page table and the index (`write_steps`), for a machine's C prefix and step type. A profile declares what is its own with
+  `SystemProfile.observed_code` (`ObservedCode`: the entry point of its instruction bodies, `module:function`, the prefix, the address apertures, and since the second commit
+  the extension and the head of the step files). The X68000 declares `m68k_observed:recompiler_bodies` (the Mega Drive recompiler's semantics with the shared state rules,
+  executed by Musashi) and keeps in `tools/x68000_native.py` its apertures and bus (`CODE_VIEW`), its Musashi template, its native run and its guard fixtures. No machine is
+  named in the shared module (a test reads it).
+- `native/hostkit/adapters/rrhk_computer.inc` holds what `rrhk_x68k.inc` held that every disk computer shares: the guest keyboard and its Ctrl+Alt chords, the captured mouse and the
+  mouse-game pad, the floppy drives (swap, eject), the fast-loading key, the function keys, the second help page, the window preferences. The adapter tells it its actions by macros
+  (`RRC_*`) and the frontend provides the variables it reads (the list is in the file's header); the machine table, the pad mapping, the picture, the sound and the state stay in
+  `rrhk_x68k.inc`. The host kit's shell is not touched.
+
+**Proof that the output is the same.** The generated native project (`cpu.c`, `cpu.h`, the 16 step files, the index, the tables, `generation.json`, the semantics and the word counts)
+of three games of the collection (Twins, Double Target, Pac-Land) was written with the converter of `main` and with this tree from the same observations: **120 files, 0 differences**.
+The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, so no qualified path is lost; the pins list the new module. A/B of conversions: see the end of this section.
+
+**What moves** (`compilation_inputs.role_stamps`, this branch against the commit it branches from, `e1424c7`): **the game stamp of all nine consoles** (`retrorecomp/systems/specs.py` and
+`retrorecomp/systems/__init__.py` are inputs of every console and gain `ObservedCode` and `SystemProfile.observed_code`), and **the host stamp of the X68000** (the adapter files); no
+host stamp of another console, no build stamp. The quick-state key of the X68000 (`RR_X68K_STATE_ABI` hashes the reference host and the bridge) does not move. Every export of 1.6.8 is converted
+again once when it is upgraded, as the rest of 1.6.9 already says.
+
+**A/B of conversions** (Windows, standard scan, an empty library each, headless; R-Type, Bubble Bobble, Metal Sight with its five disks and Lemmings with the mouse): the CPU, RAM, picture and PCM hashes of the
+three routes are equal to those of the panel replayed on the tree of the exit (12 routes, 0 difference), 0 interpreted opcodes, the compressed copy matching, the same numbers of pictures and audio blocks, the two automatic
+disk changes of Metal Sight. The sharing record of Twins made by this tree has the digest of the one made before the move (see the report of the branch). The window code of the adapter
+(the computer's part) is a text move compiled by every conversion; what it does in a window is not exercised by a headless run, so the owner's next play of a mouse game and of a multi-disk game is the check of that part.
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section
