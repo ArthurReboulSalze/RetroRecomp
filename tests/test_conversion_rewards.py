@@ -128,7 +128,7 @@ class ConversionRewardTests(unittest.TestCase):
         self.assertFalse(online.note_conversion('gb', SHA), 'nothing without an account')
         online.sign_in('p@example.test', '123456', 'test')
         self.assertTrue(online.note_conversion('gb', SHA))
-        self.assertFalse(online.note_conversion('x68', SHA), 'a console the service does not take')
+        self.assertFalse(online.note_conversion('psx', SHA), 'a console the service does not take')
         self.assertEqual(online.noted_conversions(), [f'gb:{SHA}'])
         found = {**collected(games={OTHER: 'Tetris'}), 'levels': {},
                  'converted': {'gb': {SHA: known_game(SHA, 'thorough', 'Super Mario Land')}}}

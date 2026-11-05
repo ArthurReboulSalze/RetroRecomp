@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.8-d4a737" alt="Release version 1.6.8">
-  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Sharp X68000">
+  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -63,37 +63,42 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 ## Console support
 
-| Machine | Status | What is converted |
-| --- | --- | --- |
-| [Master System](docs/MASTER_SYSTEM.md) | Supported | Two players, PAL/NTSC, quick states and Light Phaser |
-| [Game Gear](docs/GAME_GEAR.md) | Supported | Native handheld display and colors |
-| [Game Boy](docs/GAME_BOY.md) | Supported | Original Game Boy, quick states, grayscale or classic green |
-| [NES](docs/NES.md) | Supported | Validated cartridge layouts, PAL/NTSC, quick states and Zapper |
-| [Mega Drive](docs/MEGADRIVE.md) | Supported | Standard cartridges, PAL/NTSC, SRAM and EEPROM saves, quick states and Menacer |
-| [Super Nintendo](docs/SNES.md) | Supported | Standard cartridges and boards with a DSP-1, CX4, Super FX, SA-1 or S-DD1 chip, LoROM/HiROM/ExHiROM, PAL/NTSC, quick states, battery saves and Super Scope |
-| [Neo Geo](docs/NEOGEO.md) | Supported | Cartridge games: arcade MVS, optional console AES, two players, scores, memory card and quick states; needs your BIOS ZIP in **Options → Neo Geo** |
-| [Capcom CPS-1](docs/CPS1.md) | Supported | MAME/FBNeo ZIP romsets of the standard boards (the QSound boards are a separate tier, below), up to four players and six buttons, DIP switches, vertical games rotated, quick states; no BIOS, and a split clone needs its parent ZIP beside it |
-| [Sharp X68000](docs/X68000.md) | Experimental | DIM, XDF and D88 disks and multi-disk sets, quick states, mouse and keyboard; needs your own IPL and font ROM |
-
 <!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->
-
-**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a partial one),
-drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five measures, and it never
-decides a status: leaving the experimental status is the owner's own decision.
 
 | Console | Status | Qualification progress |
 | --- | --- | --- |
-| Master System | supported | `█████████░` 90 % |
-| Game Gear | supported | `█████████░` 87 % |
-| Game Boy | supported | `█████████░` 91 % |
-| Nintendo NES | supported | `█████████░` 91 % |
-| Mega Drive | supported | `████████░░` 84 % |
-| Super Nintendo | supported | `█████████░` 88 % |
-| Neo Geo | supported | `█████████░` 94 % |
-| Capcom CPS-1 | supported | `█████████░` 90 % |
-| Sharp X68000 | experimental | `█████████░` 90 % |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `██████████` 97 % |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
+| [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
+| [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |
+| [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
+| [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
+| [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
+| [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
+
+**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
+partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
+measures, and it never decides a status: leaving the experimental status is the owner's own decision.
 
 <!-- qualification-gauges:end -->
+
+The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need firmware you supply yourself: the Neo Geo
+(its BIOS), the Sharp X68000 (its IPL and font ROM) and the QSound boards (their DSP ROM). What each machine converts, its options
+and its limits are on its page.
+
+### In development
+
+Not available yet. Each one starts as an experimental profile; no date is promised.
+
+| Machine | Stage |
+| --- | --- |
+| Capcom CPS-2 | in development |
+| PC Engine / TurboGrafx-16 | in development, HuCards first |
+| Game Boy Advance | in development |
+| Commodore Amiga 500, then Amiga 1200 | study |
+
+Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

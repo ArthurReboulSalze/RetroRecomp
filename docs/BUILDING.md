@@ -221,8 +221,9 @@ scan level, 25 October 2026. Each game was converted by the commit before this
 change (uncompressed) and again by this change (compressed, full conversion).
 `upx -d` of every compressed game gives back, byte for byte, the uncompressed
 export of the earlier commit, except the NES one: 136 bytes differ, a 64-digit
-key and the ELF build ID, because the NES state key covers the project folder,
-which differed between the two source trees. Start-up is the time from
+key and the ELF build ID, because the NES state key then covered the project folder,
+which differed between the two source trees (since 1.6.5, commit `c71038a`, the key no
+longer depends on any path). Start-up is the time from
 launch to the first visible window under Xvfb, median of 7 runs with a warm
 file cache; it includes SDL start-up and is not a latency measurement.
 

@@ -1,9 +1,9 @@
 # Capcom CPS-1
 
 **Supported** machine profile (`cps1`, since 1.6.6): the standard CPS-1 arcade boards at 10
-and 12 MHz (68000, Z80 sound CPU, YM2151 and OKI MSM6295). The QSound boards (CPS-1.5) are joining in a tier of
-their own, experimental and not finished ([CPS-1.5](#cps-15-qsound-boards-experimental-tier)); CPS-2,
-bootlegs and a few special boards are outside this scope. The
+and 12 MHz (68000, Z80 sound CPU, YM2151 and OKI MSM6295), and, since 5 November 2026, the QSound boards
+(CPS-1.5: Kabuki-encrypted Z80, QSound sound from a high-level model; [below](#cps-15-qsound-boards)); the CPS-2 is a profile of its own,
+and bootlegs and a few special boards are outside this scope. The
 sources and licences of the board model are in
 [cps1-machine.md](../licenses/cps1-machine.md) and
 [cps1-ymfm.md](../licenses/cps1-ymfm.md).
@@ -27,9 +27,9 @@ Processors: [CPU_68000.md](CPU_68000.md) (main CPU) and [CPU_Z80.md](CPU_Z80.md)
 
 | | |
 |---|---|
-| Status | Supported since 1.6.6, on the owner's decision of 1 November 2026 and the evidence in [QUALIFICATION.md](QUALIFICATION.md); the owner's play trial of the 1.6.6 executable is still to do. The report says `completed` when no 68000 or Z80 instruction was interpreted on the final routes, `experimental` when some was (as for the Neo Geo) |
+| Status | Supported since 1.6.6, on the owner's decision of 1 November 2026 and the evidence in [QUALIFICATION.md](QUALIFICATION.md); the owner's play trials of 3 November (the standard boards) and 5 November 2026 (the QSound boards) are recorded there. The report says `completed` when no 68000 or Z80 instruction was interpreted on the final routes, `experimental` when some was (as for the Neo Geo) |
 | Accepted | MAME or FBNeo romset `.zip` files, chosen with **Automatic** detection or **Capcom CPS-1** |
-| Scope | 129 of the 233 sets of the catalogue, derived from MAME's CPS-1 driver, and the 18 sets of the QSound boards in their experimental tier ([below](#cps-15-qsound-boards-experimental-tier)); for a set outside the scope the converter names the reason (rotary dial, serial EEPROM, timekeeper RAM, CPS Changer cartridge, bootleg or hack, special start-up, incomplete dump, not working) |
+| Scope | 129 of the 233 sets of the catalogue, derived from MAME's CPS-1 driver, and the 18 sets of the QSound boards ([below](#cps-15-qsound-boards)); for a set outside the scope the converter names the reason (rotary dial, serial EEPROM, timekeeper RAM, CPS Changer cartridge, bootleg or hack, special start-up, incomplete dump, not working) |
 | Firmware | None: no BIOS is needed |
 | Output | `Games/CPS-1` |
 | Linux | The profile is marked `witnessed` since 1.6.6 on three conversions (Final Fight, Street Fighter II' Champion Edition, 1941) that gave the same route hashes on Debian 13 as on Windows; interactive play, sound and pads on Linux were not witnessed |
@@ -106,7 +106,7 @@ game stamp and possibly the quick-state key.
 
 ### Paths shared between players
 
-CPS-1 takes part in the shared base of paths in its experimental tier (schema 3 only), because its
+CPS-1, the QSound boards included since 5 November 2026, takes part in the shared base of paths in its experimental tier (schema 3 only), because its
 engine will still change. The 68000 program and the Z80 sound ROM are
 translated whole, so a CPS-1 path is an instruction the game ran from RAM
 (work RAM or sound RAM). After a conversion that passed every check, those the
@@ -409,13 +409,19 @@ The panel is every set of the perimeter (129 sets) that the test collection hold
 A player who owns one of those sets gets the same checks as any other conversion (fresh reference, 0-interpreted accounting, states); the
 sets are simply not part of the qualification evidence.
 
-## CPS-1.5 (QSound boards): experimental tier
+## CPS-1.5 (QSound boards)
 
-In progress on the 1.6.7 tree; the machine stays `supported` and nothing below is claimed for it. The 18 sets of the catalogue that
-used the QSound boards (Warriors of Fate, Cadillacs and Dinosaurs, The Punisher, Saturday Night Slam Masters, Muscle Bomber and their
-clones) are no longer refused with the reason `qsound`: they carry the catalogue column `tier = experimental`, which gives their
-reports `status: experimental` and `board_tier: experimental` whatever their coverage, and keeps them out of the evidence of the CPS-1
-(`cps1_catalogue.qualification_candidate`). The CPS Changer cartridge `wofch` stays refused.
+These boards joined on the 1.6.7 tree as an experimental tier and **left that tier on 5 November 2026, on the owner's decision**
+(below). The 18 sets of the catalogue that used the QSound boards (Warriors of Fate, Cadillacs and Dinosaurs, The Punisher, Saturday Night
+Slam Masters, Muscle Bomber and their clones) are no longer refused with the reason `qsound`. Between 1.6.7 and that date they carried the
+catalogue column `tier = experimental`, which gave their reports `status: experimental` and `board_tier: experimental` and kept them out of the
+evidence of the CPS-1 and of the shared base; the column stays in the catalogue for a later board family, and every row reads `supported`
+now: a report says `completed` when no 68000 or Z80 instruction was interpreted on the final routes, `board_tier: supported`, and the
+sets count as evidence (`cps1_catalogue.qualification_candidate`). The CPS Changer cartridge `wofch` stays refused.
+
+**Owner's decision (G14, 5 November 2026).** After playing The Punisher, Cadillacs and Dinosaurs and Warriors of Fate, converted with the
+1.6.8 tree (`cc46a1b`, generator revision 12) in a player's conditions and delivered in `Export`, Arthur wrote « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » His words about the games, the day before: « Les deux marchent parfaitement » (that line also covers the Sharp X68000). It is
+the owner's validation of how the games behave; no tool measures feel or latency, and it says nothing about the board's hardware fidelity.
 
 What the board is, from MAME's `cps1.cpp` (BSD-3-Clause, see [UPSTREAMS.md](UPSTREAMS.md)): the 68000 at 12 MHz with its own memory map
 (a window of the sound ROM at `f00000` for Slam Masters' protection, RAM shared with the Z80 at `f18000` and `f1e000`, players 3 and 4
@@ -432,8 +438,8 @@ and the OKI; and a Z80 program encrypted by the Kabuki.
 whole chain at the Standard level (attract and credited play routes of 3,600 frames, one pass, an empty library), five of five, in 545 seconds of
 conversion in all: 0 interpreted 68000 and Z80 instructions on both routes of each, the reference run (every instruction interpreted) equal
 to the native run, the packed copy replayed against the reference, a quick state taken at frame 2,940 of the credited route and continued in a fresh process for
-600 frames with the same result, a truncated state refused. Every report says `experimental` and `board_tier: experimental`. `slammast` recorded 8
-work-RAM code paths of its own library in its first pass (its checksum routine, copied into RAM); nothing was shared. The five delivered executables, compared
+600 frames with the same result, a truncated state refused. Every report said `experimental` and `board_tier: experimental` then (they say `completed` and `supported` since 5 November 2026). `slammast` recorded 8
+work-RAM code paths of its own library in its first pass (its checksum routine, copied into RAM); nothing was shared at the time. The five delivered executables, compared
 again with MAME 0.289 on both routes (3,600 frames, a picture every 10th frame, the sound of each side), give the figures of the development
 builds: pictures 3,599 of 3,600 (the `dino` frame 1,640 again), sound within 0.003 to 0.011 dB (median level, each channel). Started in the
 player's way (SDL dummy drivers, 900 frames) each executable wrote its EEPROM file at the first run (224 bytes) and left it unchanged at the second.
@@ -456,13 +462,29 @@ a blank EEPROM. Validation runs never read or write it.
 boards; banks 2 to 5 hold the note data (MAME's comment on the bank register: "banked (contains music data)"). Code that ran from
 them would have no native step: it would be interpreted and counted per instruction like any other.
 
-**Sharing.** The sets of this tier take nothing from the shared base of paths and give nothing to it (`board_tier` of the report,
-`knowledge.shared: false`) until the tier is left.
+**Sharing (since 5 November 2026).** The QSound sets take part in the shared base of paths as the other CPS-1 sets do: the experimental tier
+of the base, schema 3, version 3 exchange files, withdrawable in one line, numbers about the player's own ROM and never bytes, rechecked by
+every conversion against its fresh reference. Two things are specific to these boards. A 68000 path is a position in the stored program
+(`maincpu`), identical for every player who owns the set. A sound-CPU path would be a position in the *data image* of the Z80 ROM, which the
+converter recomputes from the player's own archive with the Kabuki keys of the catalogue (the exchange file records the size and SHA-256 of that image as the
+identity of the romset, and a player whose image differs is ignored): another player rebuilds the same instruction from their own zip, and the encrypted
+chip contents are never stored or sent. In practice the Z80 side shares nothing today: no QSound set measured so far runs sound-CPU code from
+RAM (the path windows of the CPS-1 sound RAM, `0xd000-0xd7ff`, do not exist on these boards, whose RAM is at `0xc000` and `0xf000`), and
+if one did the instruction would stay interpreted and counted. Only `slammast` among the five sets measured shares anything, 8 work-RAM
+code paths of the 68000; `wof`, `dino`, `punisher` and `mbombrd` observe none at the Standard level. The proof of 5 November 2026 (tree of the
+branch `spec/cps1-169`): `slammast`, the one set of the five that learns paths (8 work-RAM code paths of the 68000, all tied to its program ROM), with two empty libraries: conversion A (standard level, no imported path) took 2 passes and made a 660-byte version 3 exchange file; conversion B, in another empty library, imported that file and used its 8 paths from the first pass (`knowledge.use.imported` = 8) in 1 pass; the final CPU, RAM, picture and sound hashes of both routes are identical (`attract` ea610d589e4bfc26, `play` b970de6abef53e3a), 0 interpreted 68000 and Z80 instructions on both, the compressed copy and the states checked as usual. Reports of 1.6.8 or earlier that say `board_tier: experimental` are not collected; reconverting gives a report that is.
+
+**What is still not claimed.** The QSound chip's DSP16 is not run: the sound is a high-level model after MAME's, which MAME itself plays by
+default, so the agreement with MAME says nothing about the DSP16 program or the hardware; a run of the DSP16 (MAME's `qsound.cpp` and
+`dsp16.cpp`) is possible later and would be a third counted processor. Of the 18 sets only five were converted, the five of the test collection;
+the Linux witness of the CPS-1 was made on standard-board sets, and nobody has run a QSound game on Linux; the service and test buttons are not
+wired, so the settings kept in the EEPROM cannot be changed in play.
 
 ## Known limits
 
-- **Supported, with open items**: the owner's play trial of the 1.6.6 executable is still to do, no CPS-1 path is qualified yet, and
-  the shared base keeps CPS-1 in its experimental tier. The 26 sets of the table were requalified on the 1.6.5 tree (29 October
+- **Supported, with open items**: no CPS-1 path is qualified yet, and
+  the shared base keeps CPS-1 in its experimental tier. The QSound boards left their experimental tier on 5 November 2026 with the
+  limits listed in their section (DSP16 modelled, 5 of 18 sets converted, no Linux run of a QSound game). The 26 sets of the table were requalified on the 1.6.5 tree (29 October
   2026) and measured again on the 1.6.6 tree where the CPUs changed.
 - **Out of scope**: CPS-2, rotary-dial, Pang! 3 serial-EEPROM and
   timekeeper boards, CPS Changer cartridges, bootlegs and hacks, sets that
@@ -508,7 +530,8 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
   replayed through the CPS-1 generator; route liveness fields in the report; the whole panel of 26 sets requalified, play-route captures
   inspected and the 18,000-frame route run on three sets.
 - 1 November 2026 (1.6.6): CPS-1 leaves the experimental status on the owner's decision, taken on the evidence of the 1.6.6 tree and
-  before his own play trial (still to do); the profile is `supported`, the Linux gate is lifted, the interface no longer calls it experimental.
+  before his own play trial (done on 3 November); the profile is `supported`, the Linux gate is lifted, the interface no longer calls it experimental.
+- 5 November 2026: the QSound boards (CPS-1.5) leave their experimental tier on the owner's decision and join the shared base of paths.
 - 1 November 2026 (1.6.6 tree): the Z80 core corrected in the converter's copy (51,260 of 51,328 vectors, all clocks), the comparison with MAME
   extended to the sound, a third Linux witness (1941).
 - 30 October 2026 (1.6.5): independent Z80 vectors replayed through the CPS-1 path, the comparison with MAME repeated on the 26

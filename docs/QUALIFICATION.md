@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -49,15 +49,15 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Console | Status | Progress | Gates |
 | --- | --- | --- | --- |
-| Master System | supported | `█████████░` 90 % | ✅ 13 · 🟡 1 · ❔ 1 |
-| Game Gear | supported | `█████████░` 87 % | ✅ 12 · 🟡 2 · ❔ 1 |
-| Game Boy | supported | `█████████░` 91 % | ✅ 14 · 🟡 1 · ❔ 1 |
+| Master System | supported | `██████████` 97 % | ✅ 14 · 🟡 1 · ❔ 0 |
+| Game Gear | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
+| Game Boy | supported | `██████████` 97 % | ✅ 15 · 🟡 1 · ❔ 0 |
 | Nintendo NES | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Mega Drive | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| Super Nintendo | supported | `█████████░` 88 % | ✅ 13 · 🟡 2 · ❔ 1 |
+| Super Nintendo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| Sharp X68000 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+| Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -76,9 +76,9 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
 
 <!-- qualification-gauges:end -->
 
@@ -105,9 +105,23 @@ x68 = Sharp X68000.
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y |
-| G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P |
+
+The page of each console, which the README links its line to (a console of the matrix needs one):
+
+| Console | Page |
+|---|---|
+| sms | [MASTER_SYSTEM.md](MASTER_SYSTEM.md) |
+| gg | [GAME_GEAR.md](GAME_GEAR.md) |
+| gb | [GAME_BOY.md](GAME_BOY.md) |
+| nes | [NES.md](NES.md) |
+| md | [MEGADRIVE.md](MEGADRIVE.md) |
+| snes | [SNES.md](SNES.md) |
+| ng | [NEOGEO.md](NEOGEO.md) |
+| cps1 | [CPS1.md](CPS1.md) |
+| x68 | [X68000.md](X68000.md) |
 
 </details>
 
@@ -126,6 +140,12 @@ x68 = Sharp X68000.
 
 - X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
   four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
+
+- X68000 (5 November 2026): the profile is `supported` since 1.6.9. G14 moved from `P` to `Y` on the owner's decision of 5 November 2026
+  (quoted in *Owner acceptance*), taken with G10 and G11 still `P`: 22 vectors of undefined decimal arithmetic, and MAME on five games
+  with the sound not compared. The Mega Drive stands with G10 `P`, and every supported machine with G11 `P`. The scope and the follow-ups are
+  in [the exit section](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026). G16 moved from `-` to `P` the same day: the owner approved the sharing of the
+  X68000's paths in both directions, and the rule of the repository wants a supported machine in the sharing.
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md, nes and gb run G5 inside every conversion (sms and gg too, but only
@@ -222,10 +242,9 @@ x68 = Sharp X68000.
   Debian 13 give the same instruction counts, 0 interpreted instructions and the same CPU, RAM, hardware, Z80, picture and sound hashes on all
   19 route rows ([NEOGEO_LOG.md](NEOGEO_LOG.md#cross-os-witness-on-debian-three-sets--3-november-2026)). Three sets of the 134 identities; interactive play
   on Linux is not witnessed.
-- G14 for SNES, SMS, GG and GB means "no recorded owner
-  decision found", not proof that none exists. The NES, CPS-1 and X68000 play
-  tests of 3 November 2026 are in the owner-acceptance table below; the X68000
-  one is a passed play test, not a decision to leave the experimental status.
+- Master System, Game Gear, Game Boy and Super Nintendo (5 November 2026): G14 moved from `?` to `Y` on the owner's play test of
+  two games per console converted with the tree of `main` at `491e845` (owner-acceptance table). Two games per console are a play test,
+  not a campaign: no claim of gameplay beyond them, and nothing about hardware fidelity or latency.
 
 ## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
 
@@ -285,12 +304,12 @@ build), and the group `conversion_gates` in the machine's `stamp_groups`.
 
 ## Sharp X68000: evidence behind its column (29 October 2026, status of 1 November 2026)
 
-The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that
+The X68000 is **supported** since 1.6.9 (owner's decision of 5 November 2026, [below](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)). This is what each gate rests on today and what is still missing, with the file that
 shows it. `P` means a part is shown and the rest is named; nothing here says exact hardware, gameplay coverage or latency.
 
 | Gate | X68000 | Evidence | What is missing |
 |---|---|---|---|
-| G1 | Y | `retrorecomp/systems/x68000.py` (status `experimental`), [X68000.md](X68000.md), `tests/test_system_profiles.py` | |
+| G1 | Y | `retrorecomp/systems/x68000.py` (status `supported` since 1.6.9), [X68000.md](X68000.md), `tests/test_system_profiles.py`, `tools/status_lint.py` | |
 | G2 | Y | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`, golden `tests/x68000_common_golden.json`). Since 1.6.6 the sections are filled from the conversion itself: `cpus` (one 68000, native and interpreted counts per route), `validation.cpu_fidelity` (digests of the CPU, RAM, image and PCM traces per route), `scan.routes` (frames, steps and script digest of each exploration route), `states.validation` (fresh process, compressed copy, the frame of the save and the 400 continued frames), `saves`, `input_players`, `peripheral`, `packed.replay` | `devices` is empty and there is no audio CPU section: the machine has no cartridge device and its sound is part of the reference machine, so a counter per device does not apply. `saves.validation.checked_in_this_conversion` is false (the proof is the test and the tool named there, not a step of the conversion) |
 | G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
@@ -302,10 +321,10 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G10 | P | The 3,869 SingleStepTests vectors (834 shift, 2,089 prefetch plus 82 authored cases, 864 exception) replayed through the X68000 generator and through the same Musashi interpreting every instruction: the translated steps agree with every vector on registers, SR, PC, written bytes and clocks, and the Musashi reference agrees with them too since 3 November 2026 (`retrorecomp/musashi_fixes.py`, the correction shared with the CPS-1 and the Neo Geo) (`tools/x68000_vector_selftest.py`, `tests/test_x68000_vectors.py`, [CPU_68000.md](CPU_68000.md#tests-and-vectors)); Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`); a fourth fixture, the 2,895 vectors of 85 instruction groups no other fixture holds (`m68k-groups`, 3 November 2026): every vector runs as a native step and every total of clocks equals the vector's, on the native steps and on Musashi alike. The state first agreed for 2,862 vectors natively and 2,883 on Musashi; since the X68000, the CPS-1 and the Neo Geo apply the Mega Drive's state rules for `LINK A7`, `UNLK A7` and `NEGX` to their translated steps (`retrorecomp/m68000_state_rules.py`) and Musashi pushes `A7` as it was for `LINK A7`, it agrees for 2,873 and 2,889. The rest is recorded (`tests/fixtures/m68k-groups/deviations-musashi-machines.json`, checked by `tools/x68000_vector_selftest.py`: a group that differs and is not listed fails, and so does a count that changes) | The oracle is MAME, not silicon; odd-address and bus errors, `TAS`, `TRAPV` and the interrupt pins are outside the fixtures. The 22 native vectors of the fourth fixture that still differ are the decimal instructions (`ABCD` 2, `SBCD` 2, `NBCD` 18) on operands that are not decimal digits, which the manual leaves undefined (Musashi differs on 6 of them, and the native steps and Musashi differ from each other on 45); they are not modelled. No conversion of the panel showed a native/reference difference |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`); MAME 0.289 (its `x68000` driver, run with the IPL and font ROM it expects: the hashes of the owner's firmware are the ones MAME lists) against the delivered game on five games, no input on either side (`tools/x68000_mame_compare.py`, 2 November 2026): **90 of the 104 pictures of MAME that stand still have the same shape in the game** (R-Type 14 of 16, Lemmings 19 of 24, Star Luster 26 of 31, Quarth 19 of 20, Bubble Bobble 12 of 13), the first 200 frames (the Human68k start-up screen) are identical to the pixel on R-Type, and after the disk has loaded the two emulators advance image for image at a constant lag (665 frames on R-Type) | Sound is **not** compared, and colours only on Bubble Bobble: the palette's intensity bit now lifts the three channels as in MAME (the game's picture is XRGB8888 from the machine's own colour word, UPGRADES 1.6.7) and 97.03 percent of the pixels of its 12 matched pictures are identical to MAME's (93.55 before; the shape match of the tool does not depend on colours); the rest comes from the screen contrast of the system port, applied to the palette by the base but by MAME at display, after the raw screen this tool reads, and from rounding. Of the 14 pictures with no match, 4 are explained (2 of R-Type fall beyond the 3,000 frames captured on the game side, 2 are transition frames that agree on 99.97 percent of their pixels) and 10 are **not explained** (Lemmings 5, Star Luster 4, Bubble Bobble 1). Disks load more slowly in MAME, so the lag is per game and not calibrated. MAME is not hardware and marks its driver imperfect |
 | G12 | Y | **The owner chose option B (2 November 2026): 21 named games, each with its written reason, none dropped for failing** (the panel and its rule are [below](#sharp-x68000-the-panel-2-november-2026)); all 21 are converted on Windows (22 conversions with R-Type again at 4 MiB), 0 interpreted opcodes on every route, the compressed copy matching, F8/F9 resumed in a fresh process; the collection holds 418 images, 33 multi-disk sets and 84 reviewed mouse sets | The panel covers the categories it names, not the whole collection; the two sets that used to stop the reference (Tetris v5, TF4G v0.3A09) and Pensan CD (silent on its keys) are in it and convert |
-| G13 | Y | Windows and Debian trace hashes (CPU, RAM, picture and PCM, main, mouse and keyboard routes) are equal on the 21 games of the panel (2 November 2026) | One game, Choujin, is delivered on Debian unpacked: its UPX-compressed copy stops at start there, so the shared packing step replays it twice and publishes the validated build instead, with the reason in the report (see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)); its hashes equal those of Windows |
-| G14 | P | Play test passed on 3 November 2026 (five games, owner-acceptance table) | The owner's decision to leave the experimental status, once G10 and G11 are proved |
+| G13 | Y | Windows and Debian trace hashes (CPU, RAM, picture and PCM, main, mouse and keyboard routes) are equal on the 21 games of the panel (2 November 2026, 1.6.6 tree), and again on the tree of the exit (5 November 2026: 21 games, 63 routes, CPU, RAM, picture and PCM, [below](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)) | Interactive play on Linux (window, captured mouse, full keyboard, sound out, gamepad) is not witnessed. On 2 November Choujin was delivered on Debian unpacked (its UPX-compressed copy stopped at start there; [KNOWN_FAILURES.md](KNOWN_FAILURES.md)); on 5 November it packs like the others |
+| G14 | Y | Play test passed on 3 November 2026 (five games); five more games, drawn at random, played on 5 November 2026 (Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, converted with the 1.6.8 tree), and the owner's decision of the same day to leave the experimental status (quoted in the owner-acceptance table) | The decision was given with G10 and G11 `P`; it is the owner's and he can revert it. Five games drawn at random and played are not a campaign: no claim of gameplay beyond them |
 | G15 | Y | The five measures stay separate in the report and in [X68000.md](X68000.md). Read on 3 November 2026 for this gate: every string of the interface that names the machine, in the eight languages, the README and every public document that names the machine, the local documents (`docs/history/x68000`, the research page, the specifications), the host kit's lines and the report writer. No claim of exact hardware, complete gameplay, zero latency or zero fallback was found; the report now states `universal_zero_fallback_claim: false` like the CPS-1 and the Neo Geo (its common `honesty` block read `null` for it), and the roadmap paragraph that still listed the panel and the Linux comparison as missing was rewritten | The word "exact" appears in the documents for media identities and for redraw marks, never for fidelity; the generic help text of the converter ("sometimes beyond the original machine") is not specific to this machine |
-| G16 | - | The X68000 shares no paths yet | |
+| G16 | P | Numeric paths (spans of RAM code tied to positions in the player's own disks, instruction positions in the IPL of a stated SHA-256), made only from the fresh reference runs of a conversion that passed, rechecked by every conversion; a failing conversion starts again without them; the sharing can be withdrawn in one line (`path_profiles.EXPERIMENTAL_SHARED`); the record has its own format number and is qualified by engine revision (`x68_knowledge`, [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#x68000-joins-the-base-169-5-november-2026)) | No X68000 path is qualified yet (qualified: reached and validated against the reference by a conversion that received it from another player); the X68000 stays in the experimental tier of the shared base (schema 3 only; a tier of the base, not the machine's status) |
 
 The four risk cases, converted one at a time with the 1.6.5 tree (standard scan level, `--no-online-cover`, an empty library;
 "pictures" is the number of different pictures of the delivered file on the route, out of 4,000 frames unless noted):
@@ -432,15 +451,28 @@ not how fast anything runs.
 The checks themselves are run by `tools/campaign.py`, `tools/nes_route_captures.py`, `tools/nes_saves_check.py` and
 `tools/nes_state_selftest.py`; none of them needs a ROM in the repository.
 
-### CPS-1.5 (QSound boards): the experimental tier of the CPS-1
+### CPS-1.5 (QSound boards): in the CPS-1 column since 5 November 2026
 
-Not a column of the matrix: the machine stays `supported` and these boards are a tier of their own (`board_tier: experimental` in their
-reports, a column of the catalogue), outside the evidence above. What exists on the 1.6.7 tree, dated 2 November 2026, detail in
-[CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
+Not a column of the matrix: these boards were a tier of the CPS-1 (`board_tier: experimental` in their reports, a column of the catalogue) from 1.6.7 and
+left it on 5 November 2026 on the owner's decision (G14 below); the CPS-1 column now covers them, with the limits listed here. What exists, dated 2 November 2026 on the
+1.6.7 tree and 5 November on the 1.6.8 tree, detail in [CPS1.md](CPS1.md#cps-15-qsound-boards) and [CPS1_LOG.md](CPS1_LOG.md#2-november-2026-167-tree-the-cps-15-board-without-its-sound-against-mame):
 the Kabuki decryption equal to MAME's on six sets; the pictures of the five sets of the test collection (one per family, of 18) agree with MAME 0.289
 on 3,599 of 3,600 compared frames; the sound of the high-level QSound model agrees with MAME's **for the same model**: MAME 0.289 plays these boards with
 its high-level model by default, so this validates the port against MAME's model, not against the hardware nor against a run of the DSP16.
-The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026). Not done: the other 13 sets (not in the test collection), a run of the DSP16, the owner's play trial.
+The five sets of the test collection convert through the whole chain at the Standard level (0 interpreted instructions on both routes, reference equal to native, states, packed copy; 2 November 2026).
+
+| Gate | Letter for the QSound boards | Evidence | Still missing |
+|---|---|---|---|
+| G3, G4, G5, G6 | Y on the five sets | 0 interpreted 68000 and Z80 instructions, native equal to the fresh reference, packed copy replayed, quick state continued in a fresh process, a truncated state refused | the other 13 sets were not converted: they are not in the owner's collection |
+| G7 saves | Y | the 93C46 EEPROM file written by the delivered executables of the five sets (224 bytes, unchanged at a second run), `tools/cps1_eeprom_selftest.py` and `tools/cps1_persistence_selftest.py` | the service and test buttons are not wired: the settings kept in the EEPROM cannot be changed in play |
+| G10 CPU | P | the 68000 and Z80 are the cores of the CPS-1 (independent vectors, G10 `Y` there); the Kabuki decryption equals MAME's on six sets | no independent vectors for the Kabuki Z80 itself or the QSound path |
+| G11 hardware | P | pictures 3,599 of 3,600 equal to MAME 0.289, sound compared with MAME's high-level model, which MAME plays by default | a comparison with MAME is not hardware; the DSP16 program is not run, the sound is a model |
+| G12 panel | P | the 5 sets of the owner's collection (one per family of 18) | 13 sets not owned and never converted |
+| G13 Linux | N | no QSound game was run on Linux | a Linux witness of at least one QSound game |
+| G14 owner | **Y** | 5 November 2026 (row below) | |
+| G16 shared paths | P | 8 paths of `slammast` shared and reused by a second empty library with identical results (CPS1.md); numeric, rechecked by every conversion | only one set of five learns paths; the Z80 side has nothing to share; no QSound path is qualified in the base |
+
+The letters of the CPS-1 column of the matrix above are not changed by this tier; where a gate is `P` or `N` here, the QSound boards have it open although the column reads `Y`.
 
 ## Super Nintendo: evidence behind its column (4 November 2026, release 1.6.8)
 
@@ -550,6 +582,25 @@ the journal says the compressed copy failed its replay and the unpacked build is
 panel (R-Type) stayed compressed, with no fallback line. So 21 of the 21 are delivered on Debian, one of them unpacked. These checks say that the native code, the picture and the sound of the routes run are the same on the two systems;
 they say nothing of complete gameplay, exact hardware or latency.
 
+### Sharp X68000: scope and follow-ups at the exit (5 November 2026)
+
+**What the exit stands on.** The column above, with every gate `Y` except G10 and G11, which stay `P` as they do for the other supported 68000
+machines (G10: 22 of 2,895 vectors of undefined decimal arithmetic; G11: MAME, a model and not hardware). The owner decided with both open, after the
+play trials of 3 and 5 November 2026. Nothing here says exact hardware, complete gameplay or physical latency.
+
+**Scope stated at the exit** (also in [X68000.md](X68000.md#8-known-limits)): floppy games only; no hard-disk images, no set of more than ten
+disks, no copy-protected D88; the few games that play only through an external Roland MIDI module run silent and the report says so (a decision
+of 29 October 2026 for this machine only); the mouse and the keyboard are checked by routes and by play on a few games; saves are proved by an
+authored program and by file time stamps of real games; the machine shares its paths as the experimental tier of the base (G16 `P`); the screen contrast of the system port is a
+known difference with MAME, not changed.
+
+**Follow-ups** (none of them blocks the exit; each can move a hash and says so when it does): the sound of the five games compared with MAME
+(the CPS-1's is within 0.42 dB), the colours compared on the four games that have none, the ten pictures of MAME that no picture of the game matches
+(Lemmings 5, Star Luster 4, Bubble Bobble 1), authored vectors for the long immediate forms with a memory destination, the thorough scan level and
+disk requests late in a game, a game that saves on purpose, interactive play witnessed on Linux, a new review of the px68k upstreams, and a first X68000 path qualified by the conversion of another player (G16 `Y`).
+
+**Replay on the tree of the exit (5 November 2026, Windows).** The 21 games of the panel and R-Type at 4 MiB were converted again with the tree of the exit commit (standard level, an empty private library for each, no shared base, no online cover, two conversions at a time, 122 to 325 seconds each): **0 interpreted opcodes on all 66 routes** (22 conversions, three routes each), the compressed copy matching the fresh reference on all 22, F8/F9 resumed in a fresh process on all 22, the report says `supported`, sound on 21 of the 22 (Uno is accepted as silent, as before) and the two automatic disk changes of Metal Sight. Against the panel of 2 November (the 1.6.6 tree): the **CPU, RAM and PCM hashes are equal on all 66 routes**; the picture hashes differ on all 66, as expected (the 1.6.7 colour of the intensity bit, [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md)); the numbers of different pictures and of audio blocks of every route are equal. Two further conversions (Twins, Fancy Qix) against the 1.6.8 tree give 513 values each of which only the status and the timings differ: the CPU, RAM, picture and PCM hashes and the trace digest of the three routes are equal. **Replay on Debian (5 November 2026, a Debian 13 PC, the same tree, one conversion at a time, disks copied for the run and deleted after):** the 21 games convert and are delivered, with 0 interpreted opcodes on every route and the compressed copy matching; across the 21 games and 63 routes the **CPU, RAM, picture and PCM hashes are equal to the Windows replay** (no difference), as are the numbers of pictures and audio blocks, the sound routes, the disk changes and the state checks. Choujin, which Debian delivered unpacked in the 2 November panel, now packs on Debian like the others (the Linux packer keeps NRV, [UPGRADES.md](UPGRADES.md)).
+
 ## Owner acceptance
 
 Owner play tests (gate G14), one row per test. The table starts empty; the
@@ -563,7 +614,13 @@ owner fills it in.
 | 1 November 2026 | Neo Geo | none recorded (owner acceptance, no game list written) | accepted by the owner (Arthur), who uses these machines and validated them as supported; no written play checklist for this row | Recorded on 1 November 2026 at the maintainer's confirmation of the `Y` of the matrix. |
 | 3 November 2026 | Nintendo NES | The Legend of Zelda, Kirby's Adventure, Mr. Gimmick, Duck Hunt, Battletoads, Castlevania III, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The trial list of the NES checklist below; G14 `Y`. |
 | 3 November 2026 | Capcom CPS-1 | 1941, Street Fighter II' Champion Edition, Final Fight, Captain Commando, Strider, Mercs, converted with the 1.6.7 tree (generator revision 12) in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play trial list of `CPS1_ACCEPTATION.md`, which the row of 1 November left to do; G14 moves from `P` to `Y`. |
+| 5 November 2026 | Capcom CPS-1.5 (QSound boards) | The Punisher, Cadillacs and Dinosaurs, Warriors of Fate, converted with the 1.6.8 tree (`cc46a1b`, generator revision 12) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » (the day before, about these games and the Sharp X68000 ones: « Les deux marchent parfaitement ») | G14 `Y` for the QSound boards: they leave the experimental tier and join the CPS-1 and the shared base of paths. It validates how the games behave; it says nothing of the DSP16 (a model after MAME's), of hardware fidelity or of latency. |
 | 3 November 2026 | Sharp X68000 | R-Type, Metal Sight, Lemmings, Super Hang-On, Bubble Bobble, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play test passed. It is not a decision to leave the experimental status: G10 and G11 are still `P`, and the exit stays the owner's explicit decision once every gate is proved. G14 is `P`. |
+| 5 November 2026 | Sharp X68000 | Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, drawn at random (seed 20261105) among the games of his collection not yet in `Export`, converted with the 1.6.8 tree in a player's conditions and delivered in `Export` | Arthur: « Bon, je viens de tester les derniers jeux que tu m'as sortis là sur Sharp X68000 et sur le CPS. Les deux marchent parfaitement. Tu peux sortir le Sharp de l'expérimental, même si on aura forcément quelques évolutions à faire derrière. » | The decision to leave the experimental status, given with G10 and G11 still `P`; it also counts as his last trial on the tree of the exit, whose commit changes the status written in the report and nothing in the player. G14 `Y`. |
+| 5 November 2026 | Master System | Sonic The Hedgehog, Wonder Boy III - The Dragon's Trap (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Game Gear | Sonic The Hedgehog, Super Columns (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Game Boy | The Legend of Zelda: Link's Awakening, Kirby's Dream Land, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | Super Nintendo | Super Mario World, The Legend of Zelda: A Link to the Past, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 

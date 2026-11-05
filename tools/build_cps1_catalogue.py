@@ -33,9 +33,12 @@ LOADS = {'ROM_LOAD': 'load', 'ROM_LOAD16_BYTE': 'load16_byte', 'ROM_LOAD16_WORD'
          'ROM_LOAD16_WORD_SWAP': 'load16_word_swap', 'ROM_LOAD32_BYTE': 'load32_byte',
          'ROM_LOAD64_BYTE': 'load64_byte', 'ROM_LOAD64_WORD': 'load64_word'}
 PHASE1_MACHINES = frozenset(('cps1_10MHz', 'cps1_12MHz', 'qsound'))
-# The boards that join the converter in a tier of their own: the CPS-1.5 (QSound) boards run a Kabuki Z80 and a QSound chip and
-# are experimental until they meet the same evidence as the CPS-1 boards (the tier is a column of the catalogue, never a test on a set).
-EXPERIMENTAL_TIER_MACHINES = frozenset(('qsound',))
+# The boards that join the converter in a tier of their own are listed here, and the catalogue's `tier` column says 'experimental' for them
+# (never a test on a set name). None since 5 November 2026: the CPS-1.5 (QSound) boards left the experimental tier on the owner's decision
+# (docs/CPS1.md), so every row is 'supported'; the column stays for the next board family that joins in a tier of its own.
+EXPERIMENTAL_TIER_MACHINES = frozenset()
+# The machines whose sound CPU is a Kabuki Z80: their set names an init function with the keys of the decryption.
+KABUKI_MACHINES = frozenset(('qsound',))
 EXCLUDED_MACHINES = {'wofhfh': 'qsound', 'forgottn': 'dial', 'pang3': 'eeprom', 'ganbare': 'timekeeper'}
 ROTATIONS = {'ROT0': 0, 'ROT90': 90, 'ROT180': 180, 'ROT270': 270}
 GFX_TYPES = {'GFXTYPE_SPRITES': 1, 'GFXTYPE_SCROLL1': 2, 'GFXTYPE_SCROLL2': 4,
@@ -434,7 +437,7 @@ def support(row: dict, config: dict, kabuki: dict) -> tuple[str, str]:
         return 'excluded', EXCLUDED_MACHINES[row['machine']]
     if row['machine'] not in PHASE1_MACHINES:
         return 'excluded', 'other_hardware'
-    if row['init'] != 'empty_init' and not (row['machine'] in EXPERIMENTAL_TIER_MACHINES and row['init'] in kabuki):
+    if row['init'] != 'empty_init' and not (row['machine'] in KABUKI_MACHINES and row['init'] in kabuki):
         return 'excluded', 'special_init'
     if config['board'].startswith('HACK_B_'):
         return 'excluded', 'bootleg_or_hack'
@@ -498,7 +501,7 @@ def build(cache: Path, *, offline: bool = False) -> dict:
     if len(names) != len(games) or any(game['parent'] and game['parent'] not in names for game in games):
         raise SystemExit('Duplicate set or unknown parent.')
     for game in games:
-        if game['machine'] == 'qsound' and game['init'] not in kabuki:
+        if game['machine'] in KABUKI_MACHINES and game['init'] not in kabuki:
             raise SystemExit('No Kabuki keys for ' + game['set'])
     return {'schema': 1, 'notice': NOTICE,
             'source': {'repository': MAME_REPOSITORY, 'revision': MAME_REVISION, 'sha256': SOURCES,

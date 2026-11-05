@@ -42,7 +42,7 @@ RetroRecomp's MIT license does not remove those limitations.
 
 ## Game toolchain and validation
 
-### Experimental X68000 research
+### Sharp X68000 runtime
 
 The X68000 runtime is built from hissorii/px68k at
 `74ddbb37b4e12b77362a4e12f28ceb5aaa593684` (2014): Kenjo's WinX68k/Keropi
@@ -82,7 +82,7 @@ shipped; you supply your own IPL and font ROM.
 | Geolith (Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
 | lithogen and the ROM-free Neo Geo layout catalogue | BSD-3-Clause; Rupert Carmichael and attributed MAME contributors | [Full text and attribution](licenses/lithogen.md) |
 | Musashi MC680x0 core (Geolith copy; Neo Geo and X68000) | MIT, Karl Stenerud; `m68kmmu.h` BSD-3-Clause | [Full text](licenses/musashi.md) |
-| Sharp X68000 machine (hissorii/px68k `74ddbb3`; experimental, fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
+| Sharp X68000 machine (hissorii/px68k `74ddbb3`; fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
 | Capcom CPS-1 board catalogue, DIP switches and machine runtime (adapted from MAME's CPS-1 driver and OKI MSM6295 at `61a2229`) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner and MAME contributors | [Full text](licenses/cps1-machine.md) |
 | ymfm YM2151 (OPM) in the CPS-1 runtime | BSD-3-Clause; Aaron Giles | [Full text](licenses/cps1-ymfm.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
