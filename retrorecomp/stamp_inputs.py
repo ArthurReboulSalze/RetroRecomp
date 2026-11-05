@@ -692,7 +692,11 @@ INPUTS = _resolve({
     ('gba',): (
         'licenses/gbarecomp.md',
         'retrorecomp.gba',
+        'retrorecomp.gba_analysis',
+        'retrorecomp.gba_build',
         'retrorecomp.gba_conversion',
+        'retrorecomp.gba_engine',
+        'retrorecomp.gba_patches',
     ),
     ('cps1',): (
         'assets/cps1-catalogue.json',

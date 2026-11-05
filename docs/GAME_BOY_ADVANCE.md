@@ -57,14 +57,32 @@ What a trial on 5 November 2026 established (a development measurement, not a qu
 * **Authored hardware tests** (jsmolka's gba-tests, MIT): the ARM, Thumb and BIOS tests pass; the VRAM mirror test, the three
   save tests (halfword stores to the save bus) and the no-save read test fail.
 
-Known gaps, to be closed as general fixes in the staged copy and not per game, anchored as the other machines' patches are (stage 3 of the plan, in this order):
+The gaps this trial found are closed as general fixes on the staged copy, anchored like the other machines' patches and listed in
+[UPSTREAMS.md](UPSTREAMS.md) (stage 3 of the plan): the generated call-stack overflow seen on one cartridge (a general cause:
+an interrupt handler left its call-return entries behind), Thumb `CMP PC, Rm` lowered as an exception return, the 32 KiB VRAM
+mirror, halfword and word stores to the 8-bit save bus, reads of the save window of a cartridge with no save chip, the FIQ
+register bank on interrupt entry. With them the authored ARM, Thumb, BIOS, memory and save tests all pass, and the call-stack
+fix leaves three of the four cartridges bit for bit unchanged. What stays open: about 250 single-instruction vector failures
+not explained (the coprocessor families, unpredictable encodings and the multiply carry among them), which the independent
+evidence of stage 5 is for.
 
-1. the generated call-stack overflow seen on one cartridge, a general cause of the generated call model and not a case of that game;
-2. Thumb `CMP PC, Rm` lowered as an ARM compare with an exception return;
-3. the 32 KiB VRAM mirror;
-4. halfword and word stores to the 8-bit save bus;
-5. reads of the save window of a cartridge with no save chip (must read `0xFF`);
-6. about 250 single-instruction vector failures not yet explained.
+## What the conversion loop did on the four cartridges (5 November 2026)
+
+Each cartridge went through `gba_conversion.convert` (two passes, a 600-frame boot scenario with no key and a 1,200-frame scripted
+scenario, the player's BIOS, a headless host, nothing from the cartridge kept in the repository). A development measurement of
+**native code coverage and of agreement between our generated code and the engine's own interpreter**; it is not CPU fidelity,
+hardware fidelity or gameplay validation, and the interpreter is the engine's, not an independent oracle.
+
+| Cartridge (by what it exposed) | Interpreted after the loop | Generated code against the engine's interpreter |
+| --- | --- | --- |
+| An authored ARM test | none | same picture, same cycles on both scenarios |
+| One with a generated call stack overflow before the fix | 3.2 M and 11.5 M instructions (19 entries learned; two IWRAM routines not yet resolved: their bytes were not matched to the cartridge, cause not yet found) | boot same; scripted scenario differs in the last picture |
+| One that reaches menus quickly | none after a third run (21 entries learned) | boot same; the scripted scenario agrees for 250 frames, then the cycle counts drift (65 cycles at frame 300, 33,000 at 1,200) and the pictures differ from about frame 400 |
+| Two large action cartridges | none (the first needed no entry learned, the second 26) | same picture, the cycle counts one apart |
+
+The one-cycle offset is how the engine stops a run: the report tolerates two cycles and says so. The drift on two cartridges
+shows that the generated code and the interpreter do not account some cycles the same way (bus waits, a halt, a DMA are the
+candidates); which of the two is right is not known and is for the independent evidence of stage 5, not for a per-game fix here.
 
 ## Paths
 
@@ -81,8 +99,11 @@ share its paths until its engine is stable (it is outside the shared base).
 | --- | --- |
 | Profile (developer-only, experimental) | `retrorecomp/systems/gba.py` |
 | Cartridge reader: header, checksum, hash, save chip by library identification strings, BIOS hash | `retrorecomp/gba.py` |
-| Engine pin, report skeleton through the common builder, plain refusal to convert | `retrorecomp/gba_conversion.py` |
-| Tests, with a synthetic cartridge (no ROM) | `tests/test_gba_profile.py` |
+| Engine pin, the conversion loop (observe, learn paths, rebuild), the report | `retrorecomp/gba_conversion.py` |
+| Checkout of the pinned engine and the staged, patched copy | `retrorecomp/gba_engine.py`, `retrorecomp/gba_patches.py` |
+| Misses to roots and RAM routines, the engine's configuration | `retrorecomp/gba_analysis.py` |
+| Recompiler, BIOS and game generation, the headless probe host, the key scripts | `retrorecomp/gba_build.py` |
+| Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py` |
 
 The report is written by the common builder (`report_schema.write_report`) with the status read from the profile and the five
 measures unclaimed; interpreted instructions are counted per CPU, in one unit.

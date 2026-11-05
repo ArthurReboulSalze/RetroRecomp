@@ -46,7 +46,7 @@ class GameBoyAdvanceProfile(SystemProfile):
                          shapes=(('arm7tdmi', 'gba', dict(roles=('rom',), caps={'phys': 262144, 'span': 4096},
                                                           entry_align=1, entry_min=0, entry_tail=1,
                                                           windows=(_EWRAM, _IWRAM), contained=True, length=(2, 16),
-                                                          length_align=2, offset_align=2, address_align=2,
+                                                          length_align=2, offset_align=2, address_align=1,
                                                           span_max=262144)),))
     report_shape = ReportShape('gba_conversion', 'gba_checks')
     # The ScreenScraper, TheGamesDB and Wikidata numbers of the platform are added when the box-art stage verifies them.

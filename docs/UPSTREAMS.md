@@ -415,6 +415,29 @@ sources, and `GENESIS_Z80_RECOMP` is never defined. Nothing to patch; `tests/tes
 |---|---|---|---|
 | NES PAL: /NMI is sampled at tick 6 of the 16-tick CPU cycle, not 5 (the 2A07's M2 stays low 6.5 master clocks against the 2A03's 4.5, and both lines are polled during phi2; the IRQ sample was already moved by the same two clocks). Derived from the NESdev duty cycle and checked against the later PAL commit of the pinned upstream without copying it; no console measurement. Three PAL games give identical frame, audio and state evidence; the authored vblank sweep detects the NMI one cycle later in 2 of 16 cases | nes | `nes_machine.py` (`_machine`, `_pal_ticks`) | nes |
 
+## Game Boy Advance: patches on the staged engine (spec/gba-170)
+
+The engine is staged per conversion and patched by anchored text replacements (`retrorecomp/gba_patches.py`, applied by
+`gba_engine.stage`; an anchor that is not found exactly once refuses the pinned engine instead of patching blindly). The pins
+do not move. The 20 patches are general: none names a game. They were found by the gate of 5 November 2026 (public vectors,
+authored hardware tests and four commercial cartridges), kept as small as the defect, and checked after the fact: the eight
+authored ROMs that can pass (ARM, Thumb, BIOS, memory and the four save variants) pass with them, and the call-stack fix
+changes nothing on three of the four cartridges (same return code, coverage, picture hash and cycle count over 3,600 frames).
+
+| Fix | Measure | File of the engine | Anchors |
+|---|---|---|---|
+| VRAM mirror: `0x06018000-0x0601FFFF` is `0x06010000-0x06017FFF` | hardware fidelity | `src/gba/gba_memory.cpp` | 1 |
+| Save window with no chip reads `0xFF` (8, 16 and 32 bits) | hardware fidelity | `src/gba/gba_bus.cpp` | 3 |
+| Save bus is 8 bits wide: a halfword or word store reaches the byte lane its address selects (bus and generated or interpreted `STR`/`STRH`) | hardware fidelity | `src/gba/gba_bus.cpp`, `arm_codegen.cpp`, `interpreter.cpp` | 5 |
+| Byte stores to palette and background VRAM write the duplicated halfword; to OBJ VRAM and OAM they are ignored | hardware fidelity | `src/gba/gba_bus.cpp` | 1 |
+| Thumb `CMP PC, Rm` (and the other test operations) is not an exception return: no `SPSR` restore, in generated code and in the interpreter | CPU fidelity | `arm_codegen.cpp`, `interpreter.cpp` | 5 |
+| Interrupt and software-interrupt entry swap the FIQ bank `R8-R12`; a register-offset operand `Rm = R15` reads the pipeline value, as the generated code does | CPU fidelity | `interpreter.cpp` | 3 |
+| Generated call-return stack: the interrupt handler's entry drops the call-return entries it pushed when it finishes (it left them, so a game that takes many interrupts inside deep calls overflowed the 1,024-entry stack and the run aborted) | native code (runtime) | `src/armv4t/runtime_arm.cpp` | 2 |
+
+To propose upstream (the maintainer posts): the call-stack fix, the save-bus
+fixes and the VRAM mirror, each as a small pull request to `mstan/gbarecomp` with the authored test ROM that shows it. The
+`arm-recomp-core` fixes go to its own repository (MIT). A bump of the pin re-checks the 20 anchors before anything else.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

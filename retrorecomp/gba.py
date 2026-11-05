@@ -120,7 +120,8 @@ def zip_holds_cartridge(path: Path) -> bool:
         return False
 
 
-def read_rom(path) -> GbaRom:
+def read_bytes(path) -> bytes:
+    """The cartridge image of a `.gba` file or a single-ROM ZIP, header checked (a conversion writes it to its project)."""
     path = Path(path).resolve()
     suffix = path.suffix.casefold()
     if suffix == '.zip':
@@ -130,6 +131,13 @@ def read_rom(path) -> GbaRom:
             data = source.read(MAX_ROM_BYTES + 1)
     else:
         raise ConversionError('Choose a Game Boy Advance .gba cartridge or a single-ROM ZIP.')
+    parse_header(data)
+    return data
+
+
+def read_rom(path) -> GbaRom:
+    path = Path(path).resolve()
+    data = read_bytes(path)
     header = parse_header(data)
     kind, signature = save_type(data)
     return GbaRom(path, len(data), zlib.crc32(data), hashlib.sha256(data).hexdigest(), header['title'],

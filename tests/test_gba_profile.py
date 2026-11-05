@@ -136,10 +136,10 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(UnsupportedConsoleError):
                 profile_for_path(other)
 
-    def test_it_converts_nothing_and_says_so(self):
+    def test_a_conversion_without_the_players_bios_says_what_is_missing(self):
         with self.assertRaises(ConversionError) as caught:
             get_profile('gba').convert(self.path)
-        self.assertIn('does not convert yet', str(caught.exception))
+        self.assertIn('needs your own BIOS', str(caught.exception))
 
     def test_the_request_identity_carries_the_bios_hash_not_its_path(self):
         profile = get_profile('gba')
