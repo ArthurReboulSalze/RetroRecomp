@@ -45,6 +45,9 @@ SPAN_LIMIT = 16384                # rows of the span block (the profile's cap)
 IPL_LIMIT = 65536                 # rows of the IPL block (the profile's cap)
 SPAN_BYTES = 4 << 20              # bytes the spans of a record may cover (`path_profiles.SPAN_BYTES`)
 DISK, IPL = 'disk', 'ipl'
+# The ceiling of each kind of path, by the name `entry_set` gives it (the one form every schema 3 module exposes: the site's base builder reads it).
+# The first counts span rows (their bytes are bounded too, SPAN_BYTES), the second IPL instruction rows.
+PATH_CAPS = {'x68_span': SPAN_LIMIT, 'x68_ipl': IPL_LIMIT}
 
 # --- The engine identity (`cores`) ---------------------------------------------------------------------------
 #
