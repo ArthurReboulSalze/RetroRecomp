@@ -51,8 +51,10 @@ bottom of player 1's F2 gamepad page (keyboard combinations: keyboard page).
 Since 1.6.9 both are watched on **player 1's controller only**, like the
 triggers' speed controls: on an arcade board Start+Coin is every player's
 normal play, and another player holding it no longer restarts the game for
-everyone. Player 1 playing on the keyboard has the keyboard combinations,
-Shift+F1 and Esc.
+everyone. This holds on every console: on a two-player console too, player 2
+holding Start+Select (or L3+R3) no longer restarts (or quits) the game; only
+player 1's controller does. Player 1 playing on the keyboard has the keyboard
+combinations, Shift+F1 and Esc.
 
 ### Capcom CPS-1
 

@@ -282,7 +282,9 @@ X68000 too, without asking again**.
     (`rrhk_options.c` hides the other pads' buttons from the two checks of `game_options.h`, which is left unchanged because the
     Mega Drive and Super Nintendo quick-state keys hash it; `rrhk_events.c` for the triggers). On an arcade board
     Start+Coin is every player's normal play: before 1.6.9 any player's Start+Coin held one second restarted the game for everyone.
-    Player 1 without a pad has no gamepad combination; the keyboard combinations, Shift+F1, Esc, Tab and backquote remain.
+    This holds on two-player consoles too: player 2's Start+Select no longer restarts. Player 1 without a pad has no gamepad
+    combination; the keyboard combinations, Shift+F1, Esc, Tab and backquote remain. A trigger held on the pad player 1 had
+    is forgotten when player 1 changes pads (hot-plug, the Gamepad row).
   * **Default pad buttons for every player**: a player whose pad column the adapter leaves empty (every entry 0, SDL's A) gets
     player 1's buttons (`rrhk_bind`), so pads 3 and 4 of a two-column table are laid out like pad 1, never all on A. A column the
     adapter writes (CPS-1's `PADS()`) is kept as it is.
@@ -291,10 +293,12 @@ X68000 too, without asking again**.
     numeric keypad and the kit's keys. Player 3: T/G/F/H (up, down, left, right), R/Y/B (the first three buttons), 3 (Start),
     7 (Coin); player 4: I/K/J/L, U/O/N, 4, 8 (Start and coin on the digits as in the arcade convention). The fourth to sixth
     buttons have no default key there (the keyboard has no clean room for them): F2 binds them. A key another player already has is
-    never given twice. Layout in [CONTROLS.md](CONTROLS.md#players-3-and-4).
+    never given twice, and after the preferences are read a default that a saved binding uses (a key saved before 1.6.9, a letter
+    of player 1 on another layout) is dropped. Layout in [CONTROLS.md](CONTROLS.md#players-3-and-4).
   * **No silent duplicate in F2**: binding a key that another action already uses, of any player in play (the keyboard is
     shared), swaps the two actions' keys; binding a pad button another action of the same player uses swaps the two buttons.
-    Both entries are written (`rrhk_assign`).
+    Both entries are written (`rrhk_assign`). An action a swap leaves without a key or button is stored as key 0 / button -1,
+    which every machine reads back as "no binding" (only the X68000, `bindings_clearable`, did before 1.6.9).
   A ROM-free check runs the real loop with four virtual pads on a four- and a two-player CPS-1 adapter build
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
 

@@ -52,6 +52,7 @@ static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) {
  * Restart combinations are watched on player 1's pad only: the speed is the whole game's. */
 enum { HOLD_KEY = 1, HOLD_TRIGGER = 2 };
 static bool trigger_down[2];     /* [0] right, [1] left of player 1's pad: past the threshold since the last event */
+static SDL_JoystickID trigger_pad = -1;   /* the pad those are of: another pad for player 1 forgets them */
 
 static bool key_bound(SDL_Scancode key) {
     const RrhkMachine *m = rrhk.machine;
@@ -77,6 +78,13 @@ static void toggle_mute(void) {
 
 /* The speed events that come before everything else, so that a key released in a menu or a lost window never stays held. */
 static void speed_event(const SDL_Event *event) {
+    /* Player 1 changed pads (the Gamepad row of F2, a redeal after hot-plug): a trigger held on the former pad never sticks. */
+    const SDL_JoystickID owner = rrhk.pads[0] ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[0])) : -1;
+    if (owner != trigger_pad) {
+        trigger_pad = owner;
+        rrhk.fast_hold &= ~HOLD_TRIGGER;
+        memset(trigger_down, 0, sizeof trigger_down);
+    }
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
              !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))

@@ -5,7 +5,8 @@
 The kit's shell and its CPS-1 adapter are compiled as an export compiles them, around a stub CPS-1 machine, once as a
 four-player board and once as a two-player one, and run with four virtual game controllers under SDL's dummy video and
 audio drivers (a hidden window, no sound device). Needs the C toolchain and the pinned static SDL2 of `.deps`; nothing is
-written outside DIR (default .build/hostkit-players-selftest). About three seconds of run time per board.
+written outside DIR (default .build/hostkit-players-selftest). About four seconds of run time per board
+(two holds of a little over one second, measured on SDL's clock).
 """
 from __future__ import annotations
 

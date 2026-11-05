@@ -9,9 +9,10 @@
  *     before_frame (rr_cps1_set_extra_pads), and on the two-player board pads 3 and 4 change nothing;
  *   - Start+Back held over a second on pad 3, and its triggers, neither restart nor change the speed; on pad 1 they do;
  *   - players 3 and 4 have keyboard keys of their own, no key drives two actions, CPS-1's explicit pad layout is kept;
- *   - a binding made in F2 swaps with the action that had the key or button; an adapter that lists two pad columns gets
- *     player 1's layout for players 3 and 4.
- * No ROM, no visible window, no sound device; about three seconds of wall clock per board (the hold of one second is
+ *   - a binding made in F2 swaps with the action that had the key or button, and a swap that leaves an action with no key
+ *     still reads so after a reload; a key saved before 1.6.9 on a new default of player 3 wins and the default goes;
+ *     an adapter that lists two pad columns gets player 1's layout for players 3 and 4.
+ * No ROM, no visible window, no sound device; about four seconds of wall clock per board (the hold of one second is
  * measured on SDL's clock, twice). Original RetroRecomp code: MIT. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -22,6 +23,7 @@
 #include <wchar.h>
 #include "retro_console16.h"
 #include "console16_state.h"
+#include "platform_io.h"
 #include "hostkit/hostkit_internal.h"
 
 static int failures;
@@ -83,6 +85,15 @@ static int step;
 static unsigned step_frame;
 static Uint64 step_ticks;
 static void next(void) { ++step; step_frame = 0; step_ticks = SDL_GetTicks64(); }
+
+/* No key drives two actions of the four rows of players (the keyboard is shared). */
+static void unique_keys(void) {
+    const RrhkUi *ui = rrhk_ui();
+    for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < ROWS; ++a) {
+        if (ui->keys[p][a] == SDL_SCANCODE_UNKNOWN) continue;
+        for (int q = 0; q <= p; ++q) for (int b = 0; b < (q == p ? a : ROWS); ++b) CHECK(ui->keys[q][b] != ui->keys[p][a]);
+    }
+}
 
 static void deal(void) {
     const RrhkUi *ui = rrhk_ui();
@@ -193,6 +204,29 @@ static void bindings(void) {
     CHECK(ui->buttons[1][A_ROW] == SDL_CONTROLLER_BUTTON_A && ui->buttons[1][B_ROW] == SDL_CONTROLLER_BUTTON_B);
     rrhk_assign(0, C_ROW, false, ui->keys[0][C_ROW]);    /* the same key again: nothing moves */
     CHECK(ui->keys[0][A_ROW] == x && ui->keys[0][B_ROW] == p2a);
+    /* A swap into nothing: player 3's button 4 has no key; taking R from button 1 leaves button 1 with none. */
+    if (RR_CPS1_PLAYERS > 3) {
+        rrhk_assign(2, X_ROW, false, SDL_SCANCODE_R);
+        CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_R && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
+    }
+    unique_keys();
+
+    /* Reload, as the next start does: what F2 stored comes back, the "no key" of the swap included, and no key is on two actions. */
+    const RrhkMachine *board = rrhk_adapter();
+    rrhk_bind(board); rrhk_load_bindings();
+    CHECK(ui->keys[0][A_ROW] == x && ui->keys[0][B_ROW] == p2a && ui->keys[1][A_ROW] == w);
+    CHECK(ui->buttons[0][A_ROW] == SDL_CONTROLLER_BUTTON_B && ui->buttons[0][B_ROW] == SDL_CONTROLLER_BUTTON_A);
+    if (RR_CPS1_PLAYERS > 3) CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_R && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
+    unique_keys();
+
+    /* A file of 1.6.8 that put player 1's button 4 on T, the new default Up of player 3: the saved key wins, the default goes. */
+    wchar_t value[16];
+    swprintf(value, 16, L"%d", (int)SDL_SCANCODE_T);
+    CHECK(rr_ini_set(L"CPS1.Keyboard.Player1", L"B4", value, ui->ini_file));
+    rrhk_bind(board); rrhk_load_bindings();
+    CHECK(ui->keys[0][X_ROW] == SDL_SCANCODE_T && ui->keys[2][UP_ROW] == SDL_SCANCODE_UNKNOWN);
+    CHECK(ui->keys[2][DOWN_ROW] == SDL_SCANCODE_G);   /* the other defaults stay */
+    unique_keys();
 
     /* An adapter that writes two pad columns (every one but CPS-1): players 3 and 4 get player 1's layout, never all A. */
     static const RrhkAction two[] = {
@@ -204,7 +238,6 @@ static void bindings(void) {
         {"Down", L"Down", 32, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_KP_2}, {SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN}},
         {"Left", L"Left", 64, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_1}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_LEFT}},
         {"Right", L"Right", 128, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}}};
-    const RrhkMachine *board = rrhk_adapter();
     RrhkMachine fixture = *board;
     fixture.actions = two; fixture.action_count = 8; fixture.table_players = 4;
     fixture.up = 4; fixture.down = 5; fixture.left = 6; fixture.right = 7; fixture.start = 3;

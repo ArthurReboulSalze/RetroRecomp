@@ -34,6 +34,8 @@ static const struct { SDL_Scancode up, down, left, right, button[EXTRA_BUTTONS],
     {SDL_SCANCODE_T, SDL_SCANCODE_G, SDL_SCANCODE_F, SDL_SCANCODE_H, {SDL_SCANCODE_R, SDL_SCANCODE_Y, SDL_SCANCODE_B}, SDL_SCANCODE_3, SDL_SCANCODE_7},
     {SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_J, SDL_SCANCODE_L, {SDL_SCANCODE_U, SDL_SCANCODE_O, SDL_SCANCODE_N}, SDL_SCANCODE_4, SDL_SCANCODE_8}};
 
+static bool kit_key[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];   /* the key is one of these defaults, not the adapter's or the player's */
+
 static bool key_listed(SDL_Scancode key) {
     for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < RRHK_MAX_ACTIONS; ++a) if (rrhk.keys[p][a] == key) return true;
     return false;
@@ -56,7 +58,17 @@ static void extra_player_keys(const RrhkMachine *m, int p) {
         else if (action->bit && !coin && rr_keyboard_shift_twin(action->key[0]) != SDL_SCANCODE_UNKNOWN) {
             key = extra_keys[p - 2].coin; coin = true;
         }
-        if (key != SDL_SCANCODE_UNKNOWN && !key_listed(key)) rrhk.keys[p][a] = key;
+        if (key != SDL_SCANCODE_UNKNOWN && !key_listed(key)) { rrhk.keys[p][a] = key; kit_key[p][a] = true; }
+    }
+}
+
+/* Once player 1's letters follow the layout and the saved bindings are read: a default of players 3 and 4 that another binding
+ * now uses (a key saved before these defaults existed, a letter of player 1 on another layout) is dropped, never shared. */
+static void drop_shadowed_extras(const RrhkMachine *m) {
+    for (int p = 2; p < m->table_players && p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < m->action_count; ++a) {
+        if (!kit_key[p][a] || rrhk.keys[p][a] == SDL_SCANCODE_UNKNOWN) continue;
+        for (int q = 0; q < m->table_players && q < RRHK_MAX_PLAYERS; ++q) for (int b = 0; b < m->action_count; ++b)
+            if ((q != p || b != a) && !kit_key[q][b] && rrhk.keys[q][b] == rrhk.keys[p][a]) { rrhk.keys[p][a] = SDL_SCANCODE_UNKNOWN; kit_key[p][a] = false; }
     }
 }
 
@@ -64,6 +76,7 @@ void rrhk_bind(const RrhkMachine *machine) {
     rrhk.machine = machine;
     memset(rrhk.keys, 0, sizeof rrhk.keys);
     memset(rrhk.buttons, 0, sizeof rrhk.buttons);
+    memset(kit_key, 0, sizeof kit_key);
     for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) for (int a = 0; a < machine->action_count; ++a) {
         rrhk.keys[p][a] = machine->actions[a].key[p];
         rrhk.buttons[p][a] = machine->actions[a].pad[p];
@@ -139,20 +152,22 @@ void rrhk_load_bindings(void) {
     for (int a = 0; a < m->action_count; ++a)
         if (m->actions[a].letter) rrhk.keys[0][a] = rr_keyboard_letter(m->actions[a].letter, m->actions[a].key[0]);
     rrhk_settings_path();
-    if (!rrhk.ini_file[0]) return;
+    if (!rrhk.ini_file[0]) { drop_shadowed_extras(m); return; }
     rr_display_load(rrhk.read_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
     if (m->settings_loaded) m->settings_loaded(&rrhk);
     wchar_t sec[64], entry[48];
-    const int lowest_button = m->bindings_clearable ? -1 : 0, lowest_key = m->bindings_clearable ? 0 : 1;
+    /* A stored key 0 or button -1 is "no binding" on every machine: F2 writes it when a swap leaves an action without its key
+     * (rrhk_assign), and the Delete of a clearable machine (X68000) writes it too. A missing entry keeps the default. */
+    enum { MISSING = -1000000 };
     for (int p = 0; p < m->players(); ++p) for (int mode = 0; mode < 2; ++mode) {
         for (int a = 0; a < m->action_count; ++a) {
-            int old = mode ? rrhk.buttons[p][a] : rrhk.keys[p][a];
             binding_entry(sec, entry, p, a, mode != 0);
-            int value = rr_ini_int(sec, entry, old, rrhk.read_file);
-            if (mode && value >= lowest_button && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
-            if (!mode && value >= lowest_key && value < SDL_NUM_SCANCODES) rrhk.keys[p][a] = (SDL_Scancode)value;
+            const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
+            if (mode && value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
+            if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
     }
+    drop_shadowed_extras(m);
     for (int p = 0; p < m->players(); ++p) load_choice(p);
     /* A machine that read its former preferences in settings_loaded (Game Boy: its own file) has set the language and the
      * autofire these start from; the kit's keys win when present. */
@@ -199,9 +214,10 @@ void rrhk_assign(int p, int action, bool pad, int value) {
     if (old != value) for (int q = 0; q < m->players(); ++q) for (int a = 0; a < m->action_count; ++a) {
         if ((pad && q != p) || (q == p && a == action)) continue;
         if (pad && rrhk.buttons[q][a] == (SDL_GameControllerButton)value) { rrhk.buttons[q][a] = (SDL_GameControllerButton)old; store_entry(q, a, true); }
-        if (!pad && rrhk.keys[q][a] == (SDL_Scancode)value) { rrhk.keys[q][a] = (SDL_Scancode)old; store_entry(q, a, false); }
+        if (!pad && rrhk.keys[q][a] == (SDL_Scancode)value) { rrhk.keys[q][a] = (SDL_Scancode)old; kit_key[q][a] = false; store_entry(q, a, false); }
     }
-    if (pad) rrhk.buttons[p][action] = (SDL_GameControllerButton)value; else rrhk.keys[p][action] = (SDL_Scancode)value;
+    if (pad) rrhk.buttons[p][action] = (SDL_GameControllerButton)value;
+    else { rrhk.keys[p][action] = (SDL_Scancode)value; kit_key[p][action] = false; }
     store_entry(p, action, pad);
 }
 
