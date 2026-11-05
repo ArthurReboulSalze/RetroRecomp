@@ -184,6 +184,9 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             break
         emit(f'Game Boy Advance: {new} new entries for the next pass.')
     timings.end_passes()
+    # What the passes learned is kept before the long replay: a conversion that is stopped there has not lost it.
+    store.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(store, path_profiles.validate_game(analysis.record(rom.sha256, len(data), ARM_CORE_REV, observations)))
     emit("Game Boy Advance: replaying the scenarios with the engine's own interpreter alone…")
     for row, (name, count, _) in zip(rows, scenarios):
         if runs[name].returncode:
@@ -191,8 +194,6 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         reference = build.run_scenario(host, rom_file, sha1, bios, project / 'runs', name, count, paths[name],
                                        timeout=3600, reference=True)
         row['reference_match'] = _matches(runs[name], reference)
-    store.parent.mkdir(parents=True, exist_ok=True)
-    atomic_json(store, path_profiles.validate_game(analysis.record(rom.sha256, len(data), ARM_CORE_REV, observations)))
     checked = [row for row in rows if row['reference_match'] is not None]
     validation = {'passed': (all(row['reference_match'] for row in checked) if checked else None),
                   'method': "final picture and cycle count against the engine's own interpreter, same scenario",

@@ -64,6 +64,7 @@ endif()
 def prepare(player: Path, stage: Path, game: Path, bios_code: Path, rom_file: Path, bios_file: Path, *, title: str, name: str,
             sha1: str, sha256: str, version: str, presentation: dict | None = None) -> dict | None:
     """Write the player's project: the sources, the generated header and resources, and the CMake file."""
+    player.mkdir(parents=True, exist_ok=True)
     artwork = icon = None
     if presentation is not None:
         from .conversion_common import prepare_game_icon

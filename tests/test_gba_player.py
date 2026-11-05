@@ -51,6 +51,20 @@ class PlayerProjectTests(unittest.TestCase):
         self.assertIn('gbarecomp_add_runtime_target(game', cmake)
         self.assertIn('SDL_MAIN_HANDLED', cmake)
 
+    def test_the_icon_of_a_first_preparation_has_its_folder(self):
+        # The player folder does not exist yet at the first conversion of a game: the icon step must not need it.
+        (self.root / 'stage/engine').mkdir(parents=True, exist_ok=True)
+        (self.root / 'rom.gba').write_bytes(b'' * 64)
+        (self.root / 'bios.bin').write_bytes(b'' * 64)
+        player = self.root / 'fresh' / 'player'
+        art = gba_player.prepare(player, self.root / 'stage', self.root / 'generated', self.root / 'bios_code', self.root / 'rom.gba',
+                                 self.root / 'bios.bin', title='A Game', name='A Game', sha1='ab' * 20, sha256='cd' * 32,
+                                 version='1.7.0', presentation={'rom_path': self.root / 'rom.gba', 'online_cover': False,
+                                                                'cover': ASSETS / 'assets/Retro-Recomp-icon-256.png',
+                                                                'emit': lambda text: None})
+        self.assertTrue(art['embedded'])
+        self.assertTrue((player / 'game.ico').is_file())
+
     def test_a_second_preparation_touches_nothing(self):
         player = self.prepare()
         before = {path: path.stat().st_mtime_ns for path in player.rglob('*') if path.is_file()}
