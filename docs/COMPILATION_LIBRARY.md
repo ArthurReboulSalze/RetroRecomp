@@ -1918,8 +1918,7 @@ disables both the bundled and imported knowledge.
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
 NES, Mega Drive, Super Nintendo and, since 1.5.4, Neo Geo (see *The shared
-base*): the X68000 is never sent and counts for nothing
-on the leaderboard (it stays local), and the CPS-1 sends only its numeric paths
+base*): the CPS-1 and, since 1.6.9, the X68000 send only their numeric paths
 as the experimental tier of the base (the converter says so when sending). The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed

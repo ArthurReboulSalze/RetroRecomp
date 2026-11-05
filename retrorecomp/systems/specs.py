@@ -98,6 +98,10 @@ class SharedKnowledge:
     site_builder: bool = False
     # Withdrawing the machine leaves its games out of a file or an upload one by one instead of refusing it whole.
     withdrawable: bool = False
+    # Whether paths other players qualified allow the quick check (only the main route is replayed) instead of the scan level the player
+    # chose. A machine sets it to False when what a full discovery finds is not carried by the shared paths: the X68000 finds its input
+    # routes (mouse, keyboard) by replaying them, and the mouse controls of its player follow. Its received paths still guide the first pass.
+    quick_check_from_shared: bool = True
 
 
 @dataclass(frozen=True)

@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 of the X68000 of 5 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -107,7 +107,7 @@ x68 = Sharp X68000.
 | G13 | P | P | Y | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | Y |
 | G15 | P | P | Y | P | P | Y | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P |
 
 </details>
 
@@ -130,7 +130,8 @@ x68 = Sharp X68000.
 - X68000 (5 November 2026): the profile is `supported` since 1.6.9. G14 moved from `P` to `Y` on the owner's decision of 5 November 2026
   (quoted in *Owner acceptance*), taken with G10 and G11 still `P`: 22 vectors of undefined decimal arithmetic, and MAME on five games
   with the sound not compared. The Mega Drive stands with G10 `P`, and every supported machine with G11 `P`. The scope and the follow-ups are
-  in [the exit section](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026).
+  in [the exit section](#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026). G16 moved from `-` to `P` the same day: the owner approved the sharing of the
+  X68000's paths in both directions, and the rule of the repository wants a supported machine in the sharing.
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md, nes and gb run G5 inside every conversion (sms and gg too, but only
@@ -299,7 +300,7 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G13 | Y | Windows and Debian trace hashes (CPU, RAM, picture and PCM, main, mouse and keyboard routes) are equal on the 21 games of the panel (2 November 2026) | One game, Choujin, is delivered on Debian unpacked: its UPX-compressed copy stops at start there, so the shared packing step replays it twice and publishes the validated build instead, with the reason in the report (see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)); its hashes equal those of Windows |
 | G14 | Y | Play test passed on 3 November 2026 (five games); five more games, drawn at random, played on 5 November 2026 (Double Target, Fancy Qix, Twins, Danger Area, Pac-Land, converted with the 1.6.8 tree), and the owner's decision of the same day to leave the experimental status (quoted in the owner-acceptance table) | The decision was given with G10 and G11 `P`; it is the owner's and he can revert it. Five games drawn at random and played are not a campaign: no claim of gameplay beyond them |
 | G15 | Y | The five measures stay separate in the report and in [X68000.md](X68000.md). Read on 3 November 2026 for this gate: every string of the interface that names the machine, in the eight languages, the README and every public document that names the machine, the local documents (`docs/history/x68000`, the research page, the specifications), the host kit's lines and the report writer. No claim of exact hardware, complete gameplay, zero latency or zero fallback was found; the report now states `universal_zero_fallback_claim: false` like the CPS-1 and the Neo Geo (its common `honesty` block read `null` for it), and the roadmap paragraph that still listed the panel and the Linux comparison as missing was rewritten | The word "exact" appears in the documents for media identities and for redraw marks, never for fidelity; the generic help text of the converter ("sometimes beyond the original machine") is not specific to this machine |
-| G16 | - | The X68000 shares no paths yet | |
+| G16 | P | Numeric paths (spans of RAM code tied to positions in the player's own disks, instruction positions in the IPL of a stated SHA-256), made only from the fresh reference runs of a conversion that passed, rechecked by every conversion; a failing conversion starts again without them; the sharing can be withdrawn in one line (`path_profiles.EXPERIMENTAL_SHARED`); the record has its own format number and is qualified by engine revision (`x68_knowledge`, [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#x68000-joins-the-base-169-5-november-2026)) | No X68000 path is qualified yet (qualified: reached and validated against the reference by a conversion that received it from another player); the X68000 stays in the experimental tier of the shared base (schema 3 only; a tier of the base, not the machine's status) |
 
 The four risk cases, converted one at a time with the 1.6.5 tree (standard scan level, `--no-online-cover`, an empty library;
 "pictures" is the number of different pictures of the delivered file on the route, out of 4,000 frames unless noted):
@@ -553,13 +554,13 @@ play trials of 3 and 5 November 2026. Nothing here says exact hardware, complete
 **Scope stated at the exit** (also in [X68000.md](X68000.md#8-known-limits)): floppy games only; no hard-disk images, no set of more than ten
 disks, no copy-protected D88; the few games that play only through an external Roland MIDI module run silent and the report says so (a decision
 of 29 October 2026 for this machine only); the mouse and the keyboard are checked by routes and by play on a few games; saves are proved by an
-authored program and by file time stamps of real games; the machine stays local (G16 not applicable); the screen contrast of the system port is a
+authored program and by file time stamps of real games; the machine shares its paths as the experimental tier of the base (G16 `P`); the screen contrast of the system port is a
 known difference with MAME, not changed.
 
 **Follow-ups** (none of them blocks the exit; each can move a hash and says so when it does): the sound of the five games compared with MAME
 (the CPS-1's is within 0.42 dB), the colours compared on the four games that have none, the ten pictures of MAME that no picture of the game matches
 (Lemmings 5, Star Luster 4, Bubble Bobble 1), authored vectors for the long immediate forms with a memory destination, the thorough scan level and
-disk requests late in a game, a game that saves on purpose, interactive play witnessed on Linux, and a new review of the px68k upstreams.
+disk requests late in a game, a game that saves on purpose, interactive play witnessed on Linux, a new review of the px68k upstreams, and a first X68000 path qualified by the conversion of another player (G16 `Y`).
 
 **Replay on the tree of the exit (5 November 2026, Windows).** The 21 games of the panel and R-Type at 4 MiB were converted again with the tree of the exit commit (standard level, an empty private library for each, no shared base, no online cover, two conversions at a time, 122 to 325 seconds each): **0 interpreted opcodes on all 66 routes** (22 conversions, three routes each), the compressed copy matching the fresh reference on all 22, F8/F9 resumed in a fresh process on all 22, the report says `supported`, sound on 21 of the 22 (Uno is accepted as silent, as before) and the two automatic disk changes of Metal Sight. Against the panel of 2 November (the 1.6.6 tree): the **CPU, RAM and PCM hashes are equal on all 66 routes**; the picture hashes differ on all 66, as expected (the 1.6.7 colour of the intensity bit, [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md)); the numbers of different pictures and of audio blocks of every route are equal. Two further conversions (Twins, Fancy Qix) against the 1.6.8 tree give 513 values each of which only the status and the timings differ: the CPU, RAM, picture and PCM hashes and the trace digest of the three routes are equal. The Debian replay of the same tree is still to do (G13 stands on the 1.6.6 tree until then).
 
