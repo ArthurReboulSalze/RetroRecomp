@@ -49,8 +49,8 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Console | Status | Progress | Gates |
 | --- | --- | --- | --- |
-| Master System | supported | `█████████░` 87 % | ✅ 12 · 🟡 2 · ❔ 1 |
-| Game Gear | supported | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
+| Master System | supported | `█████████░` 90 % | ✅ 13 · 🟡 1 · ❔ 1 |
+| Game Gear | supported | `█████████░` 87 % | ✅ 12 · 🟡 2 · ❔ 1 |
 | Game Boy | supported | `█████████░` 91 % | ✅ 14 · 🟡 1 · ❔ 1 |
 | Nintendo NES | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Mega Drive | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G13 Cross-OS | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
 | G14 Owner OK | ❔ | ❔ | ❔ | ✅ | ✅ | ❔ | ✅ | ✅ | 🟡 |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ |
@@ -104,7 +104,7 @@ x68 = Sharp X68000.
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y |
-| G13 | P | P | Y | Y | P | P | P | P | Y |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y |
 | G14 | ? | ? | ? | Y | Y | ? | Y | Y | P |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
@@ -165,7 +165,7 @@ x68 = Sharp X68000.
   on its pseudo-random route (unexplained). Read as of the default (banked) engine: the optional "functions" engine has no quick states, interprets part of one route
   and does not export three of the twelve games (the reference check refuses it) and builds a fourth not at all. The pictures were looked at by the specialist agent, not by
   the owner; pad routes, not full games. **G1** and **G15**: the status and the perimeter are one list on the pages, COMPATIBILITY.md and the README; the audit of the
-  words of exactness, accuracy and completeness found three sentences to correct, no claim of fidelity or zero latency. **G11, G13** stay `P`, **G14** stays `?`.
+  words of exactness, accuracy and completeness found three sentences to correct, no claim of fidelity or zero latency. **G13** `Y` (5 November 2026): Windows and a Debian 13 PC convert the twelve games of the panel from the same tree (`e84167e`, extended level, banked engine, empty library, `tools/sega_cross_os.py`) and give equal per-frame traces (picture, sound, RAM and VDP hashes), equal RAM at the last frame and equal final CPU registers on 36 of 36 routes (302,400 frames per system). Limits: twelve of the 258 cartridges, the banked engine only (the "functions" engine was not witnessed), pad routes, no interactive play on Linux, and no comparison of the generated sources. **G11** stays `P`, **G14** stays `?`.
 - Game Boy (3 November 2026): G10 moved from `P` to `Y` on two independent pieces of evidence: the 404,358 SingleStepTests vectors on plain memory (402,589 match the
   interpreter, all of the RAM executors'), and the public test ROMs run on the delivered files ([GAME_BOY.md](GAME_BOY.md#the-public-test-roms-of-blargg-and-mooneye-167-gates-g10-and-g11)):
   blargg `cpu_instrs` 11 of 11, `instr_timing`, `mem_timing` 6 of 6, and Mooneye's instruction, interrupt, HALT and timing tests, each with the native code and the pinned interpreter

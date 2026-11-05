@@ -171,9 +171,9 @@ Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, the
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | P | ? | Y | Y |
+| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | Y | ? | Y | Y |
 
-G11 stays partial (authored chip fixtures only, no external comparison), G13 stays partial (the bounded Linux check only, not yet the panel) and G14 has no
+G11 stays partial (authored chip fixtures only, no external comparison), G14 has no
 recorded owner decision. The evidence of every gate is in the table *The sixteen gates, with their evidence (1.6.9)* below.
 
 The five measures, kept apart:
@@ -252,7 +252,7 @@ shares the engine, the runtime and the adapter, so the evidence below is for bot
 | G10 Independent CPU | 51,328 SingleStepTests/z80 vectors and the 720 interrupt states ([CPU_Z80.md](CPU_Z80.md)) | the vectors are an emulator's, not hardware captures |
 | G11 Independent hardware | authored chip fixtures only | no external emulator or hardware comparison of the video chip or the PSG |
 | G12 Panel | 258 cartridges of the 9 October 2026 campaign, and the twelve above | the Codemasters and cartridge-RAM cartridges are converted but may not start |
-| G13 Cross-OS | the bounded native check on Linux (`tools/linux_sms_selftest.py`) | no witness of the panel's route hashes on a Debian 13 PC yet (planned, 1.6.9) |
+| G13 Cross-OS | Windows and a Debian 13 PC convert the twelve panel games from the same tree (`e84167e`, extended level, empty library) and give equal per-frame traces (picture, sound, RAM, VDP hashes), equal final RAM and final CPU on 36 of 36 routes, 302,400 frames per system (`tools/sega_cross_os.py`); `tools/linux_sms_selftest.py` is the bounded native check | twelve of 258 cartridges; the banked engine only; pad routes; no interactive play on Linux; the generated sources were not compared |
 | G14 Owner | no recorded owner decision | his play test |
 | G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the audit of 5 November 2026 of the two pages, [COMPATIBILITY.md](COMPATIBILITY.md), the README and the strings of the report and of the games found no claim of exactness, zero latency or hardware fidelity, and corrected three sentences | a search of the words of exactness, accuracy and completeness with the matches read, not a reading of every page |
 | G16 Shared knowledge | hints are numbers about a ROM, rechecked on the exact ROM, and the conversion retries without them on failure | a hint qualifies a path only after another player's conversion reaches it |

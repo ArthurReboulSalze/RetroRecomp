@@ -94,7 +94,7 @@ Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, the
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | ? | Y | Y |
+| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | Y | ? | Y | Y |
 
 **The 18 October 2026 qualification, included in 1.1.3,** adds twelve exact cartridges: Sonic, Sonic 2, Tails Adventures, GG
 Aleste, Gunstar Heroes, Dynamite Headdy, OutRun, Super Columns, Vampire / Master of Darkness, Wonder Boy: The Dragon's Trap,
@@ -127,7 +127,8 @@ one says what the Game Gear's six cartridges of the 1.6.9 panel add to it. The p
 | G5 Delivered file | the compressed copy matches the fresh reference on every route of the six (banked); the functions engine replays it against its own final pass on three of them (Sonic The Hedgehog, Factory Panic, Sonic Spinball) and does not export the other three (Streets of Rage and Gunstar Heroes differ from the interpreter, Shining Force II does not build) | |
 | G6 States | the fresh-process check passes on the six harness builds | the picture of Shining Force II never moves, so its comparison shows nothing about a restore |
 | G8 and G9 | Sonic The Hedgehog, Factory Panic, Streets of Rage, Gunstar Heroes and Sonic Spinball reach a screen of the game; Shining Force II does not start (cartridge RAM, not modelled); Gunstar Heroes shows the game's own error screen on its pseudo-random route (unexplained) | pad routes only, no full game; looked at by the specialist agent |
-| G11, G12, G13 | partial: no external comparison of the video chip or the PSG; the Game Gear panel is the twelve cartridges of 18 October and these six; no Debian 13 witness of the panel yet | |
+| G11, G12 | partial: no external comparison of the video chip or the PSG; the Game Gear panel is the twelve cartridges of 18 October and these six | |
+| G13 Cross-OS | the six Game Gear cartridges of the panel give equal traces, final RAM and final CPU on Windows and on a Debian 13 PC (18 of 18 routes) | the same limits as the Master System's |
 | G15 Honesty | the audit of 5 November 2026 (see the Master System table) corrected two sentences of this page: "faithful to the handheld's visible area" now says what is shown, and "exactly as" now says "in the same way" | |
 
 ## Known limits

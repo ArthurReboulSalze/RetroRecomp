@@ -83,8 +83,8 @@ decides a status: leaving the experimental status is the owner's own decision.
 
 | Console | Status | Qualification progress |
 | --- | --- | --- |
-| Master System | supported | `█████████░` 87 % |
-| Game Gear | supported | `████████░░` 83 % |
+| Master System | supported | `█████████░` 90 % |
+| Game Gear | supported | `█████████░` 87 % |
 | Game Boy | supported | `█████████░` 91 % |
 | Nintendo NES | supported | `█████████░` 91 % |
 | Mega Drive | supported | `████████░░` 84 % |
