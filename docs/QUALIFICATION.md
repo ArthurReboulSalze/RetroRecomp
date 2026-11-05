@@ -207,7 +207,7 @@ The page of each console, which the README links its line to (a console of the m
   engines since 1.6.7: the banked engine compares it with the fresh reference of each route, the "functions" engine (which has no
   per-route reference) with the final pass of the same build, and the report says which (`packed_replay` for the functions engine). What
   is recorded is synthetic tests (`tests/test_sega_evidence.py`), runs on three banked games and 18 + 3 + 15 functions conversions
-  ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-replays-the-delivered-copy-and-starts-from-the-reset-state-167)),
+  ([UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-replays-the-delivered-copy-and-starts-from-the-reset-state-167)),
   not a result per console. The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
   G6 is judged on the banked engine, the default: the "functions" engine has no quick states ([MASTER_SYSTEM.md](MASTER_SYSTEM.md)),
   so it has nothing to check and is not claimed.

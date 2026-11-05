@@ -107,7 +107,7 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 
 The banked engine generates the same sources before and after the 1.6.3 and 1.6.4 functions patches (checked on Bank
-Panic). Release effects on existing exports are in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
+Panic). Release effects on existing exports are in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
 How the Z80 is recompiled, the path shape and the CPU tests are described in [CPU_Z80.md](CPU_Z80.md); this page does
 not repeat them.
 

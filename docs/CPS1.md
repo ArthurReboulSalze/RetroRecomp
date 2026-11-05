@@ -72,7 +72,7 @@ playthroughs and physical latency are not claimed.
 |---|---|---|
 | Main CPU | MC68000 at 10 or 12 MHz ([CPU_68000.md](CPU_68000.md)); program ROM up to 4 MiB | **Native code**: the whole program ROM is swept (every even offset that decodes legally) into guarded native steps; each step is checked against its live code words. **Reference**: Musashi from the pinned Geolith copy, with every instruction interpreted. **Counted interpreter** for anything not covered |
 | Work RAM | 64 KiB at `0xFF0000` | Code the game copies or builds there is observed in one pass and becomes guarded native code in the next |
-| Graphics RAM | `0x900000` to `0x92FFFF` (CPS-A/B registers, tile layers, sprites, palette) | Since 1.6.4, code run from it is guarded like work-RAM code (see [Known limits](#known-limits) and [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h)) |
+| Graphics RAM | `0x900000` to `0x92FFFF` (CPS-A/B registers, tile layers, sprites, palette) | Since 1.6.4, code run from it is guarded like work-RAM code (see [Known limits](#known-limits) and [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h)) |
 | Sound CPU | Z80 at 3.579545 MHz ([CPU_Z80.md](CPU_Z80.md)); ROM `0x0000`-`0x7FFF` plus a switched 16 KiB window at `0x8000`-`0xBFFF` (two banks), RAM `0xD000`-`0xD7FF` | **Native code** at every byte position of the sound ROM, banks included; guarded Z80 RAM variants. **Reference**: the Z80 core of the pinned Geolith copy; the opcode an IM 0 interrupt supplies runs there and, since 1.6.5, is counted as interpreted. Two sound latches written by the 68000 are time-stamped and replayed when the Z80 reaches them |
 | Video | CPS-A and CPS-B: three scroll layers (8x8, 16x16 and 32x32 tiles), sprites, star fields on some boards, row scroll, palette; 30 CPS-B board configurations and 58 graphics mappers in the catalogue; 8 MHz pixel clock, 512x262 total, 384x224 visible, about 59.637 Hz | Reference board model in C adapted from MAME's driver ([cps1_machine.c](../native/cps1_machine.c)). The frame is rendered whole at the start of VBLANK and coloured when it ends, as MAME presents it. Graphics ROM bank mapping, priorities and sprite order follow MAME |
 | FM sound | YM2151 at 3.579545 MHz, output 55,930 Hz | ymfm (BSD-3-Clause) behind `native/cps1_opm.cpp`; the chip's IRQ goes to the Z80 |
@@ -186,7 +186,7 @@ board keeps no non-volatile memory, so there are no ordinary saves besides
 F8/F9. Every conversion saves a state, loads it in a fresh process, requires the
 same continuation and checks that a truncated state is rejected. Compatibility
 across releases: [GAME_STATES.md](GAME_STATES.md) and
-[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164).
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164).
 
 ## Qualification
 
