@@ -113,7 +113,7 @@ class ProfileDataTests(unittest.TestCase):
         statuses = {system: status for system, status in statuses.items() if system in IDS}
         self.assertEqual(statuses, {'sms': 'supported', 'gg': 'supported', 'gb': 'supported', 'nes': 'supported',
                                     'md': 'supported', 'snes': 'supported', 'ng': 'supported',
-                                    'cps1': 'supported', 'x68': 'experimental'})
+                                    'cps1': 'supported', 'x68': 'supported'})
         for profile in ALL_PROFILES:
             self.assertIn(profile.status, STATUSES)
             # Read-only compatibility with the former attribute.
@@ -283,14 +283,23 @@ class ProfileContractTests(unittest.TestCase):
                              if p.shared_knowledge and p.shared_knowledge.tier == tier)
                  for tier in ('stable', 'experimental')}
         self.assertEqual(tiers['stable'], path_profiles.STABLE_SHARED)
-        self.assertEqual(tiers['experimental'], path_profiles.EXPERIMENTAL_SHARED)
-        self.assertEqual(tiers['stable'] + tiers['experimental'], path_profiles.SHARED_SYSTEMS)
+        self.assertEqual(sorted(tiers['experimental']), sorted(path_profiles.EXPERIMENTAL_SHARED))
+        self.assertEqual(sorted(tiers['stable'] + tiers['experimental']), sorted(path_profiles.SHARED_SYSTEMS))
         self.assertEqual(tiers['stable'], compiled_games_view.SHARED_CONSOLES)
         self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.site_builder),
                          knowledge_build.SYSTEMS)
-        self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
-                         path_profiles.WITHDRAWABLE)
-        self.assertIsNone(get_profile('x68').shared_knowledge)
+        self.assertEqual(sorted(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
+                         sorted(path_profiles.WITHDRAWABLE))
+        self.assertEqual(get_profile('x68').shared_knowledge.tier, 'experimental')
+
+    def test_only_the_x68000_declines_the_quick_check_from_shared_paths(self):
+        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the X68000, whose
+        # input routes (mouse, keyboard) are found by replaying them and are not carried by the shared paths.
+        declined = {p.id for p in ALL_PROFILES if p.shared_knowledge and not p.shared_knowledge.quick_check_from_shared}
+        self.assertEqual(declined, {'x68'})
+        for profile in ALL_PROFILES:
+            if profile.shared_knowledge and profile.id != 'x68':
+                self.assertIs(profile.shared_knowledge.quick_check_from_shared, True, profile.id)
 
     def test_host_adapter_equals_the_host_kit_table(self):
         from retrorecomp import hostkit

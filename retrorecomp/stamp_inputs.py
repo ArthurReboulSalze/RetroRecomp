@@ -683,6 +683,7 @@ INPUTS = _resolve({
         'retrorecomp.x68000_media',
         'retrorecomp.x68000_program',
         'retrorecomp.x68000_scan',
+        'retrorecomp.x68_knowledge',
         'tools/x68000_base74.py',
         'tools/x68000_native.py',
         'tools/x68000_reference.py',

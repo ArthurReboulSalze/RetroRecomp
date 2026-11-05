@@ -1,6 +1,6 @@
 # Sharp X68000 machine runtime
 
-The experimental X68000 runtime is built from
+The X68000 runtime is built from
 [hissorii/px68k at `74ddbb3`](https://github.com/hissorii/px68k/tree/74ddbb37b4e12b77362a4e12f28ceb5aaa593684) (2014), with no file from the later
 libretro fork (`px68k-libretro`, which declares the GPL since May 2020). The
 lineage is WinX68k / Keropi by Kenjo, the X11 port xkeropi by NONAKA Kimihiro,

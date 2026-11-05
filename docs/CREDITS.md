@@ -7,8 +7,8 @@ this permission directly from the author. It concerns that engine and the
 project's noncommercial use, as documented in [the third-party notices](../THIRD_PARTY_NOTICES.md);
 it is not a general MIT relicense or an authorization for unrelated components.
 
-The credits include a **Sharp X68000** cell marked as an experimental profile
-under noncommercial terms. Its clickable repositories credit
+The credits include a **Sharp X68000** cell marked with its
+noncommercial terms. Its clickable repositories credit
 hissorii/px68k with the authors of its machine code named in the line itself
 (Kenjo for WinX68k/Keropi, NONAKA Kimihiro for xkeropi, cisc for FMGEN), the
 Geolith/Musashi CPU baseline (Karl Stenerud's Musashi), GenesisRecomp and
