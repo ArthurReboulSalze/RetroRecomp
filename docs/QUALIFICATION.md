@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine column of 5 November 2026)
 
 ### Progress through the qualification list
 
@@ -59,27 +59,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
+| PC Engine | experimental | `████░░░░░░` 39 % | ✅ 0 · 🟡 11 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | 🟡 | ➖ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -89,26 +90,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000, cps2 = Capcom CPS-2.
+x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P |
-| G11 | P | P | P | P | P | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | P | - |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P | P |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P | P |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | ? | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -124,6 +125,7 @@ The page of each console, which the README links its line to (a console of the m
 | cps1 | [CPS1.md](CPS1.md) |
 | x68 | [X68000.md](X68000.md) |
 | cps2 | [CPS2.md](CPS2.md) |
+| pce | [PC_ENGINE.md](PC_ENGINE.md) |
 
 </details>
 
@@ -550,6 +552,31 @@ on `$A10003` as the CPS-1 tool does for its ports, on the 12 raster-effect games
 (Sonic 2's split screen, Ecco, Contra - Hard Corps) with the lag measured and not corrected; (4) the choice of the colour table, a decision that moves every
 Mega Drive picture hash. Results are always written as "model against MAME".
 
+## PC Engine: evidence behind its column (5 November 2026)
+
+The PC Engine is **experimental since 1.6.9** ([PC_ENGINE.md](PC_ENGINE.md)): HuCards are converted and the first panel of ten real
+cards was run on 5 November 2026. `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
+fidelity, gameplay coverage or latency; the owner's play trial of eight games is in the owner-acceptance table.
+
+| Gate | PC Engine | Evidence | What is missing |
+|---|---|---|---|
+| G1 | P | `retrorecomp/systems/pc_engine.py` (status `experimental`), [PC_ENGINE.md](PC_ENGINE.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | Linux `pending`; no owner acceptance |
+| G2 | P | `retrorecomp/pce_conversion.py` goes through `report_schema.write_report`: native and interpreted instructions per route, guard misses, `latency_ms: null` | Scenario and state sections are filled for the routes played only |
+| G3 | P | Eight of nine converted panel cards: 0 interpreted instructions and 0 guard misses on the played routes; Street Fighter II' CE keeps 28.6 and 35.1 million interpreted instructions on its two routes (the engine bounds a module at 65,536 identities) | Only observed code is native; no whole-game claim |
+| G4 | P | The native module equals the engine's interpreter frame by frame (CPU hash, work RAM, picture, PCM) on every route of the nine cards | Agreement with the engine, not with a real HuC6280 |
+| G5 | P | The compressed executable is replayed against the fresh reference on every route | Windows only; no second-machine replay |
+| G6 | P | F8/F9 continue the saved timeline in a fresh process for 600 frames; a truncated state is refused | A longer continuation and corrupted-state cases |
+| G7 | - | HuCards have no save memory | |
+| G8 | P | Every route must show a moving picture (an attract loop with no input of Space Harrier and Santatlantean stops after a few frames and is reported) | Only 3,600-frame routes |
+| G9 | ? | Not measured: no random-route levels | |
+| G10 | P | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) on the pinned engine, 5 November 2026: on its interpreter 563,514 of the 572,519 comparable vectors agree (three known differences: the TSB/TRB Z flag, ST0-2 at 5 cycles against 4, TMA #0); natively 9,091 cases show 0 differences with that interpreter. Measured outside the repository's own tools | A tool of ours that replays the vectors; the oracle is an emulator, not silicon |
+| G11 | ? | No independent hardware comparison | |
+| G12 | P | Ten real cards tried (nine converted, one SuperGrafx card refused); the panel is the owner's library, read in place | A broader panel |
+| G13 | ? | The Linux build is not witnessed | |
+| G14 | P | The owner played eight exports on 5 November 2026 and reported that all eight work (owner-acceptance table) | Those exports come from the tree before the merge of `main`; the exports of the 1.6.9 tree are not played yet; no decision to leave the experimental status |
+| G15 | P | Nothing is claimed beyond "native equals the engine's interpreter": all five measures are kept apart in [PC_ENGINE.md](PC_ENGINE.md) | A read of the interface and the exported game |
+| G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
+
 ## Panel sizes
 
 No common panel size exists today. The panel sizes noted by the 27 October
@@ -649,6 +676,7 @@ owner fills it in.
 | 5 November 2026 | Game Gear | Sonic The Hedgehog, Super Columns (banked engine), converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | Game Boy | The Legend of Zelda: Link's Awakening, Kirby's Dream Land, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | Super Nintendo | Super Mario World, The Legend of Zelda: A Link to the Past, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
+| 5 November 2026 | PC Engine | Blazing Lazers, Bomberman '93, Gradius, Raiden, Santatlantean, Space Harrier, Splatterhouse, Street Fighter II' Champion Edition (the eight HuCards of `Export\Games\PC Engine`), converted with the tree of `spec/pce-170` **before** its merge of `main` (commits up to `ad4d7ec`, the host kit without the four-player change; every one 0 interpreted instructions on the tested routes except Street Fighter II', which keeps a counted interpreted share) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Je viens de faire une campagne de test des jeux CPS-2 et PC Engine. J'ai testé les 8 jeux de chaque console et les 8 marchent parfaitement. Bravo! » | A play trial that passed, **not** a decision to leave the experimental status: the PC Engine stays experimental and G14 reads `P`. The exports played come from a tree older than the one that opens the machine in 1.6.9 and are not the exports of that tree. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 

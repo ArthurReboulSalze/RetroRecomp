@@ -109,6 +109,7 @@ docs/*
 !docs/CREDITS.md
 !docs/RELEASE_NOTES.md
 !docs/X68000.md
+!docs/PC_ENGINE.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md

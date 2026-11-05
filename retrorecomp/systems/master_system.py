@@ -40,6 +40,7 @@ class MasterSystemProfile(SystemProfile):
     id = "sms"
     name = "Master System"
     extensions = (".sms",)
+    archived_rom_limits = (('.sms', 4 * 1024 * 1024 + 512),)
     export_folder = "Master System"
     video_modes = ("ntsc", "pal")
     cpus = (Cpu("z80", "main", "cycles"),)

@@ -208,6 +208,21 @@ class ExtensionSetTests(unittest.TestCase):
                     self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
         self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
+    def test_the_archive_limits_come_from_the_profiles_and_keep_the_values_of_the_table_they_replace(self):
+        # Until 1.6.8 a literal table in systems/__init__.py; each machine now declares its own (archived_rom_limits),
+        # so a new machine moves no other machine's stamp. The nine keep exactly what they had.
+        mib = 1024 * 1024
+        before = {'.sms': 4 * mib + 512, '.gg': 4 * mib + 512, '.gb': 8 * mib, '.nes': 128 * mib + 528, '.md': 8 * mib,
+                  '.gen': 8 * mib, '.sfc': 8 * mib + 512, '.smc': 8 * mib + 512, '.fig': 8 * mib + 512,
+                  '.bin': 8 * mib, '.rom': 8 * mib}
+        limits = systems.MAX_ARCHIVED_ROM_BYTES
+        self.assertEqual({key: limits[key] for key in before}, before)
+        declared = {extension for profile in ALL_PROFILES for extension, _ in profile.archived_rom_limits}
+        self.assertEqual(set(limits), declared | set(systems.GENERIC_ARCHIVED_ROM_BYTES))
+        for profile in ALL_PROFILES:
+            self.assertLessEqual({extension for extension, _ in profile.archived_rom_limits}, set(profile.extensions),
+                                 profile.id)
+
 
 # --- the detection table ----------------------------------------------------------------------------
 

@@ -15,7 +15,7 @@ explicit rule per console (``classify``). Shared caches (``.deps``,
 decoders, ``neogeo-preparation``, ``cps1-reference``, the X68000 SDK bases),
 research and test folders never match. Links and junctions are never followed,
 nothing outside ``ROOT/.build`` is accepted, and a project touched within the
-last hour (``RECENT_SECONDS``) or locked by a running CPS-1/X68000 conversion
+last hour (``RECENT_SECONDS``) or locked by a running CPS-1, PC Engine or X68000 conversion
 is kept, since another Retro-Recomp process may still be using it.
 ``RETRO_RECOMP_KEEP_BUILD=1`` (or ``--keep-build``) keeps projects for the
 developer checks that read them after a conversion.
@@ -57,6 +57,7 @@ REMOVING = '.retro-recomp-removing-'
 #   snes    supernintendo.py   snes-rom-<sha16|32|64>, snes-<exact-ROM catalogue id>
 #   ng      neogeo_build.py    ng-<cart+BIOS identity20>[-native|-<random8>]
 #   cps1    cps1_conversion.py cps1/<set>-<sha12>
+#   pce     pce_conversion.py  pce/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
 #                              (the <SDK12> base is shared: only the game below)
 _SEGA = re.compile(r'(sms|gg)_.+_[0-9A-F]{8}_([0-9a-f]{12})(?:_banked)?')
@@ -66,6 +67,7 @@ _MD = re.compile(r'md-rom-([0-9a-f]{64})')
 _SNES = re.compile(r'snes-rom-([0-9a-f]{16}|[0-9a-f]{32}|[0-9a-f]{64})')
 _NG = re.compile(r'ng-([0-9a-f]{20})(?:-native|-[0-9a-f]{8})?')
 _CPS1 = re.compile(r'[0-9a-z_]+-([0-9a-f]{12})')
+_PCE = re.compile(r'([0-9a-f]{12})')
 _X68_HOST = re.compile(r'win(?:-llvm)?|linux')
 _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
@@ -123,6 +125,8 @@ def classify(parts) -> tuple[str, str] | None:
         return None
     if len(parts) == 2 and parts[0] == 'cps1' and (match := _CPS1.fullmatch(parts[1])):
         return 'cps1', match[1]
+    if len(parts) == 2 and parts[0] == 'pce' and (match := _PCE.fullmatch(parts[1])):
+        return 'pce', match[1]
     if (len(parts) == 4 and parts[0] == 'x68' and _X68_HOST.fullmatch(parts[1])
             and _X68_SDK.fullmatch(parts[2]) and _X68_GAME.fullmatch(parts[3])):
         return 'x68', parts[3]
@@ -204,8 +208,8 @@ def _measure(path, cancel=None) -> tuple[int, float]:
 
 
 def _locked(path: Path, system: str) -> bool:
-    """CPS-1 and X68000 conversions hold an entry lock on their project."""
-    lock = {'cps1': path / 'entry.lock', 'x68': path / 'lock' / 'entry.lock'}.get(system)
+    """CPS-1, PC Engine and X68000 conversions hold an entry lock on their project."""
+    lock = {'cps1': path / 'entry.lock', 'pce': path / 'entry.lock', 'x68': path / 'lock' / 'entry.lock'}.get(system)
     if lock is None or not lock.is_file():
         return False
     from .library import entry_lock
@@ -315,7 +319,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'nes', 'cps1'):
+    if system in ('sms', 'gg', 'gb', 'nes', 'cps1', 'pce'):
         return key == sha256[:12]
     if system == 'md':
         return key == sha256
@@ -377,8 +381,8 @@ def game_projects(system: str, sha256: str, report: dict, root: Path | None = No
             system == 'ng' and _owner(project, 'ng') is None):
         return []
     found = [project]
-    if system == 'cps1':
-        candidates = [build / 'cps1' / name for name in _subfolders(build / 'cps1')]
+    if system in ('cps1', 'pce'):
+        candidates = [build / system / name for name in _subfolders(build / system)]
     elif system == 'x68':
         candidates = [build / 'x68' / host / sdk / name
                       for host in _subfolders(build / 'x68') for sdk in _subfolders(build / 'x68' / host)
@@ -441,6 +445,7 @@ def _candidates(build: Path) -> list[tuple[str, ...]]:
     by ``classify``)."""
     candidates = [(name,) for name in _subfolders(build)]
     candidates += [('cps1', name) for name in _subfolders(build / 'cps1')]
+    candidates += [('pce', name) for name in _subfolders(build / 'pce')]
     candidates += [('x68', host, sdk, name) for host in _subfolders(build / 'x68')
                    for sdk in _subfolders(build / 'x68' / host)
                    for name in _subfolders(build / 'x68' / host / sdk)]

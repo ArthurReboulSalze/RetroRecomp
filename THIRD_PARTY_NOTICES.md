@@ -85,6 +85,7 @@ shipped; you supply your own IPL and font ROM.
 | Sharp X68000 machine (hissorii/px68k `74ddbb3`; fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
 | Capcom CPS-1 and CPS-2 board catalogues, DIP switches, opcode decryption and machine runtime (adapted from MAME's CPS-1 and CPS-2 drivers, `cps2crypt.cpp` and OKI MSM6295 at `61a2229`; the CPS-2 keys are read from the player's own romset and never supplied) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner, Andreas Naive, Nicola Salmoria, Charles MacDonald and MAME contributors | [Full text](licenses/cps1-machine.md) |
 | ymfm YM2151 (OPM) in the CPS-1 runtime | BSD-3-Clause; Aaron Giles | [Full text](licenses/cps1-ymfm.md) |
+| rages4calm/pcenginerecomp at `81b5c231e452` (PC Engine analysis, emitter and runtime; fetched at its pinned revision on first conversion and compiled into each PC Engine game) | MIT; copyright Carl Prewitt Jr. and PC Engine Recomp contributors, with the BSD terms of the MAME HuC6280 opcode table and the MIT notice of David Shadoff's PCECD_seek | [Notices](licenses/pcenginerecomp.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.

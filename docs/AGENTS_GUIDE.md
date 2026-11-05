@@ -11,9 +11,9 @@ read `AGENTS.md` do not find it by themselves: point them here.
 
 Retro-Recomp converts a player's own game dumps into standalone Windows or
 Linux executables, with as much native code as possible and a counted
-interpreter fallback for the rest. Ten machines: Master System, Game Gear,
+interpreter fallback for the rest. Eleven machines: Master System, Game Gear,
 Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1 and Sharp X68000 (all
-supported) and Capcom CPS-2 (experimental). Original code is MIT; some third-party engines
+supported), Capcom CPS-2 and the PC Engine (both experimental). Original code is MIT; some third-party engines
 keep other terms ([THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
 
 ## Map of the repository

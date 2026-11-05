@@ -736,6 +736,16 @@ INPUTS = _resolve({
         'retrorecomp.cps2_crypt',
         'retrorecomp.cps2_tables',
     ),
+    # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
+    ('pce',): (
+        'licenses/pcenginerecomp.md',
+        'native/pce_machine.cpp',
+        'native/pce_machine.h',
+        'native/pce_main.c',
+        'retrorecomp.pce_build',
+        'retrorecomp.pce_conversion',
+        'retrorecomp.pce_rom',
+    ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its
     # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.

@@ -68,6 +68,13 @@
       {"title": "Metal Sight (System Sacom)", "category": "disk-changes", "reason": "Five-disk set whose disk changes follow the game's own requests", "source": "docs/X68000.md"},
       {"title": "Lemmings (Imagineer)", "category": "mouse", "reason": "Mouse game that drives the SCC mouse channel itself", "source": "docs/X68000.md"},
       {"title": "Super Hang-On", "category": "disk-eject", "reason": "Two-disk set that ejects its disks after loading; must run exactly as without the policy", "source": "docs/X68000.md", "prefix": true}
+    ],
+    "pce": [
+      {"title": "Bonk's Adventure", "category": "regression-baseline", "reason": "Control case: 0 interpreted instructions on its routes; the play route needs two Run presses because a third pauses the game", "source": "docs/PC_ENGINE.md"},
+      {"title": "Street Fighter II' - Champion Edition", "category": "identity-bound", "reason": "2.5 MiB board with 466 bank contexts: reaches the engine's 65,536-identity bound, so it stays partly native and the report counts the rest", "source": "docs/PC_ENGINE.md"},
+      {"title": "Bomberman '93", "category": "four-players", "reason": "Multitap game: a converted game is built for two players (the help text says so), the four-seat build is not offered and neither is the fifth multitap player", "source": "docs/PC_ENGINE.md"},
+      {"title": "Dai Makaimura", "category": "supergrafx-refusal", "expect": "refusal", "reason": "SuperGrafx game: one video chip only shows no picture, so the conversion must refuse it", "source": "docs/PC_ENGINE.md"},
+      {"title": "Space Harrier", "category": "attract-no-input", "reason": "Attract loop with no input stops changing after a few frames; the play route must still move", "source": "docs/PC_ENGINE.md"}
     ]
   }
 }

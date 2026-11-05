@@ -13,6 +13,7 @@ class GameGearProfile(SystemProfile):
     id = "gg"
     name = "Game Gear"
     extensions = (".gg",)
+    archived_rom_limits = (('.gg', 4 * 1024 * 1024 + 512),)
     export_folder = "Game Gear"
     # The original handheld uses the 262-line, ~3.58 MHz timing path.
     video_modes = ("ntsc",)

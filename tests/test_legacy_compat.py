@@ -336,8 +336,9 @@ class LegacyReceiptTests(unittest.TestCase):
     def test_a_1_6_3_receipt_of_any_console_is_converted_in_full(self):
         # 1.6.4 lists nothing: the game stamp a real 1.6.3 receipt carries (Windows or Linux converter) is not recognised,
         # whatever the console, so every export of 1.6.3 is converted in full (the base of qualified paths still applies).
+        # A machine added after 1.6.3 had no export then: only the consoles of that release are asked.
         from retrorecomp import freshness
-        for system in sorted(inputs.SYSTEMS - {'x68', 'cps2'}):
+        for system in sorted((inputs.SYSTEMS & set(GAME_STAMPS_163)) - {'x68'}):
             with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
                 item, parts = self.parts(system)
                 self.assertEqual(parts['legacy_games'], [])
