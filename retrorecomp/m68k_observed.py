@@ -8,7 +8,9 @@ machine lives here; what is the machine's own is declared by its profile (`Syste
 * what the machine's code can look like: the apertures of its address space (`ObservedCode.apertures`), checked on every observed sample;
 * where the body of an instruction comes from: an entry point named by the profile (`ObservedCode.bodies`, "module:function"), which answers an
   `InstructionBodies` for an engine checkout and the machine's C prefix. `recompiler_bodies` is the chain the Sharp X68000 uses (the Mega Drive recompiler's
-  interpreter semantics with the shared state rules, executed by Musashi); the Amiga names its own (Moira) without a line of this module changing;
+  interpreter semantics with the shared state rules, executed by Musashi); the Amiga names its own (Moira) without a line of this module changing, and
+  the same `InstructionBodies` carries the two hooks that say what a step is (`step_text`: its C or C++ definition and its declaration; `semantics_text`:
+  the header every step file includes), so a machine whose bodies are not Musashi's needs neither the signature nor the header written here;
 * the bus: the C that reads the bytes of an aperture (`code_view`), the machine's includes, and how a native step reaches its successor.
 
 Nothing here knows a machine by name. The text this module writes for a machine is the text its generator wrote before it was moved here, byte for byte
@@ -20,7 +22,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from .core import run, toolchain
 from .m68000 import adapt_semantics, instruction_literal, mnemonic_names, operation_bodies
@@ -28,18 +30,28 @@ from .m68000_state_rules import adapt_state_rules
 from .megadrive_codegen import write_changed
 from .neogeo_codegen import decoder_tool, structural_body, structural_key
 from .platforms import build_executable, cmake_target_args
-from .systems.specs import ObservedCode  # noqa: F401  (the declaration a profile makes)
+
+if TYPE_CHECKING:
+    from .systems.specs import ObservedCode
 
 
 @dataclass(frozen=True)
 class InstructionBodies:
-    """Where the instructions of a machine get their C bodies: the mnemonic names by number, the body of each operation, the support text the bodies
-    use (`helper`: sizes and masks, `timing`: the cycle helpers) and the digest of the semantics they come from (recorded in the generation record)."""
+    """Where the instructions of a machine get their code: the mnemonic names by number, the body of each operation, the support text the bodies
+    use (`helper`: sizes and masks, `timing`: the cycle helpers) and the digest of the semantics they come from (recorded in the generation record).
+
+    The two hooks say what a step looks like, for a machine whose bodies are not those of the X68000's Musashi chain (None keeps the text of the X68000):
+    * `step_text(symbol, ins, name, body) -> (definition, declaration)`: the C (or C++) definition of the step of one form and the declaration the index
+      sees. By default a Musashi step: `M68kiStatus <symbol>(const M68KInstr *compiled,uint32_t *next_pc)` over the structural body of the form;
+    * `semantics_text(prefix, alias) -> str`: the text of `step_semantics.h`, which every step file includes through `ObservedCode.steps_head`. By default
+      the Musashi one (`m68kcpu.h`, the cpu header, the helpers and the cycle code of the bodies)."""
     names: list
     bodies: dict
     helper: str
     timing: str
     semantics_sha256: str
+    step_text: Callable[[str, dict, str, str], tuple[str, str]] | None = None
+    semantics_text: Callable[[str, Callable[[str], str]], str] | None = None
 
 
 def recompiler_bodies(engine: Path, prefix: str) -> InstructionBodies:
@@ -91,13 +103,19 @@ def write_word_counts(project: Path, decode_tool: Path, prefix: str) -> None:
                   '\n'.join(','.join(map(str, sizes[n:n + 128])) + ',' for n in range(0, 65536, 128)) + '\n};\n')
 
 
+def musashi_semantics(bodies: InstructionBodies, prefix: str, alias: Callable[[str], str]) -> str:
+    """`step_semantics.h` of the Musashi steps: the CPU's header, the machine's hooks, the helpers and the cycle code of the bodies."""
+    return ('#pragma once\n#include "m68kcpu.h"\n'
+            '#include "cpu.h"\n#include <stddef.h>\n'
+            f'#define s_illegal_ea {prefix}illegal_ea\nstatic int interp_ea_read_cost(int,M68KSize);\n'
+            'static int game_instruction_hook_site(uint32_t pc){(void)pc;return 0;}\n'
+            'static int genesis_game_instruction_hook(uint32_t pc){(void)pc;return 0;}\n'
+            'static void discover(uint32_t pc){(void)pc;}\n' + alias(bodies.helper + '\n' + bodies.timing))
+
+
 def write_step_semantics(project: Path, bodies: InstructionBodies, prefix: str, alias: Callable[[str], str]) -> None:
-    write_changed(project / 'step_semantics.h', '#pragma once\n#include "m68kcpu.h"\n'
-                  '#include "cpu.h"\n#include <stddef.h>\n'
-                  f'#define s_illegal_ea {prefix}illegal_ea\nstatic int interp_ea_read_cost(int,M68KSize);\n'
-                  'static int game_instruction_hook_site(uint32_t pc){(void)pc;return 0;}\n'
-                  'static int genesis_game_instruction_hook(uint32_t pc){(void)pc;return 0;}\n'
-                  'static void discover(uint32_t pc){(void)pc;}\n' + alias(bodies.helper + '\n' + bodies.timing))
+    text = bodies.semantics_text(prefix, alias) if bodies.semantics_text else musashi_semantics(bodies, prefix, alias)
+    write_changed(project / 'step_semantics.h', text)
 
 
 # The page table walk and the live-word guard of every address group: the same for every machine of a 24-bit bus. __P__ is the machine's prefix, __STEP__ its
@@ -154,8 +172,9 @@ def write_steps(project: Path, samples: list, *, observed: ObservedCode, bodies:
                 index_head: str, code_view: str, index_tail: Callable[[list], str]) -> Steps:
     """Decode the observed instructions, write one guarded native step per distinct form (`steps/partNN.c`) and the index that finds a step from a pc
     (`steps/index.c`). `diagnostic` instructions are added to the samples (authored guard fixtures); `form_body` and `descriptor` are the machine's
-    hooks on a step's text and on the literal that describes it, `index_head` its includes, `code_view` its reading of an aperture and `index_tail`
-    what it appends after the lookup (given the successor links)."""
+    hooks on the text of a Musashi step and on the literal that describes it, `index_head` its includes, `code_view` its reading of an aperture and
+    `index_tail` what it appends after the lookup (given the successor links). A machine whose steps are not Musashi's gives `InstructionBodies.step_text`
+    and `semantics_text`, and `form_body` is then not called."""
     prefix = observed.prefix
     names, operations = bodies.names, bodies.bodies
     decoded = []
@@ -183,9 +202,15 @@ def write_steps(project: Path, samples: list, *, observed: ObservedCode, bodies:
         if key not in forms:
             symbol = f'{prefix}form_{len(forms)}'
             forms[key] = symbol
-            body = form_body(structural_body(ins, name, operations[name]).replace('rr_ng_', prefix))
-            chunks[(ins['words'][0] >> 1) % 16].append(f'M68kiStatus {symbol}(const M68KInstr *compiled,uint32_t *next_pc) {{\n{body}}}\n')
-            declarations.append(f'extern M68kiStatus {symbol}(const M68KInstr*,uint32_t*);\n')
+            if bodies.step_text is None:
+                # The Musashi step of the X68000: the structural body of the form under a fixed signature.
+                body = form_body(structural_body(ins, name, operations[name]).replace('rr_ng_', prefix))
+                definition = f'M68kiStatus {symbol}(const M68KInstr *compiled,uint32_t *next_pc) {{\n{body}}}\n'
+                declaration = f'extern M68kiStatus {symbol}(const M68KInstr*,uint32_t*);\n'
+            else:
+                definition, declaration = bodies.step_text(symbol, ins, name, operations[name])
+            chunks[(ins['words'][0] >> 1) % 16].append(definition)
+            declarations.append(declaration)
         entries.append('{' + instruction_literal(descriptor(ins, name), name) + f',{forms[key]}' + '}')
     steps = project / 'steps'
     steps.mkdir(exist_ok=True)

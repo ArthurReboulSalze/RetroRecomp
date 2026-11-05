@@ -138,8 +138,9 @@ game does changes**.
   steps, the page table and the index (`write_steps`), for a machine's C prefix and step type. A profile declares what is its own with
   `SystemProfile.observed_code` (`ObservedCode`: the entry point of its instruction bodies, `module:function`, the prefix, the address apertures, and since the second commit
   the extension and the head of the step files). The X68000 declares `m68k_observed:recompiler_bodies` (the Mega Drive recompiler's semantics with the shared state rules,
-  executed by Musashi) and keeps in `tools/x68000_native.py` its apertures and bus (`CODE_VIEW`), its Musashi template, its native run and its guard fixtures. No machine is
-  named in the shared module (a test reads it).
+  executed by Musashi) declares its address apertures as data in its profile (`ObservedCode.apertures`) and keeps in `tools/x68000_native.py` its bus (`CODE_VIEW`), its Musashi template, its native run and its guard fixtures. No machine is
+  named in the shared module (a test reads it), and a machine whose bodies are not Musashi's (the Amiga's Moira, C++ templates) gives with its bodies the text of a step and the header every step file includes
+  (`InstructionBodies.step_text`, `semantics_text`) instead of editing the module (a test does it with a fake profile).
 - `native/hostkit/adapters/rrhk_computer.inc` holds what `rrhk_x68k.inc` held that every disk computer shares: the guest keyboard and its Ctrl+Alt chords, the captured mouse and the
   mouse-game pad, the floppy drives (swap, eject), the fast-loading key, the function keys, the second help page, the window preferences. The adapter tells it its actions by macros
   (`RRC_*`) and the frontend provides the variables it reads (the list is in the file's header); the machine table, the pad mapping, the picture, the sound and the state stay in

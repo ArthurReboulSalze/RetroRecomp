@@ -63,7 +63,7 @@ PATH_CAPS = {'x68_span': SPAN_LIMIT, 'x68_ipl': IPL_LIMIT}
 #     the generator, the guards or the semantics change in a way a RAM path could notice. A new revision makes every qualified
 #     path "waiting" again for it.
 # 1: first revision (5 November 2026, the X68000 joins the base). The generator moved from tools/x68000_native.py into retrorecomp/m68k_observed.py on
-# 6 November 2026 without changing a byte of what it writes (A/B of UPGRADES.md): the revision stays 1, the pins follow.
+# 5 November 2026 without changing a byte of what it writes (A/B of UPGRADES.md): the revision stays 1, the pins follow.
 GENERATOR_REVISION = 1
 NATIVE_INPUTS = ('native/x68000_native/CMakeLists.txt', 'native/x68000_native/decode.c', 'native/x68000_native/guard_checks.c',
                  'native/x68000_native/observe.c', 'native/x68000_native/observe.h')

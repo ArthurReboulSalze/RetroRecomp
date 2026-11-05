@@ -8,7 +8,8 @@ machine that declines a registry says so by leaving its field empty (docs/NEW_MA
 
 The values are copied from those registries as they were in 1.6.2 and the tests pin that they are still equal
 to them (tests/test_system_profiles.py). Later, the registries read these fields instead of holding a copy.
-This module holds data definitions only; it imports no module of the converter.
+This module holds data definitions and, in `ObservedCode`, the two small functions that read them (`load_bodies`, `check_sample`); it imports no module of the converter.
+It is an input of the game stamp of every console: any edit here moves the nine stamps (docs/UPGRADES.md).
 """
 from __future__ import annotations
 

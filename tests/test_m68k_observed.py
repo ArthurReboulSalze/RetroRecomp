@@ -141,6 +141,45 @@ class StepsTests(unittest.TestCase):
         self.assertEqual(names, ['index.cpp'] + [f'part{n:02}.cpp' for n in range(16)])
         self.assertTrue((project / 'steps' / 'part03.cpp').read_text(encoding='utf-8').startswith('#include "moira_steps.h"\nextern "C" {\n'))
 
+    def test_a_machine_whose_bodies_are_not_musashis_writes_its_own_steps_without_a_change_here(self):
+        # A fake profile of a machine run by C++ templates (the Amiga's Moira): it gives the text of a step and the header every step file includes.
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        project = Path(folder.name)
+        seen = []
+
+        def step_text(symbol, ins, name, body):
+            seen.append((symbol, name, body))
+            return (f'template <> void {symbol}(const Instr &instr, u32 &next) {{ moira_exec<{ins["words"][0]}>(instr, next); }}\n',
+                    f'void {symbol}(const Instr &, u32 &);\n')
+
+        def semantics_text(prefix, alias):
+            return f'#pragma once\n#include "moira/Moira.h"\n// helpers of {prefix}\n'
+        bodies = m68k_observed.InstructionBodies(['MN_OTHER', 'MN_NOP', 'MN_RTS'] + ['MN_X'] * 8, {'MN_X': 'exec_x();'}, '', '', 'e' * 64, step_text, semantics_text)
+        observed = ObservedCode('amiga_codegen:moira_bodies', 'rr_amiga_', 'RrAmigaStep', ((0, 0x200000, 0x200000),), '.cpp', '#include "step_semantics.h"\n')
+        decoded = [instruction(0x6000, 0x4e71), instruction(0x6002, 0x4e75)]
+        for item in decoded:
+            item['mnemonic'] = 10
+
+        def fake_run(command, log=None):
+            Path(command[2]).write_text(json.dumps(decoded), encoding='utf-8')
+
+        def refuse(body):
+            raise AssertionError('the Musashi hook of the X68000 is not called for a machine that gives its steps')
+        with patch.object(m68k_observed, 'run', fake_run):
+            m68k_observed.write_step_semantics(project, bodies, 'rr_amiga_', lambda text: text)
+            m68k_observed.write_steps(project, [(0x6000, '4e71'), (0x6002, '4e75')], observed=observed, bodies=bodies, decode_tool=Path('decode'),
+                                      diagnostic=[], alias=lambda text: text, form_body=refuse, descriptor=lambda ins, name: ins,
+                                      index_head='#include "cpu.h"\n', code_view='static const uint8_t *code_view(uint32_t,uint32_t*){return nullptr;}\n',
+                                      index_tail=lambda links: '')
+        self.assertEqual([symbol for symbol, _, _ in seen], ['rr_amiga_form_0', 'rr_amiga_form_1'])
+        self.assertEqual((project / 'step_semantics.h').read_text(encoding='utf-8'), '#pragma once\n#include "moira/Moira.h"\n// helpers of rr_amiga_\n')
+        text = ''.join(path.read_text(encoding='utf-8') for path in sorted((project / 'steps').iterdir()))
+        for forbidden in ('M68kiStatus', 'm68kcpu.h', 'g_cpu', 'rr_ng_', 'next_pc', 'ExtR'):
+            self.assertNotIn(forbidden, text)
+        self.assertIn('template <> void rr_amiga_form_0(const Instr &instr, u32 &next)', text)
+        self.assertIn('void rr_amiga_form_1(const Instr &, u32 &);', (project / 'steps' / 'index.cpp').read_text(encoding='utf-8'))
+
     def test_another_machines_prefix_and_step_type_replace_every_name(self):
         project, _, _ = self.generate('rr_amiga_', 'RrAmigaStep')
         text = (project / 'steps' / 'index.c').read_text(encoding='utf-8')
