@@ -87,7 +87,8 @@ A lot of evidence and documentation: the way games are converted does not change
   (the mapper, with a Codemasters header named and marked `not_modelled`; the video chip; the sound chip: none runs a program, none has a counter,
   all say `hardware_fidelity_validated: false`), `route_warnings` (the routes whose picture last changed in the first tenth of their frames), and for
   the banked engine the native instruction count and the halted steps of each final route (`final_checks[]`). The schema reader (`report_schema.py`) shows
-  them under `devices`, `cpus[].scenarios[]` and `honesty.route_warnings`, adds the kind `video_unit`, and reads the reference comparison of the "functions"
+  them under `devices`, `cpus[].scenarios[]` and `honesty.route_warnings` (an optional, compatible addition to report v2, described in the module text of
+  `report_schema.py`: a 1.6.8 reader ignores it; no schema number changes), adds the device kind `video_unit`, and reads the reference comparison of the "functions"
   engine (which stores no validation record) as agreement on the demo route only.
 - **Tools**: `tools/sega_campaign.py` (the panel of twelve, two conversions at a time, replay of the delivered file and the sheets of captures); the
   fresh-process check of 1.6.6 (`tools/sega_states_selftest.py`) run on the twelve harness builds.

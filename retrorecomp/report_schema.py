@@ -39,6 +39,13 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
 * ``packed.method`` ('lzma' or 'nrv', UPX's compression method; ``None`` when the file is not packed) was added to schema 2
   in 1.6.7 without a new schema number, as ``timings`` was: the writer's ``packing`` record carries ``method``, a report
   from before it reads ``None``, and nothing else in the section changes.
+* ``honesty.route_warnings`` was added to schema 2 in 1.6.9 without a new schema number: a list of words about the routes whose
+  picture stopped changing early (a writer that sees a route freeze in the first tenth of its frames names it), ``None`` when the
+  writer does not provide it, an empty list when it looked and found none. It is optional and compatible: a reader of 1.6.8 reads
+  the section it finds and ignores the key (checked by reading a 1.6.9 report with the 1.6.8 module), and no consumer depends on it.
+  The device kind ``video_unit`` (a video chip run by the runtime's C code, listed beside ``cartridge_mapper`` and ``audio_unit``)
+  and, for the Master System and Game Gear main CPU, the scenario keys ``native`` (instructions), ``halted_steps`` and
+  ``native_guarded`` come with it on the same terms.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -109,7 +116,8 @@ REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'targe
                  'cpus', 'devices', 'validation', 'honesty', 'packed', 'states', 'saves', 'runtime',
                  'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
-# The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own.
+# The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own
+# (`video_unit` since 1.6.9).
 HARDWARE_KINDS = ('cartridge_mapper', 'audio_unit', 'video_unit')
 
 
@@ -556,7 +564,7 @@ def _honesty(data, validation):
             'independent_cpu_oracle': _flag(native.get('independent_cpu_oracle')),
             'cpu_fidelity_validated': _flag(native.get('cpu_fidelity_validated')),
             'universal_zero_fallback_claim': _flag(_dict(data.get('qualification_scope')).get('universal_zero_fallback_claim')),
-            # Master System and Game Gear (since 1.6.9): the routes whose picture stopped changing early; None for a writer without it.
+            # The routes whose picture stopped changing early, in words (since 1.6.9, optional); None when the writer does not provide it.
             'route_warnings': _copy(data.get('route_warnings'))}
 
 
