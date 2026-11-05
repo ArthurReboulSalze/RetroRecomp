@@ -79,6 +79,14 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Game Boy: the one-by-one line names the 0xFF00-0xFF7F range (1.6.9)
+
+The window line and the conversion log counted the instructions run one by one in RAM and in the `0xFF00-0xFF7F` range but
+called the second part "high memory", which did not say that this stub also covers the hardware registers. The words change
+in the eight interface languages and in `retrorecomp/gameboy.py`'s log lines; the count itself does not change. Because
+`retrorecomp.gameboy` belongs to the Game Boy's stamped files, the Game Boy stamp moves: an export of 1.6.8 is rebuilt once
+on its next conversion, with the same code, pictures and sound. Quick states and cartridge saves are kept.
+
 ## Exports of 1.6.7 in 1.6.8
 
 1.6.8 is the release after 1.6.7 (published on 3 November 2026). This section is the index of its changes, one line per section
