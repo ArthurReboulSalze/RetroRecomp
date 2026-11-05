@@ -417,6 +417,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             emit(f'{item.title}: only menus/presentation changed and no new paths were found; '
                  'upgrading the executable without rediscovery (quick check).')
         shared_used = None
+        # A machine whose discovery finds more than the shared paths hold (docs/X68000.md) keeps its full scan; its received paths still guide it.
+        quick_allowed = getattr(system.shared_knowledge, 'quick_check_from_shared', True)
         if shared and not inherited:
             from .knowledge import imported_game, imported_observations, imported_record
             from .scan_levels import LEVELS
@@ -425,7 +427,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                     or imported_game(system.id, item.sha256)):
                 level = shared.get('level') if shared.get('level') in LEVELS else None
                 shared_used = {'level': level, 'records': int(shared.get('records') or 0),
-                               'quick': bool(level and not rediscover
+                               'quick': bool(level and not rediscover and quick_allowed
                                              and LEVELS.index(level) >= LEVELS.index(plan.level))}
                 emit(f'{item.title}: shared paths, level {level}: quick check instead of discovery.'
                      if shared_used['quick'] else
@@ -436,7 +438,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         # from them with the quick check rather than rediscover (Extended and
         # Thorough still search further).
         known_used = None
-        if not inherited and not (shared_used and shared_used['quick']) and not rediscover and plan.level == 'standard':
+        if (not inherited and not (shared_used and shared_used['quick']) and not rediscover and quick_allowed
+                and plan.level == 'standard'):
             from .knowledge_exchange import _bundled, _entries
             if _entries(system.id, _bundled(system.id, item.sha256)):
                 known_used = {'level': 'standard', 'quick': True}

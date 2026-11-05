@@ -1,0 +1,13 @@
+{
+ "revision": 1,
+ "sources": {
+  "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
+  "retrorecomp/m68000_state_rules.py": "d948cc0c91bae785821b9aedc702b52df3f03880127573fa6d798ea8ec31f26b",
+  "retrorecomp/megadrive_rules.py": "9e32aa3083628681a0c03bcf6facfbc477a3ad62794b064a3544847e03566990",
+  "retrorecomp/musashi_fixes.py": "fa1561de5b75637c5033cd891f57f4c2d6353054c7d64cbd7a258e8dc92326aa",
+  "retrorecomp/neogeo_codegen.py": "293ff493510149e3b54b02689175f713133c1da1ebf1244f4343f1ec76b3d566",
+  "tools/x68000_base74.py": "22d0a699539f99c891f41cc0670ccc9370a3798aa9b772ae4a888333a46bce18",
+  "tools/x68000_native.py": "87c3aef2a410f06e75dfa3667b34dfdb949089163f1d1fdb48320807d2f0d985"
+ },
+ "word_counts_sha256": "bb351b346c29c7eca3ac7914ad171dcc1d1686c18798a43f2ec0def0b6c07fcc"
+}

@@ -192,12 +192,12 @@ native code with a fresh interpreted reference run, and the report keeps board
 fidelity against real hardware, complete gameplay and physical latency outside
 what is claimed. The owner's play trial of the 1.6.7 executables passed on 3 November 2026
 ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The
-**Sharp X68000** prototype is experimental; it converts DIM, XDF and D88 disks and
-ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
-each export is compared with a fresh reference run on bounded routes, which
-does not establish hardware fidelity, complete gameplay or physical latency. The **Capcom CPS-2** profile is experimental and visible in a
-developer installation only: it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board
-model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
+**Sharp X68000** is supported since 1.6.9 for floppy games: it converts DIM, XDF and D88 disks and
+ordered M3U sets (up to ten disks) with your own IPL and font ROM, within [its documented scope](X68000.md#8-known-limits)
+(no hard-disk images; the few games that play only through an external Roland MIDI module run silent, and the report says so).
+Each export is compared with a fresh reference run on bounded routes, which
+does not establish hardware fidelity, complete gameplay or physical latency. The owner's decision of 5 November 2026 and his play
+trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance). The **Capcom CPS-2** profile is experimental and visible in a developer installation only: it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
 
 ## Local game regression set
 

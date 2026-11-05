@@ -50,6 +50,9 @@ RAM_BYTES = 0x10000
 Z80_RAM = (0xd000, 0xd800)
 ROW_LIMIT = 4096                  # the profiles' cap, and the generator's own bound on observed RAM variants
 LONGEST_INSTRUCTION = 10          # 68000: five words
+# The ceiling of each kind of path, by the name `entry_set` gives it (the one form every schema 3 module exposes: the site's base builder reads
+# it instead of a name of its own). ROW_LIMIT stays for what still reads it.
+PATH_CAPS = {'m68k_ram': ROW_LIMIT, 'z80_ram': ROW_LIMIT}
 
 # --- The engine identity (`cores`) ---------------------------------------------------------------------------
 #

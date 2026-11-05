@@ -45,7 +45,7 @@ class Cps1Profile(SystemProfile):
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
                                script_suffix='.inputs')
     # Still the experimental tier of the shared base (schema 3 only, no schema 1 form, no site builder); see docs/CPS1.md.
-    shared_knowledge = SharedKnowledge('experimental', withdrawable=True)
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, module='cps1_knowledge')
     host_adapter = 'adapters/rrhk_cps1.c'
     stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build', 'musashi_fixes', 'm68000_state_rules')
     # A romset ZIP whose program ROMs are in the catalogue (by CRC, never by name), or any ZIP when chosen.

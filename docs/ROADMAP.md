@@ -21,7 +21,7 @@ fallback stays counted and shown wherever it is used.
 | Neo Geo | supported | 94 % | Linux witness on more games |
 | Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
-| Sharp X68000 | experimental | 90 % | the remaining gates, then the owner's decision |
+| Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.
@@ -64,8 +64,10 @@ board variants and RAM-bearing layouts, longer gameplay routes. The Famicom Disk
 ### Mega Drive
 
 Next: the report contract and the Linux witness on more games, a first MAME comparison of the sound, and two open choices
-(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left are undefined in the manual and
-stay as they are. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
+(the colour level table, a WAV recording option). The 22 decimal-arithmetic vectors left (`ABCD`, `SBCD`,
+`NBCD` on operands that are not digits) are undefined in the manual; Moira (MIT), the 68000 core of the Amiga's reference
+machine, agrees with all 22, so its results are a candidate rule for a later release, once for the four 68000 machines
+(Mega Drive, Neo Geo, CPS, X68000) in the shared state rules. Later: the SVP coprocessor (Virtua Racing) as its own stage; Pico, Mega-CD, 32X and lock-on cartridges
 stay out of scope.
 
 ### Super Nintendo
@@ -87,10 +89,12 @@ and the CPS-2. Pang! 3, the CPS Changer cartridges and bootlegs stay out of scop
 
 ### Sharp X68000
 
-The X68000 stays experimental until its remaining gates are met and the owner decides
+The X68000 is supported since 1.6.9, on the owner's decision of 5 November 2026
 ([QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-evidence-behind-its-column-29-october-2026-status-of-1-november-2026)).
-Next: the independent CPU evidence (gate G10) and a wider play test by the owner. Sound-free routes stay accepted and
-reported; a Roland MIDI model is not planned. Hard-disk images stay out of scope.
+Its gates G10 and G11 stay partial. Next: the sound and the colours compared with MAME on more games, the ten pictures of the
+comparison that no picture of the game matches, deeper evidence for disk changes late in a game and for a game that saves on
+purpose, and a Linux witness of interactive play. Sound-free routes stay accepted and reported; a Roland MIDI model is not
+planned. Hard-disk images stay out of scope. The screen contrast of the system port stays a documented difference with MAME.
 
 ## Machines in development
 

@@ -254,7 +254,9 @@ class RegistryTests(unittest.TestCase):
 
     def test_the_tiers_exist_and_experimental_machines_are_not_asked_for_supported_gates(self):
         statuses = {profile.id: profile.status for profile in ALL_PROFILES}
-        self.assertIn('experimental', statuses.values())
+        # Both tiers exist in the vocabulary; since 1.6.9 every machine of the list is supported (the X68000 was the last experimental one),
+        # and the next machine enters as experimental (docs/NEW_MACHINE.md).
+        self.assertEqual(set(STATUSES), {'experimental', 'supported'})
         self.assertIn('supported', statuses.values())
         # An experimental machine may have no risk case, no shared knowledge and no Linux witness yet.
         cases = json.loads(_text('tools/campaign-risk-cases.json'))['consoles']

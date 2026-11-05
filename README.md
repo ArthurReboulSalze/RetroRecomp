@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.8-d4a737" alt="Release version 1.6.8">
-  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Sharp X68000">
+  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -75,7 +75,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 88 % |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
-| [Sharp X68000](docs/X68000.md) | experimental | `█████████░` 90 % |
+| [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | experimental | `█░░░░░░░░░` 7 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a

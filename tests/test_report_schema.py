@@ -244,7 +244,7 @@ def x68_report(*, interpreted=0):
     exploration = [row(1200, {'route': 'mouse-1', 'trace_sha256': '9' * 64, 'automatic_disk_changes': 0,
                               'media_events': []})]
     return {'tool': 'Retro-Recomp', 'version': '1.5.5', 'created_utc': '2026-10-27T10:00:00+00:00',
-            'system': {'id': 'x68', 'name': 'Sharp X68000'}, 'status': 'experimental', 'private_development_only': False,
+            'system': {'id': 'x68', 'name': 'Sharp X68000'}, 'status': 'supported', 'private_development_only': False,
             'target': 'windows-x86_64', 'rom': {'name': 'g.dim', 'sha256': SHA}, 'machine': {'model': 'x'},
             'source_identity': 'b' * 64, 'qualification_directory': 'C:/q', 'source_rom': 'C:/roms/g.dim',
             'executable': 'G.exe', 'build_executable': 'C:/b/g.exe', 'toolchain': {},
