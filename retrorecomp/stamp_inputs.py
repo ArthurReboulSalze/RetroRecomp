@@ -67,6 +67,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
+                               # The CPS-2 romset reading and catalogue loader: no CPS-2 profile exists yet, so no stamp reads them;
+                               # with the profile they become game inputs of the CPS-2 like their CPS-1 counterparts.
+                               'cps2', 'cps2_catalogue',
                                # The registration list of the machines: a new machine adds one line there and
                                # no other console's stamp moves (docs/NEW_MACHINE.md).
                                'registry',
@@ -164,7 +167,7 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
 BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
-RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json'))
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -178,6 +181,8 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
+    # The CPS-2 catalogue: no CPS-2 profile exists yet, so no stamp reads it (it joins the CPS-2 owners with the profile).
+    'assets/cps2-catalogue.json',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
     'licenses/SingleStepTests-sm83.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
@@ -713,6 +718,8 @@ INPUTS = _resolve({
         'native/cps1_qsound.c',
         'native/cps1_qsound.h',
         'native/cps1_z80_native.h',
+        'retrorecomp.capcom_catalogue',
+        'retrorecomp.capcom_sets',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
         'retrorecomp.cps1_build',

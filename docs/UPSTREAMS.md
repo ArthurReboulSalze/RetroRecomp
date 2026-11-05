@@ -37,7 +37,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [libretro/geolith-libretro](https://github.com/libretro/geolith-libretro) | ng, cps1, x68 | `2dc88e3` | `2dc88e3fa72ff404213a65d6eb5bb33baa687f73` | `neogeo_build.GEOLITH_REV` |
 | [carmiker/lithogen](https://github.com/carmiker/lithogen) | ng | `ef0f9bd` | `ef0f9bd94e31689def44b49e0f8351e0206b622d` | `neogeo_build.LITHOGEN_REV` (also `neogeo_catalogue.LOADER`) |
 | [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | cps1 | `81aec25` | `81aec25ccbb98f4873a255f7551ac4dadac59b4a` | `cps1_build.YMFM_REVISION` |
-| [mamedev/mame](https://github.com/mamedev/mame) | cps1 | `61a2229` | `61a222977fd29f22ce11fbea3f7c290fd7ced091` | `cps1_catalogue.MAME_REVISION` (also `tools/build_cps1_catalogue.MAME_REVISION`) |
+| [mamedev/mame](https://github.com/mamedev/mame) | cps1 | `61a2229` | `61a222977fd29f22ce11fbea3f7c290fd7ced091` | `cps1_catalogue.MAME_REVISION` (also `tools/mame_driver_parse.MAME_REVISION`, `cps2_catalogue.MAME_REVISION`) |
 | [hissorii/px68k](https://github.com/hissorii/px68k) | x68 | `74ddbb3` | `74ddbb37b4e12b77362a4e12f28ceb5aaa593684` | `tools/x68000_reference.HISSORII_REV` (also `tools/x68000_base74.COMMIT`) |
 | [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | x68 | `0ad84d7` | `0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6` | `tools/x68000_reference.PX68K_REV` (also `native/x68000_machine/provenance.json`) |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | all | `5d24957` (release 2.32.10) | `5d249570393f7a37e037abf22cd6012a4cc56a71` | `core.SDL_REV` |

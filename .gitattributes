@@ -25,3 +25,4 @@ CMakeLists.txt text eol=lf
 # The catalogue checksum covers exact pinned bytes, including line endings.
 assets/neogeo-catalogue.json -text whitespace=cr-at-eol
 assets/cps1-catalogue.json -text whitespace=cr-at-eol
+assets/cps2-catalogue.json -text whitespace=cr-at-eol

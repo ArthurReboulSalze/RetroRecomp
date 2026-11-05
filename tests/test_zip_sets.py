@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 from zipfile import BadZipFile, ZipFile, ZipInfo, ZIP_STORED
 
-from retrorecomp import cps1, neogeo, zip_sets
+from retrorecomp import capcom_sets, cps1, neogeo, zip_sets
 
 
 def reference_neogeo_members(path: Path, *, hash_contents: bool = False, cartridge_paths: bool = False):
@@ -192,7 +192,7 @@ class ZipSetsTests(unittest.TestCase):
             records = cps1.archive_members(path)
             with ZipFile(path) as archive:
                 for record in records:
-                    self.assertEqual(cps1._read_member(archive, record),
+                    self.assertEqual(capcom_sets._read_member(archive, record, cps1.FAMILY),
                                      reference_cps1_read_member(archive, record), (label, record))
 
     def test_hashed_contents_are_the_original_member_bytes(self):
@@ -203,7 +203,7 @@ class ZipSetsTests(unittest.TestCase):
                           ('p.rom', hashlib.sha256(b'program').hexdigest())])
         records = cps1.archive_members(path)
         with ZipFile(path) as archive:
-            self.assertEqual(cps1._read_member(archive, records[0]),
+            self.assertEqual(capcom_sets._read_member(archive, records[0], cps1.FAMILY),
                              {'sha1': hashlib.sha1(b'sound').hexdigest(),
                               'sha256': hashlib.sha256(b'sound').hexdigest()})
 
@@ -223,8 +223,8 @@ class ZipSetsTests(unittest.TestCase):
                 neogeo.archive_members(path)
             with self.assertRaisesRegex(ValueError, 'Invalid CPS-1 archive member count.'):
                 cps1.archive_members(path)
-        for module, label in ((neogeo, 'Neo Geo'), (cps1, 'CPS-1')):
-            with patch(f'{module.__name__}.ZipFile') as factory:
+        for module, label, owner in ((neogeo, 'Neo Geo', neogeo), (cps1, 'CPS-1', capcom_sets)):
+            with patch(f'{owner.__name__}.ZipFile') as factory:
                 factory.return_value.__enter__.return_value.infolist.return_value = fabricated(1025)
                 with self.assertRaisesRegex(ValueError, f'Invalid {label} archive member count.'):
                     module.archive_members(self.stub_path())
@@ -242,12 +242,12 @@ class ZipSetsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Neo Geo archive member exceeds the size limit.'):
                 neogeo.archive_members(self.stub_path())
         wide = fabricated(6, 100 * 1024 * 1024)
-        with patch('retrorecomp.cps1.ZipFile') as factory:
+        with patch('retrorecomp.capcom_sets.ZipFile') as factory:
             entries = factory.return_value.__enter__.return_value.infolist
             entries.return_value = wide
             with self.assertRaisesRegex(ValueError, 'CPS-1 archive exceeds the expanded size limit.'):
                 cps1.archive_members(self.stub_path())
-            entries.return_value = fabricated(2, cps1.MAX_MEMBER_BYTES + 1)
+            entries.return_value = fabricated(2, capcom_sets.MAX_MEMBER_BYTES + 1)
             with self.assertRaisesRegex(ValueError, 'CPS-1 archive member exceeds the size limit.'):
                 cps1.archive_members(self.stub_path())
 
@@ -256,7 +256,7 @@ class ZipSetsTests(unittest.TestCase):
         with patch.object(neogeo, 'MAX_SET_BYTES', 4):
             with self.assertRaisesRegex(ValueError, 'Neo Geo archive exceeds the size limit.'):
                 neogeo.archive_members(path)
-        with patch.object(cps1, 'MAX_ARCHIVE_BYTES', 4):
+        with patch.object(capcom_sets, 'MAX_ARCHIVE_BYTES', 4):
             with self.assertRaisesRegex(ValueError, 'CPS-1 archive exceeds the size limit.'):
                 cps1.archive_members(path)
 
@@ -270,9 +270,9 @@ class ZipSetsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Neo Geo member size changed while reading.'):
                 neogeo.archive_members(self.stub_path(), hash_contents=True)
         with self.assertRaisesRegex(ValueError, 'Truncated CPS-1 archive member.'):
-            cps1._read_member(StubArchive([], b'abc'), {'archive_path': 'm.rom', 'bytes': 5})
+            capcom_sets._read_member(StubArchive([], b'abc'), {'archive_path': 'm.rom', 'bytes': 5}, cps1.FAMILY)
         with self.assertRaisesRegex(ValueError, 'CPS-1 member size changed while reading.'):
-            cps1._read_member(StubArchive([], b'abcd'), {'archive_path': 'm.rom', 'bytes': 2})
+            capcom_sets._read_member(StubArchive([], b'abcd'), {'archive_path': 'm.rom', 'bytes': 2}, cps1.FAMILY)
 
     def test_duplicate_basenames_split_the_consoles(self):
         path = self.write_zip('duplicates.zip', {'a/x.rom': b'first', 'b/x.rom': b'second'})
