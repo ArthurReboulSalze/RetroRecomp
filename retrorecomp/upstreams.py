@@ -178,6 +178,14 @@ VAMIGA = Upstream(
     'Core/ only, copied into a build folder and adapted by retrorecomp/amiga_vamiga.py (each replacement must find its pinned '
     'text exactly once); the application and its tests are not used',
     _py('retrorecomp/amiga_vamiga.py', 'VAMIGA_REV'), checkout='vamiga')
+HATARI = Upstream(
+    'hatari', 'hatari/hatari', 'main',
+    'Atari ST machine (WinUAE cycle-exact 68000, Shifter/GLUE/MMU video, YM2149, MFP, IKBD, WD1772 and DMA, IPF/STX/MSA readers) '
+    'with its libretro frontend, driven frame by frame by the Atari ST export',
+    'GPL-2.0-or-later (three WinUAE headers say version 2 only: a build is GPL-2.0); src/floppies/ipf_dsk.c is BSD-3-Clause',
+    'CMakeLists.txt, cmake/ and src/ copied into a build folder and adapted by retrorecomp/atarist_hatari.py (each replacement must '
+    'find its pinned text exactly once), built as a static libretro core; no capsimg, zlib, PNG or SDL program',
+    _py('retrorecomp/atarist_hatari.py', 'HATARI_REV'), checkout='hatari')
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -262,6 +270,9 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The decoder of m68k-recomp-core structures the guarded native steps of the Amiga (the bodies are Moira's); segagenesisrecomp
     # is listed because that decoder is its submodule.
     'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
+    # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
+    'atarist': (HATARI, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'scummvm': (SCUMMVM, FREETYPE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

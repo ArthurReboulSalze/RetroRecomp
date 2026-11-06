@@ -88,6 +88,9 @@ UPSTREAM_CREDITS = (
         ('dirkwhoffmann/vAmiga', 'https://github.com/dirkwhoffmann/vAmiga', 'credits_amiga_hardware'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
     )),
+    ('Atari ST', (
+        ('hatari/hatari', 'https://github.com/hatari/hatari', 'credits_atarist_hardware'),
+    )),
     ('Adventure (ScummVM)', (
         ('scummvm/scummvm', 'https://github.com/scummvm/scummvm', 'credits_scummvm_engine'),
         ('freetype/freetype', 'https://github.com/freetype/freetype', 'credits_scummvm_font'),
@@ -99,6 +102,7 @@ UPSTREAM_CREDIT_NOTES = {
     'PC Engine / TurboGrafx-16': 'credits_experimental',
     'Game Boy Advance': 'credits_experimental',
     'Commodore Amiga': 'credits_experimental',
+    'Atari ST': 'credits_experimental',
     'Adventure (ScummVM)': 'credits_emulated',
 }
 

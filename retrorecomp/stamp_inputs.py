@@ -150,7 +150,8 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
+    'hostkit/adapters/rrhk_atarist.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -630,6 +631,22 @@ INPUTS = _resolve({
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
+    ),
+    # The Atari ST (experimental from 1.7.1): its converter modules, the machine session on Hatari (GPL-2.0 engine, patched at
+    # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE
+    # above). The profile module comes from the profile; the computer adapter and the gates it shares come from stamp_groups.
+    ('atarist',): (
+        'licenses/hatari.md',
+        'native/atarist_machine/CMakeLists.txt',
+        'native/atarist_machine/atarist_player.c',
+        'native/atarist_machine/atarist_session.c',
+        'native/atarist_machine/atarist_session.h',
+        'native/atarist_machine/libretro/libretro.h',
+        'native/hostkit/adapters/rrhk_atarist.inc',
+        'retrorecomp.atarist',
+        'retrorecomp.atarist_conversion',
+        'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_tos',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',
