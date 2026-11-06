@@ -423,7 +423,7 @@ hexadecimal digits of each stamp, 6 November 2026):
 | CPS-1 | `da3f9a93f08f`, `2d6bdc5b1ca4` | `075e0ff74ad2`, `ff2e8295501f` | same |
 | CPS-2 | `d0dfdf7fcd0a`, `b841f976989c` | `6d09623637fd`, `7f31bbdfb091` | same |
 | PC Engine / TurboGrafx-16 | `61785d10f6b3`, `78f5641c38ec` | `e688aeb8d524`, `bdcc346995e1` | same |
-| Game Boy Advance | `a8f3639ad2c9`, `fb1e49e5f6b4` | `f91cddfbe6b9`, `f94b7ff7c92f` | same |
+| Game Boy Advance | `a8f3639ad2c9`, `05e06c23687a` | `f91cddfbe6b9`, `f94b7ff7c92f` | same |
 | Amiga | `c7a44bc35458`, `a82d6ccb72ca` | `8e7c7e682d10`, `136af9f804ed` | same |
 | Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
 
