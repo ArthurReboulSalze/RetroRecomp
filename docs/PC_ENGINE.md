@@ -138,7 +138,7 @@ saved with F8 is loaded in a fresh process and must continue the saved timeline;
 
 ### US TurboGrafx-16 cards (6 November 2026)
 
-Five conversions through the same loop as the first panel (two routes of 3,600 frames, native against every-instruction
+Twelve conversions through the same loop as the first panel (two routes of 3,600 frames, native against every-instruction
 interpreted, packed replay, F8/F9 in a fresh process), one at a time, on the tree of the branch `spec/pce-us-cards`. The cards
 are read in place from the owner's library; no ROM is kept in the repository.
 
@@ -149,8 +149,15 @@ are read in place from the owner's library; no ROM is kept in the repository.
 | Tiger Road (USA) | `linear` (same ambiguous vector) | 122.4 M / 0, 112.6 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
 | Legend of Hero Tonma (USA) | `linear` (vector `$FF00` reads the same both ways) | 71.4 M / 0, 61.3 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
 | Bravoman (USA) | `linear` (vector `$EFA5` reads `$F7A5` the other way) | 107.9 M / 0, 107.4 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Bonk III (USA), 1 MiB, the largest standard board | `linear` | 106.5 M / 0, 107.0 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Neutopia II (USA), 768 KiB mirror map | `linear` | 102.3 M / 0, 101.8 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Boxyboy (USA), 128 KiB, the smallest | `linear` | 95.9 M / 0, 95.9 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Night Creatures (USA), the reset code starts with STZ | `linear` | 106.4 M / 0, 101.6 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Military Madness (USA), turn-based | `linear` | 91.4 M / 0, 91.1 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Soldier Blade (USA), dense sprites and fast scrolling | `linear` | 106.1 M / 0, 106.0 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
+| Magical Chase (USA), parallax and line interrupts | `linear` | 107.4 M / 0, 107.9 M / 0 | Traces equal, packed replay equal, F8/F9 pass |
 
-- All five: 0 interpreted instructions, 0 guard misses on the routes played, the native run equal to the interpreted
+- All twelve: 0 interpreted instructions, 0 guard misses on the routes played, the native run equal to the interpreted
   reference frame by frame, moving pictures and audible sound on both routes.
 - **No real bit-reversed dump exists in the owner's library.** Its 91 US `.pce` files and its Japanese ZIPs all read `linear`.
   The two `bit-reversed` rows are copies made for this test by reversing the bits of two of his own files (written under
@@ -158,7 +165,7 @@ are read in place from the owner's library; no ROM is kept in the repository.
   US cards in memory and reading them back recovers each original, the four cards with an ambiguous vector included, once the
   first-instruction rule above is applied (without it those four were read as `linear` and decoded wrongly).
 - This is the reader and the conversion of those cards, not a claim about every US card: no title or checksum list is used,
-  and a US card is only as good as its play route. The owner has not played these five.
+  and a US card is only as good as its play route. The owner has not played these twelve.
 
 ## 6. The five measures
 
