@@ -735,6 +735,7 @@ INPUTS = _resolve({
         'retrorecomp.cps2',
         'retrorecomp.cps2_catalogue',
         'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_knowledge',
         'retrorecomp.cps2_tables',
     ),
     # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.

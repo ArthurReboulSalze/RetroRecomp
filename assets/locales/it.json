@@ -494,7 +494,7 @@
     "options_cps1": "Capcom CPS-1",
     "options_cps2": "Capcom CPS-2",
     "options_cps1_note": "Profilo Capcom CPS-1: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Fino a quattro giocatori secondo la scheda, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita.",
-    "options_cps2_note": "Profilo Capcom CPS-2: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Fino a quattro giocatori secondo la scheda, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita. Sperimentale: il programma è decifrato con il file chiave del tuo romset; il suono richiede la tua ROM DSP QSound. Le impostazioni (numero di giocatori…) sono nel menu di test del gioco: F2, pagina degli interruttori, Service switch, poi riavvia.",
+    "options_cps2_note": "Profilo Capcom CPS-2: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Fino a quattro giocatori secondo la scheda, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita. Il programma è decifrato con il file chiave del tuo romset; il suono richiede la tua ROM DSP QSound. Le impostazioni (numero di giocatori…) sono nel menu di test del gioco: F2, pagina degli interruttori, Service switch, poi riavvia.",
     "options_pce": "PC Engine / TurboGrafx-16",
     "options_pce_note": "Profilo PC Engine / TurboGrafx-16 sperimentale: HuCard (.pce, o uno ZIP che ne contiene una; schede americane del TurboGrafx-16 nei due ordini di dump) delle schede standard e della scheda di Street Fighter II, NTSC, due giocatori. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Né CD-ROM2 né SuperGrafx.",
     "knowledge_achievement": "Obiettivo sbloccato",
@@ -918,6 +918,15 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Avanti veloce | `  Velocità max | M  Muto",
     "RAM code: compiled, not observed": "Codice in RAM: compilato, non osservato",
     "Save unreadable: set aside": "Salvataggio illeggibile: messo da parte",
-    "Save unreadable: saving is off": "Salvataggio illeggibile: disattivato"
+    "Save unreadable: saving is off": "Salvataggio illeggibile: disattivato",
+    "Stick dead zone: %s": "Zona morta stick: %s",
+    "Vibration: %s": "Vibrazione: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - Grafica",
+    "Filter: %s": "Filtro: %s",
+    "Restore defaults": "Ripristina predefiniti",
+    "Disc %d/%d": "Disco %d/%d",
+    "Change disc": "Cambia disco",
+    "F3  Graphics options": "F3  Opzioni grafiche",
+    "%s (not at this size)": "%s (non a questa dimensione)"
   }
 }

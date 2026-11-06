@@ -240,9 +240,10 @@ def compare(name: str, exe: Path, mame: Path, roms: Path, frames: int, step: int
     from PIL import Image, ImageChops
     game = cps1_catalogue.by_set().get(name) or cps2_catalogue.by_set()[name]
     six = any(n in ('button4', 'button5', 'button6') for port in game['inputs'].values() for _, n, _ in port.get('inputs', ()))
-    reports = list((exe.parent / 'datas' / 'reports').glob('*/conversion-report.json'))
+    reports = [json.loads(path.read_text(encoding='utf-8')) for path in (exe.parent / 'datas' / 'reports').glob('*/conversion-report.json')]
+    reports = [r for r in reports if r.get('rom', {}).get('set') == name]        # a games folder holds the reports of every game in it
     if reports:
-        report = json.loads(reports[0].read_text(encoding='utf-8'))
+        report = reports[0]
     else:                                   # a development build has no report: the identity comes from the romset itself
         from retrorecomp import cps2
         report = {'rom': {'sha256': cps2.read_set(Path(str(roms).split(';')[0]) / f'{name}.zip', set_name=name).sha256}, 'scan': {'routes': []}}

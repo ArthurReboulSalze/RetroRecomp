@@ -494,7 +494,7 @@
     "options_cps1": "Capcom CPS-1",
     "options_cps2": "Capcom CPS-2",
     "options_cps1_note": "Capcom-CPS-1-Profil: ZIP-Romsets von MAME oder FBNeo, erkannt an den CRCs ihrer ROMs (ein getrennter Klon braucht das Eltern-ZIP daneben). Bis zu vier Spieler je nach Platine, bis zu sechs Tasten, Münze auf Umschalt/Back. Vertikale Spiele werden gedreht angezeigt. Gemeinsame Menüs, Filter und F8/F9. Es werden keine ROMs geladen oder mitgeliefert.",
-    "options_cps2_note": "Capcom-CPS-2-Profil: ZIP-Romsets von MAME oder FBNeo, erkannt an den CRCs ihrer ROMs (ein getrennter Klon braucht das Eltern-ZIP daneben). Bis zu vier Spieler je nach Platine, bis zu sechs Tasten, Münze auf Umschalt/Back. Vertikale Spiele werden gedreht angezeigt. Gemeinsame Menüs, Filter und F8/F9. Es werden keine ROMs geladen oder mitgeliefert. Experimentell: Das Programm wird mit der Schlüsseldatei deines Romsets entschlüsselt; der Ton braucht dein eigenes QSound-DSP-ROM. Einstellungen wie die Spielerzahl stehen im Testmenü des Spiels: F2, Seite der Schalter, Service switch, danach neu starten.",
+    "options_cps2_note": "Capcom-CPS-2-Profil: ZIP-Romsets von MAME oder FBNeo, erkannt an den CRCs ihrer ROMs (ein getrennter Klon braucht das Eltern-ZIP daneben). Bis zu vier Spieler je nach Platine, bis zu sechs Tasten, Münze auf Umschalt/Back. Vertikale Spiele werden gedreht angezeigt. Gemeinsame Menüs, Filter und F8/F9. Es werden keine ROMs geladen oder mitgeliefert. Das Programm wird mit der Schlüsseldatei deines Romsets entschlüsselt; der Ton braucht dein eigenes QSound-DSP-ROM. Einstellungen wie die Spielerzahl stehen im Testmenü des Spiels: F2, Seite der Schalter, Service switch, danach neu starten.",
     "options_pce": "PC Engine / TurboGrafx-16",
     "options_pce_note": "Experimentelles Profil PC Engine / TurboGrafx-16: HuCards (.pce, oder ein ZIP mit einer; US-Karten des TurboGrafx-16 in beiden Dump-Reihenfolgen) der Standardplatinen und der Platine von Street Fighter II, NTSC, zwei Spieler. Der native Code stammt aus dem, was das Spiel nachweislich ausgeführt hat; der Rest bleibt interpretiert und wird gezählt. Kein CD-ROM2 und kein SuperGrafx.",
     "knowledge_achievement": "Erfolg freigeschaltet",
@@ -918,6 +918,15 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm",
     "RAM code: compiled, not observed": "RAM-Code: kompiliert, nicht beobachtet",
     "Save unreadable: set aside": "Spielstand unlesbar: beiseite gelegt",
-    "Save unreadable: saving is off": "Spielstand unlesbar: Speichern aus"
+    "Save unreadable: saving is off": "Spielstand unlesbar: Speichern aus",
+    "Stick dead zone: %s": "Stick-Totzone: %s",
+    "Vibration: %s": "Vibration: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - Grafik",
+    "Filter: %s": "Filter: %s",
+    "Restore defaults": "Standardwerte",
+    "Disc %d/%d": "Disc %d/%d",
+    "Change disc": "Disc wechseln",
+    "F3  Graphics options": "F3  Grafikoptionen",
+    "%s (not at this size)": "%s (nicht bei dieser Größe)"
   }
 }

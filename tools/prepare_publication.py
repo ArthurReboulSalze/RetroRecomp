@@ -276,7 +276,7 @@ tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_n
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 retrorecomp/capcom_catalogue.py retrorecomp/capcom_sets.py tools/mame_driver_parse.py
 retrorecomp/cps2.py retrorecomp/cps2_catalogue.py assets/cps2-catalogue.json tools/build_cps2_catalogue.py tests/test_cps2.py
-retrorecomp/cps2_crypt.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py
+retrorecomp/cps2_crypt.py retrorecomp/cps2_knowledge.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py tests/test_cps2_knowledge.py
 retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
@@ -314,6 +314,7 @@ native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
+tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py

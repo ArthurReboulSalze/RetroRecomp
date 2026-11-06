@@ -30,7 +30,7 @@ the disassembled program of the chip's DSP16. It reads the chip's internal ROM, 
 The 93C46 EEPROM model (`native/cps1_eeprom.c`) follows MAME's `src/devices/machine/eepromser.cpp` and `eeprom.cpp` at the same revision
 (`license:BSD-3-Clause`, `copyright-holders:Aaron Giles`). The memory maps of the QSound board come from `cps1.cpp` (Paul Leaman).
 
-The Capcom CPS-2 board (profile `cps2`, experimental) adds to the same runtime the object chip, the raster interrupts and the 16-bit
+The Capcom CPS-2 board (profile `cps2`) adds to the same runtime the object chip, the raster interrupts and the 16-bit
 EEPROM organisation, adapted from MAME's `src/mame/capcom/cps2.cpp` (`license:BSD-3-Clause`, `copyright-holders:Paul Leaman, Andreas
 Naive, Nicola Salmoria`) and `cps1_v.cpp` at the same revision. The opcode decryption (`retrorecomp/cps2_crypt.py`, with the tables of
 `retrorecomp/cps2_tables.py`, generated from the file by `tools/build_cps2_tables.py`) follows the algorithm and the tables of
