@@ -187,6 +187,55 @@ core is wrapped by a small `rrhk_libretro_machine()` helper so future
 libretro-shaped machines provide a core and a short action table only
 (`hosts.md:298-303`).
 
+### 2.4 Sticks, the graphics page, larger pictures, rumble and discs (1.7.0)
+
+What the PlayStation needs (spec of 6 November 2026), written for every machine. Every field below is **off when an
+adapter leaves it out** (0, `false`, `NULL`): none of today's adapters declares one, and the eleven consoles behave as
+before (same F3, same menus, same input, same pictures; measured in
+[UPGRADES.md](UPGRADES.md#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170)). The kit reaches each new path only through its
+field, so a machine that declares none of them pays no new per-frame cost (no allocation, no extra loop).
+
+| Capability | `RrhkMachine` fields | Kit service | Player-facing |
+| --- | --- | --- | --- |
+| Analog sticks | `analog_sticks` (1 or 2), `script_axes` | `rrhk_pad_axes(player, frame, axes[RRHK_AXES])`: LX, LY, RX, RY, -32768..32767, SDL's axes (Y down positive); false and centred without a pad | the left stick no longer drives the four directions on that machine (the d-pad does); a **Stick dead zone** row (0 to 30 %, Enter steps by 5 %, Delete: 0 %) at the end of each player's gamepad page of F2, `[<Console>.Gamepad.PlayerN] deadzone`, default 0 % (the raw values: the machine has its own calibration); a round dead zone, the travel left spread over the whole range |
+| Graphics page (D14) | `gfx_options` (`RrhkGfxOption`: name, `ini_key`, values, count, default), `gfx_option_count` (at most 12), `gfx_apply(option, value)` | `rrhk_gfx_override(machine, "key=index")` for `--gfx`, `rrhk_gfx_value(option)` | F3 opens the page: one row per option (Left/Right, or Enter / A / + and -, change it at once), the kit's **Filter** row (the four filters, F3's order), **Restore defaults** (every option and the filter); Esc, B or F3 closes it, and the machine waits while it is open as in every menu; `[<Console>.Video] <ini_key>=<index>`, an unknown or out-of-range value keeps the default; the F1 line says "F3  Graphics options" |
+| Larger pictures | `pixel_pitch` | `rrhk_picture_limit(&w, &h)`: the renderer's largest texture (`SDL_RendererInfo`, 0 when SDL states none) | the texture grows when `visible_width`/`visible_height` pass it (never shrinks during a run); `max_width`/`max_height` are then the opening size only; Scale2x is left out for a picture past half the limit |
+| Rumble | `rumble` | `rrhk_rumble(player, low, high, milliseconds)` through `SDL_GameControllerRumble` on the pad of that player | a **Vibration: ON/OFF** row on the options page of F2, shared by every machine that vibrates, `[Manettes] rumble`, default on; off stops a vibration in progress; nothing without a pad or headless; never fed back to the machine |
+| Discs | `host_media` (1 + the index of a host-side action, `bit` 0, like `host_pause`), `media_count`, `media_current`, `media_select(index)` | | the action's key or button (the adapter's default, bindable in F2 like any action) selects the next disc in play (after the last, the first) and shows **"Disc 2/3"** for 1.8 s; a refused change names the disc in place; nothing happens in a menu |
+
+Rules:
+
+* **When `gfx_apply` runs.** Between two frames, never inside `run_frame`: once per option when the window opens, then at each
+  change and at Restore defaults. The values at opening are the saved ones, except in a **hidden-window test run**
+  (`RETRORECOMP_HOST_TEST_FRAMES`), which always starts from each option's default; `--gfx` (passed to the kit with
+  `rrhk_gfx_override` before `rrhk_main` or `rrhk_open`) wins over both for that run and is not saved. Headless runs never open
+  the kit: their adapter applies the defaults itself (and its own `--gfx`, for a capture). The timing report
+  (`RETRORECOMP_TIMING_REPORT`) records the set in force: `"gfx":{"<ini_key>":<index>,...}`, written only by a machine that
+  declares options. The page is shown over the last picture; a machine that wants the change seen before the page closes
+  renders it at its next frame.
+* **Pictures.** With `pixel_pitch`, `pixels()` holds `visible_height()` rows of at least `visible_width()` pixels,
+  `pixel_pitch()` pixels apart; only that area is uploaded. **Aspect** is the existing pair `display_width()` /
+  `raster_height()` (the shape the picture is shown at, as the CPS-1 and the Mega Drive already report it), not a new hook: a
+  picture of 368 x 240 shown at 4:3 reports `display_width` 320 and `raster_height` 240, the same picture at a 2x internal
+  resolution reports 736 x 480 visible and the same 320 x 240, and the kit's rule (D2) keeps whole multiples of the raster
+  where they fit and the aspect in Fit mode. A machine with an aspect of its own places the picture with `game_rect`, as the
+  X68000 does.
+* **Replays.** `script_axes` lets a machine that replays a script inside the window hand `rrhk_pad_axes` the recorded axes
+  (returned as they are, no dead zone); the script format and its writer are the machine's (`random_routes.SCRIPT_WRITERS`).
+* **The X68000's drive keys** (Ctrl+Alt+Page Up/Down, Backspace: two drives, both directions, eject) stay in
+  `rrhk_computer.inc` and do not go through `host_media`: one "next disc" action cannot express them without changing the
+  X68000 and the Amiga, so the two stay apart.
+* **Not in this step**: the optional "keyboard drives the left stick" row of the spec (no machine asks for it yet), and more
+  than twelve actions or more than fifteen rows on an F2 page (`RRHK_MAX_ACTIONS` is 12; a machine with sticks has room for
+  eleven actions on player 1's gamepad page, after the two combinations, the Gamepad row and the Stick dead zone row).
+
+ROM-free check: `tools/hostkit_capabilities_selftest.py` (`tests/test_hostkit_capabilities.py`) runs the real loop on a fake
+machine of `tools/hostkit_capabilities/checks.c` with one virtual controller that records its rumble: the sticks and the dead
+zone row, the graphics page (keys, apply, persistence, an out-of-range value, a test run, `--gfx`, the timing report), the
+picture at 1x, 2x and 4x with and without Scale2x read back from the renderer, rumble and the Vibration row, the Change disc
+key and button, then the same machine with every new field left out (F3 cycles the filters, the left stick is the
+directions, no dead zone row, no rumble, no disc).
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
@@ -301,12 +350,15 @@ X68000 too, without asking again**.
     which every machine reads back as "no binding" (only the X68000, `bindings_clearable`, did before 1.6.9).
   A ROM-free check runs the real loop with four virtual pads on a four- and a two-player CPS-1 adapter build
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
-* <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (planned, owner's decision of 5 November 2026; not
-  implemented). On the 2D machines F3 cycles the picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the
-  name for 1.8 s. On the 3D machines under study (Nintendo 64, PlayStation) the same key will open a
-  graphics options page instead, where the player switches the options of that machine's renderer (internal resolution,
-  filtering, scanlines, aspect ratio and the like). The page is the kit's (one menu for every 3D machine, declared by the
-  adapter, no `if console ==`); each machine says which options it offers.
+* <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (owner's decision of 5 November 2026; **implemented in
+  1.7.0**, see [section 2.4](#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170)). On the 2D machines F3 cycles the
+  picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the name for 1.8 s, unchanged. On a machine whose adapter
+  declares graphics options (the PlayStation first, the Nintendo 64 later) the same key opens the kit's graphics page
+  (`RRHK_MENU_GRAPHICS`), where the player switches the options of that machine's renderer (internal resolution, dithering,
+  aspect ratio and the like), then the kit's own Filter row, then Restore defaults. The page is the kit's (one menu for every
+  3D machine, declared by the adapter, no `if console ==`); each machine says which options it offers. An option that changes
+  the guest's timing (CPU or disc speed, overclock) is never declared; headless runs, routes and gates use each option's
+  default.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
