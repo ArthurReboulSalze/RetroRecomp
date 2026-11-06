@@ -381,7 +381,10 @@ def require(option, install_path, language: str = 'en') -> Kickstart | None:
         except OSError:
             records = []
     if not request.accepted:
-        known = [r for r in records if r.version]
+        # A slave that only calls resload_LoadKick names its image in code, not in its header: prefer 1.3 (34.005, what
+        # these slaves ask for), then any other 256 KiB image; the exact image is checked by the call itself.
+        known = sorted((r for r in records if r.version and r.size == 0x40000),
+                       key=lambda r: r.version.get('version') != '34.005')
         if known:
             return known[0]
     else:

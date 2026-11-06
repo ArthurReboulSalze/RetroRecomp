@@ -41,6 +41,9 @@ PLAYER = 'RetroRecomp-Amiga'
 NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md',
                 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
+# The player's Kickstart in the player's own export (decision D1, 6 November 2026): 1.x images (256 KiB) only, for now.
+KICKSTART_RESOURCE = 298
+KICKSTART_1X_SIZE = 0x40000
 OBSERVATIONS = 'converter-observations.txt'
 # The liveness keys of the report, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'distinct_audio_blocks': 'distinct_sound_blocks',
@@ -192,7 +195,7 @@ def display_window(results) -> tuple[int, int, int, int] | None:
 
 
 def payload(project: Path, source, extracted: dict, folder: Path, title: str, mouse_game: bool, artwork,
-            view: tuple[int, int, int, int] | None = None) -> dict:
+            view: tuple[int, int, int, int] | None = None, kickstart: Path | None = None) -> dict:
     """The resources of the exported game: its install (as embedded files) and the Windows metadata."""
     from .metadata import write_game_metadata
     from .resources import embed_resources
@@ -205,6 +208,8 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
     notices = project / 'notices.txt'
     notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES), encoding='utf-8')
     resources[NOTICE_RESOURCE] = notices
+    if kickstart is not None:
+        resources[KICKSTART_RESOURCE] = kickstart
     slave = project / 'blob-300.bin'
     slave.write_bytes(extracted['slave'])
     resources[300] = slave
@@ -221,6 +226,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               f'#define RR_AMIGA_NTSC {int(ntsc_install(source))}', f'#define RR_AMIGA_MOUSE_GAME {int(mouse_game)}',
               *(f'#define RR_AMIGA_VIEW_{axis} {value}' for axis, value in zip('XYWH', view or (0, 0, 0, 0))),
               '#define RR_AMIGA_SLAVE_RESOURCE 300',
+              *([f'#define RR_AMIGA_KICKSTART_RESOURCE {KICKSTART_RESOURCE}'] if kickstart is not None else []),
               'typedef struct {const char *name;unsigned resource;} RrAmigaPayloadFile;',
               'static const RrAmigaPayloadFile rr_amiga_files[]={', *rows, '{0,0}};',
               f'#define RR_AMIGA_FILE_COUNT {len(rows)}u',
@@ -337,8 +343,28 @@ def continues(timeline: Path, resumed: Path) -> bool:
     return bool(later) and all(earlier.get(row[0]) == row for row in later)
 
 
-def game_entry(source) -> Path:
-    return library_root('amiga') / source.game_key
+def game_entry(source, kick=None) -> Path:
+    """The private memory of a game; an install run with a Kickstart keeps its own per Kickstart (its SHA-256's first 16
+    digits), so two players' different images never mix observations."""
+    entry = library_root('amiga') / source.game_key
+    return entry / f'kick-{kick.sha256[:16]}' if kick is not None else entry
+
+
+def kickstart_fields(kick) -> dict:
+    """The report's `kickstart` object: which image the install ran with, by numbers about it (never its bytes)."""
+    known = kick.version or {}
+    return {'used': True, 'version': known.get('version'), 'os': known.get('os'), 'model': known.get('model'), 'file': kick.file_name,
+            'size': kick.size, 'crc16': kick.crc16, 'crc32': kick.crc32, 'sha256': kick.sha256, 'normalised': list(kick.normalisations),
+            'player_supplied': True, 'stored_in_library': False, 'shared': False, 'embedded_in_export': True,
+            'native': 'none: its instructions run on the interpreter, counted apart per route (final_checks.kickstart_interpreted)'}
+
+
+def place_kickstart(folder: Path, kick) -> None:
+    """The normalised image beside the extracted install (this conversion's private work folder), named in install.txt."""
+    from . import amiga_kickstart
+    (folder / 'kickstart.rom').write_bytes(amiga_kickstart.read_image(kick))
+    with open(folder / 'install.txt', 'a', encoding='utf-8') as listing:
+        listing.write('kickstart kickstart.rom\n')
 
 
 # -------------------------------------------------------------------------------------------------------- conversion
@@ -353,8 +379,15 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     started = time.perf_counter()
     level = resolve_scan_level(scan_level)
     source = read_input(path)
-    if source.kickemu:
-        raise ConversionError('This install needs a Kickstart (KickEmu): the Amiga profile does not run those yet.')
+    # The player's own Kickstart, for an install that asks for one (slave header or resload_LoadKick): chosen from the
+    # Options path by content, checked against the request, copied only into this conversion's work folder and the export.
+    from . import amiga_kickstart
+    try:
+        kick = amiga_kickstart.require(unused.get('amiga_kickstart'), path)
+    except ValueError as exc:
+        raise ConversionError(str(exc)) from None
+    if kick is not None and kick.size != KICKSTART_1X_SIZE:
+        raise ConversionError(f'{source.title} asks for a 512 KiB Kickstart (3.x); the Amiga profile runs Kickstart 1.x installs only, for now.')
     title = title or source.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
         raise ConversionError('Invalid Amiga game title.')
@@ -375,6 +408,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     with entry_lock(work / 'lock', timeout=3600):
         checks = Path(tempfile.mkdtemp(prefix='qa-', dir=work))
         extracted = extract_install(source, work / 'install')
+        if kick is not None:
+            place_kickstart(work / 'install', kick)
         slave: amiga_whdload.Slave = extracted['install'].slave
         count = max(1000, min(int(frames or 3000), 36000))
         routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
@@ -391,7 +426,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
-        memory = game_entry(source)
+        memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
         if remembered.is_file():
             try:
@@ -405,7 +440,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='amiga', cache_directory=boxart_cache_directory('amiga'), emit=emit)
         view = display_window(expected.values())
-        metadata = payload(payload_dir, source, extracted, work / 'install', title, mouse_game, artwork, view)
+        metadata = payload(payload_dir, source, extracted, work / 'install', title, mouse_game, artwork, view,
+                           kickstart=work / 'install' / 'kickstart.rom' if kick is not None else None)
         project = work / 'native'
         candidate = generation = None
         results = {}
@@ -480,6 +516,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
+                         **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0)} if kick is not None else {}),
                          'packed_reference_match': True, 'resload_match': True, 'resload_calls': result['resload_calls'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
@@ -492,11 +529,13 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'source_rom': str(source.path), 'executable': executable_name(title), 'build_executable': str(candidate),
             'toolchain': toolchain_description(),
             'whdload': {'slave': source.slave_path, 'slave_version': slave.version, 'flags': list(slave.flag_names), 'base_mem': slave.base_mem,
-                        'exp_mem': slave.exp_mem, 'kickstart_required': False, 'whdload_used': False,
+                        'exp_mem': slave.exp_mem, 'kickstart_required': kick is not None, 'whdload_used': False,
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
                         'data_files': len(extracted['files'])},
             'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
-                        'boot_rom': 'authored boot ROM (no Kickstart)'},
+                        'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
+                                    f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},
+            **({'kickstart': kickstart_fields(kick)} if kick is not None else {}),
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
             'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
