@@ -263,7 +263,9 @@ converted and validated on a Debian 13 PC; G13 `P`). Against the merged `main` t
 (its profile and converter modules); no other console's stamp moves. The check reads the Amiga's native files only: a
 packaged converter keeps its Python modules inside the executable, so a check of `amiga_conversion.py` as a file had hidden
 the profile from every packaged 1.7.0 build (found by the release check of the packaged executable; fixed before
-publication, the Amiga's game stamp only).
+publication, the Amiga's game stamp only). The same check then found the Amiga's decoder looking for the shared
+generated decoder folder in the packaged converter's unpacked files instead of its working folder (`ROOT`, as the X68000
+does); fixed too, the Amiga's game stamp only.
 
 **What moves** (`compilation_inputs.role_stamps` of the tree of `main` at 27e30e03 against this branch, computed on 6 November
 2026, the change of `index_extension` above included): **the game stamp and the host stamp of the eleven consoles of 1.6.9**; no
@@ -417,7 +419,7 @@ hexadecimal digits of each stamp, 6 November 2026):
 | Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
 
 Three fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
-converter offers the profile) gives the Amiga the game stamp `414937df205f`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
+converter offers the profile) and its decoder reading the working folder give the Amiga the game stamp `f32920f07f96`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
 refuses with a sentence when the build tools are missing instead of starting a build, give Adventure (ScummVM) the game stamp `be8047b230ac` and the build stamp
 `97d9ad0da628` (the released tree).
 

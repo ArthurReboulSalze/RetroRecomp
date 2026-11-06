@@ -267,7 +267,7 @@ def generate(project: Path, samples: list, table: Path) -> dict:
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
-    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ASSETS,
+    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ROOT,
                                          target='amiga_decode', name='RetroAmigaDecode')
     bodies = observed.load_bodies(engine)
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
