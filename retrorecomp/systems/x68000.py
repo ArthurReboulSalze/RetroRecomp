@@ -1,7 +1,7 @@
-"""Sharp X68000 profile (experimental: see docs/X68000.md)."""
+"""Sharp X68000 profile (supported since 1.6.9: see docs/X68000.md)."""
 from pathlib import Path
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 
 class X68000Profile(SystemProfile):
@@ -10,7 +10,9 @@ class X68000Profile(SystemProfile):
     extensions = ('.dim', '.xdf', '.m3u', '.d88', '.88d', '.hdm', '.2hd', '.dup')
     export_folder = 'Sharp X68000'
     video_modes = ('native',)
-    status = 'experimental'
+    # Left the experimental status in 1.6.9 on the owner's decision of 5 November 2026, with the evidence in docs/QUALIFICATION.md
+    # (G10 and G11 stay partial there, as for the other 68000 machines). Floppy games only, local (no shared paths).
+    status = 'supported'
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('disk',)
     firmware = ('ipl', 'cgrom')
@@ -26,14 +28,19 @@ class X68000Profile(SystemProfile):
                    OptionKey('x68_cgrom', kind='path', label='x68_cgrom'),
                    OptionKey('x68_ram', kind='choice', label='RAM (MiB)', choices=(2, 4), default=2))
     developer_only = True
-    stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules')
+    stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules', 'm68k_observed', 'hostkit_computer')
     path_spec = PathSpec(order=8, sections=(('m68k', 'x68'),),
                          source_bounds=(('ipl', (1, 1 << 20)), ('disk', (1, 1 << 30))),
-                         shapes=(('m68k', 'x68', dict(roles=('ipl', 'disk'), caps={'insn': 65536, 'span': 4096},
+                         shapes=(('m68k', 'x68', dict(roles=('ipl', 'disk'), caps={'insn': 65536, 'span': 16384},
                                                       windows=((0, 0xc00000), (0xe00000, 0xe80000),
                                                                (0xea0000, 0xea2000), (0xfc0000, 0xfffffe)),
                                                       contained=True, length=(2, 16), length_align=2,
                                                       offset_align=2, address_align=2, span_max=131072)),))
+    # Shares its paths as the experimental tier of the shared base, like the CPS-1: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md).
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='x68_knowledge')
+    # The native code of the instructions it runs from RAM: the chain of the Mega Drive recompiler's semantics and the shared state rules, executed by Musashi.
+    observed_code = ObservedCode('m68k_observed:recompiler_bodies', 'rr_x68k_', 'RrX68NativeStep',
+                                 ((0, 0xc00000, 0xc00000), (0xe00000, 0xe80000, 0xe80000), (0xea0000, 0xea2000, 0xea2000), (0xfc0000, 0xfffffe, 0x1000000)))
     report_shape = ReportShape('x68000_conversion', 'exploration_checks')
     catalogues = Catalogues(libretro='libretro-thumbnails/Sharp_-_X68000', cover_references=True)
     library_layout = LibraryLayout(folder='x68', summary_glob='*/compilation.json')
@@ -50,7 +57,7 @@ class X68000Profile(SystemProfile):
             return None
         if not self.available():
             raise UnsupportedConsoleError(
-                'The experimental Sharp X68000 profile is unavailable in this installation.')
+                'The Sharp X68000 profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', self.id)
         return self

@@ -84,7 +84,7 @@ two per console (the Windows converter's and the Linux converter's), for the Mas
 only ([below](#release-162-entries-29-october-2026-windows-and-linux);
 [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163), with the evidence and what it does not prove); the tree of 1.6.4 lists none,
 because 1.6.4 is a structural release that reconverts every console ([below](#release-163-entries-29-october-2026-windows-and-linux);
-[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
 real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
@@ -144,13 +144,14 @@ upgraded exports, a state written by the old one being resumed by the new one):
 - NES: the key covers the engine files as written in the player's project folder, including
   its path, so it is the same before and after the upgrade in the same workspace (checked: the
   tag and this branch give the same key for the same path, and that key is in the released
-  executable). It never moved between workspaces.
+  executable). It never moved between workspaces. This describes the key of that time: since
+  1.6.5 (commit `c71038a`) the NES key no longer depends on the project folder or on any path.
 - Master System, Game Gear, Game Boy: the state header holds the ROM identity, a schema number
   and sizes; the state code is byte for byte the one of 1.4.1. They cannot be saved without a
   window, so only the final video trace (Master System, Game Gear) or the final state dump
   (Game Boy) of the old and the upgraded executable were compared: identical.
 - X68000: the state key carries the compiler's identity by design, so a 1.4.1 state is refused
-  cleanly ("Requested startup state rejected") by an upgraded export; the profile is experimental.
+  cleanly ("Requested startup state rejected") by an upgraded export; the profile was experimental then.
   The X68000 is not in the list, so it is converted in full anyway.
 
 The Super Nintendo analysis cache identity changed once (the removed Super Mario World repository
@@ -167,7 +168,7 @@ fallback: conversion flow, not the generated game), `retrorecomp/console16.py` (
 value, found the same way as the 1.4.1 ones:
 
 1. computed from the `v1.5.1` tag (commit `3ef2222`) with Python 3.14.5,
-   `role_stamps(system)['game']`, for the nine consoles;
+   `role_stamps(system)['game']`, for every console;
 2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.1
    (SHA-256 `8018b0444fcdd784c0777b9c2274253fc2f65045c64efc6fdecbeed932a4ad8b`), from the command
    line, in its own workspace (its own `.deps`, `datas` and `Games`), quick scan level, local box
@@ -221,7 +222,7 @@ Outside the Super Nintendo these change no generated game: build-only in the sen
 below. The stamps were found as for 1.5.1:
 
 1. computed from the `v1.5.2` tag (commit `b59575c`) with Python 3.14.5,
-   `role_stamps(system)['game']`, for the nine consoles;
+   `role_stamps(system)['game']`, for every console;
 2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.2, downloaded
    with `gh release download v1.5.2` (SHA-256
    `923f5c8ec5aefb8fa9781ccb55c4684b2e8adc437b3ca1a7bb9bd4ac4b828735`, as in `SHA256SUMS.txt`),
@@ -347,7 +348,7 @@ of the maintainer, 29 October 2026): the stamps below were computed for all nine
 decided which are listed, and **none is**. The game stamp of `v1.6.3` (commit `bb2aa95`) is the one of an archive of the tag
 exported into an empty folder, then `compilation_inputs.role_stamps(system)`, under Python 3.14.5 (Windows) and 3.13.5 (the
 Linux build host, in a temporary folder deleted afterwards). The host and build stamps, recorded the same way, are in
-[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
+[UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
 
 | Console | Windows | Linux | Listed in 1.6.4 |
 | --- | --- | --- | --- |
@@ -1842,6 +1843,56 @@ fresh reference runs, so an upload holding the path proves it), for CPS-1 from c
   inputs, the side banks and their bytes, exchange files of both versions, the base with a moving engine, the switch, the
   experimental label, kind 14) and the updated schema tests.
 
+## X68000 joins the base (1.6.9, 5 November 2026)
+
+Arthur approved it on 5 November 2026 ("on fait comme tu as dit"), and asked that the converter also **take** the paths of others, not only send its own.
+The repository's rule says the same: a `supported` machine is in `path_profiles.SHARED_SYSTEMS` (gate G16). The X68000 follows the CPS-1: the experimental
+tier of the base, schema 3 only, withdrawn by emptying `path_profiles.EXPERIMENTAL_SHARED` (derived from the profile's `shared_knowledge`), a path qualified only
+for the engine revision that validated it, a record format of its own (`x68_knowledge.FORMAT`, a reader skips a format it does not know), numbers only.
+
+**What a path is** (`retrorecomp/x68_knowledge.py`, [X68000.md](X68000.md#shared-paths)). A game loads its program from the floppy into RAM and runs it
+there. The fresh reference runs of a conversion (every instruction interpreted) see all of it:
+- The observed RAM instructions of one run of consecutive addresses are searched, as one string of bytes, at an even offset of the **ordered disk
+  images** (`disk` source: the contents of the disks one after the other, with its SHA-256). A run found there is a row `[address, offset, length]` of a
+  `span` (at most 16,384 rows, 131,072 bytes each). The instruction starts inside a span are not stored: they are decoded from the first word of each
+  instruction by the 68000 word-count table (`word_count`, the table the pinned decoder writes), and a span is made only when that decoding gives exactly the
+  observed instructions.
+- The observed IPL instructions are rows `[address, offset, length]` of the **IPL** (`ipl` source, 128 KiB, with its SHA-256), `insn` rows valid only for an
+  IPL with that hash; a record read with another IPL keeps its disk paths and ignores these, and says so (`knowledge.use.ignored`).
+- What cannot be tied to an image (code unpacked, relocated or built at run time, text VRAM, the SCSI stub) **stays private** and is counted in the report.
+
+**The engine identity** (`cores`, `x68_knowledge.engine`): the pins of the decoder, Geolith and px68k, the text of `native/x68000_native/`, and
+`GENERATOR_REVISION` for the Python that generates (`tests/x68_generator_pins.json` pins those sources, as for the CPS-1). Qualified means a path reached
+and validated against the fresh reference by a conversion that received it from another player; none is yet.
+
+**Both directions.** `x68000_conversion` promotes a record only from the fresh reference runs of a conversion that passed every check (never from feedback rows
+or from hints), writes it into the library (`<library>/x68/<game>/compilation.json`, key `record`) and into the report (`knowledge`: counts, record digest,
+engine, what was used). Before its first pass it reads the qualified side bank, the imported side bank and its own library record, expands them from the
+player's own disks and IPL, and gives the instructions to the generator as build input only (never added to its private observations). A conversion that
+fails with imported discoveries starts again without them (the batch's rule, unchanged). A version 3 exchange file and line 3 of the base carry the records; a
+version 2 file leaves the games out and counts them (`schema3_only_left_out`). `knowledge_exchange._collect_schema3` replaced the CPS-1 collector's hard-coded
+name (the CPS-1 behaviour is unchanged).
+
+**The quick check does not apply.** For every other machine, a path qualified by others lets the batch replay the main route only. The X68000 declines
+(`SharedKnowledge.quick_check_from_shared = False`): its mouse and keyboard routes are found by replaying them and the player's mouse controls follow.
+
+**Size.** Twins: 3,691 spans and 8,276 IPL rows from a standard scan (125 KB of JSON), 4,139 and 8,276 from an extended one; 26,464 of the 30,280 RAM
+instructions of the extended scan are tied to a position (87 %), 3,816 stay private. *Tied* is a ceiling: an instruction counts when its bytes sit at an even offset of
+the disks, and a two-byte one sits somewhere by chance. The report also counts the instructions that lie in a span of at least eight bytes (*anchored*, the ones that
+really come from the disks): 22,999 of the 28,734 of Twins' standard scan (80 %), 24,094 of the 25,263 of Pac-Land (95 %). The short ones are shared too, as hints that
+the receiver rebuilds from its own bytes. The search for the instructions that no disk holds uses an index of the 16-bit words and of the 4-byte windows of the disks
+built once, so a game that unpacks its code costs seconds, not minutes (Twins 6.6 s against 14.5 s, Danger Area 18.8 s against 40.0 s, 6,000 private instructions on a
+5 MiB image 4.7 s against 30.2 s; the records are byte for byte the same). The exchange file of the extended record is 20,200 bytes. About 60 % of a
+record is the IPL rows, the same for every game of one IPL. The web service has to accept records of this size (the maintainer's tools, not this repository).
+
+**Proof** (Twins, Windows, standard scan, headless; the NAS read in place; `.build/x68-share-169`): two empty libraries. A, with an extended scan, makes the record;
+its exchange file (version 3) holds no window of 16 bytes of the disk or of the IPL. B imports the file and converts at the standard level: 34,740
+instructions guide the first pass, the CPU, RAM, picture, PCM and trace hashes of the three routes equal those of a conversion with no hint, 0 interpreted
+opcodes, one pass as without them, and the generator receives 1,044 instructions more than its own routes found (38,054 against 37,010). C does the same through a
+local base built offline and fetched by `online.prepare_batch` (the qualified side bank). D converts with an IPL changed by one letter of its debugger help
+(another SHA-256): the disk paths (26,464 instructions) are used, the IPL paths are ignored with `another IPL`, and the hashes are equal too. Tests:
+`tests/test_x68_knowledge.py` (36), the contract test of the profile field (`tests/test_system_profiles.py`) and a batch test (`tests/test_shared_sync.py`).
+
 ## Sharing discoveries between converters
 
 The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.
@@ -1918,8 +1969,7 @@ disables both the bundled and imported knowledge.
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
 NES, Mega Drive, Super Nintendo and, since 1.5.4, Neo Geo (see *The shared
-base*): the X68000 (experimental) is never sent and counts for nothing
-on the leaderboard until it joins the shared base in a later version, and the CPS-1 sends only its numeric paths
+base*): the CPS-1 and, since 1.6.9, the X68000 send only their numeric paths
 as the experimental tier of the base (the converter says so when sending). The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed

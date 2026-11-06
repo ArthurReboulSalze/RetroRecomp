@@ -5,7 +5,7 @@ commit like the other machines' engines, downloaded at its pinned revision on th
 this repository; our fixes are carried as anchored patches on a staged copy (`gba_patches`, docs/UPSTREAMS.md). Its CPU
 core is the engine's own submodule `arm-recomp-core` (MIT), kept at the revision the engine records.
 
-What a conversion does, in this stage (the machine stays experimental and developer-only):
+What a conversion does, in this stage (the machine is experimental):
 
 1. checks the cartridge and the player's BIOS (the one image the engine knows, by SHA-1);
 2. builds the engine's recompiler once per patch set, and generates the BIOS code from the player's own file (private);

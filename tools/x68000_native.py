@@ -24,10 +24,10 @@ sys.path.insert(0,str(ROOT))
 from tools.x68000_reference import ensure_sources, PX68K_REV,prepare_bundle,_atomic_text
 from retrorecomp.core import run,toolchain
 from retrorecomp.platforms import build_executable,cmake_target_args,sdl_install
-from retrorecomp.m68000 import adapt_semantics,operation_bodies,mnemonic_names,instruction_literal
-from retrorecomp.m68000_state_rules import adapt_state_rules
-from retrorecomp.neogeo_codegen import canonical_instruction,structural_key,structural_body
+from retrorecomp import m68k_observed
+from retrorecomp.neogeo_codegen import canonical_instruction
 from retrorecomp.megadrive_codegen import write_changed
+from retrorecomp.systems import get_profile
 
 
 def private_path(path:Path)->Path:
@@ -120,6 +120,7 @@ def span_count(record)->int:
 def observations(paths,ipl:bytes|None=None)->list[tuple[int,str]]:
     """Every (pc, words) a file set names: its variants, and its spans expanded with `ipl`."""
     result=set()
+    observed=get_profile('x68').observed_code
     for path in paths:
         if path.stat().st_size>128*1024*1024:raise ValueError('CPU observation file exceeds its bound.')
         record=json.loads(path.read_text(encoding='utf-8'))
@@ -129,12 +130,7 @@ def observations(paths,ipl:bytes|None=None)->list[tuple[int,str]]:
         samples=[(item.get('pc'),item.get('words')) for item in record.get('variants',[])]
         samples+=span_variants(record.get('spans',[]),ipl)
         for pc,words in samples:
-            if type(pc) is not int or pc&1 or not (0<=pc<0xc00000 or 0xe00000<=pc<0xe80000 or 0xea0000<=pc<0xea2000 or 0xfc0000<=pc<0xfffffe):
-                raise ValueError('Unsupported observed code aperture.')
-            if not isinstance(words,str) or not re.fullmatch('[0-9a-f]{4,32}',words) or len(words)%4:
-                raise ValueError('Invalid bounded CPU words.')
-            if pc+len(words)//2> (0xc00000 if pc<0xc00000 else 0xe80000 if pc<0xe80000 else 0xea2000 if pc<0xea2000 else 0x1000000):
-                raise ValueError('CPU sample crosses a mapping boundary.')
+            observed.check_sample(pc,words)
             result.add((pc,words))
             if len(result)>1048576:raise ValueError('Combined CPU observation bound exceeded.')
     return sorted(result)
@@ -157,26 +153,8 @@ def source_receipts(paths)->list[dict]:
 
 
 def decoder(project:Path,engine:Path)->Path:
-    from retrorecomp.neogeo_codegen import decoder_tool
-    decoder_tool(engine) # Qualified decoder, exception normalizer and cycle helpers.
-    directory=project/'decoder';directory.mkdir(exist_ok=True)
-    write_changed(directory/'CMakeLists.txt',f'''cmake_minimum_required(VERSION 3.20)
-project(RetroX68Decode LANGUAGES C)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_executable(x68_decode "{SDK.as_posix()}/native/x68000_native/decode.c"
- "{engine.as_posix()}/recompiler/src/m68k_decoder.c"
- "{engine.as_posix()}/recompiler/src/m68k_validator.c"
- "{engine.as_posix()}/recompiler/src/rom_parser.c")
-target_include_directories(x68_decode PRIVATE "{(ROOT/'.build/megadrive-step-decoder').as_posix()}"
- "{engine.as_posix()}/recompiler/src")
-if(MSVC)
- target_compile_options(x68_decode PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
-endif()
-''')
-    cmake,generator=toolchain()
-    run([cmake,'-S',directory,'-B',directory/'build','-G',generator,*cmake_target_args()],log=project/'build.log')
-    run([cmake,'--build',directory/'build','--config','Release','--parallel','4'],log=project/'build.log')
-    return build_executable(directory/'build','x68_decode')
+    """The qualified decoder of the recompiler as the X68000's tool (its driver reads one "address hex-bytes" line per instruction)."""
+    return m68k_observed.build_decoder(project,engine,source=SDK/'native/x68000_native/decode.c',root=ROOT,target='x68_decode',name='RetroX68Decode')
 
 
 # Machine sources under the native CPU: 'hissorii' (default since phase 4) or
@@ -266,6 +244,28 @@ int rr_x68k_native_run(void) {
 }
 '''
 
+# The machine's own text of the index of native steps: its includes, and how the guards read the bytes of an aperture (RAM, text VRAM, the SCSI IOCS ROM,
+# the IPL; never I/O). The page table walk and the live-word guard that follow are shared (m68k_observed.GUARDED).
+INDEX_HEAD='''#include "cpu.h"
+#include "observe.h"
+#include <stddef.h>
+#include <string.h>
+#ifdef RR_X68000_BASE74
+#include "memory.h"
+#else
+#include "x68k/x68kmemory.h"
+#endif
+'''
+CODE_VIEW='''/* Host bytes of a code aperture, as the guards read them (never I/O). */
+static const uint8_t *code_view(uint32_t pc,uint32_t *available) {
+    if(pc<0xc00000u){*available=0xc00000u-pc;return MEM?MEM+pc:NULL;}
+    if(pc>=0xe00000u&&pc<0xe80000u){*available=0xe80000u-pc;return TVRAM+(pc-0xe00000u);}
+    if(pc>=0xea0000u&&pc<0xea2000u){*available=0xea2000u-pc;return SCSIIPL+(pc-0xea0000u);}
+    if(pc>=0xfc0000u&&pc<0x1000000u){*available=0x1000000u-pc;return IPL?IPL+(pc-0xfc0000u):NULL;}
+    return NULL;
+}
+'''
+
 LOOKUP_NEXT='''/* The next instruction of a native run: a fallthrough or static target uses
  * the entry's link, anything else the page table. */
 const RrX68NativeStep *rr_x68k_lookup_next(const RrX68NativeStep *previous,uint32_t pc) {
@@ -341,28 +341,11 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     from retrorecomp.console16 import REPOSITORIES
     if subprocess.check_output(['git','-C',str(engine),'rev-parse','HEAD'],text=True,creationflags=NO_WINDOW).strip()!=REPOSITORIES['md'][1]:
         raise ValueError('Qualified MC68000 dependency changed.')
+    observed=get_profile('x68').observed_code
     decode_tool=decoder(project,engine)
-    lengths=project/'opcode-lengths.bin'
-    run([decode_tool,'--lengths',lengths],log=project/'decode.log')
-    sizes=lengths.read_bytes()
-    if len(sizes)!=65536 or any(not 1<=n<=8 for n in sizes):raise ValueError('Invalid MC68000 opcode length table.')
-    write_changed(project/'opcode_lengths.h','static const unsigned char rr_x68k_word_counts[65536]={\n'+
-        '\n'.join(','.join(map(str,sizes[n:n+128]))+',' for n in range(0,65536,128))+'\n};\n')
-    names=mnemonic_names(engine)
-    semantics=adapt_state_rules(adapt_semantics((engine/'runner/m68k_interp.c').read_text(encoding='utf-8'),hook_prefix='rr_x68k'))
-    bodies=operation_bodies(semantics)
-    bodies['MN_RESET']='''if(!(g_cpu.SR&SR_S))return rr_x68k_instruction_exception(next_pc,8,ins->addr,34);
-        rr_x68k_reset_instruction();return M68KI_OK;'''
-    helper=semantics[semantics.index('static uint32_t szmask('):semantics.index('static uint8_t *s_exec_cov')]
-    helper=helper[:helper.rfind('/* =====')]
-    timing=semantics[semantics.index('static int interp_popcount16('):semantics.index('static void interp_account_cycles(')]
-    timing=timing[:timing.rfind('/* The emit_cycle_accounting')]
-    write_changed(project/'step_semantics.h','#pragma once\n#include "m68kcpu.h"\n'
-        '#include "cpu.h"\n#include <stddef.h>\n'
-        '#define s_illegal_ea rr_x68k_illegal_ea\nstatic int interp_ea_read_cost(int,M68KSize);\n'
-        'static int game_instruction_hook_site(uint32_t pc){(void)pc;return 0;}\n'
-        'static int genesis_game_instruction_hook(uint32_t pc){(void)pc;return 0;}\n'
-        'static void discover(uint32_t pc){(void)pc;}\n'+alias(helper+'\n'+timing))
+    m68k_observed.write_word_counts(project,decode_tool,observed.prefix)
+    bodies=observed.load_bodies(engine)
+    m68k_observed.write_step_semantics(project,bodies,observed.prefix,alias)
     for name,path in [('m68k_decoder.h',engine/'external/m68k-recomp-core/common/m68k_decoder.h'),
                       ('rom_parser.h',engine/'recompiler/src/rom_parser.h')]:
         write_changed(project/name,path.read_text(encoding='utf-8'))
@@ -439,7 +422,6 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
               }
             }''')
     write_changed(project/'m68kcpu.c',adapted)
-    decoded=[]
     # Authored guard fixtures occupy a reserved diagnostic address outside
     # the initial 2/4 MiB profile. They are executed only by --guard-checks.
     diagnostic=[(0xbffe00,'303c12344e75'),(0xbffe00,'303c56784e75'),
@@ -449,116 +431,23 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
                 (0xbffe90,'60fe'),(0xbffe94,'6000fffe'),(0xbffe9a,'4ef900bffe9a'),
                 (0xe7ffc0,'303c12344e75'),(0xe7ffc0,'303c56784e75'),
                 (0xea1fc0,'303c12344e75'),(0xea1fc0,'303c56784e75')]
-    if samples:
-        decode_samples=sorted(set(samples+diagnostic))
-        listing=project/'snapshots.txt'
-        listing.write_text(''.join(f'{pc:06x} {words}\n' for pc,words in decode_samples),encoding='ascii')
-        run([decode_tool,listing,project/'decoded.json'],log=project/'decode.log')
-        decoded=json.loads((project/'decoded.json').read_text(encoding='utf-8'))
-    unique={}
-    for ins in decoded:
-        name=names[ins['mnemonic']]
-        if name not in bodies:continue
-        unique[(ins['addr'],tuple(ins['words'][:ins['word_count']]))]=ins
-    instructions=sorted(unique.values(),key=lambda s:(s['addr'],tuple(s['words'])))
-    # Reuse existing structural specialization; source/extension descriptors
-    # and full live words remain guarded, including multiple versions per PC.
-    forms={};entries=[];chunks=[[] for _ in range(16)];declarations=[]
-    for ins in instructions:
-        name=names[ins['mnemonic']];key=structural_key(ins)
-        if key not in forms:
-            symbol=f'rr_x68k_form_{len(forms)}';forms[key]=symbol
-            body=structural_body(ins,name,bodies[name]).replace('rr_ng_','rr_x68k_')
-            if machine_base=='hissorii':
-                if body.count(FORM_COPY)!=1:raise ValueError('Pinned native form prologue changed.')
-                body=body.replace(FORM_COPY,FORM_ABSOLUTE)
-            chunks[(ins['words'][0]>>1)%16].append(f'M68kiStatus {symbol}(const M68KInstr *compiled,uint32_t *next_pc) {{\n{body}}}\n')
-            declarations.append(f'extern M68kiStatus {symbol}(const M68KInstr*,uint32_t*);\n')
-        descriptor=ins if machine_base=='hissorii' else canonical_instruction(ins,name)
-        entries.append('{'+instruction_literal(descriptor,name)+f',{forms[key]}'+'}')
-    steps=project/'steps';steps.mkdir(exist_ok=True)
-    for n,chunk in enumerate(chunks):write_changed(steps/f'part{n:02}.c','#include "step_semantics.h"\n'+alias(''.join(chunk)))
-    groups=[];last=None
-    for index,ins in enumerate(instructions):
-        if ins['addr']!=last:groups.append([ins['addr'],index,1]);last=ins['addr']
-        else:groups[-1][2]+=1
-    # Direct page table: 4 KiB pages of the 24-bit space, one 16-bit slot per
-    # even address giving the group within the page. One lookup per fetch
-    # instead of a binary search; the live-word guard is a single compare.
-    # Successor links: the group at each entry's fallthrough and static
-    # target address (0: no compiled variant there). The live-word guard of
-    # the successor is still compared; only the page-table walk is skipped.
-    group_of={pc:index for index,(pc,start,count) in enumerate(groups)}
-    links=[]
-    for ins in instructions:
-        fall=(ins['addr']+ins['byte_length'])&0xffffff
-        taken=ins['target_addr']&0xffffff if ins['has_target'] else None
-        links.append((group_of.get(fall,-1)+1,group_of.get(taken,-1)+1 if taken is not None else 0))
-    pages={}
-    for index,(pc,start,count) in enumerate(groups):
-        page=pages.setdefault(pc>>12,{'base':index,'slots':{}})
-        page['slots'][(pc&0xfff)>>1]=index-page['base']+1
-    index_source='#include "cpu.h"\n#include "observe.h"\n#include <stddef.h>\n#include <string.h>\n'
-    index_source+='#ifdef RR_X68000_BASE74\n#include "memory.h"\n#else\n#include "x68k/x68kmemory.h"\n#endif\n'
-    index_source+=''.join(declarations)
-    index_source+='static const RrX68NativeStep entries[]={'+(',\n'.join(entries) if entries else '{0}')+'};\n'
-    index_source+='static const struct {uint32_t pc,start,count;} groups[]={'+(','.join('{%d,%d,%d}'%tuple(g) for g in groups) if groups else '{0}')+'};\n'
-    for number,page in sorted(pages.items()):
-        index_source+=f'static const uint16_t page_{number:x}[2048]={{'+','.join(f'[{slot}]={value}' for slot,value in sorted(page['slots'].items()))+'};\n'
-    index_source+='static const struct {uint32_t base;const uint16_t *slots;} pages[4096]={'+','.join(
-        f'[{number}]={{{page["base"]},page_{number:x}}}' for number,page in sorted(pages.items()))+'};\n'
-    index_source+='''/* Host bytes of a code aperture, as the guards read them (never I/O). */
-static const uint8_t *code_view(uint32_t pc,uint32_t *available) {
-    if(pc<0xc00000u){*available=0xc00000u-pc;return MEM?MEM+pc:NULL;}
-    if(pc>=0xe00000u&&pc<0xe80000u){*available=0xe80000u-pc;return TVRAM+(pc-0xe00000u);}
-    if(pc>=0xea0000u&&pc<0xea2000u){*available=0xea2000u-pc;return SCSIIPL+(pc-0xea0000u);}
-    if(pc>=0xfc0000u&&pc<0x1000000u){*available=0x1000000u-pc;return IPL?IPL+(pc-0xfc0000u):NULL;}
-    return NULL;
-}
-/* The live-word guard of one address group: the first variant whose words
- * all match the current code bytes. */
-static const RrX68NativeStep *guarded(unsigned group,uint32_t pc) {
-#ifndef MSB_FIRST
-    /* Little-endian hosts keep each 68000 word as a host 16-bit value. */
-    uint32_t available;
-    const uint8_t *code=code_view(pc,&available);
-    if(!code)return NULL;
-    for(unsigned k=0;k<groups[group].count;++k) {
-        const RrX68NativeStep *s=&entries[groups[group].start+k];
-        unsigned count=(unsigned)s->instruction.word_count,n=0;
-        if(count*2u>available)continue;
-        for(;n<count;++n) {uint16_t word;memcpy(&word,code+n*2u,2);if(word!=s->instruction.words[n])break;}
-        if(n==count)return s;
-    }
-#else
-    for(unsigned k=0;k<groups[group].count;++k) {
-        const RrX68NativeStep *s=&entries[groups[group].start+k];int same=1;
-        for(unsigned n=0;n<(unsigned)s->instruction.word_count;++n) {
-            uint16_t word;
-            if(!rr_x68k_code_word(pc+n*2,&word) || word!=s->instruction.words[n]){same=0;break;}
-        }
-        if(same)return s;
-    }
-#endif
-    return NULL;
-}
-const RrX68NativeStep *rr_x68k_lookup(uint32_t pc) {
-    pc&=0xffffffu;
-    if(pc&1u)return NULL;
-    const uint16_t *slots=pages[pc>>12].slots;
-    if(!slots)return NULL;
-    unsigned slot=slots[(pc&0xfffu)>>1];
-    if(!slot)return NULL;
-    return guarded(pages[pc>>12].base+slot-1u,pc);
-}
-'''
-    if machine_base=='hissorii':
+    def form_body(body:str)->str:
+        # Forms on the hissorii base read their own absolute descriptor (see FORM_COPY).
+        if machine_base=='hissorii':
+            if body.count(FORM_COPY)!=1:raise ValueError('Pinned native form prologue changed.')
+            body=body.replace(FORM_COPY,FORM_ABSOLUTE)
+        return body
+    def descriptor(ins:dict,name:str)->dict:
+        return ins if machine_base=='hissorii' else canonical_instruction(ins,name)
+    def index_tail(links:list)->str:
+        if machine_base!='hissorii':return ''
         # Absolute descriptors (see FORM_COPY) give each entry its own address.
-        index_source+='static const uint32_t links[][2]={'+(','.join('{%d,%d}'%link for link in links) if links else '{0}')+'};\n'
-        index_source+=LOOKUP_NEXT
-    write_changed(steps/'index.c',index_source)
+        return 'static const uint32_t links[][2]={'+(','.join('{%d,%d}'%link for link in links) if links else '{0}')+'};'+chr(10)+LOOKUP_NEXT
+    steps=m68k_observed.write_steps(project,samples,observed=observed,bodies=bodies,decode_tool=decode_tool,diagnostic=diagnostic,alias=alias,
+                                    form_body=form_body,descriptor=descriptor,index_head=INDEX_HEAD,code_view=CODE_VIEW,index_tail=index_tail)
+    instructions,forms,groups=steps.instructions,steps.forms,steps.groups
     result={'schema':1,'machine_base':machine_base,'reference_pin':PX68K_REV,'reference_cpu_pin':GEOLITH_REV,'samples':len(samples),'instructions':len(instructions),
-        'forms':len(forms),'pcs':len(groups),'semantics_sha256':hashlib.sha256(semantics.encode()).hexdigest(),
+        'forms':len(forms),'pcs':len(groups),'semantics_sha256':bodies.semantics_sha256,
         'ram_variants':sum(i['addr']<0xc00000 for i in instructions),
         'text_vram_variants':sum(0xe00000<=i['addr']<0xe80000 for i in instructions),
         'scsi_rom_variants':sum(0xea0000<=i['addr']<0xea2000 for i in instructions),

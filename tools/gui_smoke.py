@@ -322,8 +322,8 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    # Eight pages (box art is in Common), plus the X68000 and CPS-1 pages when available.
-    assert 8 <= len(notebook.tabs()) <= 10
+    # Eight pages (box art is in Common), plus the X68000, CPS-1, CPS-2, PC Engine and Game Boy Advance pages when available.
+    assert 8 <= len(notebook.tabs()) <= 13
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_ng')
     assert all(notebook.tab(i, 'text') != application.tr('options_boxart') for i in range(len(notebook.tabs())))

@@ -1,17 +1,20 @@
-# Game Boy Advance (experimental, in development)
+# Game Boy Advance (experimental, opening in 1.7.0)
 
-Status: **experimental**, and not yet a converter: the profile, the cartridge reader, the report writer and the path
-section exist; nothing is converted, and no installation lists the machine (it is a developer-only profile, like the
-X68000 before its files shipped). This page says what the machine will be, what it will not be, how it is kept apart from
-the others, and what is already known. It is a plan with evidence, not a claim about games.
+Status: **experimental**. The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game with your own
+BIOS: native code from what the game was seen to run, a counted interpreter for the rest, saves, quick states and the host kit's menus. The
+machine is listed by an installation that carries its native files (`GAME_BOY_ADVANCE.available()`), like the PC Engine; there is no
+developer switch. Experimental means what it means for the other machines: the evidence below is a first panel, not a qualification, and
+leaving the status is the owner's own decision.
 
 The five measures stay separate here as everywhere: **native code** (how much of the game runs as generated code, with the
 interpreter fallback counted per CPU), **CPU fidelity**, **hardware fidelity**, **gameplay validation** and **physical latency**.
-None of them is claimed for this machine yet, and "exact" and "zero latency" are never written without proof.
+The comparisons below are against the engine's own interpreter, not against hardware or an independent emulator, and "exact" and
+"zero latency" are never written without proof. The owner played the delivered exports on 5 and 6 November 2026 and wrote that they work
+perfectly; that is a play trial of those files, recorded in [QUALIFICATION.md](QUALIFICATION.md), not a decision to leave the experimental status.
 
 ## Scope of the first profile
 
-Converted, when the conversion exists:
+Converted:
 
 * a `.gba` cartridge, or a ZIP holding exactly one, for one player;
 * the ARM7TDMI in ARM and Thumb states, as generated code with a counted interpreter fallback, including routines copied at
@@ -203,13 +206,14 @@ A path is a number about a cartridge, never bytes of it. The machine's schema 3 
 aligned, so the bit is free); the routines copied into IWRAM (`0x03000000` to `0x03008000`) or EWRAM (`0x02000000` to
 `0x02040000`) are `span` rows (RAM address, cartridge offset, length). Both shapes already exist in the schema, so adding the
 machine moves no other console's stamp. The jump-table and dispatch-target shapes come with the conversion. The machine does not
-share its paths until its engine is stable (it is outside the shared base).
+share its paths until its engine is stable (it is outside the shared base). Paths a conversion learns stay in the player's own library;
+bytes derived from the cartridge never go there.
 
 ## What exists today
 
 | Piece | File |
 | --- | --- |
-| Profile (developer-only, experimental) | `retrorecomp/systems/gba.py` |
+| Profile (experimental, listed with its files) | `retrorecomp/systems/gba.py` |
 | Cartridge reader: header, checksum, hash, save chip by library identification strings, BIOS hash | `retrorecomp/gba.py` |
 | Engine pin, the conversion loop (observe, learn paths, rebuild), the player export, the report | `retrorecomp/gba_conversion.py` |
 | The player: the project of the executable, its resources, the kit | `retrorecomp/gba_player.py`, `native/gba_machine.cpp`, `native/gba_machine.h`, `native/gba_driver.h`, `native/hostkit/adapters/rrhk_gba.c` |
@@ -226,11 +230,11 @@ measures unclaimed; interpreted instructions are counted per CPU, in one unit.
 | Stage | Content | Gate reached |
 | --- | --- | --- |
 | 1. Engine gate | pin, build, vectors, unseen cartridges, authored tests, licence audit (done, development measurement above) | route chosen on data |
-| 2. Profile | this page, the reader, the report, the path section, translations, registry, stamps, upstreams | G1 |
+| 2. Profile | this page, the reader, the report, the path section, translations, registry, stamps, upstreams (done; listed since the 1.7.0 preparation) | G1 |
 | 3. Conversion | staged copy and anchored patches, analysis with code copies and roots from our paths, observation at conversion, sharded build, counters per CPU, the report writer | G2, G3, G4 |
 | 4. Host | the machine's player on the common host kit: pad, picture, sound, quick states, saves, counters | G5, G6, G7 |
 | 5. Independent evidence | vector self-test and authored hardware tests (done, see above); comparison with an independent emulator (not done) | G10, G11 |
 | 6. Panel and fixes | a small panel chosen by risk, general fixes only | G8, G9, G12 |
-| 7. Release candidate | documents, release check, Linux witness | G13 |
+| 7. Release candidate | documents, release check, Linux witness (the Debian pass of the tree to merge, see the section below when it is run) | G13 |
 
 Leaving the experimental status is the owner's own decision after a very high bar of evidence ([QUALIFICATION.md](QUALIFICATION.md)).

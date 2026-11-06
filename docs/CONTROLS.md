@@ -1,7 +1,7 @@
 # Controls
 
 The shortcut table below applies to the console profiles in the current build,
-including the experimental Sharp X68000.
+including the Sharp X68000.
 Console-specific F5 functions and cartridge buttons are described below.
 Keyboard labels use the active Windows layout: pressing W on an AZERTY
 keyboard displays W in F2. Unsaved letter defaults also follow that layout.
@@ -28,8 +28,8 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
 | Enter / keypad Enter / P | Pause/resume: the Master System uses Enter, its default Start/Menu key (its Pause button is on the console). Game Gear and Game Boy use P. On Mega Drive, SNES, NES, Neo Geo and CPS-1, P is free: Enter (the cartridge Start) pauses the game itself |
-| Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)) |
-| ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below) |
+| Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)); the trigger of player 1's controller |
+| ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below); the trigger of player 1's controller |
 | M | Mute or unmute the sound |
 | Esc | Close a menu or quit |
 
@@ -48,6 +48,13 @@ from F1 to F12, followed by the console's own controls.
 On a controller, **Start+Select (Back)** held for one second restarts and
 **L3+R3** held for one second quits; both can be changed or cleared at the
 bottom of player 1's F2 gamepad page (keyboard combinations: keyboard page).
+Since 1.6.9 both are watched on **player 1's controller only**, like the
+triggers' speed controls: on an arcade board Start+Coin is every player's
+normal play, and another player holding it no longer restarts the game for
+everyone. This holds on every console: on a two-player console too, player 2
+holding Start+Select (or L3+R3) no longer restarts (or quits) the game; only
+player 1's controller does. Player 1 playing on the keyboard has the keyboard
+combinations, Shift+F1 and Esc.
 
 ### Capcom CPS-1
 
@@ -58,8 +65,29 @@ buttons are buttons 1–6. Player 2 uses the numeric keypad or the second
 controller. Only the buttons a game reads do anything; its F2 page still lists
 all six. Three- and four-player boards (Captain Commando, The King of Dragons,
 Knights of the Round, Mercs) add F2 pages for players 3 and 4, played with
-the third and fourth controllers; they have no keyboard keys until you bind
-some there. Each player has a coin and Start of their own.
+the third and fourth controllers or with the keys of
+[players 3 and 4](#players-3-and-4) (since 1.6.9; before, they had no
+keyboard keys until you bound some). Each player has a coin and Start of
+their own.
+
+#### Players 3 and 4
+
+A board with three or four players gives them default keys of their own
+(1.6.9), chosen clear of player 1's letters, player 2's numeric keypad and
+every shortcut. They are physical keys, the same letters on QWERTY and
+AZERTY (F2 shows the names of your layout):
+
+| Player | Up / Down / Left / Right | Buttons 1 / 2 / 3 | Start | Coin |
+| --- | --- | --- | --- | --- |
+| 3 | T / G / F / H | R / Y / B | 3 | 7 |
+| 4 | I / K / J / L | U / O / N | 4 | 8 |
+
+Start and the coin sit on the digit row as in the usual arcade layout (starts
+on 1 to 4, coins on 5 to 8). The keyboard has no clean room for buttons 4 to 6
+of players 3 and 4: they have no default key, and F2 binds them. Every three-
+and four-player set of the CPS-1 catalogue reads two or three buttons for
+those players (three on Saturday Night Slam Masters and Muscle Bomber), so the
+defaults cover them. Any key can be changed in F2.
 
 The **DIP switches** page, after the control pages, lists the board's
 switches with MAME's names and settings (coinage, difficulty, lives, number
@@ -67,16 +95,39 @@ of players…); Up/Down choose one, Enter/A or + the next setting, - the
 previous. Switches that only apply under another setting appear when it is
 chosen. Most boards read their switches at power-on: restart with Shift+F1.
 The choice is kept per game; conversions always check the default settings.
-Captain Commando needs **Play Mode: 4 Players** for four players.
+**Captain Commando starts as a two-player board.** For four players: F2, the DIP switches page, **Play Mode: 4 Players**, then Shift+F1
+to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
+three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
+
+### Capcom CPS-2 (experimental)
+
+The controls are the CPS-1's: six buttons, a coin and a Start for each of up to four players, with the keys of players 3 and 4 above. The board
+has no DIP switches. A game keeps its settings (the number of players, coinage, difficulty, language) in its EEPROM, and changes them in its
+own test menu, which the board's service switch opens. The DIP switches page of a CPS-2 game therefore has one setting, **Service switch (the
+game's test menu)**: set it to *On* and restart with Shift+F1; the test menu opens, with player 1's Up/Down and button 1 to choose and
+Left/Right to change; choose *Save and exit*, then set the switch back to *Off* and restart. The settings are kept in the game's save file.
+
+A game that has never been started begins with the number of players its EEPROM gives it: four in Dungeons & Dragons: Tower of Doom, three in
+Armored Warriors, but two in Dungeons & Dragons: Shadow over Mystara and Battle Circuit, whose players 3 and 4 do nothing until the test
+menu (Configuration, System, *Chute type* in Shadow over Mystara) is set to more players.
+
+### PC Engine
+
+Arrows move; **X** is button I, **W** is button II, **Enter** is Run and **Shift** is Select. Player 2 uses the numeric
+keypad (9 and 8 for I and II, Enter for Run, 0 for Select). On a controller, B is I, A is II, Start is Run and Back is
+Select. Games that use the six-button pad (the Street Fighter II board) read **C / A / S / D** as III to VI (controller: X, Y
+and the two shoulder buttons). Most games pause on Run, so the first press of a new game may be a pause. F8/F9 quick states,
+F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
+game is built for two today and the fifth multitap player is never offered.
 
 ## Speed and sound
 
 Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are
 the Game Boy's own):
 
-- **Tab, held**, or the **right trigger** of a pad a player holds: fast-forward at 250% of the machine's speed. It lasts as long
-  as the key is down.
-- **` (the backquote key, left of 1 on a US keyboard, below Esc on many others)**, or the **left trigger**: toggles the maximum
+- **Tab, held**, or the **right trigger** of player 1's controller (since 1.6.9; any player's before): fast-forward at 250% of the
+  machine's speed. It lasts as long as the key is down.
+- **` (the backquote key, left of 1 on a US keyboard, below Esc on many others)**, or the **left trigger** of player 1's controller: toggles the maximum
   speed, 500%, until pressed again (shown in the options page and by a short notice). If both are active the maximum speed wins.
 - **M**: mutes and unmutes the sound (a short notice); the choice is kept for this console.
 - Options page of F2: **Volume** (0 to 200%, steps of 10, 100% leaves the sound as the machine made it), **M Sound** (ON, OFF
@@ -136,6 +187,14 @@ keyboard, keep working without Ctrl, and every function key acts on Retro-Recomp
 while a menu is open. Ctrl+F1–F12 also work with the row on Retro-Recomp and in
 full guest typing (Ctrl+Alt+K), which still sends F2–F10 to the computer.
 
+### Keyboard games on a computer
+
+A game played at the keyboard needs its keys, while the keys bound to the pad would press the joystick at the same time. The
+options page of F2 has a row **Keyboard (Ctrl+Alt+K): game controls / computer only**, the same switch as Ctrl+Alt+K. On
+"computer only" the whole keyboard goes to the computer, the keys bound to the pad stop, and a real gamepad plays the joystick
+(a notice says when none is connected); Ctrl+Alt chords and Ctrl+F1–F12 keep working, so the player can always switch back.
+The choice is kept per game, in the game's own `player.cfg`; each game starts with the game controls.
+
 ## Game options (1.1.8)
 
 The audio filter is on the options page, the last page of F2; the controller
@@ -153,7 +212,8 @@ pages.
 - **Quit (keyboard page / gamepad page):** select the row, release the activation button,
   press a single key or button, or the desired combination together, then
   release it. Keyboard combinations accept up to three keys. Each controller
-  combination belongs to one controller, not buttons split between players.
+  combination belongs to one controller, not buttons split between players,
+  and in play only player 1's controller holds it (since 1.6.9).
   The keyboard row is unassigned by default; the gamepad default is
   **L3+R3**. Delete/Backspace or controller X clears the selected
   combination; Esc cancels capture.
@@ -183,9 +243,18 @@ to receive this improvement; updating the converter alone does not alter them.
 
 In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
 the pages: player 1 keyboard, player 1 gamepad, player 2 keyboard, player 2
-gamepad. Up/Down selects a row, and Enter begins capture. Press the desired key
-or the selected player's controller button. Esc cancels capture; D restores
-that player's defaults for the input type. On each gamepad page the last row,
+gamepad, and so on for every player of the game (up to eight pages on a
+four-player CPS-1 board), then the machine's own page (gun, DIP switches)
+and the options. Up/Down selects a row, and Enter begins capture. Press the
+desired key or the selected player's controller button. Esc cancels capture.
+Since 1.6.9 a key that another action already uses, of any player (they
+share the keyboard), is not given twice: the two actions swap their keys.
+A controller button another action of the same player uses swaps the same
+way. The shell has no key that restores the defaults (this page promised D
+until 1.6.9): rebind the rows,
+or delete the player's `[<Console>.Keyboard.PlayerN]` or
+`[<Console>.Gamepad.PlayerN]` section of `datas/Retro-Recomp.ini` while the
+game is closed. On each gamepad page the last row,
 Gamepad, chooses the controller of that player ([pad slots](HOST_KIT.md): Automatic
 by default, a connected controller, or None).
 
@@ -248,8 +317,9 @@ Master System defaults:
 | J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 |
 | Each gamepad | D-pad / left stick | A / B | Start/Menu |
 
-Start/Menu is configurable on both keyboard and gamepad pages. A button used
-for gameplay must be freed before serving as the menu button. Like every other
+Start/Menu is configurable on both keyboard and gamepad pages. A key or
+button used for gameplay that is bound to it swaps with it (since 1.6.9;
+before, both actions kept it). Like every other
 console, the Master System restarts with Shift+F1 or the held restart
 combination (Start+Select by default); it has no separate Select/Reset row.
 Earlier `select` entries for either player are ignored without rewriting the

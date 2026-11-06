@@ -31,6 +31,7 @@ PAGE_LAYOUT = {
     'snes': {'wraplength': 590},
     'ng': {'wraplength': 880, 'justify': 'left', 'pady': (0, 20)},
     'cps1': {'wraplength': 880, 'justify': 'left', 'pady': (0, 14)},
+    'cps2': {'wraplength': 880, 'justify': 'left', 'pady': (0, 14)},
     'x68': {'wraplength': 840, 'justify': 'left', 'pady': (0, 14)},
 }
 # A firmware row (OptionKey kind 'path'): the space above its label, the file types of Browse, the title of the

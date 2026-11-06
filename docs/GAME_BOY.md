@@ -524,8 +524,8 @@ hardware); it does not change the status of the conversion.
   corrected cold conversion about 23, mostly compiling large generated C files over two passes. Bundled observations avoid
   rediscovery and another pass but not the first C build. Wario Land II re-run on 29 October 2026 on an empty library: about 10 minutes of conversion in one pass (600 s, against 709 s in two passes before the `CB` prefix was handled).
 - **Existing exports** are not replaced; regenerating a cartridge uses the new compiler and runtime adaptations.
-- **Window string.** The window says "RAM and high-memory instructions executed one by one (not native)" (in the eight languages
-  since 1.6.5): the count is the sum of the one-by-one executor, the RAM stub and the `0xFF00-0xFF7F` stub, as a maximum over the scenarios.
+- **Window string.** The window says "instructions in RAM and in the 0xFF00-0xFF7F range executed one by one (not native)" (in the eight languages
+  since 1.6.5; the wording said "RAM and high-memory" until 1.6.8, which did not say that the stub also covers the hardware registers): the count is the sum of the one-by-one executor, the RAM stub and the `0xFF00-0xFF7F` stub, as a maximum over the scenarios.
 
 ## History
 

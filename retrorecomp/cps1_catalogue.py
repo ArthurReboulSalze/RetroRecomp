@@ -5,12 +5,10 @@ driver (see licenses/cps1-machine.md). It describes boards and ROM layouts,
 not a list of qualified games.
 """
 from functools import lru_cache
-import hashlib
-import json
-from .paths import ASSETS
+from .capcom_catalogue import files as capcom_files, load_catalogue, program_files as capcom_program_files
 
 RESOURCE = 'assets/cps1-catalogue.json'
-SHA256 = 'c026949db4da913e1d70cc72d235f6a229e54ffe7a61e5b669546738ddc50413'
+SHA256 = '1465bcc1c3d6b3ddfcb4fec244ecd4363f5e88770bfcb77655ac42245d01c125'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 MAX_BYTES = 2 * 1024 * 1024
 # Phase 1 runs standard 10/12 MHz boards: 68000, Z80, YM2151, OKI MSM6295.
@@ -29,15 +27,7 @@ REASONS = {
 
 @lru_cache(maxsize=1)
 def catalogue() -> dict:
-    with (ASSETS / RESOURCE).open('rb') as stream:
-        raw = stream.read(MAX_BYTES + 1)
-    if len(raw) > MAX_BYTES or hashlib.sha256(raw).hexdigest() != SHA256:
-        raise ValueError('CPS-1 board catalogue failed its integrity check.')
-    data = json.loads(raw)
-    if (data.get('schema') != 1 or data.get('source', {}).get('revision') != MAME_REVISION
-            or not isinstance(data.get('games'), list)):
-        raise ValueError('Invalid CPS-1 board catalogue.')
-    return data
+    return load_catalogue(RESOURCE, SHA256, MAME_REVISION, MAX_BYTES, 'CPS-1')
 
 
 def games() -> list[dict]:
@@ -50,39 +40,12 @@ def by_set() -> dict:
 
 
 def files(game: dict) -> list[dict]:
-    """Distinct ROM files a set loads. Undumped parts cannot be required.
-
-    A file's size is its first load plus the CONTINUE/IGNORE parts that follow;
-    RELOAD reads it again from the start.
-    """
-    result, known = [], {}
-    for region in game['regions']:
-        current, counting = None, False
-        for load in region['loads']:
-            if load['op'] in ('continue', 'ignore'):
-                if current is None:
-                    raise ValueError('Invalid CPS-1 ROM continuation in ' + game['set'] + '.')
-                if counting:
-                    current['bytes'] += load['bytes']
-            elif load['op'] == 'reload':
-                counting = False
-            elif 'name' not in load:
-                current, counting = None, False
-            elif load.get('no_dump'):
-                current, counting = {'bytes': 0}, False
-            elif (key := (load['name'], load['crc32'])) in known:
-                current, counting = known[key], False
-            else:
-                current = known[key] = {'name': load['name'], 'bytes': load['bytes'], 'crc32': load['crc32'],
-                                        'sha1': load['sha1'], 'region': region['tag'],
-                                        'bad_dump': bool(load.get('bad_dump'))}
-                result.append(current)
-                counting = True
-    return result
+    """Distinct ROM files a set loads (shared reading: capcom_catalogue.files)."""
+    return capcom_files(game, 'CPS-1')
 
 
 def program_files(game: dict) -> list[dict]:
-    return [item for item in files(game) if item['region'] == 'maincpu']
+    return capcom_program_files(game, 'CPS-1')
 
 
 def dips(game: dict) -> list[dict]:
@@ -95,13 +58,14 @@ def supported(game: dict) -> bool:
 
 
 def tier(game: dict) -> str:
-    """'supported' for the CPS-1 boards, 'experimental' for the board families that joined later (the QSound boards of the
-    CPS-1.5, since 1.6.7): a column of the catalogue, so the status of a conversion never depends on the name of a set."""
+    """'supported' for every board of the catalogue today: the QSound boards of the CPS-1.5 were 'experimental' from 1.6.7 and left that
+    tier on 5 November 2026 (docs/CPS1.md). A column of the catalogue, so the status of a conversion never depends on the name of a set,
+    and ready for the next board family that joins in a tier of its own."""
     return game.get('tier', 'supported')
 
 
 def qualification_candidate(game: dict) -> bool:
-    """MAME-guessed graphics mappers and suspect dumps never count as evidence, nor does a board of the experimental tier
+    """MAME-guessed graphics mappers and suspect dumps never count as evidence, nor does a board of an experimental tier
     (its evidence is its own, docs/CPS1.md)."""
     return supported(game) and tier(game) == 'supported' and game['mapper_verified'] and not any(item['bad_dump'] for item in files(game))
 

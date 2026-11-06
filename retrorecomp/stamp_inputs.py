@@ -150,7 +150,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -164,7 +164,7 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
 BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
-RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json'))
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -686,6 +686,7 @@ INPUTS = _resolve({
         'retrorecomp.x68000_media',
         'retrorecomp.x68000_program',
         'retrorecomp.x68000_scan',
+        'retrorecomp.x68_knowledge',
         'tools/x68000_base74.py',
         'tools/x68000_native.py',
         'tools/x68000_reference.py',
@@ -705,10 +706,12 @@ INPUTS = _resolve({
         'retrorecomp.gba_patches',
         'retrorecomp.gba_player',
     ),
-    ('cps1',): (
+    # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
+    ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
+        'native/cps1_cps2_board.inc',
         'native/cps1_eeprom.c',
         'native/cps1_eeprom.h',
         'native/cps1_host.c',
@@ -729,6 +732,8 @@ INPUTS = _resolve({
         'native/cps1_qsound.c',
         'native/cps1_qsound.h',
         'native/cps1_z80_native.h',
+        'retrorecomp.capcom_catalogue',
+        'retrorecomp.capcom_sets',
         'retrorecomp.cps1',
         'retrorecomp.cps1_board',
         'retrorecomp.cps1_build',
@@ -738,6 +743,24 @@ INPUTS = _resolve({
         'retrorecomp.cps1_kabuki',
         'retrorecomp.cps1_knowledge',
         'retrorecomp.cps1_qsound',
+    ),
+    # What only the CPS-2 adds: its catalogue, its romset reader and the key decryption of its program.
+    ('cps2',): (
+        'assets/cps2-catalogue.json',
+        'retrorecomp.cps2',
+        'retrorecomp.cps2_catalogue',
+        'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_tables',
+    ),
+    # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
+    ('pce',): (
+        'licenses/pcenginerecomp.md',
+        'native/pce_machine.cpp',
+        'native/pce_machine.h',
+        'native/pce_main.c',
+        'retrorecomp.pce_build',
+        'retrorecomp.pce_conversion',
+        'retrorecomp.pce_rom',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its
@@ -796,6 +819,14 @@ INPUTS = _resolve({
     ),
     'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',
+    ),
+    # What the host kit's adapters of the disk computers share (the guest keyboard, the captured mouse, the floppy drives...), included by each adapter. Host role.
+    'shares:hostkit_computer': (
+        'native/hostkit/adapters/rrhk_computer.inc',
+    ),
+    # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
+    'shares:m68k_observed': (
+        'retrorecomp.m68k_observed',
     ),
     'family:rr16': (
         'native/console16_main.c',

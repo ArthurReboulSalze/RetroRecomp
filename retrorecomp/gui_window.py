@@ -16,7 +16,7 @@ from .ui_fonts import family
 from .systems import get_profile
 from .branding import COLORS, apply_theme, make_icon
 from .dialogs import center_dialog
-from .gui_common import HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPX_SOURCE_URL
+from .gui_common import HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
     header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
@@ -363,7 +363,7 @@ class WindowMixin:
             return
 
         from .credits_demo import CreditsDemo
-        self.credits_demo = CreditsDemo(self, UPSTREAM_CREDITS)
+        self.credits_demo = CreditsDemo(self, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES)
 
     def show_legal_notices(self):
         """Show the complete bundled licenses without creating sidecar files."""

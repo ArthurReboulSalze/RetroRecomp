@@ -146,7 +146,7 @@ M1 fragments without recursion (chains of 4,097 prefixes are tested), the delay 
 1 and 2, and the extra 5 T-states of a repeating `OTDR`. `BIT n,(HL)` is a read-only bus operation, because rewriting the byte is not
 harmless at the mapper registers at $FFFC-$FFFF. Interrupt requests are sampled as a level at the start of each step, and
 accepted after the instruction, the same contract in the reference and the banked engine on every reachable state (only the reference guards the sampling with IFF1: the two could differ after `RETN` or `RETI` with IFF1 = 0 and IFF2 = 1, which needs an NMI, and the Master System has none) (since 1.6.7 the acceptance itself is run against
-the reference on 720 states: [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-acceptance-of-an-interrupt-is-checked-state-by-state-167)). The VDP is synchronised at the
+the reference on 720 states: [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-acceptance-of-an-interrupt-is-checked-state-by-state-167)). The VDP is synchronised at the
 CPU time of each access. The corrections are made in generated copies by `retrorecomp/cpu.py` and `core.py`; the pinned
 checkout stays clean.
 
@@ -252,7 +252,7 @@ run.
 - [MEGADRIVE_LOG.md](MEGADRIVE_LOG.md#mega-drive-native-sound-cpu): the Mega Drive native sound CPU.
 - [NEOGEO_LOG.md](NEOGEO_LOG.md#reusing-the-existing-68000): the Neo Geo Z80 emitter and its guards.
 - [CPS1.md](CPS1.md): the CPS-1 sound CPU and its comparison with MAME.
-- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-164-lot-f): what the 1.6.4 "functions" engine
+- [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-the-functions-engine-164-lot-f): what the 1.6.4 "functions" engine
   fixes change for existing exports.
 - [UPSTREAMS.md](UPSTREAMS.md): pins, licence rule, patches carried.
 - [NEW_MACHINE.md](NEW_MACHINE.md#reuse-by-cpu) and [STANDARDS.md](STANDARDS.md): what a new Z80 machine reuses and must declare.

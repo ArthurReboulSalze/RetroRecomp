@@ -123,6 +123,34 @@ def unknown_hints(system: str, record: dict, *known: dict) -> int:
     return len(entries)
 
 
+def without_known(system: str, record: dict, *known: dict) -> dict | None:
+    """`record` cut down to the hints none of `known` holds for the same ROM: what an account upload carries (1.6.9).
+    The local base already sent the rest to the service; leaving it out keeps the uploads and the online database
+    small (a few confirmations of paths of a base not purged yet are given up, by the owner's choice of 5 November
+    2026: simple and light). None when nothing is left. The SPC references of the Super Nintendo and a Neo Geo record
+    travel whole: their parts are bound to each other."""
+    entries = _entries(system, record)
+    keep = set(entries)
+    for other in known:
+        if other and _same_rom(system, other, record):
+            keep -= _entries(system, other)
+    if not keep:
+        return None
+    if keep == entries or system == 'ng':
+        return record
+    module = schema3_module(system)
+    if module is not None:
+        return module.rebuild(record, keep)
+    from .snes_knowledge import SPC_FIELDS
+    if system == 'snes' and any(name == 'spc' for name, _ in entries - keep):
+        return record
+    out = dict(record)
+    for name in FIELDS.get(system, ()):
+        if name not in SPC_FIELDS and name in record:
+            out[name] = [entry for entry in record[name] if (name, tuple(entry)) in keep]
+    return out
+
+
 def adds_to(system: str, record: dict, known: dict) -> bool:
     """True when `record` holds a hint `known` lacks for the same compiler."""
     return unknown_hints(system, record, known) > 0
@@ -293,33 +321,37 @@ def _collect_neo_geo(game, report: dict | None, outcome: dict) -> None:
                                            'rom_entries': [], 'ram_refs': [], 'z80_refs': []}}
 
 
-def _collect_cps1(game, report: dict | None, outcome: dict) -> None:
-    """A CPS-1 game's contribution, counted in `outcome`. Its record is already numbers (offsets into the
-    program and sound images of the player's own romset), made by `cps1_conversion` from the fresh reference runs
-    of a conversion that passed, so no ROM is read here. It is shared only when the library's record is the one
-    the qualified report was built with: same romset, same images, same engine revision. The machine is
-    in the experimental tier of the base; the status label changes nothing here. A board of the experimental tier (the QSound
-    boards of the CPS-1.5, `board_tier` of its report) keeps its paths local until it leaves that tier."""
-    from . import cps1_knowledge
+def _collect_schema3(game, report: dict | None, outcome: dict) -> None:
+    """A schema 3-only machine's game (CPS-1, X68000), counted in `outcome`. Its record is already numbers (offsets into the
+    images of the player's own romset or disks), made by the machine's conversion from the fresh reference runs of a
+    conversion that passed, so no ROM is read here. It is shared only when the library's record is the one the qualified
+    report was built with: same images, same engine revision. These machines are in the experimental tier of the base; the
+    status label changes nothing here. A CPS-1 board of the experimental tier (the QSound boards of the CPS-1.5,
+    `board_tier` of its report) keeps its paths local until it leaves that tier."""
+    module = schema3_module(game.system)
     omitted = outcome['omitted']
     if not report or report.get('board_tier', 'supported') != 'supported':
         omitted['unqualified'] += 1
         return
-    record = cps1_knowledge.library_record(game.identity)
+    record = module.library_record(game.identity)
     made = (report.get('knowledge') or {}) if isinstance(report.get('knowledge'), dict) else {}
-    if (record is None or cps1_knowledge.record_engine(record) != cps1_knowledge.engine()
-            or made.get('record_sha256') != cps1_knowledge.record_digest(record)):
+    if (record is None or module.record_engine(record) != module.engine()
+            or made.get('record_sha256') != module.record_digest(record)):
         omitted['unqualified'] += 1
         return
-    found = unknown_hints('cps1', record, _bundled('cps1', game.identity))
+    found = unknown_hints(game.system, record, _bundled(game.system, game.identity))
     if found:
         outcome.update(record=record, found=found, level=str(report.get('scan_level') or 'standard'))
     else:
         omitted['already_known'] += 1
         from .compiled_games import report_level
         # The record without paths that stands for a conversion with nothing new.
-        outcome['converted'] = {'engine': cps1_knowledge.record_engine(record), 'level': report_level(report),
-                                'record': cps1_knowledge.rebuild(record, set())}
+        outcome['converted'] = {'engine': module.record_engine(record), 'level': report_level(report),
+                                'record': module.rebuild(record, set())}
+
+
+# The name the CPS-1 tests and documents know it by.
+_collect_cps1 = _collect_schema3
 
 
 def collect_knowledge(games, locate=None, context: str = '', progress=None) -> dict:
@@ -364,7 +396,7 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
         if game.system == 'ng':
             _collect_neo_geo(game, qualified.get(key), outcome)
         elif schema3_module(game.system) is not None:
-            _collect_cps1(game, qualified.get(key), outcome)
+            _collect_schema3(game, qualified.get(key), outcome)
         elif key not in qualified and not raw:
             outcome['omitted']['unqualified'] += 1
         else:

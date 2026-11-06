@@ -40,6 +40,7 @@ class MasterSystemProfile(SystemProfile):
     id = "sms"
     name = "Master System"
     extensions = (".sms",)
+    archived_rom_limits = (('.sms', 4 * 1024 * 1024 + 512),)
     export_folder = "Master System"
     video_modes = ("ntsc", "pal")
     cpus = (Cpu("z80", "main", "cycles"),)
@@ -94,6 +95,14 @@ REFERENCE_CHECKS = ('reference_vdp_trace_match', 'reference_final_vdp_match',
                     'reference_final_ram_match', 'reference_final_png_match')
 
 
+def _describe_devices(system, path: Path, destination: Path) -> None:
+    """Add the devices and the instruction counts to the report the conversion wrote (gate G2, `sega_evidence.enrich_report`)."""
+    from ..sega_evidence import enrich_report
+    report = destination / 'conversion-report.json'
+    if report.is_file():
+        enrich_report(report, system.id, system.read_rom(path).data)
+
+
 def convert_checked(system, path: Path, **options) -> Path:
     """Master System / Game Gear conversion. With the functions backend,
     imported hints from other players are not used (its function entries are
@@ -102,7 +111,9 @@ def convert_checked(system, path: Path, **options) -> Path:
     the previous export stays, as with banked."""
     from ..core import ConversionError, convert, executable_name
     if options.get('backend', 'banked') != 'functions' or options.get('output') is None:
-        return convert(path, **options)
+        result = convert(path, **options)
+        _describe_devices(system, path, Path(options['output']) if options.get('output') else Path(result).parent)
+        return result
     from .. import knowledge
     from ..publishing import publish_executable
     identity = (system.id, system.read_rom(path).sha256)
@@ -117,6 +128,7 @@ def convert_checked(system, path: Path, **options) -> Path:
         with knowledge.imported_set_aside(*identity):
             executable = convert(path, publish_result=False, **options)
     destination = Path(options['output']).resolve()
+    _describe_devices(system, path, destination)
     report = json.loads((destination / 'conversion-report.json').read_text(encoding='utf-8'))
     differences = [name[len('reference_'):] for name in REFERENCE_CHECKS if report.get(name) is not True]
     if differences:

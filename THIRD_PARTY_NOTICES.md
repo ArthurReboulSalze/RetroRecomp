@@ -42,7 +42,7 @@ RetroRecomp's MIT license does not remove those limitations.
 
 ## Game toolchain and validation
 
-### Experimental X68000 research
+### Sharp X68000 runtime
 
 The X68000 runtime is built from hissorii/px68k at
 `74ddbb37b4e12b77362a4e12f28ceb5aaa593684` (2014): Kenjo's WinX68k/Keropi
@@ -82,9 +82,11 @@ shipped; you supply your own IPL and font ROM.
 | Geolith (Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
 | lithogen and the ROM-free Neo Geo layout catalogue | BSD-3-Clause; Rupert Carmichael and attributed MAME contributors | [Full text and attribution](licenses/lithogen.md) |
 | Musashi MC680x0 core (Geolith copy; Neo Geo and X68000) | MIT, Karl Stenerud; `m68kmmu.h` BSD-3-Clause | [Full text](licenses/musashi.md) |
-| Sharp X68000 machine (hissorii/px68k `74ddbb3`; experimental, fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
-| Capcom CPS-1 board catalogue, DIP switches and machine runtime (adapted from MAME's CPS-1 driver and OKI MSM6295 at `61a2229`) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner and MAME contributors | [Full text](licenses/cps1-machine.md) |
+| Sharp X68000 machine (hissorii/px68k `74ddbb3`; fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
+| Capcom CPS-1 and CPS-2 board catalogues, DIP switches, opcode decryption and machine runtime (adapted from MAME's CPS-1 and CPS-2 drivers, `cps2crypt.cpp` and OKI MSM6295 at `61a2229`; the CPS-2 keys are read from the player's own romset and never supplied) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner, Andreas Naive, Nicola Salmoria, Charles MacDonald and MAME contributors | [Full text](licenses/cps1-machine.md) |
 | ymfm YM2151 (OPM) in the CPS-1 runtime | BSD-3-Clause; Aaron Giles | [Full text](licenses/cps1-ymfm.md) |
+| rages4calm/pcenginerecomp at `81b5c231e452` (PC Engine analysis, emitter and runtime; fetched at its pinned revision on first conversion and compiled into each PC Engine game) | MIT; copyright Carl Prewitt Jr. and PC Engine Recomp contributors, with the BSD terms of the MAME HuC6280 opcode table and the MIT notice of David Shadoff's PCECD_seek | [Notices](licenses/pcenginerecomp.md) |
+| mstan/gbarecomp at `c1a5fda36fb4` (Game Boy Advance recompiler and machine runtime) and its submodule mstan/arm-recomp-core at `63dd32dd210a` (ARM and Thumb decoder, IR, interpreter and emitter); fetched at their pinned revisions on first conversion and compiled into each Game Boy Advance game, with the player's own BIOS | gbarecomp: PolyForm Noncommercial 1.0.0; copyright Matthew Stanley; the project owner reports the author's permission for this use, as for the other mstan engines. Its two files derived from mGBA (MPL-2.0, `bios_hle.*`) are not used. arm-recomp-core: MIT; copyright Matthew Stanley | [Full text and MIT notice](licenses/gbarecomp.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.

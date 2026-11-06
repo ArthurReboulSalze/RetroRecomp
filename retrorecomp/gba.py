@@ -91,8 +91,8 @@ def parse_header(data: bytes) -> dict:
 def _rom_from_zip(path: Path) -> bytes:
     """The one `.gba` member of a ZIP, read without extracting it beside the source.
 
-    The shared reader of cartridges in ZIPs (`systems.archive_rom`) is limited to the extensions of
-    `systems.MAX_ARCHIVED_ROM_BYTES`; `.gba` joins that table when the maintainer takes the one edit that moves every game stamp."""
+    The profile declares the same limit (`SystemProfile.archived_rom_limits`), so the shared reader of cartridges in ZIPs
+    (`systems.archive_rom`) knows `.gba` too; this reader keeps the exact member rule of the machine (one `.gba`)."""
     try:
         with ZipFile(path) as archive:
             members = [entry for entry in archive.infolist()
@@ -164,9 +164,13 @@ def bios_status(value) -> str:
     return 'known' if len(data) == BIOS_BYTES and hashlib.sha1(data).hexdigest() == KNOWN_BIOS_SHA1 else 'unknown'
 
 
-def developer_available() -> bool:
-    """True when this installation carries the Game Boy Advance converter files.
+# What a Game Boy Advance conversion needs from the installation itself (the engine's sources are fetched at their pinned
+# revision on the first conversion, like the other machines' dependencies; the cartridge and the BIOS come from the player).
+CONVERTER_FILES = ('native/gba_driver.h', 'native/gba_machine.cpp', 'native/gba_machine.h',
+                   'native/hostkit/adapters/rrhk_gba.c')
 
-    Stage 2 of the profile: nothing converts yet, so no installation does. The conversion files will be listed here
-    (the engine itself is fetched at its pinned revision on first conversion, like the other machines')."""
-    return False
+
+def converter_available() -> bool:
+    """True when this installation carries the Game Boy Advance converter's own native files."""
+    from .paths import ASSETS
+    return all((ASSETS / name).is_file() for name in CONVERTER_FILES)

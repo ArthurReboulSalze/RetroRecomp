@@ -1,8 +1,8 @@
-"""Game Boy Advance profile (experimental: see docs/GAME_BOY_ADVANCE.md).
+"""Game Boy Advance profile (experimental, opened in 1.7.0: see docs/GAME_BOY_ADVANCE.md).
 
-Stage 2 of the machine: the profile, the cartridge reader and the report writer exist, nothing converts. The machine
-is a developer-only profile until it does (like the X68000 before its files shipped): the window and the batch do not
-list it, and a `.gba` file says so instead of being called an unknown console.
+Route A: the pinned engine `mstan/gbarecomp` (PolyForm Noncommercial, with the author's permission) and the player's own BIOS.
+The machine is listed when the installation carries the converter's native files (`available()`); a `.gba` file is refused as
+an unknown console only when those files are missing. A converted game holds code derived from the player's BIOS and stays private.
 """
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ class GameBoyAdvanceProfile(SystemProfile):
     id = 'gba'
     name = 'Game Boy Advance'
     extensions = ('.gba',)
+    # A cartridge is at most 32 MiB; a ZIP may hold one (the shared reader of cartridges in ZIPs reads this table).
+    archived_rom_limits = (('.gba', 32 * 1024 * 1024),)
     export_folder = 'Game Boy Advance'
     video_modes = ('agb',)
     status = 'experimental'
@@ -35,13 +37,12 @@ class GameBoyAdvanceProfile(SystemProfile):
     host_adapter = "adapters/rrhk_gba.c"
     capabilities = Capabilities(battery=True)
     linux = 'pending'
-    feedback_kinds = frozenset({18})
+    feedback_kinds = frozenset({21})
     default_frames = 3600
     quick_frames = 1800
     fallback_display = 'opcodes'
     option_keys = (OptionKey('gba_bios', signature=False, kind='path', label='gba_bios'),)
-    developer_only = True
-    path_spec = PathSpec(order=9, sections=(('arm7tdmi', 'gba'),),
+    path_spec = PathSpec(order=11, sections=(('arm7tdmi', 'gba'),),
                          source_bounds=(('rom', (0xC0, 32 * 1024 * 1024)),),
                          required_sources=('rom',), hashed_sources=('rom',),
                          shapes=(('arm7tdmi', 'gba', dict(roles=('rom',), caps={'phys': 262144, 'span': 4096},
@@ -59,8 +60,8 @@ class GameBoyAdvanceProfile(SystemProfile):
     identify = Identify(path_order=50)
 
     def available(self) -> bool:
-        from ..gba import developer_available
-        return developer_available()
+        from ..gba import converter_available
+        return converter_available()
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix == '.zip':

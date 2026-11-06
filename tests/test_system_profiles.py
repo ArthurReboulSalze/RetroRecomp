@@ -113,7 +113,7 @@ class ProfileDataTests(unittest.TestCase):
         statuses = {system: status for system, status in statuses.items() if system in IDS}
         self.assertEqual(statuses, {'sms': 'supported', 'gg': 'supported', 'gb': 'supported', 'nes': 'supported',
                                     'md': 'supported', 'snes': 'supported', 'ng': 'supported',
-                                    'cps1': 'supported', 'x68': 'experimental'})
+                                    'cps1': 'supported', 'x68': 'supported'})
         for profile in ALL_PROFILES:
             self.assertIn(profile.status, STATUSES)
             # Read-only compatibility with the former attribute.
@@ -224,7 +224,7 @@ class ProfileContractTests(unittest.TestCase):
                 if catalogues.local_catalogue:
                     self.assertIn(catalogues.local_catalogue, stamp_inputs.RAW_FILES)
                     self.assertTrue((REPO / catalogues.local_catalogue).is_file())
-        self.assertEqual({p.id for p in ALL_PROFILES if p.catalogues.local_catalogue}, {'ng', 'cps1'})
+        self.assertEqual({p.id for p in ALL_PROFILES if p.catalogues.local_catalogue}, {'ng', 'cps1', 'cps2'})
 
     def test_library_layout_equals_the_library_root_and_the_memory_window(self):
         import os
@@ -283,14 +283,23 @@ class ProfileContractTests(unittest.TestCase):
                              if p.shared_knowledge and p.shared_knowledge.tier == tier)
                  for tier in ('stable', 'experimental')}
         self.assertEqual(tiers['stable'], path_profiles.STABLE_SHARED)
-        self.assertEqual(tiers['experimental'], path_profiles.EXPERIMENTAL_SHARED)
-        self.assertEqual(tiers['stable'] + tiers['experimental'], path_profiles.SHARED_SYSTEMS)
+        self.assertEqual(sorted(tiers['experimental']), sorted(path_profiles.EXPERIMENTAL_SHARED))
+        self.assertEqual(sorted(tiers['stable'] + tiers['experimental']), sorted(path_profiles.SHARED_SYSTEMS))
         self.assertEqual(tiers['stable'], compiled_games_view.SHARED_CONSOLES)
         self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.site_builder),
                          knowledge_build.SYSTEMS)
-        self.assertEqual(tuple(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
-                         path_profiles.WITHDRAWABLE)
-        self.assertIsNone(get_profile('x68').shared_knowledge)
+        self.assertEqual(sorted(p.id for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.withdrawable),
+                         sorted(path_profiles.WITHDRAWABLE))
+        self.assertEqual(get_profile('x68').shared_knowledge.tier, 'experimental')
+
+    def test_only_the_x68000_declines_the_quick_check_from_shared_paths(self):
+        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the X68000, whose
+        # input routes (mouse, keyboard) are found by replaying them and are not carried by the shared paths.
+        declined = {p.id for p in ALL_PROFILES if p.shared_knowledge and not p.shared_knowledge.quick_check_from_shared}
+        self.assertEqual(declined, {'x68'})
+        for profile in ALL_PROFILES:
+            if profile.shared_knowledge and profile.id != 'x68':
+                self.assertIs(profile.shared_knowledge.quick_check_from_shared, True, profile.id)
 
     def test_host_adapter_equals_the_host_kit_table(self):
         from retrorecomp import hostkit
@@ -329,13 +338,13 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_identification_orders_follow_the_documented_priority(self):
         from retrorecomp.systems import registry
-        self.assertEqual([p.id for p in registry.path_stage() if p.id in IDS or p.id == 'x68'], ['x68', 'cps1', 'ng'])
+        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'cps2', 'ng', 'gba'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
         self.assertEqual(tuple(p.id for p in registry.convertible_profiles()[-1:]),
-                         ('x68',) if get_profile('x68').available() else ('cps1',))
+                         ('x68',) if get_profile('x68').available() else ('cps2',))
 
 
 class ConvertedOptionsTests(unittest.TestCase):

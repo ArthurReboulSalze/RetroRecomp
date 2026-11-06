@@ -12,7 +12,7 @@ from retrorecomp import (batch, compilation_inputs, gba, gba_conversion, path_pr
                          upstreams)
 from retrorecomp.core import ConversionError
 from retrorecomp.i18n import STRINGS, catalog
-from retrorecomp.systems import (ALL_PROFILES, ConsoleMismatchError, UnsupportedConsoleError, find_profile,
+from retrorecomp.systems import (ALL_PROFILES, PROFILES, ConsoleMismatchError, UnsupportedConsoleError, find_profile,
                                  get_profile, profile_for_path, system_ids)
 
 
@@ -102,39 +102,41 @@ class ProfileTests(unittest.TestCase):
         self.path = Path(self.folder.name) / 'Authored (World).gba'
         self.path.write_bytes(synthetic_cartridge(save=b'EEPROM_V124'))
 
-    def test_the_profile_is_registered_experimental_and_developer_only(self):
+    def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
         profile = get_profile('gba')
         self.assertIn(profile, ALL_PROFILES)
-        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('experimental', True, 'pending'))
+        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('experimental', False, 'pending'))
+        self.assertIn(profile, PROFILES)
+        self.assertEqual(profile.archived_rom_limits, (('.gba', 32 * 1024 * 1024),))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in profile.cpus], [('arm7tdmi', 'main', 'instructions')])
         self.assertEqual(profile.firmware, ('bios',))
-        self.assertFalse(profile.available())
+        self.assertTrue(profile.available())          # this checkout carries the native files
 
     def test_an_installation_without_the_files_says_so_instead_of_unknown_console(self):
-        with self.assertRaises(UnsupportedConsoleError) as caught:
+        with patch('retrorecomp.gba.converter_available', return_value=False), self.assertRaises(UnsupportedConsoleError) as caught:
             profile_for_path(self.path)
         self.assertIn('unavailable', str(caught.exception))
-        item = batch.identify(self.path)
+        with patch('retrorecomp.gba.converter_available', return_value=False):
+            item = batch.identify(self.path)
         self.assertTrue(item.error)
 
     def test_a_cartridge_is_identified_by_every_entry_point_when_the_machine_is_available(self):
-        with patch('retrorecomp.gba.developer_available', return_value=True):
-            self.assertEqual(profile_for_path(self.path).id, 'gba')
-            self.assertEqual(profile_for_path(self.path, 'gba').id, 'gba')
-            with self.assertRaises(ConsoleMismatchError):
-                profile_for_path(self.path, 'sms')
-            item = batch.identify(self.path)
-            self.assertEqual((item.system, item.title, item.error), ('gba', 'Authored', ''))
-            archive = self.path.with_suffix('.zip')
-            with zipfile.ZipFile(archive, 'w') as out:
-                out.writestr('Authored (World).gba', synthetic_cartridge())
-            self.assertEqual(profile_for_path(archive).id, 'gba')
-            # A ZIP of another machine is not claimed.
-            other = self.path.parent / 'Other.zip'
-            with zipfile.ZipFile(other, 'w') as out:
-                out.writestr('readme.txt', b'no cartridge')
-            with self.assertRaises(UnsupportedConsoleError):
-                profile_for_path(other)
+        self.assertEqual(profile_for_path(self.path).id, 'gba')
+        self.assertEqual(profile_for_path(self.path, 'gba').id, 'gba')
+        with self.assertRaises(ConsoleMismatchError):
+            profile_for_path(self.path, 'sms')
+        item = batch.identify(self.path)
+        self.assertEqual((item.system, item.title, item.error), ('gba', 'Authored', ''))
+        archive = self.path.with_suffix('.zip')
+        with zipfile.ZipFile(archive, 'w') as out:
+            out.writestr('Authored (World).gba', synthetic_cartridge())
+        self.assertEqual(profile_for_path(archive).id, 'gba')
+        # A ZIP of another machine is not claimed.
+        other = self.path.parent / 'Other.zip'
+        with zipfile.ZipFile(other, 'w') as out:
+            out.writestr('readme.txt', b'no cartridge')
+        with self.assertRaises(UnsupportedConsoleError):
+            profile_for_path(other)
 
     def test_a_conversion_without_the_players_bios_says_what_is_missing(self):
         with self.assertRaises(ConversionError) as caught:

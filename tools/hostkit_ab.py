@@ -549,6 +549,7 @@ def x68_script(kind: str) -> str:
                hosts must agree to the bit.
     autofire   F6 and Ctrl+Alt+F, a held button, the bound key and the second player's pad (decision D4: the common rule).
     keyboard   the guest keyboard (Ctrl+Alt+K): keys, function keys and Escape reach the guest, the host keys do not.
+    keyrow     the same switch from the F2 options row, back with Ctrl+Alt+O, and the choice kept in player.cfg.
     mouse      a click captures the mouse, Ctrl+Alt+M releases it, motion and buttons are handed on.
     states     F9 with no state, F8, F9: the machine resumes what followed the save (read the trace).
     ui         help and its second page, every F2 page and the options in the five languages, pause, rebinding, clearing,
@@ -593,6 +594,19 @@ def x68_script(kind: str) -> str:
         s.say('press K ctrlalt', 4)
         for key in ('W', 'X', 'F8', 'F9'):
             s.hold(key, 4)
+    elif kind == 'keyrow':
+        # The F2 row Keyboard (1.6.9): the options page is the last of five, the row the fifth (F3, F4, F6, F7, Keyboard).
+        # Enter hands the keyboard to the computer: W, X and Enter then reach the guest, not the pad. F2 itself belongs to
+        # the guest in that mode, so Ctrl+Alt+O opens the options to give the keyboard back; player.cfg keeps the choice.
+        s.tap('F2', 4).jump('Right', 4).say('capture keyrow-game.bmp', 2)
+        s.jump('Down', 4).tap('Return', 4).say('capture keyrow-computer.bmp', 2).tap('Escape', 4)
+        for key in ('W', 'X', 'Return'):
+            s.hold(key, 4)
+        s.say('press O ctrlalt', 4).say('capture keyrow-reopened.bmp', 2).tap('Return', 4)
+        s.say('capture keyrow-back.bmp', 2).tap('Escape', 4)
+        for key in ('W', 'X'):
+            s.hold(key, 4)
+        s.say('press K ctrlalt', 4)
     elif kind == 'mouse':
         s.say('attach 0', 3).say('mouse 300 200 0', 4).say('click', 4).say('mouse 330 190 0', 4).say('mouse 340 180 1', 4)
         s.say('mouse 340 180 0', 4).say('mouse 300 200 2', 4).say('mouse 300 200 0', 4)
@@ -985,7 +999,7 @@ def main() -> int:
     p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb')); p.add_argument('out', type=Path)
     p.add_argument('--gb', choices=('play', 'opposite', 'autofire', 'states', 'load', 'ui'), default='play', help='the Game Boy script to write')
     p.add_argument('--sms', choices=('play', 'autofire', 'states', 'ui'), default='play', help='the Master System / Game Gear script to write')
-    p.add_argument('--x68', choices=('play', 'autofire', 'keyboard', 'mouse', 'ui', 'states'), default='play', help='the X68000 script to write')
+    p.add_argument('--x68', choices=('play', 'autofire', 'keyboard', 'keyrow', 'mouse', 'ui', 'states'), default='play', help='the X68000 script to write')
     p.add_argument('--shift', type=int, default=0, help='X68000: add this to every iteration (the former host presents nothing for its first frame, the kit does)')
     p.add_argument('--players', type=int, default=2); p.add_argument('--gun', action='store_true')
     p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (for hosts built before the Linux fix of game_options.h)')

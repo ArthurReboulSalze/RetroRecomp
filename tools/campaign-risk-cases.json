@@ -56,11 +56,25 @@
       {"title": "Strider", "set": "strider", "category": "mame-compared", "reason": "Compared with MAME 0.289 pixel for pixel on attract and credited play", "source": "docs/CPS1.md"},
       {"title": "Warriors of Fate", "set": "wof", "category": "qsound", "reason": "QSound board (CPS-1.5): Kabuki-encrypted Z80, serial EEPROM, QSound (high-level model) from the player's own DSP ROM; the experimental tier, its reports say so", "source": "docs/CPS1.md"}
     ],
+    "cps2": [
+      {"title": "Super Street Fighter II: The New Challengers", "set": "ssf2", "category": "raster", "reason": "Raster interrupt in its attract demonstration from frame 6,818; six buttons", "source": "docs/CPS2.md"},
+      {"title": "Dungeons & Dragons: Tower of Doom", "set": "ddtod", "category": "four-players", "reason": "Four players on a blank EEPROM; the only panel set above two players", "source": "docs/CPS2.md"},
+      {"title": "Dungeons & Dragons: Shadow over Mystara", "set": "ddsom", "category": "four-players", "reason": "Starts as a two-player board on a blank EEPROM: players 3 and 4 need the service switch and the test menu", "source": "docs/CPS2.md"},
+      {"title": "Marvel Super Heroes", "set": "msh", "category": "sound-bank", "reason": "Selects a QSound sound bank above 5, which the quick-state loader once refused", "source": "docs/CPS2.md"},
+      {"title": "Mars Matrix", "set": "mmatrix", "category": "timing", "reason": "Reads the raster counter next to a line boundary: its title animation runs one frame ahead of MAME's for frames 775 to 783", "source": "docs/CPS2.md"}
+    ],
     "x68": [
       {"title": "R-Type (Irem)", "category": "single-disk", "reason": "Single-disk control case", "source": "docs/X68000.md"},
       {"title": "Metal Sight (System Sacom)", "category": "disk-changes", "reason": "Five-disk set whose disk changes follow the game's own requests", "source": "docs/X68000.md"},
       {"title": "Lemmings (Imagineer)", "category": "mouse", "reason": "Mouse game that drives the SCC mouse channel itself", "source": "docs/X68000.md"},
       {"title": "Super Hang-On", "category": "disk-eject", "reason": "Two-disk set that ejects its disks after loading; must run exactly as without the policy", "source": "docs/X68000.md", "prefix": true}
+    ],
+    "pce": [
+      {"title": "Bonk's Adventure", "category": "regression-baseline", "reason": "Control case: 0 interpreted instructions on its routes; the play route needs two Run presses because a third pauses the game", "source": "docs/PC_ENGINE.md"},
+      {"title": "Street Fighter II' - Champion Edition", "category": "identity-bound", "reason": "2.5 MiB board with 466 bank contexts: reaches the engine's 65,536-identity bound, so it stays partly native and the report counts the rest", "source": "docs/PC_ENGINE.md"},
+      {"title": "Bomberman '93", "category": "four-players", "reason": "Multitap game: a converted game is built for two players (the help text says so), the four-seat build is not offered and neither is the fifth multitap player", "source": "docs/PC_ENGINE.md"},
+      {"title": "Dai Makaimura", "category": "supergrafx-refusal", "expect": "refusal", "reason": "SuperGrafx game: one video chip only shows no picture, so the conversion must refuse it", "source": "docs/PC_ENGINE.md"},
+      {"title": "Space Harrier", "category": "attract-no-input", "reason": "Attract loop with no input stops changing after a few frames; the play route must still move", "source": "docs/PC_ENGINE.md"}
     ]
   }
 }

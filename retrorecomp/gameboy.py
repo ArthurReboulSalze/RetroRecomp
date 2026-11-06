@@ -456,13 +456,13 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                      + check['highmem_stub_instructions'])
             emit(f"Game Boy {scenario.name}: {check['interpreter_cycles']} fallback cycles, "
                  f"{check['fallback_sites']} sites in {frames} tested frames"
-                 + (f"; {steps} WRAM/HRAM/high-memory instructions executed one by one (counted apart)." if steps else "."))
+                 + (f"; {steps} WRAM/HRAM and 0xFF00-0xFF7F instructions executed one by one (counted apart)." if steps else "."))
         write_entries(trace_out, observed_entries)
         if all(check['interpreter_cycles'] == 0 for check in final_checks):
             steps = max(check['ram_stub_instructions'] + check['ram_single_step_instructions']
                         + check['highmem_stub_instructions'] for check in final_checks)
             emit('Game Boy: zero interpreter cycles across all tested scenarios'
-                 + (f", but up to {steps} WRAM/HRAM/high-memory instructions per scenario run one by one: "
+                 + (f", but up to {steps} WRAM/HRAM and 0xFF00-0xFF7F instructions per scenario run one by one: "
                     "native ROM code is not the whole story here." if steps else "."))
             break
         if number == passes:

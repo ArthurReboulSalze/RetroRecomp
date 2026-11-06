@@ -57,6 +57,19 @@ def read_matrix(text: str) -> tuple[list[str], dict[str, dict[str, str]]]:
     return ids, {row[0]: dict(zip(ids, row[1:])) for row in rows}
 
 
+def read_pages(text: str) -> dict[str, str]:
+    """{console id: file name of its page under docs/} from the "| Console | Page |" table below the matrix in letters."""
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith('| Console | Page |'))
+    pages = {}
+    for line in lines[start + 2:]:
+        if not line.startswith('| '):
+            break
+        console, link = (cell.strip() for cell in line.strip().strip('|').split('|'))
+        pages[console] = link[link.index('](') + 2:link.rindex(')')]
+    return pages
+
+
 def read_short_names(text: str) -> dict[str, str]:
     """{gate: short name} from the third column of the "Gates" table."""
     header, rows = _rows(text, '| # | Gate |')
@@ -126,14 +139,15 @@ def render(text: str) -> str:
 
 
 def short(text: str) -> str:
-    """The short form for the README: a sentence, then one line per console."""
-    lines = ['**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a partial one),',
-             f'drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five measures, and it never',
-             "decides a status: leaving the experimental status is the owner's own decision.",
-             '',
-             '| Console | Status | Qualification progress |', '| --- | --- | --- |']
+    """The short form for the README: one line per console (linked to its page), its status and its bar, then a sentence."""
+    pages = read_pages(text)
+    lines = ['| Console | Status | Qualification progress |', '| --- | --- | --- |']
     for row in gauges(text):
-        lines.append(f"| {row['name']} | {row['status']} | `{row['bar']}` {row['percent']} % |")
+        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}) | {row['status']} | `{row['bar']}` {row['percent']} % |")
+    lines += ['',
+              '**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a',
+              f'partial one), drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five',
+              "measures, and it never decides a status: leaving the experimental status is the owner's own decision."]
     return '\n'.join(lines)
 
 

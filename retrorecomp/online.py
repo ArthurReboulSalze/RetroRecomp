@@ -921,19 +921,28 @@ def _with_conversions(restricted: dict, collected: dict) -> dict:
 
 
 def _restrict(collected: dict, keys: set) -> dict:
-    """`collected` limited to the games `keys` ('system:identity') name."""
-    from .knowledge_exchange import _bundled, unknown_hints
+    """`collected` limited to the games `keys` ('system:identity') name. Each record carries only the paths the
+    local base does not hold (`without_known`, 1.6.9); a game left with nothing new travels no record."""
+    from .knowledge_exchange import _bundled, unknown_hints, without_known
     consoles, observations, titles, discoveries = {}, {}, {}, 0
+    nothing_new = set()   # games whose record the local base holds whole since it was counted
     for system, records in collected['payload'].get('consoles', {}).items():
         for identity, record in records.items():
             if f'{system}:{identity}' in keys:
-                consoles.setdefault(system, {})[identity] = record
-                discoveries += unknown_hints(system, record, _bundled(system, identity))
+                known = _bundled(system, identity)
+                discoveries += unknown_hints(system, record, known)
+                record = without_known(system, record, known)
+                if record is None:
+                    nothing_new.add(f'{system}:{identity}')
+                else:
+                    consoles.setdefault(system, {})[identity] = record
     for system, games in collected.get('observations', {}).items():
         for identity, rows in games.items():
             if f'{system}:{identity}' in keys:
                 observations.setdefault(system, {})[identity] = rows
                 discoveries += len(rows)
+                nothing_new.discard(f'{system}:{identity}')
+    keys = set(keys) - nothing_new
     for system, names in collected.get('titles', {}).items():
         for identity, title in names.items():
             if f'{system}:{identity}' in keys:

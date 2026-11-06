@@ -208,6 +208,21 @@ class ExtensionSetTests(unittest.TestCase):
                     self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
         self.assertEqual([profile.id for profile in ALL_PROFILES if '.d88' in profile.extensions], ['x68'])
 
+    def test_the_archive_limits_come_from_the_profiles_and_keep_the_values_of_the_table_they_replace(self):
+        # Until 1.6.8 a literal table in systems/__init__.py; each machine now declares its own (archived_rom_limits),
+        # so a new machine moves no other machine's stamp. The nine keep exactly what they had.
+        mib = 1024 * 1024
+        before = {'.sms': 4 * mib + 512, '.gg': 4 * mib + 512, '.gb': 8 * mib, '.nes': 128 * mib + 528, '.md': 8 * mib,
+                  '.gen': 8 * mib, '.sfc': 8 * mib + 512, '.smc': 8 * mib + 512, '.fig': 8 * mib + 512,
+                  '.bin': 8 * mib, '.rom': 8 * mib}
+        limits = systems.MAX_ARCHIVED_ROM_BYTES
+        self.assertEqual({key: limits[key] for key in before}, before)
+        declared = {extension for profile in ALL_PROFILES for extension, _ in profile.archived_rom_limits}
+        self.assertEqual(set(limits), declared | set(systems.GENERIC_ARCHIVED_ROM_BYTES))
+        for profile in ALL_PROFILES:
+            self.assertLessEqual({extension for extension, _ in profile.archived_rom_limits}, set(profile.extensions),
+                                 profile.id)
+
 
 # --- the detection table ----------------------------------------------------------------------------
 
@@ -302,7 +317,7 @@ class DetectionTableTests(unittest.TestCase):
                 'gb.bin': gb_rom(), 'gb-72banks.bin': gb_rom(size_code=0x52), 'gb-badsum.bin': gb_rom(bad_checksum=True),
                 'zeros.bin': bytes(0x8000), 'tiny.bin': b'abc', 'disk.dim': bytes(1024), 'disk.xdf': bytes(1024),
                 'disk.m3u': bytes(64), 'good.neo': neo_file(), 'bad.neo': neo_file(bad=True),
-                'foreign.gba': bytes(0x8000), 'foreign': bytes(0x8000), 'z-corrupt.zip': b'PK\x03\x04 not a zip'}.items():
+                'foreign.a26': bytes(0x8000), 'foreign': bytes(0x8000), 'z-corrupt.zip': b'PK\x03\x04 not a zip'}.items():
             write(name, data)
         zipped(cls.root / 'z-sms.zip', [('game.sms', sms_rom(region=0))])
         zipped(cls.root / 'z-gg.zip', [('game.gg', sms_rom(region=4))])
@@ -363,8 +378,8 @@ class DetectionTableTests(unittest.TestCase):
         ('z-bin-zeros.zip', None, UnsupportedConsoleError), ('z-text.zip', None, UnsupportedConsoleError),
         ('z-two.zip', None, ValueError), ('z-corrupt.zip', None, ValueError),
         # foreign files
-        ('foreign.gba', None, UnsupportedConsoleError), ('foreign', None, UnsupportedConsoleError),
-        ('foreign.gba', 'md', UnsupportedConsoleError),
+        ('foreign.a26', None, UnsupportedConsoleError), ('foreign', None, UnsupportedConsoleError),
+        ('foreign.a26', 'md', UnsupportedConsoleError),
     )
 
     def outcome(self, name, selected):
@@ -399,7 +414,8 @@ class DetectionTableTests(unittest.TestCase):
                 self.assertIs(type(caught.exception), UnsupportedConsoleError)
                 self.assertIn('unavailable in this installation', str(caught.exception))
             self.assertEqual(systems.get_profile('x68').id, 'x68')  # still readable for an existing export
-        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['x68'])
+        # No console of the list is experimental any more (the X68000 left it in 1.6.9).
+        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], [])
 
     def test_the_documented_orders_of_the_lists_are_kept(self):
         self.assertEqual(systems.system_ids()[:len(CONSOLES)], CONSOLES)

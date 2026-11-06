@@ -122,6 +122,12 @@ SNESRECOMP = Upstream(
     'PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences',
     'the 65816 interpreter, SPC700/DSP core and runner/ (runtime and adapters); the analyser is not used',
     Pin('dict', 'retrorecomp/console16.py', 'REPOSITORIES', 'snes', 1), checkout='snesrecomp')
+PCENGINERECOMP = Upstream(
+    'pcenginerecomp', 'rages4calm/pcenginerecomp', 'main',
+    'PC Engine HuC6280 recompiler (Python analysis and emitter) and C++ runtime', 'MIT (with the BSD MAME opcode notice and '
+    'the MIT PCECD_seek notice it carries: licenses/pcenginerecomp.md)',
+    'the Python analysis and emitter and the C++ pce-runtime, fetched at the pin when a conversion needs them (no copy in the repository)',
+    _py('retrorecomp/pce_conversion.py', 'ENGINE_REV'), checkout='pcenginerecomp')
 GEOLITH = Upstream(
     'geolith-libretro', 'libretro/geolith-libretro', 'master',
     'Neo Geo hardware runtime; its Musashi 68000 is the reference CPU of Neo Geo, CPS-1 and X68000', 'BSD-3-Clause',
@@ -139,8 +145,9 @@ YMFM = Upstream(
 MAME = Upstream(
     'mame', 'mamedev/mame', 'master', 'CPS-1 board catalogue, Kabuki keys, QSound model, EEPROM and OKI MSM6295, adapted from the driver', 'BSD-3-Clause',
     'no code is built from the checkout; the ROM-free CPS-1 catalogue, the Kabuki decryption, the QSound and EEPROM models and the OKI model are adapted from it',
-    _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/build_cps1_catalogue.py', 'MAME_REVISION'),),
+    _py('retrorecomp/cps1_catalogue.py', 'MAME_REVISION'), also=(_py('tools/mame_driver_parse.py', 'MAME_REVISION'), _py('retrorecomp/cps2_catalogue.py', 'MAME_REVISION')),
     watch=('src/mame/capcom/cps1.cpp', 'src/mame/capcom/cps1_v.cpp', 'src/mame/capcom/cps1.h',
+           'src/mame/capcom/cps2.cpp', 'src/mame/capcom/cps2crypt.cpp',
            'src/devices/sound/okim6295.cpp', 'src/mame/capcom/kabuki.cpp', 'src/devices/sound/qsoundhle.cpp',
            'src/devices/sound/qsoundhle.h', 'src/devices/machine/eepromser.cpp', 'src/devices/machine/eeprom.cpp'))
 GBARECOMP = Upstream(
@@ -226,8 +233,10 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'snes': (SNESRECOMP,),
     'ng': (GEOLITH, LITHOGEN, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
+    'cps2': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
     'gba': (GBARECOMP, ARM_RECOMP_CORE),
+    'pce': (PCENGINERECOMP,),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

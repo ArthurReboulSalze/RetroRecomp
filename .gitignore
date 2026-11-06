@@ -93,6 +93,7 @@ docs/*
 !docs/NES.md
 !docs/NEOGEO.md
 !docs/CPS1.md
+!docs/CPS2.md
 !docs/SNES.md
 !docs/SNES_SUPERFX.md
 !docs/CONSOLES_16BIT.md
@@ -109,6 +110,7 @@ docs/*
 !docs/RELEASE_NOTES.md
 !docs/X68000.md
 !docs/GAME_BOY_ADVANCE.md
+!docs/PC_ENGINE.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md

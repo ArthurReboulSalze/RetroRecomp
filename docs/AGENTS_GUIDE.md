@@ -11,9 +11,9 @@ read `AGENTS.md` do not find it by themselves: point them here.
 
 Retro-Recomp converts a player's own game dumps into standalone Windows or
 Linux executables, with as much native code as possible and a counted
-interpreter fallback for the rest. Nine machines: Master System, Game Gear,
-Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo and Capcom CPS-1 (all
-supported), and Sharp X68000 (experimental). Original code is MIT; some third-party engines
+interpreter fallback for the rest. Eleven machines: Master System, Game Gear,
+Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1 and Sharp X68000 (all
+supported), Capcom CPS-2 and the PC Engine (both experimental). Original code is MIT; some third-party engines
 keep other terms ([THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
 
 ## Map of the repository
@@ -85,6 +85,9 @@ that converts a real game needs the player's own ROM, outside the repository.
   (bump a pin or carry a fix as our patch) and the review record;
   `python -B tools/check_upstreams.py` shows where each upstream stands.
   `tests/test_upstreams.py` fails when a pin is missing from the page.
+- **Four 68000 files are pinned twice.** `retrorecomp/m68000.py`, `m68000_state_rules.py`, `megadrive_rules.py` and `neogeo_codegen.py` are generator sources of both the CPS-1
+  (`tests/cps1_generator_pins.json`) and the X68000 (`tests/x68_generator_pins.json`). An edit made for the Mega Drive or the Neo Geo in one of them fails both pin
+  tests until `GENERATOR_REVISION` is raised in `cps1_knowledge.py` and in `x68_knowledge.py` and both pin files are updated.
 - Text files are LF (`.gitattributes`). A user-visible string is translated in
   the eight interface languages; characters must exist in the font subsets
   (`tests/test_languages.py` checks this).

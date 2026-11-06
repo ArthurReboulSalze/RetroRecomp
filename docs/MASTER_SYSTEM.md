@@ -107,7 +107,7 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 
 The banked engine generates the same sources before and after the 1.6.3 and 1.6.4 functions patches (checked on Bank
-Panic). Release effects on existing exports are in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
+Panic). Release effects on existing exports are in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#master-system-and-game-gear-the-functions-engine-164-lot-f).
 How the Z80 is recompiled, the path shape and the CPU tests are described in [CPU_Z80.md](CPU_Z80.md); this page does
 not repeat them.
 
@@ -167,13 +167,14 @@ Defaults (full tables and the shared shortcuts are in [CONTROLS.md](CONTROLS.md)
 
 ## Qualification
 
-Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026; `Y` met, `P` partial, `?` unknown, `-` not applicable):
+Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026, the 1.6.9 evidence of 5 November; `Y` met, `P` partial, `?` unknown, `-` not applicable):
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P | P | Y | Y | P | P | - | P | P | Y | P | Y | P | ? | P | Y |
+| Y | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | Y | Y | Y | Y |
 
-G6 (fresh-process states) is partial (`tools/sega_states_selftest.py`: a fresh process resumes a saved state on the banked engine, damaged states are refused; run on Bank Panic, not on a panel, and the "functions" engine has no quick states), G8 (liveness) is partial (every conversion records it, see [QUALIFICATION.md](QUALIFICATION.md#shared-evidence-helper-g5-and-g8-retrorecompdelivery_evidencepy)) and G14 has no recorded owner decision. Panel size: 258 cartridges.
+G11 stays partial (authored chip fixtures only, no external comparison). G14 is met on the owner's own play test of 5 November 2026 (recorded by the lead in
+[QUALIFICATION.md](QUALIFICATION.md#owner-acceptance), not by this page). The evidence of every gate is in the table *The sixteen gates, with their evidence (1.6.9)* below.
 
 The five measures, kept apart:
 
@@ -195,17 +196,83 @@ Reference games and risk cases (`tools/campaign-risk-cases.json`): Alex Kidd in 
 Operation Wolf (Light Phaser), Phantasy Star (cartridge save), Galaxy Force (regression baseline). The 1.6.4 release candidate
 uses Bank Panic (Europe). Factory Panic and OutRun belong to the compilation library.
 
+### The panel of twelve games (1.6.9, gates G2, G5, G6, G8, G9)
+
+Twelve cartridges chosen for a reason each, six per console, read in place from the player's folder and converted at the extended level
+(demo, play and one pseudo-random route of 18,000 frames) with the banked engine, two conversions at a time, from an empty private library,
+on the tree of the branch `spec/smsgg-169` (`tools/sega_campaign.py`). The delivered executable is then replayed on the three routes, with the
+per-frame trace and captures spread over the play and the pseudo-random routes, put on one sheet a game that a person looks at. The sheets
+were looked at by the specialist agent, not by the owner. "Pictures" is the number of distinct pictures of the route, "last" the frame of the
+last picture change.
+
+| Game | Why it was chosen | Mapper (report) | What the sheet shows | Long route: pictures, last change |
+|---|---|---|---|---|
+| Alex Kidd in Miracle World (SMS) | regression baseline of every release | sega | the first level; the player reaches a first screen and stays there | 297, frame 3,187 |
+| Operation Wolf (SMS, PAL) | Light Phaser catalogue; a Europe label, so PAL timing | sega | mission map, briefings and title; the gun is not driven by the pad routes | 1,397, frame 17,980 |
+| Phantasy Star (SMS) | battery cartridge RAM (not modelled); menu-driven | sega | story screens, then the first-person view with its command menu | 514, frame 17,993 |
+| Micro Machines (SMS, PAL) | Codemasters header | **codemasters** (not modelled) | a plain purple screen on every route: the game does not start | 3, frame 7 |
+| Sonic The Hedgehog (SMS) | line interrupts, palette changes mid-frame, fast scrolling | sega | Green Hill; Sonic stands where the routes leave him while the timer runs | 2,605, frame 18,000 |
+| Space Harrier (SMS) | many sprites per line | sega | title, stage 1 played, game over and the ranking | 3,589, frame 17,998 |
+| Sonic The Hedgehog (GG) | Game Gear baseline | sega | title, Green Hill, the title again | 131, frame 18,000 |
+| Factory Panic (GG) | compilation-library reference | sega | title, play, the pause status screen | 851, frame 17,996 |
+| Streets of Rage (GG) | beat-em-up, scrolling and many sprites on a small window | sega | story text, name entry, title, then the fight with enemies | 6,955, frame 18,000 |
+| Gunstar Heroes (GG) | dense sprites, Japanese-region cartridge | sega | cut scenes and title on the play route; the game's own "ERROR TR MULT 0003" screen on the pseudo-random route (unexplained, below) | 1,451, frame 3,394 |
+| Shining Force II (GG) | battery cartridge RAM (not modelled) | sega | a plain purple screen on every route: the game does not start | 3, frame 118 |
+| Sonic Spinball (GG) | the game that exposed a general defect of the functions engine | sega | title, then the pinball tables | 1,901, frame 17,998 |
+
+What the panel says. All twelve convert, with no interpreter cycle on any of the three final routes (36 routes), a compressed copy that matches
+the fresh reference on every route (`packed_reference_match`), a fresh-process quick state that resumes (below), and a report with the mapper,
+the video chip and the sound chip as devices. Ten reach a screen of the game beyond its first seconds; **two never start**: Micro Machines, whose
+Codemasters registers the runtime does not model (the switch of the pinned runner stays off), and Shining Force II, which needs the cartridge RAM
+the runtime does not model either. Both are converted and compared with the reference like any other (the reference runs the same runtime), so the
+comparison cannot show that a game does not play; the conversion now says so in `route_warnings` of the report when the picture of a route stops
+changing in the first tenth of its frames. The pseudo-random routes press pad buttons only: they do not drive the Light Phaser, and several games
+stop making progress after a few screens (Alex Kidd, Sonic on the Master System). They show liveness and a first depth, not full games. On
+Gunstar Heroes the pseudo-random route ends on the game's own error screen after frame 3,394, the same in the native run and in the interpreted
+reference (so not a translation difference); its cause was not investigated (a mapper or a chip behaviour the runtime does not model is one
+possibility, an input the random route should not have given another).
+
+### The sixteen gates, with their evidence (1.6.9)
+
+The letters are in [QUALIFICATION.md](QUALIFICATION.md); this table says where each piece of evidence is and what it leaves out. The Game Gear
+shares the engine, the runtime and the adapter, so the evidence below is for both consoles; the panel above has six cartridges of each, and
+[GAME_GEAR.md](GAME_GEAR.md#the-sixteen-gates-with-their-evidence-169) gives the Game Gear's own lines.
+
+| Gate | Evidence | What it leaves out |
+|---|---|---|
+| G1 Status | `supported` in the profile, in this page, in [GAME_GEAR.md](GAME_GEAR.md), in the README table and in [COMPATIBILITY.md](COMPATIBILITY.md); the perimeter (what `supported` does not cover) is the same list in this page, in the Game Gear's and in COMPATIBILITY.md: Codemasters registers, cartridge RAM, the FM unit and the Pause/NMI are not modelled; `tools/status_lint.py` shows no contradiction for the two consoles | the lint reads statuses, not every sentence |
+| G2 Report | Schema 2: the Z80 as the main CPU (per route: interpreter cycles and share, dispatch misses, and for the banked engine the native instruction count and the halted steps), the mapper, the video chip and the sound chip as three devices that run no program (`mode: c_model` or `not_modelled`, `hardware_fidelity_validated: false`, no counter: not zero), the mapper of a Codemasters header named, `route_warnings`; read back on the reports of the twelve banked and the eight functions conversions of the panel (`retrorecomp/sega_evidence.py`, `tests/test_sega_evidence.py`, `tests/test_report_schema.py`) | the interpreter is counted in Z80 cycles, never in instructions; the functions engine counts no native instructions; there is no audio CPU to count |
+| G3 Native code | no interpreter cycle on any of the 36 final routes of the panel (banked); the fallback is counted per route in the report | tested routes only; the functions engine interprets part of the pseudo-random route of Factory Panic (7.1 percent of its cycles) |
+| G4 CPU fidelity | the conversion compares the native run with the interpreter (CPU, RAM, picture, sound, per-frame traces) on every route and refuses a difference; 720 interrupt-acceptance states and 51,328 independent vectors (1.6.7) | agreement of two executions of one machine model; the vectors are not console captures |
+| G5 Delivered file | the compressed copy is replayed on every route and matches the fresh reference: 12 of 12 games on the banked engine (`packed_reference_match`); the "functions" engine replays it against the final pass of its own build (`packed_replay`): 8 of 8 exported games | the functions engine has no per-route reference of its own; four panel games are not exported by it (below) |
+| G6 States | `tools/sega_states_selftest.py` on the harness build of each of the twelve games: F8 writes one state, a fresh process loads it with F9 and presents the same pictures as the first process after its save, three damaged states (one byte, truncated, another cartridge) are refused and left as they were, F9 with nothing saved creates nothing: 12 of 12 | judged on the presented pictures: on the two games whose picture never moves the comparison cannot show a restore; the "functions" engine has no quick states and is not claimed |
+| G7 Saves | not applicable: cartridge RAM is not modelled | |
+| G8 Liveness | `final_checks[].liveness` on every route; a conversion is refused when its play route never changes the picture, and a route whose picture stops early is named in `route_warnings`; the panel above | counts of changes, not proof of good play; two of twelve games never start |
+| G9 Route depth | the pseudo-random route of the extended level replayed on the delivered file, with captures that a person looks at: ten of twelve games reach a screen of the game | no authored route; not full games; the pictures were looked at by the specialist agent, not by the owner |
+| G10 Independent CPU | 51,328 SingleStepTests/z80 vectors and the 720 interrupt states ([CPU_Z80.md](CPU_Z80.md)) | the vectors are an emulator's, not hardware captures |
+| G11 Independent hardware | authored chip fixtures only | no external emulator or hardware comparison of the video chip or the PSG |
+| G12 Panel | 258 cartridges of the 9 October 2026 campaign, and the twelve above | the Codemasters and cartridge-RAM cartridges are converted but may not start |
+| G13 Cross-OS | Windows and a Debian 13 PC convert the twelve panel games from the same tree (`e84167e`, extended level, empty library) and give equal per-frame traces (picture, sound, RAM, VDP hashes), equal final RAM and final CPU on 36 of 36 routes, 302,400 frames per system (`tools/sega_cross_os.py`); `tools/linux_sms_selftest.py` is the bounded native check | twelve of 258 cartridges; the banked engine only; pad routes; no interactive play on Linux; the generated sources were not compared |
+| G14 Owner | the owner's play test of 5 November 2026 (Sonic The Hedgehog and Wonder Boy III, banked engine), recorded in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance) | two cartridges of the Master System, not the panel |
+| G15 Honesty | `hardware_accuracy`, `full_game` and `physical_latency_measured` are false in the report; the audit of 5 November 2026 of the two pages, [COMPATIBILITY.md](COMPATIBILITY.md), the README and the strings of the report and of the games found no claim of exactness, zero latency or hardware fidelity, and corrected three sentences | a search of the words of exactness, accuracy and completeness with the matches read, not a reading of every page |
+| G16 Shared knowledge | hints are numbers about a ROM, rechecked on the exact ROM, and the conversion retries without them on failure | a hint qualifies a path only after another player's conversion reaches it |
+
 ## Known limits
 
-- Codemasters mapper, cartridge saves, FM sound and a hardware Pause/NMI are neither validated nor supported.
+- Codemasters mapper, cartridge saves, FM sound and a hardware Pause/NMI are not modelled, so neither validated nor supported. A cartridge that needs
+  one converts and is compared with the reference like any other, and may not start: Micro Machines (Codemasters registers) and Shining Force II
+  (cartridge RAM) show a plain screen on every route of the 1.6.9 panel. The report names a Codemasters header (`mapper: codemasters`,
+  `mode: not_modelled`) and, from 1.6.9, lists in `route_warnings` the routes whose picture stopped changing in the first tenth of their frames.
 - The video model works on scanlines, not VDP pixel clocks: mid-line palette changes are quantised to a line; CRAM dots,
   VRAM-access contention while drawing, SMS1 zoom quirks, other display modes and full PAL hardware fidelity are not
   validated. A region label is a default timing choice, not proof of the console a cartridge was played on.
 - RAM code beyond what the converter has seen still runs in the counted interpreter; up to 4,096 RAM windows are learned per
   ROM. Zero fallback is a result on tested routes, never a general promise. A strict conversion refuses any fallback.
-- The functions engine fails the reference check on the games listed above; do not treat it as supported for them. Their causes
-  (a `RET` to another address, a jump across slots compiled as a `goto`, the missing WZ register) are in
-  [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164). Sonic Spinball passes on the Master System and fails on the Game Gear.
+- The functions engine meets the reference check on the 15 games of the 1.6.4 batch since 1.6.7 and on eight of the twelve games of the 1.6.9 panel.
+  It refuses four of them: Micro Machines, Streets of Rage and Gunstar Heroes differ from the interpreter from frame 1,493, 7 and 569, and Shining Force II from frame 15
+  (the scroll registers). Since 1.6.9 the last one builds (the generator wrote `sms_write8(ea, ...)` for a `DD 76` or `FD 76` it decoded in data, with no `ea`) and
+  its first RAM difference, a register left by a routine that reads inline data after an `RST`, is gone; what is left is not explained.
+  The banked engine, the default, converts all twelve. The functions engine is the optional one; do not rely on it for a cartridge outside the lists above.
 - Sprite flicker reduction is a display enhancement, not console behaviour.
 - The stereo audio ring of the Master System and Game Gear is the one duplicate of the host kit's ring still left; merging
   needs its own measurement ([HOST_KIT.md](HOST_KIT.md)).

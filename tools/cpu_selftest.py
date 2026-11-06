@@ -16,6 +16,7 @@ def main():
     directory = ROOT / ".build/cpu-selftest"
     directory.mkdir(parents=True, exist_ok=True)
     os.environ["SMSRECOMP_LIBRARY_DIR"] = str(directory / "learning")
+    os.environ["RETRO_RECOMP_STILL_ROUTE_OK"] = "1"   # these programs have a result in RAM and no picture: the liveness refusal does not apply
     data = bytearray([0xC9] * 8192)
     data[:3] = bytes.fromhex("C3 00 01")  # JP $0100
     # DI; LD SP,$DFF0; LD HL,$0200; LD DE,$C100; LD BC,3; LDIR;
@@ -56,6 +57,39 @@ def main():
     assert native[0:2] == reference[0:2] == bytes([0x11, 0x22]), (native[0:2], reference[0:2])
     assert push_report["reference_final_ram_match"] is True and push_report["reference_vdp_trace_match"] is True
     print("PASS: a conditional RET that pops a pushed continuation continues there (native RAM equals the reference).")
+    # 3. A routine reads the byte that follows its CALL (EX (SP),HL; LD A,(HL); INC HL; EX (SP),HL; RET): the RET goes to the instruction
+    #    after the inline byte, not to the byte (INC B, which would leave B = 1 in $C002). The 1.6.9 call sites compare the address
+    #    the callee popped with the one they pushed.
+    inline_data = bytearray([0xC9] * 8192)
+    inline_data[:3] = bytes.fromhex("C3 00 01")
+    # DI; LD SP,$DFF0; LD B,0; CALL $0120; DB $04; LD A,$11; LD ($C000),A; LD A,B; LD ($C002),A; HALT; JP $0113
+    inline_data[0x100:0x117] = bytes.fromhex("F3 31 F0 DF 06 00 CD 20 01 04 3E 11 32 00 C0 78 32 02 C0 76 C3 13 01")
+    inline_data[0x120:0x128] = bytes.fromhex("E3 7E 23 E3 32 01 C0 C9")
+    inline_rom = directory / "Inline_data_test.sms"
+    inline_rom.write_bytes(inline_data)
+    inline_exe = convert(inline_rom, title="CPU_Inline_Data_Test", output=directory / "inline-output", backend="functions", passes=1, frames=3, online_cover=False)
+    inline_report = json.loads((inline_exe.parent / "conversion-report.json").read_text())
+    inline_build = Path(inline_report["build_directory"])
+    native = (inline_build / "checks/pass1_demo/frame.png.ram").read_bytes()
+    reference = (inline_build / "checks/reference/frame.png.ram").read_bytes()
+    assert native[0:3] == reference[0:3] == bytes([0x11, 0x04, 0x00]), (native[0:3], reference[0:3])
+    assert inline_report["reference_final_ram_match"] is True and inline_report["reference_vdp_trace_match"] is True
+    print("PASS: a RET that returns past the byte after its CALL continues after that byte (native RAM equals the reference).")
+    # 3b. DD 76 and FD 76 are a HALT behind a prefix that does nothing. The static walk also decodes the bytes a branch skips: here
+    #     they are dead code, and the generated C used to name an `ea` nobody declares, so the build failed (Shining Force II).
+    prefixed_data = bytearray([0xC9] * 8192)
+    prefixed_data[:3] = bytes.fromhex("C3 00 01")
+    # DI; LD SP,$DFF0; XOR A; JR Z,+4; DD 76; FD 76; LD A,$55; LD ($C000),A; HALT; JP $0111
+    prefixed_data[0x100:0x112] = bytes.fromhex("F3 31 F0 DF AF 28 04 DD 76 FD 76 3E 55 32 00 C0 76 C3")
+    prefixed_data[0x112:0x114] = bytes.fromhex("11 01")
+    prefixed_rom = directory / "Prefixed_halt_in_dead_code_test.sms"
+    prefixed_rom.write_bytes(prefixed_data)
+    prefixed_exe = convert(prefixed_rom, title="CPU_Prefixed_Halt_Test", output=directory / "prefixed-output", backend="functions", passes=1, frames=3, online_cover=False)
+    prefixed_report = json.loads((prefixed_exe.parent / "conversion-report.json").read_text())
+    prefixed_build = Path(prefixed_report["build_directory"])
+    native = (prefixed_build / "checks/pass1_demo/frame.png.ram").read_bytes()
+    assert native[0] == 0x55 and prefixed_report["reference_final_ram_match"] is True, native[0]
+    print("PASS: a DD 76 and an FD 76 in code the walk reaches build and the program runs on (native RAM equals the reference).")
     bank_data = bytearray([0xC9] * 65536)
     bank_data[:3] = bytes.fromhex("C3 00 01")
     # DI; LD SP,$DFF0; CALL $0200; JP $8010   $0200: LD A,3; LD ($FFFF),A; RET (slot 2 now shows bank 3)

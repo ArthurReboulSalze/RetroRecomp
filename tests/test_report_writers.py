@@ -266,7 +266,7 @@ class DualWrite(unittest.TestCase):
             self.assertEqual(write_report(path, cps1)['status'], 'supported')
             x68 = FIXTURES['x68 zero fallback']()
             x68.pop('status', None)
-            self.assertEqual(write_report(path, x68)['status'], 'experimental')
+            self.assertEqual(write_report(path, x68)['status'], 'supported')
 
     def test_write_report_fills_the_target_and_the_time_and_replaces_the_file_atomically(self):
         with tempfile.TemporaryDirectory() as folder:

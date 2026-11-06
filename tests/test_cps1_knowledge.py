@@ -311,6 +311,16 @@ def a_record(extra=()):
     return cps1_knowledge.rebuild(record, cps1_knowledge.entry_set(record) | set(extra)) if extra else record
 
 
+class UploadCutTests(unittest.TestCase):
+    def test_an_upload_carries_only_the_paths_the_local_base_lacks(self):
+        full = a_record()
+        entries = cps1_knowledge.entry_set(full)
+        one = sorted(entries)[0]
+        cut = kx.without_known('cps1', full, cps1_knowledge.rebuild(full, {one}))
+        self.assertEqual(cps1_knowledge.entry_set(cut), entries - {one})
+        self.assertIsNone(kx.without_known('cps1', full, full))
+
+
 class SideBankTests(unittest.TestCase):
     def setUp(self):
         Library().start(self)
@@ -899,9 +909,9 @@ class LabelTests(unittest.TestCase):
         import inspect
         self.assertEqual(CPS1_KINDS, {14, 15, 16})
         source = inspect.getsource(cps1_conversion.feedback_rows)
-        self.assertIn(', 15)', source)
-        self.assertIn(', 16)', source)
-        self.assertNotIn(', 14)', source)
+        self.assertIn(', 15 + shift)', source)      # the CPS-2's kinds are these plus three
+        self.assertIn(', 16 + shift)', source)
+        self.assertNotIn(', 14', source)
         # And no shared observation row exists for it: CPS-1 shares none.
         with self.assertRaises(ValueError):
             document = {'format': kx.FORMAT, 'version': 3, 'converter': '1.6.0', 'titles': {},

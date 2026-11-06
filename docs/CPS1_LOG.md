@@ -114,7 +114,7 @@ at 55,930.4 Hz), so waveform correlation is lower than the spectra suggest
   CPS-1 path was qualified yet, so nothing was lost. The observations are
   private build hints (`m68k_gfx`) of the player's library: they cannot be tied
   to a ROM image, so they are counted and never shared. Details:
-  [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
+  [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h).
 - The quick state changed format (magic `CPS1S002` instead of `CPS1S001`, every
   structure written field by field): 1.6.3 states are refused cleanly
   ([GAME_STATES.md](GAME_STATES.md)).
@@ -405,7 +405,7 @@ It took 119 seconds (Windows 67 s): wall times on a shared machine, not timings.
 
 ## 2 November 2026 (1.6.7 tree): the CPS-1.5 board without its sound, against MAME
 
-The QSound boards (CPS-1.5) join as an experimental tier ([CPS1.md](CPS1.md#cps-15-qsound-boards-experimental-tier)). Here the board runs without
+The QSound boards (CPS-1.5) joined as an experimental tier, which they left on 5 November 2026 ([CPS1.md](CPS1.md#cps-15-qsound-boards)). Here the board runs without
 its sound (the QSound registers are accepted and answer ready after the next sample; the sound is silence), compared with MAME 0.289 with the same
 tool as the other sets: `tools/cps1_mame_compare.py`, FBNeo romsets of the test collection (one set per family: `wof`, `dino`, `punisher`,
 `slammast`, `mbombrd`), the QSound DSP ROM read by MAME from the BIOS folder (MAME needs it to start; the game under test does not read it yet),
@@ -484,3 +484,10 @@ EEPROM saves, on the delivered executables started the player's way (SDL dummy d
 five has a `datas/saves/CPS1-<sha256 of the romset>.rrsave` of 224 bytes (106 to 127 of the 128 EEPROM cells hold something other than 0xff:
 the game initialised its settings), and a second run leaves each file unchanged. Not done by a tool: a run of the game by a person.
 
+## 5 November 2026 (1.6.8 tree): the QSound boards leave the experimental tier; the two-library proof of the shared paths
+
+The owner played The Punisher, Cadillacs and Dinosaurs and Warriors of Fate on the 1.6.8 tree and wrote « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » The catalogue column `tier` now reads `supported` on all 233 rows (catalogue sha256 `1465bcc1…`), so the reports of these sets say `completed` and `board_tier: supported`, they count as evidence (`qualification_candidate`) and their paths are collected and imported like the other CPS-1 sets'.
+
+Proof of the sharing: `slammast`, the one set of the five that learns paths (8 work-RAM code paths of the 68000, all tied to its program ROM), with two empty libraries: conversion A (standard level, no imported path) took 2 passes and made a 660-byte version 3 exchange file; conversion B, in another empty library, imported that file and used its 8 paths from the first pass (`knowledge.use.imported` = 8) in 1 pass; the final CPU, RAM, picture and sound hashes of both routes are identical (`attract` ea610d589e4bfc26, `play` b970de6abef53e3a), 0 interpreted 68000 and Z80 instructions on both, the compressed copy and the states checked as usual. The Z80 side shares nothing: a sound-CPU path would be a position in the data image the converter decodes from the player's own zip (identity: its size and SHA-256 in the exchange file), but no QSound set measured so far runs sound-CPU code from RAM. A run with `RETRO_RECOMP_LIBRARY_DIR` set disables the imported bank by design (`knowledge.disabled`); the second conversion therefore used the converter's own empty library.
+
+Non-regression of the same tree: `1941` (a standard board), converted in the converter's own empty library with the imported bank enabled (it held the `slammast` file only), gives the same CPU, RAM, picture and sound hashes on both routes as its conversion of the 1.6.7 owner trial, 0 interpreted 68000 and Z80 instructions, `completed`, `board_tier: supported`. The generated project of `slammast` with and without the imported paths differs only by the passes it needed (2 and 1).

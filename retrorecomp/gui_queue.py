@@ -117,7 +117,7 @@ class QueueMixin:
     def video_display(self, item: BatchItem, result: dict | None = None) -> str:
         if item.error or not item.video_hint:
             return '-'
-        if item.system == 'cps1':
+        if item.system in ('cps1', 'cps2'):
             return 'Arcade 59.64 Hz'
         if item.system == 'ng':
             return 'MVS · Europe'
