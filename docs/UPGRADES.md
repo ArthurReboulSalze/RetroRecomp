@@ -172,6 +172,10 @@ computed with `compilation_inputs.role_stamps` on the commit the branch was cut 
 | pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 6ea8ea8ac8eb (same) | same |
 
 - **Only the CPS-1 family's game stamps move** (the CPS-1 and the CPS-2); the other nine consoles keep theirs, because `path_profiles.py` is untouched: a CPS-2 path record has an empty layout, checked by `cps1_knowledge.validate_record`.
+- **The EEPROM of the CPS-1.5 and the CPS-2 is saved off the frame path.** A game changes its cells one after another at start and on a coin, and each change
+  wrote the file at once, with a flush to disk that can wait a long while on a busy disk (a frame log of `ssf2` showed single frames of several seconds with the disk
+  busy, against 36 ms at most without the write). A worker thread now writes the last contents after the EEPROM has been stable for about a second, and play
+  ending writes it at once; a stop of the program within that second loses that last change. `native/cps1_persistence.c` is a host file of the CPS-1 family.
 - **The CPS-2 game stamp moves**: its report now says `completed` (not `experimental`), its board tier is `supported`, it shares its paths and its
   profile, translations and notices changed. An export of the CPS-2 of 1.6.9 is rebuilt once on its next conversion, with the same code, pictures and sound.
 - **The CPS-1 family's game stamp moves** (the CPS-1 and CPS-1.5 share the board model): `native/cps1_machine.c` now includes `native/cps1_cps2_board.inc`, `cps1_knowledge`
