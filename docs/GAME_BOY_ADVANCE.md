@@ -154,6 +154,23 @@ is the next step of the plan for this cartridge and is not built.
 What this table does not say: gameplay validation (none), hardware fidelity beyond what the authored test ROMs check, physical latency, the Linux player (not built or
 run) and any cartridge outside the six.
 
+## Multi-language cartridges: the in-game language and the save (6 November 2026)
+
+The language of a game is the game's own, chosen in its own menus; the converter does not touch it (the interface language of Retro-Recomp is another thing,
+`F7` in the player). Two European or multi-language cartridges were converted and driven with the player itself (the delivered executable, hidden and silent,
+with a key script and a scratch data folder; the last picture of each run was looked at).
+
+| Cartridge | Conversion | Interpreted (boot, generic) | What was seen |
+|---|---|---|---|
+| Sonic Advance 2 (USA; En, Ja, Fr, De, Es, It; Flash 64 KB, 16 MB) | 1,045 s, 30.7 MB packed | 0, 0 | With no save the game asks "SELECT A LANGUAGE" (six choices). Choosing Deutsch gives the German name screen (NAMEN REG.); after the name is registered the game writes its 64 KB save. Started again with that save and no key: no language screen, the German title ("START DRÜCKEN") at 1,500 and 2,000 frames, the save file unchanged. The same executable with no save shows the language screen again. |
+| Alien Hominid (Europe; En, Fr, De, Es, It; EEPROM, 8 MB) | 629 s, 11.8 MB packed | 0, 20.6 million | The language screen works (Italiano gives "PREMI START" and the Italian menu). This game does not keep the language: the 512-byte save is identical after choosing English and Italian, and the game asks again at the next start, so it proves the choice but not its persistence. |
+
+What this shows: the cartridge save written by the player carries the game's own language setting across a restart, for the cartridge that stores it (Sonic Advance 2),
+and a cartridge that does not store it writes the same bytes whatever was chosen (the player adds nothing). It does not show every language of every cartridge, the Japanese
+text of any game, or that a save from real hardware is read back: the saves here were written by the player. On the restarted Sonic Advance 2 the demo that
+follows the title ran 1.09 million instructions on the interpreter in 3,000 frames (code that the two scenarios of the conversion never reached; counted, reported, and
+learned by the next conversion).
+
 ## Independent evidence (stage 5)
 
 Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
