@@ -149,7 +149,7 @@ class WindowsDropTests(unittest.TestCase):
         files = [self.fixture(name, data) for name, data in
                  (('a.sms', sms), ('b.gg', gg), ('c.gb', gb), ('d.nes', nes),
                   ('e.md', md), ('f.sfc', cartridge(bytes.fromhex('40'))),
-                  ('inconnue.gba', b'unsupported'), ('notes.txt', b'not a ROM'))]
+                  ('inconnue.a26', b'unsupported'), ('notes.txt', b'not a ROM'))]
         nested = self.folder / 'sous dossier'
         nested.mkdir()
         archive = nested / 'Jeu ZIP.zip'

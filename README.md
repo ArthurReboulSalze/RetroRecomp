@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
-  <img src="https://img.shields.io/badge/console_profiles-11-626262" alt="Eleven console profiles">
+  <img src="https://img.shields.io/badge/console_profiles-12-626262" alt="Twelve console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -78,6 +78,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 43 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
@@ -95,7 +96,6 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 
 | Machine | Stage |
 | --- | --- |
-| Game Boy Advance | in development |
 | Commodore Amiga 500 (the Amiga 1200 later) | in development |
 
 Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).

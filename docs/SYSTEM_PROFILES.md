@@ -40,6 +40,11 @@ and `.m3u` disk sets with the player's own IPL and font ROM, and exports to
 The experimental **PC Engine** profile (`pce`, listed since 1.6.9 when the installation carries its native files) identifies `.pce`
 HuCards, or a ZIP holding one (header, bit order and board read from the content), and converts them to Windows games; see
 [PC Engine](PC_ENGINE.md).
+The experimental **Game Boy Advance** profile (`gba`, listed since 1.7.0 when the installation carries its native files) identifies `.gba`
+cartridges, or a ZIP holding exactly one (the profile declares the 32 MiB cartridge limit the shared ZIP reader uses), converts them to
+Windows games with your own BIOS (`gba_bios.bin`, supplied in Options; a converted game holds code derived from it and stays private) and
+exports to `Games/Game Boy Advance`. Its status is experimental; its paths come after the others in the path order (11) and its
+gameplay feedback kind is 21. See [Game Boy Advance](GAME_BOY_ADVANCE.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is

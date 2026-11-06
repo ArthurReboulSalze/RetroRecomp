@@ -18,6 +18,14 @@ from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
+retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
+retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
+retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
+tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
+tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
+tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
+native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h

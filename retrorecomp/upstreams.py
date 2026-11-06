@@ -150,6 +150,15 @@ MAME = Upstream(
            'src/mame/capcom/cps2.cpp', 'src/mame/capcom/cps2crypt.cpp',
            'src/devices/sound/okim6295.cpp', 'src/mame/capcom/kabuki.cpp', 'src/devices/sound/qsoundhle.cpp',
            'src/devices/sound/qsoundhle.h', 'src/devices/machine/eepromser.cpp', 'src/devices/machine/eeprom.cpp'))
+GBARECOMP = Upstream(
+    'gbarecomp', 'mstan/gbarecomp', 'main', 'Game Boy Advance recompiler and machine runtime', 'PolyForm Noncommercial 1.0.0 plus two MPL-2.0 files',
+    'the recompiler and the machine runtime (picture, DMA, timers, sound, saves, real-time clock); the netplay, mod, upscaling and '
+    'launcher parts and the two MPL-2.0 files derived from mGBA (the optional high-level BIOS) are not used',
+    _py('retrorecomp/gba_conversion.py', 'ENGINE_REV'), checkout='gbarecomp')
+ARM_RECOMP_CORE = Upstream(
+    'arm-recomp-core', 'mstan/arm-recomp-core', 'main', 'ARM and Thumb decoder, IR, interpreter and C emitter (submodule of gbarecomp)',
+    'MIT', 'the decoder, the intermediate form, the reference interpreter and the ARMv4T code emitter, at the revision the engine records',
+    Pin('submodule', path='external/arm-recomp-core'), parent=GBARECOMP)
 PX68K_LIBRETRO = Upstream(
     'px68k-libretro', 'libretro/px68k-libretro', 'master',
     'X68000 libretro port; private comparison mode only (GPL)', 'GPL-2.0',
@@ -230,6 +239,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'cps1': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'cps2': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
+    'gba': (GBARECOMP, ARM_RECOMP_CORE),
     'pce': (PCENGINERECOMP,),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

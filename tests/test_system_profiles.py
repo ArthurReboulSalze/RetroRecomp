@@ -338,7 +338,7 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_identification_orders_follow_the_documented_priority(self):
         from retrorecomp.systems import registry
-        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'cps2', 'ng'])
+        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'cps2', 'ng', 'gba'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])

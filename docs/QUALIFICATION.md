@@ -60,27 +60,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
+| Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -90,26 +91,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16.
+x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -126,10 +127,32 @@ The page of each console, which the README links its line to (a console of the m
 | x68 | [X68000.md](X68000.md) |
 | cps2 | [CPS2.md](CPS2.md) |
 | pce | [PC_ENGINE.md](PC_ENGINE.md) |
+| gba | [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) |
 
 </details>
 
 ### Caveats
+
+- Game Boy Advance (6 November 2026, tree of `spec/gba-170`): the machine is prepared to open as experimental in 1.7.0. G3 and G4 are `P`:
+  six cartridges converted (Pokémon Emerald, Mario Kart Super Circuit, The Minish Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and
+  Golden Sun) and equal to the engine's own interpreter on the final picture, the guest's cycle count, a hash of the memory and a hash of
+  the CPU registers over 600 and 3,600 frames; five have 0 interpreted instructions on those scenarios and Golden Sun 17.7 million of its
+  own code that has no copy in the cartridge (counted and reported); the interpreter is the engine's, not an independent oracle, and
+  `release_check.py` was not run. G5 `P`: the packed players run 600 frames hidden with return code 0; not the packed replay of the tools.
+  G6 `P`: a quick state saved and loaded in the same process gives the same picture; no fresh-process check. G7 `P`: the four authored
+  save tests pass and the battery file is written; no game save was loaded back by a check of ours. G8 `P`: six packed players draw and
+  play sound for 600 frames; G12 `P`: that is the panel (six, not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
+  MIT) pass with the staged patches; no external emulator. G14 `P`: the owner played the delivered Sonic Advance on 5 November 2026 and
+  then the series of delivered cartridges on 6 November 2026 ("it works perfectly"); play trials of the exports, not a decision to
+  leave the experimental status. G10 is `P`: `tools/gba_vector_selftest.py` runs SingleStepTests/ARM7TDMI (a model's behaviour, not
+  hardware) on the patched engine, 93.96 % of the interpreter's 2,250,000 vectors and 91.08 % of a sample of 45,000 for the generated
+  code, the rest being coprocessor instructions (not in generated code), multiply carries and R15 operands, plus a tail of 385 and 11
+  `LDM`/`STM`/`PUSH`/`POP` failures not yet explained. G11 also rests on `tools/gba_hardware_selftest.py`: the eight self-checking
+  authored suites pass. G13 is `P` (6 November 2026): the same six cartridges were converted on a Debian 13 PC from the tree to merge (the commit
+  `31e39aee` plus `linux = 'witnessed'` as the only change; the commit between is a documents page), three passes from an empty library: on both
+  scenarios the generated code equals the engine's interpreter, and the final picture hash and the guest's cycle count equal the Windows ones, 12
+  scenario runs of 12 ([the section of the page](GAME_BOY_ADVANCE.md#the-linux-witness-of-the-six-cartridges-6-november-2026)). The Linux player was
+  not played and not timed.
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags

@@ -50,7 +50,8 @@ DECLINED = {
     'artwork': set(),
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
-    'memory_view': {'cps1', 'cps2', 'pce'},
+    # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
+    'memory_view': {'cps1', 'cps2', 'pce', 'gba'},
 }
 
 QUALIFICATION_CELLS = set('YPN?-')
