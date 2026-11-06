@@ -76,7 +76,7 @@ UPSTREAM_CREDITS = (
         ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_cps1_cpu'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
     )),
-    ('PC Engine', (
+    ('PC Engine / TurboGrafx-16', (
         ('rages4calm/pcenginerecomp', 'https://github.com/rages4calm/pcenginerecomp', 'credits_recompiler'),
     )),
     # Credited before they join the converter: their upstreams are chosen and in use on the specialists' branches.
@@ -92,7 +92,7 @@ UPSTREAM_CREDITS = (
 # A line under a machine's name in the credits: its terms, or where it stands.
 UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
-    'PC Engine': 'credits_experimental',
+    'PC Engine / TurboGrafx-16': 'credits_experimental',
     'Commodore Amiga': 'credits_coming',
     'Game Boy Advance': 'credits_coming',
 }
