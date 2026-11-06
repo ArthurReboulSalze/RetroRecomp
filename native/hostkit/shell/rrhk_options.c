@@ -91,6 +91,8 @@ static RrhkOptionRows option_rows(void) {
     rr_option_row(&d.rows, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(rrhk.autofire ? "ON" : "OFF"));
     rr_option_row(&d.rows, SDL_SCANCODE_F7, "F7 Language: %s", rr_language_name(rrhk.language));
     if (m->option_rows) m->option_rows(1, &d);
+    /* The shared Vibration row, on a machine that vibrates (1.7.0): [Manettes] rumble. */
+    if (m->rumble) rr_option_row(&d.rows, RRHK_KEY_RUMBLE, "Vibration: %s", rr_tr(rrhk.rumble ? "ON" : "OFF"));
     rr_option_row(&d.rows, SDL_SCANCODE_F12, "%s", rr_tr(rr_feedback_label()));
     rr_option_shared_rows(&d.rows);
     rr_option_row(&d.rows, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
@@ -119,6 +121,7 @@ void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
 const char *rrhk_combo_hint(int index) { return rr_combo_hint(index); }
+const char *rrhk_filter_name(int filter) { return rr_option_filter_name(filter); }
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title) {
     rr_menu_page_header(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, title, rrhk_pages_index(), rrhk_pages_count());
 }

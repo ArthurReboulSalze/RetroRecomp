@@ -54,7 +54,15 @@ typedef struct RrhkRun {
     double cpu_started;
     bool ran_frame;                /* timing: a frame was run in this iteration */
     const char *timing_path;
+    /* The picture's store (1.7.0): max_width x max_height at open; a machine with pixel_pitch grows it, up to the renderer's
+     * largest texture (limit_w x limit_h, 0: not known). upscaled holds upscaled_pixels pixels (Scale2x). */
+    int store_w, store_h, limit_w, limit_h;
+    size_t upscaled_pixels;
 } RrhkRun;
+
+/* Pseudo-keys of the kit's own option rows: past every scancode and past the machines' own rows (rrhk_computer.inc uses
+ * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
+#define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
 
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
@@ -72,6 +80,13 @@ void rrhk_close_pads(void);
 void rrhk_pad_next(int player);          /* Enter: Automatic, each connected pad, None */
 void rrhk_pad_automatic(int player);     /* Delete: back to Automatic */
 void rrhk_pad_value(char *out, size_t size, int player);
+/* 1.7.0: the stick dead zone row, the graphics options, the Vibration row (their preferences). */
+void rrhk_deadzone_step(int player, bool reset);   /* Enter: next step of 5 %, after the largest 0; Delete: 0 */
+void rrhk_gfx_start(bool test_run);      /* window opening: the values in force (defaults in a test run, then --gfx), applied */
+void rrhk_gfx_set(int option, int value);   /* the page: apply and keep */
+void rrhk_gfx_defaults(void);            /* the page's Restore defaults: every option to its default, applied and kept */
+void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop a vibration in progress */
+void rrhk_rumble_stop(void);
 
 /* video.c */
 void rrhk_scale2x(const uint32_t *source, uint32_t *target);
@@ -86,6 +101,9 @@ void rrhk_pointer_draw(SDL_Renderer *renderer, const SDL_Rect *dst);
 /* menu.c */
 int rrhk_page_rows(void);
 bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
+bool rrhk_deadzone_row(void);        /* the selected row is the Stick dead zone row (a machine with analog sticks) */
+int rrhk_graphics_rows(void);        /* the graphics page: the machine's options, Filter, Restore defaults */
+void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
 void rrhk_toggle_menu(int kind);     /* Help or Pause: open it, or return to the menu it was opened from */
@@ -121,6 +139,7 @@ void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
 const char *rrhk_combo_hint(int index);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
+const char *rrhk_filter_name(int filter);   /* the translated name of a picture filter, as the options page shows it */
 
 /* audio.c */
 void rrhk_audio_open(RrhkRun *run);
@@ -146,4 +165,5 @@ SDL_AudioDeviceID rrhk_ring_device(void);
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);
+bool rrhk_set_filter(RrhkRun *run, int filter);   /* a new texture for the filter, kept in the preferences; false: no texture */
 #endif
