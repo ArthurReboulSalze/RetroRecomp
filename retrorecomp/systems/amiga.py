@@ -68,6 +68,13 @@ class AmigaProfile(SystemProfile):
             raise ConsoleMismatchError('Detected Commodore Amiga; choose Automatic or Commodore Amiga.', self.id)
         return self
 
+    def cover_titles(self, path: Path) -> tuple[str, ...]:
+        """The slave's own name, cleaned, as a further name for the box (artwork.profile_cover_titles): the archive's
+        name is often a short label (Lotus 2) where the slave names the game (Lotus Turbo Challenge II)."""
+        from ..amiga import cover_title, read_input
+        name = cover_title(read_input(path).title)
+        return (name,) if name else ()
+
     def read_rom(self, path: Path):
         from ..amiga import read_input
         return read_input(path)
