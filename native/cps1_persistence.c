@@ -7,7 +7,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include "platform_io.h"
 #include <errno.h>
-#include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,13 +18,35 @@
 #include "cps1_persistence.h"
 #include "retro16_state_config.h"
 
+/* Two flags and a spin lock shared with the worker thread. Visual Studio (the fallback toolchain) compiles C11 atomics
+ * only with /experimental:c11atomics, so there they go through the Interlocked functions; every other compiler (the
+ * portable clang, GCC) keeps <stdatomic.h>. */
+#if defined(_MSC_VER) && !defined(__clang__)
+typedef volatile LONG rr_flag;
+#define RR_LOCK_INIT 0
+#define flag_store(flag, value) ((void)InterlockedExchange((flag), (value) ? 1 : 0))
+#define flag_load(flag) (InterlockedCompareExchange((flag), 0, 0) != 0)
+#define lock_try(lock) (InterlockedExchange((lock), 1) != 0)
+#define lock_clear(lock) ((void)InterlockedExchange((lock), 0))
+typedef volatile LONG rr_lock;
+#else
+#include <stdatomic.h>
+typedef atomic_bool rr_flag;
+#define RR_LOCK_INIT ATOMIC_FLAG_INIT
+#define flag_store(flag, value) atomic_store((flag), (value))
+#define flag_load(flag) atomic_load((flag))
+#define lock_try(lock) atomic_flag_test_and_set_explicit((lock), memory_order_acquire)
+#define lock_clear(lock) atomic_flag_clear_explicit((lock), memory_order_release)
+typedef atomic_flag rr_lock;
+#endif
+
 enum { HEADER = 96, PAYLOAD_MAX = 128 };
 static const uint8_t magic[8] = {'R', 'R', 'C', 'P', 'S', 'E', '0', '1'};
 enum { TICK_MS = 50, STABLE_TICKS = 20 };       /* the contents are written after 1 s without a change */
 static bool active;
-static atomic_bool blocked, stopping;
+static rr_flag blocked, stopping;
 static wchar_t save_path[32768];
-static atomic_flag lock = ATOMIC_FLAG_INIT;
+static rr_lock lock = RR_LOCK_INIT;
 static uint8_t snapshot[PAYLOAD_MAX];
 static size_t snapshot_size;
 static unsigned generation, written;           /* both under the lock; generation 0 is "nothing changed yet" */
@@ -36,8 +57,8 @@ static HANDLE worker;
 static pthread_t worker;
 #endif
 
-static void acquire(void) { while (atomic_flag_test_and_set_explicit(&lock, memory_order_acquire)) { } }
-static void release(void) { atomic_flag_clear_explicit(&lock, memory_order_release); }
+static void acquire(void) { while (lock_try(&lock)) { } }
+static void release(void) { lock_clear(&lock); }
 static void pause_ms(unsigned ms)
 {
 #ifdef _WIN32
@@ -125,7 +146,7 @@ static bool flush_snapshot(void)
     const bool needed = wanted != written;
     release();
     if (!needed) return true;
-    if (!write_atomic(data, size)) { atomic_store(&blocked, true); return false; }   /* a failed write stops further tries, play goes on */
+    if (!write_atomic(data, size)) { flag_store(&blocked, true); return false; }   /* a failed write stops further tries, play goes on */
     acquire();
     written = wanted;
     release();
@@ -135,12 +156,12 @@ static bool flush_snapshot(void)
 static void work(void)
 {
     unsigned seen = 0, still = 0;
-    while (!atomic_load(&stopping)) {
+    while (!flag_load(&stopping)) {
         pause_ms(TICK_MS);
         acquire();
         const unsigned now = generation, done = written;
         release();
-        if (now == done || atomic_load(&blocked)) { still = 0; seen = now; continue; }
+        if (now == done || flag_load(&blocked)) { still = 0; seen = now; continue; }
         if (now != seen) { seen = now; still = 0; continue; }
         if (++still >= STABLE_TICKS) { flush_snapshot(); still = 0; }
     }
@@ -159,25 +180,25 @@ static void join_worker(void) { pthread_join(worker, NULL); }
 bool rr_cps1_save_begin(void)
 {
     active = false;
-    atomic_store(&blocked, false);
-    atomic_store(&stopping, false);
+    flag_store(&blocked, false);
+    flag_store(&stopping, false);
     worker_started = false;
     generation = written = 0;
     const size_t size = cps1_eeprom_size();
     if (!size || size > PAYLOAD_MAX) return true;           /* a board without an EEPROM keeps nothing */
-    if (!rr_cps1_save_path(save_path, 32768)) { atomic_store(&blocked, true); return false; }
+    if (!rr_cps1_save_path(save_path, 32768)) { flag_store(&blocked, true); return false; }
     uint8_t data[PAYLOAD_MAX];
     const int result = read_saved(data, size);
-    if (result == 1 && !cps1_eeprom_load(data, size)) atomic_store(&blocked, true);
-    else if (result < 0) atomic_store(&blocked, true);
+    if (result == 1 && !cps1_eeprom_load(data, size)) flag_store(&blocked, true);
+    else if (result < 0) flag_store(&blocked, true);
     active = true;
     snapshot_size = size;
-    return !atomic_load(&blocked);
+    return !flag_load(&blocked);
 }
 
 void rr_cps1_save_frame(void)
 {
-    if (!active || atomic_load(&blocked) || !cps1_eeprom_changed()) return;
+    if (!active || flag_load(&blocked) || !cps1_eeprom_changed()) return;
     acquire();
     memcpy(snapshot, cps1_eeprom_data(), snapshot_size);
     ++generation;
@@ -188,12 +209,12 @@ void rr_cps1_save_frame(void)
 bool rr_cps1_save_close(void)
 {
     if (!active) return true;
-    if (atomic_load(&blocked)) {
-        if (worker_started) { atomic_store(&stopping, true); join_worker(); worker_started = false; }
+    if (flag_load(&blocked)) {
+        if (worker_started) { flag_store(&stopping, true); join_worker(); worker_started = false; }
         return false;
     }
     rr_cps1_save_frame();                                  /* a change of the last frame */
-    if (worker_started) { atomic_store(&stopping, true); join_worker(); worker_started = false; }
+    if (worker_started) { flag_store(&stopping, true); join_worker(); worker_started = false; }
     active = false;
-    return flush_snapshot() && !atomic_load(&blocked);
+    return flush_snapshot() && !flag_load(&blocked);
 }

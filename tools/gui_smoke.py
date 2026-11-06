@@ -322,12 +322,22 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    # Eight pages (box art is in Common), plus one page per further available machine: at most the Common page and one
-    # per profile (the Master System and the Game Gear share theirs), so a new machine needs no edit here.
-    assert 8 <= len(notebook.tabs()) <= 1 + len(PROFILES)
+    # Two tabs (box art is in Common): Common, and Consoles, whose list picks the page of one machine (one page per
+    # profile, built from it, so a new machine needs no edit here).
+    assert len(notebook.tabs()) == 2
     assert notebook.tab(0, 'text') == application.tr('options_common')
-    assert notebook.tab(7, 'text') == application.tr('options_ng')
+    assert notebook.tab(1, 'text') == application.tr('options_consoles')
     assert all(notebook.tab(i, 'text') != application.tr('options_boxart') for i in range(len(notebook.tabs())))
+    picker = application.options_console_picker
+    assert list(picker.cget('values')) == [application.tr(profile.options_tab) for profile in PROFILES]
+    shown = [frame for _, _, frame in application.options_console_pages if frame.winfo_manager()]
+    assert len(shown) == 1
+    neo_geo = [profile.id for profile in PROFILES].index('ng')
+    application.show_console_page(neo_geo)
+    window.update_idletasks()
+    assert picker.get() == application.tr('options_ng')
+    assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
+    assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
     assert application.account_status.get() == application.tr('account_coming')
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.
@@ -628,6 +638,9 @@ def smoke(window):
         assert len(application.items) == before
         assert application.options_button.cget('text') == application.tr('options')
         assert open_notebook.tab(0, 'text') == application.tr('options_common')
+        assert open_notebook.tab(1, 'text') == application.tr('options_consoles')
+        assert application.options_console_picker.get() == application.tr(
+            application.options_console_pages[application.options_console_index][1])
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
         assert {application.tr('options_account'), application.tr('options_boxart'),

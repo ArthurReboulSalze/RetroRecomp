@@ -87,7 +87,7 @@ def _qualification_matrix() -> dict:
 def _gui_builds_the_tab(source: str, system: str) -> bool:
     """The options panel of gui.py builds a tab for this console: the generic page over the registered profiles
     (1.6.3), else a call or a loop over a tuple of ids."""
-    if 'self.build_console_tab(profile, tab, checkbox)' in source:
+    if 'self.build_console_tab(profile, tab, checkbox)' in source or 'self.build_console_tab(profile, page_of(profile), checkbox)' in source:
         return system in {profile.id for profile in ALL_PROFILES}
     quoted = r"""['"]%s['"]""" % re.escape(system)
     call = re.search(r'build_scan_options\([^)\n]*' + quoted + r'[^)\n]*\)', source)

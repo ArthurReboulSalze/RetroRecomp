@@ -79,6 +79,11 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 4. Known limits
 
+- Kickstart installs whose slave loads the game's files through the operating system (the `Examine` flag), such as
+  Another World and 4D Sports Boxing, stop at boot (about frame 190): the slave's own operating-system emulation reports
+  that it cannot read the game's file for lack of memory (AmigaDOS error 103), before asking the resload layer for it.
+  The cause is not found yet; the conversion stops with that sentence. The five Kickstart installs validated so far
+  load from disk images or through the resload layer directly.
 - Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none
   played: section 1; no Kickstart install was converted on Linux). With a Kickstart, the operating system loads through the
   resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity limit, not claimed

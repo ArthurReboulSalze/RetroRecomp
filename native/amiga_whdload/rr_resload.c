@@ -79,6 +79,73 @@ static void guest_name(const RrResload *r, uint32_t address, char *out, size_t c
     out[n] = 0;
 }
 
+/* An AmigaDOS error code in words (the codes of dos/dos.h a slave reports through resload_Abort). */
+static const char *dos_error_name(uint32_t code) {
+    switch (code) {
+    case 103: return "not enough memory";
+    case 202: return "object in use";
+    case 204: return "folder not found";
+    case 205: return "file not found";
+    case 213: return "disk not validated";
+    case 214: return "disk write-protected";
+    case 218: return "device not mounted";
+    case 221: return "disk full";
+    case 225: return "not a DOS disk";
+    case 226: return "no disk";
+    default: return NULL;
+    }
+}
+
+/* The sentence a resload_Abort leaves for the player: what the slave could not do, named, with its raw numbers kept after
+   it. The TDREASON values are those of WHDLoad's public include whdload.i; primary and secondary mean what the autodoc
+   of resload_Abort says for each reason. */
+static void describe_abort(RrResload *r) {
+    const uint32_t reason = r->abort_reason[0], primary = r->abort_reason[1], secondary = r->abort_reason[2];
+    char name[128];
+    const char *dos = dos_error_name(primary);
+    char error[64];
+    if (dos) snprintf(error, sizeof error, "%s, AmigaDOS error %u", dos, (unsigned)primary);
+    else snprintf(error, sizeof error, "AmigaDOS error %u", (unsigned)primary);
+    switch ((int32_t)reason) {
+    case -1:
+        snprintf(r->message, sizeof r->message, "the game quit (resload_Abort, TDREASON_OK)");
+        return;
+    case 1: case 2: case 27:
+        guest_name(r, secondary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the install could not %s %s%s%s (%s; resload_Abort reason %d)",
+                 reason == 1 ? "read" : reason == 2 ? "write" : "delete", name[0] ? "the file \"" : "a file", name,
+                 name[0] ? "\"" : "", error, (int)(int32_t)reason);
+        return;
+    case 6:
+        guest_name(r, secondary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the install could not list the folder \"%s\" (%s; resload_Abort reason 6)", name, error);
+        return;
+    case 7:
+        snprintf(r->message, sizeof r->message, "the install could not read its disk %u (error %u; resload_Abort reason 7)",
+                 (unsigned)secondary, (unsigned)primary);
+        return;
+    case 9:
+        snprintf(r->message, sizeof r->message, "the slave does not recognise this version of the game's files (resload_Abort reason 9)");
+        return;
+    case 10:
+        guest_name(r, primary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the slave's operating-system emulation failed in \"%s\" (error %u; resload_Abort reason 10)",
+                 name, (unsigned)secondary);
+        return;
+    case 11: snprintf(r->message, sizeof r->message, "the install needs a 68020 processor (resload_Abort reason 11)"); return;
+    case 12: snprintf(r->message, sizeof r->message, "the install needs the AGA chipset (resload_Abort reason 12)"); return;
+    case 13: snprintf(r->message, sizeof r->message, "the install runs on NTSC only (resload_Abort reason 13)"); return;
+    case 14: snprintf(r->message, sizeof r->message, "the install runs on PAL only (resload_Abort reason 14)"); return;
+    case 43:
+        guest_name(r, primary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the slave stopped: \"%s\" (resload_Abort reason 43)", name);
+        return;
+    default:
+        snprintf(r->message, sizeof r->message, "the slave ended the program (resload_Abort reason %d, %u, %u)",
+                 (int)(int32_t)reason, (unsigned)primary, (unsigned)secondary);
+    }
+}
+
 static int find(RrResload *r, const char *name, const uint8_t **data, uint32_t *size) {
     *data = NULL;
     *size = 0;
@@ -861,10 +928,16 @@ int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
     uint32_t size;
     switch (offset) {
     case RL_ABORT:
-        for (int k = 0; k < 3; k++) r->abort_reason[k] = rd32(r, regs[A7] + 4 + 4 * (uint32_t)k);
-        snprintf(r->message, sizeof r->message, "the slave ended the program (%u, %u, %u)",
-                 (unsigned)r->abort_reason[0], (unsigned)r->abort_reason[1], (unsigned)r->abort_reason[2]);
+    {
+        /* resload_Abort(success, primary, secondary) takes its arguments at (a7): the documented call pushes them and jumps
+           through `rts`, so no return address lies above them. A slave that called it with jsr has its return address
+           first (an address, never one of the small TDREASON values): it is skipped. */
+        uint32_t sp = regs[A7], first = rd32(r, sp);
+        if (first > 0xFFFFu && first != 0xFFFFFFFFu) sp += 4;
+        for (int k = 0; k < 3; k++) r->abort_reason[k] = rd32(r, sp + 4 * (uint32_t)k);
+        describe_abort(r);
         return RR_RESLOAD_ABORT;
+    }
     case RL_LOADFILE: case RL_LOADFILEOFFSET: {
         uint32_t want = regs[D0], from = regs[D1];
         guest_name(r, regs[A0], name, sizeof name);

@@ -224,6 +224,15 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
+## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
+
+`resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call
+jumps through `rts`, so no return address lies above them); the layer read them one slot too far, so an aborting slave
+showed three meaningless numbers ("the slave ended the program (103, 53452, 16730414)"). It now reads them at `(a7)`
+(skipping a return address when a slave arrived with `jsr`) and says what the slave could not do: "the install could not
+read the file '4DBoxing' (not enough memory, AmigaDOS error 103; resload_Abort reason 1)". **What moves:** the Amiga's game
+stamp (`native/amiga_whdload/rr_resload.c`); no other console.
+
 ## Commodore Amiga: the player's own Kickstart 1.3 (1.7.0)
 
 An install that asks for a Kickstart 1.x (in its slave header or through `resload_LoadKick`) now converts with the player's own
@@ -414,14 +423,18 @@ hexadecimal digits of each stamp, 6 November 2026):
 | CPS-1 | `da3f9a93f08f`, `2d6bdc5b1ca4` | `075e0ff74ad2`, `ff2e8295501f` | same |
 | CPS-2 | `d0dfdf7fcd0a`, `b841f976989c` | `6d09623637fd`, `7f31bbdfb091` | same |
 | PC Engine / TurboGrafx-16 | `61785d10f6b3`, `78f5641c38ec` | `e688aeb8d524`, `bdcc346995e1` | same |
-| Game Boy Advance | `a8f3639ad2c9`, `fb1e49e5f6b4` | `f91cddfbe6b9`, `f94b7ff7c92f` | same |
+| Game Boy Advance | `a8f3639ad2c9`, `05e06c23687a` | `f91cddfbe6b9`, `f94b7ff7c92f` | same |
 | Amiga | `c7a44bc35458`, `a82d6ccb72ca` | `8e7c7e682d10`, `136af9f804ed` | same |
 | Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
 
-Three fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
-converter offers the profile) and its decoder reading the working folder give the Amiga the game stamp `f32920f07f96`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
+Five fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
+converter offers the profile), its decoder reading the working folder and resload_Abort said in words give the Amiga the game stamp `ff35e3b8af69`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
 refuses with a sentence when the build tools are missing instead of starting a build, give Adventure (ScummVM) the game stamp `be8047b230ac` and the build stamp
-`97d9ad0da628` (the released tree).
+`97d9ad0da628` (the released tree). The CPS EEPROM writer's two flags and spin lock go through the Interlocked functions under Visual Studio
+(the fallback toolchain compiles C11 atomics only with an experimental switch, so every CPS-1 and CPS-2 conversion failed
+there; the portable clang and GCC keep `<stdatomic.h>` and the same code): the game stamps of the CPS-1 `b2ef983bc3fd` and the
+CPS-2 `71a11548e45d`, which were moving in 1.7.0 already. On Linux a second Game Boy Advance player preparation no longer rewrites its three embedded resource files with equal bytes
+(found by the Linux CI): the Game Boy Advance game stamp in the table above is the released one.
 
 **The game stamp and the host stamp of the thirteen earlier machines move again** (`retrorecomp/batch.py` and `report_schema.py` are game inputs of every machine, and
 `THIRD_PARTY_NOTICES.md` and the new licence pages are host inputs); no build stamp moves for them. This adds no conversion on top of 1.7.0: against `v1.6.9` every game stamp had already

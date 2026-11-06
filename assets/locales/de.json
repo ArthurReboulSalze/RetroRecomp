@@ -109,6 +109,7 @@
     "feedback_import_summary": "{observations} Hinweise für {games} Spiele gespeichert ({kib:.1f} KiB). Ignorierte Dateien: {invalid_files}.",
     "feedback_import_error": "Daten konnten nicht importiert werden. Prüfe Ordnerzugriff und freien Speicher.",
     "options_common": "Allgemein",
+    "options_consoles": "Konsolen",
     "options_boxart": "Cover",
     "options_account": "Retro-Recomp-Konto",
     "options_disk_space": "Speicherplatz",
