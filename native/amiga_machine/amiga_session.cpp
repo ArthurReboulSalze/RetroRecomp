@@ -518,10 +518,12 @@ static uint64_t fnv(uint64_t h, const void *data, size_t n) {
 extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info) {
     Amiga &amiga = *s->amiga;
     const uint64_t basis = 1469598103934665603ull;
-    const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
     memset(info, 0, sizeof *info);
     info->frame = s->frame;
-    info->video = fnv(basis, tex.pixels.ptr, (size_t)Tex::width * Tex::height * sizeof(uint32_t));
+    // The picture the player shows (every row of it is drawn each frame), not vAmiga's whole texture: the texture's
+    // blanking lines are not redrawn every frame, so after a quick state is loaded they still hold what the new process
+    // drew before (North And South showed it on the first frame after a load), which is no part of the game's picture.
+    info->video = fnv(basis, s->picture.data(), (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines * sizeof(uint32_t));
     info->pcm = fnv(basis, s->pcm.data(), s->pcm.size() * sizeof(int16_t));
     uint64_t ram = fnv(basis, amiga.mem.chip, (size_t)amiga.mem.chipRamSize());
     if (amiga.mem.slow) ram = fnv(ram, amiga.mem.slow, (size_t)amiga.mem.slowRamSize());
