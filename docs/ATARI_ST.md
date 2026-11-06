@@ -2,8 +2,8 @@
 
 Experimental profile (`atarist`), added in 1.7.1: the converter offers it when the installation carries the Atari ST files, and it
 is not shared through the compilation library. It converts an Atari ST, STF or Mega ST floppy game into a standalone Windows
-executable that runs the game on [Hatari](https://github.com/hatari/hatari). In this first stage there is no native code yet: every
-68000 instruction is counted as interpreted. Nothing here says that a game plays completely, that the hardware is reproduced
+or Linux executable that runs the game on [Hatari](https://github.com/hatari/hatari), with native steps for the 68000 instructions its
+reference runs observed and Hatari's interpreter, counted, for the others. Nothing here says that a game plays completely, that the hardware is reproduced
 faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each.
 
 ## 1. What is converted, and what is not
@@ -12,8 +12,8 @@ faithfully or how long input takes to reach the screen: those are separate measu
 | --- | --- |
 | Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, played in the order of their names: `x (Disk 1).ipf`, `x (Disk 2).ipf`) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
 | The player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | EmuTOS as the default for a player without a TOS of his own: not yet, the TOS row is needed for now |
-| The joystick, the mouse and the keyboard; quick states (F8/F9) | A panel of games; a played-through game |
-| Windows | Linux (`linux = 'pending'`) |
+| The joystick, the mouse and the keyboard; quick states (F8/F9) | A played-through game |
+| Windows; Linux (converted and validated headless on a Debian 13 PC, see below) | A game played on Linux |
 
 A ZIP that holds anything other than floppy images is not claimed by the Atari ST profile. The input is read in place and never
 changed. The player supplies the disks and the TOS; Retro-Recomp publishes no game, no disk and no firmware.
@@ -42,7 +42,9 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
    Every step starts with a live comparison of the instruction's words in memory and of the opcode Hatari prefetched: a word that
    changed (unpacked, loaded or self-modified code) sends the instruction back to the counted interpreter, and an opcode Hatari's
    table treats as illegal is never a step. The generator is the one the X68000 and the Amiga use (`retrorecomp/m68k_observed.py`,
-   with the 68000 decoder of m68k-recomp-core). A pass that still meets interpreted instructions adds them and builds again.
+   with the 68000 decoder of m68k-recomp-core). A pass that still meets interpreted instructions adds them and builds again. An observation keeps each instruction's
+   own words by the decoder's length table (`--opcode-lengths`): Hatari's table gives the length of its handlers' fetches, which
+   is shorter for some instructions (JMP (d8,PC,Xn)), and an instruction observed without its extension word cannot be decoded.
 
 ## 3. The five measures
 
@@ -78,7 +80,11 @@ game still stops, so a second cause remains (its protection sector holds a no-fl
 ## 4. Known limits
 
 - STE, TT, Falcon, hard disks and CD-style media are out of scope. EmuTOS, the TOS for a player who has none, is not available yet.
-- Linux is pending: the profile has not been run there.
+- Linux: two panel games were converted and validated on a Debian 13 PC (7 November 2026, system GCC, the tree of Windows'
+  witness): Bomb Jack (Quick, 32,910,583 native, 1 interpreted) and Another World (Standard, 33,425,244 and 33,425,310 native,
+  1 interpreted on each route). Every route equals its fresh reference, the compressed copy too, and the state continues in a
+  fresh process; the reference traces (CPU registers, RAM, picture and sound of every frame) are byte for byte those of Windows.
+  No game was played interactively on Linux (window, sound, pad).
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on
   its main route and its trace still equals the reference). A state loaded by a fresh process continued the saved timeline on the
   ten panel games (CPU registers, RAM and picture of 400 frames; the sound samples of the first frames after a load differ, because
@@ -104,5 +110,5 @@ game still stops, so a second cause remains (its protection sector holds a no-fl
 
 ## 6. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) is `?` except G1. Leaving the experimental status is the maintainer's
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) is `P` on the gates with evidence above and `?` elsewhere. Leaving the experimental status is the maintainer's
 own decision, after a very high evidence bar.

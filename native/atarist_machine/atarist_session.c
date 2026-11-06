@@ -442,23 +442,21 @@ RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
 /* ------------------------------------------------------------------------------- the step hook of the 68000 loop */
 /* The hook the adapted Hatari calls before each instruction of its cycle-exact loop (retrorecomp/atarist_hatari.py). A build
  * without native steps runs every instruction on Hatari's table: the hook counts it and, when the conversion observes, records
- * the instruction (its pc and its own bytes: the length Hatari's table gives its opcode, at most 10 on a 68000) once. */
+ * the instruction (its pc and its own bytes: the length the decoder's table gives its opcode, at most 10 on a 68000) once. */
 extern bool (*rr_hatari_step)(uint32_t pc, uint32_t opcode);
 typedef struct Observation { uint32_t pc; uint8_t bytes[12]; uint32_t used; } Observation;   /* used: the length in bytes */
-static uint8_t opcode_bytes[65536];   /* the instruction length of every opcode, from op_smalltbl_14 (2 for an illegal one) */
+/* The instruction length of every opcode, in bytes, from the 68000 decoder the conversion uses (rr_st_set_opcode_lengths):
+ * Hatari's own table gives the length of its handlers' fetches, not always of the instruction (JMP (d8,PC,Xn) shows 2 bytes).
+ * Without the decoder's table an observation keeps the longest 68000 instruction (10 bytes). */
+static uint8_t opcode_bytes[65536];
 static int opcode_bytes_ready;
 
-static void build_opcode_bytes(void) {
-    unsigned op, n;
+void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]) {
+    unsigned op;
+    (void)s;
     for (op = 0; op < 65536; op++) {
-        cpuop_func_noret *handler = cpufunctbl_noret[op];
-        opcode_bytes[op] = 2;
-        for (n = 0; op_smalltbl_14[n].handler_ff_noret || op_smalltbl_14[n].handler_ff; n++)
-            if (op_smalltbl_14[n].handler_ff_noret == handler) {
-                int length = op_smalltbl_14[n].length;
-                if (length >= 2 && length <= 12 && !(length & 1)) opcode_bytes[op] = (uint8_t)length;
-                break;
-            }
+        unsigned bytes = words[op] * 2u;
+        opcode_bytes[op] = (uint8_t)(bytes < 2 ? 2 : bytes > 10 ? 10 : bytes);
     }
     opcode_bytes_ready = 1;
 }
@@ -524,8 +522,7 @@ static bool step_hook(uint32_t pc, uint32_t opcode) {
     if (current->observe) {
         uint8_t bytes[12];
         unsigned length;
-        if (!opcode_bytes_ready) build_opcode_bytes();
-        length = opcode_bytes[opcode & 0xffff];
+        length = opcode_bytes_ready ? opcode_bytes[opcode & 0xffff] : 10;
         if (code_bytes(pc, bytes, length)) observe_insert(current, pc & 0xffffff, bytes, length);
     }
 #ifdef RR_ST_NATIVE

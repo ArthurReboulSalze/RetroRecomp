@@ -62,7 +62,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
-| Atari ST | experimental | `███░░░░░░░` 28 % | ✅ 0 · 🟡 9 · ❔ 7 |
+| Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -80,7 +80,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ |
@@ -109,7 +109,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = 
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | ? |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? |
@@ -137,7 +137,7 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Atari ST (6 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`, Windows only): G1 `P`: the profile is declared
+- Atari ST (6 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): G1 `P`: the profile is declared
   experimental and `tools/status_lint.py` agrees, but the machine is not opened to players yet. G2 `P`: the common report v2 of every
   conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
   interpreted on a route (Operation Stealth and Captain Blood stay on the GEM desktop, whose line-F calls go to Hatari's
@@ -150,8 +150,10 @@ The page of each console, which the README links its line to (a console of the m
   4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
   panel games reach their own screens; Operation Stealth and Captain Blood are started from the GEM desktop (a route that opens
   them is needed; Captain Blood's disk was read identically by an independent reader), Kick Off 2 stops on its own error (its
-  plain sectors boot; one IPF reader defect found and fixed, a second cause remains). No hardware fidelity is claimed, no game is validated and the latency
-  is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
+  plain sectors boot; one IPF reader defect found and fixed, a second cause remains). G13 `P`: Bomb Jack and Another World converted
+  and validated on a Debian 13 PC with the system GCC (7 November 2026): the same native and interpreted counts as Windows and
+  reference traces byte for byte equal to Windows' on the three routes; no game played on Linux. No hardware fidelity is
+  claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
   and validated on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh

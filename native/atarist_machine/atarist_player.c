@@ -42,7 +42,7 @@ static RrStSession *session;
 static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed, verbose;
 static unsigned dump_at;
-static const char *dump_path, *opcode_map_path;
+static const char *dump_path, *opcode_map_path, *opcode_lengths_path;
 
 static void fail(const char *message) {
    if (!failed) fprintf(stderr, "%s\n", message ? message : "failed");
@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
-              "--observations FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+              "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
               "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB");
          return 0;
       } else if (i + 1 < argc) {
@@ -339,6 +339,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--capture")) capture_path = v;
          else if (!strcmp(a, "--observations")) observe_path = v;
          else if (!strcmp(a, "--opcode-map")) opcode_map_path = v;
+         else if (!strcmp(a, "--opcode-lengths")) opcode_lengths_path = v;
          else if (!strcmp(a, "--tos")) tos_path = v;
          else if (!strcmp(a, "--disk")) { if (disk_count == RR_ST_MAX_DISKS) { fail("Too many disks"); return 1; } disk_paths[disk_count++] = v; }
          else if (!strcmp(a, "--machine")) game.machine = v;
@@ -384,6 +385,13 @@ int main(int argc, char **argv) {
    session = rr_st_open(&game, error, sizeof error);
    if (!session) { fail(error); return 1; }
    if (observe_path) rr_st_set_observe(session, 1);
+   if (opcode_lengths_path) {
+      uint32_t size;
+      uint8_t *lengths = read_file(opcode_lengths_path, &size);
+      if (!lengths || size != 65536) { fail("The opcode length table is unreadable"); return 1; }
+      rr_st_set_opcode_lengths(session, lengths);
+      free(lengths);
+   }
    /* A build with native steps runs them unless the run is the interpreted reference (--reference-cpu); a build without them
     * runs every instruction on Hatari's interpreter. */
    if (!reference_cpu) rr_st_set_native(session, 1);

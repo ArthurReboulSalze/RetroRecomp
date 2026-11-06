@@ -35,7 +35,7 @@ class AtariStProfile(SystemProfile):
     option_keys = (OptionKey('atarist_tos', signature=False, kind='path', label='atarist_tos_label'),)
     quick_state_family = 'atarist'
     capabilities = Capabilities(mouse=True, keyboard=True, disks=True)
-    linux = 'pending'
+    linux = 'witnessed'
     feedback_kinds = frozenset({24})
     default_frames = 3000
     quick_frames = 3000

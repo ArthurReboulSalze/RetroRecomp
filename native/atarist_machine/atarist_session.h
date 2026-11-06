@@ -54,6 +54,8 @@ unsigned rr_st_disk_count(const RrStSession *s);
 uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
 void rr_st_set_observe(RrStSession *s, int enabled);
+/* The instruction length of every opcode in 16-bit words (the 68000 decoder's table, 65,536 bytes): what an observation keeps. */
+void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]);
 /* Native steps (only in a build with RR_ST_NATIVE): 1 when the request is honoured (a build without steps honours only "off"). */
 int rr_st_set_native(RrStSession *s, int enabled);
 /* The opcode -> handler table of Hatari's cycle-exact 68000 (the conversion's step generator reads it); 1: written. */

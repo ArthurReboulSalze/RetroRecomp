@@ -246,6 +246,21 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
     return sorted(samples)
 
 
+def decoder_lengths(project: Path) -> tuple[Path, Path]:
+    """The 68000 decoder of the generator, built once per conversion folder, and its instruction-length table (65,536 opcodes,
+    in words): the observations keep each instruction's own words by it."""
+    from . import m68k_observed
+    engine = ROOT / '.deps/segagenesisrecomp'
+    project.mkdir(parents=True, exist_ok=True)
+    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ROOT,
+                                         target='atarist_decode', name='RetroAtariSTDecode')
+    lengths = project / 'opcode-lengths.bin'
+    run([decode, '--lengths', lengths], log=project / 'decode.log')
+    if len(lengths.read_bytes()) != 65536:
+        raise ConversionError('Atari ST: the 68000 instruction length table is invalid.')
+    return decode, lengths
+
+
 def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path:
     """The opcode -> handler table of Hatari's cycle-exact 68000, written by the reference player after one frame."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -280,7 +295,7 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> d
 
 # ---------------------------------------------------------------------------------------------------------- replays
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list[Path] | None = None, tos: Path | None = None,
-           observe: bool = False, extra=()) -> dict:
+           observe: bool = False, lengths: Path | None = None, extra=()) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'),
             '--trace', str(folder / 'trace.tsv'), '--input-events', str(events), '--capture', str(folder / 'frame.ppm')]
@@ -290,6 +305,8 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
             args += ['--disk', str(disk)]
     if observe:
         args += ['--observations', str(folder / 'observations.txt')]
+        if lengths is not None:
+            args += ['--opcode-lengths', str(lengths)]
     args += [str(value) for value in extra]
     with (folder / 'stdout.log').open('wb') as out, (folder / 'stderr.log').open('wb') as err:
         result = spawn(args, cwd=folder, timeout=max(600, frames // 4), stdout=out, stderr=err)
@@ -395,10 +412,12 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Atari ST: fresh reference runs ({len(routes)} route(s) of {count} frames, interpreted 68000).')
         expected = {}
+        project = work / 'native'
+        _, lengths = decoder_lengths(project)
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                        tos=media / 'tos.img', observe=True)
+                                        tos=media / 'tos.img', observe=True, lengths=lengths)
         samples = set()
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
@@ -418,7 +437,6 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='atarist', cache_directory=boxart_cache_directory('atarist'), emit=emit)
         metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game)
-        project = work / 'native'
         candidate = generation = None
         results = {}
         for attempt in range(max(1, min(int(passes or 3), 10))):
@@ -438,7 +456,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     folder.mkdir(parents=True, exist_ok=True)
                     exported = folder / candidate.name
                     shutil.copy2(candidate, exported)
-                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True)
+                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True, lengths=lengths)
                     require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                       lambda: ConversionError(f'Atari ST {name}: the native game and the fresh reference diverged; existing export preserved.'))
                     more |= set(read_observations(folder / 'observations.txt'))
