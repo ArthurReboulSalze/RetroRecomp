@@ -1,4 +1,7 @@
-"""Commodore Amiga profile (experimental, developer installations only: see docs/AMIGA.md).
+"""Commodore Amiga profile (experimental since 1.7.0: see docs/AMIGA.md).
+
+The machine is listed when the installation carries the converter's own files (`available()`); an `.lha` is refused
+with a sentence otherwise.
 
 What it converts: an Amiga 500 game installed for WHDLoad (an LHA archive holding a `.Slave` and the game's files), run without
 WHDLoad and without a Kickstart by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
@@ -29,12 +32,13 @@ class AmigaProfile(SystemProfile):
     firmware = ()
     quick_state_family = 'amiga'
     capabilities = Capabilities(mouse=True, keyboard=True)
-    linux = 'pending'
+    # Rick Dangerous converted and validated on a Debian 13 PC with the system GCC (tree fd953b8c, 6 November 2026: both
+    # routes, the compressed copy and the quick state), the same evidence class as the other experimental machines (G13 P).
+    linux = 'witnessed'
     feedback_kinds = frozenset({22})
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
-    developer_only = True
     stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates')
     path_spec = PathSpec(order=12, sections=(('m68k', 'amiga'),),
                          source_bounds=(('lha', (1, 1 << 30)),),
@@ -53,14 +57,14 @@ class AmigaProfile(SystemProfile):
     identify = Identify(path_order=40)
 
     def available(self) -> bool:
-        from ..amiga import developer_available
-        return developer_available()
+        from ..amiga import converter_available
+        return converter_available()
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix not in self.extensions:
             return None
         if not self.available():
-            raise UnsupportedConsoleError('The Commodore Amiga profile is unavailable in this installation.')
+            raise UnsupportedConsoleError('The experimental Commodore Amiga profile is unavailable in this installation.')
         from ..amiga import slave_member
         if slave_member(path) is None:
             raise UnsupportedConsoleError(f'{path.name} holds no WHDLoad slave (.Slave): not an Amiga WHDLoad install.')

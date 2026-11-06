@@ -61,7 +61,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
-| Commodore Amiga | experimental | `███░░░░░░░` 34 % | ✅ 1 · 🟡 9 · ❔ 5 · ❌ 1 |
+| Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -79,7 +79,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ❌ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ |
@@ -108,7 +108,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = 
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | N |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? |
@@ -135,7 +135,10 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Amiga (5 November 2026): the profile is `experimental` and for developer installations only; the column is mostly `?`. G1 `Y`: the profile, `docs/AMIGA.md` and
+- Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
+  and validated on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh
+  interpreted reference, 0 interpreted, the compressed copy and the quick state); one install, not compared hash for hash with a
+  Windows run of the same tree, and not played on Linux. G1 `Y`: the profile, `docs/AMIGA.md` and
   `tools/status_lint.py` agree. G2, G3, G4, G5, G6, G8 `P`: one game converted (Rick Dangerous, Standard level, 5 November 2026): a schema 2 report, 0 interpreted
   instructions on two routes of 3,000 frames, every frame equal to the fresh interpreted reference, the compressed copy too, a quick state continued by a fresh
   process (CPU, RAM and picture; the sound samples after a load are not compared), liveness recorded. G10 `P`: Moira (MIT) was compared with the SingleStepTests

@@ -483,7 +483,7 @@
     "scan_note_gba": "Empfohlen: Standard: das Spiel läuft unsichtbar auf Skriptrouten, jede mit dem Interpreter der Engine verglichen. Code, den die Routen nicht erreichen, bleibt interpretiert und wird gezählt.",
     "options_x68_note": "Sharp-X68000-Profil: DIM/XDF/D88 und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
     "options_amiga": "Commodore Amiga",
-    "options_amiga_note": "Commodore-Amiga-Profil (experimentell, nur Entwicklerinstallationen): WHDLoad-Installationen (.lha) des Amiga 500, die kein Kickstart brauchen; es wird kein Kickstart geliefert oder benutzt. Der aus dem RAM ausgeführte 68000-Code wird zu geschützten nativen Schritten kompiliert, der Rest wird im Interpreter gezählt. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
+    "options_amiga_note": "Commodore-Amiga-Profil (experimentell): WHDLoad-Installationen (.lha) des Amiga 500, die kein Kickstart brauchen; es wird kein Kickstart geliefert oder benutzt. Der aus dem RAM ausgeführte 68000-Code wird zu geschützten nativen Schritten kompiliert, der Rest wird im Interpreter gezählt. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
     "x68_sets_grouped": "Sharp X68000: zusammengefasste Diskettensätze: {count} (eine Zeile pro Spiel).",
     "x68_set_incomplete": "Sharp X68000: Bei {title} fehlt Diskette {missing} von {total}; nur die gefundenen Disketten stehen in der Warteschlange.",
     "conversion_queue": "Konvertierungsliste",
