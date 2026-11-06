@@ -234,6 +234,46 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '   return cpu_last_check_ts;\n}\n',
      '   return cpu_last_check_ts;\n}\n'
      '#endif /* Retro-Recomp modification: RR_PSX_SHARD */\n'),
+    # The DualShock's Analog button. libretro has no id for it, so the session sets it here and the pad's third byte carries
+    # it (the byte Beetle's DualShock reads it from). rr_psx_input_buttons reads back what the pad gives the console (the
+    # PlayStation button bits, the Analog button as bit 16): the game's input check.
+    ('input.c',
+     'void input_update(bool libretro_supports_bitmasks, retro_input_state_t input_state_cb )\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the Analog button of each pad, and the pad as the console\n'
+     ' * reads it (for the input check of the game). */\n'
+     'int rr_psx_analog_held[MAX_CONTROLLERS];\n'
+     'uint32_t rr_psx_input_buttons(unsigned player)\n{\n'
+     '   if (player >= MAX_CONTROLLERS)\n      return 0;\n'
+     '   return input_data[player].buttons | ((uint32_t)(input_data[player].u8[2] & 1) << 16);\n}\n\n'
+     'void input_update(bool libretro_supports_bitmasks, retro_input_state_t input_state_cb )\n'),
+    ('input.c',
+     '            break;\n\n         case RETRO_DEVICE_PS_GUNCON:\n',
+     '            /* Retro-Recomp modification (GPL-2.0, like this file): the Analog button. */\n'
+     '            p_input->u8[ 2 ] = rr_psx_analog_held[ iplayer ] ? 1 : 0;\n'
+     '            break;\n\n         case RETRO_DEVICE_PS_GUNCON:\n'),
+    # With the mode toggle enabled (the session's choice: a DualShock powers on in digital mode, as the console's pad does),
+    # Beetle switches the mode on a button combination only; the Analog button switches it too, as on the real pad.
+    ('mednafen/psx/frontio.c',
+     '            self->combo_anatoggle_counter = -1;\n      }  \n      else\n',
+     '            self->combo_anatoggle_counter = -1;\n'
+     '         /* Retro-Recomp modification (GPL-2.0, like this file): the Analog button also switches the mode. */\n'
+     '         if(self->cur_ana_button_state && (self->cur_ana_button_state != self->prev_ana_button_state))\n'
+     '            need_mode_toggle = true;\n'
+     '      }  \n      else\n'),
+    # The mode of a DualShock, for the game's input check (a pad in analog mode at power-on is what made Tomba! deaf to the
+    # d-pad).
+    ('mednafen/psx/frontio.c',
+     'static void InputDevice_DualShock_CheckManualAnaModeChange(InputDevice *self_)\n{\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): 1, the pad of `port` is a DualShock in analog mode; 0, in digital\n'
+     ' * mode; -1, another device. */\n'
+     'int rr_psx_dualshock_analog(unsigned port)\n{\n'
+     '   extern struct FrontIO *PSX_FIO;\n'
+     '   InputDevice *dev;\n'
+     '   if (!PSX_FIO || port >= 8)\n      return -1;\n'
+     '   dev = PSX_FIO->Devices[port];\n'
+     '   if (!dev || dev->vt->UpdateInput != InputDevice_DualShock_UpdateInput)\n      return -1;\n'
+     '   return ((InputDevice_DualShock *)dev)->analog_mode ? 1 : 0;\n}\n\n'
+     'static void InputDevice_DualShock_CheckManualAnaModeChange(InputDevice *self_)\n{\n'),
     # The EBOOT reader (CDAccess_PBP.c) is not compiled, so the disc count it keeps is defined here, at 0 (no EBOOT).
     ('libretro.c',
      'extern int PBP_DiscCount;\n',

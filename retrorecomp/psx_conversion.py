@@ -140,6 +140,22 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
 
+def check_inputs(executable: Path, folder: Path) -> dict:
+    """Every control of the game's pad, pressed alone on each player's pad, must reach exactly its own button of the console
+    (the adapter's table, the session's libretro inputs and the core's pad mapping together; psx_main.c --input-check)."""
+    from .conversion_common import spawn
+    folder.mkdir(parents=True, exist_ok=True)
+    completed = spawn([str(executable), '--headless', '--input-check'], cwd=folder, timeout=300, capture_output=True, text=True)
+    rows = [json.loads(line) for line in completed.stdout.splitlines() if line.startswith('{')]
+    wrong = [f"player {r['player']} {r['action']}" for r in rows if not r['ok']]
+    if completed.returncode not in (0, 5) or not rows:
+        raise ConversionError(f'PlayStation input check could not run ({completed.returncode}).')
+    if wrong or completed.returncode:
+        raise ConversionError('PlayStation controls that do not reach their own button of the console: ' + ', '.join(wrong)
+                              + '; existing export preserved.')
+    return {'controls_checked': len(rows), 'every_control_reaches_its_button': True}
+
+
 def identification_report(item, level: str = 'standard') -> dict:
     """The writer's keys for a disc that was identified and not converted: no measure is reported."""
     return {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
@@ -275,9 +291,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         timings['routes'] = round(time.perf_counter() - phase, 3)
         play = next(row for row in plan if row[0] == 'play')
         phase = time.perf_counter()
-        emit('PlayStation: checking F8/F9 in a fresh process and rejecting an invalid state.')
+        emit('PlayStation: checking F8/F9 in a fresh process and rejecting an invalid state, and the controls.')
         with stages.phase('state_checks'):
             states = check_states(final, checks / 'states', 'play', play[1], scripts['play'], results['play']['trace'])
+            inputs = check_inputs(final, checks / 'inputs-check')
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
     if not any(reference[name]['nonzero_samples'] for name, _, _ in plan):
         emit('PlayStation: no route produced sound (reported, not refused).')
@@ -330,7 +347,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'build_directory': str(project), 'published_compressed': False, 'executable_sha256': final_sha,
         'executable_bytes': final.stat().st_size, 'scan_level': level, 'conversion_phases_seconds': timings,
         'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'qualification_scope': {'controls': 'digital pad, players 1 and 2; the validation routes drive player 1',
+        'input_check': inputs,
+        'qualification_scope': {'controls': 'DualShock pad (digital mode at power-on, as the console\'s pad; sticks, L2/R2 on '
+                                            'the triggers, the Analog button), players 1 and 2; the validation routes drive '
+                                            'player 1 with the digital buttons',
                                 'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
     shares = [row['interpreter_percent'] for row in checks_rows]

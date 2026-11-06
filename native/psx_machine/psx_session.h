@@ -18,8 +18,9 @@ extern "C" {
 #define RR_PSX_BIOS_BYTES (512u * 1024u)
 #define RR_PSX_RAM_BYTES (2u * 1024u * 1024u)
 #define RR_PSX_AUDIO_RATE 44100u
-#define RR_PSX_MAX_WIDTH 1024
+#define RR_PSX_MAX_WIDTH 1024     /* the picture at the console's resolution fits in this */
 #define RR_PSX_MAX_HEIGHT 576
+#define RR_PSX_PICTURE_LIMIT 4096 /* a larger internal resolution: the picture grows up to this on each side */
 
 /* Pad bits of one player (the order of the PlayStation pad, libretro's joypad ids). */
 enum {
@@ -45,6 +46,14 @@ void rr_psx_close(RrPsxSession *s);
 
 /* Inputs of the next frame: the pad bits and the two sticks (-32768..32767) of a player (0 or 1). */
 void rr_psx_pad(RrPsxSession *s, int player, unsigned bits, const int16_t sticks[4]);
+
+/* The DualShock's Analog button of a player, held or not (it switches the pad between digital and analog mode). */
+void rr_psx_analog_button(RrPsxSession *s, int player, int held);
+/* The input check: the PlayStation button bits (Select 0 ... Square 15, the Analog button 16) the console reads for these pad
+ * bits, without running a frame (the pad's own inputs are put back). */
+uint32_t rr_psx_pad_probe(RrPsxSession *s, int player, unsigned bits, int analog);
+/* The mode of a player's DualShock: 1 analog, 0 digital, -1 another device. */
+int rr_psx_pad_analog_mode(const RrPsxSession *s, int player);
 
 /* Runs one frame. 0: done; -1: the machine stopped (reason in rr_psx_error). */
 int rr_psx_frame(RrPsxSession *s);

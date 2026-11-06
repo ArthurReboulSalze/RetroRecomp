@@ -31,6 +31,11 @@
 
 /* Set by the session before retro_load_game; read by Beetle's BIOS loader (our anchored change of libretro.c). */
 extern const unsigned char *rr_psx_bios_data;
+/* The Analog button of each pad and the pad as the console reads it (our anchored changes of input.c). */
+extern int rr_psx_analog_held[];
+int rr_psx_dualshock_analog(unsigned port);   /* our anchored change of frontio.c */
+uint32_t rr_psx_input_buttons(unsigned player);
+void input_update(bool libretro_supports_bitmasks, retro_input_state_t input_state_cb);
 /* Counted by Beetle's instruction fetch and by the game's native steps (our anchored changes of cpu.c). */
 extern uint64_t rr_psx_fetched_count, rr_psx_native_count, rr_psx_unrun_count;
 
@@ -64,7 +69,8 @@ struct RrPsxSession {
     unsigned pad[2];
     int16_t sticks[2][4];
     uint16_t rumble[2][2];
-    uint32_t picture[RR_PSX_MAX_WIDTH * RR_PSX_MAX_HEIGHT];
+    uint32_t *picture;          /* the last picture, rows packed at its width (it grows with the internal resolution) */
+    size_t picture_capacity;
     int width, height;
     double aspect, fps;
     int16_t audio[2 * 8192];
@@ -335,6 +341,9 @@ static const char *const DEFAULTS[][2] = {
     {"beetle_psx_frame_duping", "disabled"},
     {"beetle_psx_cpu_dynarec", "disabled"},
     {"beetle_psx_display_internal_fps", "disabled"},
+    /* The DualShock powers on in digital mode, as the console's pad does (Beetle's default keeps it in analog mode, where a
+     * game that reads the d-pad in digital mode, Tomba! for one, sees no direction); the Analog button switches it. */
+    {"beetle_psx_analog_toggle", "enabled"},
 };
 
 static void set_option(RrPsxSession *s, const char *key, const char *value) {
@@ -442,8 +451,14 @@ static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
 static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
     RrPsxSession *s = g;
     if (!s || !data) return;   /* a duplicated frame keeps the last picture */
-    if (width > RR_PSX_MAX_WIDTH) width = RR_PSX_MAX_WIDTH;
-    if (height > RR_PSX_MAX_HEIGHT) height = RR_PSX_MAX_HEIGHT;
+    if (width > RR_PSX_PICTURE_LIMIT) width = RR_PSX_PICTURE_LIMIT;
+    if (height > RR_PSX_PICTURE_LIMIT) height = RR_PSX_PICTURE_LIMIT;
+    if ((size_t)width * height > s->picture_capacity) {
+        uint32_t *grown = (uint32_t *)realloc(s->picture, (size_t)width * height * sizeof *grown);
+        if (!grown) return;   /* the last picture stays */
+        s->picture = grown;
+        s->picture_capacity = (size_t)width * height;
+    }
     for (unsigned y = 0; y < height; ++y) {
         const uint32_t *row = (const uint32_t *)((const uint8_t *)data + (size_t)y * pitch);
         uint32_t *out = s->picture + (size_t)y * width;
@@ -537,6 +552,7 @@ void rr_psx_close(RrPsxSession *s) {
     for (int i = 0; i < MAX_SOURCES; ++i) if (s->sources[i]) fclose(s->sources[i]);
     rr_psx_bios_data = NULL;
     free(s->bios);
+    free(s->picture);
     if (g == s) g = NULL;
     free(s);
 }
@@ -545,6 +561,30 @@ void rr_psx_pad(RrPsxSession *s, int player, unsigned bits, const int16_t sticks
     if (player < 0 || player > 1) return;
     s->pad[player] = bits & 0xffffu;
     for (int i = 0; i < 4; ++i) s->sticks[player][i] = sticks ? sticks[i] : 0;
+}
+
+void rr_psx_analog_button(RrPsxSession *s, int player, int held) {
+    (void)s;
+    if (player >= 0 && player <= 1) rr_psx_analog_held[player] = held != 0;
+}
+
+int rr_psx_pad_analog_mode(const RrPsxSession *s, int player) {
+    (void)s;
+    return player >= 0 && player <= 1 ? rr_psx_dualshock_analog((unsigned)player) : -1;
+}
+
+uint32_t rr_psx_pad_probe(RrPsxSession *s, int player, unsigned bits, int analog) {
+    if (player < 0 || player > 1) return 0;
+    const unsigned saved = s->pad[player];
+    const int saved_analog = rr_psx_analog_held[player];
+    s->pad[player] = bits & 0xffffu;
+    rr_psx_analog_held[player] = analog != 0;
+    input_update(true, input_state);   /* what the core reads at its next frame (the frontend answers bit masks) */
+    const uint32_t buttons = rr_psx_input_buttons((unsigned)player);
+    s->pad[player] = saved;
+    rr_psx_analog_held[player] = saved_analog;
+    input_update(true, input_state);
+    return buttons;
 }
 
 int rr_psx_frame(RrPsxSession *s) {

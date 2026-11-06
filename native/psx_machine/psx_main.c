@@ -13,6 +13,7 @@
 #endif
 #include <SDL.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -138,7 +139,12 @@ static void card_sync(int load) {
 }
 
 /* One frame with the pads of the script or of the window; 0 when the machine stopped. */
-int rr_psx_host_frame(const uint16_t pads[2]) {
+/* The Analog button of each player, held for a few frames after a press of its key or button (the pad reads the press). */
+enum { ANALOG_PRESS_FRAMES = 6 };
+static int analog_held[2];
+void rr_psx_host_analog(int player) { if (player >= 0 && player < 2) analog_held[player] = ANALOG_PRESS_FRAMES; }
+
+int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
     unsigned words[2] = {pads[0], pads[1]};
     if (scripted) {
         while (script_pos < script_count && script[script_pos].frame <= frame) {
@@ -149,8 +155,12 @@ int rr_psx_host_frame(const uint16_t pads[2]) {
         words[0] = script_pads[0];
         words[1] = script_pads[1];
     }
-    rr_psx_pad(session, 0, words[0], NULL);
-    rr_psx_pad(session, 1, words[1], NULL);
+    rr_psx_pad(session, 0, words[0], scripted || !axes ? NULL : axes[0]);
+    rr_psx_pad(session, 1, words[1], scripted || !axes ? NULL : axes[1]);
+    for (int p = 0; p < 2; ++p) {
+        rr_psx_analog_button(session, p, analog_held[p] > 0);
+        if (analog_held[p] > 0) analog_held[p]--;
+    }
     if (rr_psx_frame(session) != 0) { snprintf(fault, sizeof fault, "%s", rr_psx_error(session)); return 0; }
     frame++;
     frame_audio_count = rr_psx_audio(session, frame_audio, sizeof frame_audio / sizeof frame_audio[0] / 2) * 2;
@@ -298,7 +308,13 @@ static int report(void) {
     return fclose(f) == 0 && okay;
 }
 
+int rr_psx_input_check(RrPsxSession *s, FILE *out);   /* the adapter: every action reaches its own button of the console */
+void rr_psx_gfx_defaults(void);
+bool rr_psx_gfx_assign(const char *assignment, bool windowed);
+
 static int execute(int argc, char **argv) {
+    const char *gfx[8];
+    int gfx_count = 0, input_check = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--headless")) headless = 1;
         else if (i + 1 < argc && !strcmp(argv[i], "--frames")) frames = atoi(argv[++i]);
@@ -310,17 +326,29 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--pack")) pack_override = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--gfx") && gfx_count < 8) gfx[gfx_count++] = argv[++i];
+        else if (!strcmp(argv[i], "--input-check")) input_check = 1;
 #ifdef RR_PSX_OBSERVE
         else if (i + 1 < argc && !strcmp(argv[i], "--observe")) observe_path = argv[++i];
 #endif
         else if (i + 1 < argc && !strcmp(argv[i], "--script")) { if (!load_script(argv[++i])) return 2; }
         else return 2;
     }
-    if (frames < 0 || frames > 1000000 || (headless && !frames) || !capture_every) return 2;
+    if (frames < 0 || frames > 1000000 || (headless && !frames && !input_check) || !capture_every) return 2;
     diagnostics = report_path || trace_path;
     if (!headless) rr_game_data_file(card_path, 4096, "saves", RR16_STATE_NAME, RR16_STATE_ROM, ".mcr");
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     if (!open_session()) { fprintf(stderr, "%s\n", fault[0] ? fault : "no PlayStation disc in this executable"); SDL_Quit(); return 3; }
+    if (input_check) {
+        const int failures = rr_psx_input_check(session, stdout);
+        rr_psx_close(session);
+        SDL_Quit();
+        return failures ? 5 : 0;
+    }
+    /* The graphics options: the kit applies them in a window; a headless run applies the defaults (and --gfx) itself. */
+    if (headless) rr_psx_gfx_defaults();
+    for (int n = 0; n < gfx_count; ++n)
+        if (!rr_psx_gfx_assign(gfx[n], !headless)) { fprintf(stderr, "unknown graphics option %s\n", gfx[n]); return 2; }
     if (trace_path) {
         if (!(trace_file = file_open(trace_path, L"wb"))) return 3;
         fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size\n");
@@ -333,7 +361,7 @@ static int execute(int argc, char **argv) {
     int ran = 1, host_result = 0;
     if (headless) {
         static const uint16_t released[2];
-        for (int n = 0; n < frames && ran; n++) ran = rr_psx_host_frame(released);
+        for (int n = 0; n < frames && ran; n++) ran = rr_psx_host_frame(released, NULL);
     } else {
         host_result = rr_psx_sdl_main(RR_PSX_TITLE, 3);
         ran = !fault[0];
