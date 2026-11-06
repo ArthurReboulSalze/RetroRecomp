@@ -38,6 +38,8 @@ PAGE_LAYOUT = {
 # dialog ('browse', or the option's own label), whether the saved path is shown resolved against the export
 # folder ('resolve'; the X68000's two files are still shown as saved, as in 1.6.2) and, for a firmware the
 # window can verify, the (module, function) that does it: the row then has a Check button and a status line.
+# 'folder' adds a second Browse button for a folder (the Amiga Kickstart row takes a file or a folder); 'text' says that the
+# check function returns the status text itself (it is given the interface language) instead of an identity to report.
 FIRMWARE_ROWS_DEFAULT = {'pady': (8, 4), 'title': 'browse', 'resolve': False,
                          'filetypes': [('ROM / DAT', '*.dat *.rom *.bin'), ('All files', '*.*')]}
 FIRMWARE_ROWS = {
@@ -45,6 +47,8 @@ FIRMWARE_ROWS = {
                 'check': ('neogeo', 'validate_bios')},
     'qsound_rom': {'pady': (8, 8), 'title': 'label', 'filetypes': [('ZIP / BIN', '*.zip *.bin'), ('All files', '*.*')], 'resolve': True,
                    'check': ('cps1_qsound', 'validate_dsp_rom')},
+    'amiga_kickstart': {'pady': (0, 8), 'title': 'label', 'filetypes': [('Kickstart', '*.rom *.bin'), ('All files', '*.*')],
+                        'resolve': True, 'folder': True, 'text': True, 'check': ('amiga_kickstart', 'validate_kickstarts')},
 }
 
 
@@ -267,6 +271,11 @@ class OptionsMixin:
         browse = ttk.Button(row, text=self.tr('browse'), command=lambda name=key.name: self.choose_firmware(name))
         browse.pack(side='left', padx=(8, 0))
         self.option_controls.append((browse, 'normal'))
+        if row_style.get('folder'):
+            folder = ttk.Button(row, text=self.tr('browse_folder'),
+                                command=lambda name=key.name: self.choose_firmware(name, folder=True))
+            folder.pack(side='left', padx=(8, 0))
+            self.option_controls.append((folder, 'normal'))
         if row_style.get('check'):
             check = ttk.Button(row, text=self.tr(key.name + '_check'),
                                command=lambda name=key.name: self.check_firmware(name))
@@ -348,14 +357,15 @@ class OptionsMixin:
                 self.messages.put(('feedback_import', system, None, str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
-    def choose_firmware(self, name):
-        """Browse for a firmware file; one the window can verify is checked at once."""
+    def choose_firmware(self, name, folder=False):
+        """Browse for a firmware file (or, for a row that takes one, a folder); one the window can verify is checked at once."""
         row_style = {**FIRMWARE_ROWS_DEFAULT, **FIRMWARE_ROWS.get(name, {})}
         key = next(key for _, key in console_options('path') if key.name == name)
-        path = filedialog.askopenfilename(
-            parent=self.options_panel,
-            title=self.tr('browse' if row_style['title'] == 'browse' else key.label),
-            filetypes=row_style['filetypes'])
+        title = self.tr('browse' if row_style['title'] == 'browse' else key.label)
+        if folder:
+            path = filedialog.askdirectory(parent=self.options_panel, title=title)
+        else:
+            path = filedialog.askopenfilename(parent=self.options_panel, title=title, filetypes=row_style['filetypes'])
         if path:
             getattr(self, name).set(path)
             if row_style.get('check'):
@@ -370,6 +380,9 @@ class OptionsMixin:
         if path is None:
             status.set(self.tr(name + '_missing'))
             return False
+        if FIRMWARE_ROWS[name].get('text'):
+            status.set(validate(path, self.language))
+            return True
         try:
             info = validate(path)
             status.set(self.tr(name + ('_dual' if 'aes' in info else '_valid')))

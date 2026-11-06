@@ -7,7 +7,7 @@ installs that need a Kickstart (KickEmu), the Amiga 1200, disk images (ADF), Lin
 """
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape
 
 # The Amiga 500 as the converter lays it out for a WHDLoad install: chip RAM from 0 (up to 2 MiB), fast RAM at $200000
@@ -25,8 +25,12 @@ class AmigaProfile(SystemProfile):
     scope_note = 'Amiga 500 WHDLoad installs that need no Kickstart'
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('whdload',)
-    # No firmware: the installs that need a Kickstart (KickEmu) are refused until the player's own Kickstart is supported.
-    firmware = ()
+    # The player's own Kickstart (a file or a folder of images, recognised by content: retrorecomp/amiga_kickstart.py). Optional:
+    # an install that asks for none converts without one; one that asks for a Kickstart is stopped before it starts, with a
+    # sentence naming the image (the QSound DSP ROM of the CPS-1.5 works the same way). The option itself is not part of
+    # the request signature (signature=False).
+    firmware = ('kickstart',)
+    option_keys = (OptionKey('amiga_kickstart', signature=False, kind='path', label='amiga_kickstart_label'),)
     quick_state_family = 'amiga'
     capabilities = Capabilities(mouse=True, keyboard=True)
     linux = 'pending'
