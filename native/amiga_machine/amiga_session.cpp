@@ -62,6 +62,11 @@ struct RrAmigaSession {
     bool observing = false, native = false;
     std::set<std::pair<uint32_t, std::string>> observed;
     uint64_t native_count = 0, interpreted_count = 0;
+    std::map<std::string, std::string> display;               // lower-case name -> the name as the install spells it
+    std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
+    std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
+    uint32_t kick_base = 0, kick_size = 0;                    // where it sits in ExpMem once loaded (0: not loaded)
+    uint64_t kick_interpreted = 0;
 };
 
 static RrAmigaSession *S;   // the hooks of Moira and of the resload layer reach the one session of the process
@@ -101,6 +106,48 @@ static int file_cb(void *, const char *name, const uint8_t **data, uint32_t *siz
     *data = it->second.data();
     *size = (uint32_t)it->second.size();
     return 1;
+}
+
+// The install's files for resload_Examine/ExNext/ListFiles: taken again at index 0 (saves may have added some), spelled as
+// the install spells them.
+static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
+    if (index == 0) {
+        S->listing.clear();
+        for (auto &f : S->files) {
+            auto shown = S->display.find(f.first);
+            S->listing.push_back({shown != S->display.end() ? shown->second : f.first, (uint32_t)f.second.size()});
+        }
+    }
+    if (index >= S->listing.size()) return 0;
+    *name = S->listing[index].first.c_str();
+    *size = S->listing[index].second;
+    return 1;
+}
+
+// The player's Kickstart into ExpMem, when the slave's request matches it. The image keeps the addresses it was built for (no
+// relocation table): vAmiga's WOM (the A1000's writable ROM, left unlocked) is pointed at the copy, so the window
+// $FC0000-$FFFFFF reads and writes the same bytes as ExpMem, and what the slave patches or writes into the image through either
+// address is what runs. 256 KiB images only (Kickstart 1.x): a 512 KiB image would need the whole $F80000 window writable.
+static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t destination) {
+    if (S->kick.size() != size || size != 0x40000) return 0;
+    if (destination < SLOW_BASE || destination + size > SLOW_BASE + SLOW_SIZE || (destination & (size - 1)) != 0) return 0;
+    for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, S->kick[i]);
+    if (rr_resload_crc16(&S->rl, destination, size) != crc16) {
+        for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, 0);
+        return 0;
+    }
+    Memory &mem = S->amiga->mem;
+    mem.wom = mem.slow + (destination - SLOW_BASE);
+    mem.womMask = size - 1;
+    mem.womIsLocked = false;
+    mem.updateMemSrcTables();
+    S->kick_base = destination;
+    S->kick_size = size;
+    return 1;
+}
+
+static bool in_kickstart(uint32_t pc) {
+    return S->kick_size && (pc >= 0xF80000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
 }
 
 // A save goes to the game's own folder (and replaces the install's file there on the next start).
@@ -143,6 +190,9 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     (void)m; (void)op;
 #endif
     S->interpreted_count++;
+    // The Kickstart's own code (the window, or its copy in ExpMem) stays on the interpreter, counted apart, and is never
+    // observed: an observation keeps instruction bytes, and the Kickstart's bytes are the player's, not ours to store.
+    if (in_kickstart(pc)) { S->kick_interpreted++; return false; }
     if (S->observing && in_ram(pc)) {
         char hex[25];
         for (int i = 0; i < 12; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
@@ -224,6 +274,8 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     for (uint32_t k = 0; k < RR_RESLOAD_ENTRIES; k++) poke32(S->resload_table + 4 * k, 0x4E754E71);
 
     S->host = RrResloadHost{nullptr, peek, poke, file_cb, game->save_dir ? save_cb : nullptr, game->save_dir ? remove_cb : nullptr, nullptr};
+    S->host.list = list_cb;
+    S->host.kickstart = kick_cb;
     rr_resload_init(&S->rl, &S->host, slave_area, version, flags);
     S->rl.exp_mem_size = exp_size;
     S->rl.scratch = S->resload_table + 0x1000;
@@ -236,6 +288,13 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     if (rr_resload_call(&boot, 0x50, regs) != RR_RESLOAD_RETURN) return fail(error, error_size, std::string("Slave relocation: ") + boot.message);
     uint32_t loader = slave_area + peek16(slave_area + 24);   // ws_GameLoader
     if (exp_base) poke32(slave_area + 32, exp_base);          // ws_ExpMem now holds the address, as WHDLoad does
+    // A v16+ slave that names a Kickstart in its header gets it at the start of ExpMem before ws_GameLoader, as WHDLoad does
+    // (resload_LoadKick serves the older slaves at run time). Kickstart 1.x only for now.
+    S->rl.exp_mem = exp_base;
+    if (version >= 16 && peek32(slave_area + 44) == 0x80000)
+        return fail(error, error_size, "This install needs a 512 KiB Kickstart (3.x); only 256 KiB Kickstarts (1.x) are supported yet.");
+    if (rr_resload_load_slave_kickstart(&S->rl) != RR_RESLOAD_RETURN)
+        return fail(error, error_size, std::string("Kickstart: ") + S->rl.message);
 
     CPU &cpu = S->amiga->cpu;
     cpu.setSR(0x2000);
@@ -257,8 +316,11 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     if (S) { fail(error, error_size, "One Amiga session per process."); return nullptr; }
     S = new RrAmigaSession;
     S->ntsc = game->ntsc != 0;
-    for (unsigned i = 0; i < game->file_count; i++)
+    for (unsigned i = 0; i < game->file_count; i++) {
         S->files[lower(game->files[i].name)] = std::vector<uint8_t>(game->files[i].data, game->files[i].data + game->files[i].size);
+        S->display[lower(game->files[i].name)] = game->files[i].name;
+    }
+    if (game->kickstart && game->kickstart_size) S->kick.assign(game->kickstart, game->kickstart + game->kickstart_size);
     if (game->save_dir && *game->save_dir) {
         S->saves = true;
         S->save_dir = upath(game->save_dir);
@@ -415,6 +477,13 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
 }
 
 extern "C" const char *rr_amiga_error(const RrAmigaSession *s) { return s->error.c_str(); }
+
+extern "C" int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint16_t *crc16) {
+    if (!s->kick_size) return 0;
+    *size = s->kick_size; *crc16 = s->rl.kick_crc;
+    return 1;
+}
+extern "C" uint64_t rr_amiga_kickstart_interpreted_count(const RrAmigaSession *s) { return s->kick_interpreted; }
 
 extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h) {
     if (!s->view_seen) return 0;
