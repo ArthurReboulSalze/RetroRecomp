@@ -159,19 +159,20 @@ computed with `compilation_inputs.role_stamps` on the commit the branch was cut 
 
 | Console | Game stamp | Host stamp | Build stamp |
 |---|---|---|---|
-| sms | 3e16a0301d90 → 3e16a0301d90 (same) | 1b834d7b9fbc → 1b834d7b9fbc (same) | same |
-| gg | 4f9d69e86e89 → 4f9d69e86e89 (same) | c9e0e360f031 → c9e0e360f031 (same) | same |
-| gb | ff30f88ca9f1 → ff30f88ca9f1 (same) | 772d06158394 → 772d06158394 (same) | same |
-| nes | a3537f590fcf → a3537f590fcf (same) | 21b599f4ec81 → 21b599f4ec81 (same) | same |
-| md | a0de8eae71a4 → a0de8eae71a4 (same) | 7bda64083b03 → 7bda64083b03 (same) | same |
-| snes | ae2146874e49 → ae2146874e49 (same) | 2a4bc2c7b468 → 2a4bc2c7b468 (same) | same |
-| ng | a3733e1113ff → a3733e1113ff (same) | 1f2e8a0e2450 → 1f2e8a0e2450 (same) | same |
-| cps1 | e6380523c2d1 → 50da1b5d62b4 (moves) | 0f8432dcd5c5 → 9debaebc9369 (moves) | same |
-| x68 | 6c7509bf49d2 → 6c7509bf49d2 (same) | 47212d53043d → 47212d53043d (same) | same |
-| cps2 | 8d2c63c4b35a → 72a131e7026c (moves) | 0f2bade664f6 → 8a3be9c8dcb5 (moves) | same |
-| pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 6ea8ea8ac8eb (same) | same |
+| sms | 3e16a0301d90 → 3e16a0301d90 (same) | 1b834d7b9fbc → 013be1c42081 (moves) | same |
+| gg | 4f9d69e86e89 → 4f9d69e86e89 (same) | c9e0e360f031 → 69bcb747bee3 (moves) | same |
+| gb | ff30f88ca9f1 → ff30f88ca9f1 (same) | 772d06158394 → d7f2d1b91dbd (moves) | same |
+| nes | a3537f590fcf → a3537f590fcf (same) | 21b599f4ec81 → 09e18a69af7c (moves) | same |
+| md | a0de8eae71a4 → a0de8eae71a4 (same) | 7bda64083b03 → 774f6daae149 (moves) | same |
+| snes | ae2146874e49 → ae2146874e49 (same) | 2a4bc2c7b468 → 423b38546baf (moves) | same |
+| ng | a3733e1113ff → a3733e1113ff (same) | 1f2e8a0e2450 → 76460953331d (moves) | same |
+| cps1 | e6380523c2d1 → aa1a80f01e09 (moves) | 0f8432dcd5c5 → a01cacaa9528 (moves) | same |
+| x68 | 6c7509bf49d2 → 6c7509bf49d2 (same) | 47212d53043d → 1d8e4c116284 (moves) | same |
+| cps2 | 8d2c63c4b35a → 34899059c985 (moves) | 0f2bade664f6 → 14e9a20d9fe2 (moves) | same |
+| pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 9f41cb76dbf1 (moves) | same |
 
-- **Only the CPS-1 family's game stamps move** (the CPS-1 and the CPS-2); the other nine consoles keep theirs, because `path_profiles.py` is untouched: a CPS-2 path record has an empty layout, checked by `cps1_knowledge.validate_record`.
+- **Game stamps: only the CPS-1 and the CPS-2 move**; the other nine consoles keep theirs, because `path_profiles.py` is untouched (a CPS-2 path record has an empty layout, checked by
+  `cps1_knowledge.validate_record`). **Host stamps: every console moves**, through `artwork.py` (the optional `cover_titles` capability); build stamps do not move.
 - **The CPS-1 and the CPS-2 find their box art.** Their profiles name the libretro-thumbnails `MAME` repository, which files its images under MAME's description
   of each set, and the platform numbers of ScreenScraper (6 and 7, read on its system pages) and TheGamesDB (23, "Arcade"). The search uses the optional profile
   capability `cover_titles(path)`: the set's catalogue title, then its parent's, tried after the file's name and the title (a clone shows its parent's box; no list
