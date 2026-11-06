@@ -197,7 +197,7 @@ ordered M3U sets (up to ten disks) with your own IPL and font ROM, within [its d
 (no hard-disk images; the few games that play only through an external Roland MIDI module run silent, and the report says so).
 Each export is compared with a fresh reference run on bounded routes, which
 does not establish hardware fidelity, complete gameplay or physical latency. The owner's decision of 5 November 2026 and his play
-trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance). The **Capcom CPS-2** profile is experimental (since 1.6.9): it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
+trials are in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance). The **Capcom CPS-2** profile is supported since 1.7.0 and no longer experimental (it opened in 1.6.9): it converts ZIP romsets that carry their own key file, with your own QSound DSP ROM ([status](CPS2.md)), and its board model is compared with MAME, which establishes none of hardware fidelity, complete gameplay or physical latency.
 The **PC Engine** is experimental since 1.6.9: it converts HuCard dumps (`.pce`, or a ZIP holding one) of the standard boards
 and the Street Fighter II board, within [its documented scope](PC_ENGINE.md#2-scope) (no CD-ROM2, no SuperGrafx, NTSC only, two
 players, no multitap fifth player). The native code is taken from what each game was seen to run; the rest is interpreted,

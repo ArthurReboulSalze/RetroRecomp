@@ -217,6 +217,48 @@ A lot of evidence and documentation: the way games are converted does not change
   export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
   stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
 
+## Capcom CPS-2 leaves the experimental status (1.7.0)
+
+The CPS-2 (profile `cps2`, [CPS2.md](CPS2.md)) is a supported machine, the decision being the owner's ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). What moves,
+computed with `compilation_inputs.role_stamps` on the commit the branch was cut from (27e30e03) and on the branch `spec/cps2-exit-170` (first 12 hexadecimal digits of each stamp):
+
+| Console | Game stamp | Host stamp | Build stamp |
+|---|---|---|---|
+| sms | 3e16a0301d90 → 3e16a0301d90 (same) | 1b834d7b9fbc → 013be1c42081 (moves) | same |
+| gg | 4f9d69e86e89 → 4f9d69e86e89 (same) | c9e0e360f031 → 69bcb747bee3 (moves) | same |
+| gb | ff30f88ca9f1 → ff30f88ca9f1 (same) | 772d06158394 → d7f2d1b91dbd (moves) | same |
+| nes | a3537f590fcf → a3537f590fcf (same) | 21b599f4ec81 → 09e18a69af7c (moves) | same |
+| md | a0de8eae71a4 → a0de8eae71a4 (same) | 7bda64083b03 → 774f6daae149 (moves) | same |
+| snes | ae2146874e49 → ae2146874e49 (same) | 2a4bc2c7b468 → 423b38546baf (moves) | same |
+| ng | a3733e1113ff → a3733e1113ff (same) | 1f2e8a0e2450 → 76460953331d (moves) | same |
+| cps1 | e6380523c2d1 → aa1a80f01e09 (moves) | 0f8432dcd5c5 → a01cacaa9528 (moves) | same |
+| x68 | 6c7509bf49d2 → 6c7509bf49d2 (same) | 47212d53043d → 1d8e4c116284 (moves) | same |
+| cps2 | 8d2c63c4b35a → 34899059c985 (moves) | 0f2bade664f6 → 14e9a20d9fe2 (moves) | same |
+| pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 9f41cb76dbf1 (moves) | same |
+
+- **Game stamps: only the CPS-1 and the CPS-2 move**; the other nine consoles keep theirs, because `path_profiles.py` is untouched (a CPS-2 path record has an empty layout, checked by
+  `cps1_knowledge.validate_record`). **Host stamps: every console moves**, through `artwork.py` (the optional `cover_titles` capability); build stamps do not move.
+- **The CPS-1 and the CPS-2 find their box art.** Their profiles name the libretro-thumbnails `MAME` repository, which files its images under MAME's description
+  of each set, and the platform numbers of ScreenScraper (6 and 7, read on its system pages) and TheGamesDB (23, "Arcade"). The search uses the optional profile
+  capability `cover_titles(path)`: the set's catalogue title, then its parent's, tried after the file's name and the title (a clone shows its parent's box; no list
+  of games). For these machines, a repository that files one box under two spellings of the same name ("Street Fighter II - ..." and "Street Fighter II_ ...") no longer
+  makes the choice ambiguous when downloading. Replayed over the reports of `Export`, before and after: no choice of another machine changes. `artwork.py` is a host module
+  of every console, so every host stamp moves; the game stamps move only for the CPS-1 family. Existing exports get their icon on the next conversion.
+- **The EEPROM of the CPS-1.5 and the CPS-2 is saved off the frame path.** A game changes its cells one after another at start and on a coin, and each change
+  wrote the file at once, with a flush to disk that can wait a long while on a busy disk (a frame log of `ssf2` showed single frames of several seconds with the disk
+  busy, against 36 ms at most without the write). A worker thread now writes the last contents after the EEPROM has been stable for about a second, and play
+  ending writes it at once; a stop of the program within that second loses that last change. `native/cps1_persistence.c` is a host file of the CPS-1 family.
+- **The CPS-2 game stamp moves**: its report now says `completed` (not `experimental`), its board tier is `supported`, it shares its paths and its
+  profile, translations and notices changed. An export of the CPS-2 of 1.6.9 is rebuilt once on its next conversion, with the same code, pictures and sound.
+- **The CPS-1 family's game stamp moves** (the CPS-1 and CPS-1.5 share the board model): `native/cps1_machine.c` now includes `native/cps1_cps2_board.inc`, `cps1_knowledge`
+  takes the board as a keyword, `capcom_sets` reads a ROM that FBNeo stores twice over. The final A/B comparison of `1941` and `wof` against `main`
+  (`tools/ab_conversion.py`): the generated steps, the board folder and every piece of evidence (CPU, RAM, picture and sound hashes, traces, states, the compressed copy)
+  are identical; the files that differ are the changed native sources and the new include, `notices.txt` and the receipt, engine and record digests of the report.
+- **Hot path of the CPS-1, as in 1.6.9**: nothing new here (the guards of 1.6.9 stay: a branch per bus access, `if (tile_priority)` per tile pixel); its frame cost is
+  still to be measured with the comparison of frame costs of the release, on a quiet PC.
+- **The CPS-2 shares its paths** like the CPS-1: its record is tied to its own engine identity (`cps2-m68k` and `cps2-z80` digests), points into the decrypted program, and
+  holds no key and no ROM byte. None of the sets observes a path, so nothing is qualified.
+
 ## Capcom CPS-2 opens as an experimental machine (1.6.9)
 
 The CPS-2 (profile `cps2`, [CPS2.md](CPS2.md)) is open to players in 1.6.9 as an **experimental** machine, on the owner's decision of 5 November 2026. It is

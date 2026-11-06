@@ -71,8 +71,41 @@ def _neogeo_title_aliases() -> dict[str,str]:
     return {name:next(iter(values)) for name,values in aliases.items() if len(values)==1}
 
 
+def profile_cover_titles(system_id: str, rom_path: Path) -> tuple[str, ...]:
+    """Extra names a machine offers for its games' boxes (an optional profile capability, `cover_titles(path)`): tried
+    after the file's name and the title, never instead of them. None offered, or a failure to read them: none."""
+    from .systems import get_profile
+    try:
+        hook = getattr(get_profile(system_id), 'cover_titles', None)
+        return tuple(name for name in (hook(rom_path) if hook else ()) if isinstance(name, str) and name.strip())
+    except Exception:  # noqa: BLE001 - a box is never worth a failed conversion
+        return ()
+
+
 def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False,
-                 system_id: str | None = None) -> str | None:
+                 system_id: str | None = None, extra_titles: tuple[str, ...] = ()) -> str | None:
+    """The box of the file's name or the title; when neither finds one, of each extra name in turn."""
+    found, refused = None, None
+    try:
+        found = _choose_cover(names, rom_name, title, regional_fallback=regional_fallback, system_id=system_id)
+    except ArtworkError as exc:
+        if not extra_titles:
+            raise
+        refused = exc      # several images of the same name: the extra names may still name one
+    for extra in extra_titles:
+        if found:
+            break
+        try:
+            found = _choose_cover(names, extra, extra, regional_fallback=regional_fallback, system_id=system_id)
+        except ArtworkError as exc:
+            refused = refused or exc
+    if refused is not None and not found:
+        raise refused
+    return found
+
+
+def _choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False,
+                  system_id: str | None = None) -> str | None:
     """Exact names first, then a clear title match with protected sequel numbers."""
     if system_id=='ng':
         from .neogeo_catalogue import catalogue
@@ -399,8 +432,22 @@ def _catalog_names(names) -> list[str]:
         and not any(c in n for c in ('/', '\\', '\x00')) and len(n) < 240]
 
 
+def _one_per_name(names: list[str]) -> list[str]:
+    """A provider's catalogue may file one box under two spellings of the same name (MAME's ": " as " - " and as "_ "): they are the
+    same game and edition, so one stands for both and the choice is not refused as ambiguous. Only a machine that offers extra titles
+    (`cover_titles`) asks for it, and local images never go through it."""
+    seen, unique = set(), []
+    for name in sorted(names):
+        key = normalized(Path(name).stem)
+        if key not in seen:
+            seen.add(key)
+            unique.append(name)
+    return unique
+
+
 def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms',
-              category: str = 'Named_Boxarts', unavailable: set[str] | None = None) -> tuple[Path, str]:
+              category: str = 'Named_Boxarts', unavailable: set[str] | None = None,
+              extra_titles: tuple[str, ...] = ()) -> tuple[Path, str]:
     unavailable = unavailable if unavailable is not None else set()
     # A machine whose profile names no libretro-thumbnails repository (CPS-1) has nothing to search here: the
     # caller moves on to its other sources instead of the conversion stopping on a missing key.
@@ -425,8 +472,9 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
 
     result = retrieve(filename)
     if result is None:
-        match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title,
-                             regional_fallback=True,system_id=system_id)
+        match = choose_cover(_one_per_name(_catalog(directory, system_id, category, unavailable)) if extra_titles
+                             else _catalog(directory, system_id, category, unavailable), rom_name, title,
+                             regional_fallback=True,system_id=system_id, extra_titles=extra_titles)
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')
         filename = match
@@ -495,6 +543,7 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
         cache_directory = boxart_cache_directory(system_id)
     settings = settings if settings is not None else load_settings()
     prefer3d = settings.get('box_3d', False) is True
+    extra_titles = profile_cover_titles(system_id, rom_path)
     active = [p for p in ('screenscraper', 'thegamesdb', 'igdb')
               if configured(p, settings.get('accounts', {}).get(p, {}))]
     cached = None
@@ -557,7 +606,8 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             candidates = [p for p in pool if not downloaded or
                 (_download_style(p) == category and (not online or prefer3d or category != 'box3d'))]
             try:
-                match = choose_cover([str(p.relative_to(directory)) for p in candidates], rom_path.stem, title,system_id=system_id)
+                match = choose_cover([str(p.relative_to(directory)) for p in candidates], rom_path.stem, title,system_id=system_id,
+                                     extra_titles=extra_titles)
             except ArtworkError:
                 if not online:
                     raise
@@ -625,7 +675,7 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
         for category, style in PUBLIC_MEDIA.items():
             try:
                 path, url = _download(rom_path.stem, title, cache_directory or directory,
-                                      emit, system_id, category, unavailable)
+                                      emit, system_id, category, unavailable, extra_titles)
             except (ArtworkError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
                 if isinstance(exc, urllib.error.HTTPError):
                     exc.close()

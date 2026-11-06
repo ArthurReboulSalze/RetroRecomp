@@ -77,7 +77,10 @@ def our_images(archive: Path, name: str) -> tuple[bytes, bytes]:
 
 def check(name: str, roms: Path, mame: Path, mame_roms: Path, bios: Path | None, work: Path) -> bool:
     started = time.time()
-    opcodes, program = our_images(roms / f'{name}.zip', name)
+    archive = roms / f'{name}.zip'
+    if not archive.is_file() and cps2_catalogue.by_set()[name]['parent']:     # a merged romset keeps the clones in the parent's archive
+        archive = roms / (cps2_catalogue.by_set()[name]['parent'] + '.zip')
+    opcodes, program = our_images(archive, name)
     ours = time.time() - started
     mame_opcodes, mame_program = mame_images(mame, name, mame_roms, bios, work)
     size = len(mame_opcodes)

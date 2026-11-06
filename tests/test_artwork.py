@@ -52,14 +52,54 @@ class ArtworkTests(unittest.TestCase):
         self.assertLess(abs((bbox[2]-bbox[0]) / 256 - 1/3), .015)
 
     def test_a_machine_without_libretro_catalogue_converts_without_a_cover(self):
-        # CPS-1 names no libretro-thumbnails repository: an online lookup must leave the icon missing, never stop the
-        # conversion on a missing key (1.6.4 pre-release: every CPS-1 reconversion with online covers failed).
-        self.assertNotIn('cps1', REPOSITORIES)
-        with patch("retrorecomp.artwork._get", side_effect=AssertionError("no libretro request for this machine")):
+        # A machine that names no libretro-thumbnails repository (the CPS-1 did until 1.7.0): an online lookup must leave the icon
+        # missing, never stop the conversion on a missing key (1.6.4 pre-release: every CPS-1 reconversion with online covers failed).
+        without = {name: repository for name, repository in REPOSITORIES.items() if name != 'cps1'}
+        with patch.dict(REPOSITORIES, without, clear=True),                 patch("retrorecomp.artwork._get", side_effect=AssertionError("no libretro request for this machine")):
             report = prepare_icon(self.game, self.root / "1941.zip", "1941: Counter Attack", self.art,
                                   system_id='cps1', settings=defaults())
         self.assertFalse(report["embedded"])
         self.assertEqual(report["source"], "missing")
+
+    def test_the_capcom_boards_find_their_covers_in_the_mame_thumbnails(self):
+        # The libretro-thumbnails MAME repository names its images like MAME's descriptions (":" becomes "_", some regions are
+        # spelled "Euro" or "US"); the catalogue title of a romset, as the converter passes it, names its image without a list.
+        from retrorecomp.cover_sources import SS_SYSTEMS
+        from retrorecomp.cps1 import display_title
+        self.assertEqual((REPOSITORIES['cps1'], REPOSITORIES['cps2']), ('libretro-thumbnails/MAME',) * 2)
+        self.assertEqual((SS_SYSTEMS['cps1'], SS_SYSTEMS['cps2']), (6, 7))
+        names = ['Super Street Fighter II_ The New Challengers (World 931005).png', 'Super Street Fighter II Turbo (USA 940223).png',
+                 'Dungeons _ Dragons_ Tower of Doom (Euro 940412).png', 'Dungeons _ Dragons_ Tower of Doom (US 940113).png',
+                 '1944_ The Loop Master (Japan 000620).png', '19XX_ The War Against Destiny (USA 951207).png',
+                 '1941_ Counter Attack (World 900227).png']
+        for set_name, title, expected in (('ssf2', 'Super Street Fighter II: The New Challengers (World 931005)', names[0]),
+                                          ('ddtod', 'Dungeons & Dragons: Tower of Doom (Europe 940412)', names[2]),
+                                          ('1944j', '1944: The Loop Master (Japan 000620)', names[4]),
+                                          ('19xxu', '19XX: The War Against Destiny (USA 951207)', names[5]),
+                                          ('1941', '1941: Counter Attack (World 900227)', names[6])):
+            self.assertEqual(choose_cover(names, set_name, display_title(title), regional_fallback=True, system_id='cps2'), expected, set_name)
+
+    def test_a_capcom_clone_falls_back_to_its_parent_and_a_double_spelling_is_not_ambiguous(self):
+        from retrorecomp.artwork import _one_per_name, profile_cover_titles
+        # the catalogue offers the set's title, then its parent's, under the optional `cover_titles` capability of the profile
+        self.assertEqual(profile_cover_titles('cps2', Path('1944j.zip')),
+                         ('1944 - The Loop Master (Japan 000620)', '1944 - The Loop Master (Europe 000620)'))
+        self.assertEqual(profile_cover_titles('cps2', Path('not-a-set.zip')), ())
+        self.assertEqual(profile_cover_titles('md', Path('Sonic.zip')), ())           # a machine that offers none
+        # the MAME repository files some boxes twice: ": " as " - " and as "_ ": one stands for both
+        names = ['Street Fighter II - The World Warrior (World 910522).png', 'Street Fighter II_ The World Warrior (World 910522).png',
+                 'Street Fighter II - The World Warrior (US 910206).png']
+        self.assertEqual(len(_one_per_name(names)), 2)
+        title = 'Street Fighter II - The World Warrior (World 910522)'
+        with self.assertRaises(ArtworkError):                                   # still refused for local images, which never go through _one_per_name
+            choose_cover(names, title, title)
+        self.assertEqual(choose_cover(_one_per_name(names), 'sf2', title, system_id='cps1', extra_titles=(title,)),
+                         'Street Fighter II - The World Warrior (World 910522).png')
+        # an ambiguous first try does not stop the extra names
+        self.assertEqual(choose_cover(names, title, title, extra_titles=('Street Fighter II - The World Warrior (US 910206)',)),
+                         'Street Fighter II - The World Warrior (US 910206).png')
+        with self.assertRaises(ArtworkError):
+            choose_cover(names, title, title, extra_titles=('Nothing Like It',))         # none of the extra names finds one: the refusal stands
 
     def test_no_fuzzy_matching_between_sequels_and_ambiguous_editions(self):
         names = ["Sonic (USA).png", "Sonic 2 (Europe).png"]

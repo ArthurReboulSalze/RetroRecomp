@@ -44,6 +44,15 @@ unsigned m68k_read_memory_32(unsigned a) { return m68k_read_memory_16(a) << 16 |
 void m68k_write_memory_8(unsigned a, unsigned v) { poke(a, (uint8_t)v); }
 void m68k_write_memory_16(unsigned a, unsigned v) { poke(a, (uint8_t)(v >> 8)); poke(a + 1, (uint8_t)v); }
 void m68k_write_memory_32(unsigned a, unsigned v) { m68k_write_memory_16(a, v >> 16); m68k_write_memory_16(a + 2, v & 0xffffu); }
+/* The CPS-2 board's separate reads (RR_CPS2: the Musashi build with M68K_SEPARATE_READS and the translated steps that read their PC-relative
+ * operands through the instruction-fetch view): a flat bus has one view, so both are the same bytes and the vectors must still agree. */
+#ifdef RR_CPS2
+unsigned m68k_read_immediate_16(unsigned a) { return m68k_read_memory_16(a); }
+unsigned m68k_read_immediate_32(unsigned a) { return m68k_read_memory_32(a); }
+unsigned m68k_read_pcrelative_8(unsigned a) { return m68k_read_memory_8(a); }
+unsigned m68k_read_pcrelative_16(unsigned a) { return m68k_read_memory_16(a); }
+unsigned m68k_read_pcrelative_32(unsigned a) { return m68k_read_memory_32(a); }
+#endif
 unsigned m68k_read_disassembler_8(unsigned a) { return m68k_read_memory_8(a); }
 unsigned m68k_read_disassembler_16(unsigned a) { return m68k_read_memory_16(a); }
 unsigned m68k_read_disassembler_32(unsigned a) { return m68k_read_memory_32(a); }

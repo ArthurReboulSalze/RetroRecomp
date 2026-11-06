@@ -99,7 +99,7 @@ The choice is kept per game; conversions always check the default settings.
 to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
 three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
 
-### Capcom CPS-2 (experimental)
+### Capcom CPS-2
 
 The controls are the CPS-1's: six buttons, a coin and a Start for each of up to four players, with the keys of players 3 and 4 above. The board
 has no DIP switches. A game keeps its settings (the number of players, coinage, difficulty, language) in its EEPROM, and changes them in its

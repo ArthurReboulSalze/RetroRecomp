@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 (experimental) · PC Engine (experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine (experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -76,7 +76,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
-| [Capcom CPS-2](docs/CPS2.md) | experimental | `███████░░░` 67 % |
+| [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 39 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
@@ -105,7 +105,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; Capcom CPS-2 and the PC Engine open as experimental machines (your own key file and QSound DSP ROM for the CPS-2); players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; the PC Engine opens as an experimental machine; players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. The Capcom CPS-2 opened in 1.6.9 and is no longer experimental in 1.7.0 (your own key file and QSound DSP ROM). Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
