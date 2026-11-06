@@ -78,6 +78,24 @@ class Detection(unittest.TestCase):
         self.assertEqual(found[0].title, 'Game A')
 
 
+class RelativeFolder(unittest.TestCase):
+    def test_a_relative_folder_matches_the_absolute_path_scummvm_prints(self):
+        import os
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp).resolve()
+            (parent / 'game').mkdir()
+            line = f'eng1:gamea                     Game A (DOS/English)                  {parent / "game"}\n'
+            before = os.getcwd()
+            os.chdir(parent)
+            try:
+                with mock.patch.object(sx.subprocess, 'run', return_value=mock.Mock(stdout=line)):
+                    found = sx.detect(Path('game'), Path('runtime'))
+            finally:
+                os.chdir(before)
+            self.assertEqual([(c.gameid, c.language) for c in found], [('gamea', 'English')])
+
+
 class Families(unittest.TestCase):
     def test_family_rule_is_generic(self):
         self.assertEqual(scummvm_build.family_for('anyengine'), 'anyengine')

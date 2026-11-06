@@ -95,6 +95,7 @@ def parse_detection(output: str, folder: Path) -> list[Candidate]:
 def detect(folder: Path, runtime: Path, timeout: int = 900) -> list[Candidate]:
     """Ask ScummVM's own detection (the separate GPL program) which game `folder` holds; nothing is written in `folder`."""
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', RR_NO_DIALOGS='1')
+    folder = Path(folder).resolve()      # ScummVM prints absolute paths: a relative folder must match them
     with tempfile.TemporaryDirectory() as scratch:
         config = Path(scratch) / 'detect.ini'
         result = subprocess.run([str(runtime), f'--config={config}', '--detect', f'--path={folder}'], env=env,
