@@ -97,12 +97,13 @@ that section says move. Each section computed its stamps for its own change alon
 | [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
 | [The F12 recorder accepts the hints of every machine](#the-f12-recorder-accepts-the-hints-of-every-machine-170) | **the game stamp of all thirteen machines** (`runtime_feedback.c` and `.h`, `freshness.py`) | none | no key moves for it (the Mega Drive and Super Nintendo keys hash the recorder but already move) |
 | [Commodore Amiga: the player's own Kickstart 1.3](#commodore-amiga-the-players-own-kickstart-13-170) | the Amiga only (`f68fb739871c` at the time of the section) | none | the Amiga's key moves (a state of an earlier Amiga build is refused cleanly); no other key |
+| [Adventure games (ScummVM): a category of its own](#adventure-games-scummvm-a-category-of-its-own-170) | **the game stamp of the thirteen earlier machines** (`batch.py`, `report_schema.py`; no new conversion on top of the others); the ScummVM stamps are new | **host stamp of the thirteen earlier machines** (the notices, the licence pages); the ScummVM stamps are new | no key moves; the exports have no state of ours |
 
-<!-- Rows of the machines merged after this index (ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
+<!-- Rows of the changes merged after this index go here, in the order of their merge, with their new stamps and keys. -->
 
 Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp and the host stamp of the eleven consoles of 1.6.9 move; no build stamp moves** (the Amiga section computed it on the tree of `v1.6.9`; the game stamps move through
 `systems/specs.py`, which every game stamp hashes, and the host stamps through the notices, the host kit and the box-art modules). The Game Boy Advance and the Amiga are new. So every export of 1.6.9
-is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. The recorder change above moves the game stamp of all thirteen machines for itself, and adds no conversion on top of this total. This total will change if ScummVM merges.
+is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. The recorder change above moves the game stamp of all thirteen machines for itself, and adds no conversion on top of this total. Adventure (ScummVM) is a fourteenth profile with stamps of its own, new; it moves no stamp that was not already moving.
 
 **Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
 written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
@@ -382,6 +383,44 @@ knowingly (« fix it in 1.7.0 »).
 
 **Not measured.** The cost of the changed test in the recorder (one comparison per recorded miss) and a game of each new machine played to a normal shutdown to see its feedback file
 written: the change is proved by the bound test and by the stamps, not by an A/B of a game.
+
+## Adventure games (ScummVM): a category of its own (1.7.0)
+
+"Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md), profile `scummvm`) is added as an **experimental** category of its own: a folder of an adventure game that ScummVM's
+detection recognises becomes one executable holding ScummVM and the player's own game files, **emulated and 0 % native by design**. It is new: no export of it exists before 1.7.0, so
+nothing is upgraded, and it takes no part in the shared base of paths or in the qualification matrix. The measures of native code and CPU fidelity do not apply to it; gameplay is
+validated game by game (the owner played ten prototype executables, a play trial) and physical latency is not measured. ScummVM and Retro-Recomp's patch of it are under the GPL
+(version 3 or later), kept apart from the MIT code and carried with a written offer of the source ([licenses/scummvm.md](../licenses/scummvm.md)); Windows is built and Linux is
+witnessed on one small game.
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the fourteen machines on the tree of `main` before this merge (`f03a713e`) and on this tree (first twelve
+hexadecimal digits of each stamp, 6 November 2026):
+
+| Machine | Game stamp (before, after) | Host stamp (before, after) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `49fe6e32e245`, `ffb447e12968` | `52732894c705`, `4c698ce40729` | same |
+| Game Gear | `8c00b18cbb84`, `9f3d2cd547bb` | `12ddf0d7f71c`, `9e302b729213` | same |
+| Game Boy | `84ee8993f728`, `1c847126de1d` | `cf765eccafd3`, `d03f39763f54` | same |
+| NES | `70294cfa87ce`, `88240b6d2e3b` | `71877ffa5602`, `a91c8c6c0d28` | same |
+| Mega Drive | `a51188bb861f`, `3c62c2e5c7a3` | `81f2da5cd72d`, `b45d74b5e78f` | same |
+| Super Nintendo | `183e40e13480`, `0bc2b194ed99` | `86e398dab378`, `ebe78ef356a1` | same |
+| Neo Geo | `dc211c9479da`, `328279cbfc1c` | `b7fe8c803579`, `098ae12034e1` | same |
+| X68000 | `ad8e4bc0f227`, `d42bb1882a76` | `1ca7429d24bd`, `4cc410c21d5a` | same |
+| CPS-1 | `da3f9a93f08f`, `2d6bdc5b1ca4` | `075e0ff74ad2`, `ff2e8295501f` | same |
+| CPS-2 | `d0dfdf7fcd0a`, `b841f976989c` | `6d09623637fd`, `7f31bbdfb091` | same |
+| PC Engine / TurboGrafx-16 | `61785d10f6b3`, `78f5641c38ec` | `e688aeb8d524`, `bdcc346995e1` | same |
+| Game Boy Advance | `a8f3639ad2c9`, `fb1e49e5f6b4` | `f91cddfbe6b9`, `f94b7ff7c92f` | same |
+| Amiga | `c7a44bc35458`, `a82d6ccb72ca` | `8e7c7e682d10`, `136af9f804ed` | same |
+| Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
+
+**The game stamp and the host stamp of the thirteen earlier machines move again** (`retrorecomp/batch.py` and `report_schema.py` are game inputs of every machine, and
+`THIRD_PARTY_NOTICES.md` and the new licence pages are host inputs); no build stamp moves for them. This adds no conversion on top of 1.7.0: against `v1.6.9` every game stamp had already
+moved (the index above). The ScummVM stamps are new.
+
+**Quick states.** No key moves: no native file listed in a key changed, and the ScummVM exports have no F8/F9 state of ours (a game's saves are ScummVM's own, in `datas/`).
+**Cartridge saves** of the other machines are kept.
+
+**Not measured.** The speed of a ScummVM game, a Linux run of any engine family but the one witnessed, and the cost of the new test in `batch.py`.
 
 ## Capcom CPS-2 leaves the experimental status (1.7.0)
 
