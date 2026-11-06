@@ -30,6 +30,13 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
     for (unsigned n = 0; n < 6; ++n) fprintf(file, "%s\"%s\":{\"seconds\":%.9f,\"max_ms\":%.6f}",
         n ? "," : "", names[n], timing->total[n], timing->maximum[n] * 1000);
     fprintf(file, "}");
+    /* The graphics options in force (D14): a timing taken at another internal resolution says so. */
+    if (machine->gfx_option_count > 0) {
+        fprintf(file, ",\"gfx\":{");
+        for (int i = 0; i < machine->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i)
+            fprintf(file, "%s\"%ls\":%d", i ? "," : "", machine->gfx_options[i].ini_key, rrhk.gfx[i]);
+        fprintf(file, "}");
+    }
     if (machine->timing_report) machine->timing_report(file, frequency);
     fprintf(file, "}\n"); fclose(file);
 }

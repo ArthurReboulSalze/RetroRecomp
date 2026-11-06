@@ -918,6 +918,15 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm",
     "RAM code: compiled, not observed": "RAM-Code: kompiliert, nicht beobachtet",
     "Save unreadable: set aside": "Spielstand unlesbar: beiseite gelegt",
-    "Save unreadable: saving is off": "Spielstand unlesbar: Speichern aus"
+    "Save unreadable: saving is off": "Spielstand unlesbar: Speichern aus",
+    "Stick dead zone: %s": "Stick-Totzone: %s",
+    "Vibration: %s": "Vibration: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - Grafik",
+    "Filter: %s": "Filter: %s",
+    "Restore defaults": "Standardwerte",
+    "Disc %d/%d": "Disc %d/%d",
+    "Change disc": "Disc wechseln",
+    "F3  Graphics options": "F3  Grafikoptionen",
+    "%s (not at this size)": "%s (nicht bei dieser Größe)"
   }
 }
