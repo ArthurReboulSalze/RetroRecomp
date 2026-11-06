@@ -96,6 +96,7 @@ that section says move. Each section computed its stamps for its own change alon
 | [Covers: a subtitle that names the game, and extra names from a profile](#covers-a-subtitle-that-names-the-game-and-extra-names-from-a-profile-170) | none | **host stamp of every console** (`cover_titles.py`, `artwork.py`) | no key moves |
 | [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
 | [The F12 recorder accepts the hints of every machine](#the-f12-recorder-accepts-the-hints-of-every-machine-170) | **the game stamp of all thirteen machines** (`runtime_feedback.c` and `.h`, `freshness.py`) | none | no key moves for it (the Mega Drive and Super Nintendo keys hash the recorder but already move) |
+| [Commodore Amiga: the player's own Kickstart 1.3](#commodore-amiga-the-players-own-kickstart-13-170) | the Amiga only (`f68fb739871c` at the time of the section) | none | the Amiga's key moves (a state of an earlier Amiga build is refused cleanly); no other key |
 
 <!-- Rows of the machines merged after this index (ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
 
