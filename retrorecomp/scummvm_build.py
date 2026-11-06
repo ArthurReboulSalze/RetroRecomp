@@ -123,11 +123,30 @@ def runtime_identity(family: str) -> dict:
 # --- running ---------------------------------------------------------------------------------------------------------
 
 def _environment() -> dict:
+    """Windows: only the converter's own tools (the portable Git and llvm-mingw, CMake and Ninja of datas/tools) come first
+    on PATH; nothing the player installed (Visual Studio, MSYS2, GNU make) is needed or used. Linux: the system's GCC,
+    CMake, Ninja and Git (the packages the converter asks for)."""
     env = dict(os.environ)
     if os.name == 'nt':
-        from .toolchain import portable_path_entries
-        env['PATH'] = os.pathsep.join([*(str(path) for path in portable_path_entries()), env.get('PATH', '')])
+        from .toolchain import portable_path_entries, tools_directory
+        git = tools_directory() / 'mingit' / 'cmd'
+        env['PATH'] = os.pathsep.join([*([str(git)] if (git / 'git.exe').is_file() else []),
+                                       *(str(path) for path in portable_path_entries()), env.get('PATH', '')])
     return env
+
+
+def _require_portable_tools() -> None:
+    """Windows builds of the runtime use the portable llvm-mingw toolchain only (Visual Studio is never used for it)."""
+    if os.name != 'nt':
+        return
+    from .toolchain import LLVM, ToolchainError, portable_installed, select
+    try:
+        kind = select().kind
+    except ToolchainError:
+        kind = ''
+    if kind != LLVM or not portable_installed():
+        raise ScummvmBuildError('The ScummVM runtime is built with the portable tools Retro-Recomp installs '
+                                '(llvm-mingw, CMake, Ninja): install them from the converter, Visual Studio is not used.')
 
 
 def _run(command: list, cwd: Path, log: Path, timeout: int = 3600) -> str:
@@ -256,6 +275,7 @@ def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
     identity = runtime_identity(family)
     if out.exists() and stamp.exists() and stamp.read_text(encoding='utf-8') == _json(identity):
         return out
+    _require_portable_tools()
     root = build_root()
     root.mkdir(parents=True, exist_ok=True)
     log = root / f'{family}.log'
