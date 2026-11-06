@@ -19,7 +19,7 @@ HUCARD_BOUNDS = (0x2000, 0x280000)
 
 class PcEngineProfile(SystemProfile):
     id = 'pce'
-    name = 'PC Engine'
+    name = 'PC Engine / TurboGrafx-16'
     extensions = ('.pce',)
     # HuCards: up to the 2.5 MiB Street Fighter II board, plus a copier header.
     archived_rom_limits = (('.pce', 0x280000 + 512),)

@@ -22,7 +22,7 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
 | Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
-| PC Engine | experimental (since 1.6.9) | 39 % | a speed measure, independent processor evidence, more HuCards, the Linux witness |
+| PC Engine | experimental (since 1.6.9) | 39 % | a speed measure, more HuCards, the Linux witness |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.
@@ -111,7 +111,7 @@ planned. Hard-disk images stay out of scope. The screen contrast of the system p
 ### PC Engine
 
 Experimental since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the Street Fighter II board, NTSC,
-two players. Next: a speed measure on a quiet PC, a processor check with a vector tool of our own, more HuCards through the same
+two players. Next: a speed measure on a quiet PC, more HuCards through the same
 loop and the owner's play trials, then the Linux witness. A card that needs more than the engine's 65,536 instruction identities
 stays partly native. SuperGrafx and CD-ROM² are separate later studies.
 

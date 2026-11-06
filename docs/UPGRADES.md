@@ -353,7 +353,7 @@ declare their limits on their own profile, so the stamps of the others no longer
 **What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
 nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
 of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
-quick-state key moves.** The PC Engine's own stamps are new (game `c8545bf9018e`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the deep-folder fix below). An
+quick-state key moves.** The PC Engine's own stamps are new (game `5f5afabc3a0c`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the US-cards change below). An
 export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
 
 **Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
@@ -372,6 +372,14 @@ packed replay and F8/F9 gates passing, 124 stops). Beyond that the limit is no l
 `<build folder>\CMakeFiles\CMakeScratch\TryCompile-xxxxxx\...` (104 characters) in the first configure of any game's build folder, which here is
 `<app>\.build\pce\<12 hex>\n\build` (32 characters below the application folder), so the build folder may hold 155 characters; every machine's game builds go through
 the same check.
+
+**US TurboGrafx-16 cards (6 November 2026).** The reader tells the two bit orders apart by the first instruction at the reset vector
+when the vector is plausible both ways (`pce_rom.py`: 4 of the 91 US cards of the maintainer's library; they stay `linear` as
+before, and a bit-reversed dump of them is now read as such), and the console is named **PC Engine / TurboGrafx-16** where it is
+listed to the player (the profile name, so the report's `system.name` and the executable's version resource too, the Options page, the
+credits, README and the documents; the export folder stays `PC Engine`). **What moves:** only the PC Engine's game stamp (the
+reader, the profile and the report writer are inputs of it); its host and build stamps and every other console's stamps do not.
+A game exported before this change is rebuilt when it is upgraded; its behaviour does not change. Proof: [PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026).
 
 **Disk space.** The clean-up after a publication and Options › Common › Disk space know the PC Engine's build folders (`.build/pce/<12 hex>/`, locked while a conversion runs), like the CPS-1's.
 
