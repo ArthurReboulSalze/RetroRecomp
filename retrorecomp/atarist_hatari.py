@@ -43,6 +43,17 @@ REPLACEMENTS = [
      '#if defined(WIN32)\nstatic TCHAR szTempFileName[MAX_PATH];\n',
      '#if defined(WIN32)\n/* Retro-Recomp modification (GPL-2.0, like this file): the declarations this branch uses. */\n#include <windows.h>\n'
      'static TCHAR szTempFileName[MAX_PATH];\n'),
+    # Upstream omission (same file): the log and trace "files" default to the special names "stderr" and "stdout", which this
+    # frontend opened as real files, so every run created an empty file named "stderr" in the current folder (beside an exported
+    # game). Our change: those names are the standard streams (as in Hatari's own SDL file layer), never closed.
+    ('src/retro/file_retro.c',
+     '\t/* empty name signifies file that shouldn\'t be opened/enabled */\n\tif (!path || !*path)\n\t\treturn NULL;\n',
+     '\t/* empty name signifies file that shouldn\'t be opened/enabled */\n\tif (!path || !*path)\n\t\treturn NULL;\n'
+     '\t/* Retro-Recomp modification (GPL-2.0, like this file): the special log names are the standard streams. */\n'
+     '\tif (!strcmp(path, "stderr"))\n\t\treturn stderr;\n\tif (!strcmp(path, "stdout"))\n\t\treturn stdout;\n'),
+    ('src/retro/file_retro.c', 'FILE *File_Close(FILE *fp)\n{\n\tif (fp)\n\t\tfclose(fp);\n',
+     'FILE *File_Close(FILE *fp)\n{\n\t/* Retro-Recomp modification (GPL-2.0, like this file): the standard streams stay open. */\n'
+     '\tif (fp && fp != stdin && fp != stdout && fp != stderr)\n\t\tfclose(fp);\n'),
     # States go through the libretro file system like every other file (the player keeps them in memory): the plain-file branch
     # of the snapshot code (no zlib in this build) uses Hatari's VFS functions instead of the C library's. This build never
     # links Hatari's own SDL program, so the core's files may call the frontend's VFS.
@@ -65,7 +76,23 @@ REPLACEMENTS = [
      '\t\tif (!bSave)\n\t\t\tIPF_Eject(drive);\n\n\t\tif (ipf_memsnapshot_state(bSave, &IPF_State[drive]))'),
     ('src/floppies/ipf_dsk.c',
      '\t\tif (EmulationDrives[drive].ImageType == FLOPPY_IMAGE_TYPE_IPF)\n\t\t{\n\t\t\tif (!IPF_Insert_internal(drive,',
+     '\t\t/* Retro-Recomp modification (BSD-3-Clause, like this file): the stream as the state saved it (the reinsertion below\n'
+     '\t\t * forgets its track and its position in it). */\n'
+     '\t\tstruct ipf_stream saved = IPF_State[drive].stream;\n'
      '\t\tif (!bSave && EmulationDrives[drive].ImageType == FLOPPY_IMAGE_TYPE_IPF)\n\t\t{\n\t\t\tif (!IPF_Insert_internal(drive,'),
+    # Upstream defect, same function: after a restore the track was never selected again (the reinsertion had set it to -1) and,
+    # when it was, the position in the track went back to its start, so a state saved while a disk was being read continued the
+    # read from the wrong place. Our change: select the saved track, then put back the position, the jitter and the revolutions.
+    ('src/floppies/ipf_dsk.c',
+     '\t\t\tif (IPF_State[drive].stream.track != (unsigned int)-1)\n\t\t\t{\n\t\t\t\tint track = IPF_State[drive].stream.track;\n'
+     '\t\t\t\tIPF_State[drive].stream.track = (unsigned int)-1;\n\t\t\t\tipf_select_track(&MFM_STREAMS[drive], track);\n\t\t\t}\n',
+     '\t\t\t/* Retro-Recomp modification (BSD-3-Clause, like this file): the saved track and the position in it. */\n'
+     '\t\t\tif (saved.track != (unsigned int)-1)\n\t\t\t{\n'
+     '\t\t\t\tuint32_t revolutions = MFM_STREAMS[drive].max_revolutions, number = MFM_STREAMS[drive].RevolutionsNbr;\n'
+     '\t\t\t\tIPF_State[drive].stream.track = (unsigned int)-1;\n\t\t\t\tipf_select_track(&MFM_STREAMS[drive], saved.track);\n'
+     '\t\t\t\tIPF_State[drive].stream.flux_idx = saved.flux_idx;\n\t\t\t\tIPF_State[drive].stream.acc_ns = saved.acc_ns;\n'
+     '\t\t\t\tIPF_State[drive].stream.jitter = saved.jitter;\n'
+     '\t\t\t\tMFM_STREAMS[drive].max_revolutions = revolutions;\n\t\t\t\tMFM_STREAMS[drive].RevolutionsNbr = number;\n\t\t\t}\n'),
     ('src/floppies/ipf_dsk.c',
      '\tIPF_State[Drive].decoder = IPF_DecodeImage(pImageBuffer, ImageSize);\n\tif (!IPF_State[Drive].decoder)\n\t{\n'
      '\t\tLog_Printf(LOG_ERROR, "IPF: failed to decode image in drive %d\\n", Drive);\n\t\treturn false;\n\t}\n',

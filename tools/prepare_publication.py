@@ -88,6 +88,7 @@ retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.p
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
 native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py
+native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py

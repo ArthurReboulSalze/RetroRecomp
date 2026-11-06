@@ -48,11 +48,26 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | Two games converted (6 November 2026, Windows): Bomb Jack (Quick level), 32,910,533 native instructions and 1 interpreted on its main route (3,000 frames); Another World (Standard level, two disks), 33,425,253 and 1 on the main route, 33,425,292 and 1 on the exploration route. The interpreted one is an opcode Hatari's table sends to its illegal-instruction handler. On the tested routes only. |
-| CPU fidelity | The native steps call Hatari's own handlers: on the two games above the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. Hatari's 68000 itself has not been compared with the SingleStepTests 68000 vectors yet. |
+| Native code | The panel of ten games, converted once each on Windows (6 November 2026, Standard level; Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the table below. On the tested routes only. |
+| CPU fidelity | The native steps call Hatari's own handlers: on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`, on the ST memory map and on a flat 24-bit bus): the final state agrees on every vector run except two authored divisions by zero whose N/Z flags the 68000 leaves undefined; the clock differences are the ST's 4-cycle bus rounding except 14 CHK vectors (4 clocks more); the native step equals the interpreter on every vector. The vectors are MAME-made, not silicon. |
 | Hardware fidelity | Not claimed. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |
+
+| Game (disks) | Native | Interpreted | Own screen reached by the route |
+| --- | ---: | ---: | --- |
+| Bomb Jack (1) | 32,910,533 | 1 | yes (title, credits) |
+| Another World (2) | 33,425,253 | 1 | yes (code-wheel protection) |
+| Operation Stealth (3) | 30,004,899 | 269,820 | no: GEM desktop (the game is a program to open; the interpreted ones are TOS line-F calls) |
+| Captain Blood (2) | 29,886,965 | 264,772 | no: GEM desktop with a nearly empty disk (under investigation) |
+| Elite (1) | 39,364,470 | 3 | yes (manual-word protection) |
+| Lethal Xcess (2) | 34,895,160 | 0 | yes (music device menu) |
+| Turrican II (1) | 39,532,761 | 2,139 | yes (title, credits) |
+| Carrier Command (1) | 38,039,056 | 0 | yes (language menu) |
+| Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged" (the built-in IPF reader is the first suspect) |
+| Indiana Jones and the Temple of Doom (1) | 40,182,497 | 2 | yes (title, high scores) |
+
+"Own screen" means the route's last picture is the game's, not that the game was played.
 
 ## 4. Known limits
 
@@ -60,9 +75,10 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
 - Linux is pending: the profile has not been run there.
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on
   its main route and its trace still equals the reference). A state loaded by a fresh process continued the saved timeline on the
-  two games converted so far (Bomb Jack, Another World: CPU registers, RAM and picture of 400 frames; the sound samples of the
-  first frames after a load differ, because Hatari does not save the state of its sound output). A state saved while a disk is
-  being read is not yet known to continue exactly; the conversion reports the comparison, it does not refuse the game for it.
+  ten panel games (CPU registers, RAM and picture of 400 frames; the sound samples of the first frames after a load differ, because
+  Hatari does not save the state of its sound output). A state saved while a disk is being read now resumes the read at the right
+  place in the track (a fix to Hatari's IPF reader), but Bomb Jack saved during its loading still differs in its RAM from the second
+  frame after the load; the conversion reports the comparison, it does not refuse the game for it.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).

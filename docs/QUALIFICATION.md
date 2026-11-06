@@ -62,24 +62,24 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
-| Atari ST | experimental | `░░░░░░░░░░` 3 % | ✅ 0 · 🟡 1 · ❔ 15 |
+| Atari ST | experimental | `███░░░░░░░` 28 % | ✅ 0 · 🟡 9 · ❔ 7 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ |
@@ -98,17 +98,17 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | ? |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? |
@@ -137,9 +137,20 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Atari ST (6 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): the column is `?` except G1. G1 `P`: the profile is declared experimental and
-  `tools/status_lint.py` agrees, but the machine is not opened to players yet. Nothing is measured: every instruction runs on Hatari's interpreter (counted, none native
-  yet), no CPU vectors are compared, no hardware fidelity is claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
+- Atari ST (6 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`, Windows only): G1 `P`: the profile is declared
+  experimental and `tools/status_lint.py` agrees, but the machine is not opened to players yet. G2 `P`: the common report v2 of every
+  conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
+  interpreted on a route (Operation Stealth and Captain Blood stay on the GEM desktop, whose line-F calls go to Hatari's
+  illegal-instruction handler and stay interpreted), 0 to 3 elsewhere. G4 `P`: every route of every conversion is identical, frame by
+  frame, to a fresh interpreted reference. G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
+  fresh process (CPU, RAM and picture; the sound samples are not compared) on the ten games; a state saved while a disk is being read
+  is not yet known to continue exactly. G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
+  fixtures through Hatari's cycle-exact 68000 and through the native steps (`tools/atarist_vector_selftest.py`): state agreement on
+  every vector run except two divisions by zero whose flags the 68000 leaves undefined; clock differences explained by the ST's
+  4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
+  panel games reach their own screens; Operation Stealth needs a desktop route, Captain Blood and Kick Off 2 stop before their
+  own screens (the built-in IPF reader is the first suspect). No hardware fidelity is claimed, no game is validated and the latency
+  is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
   and validated on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh
