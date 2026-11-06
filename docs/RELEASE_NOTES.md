@@ -32,7 +32,27 @@ Not published: this section lists what is already on `main` and is completed at 
   Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
   does not store it, such as Alien Hominid, asks again). The Linux player was not played;
   no link cable, e-Reader or cartridge sensors.
-<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
+- **Commodore Amiga 500 (experimental).** WHDLoad installs that need no Kickstart (one
+  `.lha` holding exactly one `.Slave` and the game's files or `Disk.N` images) become a
+  standalone Windows game on the vAmiga core and Moira's 68000, with guarded native code
+  for the 68000 code the game runs from RAM and a counted interpreter for everything
+  else; the joystick, the mouse, the keyboard, quick states and the files an install saves
+  are there. **No Kickstart is supplied, stored or fetched**, and the installs that ask
+  for one (nearly half of the 2,992 Amiga 500 installs of the maintainer's library) stay
+  refused until a player's own Kickstart is supported; ADF and IPF images, hard-disk
+  images, the Amiga 1200, the CD32 and the CDTV are out of scope. The ten installs of the
+  first panel (Rick Dangerous, Lemmings, Elite, Pinball Dreams, Speedball 2, Turrican 2,
+  Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia) converted with 0
+  interpreted instructions on their two routes of 3,000 frames; on Rick Dangerous the trace
+  of every frame (picture, sound, RAM, CPU registers) equals the interpreted reference
+  machine's, and one conversion on a Debian 13 PC validated on both routes (not played
+  there). The owner played the ten and they work: a play trial, not an exit from the
+  experimental status. Hardware fidelity is not claimed (private comparisons with another
+  emulator match most reference frames of some installs and fewer of others), no game was
+  checked end to end, and physical latency is not measured. After a quick state is loaded,
+  the sound samples are not bit-identical to an unbroken run. The box-art lookup also
+  tries a game's own name, so Lotus 2 and Speedball 2 find their boxes.
+<!-- Bullets of the machines still to merge for this release (ScummVM) go here, in the order of their merge. -->
 
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine
@@ -78,6 +98,11 @@ Not published: this section lists what is already on `main` and is completed at 
   audio pushes, states and preferences with and without the change). Not measured: a real
   gamepad (stick values and rumble go through SDL's virtual controller only), a real
   display, and Linux.
+- **Interpreter hints of the newest machines.** A game keeps the interpreter misses it
+  meets as hints for the next recompilation. The recorder dropped every kind above the
+  CPS-1's, so the CPS-2, PC Engine, Game Boy Advance and Amiga hints were never recorded;
+  it now accepts every machine's. This moves the game stamp of every machine, which is
+  why every 1.6.9 export is converted again in 1.7.0.
 - **Computers.** A press of the middle mouse button (the wheel) releases a captured
   mouse, as Ctrl+Alt+M does; the button never reaches the game.
 
@@ -90,11 +115,10 @@ experimental tier on the evidence above; none of them is a measure of hardware
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.0 moves the host stamp of all eleven consoles
-and the game stamp of the CPS-1 and the CPS-2 only (no build stamp): an export of 1.6.9
-of any other console is upgraded (rebuilt from its paths, no rediscovery) the next time
-it is converted, and an export of the CPS-1, CPS-1.5 or CPS-2 is converted again from its
-paths. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
+**Your exports and quick states.** 1.7.0 moves the game stamp and the host stamp of all
+eleven earlier consoles (no build stamp), so every export of 1.6.9 is converted again,
+with its discovery routes and from its qualified paths, once, when it is upgraded: it is
+not the quick host-only rebuild of a smaller update. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
 in their catalogue): a quick state of 1.6.9 is refused cleanly there, with a message
 (nothing is lost but the state); the states of the NES, Neo Geo, CPS-1, CPS-2, PC Engine
 and X68000 still load, and the Master System, Game Gear and Game Boy have none to
