@@ -170,8 +170,10 @@ def write_pack(program: Path, folder: Path, out: Path, manifest: str, extra: tup
             raw = rel.encode('utf-8')
             target.write(struct.pack('<H', len(raw)) + raw + struct.pack('<QQ', start, size))
         target.write(PACK_MAGIC + struct.pack('<QQ', index_offset, target.tell() - index_offset))
+    if os.name != 'nt':
+        temporary.chmod(0o755)          # the runtime copy keeps its mode, the part file is made by open(): make it executable
     temporary.replace(out)
-    game = [e for e in entries if not e[0].startswith('.rr/')]
+    game =[e for e in entries if not e[0].startswith('.rr/')]
     return len(game), sum(e[2] for e in game)
 
 
@@ -352,7 +354,7 @@ def export_game(folder: Path, out_directory: Path, detect_runtime: Path, runtime
     family = family_for(picked.engine)
     runtime = Path(runtime_for_family(family))
     name, game_id = datas_name(picked.title), folder_id(folder)
-    exe = Path(out_directory) / (exe_title(picked.title) + '.exe')
+    exe = Path(out_directory) / (exe_title(picked.title) + ('.exe' if os.name == 'nt' else ''))     # as core.executable_name
     if icon is not None and os.name == 'nt':
         staged = exe.with_name(exe.name + '.runtime')
         staged.parent.mkdir(parents=True, exist_ok=True)

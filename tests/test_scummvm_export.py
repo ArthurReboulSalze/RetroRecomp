@@ -93,6 +93,15 @@ class Families(unittest.TestCase):
                 (tree / 'engines' / engine / 'metaengine.cpp').write_text(text, encoding='utf-8')
             self.assertEqual(scummvm_build.fallback_engines(tree), ('alpha',))
 
+    def test_static_sdl_system_libraries_follow_its_pkg_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp)
+            self.assertEqual(scummvm_build.static_system_libraries(prefix), ['m', 'dl', 'pthread'])     # no file: the default
+            (prefix / 'lib' / 'pkgconfig').mkdir(parents=True)
+            (prefix / 'lib' / 'pkgconfig' / 'sdl2.pc').write_text(
+                'Libs: -L${libdir} -lSDL2\nLibs.private: -lm -ldl -lpthread -lrt -lm -Wl,--no-undefined\n', encoding='utf-8')
+            self.assertEqual(scummvm_build.static_system_libraries(prefix), ['m', 'dl', 'pthread', 'rt'])
+
     def test_runtime_identity_names_the_pins(self):
         identity = scummvm_build.runtime_identity('scumm')
         self.assertEqual(identity['scummvm_commit'], scummvm_build.SCUMMVM_REV)

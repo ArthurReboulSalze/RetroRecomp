@@ -746,7 +746,7 @@ index acdadd76..9232a26e 100644
  	// Free OSystem
  	g_system->destroy();
 diff --git a/backends/platform/sdl/posix/posix.cpp b/backends/platform/sdl/posix/posix.cpp
-index f2330f7f..39d1590e 100644
+index f2330f7f..653bf716 100644
 --- a/backends/platform/sdl/posix/posix.cpp
 +++ b/backends/platform/sdl/posix/posix.cpp
 @@ -35,6 +35,7 @@
@@ -766,6 +766,26 @@ index f2330f7f..39d1590e 100644
  
  #if defined(USE_TASKBAR) && defined(USE_UNITY)
  	// Initialize taskbar manager
+@@ -236,6 +237,9 @@ Common::String OSystem_POSIX::getXdgUserDir(const char *name) {
+ Common::Path OSystem_POSIX::getDefaultIconsPath() {
+ 	Common::String iconsPath;
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	// On POSIX systems we follow the XDG Base Directory Specification for
+ 	// where to store files. The version we based our code upon can be found
+ 	// over here: https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.8.html
+@@ -261,6 +265,9 @@ Common::Path OSystem_POSIX::getDefaultIconsPath() {
+ Common::Path OSystem_POSIX::getDefaultDLCsPath() {
+ 	Common::String dlcsPath;
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	// On POSIX systems we follow the XDG Base Directory Specification for
+ 	// where to store files. The version we based our code upon can be found
+ 	// over here: https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.8.html
 diff --git a/backends/platform/sdl/sdl.cpp b/backends/platform/sdl/sdl.cpp
 index f2c4e514..99ae775e 100644
 --- a/backends/platform/sdl/sdl.cpp
