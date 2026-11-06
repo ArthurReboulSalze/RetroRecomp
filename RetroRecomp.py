@@ -368,12 +368,12 @@ def main() -> int:
             packing.set_compression(args.compress if args.compress is not None
                                     else packing.compression_from_preferences(load_preferences()))
             if args.command == "batch":
-                paths, folder_games = [], []
+                paths, folder_games, unavailable = [], [], []
                 for source in [*args.roms, *args.rom_dir]:
                     if source.is_dir():
                         paths.extend(discover_roms(source))
                         # Game folders of a machine that takes folders (Adventure (ScummVM)), beside the files.
-                        games = discover_folders(source)
+                        games = discover_folders(source, unavailable)
                     else:
                         paths.append(source)
                         games = []
@@ -388,8 +388,12 @@ def main() -> int:
                     print(tr('x68_set_incomplete', args.language, title=title,
                              missing=', '.join(map(str, missing)), total=total), file=sys.stderr)
                 paths = list(dict.fromkeys([*(p.resolve() for p in sets.paths), *(g.resolve() for g in folder_games)]))
+                from retrorecomp.i18n import tr as translate
+                sentences = list(dict.fromkeys(translate(exc.key, args.language) for exc in unavailable))
                 if not paths:
-                    parser.error("Add ROMs or a folder with --rom-dir.")
+                    parser.error(sentences[0] if sentences else "Add ROMs or a folder with --rom-dir.")
+                for sentence in sentences:
+                    print(sentence, file=sys.stderr)
                 items = [identify(p, None if args.system == 'auto' else args.system) for p in paths]
                 machine = machine_keywords(args)
                 # The only firmware the shared base's keys depend on: the Neo Geo BIOS (shared_batch.rom_keys).

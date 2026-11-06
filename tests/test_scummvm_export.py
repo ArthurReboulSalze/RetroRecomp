@@ -78,6 +78,55 @@ class Detection(unittest.TestCase):
         self.assertEqual(found[0].title, 'Game A')
 
 
+class ToolsMissing(unittest.TestCase):
+    """Without the build tools (and no runtime built yet) nothing starts a build: discovery and the interface say why."""
+
+    def folder(self, tmp):
+        game = Path(tmp) / 'Some Game'
+        game.mkdir()
+        (game / 'DATA.001').write_bytes(b'x' * 64)         # passes the cheap pre-filter, so detection is asked for
+        return game
+
+    def refuse(self):
+        from unittest import mock
+        return mock.patch.object(sx, '_detect_runtime', side_effect=scummvm_build.ScummvmToolsMissing('tools are missing'))
+
+    def test_discovery_refuses_with_a_sentence_instead_of_raising(self):
+        from retrorecomp.systems import registry
+        sx._DETECTED.clear()
+        with tempfile.TemporaryDirectory() as tmp, self.refuse():
+            game = self.folder(tmp)
+            unavailable = []
+            self.assertEqual(registry.discover_folders(Path(tmp), unavailable), [])
+            self.assertEqual([exc.key for exc in unavailable], ['scummvm_tools_missing'])
+            self.assertEqual(registry.discover_folders(Path(tmp)), [])      # a caller that gives no list is spared too
+            del game
+
+    def test_a_folder_given_directly_becomes_an_error_on_its_item(self):
+        from retrorecomp.batch import identify
+        sx._DETECTED.clear()
+        with tempfile.TemporaryDirectory() as tmp, self.refuse():
+            item = identify(self.folder(tmp), 'scummvm')
+            self.assertIn('tools are missing', item.error)
+
+    def test_the_window_logs_the_sentence_once(self):
+        from types import SimpleNamespace
+        from retrorecomp.gui_queue import QueueMixin
+        sx._DETECTED.clear()
+        window = SimpleNamespace(tr=lambda key, **values: key)
+        with tempfile.TemporaryDirectory() as tmp, self.refuse():
+            self.folder(tmp)
+            files, logs = QueueMixin._expand_paths(window, [Path(tmp)])
+            self.assertEqual(files, [])
+            self.assertEqual(logs, ['scummvm_tools_missing'])
+
+    def test_the_sentence_exists_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        for code in LANGUAGES:
+            self.assertNotEqual(tr('scummvm_tools_missing', code), 'scummvm_tools_missing', code)
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_tools_missing') for code in LANGUAGES[2:]))
+
+
 class NoModalWindow(unittest.TestCase):
     """The patch keeps every route to a modal window closed in a packed executable (checked headless on an invisible desktop
     with the real runtime; here, the text of the patch)."""

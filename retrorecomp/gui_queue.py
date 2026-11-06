@@ -164,6 +164,7 @@ class QueueMixin:
         A multi-disk X68000 game is one entry: its disks become one playlist."""
         from .rom_sources import disk_sets
         files, logs = [], []
+        unavailable = []
         def walk(entries):
             sets = disk_sets(entries)
             if sets.grouped:
@@ -179,7 +180,7 @@ class QueueMixin:
                     try:
                         walk(discover_roms(path))
                         # Game folders of a machine that takes folders, beside the files (never walked again).
-                        games = discover_folders(path)
+                        games = discover_folders(path, unavailable)
                     except OSError:
                         logs.append(self.tr('drop_unreadable'))
                         continue
@@ -189,6 +190,8 @@ class QueueMixin:
                 files.append(path)
                 found(len(files))
         walk(list(paths))
+        # A machine whose folder discovery cannot run yet (no build tools): say so once, never a traceback.
+        logs.extend(self.tr(key) for key in dict.fromkeys(exc.key for exc in unavailable))
         return files, logs
 
     def _prepare_path(self, path, mode, output):
