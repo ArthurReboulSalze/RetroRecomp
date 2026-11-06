@@ -116,7 +116,53 @@ def find_source(rom: bytes, live: bytes, window_start: int, offset: int):
     return start + skew, found - back + skew, (length - skew) & ~1
 
 
-def observations_from_misses(misses, rom: bytes, iwram: bytes | None) -> tuple[Observations, list[Miss]]:
+def _ram_image(address: int, iwram: bytes | None, ewram: bytes | None):
+    """(window, live bytes) of the work RAM that holds `address`, or (None, None) when the run did not dump it."""
+    if in_window(address, IWRAM):
+        return IWRAM, iwram
+    if in_window(address, EWRAM):
+        return EWRAM, ewram
+    return None, None
+
+
+def why_unresolved(miss: Miss, rom: bytes, iwram: bytes | None, ewram: bytes | None, samples=()) -> str:
+    """Why a miss cannot become a path, in a word: 'not in the cartridge or work RAM' (an address outside both), 'no dump' (the run did not
+    dump that RAM), 'no copy' (the live bytes occur nowhere in the cartridge: code made at run time, a decompressed overlay), 'too short'
+    (the equal stretch is shorter than a function), 'zero' (the live bytes are empty or too uniform to be code)."""
+    recorded = [live for where, live in samples if where == miss.address & ~1]
+    if recorded:
+        if _sample_source(rom, miss.address & ~1, samples):
+            return 'copy'
+        return 'zero' if all(live.count(0) == len(live) or len(set(live[:MATCH_WINDOWS[0]])) < 4 for live in recorded) else 'no copy'
+    window, live = _ram_image(miss.address & ~1, iwram, ewram)
+    if window is None:
+        return 'not in the cartridge or work RAM'
+    if not live:
+        return 'no dump'
+    offset = (miss.address & ~1) - window[0]
+    needle = live[offset:offset + MATCH_WINDOWS[0]]
+    if len(needle) < MATCH_WINDOWS[0] or needle.count(0) == len(needle) or len(set(needle)) < 4:
+        return 'zero'
+    where = find_source(rom, live, window[0], offset)
+    if where is None:
+        return 'no copy'
+    return 'too short' if where[2] < 4 else 'copy'
+
+
+def _sample_source(rom: bytes, address: int, samples):
+    """The stretches of the cartridge that the live bytes recorded at `address` come from: [(cartridge offset, length)], longest first."""
+    found = []
+    for where, live in samples:
+        if where != address:
+            continue
+        source = find_source(rom, live, 0, 0)
+        if source is not None and source[2] >= 4:
+            found.append((source[1] - source[0], source[2]))        # the sample starts at the address: its offset is 0
+    return sorted(set(found), key=lambda item: -item[1])
+
+
+def observations_from_misses(misses, rom: bytes, iwram: bytes | None, ewram: bytes | None = None,
+                             samples=()) -> tuple[Observations, list[Miss]]:
     """Turn a run's misses into paths. Returns (what was learned, the misses that stay on the interpreter)."""
     learned, unresolved = Observations(), []
     for miss in misses:
@@ -124,16 +170,23 @@ def observations_from_misses(misses, rom: bytes, iwram: bytes | None) -> tuple[O
         address = miss.address & ~1
         if ROM_BASE <= address < ROM_BASE + min(len(rom), ROM_MAX):
             learned.roots.add((address - ROM_BASE) | flag)
-        elif in_window(address, IWRAM) and iwram:
-            where = find_source(rom, iwram, IWRAM[0], address - IWRAM[0])
-            if where is None or where[2] < 4:
-                unresolved.append(miss)
-                continue
-            ram_offset, rom_offset, length = where
-            entry = address - IWRAM[0]
-            learned.spans.add((address | flag, rom_offset + (entry - ram_offset), length - (entry - ram_offset)))
-        else:
+            continue
+        recorded = _sample_source(rom, address, samples)
+        if recorded:                                # the bytes as they were when the address was first reached
+            for rom_offset, length in recorded:
+                learned.spans.add((address | flag, rom_offset, length))
+            continue
+        window, live = _ram_image(address, iwram, ewram)
+        if window is None or not live:
             unresolved.append(miss)
+            continue
+        where = find_source(rom, live, window[0], address - window[0])
+        if where is None or where[2] < 4:
+            unresolved.append(miss)
+            continue
+        ram_offset, rom_offset, length = where
+        entry = address - window[0]
+        learned.spans.add((address | flag, rom_offset + (entry - ram_offset), length - (entry - ram_offset)))
     return learned, unresolved
 
 

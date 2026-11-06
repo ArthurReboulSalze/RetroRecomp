@@ -177,6 +177,19 @@ PATCHES: tuple[tuple[str, str, str, str], ...] = (
      '    auto sync_frame_counter = [&]() {\n        vblank_count = ppu.frame_count();\n    };\n',
      '    auto sync_frame_counter = [&]() {\n        vblank_count = ppu.frame_count();\n    };\n    g_runtime_bridge_idle = [&]() {\n        uint32_t idle_budget = gba::GbaPpu::kCyclesPerFrame;\n        while (bus.io().halted() && idle_budget != 0) idle_budget -= pump_idle(idle_budget);\n    };\n',
      'bridge: the runner\'s wait in HALT, offered to a bridge'),
+    # Code a game copies into work RAM (Golden Sun runs a loop of its own from EWRAM) can only be matched with its source in the cartridge
+    # if the probe dumps that RAM too: the engine writes the IWRAM at the end of a run, this one writes the EWRAM the same way.
+    ('src/runtime/runtime.cpp',
+     '        if (const char* iw = std::getenv("GBARECOMP_IWRAM_DUMP")) {\n',
+     '        if (const char* ew = std::getenv("GBARECOMP_EWRAM_DUMP")) {\n            std::ofstream dump(ew, std::ios::binary | std::ios::trunc);\n            dump.write(reinterpret_cast<const char*>(bus.ewram_ptr()), 256 * 1024);\n            if (dump) std::printf("ewram_dump_saved path=\\"%s\\" bytes=262144\\n", ew);\n        }\n        if (const char* iw = std::getenv("GBARECOMP_IWRAM_DUMP")) {\n',
+     'the end of a run can also dump the EWRAM'),
+    # The work RAM at the end of a run is not the work RAM at the time of the miss: a game that swaps routines in the same place leaves
+    # only the last one. With GBARECOMP_MISS_BYTES set, the first time a RAM address is reached with no generated function (and each time
+    # its bytes are different, up to 8 times) the probe writes the 1,024 bytes found there, so that the converter can look for their source.
+    ('src/runtime/runtime_arm_default_aborts.cpp',
+     '    record_and_log_miss(entry_pc, entry_thumb);\n    if (gbarecomp::overlay_request_compile(entry_pc, entry_thumb) &&',
+     '    if (const char* miss_bytes_path = std::getenv("GBARECOMP_MISS_BYTES")) {\n        gba::GbaBus* mb = gbarecomp::active_bus();\n        const std::uint32_t base = entry_pc & ~1u;\n        const std::uint8_t* image = nullptr;\n        std::uint32_t window = 0u, size = 0u;\n        if (mb && base >= 0x02000000u && base < 0x02040000u) { image = mb->ewram_ptr(); window = 0x02000000u; size = 256u * 1024u; }\n        else if (mb && base >= 0x03000000u && base < 0x03008000u) { image = mb->iwram_ptr(); window = 0x03000000u; size = 32u * 1024u; }\n        if (image != nullptr) {\n            const std::uint32_t off = base - window;\n            const std::uint32_t len = (size - off) < 1024u ? (size - off) : 1024u;\n            std::uint64_t h = 1469598103934665603ull;\n            for (std::uint32_t i = 0; i < len; ++i) { h ^= image[off + i]; h *= 1099511628211ull; }\n            static std::map<std::uint32_t, std::vector<std::uint64_t>> seen_variants;\n            std::vector<std::uint64_t>& variants = seen_variants[base];\n            if (variants.size() < 8u && std::find(variants.begin(), variants.end(), h) == variants.end()) {\n                variants.push_back(h);\n                if (std::FILE* f = std::fopen(miss_bytes_path, "ab")) {\n                    std::fprintf(f, "%08X ", base);\n                    for (std::uint32_t i = 0; i < len; ++i) std::fprintf(f, "%02x", image[off + i]);\n                    std::fputc(\'\\n\', f);\n                    std::fclose(f);\n                }\n            }\n        }\n    }\n    record_and_log_miss(entry_pc, entry_thumb);\n    if (gbarecomp::overlay_request_compile(entry_pc, entry_thumb) &&',
+     'the probe records the bytes found at a RAM address when it is first reached with no generated function'),
     ('src/runtime/runtime.cpp',
      '    runtime_set_host_service_hook(nullptr);\n    frame_phase.dump();',
      '    runtime_set_host_service_hook(nullptr);\n    g_runtime_bridge_idle = nullptr;\n    frame_phase.dump();',

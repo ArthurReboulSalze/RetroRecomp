@@ -68,6 +68,28 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(learned.spans, {(0x03001518, 0x4A00, 0xE8)})
         self.assertEqual([item.address for item in left], [0x02001000, 0x03007000])   # EWRAM, and zeros
 
+    def test_a_routine_copied_to_work_ram_is_found_in_either_ram_and_by_the_bytes_seen_at_the_miss(self):
+        rom = bytearray(pseudo_random(0x6000, 3))
+        ewram = bytearray(0x40000)
+        ewram[0x8000:0x8100] = rom[0x2000:0x2100]                        # an overlay stored uncompressed
+        iwram = bytearray(0x8000)                                        # the IWRAM at the end of the run: another routine took the place
+        iwram[0x100:0x200] = pseudo_random(0x100, 77)
+        seen = pseudo_random(0x100, 5)
+        rom[0x3000:0x3100] = seen                                        # the routine that stood at 0x03000100 when it was first reached
+        samples = ((0x03000100, seen),)
+        misses = [analysis.Miss(0x02008020, True), analysis.Miss(0x03000100, False), analysis.Miss(0x02010000, True)]
+        learned, left = analysis.observations_from_misses(misses, bytes(rom), bytes(iwram), bytes(ewram), samples)
+        self.assertEqual(learned.spans, {(0x02008020 | 1, 0x2020, 0xE0), (0x03000100, 0x3000, 0x100)})
+        self.assertEqual([item.address for item in left], [0x02010000])
+        self.assertEqual(analysis.why_unresolved(misses[0], bytes(rom), bytes(iwram), bytes(ewram)), 'copy')
+        self.assertEqual(analysis.why_unresolved(misses[1], bytes(rom), bytes(iwram), bytes(ewram), samples), 'copy')
+        self.assertEqual(analysis.why_unresolved(misses[1], bytes(rom), bytes(iwram), bytes(ewram)), 'no copy')
+        self.assertEqual(analysis.why_unresolved(misses[2], bytes(rom), bytes(iwram), bytes(ewram)), 'zero')
+        self.assertEqual(analysis.why_unresolved(misses[0], bytes(rom), bytes(iwram), None), 'no dump')
+        self.assertEqual(analysis.why_unresolved(analysis.Miss(0x04000000, False), bytes(rom), None, None), 'not in the cartridge or work RAM')
+        ewram[0x8000:0x8100] = pseudo_random(0x100, 11)                  # made at run time: no source
+        self.assertEqual(analysis.why_unresolved(misses[0], bytes(rom), bytes(iwram), bytes(ewram)), 'no copy')
+
     def test_the_configuration_carries_identity_roots_and_copies(self):
         seen = analysis.Observations(roots={0x578 | 1, 0x1000}, spans={(0x03001518 | 1, 0x4A00, 0xE8)})
         text = analysis.config_text('Authored', 'ab' * 20, 0x400000, seen)

@@ -61,6 +61,8 @@ class Run:
     cycles: int | None = None        # the guest's cycle count at the common VBlank of the snapshot, not the engine's idle counter
     mem_hash: str = ''               # work RAM, IWRAM, VRAM, OAM, palette and I/O registers at that VBlank
     cpu_hash: str = ''               # the CPU registers there
+    ewram: bytes | None = None       # the 256 KB of work RAM at the end of the run (code a game copies there is matched with its source)
+    samples: tuple = ()              # (address, 1,024 live bytes) found at the first miss of a RAM address, and again when they changed
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
@@ -155,6 +157,22 @@ def input_script(frames: int, kind: str) -> str:
     return '# frame,keyinput_active_low\n' + ''.join(f'{frame},0x{value:04x}\n' for frame, value in events)
 
 
+def _samples(path: Path) -> tuple:
+    """The (address, bytes) lines of the probe's miss-bytes file."""
+    found = []
+    try:
+        lines = path.read_text(encoding='ascii', errors='replace').splitlines()
+    except OSError:
+        return ()
+    for line in lines:
+        head, _, body = line.partition(' ')
+        try:
+            found.append((int(head, 16), bytes.fromhex(body.strip())))
+        except ValueError:
+            continue
+    return tuple(found)
+
+
 def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, folder: Path, scenario: str, frames: int,
                  script: Path | None, timeout: int = 900, reference: bool = False) -> Run:
     """Run the probe host headless for `frames` frames of one scenario and collect what it reports."""
@@ -163,9 +181,10 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
         if stale.is_file():
             stale.unlink()
     work.mkdir(parents=True, exist_ok=True)
-    coverage, miss, dump = work / 'coverage.json', work / 'miss.toml.frag', work / 'iwram.bin'
+    coverage, miss, dump, wram_dump = work / 'coverage.json', work / 'miss.toml.frag', work / 'iwram.bin', work / 'ewram.bin'
+    samples_file = work / 'miss-bytes.txt'
     values = {'GBARECOMP_COVERAGE_JSON': str(coverage), 'GBARECOMP_MISS_FRAG': str(miss),
-              'GBARECOMP_IWRAM_DUMP': str(dump), 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy',
+              'GBARECOMP_IWRAM_DUMP': str(dump), 'GBARECOMP_EWRAM_DUMP': str(wram_dump), 'GBARECOMP_MISS_BYTES': str(samples_file), 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy',
               # A clock cartridge reads the host's wall clock, and the interpreter replay lasts a hundred times longer than the native
               # run: unpinned, the two runs see different seconds and a game that shows the time differs by a frame. In every
               # scenario the clock starts from a fixed time and advances with the guest's cycles (an anchored patch of the engine);
@@ -196,4 +215,5 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
                miss.read_text(encoding='utf-8') if miss.is_file() else '',
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
-               int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '')
+               int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '',
+               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file))

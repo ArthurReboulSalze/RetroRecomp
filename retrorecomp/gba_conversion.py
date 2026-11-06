@@ -22,6 +22,7 @@ three are not claimed).
 """
 from __future__ import annotations
 
+import collections
 import hashlib
 import json
 import time
@@ -152,6 +153,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         write_if_changed(scripts / f'{name}.txt', build.input_script(count, kind).encode('ascii'))
         paths[name] = scripts / f'{name}.txt'
     rows, runs, history, generated, unresolved, host = [], {}, [], {}, [], None
+    reasons = collections.Counter()
     for number in range(1, passes + 1):
         timings.begin_pass(number)
         emit(f'Game Boy Advance pass {number}/{passes}: generating and compiling native ARM and Thumb code…')
@@ -162,12 +164,15 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         build.host_project(project, stage_root, project / 'generated', bios_code)
         host = build.build_host(project, cmake, generator, emit)
         runs, rows, learned, unresolved = {}, [], analysis.Observations(), []
+        reasons = collections.Counter()
         for name, count, _ in scenarios:
             outcome = build.run_scenario(host, rom_file, sha1, bios, project / 'runs', name, count, paths[name])
             runs[name] = outcome
-            found, left = analysis.observations_from_misses(analysis.parse_misses(outcome.misses), data, outcome.iwram)
+            found, left = analysis.observations_from_misses(analysis.parse_misses(outcome.misses), data, outcome.iwram, outcome.ewram, outcome.samples)
             learned.merge(found)
             unresolved += left
+            for item in left:
+                reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
             interpreted = outcome.coverage.get('interpreted_insns')
             rows.append(_row(name, count, None, interpreted, coverage=outcome.coverage.get('coverage'),
                              distinct_misses=outcome.coverage.get('distinct_misses'), aborted=outcome.aborted or None,
@@ -205,7 +210,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                                 for row in rows]}
     coverage = {'imported_entries': imported, 'observed_entries': observations.size(),
                 'rom_roots': len(observations.roots), 'ram_routines': len(observations.spans),
-                'unresolved_misses': len(unresolved), 'generated': generated,
+                'unresolved_misses': len(unresolved), 'unresolved_reasons': dict(sorted(reasons.items())), 'generated': generated,
                 'tested_scenarios': [name for name, *_ in scenarios],
                 'unit': 'interpreted ARM and Thumb instructions, counted by the engine'}
     compiler = {'url': ENGINE_URL, 'revision': ENGINE_REV, 'license': LICENSE, 'arm_core_revision': ARM_CORE_REV,
