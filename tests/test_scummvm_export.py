@@ -1,4 +1,5 @@
 """The adventure export (retrorecomp/scummvm_export.py, scummvm_build.py) on authored data only: no game, no ScummVM run."""
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -60,19 +61,22 @@ class Names(unittest.TestCase):
 
 
 class Detection(unittest.TestCase):
+    # ScummVM prints the paths of the platform it runs on (a drive and backslashes on Windows, a rooted path on Linux),
+    # with a trailing separator on Windows: the fake output is built from the native form of one base folder.
+    BASE = Path(os.path.abspath(os.sep + 'games'))
     OUTPUT = ('GameID     Description     Full Path\n'
               '---------- --------------- ---------\n'
-              'eng1:gamea                     Game A (CD/DOS/French)                  C:\\games\\a\\\n'
-              'eng1:gamea                     Game A (DOS/German)                     C:\\games\\a\\\n'
-              'eng2:gameb                     Game B: Sub (Windows/English)           C:\\games\\a\\sub\\\n'
-              'eng3:gamec                     Game Part V: The End (DOS/French) C:\\games\\c\\\n')
+              f'eng1:gamea                     Game A (CD/DOS/French)                  {BASE / "a"}{os.sep}\n'
+              f'eng1:gamea                     Game A (DOS/German)                     {BASE / "a"}{os.sep}\n'
+              f'eng2:gameb                     Game B: Sub (Windows/English)           {BASE / "a" / "sub"}{os.sep}\n'
+              f'eng3:gamec                     Game Part V: The End (DOS/French) {BASE / "c"}{os.sep}\n')
 
     def test_a_colon_in_the_title_is_not_a_drive(self):
-        found = sx.parse_detection(self.OUTPUT, Path('C:/games/c'))
+        found = sx.parse_detection(self.OUTPUT, self.BASE / 'c')
         self.assertEqual([(c.gameid, c.title, c.language) for c in found], [('gamec', 'Game Part V: The End', 'French')])
 
     def test_candidates_of_the_folder_only(self):
-        found = sx.parse_detection(self.OUTPUT, Path('C:/games/a'))
+        found = sx.parse_detection(self.OUTPUT, self.BASE / 'a')
         self.assertEqual([(c.engine, c.gameid, c.language, c.platform) for c in found],
                          [('eng1', 'gamea', 'French', 'CD/DOS'), ('eng1', 'gamea', 'German', 'DOS')])
         self.assertEqual(found[0].title, 'Game A')
