@@ -318,7 +318,10 @@ def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
     emit(f'Compilation de ScummVM ({family})…')
     _run([cmake, '-S', config, '-B', build, '-G', generator, '-DCMAKE_BUILD_TYPE=Release',
           *(['-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++', '-DCMAKE_EXE_LINKER_FLAGS=-static']
-            if os.name == 'nt' else []),
+            if os.name == 'nt'
+            # Linux: the generated CMake asks pkg-config for SDL (a hard REQUIRED) before find_package; the converter's own
+            # SDL and FreeType are reached through the shim and the prefix, as on Windows (which has no pkg-config).
+            else ['-DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE']),
           f'-DCMAKE_PREFIX_PATH={freetype.as_posix()}', f'-DSDL2_DIR={_sdl_shim(family_dir / "sdl2").as_posix()}'],
          root, log)
     _run([cmake, '--build', build, '--config', 'Release'], root, log, timeout=7200)
