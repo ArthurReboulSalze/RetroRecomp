@@ -204,9 +204,9 @@ class OptionsMixin:
         disk.grid(row=7, column=0, sticky='ew', pady=(14, 0))
         self.build_disk_options(disk)
 
-        # One page per machine, built from its profile (build_console_tab).
-        for profile in PROFILES:
-            self.build_console_tab(profile, tab, checkbox)
+        # One page per machine, built from its profile (build_console_tab), all in a second tab: a list at the top picks
+        # the machine whose page shows below (one tab per machine no longer fitted the window).
+        self.build_console_pages(notebook, checkbox)
 
         # Over a list or a number field, the wheel scrolls the page rather
         # than changing the value under the pointer by accident.
@@ -225,6 +225,49 @@ class OptionsMixin:
         ttk.Button(buttons, text=self.tr('close_options'), width=-26,
                    command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
         self.queue_background(self.body)
+
+    def build_console_pages(self, notebook, checkbox):
+        """The Consoles tab: a read-only list of the machines, then the options page of the one chosen. The list opens
+        on the machine chosen in the queue's system list (else the last page shown, else the first)."""
+        holder = ttk.Frame(notebook)
+        notebook.add(holder, text=self.tr('options_consoles'))
+        notebook._retro_tab_keys[str(holder)] = 'options_consoles'
+        top = ttk.Frame(holder, padding=(18, 14, 18, 0))
+        top.pack(fill='x')
+        stack = ttk.Frame(holder)
+        stack.pack(fill='both', expand=True)
+        pages = []   # (profile id, page title key, frame)
+
+        def page_of(profile):
+            def tab(key):
+                frame = ttk.Frame(stack)
+                pages.append((profile.id, key, frame))
+                return self.scrolled_page(frame)
+            return tab
+
+        for profile in PROFILES:
+            self.build_console_tab(profile, page_of(profile), checkbox)
+        picker = ttk.Combobox(top, state='readonly', width=36, values=[self.tr(key) for _, key, _ in pages])
+        picker._retro_value_keys = [key for _, key, _ in pages]   # retranslated by refresh_language
+        picker.pack(anchor='w')
+        self.options_console_picker = picker
+        self.options_console_pages = pages
+
+        def show(index):
+            for position, (_, _, frame) in enumerate(pages):
+                if position == index:
+                    frame.pack(fill='both', expand=True)
+                else:
+                    frame.pack_forget()
+            picker.current(index)
+            self.options_console_index = index
+
+        picker.bind('<<ComboboxSelected>>', lambda event: show(picker.current()))
+        self.show_console_page = show
+        ids = [system for system, _, _ in pages]
+        chosen = getattr(self, 'system_mode', 'auto')
+        index = ids.index(chosen) if chosen in ids else getattr(self, 'options_console_index', 0)
+        show(index if 0 <= index < len(pages) else 0)
 
     def build_console_tab(self, profile, tab, checkbox):
         """The options page of one machine, read from its profile: the scan level, the on/off options it declares

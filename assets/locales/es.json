@@ -109,6 +109,7 @@
     "feedback_import_summary": "{observations} datos conservados para {games} juegos ({kib:.1f} KiB). Archivos omitidos: {invalid_files}.",
     "feedback_import_error": "No se pudieron importar los datos. Comprueba el acceso a la carpeta y el espacio libre.",
     "options_common": "Generales",
+    "options_consoles": "Consolas",
     "options_boxart": "Carátulas",
     "options_account": "Cuenta Retro-Recomp",
     "options_disk_space": "Espacio en disco",

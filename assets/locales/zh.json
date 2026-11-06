@@ -109,6 +109,7 @@
     "feedback_import_summary": "已为 {games} 个游戏保存 {observations} 条记录（{kib:.1f} KiB）。忽略的文件：{invalid_files}。",
     "feedback_import_error": "无法导入记录。请检查文件夹权限和可用磁盘空间。",
     "options_common": "通用",
+    "options_consoles": "主机",
     "options_boxart": "封面",
     "options_account": "Retro-Recomp 账户",
     "options_disk_space": "磁盘空间",

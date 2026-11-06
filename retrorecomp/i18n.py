@@ -297,6 +297,7 @@ STRINGS = {
     'feedback_import_summary': ('{observations} hints retained for {games} games ({kib:.1f} KiB). Ignored files: {invalid_files}.', '{observations} observations conservées pour {games} jeux ({kib:.1f} Kio). Fichiers ignorés : {invalid_files}.'),
     'feedback_import_error': ('Could not import the hints. Check folder access and free disk space.', 'Impossible de rapatrier les relevés. Vérifie l’accès aux dossiers et l’espace disque disponible.'),
     'options_common': ('Common', 'Commun'),
+    'options_consoles': ('Consoles', 'Consoles'),
     'options_boxart': ('Box art', 'Jaquettes'),
     'options_account': ('Retro-Recomp account', 'Compte Retro-Recomp'),
     'options_disk_space': ('Disk space', 'Espace disque'),

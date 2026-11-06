@@ -259,6 +259,11 @@ class WindowMixin:
             if isinstance(widget, ttk.Notebook):
                 for page, key in getattr(widget, '_retro_tab_keys', {}).items():
                     widget.tab(page, text=self.tr(key))
+            if isinstance(widget, ttk.Combobox) and getattr(widget, '_retro_value_keys', None):
+                index = widget.current()
+                widget.configure(values=[self.tr(key) for key in widget._retro_value_keys])
+                if index >= 0:
+                    widget.current(index)
             for child in widget.winfo_children(): update(child)
         update(self.app)
         # Section titles whose English text another key shares ("Box art").

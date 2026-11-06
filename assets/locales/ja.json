@@ -109,6 +109,7 @@
     "feedback_import_summary": "{games}本のゲームから{observations}件を保存しました（{kib:.1f} KiB）。無視したファイル：{invalid_files}。",
     "feedback_import_error": "情報を取り込めません。フォルダーの権限と空き容量を確認してください。",
     "options_common": "共通",
+    "options_consoles": "機種",
     "options_boxart": "パッケージ画像",
     "options_account": "Retro-Recomp アカウント",
     "options_disk_space": "ディスク容量",
