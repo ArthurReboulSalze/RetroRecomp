@@ -1,4 +1,7 @@
-"""Numeric, ROM-free CPS-1 paths for one exact romset: no ROM byte, no RAM word, no code.
+"""Numeric, ROM-free CPS-1 and CPS-2 paths for one exact romset: no ROM byte, no RAM word, no code.
+
+Both boards share this logic; the `system` keyword of each function says which one (`cps1` by default; `cps2_knowledge.py` binds `cps2`). A CPS-2
+record points into the decrypted program image (the one the translated code is built from) and its section maps are `cps2` and `cps2-sound`.
 
 CPS-1 is supported since 1.6.6 and still the experimental tier of the shared base, so its paths are shared as such: a path is qualified only for
 the engine revision (`cores`) that validated it, the record carries its own format number, and the whole
@@ -41,6 +44,9 @@ from . import path_profiles as pp
 from .paths import ASSETS
 
 SYSTEM = 'cps1'
+# What differs between the two boards: the label of messages, the two section maps, the image the 68000 rows point into, the catalogue.
+BOARDS = {'cps1': {'label': 'CPS-1', 'm68k_map': 'cps1', 'z80_map': 'cps1-sound', 'program': 'maincpu.bin'},
+          'cps2': {'label': 'CPS-2', 'm68k_map': 'cps2', 'z80_map': 'cps2-sound', 'program': 'maincpu-op.bin'}}
 # Version of the record. It is `layout.format` of the schema 3 document. A reader skips (never refuses) a
 # record of a format it does not know; a format that changes keeps a function here that reads the old one.
 FORMAT = 1
@@ -125,7 +131,7 @@ GENERATOR_REVISION = 13
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',
-                 'native/cps1_machine.c', 'native/cps1_machine.h', 'native/md_prefetch.inc')
+                 'native/cps1_machine.c', 'native/cps1_machine.h', 'native/cps1_cps2_board.inc', 'native/md_prefetch.inc')
 GENERATOR_SOURCES = ('retrorecomp/cps1_codegen.py', 'retrorecomp/cps1_build.py', 'retrorecomp/cps1_kabuki.py', 'retrorecomp/m68000.py',
                      'retrorecomp/neogeo_codegen.py', 'retrorecomp/neogeo_z80.py', 'retrorecomp/megadrive_z80.py',
                      'retrorecomp/m68000_state_rules.py', 'retrorecomp/megadrive_rules.py')
@@ -137,19 +143,19 @@ def text_digest(name: str, root: Path | None = None) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-@lru_cache(maxsize=1)
-def engine_parts() -> tuple[str, str]:
-    """(68000 section core, Z80 section core)."""
+@lru_cache(maxsize=2)
+def engine_parts(system: str = SYSTEM) -> tuple[str, str]:
+    """(68000 section core, Z80 section core) of a board (the two boards have engines of their own: the same files, another name)."""
     from .console16 import REPOSITORIES
     from .neogeo_build import GEOLITH_REV
     native = hashlib.sha256(''.join(name + text_digest(name) for name in NATIVE_INPUTS).encode()).hexdigest()
-    return (hashlib.sha1(f'cps1-m68k:{GENERATOR_REVISION}:{REPOSITORIES["md"][1]}:{GEOLITH_REV}:{native}'.encode()).hexdigest(),
-            hashlib.sha1(f'cps1-z80:{GENERATOR_REVISION}:{GEOLITH_REV}:{native}'.encode()).hexdigest())
+    return (hashlib.sha1(f'{system}-m68k:{GENERATOR_REVISION}:{REPOSITORIES["md"][1]}:{GEOLITH_REV}:{native}'.encode()).hexdigest(),
+            hashlib.sha1(f'{system}-z80:{GENERATOR_REVISION}:{GEOLITH_REV}:{native}'.encode()).hexdigest())
 
 
-def engine() -> str:
+def engine(system: str = SYSTEM) -> str:
     """The `cores` string of the base for this converter: both section cores, joined."""
-    return ':'.join(engine_parts())
+    return ':'.join(engine_parts(system))
 
 
 def record_engine(record) -> str:
@@ -166,10 +172,10 @@ UnknownFormat = pp.UnknownFormat
 
 # --- Images --------------------------------------------------------------------------------------------------
 
-def images_from_board(board: Path, game: dict) -> dict:
-    """The program and sound images of an assembled board folder (`cps1_board.write_board`)."""
+def images_from_board(board: Path, game: dict, system: str = SYSTEM) -> dict:
+    """The program and sound images of an assembled board folder (`cps1_board.write_board`); for a CPS-2 the program is the decrypted one."""
     from .cps1_codegen import program_size
-    return {'maincpu': (Path(board) / 'maincpu.bin').read_bytes()[:program_size(game)],
+    return {'maincpu': (Path(board) / BOARDS[system]['program']).read_bytes()[:program_size(game)],
             'audiocpu': (Path(board) / 'audiocpu.bin').read_bytes()}
 
 
@@ -180,16 +186,16 @@ def source_facts(images: dict) -> dict:
 
 # --- Records (schema 3 documents) ----------------------------------------------------------------------------
 
-def _catalogue_revision() -> str:
-    from . import cps1_catalogue
-    return cps1_catalogue.MAME_REVISION
+def _catalogue_revision(system: str = SYSTEM) -> str:
+    from . import cps1_catalogue, cps2_catalogue
+    return (cps2_catalogue if system == 'cps2' else cps1_catalogue).MAME_REVISION
 
 
-def make_record(identity: str, images: dict, ram_rows=(), z80_rows=(), *, cores: tuple | None = None) -> dict:
+def make_record(identity: str, images: dict, ram_rows=(), z80_rows=(), *, cores: tuple | None = None, system: str = SYSTEM) -> dict:
     """The schema 3 document of a romset: its sources (sizes and hashes of the two images), the engine, and the
     rows. Rows are `[address, offset, length]` (68000) and `[address, offset, 4, mask]` (Z80); duplicates are
     removed and the order is the sorted one, so equal hints give equal documents."""
-    m68k_core, z80_core = cores or engine_parts()
+    m68k_core, z80_core = cores or engine_parts(system)
     ram_rows = sorted({tuple(row) for row in ram_rows})
     z80_rows = sorted({tuple(row) for row in z80_rows})
     m68k_paths, z80_paths = {}, {}
@@ -197,35 +203,37 @@ def make_record(identity: str, images: dict, ram_rows=(), z80_rows=(), *, cores:
         m68k_paths['ram_code'] = [pp._table_block('insn', ram_rows, 3, 'maincpu')]
     if z80_rows:
         z80_paths['ram_code'] = [pp._table_block('insn_masked', z80_rows, 4, 'audiocpu')]
-    return {'schema': pp.SCHEMA, 'game': f'{SYSTEM}:{identity}',
-            'identity': {'system': SYSTEM, 'sources': source_facts(images),
-                         'layout': {'catalogue': _catalogue_revision(), 'format': FORMAT}},
-            'cpus': {'m68k': {'map': 'cps1', 'core': m68k_core, 'paths': m68k_paths},
-                     'z80': {'map': 'cps1-sound', 'core': z80_core, 'paths': z80_paths}},
+    board = BOARDS[system]
+    return {'schema': pp.SCHEMA, 'game': f'{system}:{identity}',
+            'identity': {'system': system, 'sources': source_facts(images),
+                         'layout': {'catalogue': _catalogue_revision(system), 'format': FORMAT}},
+            'cpus': {'m68k': {'map': board['m68k_map'], 'core': m68k_core, 'paths': m68k_paths},
+                     'z80': {'map': board['z80_map'], 'core': z80_core, 'paths': z80_paths}},
             'devices': {}}
 
 
-def validate_record(record, identity: str | None = None) -> dict:
-    """Strict numeric allowlist of one CPS-1 record (the schema 3 validator, then what is CPS-1's own), or
+def validate_record(record, identity: str | None = None, system: str = SYSTEM) -> dict:
+    """Strict numeric allowlist of one CPS-1 or CPS-2 record (the schema 3 validator, then what is the board's own), or
     ValueError (`UnknownFormat` for a format this converter cannot read)."""
+    label = BOARDS[system]['label']
     if (isinstance(record, dict) and isinstance(record.get('identity'), dict)
             and isinstance(record['identity'].get('layout'), dict)):
         version = record['identity']['layout'].get('format', 1)
         if type(version) is int and version not in FORMATS and 1 <= version <= 255:
-            raise UnknownFormat('CPS-1 record of an unknown format.')
+            raise UnknownFormat(f'{label} record of an unknown format.')
     try:
         pp.validate_game(record)
-        if not isinstance(record, dict) or not record['game'].startswith(SYSTEM + ':'):
-            raise ValueError('Not a CPS-1 record.')
-        if identity is not None and record['game'] != f'{SYSTEM}:{identity}':
-            raise ValueError('CPS-1 hints do not match their romset identity.')
+        if not isinstance(record, dict) or not record['game'].startswith(system + ':'):
+            raise ValueError(f'Not a {label} record.')
+        if identity is not None and record['game'] != f'{system}:{identity}':
+            raise ValueError(f'{label} hints do not match their romset identity.')
         layout = record['identity']['layout']
         if set(layout) != {'catalogue', 'format'} or layout['format'] not in FORMATS:
-            raise ValueError('Invalid CPS-1 layout.')
+            raise ValueError(f'Invalid {label} layout.')
         if set(record['cpus']) != {'m68k', 'z80'} or record['devices']:
-            raise ValueError('A CPS-1 record lists its 68000 and Z80 sections.')
+            raise ValueError(f'A {label} record lists its 68000 and Z80 sections.')
     except (KeyError, TypeError, AttributeError) as error:
-        raise ValueError('Invalid CPS-1 record.') from error
+        raise ValueError(f'Invalid {label} record.') from error
     return record
 
 
@@ -261,7 +269,7 @@ def same_images(first: dict, second: dict) -> bool:
     return (first['game'] == second['game'] and first['identity'] == second['identity'])
 
 
-def rebuild(skeleton: dict, hints, *, cores: tuple | None = None) -> dict:
+def rebuild(skeleton: dict, hints, *, cores: tuple | None = None, system: str = SYSTEM) -> dict:
     """A record of the skeleton's images holding exactly `hints` (as `entry_set` names them)."""
     ram = [row for name, row in hints if name == 'm68k_ram']
     z80 = [row for name, row in hints if name == 'z80_ram']
@@ -270,10 +278,10 @@ def rebuild(skeleton: dict, hints, *, cores: tuple | None = None) -> dict:
         out['cpus']['m68k']['paths'] = {'ram_code': [pp._table_block('insn', sorted(ram), 3, 'maincpu')]}
     if z80:
         out['cpus']['z80']['paths'] = {'ram_code': [pp._table_block('insn_masked', sorted(z80), 4, 'audiocpu')]}
-    return validate_record(out)
+    return validate_record(out, system=system)
 
 
-def merged(identity: str, first: dict, second: dict) -> dict:
+def merged(identity: str, first: dict, second: dict, system: str = SYSTEM) -> dict:
     """Union of two records of one romset. Records of another engine or other images never mix: the one built
     by the current engine is kept, else the first. ValueError when the union exceeds a bound."""
     if not second:
@@ -281,16 +289,16 @@ def merged(identity: str, first: dict, second: dict) -> dict:
     if not first:
         return second
     if not same_images(first, second) or record_engine(first) != record_engine(second):
-        current = engine()
+        current = engine(system)
         return second if record_engine(second) == current and record_engine(first) != current else first
-    return rebuild(first, entry_set(first) | entry_set(second))
+    return rebuild(first, entry_set(first) | entry_set(second), system=system)
 
 
-def salvaged_record(identity: str, record) -> dict | None:
+def salvaged_record(identity: str, record, system: str = SYSTEM) -> dict | None:
     """A received record, or None. A record is all or nothing: it is checked as a whole (its rows are numbers
     about images whose hashes it states, there is no row worth saving from a record that fails)."""
     try:
-        return validate_record(record, identity)
+        return validate_record(record, identity, system)
     except (ValueError, TypeError, KeyError, AttributeError):
         return None
 
@@ -375,25 +383,25 @@ def translate(images: dict, fresh: dict, lengths) -> tuple[list, list, dict]:
     return sorted(ram_rows), sorted(z80_rows), counts
 
 
-def promote(identity: str, images: dict, fresh: dict, lengths, *, previous: dict | None = None) -> tuple[dict, dict]:
+def promote(identity: str, images: dict, fresh: dict, lengths, *, previous: dict | None = None, system: str = SYSTEM) -> tuple[dict, dict]:
     """(record, counts) from the fresh reference runs of a verified conversion. `previous` is the library's
     record of these very images and engine; its paths are kept. The record holds no ROM byte, no RAM word and
     no code. ROW_LIMIT bounds each CPU (`counts['truncated']`)."""
     ram, z80, counts = translate(images, fresh, lengths)
     if previous and not isinstance(previous, dict):
         previous = None
-    base = make_record(identity, images)
+    base = make_record(identity, images, system=system)
     if previous:
         try:
-            validate_record(previous, identity)
-            if same_images(previous, base) and record_engine(previous) == engine():
+            validate_record(previous, identity, system)
+            if same_images(previous, base) and record_engine(previous) == engine(system):
                 held_ram, held_z80 = rows(previous)
                 ram, z80 = sorted(set(ram) | set(held_ram)), sorted(set(z80) | set(held_z80))
         except ValueError:
             pass
     counts['truncated'] = len(ram) > ROW_LIMIT or len(z80) > ROW_LIMIT
-    record = make_record(identity, images, ram[:ROW_LIMIT], z80[:ROW_LIMIT])
-    validate_record(record, identity)
+    record = make_record(identity, images, ram[:ROW_LIMIT], z80[:ROW_LIMIT], system=system)
+    validate_record(record, identity, system)
     counts['paths'] = {'m68k_ram': len(rows(record)[0]), 'z80_ram': len(rows(record)[1])}
     counts['raw_ram_words_stored'] = False
     return record, counts
@@ -401,12 +409,12 @@ def promote(identity: str, images: dict, fresh: dict, lengths, *, previous: dict
 
 # --- Paths to observations -----------------------------------------------------------------------------------
 
-def expanded_rows(record: dict, images: dict) -> dict:
+def expanded_rows(record: dict, images: dict, system: str = SYSTEM) -> dict:
     """Observation rows rebuilt from the player's own images, in the form `cps1_codegen` reads. ValueError when
     the record is not for exactly these images. Local build input; it never leaves the process."""
-    validate_record(record)
+    validate_record(record, system=system)
     if record['identity']['sources'] != source_facts(images):
-        raise ValueError('CPS-1 hints are for other images.')
+        raise ValueError(f'{BOARDS[system]["label"]} hints are for other images.')
     ram, z80 = rows(record)
     return {'m68k_ram': [{'offset': address - RAM_BASE, 'words': images['maincpu'][offset:offset + length].hex()}
                          for address, offset, length in ram],
@@ -414,7 +422,7 @@ def expanded_rows(record: dict, images: dict) -> dict:
                         for address, offset, _, _ in z80]}
 
 
-def shared_rows(identity: str, images: dict, *, qualified=None, imported=None, library=None) -> tuple[dict, dict]:
+def shared_rows(identity: str, images: dict, *, qualified=None, imported=None, library=None, system: str = SYSTEM) -> tuple[dict, dict]:
     """(rows, info): the guidance of the shared and library records for this romset, expanded from its images.
 
     Three sources, counted apart: the qualified bank (used only for the engine that qualified it), the player's
@@ -423,7 +431,7 @@ def shared_rows(identity: str, images: dict, *, qualified=None, imported=None, l
     private observations a conversion keeps. `info` says what each gave and what was ignored and why."""
     rows_out = {'m68k_ram': [], 'z80_ram': []}
     info = {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}}
-    current = engine()
+    current = engine(system)
     for name, record in (('qualified', qualified), ('library', library), ('imported', imported)):
         if not record:
             continue
@@ -431,7 +439,7 @@ def shared_rows(identity: str, images: dict, *, qualified=None, imported=None, l
             if name == 'qualified' and record_engine(record) != current:
                 info['ignored'][name] = 'another engine revision'
                 continue
-            expanded = expanded_rows(record, images)
+            expanded = expanded_rows(record, images, system)
         except UnknownFormat:
             info['ignored'][name] = 'unknown record format'
             continue
@@ -446,19 +454,19 @@ def shared_rows(identity: str, images: dict, *, qualified=None, imported=None, l
 
 # --- The player's library ------------------------------------------------------------------------------------
 
-def library_record(identity: str) -> dict | None:
+def library_record(identity: str, system: str = SYSTEM) -> dict | None:
     """This player's own record: the paths that fresh, verified conversions reached (`cps1_conversion` writes
     it into the library's compilation.json), or None."""
     from .library import library_root
-    path = library_root(SYSTEM) / identity / 'compilation.json'
+    path = library_root(system) / identity / 'compilation.json'
     try:
         with path.open('rb') as stream:
             raw = stream.read(8 * 1024 * 1024 + 1)
         if len(raw) > 8 * 1024 * 1024:
             return None
         data = json.loads(raw)
-        if data.get('system') != SYSTEM or data.get('source_identity') != identity or not data.get('fresh_reference_passed'):
+        if data.get('system') != system or data.get('source_identity') != identity or not data.get('fresh_reference_passed'):
             return None
-        return validate_record(data['record'], identity)
+        return validate_record(data['record'], identity, system)
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         return None

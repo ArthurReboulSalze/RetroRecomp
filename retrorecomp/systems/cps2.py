@@ -6,7 +6,7 @@ shapes. The key of a set is a file of the player's own romset; the QSound DSP RO
 """
 from pathlib import Path
 from . import Capabilities, Cpu, OptionKey, SystemProfile
-from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class Cps2Profile(SystemProfile):
@@ -49,6 +49,8 @@ class Cps2Profile(SystemProfile):
     library_layout = LibraryLayout(folder='cps2')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
                                script_suffix='.inputs')
+    # Shares its paths in the experimental tier of the base, like the CPS-1 and the X68000 (docs/CPS2.md).
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, module='cps2_knowledge')
     host_adapter = 'adapters/rrhk_cps1.c'
     stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build', 'musashi_fixes', 'm68000_state_rules')
     # A romset ZIP whose program ROMs are in the CPS-2 catalogue (by CRC, never by name), or any ZIP when chosen.
