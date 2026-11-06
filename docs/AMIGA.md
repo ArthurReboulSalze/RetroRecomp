@@ -1,7 +1,7 @@
 # Commodore Amiga
 
-Experimental profile (`amiga`), **developer installations only**: it is not in a release, not offered by the installer and not
-shared through the compilation library. It converts an Amiga 500 game installed for WHDLoad into a standalone Windows
+Experimental profile (`amiga`), opened in 1.7.0: the converter offers it when the installation carries the Amiga files, and
+it is not shared through the compilation library yet. It converts an Amiga 500 game installed for WHDLoad into a standalone Windows
 executable, with guarded native code for the 68000 code the game runs from RAM and a counted interpreter for everything else.
 Nothing here says that a game plays completely, that the hardware is reproduced faithfully or how long input takes to reach the
 screen: those are separate measures, listed below with what is known of each.
@@ -72,6 +72,9 @@ publishes no game, no disk and no firmware.
 - Retro-Recomp's Amiga files (the converter modules, `native/amiga_whdload/`, `native/amiga_machine/`, the host-kit adapter) are MIT.
 - vAmiga's `Core/` is **MPL-2.0** per file; our changes to those files, applied at build time, are MPL-2.0 too. Moira, the CPU
   inside it, is **MIT**. The vAmiga application (GPL-3.0 or later) is not used. Notice: [licenses/vamiga.md](../licenses/vamiga.md).
+- Each exported game carries its notices as resource 203, like the other machines: Retro-Recomp's licence, vAmiga and Moira, the
+  68000 decoder of m68k-recomp-core (compiled into the index of native steps), SDL and the host kit's parts
+  (`amiga_conversion.NOTICE_FILES`).
 - WHDLoad is freeware with all rights reserved and is not distributed or run. The JST resload emulation (MIT) was read as a
   reference only; none of its decrunchers is copied.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).

@@ -36,6 +36,11 @@ from .systems import get_profile
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 
 PLAYER = 'RetroRecomp-Amiga'
+# The notices every exported Amiga game carries (resource 203, as on the other machines): the vAmiga Core (MPL-2.0 per file) and
+# Moira (MIT), the 68000 decoder of m68k-recomp-core compiled into the index of native steps, SDL and the host kit's parts.
+NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md',
+                'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
+NOTICE_RESOURCE = 203
 OBSERVATIONS = 'converter-observations.txt'
 # The liveness keys of the report, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'distinct_audio_blocks': 'distinct_sound_blocks',
@@ -182,6 +187,9 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
     branding = project / 'export-marker.bin'
     branding.write_bytes(marker)
     resources[299] = branding
+    notices = project / 'notices.txt'
+    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES), encoding='utf-8')
+    resources[NOTICE_RESOURCE] = notices
     slave = project / 'blob-300.bin'
     slave.write_bytes(extracted['slave'])
     resources[300] = slave

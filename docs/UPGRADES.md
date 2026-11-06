@@ -97,6 +97,19 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
+## Commodore Amiga: an experimental machine (1.7, the Amiga's branch)
+
+The Amiga 500 opens as an experimental profile (`amiga`, [AMIGA.md](AMIGA.md)): WHDLoad installs that need no Kickstart, on the
+vAmiga Core (MPL-2.0 per file) and its 68000 Moira (MIT), with our own resload layer. Each Amiga game carries its notices as
+resource 203, and THIRD_PARTY_NOTICES has a vAmiga row.
+
+**What moves** (`compilation_inputs.role_stamps` of the tree of `main` at 27e30e03 against this branch, computed on 6 November
+2026, the change of `index_extension` above included): **the game stamp and the host stamp of the eleven consoles of 1.6.9**; no
+build stamp. The game stamps move through the profile modules and `systems/specs.py`, the host stamps through
+THIRD_PARTY_NOTICES. The Amiga's stamps are new. **Quick states:** the Amiga's key is new. Outside the Amiga's own folders the
+branch changes no native file (`git diff 27e30e03 -- native`), and the X68000's generated code is identical (section above), so
+no other console's key moves and their 1.6.9 states load.
+
 ## Exports of 1.6.8 in 1.6.9
 
 1.6.9 is the release after 1.6.8 (published on 4 November 2026). This section is the index of its changes, one line per section
