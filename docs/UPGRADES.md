@@ -102,7 +102,7 @@ What the change moves, computed with `compilation_inputs.role_stamps` on `main` 
 | x68 | 6c7509bf49d2 (same) | 47212d53043d → be0daff05bb1 | same |
 | cps2 | 8d2c63c4b35a (same) | 0f2bade664f6 → 56a02d1ee4c6 | same |
 | pce | c8545bf9018e (same) | 6ea8ea8ac8eb → 78d65184c1bf | same |
-| gba (new) | 6746c7765d8f | 8eb4c3a0974e | 6b70933a9b0a |
+| gba (new) | aade0a33ddce | 8eb4c3a0974e | 6b70933a9b0a |
 
 - **No game stamp and no build stamp of another console moves.** The profile declares its own ZIP limit (`archived_rom_limits`), its own path order (11), its own
   feedback kind (21) and its own files in `stamp_inputs.py`; no shared module was edited for it besides the registry (an interface module that no stamp hashes).
