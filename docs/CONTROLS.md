@@ -153,8 +153,12 @@ first). No console of this release declares any of them, so nothing below appear
   sets it back to 0% (the default: the raw stick). Kept as `deadzone` in `[<Console>.Gamepad.PlayerN]`.
 - **More controls**: a pad of up to twenty controls (seventeen on a PlayStation). A control page of F2 then shows fifteen rows at
   a time and scrolls with Up/Down (`^` and `v` at the right edge say more rows lie above or below). Where the machine's pad has
-  L2 and R2, the triggers of the controller are those buttons (bindable in F2 by pulling them); player 1's triggers are then no
-  longer the fast-forward and maximum-speed controls (Tab and the backquote key still are).
+  L2 and R2, the triggers of the controller can be those buttons (bindable in F2 by pulling them; the machine's defaults may put
+  them there). Only a trigger that is **bound** to a control of player 1 stops being the fast-forward or maximum-speed control;
+  an unbound trigger keeps it, and Tab and the backquote key always do.
+- **More options**: the options page of F2 shows fourteen rows at a time and scrolls the same way when a machine adds more.
+- **Filter on the graphics page**: xBR works up to 1024 x 1024 pixels of picture and scanlines need a window at least twice as
+  tall as the picture's rows; past that the Filter row says "(not at this size)" and the picture is shown without the filter.
 - **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
   (`[Manettes] rumble`).
 - **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or
