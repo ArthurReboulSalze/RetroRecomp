@@ -612,6 +612,14 @@ def _prepare_shared(emit) -> None:
         emit(f'Shared dependencies: {exc}')
 
 
+def _needs_shared(items: list[BatchItem], queued: list[int]) -> bool:
+    """True when a queued game belongs to a machine that is not emulated: an emulated machine (Adventure (ScummVM)) builds its own
+    runtime and needs neither the engine sources, the Z80 translator nor the shared SDL2 here."""
+    from .systems.registry import emulated
+    games = [items[i] for i in queued if items[i].system and not (items[i].skipped or items[i].unknown or items[i].error)]
+    return not games or any(not emulated(get_profile(item.system)) for item in games)
+
+
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,
                   on_event=lambda kind, index, value: None, emit=print, jobs: int = 1,
                   overwrite: bool = True, prepare_shared: bool = False,
@@ -642,7 +650,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     stopped = False
     queued = list(range(len(items)))
     reset_stop()
-    if prepare_shared:
+    if prepare_shared and _needs_shared(items, queued):
         _prepare_shared(emit)
     with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix='retro-recomp') as executor:
         pending = {}

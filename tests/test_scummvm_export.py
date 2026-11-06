@@ -78,6 +78,32 @@ class Detection(unittest.TestCase):
         self.assertEqual(found[0].title, 'Game A')
 
 
+class SharedPreparation(unittest.TestCase):
+    """batch._needs_shared: a batch of emulated games alone does not build the Z80 translator or the shared SDL2."""
+
+    def items(self, *systems, **flags):
+        from retrorecomp.batch import BatchItem
+        return [BatchItem(Path(f'g{i}'), f'g{i}', system, **flags) for i, system in enumerate(systems)]
+
+    def test_emulated_only_batch_skips_the_preparation(self):
+        from retrorecomp.batch import _needs_shared
+        items = self.items('scummvm', 'scummvm')
+        self.assertFalse(_needs_shared(items, [0, 1]))
+
+    def test_a_mixed_batch_or_an_empty_one_prepares(self):
+        from retrorecomp.batch import _needs_shared
+        items = self.items('scummvm', 'sms')
+        self.assertTrue(_needs_shared(items, [0, 1]))
+        self.assertFalse(_needs_shared(items, [0]))
+        self.assertTrue(_needs_shared(items, []))            # nothing queued: as before
+
+    def test_skipped_unknown_or_failed_items_do_not_count(self):
+        from retrorecomp.batch import BatchItem, _needs_shared
+        items = [BatchItem(Path('a'), 'a', 'scummvm'), BatchItem(Path('b'), 'b', 'sms', skipped=True),
+                 BatchItem(Path('c'), 'c', 'nes', error='unreadable'), BatchItem(Path('d'), 'd', '', unknown=True)]
+        self.assertFalse(_needs_shared(items, [0, 1, 2, 3]))
+
+
 class RelativeFolder(unittest.TestCase):
     def test_a_relative_folder_matches_the_absolute_path_scummvm_prints(self):
         import os
