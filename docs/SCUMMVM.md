@@ -22,7 +22,9 @@ One method for every game; no game is named in the code.
    them from inside itself; nothing is extracted. Executables of 1 to 2 GB are normal for CD games.
 4. **Name, id and cover.** The executable is named after the detected title, as the other machines name theirs. Its id is a
    digest of the folder's file names and sizes. The cover comes from the converter's cover pipeline, by title (images of the
-   game folder first, then the configured sources), and becomes the executable's icon.
+   game folder first, then the configured sources), and becomes the executable's icon; when nothing is found, the
+   converter's own picture is used. A cover the player chooses always wins. The reviewed cover references of the other
+   machines (keyed by a ROM file's hash) are not looked up for a game folder.
 
 ## The exported game
 

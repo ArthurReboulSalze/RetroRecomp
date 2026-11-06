@@ -36,6 +36,16 @@ class ScummvmProfile(SystemProfile):
     # both checked at their source on 6 November 2026.
     catalogues = Catalogues(libretro='libretro-thumbnails/ScummVM', screenscraper=123)
 
+    def request_identity(self, item, options: dict, settings: dict) -> None:
+        """A folder is never hashed as a file: unless the player chose a cover, the item gets the cover file the shared
+        cover pipeline finds for the detected title (or the converter's own picture), which freshness then hashes in
+        place of the input. The reviewed cover-reference lookup is skipped for game folders (docs/SCUMMVM.md)."""
+        if item.cover or not options.get('use_cover', True) or not Path(item.path).is_dir():
+            return
+        from ..scummvm_export import folder_cover
+        item.cover = folder_cover(item.title, Path(item.path), online=options.get('online_cover', True),
+                                  emit=lambda message: None)
+
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if not Path(path).is_dir():
             return None

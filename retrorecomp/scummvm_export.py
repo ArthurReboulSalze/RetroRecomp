@@ -298,15 +298,34 @@ def legal_notice() -> str:
     return '\n\n'.join(f'# {title}\n\n' + path.read_text(encoding='utf-8') for title, path in parts)
 
 
+def folder_cover(title: str, game_folder: Path, *, online: bool = True, emit=print) -> Path:
+    """The cover image of a game folder through the converter's cover pipeline (artwork.resolve_cover), by title: images of
+    the folder first, then the configured sources, cached in the boxart folder of the 'scummvm' profile. When nothing is
+    found, the converter's own artwork (assets/Retro-Recomp-icon-256.png), so a folder always has a cover file."""
+    from .artwork import ArtworkError, resolve_cover
+    from .cover_settings import load_settings
+    from .paths import ASSETS, boxart_cache_directory
+    try:
+        cover = resolve_cover(Path(title + '.rom'), title, Path(game_folder), online=online,
+                              cache_directory=boxart_cache_directory('scummvm'), system_id='scummvm',
+                              settings=load_settings(), emit=emit)
+        if cover.get('path') and Path(cover['path']).is_file():
+            return Path(cover['path'])
+    except (ArtworkError, OSError, ValueError) as exc:
+        emit(f"ScummVM: no cover found for {title} ({exc}); the converter's own picture is used.")
+    return ASSETS / 'assets' / 'Retro-Recomp-icon-256.png'
+
+
 def prepare_cover(candidate: Candidate, game_folder: Path, work: Path, *, online: bool = True, settings: dict | None = None,
-                  emit=print) -> tuple[dict, Path | None]:
+                  explicit: Path | None = None, emit=print) -> tuple[dict, Path | None]:
     """The cover of a detected game through the converter's cover pipeline (artwork.prepare_icon), by title: local images of
     the game folder first, then the configured sources, keyed by the 'scummvm' profile. Returns (artwork report, .ico or None).
     """
     from .artwork import prepare_icon
     from .paths import boxart_cache_directory
     work.mkdir(parents=True, exist_ok=True)
-    report = prepare_icon(work, Path(candidate.title + '.rom'), candidate.title, Path(game_folder), online=online,
+    report = prepare_icon(work, Path(candidate.title + '.rom'), candidate.title, Path(game_folder), explicit=explicit,
+                          online=online,
                           cache_directory=boxart_cache_directory('scummvm'), system_id='scummvm', settings=settings,
                           emit=emit)
     icon = work / 'game.ico'
@@ -475,15 +494,22 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         listing = '; '.join(f'{n}: {c.description}' for n, c in enumerate(candidates, 1))
         raise ScummvmExportError(f'{len(candidates)} editions match this folder ({listing}). Choose one in the '
                                  'Adventure (ScummVM) options (candidate number), then convert again.')
-    output = Path(output) if output else folder / '.retrorecomp'
+    if output is None:
+        from .paths import games_directory
+        output = games_directory(system_id='scummvm') / 'datas/reports' / game.sha256[:12]
+    output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    work = output / 'build'
+    # The build folder of the game, as for the other machines (.build/<machine>/<identity>): the batch removes it once the
+    # executable is published (build_cleanup), so no second copy of the game stays beside the report.
+    from .paths import ROOT
+    work = ROOT / '.build' / 'scummvm' / game.sha256[:12]
     work.mkdir(parents=True, exist_ok=True)
     artwork, icon = {}, None
     picked = candidates[(choice or 1) - 1]
     if use_cover:
         try:
-            artwork, icon = prepare_cover(picked, folder, work / 'cover', online=online_cover, emit=emit)
+            artwork, icon = prepare_cover(picked, folder, work / 'cover', online=online_cover,
+                                          explicit=Path(cover) if cover else None, emit=emit)
         except Exception as exc:     # a missing cover never stops a conversion
             artwork = {'embedded': False, 'source': 'missing', 'error': str(exc)}
     emit(f'ScummVM: {picked.description} ({picked.engine}), runtime {picked.engine} family.')
@@ -504,7 +530,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'physical_latency_measured': False, 'latency_ms': None,
               'hardware_accuracy_validated': False, 'full_game_validated': False,
               'game_states': {'supported': False, 'note': "ScummVM's own saves (its menu, Ctrl+F5) in datas/games"},
-              'artwork': artwork, 'executable': export.exe.name, 'build_executable': str(export.exe)}
+              'artwork': artwork, 'executable': export.exe.name, 'build_executable': str(export.exe),
+              'build_directory': str(work)}
     write_report(output / 'conversion-report.json', report)
     emit(f'ScummVM: {export.exe.name} ready (emulated, 0 % native; {export.files} files, '
          f'{export.data_bytes // 1048576} MB of game data inside).')
