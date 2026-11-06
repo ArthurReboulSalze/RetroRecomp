@@ -427,13 +427,14 @@ hexadecimal digits of each stamp, 6 November 2026):
 | Amiga | `c7a44bc35458`, `a82d6ccb72ca` | `8e7c7e682d10`, `136af9f804ed` | same |
 | Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
 
-Four fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
+Five fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
 converter offers the profile), its decoder reading the working folder and resload_Abort said in words give the Amiga the game stamp `ff35e3b8af69`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
 refuses with a sentence when the build tools are missing instead of starting a build, give Adventure (ScummVM) the game stamp `be8047b230ac` and the build stamp
 `97d9ad0da628` (the released tree). The CPS EEPROM writer's two flags and spin lock go through the Interlocked functions under Visual Studio
 (the fallback toolchain compiles C11 atomics only with an experimental switch, so every CPS-1 and CPS-2 conversion failed
 there; the portable clang and GCC keep `<stdatomic.h>` and the same code): the game stamps of the CPS-1 `b2ef983bc3fd` and the
-CPS-2 `71a11548e45d`, which were moving in 1.7.0 already.
+CPS-2 `71a11548e45d`, which were moving in 1.7.0 already. On Linux a second Game Boy Advance player preparation no longer rewrites its three embedded resource files with equal bytes
+(found by the Linux CI): the Game Boy Advance game stamp in the table above is the released one.
 
 **The game stamp and the host stamp of the thirteen earlier machines move again** (`retrorecomp/batch.py` and `report_schema.py` are game inputs of every machine, and
 `THIRD_PARTY_NOTICES.md` and the new licence pages are host inputs); no build stamp moves for them. This adds no conversion on top of 1.7.0: against `v1.6.9` every game stamp had already
