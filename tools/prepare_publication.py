@@ -274,7 +274,7 @@ tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_n
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 retrorecomp/capcom_catalogue.py retrorecomp/capcom_sets.py tools/mame_driver_parse.py
 retrorecomp/cps2.py retrorecomp/cps2_catalogue.py assets/cps2-catalogue.json tools/build_cps2_catalogue.py tests/test_cps2.py
-retrorecomp/cps2_crypt.py retrorecomp/cps2_knowledge.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py
+retrorecomp/cps2_crypt.py retrorecomp/cps2_knowledge.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py tests/test_cps2_knowledge.py
 retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
