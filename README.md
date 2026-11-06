@@ -98,7 +98,7 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 | Game Boy Advance | in development |
 | Commodore Amiga 500, then Amiga 1200 | study |
 
-Planned after them: Atari ST, Nintendo 64, Sega Saturn and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

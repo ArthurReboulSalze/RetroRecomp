@@ -356,8 +356,9 @@ class DemoBackground:
 
 
 class CreditsDemo:
-    def __init__(self, owner, repositories):
+    def __init__(self, owner, repositories, notes=None):
         self.owner, self.repositories = owner, repositories
+        self.notes = dict(notes or {})   # machine name -> key of the line under it
         self.tr, self.font = owner.tr, owner.ui_font
         self.closed = False
         self.timer = None
@@ -540,8 +541,8 @@ class CreditsDemo:
                           font=('Consolas',10),tags='credit')
             _,used = text(system.upper(),y+16,15,WHITE,True)
             y += used+34
-            if system == 'Sharp X68000':
-                _,used = text(self.tr('credits_x68_status'),y,9)
+            if system in self.notes:
+                _,used = text(self.tr(self.notes[system]),y,9)
                 y += used+15
             for repository,url,role in repositories:
                 item,used = text(repository,y,11,GOLD)

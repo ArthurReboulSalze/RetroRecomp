@@ -92,6 +92,11 @@
 - **Smaller uploads.** An upload to your account now sends only the paths the local
   base does not already hold for the same ROM; a game with nothing new sends no
   record.
+- **Credits.** The credits page names the projects the CPS-2 and the PC Engine
+  build on (marked experimental), and already those of the Commodore Amiga
+  (vAmiga and its 68000 core Moira, by Dirk W. Hoffmann) and the Game Boy Advance
+  (gbarecomp and arm-recomp-core), marked as in preparation: neither machine is in
+  the converter yet.
 - **Under the hood.** The generator of native code that the X68000 used for
   the 68000 instructions it runs from RAM is a shared module, so another computer can
   reuse it; on three games the 120 generated files are byte for byte the same.
