@@ -662,7 +662,9 @@
     "tip_start_selected": "選択したゲームを変換：一覧で選んだゲームだけを変換します。",
     "options_scummvm": "アドベンチャー (ScummVM)",
     "options_scummvm_note": "実験的：アドベンチャーゲームは ScummVM でエミュレーション実行されます（ネイティブコード 0 %）。ゲームのフォルダーを指定すると、ScummVM 自身の検出がゲームを識別し、ファイルはそのまま一つの実行ファイルにまとめられます。複数のゲームが見つかったフォルダーでは選択を求めます。ゲーム中：Ctrl+F5（パッドでは Start）で ScummVM のメニューを開きます。F1-F12、Esc、Tab はゲームが使います。MT-32 ROM がない場合は標準の音楽です。ScummVM は GPL-3 で、ソースは各バージョンと共に提供されます。",
-    "scan_note_scummvm": "解析なし：ScummVM がゲームを解釈します。再コンパイルも学習も行いません。"
+    "scan_note_scummvm": "解析なし：ScummVM がゲームを解釈します。再コンパイルも学習も行いません。",
+    "scummvm_choice": "版（複数が一致する場合）",
+    "tip_scummvm_choice": "0：複数の版に一致するフォルダーは変換せず、版の一覧を表示します。1～9：一覧のその版を使います。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",

@@ -215,13 +215,13 @@ SCUMMVM = Upstream(
     'GPL-3.0-or-later (third-party parts of ScummVM keep the notices of its LICENSES/ folder)',
     'the release tree at the pin with the patch series of native/scummvm, built per engine family by scummvm_build; '
     'fetched into .deps at build time, never copied into the repository; corresponding source by tools/build_scummvm_source_archive.py',
-    _py('retrorecomp/scummvm_build.py', 'SCUMMVM_REV'), checkout='scummvm', shared_by=('scummvm',))
+    _py('retrorecomp/scummvm_build.py', 'SCUMMVM_REV'), checkout='scummvm')
 FREETYPE = Upstream(
     'FreeType', 'freetype/freetype', 'master', 'font renderer of the ScummVM runtime (its GUI themes need it)',
     'FreeType License (FTL)', 'the library, static, without zlib, png, bzip2, HarfBuzz or Brotli, linked into the ScummVM runtime',
-    _py('retrorecomp/scummvm_build.py', 'FREETYPE_REV'), checkout='freetype', shared_by=('scummvm',))
+    _py('retrorecomp/scummvm_build.py', 'FREETYPE_REV'), checkout='freetype')
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000, SST_65816, SST_SPC700, SCUMMVM, FREETYPE)
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000, SST_65816, SST_SPC700)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),
@@ -238,6 +238,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'cps2': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH, YMFM, MAME),
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
     'pce': (PCENGINERECOMP,),
+    'scummvm': (SCUMMVM, FREETYPE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

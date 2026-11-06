@@ -381,6 +381,8 @@ STRINGS = {
     'options_scummvm': ("Adventure (ScummVM)", "Aventure (ScummVM)"),
     'options_scummvm_note': ("Experimental: adventure games run in ScummVM, emulated (0 % native code). Give the folder of a game: ScummVM's own detection names it and its files are packed, unchanged, into one executable; a folder with several candidates asks you to choose. In the game: Ctrl+F5 (Start on a pad) opens ScummVM's menu; the game keeps F1-F12, Esc and Tab. No MT-32 ROM: the default music. ScummVM is GPL-3; its source is offered with each release.",
                             "Expérimental : les jeux d'aventure tournent dans ScummVM, en émulation (0 % de code natif). Donne le dossier d'un jeu : la détection de ScummVM le reconnaît et ses fichiers sont emballés, sans changement, dans un seul exécutable ; un dossier à plusieurs candidats te demande de choisir. En jeu : Ctrl+F5 (Start à la manette) ouvre le menu de ScummVM ; le jeu garde F1-F12, Échap et Tab. Sans ROM MT-32 : la musique par défaut. ScummVM est sous GPL-3 ; son source est proposé avec chaque version."),
+    'scummvm_choice': ("Edition (when several match)", "Édition (si plusieurs correspondent)"),
+    'tip_scummvm_choice': ("0: a folder that matches several editions is refused and the editions are listed. 1 to 9: that edition of the list is used.", "0 : un dossier qui correspond à plusieurs éditions est refusé et les éditions sont listées. 1 à 9 : cette édition de la liste est utilisée."),
     'ng_bios_label': ('Neo Geo BIOS archive (ZIP)', 'Archive BIOS Neo Geo (ZIP)'),
     'ng_bios_check': ('Check BIOS', 'Vérifier le BIOS'),
     'ng_bios_missing': ('No BIOS selected.', 'Aucun BIOS sélectionné.'),

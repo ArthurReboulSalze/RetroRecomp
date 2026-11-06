@@ -662,7 +662,9 @@
     "tip_start_selected": "转换选中项：只转换列表中选中的游戏。",
     "options_scummvm": "AVG 游戏 (ScummVM)",
     "options_scummvm_note": "实验性：AVG 游戏在 ScummVM 中运行（不是原生代码，0 %）。指定游戏的文件夹：ScummVM 自己的检测会识别游戏，其文件将原样打包进一个可执行文件；有多个可选游戏的文件夹会请你选择。游戏中：Ctrl+F5（手柄上为 Start）打开 ScummVM 菜单；F1-F12、Esc 和 Tab 由游戏使用。没有 MT-32 ROM 时使用默认音乐。ScummVM 采用 GPL-3 许可，每个版本都提供其源代码。",
-    "scan_note_scummvm": "不进行分析：ScummVM 解释运行游戏；不重新编译，也不学习。"
+    "scan_note_scummvm": "不进行分析：ScummVM 解释运行游戏；不重新编译，也不学习。",
+    "scummvm_choice": "版本（多个匹配时）",
+    "tip_scummvm_choice": "0：与多个版本匹配的文件夹会被拒绝，并列出这些版本。1 到 9：使用列表中的该版本。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",

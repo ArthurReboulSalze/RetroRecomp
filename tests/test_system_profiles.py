@@ -31,6 +31,9 @@ OPTION_KEYS = {
 EVERY_KEY = set().union(*OPTION_KEYS.values())
 
 
+# The machines that recompile their games (an emulated one, registry.emulated, has no CPU, path or quick state).
+RECOMPILED = [profile for profile in ALL_PROFILES if not getattr(profile, 'emulated', '')]
+
 class RegistryTests(unittest.TestCase):
     def test_nine_profiles_in_the_documented_order(self):
         self.assertEqual(system_ids()[:len(IDS)], IDS)  # a machine registered later follows the nine
@@ -122,7 +125,7 @@ class ProfileDataTests(unittest.TestCase):
                 profile.experimental = True
 
     def test_cpus_and_roles(self):
-        for profile in ALL_PROFILES:
+        for profile in RECOMPILED:
             roles = [cpu.role for cpu in profile.cpus]
             self.assertEqual(roles.count('main'), 1, profile.id)
             self.assertTrue(set(roles) <= {'main', 'sound'}, profile.id)
@@ -144,8 +147,12 @@ class ProfileDataTests(unittest.TestCase):
         # The shared 16-bit host writes one quick-state family.
         self.assertEqual({get_profile(system).quick_state_family for system in ('md', 'snes', 'ng', 'cps1')},
                          {'rr16'})
-        for profile in ALL_PROFILES:
+        for profile in RECOMPILED:
             self.assertTrue(profile.quick_state_family, profile.id)
+        # An emulated machine (registry.emulated) declares no CPU and no quick-state family: its emulator saves.
+        for profile in ALL_PROFILES:
+            if getattr(profile, 'emulated', ''):
+                self.assertEqual((profile.cpus, profile.quick_state_family, profile.path_spec), ((), '', None), profile.id)
 
     def test_gun_pairs_metadata_accepts_are_declared_capabilities(self):
         for system, gun in (('md', 'menacer'), ('md', 'justifier'), ('snes', 'super_scope')):
@@ -185,7 +192,7 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_path_spec_equals_the_paths_schema_tables(self):
         from retrorecomp import path_profiles
-        for profile in ALL_PROFILES:
+        for profile in RECOMPILED:
             spec = profile.path_spec
             with self.subTest(profile.id):
                 self.assertEqual(path_profiles.SYSTEMS[spec.order], profile.id)
@@ -194,14 +201,17 @@ class ProfileContractTests(unittest.TestCase):
                 self.assertEqual(spec.required_sources, path_profiles.REQUIRED_SOURCES.get(profile.id, ()))
                 self.assertEqual(spec.hashed_sources, path_profiles.HASHED_SOURCES.get(profile.id, ()))
         # The schema's own order (CPS-1 before the X68000) is the profiles' `order`, which is not the documents' order.
-        self.assertEqual(tuple(p.id for p in sorted(ALL_PROFILES, key=lambda p: p.path_spec.order)),
+        self.assertEqual(tuple(p.id for p in sorted(RECOMPILED, key=lambda p: p.path_spec.order)),
                          path_profiles.SYSTEMS)
-        self.assertEqual(len({p.path_spec.order for p in ALL_PROFILES}), len(ALL_PROFILES))
+        self.assertEqual(len({p.path_spec.order for p in RECOMPILED}), len(RECOMPILED))
 
     def test_report_shape_equals_the_report_schema_and_the_cpus(self):
         from retrorecomp import report_schema
         for profile in ALL_PROFILES:
             shape = report_schema._SHAPES[profile.id]
+            if getattr(profile, 'emulated', ''):
+                self.assertTrue(shape.emulated, profile.id)     # no CPU: the emulated shape of report_schema
+                continue
             with self.subTest(profile.id):
                 self.assertEqual((profile.report_shape.writer, profile.report_shape.marker),
                                  (shape.writer, shape.marker))
@@ -234,7 +244,7 @@ class ProfileContractTests(unittest.TestCase):
         # the profile says, is found by memory_view.summaries (a console without a reader has none).
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'RETRO_RECOMP_LIBRARY_DIR': folder}):
             base = Path(folder).resolve()
-            for number, profile in enumerate(ALL_PROFILES, 1):
+            for number, profile in enumerate([p for p in ALL_PROFILES if p.library_layout is not None], 1):
                 layout = profile.library_layout
                 with self.subTest(profile.id):
                     self.assertEqual(library_root(profile.id), base / layout.folder if layout.folder else base)
@@ -252,8 +262,9 @@ class ProfileContractTests(unittest.TestCase):
                     record.write_text('{"title": "Synthetic"}' if record.suffix == '.json' else 'a\n', encoding='utf-8')
                     rows, _ = memory_view.summaries(profile.id)
                     self.assertEqual([row['identity'] for row in rows], [identity])
-        self.assertEqual({p.id for p in ALL_PROFILES if p.library_layout.identity == 'grandfolder'}, {'nes'})
-        self.assertEqual({p.id: p.library_layout.companion for p in ALL_PROFILES if p.library_layout.companion},
+        laid_out = [p for p in ALL_PROFILES if p.library_layout is not None]     # an emulated machine learns nothing
+        self.assertEqual({p.id for p in laid_out if p.library_layout.identity == 'grandfolder'}, {'nes'})
+        self.assertEqual({p.id: p.library_layout.companion for p in laid_out if p.library_layout.companion},
                          {'sms': 'observations.log', 'gg': 'observations.log', 'gb': 'entries.trace'})
 
     def test_input_layout_equals_the_random_route_pads_and_scripts(self):
@@ -338,7 +349,8 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_identification_orders_follow_the_documented_priority(self):
         from retrorecomp.systems import registry
-        self.assertEqual([p.id for p in registry.path_stage()], ['x68', 'cps1', 'cps2', 'ng'])
+        # A game folder (Adventure (ScummVM)) is claimed first; a file is never that machine's.
+        self.assertEqual([p.id for p in registry.path_stage()], ['scummvm', 'x68', 'cps1', 'cps2', 'ng'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])

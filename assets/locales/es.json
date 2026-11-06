@@ -662,7 +662,9 @@
     "tip_start_selected": "Convertir selección: solo los juegos seleccionados en la lista.",
     "options_scummvm": "Aventura (ScummVM)",
     "options_scummvm_note": "Experimental: las aventuras se ejecutan en ScummVM, emuladas (0 % de código nativo). Indica la carpeta de un juego: la detección de ScummVM lo reconoce y sus archivos se empaquetan, sin cambios, en un único ejecutable; una carpeta con varios candidatos te pide elegir. En el juego: Ctrl+F5 (Start en el mando) abre el menú de ScummVM; el juego conserva F1-F12, Esc y Tab. Sin ROM MT-32: la música predeterminada. ScummVM es GPL-3; su código fuente se ofrece con cada versión.",
-    "scan_note_scummvm": "Sin análisis: ScummVM interpreta el juego; no se recompila ni se aprende nada."
+    "scan_note_scummvm": "Sin análisis: ScummVM interpreta el juego; no se recompila ni se aprende nada.",
+    "scummvm_choice": "Edición (si coinciden varias)",
+    "tip_scummvm_choice": "0: una carpeta que coincide con varias ediciones se rechaza y se listan las ediciones. 1 a 9: se usa esa edición de la lista."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Mayús der.: Mode",

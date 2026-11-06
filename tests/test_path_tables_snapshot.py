@@ -250,6 +250,9 @@ class PathTablesTests(unittest.TestCase):
         # Where each table now comes from: nothing is listed twice.
         for profile in ALL_PROFILES:
             spec = profile.path_spec
+            if spec is None:     # an emulated machine learns no path
+                self.assertNotIn(profile.id, pp.SYSTEM_SECTIONS)
+                continue
             self.assertEqual(pp.SYSTEM_SECTIONS[profile.id], spec.sections)
             self.assertEqual(pp.SOURCE_BOUNDS[profile.id], dict(spec.source_bounds))
             self.assertEqual(pp.REQUIRED_SOURCES.get(profile.id, ()), spec.required_sources)

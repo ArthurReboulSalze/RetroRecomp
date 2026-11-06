@@ -33,6 +33,7 @@ SHORT_NAMES = {
     "snes": ("SNES",),
     "cps1": ("CPS-1",),
     "x68": ("X68000",),
+    "scummvm": ("ScummVM",),
 }
 ALIASES = {profile.id: (profile.name, *SHORT_NAMES.get(profile.id, ())) for profile in ALL_PROFILES}
 

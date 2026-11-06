@@ -22,6 +22,9 @@ retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engi
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
 native/hostkit/adapters/rrhk_pce.c
+retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
+native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch
+licenses/scummvm.md licenses/freetype.md tools/build_scummvm_source_archive.py tests/test_scummvm_export.py
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h

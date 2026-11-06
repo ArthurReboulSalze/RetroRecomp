@@ -12,6 +12,7 @@ from retrorecomp.paths import ROOT, save_game_language, games_root, load_prefere
 from retrorecomp.i18n import log_text
 from retrorecomp.batch import identify, convert_batch, system_output
 from retrorecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
+from retrorecomp.systems.registry import discover_folders
 PROFILES = available_profiles()
 
 # What `--help` says of the options the machines declare (OptionKey in systems/<machine>.py). The command line
@@ -366,12 +367,16 @@ def main() -> int:
             packing.set_compression(args.compress if args.compress is not None
                                     else packing.compression_from_preferences(load_preferences()))
             if args.command == "batch":
-                paths = []
+                paths, folder_games = [], []
                 for source in [*args.roms, *args.rom_dir]:
                     if source.is_dir():
                         paths.extend(discover_roms(source))
+                        # Game folders of a machine that takes folders (Adventure (ScummVM)), beside the files.
+                        games = discover_folders(source)
                     else:
                         paths.append(source)
+                        games = []
+                    folder_games.extend(games)
                 # Each multi-disk X68000 game is converted once, as a playlist.
                 from retrorecomp.rom_sources import disk_sets
                 from retrorecomp.i18n import tr
@@ -381,7 +386,7 @@ def main() -> int:
                 for title, missing, total in sets.incomplete:
                     print(tr('x68_set_incomplete', args.language, title=title,
                              missing=', '.join(map(str, missing)), total=total), file=sys.stderr)
-                paths = list(dict.fromkeys(p.resolve() for p in sets.paths))
+                paths = list(dict.fromkeys([*(p.resolve() for p in sets.paths), *(g.resolve() for g in folder_games)]))
                 if not paths:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 items = [identify(p, None if args.system == 'auto' else args.system) for p in paths]

@@ -361,3 +361,126 @@ def report_data(export: Export, runtime_identity: dict, artwork: dict | None = N
         'executable': export.exe.name,
         'artwork': artwork or {},
     }
+
+
+# --- the machine's hooks (retrorecomp/systems/scummvm.py): folders, identity, conversion -------------------------------
+
+_DETECTED: dict[str, list[Candidate]] = {}
+
+
+def parse_detection_all(output: str) -> dict[str, list[Candidate]]:
+    """{folder path as printed: candidates} of every folder a recursive `--detect` lists."""
+    folders: dict[str, list[Candidate]] = {}
+    for line in output.splitlines():
+        match = _LINE.match(line.strip())
+        if match:
+            path = os.path.normpath(match.group(4).strip())
+            folders.setdefault(path, [])
+    for path in folders:
+        folders[path] = parse_detection(output, Path(path))
+    return folders
+
+
+def _detect_runtime() -> Path:
+    from .scummvm_build import DETECT_FAMILY, build_runtime
+    return build_runtime(DETECT_FAMILY)
+
+
+def find_game_folders(root: Path) -> list[Path]:
+    """The game folders at or below `root`, by one recursive run of ScummVM's own detection (results kept for the session)."""
+    env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', RR_NO_DIALOGS='1')
+    with tempfile.TemporaryDirectory() as scratch:
+        result = subprocess.run([str(_detect_runtime()), f'--config={Path(scratch) / "detect.ini"}', '--detect',
+                                 '--recursive', f'--path={root}'], env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', timeout=1800,
+                                creationflags=NO_WINDOW)
+    found = parse_detection_all(result.stdout)
+    for path, candidates in found.items():
+        _DETECTED[os.path.normcase(path)] = candidates
+    return [Path(path) for path, candidates in found.items() if candidates]
+
+
+def candidates_of(folder: Path) -> list[Candidate]:
+    """ScummVM's candidates for exactly `folder` (from the discovery run when it saw the folder)."""
+    key = os.path.normcase(os.path.normpath(str(folder)))
+    if key not in _DETECTED:
+        _DETECTED[key] = detect(Path(folder), _detect_runtime())
+    return _DETECTED[key]
+
+
+@dataclass
+class FolderGame:
+    """What the batch reads of one game folder (`SystemProfile.read_rom`)."""
+    path: Path
+    title: str
+    sha256: str
+    size: int
+    candidates: list
+
+    def metadata(self) -> dict:
+        return {'path': str(self.path), 'title': self.title, 'sha256': self.sha256, 'size': self.size,
+                'identity': 'SHA-256 of the sorted "path<TAB>size" lines of the game files (names and sizes only)',
+                'candidates': [c.as_dict() for c in self.candidates]}
+
+
+def read_folder(folder: Path) -> FolderGame:
+    candidates = candidates_of(folder)
+    if not candidates:
+        raise ScummvmExportError(f'ScummVM recognises no game in {folder}')
+    lines = sorted(f'{rel}\t{path.stat().st_size}' for rel, path in game_files(Path(folder)))
+    digest = hashlib.sha256('\n'.join(lines).encode('utf-8')).hexdigest()
+    size = sum(int(line.rsplit('\t', 1)[1]) for line in lines)
+    return FolderGame(Path(folder), exe_title(candidates[0].title), digest, size, candidates)
+
+
+def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, emit=print,
+            scummvm_choice=None, **unused) -> Path:
+    """Build the adventure executable of one game folder and write its report beside it (`output`).
+    Returns the built executable; the batch publishes it (as built: a packed game is never compressed)."""
+    from datetime import datetime, timezone
+    from . import __version__
+    from .packing import file_identity, refuse_compression
+    from .report_schema import write_report
+    from .scummvm_build import build_runtime, runtime_identity
+    folder = Path(path)
+    game = read_folder(folder)
+    candidates = game.candidates
+    choice = int(scummvm_choice) if scummvm_choice not in (None, '', 0, '0') else None
+    if len(candidates) > 1 and choice is None:
+        listing = '; '.join(f'{n}: {c.description}' for n, c in enumerate(candidates, 1))
+        raise ScummvmExportError(f'{len(candidates)} editions match this folder ({listing}). Choose one in the '
+                                 'Adventure (ScummVM) options (candidate number), then convert again.')
+    output = Path(output) if output else folder / '.retrorecomp'
+    output.mkdir(parents=True, exist_ok=True)
+    work = output / 'build'
+    work.mkdir(parents=True, exist_ok=True)
+    artwork, icon = {}, None
+    picked = candidates[(choice or 1) - 1]
+    if use_cover:
+        try:
+            artwork, icon = prepare_cover(picked, folder, work / 'cover', online=online_cover, emit=emit)
+        except Exception as exc:     # a missing cover never stops a conversion
+            artwork = {'embedded': False, 'source': 'missing', 'error': str(exc)}
+    emit(f'ScummVM: {picked.description} ({picked.engine}), runtime {picked.engine} family.')
+    export = export_game(folder, work, _detect_runtime(), lambda family: build_runtime(family, emit),
+                         choice=choice, icon=icon)
+    identity = file_identity(export.exe)
+    refuse_compression(identity['sha256'], 'An adventure executable carries its game after the program: it is published '
+                                           'as built, uncompressed (UPX would move the data the program reads).')
+    report = {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
+              'system': {'id': 'scummvm', 'name': 'Adventure (ScummVM)'}, 'rom': game.metadata(), 'converted': True,
+              'final_checks': [],
+              'scummvm': report_data(export, runtime_identity(export.family), artwork),
+              'engine': {'name': 'ScummVM', **runtime_identity(export.family), 'gameid': picked.gameid,
+                         'engine': picked.engine, 'language': picked.language, 'platform': picked.platform,
+                         'description': picked.description, 'choice': export.choice,
+                         'candidates': len(candidates)},
+              'native_coverage': 'emulated: the game runs in ScummVM (0 % native code)',
+              'physical_latency_measured': False, 'latency_ms': None,
+              'hardware_accuracy_validated': False, 'full_game_validated': False,
+              'game_states': {'supported': False, 'note': "ScummVM's own saves (its menu, Ctrl+F5) in datas/games"},
+              'artwork': artwork, 'executable': export.exe.name, 'build_executable': str(export.exe)}
+    write_report(output / 'conversion-report.json', report)
+    emit(f'ScummVM: {export.exe.name} ready (emulated, 0 % native; {export.files} files, '
+         f'{export.data_bytes // 1048576} MB of game data inside).')
+    return export.exe

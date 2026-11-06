@@ -85,6 +85,10 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 <!-- qualification-gauges:end -->
 
+**Adventure (ScummVM)** is a category of its own, experimental: point-and-click adventure games run in ScummVM, emulated
+(0 % native code, by design), each packed with its own files into one executable with its saves in `datas/`
+([how it works](docs/SCUMMVM.md)). It is not part of the qualification matrix of the recompiled consoles.
+
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need firmware you supply yourself: the Neo Geo
 (its BIOS), the Sharp X68000 (its IPL and font ROM) and the QSound boards (their DSP ROM). What each machine converts, its options
 and its limits are on its page.

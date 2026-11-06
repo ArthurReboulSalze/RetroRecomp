@@ -206,6 +206,11 @@ routes and matched a fresh interpreted reference frame by frame, and Street Figh
 because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
 engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
+**Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
+recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;
+nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
+that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy
