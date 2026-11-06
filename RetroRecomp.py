@@ -23,6 +23,8 @@ _PATH_HELP = {
     'x68_ipl': 'X68000: your own IPL ROM.',
     'x68_cgrom': 'X68000: your own font ROM (CGROM).',
     'x68_ram': 'X68000 RAM in MiB.',
+    'psx_bios': 'PlayStation: your own BIOS, a file or a folder (the image of the disc\'s region is chosen and embedded in the '
+                'game); without it the free OpenBIOS is used.',
 }
 _FLAG_HELP = {
     'convert': {

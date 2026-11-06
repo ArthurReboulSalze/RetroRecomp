@@ -145,11 +145,19 @@ def video_mode(path) -> str:
     return 'pal' if region == 'pal' else 'ntsc'
 
 
-def bios_for(item: PsxInput, bios_option) -> psx_bios.Bios | None:
-    """The player's BIOS for this disc (a file or a folder in the option), or None: the game then runs on OpenBIOS."""
+def bios_for(item, bios_option) -> psx_bios.Bios | None:
+    """The player's BIOS for this disc (a file or a folder in the option), or None: the game then runs on OpenBIOS.
+
+    `item` is the conversion's input or the batch's item (which knows only the disc's path)."""
     if not bios_option:
         return None
-    return psx_bios.choose([Path(bios_option)], item.region)
+    region = getattr(item, 'region', None)
+    if region is None:
+        try:
+            region = psx_disc.describe(Path(item.path))[0].region
+        except (psx_disc.DiscError, OSError, ValueError):
+            region = None
+    return psx_bios.choose([Path(bios_option)], region)
 
 
 def machine_identity(item: PsxInput, bios_option) -> str:
