@@ -118,12 +118,16 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     if (!r->ren && r->win) r->ren = SDL_CreateRenderer(r->win, -1, SDL_RENDERER_SOFTWARE);
     if (r->ren) {
         SDL_RendererInfo info;
-        if (SDL_GetRendererInfo(r->ren, &info) == 0)
+        if (SDL_GetRendererInfo(r->ren, &info) == 0) {
+            r->limit_w = info.max_texture_width; r->limit_h = info.max_texture_height;
             fprintf(stderr, "[host] renderer=%s, vsync=%s; physical latency is unmeasured\n",
                 info.name, info.flags & SDL_RENDERER_PRESENTVSYNC ? "on" : "off");
+        }
     }
+    r->store_w = m->max_width; r->store_h = m->max_height;
     r->tex = r->ren ? rrhk_texture_create(r) : NULL;
     r->upscaled = (uint32_t *)malloc(m->max_width * 2 * m->max_height * 2 * sizeof(uint32_t));
+    r->upscaled_pixels = (size_t)m->max_width * 2 * m->max_height * 2;
     if (!r->tex || !r->upscaled) {
         free(r->upscaled); if (r->ren) SDL_DestroyRenderer(r->ren); if (r->win) SDL_DestroyWindow(r->win);
         r->ren = NULL; r->win = NULL; r->upscaled = NULL;
@@ -147,6 +151,8 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->ran = true;      /* a guest that owns the loop has run its first frame when it first calls */
     const char *test_filter = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
     if (test_filter && !strcmp(test_filter, "3")) rrhk.filter = 3;
+    /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
+    if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     return true;
 }
 
@@ -299,6 +305,7 @@ static void close_run(RrhkRun *r) {
     rr_feedback_close_screen(r->ren);
     remember_window();
     rrhk_audio_close(r);
+    rrhk_rumble_stop();
     rrhk_close_pads();
     rr_menu_shutdown(); free(r->upscaled); if (r->tex) SDL_DestroyTexture(r->tex);
     rr_xbr_destroy(&r->xbr);
@@ -346,6 +353,14 @@ void rrhk_close(void) {
 }
 
 SDL_Window *rrhk_window(void) { return run.win; }
+
+/* The renderer's largest texture (0: SDL states none), once the window is open. */
+bool rrhk_picture_limit(int *width, int *height) {
+    if (!run.ren) return false;
+    if (width) *width = run.limit_w;
+    if (height) *height = run.limit_h;
+    return true;
+}
 
 /* F4 and the computers' own display shortcut. Window, then integer-scale fullscreen, then fit fullscreen, then the window
  * again at the position and size it had (divergence 8). Going from one fullscreen mode to the other keeps the window as it is. */

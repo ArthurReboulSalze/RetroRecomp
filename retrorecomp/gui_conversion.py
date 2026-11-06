@@ -134,6 +134,10 @@ class ConversionMixin:
                     validate_bios(bios)
                 except ValueError as exc:
                     raise ValueError(self.tr('ng_bios_invalid', error=str(exc))) from exc
+            if any(self.items[row].system == 'gba' and not self.items[row].error for row in chosen_rows):
+                from .gba import bios_status
+                if bios_status(options.get('gba_bios')) != 'known':
+                    raise ValueError(self.tr('gba_bios_required'))
             if any(self.items[row].system in ('cps1', 'cps2') and not self.items[row].error for row in chosen_rows):
                 from . import cps1_qsound
                 # every CPS-2 set has the QSound board; only the QSound sets of the CPS-1 do

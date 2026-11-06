@@ -8,24 +8,27 @@ Five measures stay separate in every step below: native code, CPU fidelity, hard
 physical latency. Native execution alone guarantees neither complete compatibility nor zero latency, and the interpreter
 fallback stays counted and shown wherever it is used.
 
-## Where things stand (1.6.8, November 2026)
+## Where things stand (1.7.0, November 2026)
 
-| Machine | Status | Qualification progress | Next step |
-| --- | --- | --- | --- |
-| Master System | supported | 70 % | the evidence lot below |
-| Game Gear | supported | 67 % | the evidence lot below |
-| Game Boy | supported | 97 % | Game Boy Color as a profile of its own |
-| NES | supported | 91 % | broader panel |
-| Mega Drive | supported | 84 % | report and Linux witness; MAME sound comparison |
-| Super Nintendo | supported | 94 % | Linux witness; DSP-2 and DSP-4 |
-| Neo Geo | supported | 94 % | Linux witness on more games |
-| Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
-| Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
-| Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
-| PC Engine | experimental (since 1.6.9) | 39 % | a speed measure, independent processor evidence, more HuCards, the Linux witness |
+| Machine | Status | Next step |
+| --- | --- | --- |
+| Master System | supported | the evidence lot below |
+| Game Gear | supported | the evidence lot below |
+| Game Boy | supported | Game Boy Color as a profile of its own |
+| NES | supported | broader panel |
+| Mega Drive | supported | report and Linux witness; MAME sound comparison |
+| Super Nintendo | supported | Linux witness; DSP-2 and DSP-4 |
+| Neo Geo | supported | Linux witness on more games |
+| Capcom CPS-1 | supported | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
+| Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | Linux witness of the QSound games; a run of the DSP16 |
+| Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
+| Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
+| PC Engine / TurboGrafx-16 | experimental (since 1.6.9) | a speed measure on a quiet PC, more HuCards (Gradius and Santatlantean still to witness on Linux) |
+| Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, Golden Sun's run-time code, the LDM/STM vectors, an independent emulator comparison |
 
-The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
-quality score, and it never decides a status.
+Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
+[QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.
+It is not a quality score, and it never decides a status.
 
 ## Across all machines
 
@@ -87,11 +90,11 @@ revisions, boards and peripherals keep their own scope.
 
 ### Capcom CPS-2
 
-Experimental since 1.6.9 (the owner's decision of 5 November 2026): its own profile built on the CPS-1 and CPS-1.5 modules, with the 68000's
-encrypted program decrypted by the key file of the player's own romset (keys are never shipped), the CPS-2 object chip and raster effects,
-and QSound sound. First scope: the 236 standard boards; the spinner and paddle games later. Next: more of the 236 sets converted and played,
-the Linux witness, the sharing of paths, the sets whose files differ from the catalogue's (`1944`, `19xx`, `progear`, `avsp`), and the
-decision to leave the experimental status.
+Supported since 1.7.0 (experimental in 1.6.9), once the owner's decision is recorded: its own profile built on the CPS-1 and CPS-1.5 modules, with the
+68000's encrypted program decrypted by the key file of the player's own romset (keys are never shipped), the CPS-2 object chip and raster effects, and
+QSound sound. First scope: the 236 standard boards; the ten spinner and paddle games and the three games with inputs of their own later. Next: more of the
+236 sets converted and played, the cause of the three one-picture differences with MAME, and a low-level model of the QSound chip's DSP16, done once for the
+CPS-1.5 and the CPS-2.
 
 ### Capcom CPS-1 and CPS-1.5
 
@@ -111,20 +114,27 @@ planned. Hard-disk images stay out of scope. The screen contrast of the system p
 ### PC Engine
 
 Experimental since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the Street Fighter II board, NTSC,
-two players. Next: a speed measure on a quiet PC, a processor check with a vector tool of our own, more HuCards through the same
-loop and the owner's play trials, then the Linux witness. A card that needs more than the engine's 65,536 instruction identities
+two players. Next: a speed measure on a quiet PC, more HuCards through the same
+loop and the owner's play trials. The Linux build is witnessed on nine cards. A card that needs more than the engine's 65,536 instruction identities
 stays partly native. SuperGrafx and CD-ROM² are separate later studies.
+
+### Game Boy Advance
+
+Experimental since 1.7.0 ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)): `.gba` cartridges with your own BIOS, native code from what each
+game was seen to run, the rest interpreted and counted, cartridge saves. Next: the Linux witness, the box-art covers on a first
+conversion, the cartridge sensors (tilt, gyroscope, solar) as host inputs, the code Golden Sun decompresses at run time (made native
+only in the player's private conversion cache), a comparison with an independent emulator (today the agreement is with the engine's own
+interpreter) and the owner's decision, which alone ends the experimental status.
 
 ## Machines in development
 
 Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
 on the owner's decision after the qualification list.
 
-- **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the
-  real-time clock first, sensors (tilt, gyroscope, solar) later.
-- **Commodore Amiga 500.** A pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000 steps
-  structured by the shared decoder; games installed for WHDLoad first, with no Kickstart and no WHDLoad run (its services
-  are answered by our own code); installs that need a Kickstart, and ADF images, later.
+- **Commodore Amiga 500** (experimental since 1.7.0, [AMIGA.md](AMIGA.md)). A pinned machine core (vAmiga, with its 68000
+  Moira) driven frame by frame, native 68000 steps structured by the shared decoder; games installed for WHDLoad, with no
+  Kickstart and no WHDLoad run (its services are answered by our own code). Next: installs that need the player's own
+  Kickstart, then ADF images.
 
 ## Planned after that
 

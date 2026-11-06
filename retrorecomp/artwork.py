@@ -85,11 +85,22 @@ def profile_cover_titles(system_id: str, rom_path: Path) -> tuple[str, ...]:
 def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False,
                  system_id: str | None = None, extra_titles: tuple[str, ...] = ()) -> str | None:
     """The box of the file's name or the title; when neither finds one, of each extra name in turn."""
-    found = _choose_cover(names, rom_name, title, regional_fallback=regional_fallback, system_id=system_id)
+    found, refused = None, None
+    try:
+        found = _choose_cover(names, rom_name, title, regional_fallback=regional_fallback, system_id=system_id)
+    except ArtworkError as exc:
+        if not extra_titles:
+            raise
+        refused = exc      # several images of the same name: the extra names may still name one
     for extra in extra_titles:
         if found:
             break
-        found = _choose_cover(names, extra, extra, regional_fallback=regional_fallback, system_id=system_id)
+        try:
+            found = _choose_cover(names, extra, extra, regional_fallback=regional_fallback, system_id=system_id)
+        except ArtworkError as exc:
+            refused = refused or exc
+    if refused is not None and not found:
+        raise refused
     return found
 
 
@@ -421,6 +432,19 @@ def _catalog_names(names) -> list[str]:
         and not any(c in n for c in ('/', '\\', '\x00')) and len(n) < 240]
 
 
+def _one_per_name(names: list[str]) -> list[str]:
+    """A provider's catalogue may file one box under two spellings of the same name (MAME's ": " as " - " and as "_ "): they are the
+    same game and edition, so one stands for both and the choice is not refused as ambiguous. Only a machine that offers extra titles
+    (`cover_titles`) asks for it, and local images never go through it."""
+    seen, unique = set(), []
+    for name in sorted(names):
+        key = normalized(Path(name).stem)
+        if key not in seen:
+            seen.add(key)
+            unique.append(name)
+    return unique
+
+
 def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms',
               category: str = 'Named_Boxarts', unavailable: set[str] | None = None,
               extra_titles: tuple[str, ...] = ()) -> tuple[Path, str]:
@@ -448,7 +472,8 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
 
     result = retrieve(filename)
     if result is None:
-        match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title,
+        match = choose_cover(_one_per_name(_catalog(directory, system_id, category, unavailable)) if extra_titles
+                             else _catalog(directory, system_id, category, unavailable), rom_name, title,
                              regional_fallback=True,system_id=system_id, extra_titles=extra_titles)
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')

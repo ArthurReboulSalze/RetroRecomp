@@ -1,3 +1,122 @@
+# RetroRecomp v1.7.0 (in preparation) — Capcom CPS-2 is supported; the host kit gains analog sticks, rumble, a graphics page and disc change
+
+Not published: this section lists what is already on `main` and is completed at the release.
+
+- **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
+  Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
+  reader tells the two bit orders of a dump apart by the first instruction at the reset
+  vector when the vector is plausible both ways (4 of the 91 US cards of the
+  maintainer's library), so a bit-reversed dump is read as such. Twelve US cards
+  converted with 0 interpreted instructions and 0 guard misses on the routes played, the
+  native run equal to the interpreted reference frame by frame, the compressed copy equal
+  and a quick state resumed in a fresh process; the owner has not played these twelve,
+  and no real bit-reversed dump exists in his library (two copies made for the test).
+  A Linux build now converts these cards: 9 of the 11 cards chosen give the CPU, RAM,
+  picture and sound hashes of Windows (two were not run there). The processor is compared
+  with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
+  interpreter, three differences are known, and 9,097 native cases show no difference with
+  the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
+- **Game Boy Advance (experimental).** `.gba` cartridges (or a ZIP holding one) become a
+  standalone Windows game with your own BIOS (`gba_bios.bin`): native code from what the
+  game was seen to run, a counted interpreter for the rest, battery saves and the
+  cartridge clock. Six cartridges (Pokémon Emerald, Mario Kart Super Circuit, The Minish
+  Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and Golden Sun) were checked on
+  Windows and on a Debian 13 PC against the engine's own interpreter, on the final
+  picture, the guest's cycle count and hashes of the memory and the CPU registers over 600
+  and 3,600 frames (12 scenario runs of 12 equal on Linux): five have 0 interpreted
+  instructions on those scenarios, and Golden Sun runs 17.7 million instructions of its
+  own code that has no copy in the cartridge, counted and reported. That interpreter is
+  the engine's, not an independent oracle: no gameplay validation, no hardware fidelity
+  claim. The owner played the delivered cartridges on 5 and 6 November 2026 and they work;
+  that is a play trial, not an exit from the experimental status. The language chosen in
+  Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
+  does not store it, such as Alien Hominid, asks again). The Linux player was not played;
+  no link cable, e-Reader or cartridge sensors.
+<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
+
+- **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
+  2026 and the 17 sets of the final pass on 6 November, and decided that the machine
+  is no longer experimental. The profile says `supported`, the report says `completed`
+  and `board_tier: supported`, and the window says `supported`, in the
+  eight languages. It stands on 17 sets of the 236 of its first scope (the standard
+  boards): the owner's panel of eight, five sets drawn at random and the four sets whose
+  files differ from the catalogue's. Each converts with 0 interpreted 68000 and Z80
+  instructions on every route (the attract loop, a credited play route and one
+  18,000-frame pseudo-random route; three sets also at the thorough level), the
+  compressed copy equal to the fresh reference, a quick state resumed in a fresh
+  process, and its EEPROM written at the first run and read at the second. A Debian 13 PC
+  gives the same CPU, RAM, picture and sound hashes as Windows on all 51 routes. Against
+  MAME 0.289, the pictures agree on 360 of 360 on six sets and on eight of nine more
+  (one picture differs on two sets and a title animation runs one frame ahead on a
+  third: named, not explained) and the sound is within 0.057 dB; MAME is not hardware,
+  and the QSound DSP16 is still a high-level model. Games need the key file of your own
+  romset (never supplied) and your own QSound DSP ROM. Not claimed: exact hardware,
+  complete games (the routes are pseudo-random), physical latency, the other sets of
+  the 236, the spinner and paddle sets, or a game played interactively on Linux. Its
+  paths are shared like the CPS-1's and none is qualified yet, because none of the sets
+  observes a path.
+- **Box art for the CPS family.** The CPS-1, the CPS-1.5 and the CPS-2 find their
+  covers from the MAME thumbnails of libretro, and from ScreenScraper and TheGamesDB:
+  the set's catalogue title is tried, then its parent's, so a clone shows its parent's
+  box. A repository that files one box under two spellings no longer makes the choice
+  ambiguous for these machines; no choice of another machine changes. Existing exports
+  get their icon on the next conversion.
+- **The EEPROM is saved off the frame.** A CPS-1.5 or CPS-2 game changes its cells one
+  after another at start and on a coin, and each change wrote the file at once, with a
+  flush that can wait long on a busy disk (a frame log of `ssf2` showed single frames of
+  several seconds). A worker thread now writes the last contents about a second after the
+  EEPROM has been stable, and the end of play writes at once; a stop of the program within
+  that second loses that last change.
+- **The host kit: analog sticks, rumble, a graphics page, larger pictures, disc change
+  and twenty controls.** Five capabilities of the player shell, written for every machine
+  and off for a machine that does not declare them: a stick dead zone row, a Vibration row,
+  the F3 graphics page, a picture that grows past its opening size, a Change disc action,
+  and up to twenty controls per machine, with an F2 page that scrolls past fifteen rows and
+  triggers bindable as buttons. **No machine of 1.6.9 declares any of them**: on the eleven
+  consoles the menus, the input, the bindings, the preferences and the pictures are
+  unchanged (the X68000 and a three-player CPS-1 game give identical pictures, traces,
+  audio pushes, states and preferences with and without the change). Not measured: a real
+  gamepad (stick values and rumble go through SDL's virtual controller only), a real
+  display, and Linux.
+- **Computers.** A press of the middle mouse button (the wheel) releases a captured
+  mouse, as Ctrl+Alt+M does; the button never reaches the game.
+
+**Speed.** [mesure de coût par image 1.7.0 contre 1.6.9 à venir]. Nothing in this
+section touches the hot path of a game; the branch per bus access that the CPS-1
+family gained in 1.6.9 is still to be measured.
+
+These are packaging, input and covers changes, and one machine leaving the
+experimental tier on the evidence above; none of them is a measure of hardware
+fidelity, complete gameplay or physical latency, and the interpreter fallback is still
+counted and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.0 moves the host stamp of all eleven consoles
+and the game stamp of the CPS-1 and the CPS-2 only (no build stamp): an export of 1.6.9
+of any other console is upgraded (rebuilt from its paths, no rediscovery) the next time
+it is converted, and an export of the CPS-1, CPS-1.5 or CPS-2 is converted again from its
+paths. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
+in their catalogue): a quick state of 1.6.9 is refused cleanly there, with a message
+(nothing is lost but the state); the states of the NES, Neo Geo, CPS-1, CPS-2, PC Engine
+and X68000 still load, and the Master System, Game Gear and Game Boy have none to
+refuse. Cartridge saves (battery SRAM, EEPROM, memory cards) are kept; a save the new
+export cannot use is set aside and never crashes or blocks the game. Exports older than
+1.6.9 are converted in full. The details and the evidence are in
+[UPGRADES.md](UPGRADES.md#exports-of-169-in-170).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.6.9 — The Sharp X68000 and the QSound boards are supported; Capcom CPS-2 and the PC Engine open as experimental machines
 
 - **Sharp X68000: supported.** On 5 November 2026 the owner played five more

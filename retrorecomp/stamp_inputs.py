@@ -179,17 +179,21 @@ NOT_INPUTS = (
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
-    'licenses/SingleStepTests-sm83.md',
+    'licenses/SingleStepTests-sm83.md', 'licenses/SingleStepTests-huc6280.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py, tools/cps1_qsound_selftest.py,
-    # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py): never built
+    # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py, tools/pce_huc6280_vector_selftest.py, tools/pce_huc6280_native_vector_selftest.py): never built
     # into a game, so they move no stamp.
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
-    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
+    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
+    'native/pce_huc6280_native_checks.cpp',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
-    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
+    'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
+    # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
+    # staged engine for a check, never into a game.
+    'native/gba_vector_checks/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -600,7 +604,7 @@ INPUTS = _resolve({
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',
     ),
-    # The Commodore Amiga (experimental, developer installations only): its converter modules, the WHDLoad resload layer
+    # The Commodore Amiga (experimental since 1.7.0): its converter modules, the WHDLoad resload layer
     # (MIT, our own), the vAmiga machine session (MPL-2.0 engine, patched at build time by amiga_vamiga) and its host-kit
     # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
     # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
@@ -715,6 +719,19 @@ INPUTS = _resolve({
         'tools/x68000_reference_check.py',
         'tools/x68000_state_hardware.py',
     ),
+    ('gba',): (
+        'licenses/gbarecomp.md',
+        'native/gba_driver.h',
+        'native/gba_machine.cpp',
+        'native/gba_machine.h',
+        'retrorecomp.gba',
+        'retrorecomp.gba_analysis',
+        'retrorecomp.gba_build',
+        'retrorecomp.gba_conversion',
+        'retrorecomp.gba_engine',
+        'retrorecomp.gba_patches',
+        'retrorecomp.gba_player',
+    ),
     # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
     ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
@@ -759,6 +776,7 @@ INPUTS = _resolve({
         'retrorecomp.cps2',
         'retrorecomp.cps2_catalogue',
         'retrorecomp.cps2_crypt',
+        'retrorecomp.cps2_knowledge',
         'retrorecomp.cps2_tables',
     ),
     # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.

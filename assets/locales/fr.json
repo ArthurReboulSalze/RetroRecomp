@@ -256,6 +256,15 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Avance rapide | `  Vitesse max | M  Muet",
     "RAM code: compiled, not observed": "Code en RAM : compilé, non observé",
     "Save unreadable: set aside": "Sauvegarde illisible : mise de côté",
-    "Save unreadable: saving is off": "Sauvegarde illisible : désactivée"
+    "Save unreadable: saving is off": "Sauvegarde illisible : désactivée",
+    "Stick dead zone: %s": "Zone morte du stick : %s",
+    "Vibration: %s": "Vibration : %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - Graphismes",
+    "Filter: %s": "Filtre : %s",
+    "Restore defaults": "Valeurs par défaut",
+    "Disc %d/%d": "Disque %d/%d",
+    "Change disc": "Changer de disque",
+    "F3  Graphics options": "F3  Options graphiques",
+    "%s (not at this size)": "%s (pas à cette taille)"
   }
 }

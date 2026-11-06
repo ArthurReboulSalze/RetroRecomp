@@ -152,6 +152,49 @@ class ReaderTests(TempFiles):
         self.assertEqual(hashlib.sha256(data).hexdigest(), found.decoded_sha256)
         self.assertEqual(vector, found.reset_vector)
 
+    def reset_card(self, vector, opcode):
+        """A card whose reset code starts with `opcode` (the byte at the vector's offset in bank 0)."""
+        data = bytearray(card(8, vector))
+        data[vector - 0xE000] = opcode
+        return bytes(data)
+
+    def test_an_ambiguous_vector_is_decided_by_the_first_instruction(self):
+        # $E7A3 reads as $E7C5 once the bits are turned: both point into $E000-$FFFF (Tiger Road, TaleSpin, Bravoman
+        # and Legend of Hero Tonma are such cards).
+        vector = 0xE7A3
+        self.assertTrue(plausible(vector) and plausible(bit_reversed_vector(vector)))
+        for opcode in (0x78, 0xEA, 0xD4):
+            with self.subTest(f'SEI/NOP/CSH {opcode:02X}, as stored'):
+                linear = self.reset_card(vector, opcode)
+                found = read_hucard(self.write(linear))
+                self.assertEqual('linear', found.encoding)
+                self.assertEqual(hashlib.sha256(linear).hexdigest(), found.decoded_sha256)
+            with self.subTest(f'SEI/NOP/CSH {opcode:02X}, bits reversed'):
+                linear = self.reset_card(vector, opcode)
+                found = read_hucard(self.write(reverse_bits(linear), 'rev.pce'))
+                self.assertEqual('bit-reversed', found.encoding)
+                self.assertEqual(vector, found.reset_vector)
+                self.assertEqual(hashlib.sha256(linear).hexdigest(), found.decoded_sha256)
+
+    def test_an_ambiguous_vector_with_no_reset_instruction_either_way_stays_linear(self):
+        # Neither reading starts with SEI, NOP or CSH: nothing decides, the rule of the written order applies.
+        vector = 0xE7A3
+        for opcode in (0x00, 0x4C, 0xA9, 0x9C):
+            with self.subTest(f'{opcode:02X}'):
+                linear = self.reset_card(vector, opcode)
+                self.assertEqual('linear', read_hucard(self.write(linear)).encoding)
+                self.assertEqual('linear', read_hucard(self.write(reverse_bits(linear), 'rev.pce')).encoding)
+
+    def test_a_vector_that_is_its_own_reversal(self):
+        # $FF00 reads the same in both orders (Legend of Hero Tonma): the byte it points at decides, $78 as stored
+        # (linear) or $1E, the reversal of $78 (bit-reversed).
+        vector = 0xFF00
+        self.assertEqual(vector, bit_reversed_vector(vector))
+        data = self.reset_card(vector, 0x78)
+        self.assertEqual('linear', read_hucard(self.write(data)).encoding)
+        found = read_hucard(self.write(reverse_bits(data), 'rev.pce'))
+        self.assertEqual(('bit-reversed', hashlib.sha256(data).hexdigest()), (found.encoding, found.decoded_sha256))
+
     def test_a_vector_plausible_in_neither_order_is_refused(self):
         data = card(8, vector_plausible_neither_way())
         with self.assertRaises(PcEngineRomError):

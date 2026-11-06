@@ -46,12 +46,13 @@ DECLINED = {
     # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
     # The Amiga plays routes of its own too (joystick, mouse and keyboard scripts of amiga_conversion).
     'random_routes': {'x68', 'pce', 'amiga'},
-    # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): no repository
-    # was ever chosen for the arcade board.
-    'artwork': {'cps1', 'cps2'},
+    # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
+    # since 1.7.0 (the Capcom boards use the MAME thumbnails).
+    'artwork': set(),
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
-    'memory_view': {'cps1', 'cps2', 'pce'},
+    # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
+    'memory_view': {'cps1', 'cps2', 'pce', 'gba'},
 }
 
 QUALIFICATION_CELLS = set('YPN?-')

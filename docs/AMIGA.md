@@ -87,7 +87,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
 - After a quick state is loaded, the sound samples are not bit-identical to an unbroken run (see Validation above).
-- The profile is hidden unless the installation carries the Amiga files (`retrorecomp/amiga.py`, `developer_available`).
+- The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
 

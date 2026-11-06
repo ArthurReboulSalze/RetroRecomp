@@ -24,7 +24,7 @@ class ProfileTests(unittest.TestCase):
         folder = TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.folder = Path(folder.name)
-        available = patch('retrorecomp.amiga.developer_available', return_value=True)
+        available = patch('retrorecomp.amiga.converter_available', return_value=True)
         available.start()
         self.addCleanup(available.stop)
 
@@ -36,7 +36,7 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile_says_what_it_is(self):
         profile = get_profile('amiga')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only),
-                         ('Commodore Amiga', 'experimental', 'pending', True))
+                         ('Commodore Amiga', 'experimental', 'witnessed', False))
         self.assertEqual(profile.extensions, ('.lha',))
         self.assertEqual([cpu.arch for cpu in profile.cpus], ['m68000'])
 
@@ -103,7 +103,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_an_installation_without_the_amiga_files_refuses_the_extension(self):
         path = self.write(install('Game/Game.Slave'))
-        with patch('retrorecomp.amiga.developer_available', return_value=False):
+        with patch('retrorecomp.amiga.converter_available', return_value=False):
             with self.assertRaisesRegex(UnsupportedConsoleError, 'unavailable'):
                 profile_for_path(path)
 
@@ -113,12 +113,12 @@ class AvailabilityTests(unittest.TestCase):
         needed = ('native/amiga_machine/CMakeLists.txt', 'native/amiga_whdload/rr_resload.c',
                   'native/hostkit/adapters/rrhk_amiga.inc', 'retrorecomp/amiga_conversion.py')
         with TemporaryDirectory() as folder, patch('retrorecomp.amiga.ASSETS', Path(folder)):
-            self.assertFalse(amiga.developer_available())
+            self.assertFalse(amiga.converter_available())
             for name in needed:
                 path = Path(folder, name)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('synthetic marker')
-                self.assertEqual(amiga.developer_available(), name == needed[-1])
+                self.assertEqual(amiga.converter_available(), name == needed[-1])
 
 
     def test_the_slave_name_is_cleaned_into_a_name_for_its_box(self):

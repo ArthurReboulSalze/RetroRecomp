@@ -18,6 +18,14 @@ from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
+retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
+retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
+retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
+tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
+tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
+tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
+native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
@@ -170,7 +178,7 @@ licenses/segagenesisrecomp.md licenses/snesrecomp.md
 licenses/geolith.md licenses/lithogen.md licenses/musashi.md
 licenses/x68000-machine.md licenses/fmgen.md
 licenses/upx-5.3.0-src.tar.xz
-licenses/SingleStepTests-z80.md licenses/SingleStepTests-sm83.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
+licenses/SingleStepTests-z80.md licenses/SingleStepTests-sm83.md licenses/SingleStepTests-huc6280.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 retrorecomp/__init__.py retrorecomp/artwork.py retrorecomp/batch.py
@@ -234,6 +242,8 @@ tools/gameboy_saves_check.py tests/test_gameboy_saves_tool.py
 tools/gameboy_states_check.py tests/test_gameboy_states_tool.py
 retrorecomp/gameboy_cartridge.py tests/test_gameboy_cartridge.py
 tools/fetch_sm83_vectors.py native/gb_sm83_vector_checks.c tools/gameboy_sm83_vector_selftest.py tests/test_gameboy_sm83_vectors.py
+tools/fetch_huc6280_vectors.py native/pce_huc6280_vector_checks.cpp tools/pce_huc6280_vector_selftest.py tests/test_pce_huc6280_vectors.py
+native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py tests/test_pce_huc6280_native_vectors.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
 tests/test_gameboy_helper_counts.py
@@ -281,7 +291,7 @@ tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_n
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 retrorecomp/capcom_catalogue.py retrorecomp/capcom_sets.py tools/mame_driver_parse.py
 retrorecomp/cps2.py retrorecomp/cps2_catalogue.py assets/cps2-catalogue.json tools/build_cps2_catalogue.py tests/test_cps2.py
-retrorecomp/cps2_crypt.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py
+retrorecomp/cps2_crypt.py retrorecomp/cps2_knowledge.py retrorecomp/cps2_tables.py tools/build_cps2_tables.py tools/cps2_crypt_check.py tests/test_cps2_crypt.py tests/test_cps2_knowledge.py
 retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
@@ -319,6 +329,7 @@ native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
+tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
