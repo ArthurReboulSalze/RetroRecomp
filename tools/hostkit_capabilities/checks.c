@@ -8,6 +8,9 @@
  *   - sticks: the left stick no longer drives the directions (the d-pad still does), rrhk_pad_axes gives the raw axes at 0 %,
  *     the dead zone row of F2 (Enter, Delete) and its preference, the round dead zone and its rescaling, a player without a
  *     pad, a script's axes;
+ *   - a pad of seventeen controls (a PlayStation's, eighteen rows with Change disc, past the old limit of twelve): the F2 page
+ *     scrolls fifteen rows at a time, the triggers are L2 and R2 (trigger_buttons: held past the threshold, captured by F2,
+ *     read back, no longer the speed controls of player 1), and without trigger_buttons they are the speed controls again;
  *   - the graphics page: F3 opens and closes it, the machine does not run meanwhile, Left/Right change and apply an option at
  *     once, the kit's Filter row, Restore defaults, the preferences ([Test3D.Video]), an out-of-range saved value, a
  *     hidden-window test run on the defaults, --gfx, the timing report;
@@ -43,18 +46,33 @@ const void *rr_resource(unsigned id, size_t *size) { (void)id; *size = 0; return
 #endif
 
 /* ---- the fake machine ---- */
-enum { A_UP, A_DOWN, A_LEFT, A_RIGHT, A_CROSS, A_START, A_DISC, ACTIONS };
-enum { UP_BIT = 1, DOWN_BIT = 2, LEFT_BIT = 4, RIGHT_BIT = 8, CROSS_BIT = 16, START_BIT = 32 };
+/* A pad of seventeen controls (a PlayStation's: the sixteen bits of the pad word and the Analog button, a host-side action),
+ * and the Change disc action: eighteen rows, more than an F2 page shows at once. */
+enum { A_UP, A_DOWN, A_LEFT, A_RIGHT, A_CROSS, A_CIRCLE, A_SQUARE, A_TRIANGLE, A_L1, A_R1, A_L2, A_R2, A_L3, A_R3,
+       A_START, A_SELECT, A_ANALOG, A_DISC, ACTIONS };
+enum { UP_BIT = 1, DOWN_BIT = 2, LEFT_BIT = 4, RIGHT_BIT = 8, CROSS_BIT = 16, L2_BIT = 0x400, R2_BIT = 0x800 };
 #define NO_PAD ((SDL_GameControllerButton)SDL_CONTROLLER_BUTTON_INVALID)
+#define ROW(name, key, bit, group, k1, k2, b1) {name, key, bit, group, 0, {k1, k2}, {b1, NO_PAD}}
 static const RrhkAction actions[ACTIONS] = {
-    {"Up", L"Up", UP_BIT, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_UP}},
-    {"Down", L"Down", DOWN_BIT, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_KP_2}, {SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN}},
-    {"Left", L"Left", LEFT_BIT, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_LEFT}},
-    {"Right", L"Right", RIGHT_BIT, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}},
-    {"Button A", L"Cross", CROSS_BIT, RRHK_FACE, 0, {SDL_SCANCODE_W, SDL_SCANCODE_KP_0}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-    {"Start", L"Start", START_BIT, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
-    /* A host-side action (bit 0), like the Pause/Menu row of the Master System. */
-    {"Change disc", L"ChangeDisc", 0, RRHK_SYSTEM, 0, {SDL_SCANCODE_C, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_Y, NO_PAD}}};
+    ROW("Up", L"Up", UP_BIT, RRHK_DIR, SDL_SCANCODE_UP, SDL_SCANCODE_KP_8, SDL_CONTROLLER_BUTTON_DPAD_UP),
+    ROW("Down", L"Down", DOWN_BIT, RRHK_DIR, SDL_SCANCODE_DOWN, SDL_SCANCODE_KP_2, SDL_CONTROLLER_BUTTON_DPAD_DOWN),
+    ROW("Left", L"Left", LEFT_BIT, RRHK_DIR, SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_4, SDL_CONTROLLER_BUTTON_DPAD_LEFT),
+    ROW("Right", L"Right", RIGHT_BIT, RRHK_DIR, SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_6, SDL_CONTROLLER_BUTTON_DPAD_RIGHT),
+    ROW("Button A", L"Cross", CROSS_BIT, RRHK_FACE, SDL_SCANCODE_W, SDL_SCANCODE_KP_0, SDL_CONTROLLER_BUTTON_A),
+    ROW("Button B", L"Circle", 0x20, RRHK_FACE, SDL_SCANCODE_X, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_B),
+    ROW("Button 3", L"Square", 0x40, RRHK_FACE, SDL_SCANCODE_A, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_X),
+    ROW("Button 4", L"Triangle", 0x80, RRHK_FACE, SDL_SCANCODE_S, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_Y),
+    ROW("L1", L"L1", 0x100, RRHK_SYSTEM, SDL_SCANCODE_Q, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_LEFTSHOULDER),
+    ROW("R1", L"R1", 0x200, RRHK_SYSTEM, SDL_SCANCODE_E, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER),
+    ROW("L2", L"L2", L2_BIT, RRHK_SYSTEM, SDL_SCANCODE_1, SDL_SCANCODE_UNKNOWN, RRHK_PAD_LEFT_TRIGGER),
+    ROW("R2", L"R2", R2_BIT, RRHK_SYSTEM, SDL_SCANCODE_3, SDL_SCANCODE_UNKNOWN, RRHK_PAD_RIGHT_TRIGGER),
+    ROW("L3", L"L3", 0x1000, RRHK_SYSTEM, SDL_SCANCODE_Z, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_LEFTSTICK),
+    ROW("R3", L"R3", 0x2000, RRHK_SYSTEM, SDL_SCANCODE_V, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_RIGHTSTICK),
+    ROW("Start", L"Start", 0x4000, RRHK_SYSTEM, SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_CONTROLLER_BUTTON_START),
+    ROW("Select", L"Select", 0x8000, RRHK_SYSTEM, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_BACK),
+    /* Host-side actions (bit 0), like the Pause/Menu row of the Master System. */
+    ROW("Analog", L"Analog", 0, RRHK_SYSTEM, SDL_SCANCODE_F, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_MISC1),
+    ROW("Change disc", L"ChangeDisc", 0, RRHK_SYSTEM, SDL_SCANCODE_C, SDL_SCANCODE_UNKNOWN, SDL_CONTROLLER_BUTTON_PADDLE1)};
 
 static const char *const resolutions[] = {"1x (native)", "2x", "4x"};
 static const char *const dithering[] = {"Native", "Off"};
@@ -220,6 +238,8 @@ static void full_script(void) {
         CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2);
         CHECK(rrhk_deadzone_row() && !rrhk_device_row());
         CHECK(ui->deadzone[0] == 15);
+        /* 22 rows: the page shows fifteen, scrolled to the selected last row */
+        CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
         key(SDL_SCANCODE_UP);      /* the Gamepad row is just above it */
         break;
     case 20:
@@ -228,6 +248,12 @@ static void full_script(void) {
         break;
     case 21:
         CHECK(ui->deadzone[0] == 0 && ini(L"Test3D.Gamepad.Player1", L"deadzone") == 0);
+        /* the window moves only when the selected row would leave it */
+        ui->row = 10; CHECK(rrhk_page_scroll() == 7);
+        ui->row = 0; CHECK(rrhk_page_scroll() == 0);
+        ui->row = 14; CHECK(rrhk_page_scroll() == 0);
+        ui->row = 16; CHECK(rrhk_page_scroll() == 2);
+        ui->row = 0; CHECK(rrhk_page_scroll() == 0);
         key(SDL_SCANCODE_ESCAPE);
         break;
     case 22:    /* the graphics page: F3 opens it; the machine waits */
@@ -325,12 +351,12 @@ static void full_script(void) {
         break;
     case 48:
         CHECK(disc == 1 && disc_calls == 1 && !strcmp(ui->status, "Disc 2/3"));
-        button(SDL_CONTROLLER_BUTTON_Y, true);
+        button(SDL_CONTROLLER_BUTTON_PADDLE1, true);
         break;
     case 49:    /* the pad button */
         CHECK(disc == 2 && disc_calls == 2 && !strcmp(ui->status, "Disc 3/3"));
-        CHECK((last_pad[0] & 0xff) == 0);   /* a host action is no bit of the pad word */
-        button(SDL_CONTROLLER_BUTTON_Y, false);
+        CHECK(last_pad[0] == 0);   /* a host action is no bit of the pad word */
+        button(SDL_CONTROLLER_BUTTON_PADDLE1, false);
         refuse_disc = true;
         key(SDL_SCANCODE_C);
         break;
@@ -358,6 +384,34 @@ static void full_script(void) {
     case 54:    /* 4x stays saved; a damaged value for the next start */
         CHECK(ui->menu == 0 && ui->gfx[0] == 2 && ini(L"Test3D.Video", L"resolution") == 2);
         CHECK(rr_ini_set(L"Test3D.Video", L"dither", L"7", ui->ini_file));
+        /* the triggers are L2 and R2 here: buttons of the pad, no longer the speed controls of player 1 */
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
+        break;
+    case 57:
+        CHECK(last_pad[0] == R2_BIT && ui->fast_hold == 0 && ui->max_speed == 0);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768); axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767);
+        break;
+    case 60:
+        CHECK(last_pad[0] == L2_BIT && ui->fast_hold == 0 && ui->max_speed == 0);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
+        /* F2 captures a trigger: the first gamepad page, the L1 row, Enter, then the left trigger */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT);
+        for (int row = 0; row < A_L1; ++row) key(SDL_SCANCODE_DOWN);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 61:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->row == A_L1 && ui->capturing);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767);
+        break;
+    case 62:    /* bound, swapped with L2 (which had it), kept */
+        CHECK(!ui->capturing && ui->buttons[0][A_L1] == RRHK_PAD_LEFT_TRIGGER && ui->buttons[0][A_L2] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"L1") == (int)RRHK_PAD_LEFT_TRIGGER);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"L2") == (int)SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
+        key(SDL_SCANCODE_ESCAPE);      /* L1 stays on the left trigger for the next start */
+        break;
+    case 63:
+        CHECK(ui->menu == 0);
         stop = true;
         break;
     default:
@@ -371,6 +425,8 @@ static void reload_script(void) {
     case 0:
         CHECK(apply_count == 2 && applied[0].option == 0 && applied[0].value == 2 && applied[1].option == 1 && applied[1].value == 0);
         CHECK(scale == 4);
+        /* a trigger binding is read back on a machine whose triggers are buttons */
+        CHECK(rrhk_ui()->buttons[0][A_L1] == RRHK_PAD_LEFT_TRIGGER && rrhk_ui()->buttons[0][A_L2] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
         stop = true;
         break;
     default: break;
@@ -417,6 +473,16 @@ static void plain_script(void) {
     case 7:
         CHECK(rrhk_device_row() && !rrhk_deadzone_row());
         key(SDL_SCANCODE_ESCAPE);
+        /* the triggers are the speed controls: a saved trigger binding is not read, and the right trigger fast-forwards */
+        CHECK(ui->buttons[0][A_L1] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
+        break;
+    case 10:
+        CHECK(ui->fast_hold != 0 && (last_pad[0] & R2_BIT) == 0);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768);
+        break;
+    case 13:
+        CHECK(ui->fast_hold == 0);
         stop = true;
         break;
     default: break;
@@ -434,7 +500,7 @@ static RrhkMachine full = {
     .visible_width = width, .visible_height = height, .raster_height = base_height, .display_width = base_width,
     .audio = audio, .interpreted = zero, .audio_interpreted = zero, .help_controls = help_controls,
     .frame_start = frame_start, .before_present = before_present,
-    .analog_sticks = 2, .script_axes = script_axes,
+    .analog_sticks = 2, .script_axes = script_axes, .trigger_buttons = true,
     .gfx_options = options, .gfx_option_count = 2, .gfx_apply = gfx_apply,
     .pixel_pitch = width, .rumble = true,
     .host_media = 1 + A_DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select};
@@ -458,6 +524,7 @@ int main(int argc, char **argv) {
     picture = (uint32_t *)calloc((size_t)BASE_W * 4 * BASE_H * 4, sizeof(uint32_t));
     if (!picture) return 2;
     draw_picture();
+    CHECK(ACTIONS == 18 && ACTIONS <= RRHK_MAX_ACTIONS);
     SDL_VirtualJoystickDesc desc;
     SDL_zero(desc);
     desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
@@ -474,7 +541,7 @@ int main(int argc, char **argv) {
     /* 1. The 3D machine, from fresh preferences. */
     begin(full_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
-    CHECK(step >= 55);
+    CHECK(step >= 64);
     /* 2. Its next start. */
     begin(reload_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
@@ -502,7 +569,7 @@ int main(int argc, char **argv) {
     remove(report);
     /* 4. The same machine with every new field left out. */
     RrhkMachine plain = full;
-    plain.analog_sticks = 0; plain.script_axes = NULL;
+    plain.analog_sticks = 0; plain.script_axes = NULL; plain.trigger_buttons = false;
     plain.gfx_options = NULL; plain.gfx_option_count = 0; plain.gfx_apply = NULL;
     plain.pixel_pitch = NULL; plain.rumble = false;
     plain.host_media = 0; plain.media_count = NULL; plain.media_current = NULL; plain.media_select = NULL;
@@ -510,7 +577,7 @@ int main(int argc, char **argv) {
     scale = 1; draw_picture(); disc_calls = 0; rumble_calls = 0;
     begin(plain_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
-    CHECK(step >= 8);
+    CHECK(step >= 14);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

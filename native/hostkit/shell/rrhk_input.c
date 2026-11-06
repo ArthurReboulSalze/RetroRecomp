@@ -170,7 +170,8 @@ void rrhk_load_bindings(void) {
         for (int a = 0; a < m->action_count; ++a) {
             binding_entry(sec, entry, p, a, mode != 0);
             const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
-            if (mode && value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
+            if (mode && value >= -1 && value < (m->trigger_buttons ? RRHK_PAD_RIGHT_TRIGGER + 1 : SDL_CONTROLLER_BUTTON_MAX))
+                rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
     }
@@ -424,6 +425,23 @@ void rrhk_pad_value(char *out, size_t size, int p) {
     else snprintf(out, size, rr_tr("%s (disconnected)"), choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
 }
 
+/* A pad button held; on a machine whose triggers are buttons (trigger_buttons), a trigger past the stick threshold (D1). */
+static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
+    if (!pad || button < 0) return false;
+    if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
+    if (!rrhk.machine->trigger_buttons || button > RRHK_PAD_RIGHT_TRIGGER) return false;
+    return SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
+}
+
+/* A trigger of player 1's pad (0 right, 1 left) bound to a control of a machine with trigger_buttons: no speed control then. */
+bool rrhk_trigger_bound(int side) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!m || !m->trigger_buttons) return false;
+    const SDL_GameControllerButton trigger = side ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER;
+    for (int a = 0; a < m->action_count; ++a) if (rrhk.buttons[0][a] == trigger) return true;
+    return false;
+}
+
 uint16_t rrhk_pad_word(int p, uint64_t frame) {
     const RrhkMachine *m = rrhk.machine;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
@@ -433,7 +451,7 @@ uint16_t rrhk_pad_word(int p, uint64_t frame) {
         const RrhkAction *action = &m->actions[a];
         /* Enter is Start and either Shift is Select/Coin (retro_keyboard.h). */
         bool down = (keyboard && rr_keyboard_held(state, rrhk.keys[p][a], &rrhk.keys[0][0], (int)(sizeof rrhk.keys / sizeof rrhk.keys[0][0]))) ||
-            (rrhk.pads[p] && rrhk.buttons[p][a] >= 0 && SDL_GameControllerGetButton(rrhk.pads[p], rrhk.buttons[p][a])) ||
+            pad_held(rrhk.pads[p], rrhk.buttons[p][a]) ||
             (m->action_held && m->action_held(p, a));
         if (action->group == RRHK_FACE) down = rr_autofire(&fire_state[p][a], down, rrhk.autofire != 0, frame);
         if (down) value |= action->bit;

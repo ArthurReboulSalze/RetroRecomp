@@ -30,6 +30,20 @@ int rrhk_page_rows(void) {
 bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1 - stick_row(); }
 bool rrhk_deadzone_row(void) { return stick_row() && rrhk.row == rrhk_page_rows() - 1; }
 
+/* A control page shows fifteen rows at once (every machine before 1.7.0 had at most fifteen: nothing scrolled). Past them the
+ * window follows the selected row, moving only when that row would leave it. */
+enum { PAGE_ROWS = 15 };
+static int page_first;
+int rrhk_page_scroll(void) {
+    const int rows = rrhk_page_rows();
+    if (rows <= PAGE_ROWS) return page_first = 0;
+    if (rrhk.row < page_first) page_first = rrhk.row;
+    if (rrhk.row >= page_first + PAGE_ROWS) page_first = rrhk.row - PAGE_ROWS + 1;
+    if (page_first > rows - PAGE_ROWS) page_first = rows - PAGE_ROWS;
+    if (page_first < 0) page_first = 0;
+    return page_first;
+}
+
 /* The graphics page (D14): the machine's options, the kit's Filter row, Restore defaults. */
 int rrhk_graphics_rows(void) {
     const int options = rrhk.machine->gfx_option_count;
@@ -142,16 +156,20 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         y += 6;
         m->help_controls(&rrhk, &ctx, y);
     } else if (rrhk.menu == RRHK_MENU_CONTROLS) {
-        /* Every control fits on the page, up to fourteen rows; player 1's
-         * pages end with the quit and restart combinations. */
+        /* Every control fits on the page, up to fifteen rows; player 1's
+         * pages end with the quit and restart combinations. Past fifteen rows (1.7.0: up to twenty actions) the page
+         * scrolls: fifteen rows at a time around the selected one, ^ and v at the right edge when more lie above or below. */
         char line[120], value[80];
-        const int rows = rrhk_page_rows();
+        const int rows = rrhk_page_rows(), shown = rows < PAGE_ROWS ? rows : PAGE_ROWS;
+        const int first = rrhk_page_scroll();
         /* Fifteen rows (twelve actions, the combinations and the Gamepad row) push the hint and the status down. */
-        const int hint_y = rows > 14 ? 173 : RR_MENU_HINT_LINE;
-        if (rows > 14) status_y = 182;
+        const int hint_y = shown > 14 ? 173 : RR_MENU_HINT_LINE;
+        if (shown > 14) status_y = 182;
         const int stick = stick_row();
-        for (int a = 0; a < rows; ++a) {
-            int y = RR_MENU_FIRST_LINE + a * RR_MENU_LINE;
+        if (first > 0) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE, "^", RR_MENU_HINT);
+        if (first + shown < rows) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE + (shown - 1) * RR_MENU_LINE, "v", RR_MENU_HINT);
+        for (int a = first; a < first + shown; ++a) {
+            int y = RR_MENU_FIRST_LINE + (a - first) * RR_MENU_LINE;
             if (a == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
             if (rrhk.gamepad_page && a == rows - 1 - stick) {
                 rrhk_pad_value(value, sizeof value, rrhk.player);
@@ -164,7 +182,11 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rrhk_combo_label(a - m->action_count), value);
             } else {
-                const char *button = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) : NULL;
+                const SDL_GameControllerButton pad = rrhk.buttons[rrhk.player][a];
+                const char *button = !rrhk.gamepad_page ? NULL :
+                    pad == RRHK_PAD_LEFT_TRIGGER ? SDL_GameControllerGetStringForAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT) :
+                    pad == RRHK_PAD_RIGHT_TRIGGER ? SDL_GameControllerGetStringForAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) :
+                    SDL_GameControllerGetStringForButton(pad);
                 const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr(m->actions[a].name),

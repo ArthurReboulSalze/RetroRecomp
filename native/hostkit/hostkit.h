@@ -28,7 +28,13 @@ extern "C" {
 #endif
 
 #define RRHK_MAX_PLAYERS 4
-#define RRHK_MAX_ACTIONS 12
+/* Controls of a machine, in menu order (1.7.0: 20, so that a PlayStation pad's 17 fit; 12 before). The pad word given to the
+ * machine stays 16 bits: host-side actions (`bit` 0) do not use one. An F2 page shows fifteen rows at once and scrolls past. */
+#define RRHK_MAX_ACTIONS 20
+/* A gamepad binding may name a trigger, held past the stick threshold (D1), on a machine that sets `trigger_buttons`: these two
+ * values follow SDL's buttons (they are stored as such in the preferences). */
+#define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)SDL_CONTROLLER_BUTTON_MAX)
+#define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)(SDL_CONTROLLER_BUTTON_MAX + 1))
 
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1
@@ -245,6 +251,11 @@ typedef struct RrhkMachine {
     /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
      * are (no dead zone). NULL or false: the gamepad's. */
     bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+    /* The triggers are buttons of the machine's pad (a PlayStation's L2 and R2): a binding may be RRHK_PAD_LEFT_TRIGGER or
+     * RRHK_PAD_RIGHT_TRIGGER, F2 captures a trigger pulled on the selected player's pad, and a trigger that player 1 has bound
+     * is no longer a speed control (D12), as a key bound to a control is no longer a shortcut. false: the triggers are the
+     * speed controls only, as before. */
+    bool trigger_buttons;
     /* The graphics page (D14). NULL: F3 cycles the 2D filters as on every other machine. Otherwise F3 opens the page; gfx_apply
      * is called between two frames, never inside run_frame: once per option when the window opens (the saved value, or the
      * default in a hidden-window test run) and then at each change. */

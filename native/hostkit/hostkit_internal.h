@@ -87,6 +87,7 @@ void rrhk_gfx_set(int option, int value);   /* the page: apply and keep */
 void rrhk_gfx_defaults(void);            /* the page's Restore defaults: every option to its default, applied and kept */
 void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop a vibration in progress */
 void rrhk_rumble_stop(void);
+bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
 
 /* video.c */
 void rrhk_scale2x(const uint32_t *source, uint32_t *target);
@@ -102,6 +103,7 @@ void rrhk_pointer_draw(SDL_Renderer *renderer, const SDL_Rect *dst);
 int rrhk_page_rows(void);
 bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
 bool rrhk_deadzone_row(void);        /* the selected row is the Stick dead zone row (a machine with analog sticks) */
+int rrhk_page_scroll(void);          /* the first row an F2 control page shows (0 up to fifteen rows; past them it scrolls) */
 int rrhk_graphics_rows(void);        /* the graphics page: the machine's options, Filter, Restore defaults */
 void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);

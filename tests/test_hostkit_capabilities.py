@@ -31,7 +31,7 @@ class DefaultsOffTests(unittest.TestCase):
     """Every new field is off when an adapter leaves it out: none of today's adapters declares one."""
 
     def test_no_adapter_of_today_declares_the_new_fields(self):
-        fields = ('.analog_sticks', '.script_axes', '.gfx_options', '.gfx_option_count', '.gfx_apply', '.pixel_pitch',
+        fields = ('.analog_sticks', '.script_axes', '.trigger_buttons', '.gfx_options', '.gfx_option_count', '.gfx_apply', '.pixel_pitch',
                   '.rumble', '.host_media', '.media_count', '.media_current', '.media_select')
         for path in (KIT / 'adapters').iterdir():
             text = path.read_text(encoding='utf-8')
@@ -50,7 +50,14 @@ class DefaultsOffTests(unittest.TestCase):
         self.assertIn('if (m->gfx_option_count > 0) rrhk_gfx_start(', main)
         options = (KIT / 'shell/rrhk_options.c').read_text(encoding='utf-8')
         self.assertIn('if (m->rumble) rr_option_row(', options)
-
+        # Twenty actions; a page of up to fifteen rows (every machine of 1.6.9) never scrolls; a trigger binding needs the flag.
+        self.assertIn('#define RRHK_MAX_ACTIONS 20', (KIT / 'hostkit.h').read_text(encoding='utf-8'))
+        menu = (KIT / 'shell/rrhk_menu.c').read_text(encoding='utf-8')
+        self.assertIn('enum { PAGE_ROWS = 15 };', menu)
+        self.assertIn('if (rows <= PAGE_ROWS) return page_first = 0;', menu)
+        self.assertIn('if (!rrhk.machine->trigger_buttons || button > RRHK_PAD_RIGHT_TRIGGER) return false;', input_c)
+        self.assertIn('if (!m || !m->trigger_buttons) return false;', input_c)
+        self.assertIn('m->trigger_buttons ? RRHK_PAD_RIGHT_TRIGGER + 1 : SDL_CONTROLLER_BUTTON_MAX', input_c)
     def test_the_new_strings_are_in_every_locale_and_the_game_catalogue(self):
         import json
         keys = ('Stick dead zone: %s', 'Vibration: %s', 'Retro-Recomp - Graphics', 'Filter: %s', 'Restore defaults',
