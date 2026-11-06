@@ -151,6 +151,10 @@ first). No console of this release declares any of them, so nothing below appear
 - **Analog sticks**: the sticks go to the game as sticks, so the left stick no longer moves the four directions (the d-pad
   still does). Each player's gamepad page of F2 ends with a **Stick dead zone** row: Enter steps it by 5% up to 30%, Delete
   sets it back to 0% (the default: the raw stick). Kept as `deadzone` in `[<Console>.Gamepad.PlayerN]`.
+- **More controls**: a pad of up to twenty controls (seventeen on a PlayStation). A control page of F2 then shows fifteen rows at
+  a time and scrolls with Up/Down (`^` and `v` at the right edge say more rows lie above or below). Where the machine's pad has
+  L2 and R2, the triggers of the controller are those buttons (bindable in F2 by pulling them); player 1's triggers are then no
+  longer the fast-forward and maximum-speed controls (Tab and the backquote key still are).
 - **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
   (`[Manettes] rumble`).
 - **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or

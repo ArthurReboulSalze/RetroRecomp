@@ -197,6 +197,7 @@ field, so a machine that declares none of them pays no new per-frame cost (no al
 
 | Capability | `RrhkMachine` fields | Kit service | Player-facing |
 | --- | --- | --- | --- |
+| More controls | `RRHK_MAX_ACTIONS` 20 (12 before), `trigger_buttons` | | a pad of up to twenty controls (a PlayStation's seventeen: four directions, four face buttons, L1 to R3, Start, Select, and the Analog button as a host-side action); the pad word stays 16 bits. An F2 control page shows fifteen rows at once and scrolls past them around the selected row (`^` and `v` at the right edge); every page of 1.6.9 has at most fifteen rows and never scrolls. With `trigger_buttons` a binding may be a trigger (`RRHK_PAD_LEFT_TRIGGER`, `RRHK_PAD_RIGHT_TRIGGER`, stored after SDL's buttons), held past the D1 threshold, captured by F2 when pulled on the selected player's pad, shown by SDL's name (`lefttrigger`); a trigger player 1 has bound is no longer a speed control (D12), as a bound key is no longer a shortcut |
 | Analog sticks | `analog_sticks` (1 or 2), `script_axes` | `rrhk_pad_axes(player, frame, axes[RRHK_AXES])`: LX, LY, RX, RY, -32768..32767, SDL's axes (Y down positive); false and centred without a pad | the left stick no longer drives the four directions on that machine (the d-pad does); a **Stick dead zone** row (0 to 30 %, Enter steps by 5 %, Delete: 0 %) at the end of each player's gamepad page of F2, `[<Console>.Gamepad.PlayerN] deadzone`, default 0 % (the raw values: the machine has its own calibration); a round dead zone, the travel left spread over the whole range |
 | Graphics page (D14) | `gfx_options` (`RrhkGfxOption`: name, `ini_key`, values, count, default), `gfx_option_count` (at most 12), `gfx_apply(option, value)` | `rrhk_gfx_override(machine, "key=index")` for `--gfx`, `rrhk_gfx_value(option)` | F3 opens the page: one row per option (Left/Right, or Enter / A / + and -, change it at once), the kit's **Filter** row (the four filters, F3's order), **Restore defaults** (every option and the filter); Esc, B or F3 closes it, and the machine waits while it is open as in every menu; `[<Console>.Video] <ini_key>=<index>`, an unknown or out-of-range value keeps the default; the F1 line says "F3  Graphics options" |
 | Larger pictures | `pixel_pitch` | `rrhk_picture_limit(&w, &h)`: the renderer's largest texture (`SDL_RendererInfo`, 0 when SDL states none) | the texture grows when `visible_width`/`visible_height` pass it (never shrinks during a run); `max_width`/`max_height` are then the opening size only; Scale2x is left out for a picture past half the limit |
@@ -225,13 +226,17 @@ Rules:
 * **The X68000's drive keys** (Ctrl+Alt+Page Up/Down, Backspace: two drives, both directions, eject) stay in
   `rrhk_computer.inc` and do not go through `host_media`: one "next disc" action cannot express them without changing the
   X68000 and the Amiga, so the two stay apart.
-* **Not in this step**: the optional "keyboard drives the left stick" row of the spec (no machine asks for it yet), and more
-  than twelve actions or more than fifteen rows on an F2 page (`RRHK_MAX_ACTIONS` is 12; a machine with sticks has room for
-  eleven actions on player 1's gamepad page, after the two combinations, the Gamepad row and the Stick dead zone row).
+* **Twenty actions.** Every array of the kit sized by `RRHK_MAX_ACTIONS` (the bindings, the autofire states, the kit's default
+  keys of players 3 and 4) only gains entries that stay empty for a machine with fewer actions, and every loop runs to the
+  machine's `action_count` or treats an empty entry as no key; the preferences keep their names (`<Console>.Keyboard.PlayerN`
+  action names, the X68000's `p<player>_key<index>` and its `player.cfg`), so a file of 1.6.9 reads the same. A host-side action
+  (`bit` 0, Pause/Menu, Change disc, Analog) is matched by a button press, not by a trigger.
+* **Not in this step**: the optional "keyboard drives the left stick" row of the spec (no machine asks for it yet).
 
 ROM-free check: `tools/hostkit_capabilities_selftest.py` (`tests/test_hostkit_capabilities.py`) runs the real loop on a fake
-machine of `tools/hostkit_capabilities/checks.c` with one virtual controller that records its rumble: the sticks and the dead
-zone row, the graphics page (keys, apply, persistence, an out-of-range value, a test run, `--gfx`, the timing report), the
+machine of `tools/hostkit_capabilities/checks.c` (eighteen controls: a PlayStation pad and Change disc) with one virtual
+controller that records its rumble: the sticks and the dead zone row, the scrolling F2 page, the triggers as L2 and R2 (held,
+captured, read back, no speed control) and as speed controls again without `trigger_buttons`, the graphics page (keys, apply, persistence, an out-of-range value, a test run, `--gfx`, the timing report), the
 picture at 1x, 2x and 4x with and without Scale2x read back from the renderer, rumble and the Vibration row, the Change disc
 key and button, then the same machine with every new field left out (F3 cycles the filters, the left stick is the
 directions, no dead zone row, no rumble, no disc).

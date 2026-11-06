@@ -83,28 +83,30 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 Five capabilities of the player shell for the PlayStation, written for every machine ([HOST_KIT.md section 2.4](HOST_KIT.md#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170),
 decision [D14](HOST_KIT.md#d14)): `rrhk_pad_axes` and a Stick dead zone row, the F3 graphics page, a picture that grows past
-its opening size, `rrhk_rumble` and a shared Vibration row, a Change disc action. Each one is a new field of the machine table
-that is off when an adapter leaves it out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the menus, the
-input and the pictures are unchanged (A/B below).
+its opening size, `rrhk_rumble` and a shared Vibration row, a Change disc action, and up to twenty controls per machine
+(`RRHK_MAX_ACTIONS` 12 to 20; an F2 page scrolls past fifteen rows; the triggers bindable as buttons with `trigger_buttons`).
+Each one is a new field of the machine table (or a limit no machine of 1.6.9 reaches) that is off when an adapter leaves it
+out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the menus, the input, the bindings and preferences
+(the X68000's `player.cfg` included) and the pictures are unchanged (A/B below).
 
 **What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles, the tree of `main` at `27e30e0` against
-this change: **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
+this change (all five capabilities and the twenty controls): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
 `native/hostkit/shell/` and `native/runtime_catalog.inc` are host inputs). **No game stamp and no build stamp moves**: an export
 of 1.6.9 that has nothing else to rebuild is upgraded (rebuilt from its paths, no rediscovery).
 
 | Console | Game stamp | Host stamp (before, after) | Build stamp |
 | --- | --- | --- | --- |
-| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `007fad5b05e0` | `fe2d99b3cd5e` (same) |
-| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `76b726411a1a` | `f5671c38cf26` (same) |
-| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `d821e0e40008` | `819a054ad881` (same) |
-| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `e7fe7eeeef34` | `8e0941f93b43` (same) |
-| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `b8a23367b7fe` | `9615ff2e96c8` (same) |
-| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `9bfddff2122c` | `3f0a58ad3c7c` (same) |
-| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `5b5bbcc11dc0` | `110349f043bd` (same) |
-| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `af978c78112f` | `5903c0449429` (same) |
-| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `23e16b43eae7` | `2782cd370f91` (same) |
-| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `0dadd7596952` | `81a51ad49349` (same) |
-| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `709ed6fadf3b` | `66d912662e5c` (same) |
+| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `38f73e4177f6` | `fe2d99b3cd5e` (same) |
+| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `34c5be523077` | `f5671c38cf26` (same) |
+| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `77a2be9bafa9` | `819a054ad881` (same) |
+| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `9c4fe6d23143` | `8e0941f93b43` (same) |
+| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `3832f8ca32ad` | `9615ff2e96c8` (same) |
+| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `09269e150112` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `62c73f48f17c` | `110349f043bd` (same) |
+| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `bd095917e82e` | `5903c0449429` (same) |
+| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `17a9f4f62154` | `2782cd370f91` (same) |
+| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `9e0a3539b8cb` | `81a51ad49349` (same) |
+| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `2c1d86a0e815` | `66d912662e5c` (same) |
 
 (First twelve hexadecimal digits of each stamp.)
 
@@ -127,8 +129,10 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 * CPS-1, Warriors of Fate (three players, a DIP page; `build --refresh-kit`), the standard battery of 3,968 iterations (both
   players' keys and pads, the filters and display modes, every language, every F2 page, states, preferences): **identical** (61
   files: 3,968 picture hashes, 52 captures, 2,768 audio pushes, the state file, the preferences).
-* ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine, then the same machine with every
-  field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
+* Both A/B runs were made again on the final tree (with the twenty controls, the scrolling page and `trigger_buttons`): identical
+  again, every file.
+* ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine of eighteen controls, its scrolling F2
+  page and its triggers as L2 and R2, then the same machine with every field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
 
 Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
 consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
