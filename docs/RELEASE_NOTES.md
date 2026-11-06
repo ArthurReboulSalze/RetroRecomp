@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.0 (in preparation) — Capcom CPS-2 is supported; the Game Boy Advance and the Commodore Amiga open as experimental machines, and the host kit gains analog sticks and rumble
+# RetroRecomp v1.7.0 (in preparation) — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
 
 Not published: this section lists what is already on `main` and is completed at the release.
 
@@ -79,7 +79,23 @@ Not published: this section lists what is already on `main` and is completed at 
   with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
   interpreter, three differences are known, and 9,097 native cases show no difference with
   the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
-<!-- Bullets of the machines still to merge for this release (ScummVM) go here, in the order of their merge. -->
+- **Adventure games (ScummVM), a category of its own (experimental).** A folder of a
+  point-and-click adventure that ScummVM's own detection recognises becomes one
+  executable holding ScummVM and your own game files, to click and play; its settings
+  and saves are in `datas/` beside it, and nothing is extracted. **It is emulated and 0 %
+  native, and stays so**: ScummVM interprets the game, so the measures of native code and
+  CPU fidelity do not apply and none is claimed (the five measures do not apply the same
+  way here as to the consoles; it is not part of the qualification matrix). Gameplay is
+  checked game by game: the owner played ten executables of eight engine families on
+  6 November 2026 (a play trial of prototypes), and physical latency is not measured. The
+  game data is yours and stays private; an executable that holds it is not to be shared.
+  ScummVM and Retro-Recomp's patch of it are under the GPL (version 3 or later), apart from
+  the MIT code, and each executable carries the licence text and a written offer of the
+  source (the release publishes the source archive). The menus come in five languages
+  (English, French, Italian, Spanish, German); the music needs no MT-32 ROM. Windows is
+  built; Linux is witnessed on one small game (Lure of the Temptress) only. Games that
+  need Ogg Vorbis, FLAC or MP3 decoders (CD audio rips, compressed speech) are not
+  supported yet.
 
 - **Box art for the CPS family.** The CPS-1, the CPS-1.5 and the CPS-2 find their
   covers from the MAME thumbnails of libretro, and from ScreenScraper and TheGamesDB:
@@ -115,9 +131,9 @@ Not published: this section lists what is already on `main` and is completed at 
 **Speed.** [mesure de coût par image 1.7.0 contre 1.6.9 à venir]. No change of this
 section is known to touch the frame loop of an existing game (the recorder's new test
 runs once per recorded miss); the branch per bus access that the CPS-1 family gained in
-1.6.9 is still to be measured, and none of the three new machines has a speed figure.
+1.6.9 is still to be measured, and none of the new machines (nor the ScummVM games) has a speed figure.
 
-These are three new experimental machines, one machine leaving the experimental tier,
+These are three new experimental machines and a category of emulated adventure games, one machine leaving the experimental tier,
 and input, covers and recorder changes, each on the evidence above; none of them is a measure of hardware
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
@@ -129,7 +145,7 @@ not the quick host-only rebuild of a smaller update. Only the Mega Drive and Sup
 in their catalogue): a quick state of 1.6.9 is refused cleanly there, with a message
 (nothing is lost but the state); the states of the NES, Neo Geo, CPS-1, CPS-2, PC Engine
 and X68000 still load, and the Master System, Game Gear and Game Boy have none to
-refuse. The Game Boy Advance and the Amiga are new: no export of theirs exists before 1.7.0. Cartridge saves (battery SRAM, EEPROM, memory cards) are kept; a save the new
+refuse. The Game Boy Advance, the Amiga and the ScummVM games are new: no export of theirs exists before 1.7.0. Cartridge saves (battery SRAM, EEPROM, memory cards) are kept; a save the new
 export cannot use is set aside and never crashes or blocks the game. Exports older than
 1.6.9 are converted in full. The details and the evidence are in
 [UPGRADES.md](UPGRADES.md#exports-of-169-in-170).

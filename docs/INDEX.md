@@ -112,6 +112,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
+- **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, experimental since 1.7.0: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project
 
