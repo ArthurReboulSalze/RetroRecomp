@@ -20,6 +20,19 @@ from .platforms import open_local
 from .gui_common import PROFILES
 
 
+# Shapes a dump can come in besides a machine's own extension (an archive, a raw dump, a Game Boy Color cartridge).
+GENERIC_ROM_EXTENSIONS = ('.zip', '.bin', '.rom', '.gbc')
+
+
+def rom_patterns() -> str:
+    """The ROM picker's filter: the generic shapes and every profile's own extensions, so a new machine is offered
+    without touching this list (1.7.0 missed the Amiga's .lha this way)."""
+    extensions = dict.fromkeys(GENERIC_ROM_EXTENSIONS)
+    for profile in PROFILES:
+        extensions.update(dict.fromkeys(getattr(profile, 'extensions', ()) or ()))
+    return ' '.join('*' + extension for extension in extensions)
+
+
 class QueueMixin:
     """The queue of ROMs: restoring it, dropping and importing paths, the list and its menu."""
 
@@ -331,8 +344,7 @@ class QueueMixin:
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
-            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.fig *.md *.gen *.pce *.dim *.xdf *.d88 *.88d *.hdm *.2hd *.dup *.m3u'),
-                       ('All files', '*.*')])
+            filetypes=[('ROM files', rom_patterns()), ('All files', '*.*')])
         self.import_paths(paths)
 
     def choose_directory(self):
