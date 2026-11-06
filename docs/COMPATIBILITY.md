@@ -207,6 +207,12 @@ because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-pa
 engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 The **Game Boy Advance** profile is experimental since 1.7.0 ([status](GAME_BOY_ADVANCE.md)): `.gba` cartridges are converted with your own BIOS (`gba_bios.bin`), the native code comes from what each game was seen to run and the rest is interpreted, counted and reported. Six cartridges of the first panel match the engine's own interpreter on state hashes at 600 and 3,600 frames; that is an agreement with that interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
+The **Commodore Amiga** profile is experimental and for developer installations only, not in a release: it converts Amiga 500 games installed for
+WHDLoad (an `.lha` with one `.Slave`) that need no Kickstart, within [its documented scope](AMIGA.md). It has no list of compatible games: native
+code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too, and only the first three are
+partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
+Amiga 1200 are not converted.
+
 **Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
 recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games

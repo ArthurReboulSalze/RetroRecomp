@@ -46,7 +46,7 @@ class SyntheticProfile(SystemProfile):
     quick_state_family = 'rr16'
     feedback_kinds = frozenset({99})
     path_spec = PathSpec(order=9, sections=(('m68k', 'zz'),), source_bounds=(('rom', (1, 2)),))
-    identify = Identify(path_order=40, content_order=6)
+    identify = Identify(path_order=90, content_order=6)
 
     def identify_path(self, path, suffix, selected_system):
         return self if suffix == '.zzp' else None

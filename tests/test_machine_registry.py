@@ -44,7 +44,8 @@ LEGACY_TAB_KEYS = {'sms': 'options_master_system', 'gg': 'options_game_gear', 'g
 DECLINED = {
     # Random long routes: the X68000 plays routes of its own (x68000_scan.long_routes), in its own script format.
     # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
-    'random_routes': {'x68', 'pce'},
+    # The Amiga plays routes of its own too (joystick, mouse and keyboard scripts of amiga_conversion).
+    'random_routes': {'x68', 'pce', 'amiga'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),

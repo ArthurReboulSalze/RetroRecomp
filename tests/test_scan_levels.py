@@ -80,7 +80,7 @@ class ScanLevelTests(unittest.TestCase):
 
     def test_unknown_inputs_are_refused(self):
         with self.assertRaises(ValueError):
-            sl.plan_for('amiga', None)
+            sl.plan_for('atari-st', None)
         with self.assertRaises(ValueError):
             sl.plan_for('md', None, level='maximal')
         self.assertEqual(sl.plan_for('md', None).as_dict()['long_routes'], 0)

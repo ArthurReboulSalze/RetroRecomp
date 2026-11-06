@@ -112,6 +112,7 @@ docs/*
 !docs/X68000.md
 !docs/GAME_BOY_ADVANCE.md
 !docs/PC_ENGINE.md
+!docs/AMIGA.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md
