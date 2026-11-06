@@ -159,9 +159,19 @@ static void refusals(void) {
     RrResload old = make(4, 0);                             /* Control needs ws_Version 5 */
     CHECK(rr_resload_call(&old, 0x34, regs) == RR_RESLOAD_REFUSED && strstr(old.message, "newer slave"));
     CHECK(r.calls[0x18 / 4] == 2 && r.calls[0x5C / 4] == 1);
-    put32(0x7000 + 4, 0); put32(0x7000 + 8, 3); put32(0x7000 + 12, 4);   /* Abort(0, 3, 4) on the stack */
+    /* Abort(success, primary, secondary) at (a7), as the autodoc's synopsis: TDREASON_DOSREAD, AmigaDOS error 103, a name */
+    memcpy(mem + 0x7100, "Game", 5);
+    put32(0x7000, 1); put32(0x7000 + 4, 103); put32(0x7000 + 8, 0x7100);
     regs[15] = 0x7000;
-    CHECK(rr_resload_call(&r, 0x04, regs) == RR_RESLOAD_ABORT && r.abort_reason[1] == 3 && r.abort_reason[2] == 4);
+    CHECK(rr_resload_call(&r, 0x04, regs) == RR_RESLOAD_ABORT && r.abort_reason[0] == 1 && r.abort_reason[1] == 103 &&
+          r.abort_reason[2] == 0x7100);
+    CHECK(strstr(r.message, "could not read the file \"Game\"") && strstr(r.message, "not enough memory"));
+    /* reached with jsr: the return address above the arguments is skipped */
+    put32(0x6FFC, 0x00C50040); regs[15] = 0x6FFC;
+    CHECK(rr_resload_call(&r, 0x04, regs) == RR_RESLOAD_ABORT && r.abort_reason[0] == 1 && r.abort_reason[1] == 103);
+    /* an unknown reason keeps its numbers */
+    put32(0x7000, 99); regs[15] = 0x7000;
+    CHECK(rr_resload_call(&r, 0x04, regs) == RR_RESLOAD_ABORT && strstr(r.message, "reason 99"));
 }
 
 /* A patch list at 0x10000 (labels are offsets from its start), applied to 0x20000. */

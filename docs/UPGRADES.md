@@ -224,6 +224,15 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
+## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
+
+`resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call
+jumps through `rts`, so no return address lies above them); the layer read them one slot too far, so an aborting slave
+showed three meaningless numbers ("the slave ended the program (103, 53452, 16730414)"). It now reads them at `(a7)`
+(skipping a return address when a slave arrived with `jsr`) and says what the slave could not do: "the install could not
+read the file '4DBoxing' (not enough memory, AmigaDOS error 103; resload_Abort reason 1)". **What moves:** the Amiga's game
+stamp (`native/amiga_whdload/rr_resload.c`); no other console.
+
 ## Commodore Amiga: the player's own Kickstart 1.3 (1.7.0)
 
 An install that asks for a Kickstart 1.x (in its slave header or through `resload_LoadKick`) now converts with the player's own
