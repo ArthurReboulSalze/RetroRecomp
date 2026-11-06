@@ -30,6 +30,37 @@ static unsigned char disk1[4096];
 static unsigned char *packed_file, *expected_file;
 static uint32_t packed_size, expected_size;
 
+/* The authored install: what the host lists, in a scrambled order on purpose (the layer sorts). "packed" is only
+   looked up by name. Sizes are the sizes the files report. */
+typedef struct Listed { const char *name; uint32_t size; } Listed;
+static const Listed listed[] = {
+    {"saves/Slot3", 300}, {"main", 18}, {"levels/L2.dat", 20}, {"Disk.1", 4096}, {"saves/slot1", 100},
+    {"levels/deep/x.dat", 5}, {"saves/SLOT2", 200}, {"levels/l1.dat", 10}, {"levels/Deep/y.dat", 6}
+};
+
+static int list_files_cb(void *u, uint32_t index, const char **name, uint32_t *size) {
+    (void)u;
+    if (index >= sizeof listed / sizeof listed[0]) return 0;
+    *name = listed[index].name;
+    *size = listed[index].size;
+    return 1;
+}
+
+/* The player's authored "Kickstart": 512 bytes of pattern, and a log of what the layer asked for. */
+static unsigned char fake_kick[512];
+static uint16_t fake_kick_crc;
+static char kick_log[256];
+static int kick_calls;
+
+static int kickstart_cb(void *u, uint32_t size, uint16_t crc16, const char *name, uint32_t destination) {
+    (void)u;
+    kick_calls++;
+    if (strlen(kick_log) + strlen(name) + 2 < sizeof kick_log) { strcat(kick_log, name); strcat(kick_log, ","); }
+    if (size != sizeof fake_kick || crc16 != fake_kick_crc) return 0;
+    memcpy(mem + destination, fake_kick, sizeof fake_kick);
+    return 1;
+}
+
 static int lookup(void *u, const char *name, const uint8_t **data, uint32_t *size) {
     (void)u;
     if (!strcmp(name, "main")) { *data = file_main; *size = sizeof file_main - 1; return 1; }
@@ -49,7 +80,7 @@ static int save(void *u, const char *name, uint32_t offset, const uint8_t *data,
 static void on_flush(void *u) { (void)u; flushes++; }
 
 static RrResload make(uint16_t version, uint16_t flags) {
-    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush};
+    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, kickstart_cb};
     RrResload r;
     rr_resload_init(&r, &host, 0x100000, version, flags);
     return r;
@@ -275,6 +306,250 @@ static void relocate(void) {
     CHECK(get32(a + 36) == 0 && regs[0] == 48);
 }
 
+static uint16_t crc_of(const unsigned char *data, size_t n) {
+    uint16_t crc = 0;
+    for (size_t i = 0; i < n; i++) {
+        crc ^= data[i];
+        for (int k = 0; k < 8; k++) crc = (crc & 1) ? (uint16_t)((crc >> 1) ^ 0xA001u) : (uint16_t)(crc >> 1);
+    }
+    return crc;
+}
+
+#define EXPMEM 0x80000u
+
+static void kickstart(void) {
+    for (unsigned k = 0; k < sizeof fake_kick; k++) fake_kick[k] = (unsigned char)(k * 13 + 5);
+    fake_kick_crc = crc_of(fake_kick, sizeof fake_kick);
+    uint32_t regs[16] = {0};
+    RrResload r = make(17, 0);
+    r.exp_mem = EXPMEM;
+    r.exp_mem_size = 0x1000;
+    memset(mem + EXPMEM, 0xDD, 0x1000);
+    /* resload_LoadKick with the image the player has */
+    puts_at(0x2000, "34005.a500");
+    regs[0] = sizeof fake_kick; regs[1] = fake_kick_crc; regs[8] = 0x2000;
+    int before = flushes;
+    CHECK(rr_resload_call(&r, 0x68, regs) == RR_RESLOAD_RETURN);
+    CHECK(!memcmp(mem + EXPMEM, fake_kick, sizeof fake_kick) && mem[EXPMEM + sizeof fake_kick] == 0xDD);
+    CHECK(r.kick_loaded && r.kick_size == sizeof fake_kick && r.kick_crc == fake_kick_crc && !strcmp(r.kick_name, "34005.a500"));
+    CHECK(flushes == before + 1);
+    /* a mismatch is refused, names the image asked for, and touches no memory */
+    memset(mem + EXPMEM, 0xDD, 0x1000);
+    regs[0] = sizeof fake_kick; regs[1] = 0xF9E3; regs[8] = 0x2000;
+    RrResload other = make(17, 0);
+    other.exp_mem = EXPMEM;
+    CHECK(rr_resload_call(&other, 0x68, regs) == RR_RESLOAD_REFUSED && !other.kick_loaded);
+    CHECK(strstr(other.message, "512") && strstr(other.message, "F9E3") && strstr(other.message, "34005.a500"));
+    CHECK(other.kick_wanted_size == sizeof fake_kick && other.kick_wanted_crc == 0xF9E3 && other.kick_wanted_count == 1);
+    CHECK(!strcmp(other.kick_wanted_name, "34005.a500") && other.refused_offset == 0x68 && mem[EXPMEM] == 0xDD);
+    regs[0] = 1024; regs[1] = fake_kick_crc;                               /* right CRC-16, wrong size */
+    CHECK(rr_resload_call(&other, 0x68, regs) == RR_RESLOAD_REFUSED);
+    RrResload tiny = make(17, 0);                                          /* ExpMem smaller than the image */
+    tiny.exp_mem = EXPMEM; tiny.exp_mem_size = 256;
+    regs[0] = sizeof fake_kick; regs[1] = fake_kick_crc;
+    CHECK(rr_resload_call(&tiny, 0x68, regs) == RR_RESLOAD_REFUSED && strstr(tiny.message, "ExpMem") && mem[EXPMEM] == 0xDD);
+    RrResload nowhere = make(17, 0);                                       /* the host gave no ExpMem */
+    CHECK(rr_resload_call(&nowhere, 0x68, regs) == RR_RESLOAD_REFUSED && strstr(nowhere.message, "ExpMem"));
+    RrResload old = make(10, 0);                                           /* LoadKick needs ws_Version 11 */
+    old.exp_mem = EXPMEM;
+    CHECK(rr_resload_call(&old, 0x68, regs) == RR_RESLOAD_REFUSED && strstr(old.message, "newer slave"));
+
+    /* the header of a v16+ slave at 0x100000: ws_kickname at 42, ws_kicksize at 44, ws_kickcrc at 48 */
+    uint32_t base = 0x100000;
+    memset(mem + base, 0, 0x400);
+    memcpy(mem + base + 4, "WHDLOADS", 8);
+    put16(base + 42, 0x200); put32(base + 44, sizeof fake_kick); put16(base + 48, fake_kick_crc);
+    puts_at(base + 0x200, "kick34005.A500");
+    RrResload h = make(16, 0);
+    h.exp_mem = EXPMEM;
+    memset(mem + EXPMEM, 0xDD, 0x1000);
+    kick_log[0] = 0;
+    CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_RETURN && h.kick_loaded);
+    CHECK(!memcmp(mem + EXPMEM, fake_kick, sizeof fake_kick) && !strcmp(kick_log, "kick34005.A500,"));
+    CHECK(get16(base + 48) == fake_kick_crc);
+    put16(base + 48, 0xF20B);                                              /* an image the player does not have */
+    memset(mem + EXPMEM, 0xDD, 0x1000);
+    CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_REFUSED && !h.kick_loaded && mem[EXPMEM] == 0xDD);
+    CHECK(strstr(h.message, "512") && strstr(h.message, "F20B") && strstr(h.message, "kick34005.A500"));
+    CHECK(h.kick_wanted_crc == 0xF20B && h.kick_wanted_count == 1);
+    /* table mode (ws_kickcrc = 0xFFFF): the second pair is the player's; the CRC-16 is written back */
+    put16(base + 42, 0x240); put16(base + 48, 0xFFFF);
+    put16(base + 0x240, 0x1111); put16(base + 0x242, 0x280);
+    put16(base + 0x244, fake_kick_crc); put16(base + 0x246, 0x290);
+    put16(base + 0x248, 0xABCD); put16(base + 0x24A, 0x2A0);
+    put16(base + 0x24C, 0);
+    puts_at(base + 0x280, "kickA"); puts_at(base + 0x290, "kickB"); puts_at(base + 0x2A0, "kickC");
+    kick_log[0] = 0;
+    CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_RETURN && h.kick_loaded);
+    CHECK(!strcmp(kick_log, "kickA,kickB,") && !memcmp(mem + EXPMEM, fake_kick, sizeof fake_kick));
+    CHECK(get16(base + 48) == fake_kick_crc && !strcmp(h.kick_name, "kickB") && h.kick_crc == fake_kick_crc);
+    /* a table without the player's image: all are tried in order and named, ws_kickcrc stays 0xFFFF */
+    put16(base + 0x244, 0x2222);
+    put16(base + 48, 0xFFFF);
+    memset(mem + EXPMEM, 0xDD, 0x1000);
+    kick_log[0] = 0;
+    CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_REFUSED && !h.kick_loaded);
+    CHECK(!strcmp(kick_log, "kickA,kickB,kickC,") && get16(base + 48) == 0xFFFF && mem[EXPMEM] == 0xDD);
+    CHECK(h.kick_wanted_count == 3 && !strcmp(h.kick_wanted_name, "kickA") && h.kick_wanted_crc == 0x1111);
+    CHECK(strstr(h.message, "1111 kickA") && strstr(h.message, "2222 kickB") && strstr(h.message, "ABCD kickC"));
+    /* no Kickstart asked for: version below 16, or ws_kicksize 0 */
+    kick_calls = 0;
+    RrResload v15 = make(15, 0);
+    v15.exp_mem = EXPMEM;
+    CHECK(rr_resload_load_slave_kickstart(&v15) == RR_RESLOAD_RETURN && !v15.kick_loaded);
+    put32(base + 44, 0);
+    CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_RETURN && !h.kick_loaded && kick_calls == 0);
+    /* a host without a Kickstart refuses */
+    RrResloadHost bare = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, NULL};
+    RrResload b;
+    rr_resload_init(&b, &bare, base, 17, 0);
+    b.exp_mem = EXPMEM;
+    regs[0] = sizeof fake_kick; regs[1] = fake_kick_crc; regs[8] = 0x2000;
+    CHECK(rr_resload_call(&b, 0x68, regs) == RR_RESLOAD_REFUSED && !b.kick_loaded);
+}
+
+/* A FileInfoBlock at `fib` as the layer fills it. */
+static int fib_is(uint32_t fib, int32_t type, const char *name, uint32_t size) {
+    return (int32_t)get32(fib + 4) == type && !strcmp((const char *)mem + fib + 8, name) && get32(fib + 124) == size &&
+           (int32_t)get32(fib + 120) == type && get32(fib + 116) == 0 && get32(fib + 128) == (size + 511) / 512;
+}
+
+static void examine_and_list(void) {
+    RrResload r = make(17, 0);
+    r.time_days = 8035; r.time_mins = 790; r.time_ticks = 450;
+    uint32_t regs[16] = {0}, fib = 0x9001;                  /* a FIB need not be long aligned */
+    /* Examine of a file */
+    memset(mem + 0x9000, 0xFF, 0x200);
+    puts_at(0x2000, "main");
+    regs[8] = 0x2000; regs[9] = fib;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && regs[0] == 0xFFFFFFFFu && regs[1] == 0);
+    CHECK(fib_is(fib, -3, "main", 18) && get32(fib) == 0);
+    CHECK(get32(fib + 132) == 8035 && get32(fib + 136) == 790 && get32(fib + 140) == 450);
+    CHECK(mem[fib + 144] == 0 && get16(fib + 224) == 0 && get16(fib + 226) == 0 && mem[fib + 259] == 0);
+    CHECK(mem[fib - 1] == 0xFF && mem[fib + 260] == 0xFF);                  /* exactly 260 bytes are written */
+    CHECK(mem[fib + 8 + 5] == 0 && mem[fib + 8 + 107] == 0);                /* the name field is cleared past the name */
+    /* a file in a folder, spelled differently from the request */
+    puts_at(0x2000, "SAVES/slot3");
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, -3, "Slot3", 300));
+    /* Examine of a folder (implied by the names), found without regard to case, named as the install spells it */
+    puts_at(0x2000, "levels");
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, 2, "levels", 0) && get32(fib) != 0);
+    puts_at(0x2000, "LEVELS/deep");
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, 2, "Deep", 0));   /* "Deep" sorts before "deep" */
+    puts_at(0x2000, "");
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, 2, "", 0));       /* the data folder */
+    /* absent: the error, with or without WHDLF_NoError */
+    puts_at(0x2000, "levels/absent");
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && regs[0] == 0 && regs[1] == RR_DOS_OBJECT_NOT_FOUND);
+    CHECK(r.io_error == RR_DOS_OBJECT_NOT_FOUND);
+    RrResload strict = make(17, 0x2);
+    CHECK(rr_resload_call(&strict, 0x78, regs) == RR_RESLOAD_RETURN && regs[1] == RR_DOS_OBJECT_NOT_FOUND);
+    puts_at(0x2000, "lev");                                                  /* a prefix of a name is not a folder */
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && regs[0] == 0);
+    RrResload old = make(14, 0);                                             /* Examine needs ws_Version 15 */
+    CHECK(rr_resload_call(&old, 0x78, regs) == RR_RESLOAD_REFUSED && strstr(old.message, "newer slave"));
+
+    /* ExNext over a folder of three files: sorted without regard to case, then the end, again and again */
+    puts_at(0x2000, "saves");
+    regs[8] = 0x2000; regs[9] = fib;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, 2, "saves", 0));
+    uint32_t next[16] = {0};
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0xFFFFFFFFu && next[1] == 0 && fib_is(fib, -3, "slot1", 100));
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0xFFFFFFFFu && fib_is(fib, -3, "SLOT2", 200));
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0xFFFFFFFFu && fib_is(fib, -3, "Slot3", 300));
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_NO_MORE_ENTRIES);
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_NO_MORE_ENTRIES);
+    CHECK(fib_is(fib, -3, "Slot3", 300));                                    /* the failed call left the FIB alone */
+    RrResload strict2 = make(17, 0x2);                                       /* the end is not an error that stops the slave */
+    CHECK(rr_resload_call(&strict2, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0);
+    /* folders among the entries; the data folder; two walks at once */
+    uint32_t fib2 = 0xA000;
+    puts_at(0x2000, ""); regs[9] = fib;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN);
+    puts_at(0x2100, "levels"); regs[8] = 0x2100; regs[9] = fib2;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN);
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib, -3, "Disk.1", 4096));
+    next[8] = fib2;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib2, 2, "Deep", 0));
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib, 2, "levels", 0));
+    next[8] = fib2;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib2, -3, "l1.dat", 10));
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib, -3, "main", 18));
+    next[8] = fib2;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib2, -3, "L2.dat", 20));
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_NO_MORE_ENTRIES);
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib, 2, "saves", 0));
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_NO_MORE_ENTRIES);
+    /* ExNext on the FIB of a file, or of nothing, is an error */
+    puts_at(0x2000, "main"); regs[8] = 0x2000; regs[9] = fib;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN);
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_OBJECT_WRONG_TYPE);
+    memset(mem + 0xB000, 0, 260);
+    next[8] = 0xB000;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0 && next[1] == RR_DOS_OBJECT_WRONG_TYPE);
+    /* the walk of a copy of a FIB goes on from where it was */
+    puts_at(0x2000, "saves"); regs[8] = 0x2000; regs[9] = fib;
+    CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN);
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN);
+    memcpy(mem + 0xB000, mem + fib, 260);
+    next[8] = 0xB000;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(0xB000, -3, "SLOT2", 200));
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && fib_is(fib, -3, "SLOT2", 200));
+    /* opening the same folders again and again reuses their walks */
+    for (int k = 0; k < 40; k++) {
+        char folder[32];
+        snprintf(folder, sizeof folder, "%s", k % 3 == 0 ? "saves" : k % 3 == 1 ? "levels" : "levels/deep");
+        puts_at(0x2000, folder); regs[8] = 0x2000; regs[9] = fib;
+        CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN);
+    }
+    next[8] = fib;
+    CHECK(rr_resload_call(&r, 0x7C, next) == RR_RESLOAD_RETURN && next[0] == 0xFFFFFFFFu && fib_is(fib, -3, "slot1", 100));
+
+    /* ListFiles: the names of the files of a folder, folders skipped, each followed by a 0 */
+    memset(mem + 0xC000, 0xEE, 0x100);
+    puts_at(0x2000, "levels");
+    regs[0] = 64; regs[8] = 0x2000; regs[9] = 0xC000;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 2 && regs[1] == 0 && r.io_error == 0);
+    CHECK(!memcmp(mem + 0xC000, "l1.dat\0L2.dat\0", 14) && mem[0xC00E] == 0xEE);
+    puts_at(0x2000, "");                                                     /* the data folder: files only */
+    regs[0] = 64;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 2 && !memcmp(mem + 0xC000, "Disk.1\0main\0", 12));
+    puts_at(0x2000, "saves");
+    regs[0] = 64;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 3 && !memcmp(mem + 0xC000, "slot1\0SLOT2\0Slot3\0", 18));
+    /* a buffer that holds only part of the names: filled as far as possible, the error says why */
+    puts_at(0x2000, "levels");
+    memset(mem + 0xC000, 0xEE, 0x100);
+    regs[0] = 8;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 1 && regs[1] == RR_DOS_BUFFER_OVERFLOW);
+    CHECK(r.io_error == RR_DOS_BUFFER_OVERFLOW && !memcmp(mem + 0xC000, "l1.dat\0", 7) && mem[0xC007] == 0xEE);
+    regs[0] = 14;                                                            /* exactly the room it needs */
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 2 && regs[1] == 0);
+    /* a folder that is not there, a file instead of a folder; WHDLF_NoError ends the program */
+    puts_at(0x2000, "nowhere"); regs[0] = 64;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 0 && regs[1] == RR_DOS_OBJECT_NOT_FOUND);
+    puts_at(0x2000, "main"); regs[0] = 64;
+    CHECK(rr_resload_call(&r, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 0 && regs[1] == RR_DOS_OBJECT_WRONG_TYPE);
+    puts_at(0x2000, "nowhere"); regs[0] = 64;
+    CHECK(rr_resload_call(&strict, 0x14, regs) == RR_RESLOAD_ABORT && strstr(strict.message, "nowhere"));
+    /* a host with no listing: only the data folder exists, and a file is still found by name */
+    RrResloadHost plain = {NULL, rd, wr, lookup, save, NULL, on_flush, NULL, NULL};
+    RrResload p;
+    rr_resload_init(&p, &plain, 0x100000, 17, 0);
+    puts_at(0x2000, "main"); regs[8] = 0x2000; regs[9] = fib;
+    CHECK(rr_resload_call(&p, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, -3, "main", 18));
+    puts_at(0x2000, ""); regs[0] = 64; regs[9] = 0xC000;
+    CHECK(rr_resload_call(&p, 0x14, regs) == RR_RESLOAD_RETURN && regs[0] == 0 && regs[1] == 0);
+}
+
 static unsigned char *read_all(const char *path, uint32_t *size) {
     FILE *f = fopen(path, "rb");
     if (!f) return NULL;
@@ -312,6 +587,8 @@ int main(int argc, char **argv) {
     patches();
     patch_segments();
     relocate();
+    kickstart();
+    examine_and_list();
     if (argc > 2) {
         packed_file = read_all(argv[1], &packed_size);
         expected_file = read_all(argv[2], &expected_size);

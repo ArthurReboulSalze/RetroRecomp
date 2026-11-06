@@ -33,6 +33,9 @@ typedef struct RrAmigaGame {
     const RrAmigaFile *files; unsigned file_count;     /* the install's data files, names relative to its data folder */
     const char *save_dir;     /* UTF-8 folder where resload_SaveFile writes (and whose files replace the install's), NULL: none */
     int ntsc;
+    /* The player's own Kickstart image (normalised, 256 KiB), for the installs that ask for one; NULL: none. The session copies
+     * it to ExpMem when the slave's request (size, CRC-16) matches it; it is never written anywhere else. */
+    const uint8_t *kickstart; uint32_t kickstart_size;
 } RrAmigaGame;
 
 typedef struct RrAmigaSession RrAmigaSession;
@@ -55,6 +58,10 @@ const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *heigh
 /* The union of the display windows the game opened so far (DIWSTRT/DIWSTOP, from vAmiga's viewport tracking), in picture
  * columns and rows: what the player shows instead of the whole overscan picture. 0 while no window was opened. */
 int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h);
+/* The Kickstart the install runs with: 1 and its size and CRC-16 once loaded (slave header or resload_LoadKick), else 0. Its
+ * instructions run on the interpreter (counted apart: rr_amiga_kickstart_interpreted_count, included in the total). */
+int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint16_t *crc16);
+uint64_t rr_amiga_kickstart_interpreted_count(const RrAmigaSession *s);
 /* The sound of the last frame: interleaved stereo int16 at RR_AMIGA_AUDIO_RATE; returns frames copied. */
 size_t rr_amiga_audio(RrAmigaSession *s, int16_t *pcm, size_t capacity_frames);
 

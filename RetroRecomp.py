@@ -20,6 +20,7 @@ PROFILES = available_profiles()
 _PATH_HELP = {
     'ng_bios': 'User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.',
     'qsound_rom': 'Capcom CPS-1.5 and CPS-2 (QSound sets): your own DSP ROM, dl-1425.bin or the qsound.zip that holds it; otherwise use the path saved in Options.',
+    'amiga_kickstart': 'Commodore Amiga: your own Kickstart, one image or a folder of images (needed only by the installs that ask for one); otherwise use the path saved in Options.',
     'x68_ipl': 'X68000: your own IPL ROM.',
     'x68_cgrom': 'X68000: your own font ROM (CGROM).',
     'x68_ram': 'X68000 RAM in MiB.',
