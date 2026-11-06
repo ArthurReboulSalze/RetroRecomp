@@ -105,7 +105,7 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
         profile = get_profile('gba')
         self.assertIn(profile, ALL_PROFILES)
-        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('experimental', False, 'pending'))
+        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('experimental', False, 'witnessed'))
         self.assertIn(profile, PROFILES)
         self.assertEqual(profile.archived_rom_limits, (('.gba', 32 * 1024 * 1024),))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in profile.cpus], [('arm7tdmi', 'main', 'instructions')])

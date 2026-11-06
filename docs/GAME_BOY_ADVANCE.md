@@ -1,7 +1,7 @@
 # Game Boy Advance (experimental, opening in 1.7.0)
 
-Status: **experimental**. The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game with your own
-BIOS: native code from what the game was seen to run, a counted interpreter for the rest, saves, quick states and the host kit's menus. The
+Status: **experimental**. The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game (a Linux one on a Debian 13 PC, see the
+witness below) with your own BIOS: native code from what the game was seen to run, a counted interpreter for the rest, saves, quick states and the host kit's menus. The
 machine is listed by an installation that carries its native files (`GAME_BOY_ADVANCE.available()`), like the PC Engine; there is no
 developer switch. Experimental means what it means for the other machines: the evidence below is a first panel, not a qualification, and
 leaving the status is the owner's own decision.
@@ -151,8 +151,8 @@ interpreted (`unresolved_reasons`). The remaining ones have no copy in the cartr
 the cartridge: they can only live in the player's private conversion cache, never in the shared paths library nor in the repository (the paths keep numbers only). That
 is the next step of the plan for this cartridge and is not built.
 
-What this table does not say: gameplay validation (none), hardware fidelity beyond what the authored test ROMs check, physical latency, the Linux player (not built or
-run) and any cartridge outside the six.
+What this table does not say: gameplay validation (none), hardware fidelity beyond what the authored test ROMs check, physical latency, the Linux player (built by the
+witness below, never played) and any cartridge outside the six.
 
 ## Multi-language cartridges: the in-game language and the save (6 November 2026)
 
@@ -170,6 +170,33 @@ and a cartridge that does not store it writes the same bytes whatever was chosen
 text of any game, or that a save from real hardware is read back: the saves here were written by the player. On the restarted Sonic Advance 2 the demo that
 follows the title ran 1.09 million instructions on the interpreter in 3,000 frames (code that the two scenarios of the conversion never reached; counted, reported, and
 learned by the next conversion).
+
+## The Linux witness of the six cartridges (6 November 2026)
+
+One pass, on a Debian 13 PC (Python 3.13, GCC 14, Ninja), of the six cartridges of the panel through `batch` from the tree to merge: the files
+of the commit `31e39aee`, taken with `git archive` (no leftover of earlier runs), with `linux = 'witnessed'` as the only change (the gate of
+`platforms.require_backend` refuses a conversion on Linux while the profile says `pending`). The commit after it changes this page only, so the merged
+tree equals the witnessed one except for that flag and this page. The run started from an empty library of observed entries, with three passes at most, and
+took 316 minutes for the six, one at a time.
+
+| Cartridge | Native = interpreter, boot and generic | Picture hash and guest cycles equal to the Windows run | Interpreted instructions, boot / generic (Debian) | Windows panel |
+|---|---|---|---|---|
+| Pokémon Emerald | yes | yes, both scenarios | 0 / 0 | 0 / 0 |
+| Mario Kart Super Circuit | yes | yes, both | 0 / 0 | 0 / 0 |
+| The Minish Cap | yes | yes, both | 972 / 1,450,569 | 0 / 0 |
+| Pokémon Mystery Dungeon Red | yes | yes, both | 0 / 0 | 0 / 0 |
+| Super Mario Advance 2 | yes | yes, both | 0 / 0 | 0 / 0 |
+| Golden Sun | yes | yes, both | 43,087 / 38,805,055 | 36,339 / 17,740,494 |
+
+What it says: on a second operating system, a second compiler and the Linux linker, the generated code of six cartridges equals the engine's own
+interpreter on the final picture, the guest's cycle count and the state hashes at the first VBlank after the limit, and the final picture hash and the
+cycle count equal the Windows ones in the 12 scenario runs. Two things were found on the way: GNU ld needs the engine's four mutually recursive static
+archives in one `--start-group` (both CMake templates now have it, for non-Windows builds only; the Windows build is unchanged), and the gate above.
+
+What it does not say. The interpreted counts of the Minish Cap and Golden Sun differ from the Windows panel: the Windows runs started from entries observed in
+earlier runs, the Debian pass from none and stopped after three passes, so the two counts are not a comparison of the platforms and are not proven to be
+anything else either; the checks above hold with them (the interpreter is counted, as always). The Linux player was built and packed by the same pass but
+nobody played it and nothing was timed: gameplay validation, hardware fidelity and physical latency are untouched by this witness.
 
 ## Independent evidence (stage 5)
 
@@ -209,7 +236,7 @@ pacing, the controls, the menus, the quick state and the sound.
 | Battery | SRAM, Flash or EEPROM, the engine's raw file in `datas/saves`, written at most every two seconds when it changed and at exit |
 | Reset | a power cycle: the machine is built again in the same process (the window is created again) |
 | Honesty | the interpreter's instruction count and the engine's coverage report (with the addresses it ran), in `datas/learning` |
-| Not yet | the RTC and the sensors beyond what the engine does, the box-art icon on a first conversion without the network, Linux, compression of the executable, the gameplay feedback record |
+| Not yet | the RTC and the sensors beyond what the engine does, the box-art icon on a first conversion without the network, compression of the executable, the gameplay feedback record; Linux: the conversion is witnessed (below), the Linux player was never played |
 
 Checked on the first game (a hidden window, no sound device, development measurements): the player's picture at frame 300 is
 pixel for pixel the probe host's; a quick state saved at frame 200 and loaded at frame 260 gives the same picture 60 frames later;
@@ -252,6 +279,6 @@ measures unclaimed; interpreted instructions are counted per CPU, in one unit.
 | 4. Host | the machine's player on the common host kit: pad, picture, sound, quick states, saves, counters | G5, G6, G7 |
 | 5. Independent evidence | vector self-test and authored hardware tests (done, see above); comparison with an independent emulator (not done) | G10, G11 |
 | 6. Panel and fixes | a small panel chosen by risk, general fixes only | G8, G9, G12 |
-| 7. Release candidate | documents, release check, Linux witness (the Debian pass of the tree to merge, see the section below when it is run) | G13 |
+| 7. Release candidate | documents, release check, Linux witness (the Debian pass of the tree to merge, see [the section](#the-linux-witness-of-the-six-cartridges-6-november-2026)) | G13 (`P`, done 6 November 2026) |
 
 Leaving the experimental status is the owner's own decision after a very high bar of evidence ([QUALIFICATION.md](QUALIFICATION.md)).

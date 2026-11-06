@@ -37,7 +37,8 @@ class GameBoyAdvanceProfile(SystemProfile):
     quick_state_family = 'gba'
     host_adapter = "adapters/rrhk_gba.c"
     capabilities = Capabilities(battery=True)
-    linux = 'pending'
+    # Witnessed on a Debian 13 PC on 6 November 2026 (six cartridges, docs/GAME_BOY_ADVANCE.md); the player there is not played.
+    linux = 'witnessed'
     feedback_kinds = frozenset({21})
     default_frames = 3600
     quick_frames = 1800
