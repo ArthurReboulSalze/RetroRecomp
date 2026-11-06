@@ -153,7 +153,7 @@ defensible denominator of total cycles. The report gives the counts themselves, 
 - **CPU-side changes we carry on the pinned runtime** (CPU fidelity of the translated code only; none says anything about
   hardware fidelity, gameplay or latency):
   - writable-memory code executed one instruction at a time and counted: **1.6.4**, with the `gb` game stamp moving
-    ([UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code),
+    ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-164-writable-memory-code),
     [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164));
   - the return of generated calls and jumps to the dispatch loop (a bounded host stack for a loop of 65,535 guest
     calls): **0.22.0**, 9 October 2026; the interrupt-bracketed sprite-DMA helper: **0.23.0**, 10 October 2026; live
@@ -207,7 +207,7 @@ follows `EI`, and the pinned runtime set it when `EI` itself completed. In ordin
 case (`tools/gameboy_ei_check.py`) gave the console's answers on all eight cases before and after. It was visible in the IME state between the two
 instructions, and in the lockstep comparison, whose one-step loop took an interrupt right after an `EI` (Super Mario Land, boot, `EI` at `$042C`)
 where a normal run did not. The rule is now one for the interpreter, the generated code, the RAM executors and the upstream stub: the pending flag
-goes 0, 1 (`EI` just ran), 2, then IME, promoted at the start of each tick, before the interrupt test ([UPGRADES.md](UPGRADES.md#game-boy-ei-enables-ime-one-instruction-later-167)).
+goes 0, 1 (`EI` just ran), 2, then IME, promoted at the start of each tick, before the interrupt test ([UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-ei-enables-ime-one-instruction-later-167)).
 
 The one-instruction RAM executor matches all 51,654 vectors it takes; the RAM dispatch, which tries the store helper, the upstream stub and then
 the executor, matches all 58,153 it takes and leaves 638 to an interpreter session: `STOP`, `HALT` and the eight `RST`, the documented limit of the
@@ -217,7 +217,7 @@ executors. A vector whose final value is altered by one is caught on all three p
 
 - [GAME_BOY.md](GAME_BOY.md): the machine, the host, scan levels, validation budgets and limits.
 - [GAME_BOY_LOG.md](GAME_BOY_LOG.md): the dated journal with the figures of each campaign.
-- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code): what the 1.6.4 executors change for exports and
+- [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-164-writable-memory-code): what the 1.6.4 executors change for exports and
   stamps.
 - [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164): the pin, the scope of the counts, and the checks.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md): how entries are kept, shared and requalified.

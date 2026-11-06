@@ -356,8 +356,9 @@ class DemoBackground:
 
 
 class CreditsDemo:
-    def __init__(self, owner, repositories):
+    def __init__(self, owner, repositories, notes=None):
         self.owner, self.repositories = owner, repositories
+        self.notes = dict(notes or {})   # machine name -> key of the line under it
         self.tr, self.font = owner.tr, owner.ui_font
         self.closed = False
         self.timer = None
@@ -540,8 +541,8 @@ class CreditsDemo:
                           font=('Consolas',10),tags='credit')
             _,used = text(system.upper(),y+16,15,WHITE,True)
             y += used+34
-            if system == 'Sharp X68000':
-                _,used = text(self.tr('credits_x68_status'),y,9)
+            if system in self.notes:
+                _,used = text(self.tr(self.notes[system]),y,9)
                 y += used+15
             for repository,url,role in repositories:
                 item,used = text(repository,y,11,GOLD)
@@ -560,7 +561,7 @@ class CreditsDemo:
         c.create_line(left,top,left+44,top,fill=GOLD,width=2,tags='credit')
         _,used = text(self.tr('credits_own_title'),y+16,15,WHITE,True)
         y += used+30
-        for key in ('credits_own_all','credits_own_snes','credits_own_68k'):
+        for key in ('credits_own_all','credits_own_snes','credits_own_68k','credits_own_pce'):
             # The consoles (before the colon) in gold on their own line, what was done below.
             label,colon,rest = self.tr(key).replace('：',':').partition(':')
             if colon:

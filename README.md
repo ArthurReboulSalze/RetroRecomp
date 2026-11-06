@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.8-d4a737" alt="Release version 1.6.8">
+  <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
   <img src="https://img.shields.io/badge/console_profiles-11-626262" alt="Eleven console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -97,19 +97,16 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 | Machine | Stage |
 | --- | --- |
 | Game Boy Advance | in development |
-| Commodore Amiga 500 (WHDLoad installs without Kickstart), then Amiga 1200 | experimental profile in the developer tree, not in a release; [scope](docs/AMIGA.md) |
+| Commodore Amiga 500 (the Amiga 1200 later) | in development |
 
-Planned after them: Atari ST, Nintendo 64, Sega Saturn and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.6.8.** An older library follows the pinned engine and SDL sources again instead of refusing every conversion; the
-Game Boy starts closer to the console after its boot ROM (144 of 152 public test ROMs pass); the Mega Drive 68000 bus order follows
-independent vectors; Secret of Mana and R-Type lose the frame cost they had gained in 1.6.7; a progress bar per console shows its
-qualification. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; Capcom CPS-2 and the PC Engine open as experimental machines (your own key file and QSound DSP ROM for the CPS-2); players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

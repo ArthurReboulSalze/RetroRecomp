@@ -8,7 +8,9 @@ Everything the engine does is driven from here, through its own documented inter
 * the game itself (native/pce_main.c, pce_machine.cpp and the host kit) is built with the pinned engine as a CMake
   subproject (`pce-runtime` and `pce_add_native_module`), in the game's project folder.
 
-No engine source is patched. The engine refuses what it does not model (an unsupported I/O access faults), and the
+No engine source is patched. The engine names the object library of a module after a 64-digit hash, and Visual Studio
+writes `<name>.dir/Release/<name>.lib` below the build folder (166 characters): the game compiles the module's sources in an
+object library of its own short name instead (`game_cmake`), so a deep application folder still links. The engine refuses what it does not model (an unsupported I/O access faults), and the
 converter reports that refusal; it never hides it.
 """
 from __future__ import annotations
@@ -145,10 +147,17 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set(PCE_BUILD_DESKTOP OFF CACHE BOOL "" FORCE)',
         f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)',
         module_line,
+        # The engine's own target (named after a SHA-256, 75 characters) validates the manifest and lists the sources; it is
+        # never built. Its object folder and library (166 characters under the build folder) passed Windows' 260-character
+        # limit in a deep application folder (LNK1104), so the sources are compiled in an object library with a short name.
+        'get_target_property(PCE_MODULE_SOURCES ${PCE_MODULE} SOURCES)',
+        'add_library(pce_module OBJECT ${PCE_MODULE_SOURCES})',
+        'target_link_libraries(pce_module PUBLIC pce-runtime)',
+        'set_target_properties(pce_module PROPERTIES CXX_EXTENSIONS OFF)',
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
         f'add_executable(game pce_main.c pce_machine.cpp {kit} console16_state.c retro_menu.c',
-        '  $<TARGET_OBJECTS:${PCE_MODULE}>)',
+        '  $<TARGET_OBJECTS:pce_module>)',
         'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
         'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
         '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',

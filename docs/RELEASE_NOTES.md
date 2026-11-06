@@ -1,24 +1,144 @@
-# RetroRecomp v1.6.9 — The Sharp X68000 is supported
+# RetroRecomp v1.6.9 — The Sharp X68000 and the QSound boards are supported; Capcom CPS-2 and the PC Engine open as experimental machines
 
-- **Sharp X68000: supported.** On 5 November 2026 the owner played five more converted games (Double Target, Fancy Qix, Twins, Danger
-  Area and Pac-Land, drawn at random from his collection) and decided that it is no longer experimental. The profile says `supported`, the
-  conversion report writes it, and the window (the options note, the credits line and the scope of the sharing) no longer calls the
-  machine experimental, in the eight languages. It stands on a panel of 21 named games converted on Windows and on a Debian 13 PC with the same
-  CPU, memory, picture and sound hashes, no interpreted instruction on the routes run, the compressed copy matching the fresh reference, and a quick
-  state resumed in a fresh process. It does not say exact hardware, complete gameplay or physical latency: the independent CPU evidence and the
-  hardware evidence stay partial (22 vectors of undefined decimal arithmetic out of 2,895; MAME compared on five games, the sound not compared),
-  as they do for the other supported machines. Scope: floppy games (DIM, XDF, a standard D88 and sets of up to ten disks), no hard-disk images; the few
-  games that play only through an external Roland MIDI module run silent and the report says so; the screen contrast of the system port is a known
-  difference with MAME; the machine stays local (no shared paths, nothing on the leaderboard). Only the X68000 game stamp moves: an export of 1.6.8
-  is converted again when it is upgraded, and no picture or sound changes
-  ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-profile-is-supported-169), [QUALIFICATION.md](QUALIFICATION.md#sharp-x68000-scope-and-follow-ups-at-the-exit-5-november-2026)).
-- **The X68000 shares its paths, in both directions.** What a conversion discovers is sent as numbers about your own disks and your own IPL (never a byte of
-  either) and the paths other players found are taken as hints before the first pass, as the CPS-1 does: the base's withdrawable development tier, a path qualified only
-  for the engine revision that validated it, the whole sharing withdrawn by one line. On the proof game, 34,740 received instructions guide the first pass; the CPU,
-  RAM, picture and sound hashes of the three routes are the same as without them. The X68000 keeps its full scan when paths exist (it finds its mouse and
-  keyboard routes by replaying them), so a conversion is not shortened by the base. A game of an IPL that differs from the sender's keeps the disk paths and ignores the
-  IPL ones. **The game stamp of all nine consoles moves** (the exchange and the batch code are inputs of every console): every export of 1.6.8 is converted again
-  once when it is upgraded ([UPGRADES.md](UPGRADES.md#sharp-x68000-the-paths-travel-both-ways-169)).
+- **Sharp X68000: supported.** On 5 November 2026 the owner played five more
+  converted games (Double Target, Fancy Qix, Twins, Danger Area and Pac-Land,
+  drawn at random from his collection) and decided that it is no longer
+  experimental. The profile says `supported`, the conversion report writes it, and
+  the window (the options note, the credits line and the scope of the sharing) no
+  longer calls the machine experimental, in the eight languages. It stands on a
+  panel of 21 named games converted on Windows and on a Debian 13 PC with the same
+  CPU, memory, picture and sound hashes, no interpreted instruction on the routes
+  run, the compressed copy matching the fresh reference, and a quick state resumed
+  in a fresh process. It does not say exact hardware, complete gameplay or physical
+  latency: the independent CPU evidence and the hardware evidence stay partial (22
+  vectors of undefined decimal arithmetic out of 2,895; MAME compared on five
+  games, the sound not compared), as they do for the other supported machines.
+  Scope: floppy games (DIM, XDF, a standard D88 and sets of up to ten disks), no
+  hard-disk images; the few games that play only through an external Roland MIDI
+  module run silent and the report says so; the screen contrast of the system port
+  is a known difference with MAME.
+- **The X68000 shares its paths, in both directions.** What a conversion
+  discovers is sent as numbers about your own disks and your own IPL (never a byte
+  of either), and the paths other players found are taken as hints before the first
+  pass, as the CPS-1 does: the base's withdrawable development tier, a path
+  qualified only for the engine revision that validated it, the whole sharing
+  withdrawn by one line. On the proof game, 34,740 received instructions guide the
+  first pass, and the CPU, RAM, picture and sound hashes of the three routes are the
+  same as without them. The X68000 keeps its full scan when paths exist (it finds
+  its mouse and keyboard routes by replaying them), so the base does not shorten a
+  conversion. A game of an IPL that differs from the sender's keeps the disk paths
+  and ignores the IPL ones.
+- **The QSound boards of the CPS-1 (CPS-1.5) are supported.** On 5 November 2026
+  the owner played The Punisher, Cadillacs and Dinosaurs and Warriors of Fate
+  and took the 18 sets out of the tier they were in since 1.6.7. A report says `completed` and
+  `board_tier: supported`; the code, the pictures and the sound of an export of 1.6.8
+  do not change. They still need your own QSound DSP ROM (`dl-1425.bin`, or the
+  `qsound.zip` that holds it) chosen in Options → Capcom CPS-1, and the DSP16 is
+  still a high-level model after MAME's, not a run of the DSP16 program.
+- **Capcom CPS-2 opens as an experimental machine.** It is the 1993 to 2004 arcade
+  board (a 16 MHz 68000 with an encrypted program, an object chip of its own and the
+  QSound sound board), converted by the pipeline of its elder board. Its games need the key file of your
+  own romset (`ssf2.key`, never supplied) and your own QSound DSP ROM; a set
+  without its key is refused by name, and the key never appears in a report. Eight
+  sets of the panel convert in 100 to 145 seconds, with executables of 17.8 to
+  29.8 MiB: 0 interpreted 68000 and Z80 instructions on both routes, the compressed
+  copy equal to the reference, a quick state continued in a fresh process. The
+  owner played the eight and they work; that is a play trial and not a decision to
+  leave the experimental status. The board runs at the speed MAME models (slowed by
+  0.7375 for waitstates MAME does not emulate), which is a working model and not a
+  measurement of the hardware. It takes no path from the shared base and gives none.
+- **The PC Engine (TurboGrafx-16) opens as an experimental machine.** HuCard dumps
+  (`.pce`, or a ZIP holding one) become a standalone Windows game on the
+  pcenginerecomp engine, with two players, quick states and the host kit's window and
+  controls. On a first panel of ten real HuCards, played on two routes of 3,600
+  frames each: eight run native on the routes played (0 interpreted instructions,
+  0 guard misses, per-frame CPU, RAM, picture and sound traces equal to the
+  interpreted reference, the compressed copy equal, a quick state resumed in a
+  fresh process); Street Fighter II' Champion Edition is partly native (71.7
+  million instructions native against 28.6 million interpreted on its attract
+  route, counted in the report, because it reaches the engine's bound of 65,536
+  instruction identities); a SuperGrafx game is refused because its picture never
+  appears. "Native" here means every instruction that ran, on the routes played;
+  code the routes did not reach stays interpreted and counted. The owner played
+  eight HuCards and they work (the exports played came from a slightly older tree
+  than the released one): a play trial, not an exit from the experimental status.
+- **Master System and Game Gear.** Two defects of the optional "functions" engine
+  found by a panel of twelve games are fixed: a `HALT` behind a `DD` or `FD` prefix
+  (it made the C build of Shining Force II fail), and a routine that reads the data
+  after its `CALL` and returns through another address than the one pushed (each
+  call site now checks it, at the cost of one more call per site). The 15 games of
+  the 1.6.4 batch give the same reference match as in 1.6.7. Shining Force II now
+  builds but still differs from the reference from frame 15, and one divergence of
+  Streets of Rage (a `RET` across a chain of tail jumps) is not solved; the default
+  banked engine is untouched. The report names the mapper, the video chip and the
+  sound chip as devices (none runs a program, none claims hardware fidelity) and the
+  routes whose picture stops changing early. The owner played Sonic The Hedgehog and
+  Wonder Boy III on the Master System, and Sonic The Hedgehog and Super Columns on the
+  Game Gear.
+- **Game Boy and Super Nintendo.** The owner played Link's Awakening and Kirby's
+  Dream Land, and Super Mario World and A Link to the Past, on 5 November 2026
+  (0 interpreted instructions on the tested routes). On the Game Boy, the line that
+  counts the instructions run one by one now names the `0xFF00-0xFF7F` range (the
+  hardware registers) instead of "high memory", in the eight languages; the
+  count itself does not change.
+- **Players 3 and 4, and the keyboard of a computer.** Gamepad Quit and Restart,
+  and the trigger speed controls, are watched on player 1's pad only: on a
+  two-player console too, player 2 holding Start and Select no longer restarts or
+  quits the game. A player whose pad column an adapter leaves empty gets player 1's
+  buttons, and players 3 and 4 of a board that has them get keys of their own
+  ([CONTROLS.md](CONTROLS.md#players-3-and-4)). On a computer, a row of the F2 page,
+  **Keyboard (Ctrl+Alt+K): game controls / computer only**, hands the whole keyboard
+  to the computer, kept per game.
+- **Smaller uploads.** An upload to your account now sends only the paths the local
+  base does not already hold for the same ROM; a game with nothing new sends no
+  record.
+- **Credits.** The credits page names the projects the CPS-2 and the PC Engine
+  build on (marked experimental), and already those of the Commodore Amiga
+  (vAmiga and its 68000 core Moira, by Dirk W. Hoffmann) and the Game Boy Advance
+  (gbarecomp and arm-recomp-core), marked as in preparation: neither machine is in
+  the converter yet.
+- **Under the hood.** The generator of native code that the X68000 used for
+  the 68000 instructions it runs from RAM is a shared module, so another computer can
+  reuse it; on three games the 120 generated files are byte for byte the same.
+
+**Speed.** Measured on a quiet PC against 1.6.8, one pinned core, nine games:
+eight between 0.96 and 1.01 of their 1.6.8 time per frame, within the noise of the
+method; R-Type on the X68000 at 1.03, which a run twice as long shows to be a start
+about 70 ms longer, not a cost per frame (cause not found yet;
+[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). Host time only. The CPS-1 and
+the QSound boards now test the board kind on every bus access and the CPS-2's
+priority plane on every drawn tile pixel; the pictures and sounds are identical and
+the cost was not measured.
+
+These are native-code and CPU-fidelity changes, new experimental machines and
+play trials by the owner; none of them is a measure of hardware fidelity, complete
+gameplay or physical latency, and the interpreter fallback is still counted and
+shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.6.9 moves the game stamp and the host stamp of
+all nine earlier consoles (no build stamp), so every export of 1.6.8 is converted
+again once when it is upgraded; a game the shared base knows still starts from its
+qualified paths with the quick check. Only the quick-state keys of the CPS-1 and the
+QSound boards move: their F8/F9 states of 1.6.8 are refused cleanly, with a message
+(nothing is lost but the state). The Mega Drive, Super Nintendo, Neo Geo, NES and
+X68000 states of 1.6.8 still load. Cartridge saves (battery SRAM, EEPROM, memory
+cards) are kept; a save the new export cannot use is set aside and never crashes or
+blocks the game. Exports older than 1.6.8 are converted in full. The details and the
+evidence are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
 
 # RetroRecomp v1.6.8 — An older library follows the pinned sources again, the Mega Drive 68000 and the Game Boy start closer to the console, the Super Nintendo ROM read loses its division
 
@@ -320,7 +440,7 @@ state); the Master System, Game Gear and Game Boy have no such key. Cartridge
 saves (battery SRAM, EEPROM, memory cards) are kept; a save the new export cannot
 use is set aside and never crashes or blocks the game. Exports older than 1.6.6
 are converted in full. The details and the evidence are in
-[UPGRADES.md](UPGRADES.md#exports-of-166-in-167).
+[UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#exports-of-166-in-167).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows

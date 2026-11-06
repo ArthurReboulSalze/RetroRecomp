@@ -71,7 +71,32 @@ UPSTREAM_CREDITS = (
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
         ('libretro/px68k-libretro', 'https://github.com/libretro/px68k-libretro', 'credits_x68_reference'),
     )),
+    ('Capcom CPS-2', (
+        ('mamedev/mame', 'https://github.com/mamedev/mame', 'credits_cps2_board'),
+        ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_cps1_cpu'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
+    )),
+    ('PC Engine', (
+        ('rages4calm/pcenginerecomp', 'https://github.com/rages4calm/pcenginerecomp', 'credits_recompiler'),
+    )),
+    # Credited before they join the converter: their upstreams are chosen and in use on the specialists' branches.
+    ('Commodore Amiga', (
+        ('dirkwhoffmann/vAmiga', 'https://github.com/dirkwhoffmann/vAmiga', 'credits_amiga_hardware'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
+    )),
+    ('Game Boy Advance', (
+        ('mstan/gbarecomp', 'https://github.com/mstan/gbarecomp', 'credits_recompiler'),
+        ('mstan/arm-recomp-core', 'https://github.com/mstan/arm-recomp-core', 'credits_arm_core'),
+    )),
 )
+# A line under a machine's name in the credits: its terms, or where it stands.
+UPSTREAM_CREDIT_NOTES = {
+    'Sharp X68000': 'credits_x68_status',
+    'Capcom CPS-2': 'credits_experimental',
+    'PC Engine': 'credits_experimental',
+    'Commodore Amiga': 'credits_coming',
+    'Game Boy Advance': 'credits_coming',
+}
 
 
 def typed_pseudonym(typed, proposed):

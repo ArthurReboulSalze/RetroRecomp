@@ -1,5 +1,33 @@
 # Runtime performance without changing the output
 
+## Measured on 5 November 2026 — 1.6.8 against 1.6.9
+
+Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC (every agent stopped), best of three, A and B interleaved
+after one dropped warm-up each, headless from boot with the machine's play route. A is the 1.6.8 executable built for the previous
+comparison; B is the same cartridge converted by the 1.6.9 tree (`main` at `d9546f9b`, every 1.6.9 change merged), an empty library,
+no shared base. Both are packed with LZMA; the figures are the whole process divided by the frames, start-up included
+(`.build/release-1.6.9/bench_timing.py`, results in `bench_results.json` there).
+
+| Machine | Game | Frames | 1.6.8 | 1.6.9 | 1.6.9 / 1.6.8 |
+|---|---|---|---|---|---|
+| NES | Metroid | 2,400 | 2.374 ms | 2.358 ms | 0.99 |
+| NES (PAL) | Mr. Gimmick | 2,400 | 6.649 ms | 6.706 ms | 1.01 |
+| Super Nintendo | Secret of Mana | 2,400 | 5.367 ms | 5.311 ms | 0.99 |
+| Game Boy | Super Mario Land | 2,400 | 0.550 ms | 0.550 ms | 1.00 |
+| Neo Geo | Puzzle De Pon! R | 7,200 | 1.482 ms | 1.479 ms | 1.00 |
+| Sharp X68000 | R-Type | 4,000 | 0.654 ms | 0.671 ms | **1.03** |
+| Mega Drive | Sonic The Hedgehog | 2,400 | 2.650 ms | 2.551 ms | 0.96 |
+| Master System | Sonic The Hedgehog | 2,400 | 0.203 ms | 0.202 ms | 0.99 |
+| Game Gear | Sonic The Hedgehog | 2,400 | 0.204 ms | 0.205 ms | 1.01 |
+
+Eight games move by -4 to +1 %, within the noise of the method (the 1.6.8 Mega Drive figure has one slow run of three). R-Type is
+3 % slower over 4,000 frames, and again over five runs (0.653 against 0.670 ms). Over 8,000 frames the two sides differ by 0.536
+against 0.546 ms: the whole-process difference stays near 70 ms whatever the length (68 ms over 4,000 frames, 80 ms over 8,000), so it
+is a longer start of the X68000 game, not a cost per frame (the per-frame share is about 0.003 ms, under 1 %). Its cause is not found
+yet; the X68000 changes of 1.6.9 are the shared generator (byte-identical generated files on three games), the shared computer part
+of the adapter and the F2 keyboard row. The CPS-1 and CPS-2 boards were not part of this panel. This measures host time only: nothing
+about the native code share, CPU fidelity, hardware fidelity, gameplay validation or physical latency.
+
 ## Measured on 4 November 2026 — 1.6.7 against 1.6.8
 
 Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC (every agent stopped), best of three, A and B interleaved

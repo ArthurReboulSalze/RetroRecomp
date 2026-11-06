@@ -489,7 +489,7 @@ archive of the tag exported into an empty folder, Python 3.14.5) and from the tr
   accepted key would be a change of the loader, which this release does not make; the bytes that differ are padding, but that
   was not tested by loading a 1.6.3 state in a 1.6.4 build, so no claim is made that it would work.
 - **Master System, Game Gear, Game Boy:** no key of this kind. None of the changes of this release touches a saved state (the Game
-  Boy counters are host-only context fields, outside every saved state: [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#game-boy-exports-in-164-writable-memory-code);
+  Boy counters are host-only context fields, outside every saved state: [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#game-boy-exports-in-164-writable-memory-code);
   the "functions" engine of the Master System and Game Gear only adds run-time variables). Not run across releases.
 - **X68000:** the key is a value of the CMake build (`RR_X68K_STATE_ABI`: the hashes of `reference_host.c`, `hardware_clock.c`,
   `state_store.h`, `media_session.h`, the machine base files and tools, the generated CPU, and the compiler's identity). None of the
