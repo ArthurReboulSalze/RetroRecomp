@@ -129,6 +129,8 @@ def classify(parts) -> tuple[str, str] | None:
         return 'cps1', match[1]
     if len(parts) == 2 and parts[0] == 'pce' and (match := _PCE.fullmatch(parts[1])):
         return 'pce', match[1]
+    if len(parts) == 2 and parts[0] == 'scummvm' and (match := _PCE.fullmatch(parts[1])):
+        return 'scummvm', match[1]
     if (len(parts) == 4 and parts[0] == 'x68' and _X68_HOST.fullmatch(parts[1])
             and _X68_SDK.fullmatch(parts[2]) and _X68_GAME.fullmatch(parts[3])):
         return 'x68', parts[3]
@@ -321,7 +323,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'pce'):
+    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'pce', 'scummvm'):
         return key == sha256[:12]
     if system == 'md':
         return key == sha256
@@ -383,7 +385,7 @@ def game_projects(system: str, sha256: str, report: dict, root: Path | None = No
             system == 'ng' and _owner(project, 'ng') is None):
         return []
     found = [project]
-    if system in ('cps1', 'pce'):
+    if system in ('cps1', 'pce', 'scummvm'):
         candidates = [build / system / name for name in _subfolders(build / system)]
     elif system == 'x68':
         candidates = [build / 'x68' / host / sdk / name
@@ -448,6 +450,7 @@ def _candidates(build: Path) -> list[tuple[str, ...]]:
     candidates = [(name,) for name in _subfolders(build)]
     candidates += [('cps1', name) for name in _subfolders(build / 'cps1')]
     candidates += [('pce', name) for name in _subfolders(build / 'pce')]
+    candidates += [('scummvm', name) for name in _subfolders(build / 'scummvm')]
     candidates += [('x68', host, sdk, name) for host in _subfolders(build / 'x68')
                    for sdk in _subfolders(build / 'x68' / host)
                    for name in _subfolders(build / 'x68' / host / sdk)]

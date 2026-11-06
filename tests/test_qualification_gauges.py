@@ -16,6 +16,9 @@ def _page() -> str:
     return qg.PAGE.read_text(encoding='utf-8')
 
 
+# The matrix and its gauges cover the recompiled machines; an emulated one (registry.emulated) is a category apart.
+RECOMPILED = [profile for profile in ALL_PROFILES if not getattr(profile, 'emulated', '')]
+
 class GaugeArithmeticTests(unittest.TestCase):
     def test_met_counts_one_partial_a_half_unknown_and_no_zero_and_not_applicable_leaves_the_count(self):
         row = qg.gauge(list('YYPP?N-'))
@@ -69,7 +72,7 @@ class PageTests(unittest.TestCase):
 
     def test_the_status_column_is_the_registry_status_and_covers_every_console(self):
         rows = qg.gauges(_page())
-        self.assertEqual({row['id'] for row in rows}, {profile.id for profile in ALL_PROFILES})
+        self.assertEqual({row['id'] for row in rows}, {profile.id for profile in RECOMPILED})
         for row in rows:
             profile = next(p for p in ALL_PROFILES if p.id == row['id'])
             self.assertEqual((row['name'], row['status']), (profile.name, profile.status))
@@ -84,7 +87,7 @@ class PageTests(unittest.TestCase):
     def test_the_compact_form_has_one_line_per_console_and_says_what_it_is(self):
         text = qg.short(_page())
         rows = [line for line in text.splitlines() if line.startswith('| ')]
-        self.assertEqual(len(rows), 2 + len(ALL_PROFILES))
+        self.assertEqual(len(rows), 2 + len(RECOMPILED))
         self.assertIn('not a quality score', text)
         self.assertIn(qg.ANCHOR, text)
 
@@ -97,11 +100,11 @@ class ReadmeTests(unittest.TestCase):
 
     def test_the_readme_names_the_experimental_status_in_clear_and_every_console(self):
         block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
-        for profile in ALL_PROFILES:
+        for profile in RECOMPILED:
             line = next(row for row in block.splitlines() if row.startswith('| [' + profile.name + '](docs/'))
             self.assertIn(' ' + profile.status + ' ', line)
         # No machine of the list is experimental since 1.6.9: the status column reads the profile, so a new experimental machine shows up here.
-        self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in ALL_PROFILES))
+        self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in RECOMPILED))
 
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()

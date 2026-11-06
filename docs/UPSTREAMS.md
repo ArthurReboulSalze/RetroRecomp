@@ -55,6 +55,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |
 | [SingleStepTests/huc6280](https://github.com/SingleStepTests/huc6280) | pce | `4ce378e` | `4ce378e04e243437e6f74dfe76c3cb7c70e45bf1` | `tools/fetch_huc6280_vectors.REVISION` |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | md | `64b2531` | `64b253116a3de04aaac4346c43680960dc9b67e5` | `tests/fixtures/md-prefetch/cases.json` (also `tests/fixtures/md-exceptions/cases.json`) |
+| [scummvm/scummvm](https://github.com/scummvm/scummvm) | scummvm | `7d2709d` (tag v2026.4.0) | `7d2709da5136866589f7602f5f5a7b17de03420e` | `scummvm_build.SCUMMVM_REV` |
+| [freetype/freetype](https://github.com/freetype/freetype) | scummvm | `42608f7` (tag VER-2-13-3) | `42608f77f20749dd6ddc9e0536788eaad70ea4b5` | `scummvm_build.FREETYPE_REV` |
 
 The three submodule pins are not in our code: they are recorded by the pinned tree of their parent. The tool reads
 them with `git ls-tree` on the pinned checkout under `.deps` when it is there, and asks GitHub for the parent's
@@ -97,6 +99,8 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | Independent 68000 vectors, development tests only | MIT | A small extract in `tests/fixtures`; not shipped | Identical. Keep. |
 | [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | Independent 65816 vectors, development tests only | MIT | Fetched on demand into `.deps` (489 MB corpus, a sample of 64 cases per family kept, the whole corpus checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
 | [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | Independent SPC700 vectors, development tests only | MIT | Fetched on demand into `.deps` (16 MB corpus, 128 cases per family kept, checked against a pinned digest); not shipped | Added 2 November 2026 (release 1.6.7). Keep. |
+| [scummvm/scummvm](https://github.com/scummvm/scummvm) | Runtime of the adventure exes, a separate GPL program | GPL-3.0-or-later (third-party parts keep the notices of its `LICENSES/` folder) | The release tree at the pin with the patch series of `native/scummvm`, fetched into `.deps` at build time and built per engine family; never copied into the repository | Added 6 November 2026 (ScummVM step 2). Keep. |
+| [freetype/freetype](https://github.com/freetype/freetype) | Font renderer of the ScummVM runtime | FreeType License (FTL) | The library, static, without zlib, png, bzip2, HarfBuzz or Brotli | Added 6 November 2026 (ScummVM step 2). Keep. |
 
 Licences of the four engines that PolyForm Noncommercial covers (nesrecomp, segagenesisrecomp, m68k-recomp-core,
 snesrecomp) were compared with upstream on the review day: same terms, same files. Two third parties appear upstream

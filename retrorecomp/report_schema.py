@@ -46,6 +46,10 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   The device kind ``video_unit`` (a video chip run by the runtime's C code, listed beside ``cartridge_mapper`` and ``audio_unit``)
   and, for the Master System and Game Gear main CPU, the scenario keys ``native`` (instructions), ``halted_steps`` and
   ``native_guarded`` come with it on the same terms.
+* An emulated machine (``SystemProfile.emulated``, 1.7.0) writes schema 2 without a new schema number: ``cpus`` is an empty
+  list, ``validation.native_code`` carries ``native_share`` 0.0 and the claim "emulated", ``validation.cpu_fidelity`` says
+  "not applicable", and a top-level ``engine`` object (the emulator, its pinned revision and the game it was given) is added for
+  that shape only. The sections and keys of every other machine are unchanged, so no reader needs a new number.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -132,11 +136,14 @@ class _Shape:
     main_arch: str
     audio_arch: str | None
     main_unit: str      # unit of the writer's own main CPU counters
+    emulated: bool = False   # an emulated machine (SystemProfile.emulated): no CPU section, native share 0
 
 
 def _shape_of(profile):
     """The shape of a profile's report, from its ``report_shape`` and its CPUs; None for a machine with no report."""
     spec = profile.report_shape
+    if spec is not None and getattr(profile, 'emulated', ''):
+        return _Shape(spec.writer, spec.marker, '', None, '', emulated=True)
     main = next((cpu for cpu in profile.cpus if cpu.role == 'main'), None)
     if spec is None or main is None:
         return None
@@ -320,6 +327,8 @@ def _ram_single_step_state(scenarios):
 
 
 def _cpus(shape, data, rows):
+    if shape.emulated:
+        return []
     main = {'id': 'main', 'arch': shape.main_arch, 'role': 'main', 'unit': 'instructions',
             'original_unit': shape.main_unit, 'mode': None, 'reported_label': None,
             'scenarios': [_main_scenario(shape.writer, row) for row in rows]}
@@ -675,6 +684,9 @@ def _validate_v2(data):
     # Only the schema-2 keys: the old keys of a dual-written document are not part of the document read.
     report = {key: _copy(data.get(key)) for key in REQUIRED_KEYS}
     report['timings'] = _timings(data.get('timings'))
+    if isinstance(data.get('engine'), dict):
+        # The engine section of an emulated machine (see above); absent for every other machine.
+        report['engine'] = _copy(data['engine'])
     if isinstance(report['knowledge'], dict):
         report['knowledge'] = {key: report['knowledge'].get(key) for key in KNOWLEDGE_KEYS}
     return report
@@ -712,6 +724,11 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
     # it and take no part in the native-code verdict.
     devices = [*coprocessors, *_hardware_devices(data)]
     validation = _validation(shape, data, rows, cpus, coprocessors)
+    if shape.emulated:
+        # Nothing is recompiled: the share of native code is 0 by design, not a gap to close.
+        validation['native_code'].update(native_share=0.0, zero_fallback_on_tested_scenarios=None,
+                                         claim='emulated: the game runs in an emulator (0 % native code)')
+        validation['cpu_fidelity'] = {'validated': None, 'claim': 'not applicable: no CPU is recompiled'}
     return {
         'schema': {'name': SCHEMA_NAME, 'version': SCHEMA_VERSION},
         'read_from': {'schema_version': schema_version, 'writer': shape.writer},
@@ -731,6 +748,7 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         # is never mapped to a picture claim above.
         'legacy': {'reference_vdp_trace_match': data.get('reference_vdp_trace_match'),
                    'native_coverage': _copy(data.get('native_coverage'))},
+        **({'engine': _copy(_dict(data.get('engine')))} if shape.emulated else {}),
     }
 
 

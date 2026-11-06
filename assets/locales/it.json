@@ -682,7 +682,12 @@
     "conversions_wait_day": "circa 1 giorno",
     "tip_leaderboard": "Classifica: i giocatori che hanno trovato più percorsi nativi, da sempre o questo mese, con gemme, titoli e badge.",
     "tip_compiled_games": "Giochi ricompilati: i tuoi giochi convertiti con copertina, dettagli e stelle di livello; gioca, riconverti o vai oltre.",
-    "tip_start_selected": "Converti selezionati: solo i giochi selezionati nell’elenco."
+    "tip_start_selected": "Converti selezionati: solo i giochi selezionati nell’elenco.",
+    "options_scummvm": "Avventura (ScummVM)",
+    "options_scummvm_note": "Sperimentale: le avventure girano in ScummVM, emulate (0 % di codice nativo). Indica la cartella di un gioco: il rilevamento di ScummVM lo riconosce e i suoi file vengono inclusi, senza modifiche, in un unico eseguibile; una cartella con più candidati ti chiede di scegliere. Nel gioco: Ctrl+F5 (Start sul controller) apre il menu di ScummVM; il gioco conserva F1-F12, Esc e Tab. Senza ROM MT-32: la musica predefinita. ScummVM è sotto GPL-3; il suo sorgente è offerto con ogni versione.",
+    "scan_note_scummvm": "Nessuna analisi: ScummVM interpreta il gioco; nulla viene ricompilato o appreso.",
+    "scummvm_choice": "Edizione (se più corrispondono)",
+    "tip_scummvm_choice": "0: una cartella che corrisponde a più edizioni viene rifiutata e le edizioni sono elencate. Da 1 a 9: viene usata quell'edizione dell'elenco."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",

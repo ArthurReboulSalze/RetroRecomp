@@ -230,6 +230,17 @@ SST_SPC700 = Upstream(
     'checked against a pinned digest); not shipped',
     _py('tools/fetch_snes_vectors.py', 'REVISION_SPC700'), shared_by=('snes',))
 
+SCUMMVM = Upstream(
+    'ScummVM', 'scummvm/scummvm', 'master', 'runtime of the adventure exes (a separate GPL program, patched by native/scummvm)',
+    'GPL-3.0-or-later (third-party parts of ScummVM keep the notices of its LICENSES/ folder)',
+    'the release tree at the pin with the patch series of native/scummvm, built per engine family by scummvm_build; '
+    'fetched into .deps at build time, never copied into the repository; corresponding source by tools/build_scummvm_source_archive.py',
+    _py('retrorecomp/scummvm_build.py', 'SCUMMVM_REV'), checkout='scummvm')
+FREETYPE = Upstream(
+    'FreeType', 'freetype/freetype', 'master', 'font renderer of the ScummVM runtime (its GUI themes need it)',
+    'FreeType License (FTL)', 'the library, static, without zlib, png, bzip2, HarfBuzz or Brotli, linked into the ScummVM runtime',
+    _py('retrorecomp/scummvm_build.py', 'FREETYPE_REV'), checkout='freetype')
+
 COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_HUC6280, SST_M68000, SST_65816, SST_SPC700)
 
 # --- the machines ------------------------------------------------------------------------------------------------
@@ -251,6 +262,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The decoder of m68k-recomp-core structures the guarded native steps of the Amiga (the bodies are Moira's); segagenesisrecomp
     # is listed because that decoder is its submodule.
     'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    'scummvm': (SCUMMVM, FREETYPE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

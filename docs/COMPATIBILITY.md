@@ -213,6 +213,11 @@ code, CPU fidelity, hardware fidelity, gameplay validation and physical latency 
 partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
 Amiga 1200 are not converted.
 
+**Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
+recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;
+nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
+that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

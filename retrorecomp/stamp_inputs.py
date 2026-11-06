@@ -80,7 +80,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
 # game runs. A change limited to build inputs rebuilds an export from the paths
 # already learned, like a host change, because the executable is recompiled and
 # rechecked on the quick routes.
-BUILD_MODULES = frozenset(('toolchain', 'packing'))
+BUILD_MODULES = frozenset(('toolchain', 'packing', 'scummvm_build'))
 
 # Game stamps of the PREVIOUS release only, whose exports stay upgradable: the code that
 # differed from today's was only how the game is built, and the exports were
@@ -164,7 +164,9 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
 BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
-RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json'))
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json',
+                       # The ScummVM patch is applied byte for byte (-text) and the GPL text is pinned LF (.gitattributes).
+                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch', 'native/scummvm/LICENSE'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -780,6 +782,17 @@ INPUTS = _resolve({
         'retrorecomp.cps2_tables',
     ),
     # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
+    # Adventure (ScummVM): the GPL patch of the runtime and its notices are the game side of its exes (the runtime is the
+    # machine, like native/x68000_machine); scummvm_build decides the runtime (build role, BUILD_MODULES).
+    ('scummvm',): (
+        'licenses/freetype.md',
+        'licenses/scummvm.md',
+        'native/scummvm/LICENSE',
+        'native/scummvm/README.md',
+        'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+        'retrorecomp.scummvm_build',
+        'retrorecomp.scummvm_export',
+    ),
     ('pce',): (
         'licenses/pcenginerecomp.md',
         'native/pce_machine.cpp',

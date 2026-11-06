@@ -14,6 +14,7 @@ from .paths import ROOT, APP_NAME, games_root, data_directory
 from .i18n import log_text
 from .dropfiles import enable_file_drop
 from .systems import discover_roms, find_profile, get_profile
+from .systems.registry import discover_folders
 from .branding import COLORS
 from .platforms import open_local
 from .gui_common import PROFILES
@@ -177,8 +178,13 @@ class QueueMixin:
                 if path.is_dir():
                     try:
                         walk(discover_roms(path))
+                        # Game folders of a machine that takes folders, beside the files (never walked again).
+                        games = discover_folders(path)
                     except OSError:
                         logs.append(self.tr('drop_unreadable'))
+                        continue
+                    files.extend(games)
+                    found(len(files))
                     continue
                 files.append(path)
                 found(len(files))
