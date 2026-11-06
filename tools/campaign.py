@@ -457,6 +457,8 @@ def console_options(console: str, args) -> tuple[list[str], list[str]]:
         flags.append('--require-states')
     if console == 'ng' and args.ng_bios:
         extra += ['--ng-bios', Path(args.ng_bios).as_posix()]
+    if console == 'gba' and getattr(args, 'gba_bios', None):
+        extra += ['--gba-bios', Path(args.gba_bios).as_posix()]
     if console in ('cps1', 'cps2') and getattr(args, 'qsound_rom', None):
         extra += ['--qsound-rom', Path(args.qsound_rom).as_posix()]
     if console == 'x68':
@@ -1043,6 +1045,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument('--retry-failed', action='store_true', help='Run again the games whose verdict is fail')
     run.add_argument('--redo', action='store_true', help='Run again every selected game')
     run.add_argument('--ng-bios', type=Path, help='Neo Geo BIOS archive')
+    run.add_argument('--gba-bios', type=Path, help='Game Boy Advance BIOS (gba_bios.bin, your own)')
     run.add_argument('--qsound-rom', type=Path, help='QSound DSP ROM (dl-1425.bin or qsound.zip), for the CPS-1.5 and CPS-2 sets')
     run.add_argument('--x68-ipl', type=Path)
     run.add_argument('--x68-cgrom', type=Path)
@@ -1060,6 +1063,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade.add_argument('--jobs', type=int, default=2)
     upgrade.add_argument('--max-fallback', type=int, default=0)
     upgrade.add_argument('--ng-bios', type=Path)
+    upgrade.add_argument('--gba-bios', type=Path)
     upgrade.add_argument('--qsound-rom', type=Path)
     upgrade.add_argument('--x68-ipl', type=Path)
     upgrade.add_argument('--x68-cgrom', type=Path)

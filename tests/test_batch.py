@@ -740,7 +740,7 @@ class BatchTests(unittest.TestCase):
         game_gear[0x7ff0:0x7ff8] = b'TMR SEGA'
         game_gear[0x7fff] = 0x70
         gg.write_bytes(game_gear)
-        other = source / 'Other game.gba'
+        other = source / 'Other game.a26'
         other.write_bytes(b'GBA' + bytes(100))
         (source / 'notes.txt').write_text('Ignore this documentation.')
         (source / 'README.md').write_text('Also ignore this Markdown file.')

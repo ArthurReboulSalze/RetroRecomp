@@ -3,8 +3,8 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Eleven machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, experimental, the PC Engine / TurboGrafx-16.
+never hidden. Twelve machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, experimental, the PC Engine / TurboGrafx-16 and the Game Boy Advance.
 
 **Where to start**
 
@@ -41,6 +41,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Capcom CPS-1](CPS1.md) | main | sound | none | none | none |
 | [Sharp X68000](X68000.md) | main | none | none | none | none |
 | [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
+| [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 "Main" is the processor that runs the game; "sound" is a processor dedicated to the sound chips. The X68000 has no
@@ -109,6 +110,8 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Sharp X68000** — [X68000.md](X68000.md) (supported since 1.6.9: floppy games, availability and licences).
 - **Capcom CPS-2** — [CPS2.md](CPS2.md) (supported since 1.7.0, experimental in 1.6.9: the standard boards, with the key file of your own romset and your own QSound DSP ROM).
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
+- **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
+- **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
 
 ## Running the project
 

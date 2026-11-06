@@ -18,6 +18,14 @@ from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
+retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
+retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
+retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
+tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
+tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
+tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
+native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
@@ -70,6 +78,13 @@ native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
 tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py tools/x68000_disk_rewrite.py tests/test_x68000_disk_rewrite.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 retrorecomp/m68k_observed.py tests/test_m68k_observed.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
+retrorecomp/systems/amiga.py retrorecomp/amiga.py retrorecomp/amiga_lha.py retrorecomp/amiga_whdload.py
+retrorecomp/amiga_codegen.py retrorecomp/amiga_conversion.py retrorecomp/amiga_vamiga.py docs/AMIGA.md
+native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
+native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
+native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
+tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_whdload.py
+tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py

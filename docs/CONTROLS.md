@@ -120,6 +120,14 @@ and the two shoulder buttons). Most games pause on Run, so the first press of a 
 F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
 game is built for two today and the fifth multitap player is never offered.
 
+### Game Boy Advance (experimental)
+
+One player, ten buttons. Arrows move; **X** is A, **W** is B, **A** is L, **S** is R, **Enter** is Start and **Shift** is Select. On a controller,
+B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Select, and the D-pad moves. Every key can be changed in F2
+(see the common rules above); there is no player 2. The quick states (F8/F9), autofire (F6), the F2 pages, the speed and sound controls
+below and the two shortcuts F1 and Shift+F1 are the common ones of the host kit, not repeated here. The cartridge save (SRAM, Flash or
+EEPROM) is kept in `datas/saves` and written when it changes and at exit. The help page of F1 lists these keys.
+
 ## Speed and sound
 
 Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are
@@ -221,7 +229,7 @@ The choice is kept per game, in the game's own `player.cfg`; each game starts wi
 
 ### The mouse of a computer
 
-On the computers (Sharp X68000, and the Amiga when it joins), a click in the window captures the mouse and a mouse game
+On the computers (Sharp X68000 and Commodore Amiga, experimental), a click in the window captures the mouse and a mouse game
 captures it at launch. **Ctrl+Alt+M** or, since 1.7.0, a **press of the middle button** (the wheel) releases it: neither
 machine's mouse had a middle button, so the game never needs it. Losing the window's focus releases it too.
 

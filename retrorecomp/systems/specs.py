@@ -126,6 +126,9 @@ class ObservedCode:
     # and the text each step file starts with (the machine's own header, `extern "C"` and the like).
     source_extension: str = '.c'
     steps_head: str = '#include "step_semantics.h"\n'
+    # The extension of `steps/index` when it differs from the steps' (None: the same). The index the generator writes is C (array designators):
+    # a machine whose steps are C++ keeps its index in C with ".c".
+    index_extension: str | None = None
 
     def load_bodies(self, engine):
         module, _, function = self.bodies.partition(':')

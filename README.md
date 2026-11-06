@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
-  <img src="https://img.shields.io/badge/console_profiles-11-626262" alt="Eleven console profiles">
+  <img src="https://img.shields.io/badge/console_profiles-12-626262" alt="Twelve console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -78,6 +78,8 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 43 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
+| [Commodore Amiga](docs/AMIGA.md) | experimental | `████░░░░░░` 38 % |
 | [Sony PlayStation](docs/PLAYSTATION.md) | experimental | `░░░░░░░░░░` 0 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
@@ -86,8 +88,9 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 <!-- qualification-gauges:end -->
 
-The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need firmware you supply yourself: the Neo Geo
-(its BIOS), the Sharp X68000 (its IPL and font ROM) and the QSound boards (their DSP ROM). What each machine converts, its options
+The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
+and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
+CPS-2 the key file of the romset). What each machine converts, its options
 and its limits are on its page.
 
 ### In development
@@ -96,10 +99,9 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 
 | Machine | Stage |
 | --- | --- |
-| Game Boy Advance | in development |
-| Commodore Amiga 500 (the Amiga 1200 later) | in development |
+| Sony PlayStation | in development |
 
-Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Planned after it: Atari ST, the Amiga 1200 and Nintendo 64. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

@@ -39,7 +39,8 @@ def request_parts(item, options):
         from .cover_settings import load_settings
         from .cover_references import find as cover_reference
         settings['prefer_3d'] = load_settings().get('box_3d', False)
-        reference = (cover_reference(item.system, digest(item.path), item.path.stem,
+        # A game folder (Adventure (ScummVM)) is identified by item.sha256 (its names and sizes), never hashed as a file.
+        reference = (cover_reference(item.system, digest(item.path) if item.path.is_file() else item.sha256, item.path.stem,
                                     prefer3d=settings['prefer_3d']) if not item.cover else None)
         settings['cover_reference'] = reference['revision'] if reference else None
     from .compilation_inputs import knowledge_stamp, legacy_game_stamps, role_stamps

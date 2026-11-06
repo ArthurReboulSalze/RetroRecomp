@@ -42,7 +42,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(KINDS['cps1'], {14, 15, 16})
         header = (ROOT / 'native/runtime_feedback.h').read_text(encoding='utf-8')
         self.assertIn('RR_FB_CPS1_ROM=14, RR_FB_CPS1_RAM=15, RR_FB_CPS1_Z80=16', header)
-        self.assertIn('kind>RR_FB_CPS1_Z80', (ROOT / 'native/runtime_feedback.c').read_text(encoding='utf-8'))
+        # The recorder's bound is the largest declared kind (test_system_profiles), no longer the CPS-1's last one.
+        self.assertIn('kind>RR_FB_MAX_KIND', (ROOT / 'native/runtime_feedback.c').read_text(encoding='utf-8'))
 
 
 class ControlTests(unittest.TestCase):

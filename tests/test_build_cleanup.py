@@ -69,6 +69,7 @@ class IdentificationTests(unittest.TestCase):
             ('sms_CPU_Test_00000001_c66ac645f7d1',): ('sms', 'c66ac645f7d1'),
             ('gg_Sonic_Chaos_12AB34CD_0123456789ab_banked',): ('gg', '0123456789ab'),
             ('gb_Kirby_s_Dream_Land_0f6dba94fae2_9150f87d',): ('gb', '0f6dba94fae2'),
+            ('gba_Metroid_Fusion_0f6dba94fae2_9150f87d',): ('gba', '0f6dba94fae2'),
             ('nes_Mega_Man_2_49136b412ff6_1b0c621a_ntsc',): ('nes', '49136b412ff6'),
             ('nes_Mega_Man_58fb9ef0c14c_1b0c621a',): ('nes', '58fb9ef0c14c'),     # before video standards
             ('md-rom-' + SHA,): ('md', SHA),
@@ -99,7 +100,7 @@ class IdentificationTests(unittest.TestCase):
                       ('x68', 'mac', '013098655eb5', '609d891fcc979af8'), ('release-1.5.1',),
                       ('md-perf',), ('md-campaign-20261024',), ('snes-pal',), ('snes-native-selftest',),
                       ('sms-sprite-selftest',), ('video-selftest',), ('neogeo-thirty-20261020',),
-                      ('ng-host-pages',), ('gb_Tetris',), ('sms_Game_887D9F6B_C66AC645F7D1',),
+                      ('ng-host-pages',), ('gb_Tetris',), ('gba_Metroid',), ('sms_Game_887D9F6B_C66AC645F7D1',),
                       ('nes_Game_58fb9ef0c14c_1b0c621a_dendy',), ('cleanup-check',), ('.deps',),
                       ('sms_Ace_887D9F6B_c66ac645f7d1_banked', 'build-native')]:
             self.assertIsNone(classify(parts), parts)
@@ -118,6 +119,7 @@ class IdentificationTests(unittest.TestCase):
                      ('gg', 'gg_Sonic_12AB34CD_' + SHA[:12], 'build-native/Sonic.exe'),
                      ('gb', 'gb_Tetris_' + SHA[:12] + '_9150f87d', EXE[0]),
                      ('gb', 'gb_Tetris_' + SHA[:12] + '_9150f87d', EXE[1]),
+                     ('gba', 'gba_Metroid_' + SHA[:12] + '_9150f87d', EXE[0]),
                      ('nes', 'nes_Mega_Man_' + SHA[:12] + '_1b0c621a_pal', EXE[1]),
                      ('md', 'md-rom-' + SHA, EXE[0]), ('snes', 'snes-rom-' + SHA[:16], 'build/game'),
                      ('ng', 'ng-289e4a4de23c0ff534ea-native', EXE[0]),

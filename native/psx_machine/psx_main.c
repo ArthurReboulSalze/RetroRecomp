@@ -23,9 +23,6 @@
 #include "psx_session.h"
 #include "runtime_feedback.h"
 
-/* The record kind of the PlayStation's runtime hints (retrorecomp/systems/psx.py: feedback_kinds). */
-enum { RR_FB_PSX = 23 };
-
 /* An instruction of main RAM or the BIOS that the game's native steps did not hold and the interpreter ran: while the player
  * records hints (F12), it is noted once (its physical address and its word) for the next conversion, which makes it a native
  * step after the same checks as the code its routes ran. Called by the core's step hook (our anchored change of cpu.c). */

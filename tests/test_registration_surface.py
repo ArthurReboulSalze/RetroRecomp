@@ -46,7 +46,7 @@ class SyntheticProfile(SystemProfile):
     quick_state_family = 'rr16'
     feedback_kinds = frozenset({99})
     path_spec = PathSpec(order=9, sections=(('m68k', 'zz'),), source_bounds=(('rom', (1, 2)),))
-    identify = Identify(path_order=40, content_order=6)
+    identify = Identify(path_order=90, content_order=6)
 
     def identify_path(self, path, suffix, selected_system):
         return self if suffix == '.zzp' else None
@@ -317,7 +317,7 @@ class DetectionTableTests(unittest.TestCase):
                 'gb.bin': gb_rom(), 'gb-72banks.bin': gb_rom(size_code=0x52), 'gb-badsum.bin': gb_rom(bad_checksum=True),
                 'zeros.bin': bytes(0x8000), 'tiny.bin': b'abc', 'disk.dim': bytes(1024), 'disk.xdf': bytes(1024),
                 'disk.m3u': bytes(64), 'good.neo': neo_file(), 'bad.neo': neo_file(bad=True),
-                'foreign.gba': bytes(0x8000), 'foreign': bytes(0x8000), 'z-corrupt.zip': b'PK\x03\x04 not a zip'}.items():
+                'foreign.a26': bytes(0x8000), 'foreign': bytes(0x8000), 'z-corrupt.zip': b'PK\x03\x04 not a zip'}.items():
             write(name, data)
         zipped(cls.root / 'z-sms.zip', [('game.sms', sms_rom(region=0))])
         zipped(cls.root / 'z-gg.zip', [('game.gg', sms_rom(region=4))])
@@ -378,8 +378,8 @@ class DetectionTableTests(unittest.TestCase):
         ('z-bin-zeros.zip', None, UnsupportedConsoleError), ('z-text.zip', None, UnsupportedConsoleError),
         ('z-two.zip', None, ValueError), ('z-corrupt.zip', None, ValueError),
         # foreign files
-        ('foreign.gba', None, UnsupportedConsoleError), ('foreign', None, UnsupportedConsoleError),
-        ('foreign.gba', 'md', UnsupportedConsoleError),
+        ('foreign.a26', None, UnsupportedConsoleError), ('foreign', None, UnsupportedConsoleError),
+        ('foreign.a26', 'md', UnsupportedConsoleError),
     )
 
     def outcome(self, name, selected):

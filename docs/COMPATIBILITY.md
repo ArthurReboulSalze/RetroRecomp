@@ -205,9 +205,18 @@ counted and reported. Eight of the nine cards converted in the first panel ran 0
 routes and matched a fresh interpreted reference frame by frame, and Street Fighter II' Champion Edition is partly native
 because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
 engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
-The **Sony PlayStation** profile is experimental and in development (developer installations only): a conversion makes a playable
-game with every instruction interpreted and counted (no native code yet). Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC
-and PAL, your own BIOS or the free OpenBIOS) and its checks are on [its page](PLAYSTATION.md).
+The **Game Boy Advance** profile is experimental since 1.7.0 ([status](GAME_BOY_ADVANCE.md)): `.gba` cartridges are converted with your own BIOS (`gba_bios.bin`), the native code comes from what each game was seen to run and the rest is interpreted, counted and reported. Six cartridges of the first panel match the engine's own interpreter on state hashes at 600 and 3,600 frames; that is an agreement with that interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
+
+The **Commodore Amiga** profile is experimental since 1.7.0 ([status](AMIGA.md)): it converts Amiga 500 games installed for
+WHDLoad (an `.lha` with one `.Slave`) that need no Kickstart, within [its documented scope](AMIGA.md). It has no list of compatible games: native
+code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too, and only the first three are
+partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
+Amiga 1200 are not converted.
+
+The **Sony PlayStation** profile is experimental and in development (developer installations only): a conversion makes a
+playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
+is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
+pad) and its checks are on [its page](PLAYSTATION.md).
 
 ## Local game regression set
 

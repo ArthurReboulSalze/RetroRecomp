@@ -87,6 +87,7 @@ that section says move. Each section computed its stamps for its own change alon
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Computers: a press of the middle button releases the mouse](#computers-a-press-of-the-middle-button-releases-the-mouse-170) | none | X68000 host (`rrhk_computer.inc`) | no key moves |
+| [Game Boy Advance opens as an experimental machine](#game-boy-advance-opens-as-an-experimental-machine-170) | none (a new machine: Game Boy Advance stamps are new) | host stamp of all eleven other consoles (THIRD_PARTY_NOTICES) | none (no earlier export) |
 | [Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change](#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170) | none | **host stamp of all eleven consoles** (the kit, `runtime_catalog.inc`) | **the Mega Drive and Super Nintendo keys move** (the catalogue); no other key |
 | [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
 | [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
@@ -167,6 +168,89 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 
 Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
 consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
+
+## Game Boy Advance opens as an experimental machine (1.7.0)
+
+The Game Boy Advance (profile `gba`, [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)) opens to players as an **experimental** machine in 1.7.0. It is new:
+no export of it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none (it is not in the base). It asks for
+your own BIOS (`gba_bios.bin`, checked by its SHA-1); a converted game holds code derived from it and stays private to you. The engine is
+[mstan/gbarecomp](https://github.com/mstan/gbarecomp) pinned at `c1a5fda36fb4` (PolyForm Noncommercial, with the author's permission) and its submodule
+`arm-recomp-core` (MIT), fetched on the first conversion and carried with 44 anchored patches ([UPSTREAMS.md](UPSTREAMS.md)).
+
+What the change moves, computed with `compilation_inputs.role_stamps` on `main` (27e30e03) and on the branch (game, host, build, first 12 hexadecimal digits):
+
+| Console | Game stamp | Host stamp | Build stamp |
+|---|---|---|---|
+| sms | 3e16a0301d90 (same) | 1b834d7b9fbc → 033d55196e25 | same |
+| gg | 4f9d69e86e89 (same) | c9e0e360f031 → 1a565bafd044 | same |
+| gb | ff30f88ca9f1 (same) | 772d06158394 → 67546878fe4b | same |
+| nes | a3537f590fcf (same) | 21b599f4ec81 → b49e7d1d6a9a | same |
+| md | a0de8eae71a4 (same) | 7bda64083b03 → 75dc61baeb8b | same |
+| snes | ae2146874e49 (same) | 2a4bc2c7b468 → ab414537de23 | same |
+| ng | a3733e1113ff (same) | 1f2e8a0e2450 → a17e0dd77249 | same |
+| cps1 | e6380523c2d1 (same) | 0f8432dcd5c5 → 28aaed430011 | same |
+| x68 | 6c7509bf49d2 (same) | 47212d53043d → be0daff05bb1 | same |
+| cps2 | 8d2c63c4b35a (same) | 0f2bade664f6 → 56a02d1ee4c6 | same |
+| pce | c8545bf9018e (same) | 6ea8ea8ac8eb → 78d65184c1bf | same |
+| gba (new) | a90b434c6d70 | 8eb4c3a0974e | 6b70933a9b0a |
+
+- **No game stamp and no build stamp of another console moves.** The profile declares its own ZIP limit (`archived_rom_limits`), its own path order (11), its own
+  feedback kind (21) and its own files in `stamp_inputs.py`; no shared module was edited for it besides the registry (an interface module that no stamp hashes).
+- **The host stamp of the eleven other consoles moves**, because `THIRD_PARTY_NOTICES.md` (a host input) gains the row of gbarecomp and arm-recomp-core. No
+  export changes behaviour: a host stamp that moved only means the licence page of the next conversion is newer.
+- `.gba` is no longer a "foreign" extension: a `.gba` file is claimed by the Game Boy Advance profile (or reported as unavailable when the installation lacks its files).
+
+## The index of native steps may have its own language (1.7, the Amiga's branch)
+
+The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
+C (its page tables are array designators); the Amiga's steps are C++ (they call Moira's instruction templates), and a C++ index needed a warning switched
+off. `ObservedCode.index_extension` (`retrorecomp/systems/specs.py`) names the extension of `steps/index` when it differs from the steps'; `None`, the
+default, keeps the steps' extension. The Amiga sets `'.c'`: its steps are C++ functions with C linkage and its index is C. One line of `write_steps`
+reads the field; no other line of the shared module changes. A contract test (`tests/test_observed_index_contract.py`) writes the index of every
+machine that declares an `ObservedCode` and compiles it, warnings as errors, in the language its extension names; the former C++ index of the Amiga fails it.
+
+**Proof that the X68000 does not change.** The native project of two games (R-Type and Lemmings, the variants of their recorded observations) was written
+with the converter of `main` and with this tree: **78 files, 0 differences** (the decoder's build folder and the logs name the tree and are left out).
+The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, as for the move of the generator in 1.6.9, so no qualified path is lost; the
+digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is updated.
+
+**What moves**: `retrorecomp/systems/specs.py` is an input of the game stamp of all nine consoles, so **the game stamp of every console moves**;
+`retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
+identical, but an export upgraded across this change is converted again once, as the stamps say.
+
+## Covers: a subtitle that names the game, and extra names from a profile (1.7, the Amiga's branch)
+
+Two generic changes to the box lookup (`retrorecomp/cover_titles.py`, `retrorecomp/artwork.py`). A query without a subtitle that
+equals a catalogue entry's main title no longer drops that entry for an edition word found only in its subtitle, when the
+subtitle holds other words too ("Speedball 2" finds "Speedball 2 - Brutal Deluxe"; "Super Metroid - Redux", "Tetris DX" and
+bracketed tags still count as editions). And a profile may offer extra names for its games' boxes (`cover_titles(path)`, an
+optional capability read with `getattr`), tried only after the file's name and the title find nothing: the Amiga offers the
+slave's own name, cleaned of its decorations ("Lotus 2" finds "Lotus Turbo Challenge 2").
+
+**Proof without conversions:** the box choice was replayed for the 1,232 conversion reports of `Export` (nine machines) against
+the cached catalogues, with the tree before and after: 2 choices change, both Amiga (Lotus 2 and Speedball 2, none before).
+
+**What moves:** both modules are host inputs of every console (`HOST_MODULES`): **the host stamp of every console moves**, no
+game stamp; an export of 1.6.9 is upgraded without rediscovery for that part.
+
+## Commodore Amiga: an experimental machine (1.7, the Amiga's branch)
+
+The Amiga 500 opens as an experimental profile (`amiga`, [AMIGA.md](AMIGA.md)): WHDLoad installs that need no Kickstart, on the
+vAmiga Core (MPL-2.0 per file) and its 68000 Moira (MIT), with our own resload layer. Each Amiga game carries its notices as
+resource 203, and THIRD_PARTY_NOTICES has a vAmiga row.
+
+**Offered to players.** The profile is no longer for developer installations only: like the Game Boy Advance and the PC
+Engine, it is listed when the installation carries its converter files (`amiga.converter_available`), its options note no
+longer says otherwise in the eight languages, and the credits list it as experimental. Linux is `witnessed` (one install
+converted and validated on a Debian 13 PC; G13 `P`). Against the merged `main` this moves **the Amiga's game stamp only**
+(its profile and converter modules); no other console's stamp moves.
+
+**What moves** (`compilation_inputs.role_stamps` of the tree of `main` at 27e30e03 against this branch, computed on 6 November
+2026, the change of `index_extension` above included): **the game stamp and the host stamp of the eleven consoles of 1.6.9**; no
+build stamp. The game stamps move through the profile modules and `systems/specs.py`, the host stamps through
+THIRD_PARTY_NOTICES. The Amiga's stamps are new. **Quick states:** the Amiga's key is new. Outside the Amiga's own folders the
+branch changes no native file (`git diff 27e30e03 -- native`), and the X68000's generated code is identical (section above), so
+no other console's key moves and their 1.6.9 states load.
 
 ## Exports of 1.6.8 in 1.6.9
 
