@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import re
 from pathlib import Path
 
 from .core import ConversionError
@@ -61,6 +62,16 @@ class AmigaInput:
         return {'name': self.path.name, 'path': str(self.path), 'sha256': self.sha256, 'size': self.size,
                 'format': 'whdload-lha', 'slave': self.slave_path, 'slave_version': self.slave_version,
                 'kickemu': self.kickemu}
+
+
+def cover_title(name: str) -> str:
+    """A slave's ws_name as a name to look its box up with: the frame around it dropped (`--> Pinball Dreams <--`,
+    `-* ... *-`), letters spaced one by one joined again (`S P E E D B A L L  2`: words two spaces apart)."""
+    text = re.sub(r'^[^0-9A-Za-z]+|[^0-9A-Za-z)]+$', '', (name or '').split('\n', 1)[0]).strip()
+    words = re.split(r' {2,}', text)
+    if len(text) > 4 and all(len(letter) == 1 for word in words for letter in word.split(' ')):
+        text = ' '.join(word.replace(' ', '') for word in words)
+    return text if len(text) < 120 else ''
 
 
 def read_input(path) -> AmigaInput:

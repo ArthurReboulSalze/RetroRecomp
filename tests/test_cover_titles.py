@@ -78,6 +78,16 @@ class CoverTitleTests(unittest.TestCase):
         self.assertEqual(choose_cover(['Super Mario Bros. Deluxe (USA).png', 'Super Mario Bros. (USA).png'],
                                       'Super Mario Bros.', 'Super Mario Bros.', regional_fallback=True), 'Super Mario Bros. (USA).png')
         self.assertIsNone(choose_cover(['Speedball 2 - Brutal (Europe) (Beta).png'], 'Speedball 2', 'Speedball 2'))
+        self.assertIsNone(choose_cover(['Tetris DX (World).png'], 'Tetris', 'Tetris'))
+
+    def test_extra_titles_are_tried_only_when_the_name_and_the_title_find_nothing(self):
+        names = ['Lotus Turbo Challenge 2.png', 'Lotus - The Ultimate Challenge.png', 'Rick Dangerous (Europe).png']
+        self.assertIsNone(choose_cover(names, 'Lotus 2', 'Lotus 2', regional_fallback=True))
+        self.assertEqual(choose_cover(names, 'Lotus 2', 'Lotus 2', regional_fallback=True,
+                                      extra_titles=('Lotus Turbo Challenge II',)), 'Lotus Turbo Challenge 2.png')
+        # The file's own name wins over an extra name that would point elsewhere.
+        self.assertEqual(choose_cover(names, 'Rick Dangerous', 'Rick Dangerous', regional_fallback=True,
+                                      extra_titles=('Lotus Turbo Challenge II',)), 'Rick Dangerous (Europe).png')
 
     def test_edition_preference_after_tolerant_title_match(self):
         names = ['Double Dragon III - The Arcade Game (Japan).png',

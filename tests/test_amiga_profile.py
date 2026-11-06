@@ -121,5 +121,14 @@ class AvailabilityTests(unittest.TestCase):
                 self.assertEqual(amiga.developer_available(), name == needed[-1])
 
 
+    def test_the_slave_name_is_cleaned_into_a_name_for_its_box(self):
+        from retrorecomp.amiga import cover_title
+        self.assertEqual(cover_title('-* S P E E D B A L L  2 *-'), 'SPEEDBALL 2')
+        self.assertEqual(cover_title('--> Pinball Dreams <--'), 'Pinball Dreams')
+        self.assertEqual(cover_title('Lotus Turbo Challenge II'), 'Lotus Turbo Challenge II')
+        self.assertEqual(cover_title('Dungeon Master (V3.6)'), 'Dungeon Master (V3.6)')
+        self.assertEqual(cover_title(''), '')
+
+
 if __name__ == '__main__':
     unittest.main()

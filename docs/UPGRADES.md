@@ -115,6 +115,21 @@ before.
 the Amiga only**; no other console's stamp moves, no host or build stamp moves. **Quick states:** the Amiga's key moves (its
 session sources changed): Amiga states of earlier builds are refused cleanly, as they are between any two Amiga builds.
 
+## Covers: a subtitle that names the game, and extra names from a profile (1.7, the Amiga's branch)
+
+Two generic changes to the box lookup (`retrorecomp/cover_titles.py`, `retrorecomp/artwork.py`). A query without a subtitle that
+equals a catalogue entry's main title no longer drops that entry for an edition word found only in its subtitle, when the
+subtitle holds other words too ("Speedball 2" finds "Speedball 2 - Brutal Deluxe"; "Super Metroid - Redux", "Tetris DX" and
+bracketed tags still count as editions). And a profile may offer extra names for its games' boxes (`cover_titles(path)`, an
+optional capability read with `getattr`), tried only after the file's name and the title find nothing: the Amiga offers the
+slave's own name, cleaned of its decorations ("Lotus 2" finds "Lotus Turbo Challenge 2").
+
+**Proof without conversions:** the box choice was replayed for the 1,232 conversion reports of `Export` (nine machines) against
+the cached catalogues, with the tree before and after: 2 choices change, both Amiga (Lotus 2 and Speedball 2, none before).
+
+**What moves:** both modules are host inputs of every console (`HOST_MODULES`): **the host stamp of every console moves**, no
+game stamp; an export of 1.6.9 is upgraded without rediscovery for that part.
+
 ## Commodore Amiga: an experimental machine (1.7, the Amiga's branch)
 
 The Amiga 500 opens as an experimental profile (`amiga`, [AMIGA.md](AMIGA.md)): WHDLoad installs that need no Kickstart, on the
