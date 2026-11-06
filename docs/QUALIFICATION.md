@@ -60,7 +60,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
 | PC Engine | experimental | `████░░░░░░` 39 % | ✅ 0 · 🟡 11 · ❔ 3 |
-| Commodore Amiga | experimental | `███░░░░░░░` 31 % | ✅ 1 · 🟡 8 · ❔ 6 · ❌ 1 |
+| Commodore Amiga | experimental | `███░░░░░░░` 34 % | ✅ 1 · 🟡 9 · ❔ 5 · ❌ 1 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -79,7 +79,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ | ❔ | ❌ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ➖ | ❔ |
 
@@ -108,7 +108,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine, amiga = Commodore Amig
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P | P | ? |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | ? | ? | N |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P | P | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - | - | ? |
 
@@ -687,6 +687,7 @@ owner fills it in.
 | 5 November 2026 | Game Boy | The Legend of Zelda: Link's Awakening, Kirby's Dream Land, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | Super Nintendo | Super Mario World, The Legend of Zelda: A Link to the Past, converted with the tree of `main` at `491e845` in a player's conditions (0 interpreted instructions on the tested routes) and delivered in `Export` | Arthur, after playing them: « Je viens de tester tous les jeux de toutes les consoles dernièrement sorties. Tout marche parfaitement bien pour le g14. » | G14 moves from `?` to `Y`. A play test of two games: it says nothing of hardware fidelity or latency. |
 | 5 November 2026 | PC Engine | Blazing Lazers, Bomberman '93, Gradius, Raiden, Santatlantean, Space Harrier, Splatterhouse, Street Fighter II' Champion Edition (the eight HuCards of `Export\Games\PC Engine`), converted with the tree of `spec/pce-170` **before** its merge of `main` (commits up to `ad4d7ec`, the host kit without the four-player change; every one 0 interpreted instructions on the tested routes except Street Fighter II', which keeps a counted interpreted share) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Je viens de faire une campagne de test des jeux CPS-2 et PC Engine. J'ai testé les 8 jeux de chaque console et les 8 marchent parfaitement. Bravo! » | A play trial that passed, **not** a decision to leave the experimental status: the PC Engine stays experimental and G14 reads `P`. The exports played come from a tree older than the one that opens the machine in 1.6.9 and are not the exports of that tree. |
+| 6 November 2026 | Commodore Amiga | The ten panel installs (Rick Dangerous, Lemmings, Elite, Pinball Dreams NTSC, Speedball 2, Turrican 2, Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia), converted with the tree of `spec/amiga-170` at `977cf63e` (the display window and the middle click included) and delivered in `Export\Games\Amiga`; every one 0 interpreted instructions on its two routes of 3,000 frames | Arthur, on a first build of the panel the same morning: « ça marche parfaitement », apart from a large black frame and a picture that did not grow with the window (both fixed in `31d7da35`); then on these exports: « je viens de tester les jeux Amiga, c'est nickel » | A play trial that passed, **not** a decision to leave the experimental status: the Amiga stays experimental and G14 reads `P`. It says nothing of hardware fidelity, of the installs that need a Kickstart, of other games or of latency. |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
