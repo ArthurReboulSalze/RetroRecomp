@@ -97,8 +97,59 @@ screen the final pictures differed by one step with equal CPU state (Emerald at 
 cartridge). The interpreter alone now waits for the same VBlank (two more anchored patches, `docs/UPSTREAMS.md`). What is compared now, for
 each scenario, is the final picture, the guest's cycle count at the first VBlank after the frame limit (the same machine cycle in both
 modes) and a hash of work RAM, IWRAM, VRAM, OAM, palette and I/O registers and one of the CPU registers taken there. Emerald agrees
-on all of it at 600 frames (168,734,720 cycles, equal hashes); the other cartridges of this table have not been replayed with the
-stronger check.
+on all of it at 600 frames (168,734,720 cycles, equal hashes); the cartridges of this table were replayed with the stronger check
+on 6 November 2026 (next section).
+
+## The panel of stage 6 (5 and 6 November 2026)
+
+Six cartridges through the whole conversion (`convert`, the player included), one at a time, on a Windows PC, with the engine of the last section
+of `docs/UPSTREAMS.md` (44 patches). Scenarios: `boot` (600 frames, no key) and `generic` (3,600 frames, a script that presses A, Start, then Right and taps A
+and B; it reaches menus and first scenes and proves nothing about gameplay). For each scenario the generated code and the engine's own interpreter run
+alone and are compared on the final picture, the guest's cycle count at the first VBlank after the frame limit, a hash of work RAM, IWRAM, VRAM, OAM, palette
+and I/O registers and a hash of the CPU registers. The clock of a cartridge that has one starts from a fixed time and follows the guest's cycles in every
+check. The interpreter is the engine's, not an independent oracle.
+
+| Cartridge | Save (header, engine) | Native = interpreter, 2 scenarios | Interpreted instructions (boot, generic) | Conversion | Packed player |
+|---|---|---|---|---|---|
+| Pokémon Emerald (BPEE, 16 MB) | Flash 128 KB, Flash 128 KB | yes | 0, 0 | 1,382 s | 37.9 MB |
+| Mario Kart Super Circuit (AMKE, 4 MB) | Flash 64 KB, Flash 64 KB | yes | 0, 0 | 677 s | 13.1 MB |
+| The Legend of Zelda: The Minish Cap (BZME, 16 MB) | EEPROM, EEPROM | yes | 0, 0 | 594 s | 23.0 MB |
+| Pokémon Mystery Dungeon: Red Rescue Team (B24E, 32 MB) | Flash 128 KB, Flash 128 KB | yes | 0, 0 | 767 s | 47.3 MB |
+| Super Mario Advance 2 (AA2E, 4 MB) | EEPROM, EEPROM | yes | 0, 0 | 1,173 s | 16.5 MB |
+| Golden Sun (AGSE, 8 MB) | Flash 64 KB, Flash 64 KB | yes | 36,339, 17,740,494 | 546 s | 15.9 MB |
+
+The packed player of each runs 600 frames hidden and silent with return code 0 and a non-empty picture and sound; that is a smoke test of the player, not
+gameplay. Golden Sun draws a single colour at frame 600 (its own slow start, the same picture in both modes) and a scene of the village at frame 3,600. The five
+first rows have no instruction left to interpret on the tested scenarios; that is a coverage of those scenarios, not of the game.
+
+What the panel found, in the order it happened (each one is a patch of the engine, `docs/UPSTREAMS.md`, found by the comparison and by no other check):
+
+1. **The clock.** A cartridge with a clock read the host's wall clock; the interpreter replay lasts a hundred times longer than the native run, so the two saw
+   different seconds. The checks start the clock from a fixed time and advance it with the guest's cycles; a person playing keeps the host's clock.
+2. **The end of a run.** Three different ways of ending a bounded run in the two modes gave pictures one step apart (Emerald), a frame later (Golden Sun) or no
+   state at all (Mario Kart at 600 frames). Both modes now end on the VBlank where the state was taken.
+3. **The engine's `cycles=` line.** It is the cycles of the idle pump (waits in HALT), constant at 62,191,750 on three cartridges; it compared nothing. It was
+   replaced by the guest's cycle count and the two hashes.
+4. **HALT inside a bridge.** A game whose own loop runs from RAM is interpreted through a bridge. The bridge did not wait in HALT as the runner does, so the game went
+   on while the machine should have waited for its interrupt: native and interpreter parted at frame 290 to 300 of Golden Sun, with equal cycle counts at the
+   limit. This touches every game that has a bridge; the cartridges above were replayed after the change.
+5. **The bridge's length and its yield.** The engine stops a bridge after 200 million interpreted instructions, which killed Golden Sun (a working game, its main
+   loop is a bridge). The count now restarts when the work RAM changes at a VBlank; a bridge whose work RAM never changes is still stopped and named (checked
+   with a program of our own: exit code 3 after 15 s). The bridge also leaves at the VBlank yield point of the generated code, as the player's frame step needs:
+   without it the packed player of Golden Sun never returned from its first frame (test killed after 900 s).
+
+### Golden Sun
+
+Its main loop and part of its code run from work RAM. Of the 37 RAM addresses the engine had to interpret on the first run, 21 resolve to a copy in the
+cartridge once the probe records the bytes found at the time of the miss (the RAM at the end of a run is another routine's), and the report says why the others stay
+interpreted (`unresolved_reasons`). The remaining ones have no copy in the cartridge: 15 Thumb routines in `0x02008030..0x02008436` and an ARM routine in IWRAM at
+`0x03000828` (326,128 bridges in 3,600 frames) are code the game decompresses or writes at run time. The interpreter counts them (17.7 million instructions in
+3,600 frames, 62 million before the changes above). Making them native needs the bytes themselves, which are derived from
+the cartridge: they can only live in the player's private conversion cache, never in the shared paths library nor in the repository (the paths keep numbers only). That
+is the next step of the plan for this cartridge and is not built.
+
+What this table does not say: gameplay validation (none), hardware fidelity beyond what the authored test ROMs check, physical latency, the Linux player (not built or
+run) and any cartridge outside the six.
 
 ## Independent evidence (stage 5)
 
