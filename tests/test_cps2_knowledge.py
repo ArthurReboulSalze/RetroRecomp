@@ -43,11 +43,12 @@ class RecordTests(unittest.TestCase):
             cps1_knowledge.validate_record(record, IDENTITY)
         self.assertIsNone(cps2_knowledge.salvaged_record(IDENTITY, other))
         self.assertEqual(cps2_knowledge.salvaged_record(IDENTITY, record), record)
-        # an unknown format is skipped by name, never refused as a whole
-        future = json.loads(json.dumps(record))
-        future['identity']['layout']['format'] = 2
-        with self.assertRaises(cps2_knowledge.UnknownFormat):
-            cps2_knowledge.validate_record(future, IDENTITY)
+        # a record with a layout, or an odd program size, is not a CPS-2 record (a format change will add a layout)
+        other_layout = json.loads(json.dumps(record))
+        other_layout['identity']['layout'] = {'format': 2}
+        with self.assertRaises(ValueError):
+            cps2_knowledge.validate_record(other_layout, IDENTITY)
+        self.assertEqual(record['identity']['layout'], {})
 
     def test_the_rows_expand_only_for_the_images_they_were_made_from(self):
         record, _ = self.promoted()

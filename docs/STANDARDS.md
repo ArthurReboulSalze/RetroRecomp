@@ -1,8 +1,8 @@
 # Standards for adding to Retro-Recomp
 
 Retro-Recomp converts games for eleven machines (Master System, Game Gear, Game
-Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000 and, as
-experimental machines, Capcom CPS-2 and the PC Engine) and more are planned. This page states the rules every change follows and the
+Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, as
+an experimental machine, the PC Engine) and more are planned. This page states the rules every change follows and the
 shape the code is converging to, so that a new machine costs a profile, a CPU
 core and a host adapter, not a copy of everything. The inventory behind it
 (27 October 2026) measured where the code is today; the target sections say

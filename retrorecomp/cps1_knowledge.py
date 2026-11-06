@@ -204,9 +204,11 @@ def make_record(identity: str, images: dict, ram_rows=(), z80_rows=(), *, cores:
     if z80_rows:
         z80_paths['ram_code'] = [pp._table_block('insn_masked', z80_rows, 4, 'audiocpu')]
     board = BOARDS[system]
+    # A CPS-2 record has no layout: the offsets are positions in images whose hashes the record states, whatever the catalogue's revision, and
+    # `path_profiles` (which every console's game stamp hashes) knows no layout for a machine it was not edited for. A format change will add one.
+    layout = {} if system == 'cps2' else {'catalogue': _catalogue_revision(system), 'format': FORMAT}
     return {'schema': pp.SCHEMA, 'game': f'{system}:{identity}',
-            'identity': {'system': system, 'sources': source_facts(images),
-                         'layout': {'catalogue': _catalogue_revision(system), 'format': FORMAT}},
+            'identity': {'system': system, 'sources': source_facts(images), 'layout': layout},
             'cpus': {'m68k': {'map': board['m68k_map'], 'core': m68k_core, 'paths': m68k_paths},
                      'z80': {'map': board['z80_map'], 'core': z80_core, 'paths': z80_paths}},
             'devices': {}}
@@ -228,7 +230,10 @@ def validate_record(record, identity: str | None = None, system: str = SYSTEM) -
         if identity is not None and record['game'] != f'{system}:{identity}':
             raise ValueError(f'{label} hints do not match their romset identity.')
         layout = record['identity']['layout']
-        if set(layout) != {'catalogue', 'format'} or layout['format'] not in FORMATS:
+        if system == 'cps2':
+            if layout != {} or record['identity']['sources']['maincpu']['bytes'] & 1:
+                raise ValueError(f'Invalid {label} layout.')
+        elif set(layout) != {'catalogue', 'format'} or layout['format'] not in FORMATS:
             raise ValueError(f'Invalid {label} layout.')
         if set(record['cpus']) != {'m68k', 'z80'} or record['devices']:
             raise ValueError(f'A {label} record lists its 68000 and Z80 sections.')

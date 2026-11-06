@@ -502,8 +502,8 @@ def _validate_sources(system, sources) -> dict:
     if system == 'ng':
         p, m1, cart = (sources[n]['bytes'] for n in ('p', 'm1', 'cart'))
         _need(not p & 1 and not m1 & (m1 - 1) and p + m1 <= cart, 'Inconsistent Neo Geo compilation region sizes.')
-    if system in ('cps1', 'cps2'):
-        _need(not sources['maincpu']['bytes'] & 1, 'Inconsistent CPS-1 or CPS-2 compilation region sizes.')
+    if system == 'cps1':
+        _need(not sources['maincpu']['bytes'] & 1, 'Inconsistent CPS-1 compilation region sizes.')
     if system == 'x68':
         # The disks (their contents one after the other) and, when the record holds IPL paths, the 128 KiB IPL they belong to.
         _need(all(not source['bytes'] & 1 for name, source in sources.items() if name != 'ipl'), 'Inconsistent X68000 disk size.')
@@ -516,11 +516,11 @@ def _validate_layout(system, layout) -> None:
     pin = lambda value: isinstance(value, str) and HEX40.fullmatch(value)
     if system == 'ng':
         _need(set(layout) == {'loader'} and pin(layout['loader']), 'Invalid Neo Geo layout.')
-    elif system in ('cps1', 'cps2'):
-        # `catalogue` (the MAME revision the offsets depend on) and `format` (the version of the CPS-1 or CPS-2 record,
+    elif system == 'cps1':
+        # `catalogue` (the MAME revision the offsets depend on) and `format` (the version of the CPS-1 record,
         # which can change while the machine is developed: a reader skips what it does not know).
         _need(set(layout) <= {'catalogue', 'format'} and all(pin(v) for k, v in layout.items() if k == 'catalogue')
-              and (type(layout.get('format', 1)) is int and 1 <= layout.get('format', 1) <= 255), 'Invalid CPS-1 or CPS-2 layout.')
+              and (type(layout.get('format', 1)) is int and 1 <= layout.get('format', 1) <= 255), 'Invalid CPS-1 layout.')
     elif system == 'x68':
         drives = layout.get('initial_drives', [])
         # `format` is the version of the X68000 record (a reader skips what it does not know).

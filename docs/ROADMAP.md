@@ -87,11 +87,11 @@ revisions, boards and peripherals keep their own scope.
 
 ### Capcom CPS-2
 
-Experimental since 1.6.9 (the owner's decision of 5 November 2026): its own profile built on the CPS-1 and CPS-1.5 modules, with the 68000's
-encrypted program decrypted by the key file of the player's own romset (keys are never shipped), the CPS-2 object chip and raster effects,
-and QSound sound. First scope: the 236 standard boards; the spinner and paddle games later. Next: more of the 236 sets converted and played,
-the Linux witness, the sharing of paths, the sets whose files differ from the catalogue's (`1944`, `19xx`, `progear`, `avsp`), and the
-decision to leave the experimental status.
+Supported since 1.7.0 (experimental in 1.6.9), once the owner's decision is recorded: its own profile built on the CPS-1 and CPS-1.5 modules, with the
+68000's encrypted program decrypted by the key file of the player's own romset (keys are never shipped), the CPS-2 object chip and raster effects, and
+QSound sound. First scope: the 236 standard boards; the ten spinner and paddle games and the three games with inputs of their own later. Next: more of the
+236 sets converted and played, the cause of the three one-picture differences with MAME, and a low-level model of the QSound chip's DSP16, done once for the
+CPS-1.5 and the CPS-2.
 
 ### Capcom CPS-1 and CPS-1.5
 
