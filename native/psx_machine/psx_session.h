@@ -77,8 +77,10 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info);
 /* The memory card of slot 1 (128 KiB), as the core keeps it; NULL when the core has none. */
 uint8_t *rr_psx_card(RrPsxSession *s, size_t *size);
 
-/* Instructions the core's interpreter ran since the session opened (every R3000A instruction until native steps exist). */
+/* R3000A instructions run since the program started: by the core's interpreter (the counted fallback), and by the game's
+ * native steps (none in a game built without them). */
 uint64_t rr_psx_interpreted(const RrPsxSession *s);
+uint64_t rr_psx_native(const RrPsxSession *s);
 
 /* The whole machine as bytes (quick states of the host kit): malloc'ed, NULL on failure; restore returns 0 on success. */
 uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size);

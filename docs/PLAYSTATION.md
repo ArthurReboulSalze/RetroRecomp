@@ -1,8 +1,8 @@
 # Sony PlayStation (experimental, in development)
 
 The PlayStation profile is **experimental** and only present in developer installations: it is being built. A conversion
-already makes a playable game, but **every R3000A instruction still runs on the machine's interpreter** (counted and reported):
-the native code comes with the next stage. This page says what it converts, how, and what it does not claim. The five measures
+makes a playable game whose R3000A code, as far as the conversion saw it run, is **native steps**; the rest runs on the machine's
+interpreter and is counted and reported. This page says what it converts, how, and what it does not claim. The five measures
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
 
 ## 1. What is converted
@@ -28,19 +28,26 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
   chosen) and embedded in the game. Without one, the game runs on OpenBIOS (PCSX-Redux, MIT), and the report says "free BIOS"
   under hardware fidelity. No BIOS is downloaded or supplied, and none is reimplemented by high-level emulation.
 - **The disc** is appended to the game executable and read in place, as the adventure games are packed.
-- **Native code** (the next stage, not in this build): the R3000A instructions a conversion sees running will become guarded native steps that call the core's own
-  instruction code, so the core's timing stays the core's; anything else will run on the core's interpreter, counted.
+- **Native code**: the conversion first plays its routes on an observing build of the machine (the interpreter alone, recording
+  each instruction word it runs in main RAM or the BIOS). Each run of consecutive instructions becomes a native step: C code in
+  which each instruction is the core's own handler with its word fixed, so it is decoded once, at conversion time. The core's
+  timing stays the core's: before each instruction a step does what the interpreter's loop does (the event check, the fetch
+  through the instruction cache with its cycles, the load-delay tick). Its guard is the word the CPU really fetched: when it is
+  not the word the step was made for (code loaded later from the disc, an overlay, self-modifying code) or an interrupt is
+  pending, the interpreter runs that instruction, counted. A step is entered at any address of its run and leaves at a taken
+  branch or a timing event. Code the routes never ran stays interpreted, counted.
 
 ## 3. What a conversion checks, and what it does not claim
 
-A conversion plays its routes headless on the executable that is published (the disc inside it): an attract route without
-input and a play route (Start and Cross through the title screens, then a deterministic walk), plus long routes at the higher
-scan levels. It requires a picture that changes, plays the play route a second time in a fresh process and requires the same
-picture, sound and RAM on every frame, and checks F8/F9 in a fresh process and the refusal of a damaged state. The game is
-published as built (not compressed: the disc follows the program).
+A conversion plays its routes headless twice: on the observing build (the interpreter alone: the reference) and on the
+executable that is published (the disc inside it, its native steps): an attract route without input and a play route (Start and
+Cross through the title screens, then a deterministic walk), plus long routes at the higher scan levels. It requires a picture
+that changes and, on every frame of every route, the same picture, sound and RAM in both processes; it checks F8/F9 in a fresh
+process and the refusal of a damaged state. The game is published as built (not compressed: the disc follows the program).
 
-Native code: none yet (0 %; every instruction is interpreted and counted). CPU fidelity: what the core's interpreter does, not
-checked against an independent CPU model yet. Hardware fidelity: not measured; with the free BIOS the report says so. Gameplay
+Native code: the share of the routes' instructions run by native steps, and the interpreted remainder, are in the report per
+route; outside the routes the game shows its own counter. CPU fidelity: what the core's interpreter does (the native steps are
+compared with it, not with an independent CPU model). Hardware fidelity: not measured; with the free BIOS the report says so. Gameplay
 validation: only the conversion's routes. Physical latency: not measured.
 
 ## 4. Not in this first scope

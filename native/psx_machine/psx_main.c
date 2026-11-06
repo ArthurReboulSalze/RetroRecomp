@@ -32,6 +32,10 @@ static RrPsxSession *session;
 static unsigned frame;
 static int headless, frames, scripted, diagnostics;
 static const char *report_path, *trace_path, *save_path, *load_path, *capture_dir, *pack_override;
+#ifdef RR_PSX_OBSERVE
+static const char *observe_path;
+int rr_psx_observe_write(FILE *f);    /* psx_observe.c: the conversion's observing build only */
+#endif
 static unsigned save_at, capture_every = 600;
 static int state_loaded, load_rejected, save_failed;
 static FILE *trace_file;
@@ -280,11 +284,12 @@ static int report(void) {
     escaped[e] = 0;
     size_t bios_size = 0;
     int player_bios = rr_resource(BIOS_RESOURCE, &bios_size) != NULL && bios_size == RR_PSX_BIOS_BYTES;
-    fprintf(f, "{\"stage\":\"psx\",\"frames\":%u,\"interpreted_instructions\":%llu,\"native_instructions\":0,"
+    fprintf(f, "{\"stage\":\"psx\",\"frames\":%u,\"interpreted_instructions\":%llu,\"native_instructions\":%llu,"
                "\"bios\":\"%s\",\"discs\":%d,\"image_hash\":\"%016llx\",\"pcm_hash\":\"%016llx\",\"pcm_samples\":%llu,"
                "\"nonzero_samples\":%llu,\"nonuniform_frames\":%u,\"pcm_rate\":%u,\"pcm_channels\":2,"
                "\"state_loaded\":%s,\"load_rejected\":%s,\"save_failed\":%s,\"fault\":\"%s\"}\n",
-            frame, (unsigned long long)(session ? rr_psx_interpreted(session) : 0), player_bios ? "player" : "free",
+            frame, (unsigned long long)(session ? rr_psx_interpreted(session) : 0),
+            (unsigned long long)(session ? rr_psx_native(session) : 0), player_bios ? "player" : "free",
             session ? rr_psx_disc_count(session) : 0, (unsigned long long)image_hash, (unsigned long long)pcm_hash,
             (unsigned long long)samples, (unsigned long long)nonzero, nonuniform_frames, RR_PSX_AUDIO_RATE,
             state_loaded ? "true" : "false", load_rejected ? "true" : "false", save_failed ? "true" : "false", escaped);
@@ -304,6 +309,9 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--pack")) pack_override = argv[++i];
+#ifdef RR_PSX_OBSERVE
+        else if (i + 1 < argc && !strcmp(argv[i], "--observe")) observe_path = argv[++i];
+#endif
         else if (i + 1 < argc && !strcmp(argv[i], "--script")) { if (!load_script(argv[++i])) return 2; }
         else return 2;
     }
@@ -333,6 +341,13 @@ static int execute(int argc, char **argv) {
     if (save_path && !save_at && !state_file(save_path, 0)) save_failed = 1;
     if (!ran) fprintf(stderr, "%s\n", fault);
     int okay = report() && ran && !save_failed && !host_result;
+#ifdef RR_PSX_OBSERVE
+    if (observe_path) {
+        FILE *f = file_open(observe_path, L"wb");
+        if (!f || !rr_psx_observe_write(f)) okay = 0;
+        if (f && fclose(f)) okay = 0;
+    }
+#endif
     if (trace_file && fclose(trace_file)) okay = 0;
     rr_psx_close(session);
     SDL_Quit();

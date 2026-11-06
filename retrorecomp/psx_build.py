@@ -20,7 +20,7 @@ GAME_FILES = ('platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console
               'console16_video.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h',
               'runtime_catalog.inc', 'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h',
               'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h')
-MACHINE_FILES = ('psx_main.c', 'psx_session.c', 'psx_session.h')
+MACHINE_FILES = ('psx_main.c', 'psx_session.c', 'psx_session.h', 'psx_observe.c')
 NOTICE_FILES = ('licenses/beetle-psx.md', 'LICENSE', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md',
                 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 STATE_SYSTEM = 6      # the quick-state header's machine number (1 MD, 2 SNES, 3 Neo Geo, 4 CPS-1, 5 PC Engine)
@@ -51,9 +51,12 @@ def state_config(game_sha256: str, title: str, video_mode: str, bios_sha256: str
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
 
 
-def game_cmake(tree: Path, version: str) -> str:
+def game_cmake(tree: Path, version: str, *, native: bool) -> str:
+    """The game project: `game` (the published program; its CPU runs the native steps of rr_psx_native.inc when `native`)
+    and `game_observe` (the conversion's observing build: the interpreter alone, recording the code it runs)."""
     from . import hostkit
     kit = ' '.join(hostkit.sources('psx'))
+    cpu = '${RR_BEETLE_TREE}/mednafen/psx/cpu.c'
     lines = [
         'cmake_minimum_required(VERSION 3.20)',
         'project(RetroPsx LANGUAGES C)',
@@ -61,30 +64,44 @@ def game_cmake(tree: Path, version: str) -> str:
         'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
         f'set(RR_BEETLE_TREE "{tree.as_posix()}")',
         'include("${RR_BEETLE_TREE}/rr_sources.cmake")',
-        'add_library(rr_beetle STATIC ${RR_BEETLE_SOURCES})',
-        'target_include_directories(rr_beetle PUBLIC ${RR_BEETLE_INCLUDES})',
-        'target_compile_definitions(rr_beetle PUBLIC ${RR_BEETLE_DEFINES})',
-        'if(MSVC)', '  target_compile_options(rr_beetle PRIVATE /O2 /w)',
-        'else()', '  target_compile_options(rr_beetle PRIVATE -O2 -w -fwrapv -fno-strict-aliasing -fno-fast-math)', 'endif()',
+        f'list(REMOVE_ITEM RR_BEETLE_SOURCES "{cpu}")',
+        'function(rr_beetle_library name)',
+        '  add_library(${name} STATIC ${ARGN})',
+        '  target_include_directories(${name} PUBLIC ${RR_BEETLE_INCLUDES})',
+        '  target_compile_definitions(${name} PUBLIC ${RR_BEETLE_DEFINES})',
+        '  if(MSVC)', '    target_compile_options(${name} PRIVATE /O2 /w)',
+        '  else()', '    target_compile_options(${name} PRIVATE -O2 -w -fwrapv -fno-strict-aliasing -fno-fast-math)', '  endif()',
+        'endfunction()',
+        'rr_beetle_library(rr_beetle ${RR_BEETLE_SOURCES})',
+        f'rr_beetle_library(rr_cpu_game "{cpu}")',
+        f'rr_beetle_library(rr_cpu_observe "{cpu}")',
+        'target_compile_definitions(rr_cpu_observe PRIVATE RR_PSX_OBSERVE)',
+        *(['target_compile_definitions(rr_cpu_game PRIVATE RR_PSX_NATIVE)',
+           'target_include_directories(rr_cpu_game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")'] if native else []),
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
-        f'add_executable(game psx_main.c psx_session.c {kit} console16_state.c retro_menu.c)',
-        'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
-        'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
-        '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
-        'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
-        '  target_link_libraries(game PRIVATE m)', 'endif()',
-        'target_link_libraries(game PRIVATE rr_beetle SDL2::SDL2-static)',
-        f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED [[RR_RECOMP_VERSION="{version}"]])',
-        'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
-        'if(WIN32 AND NOT MSVC)',
-        '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
+        'function(rr_psx_program name cpu)',
+        f'  add_executable(${{name}} psx_main.c psx_session.c {kit} console16_state.c retro_menu.c runtime_feedback.c ${{ARGN}})',
+        '  target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
+        '  if(WIN32)', '    target_sources(${name} PRIVATE content.rc)',
+        '    target_link_libraries(${name} PRIVATE shell32 user32 gdi32)',
+        '  else()', '    target_sources(${name} PRIVATE embedded_resources.c embedded_resources.S platform_io.c)',
+        '    target_link_libraries(${name} PRIVATE m)', '  endif()',
+        '  target_link_libraries(${name} PRIVATE ${cpu} rr_beetle SDL2::SDL2-static)',
+        f'  target_compile_definitions(${{name}} PRIVATE SDL_MAIN_HANDLED [[RR_RECOMP_VERSION="{version}"]])',
+        '  if(MSVC)', '    target_link_options(${name} PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', '  endif()',
+        '  if(WIN32 AND NOT MSVC)',
+        '    target_link_options(${name} PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', '  endif()',
+        'endfunction()',
+        'rr_psx_program(game rr_cpu_game)',
+        'rr_psx_program(game_observe rr_cpu_observe psx_observe.c)',
+        'target_compile_definitions(game_observe PRIVATE RR_PSX_OBSERVE)',
     ]
     return '\n'.join(lines) + '\n'
 
 
 def prepare_game(project: Path, tree: Path, *, title: str, game_sha256: str, video_mode: str, bios=None,
-                 presentation: dict | None = None) -> dict:
+                 presentation: dict | None = None, native: bool = False) -> dict:
     """A game project: the session, the kit, the prepared Beetle tree, the player's BIOS (`psx_bios.Bios`, or None: OpenBIOS)."""
     from . import __version__, hostkit
     from .core import ASSETS, executable_name
@@ -131,14 +148,22 @@ def prepare_game(project: Path, tree: Path, *, title: str, game_sha256: str, vid
            f'#define RR_PSX_FPS {FPS["pal" if video_mode == "pal" else "ntsc"]}\n')
     _write(project / 'retro16_state_config.h',
            state_config(game_sha256, title, video_mode, bios.sha256 if bios is not None else None))
-    _write(project / 'CMakeLists.txt', game_cmake(tree, __version__))
+    set_native(project, tree, native)
     from .feedback import stage
-    stage(project, 'psx', game_sha256)   # the exit-only runtime recorder every game carries (adds its sources to the project)
+    stage(project, 'psx', game_sha256, cmake=False)   # the exit-only runtime recorder every game carries (game_cmake lists it)
     return {'artwork': artwork, 'windows_metadata': metadata, 'bios': 'player' if bios is not None else 'free'}
 
 
-def build_game(project: Path, emit: Callable[[str], None] = print, *, cmake_args: list | None = None) -> Path:
-    """Build the project's `game` target against the static SDL2 of the converter; returns the linked program (no disc yet)."""
+def set_native(project: Path, tree: Path, native: bool) -> None:
+    """The project's CMake file, with the game's CPU on its native steps (`project/rr_psx_native.inc`) or on the interpreter."""
+    from . import __version__
+    _write(project / 'CMakeLists.txt', game_cmake(tree, __version__, native=native))
+
+
+def build_game(project: Path, emit: Callable[[str], None] = print, *, cmake_args: list | None = None,
+               target: str = 'game') -> Path:
+    """Build a target of the project (`game`, or the observing `game_observe`) against the static SDL2 of the converter;
+    returns the linked program (no disc yet)."""
     from . import core
     from .platforms import build_executable, sdl_install, sdl_library
     sdl = sdl_install()
@@ -148,6 +173,6 @@ def build_game(project: Path, emit: Callable[[str], None] = print, *, cmake_args
     log = project / 'build.log'
     core.run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *(cmake_args or core.cmake_target_args()),
               f'-DCMAKE_PREFIX_PATH={Path(sdl).as_posix()}'], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    core.run([cmake, '--build', project / 'build', '--config', 'Release', '--target', 'game', '--parallel',
+    core.run([cmake, '--build', project / 'build', '--config', 'Release', '--target', target, '--parallel',
               core.build_jobs()], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    return build_executable(project / 'build', 'game')
+    return build_executable(project / 'build', target)

@@ -1,0 +1,102 @@
+"""PlayStation native steps (retrorecomp/psx_native.py): observations, Beetle's handler table, runs and the C they become.
+No disc and no Beetle checkout: a small cpu.c of the same shape stands for the prepared one."""
+from pathlib import Path
+import tempfile
+import unittest
+
+from retrorecomp import psx_native
+
+ORDER = ['SLL', 'ILL', 'SRL', 'SRA'] + ['ILL'] * 4 + ['JR'] + ['ILL'] * 24 + ['ADDU'] + ['ILL'] * 30
+UPPER = ['ILL', 'ILL', 'J', 'ILL'] + ['ILL'] * 5 + ['ADDIU'] + ['ILL'] * 5 + ['LUI'] + ['ILL'] * 19 + ['LW'] + ['ILL'] * 28
+CPU = ('static int32_t CPU_RunReal(PS_CPU *self, int32_t timestamp_in)\n{\n'
+       '   CGBEGIN\n' + ''.join(f'    CGE(op_{n})\n' for n in ORDER + UPPER + ['INTERRUPT'] * 128) + '   CGEND\n'
+       + ''.join(f'    BEGIN_OPF({n});\n\tRTYPE; // {n}\n\tDO_LDS(); /* body */ GPR[rd] = GPR[rs];\n    END_OPF;\n'
+                 for n in ('SLL', 'SRL', 'SRA', 'ADDU', 'ADDIU', 'LUI', 'LW', 'ILL'))
+       + '    BEGIN_OPF(JR);\n\tRTYPE;\n\tDO_BRANCH(true, GPR[rs], 0, false, 0);\n    END_OPF;\n'
+       + '    BEGIN_OPF(J);\n\tJTYPE;\n\tDO_BRANCH(true, target << 2, 0xF0000000, false, 0);\n    END_OPF;\n'
+       + '    BEGIN_OPF(INTERRUPT);\n\tif(Halted) { goto SkipNPCStuff; }\n    END_OPF;\n'
+       '}\n\nint32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n}\n')
+ADDIU, LUI, ADDU, JR, NOP, LW = 0x24420001, 0x3C028001, 0x00431021, 0x03E00008, 0x00000000, 0x8C420000
+
+
+class NativeStepsTest(unittest.TestCase):
+    def test_decode_follows_the_interpreter(self):
+        table = psx_native.handlers(CPU)
+        self.assertEqual(table.name(ADDIU), 'ADDIU')
+        self.assertEqual(table.name(LUI), 'LUI')
+        self.assertEqual(table.name(ADDU), 'ADDU')
+        self.assertEqual(table.name(JR), 'JR')
+        self.assertEqual(table.name(NOP), 'SLL')
+        self.assertEqual(psx_native.opf(LW), 0x40 | 0x23)
+        self.assertNotIn('//', table.bodies['ADDU'])
+        self.assertNotIn('/*', table.bodies['ADDU'])
+
+    def test_a_handler_that_leaves_its_body_is_refused(self):
+        bad = CPU.replace('GPR[rd] = GPR[rs];\n    END_OPF;\n    BEGIN_OPF(SRL)', 'goto OpDone;\n    END_OPF;\n    BEGIN_OPF(SRL)')
+        with self.assertRaises(psx_native.NativeError):
+            psx_native.handlers(bad)
+
+    def test_runs_cut_at_entered_addresses_and_gaps(self):
+        table = psx_native.handlers(CPU)
+        seen = psx_native.Observed
+        pairs = {(0x1000, LUI): seen(5, True), (0x1004, ADDIU): seen(5), (0x1008, JR): seen(5), (0x100C, NOP): seen(5),
+                 (0x1010, ADDU): seen(2, True), (0x1014, NOP): seen(2),
+                 (0x1020, ADDU): seen(1, True),
+                 # overlay: another word ran at 0x1004 less often; it stays with the interpreter
+                 (0x1004, ADDU): seen(1),
+                 # outside RAM and the BIOS (scratchpad), never a step
+                 (0x1F800000, ADDU): seen(9, True)}
+        p = psx_native.plan(pairs, table)
+        self.assertEqual([start for start, _ in p.steps], [0x1000, 0x1010, 0x1020])
+        self.assertEqual(p.steps[0][1], [(0x1000, LUI), (0x1004, ADDIU), (0x1008, JR), (0x100C, NOP)])
+        self.assertEqual(p.instructions, 7)
+        self.assertEqual(p.variants_left, 1)
+        self.assertEqual(p.observed_runs, 5 * 4 + 2 * 2 + 1 + 1 + 9)
+        self.assertEqual(p.covered_runs, 5 * 4 + 2 * 2 + 1)
+
+    def test_long_runs_are_split(self):
+        table = psx_native.handlers(CPU)
+        pairs = {(0x2000 + 4 * n, NOP): psx_native.Observed(1, n == 0) for n in range(psx_native.MAX_RUN + 3)}
+        p = psx_native.plan(pairs, table)
+        self.assertEqual([len(run) for _, run in p.steps], [psx_native.MAX_RUN, 3])
+
+    def test_observation_files_merge(self):
+        with tempfile.TemporaryDirectory() as folder:
+            a, b = Path(folder) / 'a.observe', Path(folder) / 'b.observe'
+            a.write_text('RRPSX-OBSERVE 1\n00001000 3c028001 4 1\n00001004 24420001 4 0\n', encoding='ascii')
+            b.write_text('RRPSX-OBSERVE 1\noverflow\n00001004 24420001 3 1\n', encoding='ascii')
+            pairs, overflow = psx_native.read_observations([a, b])
+            self.assertTrue(overflow)
+            self.assertEqual(pairs[(0x1004, ADDIU)].count, 7)
+            self.assertTrue(pairs[(0x1004, ADDIU)].entered)
+            (Path(folder) / 'c.observe').write_text('something else\n', encoding='ascii')
+            with self.assertRaises(psx_native.NativeError):
+                psx_native.read_observations([Path(folder) / 'c.observe'])
+
+    def test_the_steps_written(self):
+        seen = psx_native.Observed
+        pairs = {(0x1000, LUI): seen(5, True), (0x1004, JR): seen(5), (0x1008, NOP): seen(5),
+                 (0x1FC00000, LW): seen(1, True)}
+        with tempfile.TemporaryDirectory() as folder:
+            cpu = Path(folder) / 'cpu.c'
+            cpu.write_text(CPU, encoding='utf-8')
+            out = Path(folder) / 'rr_psx_native.inc'
+            summary = psx_native.write(cpu, pairs, out)
+            text = out.read_text(encoding='utf-8')
+        self.assertEqual(summary['steps'], 2)
+        self.assertEqual(summary['instructions'], 4)
+        self.assertEqual(summary['handlers'], ['JR', 'LUI', 'LW', 'SLL'])
+        self.assertIn('static int rr_psx_step_00001000(RrPsxRegs *rr)', text)
+        self.assertIn('rr_e0: RR_GUARD(0x3c028001u)', text)
+        self.assertIn('RR_FETCH(0x00001004u)', text)
+        self.assertIn('#define BRANCH_DISPATCH goto rr_b1;', text)
+        self.assertIn('rr_b1: ;', text)
+        self.assertIn('{0x1fc00000u, 1, rr_psx_step_1fc00000}', text)
+        self.assertNotIn('RR_OP_ADDU', text)       # only the handlers the steps use are expanded
+        # every line of a handler macro but its last continues
+        macro = text[text.index('#define RR_OP_LUI'):].split('\n\n')[0].splitlines()
+        self.assertTrue(all(line.endswith('\\') for line in macro))
+
+
+if __name__ == '__main__':
+    unittest.main()

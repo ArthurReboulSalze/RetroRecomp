@@ -93,14 +93,80 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '#include <vfs/vfs_hybrid.h>\n'
      '/* Retro-Recomp modification (GPL-2.0, like this file): the BIOS image the host gives (512 KiB), NULL: none. */\n'
      'const unsigned char *rr_psx_bios_data = NULL;\n'),
-    # Every instruction the interpreter runs is fetched here once (the loop head and the replicated dispatch both call it):
-    # the count of interpreted instructions the report and the game's honesty counter show.
+    # Every instruction the CPU runs is fetched here once (the loop head, the replicated dispatch and the native steps all
+    # call it, so the instruction cache and its timing stay the core's); the native steps count theirs, the rest are
+    # interpreted. The step hook (after each fetch of the interpreter) enters the native step of the fetched address, when
+    # the game has one (RR_PSX_NATIVE, rr_psx_native.inc written by retrorecomp/psx_native.py), and records the
+    # interpreted instructions in the conversion's observing build (RR_PSX_OBSERVE).
     ('mednafen/psx/cpu.c',
      'static INLINE uint32_t ReadInstruction(int32_t *timestamp, uint32_t address)\n{\n   uint32_t instr;\n',
-     '/* Retro-Recomp modification (GPL-2.0, like this file): instructions run by the interpreter. */\n'
-     'uint64_t rr_psx_interpreted_count = 0;\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): instructions fetched (every instruction the CPU runs), the\n'
+     ' * share of them run by the game\'s native steps, and the hook of those steps after each fetch of the interpreter. */\n'
+     'uint64_t rr_psx_fetched_count = 0;\n'
+     'uint64_t rr_psx_native_count = 0;\n'
+     '#ifdef RR_PSX_OBSERVE\n'
+     'void rr_psx_observe(uint32_t pc, uint32_t instr);\n'
+     '#define RR_PSX_OBSERVE_STEP rr_psx_observe(PC, instr);\n'
+     '#else\n'
+     '#define RR_PSX_OBSERVE_STEP\n'
+     '#endif\n'
+     '#ifdef RR_PSX_NATIVE\n'
+     'typedef struct RrPsxRegs { int32_t timestamp; uint32_t PC, new_PC, LDWhich, LDValue, instr; } RrPsxRegs;\n'
+     '/* A native step: 0, it stopped before a fetch (the loop goes on at its head); 1, it fetched an instruction it does\n'
+     ' * not hold (regs->instr), which the interpreter decodes. */\n'
+     'typedef int (*RrPsxStep)(RrPsxRegs *regs);\n'
+     'static RrPsxStep rr_psx_ram_steps[0x200000 >> 2];\n'
+     'static RrPsxStep rr_psx_bios_steps[0x80000 >> 2];\n'
+     'static INLINE RrPsxStep rr_psx_step_at(uint32_t pc)\n{\n'
+     '   const uint32_t physical = pc & 0x1FFFFFFF;\n'
+     '   if (physical < 0x200000)\n      return rr_psx_ram_steps[physical >> 2];\n'
+     '   if (physical - 0x1FC00000 < 0x80000)\n      return rr_psx_bios_steps[(physical - 0x1FC00000) >> 2];\n'
+     '   return NULL;\n}\n'
+     '#define RR_PSX_STEP_HOOK \\\n'
+     '   if (MDFN_LIKELY(!IPCache)) \\\n'
+     '   { \\\n'
+     '    const RrPsxStep rr_step_ = rr_psx_step_at(PC); \\\n'
+     '    if (rr_step_) \\\n'
+     '    { \\\n'
+     '     RrPsxRegs rr_regs_; \\\n'
+     '     rr_regs_.timestamp = timestamp; rr_regs_.PC = PC; rr_regs_.new_PC = new_PC; \\\n'
+     '     rr_regs_.LDWhich = LDWhich; rr_regs_.LDValue = LDValue; rr_regs_.instr = instr; \\\n'
+     '     const int rr_fetched_ = rr_step_(&rr_regs_); \\\n'
+     '     timestamp = rr_regs_.timestamp; PC = rr_regs_.PC; new_PC = rr_regs_.new_PC; \\\n'
+     '     LDWhich = rr_regs_.LDWhich; LDValue = rr_regs_.LDValue; instr = rr_regs_.instr; \\\n'
+     '     if (!rr_fetched_) \\\n'
+     '      goto SkipNPCStuff; \\\n'
+     '     RR_PSX_OBSERVE_STEP \\\n'
+     '     goto RrDecode; \\\n'
+     '    } \\\n'
+     '   } \\\n'
+     '   RR_PSX_OBSERVE_STEP\n'
+     '#else\n'
+     '#define RR_PSX_STEP_HOOK RR_PSX_OBSERVE_STEP\n'
+     '#endif\n'
      'static INLINE uint32_t ReadInstruction(int32_t *timestamp, uint32_t address)\n{\n   uint32_t instr;\n\n'
-     '   ++rr_psx_interpreted_count;\n'),
+     '   ++rr_psx_fetched_count;\n'),
+    ('mednafen/psx/cpu.c',
+     '   instr = ReadInstruction(&timestamp, PC);\n',
+     '   instr = ReadInstruction(&timestamp, PC);\n'
+     '   /* Retro-Recomp modification (GPL-2.0, like this file): the native step of this address, if any. */\n'
+     '   RR_PSX_STEP_HOOK\n'
+     '#ifdef RR_PSX_NATIVE\n'
+     '   RrDecode: ;\n'
+     '#endif\n'),
+    ('mednafen/psx/cpu.c',
+     '\tinstr = ReadInstruction(&timestamp, PC); \\\n',
+     '\tinstr = ReadInstruction(&timestamp, PC); \\\n'
+     '\tRR_PSX_STEP_HOOK \\\n'),
+    # The native steps are functions of this file (they call its memory, exception and coprocessor code and expand the
+    # handler bodies of CPU_RunReal, whose macros are still defined here).
+    ('mednafen/psx/cpu.c',
+     'int32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the game\'s native steps. */\n'
+     '#ifdef RR_PSX_NATIVE\n'
+     '#include "rr_psx_native.inc"\n'
+     '#endif\n\n'
+     'int32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n'),
     # The EBOOT reader (CDAccess_PBP.c) is not compiled, so the disc count it keeps is defined here, at 0 (no EBOOT).
     ('libretro.c',
      'extern int PBP_DiscCount;\n',

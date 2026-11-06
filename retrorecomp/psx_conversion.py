@@ -1,11 +1,13 @@
 """PlayStation conversion (experimental, developer installations only; docs/PLAYSTATION.md). Retro-Recomp's own code, MIT.
 
-Stage 1 of the plan: the game executable is the Beetle PSX machine with the player's BIOS embedded (OpenBIOS when he gave none)
-and his disc appended; every R3000A instruction runs on the core's interpreter and is counted (no native code yet: the guarded
-native steps are stage 2). The conversion plays its routes headless on the executable that is published (the disc inside it),
-plays the play route a second time in a fresh process and requires the same trace (picture, sound and RAM of every frame),
-checks F8/F9 in a fresh process and the refusal of a damaged state, and writes the report. A game that carries its disc after
-the program is published as built: UPX would move the data the program reads.
+The game executable is the Beetle PSX machine with the player's BIOS embedded (OpenBIOS when he gave none) and his disc
+appended. The conversion first builds the observing machine (the interpreter alone, recording the R3000A code it runs) and plays
+its routes on it: those runs are the reference. From the code they ran it writes the game's native steps (retrorecomp/psx_native.py:
+the interpreter's handler bodies with each instruction word constant, its timing kept, the fetched word as guard), builds the game
+with them, and plays every route again on the executable that is published (the disc inside it): each frame's picture, sound and
+RAM must be the reference's. The instructions the steps do not hold run on the interpreter and are counted. It then checks F8/F9
+in a fresh process and the refusal of a damaged state, and writes the report. A game that carries its disc after the program is
+published as built: UPX would move the data the program reads.
 
 An installation without the machine's files (`PLAYSTATION.available()`) refuses a conversion with `NOT_YET`. Nothing is written
 beside the player's disc.
@@ -85,6 +87,14 @@ def trace_rows(trace: Path):
         yield FrameRow(int(fields[0]), fields[2], sound=fields[3], audible=fields[5] == '1')
 
 
+def trace_difference(actual: Path, expected: Path) -> int | None:
+    """The first frame where two traces differ (None: the same picture, sound and RAM on every frame)."""
+    from .conversion_gates import first_difference
+    one = Path(actual).read_text(encoding='ascii').splitlines()[1:]
+    other = Path(expected).read_text(encoding='ascii').splitlines()[1:]
+    return first_difference(one, other)
+
+
 def route_liveness(trace: Path) -> dict:
     from .delivery_evidence import liveness_summary, report_fields
     return report_fields(liveness_summary(trace_rows(trace)), LIVENESS_FIELDS)
@@ -160,7 +170,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             frames=3600, scan_level=None, standard_override=None, profile=None, psx_bios=None, emit=print, **unused) -> Path:
     from .systems.psx import PLAYSTATION
     from . import psx as psx_input
-    from . import psx_beetle, psx_build, psx_pack
+    from . import psx_beetle, psx_build, psx_native, psx_pack
     item = psx_input.read_input(path)
     if not PLAYSTATION.available():
         raise ConversionError(NOT_YET)
@@ -168,7 +178,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     started = time.perf_counter()
     from . import timings as stages
     from .conversion_common import resolve_scan_level
-    from .conversion_gates import require_same_file
+    from .conversion_gates import require
     from .core import executable_name
     from .delivery_evidence import require_moving_picture
     from .library import entry_lock, file_sha256
@@ -220,34 +230,56 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             tree = psx_beetle.adapt(psx_beetle.source(emit), work / 'machine')
             prepared = psx_build.prepare_game(project, tree, title=title, game_sha256=sha, video_mode=video_mode, bios=bios,
                                               presentation=presentation)
-        emit('PlayStation: building the game (the machine and the session; every instruction interpreted).')
+        emit('PlayStation: building the observing machine (the interpreter alone, recording the code it runs).')
+        with stages.phase('compile'):
+            observer = psx_build.build_game(project, emit, target='game_observe')
+        pack = psx_pack.write_in_place(item.path, checks / 'disc.rrpack')
+        timings['build'] = round(time.perf_counter() - phase, 3)
+        phase = time.perf_counter()
+        reference, observations = {}, []
+        with stages.phase('reference_and_native_runs'):
+            for name, count, _ in plan:
+                emit(f'PlayStation: reference route {name} ({count} frames, interpreted and observed).')
+                observations.append(checks / 'observe' / (name + '.observe'))
+                observations[-1].parent.mkdir(parents=True, exist_ok=True)
+                reference[name] = run(observer, checks / 'reference', name, count, scripts[name], '--pack', str(pack),
+                                      '--observe', str(observations[-1]))
+                if not reference[name]['nonuniform_frames']:
+                    raise ConversionError(f'PlayStation {name}: no picture was produced.')
+                require_moving_picture(route_liveness(reference[name]['trace']), lambda: ConversionError(
+                    f'PlayStation {name}: the picture never changed during the route; the game is stuck.'))
+        timings['reference_routes'] = round(time.perf_counter() - phase, 3)
+        phase = time.perf_counter()
+        with stages.phase('code_generation'):
+            pairs, overflow = psx_native.read_observations(observations)
+            native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project / 'rr_psx_native.inc')
+            psx_build.set_native(project, tree, True)
+        emit(f'PlayStation: {native["instructions"]} observed instructions in {native["steps"]} native steps; '
+             'building the game.')
         with stages.phase('compile'):
             program = psx_build.build_game(project, emit)
         final = project / executable_name(title)
         emit('PlayStation: appending the disc to the game.')
         psx_pack.write_embedded(item.path, program, final)
-        timings['build'] = round(time.perf_counter() - phase, 3)
+        timings['native_build'] = round(time.perf_counter() - phase, 3)
         phase = time.perf_counter()
         results = {}
         with stages.phase('reference_and_native_runs'):
             for name, count, _ in plan:
-                emit(f'PlayStation: route {name} ({count} frames).')
+                emit(f'PlayStation: route {name} on the game ({count} frames, native steps).')
                 results[name] = run(final, checks / 'routes', name, count, scripts[name])
-                if not results[name]['nonuniform_frames']:
-                    raise ConversionError(f'PlayStation {name}: no picture was produced.')
-                require_moving_picture(route_liveness(results[name]['trace']), lambda: ConversionError(
-                    f'PlayStation {name}: the picture never changed during the route; the game is stuck.'))
-            play = next(row for row in plan if row[0] == 'play')
-            again = run(final, checks / 'again', 'play', play[1], scripts['play'])
-            require_same_file(again['trace'], results['play']['trace'], lambda: ConversionError(
-                'PlayStation play: two runs of the same route differ (the machine is not deterministic); existing export preserved.'))
+                difference = trace_difference(results[name]['trace'], reference[name]['trace'])
+                require(difference is None, lambda: ConversionError(
+                    f'PlayStation {name}: the native steps differ from the interpreter at frame {difference}; '
+                    'existing export preserved.'))
         timings['routes'] = round(time.perf_counter() - phase, 3)
+        play = next(row for row in plan if row[0] == 'play')
         phase = time.perf_counter()
         emit('PlayStation: checking F8/F9 in a fresh process and rejecting an invalid state.')
         with stages.phase('state_checks'):
             states = check_states(final, checks / 'states', 'play', play[1], scripts['play'], results['play']['trace'])
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
-    if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
+    if not any(reference[name]['nonzero_samples'] for name, _, _ in plan):
         emit('PlayStation: no route produced sound (reported, not refused).')
     final_sha = file_sha256(final)
     refuse_compression(final_sha, 'A PlayStation game carries its disc after the program: it is published as built, '
@@ -255,8 +287,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     checks_rows = []
     for name, count, text in plan:
         r = results[name]
-        checks_rows.append({'name': name, 'frames': count, 'native_entries': 0,
-                            'interpreted_opcodes': r['interpreted_instructions'], 'interpreter_percent': 100.0,
+        ran = r['native_instructions'] + r['interpreted_instructions']
+        checks_rows.append({'name': name, 'frames': count, 'native_entries': r['native_instructions'],
+                            'interpreted_opcodes': r['interpreted_instructions'],
+                            'interpreter_percent': round(100.0 * r['interpreted_instructions'] / ran, 4) if ran else 0.0,
+                            'reference_interpreted_opcodes': reference[name]['interpreted_instructions'],
                             'image_hash': r['image_hash'], 'pcm_hash': r['pcm_hash'], 'nonzero_samples': r['nonzero_samples'],
                             'liveness': route_liveness(r['trace']), 'trace_sha256': file_sha256(r['trace']),
                             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
@@ -269,14 +304,17 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'bios': (bios.metadata() | {'kind': 'player'}) if bios else {'kind': 'free', 'name': 'OpenBIOS (PCSX-Redux, MIT)'},
         'compiler': {'machine': 'Beetle PSX (GPL-2.0)', 'machine_revision': psx_beetle.BEETLE_REV,
                      'adaptation': psx_beetle.adaptation_digest(),
-                     'native_cpu': 'none yet: every R3000A instruction runs on the core interpreter and is counted'},
+                     'native_cpu': 'guarded native steps of the observed R3000A code (the interpreter\'s handler bodies, its '
+                                   'timing kept); the rest runs on the core interpreter and is counted',
+                     'native_steps': native | {'observation_overflow': overflow}},
         'final_checks': checks_rows,
-        'native_validation': {'passed': True, 'scope': 'no native code yet: two runs of the play route in fresh processes '
-                                                        'give the same picture, sound and RAM on every frame',
-                              'reference_kind': "the core's interpreter (the only CPU of the game at this stage)",
+        'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
+                                                        'same picture, sound and RAM on every frame as the interpreter alone '
+                                                        '(the observing build, another process)',
+                              'reference_kind': "the core's interpreter (Beetle PSX at the same revision)",
                               'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False},
-        'native_coverage': False,
+        'native_coverage': 'observed main-RAM and BIOS code of the routes, one word per address, guarded by the fetched word',
         'video_model': {'standard': video_mode, 'renderer': 'software, native resolution', 'display_aspect': '4:3'},
         'audio_cpu': None, 'audio_model': {'kind': 'SPU of the machine (Beetle)', 'rate': 44100, 'channels': 2},
         'counter_unit': 'retired instructions', 'runtime_learning': False, 'runtime_feedback': feedback,
@@ -293,6 +331,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'qualification_scope': {'controls': 'digital pad, players 1 and 2; the validation routes drive player 1',
                                 'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'PlayStation: {title} ready (every instruction interpreted and counted; '
-         f'{final.stat().st_size // 1048576} MB with the disc inside).')
+    shares = [row['interpreter_percent'] for row in checks_rows]
+    emit(f'PlayStation: {title} ready (native steps; interpreter fallback {min(shares)}-{max(shares)} % of the routes\' '
+         f'instructions, counted; {final.stat().st_size // 1048576} MB with the disc inside).')
     return final

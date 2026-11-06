@@ -752,6 +752,7 @@ INPUTS = _resolve({
         'licenses/beetle-psx.md',
         'native/psx_machine/CMakeLists.txt',
         'native/psx_machine/psx_main.c',
+        'native/psx_machine/psx_observe.c',
         'native/psx_machine/psx_reference.c',
         'native/psx_machine/psx_session.c',
         'native/psx_machine/psx_session.h',
@@ -761,6 +762,7 @@ INPUTS = _resolve({
         'retrorecomp.psx_build',
         'retrorecomp.psx_conversion',
         'retrorecomp.psx_disc',
+        'retrorecomp.psx_native',
         'retrorecomp.psx_pack',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
