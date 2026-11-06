@@ -13,7 +13,7 @@ screen: those are separate measures, listed below with what is known of each.
 | Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a 512 KiB Kickstart (3.x, 12 of the library's installs without a 68020/AGA flag); the installs that also need resload calls the layer lacks stop with the call's number |
 | Installs that need a Kickstart 1.x (header or `resload_LoadKick`), with the player's own image chosen in Options (section 2a) | |
 | The joystick (port 2, two buttons), the mouse (port 1, captured on a click) and the keyboard; quick states (F8/F9) and the files an install saves | ADF disk images, IPF, hard-disk images, Amiga 1200 (68020, AGA), CD32, CDTV |
-| Windows | Linux (`linux = 'pending'`) |
+| Windows | Linux (`linux = 'pending'`): one conversion checked on a Debian 13 PC with the system GCC (Rick Dangerous, tree `fd953b8c`, 6 November 2026: validated on both routes, compressed copy and quick state included, 0 interpreted), not played there |
 | | A library of qualified paths: the profile is not in the sharing |
 
 A `.lha` that holds no slave, or more than one, is refused with a sentence, never guessed. The archive is read in place and never
@@ -79,9 +79,10 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 4. Known limits
 
-- Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending. With a Kickstart, the operating
-  system loads through the resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity
-  limit, not claimed otherwise).
+- Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none
+  played: section 1; no Kickstart install was converted on Linux). With a Kickstart, the operating system loads through the
+  resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity limit, not claimed
+  otherwise).
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
