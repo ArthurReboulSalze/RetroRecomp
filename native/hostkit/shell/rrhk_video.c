@@ -47,36 +47,14 @@ SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     return rect;
 }
 
-/* Scale2x doubles the store. A picture that grows (pixel_pitch) past half the renderer's largest texture is shown without it. */
-static bool doubled(const RrhkRun *run) {
+/* Scale2x doubles the store. A picture that grows (pixel_pitch) past half the renderer's largest texture is shown without it,
+ * and so is one whose Scale2x buffer could not be made. */
+static bool doubled_size(const RrhkRun *run) {
     if (rrhk.filter != 2) return false;
     if (!run->machine->pixel_pitch) return true;
     return (!run->limit_w || run->store_w * 2 <= run->limit_w) && (!run->limit_h || run->store_h * 2 <= run->limit_h);
 }
-
-/* The streaming texture of the current filter: twice the size for Scale2x. */
-SDL_Texture *rrhk_texture_create(RrhkRun *run) {
-    const int k = doubled(run) ? 2 : 1;
-    return SDL_CreateTexture(run->ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, run->store_w * k, run->store_h * k);
-}
-
-/* A machine whose picture grows (pixel_pitch, 1.7.0): a larger texture once the picture passes the store, never larger than the
- * renderer takes. The store never shrinks during a run. A texture that cannot be made leaves the old one: the part that fits is
- * shown. */
-static void grow_store(RrhkRun *run) {
-    const RrhkMachine *m = run->machine;
-    int w = m->visible_width(), h = m->visible_height();
-    if (run->limit_w && w > run->limit_w) w = run->limit_w;
-    if (run->limit_h && h > run->limit_h) h = run->limit_h;
-    if (w <= run->store_w && h <= run->store_h) return;
-    const int old_w = run->store_w, old_h = run->store_h;
-    run->store_w = SDL_max(w, run->store_w); run->store_h = SDL_max(h, run->store_h);
-    SDL_Texture *texture = rrhk_texture_create(run);
-    if (!texture) { run->store_w = old_w; run->store_h = old_h; return; }
-    SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
-    SDL_DestroyTexture(run->tex);
-    run->tex = texture;
-}
+static bool doubled(const RrhkRun *run) { return doubled_size(run) && !(run->machine->pixel_pitch && run->double_refused); }
 
 /* Scale2x's buffer for the store (a growing picture only: the others keep the buffer made at open). */
 static bool upscaled_room(RrhkRun *run) {
@@ -86,6 +64,41 @@ static bool upscaled_room(RrhkRun *run) {
     if (!grown) return false;
     run->upscaled = grown; run->upscaled_pixels = need;
     return true;
+}
+
+/* The streaming texture of the current filter: twice the size for Scale2x. A growing picture makes Scale2x's buffer first: if it
+ * cannot, the texture is the plain one and the picture is shown without Scale2x (never a doubled texture with no content). */
+SDL_Texture *rrhk_texture_create(RrhkRun *run) {
+    if (run->machine->pixel_pitch) run->double_refused = doubled_size(run) && !upscaled_room(run);
+    const int k = doubled(run) ? 2 : 1;
+    return SDL_CreateTexture(run->ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, run->store_w * k, run->store_h * k);
+}
+
+/* A machine whose picture grows (pixel_pitch, 1.7.0): a larger texture once the picture passes the store, never larger than the
+ * renderer takes. The store never shrinks during a run. A store that cannot grow (no texture, or with Scale2x no buffer for it)
+ * stays as it was, its texture and buffer untouched: the part that fits is shown, and that size is not tried again until the
+ * picture's size changes. */
+static void grow_store(RrhkRun *run) {
+    const RrhkMachine *m = run->machine;
+    int w = m->visible_width(), h = m->visible_height();
+    if (run->limit_w && w > run->limit_w) w = run->limit_w;
+    if (run->limit_h && h > run->limit_h) h = run->limit_h;
+    if (w <= run->store_w && h <= run->store_h) return;
+    if (w == run->refused_w && h == run->refused_h) return;
+    const int old_w = run->store_w, old_h = run->store_h;
+    const bool old_refused = run->double_refused;
+    run->store_w = SDL_max(w, run->store_w); run->store_h = SDL_max(h, run->store_h);
+    SDL_Texture *texture = rrhk_texture_create(run);
+    if (!texture || (doubled_size(run) && run->double_refused && !old_refused)) {
+        if (texture) SDL_DestroyTexture(texture);
+        run->store_w = old_w; run->store_h = old_h; run->double_refused = old_refused;
+        run->refused_w = w; run->refused_h = h;
+        return;
+    }
+    run->refused_w = run->refused_h = 0;
+    SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+    SDL_DestroyTexture(run->tex);
+    run->tex = texture;
 }
 
 /* Draw the last picture, with the filter and the reticle, into the back buffer. */
@@ -99,11 +112,10 @@ void rrhk_present_picture(RrhkRun *run) {
         grow_store(run);
         width = SDL_min(width, run->store_w); height = SDL_min(height, run->store_h);
         if (doubled(run)) {
-            if (upscaled_room(run)) {
-                scale2x_store(m->pixels(), pitch, run->store_w, run->store_h, width, height, run->upscaled);
-                SDL_Rect area = {0, 0, width * 2 + (width < run->store_w), height * 2 + (height < run->store_h)};
-                SDL_UpdateTexture(run->tex, &area, run->upscaled, run->store_w * 2 * 4);
-            }
+            /* the buffer is the store's size: rrhk_texture_create made it before the doubled texture */
+            scale2x_store(m->pixels(), pitch, run->store_w, run->store_h, width, height, run->upscaled);
+            SDL_Rect area = {0, 0, width * 2 + (width < run->store_w), height * 2 + (height < run->store_h)};
+            SDL_UpdateTexture(run->tex, &area, run->upscaled, run->store_w * 2 * 4);
         } else {
             SDL_Rect area = {0, 0, width, height};
             SDL_UpdateTexture(run->tex, &area, m->pixels(), pitch * 4);
