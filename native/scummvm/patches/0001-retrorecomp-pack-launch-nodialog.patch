@@ -1,9 +1,9 @@
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
 new file mode 100644
-index 00000000..e174d2b9
+index 00000000..c7f53fad
 --- /dev/null
 +++ b/backends/fs/packed/packed-fs.cpp
-@@ -0,0 +1,629 @@
+@@ -0,0 +1,632 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -251,9 +251,12 @@ index 00000000..e174d2b9
 +			return false;
 +		const Common::String prefix = _rel.empty() ? Common::String() : _rel + "/";
 +		Common::Array<Common::String> dirs;
++		// The root never lists ".rr" (the pack's own files); a listing of ".rr" itself shows only ".rr/data" (the engine data
++		// and GUI themes of builds without embedded resources, reached by --extrapath and --themepath).
++		const bool inInternal = prefix.hasPrefixIgnoreCase(".rr/");
 +		for (uint i = 0; i < g_pack.files.size(); i++) {
 +			const Common::String &p = g_pack.files[i].path;
-+			if (p.hasPrefixIgnoreCase(".rr/"))
++			if (p.hasPrefixIgnoreCase(".rr/") && (!inInternal || !p.hasPrefixIgnoreCase(".rr/data/")))
 +				continue;
 +			if (!prefix.empty() && !p.hasPrefixIgnoreCase(prefix))
 +				continue;
@@ -309,7 +312,7 @@ index 00000000..e174d2b9
 +		const Common::String prefix = _rel + "/";
 +		for (uint i = 0; i < g_pack.files.size(); i++) {
 +			const Common::String &p = g_pack.files[i].path;
-+			if (p.hasPrefixIgnoreCase(".rr/"))
++			if (p.hasPrefixIgnoreCase(".rr/") && !p.hasPrefixIgnoreCase(".rr/data/"))
 +				continue;
 +			if (p.equalsIgnoreCase(_rel)) {
 +				_entry = (int)i;
