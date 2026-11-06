@@ -62,7 +62,9 @@
   most reference frames of some installs and fewer of others), no game was checked end to end,
   and physical latency is not measured. After a quick state is loaded, the sound samples are
   not bit-identical to an unbroken run. The box-art lookup also tries a game's own name, so
-  Lotus 2 and Speedball 2 find their boxes.
+  Lotus 2 and Speedball 2 find their boxes. Known limit: installs that load their files
+  through the slave's own system emulation (Another World and 4D Sports Boxing among
+  them) stop with "not enough memory"; the message names the file and the AmigaDOS error.
 - **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
   Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
   reader tells the two bit orders of a dump apart by the first instruction at the reset
@@ -93,7 +95,10 @@
   (English, French, Italian, Spanish, German); the music needs no MT-32 ROM. Windows is
   built; Linux is witnessed on one small game (Lure of the Temptress) only. Games that
   need Ogg Vorbis, FLAC or MP3 decoders (CD audio rips, compressed speech) are not
-  supported yet.
+  supported yet. The engine is fetched (pinned sources) and built on your PC with the
+  portable tools on the first conversion; a game never opens an error window (a fatal
+  error goes to `scummvm.log`, a crash to `crash.log`), and a folder search before the
+  tools are installed says so instead of failing.
 
 - **Box art for the CPS family.** The CPS-1, the CPS-1.5 and the CPS-2 find their
   covers from the MAME thumbnails of libretro, and from ScreenScraper and TheGamesDB:
@@ -125,6 +130,11 @@
   why every 1.6.9 export is converted again in 1.7.0.
 - **Computers.** A press of the middle mouse button (the wheel) releases a captured
   mouse, as Ctrl+Alt+M does; the button never reaches the game.
+- **The converter window.** The options are two tabs, Common and Consoles, with a list at
+  the top of Consoles to choose the machine (fourteen tabs no longer fitted); the ROM
+  picker offers every machine's own files, the Amiga's `.lha` included. The CPS boards
+  convert again with the Visual Studio fallback (the new EEPROM writer did not compile
+  there).
 
 **Speed.** Measured on a quiet PC against 1.6.9, one pinned core, on the machines whose
 game code moved: Final Fight (CPS-1) 1.00, 19XX (CPS-2) 0.99 and R-Type (X68000) 1.00
