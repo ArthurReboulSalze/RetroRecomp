@@ -78,6 +78,30 @@ class Detection(unittest.TestCase):
         self.assertEqual(found[0].title, 'Game A')
 
 
+class NoModalWindow(unittest.TestCase):
+    """The patch keeps every route to a modal window closed in a packed executable (checked headless on an invisible desktop
+    with the real runtime; here, the text of the patch)."""
+
+    def setUp(self):
+        self.patch = (scummvm_build.PATCH_DIRECTORY / '0001-retrorecomp-pack-launch-nodialog.patch').read_text(encoding='utf-8')
+
+    def test_the_native_message_box_is_closed(self):
+        self.assertIn('if (packedModeActive() || getenv("RR_NO_DIALOGS"))', self.patch)
+
+    def test_scummvms_own_error_window_goes_to_the_log(self):
+        self.assertIn('logInsteadOfDialog', self.patch)
+        self.assertIn('g_system->logMessage(LogMessageType::kError', self.patch)
+
+    def test_a_failed_run_never_falls_back_to_the_launcher(self):
+        self.assertIn('rrExitCode = 1;', self.patch)
+        self.assertIn('return rrExitCode;', self.patch)
+        self.assertIn('&& !packedModeActive())', self.patch)
+
+    def test_a_crash_leaves_a_line_in_crash_log(self):
+        self.assertIn('installCrashLog(gameDir + kNativeSep + "crash.log");', self.patch)
+        self.assertIn('SetUnhandledExceptionFilter', self.patch)
+
+
 class PackedData(unittest.TestCase):
     """Platforms without embedded resources (Linux) carry the engine data and the GUI themes in the pack."""
 
