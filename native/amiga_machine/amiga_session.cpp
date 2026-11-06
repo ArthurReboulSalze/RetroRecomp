@@ -611,9 +611,15 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         kick_window(true);
         return 3;
     }
-    kick_window(true);
     rl.host = s->rl.host;
     s->rl = rl;
+    // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
+    // resload_LoadKick only when the slave calls it): its copy is in the restored slow RAM, so only the window is set again.
+    if (s->rl.kick_loaded && s->rl.exp_mem >= SLOW_BASE && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
+        s->kick_base = s->rl.exp_mem;
+        s->kick_size = s->rl.kick_size;
+    }
+    kick_window(true);
     s->frame = head.frame;
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
