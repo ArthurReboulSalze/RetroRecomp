@@ -50,10 +50,14 @@ unsigned rr_st_disk_index(const RrStSession *s);
 unsigned rr_st_disk_count(const RrStSession *s);
 
 /* The 68000 instructions the machine ran on Hatari's interpreter (every instruction of a build without native steps) and the
- * observation of the instructions run from RAM, the TOS ROM or the cartridge area: lines "pc words" (the 12 bytes at pc). */
+ * observation of the instructions run from RAM, the TOS ROM or the cartridge area: lines "pc words" (the instruction's own bytes). */
 uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
 void rr_st_set_observe(RrStSession *s, int enabled);
+/* Native steps (only in a build with RR_ST_NATIVE): 1 when the request is honoured (a build without steps honours only "off"). */
+int rr_st_set_native(RrStSession *s, int enabled);
+/* The opcode -> handler table of Hatari's cycle-exact 68000 (the conversion's step generator reads it); 1: written. */
+int rr_st_write_opcode_map(const RrStSession *s, FILE *out);
 int rr_st_write_observations(const RrStSession *s, FILE *out);   /* 1: written */
 size_t rr_st_observation_count(const RrStSession *s);
 

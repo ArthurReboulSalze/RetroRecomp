@@ -59,7 +59,7 @@ struct RrStSession {
     uint64_t frames;
     char memory_option[16];
     uint64_t interpreted, native;
-    int observe;
+    int observe, native_enabled;
     struct Observation *observed;
     size_t observed_count, observed_capacity;
     char error[256];
@@ -442,16 +442,34 @@ RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
 /* ------------------------------------------------------------------------------- the step hook of the 68000 loop */
 /* The hook the adapted Hatari calls before each instruction of its cycle-exact loop (retrorecomp/atarist_hatari.py). A build
  * without native steps runs every instruction on Hatari's table: the hook counts it and, when the conversion observes, records
- * the instruction (its pc and the 12 bytes there) once. */
+ * the instruction (its pc and its own bytes: the length Hatari's table gives its opcode, at most 10 on a 68000) once. */
 extern bool (*rr_hatari_step)(uint32_t pc, uint32_t opcode);
-typedef struct Observation { uint32_t pc; uint8_t bytes[12]; uint32_t used; } Observation;
+typedef struct Observation { uint32_t pc; uint8_t bytes[12]; uint32_t used; } Observation;   /* used: the length in bytes */
+static uint8_t opcode_bytes[65536];   /* the instruction length of every opcode, from op_smalltbl_14 (2 for an illegal one) */
+static int opcode_bytes_ready;
+
+static void build_opcode_bytes(void) {
+    unsigned op, n;
+    for (op = 0; op < 65536; op++) {
+        cpuop_func_noret *handler = cpufunctbl_noret[op];
+        opcode_bytes[op] = 2;
+        for (n = 0; op_smalltbl_14[n].handler_ff_noret || op_smalltbl_14[n].handler_ff; n++)
+            if (op_smalltbl_14[n].handler_ff_noret == handler) {
+                int length = op_smalltbl_14[n].length;
+                if (length >= 2 && length <= 12 && !(length & 1)) opcode_bytes[op] = (uint8_t)length;
+                break;
+            }
+    }
+    opcode_bytes_ready = 1;
+}
 
 /* The bytes at pc when pc is in RAM, the cartridge area or the TOS ROM (read from the machine's arrays, never through the bus:
  * no device register is touched); 0 elsewhere. */
-static int code_bytes(uint32_t pc, uint8_t out[12]) {
+static int code_bytes(uint32_t pc, uint8_t out[12], unsigned length) {
     pc &= 0xffffff;
-    if (pc + 12 <= STRamEnd) { memcpy(out, STRam + pc, 12); return 1; }
-    if (pc >= 0xe00000 && pc + 12 <= 0x1000000 && ROMmemory) { memcpy(out, RomMem + pc, 12); return 1; }
+    memset(out, 0, 12);
+    if (pc + length <= STRamEnd) { memcpy(out, STRam + pc, length); return 1; }
+    if (pc >= 0xe00000 && pc + length <= 0x1000000 && ROMmemory) { memcpy(out, RomMem + pc, length); return 1; }
     return 0;
 }
 
@@ -462,7 +480,7 @@ static uint32_t observation_hash(uint32_t pc, const uint8_t *bytes) {
     return h;
 }
 
-static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes) {
+static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes, unsigned length) {
     size_t mask, i;
     if (s->observed_count * 2 >= s->observed_capacity) {
         size_t capacity = s->observed_capacity ? s->observed_capacity * 2 : 65536, n;
@@ -472,26 +490,85 @@ static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes) {
         s->observed = grown;
         s->observed_capacity = capacity;
         s->observed_count = 0;
-        for (n = 0; old && n < capacity / 2; n++) if (old[n].used) observe_insert(s, old[n].pc, old[n].bytes);
+        for (n = 0; old && n < capacity / 2; n++) if (old[n].used) observe_insert(s, old[n].pc, old[n].bytes, old[n].used);
         free(old);
     }
     mask = s->observed_capacity - 1;
     for (i = observation_hash(pc, bytes) & mask;; i = (i + 1) & mask) {
         Observation *o = &s->observed[i];
-        if (!o->used) { o->used = 1; o->pc = pc; memcpy(o->bytes, bytes, 12); s->observed_count++; return 1; }
+        if (!o->used) { o->used = length; o->pc = pc; memcpy(o->bytes, bytes, 12); s->observed_count++; return 1; }
         if (o->pc == pc && !memcmp(o->bytes, bytes, 12)) return 1;
     }
 }
 
+#ifdef RR_ST_NATIVE
+/* The generated index of native steps (retrorecomp/atarist_codegen.py and the shared m68k_observed generator): a step is found
+ * by its pc and kept only while every word of its instruction is the one observed (the live-word guard of the index, which
+ * reads the words through rr_st_code_word); the session also requires the opcode Hatari prefetched to be the step's own. */
+struct RrStStep;
+const struct RrStStep *rr_st_lookup(uint32_t pc);
+void (*rr_st_step_of(const struct RrStStep *s))(uint32_t);
+uint32_t rr_st_step_opcode(const struct RrStStep *s);
+#endif
+
+/* One instruction word at pc for the guard, big-endian from the machine's arrays (never through the bus). */
+int rr_st_code_word(uint32_t pc, uint16_t *word) {
+    pc &= 0xffffff;
+    if (pc + 2 <= STRamEnd) { *word = (uint16_t)(STRam[pc] << 8 | STRam[pc + 1]); return 1; }
+    if (pc >= 0xe00000 && pc + 2 <= 0x1000000 && ROMmemory) { *word = (uint16_t)(RomMem[pc] << 8 | RomMem[pc + 1]); return 1; }
+    return 0;
+}
+
 static bool step_hook(uint32_t pc, uint32_t opcode) {
-    (void)opcode;
     if (!current) return false;
-    current->interpreted++;
     if (current->observe) {
         uint8_t bytes[12];
-        if (code_bytes(pc, bytes)) observe_insert(current, pc & 0xffffff, bytes);
+        unsigned length;
+        if (!opcode_bytes_ready) build_opcode_bytes();
+        length = opcode_bytes[opcode & 0xffff];
+        if (code_bytes(pc, bytes, length)) observe_insert(current, pc & 0xffffff, bytes, length);
     }
+#ifdef RR_ST_NATIVE
+    if (current->native_enabled) {
+        const struct RrStStep *step = rr_st_lookup(pc);
+        if (step && rr_st_step_opcode(step) == (opcode & 0xffff)) {
+            rr_st_step_of(step)(opcode);   /* Hatari's own handler of this opcode, called directly */
+            current->native++;
+            return true;
+        }
+    }
+#endif
+    current->interpreted++;
     return false;
+}
+
+int rr_st_set_native(RrStSession *s, int enabled) {
+#ifdef RR_ST_NATIVE
+    s->native_enabled = enabled != 0;
+    return 1;
+#else
+    (void)s;
+    return !enabled;
+#endif
+}
+
+/* The opcode -> handler table of Hatari's cycle-exact 68000 as the machine runs it (the table the step hook falls back to):
+ * "<opcode hex> <index>", the index of the opcode's entry in op_smalltbl_14 (gencpu shares a handler between tables, so its name
+ * is read from the cpustbl.c of the build by the converter), or "-" for an opcode sent to an illegal-instruction handler. */
+int rr_st_write_opcode_map(const RrStSession *s, FILE *out) {
+    static const struct cputbl *table = op_smalltbl_14;
+    unsigned n, op;
+    (void)s;
+    if (!CpuRunCycleExact) return 0;   /* the map is the cycle-exact table's: the machine must run that loop */
+    for (op = 0; op < 65536; op++) {
+        cpuop_func_noret *handler = cpufunctbl_noret[op];
+        int found = -1;
+        for (n = 0; table[n].handler_ff_noret || table[n].handler_ff; n++)
+            if (table[n].handler_ff_noret == handler) { found = (int)n; break; }
+        if (found < 0) fprintf(out, "%04x -\n", op);
+        else fprintf(out, "%04x %d\n", op, found);   /* the entry's index; its handler's name is read from Hatari's cpustbl.c */
+    }
+    return !ferror(out);
 }
 
 uint64_t rr_st_interpreted_count(const RrStSession *s) { return s->interpreted; }
@@ -514,7 +591,7 @@ int rr_st_write_observations(const RrStSession *s, FILE *out) {
     for (n = 0; n < k; n++) {
         int b;
         fprintf(out, "%06x ", (unsigned)sorted[n].pc);
-        for (b = 0; b < 12; b++) fprintf(out, "%02x", sorted[n].bytes[b]);
+        for (b = 0; b < (int)sorted[n].used; b++) fprintf(out, "%02x", sorted[n].bytes[b]);
         fputc('\n', out);
     }
     free(sorted);

@@ -5,9 +5,11 @@ Every conversion starts from a fresh reference run: the game (its disks and the 
 its 68000 on Hatari's cycle-exact interpreter, every instruction counted. The game executable (the disks, the TOS, the machine and
 the host kit) is then replayed headless, copied alone, and its trace (picture, sound, RAM, CPU registers of every frame) must equal
 the reference's; so must the compressed copy that is delivered, and a quick state saved by it is loaded by a fresh process.
-Guarded native steps for the code the game runs come in the next stage: until then the report counts every instruction as
-interpreted. Nothing is claimed beyond those bounded routes: the hardware fidelity is Hatari's, unmeasured here, and the routes
-are scripts, not play.
+The instructions the reference runs are observed (pc and words, from RAM, the TOS ROM and the cartridge area) and become guarded
+native steps (the shared generator `m68k_observed` with the ST's hooks, `atarist_codegen`): each calls the very handler of
+Hatari's cycle-exact table for its opcode, behind a live-word guard, and anything not seen, changed or illegal stays on the
+counted interpreter. Nothing is claimed beyond those bounded routes: the hardware fidelity is Hatari's, unmeasured here, and the
+routes are scripts, not play.
 
 The private memory of this machine lives under `<library>/atarist/<game>/` (the input's SHA-256): `compilation.json` and the
 observations of the last conversion.
@@ -37,8 +39,9 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 
 PLAYER = 'RetroRecomp-AtariST'
 # The notices every exported ST game carries (resource 203, as on the other machines): Retro-Recomp's licence, Hatari (GPL-2.0)
-# with the GPL text and where its corresponding source is, the libretro API header, SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
+# with the GPL text and where its corresponding source is, the libretro API header, the 68000 decoder of m68k-recomp-core compiled
+# into the index of native steps (Matthew Stan's permission of 6 November 2026), SDL and the host kit's parts.
+NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
                 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 TOS_RESOURCE = 298
@@ -138,11 +141,13 @@ def machine_core(toolchain_root: Path, emit) -> tuple[Path, Path]:
         return tree, build
 
 
-def cmake_build(build: Path, tree: Path, hatari_build: Path, *, payload: Path | None = None, stamp: str = '') -> Path:
+def cmake_build(build: Path, tree: Path, hatari_build: Path, *, generated: Path | None = None, payload: Path | None = None,
+                stamp: str = '') -> Path:
     cmake, generator = toolchain()
     run([cmake, '-S', ASSETS / 'native/atarist_machine', '-B', build, '-G', generator, *cmake_target_args(),
          f'-DRR_HATARI_TREE={tree.as_posix()}', f'-DRR_HATARI_BUILD={hatari_build.as_posix()}',
          f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}', '-DCMAKE_BUILD_TYPE=Release',
+         f'-DRR_ST_GENERATED={generated.as_posix() if generated else ""}',
          f'-DRR_ST_PAYLOAD_DIR={payload.as_posix() if payload else ""}', f'-DRR_ST_STATE_INPUT={stamp}',
          f'-DRR_RECOMP_VERSION={__version__}'], log=build / 'build.log')
     run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'atarist_player'], log=build / 'build.log', timeout=1800)
@@ -227,6 +232,52 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
     return metadata
 
 
+def read_observations(path: Path) -> list[tuple[int, str]]:
+    """The (pc, words) of an observation file, every one checked against the ST's apertures."""
+    observed = get_profile('atarist').observed_code
+    samples = set()
+    for line in Path(path).read_text(encoding='ascii').splitlines():
+        pc, words = line.split()
+        pc = int(pc, 16)
+        observed.check_sample(pc, words)
+        samples.add((pc, words))
+        if len(samples) > 1048576:
+            raise ConversionError('Atari ST instruction observation bound exceeded.')
+    return sorted(samples)
+
+
+def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path:
+    """The opcode -> handler table of Hatari's cycle-exact 68000, written by the reference player after one frame."""
+    folder.mkdir(parents=True, exist_ok=True)
+    table = folder / 'opcode-map.txt'
+    events = write_events(folder / 'none.txt', [])
+    replay(player, folder, 2, events, disks=disks, tos=tos, extra=['--reference-cpu', '--opcode-map', table])
+    return table
+
+
+def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> dict:
+    """The guarded native steps of these observations (the shared generator with the ST's hooks on Hatari's handlers)."""
+    from . import atarist_codegen, m68k_observed
+    from .megadrive_codegen import write_changed
+    engine = ROOT / '.deps/segagenesisrecomp'
+    observed = get_profile('atarist').observed_code
+    atarist_codegen.load_opcode_map(table, hatari_build / 'src/cpu/cpustbl.c')
+    project.mkdir(parents=True, exist_ok=True)
+    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ROOT,
+                                         target='atarist_decode', name='RetroAtariSTDecode')
+    bodies = observed.load_bodies(engine)
+    m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
+    write_changed(project / 'm68k_decoder.h', (engine / 'external/m68k-recomp-core/common/m68k_decoder.h').read_text(encoding='utf-8'))
+    write_changed(project / 'rom_parser.h', (engine / 'recompiler/src/rom_parser.h').read_text(encoding='utf-8'))
+    usable = atarist_codegen.native_samples(samples)
+    steps = m68k_observed.write_steps(project, usable, observed=observed, bodies=bodies, decode_tool=decode, diagnostic=[],
+                                      alias=lambda text: text, form_body=lambda body: body, descriptor=lambda ins, name: ins,
+                                      index_head=atarist_codegen.INDEX_HEAD, code_view=atarist_codegen.CODE_VIEW,
+                                      index_tail=atarist_codegen.index_tail)
+    return {'samples': len(samples), 'with_handler': len(usable), 'instructions': len(steps.instructions), 'forms': len(steps.forms),
+            'pcs': len(steps.groups), 'opcode_table_sha256': file_sha256(table)}
+
+
 # ---------------------------------------------------------------------------------------------------------- replays
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list[Path] | None = None, tos: Path | None = None,
            observe: bool = False, extra=()) -> dict:
@@ -234,7 +285,7 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'),
             '--trace', str(folder / 'trace.tsv'), '--input-events', str(events), '--capture', str(folder / 'frame.ppm')]
     if tos is not None:
-        args += ['--tos', str(tos), '--machine', MACHINE, '--memory', str(MEMORY_KB)]
+        args += ['--tos', str(tos), '--machine', MACHINE, '--memory', str(MEMORY_KB), '--reference-cpu']
         for disk in disks or ():
             args += ['--disk', str(disk)]
     if observe:
@@ -298,7 +349,7 @@ def game_entry(source, tos_key: str) -> Path:
 
 
 # -------------------------------------------------------------------------------------------------------- conversion
-def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=1, frames=3000, scan_level=None,
+def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
             emit=print, qualification_events=None, **unused):
     from .atarist import converter_available, read_input
     from . import atarist_tos
@@ -348,6 +399,18 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
                                         tos=media / 'tos.img', observe=True)
+        samples = set()
+        for name, _, _ in routes:
+            samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
+        fresh_samples = len(samples)
+        memory = game_entry(source, tos.sha256[:16])
+        remembered = memory / OBSERVATIONS
+        if remembered.is_file():
+            try:
+                samples |= set(read_observations(remembered))
+            except (OSError, ValueError):
+                emit('Atari ST: the remembered observations are unreadable; this conversion uses its own only.')
+        table = opcode_map(reference_player, checks / 'opcode-map', disks, media / 'tos.img')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -355,21 +418,38 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='atarist', cache_directory=boxart_cache_directory('atarist'), emit=emit)
         metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game)
-        emit('Atari ST: compiling the game.')
-        with timings.phase('compile'):
-            candidate = cmake_build(work / 'build', tree, hatari_build, payload=payload_dir, stamp=stamp)
+        project = work / 'native'
+        candidate = generation = None
         results = {}
-        with timings.phase('native_runs'):
-            for name, frames_, _ in routes:
-                folder = checks / f'game-{name}'
-                folder.mkdir(parents=True, exist_ok=True)
-                exported = folder / candidate.name
-                shutil.copy2(candidate, exported)
-                results[name] = replay(exported, folder, frames_, scripts[name])
-                require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
-                                  lambda: ConversionError(f'Atari ST {name}: the game and the fresh reference diverged; existing export preserved.'))
-        if not results['main']['nonblack_frames']:
-            raise ConversionError('Atari ST validation did not produce a usable picture.')
+        for attempt in range(max(1, min(int(passes or 3), 10))):
+            timings.begin_pass(attempt + 1)
+            with timings.phase('code_generation'):
+                generation = generate(project, sorted(samples), table, hatari_build)
+            emit(f'Atari ST: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
+            with timings.phase('compile'):
+                candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['instructions'] else None,
+                                        payload=payload_dir, stamp=stamp)
+            run_dir = checks / f'native-{attempt + 1}'
+            results = {}
+            more = set()
+            with timings.phase('native_runs'):
+                for name, frames_, _ in routes:
+                    folder = run_dir / name
+                    folder.mkdir(parents=True, exist_ok=True)
+                    exported = folder / candidate.name
+                    shutil.copy2(candidate, exported)
+                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True)
+                    require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
+                                      lambda: ConversionError(f'Atari ST {name}: the native game and the fresh reference diverged; existing export preserved.'))
+                    more |= set(read_observations(folder / 'observations.txt'))
+            if not results['main']['nonblack_frames']:
+                raise ConversionError('Atari ST validation did not produce a usable picture.')
+            interpreted = sum(result['interpreted'] for result in results.values())
+            if not interpreted or not (more - samples):
+                break
+            emit(f'Atari ST: {interpreted} instructions still interpreted; extending the native coverage.')
+            samples |= more
+        timings.end_passes()
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference; the main route
         # saves a quick state on the way (a capture leaves the machine as it was: the trace must still equal the reference).
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
@@ -407,11 +487,12 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
-            interpreted = expected[name]['interpreted']
+            native = results[name]['native']
+            interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
-            rows.append({'route': name, 'frames': frames_, 'native_entries': 0, 'interpreted_opcodes': interpreted,
-                         'interpreter_percent': 100.0, 'reference_match': True, 'packed_reference_match': True,
-                         'observed_instructions': expected[name]['observed'],
+            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
+                         'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
+                         'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
                          **({'state_saved_at': state_frame, 'state_restart_match': resumed['matches']} if name == 'main' else {})})
@@ -430,13 +511,15 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'tos': {'used': tos.label(), 'version': f'{tos.version >> 8}.{tos.version & 0xff:02x}', 'country': tos.country,
                                 'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': True, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
-                                'native': 'none: its instructions run on the interpreter like the rest, counted per route'}},
+                                'native': 'its instructions seen running become native steps like the RAM code; positions in the '
+                                          'player\'s TOS are not kept in any shared path'}},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
             'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
-                                           'on bounded joystick, mouse and keyboard scripts'},
-            'native_coverage': 'none yet: every 68000 instruction runs on Hatari\'s interpreter and is counted (guarded native steps '
-                               'come in the next stage)',
+                                           'on bounded joystick, mouse and keyboard scripts',
+                                  'generation': generation, 'fresh_observed_instructions': fresh_samples},
+            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area) as guarded native steps calling the handler of '
+                               'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game, TOS and build that wrote the state; refused between builds',
@@ -460,17 +543,13 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                     'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
         write_report(output / 'conversion-report.json', report)
-        # The private memory: the observations of this conversion's reference runs, for the native steps of the next stage.
-        memory = game_entry(source, tos.sha256[:16])
+        # The private memory: the observations of this conversion's own runs (fresh reference and native), for the next one.
         memory.mkdir(parents=True, exist_ok=True)
         with entry_lock(memory, timeout=1800):
-            samples = set()
-            for name, _, _ in routes:
-                samples |= set((checks / f'reference-{name}' / 'observations.txt').read_text(encoding='ascii').splitlines())
-            (memory / (OBSERVATIONS + '.tmp')).write_text(''.join(line + '\n' for line in sorted(samples)), encoding='ascii')
-            os.replace(memory / (OBSERVATIONS + '.tmp'), memory / OBSERVATIONS)
+            (memory / (OBSERVATIONS + '.tmp')).write_text(''.join(f'{pc:06x} {words}\n' for pc, words in sorted(samples)), encoding='ascii')
+            os.replace(memory / (OBSERVATIONS + '.tmp'), remembered)
             atomic_json(memory / 'compilation.json', {'schema': 1, 'title': title, 'system': 'atarist', 'game': source.game_key,
-                                                      'rom_sha256': source.sha256, 'tos_sha256': tos.sha256, 'observed': len(samples),
-                                                      'sdk': stamp, 'private_development_only': True, 'fresh_reference_passed': True})
+                                                      'rom_sha256': source.sha256, 'tos_sha256': tos.sha256, 'guarded_variants': len(samples),
+                                                      'sdk': stamp, 'observations_sha256': file_sha256(remembered), 'private_development_only': True, 'fresh_reference_passed': True})
         emit('Atari ST: validated standalone game ready.')
         return candidate

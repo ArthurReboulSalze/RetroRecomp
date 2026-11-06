@@ -35,15 +35,21 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
    continuation is compared with the unbroken run and reported. A conversion that fails a check keeps the earlier export.
 4. **Report.** The conversion report (schema v2, shape `atarist_conversion`) carries the interpreter fallback per CPU, in
    instructions, and keeps the five measures in separate objects.
-5. **Native code, next stage.** The code the game runs will become guarded native steps built on the 68000 decoder, as for the
-   Amiga and the X68000. Until then the report says that all of the 68000's instructions are interpreted.
+5. **Native code.** The reference run records the 68000 instructions it runs from RAM, the TOS ROM and the cartridge area (their
+   address and their own bytes). Each becomes a native step, grouped by form, that calls the very handler Hatari's cycle-exact
+   table would call for its opcode (`retrorecomp/atarist_codegen.py`, read from the opcode table the reference player writes and
+   the handler names of Hatari's generated `cpustbl.c`), so the prefetch, the cycles and the bus waits of the ST stay Hatari's.
+   Every step starts with a live comparison of the instruction's words in memory and of the opcode Hatari prefetched: a word that
+   changed (unpacked, loaded or self-modified code) sends the instruction back to the counted interpreter, and an opcode Hatari's
+   table treats as illegal is never a step. The generator is the one the X68000 and the Amiga use (`retrorecomp/m68k_observed.py`,
+   with the 68000 decoder of m68k-recomp-core). A pass that still meets interpreted instructions adds them and builds again.
 
 ## 3. The five measures
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | None yet (next stage): every instruction runs on Hatari's interpreter and is counted as interpreted (Bomb Jack: 32.9 million instructions on its 3,000-frame route, 100 % interpreted). |
-| CPU fidelity | Hatari's cycle-exact WinUAE 68000. Not compared with the SingleStepTests 68000 vectors yet. |
+| Native code | Two games converted (6 November 2026, Windows): Bomb Jack (Quick level), 32,910,533 native instructions and 1 interpreted on its main route (3,000 frames); Another World (Standard level, two disks), 33,425,253 and 1 on the main route, 33,425,292 and 1 on the exploration route. The interpreted one is an opcode Hatari's table sends to its illegal-instruction handler. On the tested routes only. |
+| CPU fidelity | The native steps call Hatari's own handlers: on the two games above the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. Hatari's 68000 itself has not been compared with the SingleStepTests 68000 vectors yet. |
 | Hardware fidelity | Not claimed. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |

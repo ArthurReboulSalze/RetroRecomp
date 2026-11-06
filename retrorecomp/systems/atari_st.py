@@ -4,14 +4,15 @@ The machine is listed when the installation carries the converter's own files (`
 sentence otherwise.
 
 What it converts: a game on the floppy images of a plain ST, STF or Mega ST (IPF, STX, MSA or ST images, alone or in a ZIP that
-holds only them), run on Hatari (GPL-2.0, its cycle-exact 68000) with the player's own TOS 1.00-1.04 or EmuTOS. Its 68000
-instructions run on Hatari's interpreter, counted; guarded native steps for the code it runs come in the next stage. Not yet:
+holds only them), run on Hatari (GPL-2.0, its cycle-exact 68000) with the player's own TOS 1.00-1.04 or EmuTOS. The 68000
+instructions it is seen running (RAM, TOS ROM, cartridge area) become guarded native steps that call Hatari's own handler of their
+opcode; the rest runs on Hatari's interpreter, counted. Not yet:
 the STE, the Mega STE, the TT and the Falcon, hard disks, the monochrome monitor, Linux.
 """
 from pathlib import Path
 
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape
 
 # Where the 68000 of an ST runs code: the ST RAM (up to 4 MiB), the cartridge area and the TOS ROM of a 192 KiB TOS.
 APERTURES = ((0, 0x400000, 0x400000), (0xFA0000, 0xFC0000, 0xFC0000), (0xFC0000, 0xFF0000, 0xFF0000))
@@ -39,13 +40,17 @@ class AtariStProfile(SystemProfile):
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
-    stamp_groups = ('hostkit_computer', 'conversion_gates')
+    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates')
     path_spec = PathSpec(order=13, sections=(('m68k', 'atarist'),),
                          source_bounds=(('disk', (1, 1 << 30)), ('tos', (1, 1 << 20))),
                          shapes=(('m68k', 'atarist', dict(roles=('disk', 'tos'), caps={'insn': 65536, 'span': 16384},
                                                           windows=tuple((low, last) for low, last, _ in APERTURES),
                                                           contained=True, length=(2, 16), length_align=2,
                                                           offset_align=2, address_align=2, span_max=262144)),))
+    # The instructions the game runs become guarded native steps that call Hatari's own handler of their opcode (C); the index that
+    # lists them is C too (retrorecomp/atarist_codegen.py).
+    observed_code = ObservedCode('atarist_codegen:hatari_bodies', 'rr_st_', 'RrStStep', APERTURES,
+                                 source_extension='.c', steps_head='#include "step_semantics.h"\n', index_extension='.c')
     report_shape = ReportShape('atarist_conversion', 'floppy')
     catalogues = Catalogues(libretro='libretro-thumbnails/Atari_-_ST')
     library_layout = LibraryLayout(folder='atarist', summary_glob='*/compilation.json')

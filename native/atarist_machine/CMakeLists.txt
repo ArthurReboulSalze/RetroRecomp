@@ -6,12 +6,14 @@ project(RetroRecompAtariST LANGUAGES C)
 # linked with Hatari is distributed under the GPL (licenses/hatari.md).
 #   RR_HATARI_TREE        the adapted Hatari tree (required)
 #   RR_HATARI_BUILD       Hatari's own build folder, holding src/libretro-hatari.a and the generated config.h (required)
+#   RR_ST_GENERATED       the generated native steps (steps/*.c, steps/index.c, step_semantics.h): a native build
 #   RR_ST_PAYLOAD_DIR     the embedded game and resources (atarist_payload.h, game_resources.rc): an exported game
 #   RR_ST_STATE_INPUT     what else the quick-state key depends on (the converter's stamp)
 set(RR_HATARI_TREE "" CACHE PATH "Adapted Hatari tree")
 set(RR_HATARI_BUILD "" CACHE PATH "Hatari's build folder")
 set(RR_ST_PAYLOAD_DIR "" CACHE PATH "Private per-game resources; never a public release input")
 set(RR_ST_STATE_INPUT "" CACHE STRING "Converter stamp entering the quick-state key")
+set(RR_ST_GENERATED "" CACHE PATH "Generated native steps of one game")
 if(NOT RR_HATARI_TREE OR NOT EXISTS "${RR_HATARI_TREE}/src/retro/main_retro.c")
     message(FATAL_ERROR "RR_HATARI_TREE must name the adapted Hatari tree")
 endif()
@@ -32,6 +34,19 @@ if(NOT WIN32)
     target_link_libraries(rr_atarist_session PUBLIC m)
 endif()
 
+# The generated native steps of one game (steps/*.c, steps/index.c, step_semantics.h, m68k_decoder.h): each step calls Hatari's own
+# handler of its opcode, so the steps see Hatari's CPU headers and the cputbl.h of its build.
+if(RR_ST_GENERATED)
+    file(GLOB RR_ST_STEPS "${RR_ST_GENERATED}/steps/*.c")
+    if(NOT RR_ST_STEPS)
+        message(FATAL_ERROR "RR_ST_GENERATED holds no steps")
+    endif()
+    target_sources(rr_atarist_session PRIVATE ${RR_ST_STEPS})
+    target_include_directories(rr_atarist_session PRIVATE "${RR_ST_GENERATED}" "${RR_HATARI_TREE}" "${RR_HATARI_TREE}/src/cpu/softfloat"
+        "${RR_HATARI_BUILD}/src/cpu")
+    target_compile_definitions(rr_atarist_session PRIVATE RR_ST_NATIVE=1)
+endif()
+
 # The quick-state key: states of different builds are never mixed.
 set(RR_STATE_INPUT "atarist-state-v1|${CMAKE_SYSTEM_NAME}|${CMAKE_SYSTEM_PROCESSOR}|${CMAKE_SIZEOF_VOID_P}|${CMAKE_C_COMPILER_ID}|${RR_ST_STATE_INPUT}")
 foreach(RR_STATE_SOURCE atarist_session.c atarist_session.h "${RR_HATARI_TREE}/../ready.json")
@@ -41,6 +56,10 @@ foreach(RR_STATE_SOURCE atarist_session.c atarist_session.h "${RR_HATARI_TREE}/.
     file(SHA256 "${RR_STATE_SOURCE}" RR_STATE_HASH)
     string(APPEND RR_STATE_INPUT "|${RR_STATE_HASH}")
 endforeach()
+if(RR_ST_GENERATED)
+    file(SHA256 "${RR_ST_GENERATED}/steps/index.c" RR_STATE_HASH)
+    string(APPEND RR_STATE_INPUT "|native|${RR_STATE_HASH}")
+endif()
 string(SHA256 RR_STATE_ABI "${RR_STATE_INPUT}")
 
 add_executable(atarist_player atarist_player.c "${RR_COMMON_NATIVE}/retro_menu.c" "${RR_COMMON_NATIVE}/platform_io.c")

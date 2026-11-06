@@ -644,6 +644,7 @@ INPUTS = _resolve({
         'native/atarist_machine/libretro/libretro.h',
         'native/hostkit/adapters/rrhk_atarist.inc',
         'retrorecomp.atarist',
+        'retrorecomp.atarist_codegen',
         'retrorecomp.atarist_conversion',
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',

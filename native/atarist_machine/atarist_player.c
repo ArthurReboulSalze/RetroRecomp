@@ -42,7 +42,7 @@ static RrStSession *session;
 static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed, verbose;
 static unsigned dump_at;
-static const char *dump_path;
+static const char *dump_path, *opcode_map_path;
 
 static void fail(const char *message) {
    if (!failed) fprintf(stderr, "%s\n", message ? message : "failed");
@@ -241,6 +241,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
    rate = (unsigned)rr_st_refresh_rate(session);
    if (trace && fclose(trace)) { fail("Cannot write the trace"); return 1; }
    if (capture_path && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
+   if (opcode_map_path) {
+      FILE *m = open_utf8(opcode_map_path, L"wb");
+      if (!m || !rr_st_write_opcode_map(session, m) || fclose(m)) { fail("Cannot write the opcode map"); return 1; }
+   }
    if (observe_path) {
       FILE *o = open_utf8(observe_path, L"wb");
       if (!o || !rr_st_write_observations(session, o) || fclose(o)) { fail("Cannot write the observations"); return 1; }
@@ -304,7 +308,7 @@ int main(int argc, char **argv) {
    const char *disk_paths[RR_ST_MAX_DISKS];
    RrStDisk disks[RR_ST_MAX_DISKS];
    unsigned disk_count = 0, save_at = 0, n;
-   bool headless = false, load_start = false, probe = false;
+   bool headless = false, load_start = false, probe = false, reference_cpu = false;
    RrStGame game;
    char base_path[PATH_CAP], game_dir[PATH_CAP], error[256], *base;
    int i, result;
@@ -320,9 +324,10 @@ int main(int argc, char **argv) {
       if (!strcmp(a, "--headless")) headless = true;
       else if (!strcmp(a, "--verbose")) verbose = true;
       else if (!strcmp(a, "--state-load-start")) load_start = true;
+      else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
-              "--observations FILE --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+              "--observations FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
               "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB");
          return 0;
       } else if (i + 1 < argc) {
@@ -333,6 +338,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--report")) report_path = v;
          else if (!strcmp(a, "--capture")) capture_path = v;
          else if (!strcmp(a, "--observations")) observe_path = v;
+         else if (!strcmp(a, "--opcode-map")) opcode_map_path = v;
          else if (!strcmp(a, "--tos")) tos_path = v;
          else if (!strcmp(a, "--disk")) { if (disk_count == RR_ST_MAX_DISKS) { fail("Too many disks"); return 1; } disk_paths[disk_count++] = v; }
          else if (!strcmp(a, "--machine")) game.machine = v;
@@ -378,6 +384,9 @@ int main(int argc, char **argv) {
    session = rr_st_open(&game, error, sizeof error);
    if (!session) { fail(error); return 1; }
    if (observe_path) rr_st_set_observe(session, 1);
+   /* A build with native steps runs them unless the run is the interpreted reference (--reference-cpu); a build without them
+    * runs every instruction on Hatari's interpreter. */
+   if (!reference_cpu) rr_st_set_native(session, 1);
    if (headless) {
       result = run_headless(trace_path, report_path, capture_path, observe_path, save_at, load_start, probe);
    } else {
