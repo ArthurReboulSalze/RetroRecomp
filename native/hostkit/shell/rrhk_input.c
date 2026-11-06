@@ -170,7 +170,8 @@ void rrhk_load_bindings(void) {
         for (int a = 0; a < m->action_count; ++a) {
             binding_entry(sec, entry, p, a, mode != 0);
             const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
-            if (mode && value >= -1 && value < (m->trigger_buttons ? RRHK_PAD_RIGHT_TRIGGER + 1 : SDL_CONTROLLER_BUTTON_MAX))
+            if (mode && ((value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) ||
+                         (m->trigger_buttons && (value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))))
                 rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
@@ -429,7 +430,7 @@ void rrhk_pad_value(char *out, size_t size, int p) {
 static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
     if (!pad || button < 0) return false;
     if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
-    if (!rrhk.machine->trigger_buttons || button > RRHK_PAD_RIGHT_TRIGGER) return false;
+    if (!rrhk.machine->trigger_buttons || (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER)) return false;
     return SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
 }
 
@@ -493,13 +494,14 @@ static void load_capabilities(void) {
 }
 
 /* A round dead zone on one stick: inside it the stick is centred; outside, the travel that is left is spread over the whole
- * range, so that the edge still gives full scale. 0 % leaves the values as SDL gives them. */
+ * range, so that the edge still gives full scale. The length is not clamped to the circle and each axis is clamped on its own:
+ * a pad whose stick reaches the corners of a square (32767, 32767) still gives full scale on both axes there. 0 % leaves the
+ * values as SDL gives them. */
 static void dead_zone(int16_t *x, int16_t *y, int percent) {
     if (percent <= 0) return;
     const double fx = *x, fy = *y, length = SDL_sqrt(fx * fx + fy * fy), zone = 32767.0 * percent / 100.0;
     if (length <= zone) { *x = *y = 0; return; }
-    const double reach = (length < 32767.0 ? length : 32767.0) - zone;
-    const double factor = reach / (32767.0 - zone) * 32767.0 / length;
+    const double factor = (length - zone) / (32767.0 - zone) * 32767.0 / length;
     const double nx = fx * factor, ny = fy * factor;
     *x = (int16_t)(nx > 32767.0 ? 32767 : nx < -32768.0 ? -32768 : nx);
     *y = (int16_t)(ny > 32767.0 ? 32767 : ny < -32768.0 ? -32768 : ny);
