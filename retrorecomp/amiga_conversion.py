@@ -344,9 +344,9 @@ def game_entry(source) -> Path:
 # -------------------------------------------------------------------------------------------------------- conversion
 def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
             emit=print, qualification_events=None, **unused):
-    from .amiga import developer_available, read_input
+    from .amiga import converter_available, read_input
     from . import amiga_whdload
-    if not developer_available():
+    if not converter_available():
         raise ConversionError('The Amiga converter files are missing from this installation.')
     if unused.get('standard_override') not in (None, 'native', 'auto'):
         raise ConversionError('Amiga timing follows the install (PAL, or NTSC when its archive says so); PAL/NTSC overrides do not apply.')
@@ -487,7 +487,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {
             'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
-            'system': {'id': 'amiga', 'name': 'Commodore Amiga'}, 'status': get_profile('amiga').status, 'private_development_only': True,
+            'system': {'id': 'amiga', 'name': 'Commodore Amiga'}, 'status': get_profile('amiga').status, 'private_development_only': False,
             'target': target_id(), 'rom': source.metadata(), 'source_identity': source.sha256, 'qualification_directory': str(checks),
             'source_rom': str(source.path), 'executable': executable_name(title), 'build_executable': str(candidate),
             'toolchain': toolchain_description(),

@@ -604,7 +604,7 @@ INPUTS = _resolve({
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',
     ),
-    # The Commodore Amiga (experimental, developer installations only): its converter modules, the WHDLoad resload layer
+    # The Commodore Amiga (experimental since 1.7.0): its converter modules, the WHDLoad resload layer
     # (MIT, our own), the vAmiga machine session (MPL-2.0 engine, patched at build time by amiga_vamiga) and its host-kit
     # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
     # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine

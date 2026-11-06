@@ -239,6 +239,12 @@ The Amiga 500 opens as an experimental profile (`amiga`, [AMIGA.md](AMIGA.md)): 
 vAmiga Core (MPL-2.0 per file) and its 68000 Moira (MIT), with our own resload layer. Each Amiga game carries its notices as
 resource 203, and THIRD_PARTY_NOTICES has a vAmiga row.
 
+**Offered to players.** The profile is no longer for developer installations only: like the Game Boy Advance and the PC
+Engine, it is listed when the installation carries its converter files (`amiga.converter_available`), its options note no
+longer says otherwise in the eight languages, and the credits list it as experimental. Linux is `witnessed` (one install
+converted and validated on a Debian 13 PC; G13 `P`). Against the merged `main` this moves **the Amiga's game stamp only**
+(its profile and converter modules); no other console's stamp moves.
+
 **What moves** (`compilation_inputs.role_stamps` of the tree of `main` at 27e30e03 against this branch, computed on 6 November
 2026, the change of `index_extension` above included): **the game stamp and the host stamp of the eleven consoles of 1.6.9**; no
 build stamp. The game stamps move through the profile modules and `systems/specs.py`, the host stamps through
