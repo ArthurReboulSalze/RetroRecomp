@@ -89,17 +89,18 @@ that section says move. Each section computed its stamps for its own change alon
 | [Computers: a press of the middle button releases the mouse](#computers-a-press-of-the-middle-button-releases-the-mouse-170) | none | X68000 host (`rrhk_computer.inc`) | no key moves |
 | [Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change](#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170) | none | **host stamp of all eleven consoles** (the kit, `runtime_catalog.inc`) | **the Mega Drive and Super Nintendo keys move** (the catalogue); no other key |
 | [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
+| [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
 
-<!-- Rows of the machines merged after this index (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
+<!-- Rows of the machines merged after this index (Game Boy Advance, Amiga 500, ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
 
-Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp of the CPS-1 and of the CPS-2 moves;
-the host stamp of all eleven consoles moves; no build stamp moves.** The other nine game stamps are the same, so an export of 1.6.9 of the Master System, Game Gear, Game Boy, NES, Mega Drive,
-Super Nintendo, Neo Geo, X68000 or PC Engine is **upgraded** (rebuilt from its paths, no rediscovery) when it is converted again, and an export of the CPS-1, CPS-1.5 or CPS-2 is
+Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp of the CPS-1, of the CPS-2 and of the PC Engine moves;
+the host stamp of all eleven consoles moves; no build stamp moves.** The other eight game stamps are the same, so an export of 1.6.9 of the Master System, Game Gear, Game Boy, NES, Mega Drive,
+Super Nintendo, Neo Geo or X68000 is **upgraded** (rebuilt from its paths, no rediscovery) when it is converted again, and an export of the CPS-1, CPS-1.5, CPS-2 or PC Engine is
 converted again from its paths. `LEGACY_GAME_STAMPS` stays empty. This total will change as the machines still to come merge.
 
 **Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
 written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
-NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2, the PC Engine and the X68000 hash none of the files that changed, so their 1.6.9 states load; the Master System, Game Gear and Game Boy have no key.
+NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Master System, Game Gear and Game Boy have no key.
 **Cartridge saves** are kept on every console; the EEPROM of the CPS-1.5 and the CPS-2 is now written by a worker thread (a stop within about a second of the last change loses that change).
 
 ## Computers: a press of the middle button releases the mouse (1.7.0)
