@@ -95,6 +95,9 @@ static int apply_count;
 static int disc, disc_calls, last_select;
 static bool refuse_disc;
 static bool stop;
+#define EXTRA_KEY (SDL_NUM_SCANCODES + 40)     /* the machine's own option rows (option_rows_hook) */
+static bool extra_rows;
+static int option_rows_total, machine_key;
 
 static void draw_picture(void) {
     const int w = BASE_W * scale, h = BASE_H * scale;
@@ -220,6 +223,19 @@ static void full_script(void) {
         break;
     case 12:    /* the edge still gives full scale */
         CHECK(last_axes[0][RRHK_AXIS_LX] == 32767 && last_axes[0][RRHK_AXIS_LY] == 0);
+        {   /* a square-range pad: its corners still reach full scale on both axes; on the circle, the values stay */
+            static const int corners[][4] = {{32767, 32767, 32767, 32767}, {-32768, 32767, -32768, 32767},
+                                             {-32768, -32768, -32768, -32768}, {23170, 23170, 23170, 23170}};
+            for (size_t c = 0; c < sizeof corners / sizeof corners[0]; ++c) {
+                int16_t a[RRHK_AXES];
+                axis(SDL_CONTROLLER_AXIS_LEFTX, corners[c][0]); axis(SDL_CONTROLLER_AXIS_LEFTY, corners[c][1]);
+                SDL_GameControllerUpdate();
+                CHECK(rrhk_pad_axes(0, frames, a));
+                CHECK(a[RRHK_AXIS_LX] >= corners[c][2] - 2 && a[RRHK_AXIS_LX] <= corners[c][2] + 2);
+                CHECK(a[RRHK_AXIS_LY] >= corners[c][3] - 2 && a[RRHK_AXIS_LY] <= corners[c][3] + 2);
+            }
+            axis(SDL_CONTROLLER_AXIS_LEFTY, 0);
+        }
         axis(SDL_CONTROLLER_AXIS_LEFTX, 18022);       /* 55 %: (55 - 10) / 90 = half the range */
         break;
     case 15:
@@ -410,8 +426,58 @@ static void full_script(void) {
         axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
         key(SDL_SCANCODE_ESCAPE);      /* L1 stays on the left trigger for the next start */
         break;
-    case 63:
+    case 63:    /* a trigger is refused on a host-side row (Change disc): the kit's notice, the row still waits for a button */
         CHECK(ui->menu == 0);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT);
+        for (int row = 0; row < A_DISC; ++row) key(SDL_SCANCODE_DOWN);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 64:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->row == A_DISC && ui->capturing);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
+        break;
+    case 65:
+        CHECK(ui->capturing && ui->buttons[0][A_DISC] == SDL_CONTROLLER_BUTTON_PADDLE1 && ui->buttons[0][A_R2] == RRHK_PAD_RIGHT_TRIGGER);
+        CHECK(!strcmp(ui->status, "Reserved button or config unavailable"));
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768);
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);     /* cancel the binding, close F2 */
+        break;
+    case 66:    /* the options page with more rows than it shows at once: the machine adds six */
+        CHECK(ui->menu == 0 && !ui->capturing);
+        extra_rows = true;
+        ui->menu = RRHK_MENU_OPTIONS;
+        option_rows_total = 17;
+        for (int k = rrhk_option_selected(); k < option_rows_total - 1; ++k) key(SDL_SCANCODE_DOWN);
+        break;
+    case 67:    /* the last row (` Max speed) is reached, the window scrolled; Enter runs it */
+        CHECK(rrhk_option_selected() == option_rows_total - 1 && rrhk_option_scroll() == option_rows_total - 14);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 68:
+        CHECK(ui->max_speed == 1);
+        key(SDL_SCANCODE_RETURN);
+        for (int k = 0; k < option_rows_total - 1; ++k) key(SDL_SCANCODE_UP);    /* back to the first row */
+        break;
+    case 69:
+        CHECK(ui->max_speed == 0 && rrhk_option_selected() == 0 && rrhk_option_scroll() == 0);
+        for (int k = 0; k < 9; ++k) key(SDL_SCANCODE_DOWN);     /* the machine's third row of slot 1 */
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 70:
+        CHECK(machine_key == EXTRA_KEY + 5 && rrhk_option_selected() == 9 && rrhk_option_scroll() == 0);
+        for (int k = 0; k < 5; ++k) key(SDL_SCANCODE_DOWN);
+        break;
+    case 71:
+        CHECK(rrhk_option_selected() == 14 && rrhk_option_scroll() == 1);
+        key(SDL_SCANCODE_UP);       /* Volume: still inside the window, which does not move */
+        break;
+    case 72:
+        CHECK(rrhk_option_selected() == 13 && rrhk_option_scroll() == 1);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 73:
+        CHECK(ui->menu == 0);
+        extra_rows = false;
         stop = true;
         break;
     default:
@@ -489,6 +555,18 @@ static void plain_script(void) {
     }
 }
 
+/* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
+static void option_rows_hook(int slot, RrhkOptionRows *rows) {
+    if (!extra_rows) return;
+    for (int i = 0; i < 3; ++i) rrhk_option_row(rows, EXTRA_KEY + slot * 3 + i, "Machine row: %s", slot ? "B" : "A");
+}
+static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
+    (void)ui; (void)running;
+    if ((int)key < EXTRA_KEY || (int)key >= EXTRA_KEY + 6) return false;
+    machine_key = (int)key;
+    return true;
+}
+
 static void (*script)(void);
 static void frame_start(void *window, void *renderer) { (void)window; (void)renderer; if (script) script(); }
 
@@ -499,7 +577,7 @@ static RrhkMachine full = {
     .reset = reset, .run_frame = run_frame, .pause = pause_machine, .pixels = pixels,
     .visible_width = width, .visible_height = height, .raster_height = base_height, .display_width = base_width,
     .audio = audio, .interpreted = zero, .audio_interpreted = zero, .help_controls = help_controls,
-    .frame_start = frame_start, .before_present = before_present,
+    .frame_start = frame_start, .before_present = before_present, .option_rows = option_rows_hook, .key_event = key_event,
     .analog_sticks = 2, .script_axes = script_axes, .trigger_buttons = true,
     .gfx_options = options, .gfx_option_count = 2, .gfx_apply = gfx_apply,
     .pixel_pitch = width, .rumble = true,
@@ -525,6 +603,7 @@ int main(int argc, char **argv) {
     if (!picture) return 2;
     draw_picture();
     CHECK(ACTIONS == 18 && ACTIONS <= RRHK_MAX_ACTIONS);
+    CHECK((int)RRHK_PAD_LEFT_TRIGGER == 64 && (int)RRHK_PAD_RIGHT_TRIGGER == 65);   /* fixed, whatever SDL's button count */
     SDL_VirtualJoystickDesc desc;
     SDL_zero(desc);
     desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
@@ -541,7 +620,7 @@ int main(int argc, char **argv) {
     /* 1. The 3D machine, from fresh preferences. */
     begin(full_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
-    CHECK(step >= 64);
+    CHECK(step >= 74);
     /* 2. Its next start. */
     begin(reload_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
