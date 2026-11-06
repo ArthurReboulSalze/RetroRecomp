@@ -8,6 +8,7 @@
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <wchar.h>
 #include "platform_io.h"
 #include "console16_state.h"
@@ -44,7 +45,17 @@ static int players(void) { return 2; }
 static void reset(void) { rr_psx_host_reset(); rrhk_autofire_reset(); }
 static bool run_frame(uint16_t p1, uint16_t p2) { const uint16_t pads[2] = {p1, p2}; return rr_psx_host_frame(pads) != 0; }
 static void pause_machine(bool paused) { (void)paused; }
-static const uint32_t *pixels(void) { return rr_psx_picture(rr_psx_host_session(), NULL, NULL, NULL); }
+/* The kit reads the picture with a stride of max_width; the session keeps its rows packed at the picture's width. */
+static uint32_t frame_store[RR_PSX_MAX_WIDTH * RR_PSX_MAX_HEIGHT];
+static const uint32_t *pixels(void) {
+    int w = 0, h = 0;
+    const uint32_t *packed = rr_psx_picture(rr_psx_host_session(), &w, &h, NULL);
+    if (w > RR_PSX_MAX_WIDTH) w = RR_PSX_MAX_WIDTH;
+    if (h > RR_PSX_MAX_HEIGHT) h = RR_PSX_MAX_HEIGHT;
+    for (int y = 0; y < h; ++y)
+        memcpy(frame_store + (size_t)y * RR_PSX_MAX_WIDTH, packed + (size_t)y * w, (size_t)w * sizeof(uint32_t));
+    return frame_store;
+}
 static int visible_width(void) { int w = 0; rr_psx_picture(rr_psx_host_session(), &w, NULL, NULL); return w ? w : 320; }
 static int visible_height(void) { int h = 0; rr_psx_picture(rr_psx_host_session(), NULL, &h, NULL); return h ? h : 240; }
 static int raster_height(void) { return visible_height(); }
