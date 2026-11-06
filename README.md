@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
+  <img src="https://img.shields.io/badge/release-1.7.0-d4a737" alt="Release version 1.7.0">
   <img src="https://img.shields.io/badge/console_profiles-13-626262" alt="Thirteen console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -111,7 +111,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; the PC Engine opens as an experimental machine; players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. The Capcom CPS-2 opened in 1.6.9 and is no longer experimental in 1.7.0 (your own key file and QSound DSP ROM). Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.0.** The Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga 500 (WHDLoad installs, and those that ask for Kickstart 1.3 with your own image) and the adventure games of ScummVM (one clickable executable per game, emulated, 0 % native) open as experimental machines; the PC Engine takes US TurboGrafx-16 HuCards; the host kit gains analog sticks, rumble, a 3D graphics page and disc change; F12 hints now work on every machine, so every 1.6.9 export is reconverted at the update. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

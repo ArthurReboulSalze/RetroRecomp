@@ -1,6 +1,4 @@
-# RetroRecomp v1.7.0 (in preparation) — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
-
-Not published: this section lists what is already on `main` and is completed at the release.
+# RetroRecomp v1.7.0 — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
 
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine
