@@ -148,8 +148,9 @@ The page of each console, which the README links its line to (a console of the m
   fixtures through Hatari's cycle-exact 68000 and through the native steps (`tools/atarist_vector_selftest.py`): state agreement on
   every vector run except two divisions by zero whose flags the 68000 leaves undefined; clock differences explained by the ST's
   4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
-  panel games reach their own screens; Operation Stealth needs a desktop route, Captain Blood and Kick Off 2 stop before their
-  own screens (the built-in IPF reader is the first suspect). No hardware fidelity is claimed, no game is validated and the latency
+  panel games reach their own screens; Operation Stealth and Captain Blood are started from the GEM desktop (a route that opens
+  them is needed; Captain Blood's disk was read identically by an independent reader), Kick Off 2 stops on its own error (its
+  plain sectors boot; one IPF reader defect found and fixed, a second cause remains). No hardware fidelity is claimed, no game is validated and the latency
   is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted

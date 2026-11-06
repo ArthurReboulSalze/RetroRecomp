@@ -104,6 +104,19 @@ REPLACEMENTS = [
      '\tif (restored)\n\t{\n\t\tfor (int c = 0; c < IPF_MAX_CYLINDER; c++)\n\t\t\tfor (int h = 0; h < IPF_MAX_HEAD; h++)\n\t\t\t{\n'
      '\t\t\t\tfree(IPF_State[Drive].decoder->tracks[c][h].flux);\n'
      '\t\t\t\tIPF_State[Drive].decoder->tracks[c][h] = restored->tracks[c][h];\n\t\t\t}\n\t\tfree(restored);\n\t}\n'),
+    # Upstream defect (same file, ipf_cells_to_flux): the time from the last flux transition of a track to its index was stored as
+    # one more interval, that is a flux transition exactly at the index. A track is a circle: where data crosses the index (a sector
+    # written across it, a protection Kick Off 2 uses on five tracks) that phantom transition corrupts the bits after the index, and
+    # the game finds its file damaged. Our change: that remaining time is added to the first interval (from the last transition of
+    # one revolution to the first of the next); the revolution keeps its length, the index pulse moves by at most a few cells.
+    ('src/floppies/ipf_dsk.c',
+     '\t\t/* Trailing gap from last flux back to index so intervals sum to track length */\n'
+     '\t\tif (flux_count >= flux_alloc)\n\t\t{\n\t\t\tuint32_t *nf = realloc(flux, (flux_count + 1) * sizeof(uint32_t));\n'
+     '\t\t\tif (!nf)\n\t\t\t{\n\t\t\t\tfree(flux);\n\t\t\t\treturn false;\n\t\t\t}\n\t\t\tflux = nf;\n\t\t}\n'
+     '\t\tflux[flux_count++] = total_time - last_flux;\n',
+     '\t\t/* Retro-Recomp modification (BSD-3-Clause, like this file): the time from the last transition back to the index joins\n'
+     '\t\t * the first interval (the track is a circle: no transition at the index), so the intervals still sum to the track. */\n'
+     '\t\tflux[0] += total_time - last_flux;\n'),
     # Hatari's random numbers (weak floppy cells, a timer jitter) came from the C library's rand(): not saved in states and not
     # the same sequence on Windows and Linux. Our change: a portable generator whose state is saved with the machine (last, so a
     # restore that decodes an IPF image again does not change the sequence that follows).

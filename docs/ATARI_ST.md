@@ -59,15 +59,21 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
 | Bomb Jack (1) | 32,910,533 | 1 | yes (title, credits) |
 | Another World (2) | 33,425,253 | 1 | yes (code-wheel protection) |
 | Operation Stealth (3) | 30,004,899 | 269,820 | no: GEM desktop (the game is a program to open; the interpreted ones are TOS line-F calls) |
-| Captain Blood (2) | 29,886,965 | 264,772 | no: GEM desktop with a nearly empty disk (under investigation) |
+| Captain Blood (2) | 29,886,965 | 264,772 | no: GEM desktop; its disk lists one file there on TOS 1.00, 1.02 and 1.04 alike, also when its sectors are read by an independent reader, so the game is started from the desktop (a route that opens it is needed) |
 | Elite (1) | 39,364,470 | 3 | yes (manual-word protection) |
 | Lethal Xcess (2) | 34,895,160 | 0 | yes (music device menu) |
 | Turrican II (1) | 39,532,761 | 2,139 | yes (title, credits) |
 | Carrier Command (1) | 38,039,056 | 0 | yes (language menu) |
-| Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged" (the built-in IPF reader is the first suspect) |
+| Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged"; the same disk read as plain sectors by an independent reader reaches the title screen, so the IPF path is at fault (one defect found and fixed, see below; the cause is not found yet) |
 | Indiana Jones and the Temple of Doom (1) | 40,182,497 | 2 | yes (title, high scores) |
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
+
+IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool,
+not shipped): on ordinary tracks the sectors decoded from the flux Hatari generates equal the IPF's own. On the five protected
+tracks of Kick Off 2 (a 1024-byte sector written across the index) a phantom flux transition at the index corrupted the sector
+after it; fixed in `retrorecomp/atarist_hatari.py` (the time from the last transition to the index joins the first interval). The
+game still stops, so a second cause remains (its protection sector holds a no-flux area, which a real drive reads as noise).
 
 ## 4. Known limits
 
