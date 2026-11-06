@@ -7,8 +7,10 @@ nothing. This reader is where Retro-Recomp chooses them, with three written rule
   are skipped. Any other size that is not whole 8 KiB banks is refused.
 * **Encoding.** The reset vector of bank 0 (bytes $1FFE/$1FFF) must point into $E000..$FFFF, where the CPU
   starts with every MPR at 0. A dump whose vector fails that test linearly but passes once each byte's bits are
-  reversed is `bit-reversed` (some US TurboGrafx-16 dumps); one that passes both ways stays `linear` (all such
-  cards of the maintainer's library are linear); one that passes neither is refused.
+  reversed is `bit-reversed` (some US TurboGrafx-16 dumps); one that passes neither is refused. One that passes both
+  ways (a high byte of $E7, $EF, $F7 or $FF) is decided by the first instruction at the vector: `bit-reversed` only
+  when it is SEI, NOP or CSH once the bits are turned and is none of them as given, `linear` otherwise (all such
+  cards of the maintainer's library are linear, and they start with SEI).
 * **Board.** 8 KiB to 1 MiB decoded is the standard map (`base`); exactly 2.5 MiB is the Street Fighter II
   mapper (`sf2`). The Populous RAM board, the SuperGrafx and CD images are not recognised: a size decides
   nothing else, and no title or checksum list is consulted.
@@ -25,6 +27,9 @@ MAX_BASE_BYTES = 1024 * 1024
 SF2_BYTES = 2621440
 MAX_FILE_BYTES = SF2_BYTES + HEADER
 _REVERSED = bytes(int(f'{value:08b}'[::-1], 2) for value in range(256))
+# The first instruction of the reset code: SEI ($78), NOP ($EA) or CSH ($D4) starts 282 of the 286 HuCards of the
+# maintainer's library (176, 94 and 12); only a tie between the two bit orders is decided by it.
+_RESET_OPCODES = frozenset((0x78, 0xEA, 0xD4))
 
 
 class PcEngineRomError(ValueError):
@@ -94,7 +99,16 @@ def decode(data: bytes) -> tuple[bytes, str, str]:
         raise PcEngineRomError('The HuCard image holds no ROM bank.')
     if not (len(rom) <= MAX_BASE_BYTES or len(rom) == SF2_BYTES):
         raise PcEngineRomError('A HuCard is 8 KiB to 1 MiB, or 2.5 MiB for the Street Fighter II board.')
-    linear, reversed_ = _plausible(_vector(rom)), _plausible(_vector(rom[:BANK].translate(_REVERSED)))
+    first = rom[:BANK]
+    flipped = first.translate(_REVERSED)
+    linear, reversed_ = _plausible(_vector(first)), _plausible(_vector(flipped))
+    if linear and reversed_:
+        # Both orders point into $E000-$FFFF (a high byte of $E7, $EF, $F7 or $FF does it: 4 of the 91 US cards of the
+        # maintainer's library). The code the vector points at tells them apart: reversed only when it starts with
+        # SEI, NOP or CSH once the bits are turned and does not in the order given.
+        reversed_ = (first[_vector(first) - 0xE000] not in _RESET_OPCODES
+                     and flipped[_vector(flipped) - 0xE000] in _RESET_OPCODES)
+        linear = not reversed_
     if linear:
         return rom, header, 'linear'
     if reversed_:

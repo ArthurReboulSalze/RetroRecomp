@@ -21,9 +21,71 @@ void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y) {
                                                               rrhk_tr("Sound CPU: native code", "CPU audio : code natif"));
 }
 
-/* The rows of a page: the actions, player 1's two combinations and, on a gamepad page, the Gamepad row (divergence 10). */
-int rrhk_page_rows(void) { return rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0); }
-bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1; }
+/* The rows of a page: the actions, player 1's two combinations and, on a gamepad page, the Gamepad row (divergence 10), then on
+ * a machine with analog sticks the Stick dead zone row. */
+static int stick_row(void) { return rrhk.gamepad_page && rrhk.machine->analog_sticks > 0 ? 1 : 0; }
+int rrhk_page_rows(void) {
+    return rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0) + stick_row();
+}
+bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1 - stick_row(); }
+bool rrhk_deadzone_row(void) { return stick_row() && rrhk.row == rrhk_page_rows() - 1; }
+
+/* A control page shows fifteen rows at once (every machine before 1.7.0 had at most fifteen: nothing scrolled). Past them the
+ * window follows the selected row, moving only when that row would leave it. */
+enum { PAGE_ROWS = 15 };
+static int page_first;
+int rrhk_page_scroll(void) {
+    const int rows = rrhk_page_rows();
+    if (rows <= PAGE_ROWS) return page_first = 0;
+    if (rrhk.row < page_first) page_first = rrhk.row;
+    if (rrhk.row >= page_first + PAGE_ROWS) page_first = rrhk.row - PAGE_ROWS + 1;
+    if (page_first > rows - PAGE_ROWS) page_first = rows - PAGE_ROWS;
+    if (page_first < 0) page_first = 0;
+    return page_first;
+}
+
+/* The graphics page (D14): the machine's options, the kit's Filter row, Restore defaults. */
+int rrhk_graphics_rows(void) {
+    const int options = rrhk.machine->gfx_option_count;
+    return (options < RRHK_MAX_GFX_OPTIONS ? options : RRHK_MAX_GFX_OPTIONS) + 2;
+}
+
+void rrhk_graphics_draw(SDL_Renderer *ren) {
+    const RrhkMachine *m = rrhk.machine;
+    RrhkMenuCtx ctx = {ren, 0, 0, 0};
+    rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
+    rr_menu_begin(ren, ctx.ox, ctx.oy, ctx.unit);
+    rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_TITLE_LINE, rr_tr("Retro-Recomp - Graphics"), RR_MENU_ACCENT);
+    const int rows = rrhk_graphics_rows(), options = rows - 2;
+    if (rrhk.gfx_row < 0 || rrhk.gfx_row >= rows) rrhk.gfx_row = 0;
+    char line[120];
+    for (int r = 0; r < rows; ++r) {
+        const int y = RR_MENU_FIRST_LINE + r * RR_MENU_LINE;
+        if (r == rrhk.gfx_row) rr_menu_box(ren, ctx.ox, ctx.oy, ctx.unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+        const char *mark = r == rrhk.gfx_row ? ">" : " ";
+        if (r < options) {
+            const RrhkGfxOption *option = &m->gfx_options[r];
+            const int value = rrhk.gfx[r] >= 0 && rrhk.gfx[r] < option->count ? rrhk.gfx[r] : option->def;
+            snprintf(line, sizeof line, "%s %s: %s", mark, rr_tr(option->name), option->count > 0 ? rr_tr(option->values[value]) : "-");
+        } else if (r == options) {
+            /* xBR works up to 1024 x 1024 and scanlines need two window pixels a row: past that the filter does nothing, and
+             * the row says so. */
+            char value[80], name[80];
+            const SDL_Rect dst = rrhk_game_rect(ren);
+            const bool inert = (rrhk.filter == 1 && (m->visible_width() > 1024 || m->visible_height() > 1024)) ||
+                               (rrhk.filter == 3 && dst.h < 2 * m->visible_height());
+            if (inert) snprintf(name, sizeof name, rr_tr("%s (not at this size)"), rrhk_filter_name(rrhk.filter));
+            else snprintf(name, sizeof name, "%s", rrhk_filter_name(rrhk.filter));
+            snprintf(value, sizeof value, rr_tr("Filter: %s"), name);
+            snprintf(line, sizeof line, "%s %s", mark, value);
+        } else snprintf(line, sizeof line, "%s %s", mark, rr_tr("Restore defaults"));
+        rr_menu_text_fit(ren, ctx.ox, ctx.oy, ctx.unit, 14, y, 228, line, RR_MENU_GOLD);
+    }
+    rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_HINT_LINE, rr_tr("Up/Down: row | Left/Right: change"), RR_MENU_HINT);
+    if (rrhk.status[0]) rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_LAST_LINE, rrhk.status, RR_MENU_GOLD);
+    else rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_LAST_LINE, rr_tr("Esc / B: close"), RR_MENU_HINT);
+    rr_menu_end(ren);
+}
 
 /* Control pages share their rows, so the selected row survives between them. */
 void rrhk_turn_page(int step) {
@@ -59,6 +121,10 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         rrhk_option_page_draw(ren);
         return;
     }
+    if (rrhk.menu == RRHK_MENU_GRAPHICS) {
+        rrhk_graphics_draw(ren);
+        return;
+    }
     RrhkMenuCtx ctx = {ren, 0, 0, 0};
     rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
     const int ox = ctx.ox, oy = ctx.oy, unit = ctx.unit;
@@ -81,7 +147,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(rrhk.autofire ? "ON" : "OFF"));
         lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
         lines[count++] = rr_tr("F2  Controls & options");
-        lines[count++] = rr_tr("F3  Next filter");
+        lines[count++] = rr_tr(m->gfx_option_count > 0 ? "F3  Graphics options" : "F3  Next filter");
         lines[count++] = rr_tr("F4  Window / Pixel / Fit");
         if (m->help_lines) m->help_lines(0, lines, &count);
         lines[count++] = fire;
@@ -97,24 +163,37 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         y += 6;
         m->help_controls(&rrhk, &ctx, y);
     } else if (rrhk.menu == RRHK_MENU_CONTROLS) {
-        /* Every control fits on the page, up to fourteen rows; player 1's
-         * pages end with the quit and restart combinations. */
+        /* Every control fits on the page, up to fifteen rows; player 1's
+         * pages end with the quit and restart combinations. Past fifteen rows (1.7.0: up to twenty actions) the page
+         * scrolls: fifteen rows at a time around the selected one, ^ and v at the right edge when more lie above or below. */
         char line[120], value[80];
-        const int rows = rrhk_page_rows();
+        const int rows = rrhk_page_rows(), shown = rows < PAGE_ROWS ? rows : PAGE_ROWS;
+        const int first = rrhk_page_scroll();
         /* Fifteen rows (twelve actions, the combinations and the Gamepad row) push the hint and the status down. */
-        const int hint_y = rows > 14 ? 173 : RR_MENU_HINT_LINE;
-        if (rows > 14) status_y = 182;
-        for (int a = 0; a < rows; ++a) {
-            int y = RR_MENU_FIRST_LINE + a * RR_MENU_LINE;
+        const int hint_y = shown > 14 ? 173 : RR_MENU_HINT_LINE;
+        if (shown > 14) status_y = 182;
+        const int stick = stick_row();
+        if (first > 0) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE, "^", RR_MENU_HINT);
+        if (first + shown < rows) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE + (shown - 1) * RR_MENU_LINE, "v", RR_MENU_HINT);
+        for (int a = first; a < first + shown; ++a) {
+            int y = RR_MENU_FIRST_LINE + (a - first) * RR_MENU_LINE;
             if (a == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
-            if (rrhk.gamepad_page && a == rows - 1) {
+            if (rrhk.gamepad_page && a == rows - 1 - stick) {
                 rrhk_pad_value(value, sizeof value, rrhk.player);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr("Gamepad"), value);
+            } else if (stick && a == rows - 1) {
+                snprintf(value, sizeof value, "%d%%", rrhk.deadzone[rrhk.player]);
+                snprintf(line, sizeof(line), "%c ", a == rrhk.row ? '>' : ' ');
+                snprintf(line + 2, sizeof(line) - 2, rr_tr("Stick dead zone: %s"), value);
             } else if (a >= m->action_count) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rrhk_combo_label(a - m->action_count), value);
             } else {
-                const char *button = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) : NULL;
+                const SDL_GameControllerButton pad = rrhk.buttons[rrhk.player][a];
+                const char *button = !rrhk.gamepad_page ? NULL :
+                    pad == RRHK_PAD_LEFT_TRIGGER ? SDL_GameControllerGetStringForAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT) :
+                    pad == RRHK_PAD_RIGHT_TRIGGER ? SDL_GameControllerGetStringForAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) :
+                    SDL_GameControllerGetStringForButton(pad);
                 const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr(m->actions[a].name),
@@ -123,6 +202,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
             rrhk_menu_line(&ctx, y, line);
         }
         rrhk_menu_line(&ctx, hint_y, rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
+            rrhk_deadzone_row() ? rr_tr("Enter / A: change") :
             rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
             rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
         /* A binding or a combination waits for the selected player's own pad (divergence 3): say so when that

@@ -79,12 +79,94 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.6.9 in 1.7.0
+
+1.7.0 is the release after 1.6.9 (published on 6 November 2026). This section is the index of its changes, one line per section below, with the stamps
+that section says move. Each section computed its stamps for its own change alone; the totals are under the table. It lists what is on `main` so far.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Computers: a press of the middle button releases the mouse](#computers-a-press-of-the-middle-button-releases-the-mouse-170) | none | X68000 host (`rrhk_computer.inc`) | no key moves |
+| [Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change](#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170) | none | **host stamp of all eleven consoles** (the kit, `runtime_catalog.inc`) | **the Mega Drive and Super Nintendo keys move** (the catalogue); no other key |
+| [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
+| [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
+
+<!-- Rows of the machines merged after this index (Game Boy Advance, Amiga 500, ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
+
+Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp of the CPS-1, of the CPS-2 and of the PC Engine moves;
+the host stamp of all eleven consoles moves; no build stamp moves.** The other eight game stamps are the same, so an export of 1.6.9 of the Master System, Game Gear, Game Boy, NES, Mega Drive,
+Super Nintendo, Neo Geo or X68000 is **upgraded** (rebuilt from its paths, no rediscovery) when it is converted again, and an export of the CPS-1, CPS-1.5, CPS-2 or PC Engine is
+converted again from its paths. `LEGACY_GAME_STAMPS` stays empty. This total will change as the machines still to come merge.
+
+**Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
+written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
+NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Master System, Game Gear and Game Boy have no key.
+**Cartridge saves** are kept on every console; the EEPROM of the CPS-1.5 and the CPS-2 is now written by a worker thread (a stop within about a second of the last change loses that change).
+
 ## Computers: a press of the middle button releases the mouse (1.7.0)
 
 On the computers, a press of the middle mouse button (the wheel) now releases a captured mouse, as Ctrl+Alt+M does; the
 button never reaches the game (the X68000's and the Amiga's mice had two buttons). The capture notices say so, in English
 and French. What moves: the **host stamp of the X68000** (`native/hostkit/adapters/rrhk_computer.inc`, host role); no game
 or build stamp, no quick-state key. An export of 1.6.9 keeps working as it is; reconverting it brings the middle-button release.
+
+## Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change (1.7.0)
+
+Five capabilities of the player shell for the PlayStation, written for every machine ([HOST_KIT.md section 2.4](HOST_KIT.md#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170),
+decision [D14](HOST_KIT.md#d14)): `rrhk_pad_axes` and a Stick dead zone row, the F3 graphics page, a picture that grows past
+its opening size, `rrhk_rumble` and a shared Vibration row, a Change disc action, and up to twenty controls per machine
+(`RRHK_MAX_ACTIONS` 12 to 20; an F2 page scrolls past fifteen rows; the triggers bindable as buttons with `trigger_buttons`).
+Each one is a new field of the machine table (or a limit no machine of 1.6.9 reaches) that is off when an adapter leaves it
+out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the menus, the input, the bindings and preferences
+(the X68000's `player.cfg` included) and the pictures are unchanged (A/B below).
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles, the tree of `main` at `27e30e0` against
+this change (all five capabilities, the twenty controls and the review fixes, recomputed on the final tree): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
+`native/hostkit/shell/` and `native/runtime_catalog.inc` are host inputs). **No game stamp and no build stamp moves**: an export
+of 1.6.9 that has nothing else to rebuild is upgraded (rebuilt from its paths, no rediscovery).
+
+| Console | Game stamp | Host stamp (before, after) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `5e19fd3e1507` | `fe2d99b3cd5e` (same) |
+| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `6a0a2110937d` | `f5671c38cf26` (same) |
+| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `c545c7240609` | `819a054ad881` (same) |
+| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `82968356d271` | `8e0941f93b43` (same) |
+| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `d6f288c77b93` | `9615ff2e96c8` (same) |
+| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `45d3816ac86c` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `57af9580985d` | `110349f043bd` (same) |
+| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `1df1d70e5a4b` (with the middle-click release above) | `5903c0449429` (same) |
+| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `33eca10a92c8` | `2782cd370f91` (same) |
+| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `453594c99c49` | `81a51ad49349` (same) |
+| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `98e3865903b4` | `66d912662e5c` (same) |
+
+(First twelve hexadecimal digits of each stamp.)
+
+**Quick states.** The kit's nine new strings are in the five-language game catalogue, `native/runtime_catalog.inc`, which the
+**Mega Drive and Super Nintendo** keys hash (`compilation_inputs.state_native_files`): **those two keys move**, and a quick state
+written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly by its 1.7.0 build (no compatibility key is carried,
+[GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the
+PC Engine and the X68000 hash none of the changed files and do not move; the Master System, the Game Gear and the Game Boy have
+no key of this kind. `native/game_options.h` and `native/retro_menu.c` are unchanged. **Cartridge saves** are kept on every console.
+
+**Preferences.** Nothing is renamed or read differently on the eleven consoles. A machine that declares the new fields adds
+`deadzone` to `[<Console>.Gamepad.PlayerN]`, its options' keys to `[<Console>.Video]`, and `rumble` to `[Manettes]`.
+
+**A/B** (Windows, llvm-mingw, offscreen SDL, `tools/hostkit_ab.py` with its virtual clock and modelled audio device; the A side
+built from `git archive 27e30e0 native tools`, the B side from this tree, both against the same kept builds):
+
+* X68000 (`build-x68`, the kept conversion of `.build/x68`): the scripts `play` (3,280 frames), `autofire`, `keyboard`, `mouse`,
+  `states` and `ui` (518 frames, 47 pictures of help, F2 and options pages in five languages) with the machine's per-frame trace
+  (`--trace`): **identical**, every file (pictures, trace, audio, window log, preferences).
+* CPS-1, Warriors of Fate (three players, a DIP page; `build --refresh-kit`), the standard battery of 3,968 iterations (both
+  players' keys and pads, the filters and display modes, every language, every F2 page, states, preferences): **identical** (61
+  files: 3,968 picture hashes, 52 captures, 2,768 audio pushes, the state file, the preferences).
+* Both A/B runs were made again on the final tree (the twenty controls, the scrolling pages, `trigger_buttons` and the review fixes): identical
+  again, every file.
+* ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine of eighteen controls, its scrolling F2
+  page and its triggers as L2 and R2, then the same machine with every field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
+
+Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
+consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
 
 ## Exports of 1.6.8 in 1.6.9
 
@@ -158,6 +240,48 @@ A lot of evidence and documentation: the way games are converted does not change
 - **What moves.** The game stamps of the Master System and of the Game Gear: `sega_evidence` and the two profile modules are inputs of their groups, and an
   export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
   stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
+
+## Capcom CPS-2 leaves the experimental status (1.7.0)
+
+The CPS-2 (profile `cps2`, [CPS2.md](CPS2.md)) is a supported machine, the decision being the owner's ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). What moves,
+computed with `compilation_inputs.role_stamps` on the commit the branch was cut from (27e30e03) and on the branch `spec/cps2-exit-170` (first 12 hexadecimal digits of each stamp):
+
+| Console | Game stamp | Host stamp | Build stamp |
+|---|---|---|---|
+| sms | 3e16a0301d90 → 3e16a0301d90 (same) | 1b834d7b9fbc → 013be1c42081 (moves) | same |
+| gg | 4f9d69e86e89 → 4f9d69e86e89 (same) | c9e0e360f031 → 69bcb747bee3 (moves) | same |
+| gb | ff30f88ca9f1 → ff30f88ca9f1 (same) | 772d06158394 → d7f2d1b91dbd (moves) | same |
+| nes | a3537f590fcf → a3537f590fcf (same) | 21b599f4ec81 → 09e18a69af7c (moves) | same |
+| md | a0de8eae71a4 → a0de8eae71a4 (same) | 7bda64083b03 → 774f6daae149 (moves) | same |
+| snes | ae2146874e49 → ae2146874e49 (same) | 2a4bc2c7b468 → 423b38546baf (moves) | same |
+| ng | a3733e1113ff → a3733e1113ff (same) | 1f2e8a0e2450 → 76460953331d (moves) | same |
+| cps1 | e6380523c2d1 → aa1a80f01e09 (moves) | 0f8432dcd5c5 → a01cacaa9528 (moves) | same |
+| x68 | 6c7509bf49d2 → 6c7509bf49d2 (same) | 47212d53043d → 1d8e4c116284 (moves) | same |
+| cps2 | 8d2c63c4b35a → 34899059c985 (moves) | 0f2bade664f6 → 14e9a20d9fe2 (moves) | same |
+| pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 9f41cb76dbf1 (moves) | same |
+
+- **Game stamps: only the CPS-1 and the CPS-2 move**; the other nine consoles keep theirs, because `path_profiles.py` is untouched (a CPS-2 path record has an empty layout, checked by
+  `cps1_knowledge.validate_record`). **Host stamps: every console moves**, through `artwork.py` (the optional `cover_titles` capability); build stamps do not move.
+- **The CPS-1 and the CPS-2 find their box art.** Their profiles name the libretro-thumbnails `MAME` repository, which files its images under MAME's description
+  of each set, and the platform numbers of ScreenScraper (6 and 7, read on its system pages) and TheGamesDB (23, "Arcade"). The search uses the optional profile
+  capability `cover_titles(path)`: the set's catalogue title, then its parent's, tried after the file's name and the title (a clone shows its parent's box; no list
+  of games). For these machines, a repository that files one box under two spellings of the same name ("Street Fighter II - ..." and "Street Fighter II_ ...") no longer
+  makes the choice ambiguous when downloading. Replayed over the reports of `Export`, before and after: no choice of another machine changes. `artwork.py` is a host module
+  of every console, so every host stamp moves; the game stamps move only for the CPS-1 family. Existing exports get their icon on the next conversion.
+- **The EEPROM of the CPS-1.5 and the CPS-2 is saved off the frame path.** A game changes its cells one after another at start and on a coin, and each change
+  wrote the file at once, with a flush to disk that can wait a long while on a busy disk (a frame log of `ssf2` showed single frames of several seconds with the disk
+  busy, against 36 ms at most without the write). A worker thread now writes the last contents after the EEPROM has been stable for about a second, and play
+  ending writes it at once; a stop of the program within that second loses that last change. `native/cps1_persistence.c` is a host file of the CPS-1 family.
+- **The CPS-2 game stamp moves**: its report now says `completed` (not `experimental`), its board tier is `supported`, it shares its paths and its
+  profile, translations and notices changed. An export of the CPS-2 of 1.6.9 is rebuilt once on its next conversion, with the same code, pictures and sound.
+- **The CPS-1 family's game stamp moves** (the CPS-1 and CPS-1.5 share the board model): `native/cps1_machine.c` now includes `native/cps1_cps2_board.inc`, `cps1_knowledge`
+  takes the board as a keyword, `capcom_sets` reads a ROM that FBNeo stores twice over. The final A/B comparison of `1941` and `wof` against `main`
+  (`tools/ab_conversion.py`): the generated steps, the board folder and every piece of evidence (CPU, RAM, picture and sound hashes, traces, states, the compressed copy)
+  are identical; the files that differ are the changed native sources and the new include, `notices.txt` and the receipt, engine and record digests of the report.
+- **Hot path of the CPS-1, as in 1.6.9**: nothing new here (the guards of 1.6.9 stay: a branch per bus access, `if (tile_priority)` per tile pixel); its frame cost is
+  still to be measured with the comparison of frame costs of the release, on a quiet PC.
+- **The CPS-2 shares its paths** like the CPS-1: its record is tied to its own engine identity (`cps2-m68k` and `cps2-z80` digests), points into the decrypted program, and
+  holds no key and no ROM byte. None of the sets observes a path, so nothing is qualified.
 
 ## Capcom CPS-2 opens as an experimental machine (1.6.9)
 
@@ -360,7 +484,7 @@ declare their limits on their own profile, so the stamps of the others no longer
 **What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
 nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
 of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
-quick-state key moves.** The PC Engine's own stamps are new (game `c8545bf9018e`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the deep-folder fix below). An
+quick-state key moves.** The PC Engine's own stamps are new (game `1e1f8e8f29ba`, host `11870ec2b6f9`, build `66d912662e5c`, first twelve characters, computed on the tree of the US-cards change below, after the merge of `main` of 6 November 2026). An
 export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
 
 **Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
@@ -379,6 +503,14 @@ packed replay and F8/F9 gates passing, 124 stops). Beyond that the limit is no l
 `<build folder>\CMakeFiles\CMakeScratch\TryCompile-xxxxxx\...` (104 characters) in the first configure of any game's build folder, which here is
 `<app>\.build\pce\<12 hex>\n\build` (32 characters below the application folder), so the build folder may hold 155 characters; every machine's game builds go through
 the same check.
+
+**US TurboGrafx-16 cards (6 November 2026).** The reader tells the two bit orders apart by the first instruction at the reset vector
+when the vector is plausible both ways (`pce_rom.py`: 4 of the 91 US cards of the maintainer's library; they stay `linear` as
+before, and a bit-reversed dump of them is now read as such), and the console is named **PC Engine / TurboGrafx-16** where it is
+listed to the player (the profile name, so the report's `system.name` and the executable's version resource too, the Options page, the
+credits, README and the documents; the export folder stays `PC Engine`), and the profile is marked `linux = 'witnessed'` (9 cards equal on a Debian 13 PC, [PC_ENGINE.md](PC_ENGINE.md#linux-witness-6-november-2026)), so a Linux build converts PC Engine cards. **What moves:** only the PC Engine's game stamp (the
+reader, the profile and the report writer are inputs of it); its host and build stamps and every other console's stamps do not.
+A game exported before this change is rebuilt when it is upgraded; its behaviour does not change. Proof: [PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026).
 
 **Disk space.** The clean-up after a publication and Options › Common › Disk space know the PC Engine's build folders (`.build/pce/<12 hex>/`, locked while a conversion runs), like the CPS-1's.
 

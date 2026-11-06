@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Callable
 from zipfile import ZipFile
+import zlib
 
 from . import zip_sets
 
@@ -29,6 +30,9 @@ class Family:
     label: str
     catalogue: object
     missing_hint: Callable[[dict, list], str] | None = None
+    # Names of members that a romset dialect stores twice over (FBNeo keeps some 1 MiB ROMs as 2 MiB files whose two halves are the ROM): such a
+    # member also counts as the ROM that is its half, when both halves are equal.
+    doubled: frozenset = frozenset()
 
 
 @dataclass(frozen=True)
@@ -80,7 +84,20 @@ def archive_members(path: Path, family: Family) -> tuple[dict, ...]:
                     raise ValueError(f'{family.label} archive member exceeds the size limit.')
                 records.append({'name': zip_sets.flat_name(entry.filename),
                                 'archive_path': entry.filename, 'bytes': entry.file_size, 'crc32': entry.CRC})
+            records += _halves(archive, records, family)
     return tuple(sorted(records, key=lambda item: item['archive_path']))
+
+
+def _halves(archive: ZipFile, records: list, family: Family) -> list:
+    """The ROM that is the half of each doubled member (`Family.doubled`) whose two halves are equal."""
+    found = []
+    for record in records:
+        if record['name'] in family.doubled and record['bytes'] % 2 == 0:
+            data = archive.read(record['archive_path'])
+            half = len(data) // 2
+            if data[:half] == data[half:]:
+                found.append({**record, 'bytes': half, 'crc32': zlib.crc32(data[:half]), 'half': True})
+    return found
 
 
 def _keys(records) -> set:
@@ -154,8 +171,26 @@ def identify(family: Family, path: Path, games: list[dict] | None = None, set_na
 
 
 def _read_member(archive: ZipFile, record: dict, family: Family) -> dict:
+    if record.get('half'):
+        data = archive.read(record['archive_path'])
+        half = data[:len(data) // 2]
+        if len(half) != record['bytes'] or data[len(half):] != half:
+            raise ValueError(f'{family.label} member {record["archive_path"]} changed while it was being read.')
+        return {'sha1': hashlib.sha1(half).hexdigest(), 'sha256': hashlib.sha256(half).hexdigest()}
     return zip_sets.read_member_digests(archive, record['archive_path'], record['bytes'],
                                         ('sha1', 'sha256'), label=family.label)
+
+
+def cover_titles(family: Family, path: Path, title_of: Callable[[str], str]) -> tuple[str, ...]:
+    """The catalogue titles under which a set's box may be filed, for the profiles' `cover_titles` capability: the set's own title, then
+    its parent's (a clone shows the art of its parent). The file is named after its set, as the romset dialects name them; a file that
+    carries another name offers none."""
+    by_set = {game['set']: game for game in family.catalogue.games()}
+    game = by_set.get(path.stem.casefold())
+    if game is None:
+        return ()
+    parent = by_set.get(game.get('parent') or '')
+    return tuple(title_of(g['title']) for g in (game, parent) if g is not None)
 
 
 def read_set(family: Family, path: Path, games: list[dict] | None, set_name: str | None, title_of: Callable[[dict], str],
@@ -182,7 +217,8 @@ def read_set(family: Family, path: Path, games: list[dict] | None, set_name: str
                                      'but different contents.')
                 members.append({'name': item['name'], 'region': item['region'], 'bytes': item['bytes'],
                                 'crc32': item['crc32'], 'sha256': digests['sha256'],
-                                'archive': str(source), 'archive_path': record['archive_path']})
+                                'archive': str(source), 'archive_path': record['archive_path'],
+                                **({'half': True} if record.get('half') else {})})
     if len(members) != len(catalogue.files(game)):
         raise ValueError(f'{family.label} set ' + game['set'] + ' changed while it was being read.')
     members.sort(key=lambda item: item['name'])

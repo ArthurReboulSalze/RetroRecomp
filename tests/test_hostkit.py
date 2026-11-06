@@ -212,7 +212,8 @@ class SoundAndSpeedTests(unittest.TestCase):
 
     def test_a_chord_of_the_quit_or_restart_combination_is_not_a_sound_key(self):
         events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
-        self.assertEqual(events.count('rrhk_options_component('), 4)     # Pause (two), the Tab hold, and M / backquote
+        # Pause (two), Change disc (two, 1.7.0), the Tab hold, and M / backquote
+        self.assertEqual(events.count('rrhk_options_component('), 6)
 
     def test_the_new_strings_are_in_every_locale(self):
         import json

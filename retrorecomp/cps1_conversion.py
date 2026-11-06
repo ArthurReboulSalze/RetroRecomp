@@ -182,15 +182,15 @@ def ordinary_saves(dsp_rom: bytes | None, family: str = 'cps1') -> dict:
             'interactive_play_only': True}
 
 
-def knowledge_block(record: dict | None, promotion: dict, hints_used: dict, board_tier: str = 'supported', family: str = 'cps1') -> dict:
+def knowledge_block(record: dict, promotion: dict, hints_used: dict, board_tier: str = 'supported', family: str = 'cps1') -> dict:
     """The report's `knowledge` section. `shared` says whether CPS-1 is in the sharing at all
     (`path_profiles.EXPERIMENTAL_SHARED`), not that this conversion shared anything."""
     from . import cps1_knowledge
     from .systems import get_profile
     return {
         'machine_status': get_profile(family).status, 'shared': family in path_profiles.SHARED_SYSTEMS and board_tier == 'supported',
-        'record_format': cps1_knowledge.FORMAT if record else None,
-        'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record) if record else None,
+        'record_format': cps1_knowledge.FORMAT,
+        'cores': cps1_knowledge.engine(family), 'record_sha256': cps1_knowledge.record_digest(record),
         'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'm68k_gfx', 'z80_ram', 'truncated')},
         'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
         'raw_ram_words_stored': False, 'fresh_validation_required': True}
@@ -253,17 +253,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
 
     def shared_hints(board):
         """Rows rebuilt from the shared and library records for the player's own images (build input only)."""
-        if cps2:                  # nothing is shared yet: the CPS-2 builds from what this player's own conversions observed
-            rows = {'m68k_ram': [], 'm68k_gfx': [], 'z80_ram': []}
-            merge(rows, feedback_rows(game_set.sha256, family))
-            return rows
-        images = cps1_knowledge.images_from_board(board, game)
+        images = cps1_knowledge.images_from_board(board, game, family)
         # A board of the experimental tier takes nothing from the shared base and gives nothing to it (docs/CPS1.md).
-        local = cps1_catalogue.tier(game) != 'supported'
+        local = game_set.tier != 'supported'
         rows, info = cps1_knowledge.shared_rows(
-            game_set.sha256, images, qualified=None if local else knowledge.qualified_game('cps1', game_set.sha256),
-            imported=None if local else knowledge.imported_game('cps1', game_set.sha256),
-            library=cps1_knowledge.library_record(game_set.sha256))
+            game_set.sha256, images, qualified=None if local else knowledge.qualified_game(family, game_set.sha256),
+            imported=None if local else knowledge.imported_game(family, game_set.sha256),
+            library=cps1_knowledge.library_record(game_set.sha256, family), system=family)
         merge(rows, feedback_rows(game_set.sha256, family))
         hints_used.update(info)
         return rows
@@ -356,15 +352,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         # it was offered. What cannot be tied to a ROM stays private (counted below).
         from .cps1_codegen import ram_instruction_lengths
         fresh = fresh_observations(reference)
-        if cps2:       # no shared path record yet: only the counts of what the fresh reference runs observed
-            record = None
-            promotion = {'paths': 0, 'm68k_ram': len(fresh['m68k_ram']), 'm68k_gfx': len(fresh['m68k_gfx']), 'z80_ram': len(fresh['z80_ram']),
-                         'truncated': False}
-        else:
-            images = cps1_knowledge.images_from_board(project / 'board', game)
-            record, promotion = cps1_knowledge.promote(
-                game_set.sha256, images, fresh, lambda windows: ram_instruction_lengths(project, windows),
-                previous=cps1_knowledge.library_record(game_set.sha256))
+        images = cps1_knowledge.images_from_board(project / 'board', game, family)
+        record, promotion = cps1_knowledge.promote(
+            game_set.sha256, images, fresh, lambda windows: ram_instruction_lengths(project, windows),
+            previous=cps1_knowledge.library_record(game_set.sha256, family), system=family)
         memory.mkdir(parents=True, exist_ok=True)
         atomic_json(memory / 'observations.json', observations)
         atomic_json(memory / 'compilation.json', {
@@ -372,8 +363,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'guarded_ram_variants': len(observations['m68k_ram']), 'guarded_gfx_variants': len(observations['m68k_gfx']),
             'guarded_z80_ram_variants': len(observations['z80_ram']),
             'fresh_reference_passed': True, 'version': __version__,
-            # The schema 3 record the base shares (numbers only), and where it came from (none for a machine that shares nothing yet).
-            'record': record, 'record_format': cps1_knowledge.FORMAT if record else None, 'cores': cps1_knowledge.engine(),
+            # The schema 3 record the base shares (numbers only), and where it came from.
+            'record': record, 'record_format': cps1_knowledge.FORMAT, 'cores': cps1_knowledge.engine(family),
             'record_source': 'fresh reference runs', 'record_counts': promotion})
     checks_rows = []
     for name, count, text in plan:
@@ -389,7 +380,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'trace_sha256': file_sha256(native['trace']),
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
-    board_tier = 'experimental' if cps2 else cps1_catalogue.tier(game)
+    board_tier = game_set.tier
     analysis = prepared['analysis']
     report = {'tool': 'Retro-Recomp', 'version': __version__,
         # The machine is supported; a board of the experimental tier (the QSound boards of the CPS-1.5, a catalogue column)

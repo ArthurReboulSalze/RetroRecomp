@@ -1,6 +1,6 @@
 """Independent MC68000 vectors replayed through the CPS-1 generator path (gate G10, independent CPU evidence).
 
-    python -B tools/cps1_vector_selftest.py [fixture ...]        (default: every fixture)
+    python -B tools/cps1_vector_selftest.py [--cps2] [fixture ...]        (default: every fixture; --cps2: the variant of a CPS-2 board)
 
 The vectors are the pinned SingleStepTests/m68000 fixtures of the repository (`tests/fixtures`, MIT, generated with
 MAME, not recorded from hardware; synthetic instruction data, no cartridge). For each fixture a CPS-1 native project
@@ -74,10 +74,15 @@ def cases_header(fixture_name: str) -> tuple[str, bytes, dict]:
     return text, bytes(payload), fixture
 
 
-def replay(fixture_name: str, project: Path | None = None) -> dict:
-    project = project or ROOT / '.build' / 'cps1-vector-selftest' / fixture_name
+def replay(fixture_name: str, project: Path | None = None, cps2: bool = False) -> dict:
+    """`cps2`: the variant of a CPS-2 board (a `board/board.txt` that says so: the translated steps read their PC-relative operands through
+    the instruction-fetch hooks, and the Musashi build has separate reads)."""
+    project = project or ROOT / '.build' / ('cps2-vector-selftest' if cps2 else 'cps1-vector-selftest') / fixture_name
     project.mkdir(parents=True, exist_ok=True)
     header, program, fixture = cases_header(fixture_name)
+    if cps2:
+        (project / 'board').mkdir(exist_ok=True)
+        (project / 'board' / 'board.txt').write_text('cps1-board 1\nmachine cps2\n', encoding='ascii', newline='\n')
     cps1_build._engine(project, native=True)
     analysis = cps1_codegen.generate_m68k(project, program)
     (project / 'vector_fixture.h').write_text(header, encoding='utf-8')
@@ -89,7 +94,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 file(GLOB STEPS "${{CMAKE_CURRENT_SOURCE_DIR}}/steps/cps1_step_*.c")
 add_executable(checks "{checks}" engine/m68k/m68kcpu.c engine/m68k/m68kops.c cps1_native.c cps1_arithmetic.c ${{STEPS}})
 target_include_directories(checks PRIVATE . engine/m68k)
-target_compile_definitions(checks PRIVATE CPS1_NATIVE=1)
+target_compile_definitions(checks PRIVATE CPS1_NATIVE=1{' RR_CPS2=1' if cps2 else ''})
 if(MSVC)
   target_compile_options(checks PRIVATE /utf-8 /wd4996 /wd4244 /wd4267)
   target_compile_definitions(checks PRIVATE __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
@@ -176,8 +181,8 @@ def machine_problems(result: dict) -> list[str]:
     return group_problems(result) if result['fixture'] == GROUPS else problems(result)
 
 
-def main(names=None) -> int:
-    results = [replay(name) for name in (names or FIXTURES + (GROUPS,))]
+def main(names=None, cps2: bool = False) -> int:
+    results = [replay(name, cps2=cps2) for name in (names or FIXTURES + (GROUPS,))]
     failed = 0
     for result in results:
         print(summary(result))
@@ -189,4 +194,5 @@ def main(names=None) -> int:
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:] or None))
+    arguments = [a for a in sys.argv[1:] if a != '--cps2']
+    sys.exit(main(arguments or None, cps2='--cps2' in sys.argv))

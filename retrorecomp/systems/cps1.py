@@ -39,7 +39,7 @@ class Cps1Profile(SystemProfile):
                                                             guard='mask'))))
     report_shape = ReportShape('cps1_conversion', 'native_analysis')
     # No box-art repository was ever chosen for the arcade board; its own catalogue names the sets.
-    catalogues = Catalogues(local_catalogue='assets/cps1-catalogue.json')
+    catalogues = Catalogues(libretro='libretro-thumbnails/MAME', screenscraper=6, thegamesdb=23, local_catalogue='assets/cps1-catalogue.json')
     # The memory window has no reader for it yet.
     library_layout = LibraryLayout(folder='cps1')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
@@ -68,6 +68,11 @@ class Cps1Profile(SystemProfile):
 
     def default_video_mode(self, path: Path) -> str:
         return 'arcade'
+
+    def cover_titles(self, path: Path) -> tuple[str, ...]:
+        # The box is filed under MAME's description of the set: the catalogue title, then the parent's (artwork.profile_cover_titles).
+        from ..cps1 import cover_titles
+        return cover_titles(path)
 
     def convert(self, path: Path, **options) -> Path:
         from ..cps1_conversion import convert

@@ -45,10 +45,17 @@ LONG_FRAMES = 18000
 CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile
 
 
+def _system() -> dict:
+    """The report's `system`: the profile's id and display name (one place for the name)."""
+    from .systems import get_profile
+    profile = get_profile('pce')
+    return {'id': profile.id, 'name': profile.name}
+
+
 def identification_report(card, level: str = 'standard') -> dict:
     """The writer's keys for a card that was identified and not converted: no measure is reported."""
     return {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
-            'system': {'id': 'pce', 'name': 'PC Engine'}, 'target': target_id(),
+            'system': _system(), 'target': target_id(),
             'rom': card.metadata(), 'scan_level': level, 'converted': False,
             'native_validation': {'passed': False, 'scope': 'not converted: nothing was compared',
                                   'cpu_fidelity_validated': False, 'independent_cpu_oracle': False},
@@ -426,7 +433,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     native_coverage = all(not row['interpreted_opcodes'] for row in checks_rows)
     manifest = json.loads((module / 'module.json').read_text(encoding='utf-8')) if module else {}
     report = {'tool': 'Retro-Recomp', 'version': __version__,
-        'created_utc': datetime.now(timezone.utc).isoformat(), 'system': {'id': 'pce', 'name': 'PC Engine'},
+        'created_utc': datetime.now(timezone.utc).isoformat(), 'system': _system(),
         'rom': card.metadata(), 'converted': True,
         'compiler': {'engine': ENGINE_REPO, 'engine_revision': ENGINE_REV, 'runtime_abi': ENGINE_ABI,
                      'native_cpu': 'guarded HuC6280 instructions emitted from observed runs (full MPR context, '

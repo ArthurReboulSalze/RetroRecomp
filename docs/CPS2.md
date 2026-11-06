@@ -1,10 +1,10 @@
 # Capcom CPS-2
 
-**Experimental** machine, open to players in 1.6.9 on the owner's decision of 5 November 2026 (« OK pour CPS2 en expérimental sur la 1.6.9 »):
+**Supported** machine (supported since 1.7.0, once the owner's decision is recorded in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); it opened to players as an experimental one in 1.6.9 (« OK pour CPS2 en expérimental sur la 1.6.9 », 5 November 2026):
 the Capcom CPS-2 arcade board (1993 to 2004), a 16 MHz 68000 with an encrypted program, the CPS graphics chips with an object chip of its own,
 and the QSound sound board of the [CPS-1.5](CPS1.md#cps-15-qsound-boards). This page says what exists and what has been measured. The profile
-`cps2` reuses the CPS-1 pipeline; it is not in the shared base of paths (nothing is shared, nothing is imported), and it will leave the
-experimental status only on the owner's decision.
+`cps2` reuses the CPS-1 pipeline and shares its paths like the CPS-1 does: in the experimental tier of the shared base, with no path qualified
+yet (the games observe none).
 
 Sources and licences of the board model, and where the keys come from: [cps1-machine.md](../licenses/cps1-machine.md) (MAME's CPS-2 driver
 and decryption, BSD-3-Clause; the keys are files of your own romset, never supplied). The dated measurements are on this page.
@@ -13,7 +13,7 @@ and decryption, BSD-3-Clause; the keys are files of your own romset, never suppl
 
 | | |
 |---|---|
-| Status | Experimental (1.6.9): eight sets of the panel convert through the converter; the evidence is below, and what is not measured is named in the limits |
+| Status | Supported (supported since 1.7.0, once the owner's decision is recorded in [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)): the panel of 17 sets converts at the extended level on Windows and on Debian with the same hashes; the evidence is below, and what is not measured is named in the limits |
 | Scope of the first release | The standard A-board with the player's own key: 258 sets of MAME's CPS-2 driver (Capcom and licensed games); 236 of them are complete in the owner's FBNeo romsets by file names. Out: bootlegs (47), dead boards (2), network adapter (7), spinner and paddle games (10, later), `gigaman2` |
 | Keys | A set's 20-byte decryption key is a file of the player's own romset (`ssf2.key`). The converter reads it from the archive; it never supplies, embeds or downloads one, and refuses a romset that has none |
 | Sound | The QSound chip, with the player's own `dl-1425.bin` (the same option as the CPS-1.5); the DSP16 is not executed: a high-level model, as MAME's by default |
@@ -43,14 +43,14 @@ and decryption, BSD-3-Clause; the keys are files of your own romset, never suppl
 | Sound | QSound ([CPS-1.5](CPS1.md#cps-15-qsound-boards)): stereo, 24,038 Hz |
 | Storage | 93C46, 64 words, `datas/saves/` file as the CPS-1.5 |
 
-## Evidence so far (5 November 2026, Windows, MAME 0.289 as the reference)
+## Evidence (5 and 6 November 2026, Windows and Debian, MAME 0.289 as the reference)
 
 All of it is agreement with MAME's model, never with the board. The five measures stay apart: native code, CPU fidelity, hardware
 fidelity, gameplay validation and physical latency; the last three are not validated for this board.
 
 | What | Result |
 |---|---|
-| Decryption against MAME's `opcodes` and `program` spaces (4 MiB each) | equal on 34 of the 37 parent sets tested; `1944`, `19xx` and `progear` are in the owner's folder under another revision of their files (not tested), `avsp` holds older 2 MiB graphics dumps (not identified) |
+| Decryption against MAME's `opcodes` and `program` spaces (4 MiB each) | equal on the 35 archives of the owner's folder that are in the scope (the sets they hold are the parents, or for `1944`, `19xx` and `progear` the clones `1944j`, `19xxu` and `progearu`); 3 archives of sets with inputs of their own (`choko`, `cybots`, `qndream`) are outside the scope |
 | `ssf2`, 2,400 frames from power on | 0 interpreted 68000 and 0 interpreted Z80 instructions (native 42 million and 24 million) |
 | Bus accesses (`0x400000` to `0x8fffff`) of the first 80 frames | the same 61,657 accesses, values included, as MAME |
 | `ssf2` attract, 90 pictures from frame 100 to 9,000 | identical to MAME's, pixel for pixel |
@@ -60,7 +60,14 @@ fidelity, gameplay validation and physical latency; the last three are not valid
 | Raster interrupt (`ssf2`, attract from frame 6,818, counter 1 reloaded at 148) | frames 6,800 to 7,000 compared one by one with MAME: identical, 152 of the 183 raster frames at the same frame number and the rest at the nearest of three neighbours |
 | Quick state | saved at frame 900 and loaded in a fresh process: the same CPU and RAM hashes at frame 1,500 |
 | Saves | the windowed host writes a 224-byte file at the first run and leaves it unchanged at the second |
-| Conversion through the converter (profile `cps2`, developer installations; 5 November 2026, tree of the branch `spec/cps2-170`, standard scan level, `--no-online-cover`) | The eight sets of the panel convert: each with a fresh reference run of every instruction, 0 interpreted 68000 and 0 interpreted Z80 instructions on the attract and credited play routes, the compressed copy equal to the reference, a quick state saved and continued in a fresh process, a truncated state refused; 100 to 145 seconds a set on one Windows PC, executables of about 20 MiB. The report says `experimental` and keeps hardware fidelity, gameplay and latency as not validated |
+| Conversion of the first eight sets through the converter (5 November 2026, tree of the branch `spec/cps2-170`, standard scan level, `--no-online-cover`) | The eight sets of the panel convert: each with a fresh reference run of every instruction, 0 interpreted 68000 and 0 interpreted Z80 instructions on the attract and credited play routes, the compressed copy equal to the reference, a quick state saved and continued in a fresh process, a truncated state refused; 100 to 145 seconds a set on one Windows PC, executables of about 20 MiB. The report says `experimental` and keeps hardware fidelity, gameplay and latency as not validated |
+| **Final pass** (6 November 2026, the exit tree, extended scan level: the attract route, the credited play route and one pseudo-random route of 18,000 frames) | 17 sets converted on Windows: `1944j`, `19xxu`, `armwar`, `avsp`, `ddtod`, `dimahoo`, `megaman2`, `mmatrix`, `mpang`, `msh`, `mvsc`, `progearu`, `sfa3`, `sfz2al`, `ssf2`, `xmcota`, `xmvsf`. 0 interpreted 68000 and 0 interpreted Z80 instruction on every route, the compressed copy equal to the fresh reference, a quick state continued in a fresh process and a truncated state refused, `completed` and a supported board in every report; 205 to 404 seconds a set, two at a time. The sets are the owner's panel of eight, five drawn at random (seed 170: `xmcota`, `mpang`, `sfz2al`, `megaman2`, `armwar`) and the four whose files differ from the catalogue's (`1944`, `19xx`, `progear`, `avsp`) |
+| Linux (the same pass on the Debian 13 PC) | the same 17 sets converted there: the CPU, RAM, picture and sound hashes of all 51 routes are equal to Windows' (51 of 51) |
+| Thorough scan level (two more pseudo-random routes) | `ddtod`, `mvsc`, `ssf2`: 0 interpreted instructions on every route |
+| The nine sets beyond the panel against MAME 0.289 (the credited play route, 3,600 frames, a picture every 10 frames and the sound) | 8 of 9 sets have 360 of 360 pictures identical (`1944j`, `19xxu`, `armwar`, `megaman2`, `mpang`, `progearu`, `sfz2al`, `xmcota`); `avsp` 359 of 360 (the first difference at frame 100). The sound: median level difference 0.003 to 0.057 dB, averaged spectrum cosine 0.9932 to 0.9997 |
+| `ddsom`, the number of players | on a blank EEPROM the game starts with two players; with the service switch on, the test menu's *Chute type* set to 4 players and *Save and exit*, a relaunch without the switch shows four *Press start* places (`.build/cps2-exit/evidence/g7-ddsom-after-restart.png`); the setting is kept in the save file |
+| The 68000 and Z80 translated steps through the CPS-2 variant of the generator (`tools/cps1_vector_selftest.py --cps2`: the PC-relative operands are read through the instruction-fetch hooks) | the same independent vectors as the CPS-1's agree: 834 of 834, 864 of 864, 2,169 of 2,171 (the two others are the authored vectors with the trace bit set, which these builds do not run), and the groups fixture with the same recorded deviations (native 2,873 of 2,895, reference 2,889) |
+| Shared paths | the CPS-2 shares like the CPS-1 (`cps2_knowledge`, the board as a keyword of `cps1_knowledge`); none of the 17 sets observes a path, so nothing is qualified yet |
 | Non-regression (earlier tree, before the profile) | a CPS-1 set (`1941`): generated code and checks identical to the previous tree; a CPS-1.5 set (`wof`): generated steps identical, 3,600-frame traces identical, 0 interpreted |
 
 ## Players, switches and the test menu
@@ -78,13 +85,15 @@ was never started), by playing four credited players from the title screen:
 | `armwar` | 3 | |
 | `ddsom` | 2 (a third and fourth player do nothing) | test menu, 7 Configuration, 1 System, *Chute type* (2, 3 or 4 players) |
 | `batcir` | 2 | the test menu, not read further |
-| `avsp` | not read (the owner's romset holds older graphics dumps the converter does not identify) | |
+| `avsp` | not read (the set converts since 1.7.0: FBNeo's four 2 MiB graphics files are read as the catalogue's 1 MiB ROMs) | `Chute type` of the test menu to read |
 
 ## Known limits
 
-* The pictures and sound above come from a development build driven with MAME's own route; the conversions below were not compared with MAME again.
+* The first eight sets' pictures and sound were compared with MAME on a development build driven with MAME's own route; the delivered files of the final pass were compared for the nine others only.
 * `mmatrix`: the title animation of the picture is one frame ahead of MAME's from frame 775 to 783 (the same pictures, shifted by one frame), although
   every bus access of the game, graphics RAM included, is equal to MAME's; the cause is not found. Every other frame of the route is equal.
+* The boot self-test of `sfa3` and `avsp` ("RAM OK") fades out one step later in ours than in MAME's at frame 100 (one picture of 360): the bus
+  accesses of `sfa3`, graphics RAM included, are identical for 150 frames, and no colouring line tried (0 to 255) changes it. Named, not explained.
 * Timing inside an instruction: the 68000 here reads and writes at the start of an instruction, MAME's clock a few bus cycles later (about 5 pixels
   for a read, 10 for a write). The raster counters are read with 8 cycles added to compensate; a game that reads a counter near the end of a line can
   still see the next line's value earlier or later than MAME does.
@@ -99,3 +108,7 @@ was never started), by playing four credited players from the title screen:
 
 * 5 November 2026: study (phase 1) and first development build; the owner chose a separate `cps2` profile, the keys from the
   player's own romset only, the 236 standard sets, MAME's speed as the working model and exports of 20 to 45 MiB.
+* 6 November 2026: the exit from the experimental status prepared on the branch `spec/cps2-exit-170`: the paths shared like the CPS-1's, the four sets
+  whose files differ read, the decryption compared with MAME on 35 archives, the vectors through the CPS-2 variant, the test-menu setting kept across a
+  restart, and one pass of 17 sets at the extended scan level on Windows and on Debian with equal hashes. The owner's decision is recorded in
+  [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance).

@@ -28,7 +28,14 @@ extern "C" {
 #endif
 
 #define RRHK_MAX_PLAYERS 4
-#define RRHK_MAX_ACTIONS 12
+/* Controls of a machine, in menu order (1.7.0: 20, so that a PlayStation pad's 17 fit; 12 before). The pad word given to the
+ * machine stays 16 bits: host-side actions (`bit` 0) do not use one. An F2 page shows fifteen rows at once and scrolls past. */
+#define RRHK_MAX_ACTIONS 20
+/* A gamepad binding may name a trigger, held past the stick threshold (D1), on a machine that sets `trigger_buttons`. The two
+ * values are fixed, outside any range of SDL's buttons (SDL 2 has 21, SDL 3 fewer than 32), and stored as such in the
+ * preferences: a saved binding means the same trigger after an SDL update. */
+#define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)
+#define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)65)
 
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1
@@ -36,6 +43,16 @@ extern "C" {
 #define RRHK_MENU_PAUSE 3          /* a machine with a host-side Pause/Menu action (Master System, Game Gear) */
 #define RRHK_MENU_PAGE 4
 #define RRHK_MENU_OPTIONS 5
+#define RRHK_MENU_GRAPHICS 6       /* decision D14: F3 on a machine that declares gfx_options */
+
+/* The sticks of a player (RrhkMachine.analog_sticks, rrhk_pad_axes): -32768..32767, centre 0, SDL's axes (Y down positive). */
+#define RRHK_AXIS_LX 0
+#define RRHK_AXIS_LY 1
+#define RRHK_AXIS_RX 2
+#define RRHK_AXIS_RY 3
+#define RRHK_AXES 4
+#define RRHK_DEADZONE_MAX 30       /* percent: the largest dead zone the F2 row offers */
+#define RRHK_MAX_GFX_OPTIONS 12    /* rows of the graphics page before its Filter and Restore rows */
 
 /* Kinds of pointing device; the numbers are those of the guns in gun16.h
  * (the adapters check it). */
@@ -65,6 +82,17 @@ typedef struct {
     SDL_GameControllerButton pad[RRHK_MAX_PLAYERS];
 } RrhkAction;
 
+/* One option of a 3D machine's graphics page (decision D14), declared by the adapter. Changing it changes only what the
+ * player sees, never the machine's timing: an option that changes the guest's speed (CPU or disc speed, overclock) is not
+ * declared. */
+typedef struct {
+    const char    *name;      /* English, translated by the catalogue ("Internal resolution") */
+    const wchar_t *ini_key;   /* key under [<ini_section>.Video]; also the name of `--gfx <ini_key>=<index>`. Plain ASCII only:
+                               * the timing report prints it with %ls, which glibc converts by the locale */
+    const char *const *values;   /* English labels, translated ("1x (native)", "2x", ...) */
+    int count, def;           /* number of values, index of the default: the reference setting, the one every gate uses */
+} RrhkGfxOption;
+
 /* Mouse converted to picture coordinates, for light guns and scopes. */
 typedef struct {
     int x, y;
@@ -91,6 +119,11 @@ typedef struct RrhkUi {
     SDL_Scancode keys[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];
     SDL_GameControllerButton buttons[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];
     SDL_GameController *pads[RRHK_MAX_PLAYERS];
+    /* 1.7.0 (HOST_KIT.md section 2.4): what a machine that declares sticks, graphics options or rumble keeps. */
+    int deadzone[RRHK_MAX_PLAYERS];        /* percent, 0..RRHK_DEADZONE_MAX: the F2 row of each player's gamepad page */
+    int gfx[RRHK_MAX_GFX_OPTIONS];         /* the value index in force of each graphics option */
+    int gfx_row;                           /* the selected row of the graphics page */
+    int rumble;                            /* the shared Vibration row: [Manettes] rumble, default on */
 } RrhkUi;
 
 /* Where the loop is, for the machine hooks that run inside it. */
@@ -212,6 +245,37 @@ typedef struct RrhkMachine {
     void (*sound_ready)(void);
     /* Game Boy (phase 5). */
     bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
+    /* Sticks, the graphics page, larger pictures, rumble and discs (1.7.0, HOST_KIT.md section 2.4 and D14). Every field is
+     * off when left out (0, false, NULL): a machine that declares none of them behaves exactly as before. */
+    int analog_sticks;                /* sticks per player the machine reads with rrhk_pad_axes (1 or 2). Not 0: the left stick no
+                                       * longer drives the four directions (the d-pad still does), and each gamepad page of F2 has
+                                       * a "Stick dead zone" row */
+    /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
+     * are (no dead zone). NULL or false: the gamepad's. */
+    bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+    /* The triggers are buttons of the machine's pad (a PlayStation's L2 and R2): a binding may be RRHK_PAD_LEFT_TRIGGER or
+     * RRHK_PAD_RIGHT_TRIGGER, F2 captures a trigger pulled on the selected player's pad, and a trigger that player 1 has bound
+     * is no longer a speed control (D12), as a key bound to a control is no longer a shortcut. false: the triggers are the
+     * speed controls only, as before. */
+    bool trigger_buttons;
+    /* The graphics page (D14). NULL: F3 cycles the 2D filters as on every other machine. Otherwise F3 opens the page; gfx_apply
+     * is called between two frames, never inside run_frame: once per option when the window opens (the saved value, or the
+     * default in a hidden-window test run) and then at each change. */
+    const RrhkGfxOption *gfx_options;
+    int gfx_option_count;             /* at most RRHK_MAX_GFX_OPTIONS */
+    void (*gfx_apply)(int option, int value);
+    /* The picture may grow past max_width x max_height (an internal resolution): the rows of pixels() are pixel_pitch() pixels
+     * apart, and the kit makes its texture larger when visible_width/visible_height exceed it, up to rrhk_picture_limit. NULL:
+     * the store is max_width x max_height and the rows are max_width apart, as before. */
+    int (*pixel_pitch)(void);
+    bool rumble;                      /* the machine calls rrhk_rumble: the options page shows the shared Vibration row */
+    /* Discs. host_media: 1 + the index of a host-side "Change disc" action (its `bit` is 0, like host_pause), 0: none. Pressed in
+     * play, it asks media_select for the next disc (after the last, the first) and shows "Disc 2/3". The swap itself (lid,
+     * eject, insert over several frames) is the machine's. */
+    int host_media;
+    int (*media_count)(void);
+    int (*media_current)(void);       /* 0-based */
+    bool (*media_select)(int index);  /* false: refused (the notice then names the disc in place) */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -236,6 +300,19 @@ RrhkUi *rrhk_ui(void);
 void rrhk_bind(const RrhkMachine *machine);        /* default bindings; rrhk_main does it */
 void rrhk_load_bindings(void);                     /* preferences, after SDL video init */
 uint16_t rrhk_pad_word(int player, uint64_t frame);
+/* The sticks of a player for the frame being run (RrhkMachine.analog_sticks), after the player's dead zone (0 % by default: the
+ * raw values). false: no gamepad for that player, the axes are 0 (centred). Never a cost for a machine that does not call it. */
+bool rrhk_pad_axes(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+/* A vibration on a player's gamepad: low = large motor, high = small motor (0..65535), for `milliseconds`. Nothing without a
+ * gamepad, without RrhkMachine.rumble, or with the Vibration row off; never fed back to the machine. */
+void rrhk_rumble(int player, uint16_t low, uint16_t high, uint32_t milliseconds);
+/* `--gfx <ini_key>=<index>` of the command line, before rrhk_main / rrhk_open: that value for this run (a capture), over the
+ * saved one and over the default of a test run; not saved. false: no such option or value. */
+bool rrhk_gfx_override(const RrhkMachine *machine, const char *assignment);
+int rrhk_gfx_value(int option);                    /* the value index in force (the page's) */
+/* The largest picture the renderer can show in one texture, once the window is open (SDL_RendererInfo); false before. A machine
+ * with pixel_pitch offers no picture beyond it (the kit would show only the part that fits). */
+bool rrhk_picture_limit(int *width, int *height);
 void rrhk_autofire_reset(void);
 void rrhk_notice(const char *text, Uint64 milliseconds);
 const char *rrhk_tr(const char *english, const char *french);

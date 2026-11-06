@@ -28,20 +28,96 @@ static int event_player(SDL_JoystickID which) {
     return -1;
 }
 
-/* The Pause/Menu action of a machine that has one (Master System, Game Gear): the key or the button bound to it, of any player. */
-static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) {
+/* A host-side action of the machine (`bit` 0): the key or the button bound to it, of any player. `host` is 1 + its index, 0: none.
+ * The Pause/Menu action (Master System, Game Gear) and the Change disc action (machines with discs) are such actions. */
+static bool host_action_pressed(const SDL_Event *event, SDL_Scancode key, int host) {
     const RrhkMachine *m = rrhk.machine;
-    if (!m->host_pause) return false;
-    const int action = m->host_pause - 1;
+    if (!host) return false;
+    const int action = host - 1;
     if (event->type == SDL_CONTROLLERBUTTONDOWN) {
         int p = event_player(event->cbutton.which);
         return p >= 0 && p < m->players() && rrhk.buttons[p][action] == (SDL_GameControllerButton)event->cbutton.button;
     }
     if (key == SDL_SCANCODE_UNKNOWN) return false;
-    /* Enter binds rows on an F2 page: it does not pause there. */
-    if (rrhk_pages_open(rrhk.menu) && (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER)) return false;
+    /* Enter binds rows on an F2 page and changes a row of the graphics page: it does not act there. */
+    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS) && (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER))
+        return false;
     for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
     return false;
+}
+static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) { return host_action_pressed(event, key, rrhk.machine->host_pause); }
+
+/* The Change disc action, in play only: the next disc (after the last, the first), and a notice "Disc 2/3". The machine does the
+ * swap itself (open the lid, change the disc, close it) over the frames that follow. */
+static bool media_pressed(const SDL_Event *event, SDL_Scancode key) {
+    return !rrhk.menu && !rrhk.capturing && host_action_pressed(event, key, rrhk.machine->host_media);
+}
+static void change_disc(void) {
+    const RrhkMachine *m = rrhk.machine;
+    const int count = m->media_count ? m->media_count() : 0;
+    if (count < 1 || !m->media_current || !m->media_select) return;
+    int current = m->media_current();
+    if (count > 1 && m->media_select((current + 1) % count)) current = (current + 1) % count;
+    char text[48];
+    snprintf(text, sizeof text, rr_tr("Disc %d/%d"), current + 1, count);
+    rrhk_notice(text, 1800);
+}
+
+/* The filter of the picture: a texture for it (Scale2x doubles it). false: none could be made. */
+static bool filter_texture(RrhkRun *run, int filter) {
+    rrhk.filter = filter;
+    SDL_DestroyTexture(run->tex);
+    run->tex = rrhk_texture_create(run);
+    if (!run->tex) return false;
+    SDL_SetTextureScaleMode(run->tex, SDL_ScaleModeNearest);
+    return true;
+}
+static void save_filter(void) {
+    if (!rrhk_write_ready() || !rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"filter", rrhk.filter))
+        snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+}
+bool rrhk_set_filter(RrhkRun *run, int filter) {
+    if (!filter_texture(run, filter)) return false;
+    save_filter();
+    return true;
+}
+
+/* F3 on a machine with graphics options (D14): open the graphics page, or close it. Opened from the Pause menu or the options
+ * page, it returns there. */
+static void toggle_graphics(void) {
+    rrhk.capturing = 0;
+    if (rrhk.menu == RRHK_MENU_GRAPHICS) { rrhk_close_menu(); return; }
+    rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS ? rrhk.menu : 0;
+    rrhk.menu = RRHK_MENU_GRAPHICS;
+    rrhk.gfx_row = 0;
+    rrhk.status[0] = 0;
+}
+
+/* A key on the graphics page: Up/Down choose the row, Left/Right (or -, Enter, +) change its value at once (the machine applies
+ * it between two frames: the loop is in its menu), Enter on the last row restores the defaults. Each change is kept. */
+static void graphics_key(RrhkRun *run, SDL_Scancode key) {
+    const RrhkMachine *m = run->machine;
+    const int rows = rrhk_graphics_rows(), options = rows - 2;
+    int *row = &rrhk.gfx_row;
+    if (*row < 0 || *row >= rows) *row = 0;
+    if (key == SDL_SCANCODE_UP) { *row = (*row + rows - 1) % rows; return; }
+    if (key == SDL_SCANCODE_DOWN) { *row = (*row + 1) % rows; return; }
+    const bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
+    const bool back = key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS;
+    const bool next = enter || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_EQUALS || key == SDL_SCANCODE_KP_PLUS;
+    if (!back && !next) return;
+    rrhk.status[0] = 0;
+    if (*row < options) {
+        const RrhkGfxOption *option = &m->gfx_options[*row];
+        if (option->count > 0) rrhk_gfx_set(*row, (rrhk.gfx[*row] + (back ? option->count - 1 : 1)) % option->count);
+    } else if (*row == options) {
+        static const int previous[4] = {1, 3, 0, 2};      /* the F3 order of rr_menu_next_filter, backwards */
+        const int filter = rrhk.filter >= 0 && rrhk.filter < 4 ? rrhk.filter : 0;
+        if (!rrhk_set_filter(run, back ? previous[filter] : rr_menu_next_filter(filter))) run->running = false;
+    } else if (enter) {
+        rrhk_gfx_defaults();
+        if (rrhk.filter != 0 && !rrhk_set_filter(run, 0)) run->running = false;
+    }
 }
 
 /* The sound and speed keys of every console (decision D12), the Game Boy host's former keys: Tab held is the fast-forward,
@@ -101,6 +177,7 @@ static void speed_event(const SDL_Event *event) {
                (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
         const int side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
         if (event_player(event->caxis.which) != 0) return;
+        if (rrhk_trigger_bound(side)) return;     /* a control of the game on that trigger (trigger_buttons) */
         const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
         const bool pressed = down && !trigger_down[side];
         trigger_down[side] = down;
@@ -145,6 +222,24 @@ void rrhk_poll_events(RrhkRun *run) {
             }
             continue;
         }
+        /* A machine whose triggers are buttons: a trigger pulled on the selected player's pad binds it like a button. */
+        if (event.type == SDL_CONTROLLERAXISMOTION && m->trigger_buttons && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
+            rrhk.gamepad_page == 1 && event.caxis.value > 16000 &&
+            (event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
+            if (rrhk.pads[rrhk.player] &&
+                event.caxis.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
+                /* A host-side action (`bit` 0: Pause/Menu, Change disc) acts on a button press, never on a trigger: refused,
+                 * the row still waits for a button. */
+                if (rrhk.row < m->action_count && !m->actions[rrhk.row].bit) {
+                    snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Reserved button or config unavailable"));
+                    continue;
+                }
+                rrhk_assign(rrhk.player, rrhk.row, true,
+                            event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER);
+                rrhk.capturing = 0; rrhk.status[0] = 0;
+            }
+            continue;
+        }
         SDL_Scancode key = event.type == SDL_KEYDOWN && !event.key.repeat ? event.key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
         bool from_row = false;
         /* An option row behaves as its function key. */
@@ -166,6 +261,21 @@ void rrhk_poll_events(RrhkRun *run) {
                     SDL_SCANCODE_UNKNOWN;
             }
         }
+        /* The graphics page with a gamepad: the D-pad chooses and changes, A changes or restores, B closes. */
+        if (rrhk.menu == RRHK_MENU_GRAPHICS && event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
+            int b = event.cbutton.button;
+            if (b == SDL_CONTROLLER_BUTTON_B) { rrhk_close_menu(); continue; }
+            key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
+                b == SDL_CONTROLLER_BUTTON_DPAD_LEFT ? SDL_SCANCODE_LEFT : b == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? SDL_SCANCODE_RIGHT :
+                b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
+            if (key != SDL_SCANCODE_UNKNOWN) { graphics_key(run, key); continue; }
+        }
+        /* A gamepad button bound to Change disc, in play. */
+        if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
+            media_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
+            change_disc();
+            continue;
+        }
         /* A gamepad button bound to Pause/Menu opens or closes the Pause menu (a key does after the binding capture below). */
         if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
             pause_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
@@ -186,6 +296,8 @@ void rrhk_poll_events(RrhkRun *run) {
             m->reset(); rrhk_audio_pause_output(run);
         } else if (pause_pressed(&event, key) && !rrhk_options_component(key, -1)) {
             rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+        } else if (media_pressed(&event, key) && !rrhk_options_component(key, -1)) {
+            change_disc();
         } else if (key == SDL_SCANCODE_ESCAPE) { if (rrhk.menu) rrhk_close_menu(); else run->running = false; }
         /* F1 opens help. */
         else if (key == SDL_SCANCODE_F1) rrhk_toggle_menu(RRHK_MENU_HELP);
@@ -193,16 +305,14 @@ void rrhk_poll_events(RrhkRun *run) {
         else if (key == SDL_SCANCODE_F12) {
             rr_feedback_toggle(); rrhk_notice(rr_feedback_label(), 1800);
         }
+        else if (key == SDL_SCANCODE_F3 && m->gfx_option_count > 0) toggle_graphics();
         else if (key == SDL_SCANCODE_F3) {
-            rrhk.filter = rr_menu_next_filter(rrhk.filter);
-            SDL_DestroyTexture(run->tex);
-            run->tex = rrhk_texture_create(run);
-            if (!run->tex) { run->running = false; break; }
-            SDL_SetTextureScaleMode(run->tex, SDL_ScaleModeNearest);
+            if (!filter_texture(run, rr_menu_next_filter(rrhk.filter))) { run->running = false; break; }
             const char *labels[] = {rrhk_tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
             rrhk_notice(labels[rrhk.filter], 1800);
-            if (!rrhk_write_ready() || !rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"filter", rrhk.filter))
-                snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+            save_filter();
+        } else if (key == RRHK_KEY_RUMBLE && from_row) {
+            rrhk_toggle_rumble();
         } else if (key == SDL_SCANCODE_F4) {
             rrhk_cycle_display();
         } else if (m->key_event && m->key_event(&rrhk, key, &run->running)) {
@@ -219,6 +329,8 @@ void rrhk_poll_events(RrhkRun *run) {
             run->pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
         } else if ((key == SDL_SCANCODE_M || key == SDL_SCANCODE_GRAVE) && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) {
             if (key == SDL_SCANCODE_M) toggle_mute(); else toggle_max_speed();
+        } else if (rrhk.menu == RRHK_MENU_GRAPHICS) {
+            graphics_key(run, key);
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
             if (m->page && m->page->key) m->page->key(&rrhk, key);
         } else if (rrhk.menu == RRHK_MENU_CONTROLS) {
@@ -229,6 +341,10 @@ void rrhk_poll_events(RrhkRun *run) {
                 /* Divergence 10 (decided 28 October 2026): which pad this player uses. */
                 if (enter) rrhk_pad_next(rrhk.player);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_pad_automatic(rrhk.player);
+            } else if (rrhk_deadzone_row()) {
+                /* A machine with analog sticks: this player's dead zone. */
+                if (enter) rrhk_deadzone_step(rrhk.player, false);
+                else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_deadzone_step(rrhk.player, true);
             } else if (rrhk.row >= m->action_count) {
                 /* Quit and restart combinations: hold them one second in play. */
                 if (enter) rrhk_combo_start(rrhk.row - m->action_count, rrhk.gamepad_page != 0);

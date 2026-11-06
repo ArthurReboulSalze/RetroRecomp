@@ -17,7 +17,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | --- | --- |
 | F1 | Help; **Shift+F1** restarts at once, without confirmation |
 | F2 | Settings pages: controls, gun, display & game, options |
-| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
+| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
@@ -99,7 +99,7 @@ The choice is kept per game; conversions always check the default settings.
 to restart (the switch is read at power-on). The boards with three players (The King of Dragons, Knights of the Round, Mercs) start with
 three players already on, and Warriors of Fate, Cadillacs and Dinosaurs and Slam Masters have no switch for it.
 
-### Capcom CPS-2 (experimental)
+### Capcom CPS-2
 
 The controls are the CPS-1's: six buttons, a coin and a Start for each of up to four players, with the keys of players 3 and 4 above. The board
 has no DIP switches. A game keeps its settings (the number of players, coinage, difficulty, language) in its EEPROM, and changes them in its
@@ -142,6 +142,30 @@ keys' default roles; no default control uses them. On the **X68000** they work i
 typing (Ctrl+Alt+K) the keyboard belongs to the computer, and the options page still has the rows. The X68000's own **F5** (fast
 loading, held; unthrottled and silent) is unchanged. On a computer in the Tab help page, Tab still switches between its two help pages.
 The preferences are `audio_volume`, `audio_muted` and `audio_device` under `[<Console>.Options]` of `datas/Retro-Recomp.ini`.
+
+## Sticks, vibration, graphics and discs
+
+Since 1.7.0 the player shell can serve a machine with analog sticks, rumble, a 3D renderer or several discs (the PlayStation
+first). No console of this release declares any of them, so nothing below appears on them; on a machine that does:
+
+- **Analog sticks**: the sticks go to the game as sticks, so the left stick no longer moves the four directions (the d-pad
+  still does). Each player's gamepad page of F2 ends with a **Stick dead zone** row: Enter steps it by 5% up to 30%, Delete
+  sets it back to 0% (the default: the raw stick). Kept as `deadzone` in `[<Console>.Gamepad.PlayerN]`.
+- **More controls**: a pad of up to twenty controls (seventeen on a PlayStation). A control page of F2 then shows fifteen rows at
+  a time and scrolls with Up/Down (`^` and `v` at the right edge say more rows lie above or below). Where the machine's pad has
+  L2 and R2, the triggers of the controller can be those buttons (bindable in F2 by pulling them; the machine's defaults may put
+  them there). Only a trigger that is **bound** to a control of player 1 stops being the fast-forward or maximum-speed control;
+  an unbound trigger keeps it, and Tab and the backquote key always do.
+- **More options**: the options page of F2 shows fourteen rows at a time and scrolls the same way when a machine adds more.
+- **Filter on the graphics page**: xBR works up to 1024 x 1024 pixels of picture and scanlines need a window at least twice as
+  tall as the picture's rows; past that the Filter row says "(not at this size)" and the picture is shown without the filter.
+- **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
+  (`[Manettes] rumble`).
+- **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or
+  Enter/A change it at once), the **Filter** row (the four filters of F3 on the other consoles), and **Restore defaults**.
+  Esc, B or F3 closes it; the game waits meanwhile. Kept under `[<Console>.Video]`.
+- **Change disc**: a control of the F2 pages like the others (its default key is the machine's); in play it takes the next
+  disc, after the last the first, and shows "Disc 2/3".
 
 ## F2 settings pages
 

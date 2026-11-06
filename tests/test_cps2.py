@@ -112,7 +112,7 @@ class IdentificationTests(unittest.TestCase):
 
     def test_complete_set_with_its_key_is_read_and_the_key_is_a_member(self):
         game = cps2.read_set(self.archive('demo.zip', self.parent_members()), self.games)
-        self.assertEqual((game.set_name, game.system_id, game.tier, game.supported, len(game.members)), ('demo', 'cps2', 'experimental', True, 7))
+        self.assertEqual((game.set_name, game.system_id, game.tier, game.supported, len(game.members)), ('demo', 'cps2', 'supported', True, 7))
         self.assertEqual(game.key_member['name'], 'e.key')
         self.assertEqual(game.title, 'Demo - Test')
         # the identity hashes the key file too: another key is another set of bytes
@@ -140,6 +140,24 @@ class IdentificationTests(unittest.TestCase):
         game = cps2.read_set(clone, self.games)
         self.assertEqual(game.set_name, 'democ')
         self.assertEqual(game.key_member['name'], 'c.key')
+
+    def test_a_rom_stored_twice_over_is_the_rom_of_its_first_half(self):
+        # FBNeo keeps some 1 MiB ROMs as files of twice the size whose halves are equal (Alien vs. Predator's graphics)
+        import dataclasses
+        from unittest import mock
+        from retrorecomp import cps1_board
+        family = dataclasses.replace(cps2.FAMILY, doubled=frozenset({'g.1'}))
+        doubled = dict(self.parent_members(), **{'g.1': self.data['g.1'] * 2})
+        with mock.patch.object(cps2, 'FAMILY', family):
+            game = cps2.read_set(self.archive('demo.zip', doubled), self.games)
+            self.assertEqual([m['name'] for m in game.members if m.get('half')], ['g.1'])
+            self.assertEqual(cps1_board.member_bytes(game)['g.1'], self.data['g.1'])
+            # the same set read from a plain archive has the same identity
+            self.assertEqual(game.sha256, cps2.read_set(self.archive('demo2.zip', self.parent_members()), self.games).sha256)
+            # halves that differ are not the ROM
+            unequal = dict(self.parent_members(), **{'g.1': self.data['g.1'] + bytes(len(self.data['g.1']))})
+            with self.assertRaisesRegex(ValueError, 'missing g.1'):
+                cps2.read_set(self.archive('demo3.zip', unequal), self.games)
 
     def test_the_two_families_do_not_read_each_others_archives(self):
         path = self.archive('demo.zip', self.parent_members())

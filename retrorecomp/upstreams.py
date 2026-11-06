@@ -201,6 +201,10 @@ SST_SM83 = Upstream(
     'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
     _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb',))
+SST_HUC6280 = Upstream(
+    'SingleStepTests/huc6280', 'SingleStepTests/huc6280', 'main', 'independent HuC6280 test vectors (development tests only)', 'MIT',
+    'fetched on demand by tools/fetch_huc6280_vectors.py into .deps, checked against a pinned digest; not shipped',
+    _py('tools/fetch_huc6280_vectors.py', 'REVISION'), shared_by=('pce',))
 SST_M68000 = Upstream(
     'SingleStepTests/m68000', 'SingleStepTests/m68000', 'main', 'independent 68000 test vectors (development tests only)',
     'MIT', 'a small extract stored in tests/fixtures (md-prefetch, md-exceptions); not shipped',
@@ -218,7 +222,7 @@ SST_SPC700 = Upstream(
     'checked against a pinned digest); not shipped',
     _py('tools/fetch_snes_vectors.py', 'REVISION_SPC700'), shared_by=('snes',))
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000, SST_65816, SST_SPC700)
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_HUC6280, SST_M68000, SST_65816, SST_SPC700)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),
