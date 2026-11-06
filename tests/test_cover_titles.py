@@ -69,6 +69,26 @@ class CoverTitleTests(unittest.TestCase):
         self.assertEqual(choose_cover(names, 'A Ressha de Gyoukou MD (Japan)',
                                      'A Ressha de Gyoukou MD'), names[1])
 
+    def test_an_edition_word_of_a_subtitle_names_the_game(self):
+        # "Speedball 2" is the box of "Speedball 2 - Brutal Deluxe": its Deluxe is part of the subtitle, not an edition.
+        names = ['Speedball (Europe) (v1.10).png', 'Speedball 2 - Brutal Deluxe (Europe).png', 'Speedball 2 - Brutal Deluxe (USA).png']
+        self.assertEqual(choose_cover(names, 'Speedball 2', 'Speedball 2', regional_fallback=True),
+                         'Speedball 2 - Brutal Deluxe (Europe).png')
+        # A deluxe edition named in the title itself, or in brackets, is still another edition.
+        self.assertEqual(choose_cover(['Super Mario Bros. Deluxe (USA).png', 'Super Mario Bros. (USA).png'],
+                                      'Super Mario Bros.', 'Super Mario Bros.', regional_fallback=True), 'Super Mario Bros. (USA).png')
+        self.assertIsNone(choose_cover(['Speedball 2 - Brutal (Europe) (Beta).png'], 'Speedball 2', 'Speedball 2'))
+        self.assertIsNone(choose_cover(['Tetris DX (World).png'], 'Tetris', 'Tetris'))
+
+    def test_extra_titles_are_tried_only_when_the_name_and_the_title_find_nothing(self):
+        names = ['Lotus Turbo Challenge 2.png', 'Lotus - The Ultimate Challenge.png', 'Rick Dangerous (Europe).png']
+        self.assertIsNone(choose_cover(names, 'Lotus 2', 'Lotus 2', regional_fallback=True))
+        self.assertEqual(choose_cover(names, 'Lotus 2', 'Lotus 2', regional_fallback=True,
+                                      extra_titles=('Lotus Turbo Challenge II',)), 'Lotus Turbo Challenge 2.png')
+        # The file's own name wins over an extra name that would point elsewhere.
+        self.assertEqual(choose_cover(names, 'Rick Dangerous', 'Rick Dangerous', regional_fallback=True,
+                                      extra_titles=('Lotus Turbo Challenge II',)), 'Rick Dangerous (Europe).png')
+
     def test_edition_preference_after_tolerant_title_match(self):
         names = ['Double Dragon III - The Arcade Game (Japan).png',
                  'Double Dragon III - The Arcade Game (USA).png']

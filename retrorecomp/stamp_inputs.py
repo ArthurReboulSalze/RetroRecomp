@@ -150,7 +150,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -603,6 +603,30 @@ INPUTS = _resolve({
         'retrorecomp.neogeo_persistence_checks',
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',
+    ),
+    # The Commodore Amiga (experimental, developer installations only): its converter modules, the WHDLoad resload layer
+    # (MIT, our own), the vAmiga machine session (MPL-2.0 engine, patched at build time by amiga_vamiga) and its host-kit
+    # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
+    # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
+    # is listed here, not under every console (that would move every host stamp).
+    ('amiga',): (
+        'licenses/vamiga.md',
+        'native/amiga_machine/CMakeLists.txt',
+        'native/amiga_machine/amiga_player.c',
+        'native/amiga_machine/amiga_session.cpp',
+        'native/amiga_machine/amiga_session.h',
+        'native/amiga_machine/moira_map.cpp',
+        'native/amiga_whdload/rr_decrunch.c',
+        'native/amiga_whdload/rr_decrunch.h',
+        'native/amiga_whdload/rr_resload.c',
+        'native/amiga_whdload/rr_resload.h',
+        'native/hostkit/adapters/rrhk_amiga.inc',
+        'retrorecomp.amiga',
+        'retrorecomp.amiga_codegen',
+        'retrorecomp.amiga_conversion',
+        'retrorecomp.amiga_lha',
+        'retrorecomp.amiga_vamiga',
+        'retrorecomp.amiga_whdload',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',

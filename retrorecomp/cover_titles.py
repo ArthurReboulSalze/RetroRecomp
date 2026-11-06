@@ -156,10 +156,21 @@ def matching_indices(names: list[str], rom_name: str, title: str) -> list[int]:
     candidates = [_describe(name) for name in names]
     requested_editions = _editions(rom_name) | _editions(title)
     # Do not calculate edit distances for ordinary exact/canonical lookups.
+    plain_keys = {q.key for q in queries if not q.subtitle}
     for fuzzy in (False, True):
         groups = {}
         for index, candidate in enumerate(candidates):
-            if not _editions(names[index]) <= requested_editions:
+            editions = _editions(names[index])
+            # A word of a subtitle that is a name is not an edition of the title it follows: "Speedball 2" is the box
+            # of "Speedball 2 - Brutal Deluxe", whose "Deluxe" names the game, not a deluxe edition of it. Only for a
+            # query without a subtitle that equals the candidate's head, and only when the subtitle holds other
+            # words too ("Super Metroid - Redux" is still the Redux edition); edition words of the head or of the
+            # bracketed tags still count.
+            if candidate.subtitle and candidate.head in plain_keys:
+                head, subtitle = _SUBTITLE.split(clean_title(names[index]), maxsplit=1)
+                if set(_tokens(subtitle)) - _SPECIAL_EDITIONS:
+                    editions = _editions(head + names[index][len(clean_title(names[index])):])
+            if not editions <= requested_editions:
                 continue
             score = max((_score(q, candidate, fuzzy=fuzzy) for q in queries), default=0)
             if score:
