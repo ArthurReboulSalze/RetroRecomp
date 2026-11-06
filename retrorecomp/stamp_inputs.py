@@ -179,15 +179,16 @@ NOT_INPUTS = (
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
-    'licenses/SingleStepTests-sm83.md',
+    'licenses/SingleStepTests-sm83.md', 'licenses/SingleStepTests-huc6280.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py, tools/cps1_qsound_selftest.py,
-    # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py): never built
+    # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py, tools/pce_huc6280_vector_selftest.py, tools/pce_huc6280_native_vector_selftest.py): never built
     # into a game, so they move no stamp.
     'native/cps1_vector_checks.c', 'native/cps1_z80_vector_checks.c', 'native/neogeo_vector_checks.c',
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
-    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c',
+    'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
+    'native/pce_huc6280_native_checks.cpp',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c')
 
