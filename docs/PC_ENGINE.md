@@ -167,6 +167,18 @@ are read in place from the owner's library; no ROM is kept in the repository.
 - This is the reader and the conversion of those cards, not a claim about every US card: no title or checksum list is used,
   and a US card is only as good as its play route. The owner has not played these twelve.
 
+### Linux witness (6 November 2026)
+
+Nine cards were converted on a Debian 13 PC (GCC 14.2, Ninja, an empty library) from the same tree (commit `92545231`) as on
+Windows, at the standard level, one at a time: Bonk's Adventure, Bonk III, Neutopia II, Night Creatures, Blazing Lazers, Raiden,
+Space Harrier, Splatterhouse and Bomberman '93. On both routes of 3,600 frames, the CPU, RAM, image and PCM hashes are equal to
+the Windows run's, with the same native counts: 0 interpreted instructions and 0 guard misses on each side. Conversions took 12 to
+28 minutes on that PC. Gradius and Santatlantean were chosen but not run there.
+
+The Windows runs used Visual Studio's compiler; Bonk's Adventure, Blazing Lazers and Night Creatures were rebuilt with the portable
+llvm-mingw toolchain that players use and give the same hashes (they converted in 5 to 13 minutes). A quick state (F8) is not
+compared across systems: its key holds the target.
+
 ## 6. The five measures
 
 They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
@@ -191,7 +203,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 - Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
 - Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
-- The Linux build is not witnessed yet; the host kit is shared, and the first PC Engine export was made on Windows.
+- The Linux build is witnessed on 9 of 11 cards ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
@@ -199,7 +211,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 1. A speed measure on a quiet PC.
 2. More HuCards through the same loop, then more of the owner's play trials.
-3. The Linux witness, then SuperGrafx and CD-ROM2 as separate studies.
+3. SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
 must do is in [NEW_MACHINE.md](NEW_MACHINE.md).

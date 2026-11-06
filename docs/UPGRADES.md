@@ -353,7 +353,7 @@ declare their limits on their own profile, so the stamps of the others no longer
 **What moves** (`compilation_inputs.role_stamps`, this branch against `fb984e7`, the main it merged): **the game stamp of all
 nine consoles** (`systems/__init__.py` and the profile modules are inputs of the consoles that import them) and **the host stamp
 of all nine consoles** (`THIRD_PARTY_NOTICES.md`, a host input, gains the pcenginerecomp row). **No build stamp moves, and no
-quick-state key moves.** The PC Engine's own stamps are new (game `5f5afabc3a0c`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the US-cards change below). An
+quick-state key moves.** The PC Engine's own stamps are new (game `1e1f8e8f29ba`, host `6ea8ea8ac8eb`, build `66d912662e5c`, first twelve characters, computed on the tree of the US-cards change below). An
 export of 1.6.8 is rebuilt from its paths when it is upgraded, with no rediscovery, as for the rest of 1.6.9.
 
 **Checks that need no ROM.** `tests/test_pc_engine.py` (profile, reader, ZIP, report, routes, liveness, state configuration, game
@@ -377,7 +377,7 @@ the same check.
 when the vector is plausible both ways (`pce_rom.py`: 4 of the 91 US cards of the maintainer's library; they stay `linear` as
 before, and a bit-reversed dump of them is now read as such), and the console is named **PC Engine / TurboGrafx-16** where it is
 listed to the player (the profile name, so the report's `system.name` and the executable's version resource too, the Options page, the
-credits, README and the documents; the export folder stays `PC Engine`). **What moves:** only the PC Engine's game stamp (the
+credits, README and the documents; the export folder stays `PC Engine`), and the profile is marked `linux = 'witnessed'` (9 cards equal on a Debian 13 PC, [PC_ENGINE.md](PC_ENGINE.md#linux-witness-6-november-2026)), so a Linux build converts PC Engine cards. **What moves:** only the PC Engine's game stamp (the
 reader, the profile and the report writer are inputs of it); its host and build stamps and every other console's stamps do not.
 A game exported before this change is rebuilt when it is upgraded; its behaviour does not change. Proof: [PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026).
 

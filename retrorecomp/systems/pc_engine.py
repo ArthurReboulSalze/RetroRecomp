@@ -38,7 +38,7 @@ class PcEngineProfile(SystemProfile):
     host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({20})
     fallback_display = 'opcodes'
-    linux = 'pending'
+    linux = 'witnessed'   # 9 of 11 cards equal on a Debian 13 PC, 6 November 2026 (QUALIFICATION.md, G13)
     # Provisional paths (stage 3 decides them): ROM code as (decoded offset, logical pc) on 8 KiB banks, and
     # instructions run from work RAM (physical $1F0000..$1F1FFF). The engine's own identity also holds the
     # eight MPRs; a shape for that context is a stage 3 question.
