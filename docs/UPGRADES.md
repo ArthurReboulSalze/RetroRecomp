@@ -90,27 +90,27 @@ out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the me
 (the X68000's `player.cfg` included) and the pictures are unchanged (A/B below).
 
 **What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles, the tree of `main` at `27e30e0` against
-this change (all five capabilities and the twenty controls): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
+this change (all five capabilities, the twenty controls and the review fixes, recomputed on the final tree): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
 `native/hostkit/shell/` and `native/runtime_catalog.inc` are host inputs). **No game stamp and no build stamp moves**: an export
 of 1.6.9 that has nothing else to rebuild is upgraded (rebuilt from its paths, no rediscovery).
 
 | Console | Game stamp | Host stamp (before, after) | Build stamp |
 | --- | --- | --- | --- |
-| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `38f73e4177f6` | `fe2d99b3cd5e` (same) |
-| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `34c5be523077` | `f5671c38cf26` (same) |
-| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `77a2be9bafa9` | `819a054ad881` (same) |
-| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `9c4fe6d23143` | `8e0941f93b43` (same) |
-| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `3832f8ca32ad` | `9615ff2e96c8` (same) |
-| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `09269e150112` | `3f0a58ad3c7c` (same) |
-| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `62c73f48f17c` | `110349f043bd` (same) |
-| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `bd095917e82e` | `5903c0449429` (same) |
-| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `17a9f4f62154` | `2782cd370f91` (same) |
-| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `9e0a3539b8cb` | `81a51ad49349` (same) |
-| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `2c1d86a0e815` | `66d912662e5c` (same) |
+| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `5e19fd3e1507` | `fe2d99b3cd5e` (same) |
+| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `6a0a2110937d` | `f5671c38cf26` (same) |
+| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `c545c7240609` | `819a054ad881` (same) |
+| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `82968356d271` | `8e0941f93b43` (same) |
+| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `d6f288c77b93` | `9615ff2e96c8` (same) |
+| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `45d3816ac86c` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `57af9580985d` | `110349f043bd` (same) |
+| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `6c9a5d5be053` | `5903c0449429` (same) |
+| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `33eca10a92c8` | `2782cd370f91` (same) |
+| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `453594c99c49` | `81a51ad49349` (same) |
+| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `98e3865903b4` | `66d912662e5c` (same) |
 
 (First twelve hexadecimal digits of each stamp.)
 
-**Quick states.** The kit's eight new strings are in the five-language game catalogue, `native/runtime_catalog.inc`, which the
+**Quick states.** The kit's nine new strings are in the five-language game catalogue, `native/runtime_catalog.inc`, which the
 **Mega Drive and Super Nintendo** keys hash (`compilation_inputs.state_native_files`): **those two keys move**, and a quick state
 written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly by its 1.7.0 build (no compatibility key is carried,
 [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the
@@ -129,7 +129,7 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 * CPS-1, Warriors of Fate (three players, a DIP page; `build --refresh-kit`), the standard battery of 3,968 iterations (both
   players' keys and pads, the filters and display modes, every language, every F2 page, states, preferences): **identical** (61
   files: 3,968 picture hashes, 52 captures, 2,768 audio pushes, the state file, the preferences).
-* Both A/B runs were made again on the final tree (with the twenty controls, the scrolling page and `trigger_buttons`): identical
+* Both A/B runs were made again on the final tree (the twenty controls, the scrolling pages, `trigger_buttons` and the review fixes): identical
   again, every file.
 * ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine of eighteen controls, its scrolling F2
   page and its triggers as L2 and R2, then the same machine with every field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
