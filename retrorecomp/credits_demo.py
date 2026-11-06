@@ -561,7 +561,7 @@ class CreditsDemo:
         c.create_line(left,top,left+44,top,fill=GOLD,width=2,tags='credit')
         _,used = text(self.tr('credits_own_title'),y+16,15,WHITE,True)
         y += used+30
-        for key in ('credits_own_all','credits_own_snes','credits_own_68k','credits_own_pce','credits_own_gba'):
+        for key in ('credits_own_all','credits_own_snes','credits_own_68k','credits_own_pce','credits_own_gba','credits_own_amiga_scummvm'):
             # The consoles (before the colon) in gold on their own line, what was done below.
             label,colon,rest = self.tr(key).replace('：',':').partition(':')
             if colon:
