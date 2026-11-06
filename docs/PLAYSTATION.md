@@ -13,7 +13,13 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
   are missing from it, and the report says so). A multi-disc game is one EBOOT holding its discs (playlists, `.m3u`, are not read
   yet: that extension is the X68000's disk sets). A signed EBOOT from the PlayStation Store is refused (decrypting it would
   circumvent its protection).
-- **NTSC-U, NTSC-J and PAL discs**, two players, digital and analog pads, memory cards.
+- **NTSC-U, NTSC-J and PAL discs**, two players, memory cards.
+- **The DualShock pad** of each player: the d-pad, the four face buttons, L1, R1, L2 and R2 (the gamepad's triggers), L3, R3,
+  Start, Select, both sticks and vibration. It powers on in digital mode, as the console's pad does (a game reads its d-pad);
+  the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
+  switches it itself. A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
+- **F3** opens the graphics page: internal resolution (1x, 2x, 4x, 8x), dithering, deinterlacing, aspect ratio and overscan
+  crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings).
 - A disc is recognised by what it holds (an ISO 9660 volume of system `PLAYSTATION` and its boot executable named by `SYSTEM.CNF`),
   never by its extension: `.bin`, `.img` and `.iso` are shared with other machines. The image files that a sheet names are part
   of that sheet's disc and are not converted on their own.
@@ -43,7 +49,9 @@ A conversion plays its routes headless twice: on the observing build (the interp
 executable that is published (the disc inside it, its native steps): an attract route without input and a play route (Start and
 Cross through the title screens, then a deterministic walk), plus long routes at the higher scan levels. It requires a picture
 that changes and, on every frame of every route, the same picture, sound and RAM in both processes; it checks F8/F9 in a fresh
-process and the refusal of a damaged state. The game is published as built (not compressed: the disc follows the program).
+process and the refusal of a damaged state. It also checks the controls of the published game: each one, pressed alone on
+each player's pad, must reach exactly its own button of the console, and both pads must answer in digital mode at power-on.
+The game is published as built (not compressed: the disc follows the program).
 
 Native code: the share of the routes' instructions run by native steps, and the interpreted remainder, are in the report per
 route; outside the routes the game shows its own counter. The fetches that run no instruction (an interrupt being taken, or
