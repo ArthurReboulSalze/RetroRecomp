@@ -130,7 +130,10 @@ def cmake_build(build: Path, core: Path, *, emit, generated: Path | None = None,
          f'-DRR_AMIGA_GENERATED={generated.as_posix() if generated else ""}',
          f'-DRR_AMIGA_PAYLOAD_DIR={payload.as_posix() if payload else ""}', f'-DRR_AMIGA_TOOLS={"ON" if tools else "OFF"}',
          f'-DRR_AMIGA_STATE_INPUT={stamp}', f'-DRR_RECOMP_VERSION={__version__}'], log=build / 'build.log')
-    run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', *targets], log=build / 'build.log')
+    # The vAmiga Core is about 280 files: an hour, as for the CPS-1, so a slower PC (a 2-core Linux laptop took over ten
+    # minutes) finishes it instead of timing out.
+    run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', *targets], log=build / 'build.log',
+        timeout=3600)
     return build_executable(build, PLAYER)
 
 
