@@ -210,7 +210,18 @@ SST_SPC700 = Upstream(
     'checked against a pinned digest); not shipped',
     _py('tools/fetch_snes_vectors.py', 'REVISION_SPC700'), shared_by=('snes',))
 
-COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000, SST_65816, SST_SPC700)
+SCUMMVM = Upstream(
+    'ScummVM', 'scummvm/scummvm', 'master', 'runtime of the adventure exes (a separate GPL program, patched by native/scummvm)',
+    'GPL-3.0-or-later (third-party parts of ScummVM keep the notices of its LICENSES/ folder)',
+    'the release tree at the pin with the patch series of native/scummvm, built per engine family by scummvm_build; '
+    'fetched into .deps at build time, never copied into the repository; corresponding source by tools/build_scummvm_source_archive.py',
+    _py('retrorecomp/scummvm_build.py', 'SCUMMVM_REV'), checkout='scummvm', shared_by=('scummvm',))
+FREETYPE = Upstream(
+    'FreeType', 'freetype/freetype', 'master', 'font renderer of the ScummVM runtime (its GUI themes need it)',
+    'FreeType License (FTL)', 'the library, static, without zlib, png, bzip2, HarfBuzz or Brotli, linked into the ScummVM runtime',
+    _py('retrorecomp/scummvm_build.py', 'FREETYPE_REV'), checkout='freetype', shared_by=('scummvm',))
+
+COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_M68000, SST_65816, SST_SPC700, SCUMMVM, FREETYPE)
 
 # --- the machines ------------------------------------------------------------------------------------------------
 # A new machine adds its key here, in the same change as its profile (tests/test_upstreams.py fails otherwise),

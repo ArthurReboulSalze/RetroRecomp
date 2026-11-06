@@ -659,7 +659,10 @@
     "conversions_wait_day": "约 1 天",
     "tip_leaderboard": "排行榜：找到最多原生路径的玩家（总榜或本月），以及他们的宝石、称号和徽章。",
     "tip_compiled_games": "已编译游戏：你转换好的游戏，带封面、详情和等级星标；可以游玩、重新转换或更进一步。",
-    "tip_start_selected": "转换选中项：只转换列表中选中的游戏。"
+    "tip_start_selected": "转换选中项：只转换列表中选中的游戏。",
+    "options_scummvm": "AVG 游戏 (ScummVM)",
+    "options_scummvm_note": "实验性：AVG 游戏在 ScummVM 中运行（不是原生代码，0 %）。指定游戏的文件夹：ScummVM 自己的检测会识别游戏，其文件将原样打包进一个可执行文件；有多个可选游戏的文件夹会请你选择。游戏中：Ctrl+F5（手柄上为 Start）打开 ScummVM 菜单；F1-F12、Esc 和 Tab 由游戏使用。没有 MT-32 ROM 时使用默认音乐。ScummVM 采用 GPL-3 许可，每个版本都提供其源代码。",
+    "scan_note_scummvm": "不进行分析：ScummVM 解释运行游戏；不重新编译，也不学习。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",

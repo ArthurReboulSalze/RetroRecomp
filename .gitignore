@@ -94,6 +94,7 @@ docs/*
 !docs/NEOGEO.md
 !docs/CPS1.md
 !docs/CPS2.md
+!docs/SCUMMVM.md
 !docs/SNES.md
 !docs/SNES_SUPERFX.md
 !docs/CONSOLES_16BIT.md

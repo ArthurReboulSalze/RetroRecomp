@@ -26,3 +26,5 @@ CMakeLists.txt text eol=lf
 assets/neogeo-catalogue.json -text whitespace=cr-at-eol
 assets/cps1-catalogue.json -text whitespace=cr-at-eol
 assets/cps2-catalogue.json -text whitespace=cr-at-eol
+# The ScummVM patch series is applied byte for byte with git apply: never converted.
+native/scummvm/patches/*.patch -text

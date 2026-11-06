@@ -659,7 +659,10 @@
     "conversions_wait_day": "etwa 1 Tag",
     "tip_leaderboard": "Rangliste: die Spieler mit den meisten gefundenen nativen Pfaden, insgesamt oder in diesem Monat, mit Edelsteinen, Titeln und Abzeichen.",
     "tip_compiled_games": "Kompilierte Spiele: deine konvertierten Spiele mit Cover, Details und Stufensternen; spielen, neu konvertieren oder weitergehen.",
-    "tip_start_selected": "Auswahl konvertieren: nur die in der Liste ausgewählten Spiele."
+    "tip_start_selected": "Auswahl konvertieren: nur die in der Liste ausgewählten Spiele.",
+    "options_scummvm": "Adventure (ScummVM)",
+    "options_scummvm_note": "Experimentell: Adventures laufen in ScummVM, emuliert (0 % nativer Code). Gib den Ordner eines Spiels an: ScummVMs eigene Erkennung benennt es, und seine Dateien werden unverändert in eine einzige ausführbare Datei gepackt; bei mehreren Kandidaten wählst du einen aus. Im Spiel: Strg+F5 (Start am Gamepad) öffnet das ScummVM-Menü; das Spiel behält F1-F12, Esc und Tab. Ohne MT-32-ROM: die Standardmusik. ScummVM steht unter der GPL-3; der Quellcode wird mit jeder Version angeboten.",
+    "scan_note_scummvm": "Keine Analyse: ScummVM interpretiert das Spiel; nichts wird neu kompiliert oder gelernt."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",
