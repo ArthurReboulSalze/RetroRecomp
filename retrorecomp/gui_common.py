@@ -79,14 +79,14 @@ UPSTREAM_CREDITS = (
     ('PC Engine', (
         ('rages4calm/pcenginerecomp', 'https://github.com/rages4calm/pcenginerecomp', 'credits_recompiler'),
     )),
+    ('Game Boy Advance', (
+        ('mstan/gbarecomp', 'https://github.com/mstan/gbarecomp', 'credits_recompiler'),
+        ('mstan/arm-recomp-core', 'https://github.com/mstan/arm-recomp-core', 'credits_arm_core'),
+    )),
     # Credited before they join the converter: their upstreams are chosen and in use on the specialists' branches.
     ('Commodore Amiga', (
         ('dirkwhoffmann/vAmiga', 'https://github.com/dirkwhoffmann/vAmiga', 'credits_amiga_hardware'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
-    )),
-    ('Game Boy Advance', (
-        ('mstan/gbarecomp', 'https://github.com/mstan/gbarecomp', 'credits_recompiler'),
-        ('mstan/arm-recomp-core', 'https://github.com/mstan/arm-recomp-core', 'credits_arm_core'),
     )),
 )
 # A line under a machine's name in the credits: its terms, or where it stands.
@@ -94,8 +94,8 @@ UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
     'Capcom CPS-2': 'credits_experimental',
     'PC Engine': 'credits_experimental',
+    'Game Boy Advance': 'credits_experimental',
     'Commodore Amiga': 'credits_coming',
-    'Game Boy Advance': 'credits_coming',
 }
 
 

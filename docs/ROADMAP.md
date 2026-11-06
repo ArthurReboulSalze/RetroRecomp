@@ -23,6 +23,7 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
 | Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
 | PC Engine | experimental (since 1.6.9) | 39 % | a speed measure, independent processor evidence, more HuCards, the Linux witness |
+| Game Boy Advance | experimental (since 1.7.0) | 40 % | the Linux witness, covers, sensors, Golden Sun's run-time code, an independent emulator comparison, the owner's decision |
 
 The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
 quality score, and it never decides a status.
@@ -115,13 +116,19 @@ two players. Next: a speed measure on a quiet PC, a processor check with a vecto
 loop and the owner's play trials, then the Linux witness. A card that needs more than the engine's 65,536 instruction identities
 stays partly native. SuperGrafx and CD-ROM² are separate later studies.
 
+### Game Boy Advance
+
+Experimental since 1.7.0 ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)): `.gba` cartridges with your own BIOS, native code from what each
+game was seen to run, the rest interpreted and counted, cartridge saves. Next: the Linux witness, the box-art covers on a first
+conversion, the cartridge sensors (tilt, gyroscope, solar) as host inputs, the code Golden Sun decompresses at run time (made native
+only in the player's private conversion cache), a comparison with an independent emulator (today the agreement is with the engine's own
+interpreter) and the owner's decision, which alone ends the experimental status.
+
 ## Machines in development
 
 Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
 on the owner's decision after the qualification list.
 
-- **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the
-  real-time clock first, sensors (tilt, gyroscope, solar) later.
 - **Commodore Amiga 500.** A pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000 steps
   structured by the shared decoder; games installed for WHDLoad first, with no Kickstart and no WHDLoad run (its services
   are answered by our own code); installs that need a Kickstart, and ADF images, later.

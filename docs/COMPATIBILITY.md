@@ -205,7 +205,7 @@ counted and reported. Eight of the nine cards converted in the first panel ran 0
 routes and matched a fresh interpreted reference frame by frame, and Street Fighter II' Champion Edition is partly native
 because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
 engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
-The **Game Boy Advance** profile is experimental in development ([status](GAME_BOY_ADVANCE.md)): `.gba` cartridges are converted with your own BIOS (`gba_bios.bin`), the native code comes from what each game was seen to run and the rest is interpreted, counted and reported. Six cartridges of the first panel match the engine's own interpreter on state hashes at 600 and 3,600 frames; that is an agreement with that interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
+The **Game Boy Advance** profile is experimental since 1.7.0 ([status](GAME_BOY_ADVANCE.md)): `.gba` cartridges are converted with your own BIOS (`gba_bios.bin`), the native code comes from what each game was seen to run and the rest is interpreted, counted and reported. Six cartridges of the first panel match the engine's own interpreter on state hashes at 600 and 3,600 frames; that is an agreement with that interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
 ## Local game regression set
 

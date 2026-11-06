@@ -14,7 +14,8 @@ from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, R
 # The CPU shape of the paths (docs/GAME_BOY_ADVANCE.md, "Paths"): function roots are `phys` entries, a ROM offset
 # whose low bit says Thumb (an ARM root is word aligned, so the bit is free); IWRAM and EWRAM routines copied from
 # the cartridge at run time are `span` rows (RAM address, ROM offset, length). Both are shapes the schema already
-# has, so no shared module moves. The jump-table and dispatch-target shapes come with the conversion.
+# has, so no shared module moves. The conversion (gba_analysis.py) records only those two kinds, read from the engine's miss
+# proposals and the IWRAM image of a run; no jump-table or dispatch-target path is kept.
 _IWRAM = (0x03000000, 0x03008000)
 _EWRAM = (0x02000000, 0x02040000)
 
@@ -53,7 +54,9 @@ class GameBoyAdvanceProfile(SystemProfile):
     report_shape = ReportShape('gba_conversion', 'gba_checks')
     # The ScreenScraper, TheGamesDB and Wikidata numbers of the platform are added when the box-art stage verifies them.
     catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Game_Boy_Advance')
-    library_layout = LibraryLayout(folder='gba', summary_glob='*/compilation.json')
+    # The paths live in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary is written, so there is
+    # no summary_glob: the memory window has nothing to list (declined in tests/test_machine_registry.py).
+    library_layout = LibraryLayout(folder='gba')
     # The pad of the Game Boy plus L and R: the random routes use the Game Boy script writer until they need the shoulders.
     input_layout = InputLayout(('a', 'b'), (), 'select', 180, script_format='gameboy')
     # A cartridge is claimed by its extension, or by a ZIP that holds exactly one: before the ZIP is opened.
