@@ -32,7 +32,7 @@ class PlayStationProfile(SystemProfile):
     cpus = (Cpu('r3000a', 'main', 'instructions'),)
     media_kinds = ('disc',)
     firmware = ('bios',)
-    quick_state_family = 'psx'
+    quick_state_family = 'rr16'          # the quick-state file of the 16-bit family (console16_state.c), machine number 6
     capabilities = Capabilities(battery=True)
     linux = 'pending'
     feedback_kinds = frozenset({23})
@@ -42,6 +42,7 @@ class PlayStationProfile(SystemProfile):
     option_keys = (OptionKey('psx_bios', kind='path', label='psx_bios'),)
     developer_only = True
     stamp_groups = ('conversion_gates',)
+    host_adapter = 'adapters/rrhk_psx.c'
     # Order 11 on this branch; 13 once the Game Boy Advance (11) and the Amiga (12) are merged (the lead renumbers at merge).
     path_spec = PathSpec(order=11, sections=(('r3000a', 'psx'),),
                          source_bounds=(('disc', (1, 1 << 32)), ('bios', (1, 1 << 20))),

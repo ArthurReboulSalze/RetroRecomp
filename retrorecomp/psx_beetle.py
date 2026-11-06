@@ -93,6 +93,14 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '#include <vfs/vfs_hybrid.h>\n'
      '/* Retro-Recomp modification (GPL-2.0, like this file): the BIOS image the host gives (512 KiB), NULL: none. */\n'
      'const unsigned char *rr_psx_bios_data = NULL;\n'),
+    # Every instruction the interpreter runs is fetched here once (the loop head and the replicated dispatch both call it):
+    # the count of interpreted instructions the report and the game's honesty counter show.
+    ('mednafen/psx/cpu.c',
+     'static INLINE uint32_t ReadInstruction(int32_t *timestamp, uint32_t address)\n{\n   uint32_t instr;\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): instructions run by the interpreter. */\n'
+     'uint64_t rr_psx_interpreted_count = 0;\n'
+     'static INLINE uint32_t ReadInstruction(int32_t *timestamp, uint32_t address)\n{\n   uint32_t instr;\n\n'
+     '   ++rr_psx_interpreted_count;\n'),
     # The EBOOT reader (CDAccess_PBP.c) is not compiled, so the disc count it keeps is defined here, at 0 (no EBOOT).
     ('libretro.c',
      'extern int PBP_DiscCount;\n',

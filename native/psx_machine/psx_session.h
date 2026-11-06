@@ -77,6 +77,13 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info);
 /* The memory card of slot 1 (128 KiB), as the core keeps it; NULL when the core has none. */
 uint8_t *rr_psx_card(RrPsxSession *s, size_t *size);
 
+/* Instructions the core's interpreter ran since the session opened (every R3000A instruction until native steps exist). */
+uint64_t rr_psx_interpreted(const RrPsxSession *s);
+
+/* The whole machine as bytes (quick states of the host kit): malloc'ed, NULL on failure; restore returns 0 on success. */
+uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size);
+int rr_psx_state_restore(RrPsxSession *s, const uint8_t *data, size_t size);
+
 /* Quick states (F8/F9): the whole machine; refused between builds (`abi`). 0: done; 1: no state; 2: another build or game;
  * 3: invalid; 4: input/output error. */
 int rr_psx_state_save(RrPsxSession *s, const char *path, const char *abi);

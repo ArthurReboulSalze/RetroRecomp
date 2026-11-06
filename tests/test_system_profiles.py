@@ -343,8 +343,9 @@ class ProfileContractTests(unittest.TestCase):
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
-        self.assertEqual(tuple(p.id for p in registry.convertible_profiles()[-1:]),
-                         ('x68',) if get_profile('x68').available() else ('cps2',))
+        # The developer-only machines follow the listed ones, in registration order, when their files are present.
+        developer = tuple(p.id for p in ALL_PROFILES if p.developer_only and p.available())
+        self.assertEqual(tuple(p.id for p in registry.convertible_profiles()[-1:]), developer[-1:] or ('cps2',))
 
 
 class ConvertedOptionsTests(unittest.TestCase):

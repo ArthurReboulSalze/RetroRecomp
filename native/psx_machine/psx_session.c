@@ -31,6 +31,8 @@
 
 /* Set by the session before retro_load_game; read by Beetle's BIOS loader (our anchored change of libretro.c). */
 extern const unsigned char *rr_psx_bios_data;
+/* Counted by Beetle's instruction fetch (our anchored change of cpu.c). */
+extern uint64_t rr_psx_interpreted_count;
 
 #define PACK_MAGIC "RRPSXPK1"
 #define MAX_SOURCES 16
@@ -624,6 +626,26 @@ uint8_t *rr_psx_card(RrPsxSession *s, size_t *size) {
     (void)s;
     if (size) *size = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
     return (uint8_t *)retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+}
+
+uint64_t rr_psx_interpreted(const RrPsxSession *s) { (void)s; return rr_psx_interpreted_count; }
+
+uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size) {
+    (void)s;
+    size_t n = retro_serialize_size();
+    uint8_t *data = n ? (uint8_t *)malloc(n + 4) : NULL;
+    if (!data || !retro_serialize(data + 4, n)) { free(data); return NULL; }
+    data[0] = (uint8_t)s->disc; data[1] = data[2] = data[3] = 0;
+    if (size) *size = n + 4;
+    return data;
+}
+
+int rr_psx_state_restore(RrPsxSession *s, const uint8_t *data, size_t size) {
+    if (!data || size < 5 || size - 4 != retro_serialize_size() || data[0] >= s->disc_count) return 3;
+    if (!retro_unserialize(data + 4, size - 4)) return 3;
+    s->disc = data[0];
+    s->audio_frames = 0;
+    return 0;
 }
 
 /* ---- quick states ----------------------------------------------------------------------------------------------------- */

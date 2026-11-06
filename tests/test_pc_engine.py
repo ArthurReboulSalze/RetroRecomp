@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from retrorecomp import (compilation_inputs, hostkit, path_profiles, pce_build, pce_conversion, report_schema,
+from retrorecomp import (compilation_inputs, hostkit, path_profiles, pce_build, pce_conversion, psx_build, report_schema,
                          upstreams)
 from retrorecomp.core import ConversionError
 from retrorecomp.pce_rom import (BANK, HEADER, SF2_BYTES, HuCard, PcEngineRomError, board_for, decode,
@@ -691,13 +691,13 @@ class StateConfigTests(TempFiles):
                 if 'RR16_STATE_SYSTEM' not in line:
                     continue
                 found = re.findall(r'RR16_STATE_SYSTEM (\d+)', line)
-                if '{STATE_SYSTEM}' in line:   # pce_build.py names its constant
-                    found = [pce_build.STATE_SYSTEM]
+                if '{STATE_SYSTEM}' in line:   # pce_build.py and psx_build.py name their constant
+                    found = [pce_build.STATE_SYSTEM if path.name == 'pce_build.py' else psx_build.STATE_SYSTEM]
                 elif not found:                # console16_state.py picks it from the machine: '1' if md else '2'
                     found = re.findall(r"'(\d+)'", line)
                 numbers.setdefault(path.name, set()).update(int(number) for number in found)
         self.assertEqual({'console16_state.py': {1, 2}, 'neogeo_build.py': {3}, 'cps1_build.py': {4},
-                          'pce_build.py': {5}}, numbers)
+                          'pce_build.py': {5}, 'psx_build.py': {6}}, numbers)
         everything = [number for found in numbers.values() for number in sorted(found)]
         self.assertEqual(len(everything), len(set(everything)))     # one number per machine
 

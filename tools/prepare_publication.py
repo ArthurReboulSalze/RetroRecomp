@@ -23,8 +23,9 @@ licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/psx.py retrorecomp/psx_bios.py retrorecomp/psx_disc.py retrorecomp/systems/psx.py
-tests/test_psx_disc.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
+tests/test_psx_disc.py tests/test_psx_pack.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
 native/psx_machine/CMakeLists.txt native/psx_machine/psx_session.c native/psx_machine/psx_session.h native/psx_machine/psx_reference.c
+native/psx_machine/psx_main.c retrorecomp/psx_build.py native/hostkit/adapters/rrhk_psx.c retrorecomp/psx_conversion.py
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
