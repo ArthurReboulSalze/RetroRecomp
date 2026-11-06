@@ -45,7 +45,7 @@ class Cps2Profile(SystemProfile):
                                                             windows=((0xd000, 0xd800),), length=(4, 4),
                                                             guard='mask'))))
     report_shape = ReportShape('cps1_conversion', 'native_analysis')
-    catalogues = Catalogues(local_catalogue='assets/cps2-catalogue.json')
+    catalogues = Catalogues(libretro='libretro-thumbnails/MAME', screenscraper=7, thegamesdb=23, local_catalogue='assets/cps2-catalogue.json')
     library_layout = LibraryLayout(folder='cps2')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
                                script_suffix='.inputs')

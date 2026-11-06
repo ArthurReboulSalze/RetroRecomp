@@ -76,7 +76,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
-| [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 91 % |
+| [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 39 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a

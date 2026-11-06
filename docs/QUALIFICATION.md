@@ -58,7 +58,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Neo Geo | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Capcom CPS-2 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
+| Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine | experimental | `████░░░░░░` 39 % | ✅ 0 · 🟡 11 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
@@ -78,7 +78,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ |
 
@@ -107,7 +107,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine.
 | G11 | P | P | P | P | P | P | P | P | P | P | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - |
 
@@ -406,8 +406,8 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 
 ## Capcom CPS-2: evidence behind its column (6 November 2026, release 1.7.0)
 
-The CPS-2 opened as an **experimental** machine in 1.6.9 (« OK pour CPS2 en expérimental sur la 1.6.9 », 5 November 2026) and is a candidate for
-`supported`: the decision (G14) is the owner's and is recorded in the owner-acceptance table below. Details and tables: [CPS2.md](CPS2.md). The
+The CPS-2 opened as an **experimental** machine in 1.6.9 (« OK pour CPS2 en expérimental sur la 1.6.9 », 5 November 2026) and leaves that
+status in 1.7.0: the decision (G14) is the owner's and is recorded in the owner-acceptance table below. Details and tables: [CPS2.md](CPS2.md). The
 letters here are about the first scope (the standard boards, 236 sets), measured on 17 of them; nothing says exact hardware,
 complete gameplay or latency.
 
@@ -426,7 +426,7 @@ complete gameplay or latency.
 | G11 | P | MAME 0.289: pictures 360 of 360 on `ssf2`, `ddtod`, `dimahoo`, `xmvsf`, `mvsc`, `msh` and on 8 of the 9 sets beyond the panel (one picture of 360 differs on `sfa3` and `avsp`: the boot self-test fades one step later; `mmatrix`: a title animation one frame ahead for 9 frames); bus accesses equal on `sfa3` and `msh`; sound within 0.057 dB and spectrum cosine at least 0.9932 on the nine | A comparison with MAME is not hardware; the DSP16 is a model; the three named differences are not explained |
 | G12 | Y | The owner's panel of eight, five sets drawn at random (seed 170) and the four sets whose files differ from the catalogue's: 17 sets | The other sets of the 236; the ten spinner and paddle sets and the three sets with inputs of their own are out of the scope |
 | G13 | Y | The 17 sets converted on the Debian 13 PC at the extended level: the CPU, RAM, picture and sound hashes of all 51 routes equal to Windows' | A game was not played interactively on Linux (window, sound, pad) |
-| G14 | P | Arthur played the eight panel games delivered in `Export` on 5 November 2026: « les 8 marchent parfaitement » (owner-acceptance table) | The decision to leave the experimental status, and a play trial of the nine other sets |
+| G14 | Y | Arthur played the eight panel games on 5 November 2026 (« les 8 marchent parfaitement ») and the 17 sets of the final pass on 6 November 2026, then decided that the CPS-2 leaves the experimental status (owner-acceptance table) | |
 | G15 | Y | The five measures stay separate in the report, in [CPS2.md](CPS2.md) and in the interface; read on 6 November 2026 for this gate: the options note and the scan note in eight languages, the README and the documents that name the CPS-2, the report writer (`status`, `board_tier`, `hardware_fidelity_validated: false`, `full_game_validated: false`, no latency) | |
 | G16 | P | The paths are shared like the CPS-1's (`cps2_knowledge`, experimental tier of the base, withdrawable with one line); none of the 17 sets observes a path | No path qualified: the games observe none |
 
@@ -669,7 +669,7 @@ owner fills it in.
 | 1 November 2026 | Neo Geo | none recorded (owner acceptance, no game list written) | accepted by the owner (Arthur), who uses these machines and validated them as supported; no written play checklist for this row | Recorded on 1 November 2026 at the maintainer's confirmation of the `Y` of the matrix. |
 | 3 November 2026 | Nintendo NES | The Legend of Zelda, Kirby's Adventure, Mr. Gimmick, Duck Hunt, Battletoads, Castlevania III, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The trial list of the NES checklist below; G14 `Y`. |
 | 3 November 2026 | Capcom CPS-1 | 1941, Street Fighter II' Champion Edition, Final Fight, Captain Commando, Strider, Mercs, converted with the 1.6.7 tree (generator revision 12) in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play trial list of `CPS1_ACCEPTATION.md`, which the row of 1 November left to do; G14 moves from `P` to `Y`. |
-| 6 November 2026 | Capcom CPS-2 | The 17 sets of the final pass, delivered in `Export\Games\CPS-2` (the exit tree, extended level) | The decision to leave the experimental status: **not recorded yet**; it is written here in Arthur's own words when he gives it | G14 stays `P` until then |
+| 6 November 2026 | Capcom CPS-2 | The 17 sets of the final pass, delivered in `Export\Games\CPS-2` (the exit tree, extended level) | Arthur, after playing the 17 delivered files, on 6 November 2026: « Je viens de tester tous les jeux CPS2, tout marche parfaitement. Il y a juste un léger freeze qui arrive lorsqu'on insère une pièce. Peut-être que c'est normal, peut-être que c'est pas grand-chose. En tout cas, tout est fonctionnel. Donc, à voir ce qu'on peut faire pour ça. Et après, on sort le CPS2 de l'expérimental. » | The decision to leave the experimental status, given once the hitch on a coin is looked at: G14 moves from `P` to `Y`. The hitch was the EEPROM file written on the frame; it is now written off the frame ([UPGRADES.md](UPGRADES.md)). It says nothing of the DSP16, of hardware fidelity, of the other sets or of latency. |
 | 5 November 2026 | Capcom CPS-2 | The eight panel sets (`ssf2`, `ddtod`, `dimahoo`, `xmvsf`, `mvsc`, `msh`, `sfa3`, `mmatrix`), converted with the tree of the branch `spec/cps2-170` at `1b5ae31` and delivered in `Export\Games\CPS-2` | Arthur, after a first trial of the development builds (« Il y en a qui démarrent parfaitement avec le son et tout. Il y en a quelques-uns qui ne démarrent pas. »), then on the delivered files: « Je viens de faire une campagne de test des jeux CPS-2 et PC Engine. J'ai testé les 8 jeux de chaque console et les 8 marchent parfaitement. Bravo ! »; he also agreed to open the machine as experimental: « OK pour CPS2 en expérimental sur la 1.6.9. » | A successful play trial, **not** a decision to leave the experimental status: G14 is `P`. It validates how the eight games behave; it says nothing of the DSP16 (a model after MAME's), of hardware fidelity, of the other 228 sets or of latency. |
 | 5 November 2026 | Capcom CPS-1.5 (QSound boards) | The Punisher, Cadillacs and Dinosaurs, Warriors of Fate, converted with the 1.6.8 tree (`cc46a1b`, generator revision 12) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Tu peux aussi sortir le CPS 1.5 de l'expérimental. Je valide le comportement des jeux dessus (ça marche très bien). » (the day before, about these games and the Sharp X68000 ones: « Les deux marchent parfaitement ») | G14 `Y` for the QSound boards: they leave the experimental tier and join the CPS-1 and the shared base of paths. It validates how the games behave; it says nothing of the DSP16 (a model after MAME's), of hardware fidelity or of latency. |
 | 3 November 2026 | Sharp X68000 | R-Type, Metal Sight, Lemmings, Super Hang-On, Bubble Bobble, converted with the 1.6.7 tree in a player's conditions and delivered in `Export` | Arthur: "je viens de faire mes essais NES, CPS et X68000, on est bon" | The play test passed. It is not a decision to leave the experimental status: G10 and G11 are still `P`, and the exit stays the owner's explicit decision once every gate is proved. G14 is `P`. |
