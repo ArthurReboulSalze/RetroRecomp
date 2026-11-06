@@ -96,8 +96,9 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
     # Every instruction the CPU runs is fetched here once (the loop head, the replicated dispatch and the native steps all
     # call it, so the instruction cache and its timing stay the core's); the native steps count theirs, the rest are
     # interpreted. The step hook (after each fetch of the interpreter) enters the native step of the fetched address, when
-    # the game has one (RR_PSX_NATIVE, rr_psx_native.inc written by retrorecomp/psx_native.py), and records the
-    # interpreted instructions in the conversion's observing build (RR_PSX_OBSERVE).
+    # the game has one (RR_PSX_NATIVE, the slices written by retrorecomp/psx_native.py), and records the interpreted
+    # instructions: all of them in the conversion's observing build (RR_PSX_OBSERVE), and in the game the ones its native
+    # steps did not hold (the session keeps them as runtime hints for the next conversion, when the player records them).
     ('mednafen/psx/cpu.c',
      'static INLINE uint32_t ReadInstruction(int32_t *timestamp, uint32_t address)\n{\n   uint32_t instr;\n',
      '/* Retro-Recomp modification (GPL-2.0, like this file): instructions fetched (every instruction the CPU runs), the\n'
@@ -110,6 +111,9 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '#ifdef RR_PSX_OBSERVE\n'
      'void rr_psx_observe(uint32_t pc, uint32_t instr);\n'
      '#define RR_PSX_OBSERVE_STEP if (!IPCache) rr_psx_observe(PC, instr);\n'
+     '#elif defined(RR_PSX_NATIVE)\n'
+     'void rr_psx_fallback(uint32_t pc, uint32_t instr);\n'
+     '#define RR_PSX_OBSERVE_STEP if (!IPCache) rr_psx_fallback(PC, instr);\n'
      '#else\n'
      '#define RR_PSX_OBSERVE_STEP\n'
      '#endif\n'

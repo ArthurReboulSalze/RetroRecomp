@@ -58,6 +58,24 @@ def read_observations(paths) -> tuple[dict[tuple[int, int], Observed], bool]:
     return pairs, overflow
 
 
+HINT_KIND = 23                      # the PlayStation's runtime hints (systems/psx.py feedback_kinds; psx_main.c RR_FB_PSX)
+
+
+def add_hints(pairs: dict[tuple[int, int], Observed], rows) -> int:
+    """The runtime hints of the player's games (retrorecomp/feedback.py records of HINT_KIND: an instruction the steps did not
+    hold, its physical address and its 4-byte word) join the observations; returns how many were new. They are checked like
+    the observed code: a step holds the core's own handler body, and the word the CPU fetches is its guard."""
+    added = 0
+    for row in rows:
+        if row.kind != HINT_KIND or len(row.data) != 4 or row.address & 3 or not executable(row.address):
+            continue
+        key = (row.address, int.from_bytes(row.data, 'little'))
+        if key not in pairs:
+            pairs[key] = Observed(1, False)
+            added += 1
+    return added
+
+
 # ------------------------------------------------------------------ Beetle's handlers
 
 def _run_real(cpu: str) -> str:

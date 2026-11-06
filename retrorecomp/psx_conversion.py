@@ -268,6 +268,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         phase = time.perf_counter()
         with stages.phase('code_generation'):
             pairs, overflow = psx_native.read_observations(observations)
+            from .feedback import records
+            hints = psx_native.add_hints(pairs, records('psx', sha, psx_native.HINT_KIND))
             native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project)
             psx_build.set_native(project, tree, True)
         emit(f'PlayStation: {native["instructions"]} observed instructions in {native["steps"]} native steps; '
@@ -325,7 +327,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                      'adaptation': psx_beetle.adaptation_digest(),
                      'native_cpu': 'guarded native steps of the observed R3000A code (the interpreter\'s handler bodies, its '
                                    'timing kept); the rest runs on the core interpreter and is counted',
-                     'native_steps': native | {'observation_overflow': overflow}},
+                     'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints}},
         'final_checks': checks_rows,
         'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
                                                         'same picture, sound and RAM on every frame as the interpreter alone '

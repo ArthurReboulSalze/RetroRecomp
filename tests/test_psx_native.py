@@ -65,6 +65,20 @@ class NativeStepsTest(unittest.TestCase):
         self.assertEqual(p.observed_runs, 5 * 4 + 2 * 2 + 1 + 4 + 3 + 2 + 1 + 9)
         self.assertEqual(p.covered_runs, 5 * 4 + 2 * 2 + 1 + 4 + 3 + 2)
 
+    def test_runtime_hints_join_the_observations(self):
+        from retrorecomp.feedback import Observation
+        pairs = {(0x1000, LUI): psx_native.Observed(5, True)}
+        rows = [Observation(23, 0x1004, 0, ADDIU.to_bytes(4, 'little')),      # new: joins
+                Observation(23, 0x1000, 0, LUI.to_bytes(4, 'little')),        # already observed
+                Observation(23, 0x1F800000, 0, ADDU.to_bytes(4, 'little')),   # scratchpad: never a step
+                Observation(23, 0x1006, 0, ADDU.to_bytes(4, 'little')),       # unaligned
+                Observation(20, 0x2000, 0, ADDU.to_bytes(4, 'little'))]       # another machine's kind
+        self.assertEqual(psx_native.add_hints(pairs, rows), 1)
+        self.assertEqual(pairs[(0x1004, ADDIU)], psx_native.Observed(1, False))
+        self.assertEqual(pairs[(0x1000, LUI)].count, 5)
+        p = psx_native.plan(pairs, psx_native.handlers(CPU))
+        self.assertEqual(p.steps[0][2], [(0x1000, LUI), (0x1004, ADDIU)])
+
     def test_long_runs_are_split(self):
         table = psx_native.handlers(CPU)
         pairs = {(0x2000 + 4 * n, NOP): psx_native.Observed(1, n == 0) for n in range(psx_native.MAX_RUN + 3)}

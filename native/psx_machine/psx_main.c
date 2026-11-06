@@ -21,6 +21,26 @@
 #include "retro16_state_config.h"
 #include "psx_game.h"
 #include "psx_session.h"
+#include "runtime_feedback.h"
+
+/* The record kind of the PlayStation's runtime hints (retrorecomp/systems/psx.py: feedback_kinds). */
+enum { RR_FB_PSX = 23 };
+
+/* An instruction of main RAM or the BIOS that the game's native steps did not hold and the interpreter ran: while the player
+ * records hints (F12), it is noted once (its physical address and its word) for the next conversion, which makes it a native
+ * step after the same checks as the code its routes ran. Called by the core's step hook (our anchored change of cpu.c). */
+void rr_psx_fallback(uint32_t pc, uint32_t instr) {
+    static uint32_t seen_address[4096], seen_word[4096];
+    if (!rr_feedback_enabled()) return;
+    const uint32_t physical = pc & 0x1FFFFFFFu;
+    if (!(physical < 0x200000u || physical - 0x1FC00000u < 0x80000u) || (physical & 3)) return;
+    const unsigned slot = (physical >> 2) & 4095u;
+    if (seen_address[slot] == (physical | 1u) && seen_word[slot] == instr) return;   /* | 1: an empty slot matches nothing */
+    seen_address[slot] = physical | 1u;
+    seen_word[slot] = instr;
+    const uint8_t bytes[4] = {(uint8_t)instr, (uint8_t)(instr >> 8), (uint8_t)(instr >> 16), (uint8_t)(instr >> 24)};
+    rr_feedback_note(RR_FB_PSX, physical, 0, bytes, 4);
+}
 
 int rr_psx_sdl_main(const char *title, int scale);
 
@@ -339,6 +359,7 @@ static int execute(int argc, char **argv) {
     if (!headless) rr_game_data_file(card_path, 4096, "saves", RR16_STATE_NAME, RR16_STATE_ROM, ".mcr");
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     if (!open_session()) { fprintf(stderr, "%s\n", fault[0] ? fault : "no PlayStation disc in this executable"); SDL_Quit(); return 3; }
+    rr_feedback_start(!headless && !input_check);   /* runtime hints: play in the window only, never a conversion run */
     if (input_check) {
         const int failures = rr_psx_input_check(session, stdout);
         rr_psx_close(session);
