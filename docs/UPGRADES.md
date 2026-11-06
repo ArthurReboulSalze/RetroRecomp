@@ -428,7 +428,7 @@ hexadecimal digits of each stamp, 6 November 2026):
 | Adventure (ScummVM) | new, `c7d5b2bf31be` | new, `4a96d24af08d` | new, `1b3f09984ccc` |
 
 Three fixes made before publication move only the stamps of the machine they belong to: the Amiga's availability check (native files only, so a packaged
-converter offers the profile) and its decoder reading the working folder give the Amiga the game stamp `f32920f07f96`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
+converter offers the profile), its decoder reading the working folder and resload_Abort said in words give the Amiga the game stamp `ff35e3b8af69`; the ScummVM patch that leaves no route to a modal window, and the folder scan that
 refuses with a sentence when the build tools are missing instead of starting a build, give Adventure (ScummVM) the game stamp `be8047b230ac` and the build stamp
 `97d9ad0da628` (the released tree).
 
