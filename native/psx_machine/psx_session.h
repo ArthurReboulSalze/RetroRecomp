@@ -81,6 +81,8 @@ uint8_t *rr_psx_card(RrPsxSession *s, size_t *size);
  * native steps (none in a game built without them). */
 uint64_t rr_psx_interpreted(const RrPsxSession *s);
 uint64_t rr_psx_native(const RrPsxSession *s);
+/* Instruction fetches that ran no instruction (an interrupt taken, or the CPU held by a DMA): neither of the two above. */
+uint64_t rr_psx_unrun(const RrPsxSession *s);
 
 /* The whole machine as bytes (quick states of the host kit): malloc'ed, NULL on failure; restore returns 0 on success. */
 uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size);

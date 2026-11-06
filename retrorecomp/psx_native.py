@@ -162,6 +162,26 @@ HEADER = """/* Native steps of this PlayStation game, written by Retro-Recomp (r
  * anchored change of cpu.c when the game is built with RR_PSX_NATIVE. Each instruction keeps the interpreter's timing: the
  * loop head's event check, fetch through the instruction cache and read-absorb tick come before its body. A step is entered at
  * any address of its run, with the word the interpreter has just fetched there. */
+
+/* The core's memory accesses and instruction-cache misses, called rather than expanded in every instruction (the same
+ * functions, so the same cycles; only the compiled size changes). A fetch that hits the instruction cache stays inline, as
+ * ReadInstruction does it. */
+static NO_INLINE uint8_t rr_psx_read_u8(int32_t *t, uint32_t a) { return ReadMemory_u8(t, a); }
+static NO_INLINE uint16_t rr_psx_read_u16(int32_t *t, uint32_t a) { return ReadMemory_u16(t, a); }
+static NO_INLINE uint32_t rr_psx_read_u32(int32_t *t, uint32_t a, bool ds24, bool lwc) { return ReadMemory_u32(t, a, ds24, lwc); }
+static NO_INLINE void rr_psx_write_u8(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u8(t, a, v); }
+static NO_INLINE void rr_psx_write_u16(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u16(t, a, v); }
+static NO_INLINE void rr_psx_write_u32(int32_t *t, uint32_t a, uint32_t v, bool ds24) { WriteMemory_u32(t, a, v, ds24); }
+static NO_INLINE uint32_t rr_psx_fetch_missed(int32_t *t, uint32_t a) { return ReadInstruction(t, a); }
+#define ReadMemory_u8(t, a) rr_psx_read_u8(t, a)
+#define ReadMemory_u16(t, a) rr_psx_read_u16(t, a)
+#define ReadMemory_u32(t, a, ds24, lwc) rr_psx_read_u32(t, a, ds24, lwc)
+#define WriteMemory_u8(t, a, v) rr_psx_write_u8(t, a, v)
+#define WriteMemory_u16(t, a, v) rr_psx_write_u16(t, a, v)
+#define WriteMemory_u32(t, a, v, ds24) rr_psx_write_u32(t, a, v, ds24)
+#define RR_READ_INSTRUCTION \\
+   (ICache[(PC & 0xFFC) >> 2].TV == PC ? (++rr_psx_fetched_count, ICache[(PC & 0xFFC) >> 2].Data) \\
+                                      : rr_psx_fetch_missed(&timestamp, PC))
 #define RR_IN \\
    int32_t timestamp = rr->timestamp; \\
    uint32_t PC = rr->PC, new_PC = rr->new_PC, LDWhich = rr->LDWhich, LDValue = rr->LDValue, rr_word = rr->instr
@@ -172,7 +192,7 @@ HEADER = """/* Native steps of this PlayStation game, written by Retro-Recomp (r
    cpu_last_check_ts = timestamp; \\
    GPR[0] = 0; \\
    if ((PC & 0x1FFFFFFF) != (physical)) goto rr_out; \\
-   rr_word = ReadInstruction(&timestamp, PC);
+   rr_word = RR_READ_INSTRUCTION;
 #define RR_GUARD(word) if (rr_word != (word) || IPCache) goto rr_fetched;
 #define RR_TICK \\
    if (ReadAbsorb[ReadAbsorbWhich]) ReadAbsorb[ReadAbsorbWhich]--; else timestamp++; \\
@@ -233,7 +253,9 @@ def write(cpu_c: Path, pairs: dict, out: Path) -> dict:
                  '         const uint32_t a = rr_psx_step_table[n].address + 4 * k;\n'
                  f'         if (a < 0x{RAM_BYTES:x}u)\n            rr_psx_ram_steps[a >> 2] = rr_psx_step_table[n].step;\n'
                  f'         else\n            rr_psx_bios_steps[(a - 0x{BIOS_BASE:08x}u) >> 2] = rr_psx_step_table[n].step;\n'
-                 '      }\n}\n')
+                 '      }\n}\n\n'
+                 '#undef ReadMemory_u8\n#undef ReadMemory_u16\n#undef ReadMemory_u32\n'
+                 '#undef WriteMemory_u8\n#undef WriteMemory_u16\n#undef WriteMemory_u32\n')
     text = ''.join(parts)
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

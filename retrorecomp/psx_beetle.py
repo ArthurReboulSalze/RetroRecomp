@@ -104,9 +104,12 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      ' * share of them run by the game\'s native steps, and the hook of those steps after each fetch of the interpreter. */\n'
      'uint64_t rr_psx_fetched_count = 0;\n'
      'uint64_t rr_psx_native_count = 0;\n'
+     '/* Fetches that run no instruction: the interrupt entry (the instruction runs after the handler returns) and the\n'
+     ' * fetches repeated while a DMA holds the CPU (Halted): counted apart, neither native nor interpreted. */\n'
+     'uint64_t rr_psx_unrun_count = 0;\n'
      '#ifdef RR_PSX_OBSERVE\n'
      'void rr_psx_observe(uint32_t pc, uint32_t instr);\n'
-     '#define RR_PSX_OBSERVE_STEP rr_psx_observe(PC, instr);\n'
+     '#define RR_PSX_OBSERVE_STEP if (!IPCache) rr_psx_observe(PC, instr);\n'
      '#else\n'
      '#define RR_PSX_OBSERVE_STEP\n'
      '#endif\n'
@@ -158,6 +161,12 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '\tinstr = ReadInstruction(&timestamp, PC); \\\n',
      '\tinstr = ReadInstruction(&timestamp, PC); \\\n'
      '\tRR_PSX_STEP_HOOK \\\n'),
+    ('mednafen/psx/cpu.c',
+     '    BEGIN_OPF(INTERRUPT);\n\tif(Halted)\n',
+     '    BEGIN_OPF(INTERRUPT);\n'
+     '\t/* Retro-Recomp modification (GPL-2.0, like this file): this fetch runs no instruction. */\n'
+     '\t++rr_psx_unrun_count;\n'
+     '\tif(Halted)\n'),
     # The native steps are functions of this file (they call its memory, exception and coprocessor code and expand the
     # handler bodies of CPU_RunReal, whose macros are still defined here).
     ('mednafen/psx/cpu.c',

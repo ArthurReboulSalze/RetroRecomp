@@ -32,7 +32,7 @@
 /* Set by the session before retro_load_game; read by Beetle's BIOS loader (our anchored change of libretro.c). */
 extern const unsigned char *rr_psx_bios_data;
 /* Counted by Beetle's instruction fetch and by the game's native steps (our anchored changes of cpu.c). */
-extern uint64_t rr_psx_fetched_count, rr_psx_native_count;
+extern uint64_t rr_psx_fetched_count, rr_psx_native_count, rr_psx_unrun_count;
 
 #define PACK_MAGIC "RRPSXPK1"
 #define MAX_SOURCES 16
@@ -628,8 +628,12 @@ uint8_t *rr_psx_card(RrPsxSession *s, size_t *size) {
     return (uint8_t *)retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
 }
 
-uint64_t rr_psx_interpreted(const RrPsxSession *s) { (void)s; return rr_psx_fetched_count - rr_psx_native_count; }
+uint64_t rr_psx_interpreted(const RrPsxSession *s) {
+    (void)s;
+    return rr_psx_fetched_count - rr_psx_native_count - rr_psx_unrun_count;
+}
 uint64_t rr_psx_native(const RrPsxSession *s) { (void)s; return rr_psx_native_count; }
+uint64_t rr_psx_unrun(const RrPsxSession *s) { (void)s; return rr_psx_unrun_count; }
 
 uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size) {
     (void)s;

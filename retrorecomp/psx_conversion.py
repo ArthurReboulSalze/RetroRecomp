@@ -292,6 +292,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                             'interpreted_opcodes': r['interpreted_instructions'],
                             'interpreter_percent': round(100.0 * r['interpreted_instructions'] / ran, 4) if ran else 0.0,
                             'reference_interpreted_opcodes': reference[name]['interpreted_instructions'],
+                            # fetches that ran no instruction (an interrupt taken, the CPU held by a DMA): neither count
+                            'unrun_fetches': r['unrun_fetches'],
                             'image_hash': r['image_hash'], 'pcm_hash': r['pcm_hash'], 'nonzero_samples': r['nonzero_samples'],
                             'liveness': route_liveness(r['trace']), 'trace_sha256': file_sha256(r['trace']),
                             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})

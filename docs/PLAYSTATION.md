@@ -46,7 +46,9 @@ that changes and, on every frame of every route, the same picture, sound and RAM
 process and the refusal of a damaged state. The game is published as built (not compressed: the disc follows the program).
 
 Native code: the share of the routes' instructions run by native steps, and the interpreted remainder, are in the report per
-route; outside the routes the game shows its own counter. CPU fidelity: what the core's interpreter does (the native steps are
+route; outside the routes the game shows its own counter. The fetches that run no instruction (an interrupt being taken, or
+the CPU held while a DMA transfer runs, when the core fetches the same instruction again each cycle) are counted apart, in
+neither figure. CPU fidelity: what the core's interpreter does (the native steps are
 compared with it, not with an independent CPU model). Hardware fidelity: not measured; with the free BIOS the report says so. Gameplay
 validation: only the conversion's routes. Physical latency: not measured.
 
