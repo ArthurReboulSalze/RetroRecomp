@@ -62,17 +62,21 @@ HINT_KIND = 23                      # the PlayStation's runtime hints (systems/p
 
 
 def add_hints(pairs: dict[tuple[int, int], Observed], rows) -> int:
-    """The runtime hints of the player's games (retrorecomp/feedback.py records of HINT_KIND: an instruction the steps did not
-    hold, its physical address and its 4-byte word) join the observations; returns how many were new. They are checked like
-    the observed code: a step holds the core's own handler body, and the word the CPU fetches is its guard."""
+    """The runtime hints of the player's games (retrorecomp/feedback.py records of HINT_KIND: a 16-byte block of main RAM or
+    the BIOS where the interpreter ran instructions the steps did not hold, its physical address, a mask of the words run and
+    the four words) join the observations; returns how many (address, word) pairs were new. They are checked like the
+    observed code: a step holds the core's own handler body, and the word the CPU fetches is its guard."""
     added = 0
     for row in rows:
-        if row.kind != HINT_KIND or len(row.data) != 4 or row.address & 3 or not executable(row.address):
+        if row.kind != HINT_KIND or len(row.data) != 16 or row.address & 15 or not executable(row.address):
             continue
-        key = (row.address, int.from_bytes(row.data, 'little'))
-        if key not in pairs:
-            pairs[key] = Observed(1, False)
-            added += 1
+        for index in range(4):
+            if not (row.auxiliary >> index) & 1:
+                continue
+            key = (row.address + 4 * index, int.from_bytes(row.data[4 * index:4 * index + 4], 'little'))
+            if key not in pairs:
+                pairs[key] = Observed(1, False)
+                added += 1
     return added
 
 

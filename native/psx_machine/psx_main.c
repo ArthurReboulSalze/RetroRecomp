@@ -23,20 +23,63 @@
 #include "psx_session.h"
 #include "runtime_feedback.h"
 
-/* An instruction of main RAM or the BIOS that the game's native steps did not hold and the interpreter ran: while the player
- * records hints (F12), it is noted once (its physical address and its word) for the next conversion, which makes it a native
- * step after the same checks as the code its routes ran. Called by the core's step hook (our anchored change of cpu.c). */
+/* Runtime hints: the instructions of main RAM or the BIOS that the game's native steps did not hold and the interpreter ran,
+ * while the player records hints (F12). They are gathered by 16-byte block (the words run there, a mask of which, how often)
+ * and handed to the bounded recorder at the end of the game, the most run first, so that its records go to the code that
+ * counts: the next conversion makes them native steps after the same checks as the code its routes ran. Called by the core's
+ * step hook (our anchored change of cpu.c). */
+enum { HINT_SLOTS = 1 << 16 };
+typedef struct { uint32_t block, words[4], count; uint8_t mask; } Hint;
+static Hint *hints;
+static unsigned hint_count;
+
 void rr_psx_fallback(uint32_t pc, uint32_t instr) {
-    static uint32_t seen_address[4096], seen_word[4096];
     if (!rr_feedback_enabled()) return;
     const uint32_t physical = pc & 0x1FFFFFFFu;
     if (!(physical < 0x200000u || physical - 0x1FC00000u < 0x80000u) || (physical & 3)) return;
-    const unsigned slot = (physical >> 2) & 4095u;
-    if (seen_address[slot] == (physical | 1u) && seen_word[slot] == instr) return;   /* | 1: an empty slot matches nothing */
-    seen_address[slot] = physical | 1u;
-    seen_word[slot] = instr;
-    const uint8_t bytes[4] = {(uint8_t)instr, (uint8_t)(instr >> 8), (uint8_t)(instr >> 16), (uint8_t)(instr >> 24)};
-    rr_feedback_note(RR_FB_PSX, physical, 0, bytes, 4);
+    if (!hints && !(hints = (Hint *)calloc(HINT_SLOTS, sizeof *hints))) return;
+    const uint32_t block = physical & ~15u;
+    const unsigned word = (physical >> 2) & 3;
+    /* A block whose word differs (code loaded over other code) takes another slot: each variant is kept. */
+    for (unsigned n = 0, slot = (block >> 4) * 2654435761u & (HINT_SLOTS - 1); n < 64; ++n, slot = (slot + 1) & (HINT_SLOTS - 1)) {
+        Hint *h = &hints[slot];
+        if (!h->count) {
+            if (hint_count >= HINT_SLOTS / 2) return;
+            h->block = block | 1u;   /* | 1: an empty slot matches no block */
+            hint_count++;
+        } else if (h->block != (block | 1u) || ((h->mask >> word) & 1 && h->words[word] != instr)) {
+            continue;
+        }
+        h->words[word] = instr;
+        h->mask |= (uint8_t)(1u << word);
+        if (h->count != UINT32_MAX) h->count++;
+        return;
+    }
+}
+
+static int hint_order(const void *a, const void *b) {
+    const Hint *x = (const Hint *)a, *y = (const Hint *)b;
+    if (x->count != y->count) return x->count < y->count ? 1 : -1;
+    return x->block < y->block ? -1 : x->block > y->block;
+}
+
+/* At the end of the game: the blocks to the recorder, the most run first (it keeps what fits and writes at exit). */
+static void hints_finish(void) {
+    if (!hints) return;
+    if (rr_feedback_enabled()) {
+        unsigned used = 0;
+        for (unsigned n = 0; n < HINT_SLOTS; ++n) if (hints[n].count) hints[used++] = hints[n];
+        qsort(hints, used, sizeof *hints, hint_order);
+        for (unsigned n = 0; n < used; ++n) {
+            uint8_t bytes[16];
+            for (unsigned w = 0; w < 4; ++w)
+                for (unsigned b = 0; b < 4; ++b) bytes[w * 4 + b] = (uint8_t)(hints[n].words[w] >> (8 * b));
+            rr_feedback_note(RR_FB_PSX, hints[n].block & ~1u, hints[n].mask, bytes, 16);
+        }
+    }
+    free(hints);
+    hints = NULL;
+    hint_count = 0;
 }
 
 int rr_psx_sdl_main(const char *title, int scale);
@@ -396,6 +439,7 @@ static int execute(int argc, char **argv) {
     }
 #endif
     if (trace_file && fclose(trace_file)) okay = 0;
+    hints_finish();
     rr_psx_close(session);
     SDL_Quit();
     return okay ? 0 : 3;

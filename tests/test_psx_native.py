@@ -68,11 +68,14 @@ class NativeStepsTest(unittest.TestCase):
     def test_runtime_hints_join_the_observations(self):
         from retrorecomp.feedback import Observation
         pairs = {(0x1000, LUI): psx_native.Observed(5, True)}
-        rows = [Observation(23, 0x1004, 0, ADDIU.to_bytes(4, 'little')),      # new: joins
-                Observation(23, 0x1000, 0, LUI.to_bytes(4, 'little')),        # already observed
-                Observation(23, 0x1F800000, 0, ADDU.to_bytes(4, 'little')),   # scratchpad: never a step
-                Observation(23, 0x1006, 0, ADDU.to_bytes(4, 'little')),       # unaligned
-                Observation(20, 0x2000, 0, ADDU.to_bytes(4, 'little'))]       # another machine's kind
+        def block(*words):
+            return b''.join(w.to_bytes(4, 'little') for w in words)
+        rows = [Observation(23, 0x1000, 0b0011, block(LUI, ADDIU, JR, 0)),     # 0x1000 already observed, 0x1004 joins; the
+                                                                             # words of 0x1008 and 0x100C did not run
+                Observation(23, 0x1F800000, 1, block(ADDU, 0, 0, 0)),        # scratchpad: never a step
+                Observation(23, 0x1004, 1, block(ADDU, 0, 0, 0)),            # not a block's address
+                Observation(23, 0x2000, 1, ADDU.to_bytes(4, 'little')),      # not a block
+                Observation(20, 0x2000, 1, block(ADDU, 0, 0, 0))]            # another machine's kind
         self.assertEqual(psx_native.add_hints(pairs, rows), 1)
         self.assertEqual(pairs[(0x1004, ADDIU)], psx_native.Observed(1, False))
         self.assertEqual(pairs[(0x1000, LUI)].count, 5)
