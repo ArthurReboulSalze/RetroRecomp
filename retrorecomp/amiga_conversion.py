@@ -112,11 +112,7 @@ def write_events(path: Path, events) -> Path:
 
 # --------------------------------------------------------------------------------------------------------- building
 def machine_core(base: Path, emit) -> Path:
-    """The adapted vAmiga Core, after the pinned sources every Amiga build reads: SDL and segagenesisrecomp (whose 68000 decoder
-    the index of native steps includes), fetched like the X68000 does (console16.dependencies16), so a fresh installation works."""
     from . import amiga_vamiga
-    from .console16 import dependencies16
-    dependencies16('md', emit)
     with entry_lock(base / 'vamiga-lock', timeout=1800):
         return amiga_vamiga.adapt(amiga_vamiga.source(emit), base / 'vamiga')
 
