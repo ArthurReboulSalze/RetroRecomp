@@ -918,6 +918,14 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Ускорение | `  Макс. | M  Без звука",
     "RAM code: compiled, not observed": "Код в RAM: скомпилирован, не наблюдался",
     "Save unreadable: set aside": "Сохранение не читается: отложено",
-    "Save unreadable: saving is off": "Сохранение не читается: запись выключена"
+    "Save unreadable: saving is off": "Сохранение не читается: запись выключена",
+    "Stick dead zone: %s": "Мёртвая зона стика: %s",
+    "Vibration: %s": "Вибрация: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - Графика",
+    "Filter: %s": "Фильтр: %s",
+    "Restore defaults": "Сбросить настройки",
+    "Disc %d/%d": "Диск %d/%d",
+    "Change disc": "Сменить диск",
+    "F3  Graphics options": "F3  Настройки графики"
   }
 }

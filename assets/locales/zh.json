@@ -918,6 +918,14 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  快进 | `  最高速度 | M  静音",
     "RAM code: compiled, not observed": "RAM 代码：已编译，未观测",
     "Save unreadable: set aside": "存档无法读取：已另存",
-    "Save unreadable: saving is off": "存档无法读取：保存已关闭"
+    "Save unreadable: saving is off": "存档无法读取：保存已关闭",
+    "Stick dead zone: %s": "摇杆死区: %s",
+    "Vibration: %s": "振动: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - 图形",
+    "Filter: %s": "滤镜: %s",
+    "Restore defaults": "恢复默认",
+    "Disc %d/%d": "光盘 %d/%d",
+    "Change disc": "更换光盘",
+    "F3  Graphics options": "F3  图形选项"
   }
 }

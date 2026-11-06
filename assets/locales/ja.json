@@ -918,6 +918,14 @@
     "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  早送り | `  最高速度 | M  ミュート",
     "RAM code: compiled, not observed": "RAM コード：コンパイル済み・未観測",
     "Save unreadable: set aside": "セーブを読めません：別名で保管",
-    "Save unreadable: saving is off": "セーブを読めません：保存は無効"
+    "Save unreadable: saving is off": "セーブを読めません：保存は無効",
+    "Stick dead zone: %s": "スティックのデッドゾーン: %s",
+    "Vibration: %s": "振動: %s",
+    "Retro-Recomp - Graphics": "Retro-Recomp - グラフィック",
+    "Filter: %s": "フィルター: %s",
+    "Restore defaults": "既定値に戻す",
+    "Disc %d/%d": "ディスク %d/%d",
+    "Change disc": "ディスクを交換",
+    "F3  Graphics options": "F3  グラフィック設定"
   }
 }
