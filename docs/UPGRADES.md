@@ -79,6 +79,13 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Computers: a press of the middle button releases the mouse (1.7.0)
+
+On the computers, a press of the middle mouse button (the wheel) now releases a captured mouse, as Ctrl+Alt+M does; the
+button never reaches the game (the X68000's and the Amiga's mice had two buttons). The capture notices say so, in English
+and French. What moves: the **host stamp of the X68000** (`native/hostkit/adapters/rrhk_computer.inc`, host role); no game
+or build stamp, no quick-state key. An export of 1.6.9 keeps working as it is; reconverting it brings the middle-button release.
+
 ## Exports of 1.6.8 in 1.6.9
 
 1.6.9 is the release after 1.6.8 (published on 4 November 2026). This section is the index of its changes, one line per section

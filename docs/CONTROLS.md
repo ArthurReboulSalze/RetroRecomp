@@ -195,6 +195,12 @@ options page of F2 has a row **Keyboard (Ctrl+Alt+K): game controls / computer o
 (a notice says when none is connected); Ctrl+Alt chords and Ctrl+F1–F12 keep working, so the player can always switch back.
 The choice is kept per game, in the game's own `player.cfg`; each game starts with the game controls.
 
+### The mouse of a computer
+
+On the computers (Sharp X68000, and the Amiga when it joins), a click in the window captures the mouse and a mouse game
+captures it at launch. **Ctrl+Alt+M** or, since 1.7.0, a **press of the middle button** (the wheel) releases it: neither
+machine's mouse had a middle button, so the game never needs it. Losing the window's focus releases it too.
+
 ## Game options (1.1.8)
 
 The audio filter is on the options page, the last page of F2; the controller

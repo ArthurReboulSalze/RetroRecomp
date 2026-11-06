@@ -156,6 +156,12 @@ int main(void){
     check(!mouse_grab,"a frontend menu never captures the pointer");
     rrhk_ui()->menu=0;SDL_PushEvent(&click);next();
     check(mouse_grab,"clicking an unknown computer game captures its mouse without a hidden shortcut");
+    /* A press of the middle button (the wheel) releases the captured mouse, and only that. */
+    SDL_Event middle;SDL_zero(middle);middle.type=SDL_MOUSEBUTTONDOWN;middle.button.button=SDL_BUTTON_MIDDLE;
+    SDL_PushEvent(&middle);next();
+    check(!mouse_grab,"a middle click releases the captured mouse");
+    SDL_PushEvent(&middle);next();
+    check(!mouse_grab,"a middle click never captures the mouse");
     mouse_grab=false;SDL_SetRelativeMouseMode(SDL_FALSE);
     release_all();held()[SDL_SCANCODE_H]=held()[SDL_SCANCODE_P]=1;
     check(guest_key(RETROK_h)&&guest_key(RETROK_p),"H and P reach the guest in ordinary shortcut mode");
