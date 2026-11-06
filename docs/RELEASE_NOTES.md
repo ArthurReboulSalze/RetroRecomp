@@ -4,6 +4,20 @@ Not published: this section lists what is already on `main` and is completed at 
 
 <!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
 
+- **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
+  Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
+  reader tells the two bit orders of a dump apart by the first instruction at the reset
+  vector when the vector is plausible both ways (4 of the 91 US cards of the
+  maintainer's library), so a bit-reversed dump is read as such. Twelve US cards
+  converted with 0 interpreted instructions and 0 guard misses on the routes played, the
+  native run equal to the interpreted reference frame by frame, the compressed copy equal
+  and a quick state resumed in a fresh process; the owner has not played these twelve,
+  and no real bit-reversed dump exists in his library (two copies made for the test).
+  A Linux build now converts these cards: 9 of the 11 cards chosen give the CPU, RAM,
+  picture and sound hashes of Windows (two were not run there). The processor is compared
+  with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
+  interpreter, three differences are known, and 9,097 native cases show no difference with
+  the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine
   is no longer experimental. The profile says `supported`, the report says `completed`
