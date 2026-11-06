@@ -8,24 +8,26 @@ Five measures stay separate in every step below: native code, CPU fidelity, hard
 physical latency. Native execution alone guarantees neither complete compatibility nor zero latency, and the interpreter
 fallback stays counted and shown wherever it is used.
 
-## Where things stand (1.6.8, November 2026)
+## Where things stand (1.7.0, November 2026)
 
-| Machine | Status | Qualification progress | Next step |
-| --- | --- | --- | --- |
-| Master System | supported | 70 % | the evidence lot below |
-| Game Gear | supported | 67 % | the evidence lot below |
-| Game Boy | supported | 97 % | Game Boy Color as a profile of its own |
-| NES | supported | 91 % | broader panel |
-| Mega Drive | supported | 84 % | report and Linux witness; MAME sound comparison |
-| Super Nintendo | supported | 94 % | Linux witness; DSP-2 and DSP-4 |
-| Neo Geo | supported | 94 % | Linux witness on more games |
-| Capcom CPS-1 | supported | 90 % | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
-| Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | — | Linux witness of the QSound games; a run of the DSP16 |
-| Sharp X68000 | supported | 91 % | MAME sound and colours on more games; deeper disk-change and save evidence |
-| PC Engine | experimental (since 1.6.9) | 39 % | a speed measure, independent processor evidence, more HuCards, the Linux witness |
+| Machine | Status | Next step |
+| --- | --- | --- |
+| Master System | supported | the evidence lot below |
+| Game Gear | supported | the evidence lot below |
+| Game Boy | supported | Game Boy Color as a profile of its own |
+| NES | supported | broader panel |
+| Mega Drive | supported | report and Linux witness; MAME sound comparison |
+| Super Nintendo | supported | Linux witness; DSP-2 and DSP-4 |
+| Neo Geo | supported | Linux witness on more games |
+| Capcom CPS-1 | supported | rotary-dial boards; the Z80 interrupt-mode-0 opcode has been counted since 1.6.5 |
+| Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | Linux witness of the QSound games; a run of the DSP16 |
+| Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
+| Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
+| PC Engine | experimental (since 1.6.9) | a speed measure, independent processor evidence, more HuCards, the Linux witness |
 
-The progress figure is the share of the qualification gates that are met (half a point for a partial one). It is not a
-quality score, and it never decides a status.
+Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
+[QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.
+It is not a quality score, and it never decides a status.
 
 ## Across all machines
 
