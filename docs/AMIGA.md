@@ -10,14 +10,15 @@ screen: those are separate measures, listed below with what is known of each.
 
 | Converted (experimental) | Not yet |
 | --- | --- |
-| Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a Kickstart (the slave asks for KickEmu): nearly half of the 2,992 Amiga 500 installs of the maintainer's library, which stay refused until the player's own Kickstart is supported |
+| Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a 512 KiB Kickstart (3.x, 12 of the library's installs without a 68020/AGA flag); the installs that also need resload calls the layer lacks stop with the call's number |
+| Installs that need a Kickstart 1.3 (in the slave header or through `resload_LoadKick`), with the player's own image chosen in Options (section 2a). First milestone: about 230 of the library's installs ask for Kickstart 1.x and no resload service the layer lacked (1,280 ask for 1.3 in all); `resload_Examine`, `ExNext` and `ListFiles` are answered too, tested on authored data only: none of the five Kickstart installs converted so far calls them | Kickstart 1.2 installs (17; the same path, not run yet) |
 | The joystick (port 2, two buttons), the mouse (port 1, captured on a click) and the keyboard; quick states (F8/F9) and the files an install saves | ADF disk images, IPF, hard-disk images, Amiga 1200 (68020, AGA), CD32, CDTV |
-| Windows | Linux (`linux = 'pending'`): one conversion checked on a Debian 13 PC with the system GCC (Rick Dangerous, tree `fd953b8c`, 6 November 2026: validated on both routes, compressed copy and quick state included, 0 interpreted), not played there |
+| Windows; Linux (`linux = 'witnessed'`): one conversion checked on a Debian 13 PC with the system GCC (Rick Dangerous, tree `fd953b8c`, 6 November 2026: validated on both routes, compressed copy and quick state included, 0 interpreted), not played there | Kickstart installs on Linux: none was run there (the same machine path; not witnessed) |
 | | A library of qualified paths: the profile is not in the sharing |
 
 A `.lha` that holds no slave, or more than one, is refused with a sentence, never guessed. The archive is read in place and never
-changed; the converter needs no Kickstart, and none is supplied, stored or fetched. The player supplies the install; Retro-Recomp
-publishes no game, no disk and no firmware.
+changed. An install that asks for a Kickstart uses the player's own image (section 2a); Retro-Recomp supplies none, fetches none
+and shares none. The player supplies the install; Retro-Recomp publishes no game, no disk and no firmware.
 
 ## 2. How the conversion works
 
@@ -29,7 +30,19 @@ publishes no game, no disk and no firmware.
    68000 program that calls a table of `resload_*` services, so `native/amiga_whdload/` answers those calls itself (our own MIT
    code, written from the public autodoc; every call is counted and a service it does not provide is refused with its number,
    never answered with a pretended success). The machine boots through an authored boot ROM that enters the slave in supervisor
-   mode; no code runs from Commodore's firmware.
+   mode; an install that needs no Kickstart runs no code from Commodore's firmware.
+2a. **The player's Kickstart** (decisions of 6 November 2026). Options > Commodore Amiga takes one file or a folder of images
+   and a Check button; images are recognised by content (`retrorecomp/amiga_kickstart.py`: plain, doubled, byte-swapped, and
+   Cloanto Amiga Forever files with their `rom.key`, decoded in memory), by size and CRC-32 for the version, size and CRC-16
+   for a slave's request, SHA-256 as identity. A v16+ slave that names a Kickstart in its header gets it at the start of ExpMem
+   before it starts, as WHDLoad does; an older one gets it from `resload_LoadKick`. WHDLoad relocates the image with hand-made
+   `.RTB` tables, which we neither make nor ship: the image keeps the addresses it was built for, and vAmiga's own writable-ROM
+   mechanism (the A1000's WOM, left unlocked) is pointed at the copy, so the ROM window `$FC0000-$FFFFFF` and ExpMem are one set
+   of bytes, read and written by both addresses (the slaves write into the image through its ROM addresses). The Kickstart's
+   instructions stay on the interpreter, counted apart in the report (`kickstart_interpreted` per route), and are never
+   observed, so no Kickstart byte reaches an observation file or the library. The image is copied only into the
+   conversion's private work folder and into the player's own export (resource 298), never into the repository, the library
+   or a shared record; the report names it by numbers only. 256 KiB images (1.x) only for now.
 3. **The machine.** The games run on the Amiga machine of [vAmiga](https://github.com/dirkwhoffmann/vAmiga) (Agnus, Denise, Paula,
    the CIAs, the floppy drive), pinned at one revision and adapted at build time by `retrorecomp/amiga_vamiga.py`, which drives it
    frame by frame inside the game. Its 68000 core, Moira, is the reference CPU of the Amiga profile.
@@ -58,7 +71,7 @@ publishes no game, no disk and no firmware.
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | One game converted: Rick Dangerous (5 November 2026, Standard level): 30,050,479 native instructions and 0 interpreted on the main route, 30,114,205 and 0 on the exploration route (3,000 frames each). Other installs not yet converted. |
+| Native code | The ten-install panel (6 November 2026): 0 interpreted instructions on every route of 3,000 frames, 44.8 to 76.0 million native entries per game over two routes. The five Kickstart 1.3 installs (6 November 2026): the game's own code native, every interpreted instruction the Kickstart's (counted apart, `kickstart_interpreted`): main route, native entries / Kickstart instructions interpreted: Black Tiger 31.1 M / 2.34 M, Flying Shark 23.7 M / 1.58 M, North & South (NTSC) 13.1 M / 3.42 M, Dungeon Master 19.7 M / 7.67 M, Hostages 23.7 M / 5.32 M. |
 | CPU fidelity | The steps call Moira's own templates. Moira (MIT) was compared with the SingleStepTests 68000 vectors; its deviations from them are recorded in 15 families (private engine-gate notes). On Rick Dangerous the trace of every frame (picture, sound, RAM, CPU registers) and the resload log of the native game are identical to the interpreted reference machine's, on both routes. |
 | Hardware fidelity | Not claimed. As a development check, the same installs were run privately in an independent emulator with the real WHDLoad and its pictures compared with ours on 59 reference frames each: Lotus 2 matched 59/59, Lemmings 58/59, Speedball 2 54/59, Elite 51/59, Turrican 2 49/59. Pinball Dreams (NTSC) first scored 19/59; looked for at any offset at the Amiga's 4-bit colour depth, all 59 of its pictures are in the other emulator's stream (the two tools crop some display windows differently). These are counts of equal pictures on a few frames, not a fidelity claim. |
 | Gameplay validation | One owner play trial: the ten panel installs, converted with the tree at `977cf63e` and delivered in `Export`, were played on 6 November 2026 and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). A trial, not a coverage claim: no game was checked end to end, and it is not a decision to leave the experimental status. |
@@ -66,7 +79,10 @@ publishes no game, no disk and no firmware.
 
 ## 4. Known limits
 
-- Kickstart installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none played: section 1).
+- Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none
+  played: section 1; no Kickstart install was converted on Linux). With a Kickstart, the operating system loads through the
+  resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity limit, not claimed
+  otherwise).
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.

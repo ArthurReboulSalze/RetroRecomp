@@ -25,6 +25,7 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | experimental (since 1.6.9) | a speed measure on a quiet PC, more HuCards (Gradius and Santatlantean still to witness on Linux) |
 | Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, Golden Sun's run-time code, the LDM/STM vectors, an independent emulator comparison |
+| Commodore Amiga 500 | experimental (since 1.7.0) | installs that need a player's own Kickstart, then ADF images; more installs converted and played; the Linux witness |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
 [QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.

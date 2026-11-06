@@ -4,8 +4,9 @@ authored C harness.
 The harness runs every provided service on a flat guest memory with authored files: loads, disk images, saves,
 CRC-16, Control tags, the whole patch-list language including IF blocks and PL_NEXT, PatchSeg, Relocate (over itself,
 into a CHIP area, as a LoadSeg list), RNC1 unpacking (a file packed here by an encoder written from the format, with
-literal runs and matches over two sub-chunks), and the refusals of what is not provided. No game, slave or ROM is
-involved.
+literal runs and matches over two sub-chunks), the Kickstart load (resload_LoadKick, and the image a v16+ slave header
+asks for, one name or a table of CRC-16 and name pairs, with an authored fake image), Examine, ExNext and ListFiles over
+an authored file list, and the refusals of what is not provided. No game, slave, ROM or Kickstart is involved.
 """
 import struct
 import subprocess

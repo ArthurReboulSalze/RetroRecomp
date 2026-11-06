@@ -100,6 +100,10 @@ static bool load_install(const char *dir, RrAmigaGame *game, RrAmigaFile **files
          if (!game->slave) { fclose(f); return false; }
       } else if (!strncmp(line, "ntsc ", 5)) {
          game->ntsc = atoi(line + 5) != 0;
+      } else if (!strncmp(line, "kickstart ", 10)) {   /* the player's Kickstart, normalised by the converter (its own work folder) */
+         snprintf(path, sizeof path, "%s/%s", dir, line + 10);
+         game->kickstart = read_file(path, &game->kickstart_size);
+         if (!game->kickstart) { fclose(f); return false; }
       } else if (!strncmp(line, "file ", 5)) {
          char *tab = strchr(line + 5, '\t');
          RrAmigaFile *grown;
@@ -141,6 +145,12 @@ static bool embedded_install(RrAmigaGame *game, RrAmigaFile **files) {
    game->files = *files;
    game->file_count = RR_AMIGA_FILE_COUNT;
    game->ntsc = RR_AMIGA_NTSC;
+#ifdef RR_AMIGA_KICKSTART_RESOURCE
+   /* The player's own Kickstart, built into the player's own export (decision D1, 6 Nov 2026), as the X68000 does its IPL. */
+   game->kickstart = (const uint8_t *)rr_resource(RR_AMIGA_KICKSTART_RESOURCE, &size);
+   game->kickstart_size = (uint32_t)size;
+   if (!game->kickstart || !size) return false;
+#endif
    return true;
 }
 #endif
@@ -290,6 +300,14 @@ static int run_headless(const char *trace_path, const char *report_path, const c
          int vx, vy, vw, vh;
          if (rr_amiga_viewport(session, &vx, &vy, &vw, &vh)) fprintf(r, "{\"view\":[%d,%d,%d,%d],", vx, vy, vw, vh);
          else fputs("{\"view\":null,", r);
+      }
+      {
+         uint32_t ksize;
+         uint16_t kcrc;
+         if (rr_amiga_kickstart(session, &ksize, &kcrc))
+            fprintf(r, "\"kickstart\":{\"size\":%u,\"crc16\":%u,\"interpreted\":%llu},", ksize, kcrc,
+                    (unsigned long long)rr_amiga_kickstart_interpreted_count(session));
+         else fputs("\"kickstart\":null,", r);
       }
       fprintf(r, "\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",

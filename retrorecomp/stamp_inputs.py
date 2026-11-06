@@ -626,6 +626,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga',
         'retrorecomp.amiga_codegen',
         'retrorecomp.amiga_conversion',
+        'retrorecomp.amiga_kickstart',
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
