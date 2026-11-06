@@ -62,6 +62,10 @@ class ScummvmBuildError(RuntimeError):
     pass
 
 
+class ScummvmToolsMissing(ScummvmBuildError):
+    """The build tools are not installed: nothing was started (discovery and the interface answer with a sentence)."""
+
+
 def family_for(engine: str) -> str:
     """The build family of an engine id reported by ScummVM's detection."""
     return FAMILY_OF_ENGINE.get(engine, engine)
@@ -177,6 +181,11 @@ def _environment() -> dict:
 def _require_portable_tools() -> None:
     """Windows builds of the runtime use the portable llvm-mingw toolchain only (Visual Studio is never used for it)."""
     if os.name != 'nt':
+        from .core import ConversionError, toolchain
+        try:
+            toolchain()
+        except ConversionError as exc:
+            raise ScummvmToolsMissing(f"The ScummVM runtime is built with the system's build tools: {exc}") from exc
         return
     from .toolchain import LLVM, ToolchainError, portable_installed, select
     try:
@@ -184,8 +193,8 @@ def _require_portable_tools() -> None:
     except ToolchainError:
         kind = ''
     if kind != LLVM or not portable_installed():
-        raise ScummvmBuildError('The ScummVM runtime is built with the portable tools Retro-Recomp installs '
-                                '(llvm-mingw, CMake, Ninja): install them from the converter, Visual Studio is not used.')
+        raise ScummvmToolsMissing('The ScummVM runtime is built with the portable tools Retro-Recomp installs '
+                                  '(llvm-mingw, CMake, Ninja): install them from the converter, Visual Studio is not used.')
 
 
 def _run(command: list, cwd: Path, log: Path, timeout: int = 3600) -> str:

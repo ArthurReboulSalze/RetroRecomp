@@ -52,16 +52,33 @@ class ScummvmProfile(SystemProfile):
         return self if self.claims_folder(path) else None
 
     def find_folders(self, root: Path) -> list[Path]:
+        """The game folders below `root`. Without the build tools (and no runtime built yet) detection cannot run: the
+        discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build."""
+        from ..scummvm_build import ScummvmToolsMissing
         from ..scummvm_export import find_game_folders
-        return find_game_folders(Path(root))
+        from .registry import FolderDiscoveryUnavailable
+        try:
+            return find_game_folders(Path(root))
+        except ScummvmToolsMissing as exc:
+            raise FolderDiscoveryUnavailable('scummvm_tools_missing', str(exc)) from exc
 
     def claims_folder(self, folder: Path) -> bool:
+        from ..core import ConversionError
+        from ..scummvm_build import ScummvmToolsMissing
         from ..scummvm_export import candidates_of
-        return bool(candidates_of(Path(folder)))
+        try:
+            return bool(candidates_of(Path(folder)))
+        except ScummvmToolsMissing as exc:
+            raise ConversionError(str(exc)) from exc       # an error on that item, not a crash
 
     def read_rom(self, path: Path):
+        from ..core import ConversionError
+        from ..scummvm_build import ScummvmToolsMissing
         from ..scummvm_export import read_folder
-        return read_folder(Path(path))
+        try:
+            return read_folder(Path(path))
+        except ScummvmToolsMissing as exc:
+            raise ConversionError(str(exc)) from exc
 
     def default_video_mode(self, path: Path) -> str:
         return 'scummvm'

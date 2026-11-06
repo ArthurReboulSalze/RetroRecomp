@@ -121,12 +121,28 @@ def folder_profiles() -> tuple[SystemProfile, ...]:
     return tuple(profile for profile in _REGISTERED if getattr(profile, 'accepts_folders', False))
 
 
-def discover_folders(folder) -> list:
-    """The game folders at or below `folder` that a machine taking folders recognises, beside `discover_roms`."""
+class FolderDiscoveryUnavailable(Exception):
+    """A machine's folder discovery cannot run yet (its build tools are missing). `key` is the interface sentence that says so."""
+
+    def __init__(self, key: str, message: str = ''):
+        super().__init__(message or key)
+        self.key = key
+
+
+def discover_folders(folder, unavailable: list | None = None) -> list:
+    """The game folders at or below `folder` that a machine taking folders recognises, beside `discover_roms`.
+    A machine whose discovery cannot run (FolderDiscoveryUnavailable) is skipped; its exception is appended to
+    `unavailable` when the caller gives a list, so the interface can say why nothing was found."""
     found = {}
     for profile in folder_profiles():
         if profile.available():
-            for path in profile.find_folders(folder):
+            try:
+                paths = profile.find_folders(folder)
+            except FolderDiscoveryUnavailable as exc:
+                if unavailable is not None:
+                    unavailable.append(exc)
+                continue
+            for path in paths:
                 found.setdefault(str(path).casefold(), path)
     return sorted(found.values(), key=lambda path: str(path).casefold())
 
