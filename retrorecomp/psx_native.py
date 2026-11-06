@@ -3,8 +3,10 @@ Beetle's handler bodies and is GPL-2.0 like them, inside the GPL-2.0 game).
 
 The conversion's observing build (RR_PSX_OBSERVE, native/psx_machine/psx_observe.c) records each (physical address, word) the
 interpreter fetched in main RAM or the BIOS, with whether it was ever reached other than from the instruction before it. This
-module turns those records into native steps: runs of consecutive instructions, each a C function of cpu.c (`rr_psx_native.inc`,
-included by our anchored change) holding, per instruction, the interpreter's own handler body with its word as a constant.
+module turns those records into native steps: runs of consecutive instructions, each a C function holding, per instruction,
+the interpreter's own handler body with its word as a constant. The steps are written in slices compiled side by side; each
+slice compiles the head of cpu.c (our anchored change: its declarations with the CPU state shared) and calls cpu.c's memory
+accessors, exception entry and instruction-cache miss through functions cpu.c exports.
 
 Each step keeps the interpreter's timing and order to the instruction. Between two instructions it does what the interpreter's
 loop head does (the event check, r0 pinned, the instruction fetch through the core's instruction cache with its cycles, the
@@ -23,6 +25,7 @@ from pathlib import Path
 FORMAT = 1
 OBSERVE_MAGIC = 'RRPSX-OBSERVE 1'
 MAX_RUN = 256                       # instructions in one step at most (a long straight run becomes several steps)
+MAX_VARIANTS = 4                    # words kept per address (the most run); further words stay with the interpreter
 RAM_BYTES, BIOS_BASE, BIOS_BYTES = 0x200000, 0x1FC00000, 0x80000
 
 
@@ -123,62 +126,77 @@ def executable(address: int) -> bool:
 
 @dataclass
 class Plan:
-    steps: list                     # [(start address, [(address, word), ...])]
-    instructions: int               # instructions held by the steps
-    variants_left: int              # (address, word) pairs observed at an address whose step holds another word
+    steps: list                     # [(start address, rank, [(address, word), ...])]
+    instructions: int               # (address, word) pairs held by the steps
+    addresses: int                  # addresses with at least one step
+    variants_left: int              # pairs observed beyond MAX_VARIANTS words at their address (left to the interpreter)
     observed_runs: int              # executions observed in all
     covered_runs: int               # of them, at an (address, word) a step holds
 
 
 def plan(pairs: dict[tuple[int, int], Observed], table: Handlers) -> Plan:
-    """One word per address (the one run most often), runs of consecutive addresses cut where an address was entered other
-    than from the instruction before it (a branch target, a return, a vector) and every MAX_RUN instructions."""
-    chosen: dict[int, tuple[int, Observed]] = {}
+    """The words seen at each address, most run first (code loaded over other code: overlays, a later disc), up to
+    MAX_VARIANTS. The words of one rank form runs of consecutive addresses, cut where an address was entered other than from
+    the instruction before it (a branch target, a return, a vector) and every MAX_RUN instructions."""
+    variants: dict[int, list] = {}
     entered: set[int] = set()
     for (address, word), seen in pairs.items():
         if not executable(address) or address & 3:
             continue
         if seen.entered:
             entered.add(address)
-        if table.name(word) == 'INTERRUPT':
-            continue
-        best = chosen.get(address)
-        if best is None or (seen.count, -word) > (best[1].count, -best[0]):
-            chosen[address] = (word, seen)
-    steps, current = [], None
-    for address in sorted(chosen):
-        word = chosen[address][0]
-        if current is None or address in entered or address != current[1][-1][0] + 4 or len(current[1]) >= MAX_RUN:
-            current = (address, [])
-            steps.append(current)
-        current[1].append((address, word))
+        if table.name(word) != 'INTERRUPT':
+            variants.setdefault(address, []).append((-seen.count, word, seen))
+    for found in variants.values():
+        found.sort(key=lambda v: (v[0], v[1]))
+    steps = []
+    for rank in range(MAX_VARIANTS):
+        current = None
+        for address in sorted(a for a, found in variants.items() if len(found) > rank):
+            word = variants[address][rank][1]
+            if current is None or address in entered or address != current[2][-1][0] + 4 or len(current[2]) >= MAX_RUN:
+                current = (address, rank, [])
+                steps.append(current)
+            current[2].append((address, word))
+    kept = [v for found in variants.values() for v in found[:MAX_VARIANTS]]
     observed = sum(seen.count for seen in pairs.values())
-    covered = sum(chosen[a][1].count for a in chosen)
-    return Plan(steps, len(chosen), sum(1 for a, _ in pairs if a in chosen) - len(chosen), observed, covered)
+    covered = sum(seen.count for _, _, seen in kept)
+    left = sum(max(0, len(found) - MAX_VARIANTS) for found in variants.values())
+    return Plan(steps, len(kept), len(variants), left, observed, covered)
 
 
-HEADER = """/* Native steps of this PlayStation game, written by Retro-Recomp (retrorecomp/psx_native.py) from the code its conversion
- * routes ran. They expand the handler bodies of Beetle PSX's interpreter (cpu.c) and are GPL-2.0 like them; included by our
- * anchored change of cpu.c when the game is built with RR_PSX_NATIVE. Each instruction keeps the interpreter's timing: the
- * loop head's event check, fetch through the instruction cache and read-absorb tick come before its body. A step is entered at
- * any address of its run, with the word the interpreter has just fetched there. */
+SHARD_HEADER = """/* What a slice of this PlayStation game's native steps needs of Beetle PSX's cpu.c, written by Retro-Recomp
+ * (retrorecomp/psx_native.py). A slice compiles the head of cpu.c (RR_PSX_SHARD: its declarations, aliases and
+ * constants, with the CPU state shared), which includes this file; the handler macros below are copied from the
+ * interpreter (GPL-2.0, like it). Each instruction keeps the interpreter's timing: the loop head's event check, fetch
+ * through the instruction cache and read-absorb tick come before its body. A step is entered at any address of its
+ * run, with the word the interpreter has just fetched there. */
+#ifndef RR_PSX_SHARD_H
+#define RR_PSX_SHARD_H
 
-/* The core's memory accesses and instruction-cache misses, called rather than expanded in every instruction (the same
- * functions, so the same cycles; only the compiled size changes). A fetch that hits the instruction cache stays inline, as
- * ReadInstruction does it. */
-static NO_INLINE uint8_t rr_psx_read_u8(int32_t *t, uint32_t a) { return ReadMemory_u8(t, a); }
-static NO_INLINE uint16_t rr_psx_read_u16(int32_t *t, uint32_t a) { return ReadMemory_u16(t, a); }
-static NO_INLINE uint32_t rr_psx_read_u32(int32_t *t, uint32_t a, bool ds24, bool lwc) { return ReadMemory_u32(t, a, ds24, lwc); }
-static NO_INLINE void rr_psx_write_u8(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u8(t, a, v); }
-static NO_INLINE void rr_psx_write_u16(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u16(t, a, v); }
-static NO_INLINE void rr_psx_write_u32(int32_t *t, uint32_t a, uint32_t v, bool ds24) { WriteMemory_u32(t, a, v, ds24); }
-static NO_INLINE uint32_t rr_psx_fetch_missed(int32_t *t, uint32_t a) { return ReadInstruction(t, a); }
-#define ReadMemory_u8(t, a) rr_psx_read_u8(t, a)
-#define ReadMemory_u16(t, a) rr_psx_read_u16(t, a)
-#define ReadMemory_u32(t, a, ds24, lwc) rr_psx_read_u32(t, a, ds24, lwc)
-#define WriteMemory_u8(t, a, v) rr_psx_write_u8(t, a, v)
-#define WriteMemory_u16(t, a, v) rr_psx_write_u16(t, a, v)
-#define WriteMemory_u32(t, a, v, ds24) rr_psx_write_u32(t, a, v, ds24)
+extern uint64_t rr_psx_fetched_count, rr_psx_native_count;
+/* cpu.c's own accessors, exception entry and instruction-cache miss (our anchored change exports them). */
+uint8_t rr_psx_read_u8(int32_t *t, uint32_t a);
+uint16_t rr_psx_read_u16(int32_t *t, uint32_t a);
+uint32_t rr_psx_read_u32(int32_t *t, uint32_t a, bool ds24, bool lwc);
+void rr_psx_write_u8(int32_t *t, uint32_t a, uint32_t v);
+void rr_psx_write_u16(int32_t *t, uint32_t a, uint32_t v);
+void rr_psx_write_u32(int32_t *t, uint32_t a, uint32_t v, bool ds24);
+uint32_t rr_psx_fetch_missed(int32_t *t, uint32_t a);
+uint32_t rr_psx_exception(uint32_t code, uint32_t pc, uint32_t np, uint32_t instr);
+void rr_psx_recalc_ipcache(void);
+#define ReadMemory_u8 rr_psx_read_u8
+#define ReadMemory_u16 rr_psx_read_u16
+#define ReadMemory_u32 rr_psx_read_u32
+#define WriteMemory_u8 rr_psx_write_u8
+#define WriteMemory_u16 rr_psx_write_u16
+#define WriteMemory_u32 rr_psx_write_u32
+#define CPU_Exception rr_psx_exception
+#define CPU_RecalcIPCache rr_psx_recalc_ipcache
+
+/* The interpreter's handler macros (cpu.c). */
+%s
+/* The loop head of the interpreter, per instruction of a step. */
 #define RR_READ_INSTRUCTION \\
    (ICache[(PC & 0xFFC) >> 2].TV == PC ? (++rr_psx_fetched_count, ICache[(PC & 0xFFC) >> 2].Data) \\
                                       : rr_psx_fetch_missed(&timestamp, PC))
@@ -201,7 +219,34 @@ static NO_INLINE uint32_t rr_psx_fetch_missed(int32_t *t, uint32_t a) { return R
 #define RR_END \\
    rr_out: RR_OUT; return 0; \\
    rr_fetched: RR_OUT; rr->instr = rr_word; return 1;
+
+#endif
 """
+
+# The macros of cpu.c the handler bodies use, copied into the slices' header (each defined exactly once in cpu.c).
+HANDLER_MACROS = ('GPR_DEPRES_BEGIN', 'GPR_DEP', 'GPR_RES', 'GPR_DEPRES_END', 'DO_LDS', 'DO_BRANCH', 'ITYPE', 'ITYPE_ZE',
+                  'JTYPE', 'RTYPE')
+SLICE_PRELUDE = ('/* Native steps of this PlayStation game (slice %d), written by Retro-Recomp (retrorecomp/psx_native.py)\n'
+                 ' * from the code its conversion routes ran: the handler bodies of Beetle PSX\'s interpreter with each\n'
+                 ' * instruction word constant (GPL-2.0, like them). */\n'
+                 '#define RR_PSX_SHARD 1\n#include "mednafen/psx/cpu.c"\n\n')
+SLICE_INSTRUCTIONS = 6000           # instructions per slice (the slices compile side by side)
+
+
+def handler_macros(cpu_text: str) -> str:
+    """The text of the HANDLER_MACROS definitions of cpu.c, continuation lines included."""
+    lines = cpu_text.splitlines()
+    out = []
+    for name in HANDLER_MACROS:
+        found = [n for n, line in enumerate(lines) if re.match(rf'\s*#\s*define\s+{name}\b(?!\w)', line)]
+        if len(found) != 1:
+            raise NativeError(f'Beetle PSX cpu.c: the {name} macro is not defined exactly once.')
+        n = found[0]
+        out.append(lines[n].strip())
+        while lines[n].rstrip().endswith('\\'):
+            n += 1
+            out.append(lines[n].rstrip())
+    return '\n'.join(out) + '\n'
 
 
 def _macro(name: str, body: str) -> str:
@@ -209,12 +254,12 @@ def _macro(name: str, body: str) -> str:
     return f'#define RR_OP_{name} \\\n' + ''.join(f'   {line} \\\n' for line in lines) + '\n'
 
 
-def _function_name(address: int) -> str:
-    return f'rr_psx_step_{address:08x}'
+def _function_name(address: int, rank: int = 0) -> str:
+    return f'rr_psx_step_{address:08x}' + (f'_{rank}' if rank else '')
 
 
-def _step(table: Handlers, start: int, run: list) -> str:
-    lines = [f'static int {_function_name(start)}(RrPsxRegs *rr)\n{{\n   RR_IN;\n']
+def _step(table: Handlers, start: int, rank: int, run: list) -> str:
+    lines = [f'int {_function_name(start, rank)}(RrPsxRegs *rr)\n{{\n   RR_IN;\n']
     if len(run) > 1:
         lines.append(f'   switch (((PC & 0x1FFFFFFF) - 0x{start:08x}u) >> 2)\n   {{\n'
                      + ''.join(f'      case {n}: goto rr_e{n};\n' for n in range(len(run)))
@@ -235,33 +280,117 @@ def _step(table: Handlers, start: int, run: list) -> str:
     return ''.join(lines)
 
 
-def write(cpu_c: Path, pairs: dict, out: Path) -> dict:
-    """Write `out` (rr_psx_native.inc) for these observations; returns the summary the report keeps."""
-    table = handlers(Path(cpu_c).read_text(encoding='utf-8'))
+TABLE = """/* The native step table of this PlayStation game, written by Retro-Recomp (retrorecomp/psx_native.py): which step
+ * runs each address of main RAM and the BIOS, installed at start-up. */
+#define RR_PSX_SHARD 1
+#include "mednafen/psx/cpu.c"
+
+extern RrPsxStep rr_psx_ram_steps[0x%x >> 2];
+extern RrPsxStep rr_psx_bios_steps[0x%x >> 2];
+%s
+static const struct { uint32_t address, count; RrPsxStep step; } rr_psx_step_table[] = {
+%s   {0, 0, NULL}
+};
+
+/* Addresses where several words were seen: the step is chosen by the word the interpreter has just fetched (sorted by
+ * address, then word). */
+static const struct { uint32_t address, word; RrPsxStep step; } rr_psx_variant_table[] = {
+%s   {0xFFFFFFFFu, 0, NULL}
+};
+
+static int rr_psx_variant_step(RrPsxRegs *rr)
+{
+   const uint32_t address = rr->PC & 0x1FFFFFFF;
+   size_t low = 0, high = sizeof rr_psx_variant_table / sizeof rr_psx_variant_table[0] - 1;
+   while (low < high)
+   {
+      const size_t middle = (low + high) / 2;
+      if (rr_psx_variant_table[middle].address < address
+          || (rr_psx_variant_table[middle].address == address && rr_psx_variant_table[middle].word < rr->instr))
+         low = middle + 1;
+      else
+         high = middle;
+   }
+   if (rr_psx_variant_table[low].address == address && rr_psx_variant_table[low].word == rr->instr)
+      return rr_psx_variant_table[low].step(rr);
+   return 1;
+}
+
+static void rr_psx_install(uint32_t a, RrPsxStep step)
+{
+   if (a < 0x%xu)
+      rr_psx_ram_steps[a >> 2] = step;
+   else
+      rr_psx_bios_steps[(a - 0x%08xu) >> 2] = step;
+}
+
+__attribute__((constructor)) static void rr_psx_steps_install(void)
+{
+   size_t n;
+   uint32_t k;
+   for (n = 0; rr_psx_step_table[n].step; n++)
+      for (k = 0; k < rr_psx_step_table[n].count; k++)
+         rr_psx_install(rr_psx_step_table[n].address + 4 * k, rr_psx_step_table[n].step);
+   for (n = 0; rr_psx_variant_table[n].step; n++)
+      rr_psx_install(rr_psx_variant_table[n].address, rr_psx_variant_step);
+}
+"""
+
+
+def _slices(steps: list) -> list[list]:
+    out, size = [[]], 0
+    for step in steps:
+        if size >= SLICE_INSTRUCTIONS:
+            out.append([])
+            size = 0
+        out[-1].append(step)
+        size += len(step[2])
+    return out
+
+
+def _write_text(path: Path, text: str) -> None:
+    if not path.is_file() or path.read_text(encoding='utf-8') != text:
+        path.write_text(text, encoding='utf-8', newline='\n')
+
+
+def write(cpu_c: Path, pairs: dict, folder: Path) -> dict:
+    """Write the native steps of these observations into `folder` (the slices `rr_psx_steps_NN.c`, their header and the
+    table); returns the summary the report keeps, with the C files to compile (`sources`)."""
+    cpu_text = Path(cpu_c).read_text(encoding='utf-8')
+    table = handlers(cpu_text)
     p = plan(pairs, table)
-    used = sorted({table.name(word) for _, run in p.steps for _, word in run})
-    parts = [HEADER, f'/* {len(p.steps)} steps, {p.instructions} instructions; handlers {table.digest[:16]}. */\n\n']
-    parts += [_macro(name, table.bodies[name]) for name in used]
-    parts += [_step(table, start, run) for start, run in p.steps]
-    parts.append('static const struct { uint32_t address, count; RrPsxStep step; } rr_psx_step_table[] = {\n')
-    parts += [f'   {{0x{start:08x}u, {len(run)}, {_function_name(start)}}},\n' for start, run in p.steps]
-    parts.append('   {0, 0, NULL}\n};\n\n'
-                 '__attribute__((constructor)) static void rr_psx_steps_install(void)\n{\n'
-                 '   size_t n;\n   uint32_t k;\n'
-                 '   for (n = 0; rr_psx_step_table[n].step; n++)\n'
-                 '      for (k = 0; k < rr_psx_step_table[n].count; k++)\n      {\n'
-                 '         const uint32_t a = rr_psx_step_table[n].address + 4 * k;\n'
-                 f'         if (a < 0x{RAM_BYTES:x}u)\n            rr_psx_ram_steps[a >> 2] = rr_psx_step_table[n].step;\n'
-                 f'         else\n            rr_psx_bios_steps[(a - 0x{BIOS_BASE:08x}u) >> 2] = rr_psx_step_table[n].step;\n'
-                 '      }\n}\n\n'
-                 '#undef ReadMemory_u8\n#undef ReadMemory_u16\n#undef ReadMemory_u32\n'
-                 '#undef WriteMemory_u8\n#undef WriteMemory_u16\n#undef WriteMemory_u32\n')
-    text = ''.join(parts)
-    out = Path(out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    if not out.is_file() or out.read_text(encoding='utf-8') != text:
-        out.write_text(text, encoding='utf-8', newline='\n')
-    return {'format': FORMAT, 'steps': len(p.steps), 'instructions': p.instructions, 'handlers': used,
-            'handler_digest': table.digest, 'variants_left_to_interpreter': p.variants_left,
-            'observed_executions': p.observed_runs, 'observed_executions_in_steps': p.covered_runs,
-            'sha256': hashlib.sha256(text.encode()).hexdigest()}
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256()
+    header = SHARD_HEADER % handler_macros(cpu_text)
+    _write_text(folder / 'rr_psx_shard.h', header)
+    digest.update(header.encode())
+    sources = []
+    used = set()
+    for number, steps in enumerate(_slices(p.steps)):
+        names = sorted({table.name(word) for _, _, run in steps for _, word in run})
+        used.update(names)
+        text = (SLICE_PRELUDE % number + ''.join(_macro(name, table.bodies[name]) for name in names)
+                + ''.join(_step(table, start, rank, run) for start, rank, run in steps))
+        sources.append(f'rr_psx_steps_{number:02d}.c')
+        _write_text(folder / sources[-1], text)
+        digest.update(text.encode())
+    for stale in folder.glob('rr_psx_steps_*.c'):
+        if stale.name not in sources:
+            stale.unlink()
+    words: dict[int, list] = {}
+    for start, rank, run in p.steps:
+        for address, word in run:
+            words.setdefault(address, []).append((word, _function_name(start, rank)))
+    shared = {a: sorted(found) for a, found in words.items() if len(found) > 1}
+    prototypes = ''.join(f'int {_function_name(start, rank)}(RrPsxRegs *rr);\n' for start, rank, _ in p.steps)
+    steps = ''.join(f'   {{0x{start:08x}u, {len(run)}, {_function_name(start, rank)}}},\n' for start, rank, run in p.steps)
+    variants = ''.join(f'   {{0x{a:08x}u, 0x{word:08x}u, {name}}},\n' for a in sorted(shared) for word, name in shared[a])
+    text = TABLE % (RAM_BYTES, BIOS_BYTES, prototypes, steps, variants, RAM_BYTES, BIOS_BASE)
+    sources.append('rr_psx_native_table.c')
+    _write_text(folder / sources[-1], text)
+    digest.update(text.encode())
+    return {'format': FORMAT, 'steps': len(p.steps), 'instructions': p.instructions, 'addresses': p.addresses,
+            'addresses_with_variants': len(shared), 'handlers': sorted(used), 'handler_digest': table.digest,
+            'variants_left_to_interpreter': p.variants_left, 'observed_executions': p.observed_runs,
+            'observed_executions_in_steps': p.covered_runs, 'sources': sources, 'sha256': digest.hexdigest()}

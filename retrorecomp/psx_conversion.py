@@ -252,7 +252,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         phase = time.perf_counter()
         with stages.phase('code_generation'):
             pairs, overflow = psx_native.read_observations(observations)
-            native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project / 'rr_psx_native.inc')
+            native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project)
             psx_build.set_native(project, tree, True)
         emit(f'PlayStation: {native["instructions"]} observed instructions in {native["steps"]} native steps; '
              'building the game.')
@@ -316,7 +316,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                               'reference_kind': "the core's interpreter (Beetle PSX at the same revision)",
                               'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False},
-        'native_coverage': 'observed main-RAM and BIOS code of the routes, one word per address, guarded by the fetched word',
+        'native_coverage': 'observed main-RAM and BIOS code of the routes (up to four words per address), guarded by the fetched word',
         'video_model': {'standard': video_mode, 'renderer': 'software, native resolution', 'display_aspect': '4:3'},
         'audio_cpu': None, 'audio_model': {'kind': 'SPU of the machine (Beetle)', 'rate': 44100, 'channels': 2},
         'counter_unit': 'retired instructions', 'runtime_learning': False, 'runtime_feedback': feedback,

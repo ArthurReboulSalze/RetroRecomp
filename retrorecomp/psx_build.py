@@ -51,9 +51,10 @@ def state_config(game_sha256: str, title: str, video_mode: str, bios_sha256: str
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
 
 
-def game_cmake(tree: Path, version: str, *, native: bool) -> str:
-    """The game project: `game` (the published program; its CPU runs the native steps of rr_psx_native.inc when `native`)
-    and `game_observe` (the conversion's observing build: the interpreter alone, recording the code it runs)."""
+def game_cmake(tree: Path, version: str, *, native: tuple[str, ...] = ()) -> str:
+    """The game project: `game` (the published program; its CPU runs the native steps of the `native` C files written by
+    retrorecomp/psx_native.py, when there are some) and `game_observe` (the conversion's observing build: the interpreter
+    alone, recording the code it runs)."""
     from . import hostkit
     kit = ' '.join(hostkit.sources('psx'))
     cpu = '${RR_BEETLE_TREE}/mednafen/psx/cpu.c'
@@ -65,19 +66,21 @@ def game_cmake(tree: Path, version: str, *, native: bool) -> str:
         f'set(RR_BEETLE_TREE "{tree.as_posix()}")',
         'include("${RR_BEETLE_TREE}/rr_sources.cmake")',
         f'list(REMOVE_ITEM RR_BEETLE_SOURCES "{cpu}")',
-        'function(rr_beetle_library name)',
-        '  add_library(${name} STATIC ${ARGN})',
+        'function(rr_beetle_library name kind)',
+        '  add_library(${name} ${kind} ${ARGN})',
         '  target_include_directories(${name} PUBLIC ${RR_BEETLE_INCLUDES})',
         '  target_compile_definitions(${name} PUBLIC ${RR_BEETLE_DEFINES})',
         '  if(MSVC)', '    target_compile_options(${name} PRIVATE /O2 /w)',
         '  else()', '    target_compile_options(${name} PRIVATE -O2 -w -fwrapv -fno-strict-aliasing -fno-fast-math)', '  endif()',
         'endfunction()',
-        'rr_beetle_library(rr_beetle ${RR_BEETLE_SOURCES})',
-        f'rr_beetle_library(rr_cpu_game "{cpu}")',
-        f'rr_beetle_library(rr_cpu_observe "{cpu}")',
+        'rr_beetle_library(rr_beetle STATIC ${RR_BEETLE_SOURCES})',
+        f'rr_beetle_library(rr_cpu_game STATIC "{cpu}")',
+        f'rr_beetle_library(rr_cpu_observe STATIC "{cpu}")',
         'target_compile_definitions(rr_cpu_observe PRIVATE RR_PSX_OBSERVE)',
+        # The native steps: an object library, so that every object (the step table's start-up code too) is linked.
         *(['target_compile_definitions(rr_cpu_game PRIVATE RR_PSX_NATIVE)',
-           'target_include_directories(rr_cpu_game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")'] if native else []),
+           'rr_beetle_library(rr_native OBJECT ' + ' '.join(native) + ')',
+           'target_include_directories(rr_native PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")'] if native else []),
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
         'function(rr_psx_program name cpu)',
@@ -94,6 +97,7 @@ def game_cmake(tree: Path, version: str, *, native: bool) -> str:
         '    target_link_options(${name} PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', '  endif()',
         'endfunction()',
         'rr_psx_program(game rr_cpu_game)',
+        *(['target_link_libraries(game PRIVATE rr_native)'] if native else []),
         'rr_psx_program(game_observe rr_cpu_observe psx_observe.c)',
         'target_compile_definitions(game_observe PRIVATE RR_PSX_OBSERVE)',
     ]
@@ -155,9 +159,15 @@ def prepare_game(project: Path, tree: Path, *, title: str, game_sha256: str, vid
 
 
 def set_native(project: Path, tree: Path, native: bool) -> None:
-    """The project's CMake file, with the game's CPU on its native steps (`project/rr_psx_native.inc`) or on the interpreter."""
+    """The project's CMake file, with the game's CPU on its native steps (the C files retrorecomp/psx_native.py wrote into
+    the project) or on the interpreter alone."""
     from . import __version__
-    _write(project / 'CMakeLists.txt', game_cmake(tree, __version__, native=native))
+    sources = ()
+    if native:
+        sources = (*sorted(p.name for p in project.glob('rr_psx_steps_*.c')), 'rr_psx_native_table.c')
+        if not (project / sources[-1]).is_file():
+            raise PsxBuildError('The native steps of this game were not written.')
+    _write(project / 'CMakeLists.txt', game_cmake(tree, __version__, native=sources))
 
 
 def build_game(project: Path, emit: Callable[[str], None] = print, *, cmake_args: list | None = None,

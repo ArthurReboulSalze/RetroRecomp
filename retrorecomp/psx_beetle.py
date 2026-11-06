@@ -114,12 +114,9 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '#define RR_PSX_OBSERVE_STEP\n'
      '#endif\n'
      '#ifdef RR_PSX_NATIVE\n'
-     'typedef struct RrPsxRegs { int32_t timestamp; uint32_t PC, new_PC, LDWhich, LDValue, instr; } RrPsxRegs;\n'
-     '/* A native step: 0, it stopped before a fetch (the loop goes on at its head); 1, it fetched an instruction it does\n'
-     ' * not hold (regs->instr), which the interpreter decodes. */\n'
-     'typedef int (*RrPsxStep)(RrPsxRegs *regs);\n'
-     'static RrPsxStep rr_psx_ram_steps[0x200000 >> 2];\n'
-     'static RrPsxStep rr_psx_bios_steps[0x80000 >> 2];\n'
+     '/* The step of each address of main RAM and the BIOS (filled by the game\'s native step table at start-up). */\n'
+     'RrPsxStep rr_psx_ram_steps[0x200000 >> 2];\n'
+     'RrPsxStep rr_psx_bios_steps[0x80000 >> 2];\n'
      'static INLINE RrPsxStep rr_psx_step_at(uint32_t pc)\n{\n'
      '   const uint32_t physical = pc & 0x1FFFFFFF;\n'
      '   if (physical < 0x200000)\n      return rr_psx_ram_steps[physical >> 2];\n'
@@ -167,15 +164,76 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '\t/* Retro-Recomp modification (GPL-2.0, like this file): this fetch runs no instruction. */\n'
      '\t++rr_psx_unrun_count;\n'
      '\tif(Halted)\n'),
-    # The native steps are functions of this file (they call its memory, exception and coprocessor code and expand the
-    # handler bodies of CPU_RunReal, whose macros are still defined here).
+    # The native steps live in other files (retrorecomp/psx_native.py writes them in slices compiled side by side): each
+    # slice compiles this file's head (RR_PSX_SHARD: its declarations and aliases, the CPU state shared rather than
+    # defined), and calls the memory accessors, the exception entry and the instruction-cache miss of this file through
+    # these functions (the same code, so the same cycles).
     ('mednafen/psx/cpu.c',
      'int32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n',
-     '/* Retro-Recomp modification (GPL-2.0, like this file): the game\'s native steps. */\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): what the game\'s native steps call. */\n'
      '#ifdef RR_PSX_NATIVE\n'
-     '#include "rr_psx_native.inc"\n'
+     'NO_INLINE uint8_t rr_psx_read_u8(int32_t *t, uint32_t a) { return ReadMemory_u8(t, a); }\n'
+     'NO_INLINE uint16_t rr_psx_read_u16(int32_t *t, uint32_t a) { return ReadMemory_u16(t, a); }\n'
+     'NO_INLINE uint32_t rr_psx_read_u32(int32_t *t, uint32_t a, bool ds24, bool lwc) '
+     '{ return ReadMemory_u32(t, a, ds24, lwc); }\n'
+     'NO_INLINE void rr_psx_write_u8(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u8(t, a, v); }\n'
+     'NO_INLINE void rr_psx_write_u16(int32_t *t, uint32_t a, uint32_t v) { WriteMemory_u16(t, a, v); }\n'
+     'NO_INLINE void rr_psx_write_u32(int32_t *t, uint32_t a, uint32_t v, bool ds24) { WriteMemory_u32(t, a, v, ds24); }\n'
+     'NO_INLINE uint32_t rr_psx_fetch_missed(int32_t *t, uint32_t a) { return ReadInstruction(t, a); }\n'
+     'NO_INLINE uint32_t rr_psx_exception(uint32_t code, uint32_t pc, uint32_t np, uint32_t instr) '
+     '{ return CPU_Exception(code, pc, np, instr); }\n'
+     'NO_INLINE void rr_psx_recalc_ipcache(void) { CPU_RecalcIPCache(); }\n'
      '#endif\n\n'
      'int32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n'),
+    # The CPU state the steps share with the interpreter: defined here, declared in a slice of steps.
+    ('mednafen/psx/cpu.c',
+     '#include "../pgxp/pgxp_main.h"\nint pgxpMode;\n',
+     '#include "../pgxp/pgxp_main.h"\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): declared only in a slice of native steps. */\n'
+     '#ifdef RR_PSX_SHARD\nextern int pgxpMode;\n#else\nint pgxpMode;\n#endif\n'),
+    ('mednafen/psx/cpu.c',
+     'static PS_CPU            s_cpu;\nPS_CPU                  *PSX_CPU = &s_cpu;\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): shared with the native steps\' slices (RR_PSX_SHARD). */\n'
+     '#ifdef RR_PSX_SHARD\n'
+     '#define RR_PSX_SHARED extern\n'
+     'extern PS_CPU s_cpu;\n'
+     'extern PS_CPU *PSX_CPU;\n'
+     '#else\n'
+     '#define RR_PSX_SHARED\n'
+     'PS_CPU                   s_cpu;\n'
+     'PS_CPU                  *PSX_CPU = &s_cpu;\n'
+     '#endif\n'),
+    ('mednafen/psx/cpu.c',
+     'int32_t                  cpu_next_event_ts;\n'
+     'static uint32_t          cpu_IPCache;\n'
+     'static uint32_t          cpu_BIU;\n'
+     'static bool              cpu_Halted;\n'
+     '/* Timestamp at the interpreter\'s last event check (see CPU_LastEventCheckTS). */\n'
+     'static int32_t           cpu_last_check_ts;\n'
+     'static CPU_CP0           cpu_CP0;\n',
+     'RR_PSX_SHARED int32_t    cpu_next_event_ts;\n'
+     'RR_PSX_SHARED uint32_t   cpu_IPCache;\n'
+     'RR_PSX_SHARED uint32_t   cpu_BIU;\n'
+     'RR_PSX_SHARED bool       cpu_Halted;\n'
+     '/* Timestamp at the interpreter\'s last event check (see CPU_LastEventCheckTS). */\n'
+     'RR_PSX_SHARED int32_t    cpu_last_check_ts;\n'
+     'RR_PSX_SHARED CPU_CP0    cpu_CP0;\n'),
+    # A slice of native steps stops after the head (the declarations, aliases and constants) and goes on with its own file.
+    ('mednafen/psx/cpu.c',
+     'typedef CPU_ICache __ICache;\n',
+     'typedef CPU_ICache __ICache;\n\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): a native step and the registers the interpreter lends it.\n'
+     ' * It returns 0 when it stopped before a fetch (the loop goes on at its head), 1 when it fetched an instruction it\n'
+     ' * does not hold (regs->instr), which the interpreter decodes. */\n'
+     'typedef struct RrPsxRegs { int32_t timestamp; uint32_t PC, new_PC, LDWhich, LDValue, instr; } RrPsxRegs;\n'
+     'typedef int (*RrPsxStep)(RrPsxRegs *regs);\n'
+     '#ifdef RR_PSX_SHARD\n'
+     '#include "rr_psx_shard.h"\n'
+     '#else\n'),
+    ('mednafen/psx/cpu.c',
+     '   return cpu_last_check_ts;\n}\n',
+     '   return cpu_last_check_ts;\n}\n'
+     '#endif /* Retro-Recomp modification: RR_PSX_SHARD */\n'),
     # The EBOOT reader (CDAccess_PBP.c) is not compiled, so the disc count it keeps is defined here, at 0 (no EBOOT).
     ('libretro.c',
      'extern int PBP_DiscCount;\n',
