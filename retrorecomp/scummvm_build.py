@@ -48,7 +48,9 @@ FAMILY_ENGINES: dict[str, tuple[str, ...]] = {
     'kyra': ('kyra', 'lol', 'eob'),
     'agos': ('agos', 'agos2'),
 }
-# The detection runtime: one small engine plus the detection tables of all engines.
+# The detection runtime: the detection tables of all engines (--enable-detection-full), plus the engines whose fallback
+# detection (unknown variants of known games) needs the engine itself: those whose MetaEngine implements
+# fallbackDetectExtern, read from the ScummVM tree (`fallback_engines`), and a small engine when there is none.
 DETECT_FAMILY = 'detect'
 DETECT_ENGINES = ('lure',)
 
@@ -64,9 +66,22 @@ def family_for(engine: str) -> str:
     return FAMILY_OF_ENGINE.get(engine, engine)
 
 
+def fallback_engines(tree: Path | None = None) -> tuple[str, ...]:
+    """The engines of the ScummVM tree whose fallback detection needs the engine (fallbackDetectExtern in its sources)."""
+    tree = tree or scummvm_checkout()
+    found = set()
+    for source in (tree / 'engines').glob('*/*.cpp'):
+        try:
+            if 'fallbackDetectExtern' in source.read_text(encoding='utf-8', errors='replace'):
+                found.add(source.parent.name)
+        except OSError:
+            continue
+    return tuple(sorted(found))
+
+
 def engines_for(family: str) -> tuple[str, ...]:
     if family == DETECT_FAMILY:
-        return DETECT_ENGINES
+        return fallback_engines() or DETECT_ENGINES
     return FAMILY_ENGINES.get(family, (family,))
 
 

@@ -64,7 +64,12 @@ class Detection(unittest.TestCase):
               '---------- --------------- ---------\n'
               'eng1:gamea                     Game A (CD/DOS/French)                  C:\\games\\a\\\n'
               'eng1:gamea                     Game A (DOS/German)                     C:\\games\\a\\\n'
-              'eng2:gameb                     Game B: Sub (Windows/English)           C:\\games\\a\\sub\\\n')
+              'eng2:gameb                     Game B: Sub (Windows/English)           C:\\games\\a\\sub\\\n'
+              'eng3:gamec                     Game Part V: The End (DOS/French) C:\\games\\c\\\n')
+
+    def test_a_colon_in_the_title_is_not_a_drive(self):
+        found = sx.parse_detection(self.OUTPUT, Path('C:/games/c'))
+        self.assertEqual([(c.gameid, c.title, c.language) for c in found], [('gamec', 'Game Part V: The End', 'French')])
 
     def test_candidates_of_the_folder_only(self):
         found = sx.parse_detection(self.OUTPUT, Path('C:/games/a'))
@@ -78,7 +83,15 @@ class Families(unittest.TestCase):
         self.assertEqual(scummvm_build.family_for('anyengine'), 'anyengine')
         self.assertEqual(scummvm_build.engines_for('anyengine'), ('anyengine',))
         self.assertIn('scumm_7_8', scummvm_build.engines_for(scummvm_build.family_for('scumm')))
-        self.assertEqual(scummvm_build.engines_for(scummvm_build.DETECT_FAMILY), scummvm_build.DETECT_ENGINES)
+        self.assertTrue(scummvm_build.engines_for(scummvm_build.DETECT_FAMILY))
+
+    def test_fallback_engines_are_read_from_the_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            for engine, text in (('alpha', 'ADDetectedGame fallbackDetectExtern(uint md5Bytes) const;'), ('beta', 'nothing')):
+                (tree / 'engines' / engine).mkdir(parents=True)
+                (tree / 'engines' / engine / 'metaengine.cpp').write_text(text, encoding='utf-8')
+            self.assertEqual(scummvm_build.fallback_engines(tree), ('alpha',))
 
     def test_runtime_identity_names_the_pins(self):
         identity = scummvm_build.runtime_identity('scumm')

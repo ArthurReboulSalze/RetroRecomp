@@ -34,7 +34,9 @@ LANGUAGES = {'English', 'French', 'German', 'Italian', 'Spanish', 'Czech', 'Hebr
              'Korean', 'Chinese', 'Portuguese', 'Swedish', 'Dutch', 'Hungarian', 'Danish', 'Norwegian', 'Finnish', 'Greek',
              'Catalan', 'Basque', 'Croatian', 'Turkish', 'Ukrainian', 'Belarusian', 'Arabic', 'Persian'}
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-_LINE = re.compile(r'^(\w+):(\S+)\s+(.*?)\s+((?:\\\\|[A-Za-z]:|/).*)$')
+# The path starts with a UNC prefix, a drive letter followed by a separator, or '/': a title such as "Part V: The End"
+# must not be read as a drive.
+_LINE = re.compile(r'^(\w+):(\S+)\s+(.*?)\s+((?:\\\\|[A-Za-z]:[\\/]|/).*)$')
 
 
 class ScummvmExportError(RuntimeError):
@@ -386,18 +388,41 @@ def _detect_runtime() -> Path:
     return build_runtime(DETECT_FAMILY)
 
 
+# Files that never make a folder an adventure game by themselves: pictures, documents, videos, playlists, saves and
+# settings of front-ends and emulators. A folder is offered to ScummVM's detection only when it holds a file that is
+# neither one of these nor a ROM or archive of a machine (registry.rom_candidate_extensions); no title is ever listed.
+NOT_GAME_DATA = frozenset(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico', '.xml', '.txt', '.nfo', '.pdf',
+                           '.htm', '.html', '.md', '.json', '.mp4', '.mkv', '.avi', '.webm', '.m3u', '.srm', '.sav',
+                           '.state', '.cfg', '.ini', '.log', '.db', '.lnk', '.url', '.scummvm'))
+
+
+# Numbered emulator states and temporary or backup copies (.state1, .st0, .tmp, .bak) are not game data either.
+_NOT_GAME_DATA_PATTERN = re.compile(r'^\.(?:state\d*|st\d|tmp|bak|auto)$')
+
+
+def _may_hold_a_game(names: list[str], rom_extensions: frozenset) -> bool:
+    for name in names:
+        suffix = os.path.splitext(name)[1].casefold()
+        if suffix not in rom_extensions and suffix not in NOT_GAME_DATA and not _NOT_GAME_DATA_PATTERN.match(suffix):
+            return True
+    return False
+
+
 def find_game_folders(root: Path) -> list[Path]:
-    """The game folders at or below `root`, by one recursive run of ScummVM's own detection (results kept for the session)."""
-    env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', RR_NO_DIALOGS='1')
-    with tempfile.TemporaryDirectory() as scratch:
-        result = subprocess.run([str(_detect_runtime()), f'--config={Path(scratch) / "detect.ini"}', '--detect',
-                                 '--recursive', f'--path={root}'], env=env, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', timeout=1800,
-                                creationflags=NO_WINDOW)
-    found = parse_detection_all(result.stdout)
-    for path, candidates in found.items():
-        _DETECTED[os.path.normcase(path)] = candidates
-    return [Path(path) for path, candidates in found.items() if candidates]
+    """The game folders at or below `root`: ScummVM's own detection, run on each folder that may hold a game (a cheap
+    look at its file names first), and never below a folder already recognised (its sub-folders are part of that game).
+    A folder of console ROMs, archives, pictures and front-end files launches no detection at all."""
+    from .systems.registry import rom_candidate_extensions
+    rom_extensions = rom_candidate_extensions()
+    found = []
+    for folder, subfolders, names in os.walk(root):
+        subfolders.sort()
+        if not _may_hold_a_game(names, rom_extensions):
+            continue
+        if candidates_of(Path(folder)):
+            found.append(Path(folder))
+            subfolders[:] = []
+    return found
 
 
 def candidates_of(folder: Path) -> list[Candidate]:
