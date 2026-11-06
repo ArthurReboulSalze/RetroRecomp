@@ -1,4 +1,4 @@
-"""Capcom CPS-2 conversion profile (experimental: see docs/CPS2.md).
+"""Capcom CPS-2 conversion profile (supported: see docs/CPS2.md).
 
 The board is the CPS-1's with an encrypted 68000 program, an object chip of its own, raster interrupts and the QSound sound board, so
 the profile reuses the CPS-1 pipeline (`cps1_conversion` with its `family='cps2'`), the common host kit adapter and the shared path
@@ -15,7 +15,8 @@ class Cps2Profile(SystemProfile):
     extensions = ('.zip',)
     export_folder = 'CPS-2'
     video_modes = ('arcade',)
-    status = 'experimental'
+    # Open as an experimental machine in 1.6.9; left that status in 1.7.0 on the owner's decision (docs/QUALIFICATION.md, owner acceptance).
+    status = 'supported'
     cpus = (Cpu('m68000', 'main', 'instructions'), Cpu('z80', 'sound', 'instructions'))
     media_kinds = ('romset',)
     quick_state_family = 'rr16'
@@ -29,9 +30,8 @@ class Cps2Profile(SystemProfile):
     default_frames = 3600
     quick_frames = 2400
     title_from_romset = True
-    # Not converted or played on Linux yet.
-    linux = 'pending'
-    # Open to players as an experimental machine in 1.6.9 (the owner's decision of 5 November 2026); supported in a later release.
+    # The panel was converted on Windows and on the Debian PC with the same hashes (docs/QUALIFICATION.md, G13).
+    linux = 'witnessed'
     # The paths schema lists it after the X68000; its sources are the decrypted program (the image the code is translated from) and the
     # sound program. Nothing is shared with other players yet: the machine is not in the shared base.
     path_spec = PathSpec(order=9, sections=(('m68k', 'cps2'), ('z80', 'cps2-sound')),

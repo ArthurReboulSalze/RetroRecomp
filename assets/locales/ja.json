@@ -494,7 +494,7 @@
     "options_cps1": "Capcom CPS-1",
     "options_cps2": "Capcom CPS-2",
     "options_cps1_note": "Capcom CPS-1 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。",
-    "options_cps2_note": "Capcom CPS-2 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。 実験的：プログラムはあなたのロムセットのキーファイルで復号します。音声にはあなた自身の QSound DSP ROM が必要です。プレイヤー数などの設定はゲームのテストメニューにあります：F2、スイッチのページ、Service switch、その後に再起動。",
+    "options_cps2_note": "Capcom CPS-2 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。 プログラムはあなたのロムセットのキーファイルで復号します。音声にはあなた自身の QSound DSP ROM が必要です。プレイヤー数などの設定はゲームのテストメニューにあります：F2、スイッチのページ、Service switch、その後に再起動。",
     "options_pce": "PC Engine",
     "options_pce_note": "実験的な PC Engine / TurboGrafx-16 プロファイル：標準ボードと Street Fighter II のボードの HuCard（.pce、またはそれを含む ZIP）、NTSC、2 人用。ネイティブコードはゲームの実行が確認された部分から作られ、残りはインタプリタで実行され数えられます。CD-ROM2 と SuperGrafx には対応しません。",
     "knowledge_achievement": "実績解除",

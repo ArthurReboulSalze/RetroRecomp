@@ -29,7 +29,7 @@ FAMILY = capcom_sets.Family('CPS-2', cps2_catalogue, _missing_key_hint, DOUBLED_
 class Cps2Set(capcom_sets.CapcomSet):
     """A CPS-2 set. Its members include the key file (region `key`)."""
     system_id: str = 'cps2'
-    tier: str = 'experimental'
+    tier: str = 'supported'
 
     @property
     def key_member(self) -> dict:
@@ -52,5 +52,5 @@ def identify_set(path: Path, games: list[dict] | None = None, *, set_name: str |
 def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | None = None) -> Cps2Set:
     """Identify, then hash every required file (the key file included); CRC and SHA-1 must both agree."""
     found = capcom_sets.read_set(FAMILY, path, games, set_name, lambda game: display_title(game['title']), 'cps2',
-                                 lambda game: 'experimental')
+                                 lambda game: 'supported')
     return Cps2Set(**{name: getattr(found, name) for name in found.__dataclass_fields__})

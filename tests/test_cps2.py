@@ -112,7 +112,7 @@ class IdentificationTests(unittest.TestCase):
 
     def test_complete_set_with_its_key_is_read_and_the_key_is_a_member(self):
         game = cps2.read_set(self.archive('demo.zip', self.parent_members()), self.games)
-        self.assertEqual((game.set_name, game.system_id, game.tier, game.supported, len(game.members)), ('demo', 'cps2', 'experimental', True, 7))
+        self.assertEqual((game.set_name, game.system_id, game.tier, game.supported, len(game.members)), ('demo', 'cps2', 'supported', True, 7))
         self.assertEqual(game.key_member['name'], 'e.key')
         self.assertEqual(game.title, 'Demo - Test')
         # the identity hashes the key file too: another key is another set of bytes
