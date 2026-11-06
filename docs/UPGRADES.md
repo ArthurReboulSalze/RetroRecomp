@@ -218,15 +218,15 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
-## Commodore Amiga: the player's own Kickstart 1.x (branch spec/amiga-kick, after 1.7.0)
+## Commodore Amiga: the player's own Kickstart 1.3 (1.7.0)
 
 An install that asks for a Kickstart 1.x (in its slave header or through `resload_LoadKick`) now converts with the player's own
 image, chosen in Options > Commodore Amiga ([AMIGA.md](AMIGA.md), section 2a). The image goes only into the conversion's private
 work folder and the player's own export; its code is interpreted and counted apart. Installs that need none are converted as
-before.
+before. Kickstart installs were not run on Linux (the same machine path; not witnessed there).
 
-**What moves** (`compilation_inputs.role_stamps` of `spec/amiga-170` against this branch, 6 November 2026): **the game stamp of
-the Amiga only**; no other console's stamp moves, no host or build stamp moves. **Quick states:** the Amiga's key moves (its
+**What moves** (`compilation_inputs.role_stamps` of `main` at 575c900a against this branch, 6 November 2026): **the game stamp of the Amiga only** (`f68fb739871c`); no other console's stamp moves, no host or build stamp moves.
+**Quick states:** the Amiga's key moves (its
 session sources changed): Amiga states of earlier builds are refused cleanly, as they are between any two Amiga builds.
 
 ## Covers: a subtitle that names the game, and extra names from a profile (1.7, the Amiga's branch)
