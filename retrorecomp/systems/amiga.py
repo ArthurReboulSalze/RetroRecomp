@@ -1,9 +1,10 @@
 """Commodore Amiga profile (experimental, developer installations only: see docs/AMIGA.md).
 
 What it converts: an Amiga 500 game installed for WHDLoad (an LHA archive holding a `.Slave` and the game's files), run without
-WHDLoad and without a Kickstart by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
-from RAM compiled to guarded native steps (Moira's own templates) and the rest counted on the interpreter. Not yet: the
-installs that need a Kickstart (KickEmu), the Amiga 1200, disk images (ADF), Linux.
+WHDLoad by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
+from RAM compiled to guarded native steps (Moira's own templates) and the rest counted on the interpreter. An install that
+asks for a Kickstart 1.x runs it from the player's own image (Options); its code stays interpreted and counted. Not yet:
+Kickstart 3.x installs, the Amiga 1200, disk images (ADF), Linux.
 """
 from pathlib import Path
 
@@ -22,7 +23,7 @@ class AmigaProfile(SystemProfile):
     export_folder = 'Amiga'
     video_modes = ('native',)
     status = 'experimental'
-    scope_note = 'Amiga 500 WHDLoad installs that need no Kickstart'
+    scope_note = "Amiga 500 WHDLoad installs (Kickstart 1.x installs with the player's own image)"
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('whdload',)
     # The player's own Kickstart (a file or a folder of images, recognised by content: retrorecomp/amiga_kickstart.py). Optional:
