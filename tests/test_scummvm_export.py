@@ -90,12 +90,17 @@ class PackedData(unittest.TestCase):
                 (tree / 'gui/themes' / name).write_bytes(b'x')
             (tree / 'dists/engine-data/alpha.dat').write_bytes(b'a')
             (tree / 'dists/engine-data/fonts.dat').write_bytes(b'f')
-            (tree / 'dists/scummvm_rc_engine_data_core.rh').write_text(
-                '// generated\nalpha.dat FILE "dists/engine-data/alpha.dat"\n', encoding='utf-8')
-            (tree / 'dists/scummvm_rc_engine_data.rh').write_text(
-                'fonts.dat FILE "dists/engine-data/fonts.dat"\nmissing.dat FILE "dists/engine-data/missing.dat"\n', encoding='utf-8')
-            self.assertEqual(scummvm_build.collect_data(tree, family),
-                             ['alpha.dat', 'fonts.dat', 'gui-icons.dat', 'scummremastered.zip'])
+            (tree / 'dists/engine-data/core.dat').write_bytes(b'c')
+            (tree / 'dists/engine-data/beta.dat').write_bytes(b'b')
+            (tree / 'dists/engine-data/engine_data_core.mk').write_text(
+                'DIST_FILES_LIST += dists/engine-data/core.dat\n', encoding='utf-8')
+            (tree / 'dists/engine-data/engine_data.mk').write_text(
+                'ifdef ENABLE_ALPHA\nDIST_FILES_LIST += dists/engine-data/alpha.dat\nendif\n'
+                'ifdef ENABLE_BETA\nDIST_FILES_LIST += dists/engine-data/beta.dat\nendif\n'
+                'ifdef USE_FREETYPE2\nDIST_FILES_LIST += dists/engine-data/fonts.dat\nendif\n'
+                'ifdef ENABLE_ALPHA\nDIST_FILES_LIST += dists/engine-data/missing.dat\nendif\n', encoding='utf-8')
+            self.assertEqual(scummvm_build.collect_data(tree, family, ('alpha',)),
+                             ['alpha.dat', 'core.dat', 'fonts.dat', 'gui-icons.dat', 'scummremastered.zip'])
 
     def test_a_runtime_with_data_beside_it_packs_it_and_says_so(self):
         with tempfile.TemporaryDirectory() as tmp:

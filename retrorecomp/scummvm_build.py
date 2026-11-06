@@ -115,23 +115,32 @@ def data_path(family: str) -> Path:
 
 # The GUI files the Windows resource script embeds and a pack must carry elsewhere (shaders need OpenGL: not carried).
 GUI_DATA = ('scummclassic.zip', 'scummmodern.zip', 'scummremastered.zip', 'gui-icons.dat', 'translations.dat')
-_RESOURCE_LINE = re.compile(r'^(\S+)\s+FILE\s+"([^"]+)"', re.M)
+_LIST_ENTRY = re.compile(r'^DIST_FILES_LIST\s*\+=\s*(\S+)', re.M)
+_LIST_BLOCK = re.compile(r'^ifdef\s+(\w+)\n(.*?)^endif', re.M | re.S)
 
 
-def collect_data(tree: Path, family_dir: Path) -> list:
-    """Copy the runtime's data files out of the (family-generated) resource lists of the tree; returns their names. Same
-    content as what Windows embeds: the engine data of the family's engines (core and engine lists written by create_project,
-    the CJK list is blanked), fonts.dat as trimmed, and GUI_DATA."""
+def data_files(tree: Path, engines: tuple) -> list:
+    """The data files ScummVM's own make lists (`dists/engine-data/engine_data*.mk`) name for these engines: the core files,
+    the engine data of the enabled engines, and fonts.dat (FreeType is linked). Same content as what the Windows build embeds
+    through its resource lists; the CJK fonts list (engine_data_big.mk) is left out."""
+    folder = tree / 'dists' / 'engine-data'
+    enabled = {f'ENABLE_{engine.upper()}' for engine in engines} | {'USE_FREETYPE2'}
+    found = _LIST_ENTRY.findall((folder / 'engine_data_core.mk').read_text(encoding='utf-8'))
+    text = (folder / 'engine_data.mk').read_text(encoding='utf-8')
+    for condition, body in _LIST_BLOCK.findall(text):
+        if condition in enabled:
+            found += _LIST_ENTRY.findall(body)
+    return [tree / relative for relative in dict.fromkeys(found)]
+
+
+def collect_data(tree: Path, family_dir: Path, engines: tuple) -> list:
+    """Copy the runtime's data files (data_files and GUI_DATA) to <family>/data; returns their names."""
     target = family_dir / 'data'
     shutil.rmtree(target, ignore_errors=True)
     target.mkdir(parents=True)
-    wanted: dict[str, Path] = {name: tree / 'gui' / 'themes' / name for name in GUI_DATA}
-    for listing in ('dists/scummvm_rc_engine_data_core.rh', 'dists/scummvm_rc_engine_data.rh'):
-        text = (tree / listing).read_text(encoding='utf-8', errors='replace')
-        wanted.update({name: tree / relative for name, relative in _RESOURCE_LINE.findall(text)})
-    for name, source in sorted(wanted.items()):
+    for source in [*(tree / 'gui' / 'themes' / name for name in GUI_DATA), *data_files(tree, engines)]:
         if source.is_file():
-            shutil.copy2(source, target / name)
+            shutil.copy2(source, target / source.name)
     return sorted(path.name for path in target.iterdir())
 
 
@@ -343,7 +352,7 @@ def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
                                                                 encoding='utf-8')
     (tree / 'dists/scummvm.rc').touch()
     if os.name != 'nt':
-        emit(f'Données de ScummVM ({family}) : {len(collect_data(tree, family_dir))} fichiers.')
+        emit(f'Données de ScummVM ({family}) : {len(collect_data(tree, family_dir, engines_for(family)))} fichiers.')
     from .core import toolchain
     cmake, generator = toolchain()
     build = family_dir / 'build'
