@@ -95,12 +95,13 @@ that section says move. Each section computed its stamps for its own change alon
 | [The index of native steps may have its own language](#the-index-of-native-steps-may-have-its-own-language-170) | **every console** (`systems/specs.py`, an input of every game stamp), and the X68000 again (`m68k_observed.py`) | none | no key stated to move |
 | [Covers: a subtitle that names the game, and extra names from a profile](#covers-a-subtitle-that-names-the-game-and-extra-names-from-a-profile-170) | none | **host stamp of every console** (`cover_titles.py`, `artwork.py`) | no key moves |
 | [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
+| [The F12 recorder accepts the hints of every machine](#the-f12-recorder-accepts-the-hints-of-every-machine-170) | **the game stamp of all thirteen machines** (`runtime_feedback.c` and `.h`, `freshness.py`) | none | no key moves for it (the Mega Drive and Super Nintendo keys hash the recorder but already move) |
 
 <!-- Rows of the machines merged after this index (ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
 
 Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp and the host stamp of the eleven consoles of 1.6.9 move; no build stamp moves** (the Amiga section computed it on the tree of `v1.6.9`; the game stamps move through
 `systems/specs.py`, which every game stamp hashes, and the host stamps through the notices, the host kit and the box-art modules). The Game Boy Advance and the Amiga are new. So every export of 1.6.9
-is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. This total will change if ScummVM merges.
+is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. The recorder change above moves the game stamp of all thirteen machines for itself, and adds no conversion on top of this total. This total will change if ScummVM merges.
 
 **Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
 written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
@@ -327,6 +328,48 @@ A lot of evidence and documentation: the way games are converted does not change
 - **What moves.** The game stamps of the Master System and of the Game Gear: `sega_evidence` and the two profile modules are inputs of their groups, and an
   export of 1.6.8 of these two consoles is converted once to carry the new report fields. The generated game is the same; no native file changed, so no host
   stamp and no quick-state key moves, and the other consoles do not move. The conversion adds a read of the run logs and one rewrite of the report.
+
+## The F12 recorder accepts the hints of every machine (1.7.0)
+
+A game's player keeps a small set of the interpreter misses it meets (the hints for the next recompilation, written at normal shutdown, recording switched on and off by F12,
+[RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)). `native/runtime_feedback.c` refused every kind above `RR_FB_CPS1_Z80` (16), the last kind of the CPS-1, so **the interpreter misses of
+the CPS-2, the PC Engine, the Game Boy Advance and the Amiga, whose kinds are 17 and above, were never recorded**: no hint of those machines could reach a feedback file. The bound is now `RR_FB_MAX_KIND` (`native/runtime_feedback.h`, 23, the largest kind a profile may declare; a larger one
+is still refused as garbage), and `tests/test_system_profiles.py` fails when a profile declares a kind above it. Alongside, `retrorecomp/freshness.py` identifies a game that is a
+folder (not a file) by its `item.sha256` instead of hashing it as a file, which would fail.
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the thirteen machines on the tree of `main` before this change (`575c900a`) and on this tree (first twelve
+hexadecimal digits of each stamp, 6 November 2026):
+
+| Machine | Game stamp (before, after) | Host stamp | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `e79637610588`, `49fe6e32e245` | `52732894c705` (same) | `fe2d99b3cd5e` (same) |
+| Game Gear | `c42ec7af339f`, `8c00b18cbb84` | `12ddf0d7f71c` (same) | `f5671c38cf26` (same) |
+| Game Boy | `e9fd59f69c23`, `84ee8993f728` | `cf765eccafd3` (same) | `819a054ad881` (same) |
+| NES | `e1e7dbd43df6`, `70294cfa87ce` | `71877ffa5602` (same) | `8e0941f93b43` (same) |
+| Mega Drive | `405fbb268e93`, `a51188bb861f` | `81f2da5cd72d` (same) | `9615ff2e96c8` (same) |
+| Super Nintendo | `75e3f274ba12`, `183e40e13480` | `86e398dab378` (same) | `3f0a58ad3c7c` (same) |
+| Neo Geo | `d507c3759c6a`, `dc211c9479da` | `b7fe8c803579` (same) | `110349f043bd` (same) |
+| X68000 | `2f70a9be8803`, `ad8e4bc0f227` | `1ca7429d24bd` (same) | `5903c0449429` (same) |
+| CPS-1 | `e14379ea4193`, `da3f9a93f08f` | `075e0ff74ad2` (same) | `2782cd370f91` (same) |
+| CPS-2 | `aece1f235d63`, `d0dfdf7fcd0a` | `6d09623637fd` (same) | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `dd23d12432c7`, `61785d10f6b3` | `e688aeb8d524` (same) | `66d912662e5c` (same) |
+| Game Boy Advance | `25a43b11f017`, `a8f3639ad2c9` | `f91cddfbe6b9` (same) | `6b70933a9b0a` (same) |
+| Amiga | `55862e6f7665`, `f6905ac1baf4` | `8e7c7e682d10` (same) | `92ca8a0c142c` (same) |
+
+(First twelve hexadecimal digits of each stamp.) **The game stamp of all thirteen machines moves** (`native/runtime_feedback.c` and `.h` are game inputs of every machine, as is
+`retrorecomp/freshness.py`); no host stamp and no build stamp moves for this change. Against the tree of `v1.6.9` the game stamps of the eleven machines of 1.6.9 had already moved
+(see the index above), so this adds no conversion to a player who upgrades from 1.6.9.
+
+**What it means for players.** A moved game stamp means that an export is not upgraded in the quick host-only way (rebuilt from its learned paths, without discovery): it is
+**converted again, with its discovery routes**, from its qualified paths, once, when the player updates. Every export of 1.6.9, on every console, is in that case in 1.7.0; the cost
+is the length of a conversion per game. The reason: an export made by 1.6.9 carries the recorder that drops the hints, and only a rebuilt game carries the new one; Arthur decided it
+knowingly (« fix it in 1.7.0 »).
+
+**Quick states.** No key moves for this change: the Mega Drive and Super Nintendo keys hash `runtime_feedback.c` and `.h` too, and they already move for the host kit's catalogue
+(a quick state of 1.6.9 of those two machines is refused once, not twice); the other machines' keys hash none of the files changed. **Cartridge saves** are kept.
+
+**Not measured.** The cost of the changed test in the recorder (one comparison per recorded miss) and a game of each new machine played to a normal shutdown to see its feedback file
+written: the change is proved by the bound test and by the stamps, not by an A/B of a game.
 
 ## Capcom CPS-2 leaves the experimental status (1.7.0)
 

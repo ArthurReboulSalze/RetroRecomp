@@ -98,6 +98,11 @@ Not published: this section lists what is already on `main` and is completed at 
   audio pushes, states and preferences with and without the change). Not measured: a real
   gamepad (stick values and rumble go through SDL's virtual controller only), a real
   display, and Linux.
+- **Interpreter hints of the newest machines.** A game keeps the interpreter misses it
+  meets as hints for the next recompilation. The recorder dropped every kind above the
+  CPS-1's, so the CPS-2, PC Engine, Game Boy Advance and Amiga hints were never recorded;
+  it now accepts every machine's. This moves the game stamp of every machine, which is
+  why every 1.6.9 export is converted again in 1.7.0.
 - **Computers.** A press of the middle mouse button (the wheel) releases a captured
   mouse, as Ctrl+Alt+M does; the button never reaches the game.
 
@@ -110,11 +115,10 @@ experimental tier on the evidence above; none of them is a measure of hardware
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.0 moves the host stamp of all eleven consoles
-and the game stamp of the CPS-1 and the CPS-2 only (no build stamp): an export of 1.6.9
-of any other console is upgraded (rebuilt from its paths, no rediscovery) the next time
-it is converted, and an export of the CPS-1, CPS-1.5 or CPS-2 is converted again from its
-paths. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
+**Your exports and quick states.** 1.7.0 moves the game stamp and the host stamp of all
+eleven earlier consoles (no build stamp), so every export of 1.6.9 is converted again,
+with its discovery routes and from its qualified paths, once, when it is upgraded: it is
+not the quick host-only rebuild of a smaller update. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
 in their catalogue): a quick state of 1.6.9 is refused cleanly there, with a message
 (nothing is lost but the state); the states of the NES, Neo Geo, CPS-1, CPS-2, PC Engine
 and X68000 still load, and the Master System, Game Gear and Game Boy have none to
