@@ -58,6 +58,8 @@ typedef struct RrhkRun {
      * largest texture (limit_w x limit_h, 0: not known). upscaled holds upscaled_pixels pixels (Scale2x). */
     int store_w, store_h, limit_w, limit_h;
     size_t upscaled_pixels;
+    int refused_w, refused_h;      /* the last picture size the store could not grow to: not tried again until the size changes */
+    bool double_refused;           /* Scale2x's buffer could not be made for this store: the picture is shown without it */
 } RrhkRun;
 
 /* Pseudo-keys of the kit's own option rows: past every scancode and past the machines' own rows (rrhk_computer.inc uses
@@ -142,6 +144,8 @@ const char *rrhk_combo_label(int index);
 const char *rrhk_combo_hint(int index);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
 const char *rrhk_filter_name(int filter);   /* the translated name of a picture filter, as the options page shows it */
+int rrhk_option_scroll(void);               /* the first row the options page shows (0 up to fourteen rows; past them it scrolls) */
+int rrhk_option_selected(void);             /* the selected row of the options page */
 
 /* audio.c */
 void rrhk_audio_open(RrhkRun *run);
