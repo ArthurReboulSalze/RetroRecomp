@@ -35,6 +35,9 @@ static constexpr uint32_t SLOW_BASE = 0xC00000;
 static constexpr uint32_t SLOW_SIZE = 0x180000;     // 1.5 MiB of slow RAM: ExpMem, then the slave area
 static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-1";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
+// Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
+// display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
+static constexpr int SHRES_AT_TEXEL0 = HBLANK_MIN * 8;
 
 struct RrAmigaSession {
     Emulator *emu = nullptr;
@@ -54,6 +57,8 @@ struct RrAmigaSession {
     std::vector<int16_t> pcm;
     std::vector<uint32_t> picture;
     int lines = 0;
+    bool view_seen = false;
+    int view[4] = {};          // union of the display windows opened so far: left, top, right, bottom (picture columns, rows)
     bool observing = false, native = false;
     std::set<std::pair<uint32_t, std::string>> observed;
     uint64_t native_count = 0, interpreted_count = 0;
@@ -72,6 +77,23 @@ static uint16_t peek16(uint32_t a) { return (uint16_t)(peek(nullptr, a) << 8 | p
 static uint32_t peek32(uint32_t a) { return (uint32_t)peek16(a) << 16 | peek16(a + 2); }
 static void poke32(uint32_t a, uint32_t v) { for (int k = 0; k < 4; k++) poke(nullptr, a + k, (uint8_t)(v >> (24 - 8 * k))); }
 static bool in_ram(uint32_t pc) { return pc < 0xA00000 || (pc >= 0xC00000 && pc < 0xDC0000); }
+
+// One display window (vAmiga's ViewportMsg: super-hires columns, lines) into the union, in picture coordinates. A window that
+// does not close on its line or frame (stop at or before start) is open to the picture's edge; an unset start or a sliver is
+// not a window.
+static void note_viewport(RrAmigaSession *s, const ViewportMsg &v) {
+    const int origin = SHRES_AT_TEXEL0 + FIRST_TEXEL, first = s->ntsc ? FIRST_LINE_NTSC : FIRST_LINE_PAL;
+    // DIWSTRT not written yet (the reset state the boot leaves, 0): no window. Denise's smallest start is $002 ($008 scaled).
+    if (v.hstrt < 8 || v.vstrt <= 0) return;
+    int x0 = (v.hstrt - origin) / 2, x1 = v.hstop > v.hstrt ? (v.hstop - origin + 1) / 2 : RR_AMIGA_PICTURE_WIDTH;
+    int y0 = v.vstrt - first, y1 = v.vstop > v.vstrt ? v.vstop - first : s->lines;
+    x0 = std::clamp(x0, 0, RR_AMIGA_PICTURE_WIDTH); x1 = std::clamp(x1, 0, RR_AMIGA_PICTURE_WIDTH);
+    y0 = std::clamp(y0, 0, s->lines); y1 = std::clamp(y1, 0, s->lines);
+    if (x1 - x0 < 64 || y1 - y0 < 32) return;
+    if (!s->view_seen) { s->view[0] = x0; s->view[1] = y0; s->view[2] = x1; s->view[3] = y1; s->view_seen = true; return; }
+    s->view[0] = std::min(s->view[0], x0); s->view[1] = std::min(s->view[1], y0);
+    s->view[2] = std::max(s->view[2], x1); s->view[3] = std::max(s->view[3], y1);
+}
 
 static int file_cb(void *, const char *name, const uint8_t **data, uint32_t *size) {
     auto it = S->files.find(lower(name));
@@ -358,6 +380,12 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
         return -1;
     }
     s->frame++;
+    // The display window of the frames just run: vAmiga's viewport tracking posts the widest DIWSTRT/DIWSTOP of a frame when it
+    // changes. Only read here, never written: the guest is not touched. The queue is drained so it never fills.
+    {
+        Message m; std::exception_ptr e;
+        while (amiga.msgQueue.get(m, e)) if (m.type == Msg::VIEWPORT) note_viewport(s, m.viewport);
+    }
     // The sound of this frame, all of it (the stream is never drained below what was made: no underflow handling).
     auto &stream = amiga.audioPort.stream;
     size_t count = (size_t)stream.count();
@@ -387,6 +415,12 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
 }
 
 extern "C" const char *rr_amiga_error(const RrAmigaSession *s) { return s->error.c_str(); }
+
+extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h) {
+    if (!s->view_seen) return 0;
+    *x = s->view[0]; *y = s->view[1]; *w = s->view[2] - s->view[0]; *h = s->view[3] - s->view[1];
+    return 1;
+}
 
 extern "C" const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height) {
     *width = RR_AMIGA_PICTURE_WIDTH; *height = s->lines;

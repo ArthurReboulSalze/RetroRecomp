@@ -23,6 +23,13 @@
 #ifndef RR_AMIGA_STATE_ABI
 #define RR_AMIGA_STATE_ABI "amiga-development"
 #endif
+/* The display window the conversion measured on its reference routes (amiga_payload.h); none: the standard one. */
+#ifndef RR_AMIGA_VIEW_X
+#define RR_AMIGA_VIEW_X 0
+#define RR_AMIGA_VIEW_Y 0
+#define RR_AMIGA_VIEW_W 0
+#define RR_AMIGA_VIEW_H 0
+#endif
 
 #define PATH_CAP 2048
 #define MAX_FRAMES 360000u
@@ -34,8 +41,8 @@ static int loading_holdoff, swap_drive, swap_direction;
 static const Uint8 *keys;
 static int mouse_dx, mouse_dy;
 static Uint32 mouse_buttons;
-static unsigned width = RR_AMIGA_PICTURE_WIDTH, height = 2 * RR_AMIGA_PICTURE_LINES_PAL;
-static double aspect_ratio = 1.341;
+static unsigned width = 320, height = 256;          /* the shown display window, lores pixels x lines (a_view_place) */
+static double aspect_ratio = 4.0 / 3.0;
 static char player_config[PATH_CAP], state_slot[PATH_CAP];
 static RrAmigaSession *session;
 static unsigned frame_limit, frame_number;
@@ -279,7 +286,12 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       for (c = error; *c && k + 2 < sizeof escaped; c++) { if (*c == '"' || *c == '\\') escaped[k++] = '\\'; escaped[k++] = (char)((unsigned char)*c < 32 ? ' ' : *c); }
       escaped[k] = 0;
       if (!r) { fail("Cannot write the report"); return 1; }
-      fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
+      {
+         int vx, vy, vw, vh;
+         if (rr_amiga_viewport(session, &vx, &vy, &vw, &vh)) fprintf(r, "{\"view\":[%d,%d,%d,%d],", vx, vy, vw, vh);
+         else fputs("{\"view\":null,", r);
+      }
+      fprintf(r, "\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
               (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
@@ -364,8 +376,7 @@ int main(int argc, char **argv) {
    snprintf(player_config, sizeof player_config, "%s/player.cfg", game_dir);
    game.save_dir = saves;
    ntsc_run = game.ntsc;
-   height = 2u * (game.ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL);
-   aspect_ratio = game.ntsc ? 1.243 : 1.341;
+   a_view_init(game.ntsc, RR_AMIGA_VIEW_X, RR_AMIGA_VIEW_Y, RR_AMIGA_VIEW_W, RR_AMIGA_VIEW_H);
    session = rr_amiga_open(&game, error, sizeof error);
    if (!session) { fail(error); return 1; }
    if (!reference_cpu && !rr_amiga_set_native(session, 1)) { fail("This build has no native steps"); return 1; }

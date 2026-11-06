@@ -177,7 +177,19 @@ def extract_install(source, folder: Path) -> dict:
     return {'install': install, 'slave': slave, 'files': names}
 
 
-def payload(project: Path, source, extracted: dict, folder: Path, title: str, mouse_game: bool, artwork) -> dict:
+def display_window(results) -> tuple[int, int, int, int] | None:
+    """The union of the display windows the reference runs saw (their reports' `view`: x, y, w, h in picture columns and
+    lines), which the exported game shows instead of the overscan border; None when no run opened one."""
+    boxes = [r['view'] for r in results if r.get('view')]
+    if not boxes:
+        return None
+    x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
+    x1, y1 = max(b[0] + b[2] for b in boxes), max(b[1] + b[3] for b in boxes)
+    return x0, y0, x1 - x0, y1 - y0
+
+
+def payload(project: Path, source, extracted: dict, folder: Path, title: str, mouse_game: bool, artwork,
+            view: tuple[int, int, int, int] | None = None) -> dict:
     """The resources of the exported game: its install (as embedded files) and the Windows metadata."""
     from .metadata import write_game_metadata
     from .resources import embed_resources
@@ -204,6 +216,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               '#define RR_AMIGA_GAME_TITLE ' + json.dumps(title, ensure_ascii=True),
               '#define RR_AMIGA_SOURCE_IDENTITY ' + json.dumps(source.sha256),
               f'#define RR_AMIGA_NTSC {int(ntsc_install(source))}', f'#define RR_AMIGA_MOUSE_GAME {int(mouse_game)}',
+              *(f'#define RR_AMIGA_VIEW_{axis} {value}' for axis, value in zip('XYWH', view or (0, 0, 0, 0))),
               '#define RR_AMIGA_SLAVE_RESOURCE 300',
               'typedef struct {const char *name;unsigned resource;} RrAmigaPayloadFile;',
               'static const RrAmigaPayloadFile rr_amiga_files[]={', *rows, '{0,0}};',
@@ -388,7 +401,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         payload_dir.mkdir(parents=True, exist_ok=True)
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='amiga', cache_directory=boxart_cache_directory('amiga'), emit=emit)
-        metadata = payload(payload_dir, source, extracted, work / 'install', title, mouse_game, artwork)
+        view = display_window(expected.values())
+        metadata = payload(payload_dir, source, extracted, work / 'install', title, mouse_game, artwork, view)
         project = work / 'native'
         candidate = generation = None
         results = {}
@@ -497,6 +511,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'ordinary_saves': {'supported': True, 'scope': 'files the install writes through resload_SaveFile, kept beside the game',
                                'path': 'datas/games/amiga-' + source.sha256 + '/saves',
                                'validation': {'checked_in_this_conversion': False, 'evidence': 'tests/test_amiga_resload.py (SaveFile, the save callback)'}},
+            'display': {'shown': 'the display window the game opens (union of DIWSTRT/DIWSTOP)', 'window': list(view) if view else None,
+                        'unit': 'picture columns (hires) and lines; the standard window when none was opened',
+                        'measured_on': [name for name, _, _ in routes]},
             'input_players': 1, 'peripheral': {'joystick_ports': 1, 'mouse': 'port 1, captured on a click', 'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
             'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps']},
             'runtime_data': {'directory': 'datas', 'shared_config': 'datas/Retro-Recomp.ini', 'game_directory': 'datas/games/amiga-' + source.sha256},

@@ -52,6 +52,9 @@ const char *rr_amiga_error(const RrAmigaSession *s);
 
 /* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */
 const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height);
+/* The union of the display windows the game opened so far (DIWSTRT/DIWSTOP, from vAmiga's viewport tracking), in picture
+ * columns and rows: what the player shows instead of the whole overscan picture. 0 while no window was opened. */
+int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h);
 /* The sound of the last frame: interleaved stereo int16 at RR_AMIGA_AUDIO_RATE; returns frames copied. */
 size_t rr_amiga_audio(RrAmigaSession *s, int16_t *pcm, size_t capacity_frames);
 

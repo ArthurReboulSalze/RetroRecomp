@@ -47,6 +47,12 @@ publishes no game, no disk and no firmware.
    audio resampler and filters). A conversion that fails any of these keeps the earlier export.
 6. **Report.** The conversion report (schema v2, shape `amiga_conversion`) carries the interpreter fallback per CPU and keeps the
    five measures in separate objects.
+7. **Picture.** The game shows the display window the game opens, not the overscan border around it: the union of its
+   DIWSTRT/DIWSTOP over the reference routes (vAmiga's viewport tracking, read only) is built into the executable (`display` in the
+   report), and a window the game opens later beyond it widens what is shown; nothing inside the window is cut. Without any, the
+   standard window is shown (320 x 256 PAL, 320 x 200 NTSC). In the window and the first fullscreen mode the picture grows in whole
+   steps of one lores pixel per line (320 x 256 PAL: 2x at 640 x 512, 3x at 960 x 768), as the other machines do; the second
+   fullscreen mode fills the screen with the 4:3 aspect. The window opens at 3x.
 
 ## 3. The five measures
 

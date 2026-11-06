@@ -15,6 +15,7 @@ void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) { (void)s; (void)
 int rr_amiga_frame(RrAmigaSession *s) { (void)s; return -1; }
 const char *rr_amiga_error(const RrAmigaSession *s) { (void)s; return "stub"; }
 const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height) { (void)s; *width = RR_AMIGA_PICTURE_WIDTH; *height = RR_AMIGA_PICTURE_LINES_PAL; return NULL; }
+int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h) { (void)s; (void)x; (void)y; (void)w; (void)h; return 0; }
 size_t rr_amiga_audio(RrAmigaSession *s, int16_t *pcm, size_t capacity) { (void)s; (void)pcm; (void)capacity; return 0; }
 void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info) { (void)s; memset(info, 0, sizeof *info); }
 int rr_amiga_set_native(RrAmigaSession *s, int enabled) { (void)s; (void)enabled; return 1; }

@@ -132,11 +132,55 @@ static void a_inputs(void) {
    rr_amiga_keys(session, held);
 }
 
-static const uint32_t *a_pixels(void) { int w, h; return rr_amiga_picture(session, &w, &h); }
-static int a_width(void) { return (int)width; }
-/* The picture's own rows (one per Amiga line): the kit's scanline filter draws one line per row, so the rows must be the real
- * lines. The placement (x_game_rect of rrhk_computer.inc) uses `height`, the display height, twice the lines. */
-static int a_height(void) { int w, h; rr_amiga_picture(session, &w, &h); return h; }
+/* What the player shows: the display window the game opens (the union of its DIWSTRT/DIWSTOP, measured over the conversion's
+ * reference routes and grown by what this run opens), never the overscan border around it, and nothing inside it is cut. The
+ * kit's whole-pixel step is the Amiga's lores pixel and line (`width` x `height` for x_game_rect), as the X68000 presents its
+ * own resolution: enlarging the window enlarges the picture every 320 x 256 (PAL). The texture keeps hires columns and one
+ * row per line (the scanline filter draws one line per row). The window opens at 3x. */
+#define A_PAR_PAL (16.0 / 15.0)      /* a PAL lores pixel on a 4:3 screen (320 x 256 fills it) */
+#define A_PAR_NTSC (5.0 / 6.0)       /* an NTSC one (320 x 200) */
+static struct { int x, y, w, h, ntsc; } av;
+static uint32_t av_pixels[RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_HEIGHT];
+
+static void a_view_place(int x, int y, int w, int h) {
+   int lines = av.ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
+   if (x & 1) { x--; w++; }
+   w = (w + 1) & ~1;                                 /* whole lores pixels */
+   if (x < 0) { w += x; x = 0; }
+   if (y < 0) { h += y; y = 0; }
+   if (x + w > RR_AMIGA_PICTURE_WIDTH) w = RR_AMIGA_PICTURE_WIDTH - x;
+   if (y + h > lines) h = lines - y;
+   av.x = x; av.y = y; av.w = w; av.h = h;
+   width = (unsigned)(w / 2); height = (unsigned)h;
+   aspect_ratio = (av.ntsc ? A_PAR_NTSC : A_PAR_PAL) * (double)width / (double)height;
+}
+
+/* The window the conversion measured (w or h 0: none, the standard one: $2C81-$2CC1 PAL, $2C81-$F4C1 NTSC). */
+static void a_view_init(int ntsc, int x, int y, int w, int h) {
+   av.ntsc = ntsc;
+   if (w < 64 || h < 32) { x = 32; w = 640; y = ntsc ? 18 : 12; h = ntsc ? 200 : 256; }
+   a_view_place(x, y, w, h);
+}
+
+/* A window this run opens beyond the measured one widens what is shown (it never shrinks: the size stays put). */
+static void a_view_follow(void) {
+   int x, y, w, h, x1, y1;
+   if (!rr_amiga_viewport(session, &x, &y, &w, &h)) return;
+   x1 = SDL_max(av.x + av.w, x + w); y1 = SDL_max(av.y + av.h, y + h);
+   x = SDL_min(av.x, x); y = SDL_min(av.y, y);
+   if (x != av.x || y != av.y || x1 - x != av.w || y1 - y != av.h) a_view_place(x, y, x1 - x, y1 - y);
+}
+
+static const uint32_t *a_pixels(void) {
+   int w, h, row;
+   const uint32_t *src = rr_amiga_picture(session, &w, &h);
+   for (row = 0; row < av.h; row++)
+      memcpy(av_pixels + (size_t)row * RR_AMIGA_PICTURE_WIDTH, src + (size_t)(av.y + row) * (size_t)w + (size_t)av.x, (size_t)av.w * sizeof(uint32_t));
+   return av_pixels;
+}
+static int a_width(void) { return av.w; }             /* texture columns (hires) */
+static int a_display_width(void) { return av.w / 2; } /* lores pixels */
+static int a_height(void) { return av.h; }            /* lines, one row each */
 
 static size_t a_audio(int16_t *pcm, size_t capacity) {
    size_t n = aa.audio_count - aa.audio_taken;
@@ -154,6 +198,7 @@ static bool a_run_frame(uint16_t p1, uint16_t p2) {
    a_inputs();
    if (rr_amiga_frame(session) != 0) { fail(rr_amiga_error(session)); return false; }
    frame_number++;
+   a_view_follow();
    if (aa.audio_taken) { memmove(aa.audio, aa.audio + aa.audio_taken, (aa.audio_count - aa.audio_taken) * sizeof(int16_t)); aa.audio_count -= aa.audio_taken; aa.audio_taken = 0; }
    got = rr_amiga_audio(session, aa.audio + aa.audio_count, (sizeof aa.audio / sizeof aa.audio[0] - aa.audio_count) / 2);
    aa.audio_count += got * 2;
@@ -190,7 +235,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.save_failed_en = "Cannot save game state"; machine.save_failed_fr = "Impossible de sauvegarder";
       machine.reset = a_reset; machine.run_frame = a_run_frame; machine.pause = a_pause;
       machine.pixels = a_pixels; machine.visible_width = a_width; machine.visible_height = a_height; machine.raster_height = a_height;
-      machine.display_width = a_width;
+      machine.display_width = a_display_width;
       machine.audio = a_audio; machine.interpreted = a_interpreted; machine.audio_interpreted = a_zero;
       machine.state_path = a_state_path; machine.state_ready = a_state_ready; machine.state_file = a_state_file; machine.input_frame = a_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
@@ -208,5 +253,5 @@ static int player_run_windowed(const char *title, int ntsc) {
    RrhkMachine *machine = (RrhkMachine *)rrhk_adapter();
    machine->frame_seconds = ntsc ? 1.0 / 59.94 : 1.0 / 49.92;
    ca.windowed = true;
-   return rrhk_main(machine, title, 1);
+   return rrhk_main(machine, title, 3);
 }
