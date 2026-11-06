@@ -78,6 +78,37 @@ class Detection(unittest.TestCase):
         self.assertEqual(found[0].title, 'Game A')
 
 
+class PackedData(unittest.TestCase):
+    """Platforms without embedded resources (Linux) carry the engine data and the GUI themes in the pack."""
+
+    def test_collect_data_follows_the_resource_lists_of_the_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tree, family = Path(tmp) / 'tree', Path(tmp) / 'family'
+            (tree / 'gui/themes').mkdir(parents=True)
+            (tree / 'dists/engine-data').mkdir(parents=True)
+            for name in ('scummremastered.zip', 'gui-icons.dat', 'shaders.dat'):
+                (tree / 'gui/themes' / name).write_bytes(b'x')
+            (tree / 'dists/engine-data/alpha.dat').write_bytes(b'a')
+            (tree / 'dists/engine-data/fonts.dat').write_bytes(b'f')
+            (tree / 'dists/scummvm_rc_engine_data_core.rh').write_text(
+                '// generated\nalpha.dat FILE "dists/engine-data/alpha.dat"\n', encoding='utf-8')
+            (tree / 'dists/scummvm_rc_engine_data.rh').write_text(
+                'fonts.dat FILE "dists/engine-data/fonts.dat"\nmissing.dat FILE "dists/engine-data/missing.dat"\n', encoding='utf-8')
+            self.assertEqual(scummvm_build.collect_data(tree, family),
+                             ['alpha.dat', 'fonts.dat', 'gui-icons.dat', 'scummremastered.zip'])
+
+    def test_a_runtime_with_data_beside_it_packs_it_and_says_so(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp) / 'scummvm-runtime'
+            runtime.write_bytes(b'ELF')
+            self.assertEqual(sx.data_members(runtime), ())
+            (Path(tmp) / 'data').mkdir()
+            (Path(tmp) / 'data' / 'lure.dat').write_bytes(b'LURE')
+            self.assertEqual(sx.data_members(runtime), (('.rr/data/lure.dat', b'LURE'),))
+        self.assertNotIn('data=1', sx.manifest_text('t', 'N', 'i'))
+        self.assertTrue(sx.manifest_text('t', 'N', 'i', data=True).endswith('data=1\n'))
+
+
 class SharedPreparation(unittest.TestCase):
     """batch._needs_shared: a batch of emulated games alone does not build the Z80 translator or the shared SDL2."""
 

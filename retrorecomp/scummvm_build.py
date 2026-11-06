@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import zipfile
@@ -106,6 +107,34 @@ def runtime_path(family: str) -> Path:
     return build_root() / family / ('scummvm-runtime' + ('.exe' if os.name == 'nt' else ''))
 
 
+def data_path(family: str) -> Path:
+    """Where a runtime's data files are collected when the platform has no embedded resources (Linux): the engine data
+    (`lure.dat`...), the GUI themes and fonts, packed into every exe as `.rr/data`. Windows embeds them in the runtime."""
+    return build_root() / family / 'data'
+
+
+# The GUI files the Windows resource script embeds and a pack must carry elsewhere (shaders need OpenGL: not carried).
+GUI_DATA = ('scummclassic.zip', 'scummmodern.zip', 'scummremastered.zip', 'gui-icons.dat', 'translations.dat')
+_RESOURCE_LINE = re.compile(r'^(\S+)\s+FILE\s+"([^"]+)"', re.M)
+
+
+def collect_data(tree: Path, family_dir: Path) -> list:
+    """Copy the runtime's data files out of the (family-generated) resource lists of the tree; returns their names. Same
+    content as what Windows embeds: the engine data of the family's engines (core and engine lists written by create_project,
+    the CJK list is blanked), fonts.dat as trimmed, and GUI_DATA."""
+    target = family_dir / 'data'
+    shutil.rmtree(target, ignore_errors=True)
+    target.mkdir(parents=True)
+    wanted: dict[str, Path] = {name: tree / 'gui' / 'themes' / name for name in GUI_DATA}
+    for listing in ('dists/scummvm_rc_engine_data_core.rh', 'dists/scummvm_rc_engine_data.rh'):
+        text = (tree / listing).read_text(encoding='utf-8', errors='replace')
+        wanted.update({name: tree / relative for name, relative in _RESOURCE_LINE.findall(text)})
+    for name, source in sorted(wanted.items()):
+        if source.is_file():
+            shutil.copy2(source, target / name)
+    return sorted(path.name for path in target.iterdir())
+
+
 def patch_digest() -> str:
     """SHA-256 of the patch series, in file-name order: part of the identity of every runtime."""
     digest = hashlib.sha256()
@@ -117,7 +146,8 @@ def patch_digest() -> str:
 def runtime_identity(family: str) -> dict:
     return {'scummvm_tag': SCUMMVM_TAG, 'scummvm_commit': SCUMMVM_REV, 'freetype_commit': FREETYPE_REV,
             'patch_sha256': patch_digest(), 'family': family, 'engines': list(engines_for(family)),
-            'gui_languages': ['en', *(code.split('_')[0] for code in GUI_TRANSLATIONS)]}
+            'gui_languages': ['en', *(code.split('_')[0] for code in GUI_TRANSLATIONS)],
+            'data': 'resources' if os.name == 'nt' else 'pack'}
 
 
 # --- running ---------------------------------------------------------------------------------------------------------
@@ -312,6 +342,8 @@ def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
     (tree / 'dists/scummvm_rc_engine_data_big.rh').write_text('// Retro-Recomp: no CJK fonts in the exes\n',
                                                                 encoding='utf-8')
     (tree / 'dists/scummvm.rc').touch()
+    if os.name != 'nt':
+        emit(f'Données de ScummVM ({family}) : {len(collect_data(tree, family_dir))} fichiers.')
     from .core import toolchain
     cmake, generator = toolchain()
     build = family_dir / 'build'

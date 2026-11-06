@@ -143,8 +143,19 @@ def folder_id(folder: Path) -> str:
 
 # --- the pack -----------------------------------------------------------------------------------------------------------
 
-def manifest_text(target: str, name: str, game_id: str, choice: int = 1, candidates: int = 1) -> str:
-    return f'target={target}\nname={name}\nid={game_id}\nchoice={choice}\ncandidates={candidates}\n'
+def manifest_text(target: str, name: str, game_id: str, choice: int = 1, candidates: int = 1, data: bool = False) -> str:
+    """The launch manifest of the pack. `data`: the pack carries the engine data files and GUI themes as `.rr/data/*`
+    (platforms without embedded resources), which the launch adds to ScummVM's search paths."""
+    return (f'target={target}\nname={name}\nid={game_id}\nchoice={choice}\ncandidates={candidates}\n'
+            + ('data=1\n' if data else ''))
+
+
+def data_members(runtime: Path) -> tuple:
+    """The `.rr/data/<name>` members of a runtime that has its data collected beside it (scummvm_build.collect_data)."""
+    folder = Path(runtime).parent / 'data'
+    if not folder.is_dir():
+        return ()
+    return tuple((f'.rr/data/{path.name}', path.read_bytes()) for path in sorted(folder.iterdir()) if path.is_file())
 
 
 def write_pack(program: Path, folder: Path, out: Path, manifest: str, extra: tuple = ()) -> tuple[int, int]:
@@ -355,6 +366,7 @@ def export_game(folder: Path, out_directory: Path, detect_runtime: Path, runtime
     family = family_for(picked.engine)
     runtime = Path(runtime_for_family(family))
     name, game_id = datas_name(picked.title), folder_id(folder)
+    data = data_members(runtime)
     exe = Path(out_directory) / (exe_title(picked.title) + ('.exe' if os.name == 'nt' else ''))     # as core.executable_name
     if icon is not None and os.name == 'nt':
         staged = exe.with_name(exe.name + '.runtime')
@@ -364,8 +376,8 @@ def export_game(folder: Path, out_directory: Path, detect_runtime: Path, runtime
         runtime = staged
     try:
         files, data_bytes = write_pack(runtime, folder, exe, manifest_text(picked.gameid, name, game_id, index + 1,
-                                                                          len(candidates)),
-                                       extra=(('.rr/legal.md', legal_notice().encode('utf-8')),))
+                                                                          len(candidates), data=bool(data)),
+                                       extra=(('.rr/legal.md', legal_notice().encode('utf-8')), *data))
     finally:
         if runtime.name.endswith('.runtime'):
             runtime.unlink(missing_ok=True)

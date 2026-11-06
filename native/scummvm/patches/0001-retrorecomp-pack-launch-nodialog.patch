@@ -1,9 +1,9 @@
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
 new file mode 100644
-index 00000000..e77b7665
+index 00000000..e174d2b9
 --- /dev/null
 +++ b/backends/fs/packed/packed-fs.cpp
-@@ -0,0 +1,623 @@
+@@ -0,0 +1,629 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -573,6 +573,12 @@ index 00000000..e77b7665
 +	strings.push_back("--joystick=0");
 +	strings.push_back("--savepath=" + gameDir + kNativeSep + "saves");
 +	strings.push_back("--logfile=" + gameDir + kNativeSep + "scummvm.log");
++	if (manifestValue(manifest, "data") == "1") {
++		// Builds without the Windows resources (Linux) carry the engine data files and the GUI themes in the pack.
++		const Common::String data = Common::String("pack:") + kNativeSep + ".rr" + kNativeSep + "data";
++		strings.push_back("--extrapath=" + data);
++		strings.push_back("--themepath=" + data);
++	}
 +	strings.push_back(target);
 +
 +	static Common::Array<char *> pointers;
@@ -896,3 +902,26 @@ index 60b27186..a622f850 100644
  	if (_isPortable) {
  		Win32::getProcessDirectory(dlcsPath, MAX_PATH);
  		_tcscat(dlcsPath, TEXT("\\DLCs\\"));
+diff --git a/backends/saves/posix/posix-saves.cpp b/backends/saves/posix/posix-saves.cpp
+index 24698499..4bd12715 100644
+--- a/backends/saves/posix/posix-saves.cpp
++++ b/backends/saves/posix/posix-saves.cpp
+@@ -32,6 +32,7 @@
+ 
+ #include "backends/saves/posix/posix-saves.h"
+ #include "backends/fs/posix/posix-fs.h"
++#include "backends/fs/packed/packed-fs.h"
+ #if defined(MACOSX)
+ #include "backends/platform/sdl/macosx/macosx_wrapper.h"
+ #endif
+@@ -43,6 +44,10 @@
+ #include <sys/stat.h>
+ 
+ POSIXSaveFileManager::POSIXSaveFileManager() {
++	// Packed Retro-Recomp executable: the saves go to datas/ (--savepath); nothing is created in the home folder.
++	if (packedModeActive())
++		return;
++
+ 	// Register default savepath.
+ 	Common::Path savePath;
+ 
