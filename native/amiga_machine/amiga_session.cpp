@@ -128,6 +128,16 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
 // relocation table): vAmiga's WOM (the A1000's writable ROM, left unlocked) is pointed at the copy, so the window
 // $FC0000-$FFFFFF reads and writes the same bytes as ExpMem, and what the slave patches or writes into the image through either
 // address is what runs. 256 KiB images only (Kickstart 1.x): a 512 KiB image would need the whole $F80000 window writable.
+// The window over the copy in ExpMem (on), or vAmiga's own ROM mapping (off, around a snapshot).
+static void kick_window(bool on) {
+    if (!S->kick_size) return;
+    Memory &mem = S->amiga->mem;
+    mem.wom = on ? mem.slow + (S->kick_base - SLOW_BASE) : nullptr;
+    mem.womMask = on ? S->kick_size - 1 : 0;
+    mem.womIsLocked = false;
+    mem.updateMemSrcTables();
+}
+
 static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t destination) {
     if (S->kick.size() != size || size != 0x40000) return 0;
     if (destination < SLOW_BASE || destination + size > SLOW_BASE + SLOW_SIZE || (destination & (size - 1)) != 0) return 0;
@@ -136,13 +146,9 @@ static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t
         for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, 0);
         return 0;
     }
-    Memory &mem = S->amiga->mem;
-    mem.wom = mem.slow + (destination - SLOW_BASE);
-    mem.womMask = size - 1;
-    mem.womIsLocked = false;
-    mem.updateMemSrcTables();
     S->kick_base = destination;
     S->kick_size = size;
+    kick_window(true);
     return 1;
 }
 
@@ -558,7 +564,13 @@ struct StateHead { char magic[16]; char abi[72]; uint64_t frame; uint32_t joy, m
 
 extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi) {
     try {
-        auto snap = s->amiga->takeSnapshot(utl::Compressor::NONE);
+        // vAmiga saves an ordinary machine: the WOM over ExpMem is lifted around the snapshot (its reader reallocates
+        // ROM and WOM buffers by the sizes it was configured with, which an alias is not), then set again. The image and
+        // what was patched into it are in slow RAM, which the snapshot keeps.
+        kick_window(false);
+        std::unique_ptr<Snapshot> snap;
+        try { snap = s->amiga->takeSnapshot(utl::Compressor::NONE); } catch (...) { kick_window(true); throw; }
+        kick_window(true);
         StateHead head{};
         memcpy(head.magic, STATE_MAGIC, sizeof head.magic);
         snprintf(head.abi, sizeof head.abi, "%s", abi ? abi : "");
@@ -592,11 +604,14 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
     fclose(f);
     if (!ok) return 3;
+    kick_window(false);
     try {
         s->amiga->loadSnapshot(Snapshot(data.data(), (isize)data.size()));
     } catch (std::exception &) {
+        kick_window(true);
         return 3;
     }
+    kick_window(true);
     rl.host = s->rl.host;
     s->rl = rl;
     s->frame = head.frame;
