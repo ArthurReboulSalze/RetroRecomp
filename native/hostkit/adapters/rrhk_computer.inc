@@ -177,6 +177,11 @@ static bool x_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
    return true;
 }
 
+/* What a capture notice says: Ctrl+Alt+M or a press of the middle button (the wheel) releases the mouse; neither
+ * computer's mouse had a middle button, so the guest never needs it. */
+#define RRC_MOUSE_CAPTURED rrhk_tr("Mouse captured (Ctrl+Alt+M or middle click releases it)", \
+                                   "Souris capturee (Ctrl+Alt+M ou clic du milieu pour la liberer)")
+
 /* The mouse is captured (relative) only while the game runs in a focused window. */
 static void x_sync_mouse(void) {
    bool wanted = mouse_grab && input_focus && !player_blocked();
@@ -189,7 +194,7 @@ static void x_frame_start(void *window, void *renderer) {
       ca.started = true;
       SDL_SetWindowMinimumSize((SDL_Window *)window, 400, 340);
       player_load((SDL_Window *)window);
-      if (mouse_game) { mouse_grab = true; player_notice("Mouse controls: Ctrl+Alt+M releases the mouse"); }
+      if (mouse_game) { mouse_grab = true; player_notice(RRC_MOUSE_CAPTURED); }
    }
    x_sync_mouse();
 }
@@ -216,9 +221,14 @@ static bool x_event(const SDL_Event *e, bool *running) {
    if (e->type == SDL_KEYDOWN && e->key.keysym.scancode == SDL_SCANCODE_ESCAPE && ca.escape_held) { rrhk_options_observe(e); return true; }
    if (key == SDL_SCANCODE_ESCAPE && ui->menu) ca.escape_held = 1;
    if (ui->capturing) return false;
+   /* A press of the middle button (the wheel) releases a captured mouse and never reaches the guest. */
+   if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_MIDDLE && mouse_grab) {
+      mouse_grab = false; player_notice(rrhk_tr("Mouse released", "Souris liberee")); return true;
+   }
+   if (e->type == SDL_MOUSEBUTTONUP && e->button.button == SDL_BUTTON_MIDDLE) return true;
    /* A click on an unknown computer game captures its mouse; menus and an unfocused window never do. */
    if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && input_focus && !player_blocked() && !mouse_grab) {
-      mouse_grab = true; player_notice("Mouse captured (Ctrl+Alt+M to release)");
+      mouse_grab = true; player_notice(RRC_MOUSE_CAPTURED);
    }
    /* Full computer typing reserves the ordinary keys for the guest. Guide and explicit Ctrl+Alt shortcuts remain. */
    if (guest_keyboard && !ui->menu && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) &&
@@ -234,7 +244,7 @@ static bool x_event(const SDL_Event *e, bool *running) {
       else if (sym == SDLK_q) *running = false;
       else if (sym == SDLK_k) x_toggle_keyboard();
       else if (sym == SDLK_f) rrhk_toggle_autofire();
-      else if (sym == SDLK_m) { mouse_grab = !mouse_grab; player_notice(mouse_grab ? "Mouse captured (Ctrl+Alt+M to release)" : "Mouse released"); }
+      else if (sym == SDLK_m) { mouse_grab = !mouse_grab; player_notice(mouse_grab ? RRC_MOUSE_CAPTURED : rrhk_tr("Mouse released", "Souris liberee")); }
       else if (sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN) { want_swap = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; swap_direction = sym == SDLK_PAGEUP ? -1 : 1; }
       else if (sym == SDLK_BACKSPACE) { want_eject = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; }
       return true;
@@ -263,7 +273,7 @@ static void x_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    rrhk_menu_line(ctx, y, rr_tr("Tab: game / computer shortcuts"));
 }
 static bool x_help_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
-   static const char *const lines[] = {"Ctrl+Alt+K: full guest keyboard", "Ctrl+Alt+M: mouse capture", "Ctrl+Alt+F: rapid fire",
+   const char *const lines[] = {"Ctrl+Alt+K: full guest keyboard", rrhk_tr("Ctrl+Alt+M / middle click: mouse", "Ctrl+Alt+M / clic milieu : souris"), "Ctrl+Alt+F: rapid fire",
       "Ctrl+Alt+Page Up/Down: FDD0", "Add Shift: FDD1", "Ctrl+Alt+Backspace: eject disk", "Ctrl+Alt+H: help", "Ctrl+Alt+O: options",
       "Ctrl+Alt+Enter: display mode", "Ctrl+Alt+Q: quit", "Ctrl+F1-F12: Retro-Recomp shortcuts"};
    unsigned n;

@@ -79,6 +79,13 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Computers: a press of the middle button releases the mouse (1.7.0)
+
+On the computers, a press of the middle mouse button (the wheel) now releases a captured mouse, as Ctrl+Alt+M does; the
+button never reaches the game (the X68000's and the Amiga's mice had two buttons). The capture notices say so, in English
+and French. What moves: the **host stamp of the X68000** (`native/hostkit/adapters/rrhk_computer.inc`, host role); no game
+or build stamp, no quick-state key. An export of 1.6.9 keeps working as it is; reconverting it brings the middle-button release.
+
 ## The index of native steps may have its own language (1.7, the Amiga's branch)
 
 The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
