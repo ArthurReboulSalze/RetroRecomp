@@ -120,14 +120,6 @@ class AvailabilityTests(unittest.TestCase):
                 path.write_text('synthetic marker')
                 self.assertEqual(amiga.developer_available(), name == needed[-1])
 
-    def test_the_slave_name_is_cleaned_into_a_title_for_a_box(self):
-        from retrorecomp.amiga_conversion import slave_cover_title
-        self.assertEqual(slave_cover_title('-* S P E E D B A L L  2 *-'), 'SPEEDBALL 2')
-        self.assertEqual(slave_cover_title('--> Pinball Dreams <--'), 'Pinball Dreams')
-        self.assertEqual(slave_cover_title('Lotus Turbo Challenge II'), 'Lotus Turbo Challenge II')
-        self.assertEqual(slave_cover_title('Dungeon Master (V3.6)'), 'Dungeon Master (V3.6)')
-        self.assertEqual(slave_cover_title(''), '')
-
 
 if __name__ == '__main__':
     unittest.main()

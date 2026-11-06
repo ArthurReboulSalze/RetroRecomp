@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
-import re
 import json
 import os
 from pathlib import Path
@@ -351,16 +350,6 @@ def game_entry(source, kick=None) -> Path:
     return entry / f'kick-{kick.sha256[:16]}' if kick is not None else entry
 
 
-def slave_cover_title(name: str) -> str:
-    """The slave's ws_name as a title to look a box up with: decorations around it dropped (`--> Pinball Dreams <--`,
-    `-* ... *-`), letters spaced one by one joined again (`S P E E D B A L L  2`: words are two spaces apart)."""
-    text = re.sub(r'^[^0-9A-Za-z]+|[^0-9A-Za-z)]+$', '', name or '').strip()
-    words = re.split(r' {2,}', text)
-    if len(text) > 4 and all(len(letter) == 1 for word in words for letter in word.split(' ')):
-        text = ' '.join(word.replace(' ', '') for word in words)
-    return text if len(text) < 120 else ''
-
-
 def kickstart_fields(kick) -> dict:
     """The report's `kickstart` object: which image the install ran with, by numbers about it (never its bytes)."""
     known = kick.version or {}
@@ -448,16 +437,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
         payload_dir.mkdir(parents=True, exist_ok=True)
-        def icon(cover_title):
-            return prepare_icon(payload_dir, source.path, cover_title, payload_dir, explicit=Path(cover) if cover else None,
-                                online=online_cover, enabled=use_cover, system_id='amiga',
-                                cache_directory=boxart_cache_directory('amiga'), emit=emit)
-        artwork = icon(title)
-        # The archive's name is often a short label (Lotus 2); the slave's own name is the game's full title (Lotus Turbo
-        # Challenge II). Without a cover under the first, the box is looked for under the second.
-        alternative = slave_cover_title(slave.name)
-        if artwork.get('source') == 'missing' and alternative and alternative.casefold() != title.casefold():
-            artwork = icon(alternative)
+        artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
+                               enabled=use_cover, system_id='amiga', cache_directory=boxart_cache_directory('amiga'), emit=emit)
         view = display_window(expected.values())
         metadata = payload(payload_dir, source, extracted, work / 'install', title, mouse_game, artwork, view,
                            kickstart=work / 'install' / 'kickstart.rom' if kick is not None else None)
