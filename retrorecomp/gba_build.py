@@ -39,6 +39,10 @@ set(GBARECOMP_GENERATED_BIOS_DIR "@BIOS@" CACHE PATH "")
 add_subdirectory("@ENGINE@" engine EXCLUDE_FROM_ALL)
 include("${CMAKE_CURRENT_BINARY_DIR}/engine/runtime.cmake")
 gbarecomp_add_runtime_target(gba_probe GAME_GENERATED_DIR "@GAME@")
+if(NOT WIN32 AND NOT APPLE)
+  # The engine's four archives call each other; GNU ld needs them in a group (the engine's own tools do the same).
+  target_link_libraries(gba_probe PRIVATE -Wl,--start-group gbarecomp_armv4t gbarecomp_gba gbarecomp_runtime gbarecomp_debug -Wl,--end-group)
+endif()
 target_sources(gba_probe PRIVATE "${CMAKE_CURRENT_LIST_DIR}/main.cpp")
 '''
 HOST_NAME = 'gba_probe'
