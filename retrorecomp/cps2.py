@@ -20,7 +20,9 @@ def _missing_key_hint(game: dict, missing: list) -> str:
     return ''
 
 
-FAMILY = capcom_sets.Family('CPS-2', cps2_catalogue, _missing_key_hint)
+# FBNeo's Alien vs. Predator keeps its four 1 MiB graphics ROMs as 2 MiB files whose two halves are the ROM (the catalogue, from MAME, has 1 MiB).
+DOUBLED_BY_FBNEO = frozenset(('avp.14m', 'avp.16m', 'avp.18m', 'avp.20m'))
+FAMILY = capcom_sets.Family('CPS-2', cps2_catalogue, _missing_key_hint, DOUBLED_BY_FBNEO)
 
 
 @dataclass(frozen=True)

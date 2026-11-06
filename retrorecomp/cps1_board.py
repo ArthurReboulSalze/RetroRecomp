@@ -26,6 +26,8 @@ def member_bytes(game_set) -> dict:
     for member in game_set.members:
         with ZipFile(member['archive']) as archive:
             payload = archive.read(member['archive_path'])
+        if member.get('half'):                  # a ROM stored twice over (retrorecomp/cps2.py, DOUBLED_BY_FBNEO): the first half is the ROM
+            payload = payload[:len(payload) // 2]
         if hashlib.sha256(payload).hexdigest() != member['sha256']:
             raise ValueError('CPS-1 ROM ' + member['name'] + ' changed after identification.')
         data[member['name']] = payload
