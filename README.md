@@ -96,7 +96,7 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 | Machine | Stage |
 | --- | --- |
 | Game Boy Advance | in development |
-| Commodore Amiga 500, then Amiga 1200 | study |
+| Commodore Amiga 500 (the Amiga 1200 later) | in development |
 
 Planned after them: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

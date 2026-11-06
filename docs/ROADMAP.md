@@ -122,11 +122,13 @@ on the owner's decision after the qualification list.
 
 - **Game Boy Advance.** A pinned recompiler with a host adapter of our own; the player's own BIOS; cartridge saves and the
   real-time clock first, sensors (tilt, gyroscope, solar) later.
+- **Commodore Amiga 500.** A pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000 steps
+  structured by the shared decoder; games installed for WHDLoad first, with no Kickstart and no WHDLoad run (its services
+  are answered by our own code); installs that need a Kickstart, and ADF images, later.
 
 ## Planned after that
 
 - Atari ST
-- Amiga 500 (WHDLoad-based)
 - Amiga 1200 AGA (WHDLoad-based)
 - Nintendo 64
 - PlayStation
