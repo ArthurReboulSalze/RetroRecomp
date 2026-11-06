@@ -111,7 +111,7 @@ class ProfileTests(unittest.TestCase):
 class AvailabilityTests(unittest.TestCase):
     def test_the_profile_is_offered_only_when_its_converter_files_are_installed(self):
         needed = ('native/amiga_machine/CMakeLists.txt', 'native/amiga_whdload/rr_resload.c',
-                  'native/hostkit/adapters/rrhk_amiga.inc', 'retrorecomp/amiga_conversion.py')
+                  'native/hostkit/adapters/rrhk_amiga.inc')
         with TemporaryDirectory() as folder, patch('retrorecomp.amiga.ASSETS', Path(folder)):
             self.assertFalse(amiga.converter_available())
             for name in needed:

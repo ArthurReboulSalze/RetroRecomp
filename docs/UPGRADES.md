@@ -260,7 +260,10 @@ resource 203, and THIRD_PARTY_NOTICES has a vAmiga row.
 Engine, it is listed when the installation carries its converter files (`amiga.converter_available`), its options note no
 longer says otherwise in the eight languages, and the credits list it as experimental. Linux is `witnessed` (one install
 converted and validated on a Debian 13 PC; G13 `P`). Against the merged `main` this moves **the Amiga's game stamp only**
-(its profile and converter modules); no other console's stamp moves.
+(its profile and converter modules); no other console's stamp moves. The check reads the Amiga's native files only: a
+packaged converter keeps its Python modules inside the executable, so a check of `amiga_conversion.py` as a file had hidden
+the profile from every packaged 1.7.0 build (found by the release check of the packaged executable; fixed before
+publication, the Amiga's game stamp only).
 
 **What moves** (`compilation_inputs.role_stamps` of the tree of `main` at 27e30e03 against this branch, computed on 6 November
 2026, the change of `index_extension` above included): **the game stamp and the host stamp of the eleven consoles of 1.6.9**; no
