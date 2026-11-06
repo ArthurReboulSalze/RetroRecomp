@@ -322,8 +322,9 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    # Eight pages (box art is in Common), plus the X68000, CPS-1, CPS-2 and PC Engine pages when available.
-    assert 8 <= len(notebook.tabs()) <= 12
+    # Eight pages (box art is in Common), plus one page per further available machine: at most the Common page and one
+    # per profile (the Master System and the Game Gear share theirs), so a new machine needs no edit here.
+    assert 8 <= len(notebook.tabs()) <= 1 + len(PROFILES)
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_ng')
     assert all(notebook.tab(i, 'text') != application.tr('options_boxart') for i in range(len(notebook.tabs())))
