@@ -38,6 +38,10 @@ saves). Nothing is written anywhere else.
 * **Languages**: the five game-menu languages (English, French, Italian, Spanish, German). The interface language of
   `datas/Retro-Recomp.ini` sets ScummVM's menu language at every start; another value gives English. The game's own language
   comes from its data and is never changed.
+* **Errors**: an executable never opens a window of the system. A fatal error of ScummVM or of the game's engine ("Error running game",
+  missing data) is written to `scummvm.log` and the program ends with exit code 1; a crash, an abort or an uncaught exception
+  writes one line to `crash.log` beside it. ScummVM's launcher never appears: the program ends with its game. Dialogs the engines
+  draw inside the game window (saving, loading, the game's own prompts) stay.
 * **Music**: without an MT-32 ROM, the default AdLib or General MIDI music, with no error.
 * **Pad**: the left stick moves the pointer, A clicks, B right-clicks, Start opens the menu (ScummVM's defaults, editable in its
   options).

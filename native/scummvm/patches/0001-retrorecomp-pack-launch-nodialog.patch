@@ -1,9 +1,9 @@
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
 new file mode 100644
-index 00000000..c7f53fad
+index 00000000..7b74d48d
 --- /dev/null
 +++ b/backends/fs/packed/packed-fs.cpp
-@@ -0,0 +1,632 @@
+@@ -0,0 +1,710 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -45,6 +45,13 @@ index 00000000..c7f53fad
 +#include "common/fs.h"
 +#include "common/stream.h"
 +#include "common/substream.h"
++#include "common/textconsole.h"
++
++#include <signal.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include <exception>
 +
 +namespace {
 +
@@ -521,6 +528,76 @@ index 00000000..c7f53fad
 +
 +} // namespace
 +
++// ---------------------------------------------------------------------------------------------
++// Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
++// (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
++// uncaught exception writes one line to crash.log beside the log and ends the process quietly.
++
++namespace {
++
++char g_crashLog[1024];
++
++void writeCrashLine(const char *what, unsigned long code, const void *where) {
++	if (!g_crashLog[0])
++		return;
++	FILE *out = fopen(g_crashLog, "ab");
++	if (!out)
++		return;
++	char stamp[32] = "";
++	const time_t now = time(nullptr);
++	if (const struct tm *local = localtime(&now))
++		strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", local);
++	fprintf(out, "[%s] FATAL: %s (code 0x%lx at %p)\n", stamp, what, code, where);
++	fclose(out);
++}
++
++void onSignal(int sig) {
++	writeCrashLine(sig == SIGABRT ? "abort" : "fatal signal", (unsigned long)sig, nullptr);
++	_exit(sig == SIGABRT ? 3 : 1);
++}
++
++void onTerminate() {
++	writeCrashLine("terminate called after an uncaught C++ exception", 0, nullptr);
++	_exit(3);
++}
++
++#ifdef _WIN32
++LONG WINAPI onUnhandledException(EXCEPTION_POINTERS *info) {
++	writeCrashLine("unhandled exception", info->ExceptionRecord->ExceptionCode, info->ExceptionRecord->ExceptionAddress);
++	return EXCEPTION_EXECUTE_HANDLER;   // ends the process; SEM_NOGPFAULTERRORBOX keeps Windows from opening its box
++}
++#endif
++
++void installCrashLog(const Common::String &path) {
++	if (path.size() >= sizeof(g_crashLog))
++		return;
++	memcpy(g_crashLog, path.c_str(), path.size() + 1);
++	signal(SIGABRT, onSignal);
++	signal(SIGSEGV, onSignal);
++	signal(SIGFPE, onSignal);
++	signal(SIGILL, onSignal);
++#ifdef SIGBUS
++	signal(SIGBUS, onSignal);
++#endif
++	std::set_terminate(onTerminate);
++#ifdef _WIN32
++	SetUnhandledExceptionFilter(onUnhandledException);
++#endif
++}
++
++} // namespace
++
++void packedFaultForTest() {
++	if (!g_pack.present)
++		return;
++	if (getenv("RR_TEST_FATAL"))
++		error("Retro-Recomp: deliberate fatal error");
++	if (getenv("RR_TEST_CRASH")) {
++		volatile int *nothing = nullptr;
++		*nothing = 1;
++	}
++}
++
 +void packedLaunchArguments(int &argc, char **&argv) {
 +	if (!g_pack.present || argc != 1)
 +		return;
@@ -542,6 +619,7 @@ index 00000000..c7f53fad
 +	const Common::String datas = exeDir + kNativeSep + "datas";
 +	const Common::String gameDir = datas + kNativeSep + "games" + kNativeSep + name + (id.empty() ? Common::String() : "-" + id);
 +	makeDirectories(gameDir + kNativeSep + "saves");
++	installCrashLog(gameDir + kNativeSep + "crash.log");
 +
 +	// datas/Retro-Recomp.ini with defaults, created once and never rewritten here.
 +	const Common::String ini = datas + kNativeSep + "Retro-Recomp.ini";
@@ -638,10 +716,10 @@ index 00000000..c7f53fad
 +}
 diff --git a/backends/fs/packed/packed-fs.h b/backends/fs/packed/packed-fs.h
 new file mode 100644
-index 00000000..32a92cc8
+index 00000000..1b7bc73e
 --- /dev/null
 +++ b/backends/fs/packed/packed-fs.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,75 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -708,6 +786,13 @@ index 00000000..32a92cc8
 +
 +/** Authored checks of the pack streams (negative and end-relative seeks); 0 when all pass. */
 +int packedSelfTest();
++
++/**
++ * Authored checks of the fatal paths of a packed executable (RR_TEST_FATAL raises a ScummVM error(), RR_TEST_CRASH an access
++ * violation): neither may show a window; the first leaves its text in the log, the second in crash.log. Called by
++ * scummvm_main once the log is open; does nothing without those variables.
++ */
++void packedFaultForTest();
 +
 +#endif
 diff --git a/backends/module.mk b/backends/module.mk
@@ -796,15 +881,23 @@ index f2330f7f..653bf716 100644
  	// where to store files. The version we based our code upon can be found
  	// over here: https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.8.html
 diff --git a/backends/platform/sdl/sdl.cpp b/backends/platform/sdl/sdl.cpp
-index f2c4e514..99ae775e 100644
+index f2c4e514..ed057d5c 100644
 --- a/backends/platform/sdl/sdl.cpp
 +++ b/backends/platform/sdl/sdl.cpp
-@@ -853,6 +853,9 @@ void OSystem_SDL::messageBox(LogMessageType::Type type, const char *message) {
+@@ -23,6 +23,7 @@
+ #define SDL_FUNCTION_POINTER_IS_VOID_POINTER
+ 
+ #include "backends/platform/sdl/sdl.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "common/config-manager.h"
+ #include "gui/EventRecorder.h"
+ #include "common/taskbar.h"
+@@ -853,6 +854,9 @@ void OSystem_SDL::messageBox(LogMessageType::Type type, const char *message) {
  		break;
  	}
  
-+	// Retro-Recomp: tests (RR_NO_DIALOGS) never open a modal window; the message is in the log.
-+	if (getenv("RR_NO_DIALOGS"))
++	// Retro-Recomp: a packed executable and the tests (RR_NO_DIALOGS) never open a modal window; the message is in the log.
++	if (packedModeActive() || getenv("RR_NO_DIALOGS"))
 +		return;
  	SDL_ShowSimpleMessageBox(flags, "ScummVM", message, _window ? _window->getSDLWindow() : nullptr);
  }
@@ -928,3 +1021,105 @@ index 24698499..4bd12715 100644
  	// Register default savepath.
  	Common::Path savePath;
  
+diff --git a/base/main.cpp b/base/main.cpp
+index ef3997f1..af6ffae0 100644
+--- a/base/main.cpp
++++ b/base/main.cpp
+@@ -100,6 +100,8 @@
+ 
+ #include "gui/dump-all-dialogs.h"
+ 
++#include "backends/fs/packed/packed-fs.h"
++
+ static bool launcherDialog() {
+ 
+ 	// Discard any command line options. Those that affect the graphics
+@@ -755,8 +757,17 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 			extensionSupportString[neonSupport].c_str());
+ 	}
+ 
++	// Retro-Recomp: a packed executable runs its game and ends with it. It never shows the launcher: when ScummVM does not
++	// know the game, or after a failed run, the reason is in the log and the exit code is 1.
++	int rrExitCode = 0;
++	if (packedModeActive() && nullptr == ConfMan.getActiveDomain()) {
++		g_system->logMessage(LogMessageType::kError, "ScummVM does not know the game of this executable.\n");
++		rrExitCode = 1;
++	}
++	packedFaultForTest();
++
+ 	// Unless a game was specified, show the launcher dialog
+-	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs"))
++	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs") && !packedModeActive())
+ 		launcherDialog();
+ 
+ 	// FIXME: We're now looping the launcher. This, of course, doesn't
+@@ -870,6 +881,12 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 				GUI::displayErrorDialog(result, _("Error running game:"));
+ 			}
+ 
++			// Retro-Recomp: a packed executable ends with its game (also on "Return to Launcher" and after an error).
++			if (packedModeActive()) {
++				rrExitCode = (result.getCode() == Common::kNoError || result.getCode() == Common::kUserCanceled) ? 0 : 1;
++				break;
++			}
++
+ 			// Quit unless an error occurred, or Return to launcher was requested
+ 			if (result.getCode() == Common::kNoError && !g_system->getEventManager()->shouldReturnToLauncher() &&
+ 			    !g_system->hasFeature(OSystem::kFeatureNoQuit) && !ConfMan.getBool("gui_return_to_launcher_at_exit"))
+@@ -918,6 +935,11 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 
+ 			GUI::displayErrorDialog(result, _("Error running game:"));
+ 
++			if (packedModeActive()) {
++				rrExitCode = 1;
++				break;
++			}
++
+ 			// Clear the active domain
+ 			ConfMan.setActiveDomain("");
+ 		}
+@@ -965,5 +987,5 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 	EngineManager::destroy();
+ 	Graphics::YUVToRGBManager::destroy();
+ 
+-	return 0;
++	return rrExitCode;
+ }
+diff --git a/gui/error.cpp b/gui/error.cpp
+index 8f3aa27a..cf5c7ba0 100644
+--- a/gui/error.cpp
++++ b/gui/error.cpp
+@@ -20,12 +20,24 @@
+  */
+ 
+ #include "common/error.h"
++#include "common/system.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "gui/message.h"
+ #include "gui/error.h"
+ 
+ namespace GUI {
+ 
++// Retro-Recomp: a packed executable shows no error window; the text goes to the log and the run ends.
++static bool logInsteadOfDialog(const Common::U32String &text) {
++	if (!packedModeActive() || !g_system)
++		return false;
++	g_system->logMessage(LogMessageType::kError, (text.encode() + "\n").c_str());
++	return true;
++}
++
+ void displayErrorDialog(const Common::U32String &text) {
++	if (logInsteadOfDialog(text))
++		return;
+ 	GUI::MessageDialog alert(text);
+ 	alert.runModal();
+ }
+@@ -34,6 +46,8 @@ void displayErrorDialog(const Common::Error &error, const Common::U32String &ext
+ 	Common::U32String errorText(extraText);
+ 	errorText += Common::U32String(" ");
+ 	errorText += error.getTranslatedDesc();
++	if (logInsteadOfDialog(errorText))
++		return;
+ 	GUI::MessageDialog alert(errorText);
+ 	alert.runModal();
+ }
