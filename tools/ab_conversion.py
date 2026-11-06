@@ -2,7 +2,7 @@
 
     python tools/ab_conversion.py ROM --a REF_OR_DIR [--b REF_OR_DIR] [--work DIR] [--keep-work]
                                   [--backend functions|banked]
-                                  [--ng-bios ARCHIVE] [--x68-ipl FILE --x68-cgrom FILE]
+                                  [--ng-bios ARCHIVE] [--gba-bios FILE] [--x68-ipl FILE --x68-cgrom FILE]
 
 A is the tree before the change (a git ref such as `v1.6.2`, checked out as a detached worktree, or an existing
 folder), B the tree after it (default: `HEAD`, also checked out detached, so that B is what was committed).
@@ -368,6 +368,7 @@ def main(argv=None) -> int:
     parser.add_argument('--backend', choices=('functions', 'banked'),
                         help='the Master System / Game Gear engine, passed to the batch (default: the converter default)')
     parser.add_argument('--ng-bios', type=Path, help='the Neo Geo BIOS archive (read in place), for a Neo Geo game')
+    parser.add_argument('--gba-bios', type=Path, help='the Game Boy Advance BIOS (gba_bios.bin, your own, read in place), for a Game Boy Advance game')
     parser.add_argument('--qsound-rom', help='the QSound DSP ROM (dl-1425.bin or qsound.zip, read in place), for a QSound set of the CPS-1.5 or a CPS-2 set')
     parser.add_argument('--x68-ipl', type=Path, help='the X68000 IPL ROM (read in place), for an X68000 game')
     parser.add_argument('--x68-cgrom', type=Path, help='the X68000 font ROM (read in place), for an X68000 game')
@@ -392,6 +393,8 @@ def main(argv=None) -> int:
         extra += ['--qsound-rom', options.qsound_rom]
     if options.ng_bios:
         extra += ['--ng-bios', options.ng_bios.resolve()]
+    if options.gba_bios:
+        extra += ['--gba-bios', options.gba_bios.resolve()]
     if options.x68_ipl and options.x68_cgrom:
         extra += ['--x68-ipl', options.x68_ipl.resolve(), '--x68-cgrom', options.x68_cgrom.resolve()]
     elif options.x68_ipl or options.x68_cgrom:

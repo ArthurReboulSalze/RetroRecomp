@@ -1,4 +1,4 @@
-"""Capcom CPS-2 conversion profile (experimental: see docs/CPS2.md).
+"""Capcom CPS-2 conversion profile (supported: see docs/CPS2.md).
 
 The board is the CPS-1's with an encrypted 68000 program, an object chip of its own, raster interrupts and the QSound sound board, so
 the profile reuses the CPS-1 pipeline (`cps1_conversion` with its `family='cps2'`), the common host kit adapter and the shared path
@@ -6,7 +6,7 @@ shapes. The key of a set is a file of the player's own romset; the QSound DSP RO
 """
 from pathlib import Path
 from . import Capabilities, Cpu, OptionKey, SystemProfile
-from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class Cps2Profile(SystemProfile):
@@ -15,7 +15,8 @@ class Cps2Profile(SystemProfile):
     extensions = ('.zip',)
     export_folder = 'CPS-2'
     video_modes = ('arcade',)
-    status = 'experimental'
+    # Open as an experimental machine in 1.6.9; left that status in 1.7.0 on the owner's decision (docs/QUALIFICATION.md, owner acceptance).
+    status = 'supported'
     cpus = (Cpu('m68000', 'main', 'instructions'), Cpu('z80', 'sound', 'instructions'))
     media_kinds = ('romset',)
     quick_state_family = 'rr16'
@@ -29,9 +30,8 @@ class Cps2Profile(SystemProfile):
     default_frames = 3600
     quick_frames = 2400
     title_from_romset = True
-    # Not converted or played on Linux yet.
-    linux = 'pending'
-    # Open to players as an experimental machine in 1.6.9 (the owner's decision of 5 November 2026); supported in a later release.
+    # The panel was converted on Windows and on the Debian PC with the same hashes (docs/QUALIFICATION.md, G13).
+    linux = 'witnessed'
     # The paths schema lists it after the X68000; its sources are the decrypted program (the image the code is translated from) and the
     # sound program. Nothing is shared with other players yet: the machine is not in the shared base.
     path_spec = PathSpec(order=9, sections=(('m68k', 'cps2'), ('z80', 'cps2-sound')),
@@ -45,10 +45,12 @@ class Cps2Profile(SystemProfile):
                                                             windows=((0xd000, 0xd800),), length=(4, 4),
                                                             guard='mask'))))
     report_shape = ReportShape('cps1_conversion', 'native_analysis')
-    catalogues = Catalogues(local_catalogue='assets/cps2-catalogue.json')
+    catalogues = Catalogues(libretro='libretro-thumbnails/MAME', screenscraper=7, thegamesdb=23, local_catalogue='assets/cps2-catalogue.json')
     library_layout = LibraryLayout(folder='cps2')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',
                                script_suffix='.inputs')
+    # Shares its paths in the experimental tier of the base, like the CPS-1 and the X68000 (docs/CPS2.md).
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, module='cps2_knowledge')
     host_adapter = 'adapters/rrhk_cps1.c'
     stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build', 'musashi_fixes', 'm68000_state_rules')
     # A romset ZIP whose program ROMs are in the CPS-2 catalogue (by CRC, never by name), or any ZIP when chosen.
@@ -70,6 +72,10 @@ class Cps2Profile(SystemProfile):
 
     def default_video_mode(self, path: Path) -> str:
         return 'arcade'
+
+    def cover_titles(self, path: Path) -> tuple[str, ...]:
+        from ..cps2 import cover_titles
+        return cover_titles(path)
 
     def convert(self, path: Path, **options) -> Path:
         from ..cps1_conversion import convert

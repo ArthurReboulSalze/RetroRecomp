@@ -52,6 +52,7 @@ REMOVING = '.retro-recomp-removing-'
 # One rule per console, on the folder names the converters create:
 #   sms/gg  core.py            sms_<title>_<CRC32>_<sha12>[_banked]
 #   gb      gameboy.py         gb_<title>_<sha12>_<engine8>
+#   gba     gba_conversion.py  gba_<title>_<sha12>_<engine8>
 #   nes     nes.py             nes_<title>_<sha12>_<engine8>[_ntsc|_pal]
 #   md      console16.py       md-rom-<sha64>, md-<exact-ROM catalogue id>
 #   snes    supernintendo.py   snes-rom-<sha16|32|64>, snes-<exact-ROM catalogue id>
@@ -62,6 +63,7 @@ REMOVING = '.retro-recomp-removing-'
 #                              (the <SDK12> base is shared: only the game below)
 _SEGA = re.compile(r'(sms|gg)_.+_[0-9A-F]{8}_([0-9a-f]{12})(?:_banked)?')
 _GB = re.compile(r'gb_.+_([0-9a-f]{12})_[0-9a-f]{8}')
+_GBA = re.compile(r'gba_.+_([0-9a-f]{12})_[0-9a-f]{8}')
 _NES = re.compile(r'nes_.+_([0-9a-f]{12})_[0-9a-f]{8}(?:_(?:ntsc|pal))?')
 _MD = re.compile(r'md-rom-([0-9a-f]{64})')
 _SNES = re.compile(r'snes-rom-([0-9a-f]{16}|[0-9a-f]{32}|[0-9a-f]{64})')
@@ -110,7 +112,7 @@ def classify(parts) -> tuple[str, str] | None:
     parts = tuple(parts)
     if len(parts) == 1:
         name = parts[0]
-        for pattern, system in ((_GB, 'gb'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
+        for pattern, system in ((_GB, 'gb'), (_GBA, 'gba'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
             if match := pattern.fullmatch(name):
                 return system, match[1]
         if match := _SEGA.fullmatch(name):
@@ -321,7 +323,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'nes', 'cps1', 'pce', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'pce', 'scummvm'):
         return key == sha256[:12]
     if system == 'md':
         return key == sha256

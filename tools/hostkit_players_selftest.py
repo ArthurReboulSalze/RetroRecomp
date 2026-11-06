@@ -74,8 +74,10 @@ def run_checks(out: Path, timeout: int = 60) -> dict:
     run([cmake, '-S', out, '-B', out / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}'], log=log)
     run([cmake, '--build', out / 'build', '--config', 'Release', '--parallel', '4'], log=log)
+    # Only SDL's virtual controllers: a real pad plugged into the computer would take player 1's slot.
+    from tools.hostkit_capabilities_selftest import REAL_PADS_OFF
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0',
-               SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS='1')
+               SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS='1', **REAL_PADS_OFF)
     for name in ('RETRORECOMP_HOST_TEST_FRAMES', 'RETRORECOMP_TIMING_REPORT', 'RETRORECOMP_HOST_TEST_NO_AUDIO'):
         env.pop(name, None)
     results = {}

@@ -98,6 +98,12 @@ void rrhk_bind(const RrhkMachine *machine) {
     rrhk.pointer_turbo = 1;
     rrhk.audio_volume = 100; rrhk.audio_muted = 0; rrhk.audio_device[0] = 0;
     rrhk.max_speed = rrhk.fast_hold = 0;
+    /* 1.7.0: no dead zone (the raw sticks), every graphics option at its default (the reference setting), vibration on. */
+    memset(rrhk.deadzone, 0, sizeof rrhk.deadzone);
+    memset(rrhk.gfx, 0, sizeof rrhk.gfx);
+    for (int i = 0; i < machine->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i) rrhk.gfx[i] = machine->gfx_options[i].def;
+    rrhk.gfx_row = 0;
+    rrhk.rumble = 1;
 }
 
 /* The machine's former preferences file (RrhkMachine.legacy_ini), beside the executable. It is read only while datas holds
@@ -143,6 +149,7 @@ static void binding_entry(wchar_t *sec, wchar_t *key, int p, int action, bool pa
 }
 
 static void load_choice(int p);
+static void load_capabilities(void);
 static const wchar_t *autofire_section(void) { return rrhk.machine->autofire_section ? rrhk.machine->autofire_section : L"Manettes"; }
 
 void rrhk_load_bindings(void) {
@@ -163,7 +170,9 @@ void rrhk_load_bindings(void) {
         for (int a = 0; a < m->action_count; ++a) {
             binding_entry(sec, entry, p, a, mode != 0);
             const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
-            if (mode && value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
+            if (mode && ((value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) ||
+                         (m->trigger_buttons && (value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))))
+                rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
     }
@@ -193,6 +202,7 @@ void rrhk_load_bindings(void) {
     if (!rr_from_utf8(rrhk.audio_device, fallback, 300)) fallback[0] = 0;
     rr_ini_get(options, L"audio_device", fallback, device, 300, rrhk.read_file);
     if (rr_to_utf8(device, text, sizeof text)) snprintf(rrhk.audio_device, sizeof rrhk.audio_device, "%s", text);
+    load_capabilities();
 }
 
 static void store_entry(int p, int action, bool pad) {
@@ -416,6 +426,23 @@ void rrhk_pad_value(char *out, size_t size, int p) {
     else snprintf(out, size, rr_tr("%s (disconnected)"), choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
 }
 
+/* A pad button held; on a machine whose triggers are buttons (trigger_buttons), a trigger past the stick threshold (D1). */
+static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
+    if (!pad || button < 0) return false;
+    if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
+    if (!rrhk.machine->trigger_buttons || (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER)) return false;
+    return SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
+}
+
+/* A trigger of player 1's pad (0 right, 1 left) bound to a control of a machine with trigger_buttons: no speed control then. */
+bool rrhk_trigger_bound(int side) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!m || !m->trigger_buttons) return false;
+    const SDL_GameControllerButton trigger = side ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER;
+    for (int a = 0; a < m->action_count; ++a) if (rrhk.buttons[0][a] == trigger) return true;
+    return false;
+}
+
 uint16_t rrhk_pad_word(int p, uint64_t frame) {
     const RrhkMachine *m = rrhk.machine;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
@@ -425,14 +452,15 @@ uint16_t rrhk_pad_word(int p, uint64_t frame) {
         const RrhkAction *action = &m->actions[a];
         /* Enter is Start and either Shift is Select/Coin (retro_keyboard.h). */
         bool down = (keyboard && rr_keyboard_held(state, rrhk.keys[p][a], &rrhk.keys[0][0], (int)(sizeof rrhk.keys / sizeof rrhk.keys[0][0]))) ||
-            (rrhk.pads[p] && rrhk.buttons[p][a] >= 0 && SDL_GameControllerGetButton(rrhk.pads[p], rrhk.buttons[p][a])) ||
+            pad_held(rrhk.pads[p], rrhk.buttons[p][a]) ||
             (m->action_held && m->action_held(p, a));
         if (action->group == RRHK_FACE) down = rr_autofire(&fire_state[p][a], down, rrhk.autofire != 0, frame);
         if (down) value |= action->bit;
     }
     const uint16_t left = m->actions[m->left].bit, right = m->actions[m->right].bit;
     const uint16_t up = m->actions[m->up].bit, down_bit = m->actions[m->down].bit;
-    if (rrhk.pads[p]) {
+    /* The left stick is the four directions (D1), unless the machine reads the sticks themselves (rrhk_pad_axes). */
+    if (rrhk.pads[p] && !m->analog_sticks) {
         Sint16 x = SDL_GameControllerGetAxis(rrhk.pads[p], SDL_CONTROLLER_AXIS_LEFTX);
         Sint16 y = SDL_GameControllerGetAxis(rrhk.pads[p], SDL_CONTROLLER_AXIS_LEFTY);
         if (x < -16000) value |= left; else if (x > 16000) value |= right;
@@ -441,4 +469,138 @@ uint16_t rrhk_pad_word(int p, uint64_t frame) {
     if ((value & (left | right)) == (left | right)) value &= ~(left | right);
     if ((value & (up | down_bit)) == (up | down_bit)) value &= ~(up | down_bit);
     return value;
+}
+
+/* ---- 1.7.0: sticks, graphics options, vibration (HOST_KIT.md section 2.4). Nothing below runs for a machine that declares
+ * none of them: their preferences are not read, and the loop never calls these functions for it. ---- */
+
+static void load_capabilities(void) {
+    const RrhkMachine *m = rrhk.machine;
+    wchar_t sec[64];
+    /* [<Console>.Gamepad.PlayerN] deadzone=<percent>, 0..30; anything else is the default, 0 (the raw sticks). */
+    if (m->analog_sticks) for (int p = 0; p < m->players() && p < RRHK_MAX_PLAYERS; ++p) {
+        section(sec, p, true);
+        const int value = rr_ini_int(sec, L"deadzone", 0, rrhk.read_file);
+        rrhk.deadzone[p] = value >= 0 && value <= RRHK_DEADZONE_MAX ? value : 0;
+    }
+    /* [<Console>.Video] <ini_key>=<value index>; an unknown or out-of-range value keeps the default, never an error. */
+    for (int i = 0; i < m->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i) {
+        const RrhkGfxOption *option = &m->gfx_options[i];
+        const int value = rr_ini_int(rrhk.video_section, option->ini_key, option->def, rrhk.read_file);
+        rrhk.gfx[i] = value >= 0 && value < option->count ? value : option->def;
+    }
+    /* [Manettes] rumble, shared by every machine that vibrates (the section of the kit's own controller settings). */
+    if (m->rumble) rrhk.rumble = rr_ini_int(L"Manettes", L"rumble", 1, rrhk.read_file) != 0;
+}
+
+/* A round dead zone on one stick: inside it the stick is centred; outside, the travel that is left is spread over the whole
+ * range, so that the edge still gives full scale. The length is not clamped to the circle and each axis is clamped on its own:
+ * a pad whose stick reaches the corners of a square (32767, 32767) still gives full scale on both axes there. 0 % leaves the
+ * values as SDL gives them. */
+static void dead_zone(int16_t *x, int16_t *y, int percent) {
+    if (percent <= 0) return;
+    const double fx = *x, fy = *y, length = SDL_sqrt(fx * fx + fy * fy), zone = 32767.0 * percent / 100.0;
+    if (length <= zone) { *x = *y = 0; return; }
+    const double factor = (length - zone) / (32767.0 - zone) * 32767.0 / length;
+    const double nx = fx * factor, ny = fy * factor;
+    *x = (int16_t)(nx > 32767.0 ? 32767 : nx < -32768.0 ? -32768 : nx);
+    *y = (int16_t)(ny > 32767.0 ? 32767 : ny < -32768.0 ? -32768 : ny);
+}
+
+bool rrhk_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
+    const RrhkMachine *m = rrhk.machine;
+    static const SDL_GameControllerAxis source[RRHK_AXES] = {SDL_CONTROLLER_AXIS_LEFTX, SDL_CONTROLLER_AXIS_LEFTY,
+                                                             SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY};
+    for (int i = 0; i < RRHK_AXES; ++i) axes[i] = 0;
+    if (!m || p < 0 || p >= RRHK_MAX_PLAYERS) return false;
+    /* A replay inside the window: the recorded sticks, as they were recorded (after the dead zone of that run). */
+    if (m->script_axes && m->script_axes(p, frame, axes)) return true;
+    for (int i = 0; i < RRHK_AXES; ++i) axes[i] = 0;
+    SDL_GameController *pad = rrhk.pads[p];
+    if (!pad || !SDL_GameControllerGetAttached(pad)) return false;
+    for (int i = 0; i < RRHK_AXES; ++i) axes[i] = SDL_GameControllerGetAxis(pad, source[i]);
+    dead_zone(&axes[RRHK_AXIS_LX], &axes[RRHK_AXIS_LY], rrhk.deadzone[p]);
+    dead_zone(&axes[RRHK_AXIS_RX], &axes[RRHK_AXIS_RY], rrhk.deadzone[p]);
+    return true;
+}
+
+/* Enter on the Stick dead zone row: 0, 5, 10 ... 30 %, then 0 again; Delete: 0. Kept in the player's gamepad section. */
+void rrhk_deadzone_step(int p, bool reset) {
+    if (p < 0 || p >= RRHK_MAX_PLAYERS) return;
+    rrhk.deadzone[p] = reset || rrhk.deadzone[p] + 5 > RRHK_DEADZONE_MAX ? 0 : rrhk.deadzone[p] + 5;
+    wchar_t sec[64], value[16];
+    section(sec, p, true);
+    swprintf(value, 16, L"%d", rrhk.deadzone[p]);
+    if (!rrhk_write_ready() || !rr_ini_set(sec, L"deadzone", value, rrhk.ini_file))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+void rrhk_rumble(int p, uint16_t low, uint16_t high, uint32_t milliseconds) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!m || !m->rumble || !rrhk.rumble || p < 0 || p >= RRHK_MAX_PLAYERS || !rrhk.pads[p]) return;
+    SDL_GameControllerRumble(rrhk.pads[p], low, high, milliseconds);
+}
+
+void rrhk_rumble_stop(void) {
+    if (!rrhk.machine || !rrhk.machine->rumble) return;
+    for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) if (rrhk.pads[p]) SDL_GameControllerRumble(rrhk.pads[p], 0, 0, 0);
+}
+
+void rrhk_toggle_rumble(void) {
+    rrhk.rumble = !rrhk.rumble;
+    if (!rrhk.rumble) rrhk_rumble_stop();
+    if (!rrhk_write_ready() || !rr_ini_set(L"Manettes", L"rumble", rrhk.rumble ? L"1" : L"0", rrhk.ini_file))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+/* The graphics options (D14). `--gfx` asks a value for this run only; a hidden-window test run starts from the defaults (the
+ * reference setting every gate uses), never from the player's saved choice. */
+static int gfx_forced[RRHK_MAX_GFX_OPTIONS];     /* 1 + the value `--gfx` asked for, 0: none */
+
+bool rrhk_gfx_override(const RrhkMachine *machine, const char *assignment) {
+    const char *equals = assignment ? strchr(assignment, '=') : NULL;
+    if (!machine || !equals || equals == assignment || !equals[1]) return false;
+    char *end = NULL;
+    const long value = strtol(equals + 1, &end, 10);
+    if (!end || *end) return false;
+    const size_t length = (size_t)(equals - assignment);
+    for (int i = 0; i < machine->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i) {
+        const RrhkGfxOption *option = &machine->gfx_options[i];
+        size_t k = 0;
+        while (k < length && option->ini_key[k] && option->ini_key[k] == (wchar_t)(unsigned char)assignment[k]) ++k;
+        if (k != length || option->ini_key[k]) continue;
+        if (value < 0 || value >= option->count) return false;
+        gfx_forced[i] = (int)value + 1;
+        return true;
+    }
+    return false;
+}
+
+int rrhk_gfx_value(int option) { return option >= 0 && option < RRHK_MAX_GFX_OPTIONS ? rrhk.gfx[option] : 0; }
+
+void rrhk_gfx_start(bool test_run) {
+    const RrhkMachine *m = rrhk.machine;
+    for (int i = 0; i < m->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i) {
+        if (test_run) rrhk.gfx[i] = m->gfx_options[i].def;
+        if (gfx_forced[i]) rrhk.gfx[i] = gfx_forced[i] - 1;
+        if (m->gfx_apply) m->gfx_apply(i, rrhk.gfx[i]);
+    }
+}
+
+void rrhk_gfx_set(int option, int value) {
+    const RrhkMachine *m = rrhk.machine;
+    if (option < 0 || option >= m->gfx_option_count || option >= RRHK_MAX_GFX_OPTIONS) return;
+    const RrhkGfxOption *o = &m->gfx_options[option];
+    if (value < 0 || value >= o->count) return;
+    rrhk.gfx[option] = value;
+    if (m->gfx_apply) m->gfx_apply(option, value);
+    wchar_t text[16];
+    swprintf(text, 16, L"%d", value);
+    if (!rrhk_write_ready() || !rr_ini_set(rrhk.video_section, o->ini_key, text, rrhk.ini_file))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+void rrhk_gfx_defaults(void) {
+    const RrhkMachine *m = rrhk.machine;
+    for (int i = 0; i < m->gfx_option_count && i < RRHK_MAX_GFX_OPTIONS; ++i) rrhk_gfx_set(i, m->gfx_options[i].def);
 }

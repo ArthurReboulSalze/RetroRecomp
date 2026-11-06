@@ -25,6 +25,10 @@ def display_title(title: str) -> str:
     return title.replace(': ', ' - ')
 
 
+def cover_titles(path: Path) -> tuple[str, ...]:
+    return capcom_sets.cover_titles(FAMILY, path, display_title)
+
+
 @dataclass(frozen=True)
 class Cps1Set(capcom_sets.CapcomSet):
     """A CPS-1 or CPS-1.5 set; `tier` is the catalogue column ('experimental' for the QSound boards)."""

@@ -20,14 +20,16 @@ def _missing_key_hint(game: dict, missing: list) -> str:
     return ''
 
 
-FAMILY = capcom_sets.Family('CPS-2', cps2_catalogue, _missing_key_hint)
+# FBNeo's Alien vs. Predator keeps its four 1 MiB graphics ROMs as 2 MiB files whose two halves are the ROM (the catalogue, from MAME, has 1 MiB).
+DOUBLED_BY_FBNEO = frozenset(('avp.14m', 'avp.16m', 'avp.18m', 'avp.20m'))
+FAMILY = capcom_sets.Family('CPS-2', cps2_catalogue, _missing_key_hint, DOUBLED_BY_FBNEO)
 
 
 @dataclass(frozen=True)
 class Cps2Set(capcom_sets.CapcomSet):
     """A CPS-2 set. Its members include the key file (region `key`)."""
     system_id: str = 'cps2'
-    tier: str = 'experimental'
+    tier: str = 'supported'
 
     @property
     def key_member(self) -> dict:
@@ -47,8 +49,12 @@ def identify_set(path: Path, games: list[dict] | None = None, *, set_name: str |
     return capcom_sets.identify(FAMILY, path, games, set_name)[0]
 
 
+def cover_titles(path: Path) -> tuple[str, ...]:
+    return capcom_sets.cover_titles(FAMILY, path, display_title)
+
+
 def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | None = None) -> Cps2Set:
     """Identify, then hash every required file (the key file included); CRC and SHA-1 must both agree."""
     found = capcom_sets.read_set(FAMILY, path, games, set_name, lambda game: display_title(game['title']), 'cps2',
-                                 lambda game: 'experimental')
+                                 lambda game: 'supported')
     return Cps2Set(**{name: getattr(found, name) for name in found.__dataclass_fields__})
