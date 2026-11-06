@@ -73,6 +73,10 @@ class Cps2Profile(SystemProfile):
     def default_video_mode(self, path: Path) -> str:
         return 'arcade'
 
+    def cover_titles(self, path: Path) -> tuple[str, ...]:
+        from ..cps2 import cover_titles
+        return cover_titles(path)
+
     def convert(self, path: Path, **options) -> Path:
         from ..cps1_conversion import convert
         return convert(path, family='cps2', **options)

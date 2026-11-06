@@ -79,6 +79,28 @@ class ArtworkTests(unittest.TestCase):
                                           ('1941', '1941: Counter Attack (World 900227)', names[6])):
             self.assertEqual(choose_cover(names, set_name, display_title(title), regional_fallback=True, system_id='cps2'), expected, set_name)
 
+    def test_a_capcom_clone_falls_back_to_its_parent_and_a_double_spelling_is_not_ambiguous(self):
+        from retrorecomp.artwork import _one_per_name, profile_cover_titles
+        # the catalogue offers the set's title, then its parent's, under the optional `cover_titles` capability of the profile
+        self.assertEqual(profile_cover_titles('cps2', Path('1944j.zip')),
+                         ('1944 - The Loop Master (Japan 000620)', '1944 - The Loop Master (Europe 000620)'))
+        self.assertEqual(profile_cover_titles('cps2', Path('not-a-set.zip')), ())
+        self.assertEqual(profile_cover_titles('md', Path('Sonic.zip')), ())           # a machine that offers none
+        # the MAME repository files some boxes twice: ": " as " - " and as "_ ": one stands for both
+        names = ['Street Fighter II - The World Warrior (World 910522).png', 'Street Fighter II_ The World Warrior (World 910522).png',
+                 'Street Fighter II - The World Warrior (US 910206).png']
+        self.assertEqual(len(_one_per_name(names)), 2)
+        title = 'Street Fighter II - The World Warrior (World 910522)'
+        with self.assertRaises(ArtworkError):                                   # still refused for local images, which never go through _one_per_name
+            choose_cover(names, title, title)
+        self.assertEqual(choose_cover(_one_per_name(names), 'sf2', title, system_id='cps1', extra_titles=(title,)),
+                         'Street Fighter II - The World Warrior (World 910522).png')
+        # an ambiguous first try does not stop the extra names
+        self.assertEqual(choose_cover(names, title, title, extra_titles=('Street Fighter II - The World Warrior (US 910206)',)),
+                         'Street Fighter II - The World Warrior (US 910206).png')
+        with self.assertRaises(ArtworkError):
+            choose_cover(names, title, title, extra_titles=('Nothing Like It',))         # none of the extra names finds one: the refusal stands
+
     def test_no_fuzzy_matching_between_sequels_and_ambiguous_editions(self):
         names = ["Sonic (USA).png", "Sonic 2 (Europe).png"]
         self.assertEqual(choose_cover(names, "Sonic 2 (Europe)", "Sonic 2"), names[1])

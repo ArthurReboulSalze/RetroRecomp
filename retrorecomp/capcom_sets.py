@@ -181,6 +181,18 @@ def _read_member(archive: ZipFile, record: dict, family: Family) -> dict:
                                         ('sha1', 'sha256'), label=family.label)
 
 
+def cover_titles(family: Family, path: Path, title_of: Callable[[str], str]) -> tuple[str, ...]:
+    """The catalogue titles under which a set's box may be filed, for the profiles' `cover_titles` capability: the set's own title, then
+    its parent's (a clone shows the art of its parent). The file is named after its set, as the romset dialects name them; a file that
+    carries another name offers none."""
+    by_set = {game['set']: game for game in family.catalogue.games()}
+    game = by_set.get(path.stem.casefold())
+    if game is None:
+        return ()
+    parent = by_set.get(game.get('parent') or '')
+    return tuple(title_of(g['title']) for g in (game, parent) if g is not None)
+
+
 def read_set(family: Family, path: Path, games: list[dict] | None, set_name: str | None, title_of: Callable[[dict], str],
              system_id: str, tier_of: Callable[[dict], str]) -> CapcomSet:
     """Identify, then hash every required file; CRC and SHA-1 must both agree."""

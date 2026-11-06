@@ -172,6 +172,12 @@ computed with `compilation_inputs.role_stamps` on the commit the branch was cut 
 | pce | c8545bf9018e → c8545bf9018e (same) | 6ea8ea8ac8eb → 6ea8ea8ac8eb (same) | same |
 
 - **Only the CPS-1 family's game stamps move** (the CPS-1 and the CPS-2); the other nine consoles keep theirs, because `path_profiles.py` is untouched: a CPS-2 path record has an empty layout, checked by `cps1_knowledge.validate_record`.
+- **The CPS-1 and the CPS-2 find their box art.** Their profiles name the libretro-thumbnails `MAME` repository, which files its images under MAME's description
+  of each set, and the platform numbers of ScreenScraper (6 and 7, read on its system pages) and TheGamesDB (23, "Arcade"). The search uses the optional profile
+  capability `cover_titles(path)`: the set's catalogue title, then its parent's, tried after the file's name and the title (a clone shows its parent's box; no list
+  of games). A repository that files one box under two spellings of the same name ("Street Fighter II - ..." and "Street Fighter II_ ...") no longer makes the
+  choice ambiguous when downloading. Replayed over the reports of `Export`, before and after: no choice of another machine changes. `artwork.py` is a host module
+  of every console, so every host stamp moves; the game stamps move only for the CPS-1 family. Existing exports get their icon on the next conversion.
 - **The EEPROM of the CPS-1.5 and the CPS-2 is saved off the frame path.** A game changes its cells one after another at start and on a coin, and each change
   wrote the file at once, with a flush to disk that can wait a long while on a busy disk (a frame log of `ssf2` showed single frames of several seconds with the disk
   busy, against 36 ms at most without the write). A worker thread now writes the last contents after the EEPROM has been stable for about a second, and play
