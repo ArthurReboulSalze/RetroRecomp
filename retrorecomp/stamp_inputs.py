@@ -746,6 +746,20 @@ INPUTS = _resolve({
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_rom',
     ),
+    # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
+    # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
+    ('psx',): (
+        'licenses/beetle-psx.md',
+        'native/psx_machine/CMakeLists.txt',
+        'native/psx_machine/psx_reference.c',
+        'native/psx_machine/psx_session.c',
+        'native/psx_machine/psx_session.h',
+        'retrorecomp.psx',
+        'retrorecomp.psx_beetle',
+        'retrorecomp.psx_bios',
+        'retrorecomp.psx_disc',
+        'retrorecomp.psx_pack',
+    ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its
     # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.

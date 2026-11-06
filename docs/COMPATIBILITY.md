@@ -205,6 +205,8 @@ counted and reported. Eight of the nine cards converted in the first panel ran 0
 routes and matched a fresh interpreted reference frame by frame, and Street Fighter II' Champion Edition is partly native
 because of the engine's 65,536-identity bound ([panel](PC_ENGINE.md#the-first-panel-5-november-2026)). This agrees with the
 engine's own interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
+The **Sony PlayStation** profile is experimental and in development (developer installations only): it converts no game yet. Its
+scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS) is on [its page](PLAYSTATION.md).
 
 ## Local game regression set
 

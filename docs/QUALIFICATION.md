@@ -60,27 +60,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
 | PC Engine | experimental | `████░░░░░░` 39 % | ✅ 0 · 🟡 11 · ❔ 3 |
+| Sony PlayStation | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 15 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | 🟡 | ➖ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ➖ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine | Sony PlayStation |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | 🟡 | ➖ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ❔ | ❔ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -90,26 +91,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine.
+x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine, psx = Sony PlayStation.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | P | - |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P | P |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P | P |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | ? | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - | - |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | psx |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | ? |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | P | - | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | P | P | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | P | P | ? |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | ? | ? | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | P | P | ? |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -126,6 +127,7 @@ The page of each console, which the README links its line to (a console of the m
 | x68 | [X68000.md](X68000.md) |
 | cps2 | [CPS2.md](CPS2.md) |
 | pce | [PC_ENGINE.md](PC_ENGINE.md) |
+| psx | [PLAYSTATION.md](PLAYSTATION.md) |
 
 </details>
 
