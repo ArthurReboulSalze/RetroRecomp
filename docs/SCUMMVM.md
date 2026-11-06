@@ -52,12 +52,22 @@ as an archive. The game files are the player's own and stay private: an executab
 
 ## Limits
 
-* The Linux build of the runtime is prepared; its witness on a Debian 13 PC is still to come.
+* Linux is witnessed on one small game only (see the evidence below): no big game and no other engine family has been built or run there.
+  The runtime is built with the system's GCC; it links the C and C++ runtime libraries dynamically, so an exe needs the libstdc++ of the
+  distribution that runs it.
 * No Ogg Vorbis, FLAC or MP3 decoder yet: games that need CD audio rips or compressed speech are not supported yet.
 * A folder ScummVM does not recognise (a renamed file, a missing file) is refused with the reason.
 * No splash, no CRT shaders (they need an OpenGL build).
 
 ## Evidence so far
+
+Linux witness of 6 November 2026 (a Debian 13 PC, GCC 14.2, the tree of the branch merged with main): the converter built the
+detection runtime and the Lure runtime with the system's GCC, CMake and Ninja, the pinned static SDL and the fetched FreeType, detected
+the folder of Lure of the Temptress (4.4 MB, DOS/French) and wrote a 40 MB executable. Started alone in an empty folder, offscreen
+(dummy video and audio drivers, hard kill after 25 s), with an empty `HOME`: it read the game from inside itself, created only `datas/`
+beside itself (`Retro-Recomp.ini`, `games/<Game>-<id>/` with its config, log and `saves/`), logged the game start without a warning
+about missing GUI files, and left the home folder empty. This witnesses the packaging on Linux for one small game and one engine; it
+does not play the game, and it is not a qualification.
 
 Prototype of 6 November 2026 (ScummVM v2026.4.0 and Retro-Recomp's patch): ten games of eight engine families, from 55 MB to
 2.1 GB, ran from their own executable, offscreen, with nothing extracted and nothing written outside `datas/`; an authored test
