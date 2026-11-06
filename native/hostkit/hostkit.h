@@ -31,10 +31,11 @@ extern "C" {
 /* Controls of a machine, in menu order (1.7.0: 20, so that a PlayStation pad's 17 fit; 12 before). The pad word given to the
  * machine stays 16 bits: host-side actions (`bit` 0) do not use one. An F2 page shows fifteen rows at once and scrolls past. */
 #define RRHK_MAX_ACTIONS 20
-/* A gamepad binding may name a trigger, held past the stick threshold (D1), on a machine that sets `trigger_buttons`: these two
- * values follow SDL's buttons (they are stored as such in the preferences). */
-#define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)SDL_CONTROLLER_BUTTON_MAX)
-#define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)(SDL_CONTROLLER_BUTTON_MAX + 1))
+/* A gamepad binding may name a trigger, held past the stick threshold (D1), on a machine that sets `trigger_buttons`. The two
+ * values are fixed, outside any range of SDL's buttons (SDL 2 has 21, SDL 3 fewer than 32), and stored as such in the
+ * preferences: a saved binding means the same trigger after an SDL update. */
+#define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)
+#define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)65)
 
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1
@@ -86,7 +87,8 @@ typedef struct {
  * declared. */
 typedef struct {
     const char    *name;      /* English, translated by the catalogue ("Internal resolution") */
-    const wchar_t *ini_key;   /* key under [<ini_section>.Video]; also the name of `--gfx <ini_key>=<index>` */
+    const wchar_t *ini_key;   /* key under [<ini_section>.Video]; also the name of `--gfx <ini_key>=<index>`. Plain ASCII only:
+                               * the timing report prints it with %ls, which glibc converts by the locale */
     const char *const *values;   /* English labels, translated ("1x (native)", "2x", ...) */
     int count, def;           /* number of values, index of the default: the reference setting, the one every gate uses */
 } RrhkGfxOption;

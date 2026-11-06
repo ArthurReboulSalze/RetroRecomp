@@ -228,6 +228,12 @@ void rrhk_poll_events(RrhkRun *run) {
             (event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
             if (rrhk.pads[rrhk.player] &&
                 event.caxis.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
+                /* A host-side action (`bit` 0: Pause/Menu, Change disc) acts on a button press, never on a trigger: refused,
+                 * the row still waits for a button. */
+                if (rrhk.row < m->action_count && !m->actions[rrhk.row].bit) {
+                    snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Reserved button or config unavailable"));
+                    continue;
+                }
                 rrhk_assign(rrhk.player, rrhk.row, true,
                             event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER);
                 rrhk.capturing = 0; rrhk.status[0] = 0;
