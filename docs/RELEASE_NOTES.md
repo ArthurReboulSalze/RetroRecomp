@@ -2,8 +2,6 @@
 
 Not published: this section lists what is already on `main` and is completed at the release.
 
-<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
-
 - **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
   Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
   reader tells the two bit orders of a dump apart by the first instruction at the reset
@@ -18,6 +16,24 @@ Not published: this section lists what is already on `main` and is completed at 
   with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
   interpreter, three differences are known, and 9,097 native cases show no difference with
   the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
+- **Game Boy Advance (experimental).** `.gba` cartridges (or a ZIP holding one) become a
+  standalone Windows game with your own BIOS (`gba_bios.bin`): native code from what the
+  game was seen to run, a counted interpreter for the rest, battery saves and the
+  cartridge clock. Six cartridges (Pokémon Emerald, Mario Kart Super Circuit, The Minish
+  Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and Golden Sun) were checked on
+  Windows and on a Debian 13 PC against the engine's own interpreter, on the final
+  picture, the guest's cycle count and hashes of the memory and the CPU registers over 600
+  and 3,600 frames (12 scenario runs of 12 equal on Linux): five have 0 interpreted
+  instructions on those scenarios, and Golden Sun runs 17.7 million instructions of its
+  own code that has no copy in the cartridge, counted and reported. That interpreter is
+  the engine's, not an independent oracle: no gameplay validation, no hardware fidelity
+  claim. The owner played the delivered cartridges on 5 and 6 November 2026 and they work;
+  that is a play trial, not an exit from the experimental status. The language chosen in
+  Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
+  does not store it, such as Alien Hominid, asks again). The Linux player was not played;
+  no link cable, e-Reader or cartridge sensors.
+<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
+
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine
   is no longer experimental. The profile says `supported`, the report says `completed`
