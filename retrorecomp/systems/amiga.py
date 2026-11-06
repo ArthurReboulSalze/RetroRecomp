@@ -30,13 +30,13 @@ class AmigaProfile(SystemProfile):
     quick_state_family = 'amiga'
     capabilities = Capabilities(mouse=True, keyboard=True)
     linux = 'pending'
-    feedback_kinds = frozenset({21})
+    feedback_kinds = frozenset({22})
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
     developer_only = True
     stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates')
-    path_spec = PathSpec(order=11, sections=(('m68k', 'amiga'),),
+    path_spec = PathSpec(order=12, sections=(('m68k', 'amiga'),),
                          source_bounds=(('lha', (1, 1 << 30)),),
                          shapes=(('m68k', 'amiga', dict(roles=('lha',), caps={'insn': 65536, 'span': 16384},
                                                         windows=tuple((low, last) for low, last, _ in APERTURES),
