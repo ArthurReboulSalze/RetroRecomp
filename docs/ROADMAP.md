@@ -131,9 +131,10 @@ interpreter) and the owner's decision, which alone ends the experimental status.
 Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
 on the owner's decision after the qualification list.
 
-- **Commodore Amiga 500.** A pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000 steps
-  structured by the shared decoder; games installed for WHDLoad first, with no Kickstart and no WHDLoad run (its services
-  are answered by our own code); installs that need a Kickstart, and ADF images, later.
+- **Commodore Amiga 500** (experimental since 1.7.0, [AMIGA.md](AMIGA.md)). A pinned machine core (vAmiga, with its 68000
+  Moira) driven frame by frame, native 68000 steps structured by the shared decoder; games installed for WHDLoad, with no
+  Kickstart and no WHDLoad run (its services are answered by our own code). Next: installs that need the player's own
+  Kickstart, then ADF images.
 
 ## Planned after that
 

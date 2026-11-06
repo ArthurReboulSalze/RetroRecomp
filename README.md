@@ -79,7 +79,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 43 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
-| [Commodore Amiga](docs/AMIGA.md) | experimental | `███░░░░░░░` 34 % |
+| [Commodore Amiga](docs/AMIGA.md) | experimental | `████░░░░░░` 38 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
@@ -102,9 +102,9 @@ Not available yet. Each one starts as an experimental profile; no date is promis
 
 | Machine | Stage |
 | --- | --- |
-| Commodore Amiga 500 (the Amiga 1200 later) | in development |
+| Sony PlayStation | in development |
 
-Planned after it: Atari ST, Nintendo 64 and PlayStation. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Planned after it: Atari ST, the Amiga 1200 and Nintendo 64. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

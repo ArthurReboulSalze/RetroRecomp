@@ -18,8 +18,8 @@ from .paths import ASSETS
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 
 
-def developer_available() -> bool:
-    """True when this installation carries the Amiga converter files (developer installations only)."""
+def converter_available() -> bool:
+    """True when this installation carries the Amiga converter's own files (the profile is offered only then)."""
     return all((ASSETS / name).is_file() for name in (
         'native/amiga_machine/CMakeLists.txt', 'native/amiga_whdload/rr_resload.c',
         'native/hostkit/adapters/rrhk_amiga.inc', 'retrorecomp/amiga_conversion.py'))

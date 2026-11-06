@@ -94,7 +94,7 @@ UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
     'PC Engine / TurboGrafx-16': 'credits_experimental',
     'Game Boy Advance': 'credits_experimental',
-    'Commodore Amiga': 'credits_coming',
+    'Commodore Amiga': 'credits_experimental',
 }
 
 

@@ -111,7 +111,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Capcom CPS-2** — [CPS2.md](CPS2.md) (supported since 1.7.0, experimental in 1.6.9: the standard boards, with the key file of your own romset and your own QSound DSP ROM).
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
-- **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental, developer installations only: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
+- **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
 
 ## Running the project
 
