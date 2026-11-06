@@ -434,7 +434,8 @@ def _catalog_names(names) -> list[str]:
 
 def _one_per_name(names: list[str]) -> list[str]:
     """A provider's catalogue may file one box under two spellings of the same name (MAME's ": " as " - " and as "_ "): they are the
-    same game and edition, so one stands for both and the choice is not refused as ambiguous. Local images never go through this."""
+    same game and edition, so one stands for both and the choice is not refused as ambiguous. Only a machine that offers extra titles
+    (`cover_titles`) asks for it, and local images never go through it."""
     seen, unique = set(), []
     for name in sorted(names):
         key = normalized(Path(name).stem)
@@ -471,7 +472,8 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
 
     result = retrieve(filename)
     if result is None:
-        match = choose_cover(_one_per_name(_catalog(directory, system_id, category, unavailable)), rom_name, title,
+        match = choose_cover(_one_per_name(_catalog(directory, system_id, category, unavailable)) if extra_titles
+                             else _catalog(directory, system_id, category, unavailable), rom_name, title,
                              regional_fallback=True,system_id=system_id, extra_titles=extra_titles)
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')
