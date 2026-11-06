@@ -19,7 +19,8 @@ class FunctionsGateTests(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        self.output = Path(folder.name)
+        # Resolved like the converter resolves it: a runner's TEMP may be a short 8.3 path (RUNNER~1).
+        self.output = Path(folder.name).resolve()
         self.seen = []
 
     def converter(self, report):
