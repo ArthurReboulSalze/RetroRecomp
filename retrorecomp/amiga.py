@@ -19,10 +19,11 @@ MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 
 
 def converter_available() -> bool:
-    """True when this installation carries the Amiga converter's own files (the profile is offered only then)."""
+    """True when this installation carries the Amiga converter's own native files (the profile is offered only then).
+    Native files only: a frozen converter keeps its Python modules inside the executable, never as .py files."""
     return all((ASSETS / name).is_file() for name in (
         'native/amiga_machine/CMakeLists.txt', 'native/amiga_whdload/rr_resload.c',
-        'native/hostkit/adapters/rrhk_amiga.inc', 'retrorecomp/amiga_conversion.py'))
+        'native/hostkit/adapters/rrhk_amiga.inc'))
 
 
 def slave_member(path: Path) -> str | None:
