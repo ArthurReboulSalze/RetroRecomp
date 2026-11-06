@@ -81,6 +81,12 @@ class RegistryTests(unittest.TestCase):
                 self.assertFalse(seen & set(profile.feedback_kinds), profile.id)
             seen |= set(profile.feedback_kinds)
         self.assertEqual(feedback.KINDS['sms'], feedback.KINDS['gg'])
+        # The runtime recorder refuses a kind above RR_FB_MAX_KIND: every declared kind must fit under it
+        # (until 1.7.0 the bound was the CPS-1's last kind, 16, and the CPS-2 and PC Engine hints were dropped).
+        import re
+        header = (Path(__file__).resolve().parents[1] / 'native/runtime_feedback.h').read_text(encoding='utf-8')
+        bound = int(re.search(r'RR_FB_MAX_KIND=(\d+)', header).group(1))
+        self.assertLessEqual(max(seen), bound)
 
     def test_metadata_reads_the_profile_name_and_standards(self):
         for profile in ALL_PROFILES:
