@@ -926,6 +926,7 @@
     "Restore defaults": "既定値に戻す",
     "Disc %d/%d": "ディスク %d/%d",
     "Change disc": "ディスクを交換",
-    "F3  Graphics options": "F3  グラフィック設定"
+    "F3  Graphics options": "F3  グラフィック設定",
+    "%s (not at this size)": "%s (このサイズでは無効)"
   }
 }

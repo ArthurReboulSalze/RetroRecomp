@@ -926,6 +926,7 @@
     "Restore defaults": "Ripristina predefiniti",
     "Disc %d/%d": "Disco %d/%d",
     "Change disc": "Cambia disco",
-    "F3  Graphics options": "F3  Opzioni grafiche"
+    "F3  Graphics options": "F3  Opzioni grafiche",
+    "%s (not at this size)": "%s (non a questa dimensione)"
   }
 }

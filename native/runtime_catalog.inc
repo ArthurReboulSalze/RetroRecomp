@@ -3,6 +3,7 @@ static const char *const rr_language_codes[5] = {"en","fr","it","es","de"};
 static const char *const rr_language_names[5] = {"English","Francais","Italiano","Espanol","Deutsch"};
 static const char *const rr_translations[][5] = {
     {"%s (disconnected)","%s (deconnectee)","%s (scollegato)","%s (desconectado)","%s (getrennt)"},
+    {"%s (not at this size)","%s (pas a cette taille)","%s (non a questa dimensione)","%s (no a este tamano)","%s (nicht bei dieser Groesse)"},
     {"A/S/D: X/Y/Z; Right Shift: Mode","A/S/D : X/Y/Z; Maj droite : Mode","A/S/D: X/Y/Z; Maiusc destra: Mode","A/S/D: X/Y/Z; Mayus der.: Mode","A/S/D: X/Y/Z; Umschalt rechts: Mode"},
     {"Arrows + W/X/A/S; Q/E shoulders","Fleches + W/X/A/S; Q/E gachettes","Frecce + W/X/A/S; Q/E dorsali","Flechas + W/X/A/S; Q/E gatillos","Pfeile + W/X/A/S; Q/E Schulter"},
     {"Arrows + W/X/C/V: A/B/C/D","Fleches + W/X/C/V : A/B/C/D","Frecce + W/X/C/V: A/B/C/D","Flechas + W/X/C/V: A/B/C/D","Pfeile + W/X/C/V: A/B/C/D"},

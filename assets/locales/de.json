@@ -926,6 +926,7 @@
     "Restore defaults": "Standardwerte",
     "Disc %d/%d": "Disc %d/%d",
     "Change disc": "Disc wechseln",
-    "F3  Graphics options": "F3  Grafikoptionen"
+    "F3  Graphics options": "F3  Grafikoptionen",
+    "%s (not at this size)": "%s (nicht bei dieser Größe)"
   }
 }

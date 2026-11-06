@@ -926,6 +926,7 @@
     "Restore defaults": "恢复默认",
     "Disc %d/%d": "光盘 %d/%d",
     "Change disc": "更换光盘",
-    "F3  Graphics options": "F3  图形选项"
+    "F3  Graphics options": "F3  图形选项",
+    "%s (not at this size)": "%s (此尺寸下无效)"
   }
 }

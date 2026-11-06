@@ -926,6 +926,7 @@
     "Restore defaults": "Сбросить настройки",
     "Disc %d/%d": "Диск %d/%d",
     "Change disc": "Сменить диск",
-    "F3  Graphics options": "F3  Настройки графики"
+    "F3  Graphics options": "F3  Настройки графики",
+    "%s (not at this size)": "%s (не при этом размере)"
   }
 }

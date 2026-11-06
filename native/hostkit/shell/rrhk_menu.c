@@ -68,8 +68,15 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
             const int value = rrhk.gfx[r] >= 0 && rrhk.gfx[r] < option->count ? rrhk.gfx[r] : option->def;
             snprintf(line, sizeof line, "%s %s: %s", mark, rr_tr(option->name), option->count > 0 ? rr_tr(option->values[value]) : "-");
         } else if (r == options) {
-            char value[80];
-            snprintf(value, sizeof value, rr_tr("Filter: %s"), rrhk_filter_name(rrhk.filter));
+            /* xBR works up to 1024 x 1024 and scanlines need two window pixels a row: past that the filter does nothing, and
+             * the row says so. */
+            char value[80], name[80];
+            const SDL_Rect dst = rrhk_game_rect(ren);
+            const bool inert = (rrhk.filter == 1 && (m->visible_width() > 1024 || m->visible_height() > 1024)) ||
+                               (rrhk.filter == 3 && dst.h < 2 * m->visible_height());
+            if (inert) snprintf(name, sizeof name, rr_tr("%s (not at this size)"), rrhk_filter_name(rrhk.filter));
+            else snprintf(name, sizeof name, "%s", rrhk_filter_name(rrhk.filter));
+            snprintf(value, sizeof value, rr_tr("Filter: %s"), name);
             snprintf(line, sizeof line, "%s %s", mark, value);
         } else snprintf(line, sizeof line, "%s %s", mark, rr_tr("Restore defaults"));
         rr_menu_text_fit(ren, ctx.ox, ctx.oy, ctx.unit, 14, y, 228, line, RR_MENU_GOLD);
