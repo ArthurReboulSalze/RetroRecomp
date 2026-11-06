@@ -32,7 +32,27 @@ Not published: this section lists what is already on `main` and is completed at 
   Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
   does not store it, such as Alien Hominid, asks again). The Linux player was not played;
   no link cable, e-Reader or cartridge sensors.
-<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
+- **Commodore Amiga 500 (experimental).** WHDLoad installs that need no Kickstart (one
+  `.lha` holding exactly one `.Slave` and the game's files or `Disk.N` images) become a
+  standalone Windows game on the vAmiga core and Moira's 68000, with guarded native code
+  for the 68000 code the game runs from RAM and a counted interpreter for everything
+  else; the joystick, the mouse, the keyboard, quick states and the files an install saves
+  are there. **No Kickstart is supplied, stored or fetched**, and the installs that ask
+  for one (nearly half of the 2,992 Amiga 500 installs of the maintainer's library) stay
+  refused until a player's own Kickstart is supported; ADF and IPF images, hard-disk
+  images, the Amiga 1200, the CD32 and the CDTV are out of scope. The ten installs of the
+  first panel (Rick Dangerous, Lemmings, Elite, Pinball Dreams, Speedball 2, Turrican 2,
+  Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia) converted with 0
+  interpreted instructions on their two routes of 3,000 frames; on Rick Dangerous the trace
+  of every frame (picture, sound, RAM, CPU registers) equals the interpreted reference
+  machine's, and one conversion on a Debian 13 PC validated on both routes (not played
+  there). The owner played the ten and they work: a play trial, not an exit from the
+  experimental status. Hardware fidelity is not claimed (private comparisons with another
+  emulator match most reference frames of some installs and fewer of others), no game was
+  checked end to end, and physical latency is not measured. After a quick state is loaded,
+  the sound samples are not bit-identical to an unbroken run. The box-art lookup also
+  tries a game's own name, so Lotus 2 and Speedball 2 find their boxes.
+<!-- Bullets of the machines still to merge for this release (ScummVM) go here, in the order of their merge. -->
 
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine

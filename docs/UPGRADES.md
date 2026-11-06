@@ -92,16 +92,19 @@ that section says move. Each section computed its stamps for its own change alon
 | [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
 | [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
 
-<!-- Rows of the machines merged after this index (Game Boy Advance, Amiga 500, ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
+| [The index of native steps may have its own language](#the-index-of-native-steps-may-have-its-own-language-170) | **every console** (`systems/specs.py`, an input of every game stamp), and the X68000 again (`m68k_observed.py`) | none | no key stated to move |
+| [Covers: a subtitle that names the game, and extra names from a profile](#covers-a-subtitle-that-names-the-game-and-extra-names-from-a-profile-170) | none | **host stamp of every console** (`cover_titles.py`, `artwork.py`) | no key moves |
+| [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
 
-Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp of the CPS-1, of the CPS-2 and of the PC Engine moves;
-the host stamp of all eleven consoles moves; no build stamp moves.** The other eight game stamps are the same, so an export of 1.6.9 of the Master System, Game Gear, Game Boy, NES, Mega Drive,
-Super Nintendo, Neo Geo or X68000 is **upgraded** (rebuilt from its paths, no rediscovery) when it is converted again, and an export of the CPS-1, CPS-1.5, CPS-2 or PC Engine is
-converted again from its paths. `LEGACY_GAME_STAMPS` stays empty. This total will change as the machines still to come merge.
+<!-- Rows of the machines merged after this index (ScummVM) go here, in the order of their merge, with their new stamps and keys. -->
+
+Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp and the host stamp of the eleven consoles of 1.6.9 move; no build stamp moves** (the Amiga section computed it on the tree of `v1.6.9`; the game stamps move through
+`systems/specs.py`, which every game stamp hashes, and the host stamps through the notices, the host kit and the box-art modules). The Game Boy Advance and the Amiga are new. So every export of 1.6.9
+is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. This total will change if ScummVM merges.
 
 **Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
 written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
-NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Master System, Game Gear and Game Boy have no key.
+NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Game Boy Advance and the Amiga have keys of their own, new; the Master System, Game Gear and Game Boy have no key.
 **Cartridge saves** are kept on every console; the EEPROM of the CPS-1.5 and the CPS-2 is now written by a worker thread (a stop within about a second of the last change loses that change).
 
 ## Computers: a press of the middle button releases the mouse (1.7.0)
@@ -200,7 +203,7 @@ What the change moves, computed with `compilation_inputs.role_stamps` on `main` 
   export changes behaviour: a host stamp that moved only means the licence page of the next conversion is newer.
 - `.gba` is no longer a "foreign" extension: a `.gba` file is claimed by the Game Boy Advance profile (or reported as unavailable when the installation lacks its files).
 
-## The index of native steps may have its own language (1.7, the Amiga's branch)
+## The index of native steps may have its own language (1.7.0)
 
 The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
 C (its page tables are array designators); the Amiga's steps are C++ (they call Moira's instruction templates), and a C++ index needed a warning switched
@@ -218,7 +221,7 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
-## Covers: a subtitle that names the game, and extra names from a profile (1.7, the Amiga's branch)
+## Covers: a subtitle that names the game, and extra names from a profile (1.7.0)
 
 Two generic changes to the box lookup (`retrorecomp/cover_titles.py`, `retrorecomp/artwork.py`). A query without a subtitle that
 equals a catalogue entry's main title no longer drops that entry for an edition word found only in its subtitle, when the
@@ -233,7 +236,7 @@ the cached catalogues, with the tree before and after: 2 choices change, both Am
 **What moves:** both modules are host inputs of every console (`HOST_MODULES`): **the host stamp of every console moves**, no
 game stamp; an export of 1.6.9 is upgraded without rediscovery for that part.
 
-## Commodore Amiga: an experimental machine (1.7, the Amiga's branch)
+## Commodore Amiga: an experimental machine (1.7.0)
 
 The Amiga 500 opens as an experimental profile (`amiga`, [AMIGA.md](AMIGA.md)): WHDLoad installs that need no Kickstart, on the
 vAmiga Core (MPL-2.0 per file) and its 68000 Moira (MIT), with our own resload layer. Each Amiga game carries its notices as
