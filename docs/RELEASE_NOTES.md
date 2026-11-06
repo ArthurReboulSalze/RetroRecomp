@@ -126,10 +126,12 @@
 - **Computers.** A press of the middle mouse button (the wheel) releases a captured
   mouse, as Ctrl+Alt+M does; the button never reaches the game.
 
-**Speed.** [mesure de coût par image 1.7.0 contre 1.6.9 à venir]. No change of this
-section is known to touch the frame loop of an existing game (the recorder's new test
-runs once per recorded miss); the branch per bus access that the CPS-1 family gained in
-1.6.9 is still to be measured, and none of the new machines (nor the ScummVM games) has a speed figure.
+**Speed.** Measured on a quiet PC against 1.6.9, one pinned core, on the machines whose
+game code moved: Final Fight (CPS-1) 1.00, 19XX (CPS-2) 0.99 and R-Type (X68000) 1.00
+of their 1.6.9 time per frame, within the noise of the method
+([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). The other machines only gained lines
+that run once per recorded miss. Windows only; none of the new machines (nor the ScummVM
+games) has a speed figure.
 
 These are three new experimental machines and a category of emulated adventure games, one machine leaving the experimental tier,
 and input, covers and recorder changes, each on the evidence above; none of them is a measure of hardware
