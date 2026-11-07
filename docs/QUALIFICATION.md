@@ -166,8 +166,9 @@ The page of each console, which the README links its line to (a console of the m
   authored suites pass. G13 is `P` (6 November 2026): the same six cartridges were converted on a Debian 13 PC from the tree to merge (the commit
   `31e39aee` plus `linux = 'witnessed'` as the only change; the commit between is a documents page), three passes from an empty library: on both
   scenarios the generated code equals the engine's interpreter, and the final picture hash and the guest's cycle count equal the Windows ones, 12
-  scenario runs of 12 ([the section of the page](GAME_BOY_ADVANCE.md#the-linux-witness-of-the-six-cartridges-6-november-2026)). The Linux player was
-  not played and not timed.
+  scenario runs of 12 ([the section of the page](GAME_BOY_ADVANCE.md#the-linux-witness-of-the-six-cartridges-6-november-2026)). On 7 November 2026 the Linux players of Golden Sun and Metroid Fusion
+  were also run under Xvfb with the key script of the Windows runs: the picture at frame 1,800 and the sound counts equal the Windows ones (a scripted run, which the owner
+  accepted as the G13 witness; nobody heard the sound).
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags

@@ -252,6 +252,27 @@ Every report names `FULLY_STATIC` for both scenarios and an embedded libretro co
 sound and no interpreted instruction. Nothing was found that needed a change: the four were converted by the tree of the previous stage as it stands. What this
 adds is breadth of cartridges and save types (ten cartridges in all); it is not gameplay validation, and nobody of ours played these four.
 
+### The Linux player played by script (7 November 2026)
+
+The witness above converted on Linux but never ran the Linux player. On 7 November 2026 two cartridges were converted on a Debian 13 PC (GCC 14, Python 3.13,
+Ninja, an empty library) from the tree of the same day and their Linux players were run under Xvfb, with the window, the OpenGL renderer and vsync on, the
+sound device replaced by SDL's dummy driver, and the same key script as the Windows players (`generic`: A, Start, Right, taps of A and B), for 1,800 frames.
+
+| Cartridge | Conversion on Debian | Native = interpreter (2 scenarios) | Picture at frame 1,800 | Sound counts (samples, non-zero, peak) |
+|---|---|---|---|---|
+| Golden Sun | 34 min 29 s, five passes | yes | SHA-256 equal to the Windows player's (`2904e7e6…`) | 987,391, 622,846, 21,408: equal |
+| Metroid Fusion | 21 min 15 s, one pass | yes | SHA-256 equal to the Windows player's (`1a1ae4f4…`) | 987,911, 852,299, 32,767: equal |
+
+The pictures and the sound counts are those of the Windows players, to the last bit, and the final picture hash and the guest's cycle count of both scenarios in the
+reports equal the Windows ones. The window ran at the display's rate (about 31 s for 1,800 frames). This is a scripted run, not a person playing; the owner decided on
+7 November 2026 that it counts as the cross-OS witness of gate G13. The sound counts are counts: the sound itself was not heard, nor recorded.
+
+One thing the pass showed about the converter, not about Linux: Golden Sun converted from an **empty library** ends its five passes (three asked, two settling)
+with 5.3 million interpreted instructions on the generic scenario (boot: 0), where the Windows machine, whose library already held the paths of earlier runs, ends at
+32 thousand. The picture and the cycle count are the same; what is not yet found when the passes stop is interpreted, counted, and kept for the next conversion of the
+same cartridge (the paths are saved before the long replay). A first conversion of this cartridge therefore stays at several million interpreted instructions until
+it is converted again, or until more settling passes are allowed; the page does not promise the figure of the table above for a first conversion.
+
 ## Independent evidence (stage 5)
 
 Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
