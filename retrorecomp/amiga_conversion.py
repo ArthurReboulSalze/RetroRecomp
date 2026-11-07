@@ -266,7 +266,9 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
 # that image; the words of each instruction are read from the player's own image, in this conversion's private work folder, when
 # the steps are written, so the generated source and the game built from it belong to that player's image alone.
 KICK_ADDRESSES = 'converter-kickstart-addresses.txt'
-KICK_WINDOW = (0xF80000, 0x1000000)
+# The window a 256 KiB Kickstart (1.x) runs in, the one the machine's writable-ROM alias covers; the authored boot ROM below it is
+# not the Kickstart.
+KICK_WINDOW = (0xFC0000, 0x1000000)
 
 
 def read_kick_addresses(path: Path) -> set[int]:
@@ -283,8 +285,10 @@ def read_kick_addresses(path: Path) -> set[int]:
 
 
 def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
-    """(address, words) of those Kickstart instructions with the words of the player's own image (a 256 KiB image appears at
-    $F80000 and $FC0000). Made in memory for the generator; never stored."""
+    """(address, words) of those Kickstart instructions with the words of the player's own image (256 KiB, at $FC0000). Made in
+    memory for the generator; never stored. No address (an install without a Kickstart): nothing."""
+    if not addresses:
+        return set()
     if len(image) & (len(image) - 1) or not image:
         raise ConversionError('Amiga: the Kickstart image has an unexpected size.')
     samples = set()
@@ -481,7 +485,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         if kick is not None:
             kick_image = (work / 'install' / 'kickstart.rom').read_bytes()
             for name, _, _ in routes:
-                kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
+                try:
+                    kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
+                except (OSError, ValueError) as error:
+                    raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
         if kick is not None and (memory / KICK_ADDRESSES).is_file():
@@ -532,7 +539,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                       lambda: ConversionError(f'Amiga {name}: the resload calls differ from the reference; existing export preserved.'))
                     more |= set(read_observations(folder / 'observations.txt'))
                     if kick is not None:
-                        more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
+                        try:
+                            more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
+                        except (OSError, ValueError) as error:
+                            raise ConversionError(f'Amiga {name}: the Kickstart addresses of the native run are unreadable: {error}') from error
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())

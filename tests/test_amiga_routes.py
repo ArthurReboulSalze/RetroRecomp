@@ -50,11 +50,13 @@ class KickstartAddressesTests(unittest.TestCase):
     """The Kickstart's addresses are kept, never its bytes; the words come from the player's own image when the steps are written."""
     IMAGE = bytes(range(256)) * 1024        # 256 KiB of authored bytes (no Kickstart)
 
-    def test_the_words_are_read_from_the_image_at_both_windows(self):
-        samples = conversion.kick_samples({0xFC0002, 0xF80002, 0xFFFFFE}, self.IMAGE)
+    def test_the_words_are_read_from_the_image_in_its_window(self):
+        samples = conversion.kick_samples({0xFC0002, 0xFFFFFE}, self.IMAGE)
         self.assertIn((0xFC0002, self.IMAGE[2:14].hex()), samples)
-        self.assertIn((0xF80002, self.IMAGE[2:14].hex()), samples)          # the mirror at $F80000 reads the same bytes
         self.assertIn((0xFFFFFE, self.IMAGE[-2:].hex()), samples)           # the end of the image gives a shorter sample
+
+    def test_an_install_without_a_kickstart_has_no_kickstart_sample(self):
+        self.assertEqual(conversion.kick_samples(set(), b''), set())      # no addresses, no image: the case of every install without one
 
     def test_an_image_of_an_odd_size_is_refused(self):
         with self.assertRaisesRegex(ConversionError, 'unexpected size'):
@@ -65,7 +67,7 @@ class KickstartAddressesTests(unittest.TestCase):
             path = Path(folder) / 'o.kick'
             path.write_text('fc0100\nfc0102\n', encoding='ascii')
             self.assertEqual(conversion.read_kick_addresses(path), {0xFC0100, 0xFC0102})
-            for bad in ('fc0101\n', '001000\n', '1000000\n'):          # odd, in RAM, past the window
+            for bad in ('fc0101\n', '001000\n', 'f800d2\n', '1000000\n'):   # odd, in RAM, the authored boot ROM, past the window
                 path.write_text(bad, encoding='ascii')
                 with self.assertRaises(ValueError):
                     conversion.read_kick_addresses(path)

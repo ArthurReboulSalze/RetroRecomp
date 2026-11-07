@@ -197,7 +197,9 @@ static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t
 }
 
 static bool in_kickstart(uint32_t pc) {
-    return S->kick_size && (pc >= 0xF80000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
+    // The window the writable-ROM alias covers ($FC0000-$FFFFFF for a 256 KiB image), or the copy in ExpMem; the authored boot
+    // ROM below the window is not the Kickstart.
+    return S->kick_size && (pc >= 0xFC0000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
 }
 
 // A save goes to the game's own folder (and replaces the install's file there on the next start).
@@ -249,7 +251,7 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     // writes the guarded native steps, in the player's private build folder.
     if (in_kickstart(pc)) {
         S->kick_interpreted++;
-        if (S->observing && pc >= 0xF80000) S->kick_pcs.insert(pc);
+        if (S->observing && pc >= 0xFC0000) S->kick_pcs.insert(pc);
         return false;
     }
     if (S->observing && in_ram(pc)) {
