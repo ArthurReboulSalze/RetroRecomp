@@ -167,7 +167,8 @@ BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
 RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json',
                        # The ScummVM patch is applied byte for byte (-text) and the GPL text is pinned LF (.gitattributes).
-                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch', 'native/scummvm/LICENSE'))
+                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+                       'native/scummvm/patches/0002-retrorecomp-options-page.patch', 'native/scummvm/LICENSE'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -814,6 +815,7 @@ INPUTS = _resolve({
         'native/scummvm/LICENSE',
         'native/scummvm/README.md',
         'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+        'native/scummvm/patches/0002-retrorecomp-options-page.patch',
         'retrorecomp.scummvm_build',
         'retrorecomp.scummvm_export',
     ),

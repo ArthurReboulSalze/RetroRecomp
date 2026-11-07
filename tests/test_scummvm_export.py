@@ -131,6 +131,112 @@ class ToolsMissing(unittest.TestCase):
         self.assertTrue(all(catalog(code)['ui'].get('scummvm_tools_missing') for code in LANGUAGES[2:]))
 
 
+class OptionsPage(unittest.TestCase):
+    """Patch 0002: the Retro-Recomp page of the in-game options and the settings shared through datas/Retro-Recomp.ini
+    (checked headless with the real runtime: .build/scummvm-step2/ui_cases.py; here, the text of the patch)."""
+
+    def setUp(self):
+        self.patch = (scummvm_build.PATCH_DIRECTORY / '0002-retrorecomp-options-page.patch').read_text(encoding='utf-8')
+
+    def test_the_series_has_both_patches_in_order(self):
+        names = sorted(path.name for path in scummvm_build.PATCH_DIRECTORY.glob('*.patch'))
+        self.assertEqual(names, ['0001-retrorecomp-pack-launch-nodialog.patch', '0002-retrorecomp-options-page.patch'])
+
+    def test_the_page_replaces_the_backend_tab_of_a_packed_exe_only(self):
+        self.assertIn('packedModeActive() ? retroRecompOptionsTabTitle()', self.patch)
+        self.assertIn('if (!packedModeActive())\n+\t\treturn nullptr;', self.patch)
+
+    def test_the_settings_are_shared_both_ways(self):
+        for key in ('fullscreen', 'stretch_mode', 'aspect_ratio', 'music_volume', 'sfx_volume', 'speech_volume', 'mute'):
+            self.assertIn(f'"{key}"', self.patch)
+        self.assertIn('void packedSyncSettings()', self.patch)
+        self.assertIn('packedSyncSettings();', self.patch)
+
+    def test_every_text_of_the_page_has_the_five_languages(self):
+        rows = [line for line in self.patch.splitlines() if line.startswith('+\t/* k') and '*/' in line]
+        self.assertGreaterEqual(len(rows), 10)
+        for row in rows:
+            if row.rstrip().endswith('},'):
+                self.assertEqual(row.count('", "') + 1, 5, row)
+
+    def test_the_menu_key_is_hinted_at_the_start_in_five_languages(self):
+        # ticked on the main thread only (a timer thread crashed some quits), at every event poll and every delay
+        self.assertIn('g_system->displayMessageOnOSD(retroRecompMenuHint())', self.patch)
+        self.assertIn('packedMainThreadTick(true);', self.patch)
+        self.assertIn('packedMainThreadTick();      // Retro-Recomp: the menu hint also appears while an engine waits', self.patch)
+        self.assertNotIn('installTimerProc(hintDriver', self.patch)
+        for text in ('"Help: Ctrl+F1 · Menu: Ctrl+F2"', '"Aide : Ctrl+F1 · Menu : Ctrl+F2"', '"Hilfe: Strg+F1 · Menü: Strg+F2"',
+                     '"Ayuda: Ctrl+F1 · Menú: Ctrl+F2"', '"Aiuto: Ctrl+F1 · Menu: Ctrl+F2"'):
+            self.assertIn(text, self.patch)
+        # shown for three seconds, once, from the first poll of the engine (an OSD message lasts about two seconds)
+        self.assertIn('g_hintBurst = 3;', self.patch)
+        self.assertNotIn('g_hintMouse', self.patch)
+
+    def test_the_help_tab_lists_the_shortcuts_in_five_languages(self):
+        self.assertIn('retroRecompHelpTabTitle()', self.patch)
+        for number in range(1, 12):
+            self.assertIn(f'/* kHelp{number} ', self.patch)
+        for shortcut in ('Ctrl+F1', 'Ctrl+F2', 'Ctrl+F5', 'Alt+Enter', 'Ctrl+F4', 'Ctrl+F3', 'Ctrl+U', 'Alt+F4', 'Alt+S'):
+            self.assertIn(shortcut, self.patch)
+        self.assertIn('static const int kLines = 11;', self.patch)
+
+    def test_ctrl_f1_and_ctrl_f2_open_the_options_dialog_on_their_tab(self):
+        self.assertIn('addDefaultInputMapping("C+F1")', self.patch)
+        self.assertIn('addDefaultInputMapping("C+F2")', self.patch)
+        self.assertIn('retroRecompRequestOptions(1);', self.patch)      # Ctrl+F1: the Help
+        self.assertIn('retroRecompRequestOptions(0);', self.patch)      # Ctrl+F2: the Retro-Recomp page
+        self.assertIn('retroRecompTakeOptionsRequest(rrTab)', self.patch)
+        self.assertIn('configDialog.selectRetroRecompTab(rrTab);', self.patch)
+        self.assertNotIn('"C+F5"', self.patch)       # Ctrl+F5 stays ScummVM's own menu
+
+    def test_the_osd_uses_retro_recomps_palette_in_a_packed_exe(self):
+        from retrorecomp.branding import COLORS
+        header, gold = COLORS['header'], COLORS['gold_hover']
+        self.assertEqual((int(header[1:3], 16), int(header[3:5], 16), int(header[5:7], 16)), (24, 24, 24))
+        self.assertEqual((int(gold[1:3], 16), int(gold[3:5], 16), int(gold[5:7], 16)), (239, 198, 79))
+        self.assertIn('rrPalette ? 24 : 64', self.patch)
+        self.assertIn('rrPalette ? 239 : 255', self.patch)
+        self.assertIn('rrPalette ? 198 : 255', self.patch)
+        self.assertIn('rrPalette ? 79 : 255', self.patch)
+
+    def test_the_scanlines_are_the_host_kits_mask_drawn_after_the_scaling(self):
+        # same arithmetic as native/scanlines.h: 85/255 on the last third of every source row, nothing under twice the rows
+        scanlines = (scummvm_build.ROOT / 'native' / 'scanlines.h').read_text(encoding='utf-8')
+        self.assertIn('(85 * (end - begin) + step / 2) / step', scanlines)
+        self.assertIn('(85 * (end - begin) + step / 2) / step', self.patch)
+        self.assertIn('(uint64)height < 2 * (uint64)sourceRows', self.patch)
+        self.assertIn('rrDrawScanlines(_renderer, viewport, _videoMode.screenHeight);', self.patch)
+        self.assertIn('packedScanlinesOn() && !_overlayVisible', self.patch)      # never over the menus
+        self.assertNotIn('"tv"', self.patch)
+        self.assertIn('{"Help", "Aide", "Hilfe", "Ayuda", "Aiuto"}', self.patch)
+
+    def test_ctrl_f3_cycles_the_host_kit_filters_and_ctrl_f4_toggles_pixel_perfect(self):
+        self.assertIn('addDefaultInputMapping("C+F3")', self.patch)
+        self.assertIn('addDefaultInputMapping("C+F4")', self.patch)
+        # the order of the host kit's F3: sharp pixels, xBR (HQ2x here), Scale2x, scanlines
+        import re
+        effects = re.findall(r'^\+\t\{"(normal|hq|advmame)",\s+\{"([^"]+)"', self.patch, re.M)
+        self.assertEqual([(scaler, name) for scaler, name in effects],
+                         [('normal', 'Sharp pixels'), ('hq', 'HQ2x'), ('advmame', 'Scale2x'), ('normal', 'Scanlines')])
+        self.assertNotIn('xBR"', self.patch)      # no mention of xBR in what the player sees
+        self.assertIn('"rr_scanlines"', self.patch)
+        self.assertIn('"pixel-perfect"', self.patch)
+        self.assertIn('ConfMan.flushToDisk();', self.patch)
+        for key in ('"scaler"', '"scale_factor"'):
+            self.assertIn(key, self.patch)
+
+    def test_the_text_table_follows_the_order_of_its_enum(self):
+        import re
+        enum = re.search(r'\+\s+(kTitle,[^\n]*?), kTextCount', self.patch)
+        self.assertIsNotNone(enum)
+        names = [name.strip() for name in enum.group(1).split(',')]
+        rows = list(dict.fromkeys(re.findall(r'^\+\t/\* (k\w+)\s*\*/\s+\{', self.patch, re.M)))     # one row may exist per platform
+        self.assertEqual(rows, names)
+
+    def test_screenshots_stay_in_the_games_folder(self):
+        self.assertIn('"screenshotpath"', self.patch)
+
+
 class NoModalWindow(unittest.TestCase):
     """The patch keeps every route to a modal window closed in a packed executable (checked headless on an invisible desktop
     with the real runtime; here, the text of the patch)."""
