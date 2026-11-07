@@ -296,6 +296,20 @@ reference on those scripts, and hardware fidelity, gameplay and latency are not 
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: CIA-B enters the slave as the system leaves it (1.7.1)
+
+Blood Money played noise ("a 56K modem") from the first tune on. Cause, found by comparing with the real WHDLoad (private run of Copperline):
+the slave's loader wrapper adds 79 tracks to the offset of a `resload_DiskLoad` when bit 2 of CIA-B's port B (`$BFD100`, the disk side
+select) reads 0, and our boot ROM left CIA-B at its reset state, every pin an input, so the bit always read 1: the music samples (track 107)
+were read from track 28 instead, whose data the game played as sound (the same lengths, periods and pointers as on the real machine, other
+bytes). The real machine has CIA-B DDRA `$C0` and DDRB `$FF` while a slave runs (the disk lines are outputs, so a read gives back the
+latch). The boot ROM now sets CIA-B's PRA `$F8`, PRB `$FF` (no drive selected, motor off), DDRA `$C0` and DDRB `$FF`, in that order.
+After the change the three sample regions of Blood Money are byte for byte those of the real machine (0 of 74,256 bytes differ) and the
+sound has tonal structure instead of flat noise. 26 slaves of the maintainer's library name `$BFD100` in their own code (Blood Money,
+Menace, Nebulus, North And South, Lotus, Space Ace and others), so other disk-side readers may have loaded wrong tracks too; the native
+steps were never involved (the run on the interpreter plays the same noise). **What moves:** the Amiga's game stamp
+(`native/amiga_machine/amiga_session.cpp`); no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: the chipset's collision detection is on (1.7.1)
 
 A real Amiga always detects collisions between sprites and between sprites and the playfields (CLXCON/CLXDAT); vAmiga ships the three

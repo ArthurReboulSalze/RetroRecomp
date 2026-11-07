@@ -97,6 +97,10 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
+  CIA-B is left as the system leaves it (read on the real WHDLoad: DDRA `$C0`, DDRB `$FF`, no drive selected, motor off): the disk
+  lines are outputs, so a read of `$BFD100` gives back what the game wrote there. A slave that reads the side-select bit to know which
+  side of a disk the game asked for (Blood Money's does: 26 slaves of the library name `$BFD100`) otherwise reads the idle pin (1) and
+  loads the wrong tracks.
 - (1.7.1) After a quick state is loaded, the sound samples are bit-identical to an unbroken run on the games checked (Apidya, Zeewolf, Cyber Games, 200 frames each); a state saved by an earlier build is refused.
 - (1.7.1) Apidya's bee flickers, and is whole, cut to a thin strip or missing from frame to frame: the game draws it with the
   blitter while the screen is being scanned. Compared with Copperline running the real WHDLoad (private, comparison only; the same

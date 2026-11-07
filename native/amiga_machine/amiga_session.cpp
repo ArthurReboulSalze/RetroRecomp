@@ -273,6 +273,13 @@ static std::vector<uint8_t> boot_rom() {
         0x33FC, 0x7FFF, 0x00DF, 0xF09A,          // move.w #$7fff,$dff09a (INTENA)
         0x33FC, 0x7FFF, 0x00DF, 0xF096,          // move.w #$7fff,$dff096 (DMACON)
         0x33FC, 0x7FFF, 0x00DF, 0xF09C,          // move.w #$7fff,$dff09c (INTREQ)
+        // CIA-B as the system leaves it when a slave starts (read on the real WHDLoad: DDRA $C0, DDRB $FF, no drive selected): the
+        // disk lines are outputs, so a read of PRB gives back what the game wrote (a slave reads the side-select bit of $bfd100 to
+        // know which side of a disk the game asked for). The values are written before the directions so nothing is selected.
+        0x13FC, 0x00F8, 0x00BF, 0xD000,          // move.b #$f8,$bfd000 (CIA-B PRA)
+        0x13FC, 0x00FF, 0x00BF, 0xD100,          // move.b #$ff,$bfd100 (CIA-B PRB: no drive selected, motor off)
+        0x13FC, 0x00C0, 0x00BF, 0xD200,          // move.b #$c0,$bfd200 (CIA-B DDRA)
+        0x13FC, 0x00FF, 0x00BF, 0xD300,          // move.b #$ff,$bfd300 (CIA-B DDRB)
         0x60FE};                                 // bra.s *
     auto put = [&](size_t at, const uint16_t *w, size_t n) {
         for (size_t i = 0; i < n; i++) { rom[at + 2 * i] = (uint8_t)(w[i] >> 8); rom[at + 2 * i + 1] = (uint8_t)w[i]; }
