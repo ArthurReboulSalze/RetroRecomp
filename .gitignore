@@ -113,6 +113,7 @@ docs/*
 !docs/GAME_BOY_ADVANCE.md
 !docs/PC_ENGINE.md
 !docs/AMIGA.md
+!docs/ATARI_ST.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md

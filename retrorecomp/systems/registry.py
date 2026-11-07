@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from . import SystemProfile
 from .amiga import AMIGA
+from .atari_st import ATARI_ST
 from .cps1 import CPS1
 from .cps2 import CPS2
 from .game_boy import GAME_BOY
@@ -67,7 +68,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, SCUMMVM):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, SCUMMVM):
     register(_profile)
 del _profile
 
