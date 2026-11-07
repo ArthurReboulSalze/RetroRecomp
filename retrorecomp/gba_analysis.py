@@ -13,6 +13,12 @@ The runs that observe them are the engine's own headless host (`gba_build.py`): 
 written in a miss proposal, and the IWRAM image left at the end of the run says which cartridge bytes a RAM PC came
 from. The proposal is never trusted blindly: the generated code that uses a RAM routine compares the live bytes with
 the cartridge's before entering it, so a wrong stretch costs a counted interpreter step, not a wrong game.
+
+Code the cartridge does not hold at all (a routine the game decompresses or writes into work RAM) is a third case, **RAM code**
+(`RamCode`): the bytes the probe found at the address when the game first reached it. Those bytes are derived from the
+cartridge, so they are never a path and never reach the paths library: they live in memory for the conversion in progress, are
+appended to the image the generator reads (`generator_image`) and end as guarded native code in the converted game, which compares
+the live bytes with them before every entry and falls back to the interpreter (counted) when they differ.
 """
 from __future__ import annotations
 
@@ -161,6 +167,134 @@ def _sample_source(rom: bytes, address: int, samples):
     return sorted(set(found), key=lambda item: -item[1])
 
 
+MAX_VARIANTS = 256              # versions of the bytes at one address a game may have (the probe records as many)
+PARAM_MIN_VALUES = 8            # an aligned word with this many different values across the versions of one routine is a parameter, not code
+PARAM_NOTE = 'RAM parameter word'
+POOL_ALIGN = 16
+POOL_GAP = 16                   # zero bytes after each block: no stretch decodes into the next one
+REUSE_MIN = 64                  # bytes a recorded stretch must share with a placed block to be read from it
+IMAGE_MAX = 32 * 1024 * 1024    # the cartridge window of the bus: the image the generator reads must fit in it
+
+
+@dataclass
+class RamCode:
+    """Code found in work RAM that the cartridge does not hold, for the conversion in progress: {(address, thumb flag): [bytes, ...]}, one
+    entry per version of the bytes the game had there. Memory only: never written to the library (see the head of this module)."""
+    variants: dict = field(default_factory=dict)
+
+    def size(self) -> int:
+        return sum(len(items) for items in self.variants.values())
+
+    def has(self, address: int, thumb: bool) -> bool:
+        return (address & ~1, THUMB if thumb else 0) in self.variants
+
+    def take(self, miss: Miss, samples) -> int:
+        """Keep the versions recorded for a missed RAM address; returns how many were new (0 when there are none or all were known)."""
+        if not (in_window(miss.address & ~1, IWRAM) or in_window(miss.address & ~1, EWRAM)):
+            return 0
+        key = (miss.address & ~1, THUMB if miss.thumb else 0)
+        known = self.variants.setdefault(key, [])
+        added = 0
+        for where, live in samples:
+            if where != key[0] or len(live) < 8 or len(known) >= MAX_VARIANTS:
+                continue
+            head = live[:MATCH_WINDOWS[0]]
+            if head.count(0) == len(head) or len(set(head)) < 4 or live in known:
+                continue
+            known.append(live)
+            added += 1
+        if not known:
+            del self.variants[key]
+        return added
+
+
+@dataclass(frozen=True)
+class RamEntry:
+    """One RAM entry point of the generator: (RAM address, Thumb flag, address of its bytes in the generator's image)."""
+    address: int
+    thumb: bool
+    source: int
+
+
+def parameter_words(address: int, versions) -> list[int]:
+    """Offsets from `address` of the aligned words that take PARAM_MIN_VALUES or more values across the versions of a routine: arguments the
+    caller writes into the routine's own literal pool, read by the routine from the live RAM. Code that is rewritten per call is not one of
+    them in practice (a handful of shapes); and if one were, the generator refuses a control flow that enters a declared data range."""
+    if len(versions) < PARAM_MIN_VALUES:
+        return []
+    size = min(len(item) for item in versions)
+    return [offset for offset in range((-address) % 4, size - 3, 4)
+            if len({item[offset:offset + 4] for item in versions}) >= PARAM_MIN_VALUES]
+
+
+def shapes(address: int, versions) -> tuple[list[bytes], list[int]]:
+    """The versions of a routine reduced to its code shapes: one representative per distinct bytes outside the parameter words, and those words."""
+    words = parameter_words(address, versions)
+    if not words:
+        return list(versions), []
+    kept: dict = {}
+    for item in versions:
+        masked = bytearray(item)
+        for offset in words:
+            masked[offset:offset + 4] = bytes(4)
+        kept.setdefault(bytes(masked), item)
+    return list(kept.values()), words
+
+
+def mirror_address(address: int, number: int) -> int | None:
+    """The address the generator knows the `number`-th version of a routine at (a routine in work RAM that the game replaces by another one, from the
+    cartridge or made at run time). The generator keeps one function per address, so versions after the first are entered at the mirrors of
+    the work RAM (IWRAM repeats every 32 KB up to 0x04000000, EWRAM every 256 KB up to 0x03000000, same low bits): the guard of the generated
+    code is position independent (it compares bytes and uses the live address), so the mirror is only a name for the version. None when the
+    version no longer fits in the mirrors."""
+    if in_window(address, IWRAM):
+        size, end = IWRAM[1] - IWRAM[0], 0x04000000
+    elif in_window(address, EWRAM):
+        size, end = EWRAM[1] - EWRAM[0], 0x03000000
+    else:
+        return None
+    mirrored = address + number * size
+    return mirrored if mirrored < end else None
+
+
+def generator_image(rom: bytes, ram_code: RamCode) -> tuple[bytes, list[RamEntry], list[tuple[int, int]]]:
+    """The cartridge followed by the RAM code bytes, and one entry per version.
+
+    The generator decodes a relocated RAM body from the bytes at its source address and embeds them as the guard of the generated code, so
+    a routine the cartridge does not hold needs those bytes in the image it reads. They follow the cartridge, each block placed at
+    the same offset modulo 4 as its RAM address (literal-pool alignment is kept) and followed by a gap. A stretch that repeats bytes of a block
+    already placed (the routines of one decompressed overlay) is read from that block. Without RAM code, or when the image would not fit the
+    cartridge window, the cartridge itself is returned and the lists are empty. The third result is the ranges of the image that hold parameter
+    words (a version per code shape is placed; the words that change at every call are declared as data and are not compared at run time)."""
+    if not ram_code.variants:
+        return rom, [], []
+    image = bytearray(rom)
+    image += bytes((-len(image)) % 4096)
+    placed: list[tuple[int, int, bytes]] = []                # (RAM address, offset in the image, bytes)
+    entries: list[RamEntry] = []
+    ranges: list[tuple[int, int]] = []
+    for (address, flag), all_versions in sorted(ram_code.variants.items()):
+        versions, words = shapes(address, all_versions)
+        for live in versions:
+            source = None
+            for base, offset, data in placed:
+                if base <= address < base + len(data):
+                    shared = min(len(live), base + len(data) - address)
+                    if shared >= REUSE_MIN and live[:shared] == data[address - base:address - base + shared]:
+                        source = offset + address - base
+                        break
+            if source is None:
+                start = (len(image) + POOL_ALIGN - 1) // POOL_ALIGN * POOL_ALIGN + (address & 3)
+                image += bytes(start - len(image)) + live + bytes(POOL_GAP)
+                placed.append((address, start, live))
+                source = start
+            entries.append(RamEntry(address, bool(flag), ROM_BASE + source))
+            ranges += [(ROM_BASE + source + offset, ROM_BASE + source + offset + 4) for offset in words if offset + 4 <= len(live)]
+    if len(image) > IMAGE_MAX:
+        return rom, [], []
+    return bytes(image), entries, sorted(set(ranges))
+
+
 def observations_from_misses(misses, rom: bytes, iwram: bytes | None, ewram: bytes | None = None,
                              samples=()) -> tuple[Observations, list[Miss]]:
     """Turn a run's misses into paths. Returns (what was learned, the misses that stay on the interpreter)."""
@@ -202,20 +336,53 @@ def _copies(spans) -> list[tuple[int, int, int]]:
     return [tuple(item) for item in joined]
 
 
-def config_text(name: str, sha1: str, size: int, observations: Observations) -> str:
-    """The engine's per-binary TOML: the identity of the cartridge, our roots and our code copies. The finder keeps
-    discovering what it can; nothing here removes code."""
+def _versions(spans) -> tuple[list[tuple[int, int, int]], dict]:
+    """The code copies of the cartridge with the versions of one RAM routine told apart: [(address | Thumb flag, offset, length)] and how many
+    versions each (address, flag) has. Copies of one address from different cartridge offsets are versions (an overlay the game swaps in the
+    same place); the lowest offset keeps the address and the others are named at its mirrors (`mirror_address`). The same offset seen with
+    several lengths is one copy, the longest."""
+    longest: dict = {}
+    for address, offset, length in spans:
+        key = (address & ~1, address & 1, offset)
+        longest[key] = max(longest.get(key, 0), length)
+    counts: dict = {}
+    rows = []
+    for (address, flag, offset), length in sorted(longest.items()):
+        number = counts.get((address, flag), 0)
+        counts[(address, flag)] = number + 1
+        mirrored = mirror_address(address, number)
+        if mirrored is not None:
+            rows.append((mirrored | flag, offset, length))
+    return rows, counts
+
+
+def config_text(name: str, sha1: str, size: int, observations: Observations, ram_entries=(), data_ranges=()) -> str:
+    """The engine's per-binary TOML: the identity of the image the generator reads (the cartridge, followed by the RAM code bytes
+    when there are some), our roots, our code copies and our RAM entries. The finder keeps discovering what it can; nothing here
+    removes code."""
     lines = ['[program]', f'name = "{name}"', 'id = "game"', f'load_address = 0x{ROM_BASE:08X}', f'size = 0x{size:08X}',
              f'entry_pc = 0x{ROM_BASE:08X}', '', '[identity]', f'sha1 = "{sha1}"', '']
-    for address, offset, size_ in _copies(observations.spans):
+    placed, versions = _versions(observations.spans)
+    for address, offset, size_ in _copies(placed):
         lines += ['[[code_copy]]', f'runtime_start = 0x{address:08X}', f'source_start = 0x{ROM_BASE + offset:08X}',
                   f'size = 0x{size_:X}', 'note = "observed by Retro-Recomp"', '']
     for entry in sorted(observations.roots):
         lines += ['[[extra_func]]', f'addr = 0x{ROM_BASE + (entry & ~1):08X}',
                   f'mode = "{"thumb" if entry & THUMB else "arm"}"', 'note = "observed by Retro-Recomp"', '']
-    for address, offset, _length in sorted(observations.spans):
+    for address, offset, _length in sorted(placed):
         lines += ['[[extra_func]]', f'addr = 0x{address & ~1:08X}', f'source_addr = 0x{ROM_BASE + offset:08X}',
                   f'mode = "{"thumb" if address & THUMB else "arm"}"', 'note = "observed by Retro-Recomp"', '']
+    for start, end in data_ranges:
+        lines += ['[[data_range]]', f'start = 0x{start:08X}', f'end = 0x{end:08X}', f'note = "{PARAM_NOTE}"', '']
+    for entry in ram_entries:
+        key = (entry.address, THUMB if entry.thumb else 0)
+        number = versions.get(key, 0)
+        versions[key] = number + 1
+        address = mirror_address(entry.address, number)
+        if address is None:
+            continue
+        lines += ['[[extra_func]]', f'addr = 0x{address:08X}', f'source_addr = 0x{entry.source:08X}',
+                  f'mode = "{"thumb" if entry.thumb else "arm"}"', 'note = "RAM code seen by Retro-Recomp"', '']
     return '\n'.join(lines)
 
 

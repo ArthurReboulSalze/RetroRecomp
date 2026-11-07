@@ -113,6 +113,95 @@ class AnalysisTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             path_profiles.validate_game(document)
 
+    def test_code_the_cartridge_does_not_hold_becomes_ram_code_in_memory_only(self):
+        rom = pseudo_random(0x6000, 3)
+        seen = pseudo_random(0x400, 21)                                     # made at run time: no copy in the cartridge
+        other = pseudo_random(0x400, 22)
+        samples = ((0x02008030, seen), (0x02008030, other), (0x02008030, seen), (0x02008200, seen[0x1D0:]),
+                   (0x03000828, bytes(0x400)), (0x03000900, b'\x01\x02'))
+        ram_code = analysis.RamCode()
+        misses = [analysis.Miss(0x02008031, True), analysis.Miss(0x02008200, True), analysis.Miss(0x03000828, False),
+                  analysis.Miss(0x03000900, False), analysis.Miss(0x04000000, False)]
+        added = [ram_code.take(item, samples) for item in misses]
+        self.assertEqual(added, [2, 1, 0, 0, 0])                           # two versions at the first address; zeros, a stub and an I/O address are not code
+        self.assertTrue(ram_code.has(0x02008030, True))
+        self.assertFalse(ram_code.has(0x02008030, False))
+        self.assertEqual(ram_code.take(misses[0], samples), 0)             # nothing new the second time
+        image, entries, ranges = analysis.generator_image(rom, ram_code)
+        self.assertEqual(ranges, [])
+        self.assertEqual(image[:len(rom)], rom)
+        self.assertEqual(len(entries), 3)
+        for entry in entries:
+            source = entry.source - analysis.ROM_BASE
+            self.assertEqual(source % 4, entry.address % 4)                # the literal-pool alignment is kept
+        by_address = {(entry.address, entry.thumb): [] for entry in entries}
+        for entry in entries:
+            by_address[(entry.address, entry.thumb)].append(entry)
+        first, second = by_address[(0x02008030, True)]
+        self.assertEqual(image[first.source - analysis.ROM_BASE:][:0x400], seen)
+        self.assertEqual(image[second.source - analysis.ROM_BASE:][:0x400], other)
+        inside = by_address[(0x02008200, True)][0]                          # the same bytes as a block already placed: read from it
+        self.assertEqual(inside.source, first.source + 0x1D0)
+        self.assertLess(len(image), len(rom) + 0x4000 + 0x1000)
+        text = analysis.config_text('Authored', 'ab' * 20, len(image), analysis.Observations(), entries)
+        self.assertIn('size = 0x%08X' % len(image), text)
+        self.assertEqual(text.count('[[extra_func]]'), 3)
+        self.assertEqual(text.count('source_addr = 0x'), 3)
+        self.assertIn('addr = 0x02008030', text)
+        self.assertIn('addr = 0x02048030', text)                            # the second version is named at the mirror of the address
+        self.assertIn('mode = "thumb"', text)
+        # nothing of it reaches the paths: the record keeps numbers about the cartridge only
+        document = analysis.record('cd' * 32, len(rom), 'e' * 40, analysis.Observations(roots={1}))
+        self.assertNotIn(seen.hex(), str(document))
+        # no RAM code: the generator reads the cartridge itself; an image that would not fit the cartridge window is not built
+        self.assertEqual(analysis.generator_image(rom, analysis.RamCode()), (rom, [], []))
+        self.assertEqual(analysis.generator_image(bytes(analysis.IMAGE_MAX - 0x100), ram_code), (bytes(analysis.IMAGE_MAX - 0x100), [], []))
+
+    def test_a_routine_that_keeps_its_arguments_in_its_literal_pool_is_one_version_with_declared_parameter_words(self):
+        base = pseudo_random(0x100, 31)
+        shape_b = bytearray(base)
+        shape_b[0:4] = bytes([0xAA, 0xBB, 0xCC, 0xDD])                      # a second code shape
+        versions = []
+        for call in range(40):                                              # the caller writes two words at offsets 0x40 and 0x44 at every call
+            for shape in (base, bytes(shape_b)):
+                live = bytearray(shape)
+                live[0x40:0x48] = (0x1000 + call).to_bytes(4, 'little') + (0x08000000 + 7 * call).to_bytes(4, 'little')
+                versions.append(bytes(live))
+        address = 0x03000828
+        self.assertEqual(analysis.parameter_words(address, versions), [0x40, 0x44])
+        self.assertEqual(analysis.parameter_words(address, versions[:5]), [])           # too few versions to tell code from arguments
+        representatives, words = analysis.shapes(address, versions)
+        self.assertEqual((len(representatives), words), (2, [0x40, 0x44]))
+        ram_code = analysis.RamCode(variants={(address, 0): versions})
+        image, entries, ranges = analysis.generator_image(bytes(0x1000), ram_code)
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(len(ranges), 4)                                                 # two words in each of the two placed shapes
+        first = entries[0].source
+        self.assertIn((first + 0x40, first + 0x44), ranges)
+        text = analysis.config_text('Authored', 'ab' * 20, len(image), analysis.Observations(), entries, ranges)
+        self.assertEqual(text.count('[[data_range]]'), 4)
+        self.assertEqual(text.count('note = "RAM parameter word"'), 4)
+
+    def test_the_versions_of_one_routine_are_known_at_the_mirrors_of_its_address(self):
+        self.assertEqual([analysis.mirror_address(0x03000828, number) for number in (0, 1, 2)], [0x03000828, 0x03008828, 0x03010828])
+        self.assertEqual([analysis.mirror_address(0x02008031, number) for number in (0, 1)], [0x02008031, 0x02048031])
+        self.assertIsNone(analysis.mirror_address(0x03000828, 512))
+        self.assertIsNone(analysis.mirror_address(0x02008030, 64))
+        self.assertIsNone(analysis.mirror_address(0x08000000, 0))
+
+    def test_copies_of_one_address_from_different_cartridge_offsets_are_versions_at_mirrors(self):
+        spans = {(0x03002000, 0x1000, 0x40), (0x03002000, 0x1000, 0x9C), (0x03002000, 0x2400, 0x80), (0x03002001 + 0x100, 0x3000, 0x20)}
+        rows, counts = analysis._versions(spans)
+        self.assertEqual(rows, [(0x03002000, 0x1000, 0x9C), (0x0300A000, 0x2400, 0x80), (0x03002101, 0x3000, 0x20)])
+        self.assertEqual(counts, {(0x03002000, 0): 2, (0x03002100, 1): 1})
+        text = analysis.config_text('Authored', 'ab' * 20, 0x400000, analysis.Observations(spans=spans))
+        self.assertEqual(text.count('[[extra_func]]'), 3)
+        self.assertIn('addr = 0x0300A000', text)
+        self.assertIn('source_addr = 0x08002400', text)
+        # a version made at run time takes the next mirror after the ones from the cartridge
+        entry = analysis.RamEntry(0x03002000, False, analysis.ROM_BASE + 0x500000)
+        self.assertIn('addr = 0x03012000', analysis.config_text('Authored', 'ab' * 20, 0x600000, analysis.Observations(spans=spans), [entry]))
+
     def test_merging_counts_what_is_new(self):
         known = analysis.Observations(roots={1, 2})
         self.assertEqual(known.merge(analysis.Observations(roots={2, 3}, spans={(0x03000000, 0, 4)})), 2)

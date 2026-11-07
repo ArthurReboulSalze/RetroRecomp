@@ -55,8 +55,10 @@ MODEL_STATEMENT = ('The vectors are generated from NanoBoyAdvance\'s model of th
 COPROCESSOR = 'coprocessor'
 MULTIPLY_CARRY = 'multiply_carry'
 R15_OPERAND = 'r15_operand'
+BLOCK_USER_WRITEBACK = 'block_user_writeback'
+THUMB_EMPTY_LIST = 'thumb_empty_list'
 OTHER = 'other'
-CATEGORIES = (COPROCESSOR, MULTIPLY_CARRY, R15_OPERAND, OTHER)
+CATEGORIES = (COPROCESSOR, MULTIPLY_CARRY, R15_OPERAND, BLOCK_USER_WRITEBACK, THUMB_EMPTY_LIST, OTHER)
 EXPLANATIONS = {
     COPROCESSOR: 'CDP, MRC/MCR, LDC/STC: the ARM7TDMI of the console has no coprocessor and traps them as undefined instructions; the '
                  'generated code reports them as unimplemented and the interpreter as undefined (the caller takes the trap), where the '
@@ -65,6 +67,12 @@ EXPLANATIONS = {
                     'suite models a value.',
     R15_OPERAND: 'An ARM encoding whose register fields name R15 (or an LDM/STM list holding it): mostly architecturally unpredictable. '
                  'The test is the opcode fields alone, so it also catches an encoding whose field is 15 for another reason.',
+    BLOCK_USER_WRITEBACK: 'ARM LDM or STM with the S bit (the user-bank form) and write-back: architecturally unpredictable, and only seen in a '
+                          'banked mode (FIQ, IRQ, supervisor, abort, undefined), where the suite models one choice of the base register and of '
+                          'the registers written back. Found by decoding the 247 + 7 failures that were unexplained on 6 November 2026: all of them.',
+    THUMB_EMPTY_LIST: 'Thumb LDMIA, STMIA, PUSH or POP with an empty register list. On the ARM7TDMI the transfer is R15 and the base moves by '
+                      '0x40, which the suite models and the interpreter and the generated code of the engine do not (the 88 + 50 + 4 failures of 6 '
+                      'November 2026: all of them). A hardware quirk, not seen in the games of the panel.',
     OTHER: 'Everything else: not explained. A change here is the signal; the baseline guards it.',
 }
 CARRY_BIT = 0x20000000
@@ -113,6 +121,10 @@ def classify(record: dict) -> str:
         return MULTIPLY_CARRY
     if has_r15_operand(opcode, thumb):
         return R15_OPERAND
+    if not thumb and opcode >> 25 & 7 == 4 and opcode & (1 << 22) and opcode & (1 << 21):
+        return BLOCK_USER_WRITEBACK
+    if thumb and opcode & 0xFF == 0 and (opcode & 0xF000 == 0xC000 or opcode in (0xB400, 0xBC00)):
+        return THUMB_EMPTY_LIST
     return OTHER
 
 
