@@ -45,6 +45,9 @@ NET_REV = '8c76fb643339144a3a84d5ba8f5defe6250dcd26'
 RBENGINE_REV = '2a03e73693acee0fb78076ea058642c931bef12e'
 LICENSE = 'PolyForm Noncommercial 1.0.0'
 BOOT_FRAMES = 600
+# Passes beyond the number asked for that run only while the last pass still taught something and the tested scenarios still interpret code:
+# what a pass learns is built by the next one, and the last paths of a game often arrive on the third (a routine reached only after the others are native).
+SETTLING_PASSES = 2
 # The cycle count of the snapshot is the guest's, taken at the same machine cycle by both runs: it is expected to be equal; the
 # tolerance only keeps one cycle of accounting from refusing a run whose memories and registers agree.
 CYCLE_TOLERANCE = 2
@@ -154,17 +157,26 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         paths[name] = scripts / f'{name}.txt'
     rows, runs, history, generated, unresolved, host = [], {}, [], {}, [], None
     reasons = collections.Counter()
-    for number in range(1, passes + 1):
+    ram_code, ram_entries, image = analysis.RamCode(), [], data          # code the cartridge does not hold: memory of this conversion only
+    total = passes + SETTLING_PASSES
+    for number in range(1, total + 1):
         timings.begin_pass(number)
-        emit(f'Game Boy Advance pass {number}/{passes}: generating and compiling native ARM and Thumb code…')
-        write_if_changed(project / 'game.toml', analysis.config_text(title, sha1, len(data), observations).encode('utf-8'))
+        emit(f'Game Boy Advance pass {number}' + (f'/{passes}' if number <= passes else ' (settling)') + ': generating and compiling native ARM and Thumb code…')
+        image, ram_entries, ram_ranges = analysis.generator_image(data, ram_code)
+        generator_rom = rom_file
+        if ram_entries:                                  # the generator reads the cartridge followed by the RAM code bytes
+            generator_rom = project / 'rom+ram.bin'
+            write_if_changed(generator_rom, image)
+        write_if_changed(project / 'game.toml', analysis.config_text(
+            title, hashlib.sha1(image).hexdigest(), len(image), observations, ram_entries, ram_ranges).encode('utf-8'))
         with timings.phase('code_generation'):
-            generated = build.generate_game(recompile, rom_file, project / 'game.toml', project / 'generated', emit)
+            generated = build.generate_game(recompile, generator_rom, project / 'game.toml', project / 'generated', emit)
         emit(f"Game Boy Advance: {generated['functions']} functions in {generated['shards']} shards.")
         build.host_project(project, stage_root, project / 'generated', bios_code)
         host = build.build_host(project, cmake, generator, emit)
         runs, rows, learned, unresolved = {}, [], analysis.Observations(), []
         reasons = collections.Counter()
+        fresh = 0
         for name, count, _ in scenarios:
             outcome = build.run_scenario(host, rom_file, sha1, bios, project / 'runs', name, count, paths[name])
             runs[name] = outcome
@@ -172,7 +184,15 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             learned.merge(found)
             unresolved += left
             for item in left:
-                reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
+                known = ram_code.has(item.address, item.thumb)
+                added = ram_code.take(item, outcome.samples)
+                fresh += added
+                if added:
+                    reasons['RAM code seen on this pass: its guarded native code is built on the next one'] += 1
+                elif known:
+                    reasons['RAM code built: still reached by the interpreter (the live bytes are not a version seen)'] += 1
+                else:
+                    reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
             interpreted = outcome.coverage.get('interpreted_insns')
             rows.append(_row(name, count, None, interpreted, coverage=outcome.coverage.get('coverage'),
                              distinct_misses=outcome.coverage.get('distinct_misses'), aborted=outcome.aborted or None,
@@ -182,7 +202,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             emit(f"Game Boy Advance {name}: {outcome.coverage.get('coverage', 'no coverage report')}, "
                  f"{interpreted} interpreted instructions, {outcome.coverage.get('distinct_misses')} distinct addresses"
                  + (f'; stopped: {outcome.aborted}' if outcome.aborted else '.'))
-        new = observations.merge(learned)
+        new = observations.merge(learned) + fresh
         if all(row['interpreted_opcodes'] == 0 and not row['aborted'] for row in rows):
             emit('Game Boy Advance: no interpreted instruction on the tested scenarios.')
             break
@@ -211,6 +231,10 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
     coverage = {'imported_entries': imported, 'observed_entries': observations.size(),
                 'rom_roots': len(observations.roots), 'ram_routines': len(observations.spans),
                 'unresolved_misses': len(unresolved), 'unresolved_reasons': dict(sorted(reasons.items())), 'generated': generated,
+                'ram_code': {'addresses': len(ram_code.variants), 'versions': ram_code.size(), 'entries': len(ram_entries), 'parameter_words': len(ram_ranges),
+                             'image_bytes_added': len(image) - len(data),
+                             'note': 'bytes the game had in work RAM that the cartridge does not hold; derived from it, kept in memory for the '
+                                     'conversion and in the generated code (a guard compares the live bytes before every entry), never in the paths library'},
                 'tested_scenarios': [name for name, *_ in scenarios],
                 'unit': 'interpreted ARM and Thumb instructions, counted by the engine'}
     compiler = {'url': ENGINE_URL, 'revision': ENGINE_REV, 'license': LICENSE, 'arm_core_revision': ARM_CORE_REV,
