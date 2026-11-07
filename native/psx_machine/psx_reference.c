@@ -57,12 +57,13 @@ static Event *read_events(const char *path, size_t *count) {
     return events;
 }
 
-static int write_ppm(const char *path, const uint32_t *pixels, int width, int height) {
+static int write_ppm(const char *path, const uint32_t *pixels, int width, int height, int pitch) {
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
     fprintf(f, "P6\n%d %d\n255\n", width, height);
     for (int i = 0; i < width * height; ++i) {
-        uint8_t rgb[3] = {(uint8_t)(pixels[i] >> 16), (uint8_t)(pixels[i] >> 8), (uint8_t)pixels[i]};
+        const uint32_t pixel = pixels[(size_t)(i / width) * pitch + i % width];
+        uint8_t rgb[3] = {(uint8_t)(pixel >> 16), (uint8_t)(pixel >> 8), (uint8_t)pixel};
         fwrite(rgb, 1, 3, f);
     }
     return fclose(f) == 0;
@@ -141,7 +142,7 @@ int main(int argc, char **argv) {
             if (shot_frame[i] == frame) {
                 int w, h;
                 const uint32_t *pixels = rr_psx_picture(s, &w, &h, NULL);
-                if (!write_ppm(shot_path[i], pixels, w, h)) fprintf(stderr, "psx_reference: cannot write %s\n", shot_path[i]);
+                if (!write_ppm(shot_path[i], pixels, w, h, rr_psx_picture_pitch(s))) fprintf(stderr, "psx_reference: cannot write %s\n", shot_path[i]);
             }
         if (frame == save_frame && rr_psx_state_save(s, save_path, abi) != 0)
             fprintf(stderr, "psx_reference: state not saved\n");

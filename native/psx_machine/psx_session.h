@@ -59,8 +59,11 @@ int rr_psx_pad_analog_mode(const RrPsxSession *s, int player);
 int rr_psx_frame(RrPsxSession *s);
 const char *rr_psx_error(const RrPsxSession *s);
 
-/* The picture of the last frame, 0x00RRGGBB, `width` pixels per row; the display aspect the core reports. */
+/* The picture of the last frame, 0x00RRGGBB, `width` x `height` pixels, rows rr_psx_picture_pitch apart; the display aspect
+ * the core reports. Valid until the next frame. */
 const uint32_t *rr_psx_picture(const RrPsxSession *s, int *width, int *height, double *aspect);
+/* The pixels between two rows of the picture (it is the core's own frame surface, not a copy). */
+int rr_psx_picture_pitch(const RrPsxSession *s);
 /* The sound of the last frame: interleaved stereo int16 at RR_PSX_AUDIO_RATE; returns stereo frames copied. */
 size_t rr_psx_audio(RrPsxSession *s, int16_t *pcm, size_t capacity_frames);
 double rr_psx_fps(const RrPsxSession *s);

@@ -183,9 +183,9 @@ static bool event(const SDL_Event *e, bool *running) {
     return false;
 }
 
-/* The picture: rows packed at its width, which grows with the internal resolution. */
+/* The picture: the core's own frame surface, rows pixel_pitch apart, uploaded without a copy of ours. */
 static const uint32_t *pixels(void) { return rr_psx_picture(rr_psx_host_session(), NULL, NULL, NULL); }
-static int pixel_pitch(void) { int w = 0; rr_psx_picture(rr_psx_host_session(), &w, NULL, NULL); return w ? w : 320; }
+static int pixel_pitch(void) { const int pitch = rr_psx_picture_pitch(rr_psx_host_session()); return pitch ? pitch : 320; }
 static int visible_width(void) { int w = 0; rr_psx_picture(rr_psx_host_session(), &w, NULL, NULL); return w ? w : 320; }
 static int visible_height(void) { int h = 0; rr_psx_picture(rr_psx_host_session(), NULL, &h, NULL); return h ? h : 240; }
 /* The shape the picture is shown at: the console's rows (the picture's divided by the internal resolution) and the width the

@@ -69,8 +69,10 @@ struct RrPsxSession {
     unsigned pad[2];
     int16_t sticks[2][4];
     uint16_t rumble[2][2];
-    uint32_t *picture;          /* the last picture, rows packed at its width (it grows with the internal resolution) */
-    size_t picture_capacity;
+    /* The last picture: the core's own frame surface, never copied (it lives until the core's next frame); `pitch` pixels
+     * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). */
+    const uint32_t *picture;
+    int pitch;
     int width, height;
     double aspect, fps;
     int16_t audio[2 * 8192];
@@ -483,17 +485,8 @@ static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsig
     if (!s || !data) return;   /* a duplicated frame keeps the last picture */
     if (width > RR_PSX_PICTURE_LIMIT) width = RR_PSX_PICTURE_LIMIT;
     if (height > RR_PSX_PICTURE_LIMIT) height = RR_PSX_PICTURE_LIMIT;
-    if ((size_t)width * height > s->picture_capacity) {
-        uint32_t *grown = (uint32_t *)realloc(s->picture, (size_t)width * height * sizeof *grown);
-        if (!grown) return;   /* the last picture stays */
-        s->picture = grown;
-        s->picture_capacity = (size_t)width * height;
-    }
-    for (unsigned y = 0; y < height; ++y) {
-        const uint32_t *row = (const uint32_t *)((const uint8_t *)data + (size_t)y * pitch);
-        uint32_t *out = s->picture + (size_t)y * width;
-        for (unsigned x = 0; x < width; ++x) out[x] = row[x] & 0x00ffffffu;
-    }
+    s->picture = (const uint32_t *)data;
+    s->pitch = (int)(pitch / sizeof(uint32_t));
     s->width = (int)width;
     s->height = (int)height;
 }
@@ -582,7 +575,6 @@ void rr_psx_close(RrPsxSession *s) {
     for (int i = 0; i < MAX_SOURCES; ++i) if (s->sources[i]) fclose(s->sources[i]);
     rr_psx_bios_data = NULL;
     free(s->bios);
-    free(s->picture);
     if (g == s) g = NULL;
     free(s);
 }
@@ -638,6 +630,8 @@ const uint32_t *rr_psx_picture(const RrPsxSession *s, int *width, int *height, d
     return s->picture;
 }
 
+int rr_psx_picture_pitch(const RrPsxSession *s) { return s->pitch; }
+
 size_t rr_psx_audio(RrPsxSession *s, int16_t *pcm, size_t capacity) {
     size_t n = s->audio_frames < capacity ? s->audio_frames : capacity;
     memcpy(pcm, s->audio, n * 2 * sizeof(int16_t));
@@ -683,12 +677,15 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     info->frame = s->frame;
     info->width = s->width;
     info->height = s->height;
-    info->video = fnv(s->picture, (size_t)s->width * (size_t)s->height * 4u, basis);
+    info->video = basis;
+    for (int y = 0; s->picture && y < s->height; ++y)
+        info->video = fnv(s->picture + (size_t)y * s->pitch, (size_t)s->width * 4u, info->video);
     info->pcm = fnv(s->audio, s->audio_frames * 4u, basis);
     info->samples = (uint32_t)s->audio_frames;
     const void *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
     info->ram = ram ? fnv(ram, RR_PSX_RAM_BYTES, basis) : 0;
-    for (int i = 0; i < s->width * s->height; ++i) if (s->picture[i]) { info->nonblack = 1; break; }
+    for (int y = 0; s->picture && y < s->height && !info->nonblack; ++y)
+        for (int x = 0; x < s->width; ++x) if (s->picture[(size_t)y * s->pitch + x] & 0x00ffffffu) { info->nonblack = 1; break; }
     for (size_t i = 0; i < s->audio_frames * 2; ++i) if (s->audio[i] > 64 || s->audio[i] < -64) { info->audible = 1; break; }
 }
 

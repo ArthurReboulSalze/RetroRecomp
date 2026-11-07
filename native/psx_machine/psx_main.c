@@ -247,8 +247,10 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
         FILE *image = file_open(path, L"wb");
         if (!image) { snprintf(fault, sizeof fault, "picture capture failed"); return 0; }
         fprintf(image, "P6\n%d %d\n255\n", w, h);
+        const int pitch = rr_psx_picture_pitch(session);
         for (int i = 0; i < w * h; i++) {
-            unsigned char rgb[3] = {(unsigned char)(pixels[i] >> 16), (unsigned char)(pixels[i] >> 8), (unsigned char)pixels[i]};
+            const uint32_t pixel = pixels[(size_t)(i / w) * pitch + i % w];
+            unsigned char rgb[3] = {(unsigned char)(pixel >> 16), (unsigned char)(pixel >> 8), (unsigned char)pixel};
             fwrite(rgb, 1, 3, image);
         }
         if (fclose(image)) { snprintf(fault, sizeof fault, "picture capture failed"); return 0; }
