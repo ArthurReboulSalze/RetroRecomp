@@ -159,6 +159,10 @@ class OptionsPage(unittest.TestCase):
             if row.rstrip().endswith('},'):
                 self.assertEqual(row.count('", "') + 1, 5, row)
 
+    def test_the_menu_key_is_hinted_at_the_start_in_five_languages(self):
+        self.assertIn('Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint())', self.patch)
+        self.assertIn('"Menu: Ctrl+F5", "Menu : Ctrl+F5", "Menü: Strg+F5", "Menú: Ctrl+F5", "Menu: Ctrl+F5"', self.patch)
+
     def test_screenshots_stay_in_the_games_folder(self):
         self.assertIn('"screenshotpath"', self.patch)
 

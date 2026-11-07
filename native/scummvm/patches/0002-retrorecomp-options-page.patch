@@ -1,19 +1,20 @@
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
-index 7b74d48d..bce11baa 100644
+index 7b74d48d..22672030 100644
 --- a/backends/fs/packed/packed-fs.cpp
 +++ b/backends/fs/packed/packed-fs.cpp
-@@ -39,7 +39,10 @@
+@@ -39,7 +39,11 @@
  #include "common/fs.h"
  #include "common/stream.h"
  #include "common/substream.h"
 +#include "common/events.h"
++#include "common/osd_message_queue.h"
 +#include "common/system.h"
  #include "common/textconsole.h"
 +#include "common/timer.h"
  
  #include <signal.h>
  #include <stdlib.h>
-@@ -522,6 +525,86 @@ Common::String setIniValue(const Common::String &text, const char *section, cons
+@@ -522,6 +526,86 @@ Common::String setIniValue(const Common::String &text, const char *section, cons
  
  } // namespace
  
@@ -100,7 +101,7 @@ index 7b74d48d..bce11baa 100644
  // ---------------------------------------------------------------------------------------------
  // Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
  // (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
-@@ -581,9 +664,50 @@ void installCrashLog(const Common::String &path) {
+@@ -581,9 +665,146 @@ void installCrashLog(const Common::String &path) {
  
  } // namespace
  
@@ -120,6 +121,95 @@ index 7b74d48d..bce11baa 100644
 +	Common::Event up = down;
 +	up.type = Common::EVENT_KEYUP;
 +	g_system->getEventManager()->pushEvent(up);
++}
++
++// The hint of the menu key, once, a few seconds after the start (the timer runs on its own thread; the message queue is thread safe).
++int g_hintTicks = 0;
++
++void hintDriver(void *) {
++	if (++g_hintTicks == 1)
++		Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint());
++}
++
++// Authored checks with the real dialogs (RR_TEST_SCRIPT = a text file): one line per step, one step per tick.
++//   wait   (one idle tick)      menu      key esc | key o      click X Y | rclick X Y      shot      quit
++Common::Array<Common::String> g_script;
++uint g_scriptPos = 0;
++
++void pushMouse(Common::EventType type, int x, int y) {
++	Common::Event event;
++	event.type = type;
++	event.mouse = Common::Point(x, y);
++	g_system->getEventManager()->pushEvent(event);
++}
++
++void scriptKey(const Common::String &combo) {
++	byte flags = 0;
++	Common::String name = combo;
++	for (;;) {
++		const int plus = name.find('+');
++		if (plus < 0)
++			break;
++		const Common::String part = name.substr(0, plus);
++		if (part == "ctrl")
++			flags |= Common::KBD_CTRL;
++		else if (part == "alt")
++			flags |= Common::KBD_ALT;
++		else if (part == "shift")
++			flags |= Common::KBD_SHIFT;
++		name = name.substr(plus + 1);
++	}
++	Common::KeyCode code = Common::KEYCODE_INVALID;
++	int ascii = 0;
++	if (name == "esc") {
++		code = Common::KEYCODE_ESCAPE;
++		ascii = Common::ASCII_ESCAPE;
++	} else if (name == "enter") {
++		code = Common::KEYCODE_RETURN;
++		ascii = Common::ASCII_RETURN;
++	} else if (name == "f5") {
++		code = Common::KEYCODE_F5;
++		ascii = Common::ASCII_F5;
++	} else if (name.size() == 1 && name[0] >= 'a' && name[0] <= 'z') {
++		code = (Common::KeyCode)(Common::KEYCODE_a + (name[0] - 'a'));
++		ascii = name[0];
++	}
++	if (code == Common::KEYCODE_INVALID)
++		return;
++	Common::Event down;
++	down.type = Common::EVENT_KEYDOWN;
++	down.kbd.keycode = code;
++	down.kbd.ascii = ascii;
++	down.kbd.flags = flags;
++	g_system->getEventManager()->pushEvent(down);
++	Common::Event up = down;
++	up.type = Common::EVENT_KEYUP;
++	g_system->getEventManager()->pushEvent(up);
++}
++
++void scriptDriver(void *) {
++	if (g_scriptPos >= g_script.size())
++		return;
++	const Common::String line = g_script[g_scriptPos++];
++	int x = 0, y = 0;
++	if (line.hasPrefix("key "))
++		scriptKey(line.substr(4));
++	else if (sscanf(line.c_str(), "click %d %d", &x, &y) == 2 || sscanf(line.c_str(), "rclick %d %d", &x, &y) == 2) {
++		const bool right = line.hasPrefix("rclick");
++		pushMouse(Common::EVENT_MOUSEMOVE, x, y);
++		pushMouse(right ? Common::EVENT_RBUTTONDOWN : Common::EVENT_LBUTTONDOWN, x, y);
++		pushMouse(right ? Common::EVENT_RBUTTONUP : Common::EVENT_LBUTTONUP, x, y);
++	} else if (line == "menu") {
++		Common::Event menu;                     // what the keymapper turns Ctrl+F5 into (pushed events do not pass through it)
++		menu.type = Common::EVENT_MAINMENU;
++		g_system->getEventManager()->pushEvent(menu);
++	} else if (line == "shot")
++		g_system->saveScreenshot();
++	else if (line == "quit") {
++		Common::Event quit;
++		quit.type = Common::EVENT_QUIT;
++		g_system->getEventManager()->pushEvent(quit);
++	}
 +}
 +
 +void optionsDriver(void *) {
@@ -148,10 +238,17 @@ index 7b74d48d..bce11baa 100644
  		return;
 +	if (getenv("RR_TEST_OPTIONS"))
 +		g_system->getTimerManager()->installTimerProc(optionsDriver, 2000000, nullptr, "rrtest-options");
++	if (const char *scriptPath = getenv("RR_TEST_SCRIPT")) {
++		const Common::String script = readTextFile(scriptPath);
++		g_script = textLines(script);
++		g_system->getTimerManager()->installTimerProc(scriptDriver, 1500000, nullptr, "rrtest-script");
++	}
++	// The key of the menu, shown for a few seconds at every start.
++	g_system->getTimerManager()->installTimerProc(hintDriver, 3000000, nullptr, "rr-menu-hint");
  	if (getenv("RR_TEST_FATAL"))
  		error("Retro-Recomp: deliberate fatal error");
  	if (getenv("RR_TEST_CRASH")) {
-@@ -638,7 +762,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -638,7 +859,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	else if (language == "it")
  		guiLanguage = "it_IT";
  	const Common::String config = gameDir + kNativeSep + "scummvm.ini";
@@ -175,7 +272,7 @@ index 7b74d48d..bce11baa 100644
  
  	static Common::Array<Common::String> strings;
  	strings.clear();
-@@ -665,6 +804,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -665,6 +901,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	argv = &pointers[0];
  }
  
@@ -187,7 +284,7 @@ index 7b74d48d..bce11baa 100644
  	return g_pack.present;
  }
 diff --git a/backends/fs/packed/packed-fs.h b/backends/fs/packed/packed-fs.h
-index 1b7bc73e..90dab3ce 100644
+index 1b7bc73e..2624c939 100644
 --- a/backends/fs/packed/packed-fs.h
 +++ b/backends/fs/packed/packed-fs.h
 @@ -35,6 +35,12 @@
@@ -203,7 +300,7 @@ index 1b7bc73e..90dab3ce 100644
  
  class PackedFilesystemFactory final : public FilesystemFactory {
  public:
-@@ -62,6 +68,23 @@ void packedLaunchArguments(int &argc, char **&argv);
+@@ -62,6 +68,26 @@ void packedLaunchArguments(int &argc, char **&argv);
  /** True when this executable carries a game: the platform then creates no folder of its own outside datas/. */
  bool packedModeActive();
  
@@ -213,6 +310,9 @@ index 1b7bc73e..90dab3ce 100644
 + */
 +GUI::OptionsContainerWidget *buildRetroRecompOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain);
 +Common::U32String retroRecompOptionsTabTitle();
++
++/** The short message shown over the game a few seconds after the start: the key of ScummVM's menu, in the menu language. */
++Common::U32String retroRecompMenuHint();
 +
 +/**
 + * Called once scummvm_main has returned: copies the settings the player may have changed during the run (language, full screen,
@@ -229,10 +329,10 @@ index 1b7bc73e..90dab3ce 100644
  
 diff --git a/backends/fs/packed/packed-options.cpp b/backends/fs/packed/packed-options.cpp
 new file mode 100644
-index 00000000..10dcbd7b
+index 00000000..5ec49f9b
 --- /dev/null
 +++ b/backends/fs/packed/packed-options.cpp
-@@ -0,0 +1,363 @@
+@@ -0,0 +1,368 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -293,7 +393,7 @@ index 00000000..10dcbd7b
 +};
 +
 +enum TextId {
-+	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kSaved, kTextCount
++	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kSaved, kHint, kTextCount
 +};
 +
 +const Text kTexts[kTextCount] = {
@@ -308,6 +408,7 @@ index 00000000..10dcbd7b
 +	/* kSpeech */       {"Speech:", "Voix :", "Sprache:", "Voces:", "Voci:"},
 +	/* kMute */         {"Mute all", "Tout couper", "Alles stummschalten", "Silenciar todo", "Disattiva tutto"},
 +	/* kKeys */         {"Keys and pad...", "Touches et manette...", "Tasten und Gamepad...", "Teclas y mando...", "Tasti e gamepad..."},
++	/* kHint */         {"Menu: Ctrl+F5", "Menu : Ctrl+F5", "Menü: Strg+F5", "Menú: Ctrl+F5", "Menu: Ctrl+F5"},
 +	/* kSaved */        {"Kept for every adventure game of this folder (datas/Retro-Recomp.ini).",
 +	                     "Conservé pour tous les jeux d'aventure de ce dossier (datas/Retro-Recomp.ini).",
 +	                     "Gilt für alle Abenteuerspiele dieses Ordners (datas/Retro-Recomp.ini).",
@@ -591,6 +692,10 @@ index 00000000..10dcbd7b
 +	if (!packedModeActive())
 +		return nullptr;
 +	return new RetroRecompOptionsWidget(boss, name, domain);
++}
++
++Common::U32String retroRecompMenuHint() {
++	return text(kHint);
 +}
 +
 +Common::U32String retroRecompOptionsTabTitle() {
