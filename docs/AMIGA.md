@@ -98,6 +98,16 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
 - (1.7.1) After a quick state is loaded, the sound samples are bit-identical to an unbroken run on the games checked (Apidya, Zeewolf, Cyber Games, 200 frames each); a state saved by an earlier build is refused.
+- (1.7.1) Apidya's bee flickers, and is whole, cut to a thin strip or missing from frame to frame: the game draws it with the
+  blitter while the screen is being scanned. Compared with Copperline running the real WHDLoad (private, comparison only; the same
+  Apidya, the same joystick play): the scroll cadence (1 lores pixel every second frame) and the screen wipes agree frame for frame,
+  0.1 to 0.8 % of the playfield pixels differ (small moving objects), and the bee flickers on both with the same character, its pattern
+  differing from frame to frame as it depends on the exact timing. So it is the game's behaviour on this hardware model, not a defect of
+  the native steps (the interpreted run shows it too), of the display crop (nothing is drawn outside the shown window) or of the layer.
+  Whether a real Amiga 500 shows it as strongly is not measured here (hardware fidelity is not claimed).
+- vAmiga ships with its three hardware collision detections off (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`); the
+  Amiga machine does not turn them on, so a game that reads CLXDAT never sees a collision. Apidya does not read it (0 reads in 1,700
+  frames); other games may. Enabling them is a hardware-fidelity change that moves the Amiga game stamp and needs its own check.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

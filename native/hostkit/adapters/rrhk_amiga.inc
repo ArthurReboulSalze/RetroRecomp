@@ -208,7 +208,8 @@ static void a_pause(bool paused) { (void)paused; }
 static int a_players(void) { return 2; }
 /* A reset starts the install again from ws_GameLoader: the process restarts itself (the session is one per process). */
 static void a_reset(void) { restart_requested = true; quit_requested = true; }
-static uint64_t a_interpreted(void) { return rr_amiga_interpreted_count(session); }
+/* The reference CPU runs no hook, so nothing is counted: the run is the interpreter's all the same. */
+static uint64_t a_interpreted(void) { return interpreter_only ? 1 : rr_amiga_interpreted_count(session); }
 static uint64_t a_zero(void) { return 0; }
 static uint64_t a_input_frame(void) { return frame_number; }
 static bool a_state_ready(void) { return true; }

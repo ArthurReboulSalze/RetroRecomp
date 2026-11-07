@@ -38,6 +38,7 @@
 /* ---- what rrhk_computer.inc and the adapter read ---- */
 static bool guest_keyboard, mouse_grab, mouse_game, input_focus = true, fast_forward, want_swap, want_eject;
 static int loading_holdoff, swap_drive, swap_direction;
+static bool interpreter_only;                       /* --reference-cpu: every instruction runs on the interpreter (the window says so) */
 static const Uint8 *keys;
 static int mouse_dx, mouse_dy;
 static Uint32 mouse_buttons;
@@ -359,7 +360,7 @@ int main(int argc, char **argv) {
    for (i = 1; i < argc; i++) {
       const char *a = argv[i];
       if (!strcmp(a, "--headless")) headless = true;
-      else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
+      else if (!strcmp(a, "--reference-cpu")) { reference_cpu = true; interpreter_only = true; }
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE\n"

@@ -282,6 +282,12 @@ reference on those scripts, and hardware fidelity, gameplay and latency are not 
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
+
+With `--reference-cpu` (every instruction on the interpreter) the window's title said "Native code", because no hook counts instructions in
+that mode. The Amiga adapter now reports the run as interpreted, so the title reads "Interpreter fallback". Reports are unchanged (they count
+through the player). **What moves:** the Amiga's host and game stamps (`amiga_player.c`, `rrhk_amiga.inc`); no other console.
+
 ## Commodore Amiga: a quick state continues the sound sample for sample (1.7.1)
 
 vAmiga's snapshot leaves out the memory of its sound path, so the samples after a load differed from an unbroken run and the
