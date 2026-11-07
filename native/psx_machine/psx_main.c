@@ -354,13 +354,15 @@ static int report(void) {
     escaped[e] = 0;
     size_t bios_size = 0;
     int player_bios = rr_resource(BIOS_RESOURCE, &bios_size) != NULL && bios_size == RR_PSX_BIOS_BYTES;
-    fprintf(f, "{\"stage\":\"psx\",\"frames\":%u,\"interpreted_instructions\":%llu,\"native_instructions\":%llu,\"unrun_fetches\":%llu,"
+    fprintf(f, "{\"stage\":\"psx\",\"frames\":%u,\"interpreted_instructions\":%llu,\"native_instructions\":%llu,\"unrun_fetches\":%llu,\"pad_analog_mode\":[%d,%d],"
                "\"bios\":\"%s\",\"discs\":%d,\"image_hash\":\"%016llx\",\"pcm_hash\":\"%016llx\",\"pcm_samples\":%llu,"
                "\"nonzero_samples\":%llu,\"nonuniform_frames\":%u,\"pcm_rate\":%u,\"pcm_channels\":2,"
                "\"state_loaded\":%s,\"load_rejected\":%s,\"save_failed\":%s,\"fault\":\"%s\"}\n",
             frame, (unsigned long long)(session ? rr_psx_interpreted(session) : 0),
             (unsigned long long)(session ? rr_psx_native(session) : 0),
-            (unsigned long long)(session ? rr_psx_unrun(session) : 0), player_bios ? "player" : "free",
+            (unsigned long long)(session ? rr_psx_unrun(session) : 0),
+            session ? rr_psx_pad_analog_mode(session, 0) : -1, session ? rr_psx_pad_analog_mode(session, 1) : -1,
+            player_bios ? "player" : "free",
             session ? rr_psx_disc_count(session) : 0, (unsigned long long)image_hash, (unsigned long long)pcm_hash,
             (unsigned long long)samples, (unsigned long long)nonzero, nonuniform_frames, RR_PSX_AUDIO_RATE,
             state_loaded ? "true" : "false", load_rejected ? "true" : "false", save_failed ? "true" : "false", escaped);

@@ -375,6 +375,29 @@ static bool RETRO_CALLCONV rumble_state(unsigned port, enum retro_rumble_effect 
     return true;
 }
 
+/* The core's own default of each of its options, as it declares them (RETRO_ENVIRONMENT_SET_VARIABLES: "Description;
+ * default|other|..."): what a frontend answers for an option it does not set. Answering nothing would leave the core on the
+ * initial values of its variables, which are not always its defaults: the DualShock's mode combination was then "no button",
+ * and every release of the pad switched it between digital and analog (Tomba! needed two presses to walk back). */
+#define MAX_CORE_DEFAULTS 256
+static struct { char key[64], value[64]; } core_defaults[MAX_CORE_DEFAULTS];
+static int core_default_count;
+
+static void keep_core_defaults(const struct retro_variable *v) {
+    core_default_count = 0;
+    for (; v && v->key && core_default_count < MAX_CORE_DEFAULTS; ++v) {
+        const char *values = v->value ? strstr(v->value, "; ") : NULL;
+        if (!values || strlen(v->key) >= sizeof core_defaults[0].key) continue;
+        values += 2;
+        const size_t n = strcspn(values, "|");
+        if (n >= sizeof core_defaults[0].value) continue;
+        snprintf(core_defaults[core_default_count].key, sizeof core_defaults[0].key, "%s", v->key);
+        memcpy(core_defaults[core_default_count].value, values, n);
+        core_defaults[core_default_count].value[n] = 0;
+        core_default_count++;
+    }
+}
+
 static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
     RrPsxSession *s = g;
     switch (cmd) {
@@ -383,8 +406,13 @@ static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
         var->value = NULL;
         for (int i = 0; s && i < s->option_count; ++i)
             if (strcmp(s->options[i].key, var->key) == 0) { var->value = s->options[i].value; return true; }
+        for (int i = 0; i < core_default_count; ++i)
+            if (strcmp(core_defaults[i].key, var->key) == 0) { var->value = core_defaults[i].value; return true; }
         return false;
     }
+    case RETRO_ENVIRONMENT_SET_VARIABLES:
+        keep_core_defaults((const struct retro_variable *)data);
+        return true;
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
         *(bool *)data = s && s->options_changed;
         if (s) s->options_changed = 0;

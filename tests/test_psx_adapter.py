@@ -50,6 +50,18 @@ class PsxAdapterTest(unittest.TestCase):
         # Beetle's default keeps the DualShock in analog mode, where Tomba! read no direction (6 November 2026).
         self.assertIn('{"beetle_psx_analog_toggle", "enabled"}', SESSION)
 
+    def test_the_core_gets_its_own_option_defaults(self):
+        # An option the session does not set is answered with the core's declared default, as a frontend does: left
+        # unanswered, the DualShock's mode combination was "no button" and each release switched the mode (6 November 2026).
+        self.assertIn('case RETRO_ENVIRONMENT_SET_VARIABLES:', SESSION)
+        self.assertIn('keep_core_defaults((const struct retro_variable *)data);', SESSION)
+        self.assertRegex(SESSION, r'for \(int i = 0; i < core_default_count; \+\+i\)\s+if \(strcmp\(core_defaults\[i\]\.key')
+        self.assertIn('mode after presses', ADAPTER)
+
+    def test_the_stick_drives_the_dpad_of_a_digital_pad(self):
+        self.assertIn('pads[p] = stick_directions(p, pads[p], axes[p]);', ADAPTER)
+        self.assertIn('if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;', ADAPTER)
+
     def test_graphics_defaults_are_the_cores(self):
         # The default of each option is the setting every gate uses: Beetle's own default.
         defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)', 'deinterlacing_values': 'weave',

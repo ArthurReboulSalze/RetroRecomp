@@ -121,11 +121,26 @@ static void rumble(void) {
         rumbling[p][1] = weak;
     }
 }
+/* A DualShock in digital mode does not read its sticks, as on the console; a gamepad's left stick then drives the d-pad
+ * (the kit's threshold, D1), so that a game played with the stick moves either way. In analog mode the sticks go as they are. */
+enum { STICK_THRESHOLD = 16000 };
+static uint16_t stick_directions(int player, uint16_t pad, const int16_t axes[4]) {
+    if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;
+    if (axes[0] < -STICK_THRESHOLD) pad |= RR_PSX_PAD_LEFT; else if (axes[0] > STICK_THRESHOLD) pad |= RR_PSX_PAD_RIGHT;
+    if (axes[1] < -STICK_THRESHOLD) pad |= RR_PSX_PAD_UP; else if (axes[1] > STICK_THRESHOLD) pad |= RR_PSX_PAD_DOWN;
+    if ((pad & (RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT)) == (RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT)) pad &= ~(RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT);
+    if ((pad & (RR_PSX_PAD_UP | RR_PSX_PAD_DOWN)) == (RR_PSX_PAD_UP | RR_PSX_PAD_DOWN)) pad &= ~(RR_PSX_PAD_UP | RR_PSX_PAD_DOWN);
+    return pad;
+}
+
 static bool run_frame(uint16_t p1, uint16_t p2) {
-    const uint16_t pads[2] = {p1, p2};
+    uint16_t pads[2] = {p1, p2};
     int16_t axes[2][4];
     const uint64_t frame = rr_psx_frame_index();
-    for (int p = 0; p < 2; ++p) rrhk_pad_axes(p, frame, axes[p]);
+    for (int p = 0; p < 2; ++p) {
+        rrhk_pad_axes(p, frame, axes[p]);
+        pads[p] = stick_directions(p, pads[p], axes[p]);
+    }
     const bool ran = rr_psx_host_frame(pads, axes) != 0;
     rumble();
     return ran;
@@ -230,6 +245,21 @@ int rr_psx_input_check(RrPsxSession *s, FILE *out) {
         const int mode = rr_psx_pad_analog_mode(s, player);
         failures += mode != 0;
         fprintf(out, "{\"player\":%d,\"action\":\"power-on mode\",\"analog\":%d,\"expected\":0,\"ok\":%s}\n", player + 1,
+                mode, mode == 0 ? "true" : "false");
+    }
+    /* The mode stays where it is over presses and releases (two seconds of the boot, Cross tapped): only the Analog button,
+     * its combination held a second, or the game itself changes it. Each release once switched it (6 November 2026). */
+    for (int n = 0; n < 120; ++n) {
+        rr_psx_pad(s, 0, n % 20 < 5 ? RR_PSX_PAD_B : 0, NULL);
+        rr_psx_pad(s, 1, n % 20 < 5 ? RR_PSX_PAD_B : 0, NULL);
+        if (rr_psx_frame(s) != 0) { failures++; break; }
+    }
+    rr_psx_pad(s, 0, 0, NULL);
+    rr_psx_pad(s, 1, 0, NULL);
+    for (int player = 0; player < 2; ++player) {
+        const int mode = rr_psx_pad_analog_mode(s, player);
+        failures += mode != 0;
+        fprintf(out, "{\"player\":%d,\"action\":\"mode after presses\",\"analog\":%d,\"expected\":0,\"ok\":%s}\n", player + 1,
                 mode, mode == 0 ? "true" : "false");
     }
     /* Nothing pressed: nothing read. */
