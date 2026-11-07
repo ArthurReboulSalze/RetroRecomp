@@ -163,6 +163,14 @@ class OptionsPage(unittest.TestCase):
         self.assertIn('Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint())', self.patch)
         self.assertIn('"Menu: Ctrl+F5", "Menu : Ctrl+F5", "Menü: Strg+F5", "Menú: Ctrl+F5", "Menu: Ctrl+F5"', self.patch)
 
+    def test_the_text_table_follows_the_order_of_its_enum(self):
+        import re
+        enum = re.search(r'\+\s+(kTitle,[^\n]*?), kTextCount', self.patch)
+        self.assertIsNotNone(enum)
+        names = [name.strip() for name in enum.group(1).split(',')]
+        rows = re.findall(r'^\+\t/\* (k\w+)\s*\*/\s+\{', self.patch, re.M)
+        self.assertEqual(rows, names)
+
     def test_screenshots_stay_in_the_games_folder(self):
         self.assertIn('"screenshotpath"', self.patch)
 

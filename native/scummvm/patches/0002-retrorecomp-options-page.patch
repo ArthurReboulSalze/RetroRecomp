@@ -329,7 +329,7 @@ index 1b7bc73e..2624c939 100644
  
 diff --git a/backends/fs/packed/packed-options.cpp b/backends/fs/packed/packed-options.cpp
 new file mode 100644
-index 00000000..5ec49f9b
+index 00000000..077ed401
 --- /dev/null
 +++ b/backends/fs/packed/packed-options.cpp
 @@ -0,0 +1,368 @@
@@ -393,7 +393,7 @@ index 00000000..5ec49f9b
 +};
 +
 +enum TextId {
-+	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kSaved, kHint, kTextCount
++	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kHint, kSaved, kTextCount
 +};
 +
 +const Text kTexts[kTextCount] = {
