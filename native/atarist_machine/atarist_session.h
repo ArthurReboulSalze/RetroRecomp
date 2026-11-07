@@ -31,6 +31,9 @@ typedef struct RrStGame {
     const char *machine;                           /* "st", "megast" or "ste" */
     unsigned memory_kb;                            /* ST RAM: 512, 1024, 2048 or 4096 */
     void (*log)(const char *line);                 /* Hatari's messages, for diagnostics; NULL: quiet */
+    /* The program the desktop starts once GEM is up ("A:\\NAME.PRG"), through the TOS's own autostart line (#Z) of a
+     * desktop file Hatari serves in memory (its inffile.c; TOS 1.04 and EmuTOS); NULL: none. */
+    const char *autostart;
 } RrStGame;
 
 typedef struct RrStSession RrStSession;
@@ -53,6 +56,8 @@ unsigned rr_st_disk_count(const RrStSession *s);
  * observation of the instructions run from RAM, the TOS ROM or the cartridge area: lines "pc words" (the instruction's own bytes). */
 uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
+/* 1 once the TOS opened the desktop file that carries the autostart line: the boot reached the desktop. */
+int rr_st_desktop_started(const RrStSession *s);
 void rr_st_set_observe(RrStSession *s, int enabled);
 /* The instruction length of every opcode in 16-bit words (the 68000 decoder's table, 65,536 bytes): what an observation keeps. */
 void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]);

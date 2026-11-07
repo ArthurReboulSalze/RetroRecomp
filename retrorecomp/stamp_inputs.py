@@ -650,6 +650,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist',
         'retrorecomp.atarist_codegen',
         'retrorecomp.atarist_conversion',
+        'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',

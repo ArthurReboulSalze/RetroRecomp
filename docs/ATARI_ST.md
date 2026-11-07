@@ -13,6 +13,7 @@ faithfully or how long input takes to reach the screen: those are separate measu
 | Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, played in the order of their names: `x (Disk 1).ipf`, `x (Disk 2).ipf`) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
 | EmuTOS 1.4 (free, GPL), the default: fetched once from the EmuTOS project with its source (`retrorecomp/atarist_emutos.py`); or the player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | TOS 1.6 and later (STE and beyond); EmuTOS in another language than English (UK) |
 | The joystick, the mouse and the keyboard; quick states (F8/F9) | A played-through game |
+| A disk whose boot stops at the GEM desktop: the desktop starts its only program (section 2) | A disk with several programs to choose from; TOS 1.00 and 1.02 (no autostart line) |
 | Windows; Linux (converted and validated headless on a Debian 13 PC, see below) | A game played on Linux |
 
 A ZIP that holds anything other than floppy images is not claimed by the Atari ST profile. The input is read in place and never
@@ -36,9 +37,21 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    a second exploration route, 3,000 frames each): the picture, sound, RAM and CPU registers of every frame must equal the
    reference's. So must the compressed copy that is delivered. A quick state saved by the game is loaded by a fresh process, whose
    continuation is compared with the unbroken run and reported. A conversion that fails a check keeps the earlier export.
-4. **Report.** The conversion report (schema v2, shape `atarist_conversion`) carries the interpreter fallback per CPU, in
+4. **A boot that stops at the desktop.** Some disks do not start by themselves: the boot reaches the GEM desktop and the player
+   opens the program. When the root of disk 1 holds exactly one program to open (a `.PRG`, `.APP`, `.GTP` or `.TOS` file that is
+   not hidden and is not a hard-disk installer, whose names start with `INSTAL`) and there is no `AUTO` folder,
+   `retrorecomp/atarist_disk.py` names it and the desktop starts it by the TOS's own autostart line (`#Z`), in a desktop file
+   Hatari serves in memory (its `inffile.c`; TOS 1.04 and EmuTOS have that line, TOS 1.00 and 1.02 do not). The disk image is
+   not changed, and the program starts once GEM is up, as after a double click. The autostart is kept only when the main
+   reference run shows that the boot reached the desktop (the TOS opened that file); otherwise the references run again without
+   it, so a disk that starts by itself runs as before (Carrier Command, whose disk also holds one `.TOS` utility, gives the same
+   counts with and without the feature). While the autostart is kept, Hatari's GEMDOS hook stays installed (its cartridge
+   code), and its traps are counted as interpreted. The report says what was decided and why (`desktop_autostart`).
+   Why this route: an `AUTO` folder cannot be added to an IPF disk without changing its flux and runs before GEM is up (a GEM
+   program cannot start from it), and a mouse route depends on each TOS's desktop layout.
+5. **Report.** The conversion report (schema v2, shape `atarist_conversion`) carries the interpreter fallback per CPU, in
    instructions, and keeps the five measures in separate objects.
-5. **Native code.** The reference run records the 68000 instructions it runs from RAM, the TOS ROM and the cartridge area (their
+6. **Native code.** The reference run records the 68000 instructions it runs from RAM, the TOS ROM and the cartridge area (their
    address and their own bytes). Each becomes a native step, grouped by form, that calls the very handler Hatari's cycle-exact
    table would call for its opcode (`retrorecomp/atarist_codegen.py`, read from the opcode table the reference player writes and
    the handler names of Hatari's generated `cpustbl.c`), so the prefetch, the cycles and the bus waits of the ST stay Hatari's.
@@ -65,8 +78,8 @@ With TOS 1.04 (United Kingdom):
 | --- | ---: | ---: | --- |
 | Bomb Jack (1) | 32,910,533 | 1 | yes (title, credits) |
 | Another World (2) | 33,425,253 | 1 | yes (code-wheel protection) |
-| Operation Stealth (3) | 30,004,899 | 269,820 | no: GEM desktop (the game is a program to open; the interpreted ones are TOS line-F calls) |
-| Captain Blood (2) | 29,886,965 | 264,772 | no: GEM desktop; its disk lists one file there on TOS 1.00, 1.02 and 1.04 alike, also when its sectors are read by an independent reader, so the game is started from the desktop (a route that opens it is needed) |
+| Operation Stealth (3) | 30,004,899 | 269,820 | no on 6 November: the GEM desktop (the interpreted ones are TOS line-F calls); the desktop now starts it (section 2) |
+| Captain Blood (2) | 29,886,965 | 264,772 | no on 6 November: the GEM desktop; since the desktop starts `BLOOD.PRG` (7 November, Quick): 33,095,811 native, 2,330 interpreted, its title |
 | Elite (1) | 39,364,470 | 3 | yes (manual-word protection) |
 | Lethal Xcess (2) | 34,895,160 | 0 | yes (music device menu) |
 | Turrican II (1) | 39,532,761 | 2,139 | yes (title, credits) |
@@ -80,8 +93,8 @@ With EmuTOS 1.4 (United Kingdom), the default:
 | --- | ---: | ---: | --- |
 | Bomb Jack (1) | 33,168,244 | 5 | yes (title) |
 | Another World (2) | 47,047,023 | 5 | yes (code-wheel protection) |
-| Operation Stealth (3) | 94,408,353 | 4 | no: the EmuTOS desktop (a route that opens the game is needed) |
-| Captain Blood (2) | 94,540,428 | 4 | no: the EmuTOS desktop, as with TOS 1.04 |
+| Operation Stealth (3) | 50,203,805 | 883 | yes (colour-code protection), started from the desktop (`DELPHINE.PRG`; the installer is not a program to open); the interpreted ones are Hatari's GEMDOS traps |
+| Captain Blood (2) | 33,740,268 | 75 | yes (title, asks for disk 2), started from the desktop (`BLOOD.PRG`) |
 | Elite (1) | 43,015,000 | 4 | yes (manual-word protection) |
 | Lethal Xcess (2) | 39,537,299 | 4 | yes (music device menu) |
 | Turrican II (1) | 44,483,076 | 4 | no: the Rainbow Arts intro, then the game stops; EmuTOS's own `doc/incompatible.txt` names Turrican among the games that use low memory EmuTOS also uses ("this can never work with EmuTOS"): the player's TOS is the way |
@@ -110,21 +123,31 @@ longer (1,026 against 1,025 cells). So the flux is not the cause; what remains i
 ## 4. Known limits
 
 - STE, TT, Falcon, hard disks and CD-style media are out of scope.
-- EmuTOS is not Atari's TOS: a few games written for the original TOS behave differently on it (its own
-  `doc/incompatible.txt` lists the known ones). The player's own TOS remains the option for those; the private memory of a game
-  is kept per TOS. The panel of section 3 was converted with TOS 1.04; its EmuTOS results are in section 3 too.
+- **EmuTOS is not Atari's TOS** (known limit). Some games written for Atari's TOS do not run on it; EmuTOS's own
+  `doc/incompatible.txt` lists the known ones. Turrican II is one of them on the panel: it uses low memory that EmuTOS also uses
+  ("this can never work with EmuTOS"), and it stops after its Rainbow Arts intro. **The player's own TOS is needed for such a
+  game.** Every conversion on EmuTOS says so in its messages and in its report (`tos_note`): no signal tells a game that EmuTOS
+  cannot run from a game waiting on a still screen, so the sentence is the same for every game. The private memory of a game is
+  kept per TOS.
+- **Kick Off 2** (known limit, investigation capped on 7 November 2026). It stops on "Master file not present or damaged" with
+  TOS 1.04 and with EmuTOS. Its disk read as plain sectors boots to the title, and two independent renderings of its protected
+  tracks (Hatari's IPF reader and the SPS decoder library) give the same flux, so the cause is in how Hatari's WD1772 model reads
+  the two 1024-byte protection sectors of cylinders 2 to 6 (section 3). Not worked on further for now.
 - The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
 - Linux: two panel games were converted and validated on a Debian 13 PC (7 November 2026, system GCC, the tree of Windows'
   witness): Bomb Jack (Quick, 32,910,583 native, 1 interpreted) and Another World (Standard, 33,425,244 and 33,425,310 native,
   1 interpreted on each route). Every route equals its fresh reference, the compressed copy too, and the state continues in a
   fresh process; the reference traces (CPU registers, RAM, picture and sound of every frame) are byte for byte those of Windows.
+  The same day, Captain Blood on EmuTOS (fetched by the converter on Linux) with the desktop autostart (Standard): 33,740,268 and
+  33,742,577 native, 75 and 83 interpreted, every check passed, and the traces of both routes byte for byte those of Windows.
   No game was played interactively on Linux (window, sound, pad).
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on
   its main route and its trace still equals the reference). A state loaded by a fresh process continued the saved timeline on the
   ten panel games (CPU registers, RAM and picture of 400 frames; the sound samples of the first frames after a load differ, because
   Hatari does not save the state of its sound output). A state saved while a disk is being read now resumes the read at the right
   place in the track (a fix to Hatari's IPF reader), but Bomb Jack saved during its loading still differs in its RAM from the second
-  frame after the load; the conversion reports the comparison, it does not refuse the game for it.
+  frame after the load (known limit, capped: a 92-byte table that the music driver updates; Hatari's snapshot does not keep the
+  state of its sound output). The conversion reports the comparison, it does not refuse the game for it.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).

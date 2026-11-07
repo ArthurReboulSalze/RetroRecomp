@@ -155,6 +155,15 @@ REPLACEMENTS = [
      '\t\t\t\tif (!(rr_hatari_step && rr_hatari_step(r->instruction_pc, r->opcode)))\n'
      '\t\t\t\t\t(*cpufunctbl_noret[r->opcode])(r->opcode);\n\t\t\t\tif (!regs.loop_mode)\n\t\t\t\t\tregs.ird = regs.opcode;\n'
      '\t\t\t\tregs.instruction_cnt++;\n\t\t\t\twait_memory_cycles();'),
+    # The desktop autostart (retrorecomp/atarist_disk.py): whether the TOS opened the desktop file Hatari serves, i.e. whether the
+    # boot reached the desktop, so that a conversion keeps the autostart only for a disk that needs it.
+    ('src/inffile.c',
+     'const char INFFILE_fileid[] = "Hatari inffile.c";\n',
+     'const char INFFILE_fileid[] = "Hatari inffile.c";\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): set when the TOS opens the virtual INF file. */\nint rr_inf_opened;\n'),
+    ('src/inffile.c',
+     '\t\tLog_Printf(LOG_DEBUG, "Virtual INF file \'%s\' matched.\\n", filename);\n',
+     '\t\tLog_Printf(LOG_DEBUG, "Virtual INF file \'%s\' matched.\\n", filename);\n\t\trr_inf_opened = 1;\n'),
     ('src/CMakeLists.txt',
      'add_library(retro-hatari MODULE\n',
      '# Retro-Recomp modification (GPL-2.0, like this file): the core is linked into the player.\n'

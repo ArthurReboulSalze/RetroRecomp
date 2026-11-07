@@ -192,7 +192,8 @@ def notice_files(emutos: bool) -> tuple[str, ...]:
     return NOTICE_FILES + (('licenses/emutos.md',) if emutos else ())
 
 
-def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None) -> dict:
+def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None,
+            autostart: str | None = None) -> dict:
     """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata; with
     EmuTOS, its complete source archive too (`sources`), which the game writes out with --write-sources."""
     from .metadata import write_game_metadata
@@ -226,6 +227,7 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
               f'#define RR_ST_SOURCES_RESOURCE {SOURCES_RESOURCE if sources is not None else 0}',
               '#define RR_ST_SOURCES_NAME ' + json.dumps(sources.name if sources is not None else ''),
               '#define RR_ST_MACHINE ' + json.dumps(MACHINE), f'#define RR_ST_MEMORY_KB {MEMORY_KB}',
+              '#define RR_ST_AUTOSTART ' + json.dumps(autostart or ''),
               'typedef struct {const char *name;unsigned resource;} RrStPayloadDisk;',
               'static const RrStPayloadDisk rr_st_disks[]={', *rows, '{0,0}};',
               f'#define RR_ST_DISK_COUNT {len(rows)}u',
@@ -308,7 +310,7 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> d
 
 # ---------------------------------------------------------------------------------------------------------- replays
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list[Path] | None = None, tos: Path | None = None,
-           observe: bool = False, lengths: Path | None = None, extra=()) -> dict:
+           observe: bool = False, lengths: Path | None = None, autostart: str | None = None, extra=()) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'),
             '--trace', str(folder / 'trace.tsv'), '--input-events', str(events), '--capture', str(folder / 'frame.ppm')]
@@ -316,6 +318,8 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
         args += ['--tos', str(tos), '--machine', MACHINE, '--memory', str(MEMORY_KB), '--reference-cpu']
         for disk in disks or ():
             args += ['--disk', str(disk)]
+        if autostart:
+            args += ['--autostart', autostart]
     if observe:
         args += ['--observations', str(folder / 'observations.txt')]
         if lengths is not None:
@@ -339,6 +343,12 @@ def trace_rows(path: Path):
         for line in stream:
             values = line.rstrip('\r\n').split('\t')
             yield FrameRow(int(values[0]), values[1], sound=values[2], ram=values[3], pc=values[4])
+
+
+# What every conversion on EmuTOS says (in its report and its messages): no signal tells a game that waits on a still screen from
+# a game that EmuTOS cannot run (both stop on one instruction loop with an almost still RAM), so the statement is the same for all.
+EMUTOS_NOTE = ('EmuTOS is not Atari\'s TOS: some games written for Atari\'s TOS do not run on it (EmuTOS\'s doc/incompatible.txt '
+               'lists the known ones, Turrican II among them). If this game stops, choose your own TOS 1.04 in Options > Atari ST.')
 
 
 def trace_digests(path: Path) -> dict:
@@ -425,10 +435,24 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         expected = {}
         project = work / 'native'
         _, lengths = decoder_lengths(project)
+        # A boot that reaches the GEM desktop waits there for its program: the desktop starts the only program of disk 1 by the
+        # TOS's own autostart line (atarist_disk). Kept only when the main reference run shows that the boot reached the desktop;
+        # otherwise the references run again without it, so a disk that starts by itself runs exactly as without the feature.
+        from .atarist_disk import autostart_program
+        autostart, autostart_reason = autostart_program(disks[0].read_bytes(), disks[0].suffix)
+        candidate_program = autostart
+        if autostart and tos.player_supplied and tos.version < 0x0104:
+            autostart, autostart_reason = None, f'TOS {tos.version_text()} has no autostart line (TOS 1.04 and EmuTOS have one)'
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                        tos=media / 'tos.img', observe=True, lengths=lengths)
+                                        tos=media / 'tos.img', observe=True, lengths=lengths, autostart=autostart)
+                if autostart and not expected[name].get('desktop_started'):
+                    autostart, autostart_reason = None, 'the boot never reached the desktop (the disk starts by itself)'
+                    expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
+                                            tos=media / 'tos.img', observe=True, lengths=lengths)
+        if autostart:
+            emit(f'Atari ST: the boot reaches the desktop; the desktop starts {autostart}.')
         samples = set()
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
@@ -448,7 +472,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='atarist', cache_directory=boxart_cache_directory('atarist'), emit=emit)
         metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game,
-                           sources=None if tos.player_supplied else tos.source)
+                           sources=None if tos.player_supplied else tos.source, autostart=autostart)
         candidate = generation = None
         results = {}
         for attempt in range(max(1, min(int(passes or 3), 10))):
@@ -506,6 +530,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          nonblack_frames=result['nonblack_frames'], audible_frames=result['audible_frames'])
                     for (name, folder, _, _, _), result in zip(packed_runs, packed_results)]
         require_moving_picture(liveness[0], lambda: ConversionError('Atari ST main route: the picture never changed.'))
+        hint = None if tos.player_supplied else EMUTOS_NOTE
+        if hint:
+            emit('Atari ST: ' + hint)
         # The quick state, loaded by a genuinely fresh process of the delivered file: how it continues is measured and reported
         # (a state saved during a floppy transfer is not yet known to continue exactly: reported, not refused, while experimental).
         restart = checks / 'restart'
@@ -547,6 +574,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                     'licence': 'GPL-2.0-or-later'}),
                                 'native': 'its instructions seen running become native steps like the RAM code; positions in the '
                                           'TOS are not kept in any shared path'}},
+            'tos_note': hint,
+            'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'reason': autostart_reason,
+                                  'mechanism': 'the TOS\'s own autostart line (#Z) in a desktop file Hatari serves in memory; the disk '
+                                               'image is not changed' if autostart else None},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
             'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '

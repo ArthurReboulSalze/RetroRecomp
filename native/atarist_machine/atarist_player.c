@@ -261,10 +261,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       rr_st_picture(session, &w, &h, &stride);
       fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
-                 "\"disk\":%u,\"state_loaded\":%s}\n",
+                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s}\n",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
-              nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false");
+              nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
+              rr_st_desktop_started(session) ? "true" : "false");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
@@ -298,6 +299,7 @@ static bool embedded_game(RrStGame *game, RrStDisk *disks) {
    game->disk_count = RR_ST_DISK_COUNT;
    game->machine = RR_ST_MACHINE;
    game->memory_kb = RR_ST_MEMORY_KB;
+   game->autostart = RR_ST_AUTOSTART[0] ? RR_ST_AUTOSTART : NULL;
    return true;
 }
 
@@ -342,7 +344,7 @@ int main(int argc, char **argv) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
               "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
               "an exported game that boots EmuTOS: --write-sources DIR (writes EmuTOS's source archive there)\n"
-              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB");
+              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG");
          return 0;
       } else if (i + 1 < argc) {
          const char *v = argv[++i];
@@ -361,6 +363,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--disk")) { if (disk_count == RR_ST_MAX_DISKS) { fail("Too many disks"); return 1; } disk_paths[disk_count++] = v; }
          else if (!strcmp(a, "--machine")) game.machine = v;
          else if (!strcmp(a, "--memory")) game.memory_kb = (unsigned)strtoul(v, NULL, 10);
+         else if (!strcmp(a, "--autostart")) game.autostart = v;
          else if (!strcmp(a, "--state-slot")) slot = v;
          else if (!strcmp(a, "--ram-dump-at")) dump_at = (unsigned)strtoul(v, NULL, 10);
          else if (!strcmp(a, "--ram-dump")) dump_path = v;

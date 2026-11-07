@@ -16,6 +16,9 @@
 #include "m68000.h"
 #include "stMemory.h"
 #include "video.h"
+#include "inffile.h"
+
+extern int rr_inf_opened;   /* the adapted inffile.c (retrorecomp/atarist_hatari.py) */
 
 #include "atarist_session.h"
 
@@ -394,6 +397,8 @@ static int disk_extension_ok(const char *name) {
     return 0;
 }
 
+int rr_st_desktop_started(const RrStSession *s) { (void)s; return rr_inf_opened; }
+
 RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
     static char playlist[RR_ST_MAX_DISKS * 64];
     struct retro_game_info info;
@@ -431,6 +436,11 @@ RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
     retro_set_audio_sample_batch(audio_batch);
     retro_set_input_poll(input_poll);
     retro_set_input_state(input_state);
+    /* Before retro_init: its Main_Init already makes the first reset, where Hatari loads its cartridge and builds the INF file. */
+    if (game->autostart && !INF_SetAutoStart(game->autostart, 0)) {
+        snprintf(error, error_size, "invalid autostart program");
+        return NULL;
+    }
     retro_init();
     memset(&info, 0, sizeof info);
     info.path = game->disk_count > 1 ? VFS_PREFIX "\\game.m3u" : current->disk_paths[0];
