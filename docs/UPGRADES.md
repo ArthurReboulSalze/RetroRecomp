@@ -282,6 +282,15 @@ reference on those scripts, and hardware fidelity, gameplay and latency are not 
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the chipset's collision detection is on (1.7.1)
+
+A real Amiga always detects collisions between sprites and between sprites and the playfields (CLXCON/CLXDAT); vAmiga ships the three
+detections off for speed and the Amiga machine did not turn them on, so a game that reads CLXDAT never saw a collision. They are on now
+(`native/amiga_machine/amiga_session.cpp`). Library check by counting CLXDAT reads over the standard route: Blood Money reads it (36
+reads in 2,500 frames), Xenon 2, Turrican, Shadow of the Beast, R-Type, Menace, Armalyte, Battle Squadron, Rick Dangerous, Lotus 2, Speedball 2 and
+Wings of Death do not (nor Apidya). **What moves:** the Amiga's game stamp; no other console. A game that reads CLXDAT may now play
+differently from an earlier export of it (as the real machine does). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
 
 With `--reference-cpu` (every instruction on the interpreter) the window's title said "Native code", because no hook counts instructions in

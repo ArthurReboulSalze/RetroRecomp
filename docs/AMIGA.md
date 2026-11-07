@@ -104,10 +104,17 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   0.1 to 0.8 % of the playfield pixels differ (small moving objects), and the bee flickers on both with the same character, its pattern
   differing from frame to frame as it depends on the exact timing. So it is the game's behaviour on this hardware model, not a defect of
   the native steps (the interpreted run shows it too), of the display crop (nothing is drawn outside the shown window) or of the layer.
-  Whether a real Amiga 500 shows it as strongly is not measured here (hardware fidelity is not claimed).
-- vAmiga ships with its three hardware collision detections off (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`); the
-  Amiga machine does not turn them on, so a game that reads CLXDAT never sees a collision. Apidya does not read it (0 reads in 1,700
-  frames); other games may. Enabling them is a hardware-fidelity change that moves the Amiga game stamp and needs its own check.
+  Does it depend on the machine's memory or timing settings? Same joystick play, 181 frames, each frame's picture compared with the
+  baseline's: **identical** with 512 KiB of slow RAM instead of our 1.5 MiB (the original configuration: chip 512 KiB plus 512 KiB slow;
+  Apidya has no ExpMem, so the fast RAM at `$200000` is not in play), with the slow-RAM delay off, with an OCS Agnus (8371) instead of
+  the ECS one, and with the collision detection on. Only the blitter's two less accurate modes change it (181 and 103 of 181 frames);
+  the machine runs the most accurate one (cycle-exact, vAmiga's default 2). A faster CPU changes the course of the game, so that run
+  cannot be compared and nothing is claimed from it. Whether a real Amiga 500 shows it as strongly is not measured here (hardware
+  fidelity is not claimed).
+- The chipset's collision detection (CLXCON/CLXDAT: sprite-sprite, sprite-playfield, playfield-playfield) is on since 1.7.1; vAmiga ships
+  it off for speed (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`), which would have hidden every collision from a game
+  that reads CLXDAT. Apidya reads it never (0 reads in 1,700 frames); Blood Money does (36 reads over the 2,500 frames of the standard
+  route, and its RAM then differs from frame 859 of that route with the detection on).
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

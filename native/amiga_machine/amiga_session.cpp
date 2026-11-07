@@ -423,6 +423,11 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::AMIGA_VIDEO_FORMAT, S->ntsc ? (i64)TV::NTSC : (i64)TV::PAL);
         S->emu->set(Opt::MEM_SLOW_RAM, SLOW_SIZE / 1024);
         S->emu->set(Opt::MEM_CHIP_RAM, chip_kb);
+        // The chipset's collision detection is always there on a real Amiga (CLXCON/CLXDAT: sprite-sprite, sprite-playfield and
+        // playfield-playfield); vAmiga ships it off for speed, so a game that reads CLXDAT would never see a collision.
+        S->emu->set(Opt::DENISE_CLX_SPR_SPR, 1);
+        S->emu->set(Opt::DENISE_CLX_SPR_PLF, 1);
+        S->emu->set(Opt::DENISE_CLX_PLF_PLF, 1);
         if (fast_kb) S->emu->set(Opt::MEM_FAST_RAM, fast_kb);
         S->emu->set(Opt::MON_PALETTE, (i64)Palette::RGB);   // plain 4-bit to 8-bit colours, no monitor model
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
