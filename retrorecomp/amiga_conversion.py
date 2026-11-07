@@ -169,7 +169,9 @@ def extract_install(source, folder: Path) -> dict:
     (folder / 'files').mkdir(parents=True)
     slave = amiga_lha.extract(blob, next(m for m in amiga_lha.members(blob) if m.name == install.slave_path))
     (folder / 'game.slave').write_bytes(slave)
-    lines = ['slave game.slave', f'ntsc {int(ntsc_install(source))}']
+    custom = amiga_whdload.custom_options(blob, install)
+    lines = ['slave game.slave', f'ntsc {int(ntsc_install(source))}',
+             *(f'custom {k + 1} {value}' for k, value in enumerate(custom) if value)]
     names = {}
     for n, (name, member) in enumerate(sorted(install.files.items())):
         if '\t' in name or '\n' in name:
@@ -180,7 +182,7 @@ def extract_install(source, folder: Path) -> dict:
         names[name] = stored
         lines.append(f'file {name}\t{stored}')
     (folder / 'install.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    return {'install': install, 'slave': slave, 'files': names}
+    return {'install': install, 'slave': slave, 'files': names, 'custom': custom}
 
 
 def display_window(results) -> tuple[int, int, int, int] | None:
@@ -224,6 +226,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               '#define RR_AMIGA_GAME_TITLE ' + json.dumps(title, ensure_ascii=True),
               '#define RR_AMIGA_SOURCE_IDENTITY ' + json.dumps(source.sha256),
               f'#define RR_AMIGA_NTSC {int(ntsc_install(source))}', f'#define RR_AMIGA_MOUSE_GAME {int(mouse_game)}',
+              '#define RR_AMIGA_CUSTOM {' + ','.join(f'{value}u' for value in extracted['custom']) + '}',
               *(f'#define RR_AMIGA_VIEW_{axis} {value}' for axis, value in zip('XYWH', view or (0, 0, 0, 0))),
               '#define RR_AMIGA_SLAVE_RESOURCE 300',
               *([f'#define RR_AMIGA_KICKSTART_RESOURCE {KICKSTART_RESOURCE}'] if kickstart is not None else []),
@@ -545,7 +548,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'whdload': {'slave': source.slave_path, 'slave_version': slave.version, 'flags': list(slave.flag_names), 'base_mem': slave.base_mem,
                         'exp_mem': slave.exp_mem, 'kickstart_required': kick is not None, 'whdload_used': False,
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
-                        'data_files': len(extracted['files'])},
+                        'data_files': len(extracted['files']),
+                        'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
             'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
                                     f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},

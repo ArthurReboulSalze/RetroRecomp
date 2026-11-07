@@ -100,6 +100,10 @@ static bool load_install(const char *dir, RrAmigaGame *game, RrAmigaFile **files
          if (!game->slave) { fclose(f); return false; }
       } else if (!strncmp(line, "ntsc ", 5)) {
          game->ntsc = atoi(line + 5) != 0;
+      } else if (!strncmp(line, "custom ", 7)) {        /* "custom N VALUE": CUSTOMn from the install's icon */
+         unsigned k = 0, value = 0;
+         if (sscanf(line + 7, "%u %u", &k, &value) != 2 || k < 1 || k > 5) { fclose(f); return false; }
+         game->custom[k - 1] = value;
       } else if (!strncmp(line, "kickstart ", 10)) {   /* the player's Kickstart, normalised by the converter (its own work folder) */
          snprintf(path, sizeof path, "%s/%s", dir, line + 10);
          game->kickstart = read_file(path, &game->kickstart_size);
@@ -145,6 +149,12 @@ static bool embedded_install(RrAmigaGame *game, RrAmigaFile **files) {
    game->files = *files;
    game->file_count = RR_AMIGA_FILE_COUNT;
    game->ntsc = RR_AMIGA_NTSC;
+#ifdef RR_AMIGA_CUSTOM
+   {
+      static const uint32_t custom[5] = RR_AMIGA_CUSTOM;
+      memcpy(game->custom, custom, sizeof custom);
+   }
+#endif
 #ifdef RR_AMIGA_KICKSTART_RESOURCE
    /* The player's own Kickstart, built into the player's own export (decision D1, 6 Nov 2026), as the X68000 does its IPL. */
    game->kickstart = (const uint8_t *)rr_resource(RR_AMIGA_KICKSTART_RESOURCE, &size);

@@ -116,6 +116,19 @@ class InstallTest(unittest.TestCase):
             blob += level1(name, data)
         return blob + b'\x00'
 
+    def test_the_slave_icon_gives_custom1_to_5(self):
+        def tool(text):                 # a DiskObject string: its 32-bit length, then the bytes with the NUL
+            raw = text.encode('latin-1') + b'\x00'
+            return struct.pack('>I', len(raw)) + raw
+        icon = (b'\xe3\x10\x00\x01' + b'\x00' * 74 + tool('WHDLoad') + struct.pack('>I', 20) +
+                tool('SLAVE=Game.Slave') + tool('CUSTOM1=2') + tool('CUSTOM3=$10') + tool('(CUSTOM2=7)') + tool('CUSTOM5=0x20'))
+        blob = level1('Game/Game.Slave', hunk_file(slave_code())) + level1('Game/Game.info', icon) + level1('Game/data/f', b'x') + b'\x00'
+        install = W.install(blob)
+        self.assertEqual(W.custom_options(blob, install), (2, 0, 16, 0, 32))   # a ToolType in parentheses is switched off
+        self.assertEqual(W.icon_strings(icon)[:2], ['WHDLoad', 'SLAVE=Game.Slave'])
+        bare = level1('Game/Game.Slave', hunk_file(slave_code())) + level1('Game/data/f', b'x') + b'\x00'
+        self.assertEqual(W.custom_options(bare, W.install(bare)), (0, 0, 0, 0, 0))   # no icon: all 0, as WHDLoad without ToolTypes
+
     def test_data_folder_disks_and_files(self):
         i = W.install(self.archive())
         self.assertEqual((i.slave_path, i.data_dir), ('Game/Game.Slave', 'Game/data'))

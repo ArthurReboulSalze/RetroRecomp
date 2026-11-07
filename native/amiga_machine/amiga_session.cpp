@@ -77,6 +77,34 @@ static fs::path upath(const std::string &s) { return fs::path(std::u8string(s.be
 static std::string utf8(const fs::path &p) { auto u = p.generic_u8string(); return std::string(u.begin(), u.end()); }
 
 static std::string lower(std::string s) { std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)std::tolower(c); }); return s; }
+
+// The guest names its files in ISO-8859-1 (the Amiga's character set); the install's names are kept here in UTF-8, as
+// the converter wrote them. A name crossing the resload layer is converted each way (Déjà Vu asks for "déjà vu").
+static std::string from_latin1(const char *guest) {
+    std::string out;
+    for (const unsigned char *c = (const unsigned char *)guest; *c; c++) {
+        if (*c < 0x80) out += (char)*c;
+        else { out += (char)(0xC0 | (*c >> 6)); out += (char)(0x80 | (*c & 0x3F)); }
+    }
+    return out;
+}
+static std::string to_latin1(const std::string &text) {
+    std::string out;
+    for (size_t i = 0; i < text.size(); i++) {
+        unsigned char c = (unsigned char)text[i];
+        if (c < 0x80) { out += (char)c; continue; }
+        if ((c & 0xE0) == 0xC0 && i + 1 < text.size()) {
+            unsigned code = (unsigned)(c & 0x1F) << 6 | ((unsigned char)text[i + 1] & 0x3F);
+            out += code < 0x100 ? (char)code : '?';
+            i++;
+            continue;
+        }
+        out += '?';                                          // beyond ISO-8859-1: no Amiga name can ask for it
+        while (i + 1 < text.size() && ((unsigned char)text[i + 1] & 0xC0) == 0x80) i++;
+    }
+    return out;
+}
+static std::string key_of(const char *guest) { return lower(from_latin1(guest)); }
 static uint8_t peek(void *, uint32_t a) { return S->amiga->mem.spypeek8<Accessor::CPU>(a); }
 static void poke(void *, uint32_t a, uint8_t v) { S->amiga->mem.patch(a, (u8)v); }
 static uint16_t peek16(uint32_t a) { return (uint16_t)(peek(nullptr, a) << 8 | peek(nullptr, a + 1)); }
@@ -102,7 +130,7 @@ static void note_viewport(RrAmigaSession *s, const ViewportMsg &v) {
 }
 
 static int file_cb(void *, const char *name, const uint8_t **data, uint32_t *size) {
-    auto it = S->files.find(lower(name));
+    auto it = S->files.find(key_of(name));
     if (it == S->files.end()) return 0;
     *data = it->second.data();
     *size = (uint32_t)it->second.size();
@@ -116,7 +144,7 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
         S->listing.clear();
         for (auto &f : S->files) {
             auto shown = S->display.find(f.first);
-            S->listing.push_back({shown != S->display.end() ? shown->second : f.first, (uint32_t)f.second.size()});
+            S->listing.push_back({to_latin1(shown != S->display.end() ? shown->second : f.first), (uint32_t)f.second.size()});
         }
     }
     if (index >= S->listing.size()) return 0;
@@ -159,12 +187,12 @@ static bool in_kickstart(uint32_t pc) {
 
 // A save goes to the game's own folder (and replaces the install's file there on the next start).
 static int save_cb(void *, const char *name, uint32_t offset, const uint8_t *data, uint32_t size, int whole) {
-    auto &f = S->files[lower(name)];
+    auto &f = S->files[key_of(name)];
     if (whole) f.assign(data, data + size);
     else { if (f.size() < (size_t)offset + size) f.resize((size_t)offset + size, 0); std::copy(data, data + size, f.begin() + offset); }
     if (!S->saves) return 0;
     std::error_code ec;
-    fs::path target = S->save_dir / upath(lower(name));
+    fs::path target = S->save_dir / upath(key_of(name));
     fs::create_directories(target.parent_path(), ec);
     fs::path temporary = target; temporary += ".tmp";
     {
@@ -176,8 +204,8 @@ static int save_cb(void *, const char *name, uint32_t offset, const uint8_t *dat
 }
 
 static int remove_cb(void *, const char *name) {
-    S->files.erase(lower(name));
-    if (S->saves) { std::error_code ec; fs::remove(S->save_dir / upath(lower(name)), ec); }
+    S->files.erase(key_of(name));
+    if (S->saves) { std::error_code ec; fs::remove(S->save_dir / upath(key_of(name)), ec); }
     return 0;
 }
 
@@ -284,6 +312,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     S->host.list = list_cb;
     S->host.kickstart = kick_cb;
     rr_resload_init(&S->rl, &S->host, slave_area, version, flags);
+    for (int k = 0; k < 5; k++) S->rl.custom[k] = game->custom[k];
     S->rl.exp_mem_size = exp_size;
     S->rl.scratch = S->resload_table + 0x1000;
     S->rl.time_days = 8035; S->rl.time_mins = 12 * 60; S->rl.time_ticks = 0;

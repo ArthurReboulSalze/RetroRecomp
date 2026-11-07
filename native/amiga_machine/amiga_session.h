@@ -36,6 +36,8 @@ typedef struct RrAmigaGame {
     /* The player's own Kickstart image (normalised, 256 KiB), for the installs that ask for one; NULL: none. The session copies
      * it to ExpMem when the slave's request (size, CRC-16) matches it; it is never written anywhere else. */
     const uint8_t *kickstart; uint32_t kickstart_size;
+    /* CUSTOM1..5 as the install's own icon sets them (its ToolTypes), what resload_Control's CUSTOMn_GET answer. */
+    uint32_t custom[5];
 } RrAmigaGame;
 
 typedef struct RrAmigaSession RrAmigaSession;
