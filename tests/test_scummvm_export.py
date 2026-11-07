@@ -160,7 +160,11 @@ class OptionsPage(unittest.TestCase):
                 self.assertEqual(row.count('", "') + 1, 5, row)
 
     def test_the_menu_key_is_hinted_at_the_start_in_five_languages(self):
-        self.assertIn('Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint())', self.patch)
+        # ticked on the main thread only (a timer thread crashed some quits), at every event poll and every delay
+        self.assertIn('g_system->displayMessageOnOSD(retroRecompMenuHint())', self.patch)
+        self.assertIn('packedMainThreadTick(true);', self.patch)
+        self.assertIn('packedMainThreadTick();      // Retro-Recomp: the menu hint also appears while an engine waits', self.patch)
+        self.assertNotIn('installTimerProc(hintDriver', self.patch)
         for text in ('"Menu: Ctrl+F5  (Options > Retro-Recomp > Help)"', '"Menu : Ctrl+F5  (Options > Retro-Recomp > Aide)"',
                      '"Menü: Strg+F5  (Optionen > Retro-Recomp > Hilfe)"', '"Menú: Ctrl+F5  (Opciones > Retro-Recomp > Ayuda)"',
                      '"Menu: Ctrl+F5  (Opzioni > Retro-Recomp > Aiuto)"'):
