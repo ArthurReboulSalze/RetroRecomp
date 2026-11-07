@@ -49,6 +49,9 @@ FIRMWARE_ROWS = {
                    'check': ('cps1_qsound', 'validate_dsp_rom')},
     'amiga_kickstart': {'pady': (0, 8), 'title': 'label', 'filetypes': [('Kickstart', '*.rom *.bin'), ('All files', '*.*')],
                         'resolve': True, 'folder': True, 'text': True, 'check': ('amiga_kickstart', 'validate_kickstarts')},
+    # The Atari ST TOS: a file or a folder like the Kickstart, but without a Check button (the conversion reads it by content).
+    'atarist_tos': {'pady': (0, 8), 'title': 'label', 'filetypes': [('TOS', '*.img *.rom'), ('All files', '*.*')],
+                    'resolve': True, 'folder': True},
 }
 
 

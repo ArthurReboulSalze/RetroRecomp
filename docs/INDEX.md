@@ -42,6 +42,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Sharp X68000](X68000.md) | main | none | none | none | none |
 | [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
 | [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
+| [Atari ST](ATARI_ST.md) (experimental) | main | none | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 "Main" is the processor that runs the game; "sound" is a processor dedicated to the sound chips. The X68000 has no
@@ -112,6 +113,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
+- **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, experimental since 1.7.0: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project

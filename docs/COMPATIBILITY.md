@@ -213,6 +213,11 @@ code, CPU fidelity, hardware fidelity, gameplay validation and physical latency 
 partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
 Amiga 1200 are not converted.
 
+The **Atari ST** profile is experimental since 1.7.1 ([status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
+images, or a ZIP holding only them) on Hatari, with your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of
+compatible games: nothing is native yet (every instruction is counted as interpreted) and CPU fidelity, hardware fidelity, gameplay validation and
+physical latency are separate measures that are not claimed ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). STE, TT, Falcon and hard disks are not converted.
+
 **Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
 recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
