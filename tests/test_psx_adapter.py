@@ -63,8 +63,8 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;', ADAPTER)
 
     def test_graphics_defaults_are_the_cores(self):
-        # The default of each option is the setting every gate uses: Beetle's own default.
-        defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)', 'deinterlacing_values': 'weave',
+        # The default of each option is the setting every gate uses: Beetle's own, except deinterlacing (progressive).
+        defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)', 'deinterlacing_values': 'off',
                     'aspect_values': 'corrected', 'crop_values': 'smart'}
         for table, value in defaults.items():
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)

@@ -336,7 +336,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                               'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False},
         'native_coverage': 'observed main-RAM and BIOS code of the routes (up to four words per address), guarded by the fetched word',
-        'video_model': {'standard': video_mode, 'renderer': 'software, native resolution', 'display_aspect': '4:3'},
+        'video_model': {'standard': video_mode, 'renderer': 'software, native resolution', 'display_aspect': '4:3',
+                        'interlaced_pictures': 'shown progressive: the GPU draws both fields of the displayed frame (Beetle\'s '
+                                               '"Off" deinterlacing; drawing time kept at the console\'s), which the console '
+                                               'itself does not do; weave and bob show its fields (F3)',
+                        'frame_pacing': 'the core\'s own rate: 59.826 Hz progressive, 59.94 Hz interlaced (PAL 49.761 / 50)'},
         'audio_cpu': None, 'audio_model': {'kind': 'SPU of the machine (Beetle)', 'rate': 44100, 'channels': 2},
         'counter_unit': 'retired instructions', 'runtime_learning': False, 'runtime_feedback': feedback,
         'hardware_fidelity': 'not measured' + ('' if bios else '; free BIOS (OpenBIOS) instead of the console\'s own'),

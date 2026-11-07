@@ -19,7 +19,12 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
   the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
   switches it itself. A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x, 8x), dithering, deinterlacing, aspect ratio and overscan
-  crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings).
+  crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings, progressive).
+- **Interlaced pictures** (480 lines, Tobal No. 1's) are shown **progressive** by default: the GPU draws both fields of the
+  displayed frame, so the picture is whole, without combing (the console itself draws one field per frame there; its drawing
+  time is kept). Weave and Bob, on the graphics page, show the console's fields instead.
+- **Frame pacing** follows the console: 59.826 frames a second with a progressive picture, 59.94 with an interlaced one (PAL
+  49.761 and 50), so its 44,100 Hz sound reaches the device at the rate it is played.
 - A disc is recognised by what it holds (an ISO 9660 volume of system `PLAYSTATION` and its boot executable named by `SYSTEM.CNF`),
   never by its extension: `.bin`, `.img` and `.iso` are shared with other machines. The image files that a sheet names are part
   of that sheet's disc and are not converted on their own.

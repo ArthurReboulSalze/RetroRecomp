@@ -344,6 +344,8 @@ static const char *const DEFAULTS[][2] = {
     /* The DualShock powers on in digital mode, as the console's pad does (Beetle's default keeps it in analog mode, where a
      * game that reads the d-pad in digital mode, Tomba! for one, sees no direction); the Analog button switches it. */
     {"beetle_psx_analog_toggle", "enabled"},
+    /* A 480-line picture shown whole (the GPU draws both fields of the displayed frame), the graphics page's default. */
+    {"beetle_psx_deinterlacer", "off"},
 };
 
 static void set_option(RrPsxSession *s, const char *key, const char *value) {

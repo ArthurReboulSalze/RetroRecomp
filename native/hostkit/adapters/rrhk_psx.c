@@ -63,8 +63,10 @@ static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x"};
 static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
-static const char *const deinterlacing[] = {"Weave", "Bob", "Bob (offset)"};
-static const char *const deinterlacing_values[] = {"weave", "bob", "bob_offset"};
+/* Progressive: the GPU draws both fields of the displayed frame, so a 480-line picture is shown whole, without combing or a
+ * field missing (Beetle's "Off"; the console itself draws one field per frame there). Weave and Bob are the console's fields. */
+static const char *const deinterlacing[] = {"Progressive", "Weave", "Bob", "Bob (offset)"};
+static const char *const deinterlacing_values[] = {"off", "weave", "bob", "bob_offset"};
 static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"};
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
@@ -73,7 +75,7 @@ enum { GFX_RESOLUTION, GFX_DITHER, GFX_DEINTERLACE, GFX_ASPECT, GFX_CROP, GFX_CO
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Internal resolution", L"resolution", resolutions, 4, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
-    {"Deinterlacing", L"deinterlacing", deinterlacing, 3, 0},
+    {"Deinterlacing", L"deinterlacing", deinterlacing, 4, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
 static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, deinterlacing_values,
@@ -133,6 +135,16 @@ static uint16_t stick_directions(int player, uint16_t pad, const int16_t axes[4]
     return pad;
 }
 
+/* The console runs at 59.826 frames a second with a progressive picture and 59.94 with an interlaced one (PAL: 49.761 and
+ * 50.0); its sound is 44,100 Hz either way, so a frame carries 737 or 736 samples. The kit paces the frames at the rate the
+ * core states (it reads frame_seconds every frame): paced at the progressive rate, an interlaced game gave the sound device
+ * about 44,016 samples a second and the ring ran dry (twelve gaps a minute in Tobal No. 1). */
+static RrhkMachine machine;
+static void follow_frame_rate(void) {
+    const double fps = rr_psx_fps(rr_psx_host_session());
+    if (fps > 45.0 && fps < 65.0) machine.frame_seconds = 1.0 / fps;
+}
+
 static bool run_frame(uint16_t p1, uint16_t p2) {
     uint16_t pads[2] = {p1, p2};
     int16_t axes[2][4];
@@ -142,6 +154,7 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
         pads[p] = stick_directions(p, pads[p], axes[p]);
     }
     const bool ran = rr_psx_host_frame(pads, axes) != 0;
+    follow_frame_rate();
     rumble();
     return ran;
 }
@@ -201,7 +214,6 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
 }
 
 const RrhkMachine *rrhk_adapter(void) {
-    static RrhkMachine machine;
     if (!machine.actions) {
         machine = (RrhkMachine){
             .ini_section = L"PlayStation", .console_name = "PlayStation",
