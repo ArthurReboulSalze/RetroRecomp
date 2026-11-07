@@ -154,7 +154,7 @@ The page of each console, which the README links its line to (a console of the m
   `release_check.py` was not run. G5 `P`: the packed players run 600 frames hidden with return code 0; not the packed replay of the tools.
   G6 `P`: a quick state saved and loaded in the same process gives the same picture; no fresh-process check. G7 `P`: the four authored
   save tests pass and the battery file is written; no game save was loaded back by a check of ours. G8 `P`: six packed players draw and
-  play sound for 600 frames; G12 `P`: that is the panel (six, not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
+  play sound for 600 frames; G12 `P`: that is the panel (six cartridges, and four more on 7 November 2026 with no interpreted instruction on the scenarios; not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
   MIT) pass with the staged patches; no external emulator. G14 `P`: the owner played the delivered Sonic Advance on 5 November 2026 and
   then the series of delivered cartridges on 6 November 2026 ("it works perfectly"), and the rebuilt Golden Sun and Minish Cap with
   guarded native RAM code on 7 November 2026 ("it works perfectly"); play trials of the exports, not a decision to

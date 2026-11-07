@@ -236,6 +236,22 @@ pass. The packed players of Golden Sun and the Minish Cap run 600 frames hidden 
 reaches 0 / 0 in the first pass because its paths are in the library of the machine that converted it; the Debian witness above started from an empty library.
 Played: the owner played the delivered Golden Sun and Minish Cap of this stage on 7 November 2026 and wrote that they work perfectly (a play trial of the exports, not a measure of gameplay validation and not a decision to leave the experimental status). Not measured: gameplay validation (no route of ours), the Linux player with this code, a cartridge whose RAM code does not fit the 32 MiB window.
 
+## The wider panel (7 November 2026)
+
+Four more cartridges chosen by the owner, through the whole conversion (`batch`, online covers on, the player included), one at a time, on a Windows PC, with the tree of
+7 November 2026: a second Flash 64 KB cartridge, three SRAM ones, and one (Metroid Fusion) whose code the engine finds entirely by itself. Scenarios: `boot` (600 frames) and `generic` (3,600 frames), compared with the engine's own interpreter as in the panel above.
+
+| Cartridge | Save (header) | Native = interpreter, 2 scenarios | Interpreted instructions (boot, generic) | Paths learned (ROM roots, RAM copies) | Packed player |
+|---|---|---|---|---|---|
+| Advance Wars (USA, Rev 1) | Flash 64 KB | yes | 0, 0 | 528, 3 | 9.6 MB |
+| Castlevania: Aria of Sorrow | SRAM | yes | 0, 0 | 26, 5 | 21.2 MB |
+| Metroid Fusion | SRAM | yes | 0, 0 | 0, 0 | 20.8 MB |
+| Wario Land 4 | SRAM | yes | 0, 0 | 26, 0 | 19.5 MB |
+
+Every report names `FULLY_STATIC` for both scenarios and an embedded libretro cover; none needed RAM code. The packed players run 600 frames hidden with return code 0,
+sound and no interpreted instruction. Nothing was found that needed a change: the four were converted by the tree of the previous stage as it stands. What this
+adds is breadth of cartridges and save types (ten cartridges in all); it is not gameplay validation, and nobody of ours played these four.
+
 ## Independent evidence (stage 5)
 
 Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
