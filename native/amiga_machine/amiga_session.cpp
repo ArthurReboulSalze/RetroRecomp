@@ -33,6 +33,12 @@ namespace vamiga::moira { extern bool (*rr_moira_native)(Moira &, u32 pc, u16 op
 
 static constexpr uint32_t SLOW_BASE = 0xC00000;
 static constexpr uint32_t SLOW_SIZE = 0x180000;     // 1.5 MiB of slow RAM: ExpMem, then the slave area
+// An ExpMem too large for the slow RAM goes to a Zorro II fast RAM board configured at $200000 (up to 8 MiB, as an A500 with a
+// RAM expansion has it); the slave area then takes the start of the slow RAM. Installs whose ExpMem fits keep the slow layout.
+static constexpr uint32_t FAST_BASE = 0x200000;
+static constexpr uint32_t FAST_MAX = 0x800000;
+static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
+static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
 static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-1";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
@@ -111,6 +117,13 @@ static uint16_t peek16(uint32_t a) { return (uint16_t)(peek(nullptr, a) << 8 | p
 static uint32_t peek32(uint32_t a) { return (uint32_t)peek16(a) << 16 | peek16(a + 2); }
 static void poke32(uint32_t a, uint32_t v) { for (int k = 0; k < 4; k++) poke(nullptr, a + k, (uint8_t)(v >> (24 - 8 * k))); }
 static bool in_ram(uint32_t pc) { return pc < 0xA00000 || (pc >= 0xC00000 && pc < 0xDC0000); }
+// The host bytes behind a span of the slow RAM or of the fast RAM board, or nullptr.
+static uint8_t *host_ram(uint32_t a, uint32_t size) {
+    Memory &mem = S->amiga->mem;
+    if (mem.slow && a >= SLOW_BASE && a + size <= SLOW_BASE + (uint32_t)mem.slowRamSize()) return mem.slow + (a - SLOW_BASE);
+    if (mem.fast && a >= FAST_BASE && a + size <= FAST_BASE + (uint32_t)mem.fastRamSize()) return mem.fast + (a - FAST_BASE);
+    return nullptr;
+}
 
 // One display window (vAmiga's ViewportMsg: super-hires columns, lines) into the union, in picture coordinates. A window that
 // does not close on its line or frame (stop at or before start) is open to the picture's edge; an unset start or a sliver is
@@ -161,15 +174,16 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
 static void kick_window(bool on) {
     if (!S->kick_size) return;
     Memory &mem = S->amiga->mem;
-    mem.wom = on ? mem.slow + (S->kick_base - SLOW_BASE) : nullptr;
-    mem.womMask = on ? S->kick_size - 1 : 0;
+    uint8_t *copy = on ? host_ram(S->kick_base, S->kick_size) : nullptr;
+    mem.wom = copy;
+    mem.womMask = copy ? S->kick_size - 1 : 0;
     mem.womIsLocked = false;
     mem.updateMemSrcTables();
 }
 
 static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t destination) {
     if (S->kick.size() != size || size != 0x40000) return 0;
-    if (destination < SLOW_BASE || destination + size > SLOW_BASE + SLOW_SIZE || (destination & (size - 1)) != 0) return 0;
+    if (!host_ram(destination, size) || (destination & (size - 1)) != 0) return 0;
     for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, S->kick[i]);
     if (rr_resload_crc16(&S->rl, destination, size) != crc16) {
         for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, 0);
@@ -291,13 +305,21 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     uint32_t base_mem = be32(p + 16);
     int32_t exp_mem = version >= 8 ? (int32_t)be32(p + 32) : 0;
     uint32_t exp_size = exp_mem < 0 ? (uint32_t)-exp_mem : (uint32_t)exp_mem;
-    uint32_t exp_base = exp_size ? SLOW_BASE : 0;
-    uint32_t slave_area = (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu;
+    bool fast = exp_in_fast(exp_size);
+    uint32_t exp_base = !exp_size ? 0 : fast ? FAST_BASE : SLOW_BASE;
+    uint32_t slave_area = fast ? SLOW_BASE : slow_slave_area(exp_size);
     S->resload_table = slave_area + 0x40000;
     uint32_t stack_top = slave_area + 0x7FFF0;
     uint32_t chip = (uint32_t)S->amiga->mem.chipRamSize();
     if (stack_top >= SLOW_BASE + SLOW_SIZE || base_mem > chip || n > 0x3F000)
         return fail(error, error_size, "The install's memory does not fit the Amiga 500 layout (BaseMem, ExpMem or slave too large).");
+    if (fast) {
+        // The board waits in its autoconfig state since the power-on; it is given $200000 as the Kickstart's expansion code would.
+        if (exp_size > FAST_MAX || (uint32_t)S->amiga->mem.fastRamSize() < exp_size)
+            return fail(error, error_size, "The install's ExpMem is larger than the 8 MiB of fast RAM an Amiga 500 expansion gives.");
+        S->amiga->zorro.pokeACF(0xE80048, (u8)(FAST_BASE >> 16));
+        if (S->amiga->ramExpansion.getBaseAddr() != FAST_BASE) return fail(error, error_size, "The fast RAM board could not be configured.");
+    }
 
     // BaseMem and ExpMem filled as WHDLoad does ($CCCCCCCC, or 0 with WHDLF_ClearMem), $0 = 0, $4 = $F0000001.
     uint32_t fill = (flags & 0x1000) ? 0 : 0xCCCCCCCCu;
@@ -370,14 +392,18 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
             }
     }
     try {
-        // The chip RAM the install's BaseMem needs (512 KiB, or 1 MiB above it), read before the machine is configured.
-        uint32_t chip_kb = 512;
+        // The chip RAM the install's BaseMem needs (512 KiB, or 1 MiB, or 2 MiB above it), read before the machine is configured.
+        uint32_t chip_kb = 512, fast_kb = 0;
         {
             const uint8_t *b = game->slave; size_t n = game->slave_size;
             auto be32 = [&](size_t o) -> uint32_t { return o + 4 <= n ? (uint32_t)b[o] << 24 | (uint32_t)b[o + 1] << 16 | (uint32_t)b[o + 2] << 8 | b[o + 3] : 0; };
             size_t q = 4; while (be32(q) && q < n) q += 4 + 4 * (size_t)be32(q); q += 4;
             uint32_t f = be32(q + 4), l = be32(q + 8); q += 12 + 4 * (size_t)(l - f + 1) + 8;
-            if (be32(q + 16) > 0x80000) chip_kb = 1024;
+            if (be32(q + 16) > 0x80000) chip_kb = be32(q + 16) > 0x100000 ? 2048 : 1024;
+            uint32_t version = be32(q + 12) >> 16;
+            int32_t exp_mem = version >= 8 ? (int32_t)be32(q + 32) : 0;
+            uint32_t exp_size = exp_mem < 0 ? (uint32_t)-exp_mem : (uint32_t)exp_mem;
+            if (exp_in_fast(exp_size)) fast_kb = std::min<uint32_t>((exp_size + 0xFFFF) & ~0xFFFFu, FAST_MAX) / 1024;
         }
         S->emu = new Emulator;
         S->emu->initialize();
@@ -385,6 +411,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::AMIGA_VIDEO_FORMAT, S->ntsc ? (i64)TV::NTSC : (i64)TV::PAL);
         S->emu->set(Opt::MEM_SLOW_RAM, SLOW_SIZE / 1024);
         S->emu->set(Opt::MEM_CHIP_RAM, chip_kb);
+        if (fast_kb) S->emu->set(Opt::MEM_FAST_RAM, fast_kb);
         S->emu->set(Opt::MON_PALETTE, (i64)Palette::RGB);   // plain 4-bit to 8-bit colours, no monitor model
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
         S->emu->set(Opt::AUD_ASR, 0);                       // a fixed sample rate: the sound does not follow the host's clock
@@ -651,8 +678,8 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     rl.host = s->rl.host;
     s->rl = rl;
     // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
-    // resload_LoadKick only when the slave calls it): its copy is in the restored slow RAM, so only the window is set again.
-    if (s->rl.kick_loaded && s->rl.exp_mem >= SLOW_BASE && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
+    // resload_LoadKick only when the slave calls it): its copy is in the restored ExpMem, so only the window is set again.
+    if (s->rl.kick_loaded && s->rl.exp_mem && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
         s->kick_base = s->rl.exp_mem;
         s->kick_size = s->rl.kick_size;
     }

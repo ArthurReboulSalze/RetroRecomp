@@ -515,6 +515,10 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 0: wr32(r, slot, r->attn_flags); break;                 /* ATTNFLAGS_GET */
         case 1: wr32(r, slot, r->eclock); break;                     /* ECLOCKFREQ_GET */
         case 2: wr32(r, slot, r->monitor); break;                    /* MONITOR_GET */
+        /* Private3: undocumented. The slaves read (198 of the A500 library name it) only test it for non-zero: zero makes
+           them refuse with TDREASON_MUSTREG or skip their extra patches, as with a WHDLoad not registered. WHDLoad has
+           needed no key since 18.0, so it is answered as registered; 1 is our value, not one read from WHDLoad. */
+        case 5: wr32(r, slot, 1); break;
         case 6: wr32(r, slot, (uint32_t)r->button_wait); break;      /* BUTTONWAIT_GET */
         case 7: case 8: case 9: case 10: case 11: wr32(r, slot, r->custom[tag - 0x88000007u]); break;
         case 12: r->cbswitch = rd32(r, slot); break;                 /* CBSWITCH_SET */

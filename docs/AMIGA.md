@@ -43,6 +43,9 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    observed, so no Kickstart byte reaches an observation file or the library. The image is copied only into the
    conversion's private work folder and into the player's own export (resource 298), never into the repository, the library
    or a shared record; the report names it by numbers only. 256 KiB images (1.x) only for now.
+   **Memory beyond the slow RAM** (1.7.1): an ExpMem too large for the 1.5 MiB of slow RAM at `$C00000` goes to a fast RAM board
+   at `$200000` (up to 8 MiB; the slave area stays at `$C00000`), and the Kickstart copy and its ROM window follow it there; a
+   BaseMem above 1 MiB gets 2 MiB of chip RAM. CUSTOM1 to 5 come from the install's icon.
 3. **The machine.** The games run on the Amiga machine of [vAmiga](https://github.com/dirkwhoffmann/vAmiga) (Agnus, Denise, Paula,
    the CIAs, the floppy drive), pinned at one revision and adapted at build time by `retrorecomp/amiga_vamiga.py`, which drives it
    frame by frame inside the game. Its 68000 core, Moira, is the reference CPU of the Amiga profile.

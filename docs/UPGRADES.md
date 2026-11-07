@@ -245,6 +245,27 @@ log, the final call included, must equal the reference's. The report marks the r
 Any other stop still fails the conversion. **What moves:** the Amiga's game stamp (`amiga_conversion.py`, the session and the
 player); no other console.
 
+## Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad (1.7.1)
+
+Four changes to what a slave may ask of the layer, found by running 24 installs of the library headless with the player's
+Kickstart 1.3. **CUSTOM1 to CUSTOM5** are read from the install's own icon (`<slave>.info`, its ToolTypes, as WHDLoad does; a
+ToolType in parentheses is off) and answered to `resload_Control`; there is no per-game setting in the window. 432 of the 2,967
+installs carry one (413 CUSTOM1); Might & Magic 3 (DE) needs CUSTOM1=2 to start. **Names**: a guest name is ISO-8859-1 and the
+install's file name UTF-8; they are converted both ways (23 archives have accents), so a slave finds a file it names with an
+accent. **Memory**: an ExpMem that does not fit the 1.5 MiB of slow RAM (88 installs of the library did not fit) is given to a
+Zorro II fast RAM board configured at `$200000` (up to 8 MiB), with the slave area staying in slow RAM; a BaseMem above 1 MiB
+gets 2 MiB of chip RAM (3 installs). 71 of the 88 now fit (58 of them with Kickstart 1.x); the rest need a 512 KiB Kickstart
+(16, a later step) or more than 1 MiB of BaseMem beyond what an A500 has (1). **Registered**: 198 slaves of the library name
+the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer for non-zero (zero makes them stop with
+`TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
+WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
+picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
+Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit:** three
+installs of the 24 (Twylyte, California Games, Time Runners 19) stop at boot because the slave's own patch code does what only
+a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68000, as on a real A500); the layer is a 68000.
+**What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
+console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 
 `resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call
