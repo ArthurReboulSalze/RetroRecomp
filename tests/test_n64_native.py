@@ -108,6 +108,23 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(list((self.folder / 'blocks').glob('*.c')), [])
 
 
+class RouteTests(unittest.TestCase):
+    def test_routes_are_bounded_and_well_formed(self):
+        from retrorecomp import n64_conversion as conversion
+        routes = [(3600, conversion.main_route(3600)), (3600, conversion.explore_route(3600))]
+        routes += [conversion.play_route(code) for code in conversion.PLAY_ROUTES]
+        self.assertIsNone(conversion.play_route('NXXE'))
+        for frames, events in routes:
+            self.assertEqual(events, sorted(events))
+            for begin, end, kind, code, value in events:
+                self.assertTrue(0 <= begin < end <= frames)
+                if kind == 'pad':
+                    self.assertTrue(0 <= code < 14 and value == 0)
+                else:
+                    self.assertEqual(kind, 'stick')
+                    self.assertTrue(0 <= code < 16 and -32768 <= value <= 32767)
+
+
 class AdaptationTests(unittest.TestCase):
     def test_the_digest_follows_the_replacements(self):
         digest = n64_core.adaptation_digest()

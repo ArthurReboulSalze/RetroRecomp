@@ -85,15 +85,32 @@ two routes of 3,600 frames each, no shared base, an empty library):
 | --- | --- | --- | --- | --- | --- |
 | Super Mario 64 (PAL, `NSMP`, 8 MiB) | main, explore | 94.2 %, 94.4 % (2,263 blocks) | 0 | equal to the reference on both routes | CPU, RDRAM and picture continue for 400 frames; the sound samples differ |
 | The Legend of Zelda: Ocarina of Time (PAL, `NZLP`, 32 MiB) | main, explore | 94.0 %, 94.1 % (3,080 blocks) | 0 | equal to the reference on both routes | CPU, RDRAM and picture continue for 400 frames; the sound samples differ |
+| Mario Kart 64 (PAL, `NKTP`, 12 MiB) | main, explore | 96.3 %, 96.7 % (4,654 blocks) | 0 | equal to the reference on both routes | CPU, RDRAM and picture continue for 400 frames; the sound samples differ |
 
 On every route, native plus interpreted instructions equal the reference's count but one: the instruction the reference has
-counted and not yet finished when the frame ends. Both games' routes stay in their menus (Super Mario 64's file and sound
-selections, Ocarina of Time's name entry): no route reaches play yet, so the shares above are those of menu code. The sound of a
-resumed game differs because the core's state leaves out the libretro sound resampler.
+counted and not yet finished when the frame ends. The generic routes of Super Mario 64 and Ocarina of Time stay in their menus
+(the file and sound selections, the name entry); Mario Kart 64's main route reaches a race. The sound of a resumed game differs
+because the core's state leaves out the libretro sound resampler.
+
+**Routes that reach play.** At the Extended and Thorough levels a game with a route of its own also plays it
+(`n64_conversion.PLAY_ROUTES`, keyed by the game code, tuned on the PAL dumps): Super Mario 64 (6,000 frames: the PAL sound
+selection, file A, the intro, then Mario runs, jumps and punches in the castle grounds from about frame 3,900) and Ocarina of Time
+(16,800 frames: file 1 named "A", the intro's words, then Link walks in his house from about frame 15,600).
+
+Both converted at the Extended level (7 November 2026, same machine): every route of both games equal to its fresh reference, the
+compressed copy too, the quick state continued in a fresh process.
+
+| Game | Route | Frames | Native share | Guard misses |
+| --- | --- | --- | --- | --- |
+| Super Mario 64 | main, explore, play | 3,600, 3,600, 6,000 | 94.4 %, 94.7 %, 93.1 % (3,540 blocks) | 0 |
+| Ocarina of Time | main, explore, play | 3,600, 3,600, 16,800 | 94.2 %, 94.2 %, 95.1 % (5,098 blocks) | 1,648, 1,318, 25,793 |
+
+A guard miss is a block whose words were not the live ones at that moment (code another route loaded at the same place, in a
+version that was not kept): the interpreter ran those instructions, counted in the interpreted share.
 
 ## 7. Known limits
 
 - A game whose code moves under the TLB keeps that code on the interpreter.
-- The bounded routes do not reach play: what they observe is menu code (route depth, gate G9).
+- Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - A quick state is refused by another build of the same game; a resumed game's sound differs for a moment (the resampler).
 - Linux conversions, integrated graphics and per-frame timing in play are not yet measured; no speed is claimed.

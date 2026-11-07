@@ -103,6 +103,53 @@ def explore_route(frames: int) -> list[tuple[int, int, str, int, int]]:
     return sorted(events)
 
 
+def _presses(start: int, stop: int, every: int, bit: int, length: int = 6) -> list:
+    return [(t, t + length, 'pad', bit, 0) for t in range(start, stop, every)]
+
+
+def _sm64_pal() -> tuple[int, list]:
+    """Super Mario 64 (PAL, NSMP): Start at the title, Return on the sound selection the PAL game opens first, file A, the
+    letter and Lakitu's words, then Mario runs, turns, jumps and punches in the castle grounds (play from about frame 3,900)."""
+    events = [(1050, 1058, 'pad', PAD_START, 0),
+              (1200, 1241, 'stick', STICK_X, 20000), (1200, 1241, 'stick', STICK_Y, 20000), (1260, 1268, 'pad', PAD_A, 0),
+              (1340, 1384, 'stick', STICK_X, -20000), (1340, 1384, 'stick', STICK_Y, -20000), (1400, 1408, 'pad', PAD_A, 0),
+              *_presses(3200, 3801, 50, PAD_A),
+              (3900, 4100, 'stick', STICK_Y, -30000), (4100, 4400, 'stick', STICK_X, 30000), (4200, 4206, 'pad', PAD_A, 0),
+              (4300, 4306, 'pad', PAD_A, 0), (4400, 4700, 'stick', STICK_Y, 30000), (4500, 4506, 'pad', PAD_B, 0),
+              (4700, 5000, 'stick', STICK_X, -30000), (4800, 4806, 'pad', PAD_A, 0), (4900, 4906, 'pad', PAD_A, 0),
+              (5000, 5400, 'stick', STICK_Y, -30000), (5150, 5156, 'pad', PAD_B, 0), (5400, 5800, 'stick', STICK_X, 30000),
+              (5500, 5506, 'pad', PAD_A, 0), (5600, 5606, 'pad', PAD_Z, 0)]
+    return 6000, sorted(events)
+
+
+def _oot_pal() -> tuple[int, list]:
+    """The Legend of Zelda: Ocarina of Time (PAL, NZLP): file 1 created with the name "A" (the cursor goes to END along the right
+    column), opened, the intro's words advanced with A, then Link walks around his house (play from about frame 15,600)."""
+    events = [(600, 608, 'pad', PAD_START, 0), (700, 708, 'pad', PAD_START, 0), (900, 908, 'pad', PAD_A, 0),
+              (1300, 1308, 'pad', PAD_A, 0), (1400, 1408, 'pad', PAD_A, 0)]
+    t = 1430
+    for _ in range(12):
+        events.append((t, t + 8, 'stick', STICK_X, 30000))
+        t += 16
+    for _ in range(5):
+        events.append((t, t + 8, 'stick', STICK_Y, 30000))
+        t += 20
+    events += [(t + 10 + k, t + 18 + k, 'pad', PAD_A, 0) for k in (0, 100, 200, 300)]
+    events += _presses(2200, 15601, 40, PAD_A)
+    events += [(15700, 16000, 'stick', STICK_Y, 30000), (16000, 16200, 'stick', STICK_X, 30000), (16200, 16500, 'stick', STICK_Y, -30000)]
+    return 16800, sorted(events)
+
+
+# Routes that reach play, per game, by its game code (numbers about the cartridge, never its bytes), tuned on the dumps named in
+# docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). Mario Kart 64's main route already races.
+PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal}
+
+
+def play_route(game_code: str) -> tuple[int, list] | None:
+    maker = PLAY_ROUTES.get(game_code)
+    return maker() if maker else None
+
+
 def write_events(path: Path, events) -> Path:
     if len(events) > 8192:
         raise ConversionError('Too many Nintendo 64 route events.')
@@ -336,9 +383,13 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         routes = [('main', count, main_route(count) if qualification_events is None else list(qualification_events))]
         if level != 'quick':
             routes.append(('explore', count, explore_route(count)))
+        play = play_route(h.game_code) if level in ('extended', 'thorough') and qualification_events is None else None
+        if play:
+            routes.append(('play', *play))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         # The ROM is read in place by the reference player (its own byte order is put right in memory); nothing is copied.
-        emit(f'Nintendo 64: fresh reference runs ({len(routes)} route(s) of {count} frames, VR4300 on the pure interpreter, observed).')
+        lengths = ', '.join(f'{name} {frames_}' for name, frames_, _ in routes)
+        emit(f'Nintendo 64: fresh reference runs (routes and frames: {lengths}; VR4300 on the pure interpreter, observed).')
         expected = {}
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:

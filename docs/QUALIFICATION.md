@@ -63,7 +63,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
-| Nintendo 64 | experimental | `██░░░░░░░░` 22 % | ✅ 0 · 🟡 7 · ❔ 9 |
+| Nintendo 64 | experimental | `███░░░░░░░` 25 % | ✅ 0 · 🟡 8 · ❔ 8 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -77,7 +77,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | ❔ |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
@@ -106,7 +106,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = 
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? | ? |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | P |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? |
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? |
@@ -168,7 +168,10 @@ The page of each console, which the README links its line to (a console of the m
   frame by frame (picture, sound, RDRAM, CPU registers), to a fresh reference on the core's pure interpreter; native plus interpreted
   equals the reference's count but the one instruction in flight at the frame's end. G5 `P`: the compressed copy too. G6 `P`: the
   state saved on the main route continues CPU, RDRAM and picture for 400 frames in a fresh process (the sound samples are not
-  compared). G8 `P`: a moving picture is required on the main route. G9 `?`: both games' routes stay in their menus. Nothing is
+  compared). G8 `P`: a moving picture is required on the main route. G9 `P`: Mario Kart 64's main route races; at the Extended
+  level Super Mario 64 (6,000 frames) and Ocarina of Time (16,800 frames) play routes of their own that reach play, equal to their
+  references (Ocarina of Time: 25,793 guard misses on that route, run on the interpreter and counted); other games' generic routes
+  may stay in menus. Nothing is
   measured on Linux, against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 
