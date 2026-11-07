@@ -278,6 +278,40 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '   if (!dev || dev->vt->UpdateInput != InputDevice_DualShock_UpdateInput)\n      return -1;\n'
      '   return ((InputDevice_DualShock *)dev)->analog_mode ? 1 : 0;\n}\n\n'
      'static void InputDevice_DualShock_CheckManualAnaModeChange(InputDevice *self_)\n{\n'),
+    # What the next picture builds on and the machine's state does not hold: whether the last picture was interlaced, the
+    # deinterlacer's memory and the frame surface (weave reads the previous field's rows from it). The game's quick states
+    # carry it, so the first picture after F9 on an interlaced screen is the one the uninterrupted run showed (Tobal No. 1).
+    ('libretro.c',
+     'size_t retro_serialize_size(void)\n{\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the picture state of the next frame, for the game\'s quick\n'
+     ' * states: a 16-byte head (interlaced, the deinterlacer\'s validity, height and column), then the frame surface. */\n'
+     'size_t rr_psx_display_size(void)\n{\n'
+     '   return 16 + (surf ? (size_t)surf->pitchinpix * (size_t)surf->h * 4 : 0);\n}\n\n'
+     'size_t rr_psx_display_save(uint8_t *out, size_t capacity)\n{\n'
+     '   const size_t n = rr_psx_display_size();\n'
+     '   uint32_t head[4];\n'
+     '   if (!out || capacity < n)\n      return 0;\n'
+     '   head[0] = (PrevInterlaced ? 1u : 0u) | (deint.StateValid ? 2u : 0u);\n'
+     '   head[1] = (uint32_t)deint.PrevDRect_h;\n'
+     '   head[2] = (uint32_t)deint.PrevDRect_x;\n'
+     '   head[3] = surf ? (uint32_t)surf->h : 0;\n'
+     '   memcpy(out, head, 16);\n'
+     '   if (surf)\n      memcpy(out + 16, surf->pixels, n - 16);\n'
+     '   return n;\n}\n\n'
+     'bool rr_psx_display_load(const uint8_t *in, size_t size)\n{\n'
+     '   uint32_t head[4];\n'
+     '   if (!in || size != rr_psx_display_size())\n      return false;\n'
+     '   memcpy(head, in, 16);\n'
+     '   PrevInterlaced    = (head[0] & 1u) != 0;\n'
+     '   deint.StateValid  = (head[0] & 2u) != 0;\n'
+     '   deint.PrevDRect_h = (int32_t)head[1];\n'
+     '   deint.PrevDRect_x = (int32_t)head[2];\n'
+     '   if (surf)\n   {\n'
+     '      memcpy(surf->pixels, in + 16, size - 16);\n'
+     '      GPU_InvalidateScanoutCache();\n'
+     '   }\n'
+     '   return true;\n}\n\n'
+     'size_t retro_serialize_size(void)\n{\n'),
     # The EBOOT reader (CDAccess_PBP.c) is not compiled, so the disc count it keeps is defined here, at 0 (no EBOOT).
     ('libretro.c',
      'extern int PBP_DiscCount;\n',

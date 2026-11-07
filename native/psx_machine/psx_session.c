@@ -703,19 +703,41 @@ uint64_t rr_psx_interpreted(const RrPsxSession *s) {
 uint64_t rr_psx_native(const RrPsxSession *s) { (void)s; return rr_psx_native_count; }
 uint64_t rr_psx_unrun(const RrPsxSession *s) { (void)s; return rr_psx_unrun_count; }
 
+/* The picture state of the next frame (our anchored change of libretro.c): the deinterlacer's memory and the frame surface,
+ * which weave reads the previous field from. Left out of a state when larger than DISPLAY_STATE_LIMIT (a high internal
+ * resolution): the first picture after loading such a state may then show one field of an interlaced screen. */
+size_t rr_psx_display_size(void);
+size_t rr_psx_display_save(uint8_t *out, size_t capacity);
+bool rr_psx_display_load(const uint8_t *in, size_t size);
+#define DISPLAY_STATE_LIMIT ((size_t)32 << 20)
+
+static void put_u32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8 * i)); }
+static uint32_t get_u32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+
+/* [disc, 0, 0, 0] [machine bytes: u32] [the core's state] [display bytes: u32] [the picture state, or nothing] */
 uint8_t *rr_psx_state_capture(RrPsxSession *s, size_t *size) {
-    (void)s;
-    size_t n = retro_serialize_size();
-    uint8_t *data = n ? (uint8_t *)malloc(n + 4) : NULL;
-    if (!data || !retro_serialize(data + 4, n)) { free(data); return NULL; }
+    const size_t n = retro_serialize_size();
+    size_t d = rr_psx_display_size();
+    if (d > DISPLAY_STATE_LIMIT) d = 0;
+    uint8_t *data = n ? (uint8_t *)malloc(12 + n + d) : NULL;
+    if (!data || !retro_serialize(data + 8, n)) { free(data); return NULL; }
     data[0] = (uint8_t)s->disc; data[1] = data[2] = data[3] = 0;
-    if (size) *size = n + 4;
+    put_u32(data + 4, (uint32_t)n);
+    if (d && rr_psx_display_save(data + 12 + n, d) != d) d = 0;
+    put_u32(data + 8 + n, (uint32_t)d);
+    if (size) *size = 12 + n + d;
     return data;
 }
 
 int rr_psx_state_restore(RrPsxSession *s, const uint8_t *data, size_t size) {
-    if (!data || size < 5 || size - 4 != retro_serialize_size() || data[0] >= s->disc_count) return 3;
-    if (!retro_unserialize(data + 4, size - 4)) return 3;
+    if (!data || size < 12 || data[0] >= s->disc_count) return 3;
+    const size_t n = get_u32(data + 4);
+    if (n != retro_serialize_size() || size < 12 + n) return 3;
+    const size_t d = get_u32(data + 8 + n);
+    if (size != 12 + n + d) return 3;
+    if (!retro_unserialize(data + 8, n)) return 3;
+    /* A picture state of another surface (another internal resolution) is left out: the machine is loaded all the same. */
+    if (d) rr_psx_display_load(data + 12 + n, d);
     s->disc = data[0];
     s->audio_frames = 0;
     return 0;
