@@ -142,10 +142,13 @@ The page of each console, which the README links its line to (a console of the m
   conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
   interpreted on a route (on 6 November Operation Stealth and Captain Blood stayed on the GEM desktop, whose line-F calls go to
   Hatari's illegal-instruction handler and stay interpreted), 0 to 3 elsewhere; with EmuTOS 1.4, the default, 4 to 6 on every game,
-  and 75 to 887 on the two games the desktop now starts (Hatari's GEMDOS traps). G4 `P`: every route of every conversion is identical, frame by
-  frame, to a fresh interpreted reference. G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
+  and 75 to 1,065 on the two games the desktop now starts (Hatari's GEMDOS traps). G4 `P`: every route of every conversion is identical, frame by
+  frame, to a fresh interpreted reference. (Until 7 November the joystick events of the routes did not reach the machine, a port swap of Hatari's frontend; they do now,
+  and a live check with real SDL keys and a virtual gamepad on the converted Bomb Jack proves the controls; the owner's play trial of
+  7 November, on the nine reconverted games, found the gamepad control working: a trial of the controls, not an exit and not a
+  gameplay validation.) G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
   fresh process (CPU, RAM and picture; the sound samples are not compared) on the ten games; a state saved while a disk is being read
-  is not yet known to continue exactly. G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
+  is not yet known to continue exactly, and Turrican II saved in a level with its music running differs in registers and RAM (not in its picture). G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
   fixtures through Hatari's cycle-exact 68000 and through the native steps (`tools/atarist_vector_selftest.py`): state agreement on
   every vector run except two divisions by zero whose flags the 68000 leaves undefined; clock differences explained by the ST's
   4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10

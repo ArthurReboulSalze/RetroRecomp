@@ -105,6 +105,7 @@ static int state_load(const char *slot) {
    return result;
 }
 
+static void live_test_tick(unsigned frame);
 #include "hostkit/adapters/rrhk_atarist.inc"
 
 /* Makes every folder of `path` (UTF-8). */
@@ -186,6 +187,83 @@ static void write_trace_line(FILE *trace) {
    for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.d[r]);
    for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.a[r]);
    fputc('\n', trace);
+}
+
+static bool write_capture(const char *path);
+
+/* ---- the live input check (opt-in: RETRORECOMP_ST_TEST_SCRIPT and RETRORECOMP_ST_TEST_LOG) ----
+ * Real SDL input into the windowed game, so that the whole path a player's keys and pad take can be proved on an invisible
+ * desktop (SDL_VIDEODRIVER=dummy): keys go through SDL's own keyboard state like a driver's, a virtual SDL game controller
+ * plays the pad. One line per command, `FRAME verb args` (the frame the guest is about to run):
+ *   key NAME 1|0      a key down or up (SDL key names)      attach / detach   a virtual game controller
+ *   button NAME 1|0   a controller button (a, b, dpup...)   axis NAME VALUE   a controller axis
+ *   capture FILE      the picture as a PPM                  log TEXT          what the machine holds, to the log
+ *   quit              close the game
+ * Nothing runs, and nothing is written, without both variables. */
+extern int SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode);   /* SDL's own entry for a keyboard driver's key */
+static FILE *test_script, *test_log;
+static SDL_Joystick *test_pad;
+static unsigned test_due;
+static char test_command[1024];
+static int test_line, test_ready;
+
+static void test_next(void) {
+   char line[1100];
+   test_line = 0;
+   while (fgets(line, sizeof line, test_script)) {
+      if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+      if (sscanf(line, "%u %1023[^\r\n]", &test_due, test_command) != 2) exit(5);
+      test_line = 1;
+      return;
+   }
+}
+
+static void live_test_tick(unsigned frame) {
+   const char *path = getenv("RETRORECOMP_ST_TEST_SCRIPT"), *out = getenv("RETRORECOMP_ST_TEST_LOG");
+   if (!test_ready) {
+      test_ready = 1;
+      if (!path || !out) return;
+      test_script = open_utf8(path, L"rb");
+      test_log = open_utf8(out, L"wb");
+      if (!test_script || !test_log) exit(5);
+      test_next();
+   }
+   if (!test_script) return;
+   while (test_line && test_due <= frame) {
+      char name[96], file[900];
+      int value;
+      if (sscanf(test_command, "key %95s %d", name, &value) == 2) {
+         SDL_Scancode code = SDL_GetScancodeFromName(name);
+         if (!code || SDL_SendKeyboardKey(value ? SDL_PRESSED : SDL_RELEASED, code) < 0) exit(5);
+      } else if (!strcmp(test_command, "attach")) {
+         int index = SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER, SDL_CONTROLLER_AXIS_MAX, SDL_CONTROLLER_BUTTON_MAX, 0);
+         if (index < 0 || !(test_pad = SDL_JoystickOpen(index))) exit(5);
+      } else if (!strcmp(test_command, "detach") && test_pad) {
+         SDL_JoystickID id = SDL_JoystickInstanceID(test_pad);
+         int i;
+         SDL_JoystickClose(test_pad);
+         test_pad = NULL;
+         for (i = 0; i < SDL_NumJoysticks(); i++) if (SDL_JoystickGetDeviceInstanceID(i) == id) SDL_JoystickDetachVirtual(i);
+      } else if (sscanf(test_command, "button %95s %d", name, &value) == 2 && test_pad) {
+         SDL_GameControllerButton b = SDL_GameControllerGetButtonFromString(name);
+         if (b == SDL_CONTROLLER_BUTTON_INVALID || SDL_JoystickSetVirtualButton(test_pad, b, (Uint8)value)) exit(5);
+      } else if (sscanf(test_command, "axis %95s %d", name, &value) == 2 && test_pad) {
+         SDL_GameControllerAxis a = SDL_GameControllerGetAxisFromString(name);
+         if (a == SDL_CONTROLLER_AXIS_INVALID || SDL_JoystickSetVirtualAxis(test_pad, a, (Sint16)value)) exit(5);
+      } else if (sscanf(test_command, "capture %899s", file) == 1) {
+         if (!write_capture(file)) exit(5);
+      } else if (!strncmp(test_command, "log", 3)) {
+         RrStFrameInfo info;
+         rr_st_frame_info(session, &info);
+         fprintf(test_log, "%u\tpads=%d\tpad1=%04x\tpad2=%04x\tjoy1=%02x\tjoy0=%02x\tvideo=%016llx\tram=%016llx\tpc=%06x\t%s\n", frame,
+                 SDL_NumJoysticks(), ca.pad[0], ca.pad[1], rr_st_joystick_bits(session, 1), rr_st_joystick_bits(session, 0), (unsigned long long)info.video,
+                 (unsigned long long)info.ram, info.pc, test_command + (test_command[3] ? 4 : 3));
+         fflush(test_log);
+      } else if (!strcmp(test_command, "quit")) {
+         quit_requested = true;
+      } else exit(5);
+      test_next();
+   }
 }
 
 static bool write_capture(const char *path) {
