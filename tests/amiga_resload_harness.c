@@ -435,9 +435,10 @@ static void examine_and_list(void) {
     CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && regs[0] == 0xFFFFFFFFu && regs[1] == 0);
     CHECK(fib_is(fib, -3, "main", 18) && get32(fib) == 0);
     CHECK(get32(fib + 132) == 8035 && get32(fib + 136) == 790 && get32(fib + 140) == 450);
-    CHECK(mem[fib + 144] == 0 && get16(fib + 224) == 0 && get16(fib + 226) == 0 && mem[fib + 259] == 0);
-    CHECK(mem[fib - 1] == 0xFF && mem[fib + 260] == 0xFF);                  /* exactly 260 bytes are written */
-    CHECK(mem[fib + 8 + 5] == 0 && mem[fib + 8 + 107] == 0);                /* the name field is cleared past the name */
+    /* only the fields it has values for are written (the NUL of the name, an empty comment): the rest of the buffer, from
+       offset 145 on, keeps what it held; a slave's block may end 240 bytes after the FIB (4D Sports Boxing) */
+    CHECK(mem[fib + 144] == 0 && mem[fib - 1] == 0xFF && mem[fib + 145] == 0xFF && mem[fib + 224] == 0xFF && mem[fib + 259] == 0xFF);
+    CHECK(mem[fib + 8 + 4] == 0 && mem[fib + 8 + 5] == 0xFF);               /* the name ends with its NUL, nothing is cleared after it */
     /* a file in a folder, spelled differently from the request */
     puts_at(0x2000, "SAVES/slot3");
     CHECK(rr_resload_call(&r, 0x78, regs) == RR_RESLOAD_RETURN && fib_is(fib, -3, "Slot3", 300));

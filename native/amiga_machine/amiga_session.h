@@ -36,6 +36,8 @@ typedef struct RrAmigaGame {
     /* The player's own Kickstart image (normalised, 256 KiB), for the installs that ask for one; NULL: none. The session copies
      * it to ExpMem when the slave's request (size, CRC-16) matches it; it is never written anywhere else. */
     const uint8_t *kickstart; uint32_t kickstart_size;
+    /* CUSTOM1..5 as the install's own icon sets them (its ToolTypes), what resload_Control's CUSTOMn_GET answer. */
+    uint32_t custom[5];
 } RrAmigaGame;
 
 typedef struct RrAmigaSession RrAmigaSession;
@@ -51,6 +53,9 @@ void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
 /* Runs one frame (resload calls answered on the way). 0: the frame ran; -1: the install stopped (resload refused, Abort, or
  * the CPU left the resload table at a breakpoint); the reason is rr_amiga_error. */
 int rr_amiga_frame(RrAmigaSession *s);
+/* 1 when the install stopped because it ended itself normally (resload_Abort with TDREASON_OK), 0 for any other stop. */
+int rr_amiga_quit(const RrAmigaSession *s);
+uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
 /* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */

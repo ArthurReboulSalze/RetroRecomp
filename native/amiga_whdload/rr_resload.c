@@ -515,6 +515,10 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 0: wr32(r, slot, r->attn_flags); break;                 /* ATTNFLAGS_GET */
         case 1: wr32(r, slot, r->eclock); break;                     /* ECLOCKFREQ_GET */
         case 2: wr32(r, slot, r->monitor); break;                    /* MONITOR_GET */
+        /* Private3: undocumented. The slaves read (198 of the A500 library name it) only test it for non-zero: zero makes
+           them refuse with TDREASON_MUSTREG or skip their extra patches, as with a WHDLoad not registered. WHDLoad has
+           needed no key since 18.0, so it is answered as registered; 1 is our value, not one read from WHDLoad. */
+        case 5: wr32(r, slot, 1); break;
         case 6: wr32(r, slot, (uint32_t)r->button_wait); break;      /* BUTTONWAIT_GET */
         case 7: case 8: case 9: case 10: case 11: wr32(r, slot, r->custom[tag - 0x88000007u]); break;
         case 12: r->cbswitch = rd32(r, slot); break;                 /* CBSWITCH_SET */
@@ -714,7 +718,7 @@ int rr_resload_load_slave_kickstart(RrResload *r) {
 
 enum {
     FIB_DISKKEY = 0, FIB_DIRENTRYTYPE = 4, FIB_FILENAME = 8, FIB_PROTECTION = 116, FIB_ENTRYTYPE = 120, FIB_SIZE = 124,
-    FIB_NUMBLOCKS = 128, FIB_DATE = 132, FIB_NAME_CAP = 108
+    FIB_NUMBLOCKS = 128, FIB_DATE = 132, FIB_COMMENT = 144, FIB_NAME_CAP = 108
 };
 #define ST_FILE ((uint32_t)-3)
 #define ST_USERDIR 2u
@@ -813,11 +817,17 @@ static int resolve(RrResload *r, const char *path, DirEntry *leaf) {
     return kind;
 }
 
+/* Only the fields the layer has values for are written, the name up to its NUL and the comment as an empty string: the
+   buffer is not cleared and its owner and reserved tail (offset 145 on) are left alone. The autodoc says the buffer
+   holds 260 bytes, but the operating-system emulation of Another World and 4D Sports Boxing (Kickstart 1.3) hands the
+   layer a FileInfoBlock with only 240 bytes before the end of its allocation: writing all 260 zeroed the header of the
+   free chunk behind it, which emptied exec's fast-memory list and made every later allocation fail (AmigaDOS 103). */
 static void fill_fib(RrResload *r, uint32_t fib, uint32_t key, const DirEntry *e) {
-    for (uint32_t i = 0; i < RR_FIB_SIZE; i++) wr8(r, fib + i, 0);
     wr32(r, fib + FIB_DISKKEY, key);
     wr32(r, fib + FIB_DIRENTRYTYPE, e->is_dir ? ST_USERDIR : ST_FILE);
-    for (size_t i = 0; e->name[i] && i < FIB_NAME_CAP - 1; i++) wr8(r, fib + FIB_FILENAME + (uint32_t)i, (uint8_t)e->name[i]);
+    size_t length = 0;
+    for (; e->name[length] && length < FIB_NAME_CAP - 1; length++) wr8(r, fib + FIB_FILENAME + (uint32_t)length, (uint8_t)e->name[length]);
+    wr8(r, fib + FIB_FILENAME + (uint32_t)length, 0);
     wr32(r, fib + FIB_PROTECTION, 0);
     wr32(r, fib + FIB_ENTRYTYPE, e->is_dir ? ST_USERDIR : ST_FILE);
     wr32(r, fib + FIB_SIZE, e->size);
@@ -825,6 +835,7 @@ static void fill_fib(RrResload *r, uint32_t fib, uint32_t key, const DirEntry *e
     wr32(r, fib + FIB_DATE, r->time_days);
     wr32(r, fib + FIB_DATE + 4, r->time_mins);
     wr32(r, fib + FIB_DATE + 8, r->time_ticks);
+    wr8(r, fib + FIB_COMMENT, 0);                  /* no comment */
 }
 
 static int examine_failed(RrResload *r, uint32_t regs[16], uint32_t error) {

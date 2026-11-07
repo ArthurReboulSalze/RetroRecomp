@@ -169,7 +169,9 @@ def extract_install(source, folder: Path) -> dict:
     (folder / 'files').mkdir(parents=True)
     slave = amiga_lha.extract(blob, next(m for m in amiga_lha.members(blob) if m.name == install.slave_path))
     (folder / 'game.slave').write_bytes(slave)
-    lines = ['slave game.slave', f'ntsc {int(ntsc_install(source))}']
+    custom = amiga_whdload.custom_options(blob, install)
+    lines = ['slave game.slave', f'ntsc {int(ntsc_install(source))}',
+             *(f'custom {k + 1} {value}' for k, value in enumerate(custom) if value)]
     names = {}
     for n, (name, member) in enumerate(sorted(install.files.items())):
         if '\t' in name or '\n' in name:
@@ -180,7 +182,7 @@ def extract_install(source, folder: Path) -> dict:
         names[name] = stored
         lines.append(f'file {name}\t{stored}')
     (folder / 'install.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    return {'install': install, 'slave': slave, 'files': names}
+    return {'install': install, 'slave': slave, 'files': names, 'custom': custom}
 
 
 def display_window(results) -> tuple[int, int, int, int] | None:
@@ -224,6 +226,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               '#define RR_AMIGA_GAME_TITLE ' + json.dumps(title, ensure_ascii=True),
               '#define RR_AMIGA_SOURCE_IDENTITY ' + json.dumps(source.sha256),
               f'#define RR_AMIGA_NTSC {int(ntsc_install(source))}', f'#define RR_AMIGA_MOUSE_GAME {int(mouse_game)}',
+              '#define RR_AMIGA_CUSTOM {' + ','.join(f'{value}u' for value in extracted['custom']) + '}',
               *(f'#define RR_AMIGA_VIEW_{axis} {value}' for axis, value in zip('XYWH', view or (0, 0, 0, 0))),
               '#define RR_AMIGA_SLAVE_RESOURCE 300',
               *([f'#define RR_AMIGA_KICKSTART_RESOURCE {KICKSTART_RESOURCE}'] if kickstart is not None else []),
@@ -259,6 +262,44 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
     return sorted(samples)
 
 
+# The Kickstart code a game runs: its addresses only (never a byte) are kept, in the private memory beside the observations of
+# that image; the words of each instruction are read from the player's own image, in this conversion's private work folder, when
+# the steps are written, so the generated source and the game built from it belong to that player's image alone.
+KICK_ADDRESSES = 'converter-kickstart-addresses.txt'
+# The window a 256 KiB Kickstart (1.x) runs in, the one the machine's writable-ROM alias covers; the authored boot ROM below it is
+# not the Kickstart.
+KICK_WINDOW = (0xFC0000, 0x1000000)
+
+
+def read_kick_addresses(path: Path) -> set[int]:
+    """The Kickstart addresses of an observation (`<observations>.kick`, or the private memory): one hex address a line."""
+    found = set()
+    for line in Path(path).read_text(encoding='ascii').splitlines():
+        pc = int(line, 16)
+        if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+            raise ValueError('Unsupported Kickstart address.')
+        found.add(pc)
+        if len(found) > 262144:
+            raise ConversionError('Amiga Kickstart observation bound exceeded.')
+    return found
+
+
+def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
+    """(address, words) of those Kickstart instructions with the words of the player's own image (256 KiB, at $FC0000). Made in
+    memory for the generator; never stored. No address (an install without a Kickstart): nothing."""
+    if not addresses:
+        return set()
+    if len(image) & (len(image) - 1) or not image:
+        raise ConversionError('Amiga: the Kickstart image has an unexpected size.')
+    samples = set()
+    for pc in addresses:
+        words = image[pc & (len(image) - 1):][:12]
+        words = words[:len(words) // 2 * 2]
+        if words:
+            samples.add((pc, words.hex()))
+    return samples
+
+
 def generate(project: Path, samples: list, table: Path) -> dict:
     """The guarded native steps of these observations (the shared generator with the Amiga's Moira hooks)."""
     from . import amiga_codegen, m68k_observed
@@ -282,8 +323,14 @@ def generate(project: Path, samples: list, table: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
+# A route the game ends itself (resload_Abort with TDREASON_OK: its own Quit) is a valid reference when it ran this long: every
+# later run of that route (native passes, the compressed copy, the state continuation) may end the same way, and its trace and
+# resload log, the final Abort included, must still equal the reference's.
+MIN_ENDED_ROUTE_FRAMES = 1000
+
+
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Path | None = None, reference: bool = False,
-           observe: bool = False, extra=()) -> dict:
+           observe: bool = False, extra=(), game_may_quit: bool = False) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'), '--trace', str(folder / 'trace.tsv'),
             '--input-events', str(events), '--resload-log', str(folder / 'resload.log'), '--capture', str(folder / 'frame.ppm')]
@@ -299,6 +346,9 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     if result.returncode not in (0, 2):
         raise ConversionError('Amiga replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
+    if report.get('stopped') and game_may_quit and report.get('quit') and report.get('frames', 0) >= MIN_ENDED_ROUTE_FRAMES:
+        report['ended_by_game'] = True
+        return report
     if report.get('stopped'):
         raise ConversionError(f'Amiga: the install stopped at frame {report.get("frames")}: {report.get("error")}')
     if report.get('frames') != frames:
@@ -324,10 +374,10 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# What a resumed process is not compared on: vAmiga's snapshot leaves out the state of its audio output (the samplers are reset
-# on load, the resampler's phase and the output filters are not saved), so the samples of the frames after a load differ while
-# the machine (CPU, RAM, picture) continues the same timeline. Reported as such (`game_states.validation`).
-CONTINUATION_IGNORED = ('pcm',)
+# What a resumed process is not compared on: nothing. vAmiga's snapshot leaves out the state of its sound path (the samplers' pending
+# samples, the filters' memory, the sub-sample fraction, the volume ramps); the adapted core saves and restores exactly those, so the
+# samples after a load equal an unbroken run's. The tuple stays for a column a later machine may have to exempt.
+CONTINUATION_IGNORED = ()
 
 
 def continues(timeline: Path, resumed: Path) -> bool:
@@ -356,7 +406,8 @@ def kickstart_fields(kick) -> dict:
     return {'used': True, 'version': known.get('version'), 'os': known.get('os'), 'model': known.get('model'), 'file': kick.file_name,
             'size': kick.size, 'crc16': kick.crc16, 'crc32': kick.crc32, 'sha256': kick.sha256, 'normalised': list(kick.normalisations),
             'player_supplied': True, 'stored_in_library': False, 'shared': False, 'embedded_in_export': True,
-            'native': 'none: its instructions run on the interpreter, counted apart per route (final_checks.kickstart_interpreted)'}
+            'native': 'guarded native steps written from this player\'s own image in the conversion\'s private work folder; what still runs '
+                      'on the interpreter is counted apart per route (final_checks.kickstart_interpreted)'}
 
 
 def place_kickstart(folder: Path, kick) -> None:
@@ -421,13 +472,30 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], install=work / 'install',
-                                        reference=True, observe=True)
+                                        reference=True, observe=True, game_may_quit=True)
+        ended = {name: report['frames'] for name, report in expected.items() if report.get('ended_by_game')}
+        for name, frames_ in ended.items():
+            emit(f'Amiga: the game ended itself after {frames_} frames of the {name} route (its own Quit): the route ends there.')
         samples = set()
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
+        kick_addresses: set[int] = set()
+        kick_image = b''
+        if kick is not None:
+            kick_image = (work / 'install' / 'kickstart.rom').read_bytes()
+            for name, _, _ in routes:
+                try:
+                    kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
+                except (OSError, ValueError) as error:
+                    raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
+        if kick is not None and (memory / KICK_ADDRESSES).is_file():
+            try:
+                kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
+            except (OSError, ValueError):
+                emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
         if remembered.is_file():
             try:
                 samples |= set(read_observations(remembered))
@@ -448,37 +516,46 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table)
+                generation = generate(project, sorted(samples | kick_samples(kick_addresses, kick_image)), table)
+                if kick is not None:
+                    generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
             with timings.phase('compile'):
                 candidate = cmake_build(work / 'build', core, emit=emit, generated=project, payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
             more = set()
+            more_kick: set[int] = set()
             with timings.phase('native_runs'):
                 for name, frames_, _ in routes:
                     folder = run_dir / name
                     folder.mkdir(parents=True, exist_ok=True)
                     exported = folder / candidate.name
                     shutil.copy2(candidate, exported)
-                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True)
+                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True, game_may_quit=name in ended)
                     require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                       lambda: ConversionError(f'Amiga {name}: the native game and the fresh reference diverged; existing export preserved.'))
                     require_same_file(folder / 'resload.log', checks / f'reference-{name}' / 'resload.log',
                                       lambda: ConversionError(f'Amiga {name}: the resload calls differ from the reference; existing export preserved.'))
                     more |= set(read_observations(folder / 'observations.txt'))
+                    if kick is not None:
+                        try:
+                            more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
+                        except (OSError, ValueError) as error:
+                            raise ConversionError(f'Amiga {name}: the Kickstart addresses of the native run are unreadable: {error}') from error
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not (more - samples):
+            if not interpreted or not ((more - samples) or (more_kick - kick_addresses)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
+            kick_addresses |= more_kick
         timings.end_passes()
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Amiga', emit)
-        state_frame = count - 600
+        state_frame = ended.get('main', routes[0][1]) - 600
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
                         ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
                        for name, frames_, _ in routes]
@@ -491,7 +568,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             shutil.copy2(packed, target)
             if os.name != 'nt':
                 target.chmod(0o755)
-            return replay(target, folder, frames_, scripts[name], extra=extra)
+            return replay(target, folder, frames_, scripts[name], extra=extra, game_may_quit=name in ended)
         with timings.phase('packed_replays'):
             packed_results = replay_packed(delivered, packed_runs, replay_copy,
                                            same=lambda run_, result: same_trace(run_[1] / 'trace.tsv', run_[2] / 'trace.tsv'),
@@ -506,7 +583,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
+            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'],
+                   game_may_quit='main' in ended)
         require(continues(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv'),
                 lambda: ConversionError('Amiga: the quick state does not continue its saved timeline.'))
         rows = []
@@ -516,10 +594,12 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
-                         **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0)} if kick is not None else {}),
+                         **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
+                             'kickstart_native': (results[name].get('kickstart') or {}).get('native', 0)} if kick is not None else {}),
                          'packed_reference_match': True, 'resload_match': True, 'resload_calls': result['resload_calls'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                         **({'ended_by_game': True, 'frames_run': ended[name]} if name in ended else {}),
                          **({'state_restart_match': True, 'state_frame': state_frame} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {
@@ -531,7 +611,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'whdload': {'slave': source.slave_path, 'slave_version': slave.version, 'flags': list(slave.flag_names), 'base_mem': slave.base_mem,
                         'exp_mem': slave.exp_mem, 'kickstart_required': kick is not None, 'whdload_used': False,
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
-                        'data_files': len(extracted['files'])},
+                        'data_files': len(extracted['files']),
+                        'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
             'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
                                     f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},
@@ -545,11 +626,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
-                            'schema': 'RRAMIGA-STATE-1', 'machine': 'amiga500', 'rom_identity': source.sha256,
+                            'schema': 'RRAMIGA-STATE-2', 'machine': 'amiga500', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
                                            'continuation_frames': 400, 'continuation_matches': True,
-                                           'compared': 'CPU registers, RAM and picture of every frame; not the sound samples (vAmiga does '
-                                                       'not save the state of its audio resampler and filters)'}},
+                                           'compared': 'CPU registers, RAM, picture and sound samples of every frame'}},
             'ordinary_saves': {'supported': True, 'scope': 'files the install writes through resload_SaveFile, kept beside the game',
                                'path': 'datas/games/amiga-' + source.sha256 + '/saves',
                                'validation': {'checked_in_this_conversion': False, 'evidence': 'tests/test_amiga_resload.py (SaveFile, the save callback)'}},
@@ -571,6 +651,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             text = ''.join(f'{pc:06x} {words}\n' for pc, words in sorted(samples))
             (memory / (OBSERVATIONS + '.tmp')).write_text(text, encoding='ascii')
             os.replace(memory / (OBSERVATIONS + '.tmp'), remembered)
+            if kick is not None:
+                (memory / (KICK_ADDRESSES + '.tmp')).write_text(''.join(f'{pc:06x}\n' for pc in sorted(kick_addresses)), encoding='ascii')
+                os.replace(memory / (KICK_ADDRESSES + '.tmp'), memory / KICK_ADDRESSES)
             atomic_json(memory / 'compilation.json', {'schema': 1, 'title': title, 'system': 'amiga', 'game': source.game_key,
                                                       'rom_sha256': source.sha256, 'guarded_variants': len(samples), 'sdk': stamp,
                                                       'observations_sha256': file_sha256(remembered), 'private_development_only': True,
