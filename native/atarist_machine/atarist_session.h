@@ -44,6 +44,8 @@ RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size);
 /* Inputs of the next frame: a joystick (port 0 is the mouse port, port 1 the joystick port), the mouse (relative motion), a key
  * (a libretro key code, pressed or released). */
 void rr_st_joystick(RrStSession *s, unsigned port, unsigned bits);
+/* What the machine was last given on a joystick port (the numbering of rr_st_joystick), for the live input check. */
+unsigned rr_st_joystick_bits(const RrStSession *s, unsigned port);
 void rr_st_mouse(RrStSession *s, int dx, int dy, int left, int right);
 void rr_st_key(RrStSession *s, unsigned retrok, int down);
 

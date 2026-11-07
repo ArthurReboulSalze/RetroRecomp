@@ -172,6 +172,7 @@ static bool s_run_frame(uint16_t p1, uint16_t p2) {
    int w, h, stride;
    ca.pad[0] = p1; ca.pad[1] = p2;
    fast_forward = x_fast_forward();
+   live_test_tick(frame_number);
    s_inputs();
    s_disks();
    if (rr_st_frame(session) != 0) { fail(rr_st_error(session)); return false; }

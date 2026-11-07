@@ -244,8 +244,8 @@ static struct retro_vfs_interface vfs = {
  * (not patched for a faster boot), real floppy timing, the borders shown (overscan tricks stay visible), no blitter. */
 static const char *option_value(const char *key) {
     /* Every option Hatari's frontend reads (src/retro/options.c), so none falls back to a default chosen elsewhere. Booleans are
-     * "enabled" or "disabled". Port 0 is the mouse port (its joystick "none": the mouse), port 1 the joystick port; the second
-     * fire button is not turned into "up". */
+     * "enabled" or "disabled". Port 0 is the mouse port (the mouse, and the second player's joystick, as on the machine: a
+     * two-player game reads it), port 1 the first player's joystick port; the second fire button is not turned into "up". */
     static const char *const fixed[][2] = {
         {"hatari_dsp_type", "none"}, {"hatari_blitter", "disabled"}, {"hatari_fastboot", "disabled"}, {"hatari_timerd", "disabled"},
         {"hatari_cpu_level", "0"}, {"hatari_cpu_clock", "8"}, {"hatari_cpu_compatible", "enabled"},
@@ -256,7 +256,7 @@ static const char *option_value(const char *key) {
         {"hatari_drive_b_enable", "enabled"}, {"hatari_drive_a_heads", "2"}, {"hatari_drive_b_heads", "2"},
         {"hatari_monitor_type", "rgb"}, {"hatari_video_timing", "ws3"}, {"hatari_borders", "enabled"},
         {"hatari_aspect_correct", "disabled"}, {"hatari_spec512_threshold", "1"}, {"hatari_joystick_autofire", "disabled"},
-        {"hatari_joystick_jump_fire2", "disabled"}, {"hatari_joystick_port0", "none"}, {"hatari_joystick_port1", "real"},
+        {"hatari_joystick_jump_fire2", "disabled"}, {"hatari_joystick_port0", "real"}, {"hatari_joystick_port1", "real"},
     };
     size_t n;
     if (!strcmp(key, "hatari_machinetype")) return current->game.machine ? current->game.machine : "st";
@@ -376,7 +376,12 @@ static int16_t RETRO_CALLCONV input_state(unsigned port, unsigned device, unsign
     return 0;
 }
 
-void rr_st_joystick(RrStSession *s, unsigned port, unsigned bits) { if (port < 2) s->joystick[port] = bits; }
+/* Hatari's libretro frontend reads the ST's joystick 1 (the joystick port) from libretro port 0 and the ST's joystick 0 (the
+ * mouse port) from libretro port 1 (joy_ui.c: "Swap ports 0 and 1, since port 1 is the default in most games"), while the mouse
+ * is read from libretro port 0. `joystick` is indexed by libretro port; rr_st_joystick takes the ST's own numbering. */
+#define JOY_SLOT(port) ((port) ^ 1u)
+void rr_st_joystick(RrStSession *s, unsigned port, unsigned bits) { if (port < 2) s->joystick[JOY_SLOT(port)] = bits; }
+unsigned rr_st_joystick_bits(const RrStSession *s, unsigned port) { return port < 2 ? s->joystick[JOY_SLOT(port)] : 0; }
 void rr_st_mouse(RrStSession *s, int dx, int dy, int left, int right) {
     s->mouse_dx += dx; s->mouse_dy += dy; s->mouse_left = left != 0; s->mouse_right = right != 0;
 }
