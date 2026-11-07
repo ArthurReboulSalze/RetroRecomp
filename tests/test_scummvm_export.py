@@ -166,7 +166,7 @@ class OptionsPage(unittest.TestCase):
                      '"Menu: Ctrl+F5  (Opzioni > Retro-Recomp > Aiuto)"'):
             self.assertIn(text, self.patch)
         # shown for seven seconds, again later, and once more on the first mouse move (an OSD message lasts about two seconds)
-        self.assertIn('g_hintBurst = 7;', self.patch)
+        self.assertIn('g_hintBurst = 8;', self.patch)
         self.assertIn('mouse != g_hintMouse', self.patch)
 
     def test_the_help_tab_lists_the_shortcuts_in_five_languages(self):

@@ -1,5 +1,5 @@
 diff --git a/backends/events/default/default-events.cpp b/backends/events/default/default-events.cpp
-index 1179c478..a41527cc 100644
+index 1179c478..d16e4149 100644
 --- a/backends/events/default/default-events.cpp
 +++ b/backends/events/default/default-events.cpp
 @@ -26,6 +26,7 @@
@@ -14,12 +14,12 @@ index 1179c478..a41527cc 100644
  
  bool DefaultEventManager::pollEvent(Common::Event &event) {
  	_dispatcher.dispatch();
-+	packedMainThreadTick();      // Retro-Recomp: the menu hint of a packed executable
++	packedMainThreadTick(true);      // Retro-Recomp: the menu hint of a packed executable
  
  	if (g_engine)
  		// Handle autosaves if enabled
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
-index 7b74d48d..68361f59 100644
+index 7b74d48d..d5b8a30d 100644
 --- a/backends/fs/packed/packed-fs.cpp
 +++ b/backends/fs/packed/packed-fs.cpp
 @@ -39,7 +39,11 @@
@@ -122,7 +122,7 @@ index 7b74d48d..68361f59 100644
  // ---------------------------------------------------------------------------------------------
  // Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
  // (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
-@@ -581,9 +666,176 @@ void installCrashLog(const Common::String &path) {
+@@ -581,9 +666,182 @@ void installCrashLog(const Common::String &path) {
  
  } // namespace
  
@@ -149,15 +149,15 @@ index 7b74d48d..68361f59 100644
 +Common::Point g_hintMouse(-1, -1);
 +
 +// One tick a second. A message stays on screen about two seconds, so the hint is repeated every second for seven seconds:
-+// starting three seconds after the first poll of the engine (the game's own picture is up by then), again at twenty-five seconds, and once more
++// starting a second after the first poll of the engine (the game's own picture is up by then), again at twenty-five seconds, and once more
 +// as soon as the player moves the mouse after the first twelve seconds (some intros and fades cover the overlay).
 +void hintTick() {
 +	const int tick = ++g_hintTicks;
 +	const Common::Point mouse = g_system->getEventManager()->getMousePos();
-+	if (tick == 2)
++	if (tick == 1)
 +		g_hintMouse = mouse;
-+	if (tick == 3 || tick == 25)
-+		g_hintBurst = 7;
++	if (tick == 1 || tick == 25)
++		g_hintBurst = 8;
 +	if (g_hintBurst == 0 && tick > 12 && tick <= 120 && g_hintMouse.x >= 0 && mouse != g_hintMouse && tick - g_hintShownAt >= 10) {
 +		g_hintBurst = 6;
 +		g_hintMouse = Common::Point(-1, -1);       // once only
@@ -165,7 +165,7 @@ index 7b74d48d..68361f59 100644
 +	if (g_hintBurst > 0) {
 +		g_hintBurst--;
 +		g_hintShownAt = tick;
-+		Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint());
++		g_system->displayMessageOnOSD(retroRecompMenuHint());      // directly: some engines wait for seconds without polling events
 +	}
 +}
 +
@@ -271,8 +271,14 @@ index 7b74d48d..68361f59 100644
 +
 +} // namespace
 +
-+void packedMainThreadTick() {
++void packedMainThreadTick(bool fromEventPoll) {
 +	if (!g_pack.present)
++		return;
++	// Armed by the first poll of the events: the graphics exist from then on (a delay before that must not touch them).
++	static bool armed = false;
++	if (fromEventPoll)
++		armed = true;
++	if (!armed)
 +		return;
 +	static uint32 last = 0;
 +	const uint32 now = g_system->getMillis(true);
@@ -299,7 +305,7 @@ index 7b74d48d..68361f59 100644
  	if (getenv("RR_TEST_FATAL"))
  		error("Retro-Recomp: deliberate fatal error");
  	if (getenv("RR_TEST_CRASH")) {
-@@ -638,7 +890,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -638,7 +896,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	else if (language == "it")
  		guiLanguage = "it_IT";
  	const Common::String config = gameDir + kNativeSep + "scummvm.ini";
@@ -323,7 +329,7 @@ index 7b74d48d..68361f59 100644
  
  	static Common::Array<Common::String> strings;
  	strings.clear();
-@@ -665,6 +932,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -665,6 +938,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	argv = &pointers[0];
  }
  
@@ -335,7 +341,7 @@ index 7b74d48d..68361f59 100644
  	return g_pack.present;
  }
 diff --git a/backends/fs/packed/packed-fs.h b/backends/fs/packed/packed-fs.h
-index 1b7bc73e..80f0abf0 100644
+index 1b7bc73e..3547d0ea 100644
 --- a/backends/fs/packed/packed-fs.h
 +++ b/backends/fs/packed/packed-fs.h
 @@ -35,6 +35,12 @@
@@ -380,8 +386,8 @@ index 1b7bc73e..80f0abf0 100644
 + */
 +void packedSyncSettings();
 +
-+/** Called from the main thread at every poll of the events: once a second it shows the menu hint (never from another thread). */
-+void packedMainThreadTick();
++/** Called from the main thread at every poll of the events and at every delay: once a second it shows the menu hint (never from another thread). */
++void packedMainThreadTick(bool fromEventPoll = false);
 +
 +/** True while the authored check of the options page runs (RR_TEST_OPTIONS): the page is shown first. */
 +bool packedTestOptions();
@@ -1046,7 +1052,7 @@ index 9232a26e..e39561e7 100644
  	// Free OSystem
  	g_system->destroy();
 diff --git a/backends/platform/sdl/sdl.cpp b/backends/platform/sdl/sdl.cpp
-index ed057d5c..cd829af0 100644
+index ed057d5c..2cff7a91 100644
 --- a/backends/platform/sdl/sdl.cpp
 +++ b/backends/platform/sdl/sdl.cpp
 @@ -680,6 +680,10 @@ void *OSystem_SDL::getOpenGLProcAddress(const char *name) const {
@@ -1060,6 +1066,14 @@ index ed057d5c..cd829af0 100644
  void OSystem_SDL::quit() {
  	destroy();
  	exit(0);
+@@ -891,6 +895,7 @@ uint32 OSystem_SDL::getMillis(bool skipRecord) {
+ }
+ 
+ void OSystem_SDL::delayMillis(uint msecs) {
++	packedMainThreadTick();      // Retro-Recomp: the menu hint also appears while an engine waits (intro screens)
+ #ifdef ENABLE_EVENTRECORDER
+ 	if (g_eventRec.processDelayMillis())
+ #endif
 diff --git a/backends/platform/sdl/sdl.h b/backends/platform/sdl/sdl.h
 index 4d01df9b..56cf4119 100644
 --- a/backends/platform/sdl/sdl.h

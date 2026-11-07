@@ -33,7 +33,7 @@ Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has t
 saves). Nothing is written anywhere else.
 
 * **Menu**: Ctrl+F5, or Start on a pad, opens ScummVM's menu (save, load, options, quit); a message "Menu: Ctrl+F5" is shown over
-  the game for seven seconds as soon as the game is running, again after twenty-five seconds, and once more at the first mouse
+  the game for eight seconds as soon as the game is running, again after twenty-five seconds, and once more at the first mouse
   move. Alt+Enter switches to full screen, Ctrl+U mutes, Ctrl+Z or Alt+F4 quits on Windows (Ctrl+Q on Linux). **Ctrl+F4** switches
   full screen with integer (pixel-perfect) scaling on and off, and **Ctrl+F3** cycles the picture effect in the order of the host
   kit's F3: sharp pixels, HQ2x (ScummVM has no xBR; this is its closest scaler), Scale2x and scanlines, all with ScummVM's own
