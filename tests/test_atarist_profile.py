@@ -150,6 +150,75 @@ class TosTests(unittest.TestCase):
             atarist_tos.require(self.folder)
         self.assertIn('no Atari ST TOS', str(caught.exception))
 
+    def test_an_emutos_image_is_not_taken_for_the_players_tos(self):
+        blob = bytearray(tos_like())
+        blob[0x2C:0x30] = b'ETOS'
+        self.assertIsNone(atarist_tos.identify(self.write(bytes(blob), 'etos192uk.img')))
+
+
+class EmuTosTests(unittest.TestCase):
+    """EmuTOS is fetched once, checked by size and SHA-256 on every use, and refused when it is not the pinned file. The release
+    files are authored stand-ins here (a zip holding a buffer with the EmuTOS magic, a few bytes for the source); nothing is
+    downloaded."""
+
+    def setUp(self):
+        import hashlib
+        import io
+        from retrorecomp import atarist_emutos
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.folder = Path(folder.name)
+        self.emutos = atarist_emutos
+        image = bytearray(tos_like())
+        image[0x2C:0x30] = b'ETOS'
+        member = 'emutos-192k-test/etos192uk.img'
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, 'w') as archive:
+            archive.writestr(member, bytes(image))
+        self.files = {'binary.zip': stream.getvalue(), 'source.tar.gz': b'authored source stand-in'}
+        sha = lambda data: hashlib.sha256(data).hexdigest()  # noqa: E731
+        for name, value in (('BINARY', ('binary.zip', len(self.files['binary.zip']), sha(self.files['binary.zip']))),
+                            ('SOURCE', ('source.tar.gz', len(self.files['source.tar.gz']), sha(self.files['source.tar.gz']))),
+                            ('IMAGE', (member, len(image), sha(bytes(image))))):
+            patcher = patch.object(atarist_emutos, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch.object(atarist_emutos, 'directory', lambda: self.folder)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.downloads = []
+
+    def fake_download(self, url, destination, size, digest, limit, mismatch):
+        self.downloads.append(url.rsplit('/', 1)[-1])
+        Path(destination).write_bytes(self.files[url.rsplit('/', 1)[-1]])
+
+    def test_fetched_once_then_checked_on_every_use(self):
+        with patch('retrorecomp.updater._download_verified', self.fake_download):
+            tos = self.emutos.require(emit=lambda text: None)
+            self.emutos.require(emit=lambda text: None)
+        self.assertEqual(self.downloads, ['binary.zip', 'source.tar.gz'])
+        self.assertFalse(tos.player_supplied)
+        self.assertEqual((tos.key, tos.pal, tos.version_text()), ('emutos-' + self.emutos.VERSION, True, 'EmuTOS ' + self.emutos.VERSION))
+        self.assertEqual(tos.data()[0x2C:0x30], b'ETOS')
+        self.assertEqual(tos.sha256, self.emutos.IMAGE[2])
+        self.assertEqual(tos.source.read_bytes(), self.files['source.tar.gz'])
+
+    def test_a_changed_file_is_fetched_again_and_a_failed_fetch_is_a_sentence(self):
+        with patch('retrorecomp.updater._download_verified', self.fake_download):
+            self.emutos.require(emit=lambda text: None)
+        (self.folder / 'source.tar.gz').write_bytes(b'changed')
+        with patch('retrorecomp.updater._download_verified', self.fake_download):
+            self.emutos.require(emit=lambda text: None)
+        self.assertEqual(self.downloads, ['binary.zip', 'source.tar.gz', 'source.tar.gz'])
+        (self.folder / 'binary.zip').unlink()
+
+        def offline(*args):
+            raise OSError('offline')
+        with patch('retrorecomp.updater._download_verified', offline), self.assertRaises(ValueError) as caught:
+            self.emutos.require(emit=lambda text: None)
+        self.assertIn('choose your own TOS', str(caught.exception))
+        self.assertFalse(list(self.folder.glob('*.part')))
+
 
 if __name__ == '__main__':
     unittest.main()

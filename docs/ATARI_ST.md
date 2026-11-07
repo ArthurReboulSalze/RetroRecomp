@@ -11,18 +11,21 @@ faithfully or how long input takes to reach the screen: those are separate measu
 | Converted (experimental) | Not yet |
 | --- | --- |
 | Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, played in the order of their names: `x (Disk 1).ipf`, `x (Disk 2).ipf`) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
-| The player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | EmuTOS as the default for a player without a TOS of his own: not yet, the TOS row is needed for now |
+| EmuTOS 1.4 (free, GPL), the default: fetched once from the EmuTOS project with its source (`retrorecomp/atarist_emutos.py`); or the player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | TOS 1.6 and later (STE and beyond); EmuTOS in another language than English (UK) |
 | The joystick, the mouse and the keyboard; quick states (F8/F9) | A played-through game |
 | Windows; Linux (converted and validated headless on a Debian 13 PC, see below) | A game played on Linux |
 
 A ZIP that holds anything other than floppy images is not claimed by the Atari ST profile. The input is read in place and never
-changed. The player supplies the disks and the TOS; Retro-Recomp publishes no game, no disk and no firmware.
+changed. The player supplies the disks (and his TOS if he wants it); Retro-Recomp publishes no game, no disk and no firmware.
 
 ## 2. How the conversion works
 
 1. **Reading the input.** `retrorecomp/atarist.py` reads the image or the ZIP (members sorted by name for the disk order) and takes the
-   SHA-256 of the file as the identity of the game. `retrorecomp/atarist_tos.py` recognises the TOS by its header (never by its
-   name) and takes its SHA-256 as the identity of the firmware.
+   SHA-256 of the file as the identity of the game. `retrorecomp/atarist_tos.py` recognises the player's TOS by its header (never
+   by its name) and takes its SHA-256 as the identity of the firmware. Without one, `retrorecomp/atarist_emutos.py` takes EmuTOS
+   1.4: the first conversion fetches its two release files (`emutos-192k-1.4.zip` and the source `emutos-src-1.4.tar.gz`) from
+   the EmuTOS project on SourceForge into the converter's dependency folder; their size and SHA-256 are pinned and checked on
+   every use. The machine boots the United Kingdom image (PAL, English). An EmuTOS image is never taken for the player's TOS.
 2. **The machine.** The games run on Hatari (the cycle-exact WinUAE 68000, the Shifter, GLUE and MMU video, the YM2149, the MFP,
    the IKBD, the WD1772 and the DMA), pinned at one revision (`atarist_hatari.HATARI_REV`) and adapted at build time by
    `retrorecomp/atarist_hatari.py`: each replacement must find its pinned text exactly once, so an upstream change fails loudly.
@@ -50,11 +53,13 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | The panel of ten games, converted once each on Windows (6 November 2026, Standard level; Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the table below. On the tested routes only. |
+| Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
 | CPU fidelity | The native steps call Hatari's own handlers: on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`, on the ST memory map and on a flat 24-bit bus): the final state agrees on every vector run except two authored divisions by zero whose N/Z flags the 68000 leaves undefined; the clock differences are the ST's 4-cycle bus rounding except 14 CHK vectors (4 clocks more); the native step equals the interpreter on every vector. The vectors are MAME-made, not silicon. |
 | Hardware fidelity | Not claimed. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |
+
+With TOS 1.04 (United Kingdom):
 
 | Game (disks) | Native | Interpreted | Own screen reached by the route |
 | --- | ---: | ---: | --- |
@@ -69,6 +74,25 @@ changed. The player supplies the disks and the TOS; Retro-Recomp publishes no ga
 | Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged"; the same disk read as plain sectors by an independent reader reaches the title screen, so the IPF path is at fault (one defect found and fixed, see below; the cause is not found yet) |
 | Indiana Jones and the Temple of Doom (1) | 40,182,497 | 2 | yes (title, high scores) |
 
+With EmuTOS 1.4 (United Kingdom), the default:
+
+| Game (disks) | Native | Interpreted | Own screen reached by the route |
+| --- | ---: | ---: | --- |
+| Bomb Jack (1) | 33,168,244 | 5 | yes (title) |
+| Another World (2) | 47,047,023 | 5 | yes (code-wheel protection) |
+| Operation Stealth (3) | 94,408,353 | 4 | no: the EmuTOS desktop (a route that opens the game is needed) |
+| Captain Blood (2) | 94,540,428 | 4 | no: the EmuTOS desktop, as with TOS 1.04 |
+| Elite (1) | 43,015,000 | 4 | yes (manual-word protection) |
+| Lethal Xcess (2) | 39,537,299 | 4 | yes (music device menu) |
+| Turrican II (1) | 44,483,076 | 4 | no: the Rainbow Arts intro, then the game stops; EmuTOS's own `doc/incompatible.txt` names Turrican among the games that use low memory EmuTOS also uses ("this can never work with EmuTOS"): the player's TOS is the way |
+| Carrier Command (1) | 42,153,484 | 4 | yes (language menu) |
+| Kick Off 2 (1) | 43,770,897 | 4 | no: the same "Master file" error as with TOS 1.04 |
+| Indiana Jones and the Temple of Doom (1) | 45,965,879 | 6 | yes (in game) |
+
+Every route of the twenty conversions equals its fresh interpreted reference, the compressed copy too, and the state continues
+in a fresh process. On EmuTOS the desktop games are no longer interpreted for their system calls (EmuTOS does not use line-F
+calls); more instructions run in the same 3,000 frames because EmuTOS boots and idles differently, not because of a game.
+
 "Own screen" means the route's last picture is the game's, not that the game was played.
 
 IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool,
@@ -76,10 +100,20 @@ not shipped): on ordinary tracks the sectors decoded from the flux Hatari genera
 tracks of Kick Off 2 (a 1024-byte sector written across the index) a phantom flux transition at the index corrupted the sector
 after it; fixed in `retrorecomp/atarist_hatari.py` (the time from the last transition to the index joins the first interval). The
 game still stops, so a second cause remains (its protection sector holds a no-flux area, which a real drive reads as noise).
+A second opinion from the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in
+the repository) on 7 November 2026: on cylinders 1 to 7 of side 0 its rendering and Hatari's agree on the index position, the
+flux of every ordinary sector and sectors 1 to 10 of the protected tracks; the protected tracks also hold a second 1024-byte
+sector (16) whose data mark is written one cell out of phase, and a 2 ms area without flux, which capsimg renders one cell
+longer (1,026 against 1,025 cells). So the flux is not the cause; what remains is how the WD1772 model reads those two sectors
+(capsimg reads with its own controller model, Hatari's built-in path with Hatari's).
 
 ## 4. Known limits
 
-- STE, TT, Falcon, hard disks and CD-style media are out of scope. EmuTOS, the TOS for a player who has none, is not available yet.
+- STE, TT, Falcon, hard disks and CD-style media are out of scope.
+- EmuTOS is not Atari's TOS: a few games written for the original TOS behave differently on it (its own
+  `doc/incompatible.txt` lists the known ones). The player's own TOS remains the option for those; the private memory of a game
+  is kept per TOS. The panel of section 3 was converted with TOS 1.04; its EmuTOS results are in section 3 too.
+- The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
 - Linux: two panel games were converted and validated on a Debian 13 PC (7 November 2026, system GCC, the tree of Windows'
   witness): Bomb Jack (Quick, 32,910,583 native, 1 interpreted) and Another World (Standard, 33,425,244 and 33,425,310 native,
   1 interpreted on each route). Every route equals its fresh reference, the compressed copy too, and the state continues in a
@@ -102,8 +136,11 @@ game still stops, so a second cause remains (its protection sector holds a no-fl
   distributed under the GPL, version 2**, with Hatari at the pinned revision and the build-time changes of
   `retrorecomp/atarist_hatari.py` as its corresponding source. Its IPF reader (`src/floppies/ipf_dsk.c`) is BSD-3-Clause; the
   capsimg library is never built or linked. Notice: [licenses/hatari.md](../licenses/hatari.md).
-- The disks and the TOS embedded in an export are the player's own; the GPL does not make them redistributable and Retro-Recomp
-  distributes none.
+- The disks and the player's TOS embedded in an export are the player's own; the GPL does not make them redistributable and
+  Retro-Recomp distributes none.
+- EmuTOS is **GPL-2.0-or-later**. A game that boots it embeds the image and the release's complete source archive, which the game
+  writes into a folder on request (`Game.exe --write-sources FOLDER`). Retro-Recomp's repository and installer hold no EmuTOS
+  file. Notice: [licenses/emutos.md](../licenses/emutos.md).
 - The 68000 decoder of m68k-recomp-core (PolyForm Noncommercial) is used under Matthew Stan's permission of 6 November 2026 to
   combine it with GPL code in Retro-Recomp's exports.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).

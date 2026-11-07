@@ -137,11 +137,11 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Atari ST (6 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): G1 `P`: the profile is declared
+- Atari ST (6 and 7 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): G1 `P`: the profile is declared
   experimental and `tools/status_lint.py` agrees, but the machine is not opened to players yet. G2 `P`: the common report v2 of every
   conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
   interpreted on a route (Operation Stealth and Captain Blood stay on the GEM desktop, whose line-F calls go to Hatari's
-  illegal-instruction handler and stay interpreted), 0 to 3 elsewhere. G4 `P`: every route of every conversion is identical, frame by
+  illegal-instruction handler and stay interpreted), 0 to 3 elsewhere; with EmuTOS 1.4, the default, 4 to 6 on every game. G4 `P`: every route of every conversion is identical, frame by
   frame, to a fresh interpreted reference. G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
   fresh process (CPU, RAM and picture; the sound samples are not compared) on the ten games; a state saved while a disk is being read
   is not yet known to continue exactly. G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
@@ -150,7 +150,9 @@ The page of each console, which the README links its line to (a console of the m
   4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
   panel games reach their own screens; Operation Stealth and Captain Blood are started from the GEM desktop (a route that opens
   them is needed; Captain Blood's disk was read identically by an independent reader), Kick Off 2 stops on its own error (its
-  plain sectors boot; one IPF reader defect found and fixed, a second cause remains). G13 `P`: Bomb Jack and Another World converted
+  plain sectors boot; one IPF reader defect found and fixed; a second cause remains, in the controller reading of its two
+  1024-byte protection sectors, since capsimg renders the same flux); with EmuTOS 6 of the 10 (Turrican II is one EmuTOS documents
+  as incompatible). G13 `P`: Bomb Jack and Another World converted
   and validated on a Debian 13 PC with the system GCC (7 November 2026): the same native and interpreted counts as Windows and
   reference traces byte for byte equal to Windows' on the three routes; no game played on Linux. No hardware fidelity is
   claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).

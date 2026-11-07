@@ -506,7 +506,7 @@
     "amiga_kickstart_unknown_version": "{name}：Kickstartを識別できません。インストールが求めるのは、変更されていない決まった版（1.2、1.3、3.1）です。パッチを当てたり改変したりしたイメージは使えません。",
     "amiga_kickstart_none_found": "{name} にKickstartイメージが見つかりません。",
     "options_atarist": "Atari ST",
-    "options_atarist_note": "Atari ST プロファイル（実験的）：ST、STF、Mega ST のフロッピーゲーム（IPF、STX、MSA、ST イメージ、またはそれだけを含む ZIP）を Hatari で実行します。下の行で、あなた自身の TOS 1.00〜1.04（ファイルまたはイメージのフォルダー）を選んでください。EmuTOS は後で標準になります。STE、TT、Falcon、ハードディスクには非対応です。現在はすべての命令がインタープリター実行として数えられます。メニュー、フィルター、操作、F8/F9 は共通です。最初の変換で固定されたマシンのソースをダウンロードします。",
+    "options_atarist_note": "Atari ST プロファイル（実験的）：ST、STF、Mega ST のフロッピーゲーム（IPF、STX、MSA、ST イメージ、またはそれだけを含む ZIP）を Hatari で実行します。下の行で、あなた自身の TOS 1.00〜1.04（ファイルまたはイメージのフォルダー）を選ぶか、空のままにしてください。空の場合は EmuTOS 1.4 で起動します（ソース付きで一度だけダウンロード）。STE、TT、Falcon、ハードディスクには非対応です。実行された命令はネイティブコードになり、それ以外はインタープリター実行として数えられます。メニュー、フィルター、操作、F8/F9 は共通です。最初の変換で固定されたマシンのソースをダウンロードします。",
     "atarist_tos_label": "Atari ST：あなた自身の TOS 1.00-1.04（イメージまたはフォルダー）",
     "x68_sets_grouped": "Sharp X68000: まとめた複数ディスクのゲーム: {count}（1ゲーム1行）。",
     "x68_set_incomplete": "Sharp X68000: {title} のディスク {missing}/{total} がありません。見つかったディスクのみを追加します。",

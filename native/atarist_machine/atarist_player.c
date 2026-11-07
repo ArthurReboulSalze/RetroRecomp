@@ -300,6 +300,19 @@ static bool embedded_game(RrStGame *game, RrStDisk *disks) {
    game->memory_kb = RR_ST_MEMORY_KB;
    return true;
 }
+
+/* A game that boots EmuTOS carries EmuTOS's complete source archive (GPL-2.0-or-later): --write-sources DIR writes it there. */
+static int write_sources(const char *folder) {
+   size_t size = 0;
+   const void *data = RR_ST_SOURCES_RESOURCE ? rr_resource(RR_ST_SOURCES_RESOURCE, &size) : NULL;
+   char path[PATH_CAP];
+   FILE *f;
+   if (!data || !size) { puts("This game carries no third-party source archive (it boots the player's own TOS)."); return 0; }
+   if (snprintf(path, sizeof path, "%s/%s", folder, RR_ST_SOURCES_NAME) >= (int)sizeof path) { fail("The folder path is too long"); return 1; }
+   if (!(f = open_utf8(path, L"wb")) || fwrite(data, 1, size, f) != size || fclose(f)) { fail("Cannot write the source archive"); return 1; }
+   printf("%s\n", path);
+   return 0;
+}
 #endif
 
 int main(int argc, char **argv) {
@@ -328,6 +341,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
               "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+              "an exported game that boots EmuTOS: --write-sources DIR (writes EmuTOS's source archive there)\n"
               "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB");
          return 0;
       } else if (i + 1 < argc) {
@@ -340,6 +354,9 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--observations")) observe_path = v;
          else if (!strcmp(a, "--opcode-map")) opcode_map_path = v;
          else if (!strcmp(a, "--opcode-lengths")) opcode_lengths_path = v;
+#ifdef RR_ST_LINKED
+         else if (!strcmp(a, "--write-sources")) return write_sources(v);
+#endif
          else if (!strcmp(a, "--tos")) tos_path = v;
          else if (!strcmp(a, "--disk")) { if (disk_count == RR_ST_MAX_DISKS) { fail("Too many disks"); return 1; } disk_paths[disk_count++] = v; }
          else if (!strcmp(a, "--machine")) game.machine = v;

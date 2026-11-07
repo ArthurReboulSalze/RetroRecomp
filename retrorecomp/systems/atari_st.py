@@ -76,12 +76,12 @@ class AtariStProfile(SystemProfile):
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """The TOS the machine boots is part of the request: the player's own image (its SHA-256), or EmuTOS (its pin)."""
-        from .. import atarist_tos
+        from .. import atarist_emutos, atarist_tos
         try:
             tos = atarist_tos.require(options.get('atarist_tos'))
         except (OSError, ValueError):
             tos = None
-        settings['atarist_tos'] = tos.sha256 if tos is not None else 'emutos'
+        settings['atarist_tos'] = tos.sha256 if tos is not None else 'emutos-' + atarist_emutos.VERSION
 
     def read_rom(self, path: Path):
         from ..atarist import read_input

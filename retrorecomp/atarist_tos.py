@@ -3,7 +3,8 @@ but the conversion's own work folder and the player's own export (as the X68000 
 
 The plain ST, STF and Mega ST of the first scope boot TOS 1.00, 1.02 or 1.04: 192 KiB images mapped at $FC0000. An image is
 recognised by its header (the branch at offset 0, the version word at 2, the base address at 8, the country code at $1D),
-never by its name. EmuTOS, the default for a player without his own TOS, comes with the converter (atarist_emutos).
+never by its name. EmuTOS, the default for a player without his own TOS, is fetched by the converter (atarist_emutos); an
+EmuTOS image (it presents itself as TOS 1.04) is not taken for the player's own TOS.
 """
 from __future__ import annotations
 
@@ -28,6 +29,15 @@ class TosImage:
     pal: bool
     sha256: str
     size: int
+    player_supplied = True
+
+    @property
+    def key(self) -> str:
+        """The TOS part of a game's private memory: the first 16 digits of the image's SHA-256."""
+        return self.sha256[:16]
+
+    def version_text(self) -> str:
+        return f'{self.version >> 8}.{self.version & 0xff:02x}'
 
     def label(self) -> str:
         return f'TOS {self.version >> 8}.{self.version & 0xff:02x} ({COUNTRIES.get(self.country, "country %d" % self.country)})'
@@ -52,7 +62,7 @@ def identify(path: Path) -> TosImage | None:
         return None
     version = int.from_bytes(blob[2:4], 'big')
     base = int.from_bytes(blob[8:12], 'big')
-    if version not in VERSIONS or base != TOS_BASE:
+    if version not in VERSIONS or base != TOS_BASE or blob[0x2C:0x30] == b'ETOS':
         return None
     country = blob[0x1D] >> 1
     pal = bool(blob[0x1D] & 1) if version >= 0x0102 else country != 0

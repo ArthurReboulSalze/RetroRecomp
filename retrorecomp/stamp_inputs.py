@@ -639,6 +639,7 @@ INPUTS = _resolve({
     # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE
     # above). The profile module comes from the profile; the computer adapter and the gates it shares come from stamp_groups.
     ('atarist',): (
+        'licenses/emutos.md',
         'licenses/hatari.md',
         'native/atarist_machine/CMakeLists.txt',
         'native/atarist_machine/atarist_player.c',
@@ -649,6 +650,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist',
         'retrorecomp.atarist_codegen',
         'retrorecomp.atarist_conversion',
+        'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',
     ),

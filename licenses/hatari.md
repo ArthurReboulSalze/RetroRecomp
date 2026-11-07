@@ -26,7 +26,8 @@ What this means for an exported game:
   exactly once); the configure options in the same file; and Retro-Recomp's own sources at the version named in the game's notices
   (<https://github.com/ArthurReboulSalze/Retro-Recomp>). Our changes to Hatari's files are GPL-2.0, like those files.
 * **The game's data is not part of the program's source.** The floppy images and the TOS image embedded in an export are the
-  player's own (or EmuTOS, under its own GPL); the GPL does not make them redistributable, and Retro-Recomp distributes neither.
+  player's own, or EmuTOS ([emutos.md](emutos.md), under its own GPL, with its complete source in the game); the GPL does not make
+  the player's own files redistributable, and Retro-Recomp distributes none of them.
 * **No noncommercial code** is in the same program unless its author allowed it: the 68000 decoder of m68k-recomp-core, which
   the native steps use, is included under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in
   Retro-Recomp's exports.

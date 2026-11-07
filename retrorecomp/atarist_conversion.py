@@ -44,6 +44,7 @@ PLAYER = 'RetroRecomp-AtariST'
 NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
                 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
+SOURCES_RESOURCE = 297     # EmuTOS's complete source archive, in a game that boots EmuTOS
 TOS_RESOURCE = 298
 MARKER_RESOURCE = 299
 FIRST_DISK_RESOURCE = 300
@@ -187,8 +188,13 @@ def extract_game(source, tos_data: bytes, folder: Path) -> list[Path]:
     return disks
 
 
-def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool) -> dict:
-    """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata."""
+def notice_files(emutos: bool) -> tuple[str, ...]:
+    return NOTICE_FILES + (('licenses/emutos.md',) if emutos else ())
+
+
+def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None) -> dict:
+    """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata; with
+    EmuTOS, its complete source archive too (`sources`), which the game writes out with --write-sources."""
     from .metadata import write_game_metadata
     from .resources import embed_resources
     project.mkdir(parents=True, exist_ok=True)
@@ -197,10 +203,15 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
     (project / 'export-marker.bin').write_bytes(marker)
     resources[MARKER_RESOURCE] = project / 'export-marker.bin'
     notices = project / 'notices.txt'
-    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES), encoding='utf-8')
+    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in notice_files(sources is not None)),
+                       encoding='utf-8')
     resources[NOTICE_RESOURCE] = notices
     shutil.copyfile(tos, project / 'tos.bin')
     resources[TOS_RESOURCE] = project / 'tos.bin'
+    (project / 'sources.bin').unlink(missing_ok=True)
+    if sources is not None:
+        shutil.copyfile(sources, project / 'sources.bin')
+        resources[SOURCES_RESOURCE] = project / 'sources.bin'
     rows = []
     for n, disk in enumerate(disks):
         identifier = FIRST_DISK_RESOURCE + 1 + n
@@ -212,6 +223,8 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
               '#define RR_ST_GAME_TITLE ' + json.dumps(title, ensure_ascii=True),
               '#define RR_ST_SOURCE_IDENTITY ' + json.dumps(source.sha256),
               f'#define RR_ST_MOUSE_GAME {int(mouse_game)}', f'#define RR_ST_TOS_RESOURCE {TOS_RESOURCE}',
+              f'#define RR_ST_SOURCES_RESOURCE {SOURCES_RESOURCE if sources is not None else 0}',
+              '#define RR_ST_SOURCES_NAME ' + json.dumps(sources.name if sources is not None else ''),
               '#define RR_ST_MACHINE ' + json.dumps(MACHINE), f'#define RR_ST_MEMORY_KB {MEMORY_KB}',
               'typedef struct {const char *name;unsigned resource;} RrStPayloadDisk;',
               'static const RrStPayloadDisk rr_st_disks[]={', *rows, '{0,0}};',
@@ -361,7 +374,7 @@ def continuation(timeline: Path, resumed: Path) -> dict:
 
 
 def game_entry(source, tos_key: str) -> Path:
-    """The private memory of a game, one per TOS (the player's image, its SHA-256's first 16 digits, or EmuTOS)."""
+    """The private memory of a game, one per TOS (the player's image, its SHA-256's first 16 digits, or EmuTOS and its version)."""
     return library_root('atarist') / source.game_key / f'tos-{tos_key}'
 
 
@@ -377,13 +390,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     started = time.perf_counter()
     level = resolve_scan_level(scan_level)
     source = read_input(path)
+    from . import atarist_emutos
     try:
-        tos = atarist_tos.require(unused.get('atarist_tos'))
+        tos = atarist_tos.require(unused.get('atarist_tos')) or atarist_emutos.require(emit)
     except ValueError as exc:
         raise ConversionError(str(exc)) from None
-    if tos is None:
-        raise ConversionError('Atari ST: choose your own TOS 1.00, 1.02 or 1.04 image in Options (EmuTOS, the default, is not '
-                              'available in this build yet).')
     title = title or source.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
         raise ConversionError('Invalid Atari ST game title.')
@@ -422,7 +433,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
-        memory = game_entry(source, tos.sha256[:16])
+        memory = game_entry(source, tos.key)
         remembered = memory / OBSERVATIONS
         if remembered.is_file():
             try:
@@ -436,7 +447,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         payload_dir.mkdir(parents=True, exist_ok=True)
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='atarist', cache_directory=boxart_cache_directory('atarist'), emit=emit)
-        metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game)
+        metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game,
+                           sources=None if tos.player_supplied else tos.source)
         candidate = generation = None
         results = {}
         for attempt in range(max(1, min(int(passes or 3), 10))):
@@ -526,11 +538,15 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                        'drive_a_at_start': 1, 'disk_changes': 'Ctrl+Alt+Page Up/Down in the game; none in the routes'},
             'machine': {'model': 'Atari ST (STF), 68000 at 8 MHz, 1 MiB', 'reference': 'Hatari (GPL-2.0) at its pinned revision, adapted at '
                         'build time, cycle-exact 68000, real floppy timing, borders shown',
-                        'tos': {'used': tos.label(), 'version': f'{tos.version >> 8}.{tos.version & 0xff:02x}', 'country': tos.country,
-                                'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': True, 'stored_in_library': False,
+                        'tos': {'used': tos.label(), 'version': tos.version_text(), 'country': tos.country,
+                                'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': tos.player_supplied, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
+                                **({} if tos.player_supplied else
+                                   {'fetched_from': 'the EmuTOS project (SourceForge), pinned size and SHA-256',
+                                    'source_embedded': atarist_emutos.SOURCE[0], 'source_sha256': atarist_emutos.SOURCE[2],
+                                    'licence': 'GPL-2.0-or-later'}),
                                 'native': 'its instructions seen running become native steps like the RAM code; positions in the '
-                                          'player\'s TOS are not kept in any shared path'}},
+                                          'TOS are not kept in any shared path'}},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
             'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
@@ -556,7 +572,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'artwork': artwork, 'windows_metadata': metadata,
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
             'licence': {'executable': 'GPL-2.0 (linked with Hatari; Retro-Recomp\'s own files keep their MIT notice)',
-                        'notices': list(NOTICE_FILES)},
+                        'notices': list(notice_files(not tos.player_supplied))},
             'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'floppy images (IPF, STX, MSA, ST)',
                                     'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
@@ -567,7 +583,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             (memory / (OBSERVATIONS + '.tmp')).write_text(''.join(f'{pc:06x} {words}\n' for pc, words in sorted(samples)), encoding='ascii')
             os.replace(memory / (OBSERVATIONS + '.tmp'), remembered)
             atomic_json(memory / 'compilation.json', {'schema': 1, 'title': title, 'system': 'atarist', 'game': source.game_key,
-                                                      'rom_sha256': source.sha256, 'tos_sha256': tos.sha256, 'guarded_variants': len(samples),
+                                                      'rom_sha256': source.sha256, 'tos_sha256': tos.sha256, 'tos': tos.label(),
+                                                      'guarded_variants': len(samples),
                                                       'sdk': stamp, 'observations_sha256': file_sha256(remembered), 'private_development_only': True, 'fresh_reference_passed': True})
         emit('Atari ST: validated standalone game ready.')
         return candidate

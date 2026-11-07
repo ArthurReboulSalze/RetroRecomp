@@ -186,6 +186,11 @@ HATARI = Upstream(
     'CMakeLists.txt, cmake/ and src/ copied into a build folder and adapted by retrorecomp/atarist_hatari.py (each replacement must '
     'find its pinned text exactly once), built as a static libretro core; no capsimg, zlib, PNG or SDL program',
     _py('retrorecomp/atarist_hatari.py', 'HATARI_REV'), checkout='hatari')
+EMUTOS = Upstream(
+    'EmuTOS', 'emutos/emutos', 'master', 'Atari ST operating system booted by a game when the player gives no TOS of his own',
+    'GPL-2.0-or-later', 'the official 192 KiB release images and source archive (SourceForge), checked by size and SHA-256; '
+    'the UK image and the source archive embedded in a game that boots it',
+    _py('retrorecomp/atarist_emutos.py', 'RELEASE_REV'))
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -272,7 +277,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
     # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
-    'atarist': (HATARI, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    'atarist': (HATARI, EMUTOS, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
     'scummvm': (SCUMMVM, FREETYPE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
