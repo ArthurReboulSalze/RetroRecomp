@@ -156,11 +156,13 @@ The page of each console, which the README links its line to (a console of the m
   save tests pass and the battery file is written; no game save was loaded back by a check of ours. G8 `P`: six packed players draw and
   play sound for 600 frames; G12 `P`: that is the panel (six, not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
   MIT) pass with the staged patches; no external emulator. G14 `P`: the owner played the delivered Sonic Advance on 5 November 2026 and
-  then the series of delivered cartridges on 6 November 2026 ("it works perfectly"); play trials of the exports, not a decision to
+  then the series of delivered cartridges on 6 November 2026 ("it works perfectly"), and the rebuilt Golden Sun and Minish Cap with
+  guarded native RAM code on 7 November 2026 ("it works perfectly"); play trials of the exports, not a decision to
   leave the experimental status. G10 is `P`: `tools/gba_vector_selftest.py` runs SingleStepTests/ARM7TDMI (a model's behaviour, not
   hardware) on the patched engine, 93.96 % of the interpreter's 2,250,000 vectors and 91.08 % of a sample of 45,000 for the generated
-  code, the rest being coprocessor instructions (not in generated code), multiply carries and R15 operands, plus a tail of 385 and 11
-  `LDM`/`STM`/`PUSH`/`POP` failures not yet explained. G11 also rests on `tools/gba_hardware_selftest.py`: the eight self-checking
+  code, the rest being coprocessor instructions (not in generated code), multiply carries and R15 operands, and a tail of 385 and 11 that
+  was decoded on 7 November 2026 and is two classes: ARM `LDM`/`STM` with the user-bank bit and write-back in a banked mode (unpredictable in the
+  architecture) and Thumb block transfers with an empty register list (a hardware behaviour the engine does not model); unexplained: 0. G11 also rests on `tools/gba_hardware_selftest.py`: the eight self-checking
   authored suites pass. G13 is `P` (6 November 2026): the same six cartridges were converted on a Debian 13 PC from the tree to merge (the commit
   `31e39aee` plus `linux = 'witnessed'` as the only change; the commit between is a documents page), three passes from an empty library: on both
   scenarios the generated code equals the engine's interpreter, and the final picture hash and the guest's cycle count equal the Windows ones, 12

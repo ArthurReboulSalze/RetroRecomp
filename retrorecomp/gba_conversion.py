@@ -190,7 +190,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                 if added:
                     reasons['RAM code seen on this pass: its guarded native code is built on the next one'] += 1
                 elif known:
-                    reasons['RAM code built: still reached by the interpreter (the live bytes are not a version seen)'] += 1
+                    reasons['RAM code known: still reached by the interpreter (the live bytes are none of the versions built, or the code did not fit the image the generator reads)'] += 1
                 else:
                     reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
             interpreted = outcome.coverage.get('interpreted_insns')

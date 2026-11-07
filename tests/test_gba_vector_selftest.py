@@ -56,6 +56,14 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(tool.classify(self.record(0xE880A001)), tool.R15_OPERAND)         # STMIA R0, {R0, PC...}: bit 15 of the list
         self.assertEqual(tool.classify(self.record(0xE0801002)), tool.OTHER)
         self.assertEqual(tool.classify(self.record(0xE0801F02, thumb=True)), tool.OTHER)   # Thumb has no such test
+        # the two classes decoded on 6 November 2026 from the failures that were unexplained
+        self.assertEqual(tool.classify(self.record(0x08EE2A14, False, ('R14', 'fiq6'))), tool.BLOCK_USER_WRITEBACK)     # STMIA Rn!, {..}^
+        self.assertEqual(tool.classify(self.record(0x08CE2A14, False, ('R14', 'fiq6'))), tool.OTHER)                   # same without write-back
+        self.assertEqual(tool.classify(self.record(0x08EE8A14, False, ('R15',))), tool.R15_OPERAND)                   # PC in the list comes first
+        for opcode in (0xC300, 0xCB00, 0xB400, 0xBC00):                                                              # empty Thumb register list
+            self.assertEqual(tool.classify(self.record(opcode, True, ('R15',))), tool.THUMB_EMPTY_LIST)
+        self.assertEqual(tool.classify(self.record(0xC301, True, ('R15',))), tool.OTHER)                              # a list that is not empty
+        self.assertEqual(tool.classify(self.record(0xB500, True, ('R15',))), tool.OTHER)                              # PUSH {LR} is not empty
 
     def test_the_first_category_that_applies_wins(self):
         self.assertEqual(tool.classify(self.record(0xEE0F0010, causes=('STEP',))), tool.COPROCESSOR)   # also names R15
@@ -88,7 +96,7 @@ class AggregationTests(unittest.TestCase):
         files = tool.read_output(self.LINES)
         totals = tool.summarise(files)
         self.assertEqual((totals['files'], totals['ran'], totals['passed'], totals['failed']), (3, 40, 32, 8))
-        self.assertEqual(totals['failures'], {tool.COPROCESSOR: 2, tool.MULTIPLY_CARRY: 1, tool.R15_OPERAND: 0, tool.OTHER: 5})
+        self.assertEqual(totals['failures'], {tool.COPROCESSOR: 2, tool.MULTIPLY_CARRY: 1, tool.R15_OPERAND: 0, tool.BLOCK_USER_WRITEBACK: 0, tool.THUMB_EMPTY_LIST: 0, tool.OTHER: 5})
         self.assertEqual(totals['passed_percent'], 80.0)
         meta = {'vectors': {'corpus_sha256': 'x'}, 'engine': {}, 'sample': {'interpreter': {}, 'generated': {}}}
         report = tool.build_report({'interpreter': files, 'generated': files}, meta)

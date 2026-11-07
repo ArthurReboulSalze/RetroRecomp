@@ -48,10 +48,10 @@ BIOS) are not used either.
 What a trial on 5 November 2026 established (a development measurement, not a qualification, on one revision of the engine):
 
 * **CPU, one instruction at a time.** Against the public SingleStepTests ARM7TDMI vectors (45 files of 50,000, MIT, generated
-  from a model, not from hardware): the engine's interpreter agrees on 93.1 % of all of them, and its generated code on
-  91.0 % of an evenly spaced sample of 45,000. What disagrees is the three coprocessor families (not implemented in generated code),
-  encodings with R15 as an operand and other architecturally unpredictable cases, the carry flag after a multiply, and a tail of
-  250 failures not yet explained. Generated code agrees on every sampled branch, exchange, shift, load and store family, and on
+  from a model, not from hardware): the engine's interpreter agrees on 93.96 % of all of them (2,250,000), and its generated code on
+  91.08 % of an evenly spaced sample of 45,000 (figures of 5 November 2026, with the 30 patches of that day). What disagrees is the three coprocessor families (not implemented in generated code),
+  encodings with R15 as an operand and other architecturally unpredictable cases, the carry flag after a multiply, and a tail that
+  is now explained (below). Generated code agrees on every sampled branch, exchange, shift, load and store family, and on
   software interrupt entry in all seven modes.
 * **Unseen cartridges, no per-game file.** Four commercial cartridges the engine had never been given ran headless with its
   default analysis: one ran its scripted generic input to the end with no interpreted instruction, two reached gameplay scenes
@@ -234,7 +234,7 @@ both scenarios, final picture hash and guest cycle count identical to the 1.7.0 
 Golden Sun's 40,656 calls of the IWRAM routine (three code shapes, three argument words) are native; what is left is two Thumb routines of EWRAM seen on the last
 pass. The packed players of Golden Sun and the Minish Cap run 600 frames hidden with return code 0, sound and no interpreted instruction. The Minish Cap now
 reaches 0 / 0 in the first pass because its paths are in the library of the machine that converted it; the Debian witness above started from an empty library.
-Not measured: gameplay (nobody played these builds), the Linux player with this code, a cartridge whose RAM code does not fit the 32 MiB window.
+Played: the owner played the delivered Golden Sun and Minish Cap of this stage on 7 November 2026 and wrote that they work perfectly (a play trial of the exports, not a measure of gameplay validation and not a decision to leave the experimental status). Not measured: gameplay validation (no route of ours), the Linux player with this code, a cartridge whose RAM code does not fit the 32 MiB window.
 
 ## Independent evidence (stage 5)
 
@@ -253,8 +253,15 @@ player and stays outside the repository (hashes and counts only are written here
   `PUSH`/`POP`); the generated code agrees on **91.08 %** (3,000 coprocessor, 230 multiply carry, 774 R15, **11 other**). The patches
   moved the interpreter by about 18,000 vectors (the FIQ bank on interrupt entry among them) and the generated code by 12. The
   coprocessor instructions are not implemented in generated code, by the engine's design, and the multiply carry and R15 cases are
-  where the model and the architecture's unpredictable results meet; the short tail of `LDM`/`STM`/`PUSH`/`POP` is unexplained and is
-  the next thing to look at. This is CPU fidelity against a model, not against hardware.
+  where the model and the architecture's unpredictable results meet. This is CPU fidelity against a model, not against hardware.
+
+  **The tail, explained on 7 November 2026** (the raw log of that run decoded, no new run; `tools/gba_vector_selftest.py report` now names two more
+  classes and the unexplained count is 0 in both checks). Of the 385: 247 are ARM `LDM`/`STM` with the S bit (user bank) **and write-back** in a banked mode
+  (FIQ, IRQ, supervisor, abort, undefined), an encoding the architecture leaves unpredictable and for which the model chooses one base register and one set
+  of written-back registers; and 138 (88 Thumb `LDMIA`/`STMIA`, 50 `PUSH`/`POP`) are Thumb block transfers with an **empty register list**, where the
+  ARM7TDMI transfers R15 and moves the base by `0x40`. The model has that behaviour; the engine's interpreter and its generated code do not. The 11 of
+  the generated code are the same two classes (7 and 4). So nothing in the tail is a defect in the transfers of real registers; the Thumb empty list is a
+  known hardware behaviour that is not modelled (hardware fidelity), not seen in the games of the panel, and not worth an engine patch before a game needs it.
 
 ## The player (stage 4)
 
