@@ -79,6 +79,20 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Adventure games (ScummVM): the options page, the keys and the supported status (1.7.1)
+
+"Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md)) leaves the experimental status on the owner's decision of 7 November 2026: `retrorecomp/systems/scummvm.py` says `supported`, the
+interface note and the documents follow in the eight languages, and the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here) because the qualification matrix
+(gates G1 to G16, risk cases, shared paths) is made for recompiled machines; `tests/test_machine_registry.py` asks of an emulated supported category a Linux witness and that page,
+instead. The same release carries the options page and the keys of the game (the ScummVM patch `0002-retrorecomp-options-page.patch`, [SCUMMVM.md](SCUMMVM.md)).
+
+**What moves.** `compilation_inputs.role_stamps` of the fourteen machines on the tree before the status (`fa196008`) and on this one: **only the Adventure (ScummVM) game stamp**,
+`4e3367b550d2` before, `85b9bee929a3` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
+released `be8047b230ac`). Its build stamp `97d9ad0da628` and the host and build stamps of every machine do not move, and no other game stamp moves.
+
+**Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
+none moves, a game's saves are ScummVM's own, in `datas/`.
+
 ## Exports of 1.6.9 in 1.7.0
 
 1.7.0 is the release after 1.6.9 (published on 6 November 2026). This section is the index of its changes, one line per section below, with the stamps

@@ -4,10 +4,11 @@
 native-code goal, no recompilation plan and no native-share target. What Retro-Recomp adds is the packaging: one simple
 executable per game, holding the whole game, to click and play, with its saves and settings in `datas/`, on Windows and Linux.
 
-**Experimental.** An adventure game made of data files and script bytecode (LucasArts SCUMM, Sierra
+**Supported (since 1.7.1).** An adventure game made of data files and script bytecode (LucasArts SCUMM, Sierra
 SCI, Westwood Kyrandia, Revolution, Coktel and the other engines ScummVM runs) becomes one executable: ScummVM with the
 player's own game files appended to it. Nothing is recompiled: ScummVM interprets the game, so the measures of native code and
-CPU fidelity do not apply, and none is claimed. Gameplay is validated game by game; physical latency is not measured.
+CPU fidelity do not apply, and none is claimed. Gameplay is validated game by game; physical latency is not measured. What
+"supported" means for this category is written [below](#what-supported-means-here).
 
 ## What the converter does
 
@@ -66,6 +67,34 @@ ScummVM is under the GNU General Public License version 3 or later. Retro-Recomp
 FreeType themselves are fetched at build time at the pins of [UPSTREAMS.md](UPSTREAMS.md). Every executable carries the GPL text
 and a written offer of the corresponding source ([licenses/scummvm.md](../licenses/scummvm.md)); each release publishes that source
 as an archive. The game files are the player's own and stay private: an executable that holds them is not to be shared.
+
+## What "supported" means here
+
+[STANDARDS.md](STANDARDS.md) asks for written criteria for "supported". The matrix of [QUALIFICATION.md](QUALIFICATION.md) (native code, CPU and
+hardware fidelity, gates G1 to G16) is made for recompiled machines and does not apply to an emulated category, so these are the criteria of this one.
+Adventure (ScummVM) is supported since 1.7.1, on the owner's decision of 7 November 2026, when all of the following hold:
+
+1. **Detection is ScummVM's own.** A folder is accepted only when ScummVM's detection names its game; the engine picks one build family; several
+   editions ask the player to choose; no game is named in the code, and a folder ScummVM does not recognise is refused with the reason.
+2. **The packaging has been played.** The owner played ten executables of the prototype (ten games of eight engine families, from 55 MB to
+   2.1 GB) on 6 November 2026, and played the executable the converter made of Lure of the Temptress several times on 7 November 2026, with the options
+   page, the keys and the picture effects. That is a play trial, not a measurement: nothing is claimed beyond what was played, and which games run is
+   ScummVM's own compatibility, not a list kept here.
+3. **Windows is built and Linux is witnessed.** The runtimes are built by the converter from the pinned sources with its own tools; on a Debian 13 PC one
+   small game (Lure of the Temptress) was converted by the packaged converter and started from its executable, alone, offscreen, with an empty home folder
+   (6 November 2026). No other engine family has been run on Linux.
+4. **No window of the system, no launcher.** An error is written to `scummvm.log`, a crash to `crash.log`, and the program ends; nothing is
+   written outside `datas/` (checked on an empty home folder and on the Windows profile).
+5. **The settings page exists and holds.** The Retro-Recomp page and its Help in the game's options (Ctrl+F2, Ctrl+F1), the picture effects and the
+   pixel-perfect full screen (Ctrl+F3, Ctrl+F4), and the settings shared through `datas/Retro-Recomp.ini`, in the five game-menu languages.
+6. **The licence is kept.** ScummVM and Retro-Recomp's patch of it stay GPL, apart from the MIT converter; every executable carries the GPL text and the
+   written offer of the corresponding source, and each release publishes that source.
+7. **The report says what it is.** "Emulated, 0 % native", no CPU, no native share, never presented as a gap or a goal; the five measures stay separate
+   and only the game's play, as far as it was played, is a statement.
+
+It does **not** mean: a list of compatible games, a native share, CPU or hardware fidelity, a measured latency, or that every game ScummVM can run
+works in an executable (an engine whose family is not built here, a game that needs a decoder this build does not have, or data ScummVM does not
+recognise is refused or does not start). The known limits below stay in force.
 
 ## Limits
 

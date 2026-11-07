@@ -18,7 +18,7 @@ class ScummvmProfile(SystemProfile):
     extensions = ()
     export_folder = 'ScummVM'
     video_modes = ('scummvm',)
-    status = 'experimental'
+    status = 'supported'     # the owner's decision of 7 November 2026; what that means here is written in docs/SCUMMVM.md
     scope_note = ('Emulated, 0 % native code, by design: ScummVM interprets the game. Games that need Ogg Vorbis, FLAC or '
                   'MP3 decoders (CD audio rips, compressed speech) are not supported yet.')
     emulated = 'ScummVM interprets the game; no CPU is recompiled and none will be: the native share is 0 by design.'
