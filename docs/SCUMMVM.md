@@ -38,6 +38,13 @@ saves). Nothing is written anywhere else.
 * **Languages**: the five game-menu languages (English, French, Italian, Spanish, German). The interface language of
   `datas/Retro-Recomp.ini` sets ScummVM's menu language at every start; another value gives English. The game's own language
   comes from its data and is never changed.
+* **Retro-Recomp page**: the in-game options (Ctrl+F5, then Options) have a "Retro-Recomp" tab in place of ScummVM's empty
+  "Backend" tab: the menu language (the five languages, from the next start), full screen, scaling, keep the aspect ratio,
+  the music, effects and speech volumes, "mute all", and a "Keys and pad..." button that opens ScummVM's keymaps tab. The values are
+  ScummVM's own keys. When a run ends they are copied to `datas/Retro-Recomp.ini` (section `[Adventure]`, and `[Interface]` for the
+  language) and applied again at the start of every adventure executable of the folder, so a choice made in one game holds for all
+  of them. Screenshots go to `datas/games/<Game>-<id>/screenshots`. The host kit's own overlay (F1 menu, F2 mapping, F3 graphics,
+  F12, pause, shaders) is not wired: the host F-keys belong to the games.
 * **Errors**: an executable never opens a window of the system. A fatal error of ScummVM or of the game's engine ("Error running game",
   missing data) is written to `scummvm.log` and the program ends with exit code 1; a crash, an abort or an uncaught exception
   writes one line to `crash.log` beside it. ScummVM's launcher never appears: the program ends with its game. Dialogs the engines

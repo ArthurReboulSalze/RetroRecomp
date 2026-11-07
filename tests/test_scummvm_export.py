@@ -131,6 +131,38 @@ class ToolsMissing(unittest.TestCase):
         self.assertTrue(all(catalog(code)['ui'].get('scummvm_tools_missing') for code in LANGUAGES[2:]))
 
 
+class OptionsPage(unittest.TestCase):
+    """Patch 0002: the Retro-Recomp page of the in-game options and the settings shared through datas/Retro-Recomp.ini
+    (checked headless with the real runtime: .build/scummvm-step2/ui_cases.py; here, the text of the patch)."""
+
+    def setUp(self):
+        self.patch = (scummvm_build.PATCH_DIRECTORY / '0002-retrorecomp-options-page.patch').read_text(encoding='utf-8')
+
+    def test_the_series_has_both_patches_in_order(self):
+        names = sorted(path.name for path in scummvm_build.PATCH_DIRECTORY.glob('*.patch'))
+        self.assertEqual(names, ['0001-retrorecomp-pack-launch-nodialog.patch', '0002-retrorecomp-options-page.patch'])
+
+    def test_the_page_replaces_the_backend_tab_of_a_packed_exe_only(self):
+        self.assertIn('packedModeActive() ? retroRecompOptionsTabTitle()', self.patch)
+        self.assertIn('if (!packedModeActive())\n+\t\treturn nullptr;', self.patch)
+
+    def test_the_settings_are_shared_both_ways(self):
+        for key in ('fullscreen', 'stretch_mode', 'aspect_ratio', 'music_volume', 'sfx_volume', 'speech_volume', 'mute'):
+            self.assertIn(f'"{key}"', self.patch)
+        self.assertIn('void packedSyncSettings()', self.patch)
+        self.assertIn('packedSyncSettings();', self.patch)
+
+    def test_every_text_of_the_page_has_the_five_languages(self):
+        rows = [line for line in self.patch.splitlines() if line.startswith('+\t/* k') and '*/' in line]
+        self.assertGreaterEqual(len(rows), 10)
+        for row in rows:
+            if row.rstrip().endswith('},'):
+                self.assertEqual(row.count('", "') + 1, 5, row)
+
+    def test_screenshots_stay_in_the_games_folder(self):
+        self.assertIn('"screenshotpath"', self.patch)
+
+
 class NoModalWindow(unittest.TestCase):
     """The patch keeps every route to a modal window closed in a packed executable (checked headless on an invisible desktop
     with the real runtime; here, the text of the patch)."""
