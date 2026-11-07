@@ -55,6 +55,7 @@ void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
 int rr_amiga_frame(RrAmigaSession *s);
 /* 1 when the install stopped because it ended itself normally (resload_Abort with TDREASON_OK), 0 for any other stop. */
 int rr_amiga_quit(const RrAmigaSession *s);
+uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
 /* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */

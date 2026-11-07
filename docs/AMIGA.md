@@ -39,8 +39,11 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    `.RTB` tables, which we neither make nor ship: the image keeps the addresses it was built for, and vAmiga's own writable-ROM
    mechanism (the A1000's WOM, left unlocked) is pointed at the copy, so the ROM window `$FC0000-$FFFFFF` and ExpMem are one set
    of bytes, read and written by both addresses (the slaves write into the image through its ROM addresses). The Kickstart's
-   instructions stay on the interpreter, counted apart in the report (`kickstart_interpreted` per route), and are never
-   observed, so no Kickstart byte reaches an observation file or the library. The image is copied only into the
+   code is native too (1.7.1): an observation of it keeps only the *addresses* of the instructions run (never a byte; the private
+   memory of that image keeps them in `converter-kickstart-addresses.txt`), and the conversion reads the words of each from the
+   player's own image, in memory, when it writes the guarded steps, so the generated source and the game built from it belong to
+   that player's image alone. What still runs on the interpreter (an instruction not reached in the observed runs, or one a
+   slave patched) is counted apart in the report (`kickstart_interpreted` and `kickstart_native` per route). The image is copied only into the
    conversion's private work folder and into the player's own export (resource 298), never into the repository, the library
    or a shared record; the report names it by numbers only. 256 KiB images (1.x) only for now.
    **Memory beyond the slow RAM** (1.7.1): an ExpMem too large for the 1.5 MiB of slow RAM at `$C00000` goes to a fast RAM board

@@ -73,7 +73,8 @@ struct RrAmigaSession {
     std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
     uint32_t kick_base = 0, kick_size = 0;                    // where it sits in ExpMem once loaded (0: not loaded)
-    uint64_t kick_interpreted = 0;
+    uint64_t kick_interpreted = 0, kick_native = 0;
+    std::set<uint32_t> kick_pcs;   // addresses of the Kickstart's instructions run on the interpreter while observing (numbers, never its bytes)
 };
 
 static RrAmigaSession *S;   // the hooks of Moira and of the resload layer reach the one session of the process
@@ -233,15 +234,24 @@ extern "C" int rr_amiga_code_word(uint32_t pc, uint16_t *word) { *word = peek16(
 static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
 #ifdef RR_AMIGA_NATIVE
     if (S->native) {
-        if (const RrAmigaStep *step = rr_amiga_lookup(pc)) { rr_amiga_step_of(step)(&m, op); S->native_count++; return true; }
+        if (const RrAmigaStep *step = rr_amiga_lookup(pc)) {
+            rr_amiga_step_of(step)(&m, op); S->native_count++;
+            if (in_kickstart(pc)) S->kick_native++;
+            return true;
+        }
     }
 #else
     (void)m; (void)op;
 #endif
     S->interpreted_count++;
-    // The Kickstart's own code (the window, or its copy in ExpMem) stays on the interpreter, counted apart, and is never
-    // observed: an observation keeps instruction bytes, and the Kickstart's bytes are the player's, not ours to store.
-    if (in_kickstart(pc)) { S->kick_interpreted++; return false; }
+    // The Kickstart's own code (the window, or its copy in ExpMem) is counted apart. An observation of it keeps the address
+    // only: its bytes are the player's, never ours to store; the converter reads them from the player's own image when it
+    // writes the guarded native steps, in the player's private build folder.
+    if (in_kickstart(pc)) {
+        S->kick_interpreted++;
+        if (S->observing && pc >= 0xF80000) S->kick_pcs.insert(pc);
+        return false;
+    }
     if (S->observing && in_ram(pc)) {
         char hex[25];
         for (int i = 0; i < 12; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
@@ -552,6 +562,7 @@ extern "C" int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint1
     return 1;
 }
 extern "C" uint64_t rr_amiga_kickstart_interpreted_count(const RrAmigaSession *s) { return s->kick_interpreted; }
+extern "C" uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s) { return s->kick_native; }
 
 extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h) {
     if (!s->view_seen) return 0;
@@ -610,7 +621,12 @@ extern "C" int rr_amiga_write_observations(const RrAmigaSession *s, const char *
     FILE *o = open_file(path, "wb");
     if (!o) return 0;
     for (auto &e : s->observed) fprintf(o, "%06x %s\n", e.first, e.second.c_str());
-    return fclose(o) == 0;
+    if (fclose(o) != 0) return 0;
+    // The Kickstart's addresses beside it: no bytes, one address a line.
+    FILE *k = open_file((std::string(path) + ".kick").c_str(), "wb");
+    if (!k) return 0;
+    for (uint32_t pc : s->kick_pcs) fprintf(k, "%06x\n", pc);
+    return fclose(k) == 0;
 }
 extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *s) { return s->native_count; }
 extern "C" uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { return s->interpreted_count; }

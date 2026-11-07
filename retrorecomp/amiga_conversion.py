@@ -262,6 +262,40 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
     return sorted(samples)
 
 
+# The Kickstart code a game runs: its addresses only (never a byte) are kept, in the private memory beside the observations of
+# that image; the words of each instruction are read from the player's own image, in this conversion's private work folder, when
+# the steps are written, so the generated source and the game built from it belong to that player's image alone.
+KICK_ADDRESSES = 'converter-kickstart-addresses.txt'
+KICK_WINDOW = (0xF80000, 0x1000000)
+
+
+def read_kick_addresses(path: Path) -> set[int]:
+    """The Kickstart addresses of an observation (`<observations>.kick`, or the private memory): one hex address a line."""
+    found = set()
+    for line in Path(path).read_text(encoding='ascii').splitlines():
+        pc = int(line, 16)
+        if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+            raise ValueError('Unsupported Kickstart address.')
+        found.add(pc)
+        if len(found) > 262144:
+            raise ConversionError('Amiga Kickstart observation bound exceeded.')
+    return found
+
+
+def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
+    """(address, words) of those Kickstart instructions with the words of the player's own image (a 256 KiB image appears at
+    $F80000 and $FC0000). Made in memory for the generator; never stored."""
+    if len(image) & (len(image) - 1) or not image:
+        raise ConversionError('Amiga: the Kickstart image has an unexpected size.')
+    samples = set()
+    for pc in addresses:
+        words = image[pc & (len(image) - 1):][:12]
+        words = words[:len(words) // 2 * 2]
+        if words:
+            samples.add((pc, words.hex()))
+    return samples
+
+
 def generate(project: Path, samples: list, table: Path) -> dict:
     """The guarded native steps of these observations (the shared generator with the Amiga's Moira hooks)."""
     from . import amiga_codegen, m68k_observed
@@ -368,7 +402,8 @@ def kickstart_fields(kick) -> dict:
     return {'used': True, 'version': known.get('version'), 'os': known.get('os'), 'model': known.get('model'), 'file': kick.file_name,
             'size': kick.size, 'crc16': kick.crc16, 'crc32': kick.crc32, 'sha256': kick.sha256, 'normalised': list(kick.normalisations),
             'player_supplied': True, 'stored_in_library': False, 'shared': False, 'embedded_in_export': True,
-            'native': 'none: its instructions run on the interpreter, counted apart per route (final_checks.kickstart_interpreted)'}
+            'native': 'guarded native steps written from this player\'s own image in the conversion\'s private work folder; what still runs '
+                      'on the interpreter is counted apart per route (final_checks.kickstart_interpreted)'}
 
 
 def place_kickstart(folder: Path, kick) -> None:
@@ -441,8 +476,19 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
+        kick_addresses: set[int] = set()
+        kick_image = b''
+        if kick is not None:
+            kick_image = (work / 'install' / 'kickstart.rom').read_bytes()
+            for name, _, _ in routes:
+                kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
+        if kick is not None and (memory / KICK_ADDRESSES).is_file():
+            try:
+                kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
+            except (OSError, ValueError):
+                emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
         if remembered.is_file():
             try:
                 samples |= set(read_observations(remembered))
@@ -463,13 +509,16 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table)
+                generation = generate(project, sorted(samples | kick_samples(kick_addresses, kick_image)), table)
+                if kick is not None:
+                    generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
             with timings.phase('compile'):
                 candidate = cmake_build(work / 'build', core, emit=emit, generated=project, payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
             more = set()
+            more_kick: set[int] = set()
             with timings.phase('native_runs'):
                 for name, frames_, _ in routes:
                     folder = run_dir / name
@@ -482,13 +531,16 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     require_same_file(folder / 'resload.log', checks / f'reference-{name}' / 'resload.log',
                                       lambda: ConversionError(f'Amiga {name}: the resload calls differ from the reference; existing export preserved.'))
                     more |= set(read_observations(folder / 'observations.txt'))
+                    if kick is not None:
+                        more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not (more - samples):
+            if not interpreted or not ((more - samples) or (more_kick - kick_addresses)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
+            kick_addresses |= more_kick
         timings.end_passes()
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
@@ -532,7 +584,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
-                         **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0)} if kick is not None else {}),
+                         **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
+                             'kickstart_native': (results[name].get('kickstart') or {}).get('native', 0)} if kick is not None else {}),
                          'packed_reference_match': True, 'resload_match': True, 'resload_calls': result['resload_calls'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
@@ -588,6 +641,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             text = ''.join(f'{pc:06x} {words}\n' for pc, words in sorted(samples))
             (memory / (OBSERVATIONS + '.tmp')).write_text(text, encoding='ascii')
             os.replace(memory / (OBSERVATIONS + '.tmp'), remembered)
+            if kick is not None:
+                (memory / (KICK_ADDRESSES + '.tmp')).write_text(''.join(f'{pc:06x}\n' for pc in sorted(kick_addresses)), encoding='ascii')
+                os.replace(memory / (KICK_ADDRESSES + '.tmp'), memory / KICK_ADDRESSES)
             atomic_json(memory / 'compilation.json', {'schema': 1, 'title': title, 'system': 'amiga', 'game': source.game_key,
                                                       'rom_sha256': source.sha256, 'guarded_variants': len(samples), 'sdk': stamp,
                                                       'observations_sha256': file_sha256(remembered), 'private_development_only': True,

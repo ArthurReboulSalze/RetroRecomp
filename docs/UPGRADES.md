@@ -266,6 +266,22 @@ a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68
 **What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image (1.7.1)
+
+An install that runs with the player's Kickstart spent most of its instructions in the Kickstart (81 to 98 % in Might & Magic 3,
+Civilization and Skidmarks), all on the counted interpreter. The player now observes the Kickstart's instructions by **address
+only**; the conversion keeps those addresses in the private memory of that image (`converter-kickstart-addresses.txt`, numbers,
+never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
+player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
+counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
+nothing derived from the image is shared, and the observation file and the library hold addresses only. **Measure** (Civilization,
+the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
+quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
+native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
+reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
+(`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: a quick state continues the sound sample for sample (1.7.1)
 
 vAmiga's snapshot leaves out the memory of its sound path, so the samples after a load differed from an unbroken run and the

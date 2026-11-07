@@ -315,8 +315,9 @@ static int run_headless(const char *trace_path, const char *report_path, const c
          uint32_t ksize;
          uint16_t kcrc;
          if (rr_amiga_kickstart(session, &ksize, &kcrc))
-            fprintf(r, "\"kickstart\":{\"size\":%u,\"crc16\":%u,\"interpreted\":%llu},", ksize, kcrc,
-                    (unsigned long long)rr_amiga_kickstart_interpreted_count(session));
+            fprintf(r, "\"kickstart\":{\"size\":%u,\"crc16\":%u,\"interpreted\":%llu,\"native\":%llu},", ksize, kcrc,
+                    (unsigned long long)rr_amiga_kickstart_interpreted_count(session),
+                    (unsigned long long)rr_amiga_kickstart_native_count(session));
          else fputs("\"kickstart\":null,", r);
       }
       fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
