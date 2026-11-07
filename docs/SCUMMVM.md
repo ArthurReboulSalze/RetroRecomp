@@ -32,13 +32,14 @@ Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has t
 `datas/Retro-Recomp.ini` (common settings) and `datas/games/<Game>-<id>/` (ScummVM's configuration of the game, its log and its
 saves). Nothing is written anywhere else.
 
-* **Menu**: Ctrl+F5, or Start on a pad, opens ScummVM's menu (save, load, options, quit); a message "Menu: Ctrl+F5" is shown over
-  the game for eight seconds as soon as the game is running, again after twenty-five seconds, and once more at the first mouse
-  move. Alt+Enter switches to full screen, Ctrl+U mutes, Ctrl+Z or Alt+F4 quits on Windows (Ctrl+Q on Linux). **Ctrl+F4** switches
+* **Menu**: **Ctrl+F2** opens the options dialog on the Retro-Recomp page and **Ctrl+F1** on its Help tab, from anywhere in a game, as
+  F2 and F1 do on the other machines; Ctrl+F5, or Start on a pad, opens ScummVM's own menu (save, load, options, quit) as in every
+  ScummVM. A message "Help: Ctrl+F1 · Menu: Ctrl+F2" (menu language, Retro-Recomp's dark and gold colours) is shown over the game for
+  eight seconds as soon as the game is running, again after twenty-five seconds, and once more at the first mouse move. Alt+Enter switches to full screen, Ctrl+U mutes, Ctrl+Z or Alt+F4 quits on Windows (Ctrl+Q on Linux). **Ctrl+F4** switches
   full screen with integer (pixel-perfect) scaling on and off, and **Ctrl+F3** cycles the picture effect in the order of the host
-  kit's F3: sharp pixels, HQ2x (ScummVM has no xBR; this is its closest scaler), Scale2x and scanlines, all with ScummVM's own
-  software scalers (no OpenGL). Both are remembered. The host shortcuts of the other machines (F1, F2, F8, F9, Tab, backquote) do
-  not exist here: F1 to F12, Esc and Tab belong to the games, and typing reaches text parsers.
+  kit's F3: sharp pixels, HQ2x (ScummVM has no xBR; this is its closest scaler), Scale2x and scanlines. The first three are ScummVM's own software scalers (no OpenGL); the scanlines are the host kit's mask
+  (`native/scanlines.h`: a darker band in the last third of every source row), drawn over the scaled picture, never over the menus. Both are remembered. The plain host shortcuts of the other machines (F1 to F4, F8, F9, Tab, backquote)
+  do not exist here (the Ctrl+ keys above stand in for them): F1 to F12, Esc and Tab belong to the games, and typing reaches text parsers.
 * **Languages**: the five game-menu languages (English, French, Italian, Spanish, German). The interface language of
   `datas/Retro-Recomp.ini` sets ScummVM's menu language at every start; another value gives English. The game's own language
   comes from its data and is never changed.
