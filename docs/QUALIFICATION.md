@@ -63,27 +63,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
+| Nintendo 64 | experimental | `██░░░░░░░░` 22 % | ✅ 0 · 🟡 7 · ❔ 9 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ |
 
 <!-- qualification-gauges:end -->
 
@@ -93,26 +94,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST.
+x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? | ? |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -132,6 +133,7 @@ The page of each console, which the README links its line to (a console of the m
 | gba | [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) |
 | amiga | [AMIGA.md](AMIGA.md) |
 | atarist | [ATARI_ST.md](ATARI_ST.md) |
+| n64 | [NINTENDO_64.md](NINTENDO_64.md) |
 
 </details>
 
@@ -158,6 +160,17 @@ The page of each console, which the README links its line to (a console of the m
   reference traces byte for byte equal to Windows' on the three routes, then Captain Blood on EmuTOS with the desktop autostart
   (both routes byte for byte equal to Windows'); no game played on Linux. No hardware fidelity is
   claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
+
+- Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
+  `tools/status_lint.py` agrees; not opened to players. G2 `P`: the common report v2 of every conversion, the VR4300 counted in
+  instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,
+  5.6 to 6.0 % of the instructions interpreted on the routes, 0 guard misses. G4 `P`: every route of both conversions is identical,
+  frame by frame (picture, sound, RDRAM, CPU registers), to a fresh reference on the core's pure interpreter; native plus interpreted
+  equals the reference's count but the one instruction in flight at the frame's end. G5 `P`: the compressed copy too. G6 `P`: the
+  state saved on the main route continues CPU, RDRAM and picture for 400 frames in a fresh process (the sound samples are not
+  compared). G8 `P`: a moving picture is required on the main route. G9 `?`: both games' routes stay in their menus. Nothing is
+  measured on Linux, against vectors or against hardware; no speed, hardware fidelity or latency is claimed
+  ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 
 - Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
   and validated on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh

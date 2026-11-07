@@ -91,6 +91,9 @@ UPSTREAM_CREDITS = (
     ('Atari ST', (
         ('hatari/hatari', 'https://github.com/hatari/hatari', 'credits_atarist_hardware'),
     )),
+    ('Nintendo 64', (
+        ('libretro/mupen64plus-libretro-nx', 'https://github.com/libretro/mupen64plus-libretro-nx', 'credits_n64_machine'),
+    )),
     ('Adventure (ScummVM)', (
         ('scummvm/scummvm', 'https://github.com/scummvm/scummvm', 'credits_scummvm_engine'),
         ('freetype/freetype', 'https://github.com/freetype/freetype', 'credits_scummvm_font'),
@@ -103,6 +106,7 @@ UPSTREAM_CREDIT_NOTES = {
     'Game Boy Advance': 'credits_experimental',
     'Commodore Amiga': 'credits_experimental',
     'Atari ST': 'credits_experimental',
+    'Nintendo 64': 'credits_experimental',
     'Adventure (ScummVM)': 'credits_emulated',
 }
 

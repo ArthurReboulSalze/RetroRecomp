@@ -191,6 +191,15 @@ EMUTOS = Upstream(
     'GPL-2.0-or-later', 'the official 192 KiB release images and source archive (SourceForge), checked by size and SHA-256; '
     'the UK image and the source archive embedded in a game that boots it',
     _py('retrorecomp/atarist_emutos.py', 'RELEASE_REV'))
+MUPEN64PLUS_NEXT = Upstream(
+    'mupen64plus-next', 'libretro/mupen64plus-libretro-nx', 'develop',
+    'Nintendo 64 machine (Mupen64Plus core with its pure and cached interpreters, the HLE and cxd4 RSP, ParaLLEl-RSP, ParaLLEl-RDP '
+    'on Vulkan) with its libretro frontend, driven frame by frame by the Nintendo 64 export',
+    'GPL-2.0-or-later core; ParaLLEl-RDP and ParaLLEl-RSP MIT, GNU Lightning LGPL-3.0-or-later, cxd4 CC0-1.0: an export is GPL-3.0; '
+    'angrylion (no commercial use) and the GLideN64 renderer (GPL-2.0-only) are never compiled',
+    'the parts listed in retrorecomp/n64_core.py (COPIED) copied into a build folder and adapted there (each replacement must find '
+    'its pinned text exactly once); eleven unmarked files replaced by our MIT glue (native/n64_machine/glue)',
+    _py('retrorecomp/n64_core.py', 'CORE_REV'), checkout='mupen64plus-libretro-nx')
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -278,6 +287,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
     # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
     'atarist': (HATARI, EMUTOS, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    # The Nintendo 64 runs on Mupen64Plus-Next; its native blocks call the core's own instruction functions.
+    'n64': (MUPEN64PLUS_NEXT,),
     'scummvm': (SCUMMVM, FREETYPE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

@@ -151,7 +151,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
-    'hostkit/adapters/rrhk_atarist.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -654,6 +654,30 @@ INPUTS = _resolve({
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',
+    ),
+    # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
+    # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
+    # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
+    ('n64',): (
+        'licenses/mupen64plus-next.md',
+        'native/hostkit/adapters/rrhk_n64.inc',
+        'native/n64_machine/CMakeLists.txt',
+        'native/n64_machine/glue/GLideN64_libretro.h',
+        'native/n64_machine/glue/libretro_memory.h',
+        'native/n64_machine/glue/libretro_private.h',
+        'native/n64_machine/glue/osal_export.h',
+        'native/n64_machine/glue/parallel.h',
+        'native/n64_machine/glue/parallel_glue.cpp',
+        'native/n64_machine/n64_cpu.c',
+        'native/n64_machine/n64_cpu.h',
+        'native/n64_machine/n64_player.c',
+        'native/n64_machine/n64_session.cpp',
+        'native/n64_machine/n64_session.h',
+        'native/n64_machine/n64_stubs.c',
+        'retrorecomp.n64',
+        'retrorecomp.n64_conversion',
+        'retrorecomp.n64_core',
+        'retrorecomp.n64_native',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',

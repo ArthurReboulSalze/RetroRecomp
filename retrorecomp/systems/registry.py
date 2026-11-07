@@ -29,6 +29,7 @@ from .game_gear import GAME_GEAR
 from .gba import GAME_BOY_ADVANCE
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO
 from .master_system import MASTER_SYSTEM
+from .n64 import NINTENDO_64
 from .neogeo import NEOGEO
 from .nes import NES
 from .pc_engine import PC_ENGINE
@@ -40,7 +41,7 @@ from .x68000 import X68000
 # window can say "unknown console" instead of skipping them silently. Each machine's own extensions are added
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
-    '.zip', '.bin', '.rom', '.gbc', '.fds', '.n64', '.z64', '.v64', '.smd',
+    '.zip', '.bin', '.rom', '.gbc', '.fds', '.smd',
     '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
 })
 
@@ -68,7 +69,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, SCUMMVM):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM):
     register(_profile)
 del _profile
 
