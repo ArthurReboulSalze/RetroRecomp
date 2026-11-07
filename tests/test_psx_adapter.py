@@ -70,6 +70,8 @@ class PsxAdapterTest(unittest.TestCase):
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)
             self.assertEqual(first, value, table)
         self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 4, 0\}')
+        # The first build's key held an index into another list (Weave first): a new key, so every player starts progressive.
+        self.assertIn('{"Deinterlacing", L"deinterlace", deinterlacing, 4, 0}', ADAPTER)
 
 
 if __name__ == '__main__':

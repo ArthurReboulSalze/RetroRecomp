@@ -65,7 +65,7 @@ static const char *const dithering[] = {"Native", "At the internal resolution", 
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
 /* Progressive: the GPU draws both fields of the displayed frame, so a 480-line picture is shown whole, without combing or a
  * field missing (Beetle's "Off"; the console itself draws one field per frame there). Weave and Bob are the console's fields. */
-static const char *const deinterlacing[] = {"Progressive", "Weave", "Bob", "Bob (offset)"};
+static const char *const deinterlacing[] = {"Progressive", "Weave (lines on motion)", "Bob (shakes)", "Bob, offset (shakes)"};
 static const char *const deinterlacing_values[] = {"off", "weave", "bob", "bob_offset"};
 static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"};
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
@@ -75,7 +75,9 @@ enum { GFX_RESOLUTION, GFX_DITHER, GFX_DEINTERLACE, GFX_ASPECT, GFX_CROP, GFX_CO
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Internal resolution", L"resolution", resolutions, 4, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
-    {"Deinterlacing", L"deinterlacing", deinterlacing, 4, 0},
+    /* "deinterlace", not the first build's "deinterlacing": its saved index named another list (Weave first), and kept a
+     * player who had tried it from ever seeing the progressive default. */
+    {"Deinterlacing", L"deinterlace", deinterlacing, 4, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
 static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, deinterlacing_values,
