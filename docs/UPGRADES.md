@@ -254,8 +254,8 @@ installs carry one (413 CUSTOM1); Might & Magic 3 (DE) needs CUSTOM1=2 to start.
 install's file name UTF-8; they are converted both ways (23 archives have accents), so a slave finds a file it names with an
 accent. **Memory**: an ExpMem that does not fit the 1.5 MiB of slow RAM (88 installs of the library did not fit) is given to a
 Zorro II fast RAM board configured at `$200000` (up to 8 MiB), with the slave area staying in slow RAM; a BaseMem above 1 MiB
-gets 2 MiB of chip RAM (3 installs). 71 of the 88 now fit (58 of them with Kickstart 1.x); the rest need a 512 KiB Kickstart
-(16, a later step) or more than 1 MiB of BaseMem beyond what an A500 has (1). **Registered**: 198 slaves of the library name
+gets 2 MiB of chip RAM (3 installs). 72 of the 88 now fit (59 of them with Kickstart 1.x); the other 16 need a 512 KiB
+Kickstart (a later step). **Registered**: 198 slaves of the library name
 the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer for non-zero (zero makes them stop with
 `TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
 WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
