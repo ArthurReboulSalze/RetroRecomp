@@ -47,7 +47,7 @@ LICENSE = 'PolyForm Noncommercial 1.0.0'
 BOOT_FRAMES = 600
 # Passes beyond the number asked for that run only while the last pass still taught something and the tested scenarios still interpret code:
 # what a pass learns is built by the next one, and the last paths of a game often arrive on the third (a routine reached only after the others are native).
-SETTLING_PASSES = 2
+SETTLING_PASSES = 4
 # The cycle count of the snapshot is the guest's, taken at the same machine cycle by both runs: it is expected to be equal; the
 # tolerance only keeps one cycle of accounting from refusing a run whose memories and registers agree.
 CYCLE_TOLERANCE = 2

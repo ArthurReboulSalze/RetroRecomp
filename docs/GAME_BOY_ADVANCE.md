@@ -222,7 +222,7 @@ What the guard still is: a fragment of at most 64 bytes is entered only if the l
 are none of the versions seen goes to the interpreter, counted, as before. The report names the numbers (`native_coverage.ram_code`: addresses, versions, entries,
 argument words, bytes added to the image) and the reasons that remain.
 
-Measured on 7 November 2026 on a Windows PC (the same probe scenarios as the panel, three passes asked and up to two settling ones, native equals the engine's interpreter in
+Measured on 7 November 2026 on a Windows PC (the same probe scenarios as the panel, three passes asked and up to two settling ones (four since, see the Linux section below), native equals the engine's interpreter in
 both scenarios, final picture hash and guest cycle count identical to the 1.7.0 panel):
 
 | Cartridge | Interpreted instructions, boot / generic, 1.7.0 | Now |
@@ -267,11 +267,14 @@ The pictures and the sound counts are those of the Windows players, to the last 
 reports equal the Windows ones. The window ran at the display's rate (about 31 s for 1,800 frames). This is a scripted run, not a person playing; the owner decided on
 7 November 2026 that it counts as the cross-OS witness of gate G13. The sound counts are counts: the sound itself was not heard, nor recorded.
 
-One thing the pass showed about the converter, not about Linux: Golden Sun converted from an **empty library** ends its five passes (three asked, two settling)
-with 5.3 million interpreted instructions on the generic scenario (boot: 0), where the Windows machine, whose library already held the paths of earlier runs, ends at
-32 thousand. The picture and the cycle count are the same; what is not yet found when the passes stop is interpreted, counted, and kept for the next conversion of the
-same cartridge (the paths are saved before the long replay). A first conversion of this cartridge therefore stays at several million interpreted instructions until
-it is converted again, or until more settling passes are allowed; the page does not promise the figure of the table above for a first conversion.
+One thing the pass showed about the converter, not about Linux: Golden Sun converted from an **empty library** ends its passes with millions of interpreted
+instructions on the generic scenario (boot: 0), where a machine whose library already held the paths of earlier runs ends at 32 thousand. With two settling passes
+(five in all) the Debian pass ended at 5.3 million. With **four** (`SETTLING_PASSES`, seven in all, only while the last pass still taught something) a conversion
+from an empty library on a Windows PC took 16 min 23 s in all, the player included, and ended at **3.9 million** (passes 5 to 7: 5.35, 4.17, 3.86 million); the
+report counts no unresolved miss at the end, the last three addresses having been turned into paths by the last pass. The picture and the cycle count are the same as
+with the full library. So every pass peels one layer (a routine reached only once the one before is native) and seven are not enough for this cartridge from
+nothing; what is not found when the passes stop is interpreted, counted, and kept (the paths are saved before the long replay), so a second conversion of the same
+cartridge continues from there. The figure of the table above (32 thousand) is that of a converted-again cartridge; the page does not promise it for a first conversion.
 
 ## Independent evidence (stage 5)
 
