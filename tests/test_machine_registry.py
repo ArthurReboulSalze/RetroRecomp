@@ -237,7 +237,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if not emulated and (system not in campaign.DEFAULT_FOLDERS or not set(campaign.EXTENSIONS.get(system, ())) & read):
         add('tools/campaign.py (DEFAULT_FOLDERS, EXTENSIONS) does not know the console')
     cases = json.loads(_text('tools/campaign-risk-cases.json'))['consoles']
-    if system not in cases and profile.status == 'supported':
+    if system not in cases and profile.status == 'supported' and not emulated:      # an emulated category has no risk case
         add('tools/campaign-risk-cases.json has no list for the console (an experimental machine may have none yet)')
     if not emulated and (system not in std_baseline.SYSTEMS or system not in std_baseline.CONSOLE_OPTIONS):
         add('tools/std_baseline.py (SYSTEMS, CONSOLE_OPTIONS) does not know the console')
@@ -255,6 +255,12 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if profile.status == 'supported':
         if profile.linux != 'witnessed':
             add('supported: the conversion must be witnessed on Linux (linux = "witnessed")')
+        if emulated:
+            # An emulated category has no path to share, no risk case and no matrix column: its criteria are written in its own page.
+            page = _text(f'docs/{profile.id.upper()}.md')
+            if '## What "supported" means here' not in page:
+                add('supported and emulated: docs/<MACHINE>.md must have a section \'What "supported" means here\'')
+            return problems
         if system not in path_profiles.SHARED_SYSTEMS:
             add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS')
         # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.
