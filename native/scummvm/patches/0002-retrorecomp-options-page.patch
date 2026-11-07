@@ -19,7 +19,7 @@ index 1179c478..d16e4149 100644
  	if (g_engine)
  		// Handle autosaves if enabled
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
-index 7b74d48d..825f7d05 100644
+index 7b74d48d..99cfd318 100644
 --- a/backends/fs/packed/packed-fs.cpp
 +++ b/backends/fs/packed/packed-fs.cpp
 @@ -39,7 +39,12 @@
@@ -123,7 +123,7 @@ index 7b74d48d..825f7d05 100644
  // ---------------------------------------------------------------------------------------------
  // Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
  // (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
-@@ -581,9 +667,182 @@ void installCrashLog(const Common::String &path) {
+@@ -581,9 +667,171 @@ void installCrashLog(const Common::String &path) {
  
  } // namespace
  
@@ -146,26 +146,15 @@ index 7b74d48d..825f7d05 100644
 +}
 +
 +// The hint of the menu key, once, a few seconds after the start (the timer runs on its own thread; the message queue is thread safe).
-+int g_hintTicks = 0, g_hintBurst = 0, g_hintShownAt = -100;
-+Common::Point g_hintMouse(-1, -1);
++int g_hintTicks = 0, g_hintBurst = 0;
 +
-+// One tick a second. A message stays on screen about two seconds, so the hint is repeated every second for seven seconds:
-+// starting a second after the first poll of the engine (the game's own picture is up by then), again at twenty-five seconds, and once more
-+// as soon as the player moves the mouse after the first twelve seconds (some intros and fades cover the overlay).
++// One tick a second, from the first poll of the engine (the game's own picture is up by then). A message stays on screen about
++// two seconds, so the hint is repeated every second for three seconds, once.
 +void hintTick() {
-+	const int tick = ++g_hintTicks;
-+	const Common::Point mouse = g_system->getEventManager()->getMousePos();
-+	if (tick == 1)
-+		g_hintMouse = mouse;
-+	if (tick == 1 || tick == 25)
-+		g_hintBurst = 8;
-+	if (g_hintBurst == 0 && tick > 12 && tick <= 120 && g_hintMouse.x >= 0 && mouse != g_hintMouse && tick - g_hintShownAt >= 10) {
-+		g_hintBurst = 6;
-+		g_hintMouse = Common::Point(-1, -1);       // once only
-+	}
++	if (++g_hintTicks == 1)
++		g_hintBurst = 3;
 +	if (g_hintBurst > 0) {
 +		g_hintBurst--;
-+		g_hintShownAt = tick;
 +		g_system->displayMessageOnOSD(retroRecompMenuHint());      // directly: some engines wait for seconds without polling events
 +	}
 +}
@@ -306,7 +295,7 @@ index 7b74d48d..825f7d05 100644
  	if (getenv("RR_TEST_FATAL"))
  		error("Retro-Recomp: deliberate fatal error");
  	if (getenv("RR_TEST_CRASH")) {
-@@ -638,7 +897,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -638,7 +886,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	else if (language == "it")
  		guiLanguage = "it_IT";
  	const Common::String config = gameDir + kNativeSep + "scummvm.ini";
@@ -330,7 +319,7 @@ index 7b74d48d..825f7d05 100644
  
  	static Common::Array<Common::String> strings;
  	strings.clear();
-@@ -665,6 +939,24 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -665,6 +928,24 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	argv = &pointers[0];
  }
  
@@ -420,7 +409,7 @@ index 1b7bc73e..0d07a927 100644
  
 diff --git a/backends/fs/packed/packed-options.cpp b/backends/fs/packed/packed-options.cpp
 new file mode 100644
-index 00000000..12e59dcb
+index 00000000..3a64ec62
 --- /dev/null
 +++ b/backends/fs/packed/packed-options.cpp
 @@ -0,0 +1,575 @@
@@ -821,8 +810,8 @@ index 00000000..12e59dcb
 +
 +namespace {
 +
-+// The picture effects of the host kit's F3 (sharp pixels, xBR, Scale2x, scanlines) with ScummVM's software scalers: normal,
-+// HQ2x (the closest to xBR: ScummVM has none), AdvMAME / Scale2x, and the TV scaler for the scanlines. All at factor 2.
++// The picture effects of the host kit's F3 (sharp pixels, a smoothing filter, Scale2x, scanlines) with ScummVM's software scalers
++// (normal, HQ2x, AdvMAME / Scale2x) and, for the scanlines, the host kit's mask drawn over the scaled picture. All at factor 2.
 +struct Effect {
 +	const char *scaler;
 +	Text name;
@@ -831,7 +820,7 @@ index 00000000..12e59dcb
 +
 +const Effect kPictureEffects[] = {
 +	{"normal",  {"Sharp pixels", "Pixels nets", "Scharfe Pixel", "P\xC3\xADxeles n\xC3\xADtidos", "Pixel nitidi"}, false},
-+	{"hq",      {"HQ2x (like xBR)", "HQ2x (comme xBR)", "HQ2x (wie xBR)", "HQ2x (como xBR)", "HQ2x (come xBR)"}, false},
++	{"hq",      {"HQ2x", "HQ2x", "HQ2x", "HQ2x", "HQ2x"}, false},
 +	{"advmame", {"Scale2x", "Scale2x", "Scale2x", "Scale2x", "Scale2x"}, false},
 +	{"normal",  {"Scanlines", "Lignes de balayage", "Scanlines", "L\xC3\xADneas de barrido", "Scanline"}, true}
 +};

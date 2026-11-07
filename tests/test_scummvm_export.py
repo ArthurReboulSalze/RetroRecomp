@@ -168,9 +168,9 @@ class OptionsPage(unittest.TestCase):
         for text in ('"Help: Ctrl+F1 · Menu: Ctrl+F2"', '"Aide : Ctrl+F1 · Menu : Ctrl+F2"', '"Hilfe: Strg+F1 · Menü: Strg+F2"',
                      '"Ayuda: Ctrl+F1 · Menú: Ctrl+F2"', '"Aiuto: Ctrl+F1 · Menu: Ctrl+F2"'):
             self.assertIn(text, self.patch)
-        # shown for seven seconds, again later, and once more on the first mouse move (an OSD message lasts about two seconds)
-        self.assertIn('g_hintBurst = 8;', self.patch)
-        self.assertIn('mouse != g_hintMouse', self.patch)
+        # shown for three seconds, once, from the first poll of the engine (an OSD message lasts about two seconds)
+        self.assertIn('g_hintBurst = 3;', self.patch)
+        self.assertNotIn('g_hintMouse', self.patch)
 
     def test_the_help_tab_lists_the_shortcuts_in_five_languages(self):
         self.assertIn('retroRecompHelpTabTitle()', self.patch)
@@ -217,7 +217,8 @@ class OptionsPage(unittest.TestCase):
         import re
         effects = re.findall(r'^\+\t\{"(normal|hq|advmame)",\s+\{"([^"]+)"', self.patch, re.M)
         self.assertEqual([(scaler, name) for scaler, name in effects],
-                         [('normal', 'Sharp pixels'), ('hq', 'HQ2x (like xBR)'), ('advmame', 'Scale2x'), ('normal', 'Scanlines')])
+                         [('normal', 'Sharp pixels'), ('hq', 'HQ2x'), ('advmame', 'Scale2x'), ('normal', 'Scanlines')])
+        self.assertNotIn('xBR"', self.patch)      # no mention of xBR in what the player sees
         self.assertIn('"rr_scanlines"', self.patch)
         self.assertIn('"pixel-perfect"', self.patch)
         self.assertIn('ConfMan.flushToDisk();', self.patch)
