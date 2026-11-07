@@ -1,5 +1,25 @@
+diff --git a/backends/events/default/default-events.cpp b/backends/events/default/default-events.cpp
+index 1179c478..a41527cc 100644
+--- a/backends/events/default/default-events.cpp
++++ b/backends/events/default/default-events.cpp
+@@ -26,6 +26,7 @@
+ #include "common/system.h"
+ #include "common/config-manager.h"
+ #include "common/translation.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "backends/events/default/default-events.h"
+ #include "backends/keymapper/action.h"
+ #include "backends/keymapper/keymapper.h"
+@@ -81,6 +82,7 @@ void DefaultEventManager::init() {
+ 
+ bool DefaultEventManager::pollEvent(Common::Event &event) {
+ 	_dispatcher.dispatch();
++	packedMainThreadTick();      // Retro-Recomp: the menu hint of a packed executable
+ 
+ 	if (g_engine)
+ 		// Handle autosaves if enabled
 diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
-index 7b74d48d..22672030 100644
+index 7b74d48d..68361f59 100644
 --- a/backends/fs/packed/packed-fs.cpp
 +++ b/backends/fs/packed/packed-fs.cpp
 @@ -39,7 +39,11 @@
@@ -14,7 +34,7 @@ index 7b74d48d..22672030 100644
  
  #include <signal.h>
  #include <stdlib.h>
-@@ -522,6 +526,86 @@ Common::String setIniValue(const Common::String &text, const char *section, cons
+@@ -522,6 +526,87 @@ Common::String setIniValue(const Common::String &text, const char *section, cons
  
  } // namespace
  
@@ -25,7 +45,8 @@ index 7b74d48d..22672030 100644
 +
 +namespace {
 +
-+const char *const kSharedKeys[] = {"fullscreen", "stretch_mode", "aspect_ratio", "music_volume", "sfx_volume", "speech_volume", "mute"};
++const char *const kSharedKeys[] = {"fullscreen", "stretch_mode", "aspect_ratio", "music_volume", "sfx_volume", "speech_volume", "mute",
++                                   "scaler", "scale_factor"};
 +
 +Common::String g_commonIni, g_gameIni;
 +
@@ -101,7 +122,7 @@ index 7b74d48d..22672030 100644
  // ---------------------------------------------------------------------------------------------
  // Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
  // (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
-@@ -581,9 +665,146 @@ void installCrashLog(const Common::String &path) {
+@@ -581,9 +666,176 @@ void installCrashLog(const Common::String &path) {
  
  } // namespace
  
@@ -124,11 +145,28 @@ index 7b74d48d..22672030 100644
 +}
 +
 +// The hint of the menu key, once, a few seconds after the start (the timer runs on its own thread; the message queue is thread safe).
-+int g_hintTicks = 0;
++int g_hintTicks = 0, g_hintBurst = 0, g_hintShownAt = -100;
++Common::Point g_hintMouse(-1, -1);
 +
-+void hintDriver(void *) {
-+	if (++g_hintTicks == 1)
++// One tick a second. A message stays on screen about two seconds, so the hint is repeated every second for seven seconds:
++// starting three seconds after the first poll of the engine (the game's own picture is up by then), again at twenty-five seconds, and once more
++// as soon as the player moves the mouse after the first twelve seconds (some intros and fades cover the overlay).
++void hintTick() {
++	const int tick = ++g_hintTicks;
++	const Common::Point mouse = g_system->getEventManager()->getMousePos();
++	if (tick == 2)
++		g_hintMouse = mouse;
++	if (tick == 3 || tick == 25)
++		g_hintBurst = 7;
++	if (g_hintBurst == 0 && tick > 12 && tick <= 120 && g_hintMouse.x >= 0 && mouse != g_hintMouse && tick - g_hintShownAt >= 10) {
++		g_hintBurst = 6;
++		g_hintMouse = Common::Point(-1, -1);       // once only
++	}
++	if (g_hintBurst > 0) {
++		g_hintBurst--;
++		g_hintShownAt = tick;
 +		Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint());
++	}
 +}
 +
 +// Authored checks with the real dialogs (RR_TEST_SCRIPT = a text file): one line per step, one step per tick.
@@ -233,6 +271,21 @@ index 7b74d48d..22672030 100644
 +
 +} // namespace
 +
++void packedMainThreadTick() {
++	if (!g_pack.present)
++		return;
++	static uint32 last = 0;
++	const uint32 now = g_system->getMillis(true);
++	if (last == 0) {
++		last = now;
++		return;
++	}
++	if (now - last < 1000)
++		return;
++	last = now;
++	hintTick();
++}
++
  void packedFaultForTest() {
  	if (!g_pack.present)
  		return;
@@ -243,12 +296,10 @@ index 7b74d48d..22672030 100644
 +		g_script = textLines(script);
 +		g_system->getTimerManager()->installTimerProc(scriptDriver, 1500000, nullptr, "rrtest-script");
 +	}
-+	// The key of the menu, shown for a few seconds at every start.
-+	g_system->getTimerManager()->installTimerProc(hintDriver, 3000000, nullptr, "rr-menu-hint");
  	if (getenv("RR_TEST_FATAL"))
  		error("Retro-Recomp: deliberate fatal error");
  	if (getenv("RR_TEST_CRASH")) {
-@@ -638,7 +859,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -638,7 +890,22 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	else if (language == "it")
  		guiLanguage = "it_IT";
  	const Common::String config = gameDir + kNativeSep + "scummvm.ini";
@@ -272,7 +323,7 @@ index 7b74d48d..22672030 100644
  
  	static Common::Array<Common::String> strings;
  	strings.clear();
-@@ -665,6 +901,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
+@@ -665,6 +932,10 @@ void packedLaunchArguments(int &argc, char **&argv) {
  	argv = &pointers[0];
  }
  
@@ -284,7 +335,7 @@ index 7b74d48d..22672030 100644
  	return g_pack.present;
  }
 diff --git a/backends/fs/packed/packed-fs.h b/backends/fs/packed/packed-fs.h
-index 1b7bc73e..2624c939 100644
+index 1b7bc73e..80f0abf0 100644
 --- a/backends/fs/packed/packed-fs.h
 +++ b/backends/fs/packed/packed-fs.h
 @@ -35,6 +35,12 @@
@@ -300,7 +351,7 @@ index 1b7bc73e..2624c939 100644
  
  class PackedFilesystemFactory final : public FilesystemFactory {
  public:
-@@ -62,6 +68,26 @@ void packedLaunchArguments(int &argc, char **&argv);
+@@ -62,6 +68,37 @@ void packedLaunchArguments(int &argc, char **&argv);
  /** True when this executable carries a game: the platform then creates no folder of its own outside datas/. */
  bool packedModeActive();
  
@@ -310,6 +361,14 @@ index 1b7bc73e..2624c939 100644
 + */
 +GUI::OptionsContainerWidget *buildRetroRecompOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain);
 +Common::U32String retroRecompOptionsTabTitle();
++
++/** The "Help" tab next to it: the shortcuts of a packed executable, in the menu language. */
++GUI::OptionsContainerWidget *buildRetroRecompHelpWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain);
++Common::U32String retroRecompHelpTabTitle();
++
++/** Ctrl+F3: the next picture effect (sharp pixels, HQ2x, Scale2x, scanlines); Ctrl+F4: pixel-perfect full screen on or off. Both are remembered. */
++void retroRecompNextEffect();
++void retroRecompTogglePixelPerfect();
 +
 +/** The short message shown over the game a few seconds after the start: the key of ScummVM's menu, in the menu language. */
 +Common::U32String retroRecompMenuHint();
@@ -321,6 +380,9 @@ index 1b7bc73e..2624c939 100644
 + */
 +void packedSyncSettings();
 +
++/** Called from the main thread at every poll of the events: once a second it shows the menu hint (never from another thread). */
++void packedMainThreadTick();
++
 +/** True while the authored check of the options page runs (RR_TEST_OPTIONS): the page is shown first. */
 +bool packedTestOptions();
 +
@@ -329,10 +391,10 @@ index 1b7bc73e..2624c939 100644
  
 diff --git a/backends/fs/packed/packed-options.cpp b/backends/fs/packed/packed-options.cpp
 new file mode 100644
-index 00000000..077ed401
+index 00000000..33068ef2
 --- /dev/null
 +++ b/backends/fs/packed/packed-options.cpp
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,538 @@
 +/* ScummVM - Graphic Adventure Engine
 + *
 + * ScummVM is the legal property of its developers, whose names
@@ -393,7 +455,7 @@ index 00000000..077ed401
 +};
 +
 +enum TextId {
-+	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kHint, kSaved, kTextCount
++	kTitle, kLanguage, kLanguageNote, kFullscreen, kScale, kAspect, kMusic, kEffects, kSpeech, kMute, kKeys, kHint, kSaved, kEffect, kPixelOn, kPixelOff, kHelpTitle, kHelp1, kHelp2, kHelp3, kHelp4, kHelp5, kHelp6, kHelp7, kHelp8, kHelp9, kTextCount
 +};
 +
 +const Text kTexts[kTextCount] = {
@@ -408,12 +470,46 @@ index 00000000..077ed401
 +	/* kSpeech */       {"Speech:", "Voix :", "Sprache:", "Voces:", "Voci:"},
 +	/* kMute */         {"Mute all", "Tout couper", "Alles stummschalten", "Silenciar todo", "Disattiva tutto"},
 +	/* kKeys */         {"Keys and pad...", "Touches et manette...", "Tasten und Gamepad...", "Teclas y mando...", "Tasti e gamepad..."},
-+	/* kHint */         {"Menu: Ctrl+F5", "Menu : Ctrl+F5", "Menü: Strg+F5", "Menú: Ctrl+F5", "Menu: Ctrl+F5"},
-+	/* kSaved */        {"Kept for every adventure game of this folder (datas/Retro-Recomp.ini).",
-+	                     "Conservé pour tous les jeux d'aventure de ce dossier (datas/Retro-Recomp.ini).",
-+	                     "Gilt für alle Abenteuerspiele dieses Ordners (datas/Retro-Recomp.ini).",
-+	                     "Se conserva para todos los juegos de aventura de esta carpeta (datas/Retro-Recomp.ini).",
-+	                     "Valido per tutti i giochi di avventura di questa cartella (datas/Retro-Recomp.ini)."}
++	/* kHint */         {"Menu: Ctrl+F5  (Options > Retro-Recomp > Help)", "Menu : Ctrl+F5  (Options > Retro-Recomp > Aide)",
++	                     "Menü: Strg+F5  (Optionen > Retro-Recomp > Hilfe)", "Menú: Ctrl+F5  (Opciones > Retro-Recomp > Ayuda)",
++	                     "Menu: Ctrl+F5  (Opzioni > Retro-Recomp > Aiuto)"},
++	/* kSaved */        {"Kept for every adventure game of this folder.",
++	                     "Conservé pour tous les jeux d'aventure du dossier.",
++	                     "Gilt für alle Abenteuerspiele dieses Ordners.",
++	                     "Se conserva para todos los juegos de aventura de la carpeta.",
++	                     "Valido per tutti i giochi di avventura della cartella."},
++	/* kEffect */       {"Effect:", "Effet :", "Effekt:", "Efecto:", "Effetto:"},
++	/* kPixelOn */      {"Full screen, pixel perfect", "Plein écran, pixel perfect", "Vollbild, Pixel Perfect", "Pantalla completa, pixel perfect", "Schermo intero, pixel perfect"},
++	/* kPixelOff */     {"Pixel perfect off", "Pixel perfect désactivé", "Pixel Perfect aus", "Pixel perfect desactivado", "Pixel perfect disattivato"},
++	/* kHelpTitle */    {"Help", "Aide", "Hilfe", "Ayuda", "Aiuto"},
++	/* kHelp1 */        {"Ctrl+F5: menu (Options, Save, Load). Pad: Start", "Ctrl+F5 : menu (Options, Sauver, Charger). Manette : Start",
++	                     "Strg+F5: Menü (Optionen, Speichern, Laden). Pad: Start", "Ctrl+F5: menú (Opciones, Guardar, Cargar). Mando: Start",
++	                     "Ctrl+F5: menu (Opzioni, Salva, Carica). Pad: Start"},
++	/* kHelp2 */        {"Esc: skip a scene or close a window", "Échap : passer une scène ou fermer une fenêtre",
++	                     "Esc: Szene überspringen oder Fenster schließen", "Esc: saltar una escena o cerrar una ventana",
++	                     "Esc: salta una scena o chiudi una finestra"},
++	/* kHelp3 */        {"Alt+Enter: full screen on / off", "Alt+Entrée : plein écran oui / non", "Alt+Enter: Vollbild ein / aus",
++	                     "Alt+Intro: pantalla completa sí / no", "Alt+Invio: schermo intero sì / no"},
++	/* kHelp4 */        {"Ctrl+F4: pixel-perfect full screen on / off", "Ctrl+F4 : plein écran pixel perfect oui / non",
++	                     "Strg+F4: Pixel-Perfect-Vollbild ein / aus", "Ctrl+F4: pantalla completa pixel perfect sí / no",
++	                     "Ctrl+F4: schermo intero pixel perfect sì / no"},
++	/* kHelp5 */        {"Ctrl+F3: effect: sharp / HQ2x / Scale2x / scanlines", "Ctrl+F3 : effet : net / HQ2x / Scale2x / lignes",
++	                     "Strg+F3: Effekt: scharf / HQ2x / Scale2x / Scanlines", "Ctrl+F3: efecto: nítido / HQ2x / Scale2x / líneas",
++	                     "Ctrl+F3: effetto: nitido / HQ2x / Scale2x / scanline"},
++	/* kHelp6 */        {"Ctrl+U: mute on / off", "Ctrl+U : son coupé / rétabli", "Strg+U: Ton aus / ein", "Ctrl+U: silenciar / restablecer",
++	                     "Ctrl+U: audio off / on"},
++#ifdef WIN32
++	/* kHelp7 */        {"Ctrl+Z or Alt+F4: quit", "Ctrl+Z ou Alt+F4 : quitter", "Strg+Z oder Alt+F4: beenden", "Ctrl+Z o Alt+F4: salir",
++	                     "Ctrl+Z o Alt+F4: esci"},
++#else
++	/* kHelp7 */        {"Ctrl+Q: quit", "Ctrl+Q : quitter", "Strg+Q: beenden", "Ctrl+Q: salir", "Ctrl+Q: esci"},
++#endif
++	/* kHelp8 */        {"Alt+S: screenshot (folder of this game)", "Alt+S : capture d'écran (dossier de ce jeu)",
++	                     "Alt+S: Screenshot (Ordner dieses Spiels)", "Alt+S: captura (carpeta de este juego)",
++	                     "Alt+S: schermata (cartella di questo gioco)"},
++	/* kHelp9 */        {"Save / load: Ctrl+F5 menu, or the game's keys (F5, F7)", "Sauver / charger : menu Ctrl+F5, ou les touches du jeu (F5, F7)",
++	                     "Speichern / Laden: Menü Strg+F5 oder Spieltasten (F5, F7)", "Guardar / cargar: menú Ctrl+F5 o teclas del juego (F5, F7)",
++	                     "Salva / carica: menu Ctrl+F5 o tasti del gioco (F5, F7)"}
 +};
 +
 +Common::U32String text(TextId id) {
@@ -688,6 +784,142 @@ index 00000000..077ed401
 +
 +} // namespace
 +
++// --- Ctrl+F3 and Ctrl+F4 -----------------------------------------------------------------------------------------------------
++
++namespace {
++
++// The picture effects of the host kit's F3 (sharp pixels, xBR, Scale2x, scanlines) with ScummVM's software scalers: normal,
++// HQ2x (the closest to xBR: ScummVM has none), AdvMAME / Scale2x, and the TV scaler for the scanlines. All at factor 2.
++struct Effect {
++	const char *scaler;
++	Text name;
++};
++
++const Effect kPictureEffects[] = {
++	{"normal",  {"Sharp pixels", "Pixels nets", "Scharfe Pixel", "P\xC3\xADxeles n\xC3\xADtidos", "Pixel nitidi"}},
++	{"hq",      {"HQ2x (like xBR)", "HQ2x (comme xBR)", "HQ2x (wie xBR)", "HQ2x (como xBR)", "HQ2x (come xBR)"}},
++	{"advmame", {"Scale2x", "Scale2x", "Scale2x", "Scale2x", "Scale2x"}},
++	{"tv",      {"Scanlines", "Lignes de balayage", "Scanlines", "L\xC3\xADneas de barrido", "Scanline"}}
++};
++
++Common::U32String pick(const Text &t) {
++	const Common::String language = ConfMan.get("gui_language");
++	const char *chosen = t.en;
++	if (language.hasPrefixIgnoreCase("fr"))
++		chosen = t.fr;
++	else if (language.hasPrefixIgnoreCase("de"))
++		chosen = t.de;
++	else if (language.hasPrefixIgnoreCase("es"))
++		chosen = t.es;
++	else if (language.hasPrefixIgnoreCase("it"))
++		chosen = t.it;
++	return Common::U32String(chosen);
++}
++
++// The keys go to the application domain; a copy in the game's domain would hide them.
++void rememberKey(const char *key, const Common::String &value) {
++	ConfMan.set(key, value, Common::ConfigManager::kApplicationDomain);
++	const Common::String game = ConfMan.getActiveDomainName();
++	if (!game.empty() && ConfMan.hasGameDomain(game) && ConfMan.hasKey(key, game))
++		ConfMan.removeKey(key, game);
++}
++
++Common::String stretchName(int id) {
++	for (const OSystem::GraphicsMode *mode = g_system->getSupportedStretchModes(); mode && mode->name; mode++) {
++		if (mode->id == id)
++			return mode->name;
++	}
++	return Common::String();
++}
++
++} // namespace
++
++void retroRecompNextEffect() {
++	if (!g_system->hasFeature(OSystem::kFeatureScalers))
++		return;
++	const Common::String current = ConfMan.get("scaler");
++	uint index = 0;
++	for (uint i = 0; i < ARRAYSIZE(kPictureEffects); i++) {
++		if (current.equalsIgnoreCase(kPictureEffects[i].scaler))
++			index = i;
++	}
++	index = (index + 1) % ARRAYSIZE(kPictureEffects);
++
++	g_system->beginGFXTransaction();
++	g_system->setScaler(kPictureEffects[index].scaler, 2);
++	g_system->endGFXTransaction();
++	rememberKey("scaler", kPictureEffects[index].scaler);
++	rememberKey("scale_factor", "2");
++	ConfMan.flushToDisk();                       // ScummVM writes its settings only when a dialog is confirmed
++	g_system->displayMessageOnOSD(text(kEffect) + Common::U32String(" ") + pick(kPictureEffects[index].name));
++}
++
++void retroRecompTogglePixelPerfect() {
++	static bool savedFullscreen = false;
++	static Common::String savedStretch;
++	const bool fullscreen = g_system->getFeatureState(OSystem::kFeatureFullscreenMode);
++	const Common::String stretch = stretchName(g_system->getStretchMode());
++	const bool active = fullscreen && stretch == "pixel-perfect";
++
++	bool wantFullscreen;
++	Common::String wantStretch;
++	if (active) {
++		wantFullscreen = savedFullscreen;
++		wantStretch = savedStretch.empty() ? Common::String("fit") : savedStretch;
++	} else {
++		savedFullscreen = fullscreen;
++		savedStretch = stretch;
++		wantFullscreen = true;
++		wantStretch = "pixel-perfect";
++	}
++	g_system->beginGFXTransaction();
++	g_system->setStretchMode(wantStretch.c_str());
++	g_system->setFeatureState(OSystem::kFeatureFullscreenMode, wantFullscreen);
++	g_system->endGFXTransaction();
++	rememberKey("fullscreen", wantFullscreen ? "true" : "false");
++	rememberKey("stretch_mode", wantStretch);
++	ConfMan.flushToDisk();
++	g_system->displayMessageOnOSD(text(active ? kPixelOff : kPixelOn));
++}
++
++// --- the Help tab ------------------------------------------------------------------------------------------------------------------
++
++namespace {
++
++class RetroRecompHelpWidget final : public GUI::OptionsContainerWidget {
++public:
++	RetroRecompHelpWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain) :
++			OptionsContainerWidget(boss, name, "RetroRecompHelp", domain) {
++		for (int i = 0; i < kLines; i++)
++			new GUI::StaticTextWidget(widgetsBoss(), Common::String::format("RetroRecompHelp.Line%d", i + 1), text((TextId)(kHelp1 + i)));
++	}
++
++	void load() override {}
++	bool save() override { return false; }
++	bool hasKeys() override { return false; }
++	void setEnabled(bool e) override {}
++
++private:
++	static const int kLines = 9;
++
++	void defineLayout(GUI::ThemeEval &layouts, const Common::String &layoutName, const Common::String &overlayedLayout) const override {
++		layouts.addDialog(layoutName, overlayedLayout).addLayout(GUI::ThemeLayout::kLayoutVertical).addPadding(0, 0, 0, 0);
++		for (int i = 0; i < kLines; i++)
++			layouts.addWidget(Common::String::format("Line%d", i + 1), "", -1, layouts.getVar("Globals.Line.Height"));
++		layouts.closeLayout().closeDialog();
++	}
++};
++
++} // namespace
++
++GUI::OptionsContainerWidget *buildRetroRecompHelpWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain) {
++	return new RetroRecompHelpWidget(boss, name, domain);
++}
++
++Common::U32String retroRecompHelpTabTitle() {
++	return text(kHelpTitle);
++}
++
 +GUI::OptionsContainerWidget *buildRetroRecompOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &domain) {
 +	if (!packedModeActive())
 +		return nullptr;
@@ -701,6 +933,69 @@ index 00000000..077ed401
 +Common::U32String retroRecompOptionsTabTitle() {
 +	return text(kTitle);
 +}
+diff --git a/backends/graphics/sdl/sdl-graphics.cpp b/backends/graphics/sdl/sdl-graphics.cpp
+index b3d25e7f..1e65f118 100644
+--- a/backends/graphics/sdl/sdl-graphics.cpp
++++ b/backends/graphics/sdl/sdl-graphics.cpp
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "backends/graphics/sdl/sdl-graphics.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "backends/platform/sdl/sdl-sys.h"
+ #include "backends/platform/sdl/sdl.h"
+ #include "backends/events/sdl/sdl-events.h"
+@@ -463,6 +464,14 @@ bool SdlGraphicsManager::notifyEvent(const Common::Event &event) {
+ 		saveScreenshot();
+ 		return true;
+ 
++	case kActionRetroRecompEffect:
++		retroRecompNextEffect();
++		return true;
++
++	case kActionRetroRecompPixelPerfect:
++		retroRecompTogglePixelPerfect();
++		return true;
++
+ 	default:
+ 		return false;
+ 	}
+@@ -547,6 +556,20 @@ Common::Keymap *SdlGraphicsManager::getKeymap() {
+ 	act->setCustomBackendActionEvent(kActionDecreaseScaleFactor);
+ 	keymap->addAction(act);
+ 
++	// Retro-Recomp: the keys of a packed executable (the plain F-keys belong to the games).
++	if (packedModeActive()) {
++		if (hasFeature(OSystem::kFeatureScalers)) {
++			act = new Action("RRFX", Common::U32String("Retro-Recomp: picture effect"));
++			act->addDefaultInputMapping("C+F3");
++			act->setCustomBackendActionEvent(kActionRetroRecompEffect);
++			keymap->addAction(act);
++		}
++		act = new Action("RRPP", Common::U32String("Retro-Recomp: pixel-perfect full screen"));
++		act->addDefaultInputMapping("C+F4");
++		act->setCustomBackendActionEvent(kActionRetroRecompPixelPerfect);
++		keymap->addAction(act);
++	}
++
+ 	if (hasFeature(OSystem::kFeatureScalers)) {
+ 		act = new Action("FLTN", _("Switch to the next scaler"));
+ 		act->addDefaultInputMapping("C+A+0");
+diff --git a/backends/graphics/sdl/sdl-graphics.h b/backends/graphics/sdl/sdl-graphics.h
+index d863dd91..4e42e159 100644
+--- a/backends/graphics/sdl/sdl-graphics.h
++++ b/backends/graphics/sdl/sdl-graphics.h
+@@ -150,7 +150,9 @@ protected:
+ 		kActionIncreaseScaleFactor,
+ 		kActionDecreaseScaleFactor,
+ 		kActionNextScaleFilter,
+-		kActionPreviousScaleFilter
++		kActionPreviousScaleFilter,
++		kActionRetroRecompEffect,
++		kActionRetroRecompPixelPerfect
+ 	};
+ 
+ 	/** Obtain the user configured fullscreen resolution, or default to the desktop resolution */
 diff --git a/backends/module.mk b/backends/module.mk
 index 93b7faa6..90e1f8a6 100644
 --- a/backends/module.mk
@@ -799,7 +1094,7 @@ index eb3e9d48..78327ce0 100644
  	// Free OSystem
  	g_system->destroy();
 diff --git a/engines/dialogs.cpp b/engines/dialogs.cpp
-index 28690bd0..c48a0ad1 100644
+index 28690bd0..051f536e 100644
 --- a/engines/dialogs.cpp
 +++ b/engines/dialogs.cpp
 @@ -42,6 +42,7 @@
@@ -846,7 +1141,24 @@ index 28690bd0..c48a0ad1 100644
  
  	ScrollContainerWidget *backendContainer = new ScrollContainerWidget(tab, "GlobalConfig_Backend.Container", "GlobalConfig_Backend_Container");
  	backendContainer->setBackgroundType(ThemeEngine::kWidgetBackgroundNo);
-@@ -390,8 +393,8 @@ ConfigDialog::ConfigDialog() :
+@@ -377,6 +380,16 @@ ConfigDialog::ConfigDialog() :
+ 		tab->removeTab(backendTabId);
+ 	}
+ 
++	// Retro-Recomp: the Help tab (the shortcuts), right after the Retro-Recomp page.
++	if (packedModeActive()) {
++		tab->addTab(retroRecompHelpTabTitle(), "GlobalConfig_Backend");
++
++		ScrollContainerWidget *helpContainer = new ScrollContainerWidget(tab, "GlobalConfig_Backend.Container", "GlobalConfig_Backend_Container");
++		helpContainer->setBackgroundType(ThemeEngine::kWidgetBackgroundNo);
++		helpContainer->setTarget(this);
++		buildRetroRecompHelpWidget(helpContainer, "GlobalConfig_Backend_Container.Container", gameDomain);
++	}
++
+ 	//
+ 	// The Achievements & The Statistics tabs
+ 	//
+@@ -390,8 +403,8 @@ ConfigDialog::ConfigDialog() :
  		addStatisticsControls(tab, "GlobalConfig_Achievements.");
  	}
  
@@ -857,7 +1169,7 @@ index 28690bd0..c48a0ad1 100644
  
  	//
  	// Add the buttons
-@@ -413,6 +416,11 @@ void ConfigDialog::build() {
+@@ -413,6 +426,11 @@ void ConfigDialog::build() {
  	}
  }
  

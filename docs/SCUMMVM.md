@@ -32,19 +32,24 @@ Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has t
 `datas/Retro-Recomp.ini` (common settings) and `datas/games/<Game>-<id>/` (ScummVM's configuration of the game, its log and its
 saves). Nothing is written anywhere else.
 
-* **Menu**: Ctrl+F5, or Start on a pad, opens ScummVM's menu (save, load, options, quit). Alt+Enter switches to full screen,
-  Ctrl+U mutes, Ctrl+Q or Alt+F4 quits. The host shortcuts of the other machines (F1, F2, F3, F8, F9, Tab, backquote) do not
-  exist here: F1 to F12, Esc and Tab belong to the games, and typing reaches text parsers.
+* **Menu**: Ctrl+F5, or Start on a pad, opens ScummVM's menu (save, load, options, quit); a message "Menu: Ctrl+F5" is shown over
+  the game for seven seconds as soon as the game is running, again after twenty-five seconds, and once more at the first mouse
+  move. Alt+Enter switches to full screen, Ctrl+U mutes, Ctrl+Z or Alt+F4 quits on Windows (Ctrl+Q on Linux). **Ctrl+F4** switches
+  full screen with integer (pixel-perfect) scaling on and off, and **Ctrl+F3** cycles the picture effect in the order of the host
+  kit's F3: sharp pixels, HQ2x (ScummVM has no xBR; this is its closest scaler), Scale2x and scanlines, all with ScummVM's own
+  software scalers (no OpenGL). Both are remembered. The host shortcuts of the other machines (F1, F2, F8, F9, Tab, backquote) do
+  not exist here: F1 to F12, Esc and Tab belong to the games, and typing reaches text parsers.
 * **Languages**: the five game-menu languages (English, French, Italian, Spanish, German). The interface language of
   `datas/Retro-Recomp.ini` sets ScummVM's menu language at every start; another value gives English. The game's own language
   comes from its data and is never changed.
 * **Retro-Recomp page**: the in-game options (Ctrl+F5, then Options) have a "Retro-Recomp" tab in place of ScummVM's empty
   "Backend" tab: the menu language (the five languages, from the next start), full screen, scaling, keep the aspect ratio,
-  the music, effects and speech volumes, "mute all", and a "Keys and pad..." button that opens ScummVM's keymaps tab. The values are
-  ScummVM's own keys. When a run ends they are copied to `datas/Retro-Recomp.ini` (section `[Adventure]`, and `[Interface]` for the
+  the music, effects and speech volumes, "mute all", and a "Keys and pad..." button that opens ScummVM's keymaps tab. A "Help" tab
+  ("Aide", "Hilfe", "Ayuda", "Aiuto") lists the shortcuts. The values are ScummVM's own keys (`fullscreen`, `stretch_mode`,
+  `aspect_ratio`, `scaler`, `scale_factor`, the volumes and `mute`). When a run ends they are copied to `datas/Retro-Recomp.ini` (section `[Adventure]`, and `[Interface]` for the
   language) and applied again at the start of every adventure executable of the folder, so a choice made in one game holds for all
-  of them. Screenshots go to `datas/games/<Game>-<id>/screenshots`. The host kit's own overlay (F1 menu, F2 mapping, F3 graphics,
-  F12, pause, shaders) is not wired: the host F-keys belong to the games.
+  of them. Screenshots go to `datas/games/<Game>-<id>/screenshots`. The host kit's own overlay (F1 menu, F2 mapping, the F3
+  graphics page, F12, pause, GLSL shaders) is not wired: the host F-keys belong to the games.
 * **Errors**: an executable never opens a window of the system. A fatal error of ScummVM or of the game's engine ("Error running game",
   missing data) is written to `scummvm.log` and the program ends with exit code 1; a crash, an abort or an uncaught exception
   writes one line to `crash.log` beside it. ScummVM's launcher never appears: the program ends with its game. Dialogs the engines

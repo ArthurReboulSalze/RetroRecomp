@@ -161,14 +161,40 @@ class OptionsPage(unittest.TestCase):
 
     def test_the_menu_key_is_hinted_at_the_start_in_five_languages(self):
         self.assertIn('Common::OSDMessageQueue::instance().addMessage(retroRecompMenuHint())', self.patch)
-        self.assertIn('"Menu: Ctrl+F5", "Menu : Ctrl+F5", "Menü: Strg+F5", "Menú: Ctrl+F5", "Menu: Ctrl+F5"', self.patch)
+        for text in ('"Menu: Ctrl+F5  (Options > Retro-Recomp > Help)"', '"Menu : Ctrl+F5  (Options > Retro-Recomp > Aide)"',
+                     '"Menü: Strg+F5  (Optionen > Retro-Recomp > Hilfe)"', '"Menú: Ctrl+F5  (Opciones > Retro-Recomp > Ayuda)"',
+                     '"Menu: Ctrl+F5  (Opzioni > Retro-Recomp > Aiuto)"'):
+            self.assertIn(text, self.patch)
+        # shown for seven seconds, again later, and once more on the first mouse move (an OSD message lasts about two seconds)
+        self.assertIn('g_hintBurst = 7;', self.patch)
+        self.assertIn('mouse != g_hintMouse', self.patch)
+
+    def test_the_help_tab_lists_the_shortcuts_in_five_languages(self):
+        self.assertIn('retroRecompHelpTabTitle()', self.patch)
+        for number in range(1, 10):
+            self.assertIn(f'/* kHelp{number} ', self.patch)
+        for shortcut in ('Ctrl+F5', 'Alt+Enter', 'Ctrl+F4', 'Ctrl+F3', 'Ctrl+U', 'Alt+F4', 'Alt+S'):
+            self.assertIn(shortcut, self.patch)
+        self.assertIn('{"Help", "Aide", "Hilfe", "Ayuda", "Aiuto"}', self.patch)
+
+    def test_ctrl_f3_cycles_the_host_kit_filters_and_ctrl_f4_toggles_pixel_perfect(self):
+        self.assertIn('addDefaultInputMapping("C+F3")', self.patch)
+        self.assertIn('addDefaultInputMapping("C+F4")', self.patch)
+        # the order of the host kit's F3: sharp pixels, xBR (HQ2x here), Scale2x, scanlines
+        names = [line.strip() for line in self.patch.splitlines() if line.startswith('+\t{"') and '{"' in line[4:] and 'Sharp' in line or
+                 line.startswith('+\t{"hq"') or line.startswith('+\t{"advmame"') or line.startswith('+\t{"tv"')]
+        self.assertEqual([name.split('"')[1] for name in names], ['normal', 'hq', 'advmame', 'tv'])
+        self.assertIn('"pixel-perfect"', self.patch)
+        self.assertIn('ConfMan.flushToDisk();', self.patch)
+        for key in ('"scaler"', '"scale_factor"'):
+            self.assertIn(key, self.patch)
 
     def test_the_text_table_follows_the_order_of_its_enum(self):
         import re
         enum = re.search(r'\+\s+(kTitle,[^\n]*?), kTextCount', self.patch)
         self.assertIsNotNone(enum)
         names = [name.strip() for name in enum.group(1).split(',')]
-        rows = re.findall(r'^\+\t/\* (k\w+)\s*\*/\s+\{', self.patch, re.M)
+        rows = list(dict.fromkeys(re.findall(r'^\+\t/\* (k\w+)\s*\*/\s+\{', self.patch, re.M)))     # one row may exist per platform
         self.assertEqual(rows, names)
 
     def test_screenshots_stay_in_the_games_folder(self):
