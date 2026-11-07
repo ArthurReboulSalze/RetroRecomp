@@ -282,8 +282,14 @@ def generate(project: Path, samples: list, table: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
+# A route the game ends itself (resload_Abort with TDREASON_OK: its own Quit) is a valid reference when it ran this long: every
+# later run of that route (native passes, the compressed copy, the state continuation) may end the same way, and its trace and
+# resload log, the final Abort included, must still equal the reference's.
+MIN_ENDED_ROUTE_FRAMES = 1000
+
+
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Path | None = None, reference: bool = False,
-           observe: bool = False, extra=()) -> dict:
+           observe: bool = False, extra=(), game_may_quit: bool = False) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'), '--trace', str(folder / 'trace.tsv'),
             '--input-events', str(events), '--resload-log', str(folder / 'resload.log'), '--capture', str(folder / 'frame.ppm')]
@@ -299,6 +305,9 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     if result.returncode not in (0, 2):
         raise ConversionError('Amiga replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
+    if report.get('stopped') and game_may_quit and report.get('quit') and report.get('frames', 0) >= MIN_ENDED_ROUTE_FRAMES:
+        report['ended_by_game'] = True
+        return report
     if report.get('stopped'):
         raise ConversionError(f'Amiga: the install stopped at frame {report.get("frames")}: {report.get("error")}')
     if report.get('frames') != frames:
@@ -421,7 +430,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], install=work / 'install',
-                                        reference=True, observe=True)
+                                        reference=True, observe=True, game_may_quit=True)
+        ended = {name: report['frames'] for name, report in expected.items() if report.get('ended_by_game')}
+        for name, frames_ in ended.items():
+            emit(f'Amiga: the game ended itself after {frames_} frames of the {name} route (its own Quit): the route ends there.')
         samples = set()
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
@@ -461,7 +473,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     folder.mkdir(parents=True, exist_ok=True)
                     exported = folder / candidate.name
                     shutil.copy2(candidate, exported)
-                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True)
+                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True, game_may_quit=name in ended)
                     require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                       lambda: ConversionError(f'Amiga {name}: the native game and the fresh reference diverged; existing export preserved.'))
                     require_same_file(folder / 'resload.log', checks / f'reference-{name}' / 'resload.log',
@@ -478,7 +490,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Amiga', emit)
-        state_frame = count - 600
+        state_frame = ended.get('main', routes[0][1]) - 600
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
                         ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
                        for name, frames_, _ in routes]
@@ -491,7 +503,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             shutil.copy2(packed, target)
             if os.name != 'nt':
                 target.chmod(0o755)
-            return replay(target, folder, frames_, scripts[name], extra=extra)
+            return replay(target, folder, frames_, scripts[name], extra=extra, game_may_quit=name in ended)
         with timings.phase('packed_replays'):
             packed_results = replay_packed(delivered, packed_runs, replay_copy,
                                            same=lambda run_, result: same_trace(run_[1] / 'trace.tsv', run_[2] / 'trace.tsv'),
@@ -506,7 +518,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
+            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'],
+                   game_may_quit='main' in ended)
         require(continues(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv'),
                 lambda: ConversionError('Amiga: the quick state does not continue its saved timeline.'))
         rows = []
@@ -520,6 +533,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          'packed_reference_match': True, 'resload_match': True, 'resload_calls': result['resload_calls'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                         **({'ended_by_game': True, 'frames_run': ended[name]} if name in ended else {}),
                          **({'state_restart_match': True, 'state_frame': state_frame} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {

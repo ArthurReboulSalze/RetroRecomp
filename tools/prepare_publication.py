@@ -82,7 +82,7 @@ retrorecomp/amiga_codegen.py retrorecomp/amiga_conversion.py retrorecomp/amiga_k
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
-tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_whdload.py
+tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py

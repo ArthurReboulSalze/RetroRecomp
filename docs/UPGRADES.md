@@ -236,6 +236,15 @@ sizes, the date, an empty comment) and leave the rest of the buffer alone. Anoth
 two cases Arthur met, run; so do Maniac Mansion, Monkey Island 2 and Beneath a Steel Sky (the first two and the last
 stopped before the change). **What moves:** the Amiga's game stamp (`native/amiga_whdload/rr_resload.c`); no other console.
 
+## Commodore Amiga: a route the game ends itself (1.7.1)
+
+A scripted route may make a game quit through its own menu (`resload_Abort` with `TDREASON_OK`): 4D Sports Boxing does so at
+frame 1,702 of the exploration route. Such a reference run is accepted when it lasted at least 1,000 frames; every later run of
+that route (native passes, the compressed copy, the quick-state continuation) must end the same way, and its trace and resload
+log, the final call included, must equal the reference's. The report marks the route `ended_by_game` with the frames it ran.
+Any other stop still fails the conversion. **What moves:** the Amiga's game stamp (`amiga_conversion.py`, the session and the
+player); no other console.
+
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 
 `resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call

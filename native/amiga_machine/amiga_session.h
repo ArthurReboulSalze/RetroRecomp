@@ -51,6 +51,8 @@ void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
 /* Runs one frame (resload calls answered on the way). 0: the frame ran; -1: the install stopped (resload refused, Abort, or
  * the CPU left the resload table at a breakpoint); the reason is rr_amiga_error. */
 int rr_amiga_frame(RrAmigaSession *s);
+/* 1 when the install stopped because it ended itself normally (resload_Abort with TDREASON_OK), 0 for any other stop. */
+int rr_amiga_quit(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
 /* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */

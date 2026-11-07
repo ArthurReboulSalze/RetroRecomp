@@ -51,6 +51,7 @@ struct RrAmigaSession {
     uint64_t frame = 0;
     long calls = 0;
     std::string error, log;
+    bool quit = false;         // the install ended itself with resload_Abort(TDREASON_OK): a normal exit, not a failure
     unsigned joy = 0;
     int mouse_left = 0, mouse_right = 0;
     uint8_t keys[128] = {};
@@ -431,7 +432,11 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
                 snprintf(line, sizeof line, "%llu %02X %s d0=%08X d1=%08X a0=%06X a1=%06X\n", (unsigned long long)s->frame, offset,
                          status == RR_RESLOAD_RETURN ? "ok" : status == RR_RESLOAD_ABORT ? "abort" : "refused", regs[0], regs[1], regs[8], regs[9]);
                 s->log += line;
-                if (status != RR_RESLOAD_RETURN) { s->error = s->rl.message[0] ? s->rl.message : "resload call refused"; return -1; }
+                if (status != RR_RESLOAD_RETURN) {
+                    s->error = s->rl.message[0] ? s->rl.message : "resload call refused";
+                    s->quit = status == RR_RESLOAD_ABORT && s->rl.abort_reason[0] == 0xFFFFFFFFu;
+                    return -1;
+                }
                 for (int i = 0; i < 7; i++) { cpu.setD(i, regs[i]); cpu.setA(i, regs[8 + i]); }
                 cpu.setD(7, regs[7]);
                 uint16_t sr = cpu.getSR() & ~0x000Fu;
@@ -483,6 +488,7 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
 }
 
 extern "C" const char *rr_amiga_error(const RrAmigaSession *s) { return s->error.c_str(); }
+extern "C" int rr_amiga_quit(const RrAmigaSession *s) { return s->quit; }
 
 extern "C" int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint16_t *crc16) {
     if (!s->kick_size) return 0;

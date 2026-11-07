@@ -309,9 +309,9 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)rr_amiga_kickstart_interpreted_count(session));
          else fputs("\"kickstart\":null,", r);
       }
-      fprintf(r, "\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
+      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
-              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
+              rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
               (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
               RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
