@@ -266,6 +266,18 @@ a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68
 **What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: a quick state continues the sound sample for sample (1.7.1)
+
+vAmiga's snapshot leaves out the memory of its sound path, so the samples after a load differed from an unbroken run and the
+conversion could not compare them. The adapted core (`retrorecomp/amiga_vamiga.py`, `Ports/AudioPort.h`, MPL-2.0 like the file) now
+saves and restores the four samplers' pending samples, the three filters' memory, the sub-sample fraction, the master volume ramps
+and the muted flag; the player appends them to its state file and clears the output stream after a load. Headless, a state
+saved mid-run and resumed in a fresh process gives the same sound hash on all 200 frames compared (Apidya, Zeewolf, Cyber Games),
+with the CPU registers, RAM and picture; the conversion now compares the sound after a load too. **What moves:** the Amiga's game
+stamp (the adapted core, `amiga_session.cpp`, `amiga_conversion.py`); no other console. **Quick states:** the state file schema is
+now `RRAMIGA-STATE-2`: states of earlier Amiga builds are refused cleanly. Hardware fidelity and physical latency are not
+measured by this check.
+
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 
 `resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call

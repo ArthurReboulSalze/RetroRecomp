@@ -39,7 +39,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-1";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-2";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -624,7 +624,7 @@ extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *p
 
 // ---- quick states ----------------------------------------------------------------------------------------------------
 // magic, ABI string, frame, resload state (its host callbacks are this process's), inputs held, then vAmiga's snapshot.
-struct StateHead { char magic[16]; char abi[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size; };
+struct StateHead { char magic[16]; char abi[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size; };
 
 extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi) {
     try {
@@ -640,11 +640,16 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         snprintf(head.abi, sizeof head.abi, "%s", abi ? abi : "");
         head.frame = s->frame; head.joy = s->joy; head.mouse_left = (uint32_t)s->mouse_left; head.mouse_right = (uint32_t)s->mouse_right;
         head.snapshot_size = (uint32_t)snap->data.size;
+        // The sound path's own memory (samplers, filters, volume ramps), which the snapshot leaves out.
+        std::vector<uint8_t> audio;
+        s->amiga->audioPort.rrSaveAudio(audio);
+        head.audio_size = (uint32_t)audio.size();
         std::string temporary = std::string(path) + ".tmp";
         FILE *f = open_file(temporary.c_str(), "wb");
         if (!f) return 4;
         bool ok = fwrite(&head, sizeof head, 1, f) == 1 && fwrite(&s->rl, sizeof s->rl, 1, f) == 1 &&
-                  fwrite(s->keys, sizeof s->keys, 1, f) == 1 && fwrite(snap->data.ptr, 1, (size_t)snap->data.size, f) == (size_t)snap->data.size;
+                  fwrite(s->keys, sizeof s->keys, 1, f) == 1 && fwrite(snap->data.ptr, 1, (size_t)snap->data.size, f) == (size_t)snap->data.size &&
+                  fwrite(audio.data(), 1, audio.size(), f) == audio.size();
         ok = fclose(f) == 0 && ok;
         std::error_code ec;
         if (ok) fs::rename(upath(temporary), upath(path), ec);
@@ -664,8 +669,10 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     std::vector<uint8_t> data;
     bool ok = fread(&head, sizeof head, 1, f) == 1;
     if (ok && (memcmp(head.magic, STATE_MAGIC, sizeof head.magic) || strncmp(head.abi, abi ? abi : "", sizeof head.abi))) { fclose(f); return 2; }
-    ok = ok && fread(&rl, sizeof rl, 1, f) == 1 && fread(keys, sizeof keys, 1, f) == 1 && head.snapshot_size && head.snapshot_size < (256u << 20);
+    ok = ok && fread(&rl, sizeof rl, 1, f) == 1 && fread(keys, sizeof keys, 1, f) == 1 && head.snapshot_size && head.snapshot_size < (256u << 20) && head.audio_size < (64u << 20);
+    std::vector<uint8_t> audio;
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
+    if (ok) { audio.resize(head.audio_size); ok = fread(audio.data(), 1, audio.size(), f) == audio.size(); }
     fclose(f);
     if (!ok) return 3;
     kick_window(false);
@@ -675,6 +682,8 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         kick_window(true);
         return 3;
     }
+    if (!s->amiga->audioPort.rrLoadAudio(audio.data(), audio.size())) { kick_window(true); return 3; }
+    s->amiga->audioPort.stream.clear(SamplePair{0, 0});   // the load may have padded the stream; the frames after it hold only what they make
     rl.host = s->rl.host;
     s->rl = rl;
     // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but

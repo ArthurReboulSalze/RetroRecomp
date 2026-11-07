@@ -59,8 +59,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    mouse and keyboard inputs, and at the Standard level a joystick exploration route, 3,000 frames each): the picture, sound, RAM
    and CPU registers of every frame and the resload calls must equal those of the fresh interpreted reference. So must the
    compressed copy that is delivered. A quick state saved by it is loaded by a fresh process, which must continue the same
-   timeline (CPU, RAM and picture; the sound samples after a load are not compared, because vAmiga does not save the state of its
-   audio resampler and filters). A conversion that fails any of these keeps the earlier export.
+   timeline (CPU, RAM, picture and the sound samples of every frame; vAmiga's snapshot leaves out the state of its sound path, so
+   the adapted core saves and restores the samplers' pending samples, the filters' memory and the volume ramps itself). A conversion that fails any of these keeps the earlier export.
 6. **Report.** The conversion report (schema v2, shape `amiga_conversion`) carries the interpreter fallback per CPU and keeps the
    five measures in separate objects.
 7. **Picture.** The game shows the display window the game opens, not the overscan border around it: the union of its
@@ -94,7 +94,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
-- After a quick state is loaded, the sound samples are not bit-identical to an unbroken run (see Validation above).
+- (1.7.1) After a quick state is loaded, the sound samples are bit-identical to an unbroken run on the games checked (Apidya, Zeewolf, Cyber Games, 200 frames each); a state saved by an earlier build is refused.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

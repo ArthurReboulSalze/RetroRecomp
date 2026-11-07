@@ -336,10 +336,10 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# What a resumed process is not compared on: vAmiga's snapshot leaves out the state of its audio output (the samplers are reset
-# on load, the resampler's phase and the output filters are not saved), so the samples of the frames after a load differ while
-# the machine (CPU, RAM, picture) continues the same timeline. Reported as such (`game_states.validation`).
-CONTINUATION_IGNORED = ('pcm',)
+# What a resumed process is not compared on: nothing. vAmiga's snapshot leaves out the state of its sound path (the samplers' pending
+# samples, the filters' memory, the sub-sample fraction, the volume ramps); the adapted core saves and restores exactly those, so the
+# samples after a load equal an unbroken run's. The tuple stays for a column a later machine may have to exempt.
+CONTINUATION_IGNORED = ()
 
 
 def continues(timeline: Path, resumed: Path) -> bool:
@@ -563,11 +563,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
-                            'schema': 'RRAMIGA-STATE-1', 'machine': 'amiga500', 'rom_identity': source.sha256,
+                            'schema': 'RRAMIGA-STATE-2', 'machine': 'amiga500', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
                                            'continuation_frames': 400, 'continuation_matches': True,
-                                           'compared': 'CPU registers, RAM and picture of every frame; not the sound samples (vAmiga does '
-                                                       'not save the state of its audio resampler and filters)'}},
+                                           'compared': 'CPU registers, RAM, picture and sound samples of every frame'}},
             'ordinary_saves': {'supported': True, 'scope': 'files the install writes through resload_SaveFile, kept beside the game',
                                'path': 'datas/games/amiga-' + source.sha256 + '/saves',
                                'validation': {'checked_in_this_conversion': False, 'evidence': 'tests/test_amiga_resload.py (SaveFile, the save callback)'}},
