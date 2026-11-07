@@ -224,6 +224,18 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
 
+## Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock (1.7.1)
+
+Installs that load their files through the slave's own operating-system emulation (the `Examine` flag: 1,180 of the 2,967
+Amiga 500 installs of the maintainer's library that the profile reads, 1,040 of them with a Kickstart) stopped at boot with
+"not enough memory" (AmigaDOS 103). The cause, found by tracing exec: the emulation calls `resload_Examine` with a
+FileInfoBlock that has only 240 bytes before the next free chunk; the layer cleared and wrote all 260 bytes of a
+FileInfoBlock, zeroing that chunk's header, so exec's fast-memory list held one chunk of size 0 and every later
+allocation failed. `Examine` and `ExNext` now write only the fields they have values for (the name up to its NUL, the
+sizes, the date, an empty comment) and leave the rest of the buffer alone. Another World (FR) and 4D Sports Boxing, the
+two cases Arthur met, run; so do Maniac Mansion, Monkey Island 2 and Beneath a Steel Sky (the first two and the last
+stopped before the change). **What moves:** the Amiga's game stamp (`native/amiga_whdload/rr_resload.c`); no other console.
+
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 
 `resload_Abort(success, primary, secondary)` takes its arguments at `(a7)`, as the autodoc's synopsis says (the documented call
