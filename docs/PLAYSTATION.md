@@ -13,11 +13,12 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
   are missing from it, and the report says so). A multi-disc game is one EBOOT holding its discs (playlists, `.m3u`, are not read
   yet: that extension is the X68000's disk sets). A signed EBOOT from the PlayStation Store is refused (decrypting it would
   circumvent its protection).
-- **NTSC-U, NTSC-J and PAL discs**, two players, memory cards.
+- **NTSC-U, NTSC-J and PAL discs**, two players, the first memory card (kept beside the game; the second port is off).
 - **The DualShock pad** of each player: the d-pad, the four face buttons, L1, R1, L2 and R2 (the gamepad's triggers), L3, R3,
   Start, Select, both sticks and vibration. It powers on in digital mode, as the console's pad does (a game reads its d-pad);
   the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
-  switches it itself. A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
+  switches it itself. While a pad is digital, the gamepad's left stick also works as the d-pad. A game the core's database knows
+  as digital-only gets a standard pad on that port (Crash Bandicoot). A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x, 8x), dithering, deinterlacing, aspect ratio and overscan
   crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings, progressive).
 - **A raised internal resolution has a real cost**: the renderer works in software on one thread. In combat in Tobal No. 1 on
@@ -58,16 +59,35 @@ executable that is published (the disc inside it, its native steps): an attract 
 Cross through the title screens, then a deterministic walk), plus long routes at the higher scan levels. It requires a picture
 that changes and, on every frame of every route, the same picture, sound and RAM in both processes; it checks F8/F9 in a fresh
 process and the refusal of a damaged state. It also checks the controls of the published game: each one, pressed alone on
-each player's pad, must reach exactly its own button of the console, and both pads must answer in digital mode at power-on.
+each player's pad, must reach exactly its own button of the console, and no pad may be in analog mode at power-on.
 The game is published as built (not compressed: the disc follows the program).
 
 Native code: the share of the routes' instructions run by native steps, and the interpreted remainder, are in the report per
 route; outside the routes the game shows its own counter. The fetches that run no instruction (an interrupt being taken, or
 the CPU held while a DMA transfer runs, when the core fetches the same instruction again each cycle) are counted apart, in
-neither figure. CPU fidelity: what the core's interpreter does (the native steps are
-compared with it, not with an independent CPU model). Hardware fidelity: not measured; with the free BIOS the report says so. Gameplay
-validation: only the conversion's routes. Physical latency: not measured.
+neither figure. CPU fidelity: what the core's interpreter does (each route's native steps are compared with it). Separately,
+`tools/psx_vector_selftest.py` runs independent vectors on both paths, without a game: see below. Hardware fidelity: not measured;
+with the free BIOS the report says so. Gameplay validation: only the conversion's routes. Physical latency: not measured.
 
-## 4. Not in this first scope
+## 4. Where it stands (8 November 2026)
+
+Each line is one measure; none says anything about the others. The record is in
+[QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-8-november-2026).
+
+- **Native code**: on the two routes of the ten panel discs, at most 0.0003 % to 0.0131 % of the instructions ran on the
+  interpreter, depending on the disc (0.0165 % on Tobal No. 1, an eleventh disc). This covers those routes only: a part of the
+  game they did not reach starts on the interpreter, counted.
+- **CPU fidelity**: every route of every panel disc is identical, frame by frame, to the core's interpreter. Independently of any
+  game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors pass on the GTE. The CPU
+  vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is agreement with a model, not
+  proof against the silicon.
+- **Hardware fidelity**: not measured. It is Beetle's.
+- **Gameplay validation**: scripted routes reaching title screens, intros, menus or a first level, no deeper. Nobody has played
+  the panel. Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice: its gameplay is not shown.
+- **Physical latency**: not measured.
+- **Linux**: Ape Escape, converted on a Debian 13 PC with GCC, gives the same hashes as Windows on both routes. One disc, and no
+  game played on Linux.
+
+## 5. Not in this first scope
 
 Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.

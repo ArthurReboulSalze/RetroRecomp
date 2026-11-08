@@ -36,7 +36,7 @@ class PlayStationProfile(SystemProfile):
     firmware = ('bios',)
     quick_state_family = 'rr16'          # the quick-state file of the 16-bit family (console16_state.c), machine number 6
     capabilities = Capabilities(battery=True)
-    linux = 'pending'
+    linux = 'witnessed'                  # Ape Escape on a Debian 13 PC, 8 November 2026: same hashes as Windows (QUALIFICATION.md)
     feedback_kinds = frozenset({23})
     default_frames = 3600
     quick_frames = 3600
