@@ -317,6 +317,59 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      'extern int PBP_DiscCount;\n',
      '/* Retro-Recomp modification (GPL-2.0, like this file): the EBOOT reader is not compiled; no disc comes from it. */\n'
      'int PBP_DiscCount = 0;\n'),
+    # A display that wraps past the end of VRAM reads, before the wrap, rows the game's picture does not use. Tobal No. 1 in
+    # combat starts at y=493 and draws in y=12..463, so its top two picture rows are VRAM rows 510 and 511, whatever is stored
+    # there, in the top overscan: coloured noise on a screen that shows every line. Such a row is shown black, at its place
+    # (the picture keeps its size and nothing is cropped), and only when the display wraps, the row comes before the wrap and
+    # the row lies outside the game's drawing area: a polygon of that frame cannot have touched it. The machine is untouched
+    # (VRAM, timing, the sound): this changes the picture handed to the frontend, in the reference and the game alike.
+    ('mednafen/psx/gpu.c',
+     'static GPU_ScanoutCacheEntry scanout_cache[GPU_DEST_LINE_MAX];\n',
+     'static GPU_ScanoutCacheEntry scanout_cache[GPU_DEST_LINE_MAX];\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the scanline shown on the first row of the picture. */\n'
+     'static int32_t rr_psx_first_visible_line;\n'),
+    ('mednafen/psx/gpu.c',
+     '               /* One crop window for the whole frame */\n               if (GPU.scanline == FirstVisibleLine)\n',
+     '               rr_psx_first_visible_line = (int32_t)FirstVisibleLine;\n\n'
+     '               /* One crop window for the whole frame */\n               if (GPU.scanline == FirstVisibleLine)\n'),
+    ('mednafen/psx/gpu.c',
+     'void GPU_FlushDeferredScanout(MDFN_Surface *target)\n{\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the rows a display wrapping past the end of VRAM reads before the\n'
+     ' * wrap and the game\'s drawing area leaves out are shown black, at their place (see retrorecomp/psx_beetle.py). A 24-bit\n'
+     ' * picture (a film, loaded rather than drawn) is left alone. A row of a bobbed picture holds one of two VRAM rows. */\n'
+     'static INLINE bool rr_psx_row_undrawn(int32_t y)\n{\n'
+     '   y &= 0x1FF;\n'
+     '   return y < GPU.ClipY0 || y > GPU.ClipY1;\n}\n\n'
+     'void GPU_BlankUndrawnRows(uint32_t *pixels, size_t pitch, unsigned width, unsigned height, bool bob)\n{\n'
+     '   const unsigned s    = GPU.upscale_shift;\n'
+     '   const bool     full = (GPU.DisplayMode & 0x24) == 0x24;\n'
+     '   const int32_t  step = (full && bob) ? 2 : 1;\n'
+     '   const int32_t  rows = (int32_t)(height >> s);\n'
+     '   int32_t        y, row;\n\n'
+     '   if (   GPU.DisplayOff || (GPU.DisplayMode & DISP_RGB24)\n'
+     '       || ((GPU.DisplayMode & DISP_INTERLACED) && !full)\n'
+     '       || (int32_t)GPU.DisplayFB_YStart + (((int32_t)GPU.VertEnd - (int32_t)GPU.VertStart) << full) <= 512)\n'
+     '      return;\n'
+     '   y = (int32_t)GPU.DisplayFB_YStart + ((rr_psx_first_visible_line - (int32_t)GPU.VertStart) << full);\n'
+     '   for (row = 0; row < rows && y < 512; row++, y += step)\n'
+     '   {\n'
+     '      unsigned i;\n'
+     '      if (y < 0 || !rr_psx_row_undrawn(y) || (step == 2 && !rr_psx_row_undrawn(y + 1)))\n'
+     '         continue;\n'
+     '      for (i = 0; i < (1u << s); i++)\n'
+     '         memset((uint8_t *)pixels + (((size_t)row << s) + i) * pitch, 0, (size_t)width * sizeof(uint32_t));\n'
+     '   }\n}\n\n'
+     'void GPU_FlushDeferredScanout(MDFN_Surface *target)\n{\n'),
+    ('libretro.c',
+     'static const uint32_t *flush_deferred_scanout(unsigned x0, unsigned w,\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): gpu.c, the rows a wrapping display reads and the game cannot draw. */\n'
+     'void GPU_BlankUndrawnRows(uint32_t *pixels, size_t pitch, unsigned width, unsigned height, bool bob);\n\n'
+     'static const uint32_t *flush_deferred_scanout(unsigned x0, unsigned w,\n'),
+    ('libretro.c',
+     '      if (     pix\n            && (GPU_get_display_possibly_dirty()\n',
+     '      if (pix)\n'
+     '         GPU_BlankUndrawnRows((uint32_t *)pix, pitch, width, height, Deinterlacer_GetType(&deint) == DEINT_BOB);\n\n'
+     '      if (     pix\n            && (GPU_get_display_possibly_dirty()\n'),
 ]
 
 
