@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga (the last three experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation (the last six experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -101,7 +101,7 @@ and its limits are on its page.
 
 ### In development
 
-Not available yet. Each one starts as an experimental profile; no date is promised.
+Nothing is in development as a profile you can use today. Each new machine starts as an experimental profile; no date is promised.
 
 Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
@@ -110,7 +110,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.1.** The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure (ScummVM) is supported, with an options page and keys in the game (Ctrl+F2, Ctrl+F1, Ctrl+F3, Ctrl+F4) and a game folder that the window now finds; the Amiga runs the Kickstart's code natively from your own image and the Game Boy Advance runs its work-RAM code natively under a guard. Every export of 1.7.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.1.** The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure (ScummVM) is supported; the Amiga and the Game Boy Advance run more of their code natively. Every export of 1.7.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 **New in 1.7.0.** The Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga 500 (WHDLoad installs, and those that ask for Kickstart 1.3 with your own image) open as experimental machines; the adventure games of ScummVM (one clickable executable per game, emulated, 0 % native) are added, and supported since 1.7.1; the PC Engine takes US TurboGrafx-16 HuCards; the host kit gains analog sticks, rumble, a 3D graphics page and disc change; F12 hints now work on every machine, so every 1.6.9 export is reconverted at the update. Details in the [release notes](docs/RELEASE_NOTES.md).
 
