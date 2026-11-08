@@ -74,7 +74,9 @@ struct RrAmigaSession {
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
     uint32_t kick_base = 0, kick_size = 0;                    // where it sits in ExpMem once loaded (0: not loaded)
     uint64_t kick_interpreted = 0, kick_native = 0;
-    std::set<uint32_t> kick_pcs;   // addresses of the Kickstart's instructions run on the interpreter while observing (numbers, never its bytes)
+    // The Kickstart's instructions run on the interpreter while observing: the address and the words as they stand (a slave patches
+    // some). Written beside the observations, in the conversion's private work folder only; the library keeps the addresses alone.
+    std::set<std::pair<uint32_t, std::string>> kick_observed;
 };
 
 static RrAmigaSession *S;   // the hooks of Moira and of the resload layer reach the one session of the process
@@ -246,12 +248,16 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     (void)m; (void)op;
 #endif
     S->interpreted_count++;
-    // The Kickstart's own code (the window, or its copy in ExpMem) is counted apart. An observation of it keeps the address
-    // only: its bytes are the player's, never ours to store; the converter reads them from the player's own image when it
-    // writes the guarded native steps, in the player's private build folder.
+    // The Kickstart's own code (the window, or its copy in ExpMem) is counted apart. Its bytes are the player's: what is observed
+    // here stays in the conversion's private work folder, where the image itself is, and only the addresses are remembered.
     if (in_kickstart(pc)) {
         S->kick_interpreted++;
-        if (S->observing && pc >= 0xFC0000) S->kick_pcs.insert(pc);
+        if (S->observing && pc >= 0xFC0000) {
+            char hex[25];
+            int length = (int)std::min<uint32_t>(12, 0x1000000u - pc) & ~1;
+            for (int i = 0; i < length; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
+            S->kick_observed.insert({pc, hex});
+        }
         return false;
     }
     if (S->observing && in_ram(pc)) {
@@ -445,6 +451,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->amiga->mem.loadRom(rom.data(), (isize)rom.size());
         S->amiga->powerOn();
         S->amiga->run();
+        S->amiga->keyboard.rrHandshakeOver();   // as on a machine long up: its power-up codes do not reach the game (amiga_vamiga.py)
         S->amiga->controlPort1.setDevice(ControlPortDevice::MOUSE);
         S->amiga->controlPort2.setDevice(ControlPortDevice::JOYSTICK);
         try { S->amiga->computeFrame(); } catch (StateChangeException &) {}   // the boot ROM quiets the machine
@@ -636,10 +643,10 @@ extern "C" int rr_amiga_write_observations(const RrAmigaSession *s, const char *
     if (!o) return 0;
     for (auto &e : s->observed) fprintf(o, "%06x %s\n", e.first, e.second.c_str());
     if (fclose(o) != 0) return 0;
-    // The Kickstart's addresses beside it: no bytes, one address a line.
+    // The Kickstart's beside it, in the same form: this file stays in the private work folder.
     FILE *k = open_file((std::string(path) + ".kick").c_str(), "wb");
     if (!k) return 0;
-    for (uint32_t pc : s->kick_pcs) fprintf(k, "%06x\n", pc);
+    for (auto &e : s->kick_observed) fprintf(k, "%06x %s\n", e.first, e.second.c_str());
     return fclose(k) == 0;
 }
 extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *s) { return s->native_count; }

@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
@@ -263,8 +264,9 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
 
 
 # The Kickstart code a game runs: its addresses only (never a byte) are kept, in the private memory beside the observations of
-# that image; the words of each instruction are read from the player's own image, in this conversion's private work folder, when
-# the steps are written, so the generated source and the game built from it belong to that player's image alone.
+# that image. The words of each instruction come from this conversion's own runs (`<observations>.kick`, as they stand, a slave's
+# patches included) and from the player's own image, both in the private work folder, when the steps are written, so the generated
+# source and the game built from it belong to that player's image alone.
 KICK_ADDRESSES = 'converter-kickstart-addresses.txt'
 # The window a 256 KiB Kickstart (1.x) runs in, the one the machine's writable-ROM alias covers; the authored boot ROM below it is
 # not the Kickstart.
@@ -279,6 +281,22 @@ def read_kick_addresses(path: Path) -> set[int]:
         if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
             raise ValueError('Unsupported Kickstart address.')
         found.add(pc)
+        if len(found) > 262144:
+            raise ConversionError('Amiga Kickstart observation bound exceeded.')
+    return found
+
+
+def read_kick_observation(path: Path) -> set[tuple[int, str]]:
+    """(address, words) of a run's `<observations>.kick`, in the private work folder: the Kickstart's instructions as they stood."""
+    found = set()
+    for line in Path(path).read_text(encoding='ascii').splitlines():
+        address, words = line.split()
+        pc = int(address, 16)
+        if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+            raise ValueError('Unsupported Kickstart address.')
+        if not re.fullmatch('(?:[0-9a-f]{4}){1,8}', words):
+            raise ValueError('Invalid Kickstart words.')
+        found.add((pc, words))
         if len(found) > 262144:
             raise ConversionError('Amiga Kickstart observation bound exceeded.')
     return found
@@ -344,7 +362,7 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     with (folder / 'stdout.log').open('wb') as out, (folder / 'stderr.log').open('wb') as err:
         result = spawn(args, cwd=folder, timeout=max(600, frames // 4), stdout=out, stderr=err)
     if result.returncode not in (0, 2):
-        raise ConversionError('Amiga replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
+        raise ConversionError(f'Amiga replay failed (exit code {result.returncode}): ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
     if report.get('stopped') and game_may_quit and report.get('quit') and report.get('frames', 0) >= MIN_ENDED_ROUTE_FRAMES:
         report['ended_by_game'] = True
@@ -481,16 +499,18 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
         kick_addresses: set[int] = set()
+        kick_observed: set[tuple[int, str]] = set()
         kick_image = b''
         if kick is not None:
             kick_image = (work / 'install' / 'kickstart.rom').read_bytes()
             for name, _, _ in routes:
                 try:
-                    kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
+                    kick_observed |= read_kick_observation(checks / f'reference-{name}' / 'observations.txt.kick')
                 except (OSError, ValueError) as error:
                     raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
+        kick_addresses = {pc for pc, _ in kick_observed}
         if kick is not None and (memory / KICK_ADDRESSES).is_file():
             try:
                 kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
@@ -516,7 +536,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples | kick_samples(kick_addresses, kick_image)), table)
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
@@ -525,7 +545,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
             more = set()
-            more_kick: set[int] = set()
+            more_kick: set[tuple[int, str]] = set()
             with timings.phase('native_runs'):
                 for name, frames_, _ in routes:
                     folder = run_dir / name
@@ -540,17 +560,18 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     more |= set(read_observations(folder / 'observations.txt'))
                     if kick is not None:
                         try:
-                            more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
+                            more_kick |= read_kick_observation(folder / 'observations.txt.kick')
                         except (OSError, ValueError) as error:
                             raise ConversionError(f'Amiga {name}: the Kickstart addresses of the native run are unreadable: {error}') from error
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not ((more - samples) or (more_kick - kick_addresses)):
+            if not interpreted or not ((more - samples) or (more_kick - kick_observed)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
-            kick_addresses |= more_kick
+            kick_observed |= more_kick
+            kick_addresses |= {pc for pc, _ in more_kick}
         timings.end_passes()
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')

@@ -62,6 +62,16 @@ class KickstartAddressesTests(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, 'unexpected size'):
             conversion.kick_samples({0xFC0000}, b'\x00' * 1000)
 
+    def test_a_run_observation_gives_the_words_as_they_stood_and_is_checked(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'o.kick'
+            path.write_text('fc0100 4e714e75\nfc0100 4ef900c0\n', encoding='ascii')       # the same address, patched by a slave
+            self.assertEqual(conversion.read_kick_observation(path), {(0xFC0100, '4e714e75'), (0xFC0100, '4ef900c0')})
+            for bad in ('fc0101 4e71\n', '001000 4e71\n', 'fc0100 4e7\n', 'fc0100 zz71\n'):
+                path.write_text(bad, encoding='ascii')
+                with self.assertRaises(ValueError):
+                    conversion.read_kick_observation(path)
+
     def test_the_address_file_holds_numbers_only_and_is_checked(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'o.kick'

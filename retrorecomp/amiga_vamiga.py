@@ -115,6 +115,22 @@ REPLACEMENTS = [
     // Resets the output buffer and the two audio filters
     void clear();
 """),
+    # The keyboard's power-up handshake (a second of self test, then the codes $FD and $FE) ended long before a real WHDLoad starts a
+    # slave. The machine here enters the slave a frame after its power-on, so the host declares the handshake over: otherwise those
+    # two codes arrive about a second into the game, and a slave's keyboard handler that a player's key would reach much later runs
+    # during the Kickstart's boot.
+    ('Peripherals/Keyboard/Keyboard.h',
+     'class Keyboard final : public SubComponent {\n',
+     'class Keyboard final : public SubComponent {\n\n'
+     'public:\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the keyboard has long been up and is waiting for a key.\n'
+     '    void rrHandshakeOver();\n\n'
+     'private:\n'),
+    ('Peripherals/Keyboard/Keyboard.cpp',
+     'void\nKeyboard::wakeUp()\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file).\n'
+     'void\nKeyboard::rrHandshakeOver()\n{\n    agnus.cancel<SLOT_KBD>();\n    state = KbState::SEND;\n}\n\n'
+     'void\nKeyboard::wakeUp()\n'),
     ('Components/Denise/Texture.cpp',
      '    auto *ptr = pixels.ptr + row * HPIXELS + 4 * cycle;\n\n    for (isize col = 4 * cycle; col < 4 * cycle + 4; col++) {',
      '    // Retro-Recomp modification (MPL-2.0, like this file): the column index already holds the cycle offset.\n'
