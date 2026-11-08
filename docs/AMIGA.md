@@ -32,7 +32,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 1. **Reading the install.** `retrorecomp/amiga_lha.py` lists and extracts the members of the archive (LHA levels 0 to 2, methods
    `-lh0-` and `-lh5-` to `-lh7-`, CRC-16 checked); `retrorecomp/amiga_whdload.py` reads the slave's AmigaDOS hunk file and its
    `ws_` header (memory sizes, flags, the Kickstart it asks for) and lays out the install: the slave, its data folder, the disk
-   images. The identity of a game is the SHA-256 of the archive.
+   images. The data folder is the one the icon's `DATA` ToolType names when the archive has it (1.7.2), else the one `ws_CurrentDir` names (Drakkhen's slave names none,
+   its icon says `DATA=data`). The identity of a game is the SHA-256 of the archive.
 2. **No WHDLoad, no Kickstart.** WHDLoad is closed source with all rights reserved; it is neither run nor copied. The slave is a
    68000 program that calls a table of `resload_*` services, so `native/amiga_whdload/` answers those calls itself (our own MIT
    code, written from the public autodoc; every call is counted and a service it does not provide is refused with its number,
@@ -126,6 +127,13 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   it off for speed (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`), which would have hidden every collision from a game
   that reads CLXDAT. Apidya reads it never (0 reads in 1,700 frames); Blood Money does (36 reads over the 2,500 frames of the standard
   route, and its RAM then differs from frame 859 of that route with the detection on).
+- (1.7.2) The files an install saves go to `datas/games/amiga-<identity>/saves`, below that folder only, whole or not at all (a temporary file replaces the old
+  one once every byte is flushed and closed; a refusal is reported to the slave as a full disk and leaves the file and the game's view of it as they were).
+  Shown on one game, 5th Gear (`tools/amiga_saves_check.py`, 8 November 2026): it writes `5thgear.highs` by itself on the exploration route, a relaunch keeps it, a fresh
+  process reads it (through a one-byte-changed copy: the game saved what its install already holds), a quick state does not roll it back, a damaged file never stops the
+  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
+- (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
+  is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
@@ -146,5 +154,6 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md) is mostly `?`: only the rows above are measured. Leaving the
-experimental status is the maintainer's own decision, after a very high evidence bar.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 8 November 2026: `Y` on G1; `P` on G2 to G8, G10, G11, G13, G14
+and G15; `-` on G16 (the Amiga shares no paths); `?` on G9 and G12. Each `P` names what is shown and what is missing there; none of them says hardware fidelity, gameplay
+coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
