@@ -429,7 +429,8 @@ Scanlines use one gap per original console raster row. Fractional fullscreen
 scaling integrates partial opacity, keeping the bands proportional to the
 image instead of snapping them to uneven thicknesses. Below 2× resolution the
 mask is omitted to preserve game detail. Window status text always uses English
-("Native code", "Interpreter fallback"); menu language remains configurable.
+("Native code", "Interpreter fallback"; on a game that runs on a complete emulator
+core, "Native CPU, emulated hardware" instead of "Native code"); menu language remains configurable.
 
 F8/F9 also save and restore the qualified 16-bit games after closing the EXE.
 Each quick state uses the game's name and exact ROM identity in `datas/states`.

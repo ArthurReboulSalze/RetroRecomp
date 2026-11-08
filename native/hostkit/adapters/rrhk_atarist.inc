@@ -217,6 +217,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.pixels = s_pixels; machine.visible_width = s_width; machine.visible_height = s_height; machine.raster_height = s_height;
       machine.display_width = s_width;
       machine.audio = s_audio; machine.interpreted = s_interpreted; machine.audio_interpreted = s_zero;
+      machine.native_caption = RRHK_CORE_CAPTION;
       machine.state_path = s_state_path; machine.state_ready = s_state_ready; machine.state_file = s_state_file; machine.input_frame = s_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;

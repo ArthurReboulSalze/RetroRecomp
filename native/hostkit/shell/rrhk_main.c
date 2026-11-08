@@ -102,7 +102,7 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->video_clock_test = r->test_frames && test_no_audio && test_no_audio[0] == '1';
     if (m->state_path) m->state_path(r->state_path, 32768);
     if (scale < 1) scale = 3;
-    snprintf(r->caption, sizeof(r->caption), "%s | %s", title, "Native code");
+    snprintf(r->caption, sizeof(r->caption), "%s | %s", title, m->native_caption ? m->native_caption : "Native code");
     int open_w, open_h;
     opening_size(m, scale, &open_w, &open_h);
     r->win = SDL_CreateWindow(r->caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -252,7 +252,7 @@ static void end_frame(RrhkRun *r) {
     if (current_title_state != r->title_state) {
         snprintf(r->caption, sizeof(r->caption), "%s | %s", r->title,
                  current_title_state == 2 ? "Cartridge chip interpreted" :
-                 current_title_state ? "Interpreter fallback" : "Native code");
+                 current_title_state ? "Interpreter fallback" : m->native_caption ? m->native_caption : "Native code");
         SDL_SetWindowTitle(r->win, r->caption);
         r->title_state = current_title_state;
     }

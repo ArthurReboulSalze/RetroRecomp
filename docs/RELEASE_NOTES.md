@@ -49,7 +49,8 @@
   corrected in the sheet the game holds (your files do not change), which brought back its
   fight music. Other discs with such a sheet were not converted again.
 - **What "native" means on four machines.** The PlayStation, the Nintendo 64, the Atari ST
-  and the Amiga are not fully recompiled systems. Each game runs on a complete emulator
+  and the Amiga are not fully recompiled systems, and their window title now says **"Native
+  CPU, emulated hardware"** where the others say "Native code". Each game runs on a complete emulator
   core inside the executable (Beetle PSX; Mupen64Plus-Next with ParaLLEl-RSP and
   ParaLLEl-RDP; Hatari; vAmiga with the Moira 68000), with its machine, its chips and their
   timing. Only the main CPU's instructions seen running during the conversion become native

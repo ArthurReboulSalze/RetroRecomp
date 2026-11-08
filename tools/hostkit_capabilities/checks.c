@@ -224,6 +224,7 @@ static void full_script(void) {
             ui->buttons[0][A_ANALOG] = bound_button;
         }
         CHECK(!rrhk_action_held(0, A_LEFT));
+        CHECK(strstr(SDL_GetWindowTitle(rrhk_window()), "| " RRHK_CORE_CAPTION) != NULL);
         axis(SDL_CONTROLLER_AXIS_LEFTX, 20000); axis(SDL_CONTROLLER_AXIS_LEFTY, -30000);
         axis(SDL_CONTROLLER_AXIS_RIGHTX, -12345); axis(SDL_CONTROLLER_AXIS_RIGHTY, 32767);
         break;
@@ -543,6 +544,7 @@ static void plain_script(void) {
     switch (step++) {
     case 0:
         CHECK(apply_count == 0);
+        CHECK(strstr(SDL_GetWindowTitle(rrhk_window()), "| Native code") != NULL);
         axis(SDL_CONTROLLER_AXIS_LEFTX, 20000);
         break;
     case 3:     /* the left stick is the four directions (D1) */
@@ -609,7 +611,7 @@ static RrhkMachine full = {
     .frame_start = frame_start, .before_present = before_present, .option_rows = option_rows_hook, .key_event = key_event,
     .analog_sticks = 2, .script_axes = script_axes, .trigger_buttons = true,
     .gfx_options = options, .gfx_option_count = 2, .gfx_apply = gfx_apply,
-    .pixel_pitch = width, .rumble = true,
+    .pixel_pitch = width, .rumble = true, .native_caption = RRHK_CORE_CAPTION,
     .host_media = 1 + A_DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select};
 static const RrhkMachine *current = &full;
 const RrhkMachine *rrhk_adapter(void) { return current; }
@@ -681,6 +683,7 @@ int main(int argc, char **argv) {
     plain.gfx_options = NULL; plain.gfx_option_count = 0; plain.gfx_apply = NULL;
     plain.pixel_pitch = NULL; plain.rumble = false;
     plain.host_media = 0; plain.media_count = NULL; plain.media_current = NULL; plain.media_select = NULL;
+    plain.native_caption = NULL;
     current = &plain;
     scale = 1; draw_picture(); disc_calls = 0; rumble_calls = 0;
     begin(plain_script);

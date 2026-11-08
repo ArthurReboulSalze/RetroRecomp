@@ -246,7 +246,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = audio, .interpreted = interpreted, .audio_interpreted = audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .input_frame = input_frame, .help_controls = help_controls, .event = event,
-            .analog_sticks = 2, .trigger_buttons = true, .rumble = true,
+            .analog_sticks = 2, .trigger_buttons = true, .rumble = true, .native_caption = RRHK_CORE_CAPTION,
             .gfx_options = gfx_options, .gfx_option_count = GFX_COUNT, .gfx_apply = gfx_apply,
             .host_media = 1 + DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select,
         };

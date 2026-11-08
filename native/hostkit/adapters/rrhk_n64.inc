@@ -183,7 +183,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_path = n64_state_path, .state_ready = n64_state_ready, .state_file = n64_state_file,
             .input_frame = n64_input_frame, .help_controls = n64_help_controls,
             .cost_enabled = n64_cost_enabled, .cost = n64_cost,
-            .analog_sticks = 2, .trigger_buttons = true, .rumble = true,
+            .analog_sticks = 2, .trigger_buttons = true, .rumble = true, .native_caption = RRHK_CORE_CAPTION,
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
         };
     }

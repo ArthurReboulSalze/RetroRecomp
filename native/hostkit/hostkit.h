@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 #define RRHK_MAX_PLAYERS 4
+#define RRHK_CORE_CAPTION "Native CPU, emulated hardware"   /* RrhkMachine.native_caption of a game on a complete emulator core */
 /* Controls of a machine, in menu order (1.7.0: 20, so that a PlayStation pad's 17 fit; 12 before). The pad word given to the
  * machine stays 16 bits: host-side actions (`bit` 0) do not use one. An F2 page shows fifteen rows at once and scrolls past. */
 #define RRHK_MAX_ACTIONS 20
@@ -269,6 +270,9 @@ typedef struct RrhkMachine {
      * the store is max_width x max_height and the rows are max_width apart, as before. */
     int (*pixel_pitch)(void);
     bool rumble;                      /* the machine calls rrhk_rumble: the options page shows the shared Vibration row */
+    /* The window title's words while nothing is interpreted. NULL: "Native code". A game that runs on a complete emulator core, with
+     * native code for its main CPU only, says RRHK_CORE_CAPTION: its picture, sound and chips are the core's (docs/ARCHITECTURE.md). */
+    const char *native_caption;
     /* Discs. host_media: 1 + the index of a host-side "Change disc" action (its `bit` is 0, like host_pause), 0: none. Pressed in
      * play, it asks media_select for the next disc (after the last, the first) and shows "Disc 2/3". The swap itself (lid,
      * eject, insert over several frames) is the machine's. */
