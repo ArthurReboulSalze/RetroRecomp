@@ -127,11 +127,12 @@ static void rumble(void) {
         rumbling[p][1] = weak;
     }
 }
-/* A DualShock in digital mode does not read its sticks, as on the console; a gamepad's left stick then drives the d-pad
+/* A DualShock in digital mode does not read its sticks, as on the console, and a game the core knows as digital-only has a
+ * standard pad (mode -1: Crash Bandicoot's first port); a gamepad's left stick then drives the d-pad
  * (the kit's threshold, D1), so that a game played with the stick moves either way. In analog mode the sticks go as they are. */
 enum { STICK_THRESHOLD = 16000 };
 static uint16_t stick_directions(int player, uint16_t pad, const int16_t axes[4]) {
-    if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;
+    if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) == 1) return pad;
     if (axes[0] < -STICK_THRESHOLD) pad |= RR_PSX_PAD_LEFT; else if (axes[0] > STICK_THRESHOLD) pad |= RR_PSX_PAD_RIGHT;
     if (axes[1] < -STICK_THRESHOLD) pad |= RR_PSX_PAD_UP; else if (axes[1] > STICK_THRESHOLD) pad |= RR_PSX_PAD_DOWN;
     if ((pad & (RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT)) == (RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT)) pad &= ~(RR_PSX_PAD_LEFT | RR_PSX_PAD_RIGHT);
@@ -278,13 +279,13 @@ int rr_psx_input_check(RrPsxSession *s, FILE *out) {
                     player + 1, actions[a].name, (unsigned)actions[a].bit, (unsigned)got, (unsigned)expected,
                     got == expected ? "true" : "false");
         }
-    /* Each pad is a DualShock in digital mode at power-on, as the console's pad is: a game that reads the d-pad of a digital pad
-     * sees its directions (the Analog button switches the mode). */
+    /* No pad is in analog mode at power-on, as on the console: a game that reads the d-pad of a digital pad sees its directions
+     * (the Analog button switches a DualShock's mode; a game the core knows as digital-only has a standard pad, mode -1). */
     for (int player = 0; player < 2; ++player) {
         const int mode = rr_psx_pad_analog_mode(s, player);
-        failures += mode != 0;
-        fprintf(out, "{\"player\":%d,\"action\":\"power-on mode\",\"analog\":%d,\"expected\":0,\"ok\":%s}\n", player + 1,
-                mode, mode == 0 ? "true" : "false");
+        failures += mode == 1;
+        fprintf(out, "{\"player\":%d,\"action\":\"power-on mode\",\"analog\":%d,\"expected\":\"not analog\",\"ok\":%s}\n", player + 1,
+                mode, mode != 1 ? "true" : "false");
     }
     /* The mode stays where it is over presses and releases (two seconds of the boot, Cross tapped): only the Analog button,
      * its combination held a second, or the game itself changes it. Each release once switched it (6 November 2026). */
@@ -297,9 +298,9 @@ int rr_psx_input_check(RrPsxSession *s, FILE *out) {
     rr_psx_pad(s, 1, 0, NULL);
     for (int player = 0; player < 2; ++player) {
         const int mode = rr_psx_pad_analog_mode(s, player);
-        failures += mode != 0;
-        fprintf(out, "{\"player\":%d,\"action\":\"mode after presses\",\"analog\":%d,\"expected\":0,\"ok\":%s}\n", player + 1,
-                mode, mode == 0 ? "true" : "false");
+        failures += mode == 1;
+        fprintf(out, "{\"player\":%d,\"action\":\"mode after presses\",\"analog\":%d,\"expected\":\"not analog\",\"ok\":%s}\n", player + 1,
+                mode, mode != 1 ? "true" : "false");
     }
     /* Nothing pressed: nothing read. */
     const uint32_t idle = rr_psx_pad_probe(s, 0, 0, 0);

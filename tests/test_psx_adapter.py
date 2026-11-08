@@ -60,7 +60,9 @@ class PsxAdapterTest(unittest.TestCase):
 
     def test_the_stick_drives_the_dpad_of_a_digital_pad(self):
         self.assertIn('pads[p] = stick_directions(p, pads[p], axes[p]);', ADAPTER)
-        self.assertIn('if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;', ADAPTER)
+        # only a pad in analog mode reads its sticks: a DualShock in digital mode (0) and a standard pad (-1) take them as directions
+        self.assertIn('if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) == 1) return pad;', ADAPTER)
+        self.assertIn('failures += mode == 1;', ADAPTER)
 
     def test_a_raised_resolution_the_pc_cannot_draw_is_said(self):
         # Tobal No. 1 at 4x runs 18 % too slow in combat and its sound breaks up: the labels and a notice say so.
