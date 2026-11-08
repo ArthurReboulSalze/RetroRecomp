@@ -132,8 +132,11 @@
   delivered Golden Sun and Minish Cap on 7 November and they work: a play trial, not an exit
   from the experimental status.
 
-**Speed.** [mesure de coût par image 1.7.1 contre 1.7.0 à venir]. None of the new machines has
-a speed figure.
+**Speed.** Measured on a quiet PC against 1.7.0, one pinned core: Rick Dangerous (Amiga) 1.015
+and Secret of Mana (Super Nintendo) 1.00 of their 1.7.0 time per frame, within the noise of the
+method ([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). The Game Boy Advance run follows the
+frame clock, so it shows only that Advance Wars keeps real time, not a cost. Windows only; none
+of the new machines has a speed figure comparing it with a release.
 
 These are three new experimental machines, one category of emulated games becoming supported,
 and native-code coverage and window fixes on two machines, each on the evidence above; none of

@@ -1,5 +1,23 @@
 # Runtime performance without changing the output
 
+## Measured on 8 November 2026 — 1.7.0 against 1.7.1 (Amiga, Super Nintendo)
+
+The Amiga's game code moved in 1.7.1, and the Super Nintendo stands for the machines where only shared strings and kit calls that run
+outside the frame loop moved. One pinned core of a Ryzen 9 3900X, best of two, A and B interleaved after one dropped warm-up each,
+1,500 frames headless from boot, the owner's word that the PC was quiet (about five minutes). A is the published 1.7.0
+`Retro-Recomp.exe`, B a 1.7.1 candidate (`68c9a559`); each converted the games in its own folder with the portable tools, an empty library,
+no shared base and no online cover. The Amiga runs from boot without input; the Super Nintendo uses its built-in play route.
+
+| Machine | Game | Frames | 1.7.0 | 1.7.1 | 1.7.1 / 1.7.0 |
+|---|---|---|---|---|---|
+| Commodore Amiga | Rick Dangerous | 1,500 | 9.413 ms | 9.552 ms | 1.015 |
+| Super Nintendo | Secret of Mana | 1,500 | 5.228 ms | 5.248 ms | 1.004 |
+
+The Amiga's raw runs overlap (9.41 and 9.65 ms against 9.58 and 9.55 ms): within the noise of two runs. **The Game Boy Advance is not a
+measurement of cost:** Advance Wars gave 18.00 and 17.97 ms per frame, but this run follows the frame clock (59.65 of 59.73 frames per
+second over 300 frames, `video_clock_only`), start-up included, so it says only that this route keeps real time on both. This is host time
+only, on Windows, and it says nothing of native code, CPU or hardware fidelity, gameplay or latency.
+
 ## Measured on 6 November 2026 — 1.6.9 against 1.7.0 (CPS-1, CPS-2, X68000)
 
 Only the machines whose game code moved in 1.7.0 beyond the lines every console shares were measured: the CPS-1 and CPS-2
