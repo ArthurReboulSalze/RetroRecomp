@@ -7,7 +7,6 @@
  * its own keys). The picture is the renderer's image read back after each frame, as large as the internal resolution makes it.
  * The sound is 44.1 kHz stereo through the kit's ring. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
-#include "hostkit/hostkit_internal.h"
 #include "retro_keyboard.h"
 #include "retro_menu.h"
 
@@ -108,17 +107,8 @@ static void n64_rumble(void) {
     }
 }
 
-/* A Stick action held on the keyboard or on the player's gamepad (in play, the window focused). */
-static bool n64_stick_held(int p, int action, const Uint8 *keys) {
-    const SDL_Scancode key = rrhk.keys[p][action];
-    const SDL_GameControllerButton button = rrhk.buttons[p][action];
-    if (keys && key != SDL_SCANCODE_UNKNOWN && keys[key]) return true;
-    return rrhk.pads[p] && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && SDL_GameControllerGetButton(rrhk.pads[p], button);
-}
-
 static bool n64_run_frame(uint16_t p1, uint16_t p2) {
     const uint64_t frame = frame_number;
-    const Uint8 *keys = SDL_GetKeyboardFocus() == rrhk_window() ? SDL_GetKeyboardState(NULL) : NULL;
     gfx_changes_due(rr_n64_frame_index(session));
     if (event_count) scripted_inputs(rr_n64_frame_index(session));   /* a test run replays its script */
     else for (int p = 0; p < 4; ++p) {
@@ -126,10 +116,10 @@ static bool n64_run_frame(uint16_t p1, uint16_t p2) {
         const uint16_t word = p == 0 ? p1 : p == 1 ? p2 : rrhk_pad_word(p, frame);
         rrhk_pad_axes(p, frame, axes);
         /* The keyboard's Stick actions: the stick at its edge, as a pad's stick pushed all the way. */
-        if (n64_stick_held(p, N_SLEFT, keys)) axes[RRHK_AXIS_LX] = -32767;
-        if (n64_stick_held(p, N_SRIGHT, keys)) axes[RRHK_AXIS_LX] = 32767;
-        if (n64_stick_held(p, N_SUP, keys)) axes[RRHK_AXIS_LY] = -32767;
-        if (n64_stick_held(p, N_SDOWN, keys)) axes[RRHK_AXIS_LY] = 32767;
+        if (rrhk_action_held(p, N_SLEFT)) axes[RRHK_AXIS_LX] = -32767;
+        if (rrhk_action_held(p, N_SRIGHT)) axes[RRHK_AXIS_LX] = 32767;
+        if (rrhk_action_held(p, N_SUP)) axes[RRHK_AXIS_LY] = -32767;
+        if (rrhk_action_held(p, N_SDOWN)) axes[RRHK_AXIS_LY] = 32767;
         player_inputs(p, word, axes);
     }
     if (!player_frame()) return false;

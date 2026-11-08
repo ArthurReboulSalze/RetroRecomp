@@ -303,6 +303,11 @@ uint16_t rrhk_pad_word(int player, uint64_t frame);
 /* The sticks of a player for the frame being run (RrhkMachine.analog_sticks), after the player's dead zone (0 % by default: the
  * raw values). false: no gamepad for that player, the axes are 0 (centred). Never a cost for a machine that does not call it. */
 bool rrhk_pad_axes(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+/* An action the machine handles itself instead of reading it in the pad word: its row in RrhkMachine.actions, as the player bound it.
+ * Pressed: the players who pressed it in this event, in play (bit 0 = first player; 0 in a menu, during a capture, on a repeating key).
+ * Held: on the keyboard while the window has the focus, or on that player's gamepad. */
+unsigned rrhk_action_pressed(const SDL_Event *event, int action);
+bool rrhk_action_held(int player, int action);
 /* A vibration on a player's gamepad: low = large motor, high = small motor (0..65535), for `milliseconds`. Nothing without a
  * gamepad, without RrhkMachine.rumble, or with the Vibration row off; never fed back to the machine. */
 void rrhk_rumble(int player, uint16_t low, uint16_t high, uint32_t milliseconds);

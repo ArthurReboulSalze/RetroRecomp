@@ -19,7 +19,6 @@
 #include "psx_game.h"
 #include "psx_session.h"
 #include "hostkit/hostkit.h"
-#include "hostkit/hostkit_internal.h"
 
 int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]);
 void rr_psx_host_analog(int player);
@@ -190,22 +189,11 @@ static void pause_machine(bool paused) {
     if (paused) for (int p = 0; p < 2; ++p) if (rumbling[p][0] || rumbling[p][1]) { rrhk_rumble(p, 0, 0, 0); rumbling[p][0] = rumbling[p][1] = 0; }
 }
 
-/* The Analog button: a press of its key or button, in play, of either player (the kit matches host-side actions the same way). */
-static int event_player(SDL_JoystickID which) {
-    for (int p = 0; p < 2; ++p)
-        if (rrhk.pads[p] && which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[p]))) return p;
-    return -1;
-}
+/* The Analog button: a press of its key or button, in play, of either player. */
 static bool event(const SDL_Event *e, bool *running) {
     (void)running;
-    if (rrhk.menu || rrhk.capturing) return false;
-    if (e->type == SDL_KEYDOWN && !e->key.repeat) {
-        for (int p = 0; p < 2; ++p)
-            if (rrhk.keys[p][ANALOG] != SDL_SCANCODE_UNKNOWN && rrhk.keys[p][ANALOG] == e->key.keysym.scancode) rr_psx_host_analog(p);
-    } else if (e->type == SDL_CONTROLLERBUTTONDOWN) {
-        const int p = event_player(e->cbutton.which);
-        if (p >= 0 && rrhk.buttons[p][ANALOG] == (SDL_GameControllerButton)e->cbutton.button) rr_psx_host_analog(p);
-    }
+    const unsigned players = rrhk_action_pressed(e, ANALOG);
+    for (int p = 0; p < 2; ++p) if (players & (1u << p)) rr_psx_host_analog(p);
     return false;
 }
 

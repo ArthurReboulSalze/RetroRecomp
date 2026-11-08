@@ -45,6 +45,28 @@ static bool host_action_pressed(const SDL_Event *event, SDL_Scancode key, int ho
     for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
     return false;
 }
+
+unsigned rrhk_action_pressed(const SDL_Event *event, int action) {
+    const RrhkMachine *m = rrhk.machine;
+    unsigned players = 0;
+    if (rrhk.menu || rrhk.capturing) return 0;
+    if (event->type == SDL_KEYDOWN && !event->key.repeat) {
+        for (int p = 0; p < m->players(); ++p)
+            if (rrhk.keys[p][action] != SDL_SCANCODE_UNKNOWN && rrhk.keys[p][action] == event->key.keysym.scancode) players |= 1u << p;
+    } else if (event->type == SDL_CONTROLLERBUTTONDOWN) {
+        const int p = event_player(event->cbutton.which);
+        if (p >= 0 && p < m->players() && rrhk.buttons[p][action] == (SDL_GameControllerButton)event->cbutton.button) players |= 1u << p;
+    }
+    return players;
+}
+
+bool rrhk_action_held(int player, int action) {
+    const SDL_Scancode key = rrhk.keys[player][action];
+    const SDL_GameControllerButton button = rrhk.buttons[player][action];
+    if (key != SDL_SCANCODE_UNKNOWN && SDL_GetKeyboardFocus() == rrhk_window() && SDL_GetKeyboardState(NULL)[key]) return true;
+    return rrhk.pads[player] && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && SDL_GameControllerGetButton(rrhk.pads[player], button);
+}
+
 static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) { return host_action_pressed(event, key, rrhk.machine->host_pause); }
 
 /* The Change disc action, in play only: the next disc (after the last, the first), and a notice "Disc 2/3". The machine does the

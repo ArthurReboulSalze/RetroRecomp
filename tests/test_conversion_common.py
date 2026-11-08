@@ -490,6 +490,23 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(same.stat().st_mtime_ns, 10**18)
         self.assertNotEqual(different.stat().st_mtime_ns, 10**18)
 
+    def test_resource_embedding_leaves_unchanged_files_alone(self):
+        from retrorecomp.resources import write_embedding
+        names = ('embedded-window-icon.bmp', 'embedded_resources.S', 'embedded_resources.c')
+        data = self.root / 'data.bin'
+        data.write_bytes(b'x')
+        write_embedding(self.root, {201: data})
+        for name in names:
+            os.utime(self.root / name, ns=(10**18, 10**18))
+        write_embedding(self.root, {201: data})
+        for name in names:
+            self.assertEqual((self.root / name).stat().st_mtime_ns, 10**18, name)
+        self.assertIn(b'rr_resource_201', (self.root / 'embedded_resources.S').read_bytes())
+        write_embedding(self.root, {201: data, 202: data})         # one more resource: the two link files change, the icon does not
+        self.assertEqual((self.root / names[0]).stat().st_mtime_ns, 10**18)
+        for name in names[1:]:
+            self.assertNotEqual((self.root / name).stat().st_mtime_ns, 10**18, name)
+
     def test_scan_level_defaults_and_refuses_unknown_names(self):
         from retrorecomp.conversion_common import resolve_scan_level
         from retrorecomp.core import ConversionError

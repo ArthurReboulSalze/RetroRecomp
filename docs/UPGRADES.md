@@ -88,6 +88,7 @@ computed on `main` on 8 November 2026.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Adventure games (ScummVM): the options page, the keys and the supported status](#adventure-games-scummvm-the-options-page-the-keys-and-the-supported-status-171) | the Adventure (ScummVM) game stamp, and nothing else in that section | the Adventure (ScummVM) build stamp (`97d9ad0da628` to `fd819f80e824`) | no key moves; the saves are ScummVM's own, in `datas/` |
+| [Host kit and resources: two small shared changes](#host-kit-and-resources-two-small-shared-changes-171) | **every machine's game stamp** (already moving in 1.7.1, so no conversion on top) | **every machine's host stamp** (already moving in 1.7.1); no build stamp | no key moves (the Mega Drive, Super Nintendo and CPS keys hash none of these files) |
 | [Sony PlayStation opens as an experimental machine](#sony-playstation-opens-as-an-experimental-machine-171) | a new machine: the PlayStation stamps are new | its own | its key is new |
 | [Atari ST opens as an experimental machine](ATARI_ST.md) (no section of this page; the facts are on the machine page) | a new machine: the Atari ST stamps are new | its own | its key is new |
 | [Nintendo 64 opens as an experimental machine](NINTENDO_64.md) (no section of this page; the facts are on the machine page) | a new machine: the Nintendo 64 stamps are new | its own | its key is new |
@@ -147,6 +148,14 @@ released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80
 
 **Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
 none moves, a game's saves are ScummVM's own, in `datas/`.
+
+## Host kit and resources: two small shared changes (1.7.1)
+
+**What moves.** The game and host stamps of every machine, compared entry by entry before and after. They move in 1.7.1 anyway, so no export is converted again because of this alone. No build stamp moves. The quick-state keys of the Mega Drive, the Super Nintendo and the CPS boards hash none of these files.
+
+**What changes.** Off Windows, `resources.embed_resources` no longer rewrites its three generated files with the same bytes, so a second preparation of a game relinks nothing; the Game Boy Advance's local workaround is gone. On Windows it does nothing, as before. `rrhk_action_pressed` and `rrhk_action_held` give an adapter the actions it handles itself, as the player bound them: the PlayStation's Analog button and the Nintendo 64's Stick actions use them, and neither adapter includes `hostkit_internal.h` any more. The rules are those the adapters had.
+
+**Checked.** The unit test of the embedding (on Windows, through `write_embedding`) and the kit's capabilities self-test with a virtual controller. **Not checked yet:** a game of either machine played or converted with these calls, and the embedding on Linux; both belong to the release checks.
 
 ## Sony PlayStation opens as an experimental machine (1.7.1)
 
