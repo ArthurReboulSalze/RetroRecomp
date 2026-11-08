@@ -789,6 +789,52 @@ class PackButton(unittest.TestCase):
         self.assertEqual(status.get(), self.app.tr('scummvm_pack_ready'))
 
 
+class Theme(unittest.TestCase):
+    """Patch 0003: every ScummVM menu in Retro-Recomp's colours, from the zip of the default theme made again at build time."""
+
+    def setUp(self):
+        self.patch = (scummvm_build.PATCH_DIRECTORY / '0003-retrorecomp-theme-colours.patch').read_text(encoding='utf-8')
+
+    def test_only_colours_change_and_no_file_is_added(self):
+        files = [line.split(' b/')[-1] for line in self.patch.splitlines() if line.startswith('diff --git')]
+        self.assertEqual(files, [f'gui/themes/scummremastered/{name}' for name in
+                                 ('checkbox.svg', 'checkbox_empty.svg', 'radiobutton.svg', 'radiobutton_empty.svg', 'remastered_gfx.stx')])
+        self.assertNotIn('new file', self.patch)
+        self.assertNotIn('.ttf', self.patch)
+        for line in self.patch.splitlines():
+            if line.startswith('+') and not line.startswith('+++') and not line.lstrip('+').startswith('<svg'):
+                self.assertRegex(line, r"(rgb|color|fg_color|bg_color|gradient_start|gradient_end) = '")
+
+    def test_the_colours_are_those_of_the_interface(self):
+        from retrorecomp.branding import COLORS
+        for name in ('background', 'header', 'button', 'gold', 'text'):
+            value = COLORS[name].lstrip('#')
+            rgb = ', '.join(str(int(value[at:at + 2], 16)) for at in (0, 2, 4))
+            self.assertIn(rgb, self.patch, name)
+
+    def test_the_zip_is_made_from_the_folder_and_those_it_names(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp).resolve()
+            themes = tree / 'gui' / 'themes'
+            folder, common = themes / scummvm_build.THEME, themes / 'common'
+            folder.mkdir(parents=True)
+            common.mkdir()
+            (folder / 'THEMERC').write_text('[SCUMMVM_STX0.9.24:Name:Author]\n%using ../common\n', encoding='utf-8')
+            (folder / 'colours.stx').write_text('recoloured', encoding='utf-8')
+            (folder / '.hidden.stx').write_text('x', encoding='utf-8')
+            (folder / 'notes.txt').write_text('x', encoding='utf-8')
+            (common / 'layout.stx').write_text('layout', encoding='utf-8')
+            (common / 'colours.stx').write_text('the theme\'s own wins', encoding='utf-8')
+            scummvm_build._pack_theme(tree)
+            first = folder.with_suffix('.zip').read_bytes()
+            with zipfile.ZipFile(folder.with_suffix('.zip')) as package:
+                self.assertEqual(package.namelist(), ['THEMERC', 'colours.stx', 'layout.stx'])
+                self.assertEqual(package.read('colours.stx'), b'recoloured')
+            scummvm_build._pack_theme(tree)
+            self.assertEqual(folder.with_suffix('.zip').read_bytes(), first)
+
+
 class OptionsPage(unittest.TestCase):
     """Patch 0002: the Retro-Recomp page of the in-game options and the settings shared through datas/Retro-Recomp.ini
     (checked headless with the real runtime: .build/scummvm-step2/ui_cases.py; here, the text of the patch)."""
@@ -798,7 +844,8 @@ class OptionsPage(unittest.TestCase):
 
     def test_the_series_has_both_patches_in_order(self):
         names = sorted(path.name for path in scummvm_build.PATCH_DIRECTORY.glob('*.patch'))
-        self.assertEqual(names, ['0001-retrorecomp-pack-launch-nodialog.patch', '0002-retrorecomp-options-page.patch'])
+        self.assertEqual(names, ['0001-retrorecomp-pack-launch-nodialog.patch', '0002-retrorecomp-options-page.patch',
+                                 '0003-retrorecomp-theme-colours.patch'])
 
     def test_the_page_replaces_the_backend_tab_of_a_packed_exe_only(self):
         self.assertIn('packedModeActive() ? retroRecompOptionsTabTitle()', self.patch)

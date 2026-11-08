@@ -134,6 +134,9 @@ def data_path(family: str) -> Path:
     return build_root() / family / 'data'
 
 
+# The theme of every ScummVM menu, recoloured by the patch series, and the files of its zip (as gui/themes/scummtheme.py builds it).
+THEME = 'scummremastered'
+THEME_FILES = ('.stx', '.bmp', '.fcc', '.ttf', '.png', '.svg')
 # The GUI files the Windows resource script embeds and a pack must carry elsewhere (shaders need OpenGL: not carried).
 GUI_DATA = ('scummclassic.zip', 'scummmodern.zip', 'scummremastered.zip', 'gui-icons.dat', 'translations.dat')
 _LIST_ENTRY = re.compile(r'^DIST_FILES_LIST\s*\+=\s*(\S+)', re.M)
@@ -351,6 +354,27 @@ def _trim_resources(tree: Path, log: Path) -> None:
             if item.filename.startswith(KEPT_FONTS):
                 target.writestr(item, source.read(item.filename))
     trimmed.replace(fonts)
+    _pack_theme(tree)
+
+
+def _pack_theme(tree: Path) -> None:
+    """ScummVM reads a theme from its zip, which the sources carry already built: the default theme's is made again from its
+    patched folder. Its own files first, then the folders its THEMERC names with %using."""
+    folder = tree / 'gui' / 'themes' / THEME
+    places = [folder]
+    for line in (folder / 'THEMERC').read_text(encoding='utf-8').splitlines():
+        if line.startswith('%using '):
+            places.append(folder / line[len('%using '):].strip())
+    members = {'THEMERC': folder / 'THEMERC'}
+    for place in places:
+        for path in sorted(place.iterdir()):
+            if path.is_file() and not path.name.startswith('.') and path.name.endswith(THEME_FILES):
+                members.setdefault(path.name, path)
+    with zipfile.ZipFile(folder.with_suffix('.zip'), 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as out:
+        for name, path in members.items():
+            info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))      # the same bytes at every build
+            info.compress_type = zipfile.ZIP_DEFLATED
+            out.writestr(info, path.read_bytes())
 
 
 def _build_freetype(log: Path, emit: Callable[[str], None] = print) -> Path:

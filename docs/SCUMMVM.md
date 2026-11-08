@@ -47,6 +47,14 @@ when the pack is already there. The runtime of an engine family is not part of i
 program says the tools are missing; the raw output of the tools stays in `.deps/scummvm-build/<family>.log`. These sentences are
 raised in English and shown in the window's language by `i18n.log_text`.
 
+**The menus.** `0003-retrorecomp-theme-colours.patch` recolours ScummVM's default theme (`scummremastered`) in the colours of the
+converter (`retrorecomp/branding.py`), dark and gold. ScummVM's theme engine applies to its whole interface and cannot be limited to
+some tabs, so every menu of the game takes these colours. Only the palette, the colours written in the theme and those of four check
+box and radio button icons change: no font, layout or file is added. The sources carry the theme already zipped, so
+`scummvm_build._pack_theme` makes that zip again from the patched folder, with the same 53 members. The ScummVM logo of the main
+menu and the red pointer stay as they are. Checked with the real dialogs on Sam & Max, 8 November 2026: main menu, Audio, keys,
+Retro-Recomp, Help and Load pages, and an open list.
+
 **A build folder belongs to one configuration.** `_configure` records the CMake command and the compilers it resolved in
 `build/.retrorecomp-configure`, and removes a folder made any other way. Without that, a bare `clang` that resolves to another
 folder makes CMake delete its cache and go on without the `-D` values of its command line: `SDL2_DIR` is lost and

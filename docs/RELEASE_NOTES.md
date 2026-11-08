@@ -37,6 +37,8 @@
 - **ScummVM pack.** Options, Consoles, Adventure (ScummVM) has a button that fetches and compiles what adventure games need
   before their first conversion, in the background. It shows each step and the result, says when the pack is already there,
   and says to check the connection when there is no network (eight languages). A conversion still fetches what is missing by itself.
+- **ScummVM's menus in Retro-Recomp's colours.** Every menu of an adventure game (the main menu, the options with the
+  Retro-Recomp and Help pages, loading and saving) is dark and gold. Only colours change: the same fonts, layouts and files.
 - **A CMake error on a ScummVM conversion.** Rebuilding an engine's runtime in a build folder made with the compiler at another
   place (the converter moved, or another copy of it made the build) stopped on CMake's search for SDL2. That folder now starts
   again. A build that stops says what is missing and what to do; the tool's own output stays in the log. Without Git, the window
@@ -44,7 +46,8 @@
 - **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
   `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
   changes, so no other export is converted again. The pack and the CMake fix move those two again, and only those
-  (game `aa2b67d2bcd4` to `8af339f2af21`, build `fd819f80e824` to `de9fefa86a8b`).
+  (game `aa2b67d2bcd4` to `8af339f2af21`, build `fd819f80e824` to `de9fefa86a8b`). The menu colours move them once more, and only
+  them (game to `aef9341dbfe3`, build to `05417bbcea96`); the next conversion with each engine rebuilds that engine's runtime.
   An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
   effects until it is converted again.
 
