@@ -219,6 +219,20 @@ class EmuTosTests(unittest.TestCase):
         self.assertIn('choose your own TOS', str(caught.exception))
         self.assertFalse(list(self.folder.glob('*.part')))
 
+    def test_a_mirror_that_refuses_once_is_tried_again(self):
+        from retrorecomp.updater import UpdateConnectionError
+        refused = []
+
+        def once(url, destination, *args):
+            if not refused:
+                refused.append(url)
+                raise UpdateConnectionError()
+            self.fake_download(url, destination, *args)
+        with patch('retrorecomp.updater._download_verified', once), patch.object(self.emutos, 'RETRY_SECONDS', 0):
+            self.emutos.require(emit=lambda text: None)
+        self.assertEqual(len(refused), 1)
+        self.assertEqual(self.downloads, ['binary.zip', 'source.tar.gz'])
+
 
 if __name__ == '__main__':
     unittest.main()

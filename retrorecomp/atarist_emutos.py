@@ -12,9 +12,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
+import time
 import zipfile
 
 VERSION = '1.4'
+RETRY_SECONDS = 3
 # The commit of the release's tag VERSION_1_4 in github.com/emutos/emutos (the release files themselves come from SourceForge).
 RELEASE_REV = '978e37569bff95841e42675d11fcc6799aad8483'
 _SITE = f'https://downloads.sourceforge.net/project/emutos/emutos/{VERSION}/'
@@ -48,7 +50,7 @@ def _checked(path: Path, size: int, digest: str) -> bool:
 
 
 def _fetch(name: str, size: int, digest: str, emit) -> Path:
-    from .updater import _download_verified
+    from .updater import UpdateConnectionError, _download_verified
     target = directory() / name
     if _checked(target, size, digest):
         return target
@@ -56,7 +58,12 @@ def _fetch(name: str, size: int, digest: str, emit) -> Path:
     partial = target.with_name(name + '.part')
     emit(f'Atari ST: fetching {name} (EmuTOS {VERSION}, {size // 1024} KiB) from the EmuTOS project.')
     try:
-        _download_verified(_SITE + name, partial, size, digest, LIMIT, f'{name}: the downloaded file is not the pinned one.')
+        mismatch = f'{name}: the downloaded file is not the pinned one.'
+        try:
+            _download_verified(_SITE + name, partial, size, digest, LIMIT, mismatch)
+        except UpdateConnectionError:   # SourceForge sends each request to a mirror: one that refuses is not the player's network
+            time.sleep(RETRY_SECONDS)
+            _download_verified(_SITE + name, partial, size, digest, LIMIT, mismatch)
         partial.replace(target)
     except Exception as exc:  # noqa: BLE001 - every failure is the same sentence for the player
         partial.unlink(missing_ok=True)

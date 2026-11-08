@@ -329,6 +329,24 @@ class RegistryTests(unittest.TestCase):
         self.assertLessEqual(set(hostkit.ADAPTERS), ids)
 
 
+class FrozenAvailabilityTests(unittest.TestCase):
+    """A frozen converter keeps its Python modules inside the executable: a machine that asks for a .py file to say it is
+    available refuses every game once packaged, and only a release check sees it (the Amiga in 1.7.0, the PlayStation in 1.7.1)."""
+
+    def test_no_machine_asks_for_a_python_file_to_be_available(self):
+        for source in sorted((REPO / 'retrorecomp').glob('*.py')):
+            tree = ast.parse(source.read_text(encoding='utf-8'))
+            for node in tree.body:
+                named = (isinstance(node, ast.FunctionDef) and node.name == 'converter_available') or (
+                    isinstance(node, ast.Assign) and any(getattr(t, 'id', '') == 'CONVERTER_FILES' for t in node.targets))
+                if not named:
+                    continue
+                docstring = ast.get_docstring(node) if isinstance(node, ast.FunctionDef) else None
+                for value in ast.walk(node):
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value != docstring:
+                        self.assertFalse(value.value.endswith('.py'), f'{source.name}: {value.value}')
+
+
 class DetectionOfGapsTests(unittest.TestCase):
     """The check itself: a machine with no registry at all must be reported for each of them."""
 

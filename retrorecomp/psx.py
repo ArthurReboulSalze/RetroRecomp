@@ -22,9 +22,10 @@ OWN_EXTENSIONS = ('.pbp',)
 
 
 def converter_available() -> bool:
-    """True when this installation carries the PlayStation converter files."""
+    """True when this installation carries the PlayStation converter's own native files (the profile is offered only then).
+    Native files only: a frozen converter keeps its Python modules inside the executable, never as .py files."""
     return all((ASSETS / name).is_file() for name in (
-        'native/psx_machine/CMakeLists.txt', 'native/hostkit/adapters/rrhk_psx.c', 'retrorecomp/psx_conversion.py'))
+        'native/psx_machine/CMakeLists.txt', 'native/psx_machine/psx_session.c', 'native/hostkit/adapters/rrhk_psx.c'))
 
 
 def described_by_sheet(path: Path) -> Path | None:
