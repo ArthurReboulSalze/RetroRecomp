@@ -703,6 +703,8 @@
     "scan_note_scummvm": "不进行分析：ScummVM 解释运行游戏；不重新编译，也不学习。",
     "scummvm_choice": "版本（多个匹配时）",
     "scummvm_tools_missing": "ScummVM 游戏需要 Retro-Recomp 的构建工具，而这些工具尚未安装，因此没有搜索此文件夹。请先开始一次转换（Retro-Recomp 会提示安装这些工具），然后再次添加该文件夹。",
+    "import_folder_empty": "无法从 \"{folder}\" 添加任何内容：没有 ROM 文件，也没有 ScummVM 识别的游戏。",
+    "scummvm_detect_failed": "无法准备 ScummVM 的文件夹检测（其构建失败），因此没有搜索此文件夹。构建记录位于 Retro-Recomp 的 .deps 文件夹中：scummvm-build/detect.log。",
     "tip_scummvm_choice": "0：与多个版本匹配的文件夹会被拒绝，并列出这些版本。1 到 9：使用列表中的该版本。"
   },
   "runtime": {

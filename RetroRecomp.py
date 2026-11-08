@@ -11,8 +11,8 @@ from retrorecomp.library import GameMemory, list_games, library_root
 from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences, console_options
 from retrorecomp.i18n import log_text
 from retrorecomp.batch import identify, convert_batch, system_output
-from retrorecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
-from retrorecomp.systems.registry import discover_folders
+from retrorecomp.systems import MASTER_SYSTEM, available_profiles, profile_for_path
+from retrorecomp.systems.registry import discover_games
 PROFILES = available_profiles()
 
 # What `--help` says of the options the machines declare (OptionKey in systems/<machine>.py). The command line
@@ -374,9 +374,10 @@ def main() -> int:
                 paths, folder_games, unavailable = [], [], []
                 for source in [*args.roms, *args.rom_dir]:
                     if source.is_dir():
-                        paths.extend(discover_roms(source))
-                        # Game folders of a machine that takes folders (Adventure (ScummVM)), beside the files.
-                        games = discover_folders(source, unavailable)
+                        # Game folders of a machine that takes folders (Adventure (ScummVM)), beside the files; the
+                        # files inside such a folder are the game's data, not cartridges.
+                        roms, games = discover_games(source, unavailable)
+                        paths.extend(roms)
                     else:
                         paths.append(source)
                         games = []

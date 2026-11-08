@@ -13,8 +13,8 @@ from .report_schema import fallback_summary
 from .paths import ROOT, APP_NAME, games_root, data_directory
 from .i18n import log_text
 from .dropfiles import enable_file_drop
-from .systems import discover_roms, find_profile, get_profile
-from .systems.registry import discover_folders
+from .systems import find_profile, get_profile
+from .systems.registry import discover_games
 from .branding import COLORS
 from .platforms import open_local
 from .gui_common import PROFILES
@@ -191,9 +191,13 @@ class QueueMixin:
                 path = Path(path)
                 if path.is_dir():
                     try:
-                        walk(discover_roms(path))
-                        # Game folders of a machine that takes folders, beside the files (never walked again).
-                        games = discover_folders(path, unavailable)
+                        # Game folders of a machine that takes folders, beside the files (never walked again); the
+                        # files inside such a folder are the game's data and are not queued as cartridges.
+                        before = len(unavailable)
+                        roms, games = discover_games(path, unavailable)
+                        if not roms and not games and len(unavailable) == before:
+                            logs.append(self.tr('import_folder_empty', folder=path.name or str(path)))
+                        walk(roms)
                     except OSError:
                         logs.append(self.tr('drop_unreadable'))
                         continue
@@ -209,7 +213,11 @@ class QueueMixin:
 
     def _prepare_path(self, path, mode, output):
         """Identify one ROM and read its existing export, without Tk calls."""
-        item = identify(path, None if mode == 'auto' else mode)
+        try:
+            item = identify(path, None if mode == 'auto' else mode)
+        except Exception as exc:        # a reader that fails is one row in error, never a scan that stops in silence
+            item = BatchItem(Path(path), Path(path).stem, error=f'{type(exc).__name__}: {exc}',
+                             selected_system='' if mode == 'auto' else mode)
         status = ('skipped' if item.skipped else 'unrecognized' if item.unknown
                   else 'invalid' if item.error else 'waiting')
         prepared = {'item': item, 'status': status, 'result': None}
@@ -309,6 +317,8 @@ class QueueMixin:
                     except OSError:
                         pass
                     state['done'] += 1
+            except Exception as exc:        # the window says what stopped the scan: the worker never ends in silence
+                state['logs'].append(f'{type(exc).__name__}: {exc}')
             finally:
                 state['finished'] = True
 

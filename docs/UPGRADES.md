@@ -87,7 +87,7 @@ interface note and the documents follow in the eight languages, and the criteria
 instead. The same release carries the options page and the keys of the game (the ScummVM patch `0002-retrorecomp-options-page.patch`, [SCUMMVM.md](SCUMMVM.md)).
 
 **What moves.** `compilation_inputs.role_stamps` of the fourteen machines on the tree before the status (`fa196008`) and on this one: **only the Adventure (ScummVM) game stamp**,
-`4e3367b550d2` before, `85b9bee929a3` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
+`4e3367b550d2` before, `f1ba8d0d85a7` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
 released `be8047b230ac`). Its build stamp `97d9ad0da628` and the host and build stamps of every machine do not move, and no other game stamp moves.
 
 **Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
