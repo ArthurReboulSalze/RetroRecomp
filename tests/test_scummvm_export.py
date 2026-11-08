@@ -131,6 +131,137 @@ class ToolsMissing(unittest.TestCase):
         self.assertTrue(all(catalog(code)['ui'].get('scummvm_tools_missing') for code in LANGUAGES[2:]))
 
 
+class WindowFolderImport(unittest.TestCase):
+    """The window's folder import (gui_queue: choose_directory -> import_paths -> _expand_paths -> identify) on authored
+    folders, with ScummVM's detection replaced by a fake that recognises a folder holding GAME.DAT. A game folder that
+    also holds `.bin` files was the case that left the window empty (the `.bin` data was queued as cartridges)."""
+
+    def setUp(self):
+        from unittest import mock
+        sx._DETECTED.clear()
+        candidate = sx.Candidate('eng1', 'gamea', 'Game A (DOS/English)', 'Game A', 'English', 'DOS')
+        self.patches = [
+            mock.patch.object(sx, '_detect_runtime', return_value=Path('fake-runtime')),
+            mock.patch.object(sx, 'detect', side_effect=lambda folder, runtime: [candidate]
+                              if (Path(folder) / 'GAME.DAT').is_file() else [])]
+        for patcher in self.patches:
+            patcher.start()
+        self.addCleanup(lambda: [patcher.stop() for patcher in self.patches])
+        self.addCleanup(sx._DETECTED.clear)
+
+    def games(self, tmp, with_bin=True):
+        """Authored folders: `Game A` (a game whose data has .bin files), `Other` (a plain cartridge dump beside it)."""
+        root = Path(tmp)
+        game = root / 'Game A'
+        game.mkdir()
+        (game / 'GAME.DAT').write_bytes(b'x' * 64)
+        if with_bin:
+            (game / 'LEVEL1.BIN').write_bytes(b'\1' * 64)
+            (game / 'LEVEL2.BIN').write_bytes(b'\2' * 64)
+        return root, game
+
+    def expand(self, paths):
+        from types import SimpleNamespace
+        from retrorecomp.gui_queue import QueueMixin
+        window = SimpleNamespace(tr=lambda key, **values: key)
+        return QueueMixin._expand_paths(window, paths)
+
+    def prepare(self, path, mode):
+        from types import SimpleNamespace
+        from retrorecomp.gui_queue import QueueMixin
+        return QueueMixin._prepare_path(SimpleNamespace(), path, mode, Path('Games'))
+
+    def test_the_data_files_of_a_game_folder_are_not_queued_as_cartridges(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            for given in (game, root):               # the folder that is the game, and its parent
+                files, logs = self.expand([given])
+                self.assertEqual([Path(path) for path in files], [game], given)
+                self.assertEqual(logs, [])
+
+    def test_both_system_modes_give_the_game_one_row_and_no_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            files, _ = self.expand([root])
+            for mode in ('auto', 'scummvm'):
+                rows = [self.prepare(path, mode) for path in files]
+                self.assertEqual([(row['item'].system, row['item'].title, row['status']) for row in rows],
+                                 [('scummvm', 'Game A', 'waiting')], mode)
+
+    def test_a_loose_file_in_the_adventure_mode_is_an_item_error_not_a_dead_scan(self):
+        # "Adventure (ScummVM)" hands every queued file to the profile: an adventure is a folder, never a file.
+        with tempfile.TemporaryDirectory() as tmp:
+            loose = Path(tmp) / 'LOOSE.BIN'
+            loose.write_bytes(b'\3' * 64)
+            row = self.prepare(loose, 'scummvm')
+            self.assertEqual(row['status'], 'invalid')
+            self.assertIn('is a folder', row['item'].error)
+
+    def test_a_folder_scummvm_does_not_recognise_is_an_item_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            (game / 'GAME.DAT').unlink()
+            row = self.prepare(game, 'scummvm')
+            self.assertIn(row['status'], ('invalid', 'unrecognized'))      # a row with its reason, in the queue
+            self.assertTrue(row['item'].error)
+
+    def test_whatever_the_reader_raises_the_scan_goes_on(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            with mock.patch('retrorecomp.gui_queue.identify', side_effect=RuntimeError('boom')):
+                row = self.prepare(game, 'auto')
+            self.assertEqual(row['status'], 'invalid')
+            self.assertIn('boom', row['item'].error)
+
+    def test_a_detection_that_fails_to_build_is_a_sentence_not_a_traceback(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            self.games(tmp, with_bin=False)
+            sx._DETECTED.clear()
+            with mock.patch.object(sx, '_detect_runtime', side_effect=scummvm_build.ScummvmBuildError('cmake failed')):
+                files, logs = self.expand([Path(tmp)])
+                self.assertEqual((files, logs), ([], ['scummvm_detect_failed']))
+                self.assertEqual(self.prepare(Path(tmp) / 'Game A', 'auto')['status'], 'invalid')
+
+    def test_a_folder_that_adds_nothing_says_so(self):
+        # What the player saw ("no ROM found") with a folder ScummVM does not recognise: now a sentence says why.
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp, with_bin=False)
+            (game / 'GAME.DAT').unlink()
+            files, logs = self.expand([game])
+            self.assertEqual([Path(path) for path in files], [])
+            self.assertEqual(logs, ['import_folder_empty'])
+            files, logs = self.expand([root])                       # the parent holds nothing recognised either
+            self.assertIn('import_folder_empty', logs)
+
+    def test_a_folder_with_a_game_does_not_say_it_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            self.assertNotIn('import_folder_empty', self.expand([game])[1])
+
+    def test_the_empty_folder_sentence_exists_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        for code in LANGUAGES:
+            self.assertIn('Game', tr('import_folder_empty', code, folder='Game'), code)
+        self.assertTrue(all(catalog(code)['ui'].get('import_folder_empty') for code in LANGUAGES[2:]))
+
+    def test_the_command_line_discovers_the_same_games(self):
+        from retrorecomp.systems.registry import discover_games
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            (root / 'cartridge.sms').write_bytes(bytes(8192))
+            roms, folders = discover_games(root)
+            self.assertEqual(folders, [game])
+            self.assertEqual([Path(rom).name for rom in roms], ['cartridge.sms'])
+
+    def test_the_failure_sentence_exists_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        for code in LANGUAGES:
+            self.assertNotEqual(tr('scummvm_detect_failed', code), 'scummvm_detect_failed', code)
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_detect_failed') for code in LANGUAGES[2:]))
+
+
 class OptionsPage(unittest.TestCase):
     """Patch 0002: the Retro-Recomp page of the in-game options and the settings shared through datas/Retro-Recomp.ini
     (checked headless with the real runtime: .build/scummvm-step2/ui_cases.py; here, the text of the patch)."""

@@ -27,6 +27,12 @@ One method for every game; no game is named in the code.
    converter's own picture is used. A cover the player chooses always wins. The reviewed cover references of the other
    machines (keyed by a ROM file's hash) are not looked up for a game folder.
 
+The window and the `batch` command line share one discovery (`registry.discover_games`): the game folders ScummVM
+recognises, and the cartridge files beside them. The files inside a recognised game folder are that game's data and are
+never queued as cartridges (a `.bin` of an adventure's data is not a ROM), in the Automatic mode and in the
+Adventure (ScummVM) selection alike. A folder that no game is recognised in adds no row, and the window says so when the
+detection itself could not run (tools missing, or its build failed).
+
 ## The exported game
 
 Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has the same structure as for every machine:
