@@ -119,6 +119,7 @@ static bool n64_stick_held(int p, int action, const Uint8 *keys) {
 static bool n64_run_frame(uint16_t p1, uint16_t p2) {
     const uint64_t frame = frame_number;
     const Uint8 *keys = SDL_GetKeyboardFocus() == rrhk_window() ? SDL_GetKeyboardState(NULL) : NULL;
+    gfx_changes_due(rr_n64_frame_index(session));
     if (event_count) scripted_inputs(rr_n64_frame_index(session));   /* a test run replays its script */
     else for (int p = 0; p < 4; ++p) {
         int16_t axes[RRHK_AXES] = {0, 0, 0, 0};

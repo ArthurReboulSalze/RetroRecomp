@@ -138,13 +138,18 @@ state in a busy scene with a script moving the player; worst of the three, after
 | Ocarina of Time (NTSC), Hyrule Field, no block | 16.7 ms | 60 per second | 11.7 ms | 21.5 ms | 27.1 ms | 471 | 0 % |
 
 The rate held on every run (the lowest was 49.997 per second), because cheaper frames absorb the costly ones: the pacing is uneven on Ocarina of Time, above all in
-NTSC, and how that feels has not been judged. The first 200 frames hold stalls of 31 to 60 ms. The GPU stays in its low power state nearly all the time: after an
-idle, its driver leaves it at low clocks under this light load, and the fixed work of each picture then takes about 13 ms instead of under 1 ms (the unpaced run falls from
-176 to 51 frames per second until it flips, between two processes). On this card that still fits. A weaker card, integrated graphics through this path, a visible window with
-vsync and real sound have not been measured, so no hardware requirement is written.
+NTSC, and how that feels has not been judged. The first 200 frames hold stalls of 31 to 60 ms. The costly frames of Ocarina of Time are the one vertical interrupt in
+three where the game does the work of its picture: never two in a row, and the others cost 7 to 10 ms. In a short split of those scenes (the engine gate's host, on a computer
+that was busy, so in relative terms only) the costliest third of the frames spent about 60 % of their time in the VR4300 (11 ms, against 4 ms in the other frames), 14 % in the
+RSP's graphics, 11 % on the RDP, 8 % in the VI and 7 % in the sound; the read-back, the drawing and the present are about 1 ms together.
+
+An unpaced run started after an idle can be slowed by the GPU's driver: the fixed work of each picture takes about 13 ms instead of under 1 ms, 51 frames per second instead of
+176, until it flips between two processes, with the GPU seen at low clocks (samples, no clock forced). The paced runs above do not show that cost. A weaker card, integrated
+graphics through this path, a visible window with vsync and real sound have not been measured, so no hardware requirement is written.
 
 **Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
-1152; changing one in the middle of a game, which the kit does the same way, was not exercised. Ocarina of Time's SRAM: a file created in one process is
+1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
+rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
 found by a fresh process, and reading it leaves the file as it was. EEPROM, Flash and the controller paks were not exercised.
 
 ## 7. Known limits

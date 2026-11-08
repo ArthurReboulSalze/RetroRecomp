@@ -176,12 +176,21 @@ static size_t player_audio(int16_t *pcm, size_t capacity) {
 static unsigned event_count;
 static void scripted_inputs(uint64_t frame);
 static FILE *frame_log;
+static void gfx_changes_due(uint64_t frame);
 #ifdef RR_N64_WINDOWED
 #include "hostkit/adapters/rrhk_n64.inc"
 #else
 static void n64_gfx_defaults(void) {}
 static bool n64_gfx_assign(const char *assignment, bool windowed) { (void)assignment; (void)windowed; return false; }
 #endif
+
+/* --gfx-at FRAME:KEY=INDEX: a graphics option changed between two frames of a test run, as the F3 page changes it in play. */
+static struct { unsigned frame; const char *assignment; } gfx_changes[16];
+static unsigned gfx_change_count;
+static void gfx_changes_due(uint64_t frame) {
+    unsigned n;
+    for (n = 0; n < gfx_change_count; n++) if (gfx_changes[n].frame == frame) n64_gfx_assign(gfx_changes[n].assignment, false);
+}
 
 /* Makes every folder of `path` (UTF-8). */
 static bool make_dirs(const char *path) {
@@ -279,6 +288,7 @@ static int run_headless(const char *trace_path, const char *report_path, const c
         const uint64_t frame = rr_n64_frame_index(session);
         Uint64 start;
         scripted_inputs(frame);
+        gfx_changes_due(frame);
         start = SDL_GetPerformanceCounter();
         if (rr_n64_frame(session)) { stopped = true; error = rr_n64_error(session); break; }
         /* The frame's cost as the machine ran it (no pacing: a headless run is not a timing of play). */
@@ -389,7 +399,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--help")) {
             puts("Retro-Recomp Nintendo 64 player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
                  "--observations FILE --frame-times TSV --cpu cached|pure|observe|native --gpu NAME --gfx KEY=INDEX --threaded-rdp\n"
-                 "--pak memory|rumble|none --saves FILE --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+                 "--gfx-at FRAME:KEY=INDEX --pak memory|rumble|none --saves FILE --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
                  "a build without an embedded game: --rom FILE");
             return 0;
         } else if (i + 1 < argc) {
@@ -407,6 +417,12 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--gfx")) { if (gfx_count == 16) { fail("Too many --gfx"); return 1; } gfx[gfx_count++] = v; }
             else if (!strcmp(a, "--rom")) rom_path = v;
             else if (!strcmp(a, "--saves")) saves_file = v;
+            else if (!strcmp(a, "--gfx-at")) {
+                const char *colon = strchr(v, ':');
+                if (!colon || gfx_change_count == 16) { fail("Invalid --gfx-at"); return 1; }
+                gfx_changes[gfx_change_count].frame = (unsigned)strtoul(v, NULL, 10);
+                gfx_changes[gfx_change_count++].assignment = colon + 1;
+            }
             else if (!strcmp(a, "--state-slot")) slot = v;
             else if (!strcmp(a, "--state-save-at")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid state frame"); return 1; } save_at = (unsigned)n; }
             else { fail("Unknown option"); return 1; }
