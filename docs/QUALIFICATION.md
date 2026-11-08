@@ -698,7 +698,7 @@ players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named
 ## Commodore Amiga: evidence behind its column (8 November 2026)
 
 The Amiga is **experimental since 1.7.0** ([AMIGA.md](AMIGA.md)): an Amiga 500 game installed for WHDLoad is converted, with the player's own Kickstart 1.x for the
-installs that ask for one. It runs on the vAmiga machine and its 68000, Moira, the steps calling Moira's own templates behind a live-word guard. `P` means a part is
+installs that ask for one. It runs on the vAmiga machine and its 68000, Moira, the native code being Moira's code specialised per opcode behind a guard on the latched opcode. `P` means a part is
 shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency.
 
 | Gate | Amiga | Evidence | What is missing |
