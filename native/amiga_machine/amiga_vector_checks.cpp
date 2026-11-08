@@ -83,7 +83,12 @@ struct RrAmigaSteps {
             const char *name = rr_moira_exec_name[id];
             if (!name || !m.info) continue;
             const InstrInfo &i = m.info[id];
-            fprintf(out, "%04x %s %d %d %d\n", id, name, (int)i.I, (int)i.M, (int)i.S);
+            // The instruction's words: what Moira's disassembler consumes (on a 68000 the opcode alone decides how many).
+            char text[256];
+            StrWriter writer(text, m.instrStyle);
+            u32 pc = 0x1000;
+            (m.*m.dasm[id])(writer, pc, (u16)id, i.I, i.M, i.S);
+            fprintf(out, "%04x %s %d %d %d %u\n", id, name, (int)i.I, (int)i.M, (int)i.S, (pc - 0x1000) / 2 + 1);
             n++;
         }
         return n;

@@ -320,15 +320,11 @@ def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
 def generate(project: Path, samples: list, table: Path) -> dict:
     """The native code of these observations: Moira's code specialised per opcode, chained (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
-    engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
-    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ROOT,
-                                         target='amiga_decode', name='RetroAmigaDecode')
-    bodies = observed.load_bodies(engine)
-    m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
-    steps = amiga_codegen.write_steps(project, samples, observed=observed, bodies=bodies, decode_tool=decode)
+    m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
+    steps = amiga_codegen.write_steps(project, samples, observed=observed)
     return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 

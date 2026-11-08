@@ -280,6 +280,14 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the instructions' lengths come from Moira, and no recompiler is needed (1.7.2)
+
+The chain of the native code needs the length of an observed instruction and the address it names. Both came from the decoder of `m68k-recomp-core`, built during each
+conversion. The length now comes from Moira's disassembler, in the table of its handlers, and the address from the handler and the instruction's words; a wrong guess could only
+miss a chain, which still compares the pc at run time. An Amiga conversion no longer reads anything from segagenesisrecomp or m68k-recomp-core, so no PolyForm Noncommercial
+text is involved in it, and a machine with extension words the decoder cannot read (a later Amiga) stays open. An opcode the decoder refused now runs native, Moira's code like
+the rest. **Hot path:** none. **What moves:** the Amiga's game stamp; no other console.
+
 ## Commodore Amiga: Moira's code specialised per opcode, and chained (1.7.2, recompilation stage 2)
 
 A native step was a call to Moira's own handler behind a look-up and a comparison of every word through the memory map, which made it slower than the interpreter. Now a *form*

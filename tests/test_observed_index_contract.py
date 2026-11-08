@@ -38,11 +38,10 @@ def neutral_hooks(observed):
     return head, view, lambda links: '', bodies
 
 
-def amiga_bodies(folder):
+def amiga_table(folder):
     table = folder / 'moira-map.txt'
-    table.write_text(''.join(f'{op:04x} {"Nop" if op == 0x4e71 else "Illegal"} 1 0 0\n' for op in range(65536)), encoding='ascii')
+    table.write_text(''.join(f'{op:04x} {"Nop" if op == 0x4e71 else "Illegal"} 1 0 0 1\n' for op in range(65536)), encoding='ascii')
     amiga_codegen.load_opcode_map(table)
-    return m68k_observed.InstructionBodies(NAMES, {'MN_NOP': ''}, '', '', 'e' * 64, semantics_text=amiga_codegen._semantics)
 
 
 def declarations():
@@ -78,9 +77,9 @@ class ObservedIndexContract(unittest.TestCase):
         def fake_run(command, log=None):
             Path(command[2]).write_text(json.dumps(decoded), encoding='utf-8')
         project.mkdir()
-        if name == 'amiga':     # Its own writer: Moira's code per opcode, chained; no decoder header in the index.
-            with patch.object(amiga_codegen, 'run', fake_run):
-                amiga_codegen.write_steps(project, samples, observed=observed, bodies=amiga_bodies(folder), decode_tool=Path('decode'))
+        if name == 'amiga':     # Its own writer: Moira's code per opcode, chained; no decoder at all.
+            amiga_table(folder)
+            amiga_codegen.write_steps(project, samples, observed=observed)
         else:
             head, view, tail, bodies = neutral_hooks(observed)
             with patch.object(m68k_observed, 'run', fake_run):

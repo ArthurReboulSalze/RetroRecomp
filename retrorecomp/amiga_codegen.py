@@ -10,41 +10,43 @@ observed, `rr_amiga_at_<pc>_<opcode>`) runs its form, counts, and goes straight 
 that opcode latched and nothing is pending for Moira's or the Amiga's run loop; anything else returns to the run loop, whose checks then see exactly what
 they would have seen. `rr_amiga_lookup` is the way in, from the interpreter and after a jump the generator could not know.
 
-`opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time (`<opcode hex> <handler> <Instr> <Mode> <Size>`);
-nothing of Moira is copied here. The decoder of the recompiler only tells the length and the target of an observed instruction, at conversion time.
+`opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time (`<opcode hex> <handler> <Instr> <Mode> <Size> <words>`,
+the words being what Moira's disassembler consumes); nothing of Moira is copied here.
 """
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 from . import m68k_observed
-from .core import run
-from .m68000 import mnemonic_names
 from .megadrive_codegen import write_changed
 
-FORMAT = 2
+FORMAT = 3
 # Moira's template parameter for the CPU of the machine.
 CORE = 'C68000'
 PARTS = 16
+# Moira's Mode values (MoiraTypes.h) of the addressing modes that name a place: (####).w, (####).l, (d,PC).
+MODE_AW, MODE_AL, MODE_DIPC = 7, 8, 9
 _MAP: dict[int, tuple[str, int, int, int]] = {}
+_WORDS: dict[int, int] = {}
 _MAP_SHA256 = ''
 
 
 def load_opcode_map(path: Path) -> dict[int, tuple[str, int, int, int]]:
-    """The opcode -> (handler, Instr, Mode, Size) table of the 68000 core; every one of the 65,536 opcodes must be there."""
-    global _MAP, _MAP_SHA256
+    """The opcode -> (handler, Instr, Mode, Size) table of the 68000 core, and each opcode's number of words; every one of the 65,536 opcodes must be there."""
+    global _MAP, _WORDS, _MAP_SHA256
     table = {}
+    words = {}
     text = Path(path).read_text(encoding='ascii')
     for line in text.splitlines():
-        code, name, instr, mode, size = line.split()
+        code, name, instr, mode, size, count = line.split()
         if not name.isidentifier():
             raise ValueError('Invalid Moira handler name: ' + name)
         table[int(code, 16)] = (name, int(instr), int(mode), int(size))
+        words[int(code, 16)] = int(count)
     if len(table) != 65536:
         raise ValueError('The Moira opcode table is incomplete.')
-    _MAP, _MAP_SHA256 = table, hashlib.sha256(text.encode()).hexdigest()
+    _MAP, _WORDS, _MAP_SHA256 = table, words, hashlib.sha256(text.encode()).hexdigest()
     return table
 
 
@@ -78,11 +80,10 @@ def _semantics(prefix: str, alias) -> str:
 
 
 def moira_bodies(engine: Path, prefix: str) -> m68k_observed.InstructionBodies:
-    """The `ObservedCode.bodies` entry point of the Amiga: every decoded mnemonic is accepted (Moira handles them all). Call `load_opcode_map` first."""
+    """The `ObservedCode.bodies` entry point of the Amiga: its code is Moira's, nothing comes from a recompiler. Call `load_opcode_map` first."""
     if not _MAP:
         raise ValueError('Load the Moira opcode table first.')
-    names = mnemonic_names(engine)
-    return m68k_observed.InstructionBodies(names, {name: '' for name in names}, '', '', _MAP_SHA256, semantics_text=_semantics)
+    return m68k_observed.InstructionBodies([], {}, '', '', _MAP_SHA256, semantics_text=_semantics)
 
 
 def _form(symbol: str, opcode: int) -> str:
@@ -110,25 +111,47 @@ def _instruction(prefix: str, pc: int, form: str, following: list) -> str:
             f'    rr_amiga_native_total++;{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
 
 
-def write_steps(project: Path, samples: list, *, observed, bodies: m68k_observed.InstructionBodies, decode_tool: Path) -> dict:
-    """Decode the observed instructions, then write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`) and the index
-    that finds an instruction from a pc and an opcode (`steps/index.c`)."""
+def _signed(value: int, bits: int) -> int:
+    return value - (1 << bits) if value >> (bits - 1) else value
+
+
+def _target(pc: int, words: list) -> int | None:
+    """The address an observed instruction names, when it names one: a guess for the chain only, which still compares the pc at run time."""
+    handler, _, mode, _ = _MAP[words[0]]
+    if handler in ('Bcc', 'Bra', 'Bsr'):
+        displacement = words[0] & 0xff
+        if displacement:
+            return pc + 2 + _signed(displacement, 8)
+        return pc + 2 + _signed(words[1], 16) if len(words) > 1 else None
+    if handler == 'Dbcc':
+        return pc + 2 + _signed(words[1], 16) if len(words) > 1 else None
+    if handler in ('Jmp', 'Jsr'):
+        if mode == MODE_AW and len(words) > 1:
+            return _signed(words[1], 16)
+        if mode == MODE_AL and len(words) > 2:
+            return words[1] << 16 | words[2]
+        if mode == MODE_DIPC and len(words) > 1:
+            return pc + 2 + _signed(words[1], 16)
+    return None
+
+
+def write_steps(project: Path, samples: list, *, observed) -> dict:
+    """From the observed instructions (pc, their words in hex), write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
+    and the index that finds an instruction from a pc and an opcode (`steps/index.c`)."""
     prefix = observed.prefix
-    decoded = []
-    if samples:
-        listing = project / 'snapshots.txt'
-        listing.write_text(''.join(f'{pc:06x} {words}\n' for pc, words in sorted(set(samples))), encoding='ascii')
-        run([decode_tool, listing, project / 'decoded.json'], log=project / 'decode.log')
-        decoded = json.loads((project / 'decoded.json').read_text(encoding='utf-8'))
-    decoded = [ins for ins in decoded if bodies.names[ins['mnemonic']] in bodies.bodies]
-    words = {(ins['addr'], tuple(ins['words'][:ins['word_count']])) for ins in decoded}
+    words = set()
     # What may follow each (pc, opcode): the targets its variants name first (a loop's branch), then where they fall through.
     following: dict[tuple[int, int], list] = {}
-    for ins in decoded:
-        targets = [ins['target_addr'] & 0xffffff] if ins['has_target'] else []
-        places = following.setdefault((ins['addr'], ins['words'][0]), [[], []])
-        places[0].extend(target for target in targets if target not in places[0])
-        fall = (ins['addr'] + ins['byte_length']) & 0xffffff
+    for pc, text in sorted(set(samples)):
+        seen = [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)]
+        count = _WORDS[seen[0]]
+        seen = seen[:count]
+        words.add((pc, tuple(seen)))
+        places = following.setdefault((pc, seen[0]), [[], []])
+        target = _target(pc, seen)
+        if target is not None and not target & 1 and target & 0xffffff not in places[0]:
+            places[0].append(target & 0xffffff)
+        fall = (pc + 2 * count) & 0xffffff
         if fall not in places[1]:
             places[1].append(fall)
     instructions = sorted(following)

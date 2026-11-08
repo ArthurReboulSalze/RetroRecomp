@@ -142,9 +142,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - Retro-Recomp's Amiga files (the converter modules, `native/amiga_whdload/`, `native/amiga_machine/`, the host-kit adapter) are MIT.
 - vAmiga's `Core/` is **MPL-2.0** per file; our changes to those files, applied at build time, are MPL-2.0 too. Moira, the CPU
   inside it, is **MIT**. The vAmiga application (GPL-3.0 or later) is not used. Notice: [licenses/vamiga.md](../licenses/vamiga.md).
-- At conversion time the decoder of `m68k-recomp-core` tells the length and the target of an observed instruction; it is under the
-  **PolyForm Noncommercial 1.0.0** license of segagenesisrecomp ([licenses/segagenesisrecomp.md](../licenses/segagenesisrecomp.md)), and the
-  maintainer holds the author's permission. Nothing of it enters the game. So an exported Amiga game is MIT and MPL-2.0; no GPL code joins it
+- Nothing of the PolyForm Noncommercial engines (segagenesisrecomp, m68k-recomp-core) is used since 1.7.2: the instructions' lengths come from Moira's
+  disassembler. So an exported Amiga game is MIT and MPL-2.0; no GPL code joins it
   (searched on 8 November 2026 in the adapted Core, the Amiga's native files and the notices of SDL and xBR: no GPL notice).
 - Each exported game carries its notices as resource 203, like the other machines: Retro-Recomp's licence, vAmiga and Moira, SDL and the
   host kit's parts

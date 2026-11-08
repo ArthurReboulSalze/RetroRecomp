@@ -131,14 +131,11 @@ class AvailabilityTests(unittest.TestCase):
 
 
 class PackagedConverterTests(unittest.TestCase):
-    def test_the_decoder_reads_the_generated_folder_of_the_working_root_not_the_unpacked_assets(self):
-        # A packaged converter unpacks its files to a temporary ASSETS folder; the shared decoder folder
-        # (.build/megadrive-step-decoder, written by megadrive_codegen.decoder_tool) is under ROOT, as for the X68000.
+    def test_a_conversion_needs_no_recompiler(self):
+        # The instructions' lengths come from Moira: nothing of segagenesisrecomp is built or read, in a packaged converter or not.
         source = Path(amiga.__file__).with_name('amiga_conversion.py').read_text(encoding='utf-8')
-        call = source[source.index('m68k_observed.build_decoder('):]
-        call = call[:call.index(')\n')]
-        self.assertIn('root=ROOT', call)
-        self.assertNotIn('root=ASSETS', call)
+        self.assertNotIn('build_decoder', source)
+        self.assertNotIn('segagenesisrecomp', source)
 
 
 if __name__ == '__main__':
