@@ -33,6 +33,11 @@ never queued as cartridges (a `.bin` of an adventure's data is not a ROM), in th
 Adventure (ScummVM) selection alike. A folder that no game is recognised in adds no row, and the window says so when the
 detection itself could not run (tools missing, or its build failed).
 
+The detection runtime is built the first time a folder is scanned, in `.deps` beside the converter (the project's `.deps`
+when the exe is in `Export/`), and kept. The window says so as soon as that build really starts, in its status line and its
+log. The paths of the build come from `retrorecomp/paths.py`, never from a module's own file: a packaged exe runs its modules
+from a temporary folder removed when it closes (`PackagedExe` in `tests/test_scummvm_export.py`).
+
 ## The exported game
 
 Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has the same structure as for every machine:
