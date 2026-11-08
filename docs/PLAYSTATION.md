@@ -27,6 +27,18 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
 - **Interlaced pictures** (480 lines, Tobal No. 1's) are shown **progressive** by default: the GPU draws both fields of the
   displayed frame, so the picture is whole, without combing (the console itself draws one field per frame there; its drawing
   time is kept). Weave and Bob, on the graphics page, show the console's fields instead.
+- **The gaps of CD-audio tracks** are given back to their tracks when a CUE sheet lists only each audio track's INDEX 01 while the
+  image keeps its gap before it as digital silence (from one second, at most two): the core then sees the track boundary where
+  the disc has it. A game that seeks to a track's start, known in whole seconds, can land in that gap; without it, it lands in the
+  track before and the auto-pause stops the sound at once. Tobal No. 1 did this for ever and its fights had no music. The player's
+  files are not changed, only the sheet the game holds, and the disc keeps its identity.
+- **Rows a wrapping display reads and the game cannot draw are shown black.** A game can place its display so that it runs past
+  the end of VRAM and wraps. Tobal No. 1 in combat starts at row 493 and draws in rows 12 to 463, so the top of its picture shows
+  VRAM rows 510 and 511, whatever is stored there. The console sends them too, in the top overscan; a screen that shows every line
+  shows coloured noise. Such a row keeps its place and is black, only when the display wraps, the row comes before the wrap and
+  it lies outside the game's drawing area, in a 16-bit picture. Nothing is cropped and the machine is untouched: this changes the
+  picture only, so hardware fidelity does not cover it. A picture loaded there rather than drawn, without a polygon, would be hidden
+  too; none is known.
 - **Frame pacing** follows the console: 59.826 frames a second with a progressive picture, 59.94 with an interlaced one (PAL
   49.761 and 50), so its 44,100 Hz sound reaches the device at the rate it is played.
 - A disc is recognised by what it holds (an ISO 9660 volume of system `PLAYSTATION` and its boot executable named by `SYSTEM.CNF`),
