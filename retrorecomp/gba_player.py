@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import hostkit
-from .conversion_common import preserve_unchanged, write_if_changed
+from .conversion_common import write_if_changed
 from .core import ConversionError, run
 from .paths import ASSETS
 from .platforms import build_executable, build_jobs, cmake_target_args
@@ -107,12 +107,7 @@ def prepare(player: Path, stage: Path, game: Path, bios_code: Path, rom_file: Pa
     rc = '#pragma code_page(65001)\n' + ''.join(f'{number} RCDATA "{path.resolve().as_posix()}"\n' for number, path in resources.items())
     write_if_changed(player / 'content.rc', (rc + '#include "game_resources.rc"\n').encode('utf-8'))
     from .resources import embed_resources
-    # Off Windows the embedding rewrites its three generated files on every call, with the same bytes: they keep their time, as the other
-    # files of the project do (a second preparation rebuilds and relinks nothing).
-    generated = lambda: [path for path in (player / 'embedded-window-icon.bmp', player / 'embedded_resources.S',
-                                           player / 'embedded_resources.c') if path.is_file()]
-    with preserve_unchanged(generated):
-        embed_resources(player, resources)
+    embed_resources(player, resources)
     cmake = (CMAKE.replace('@ENGINE@', (stage / 'engine').as_posix()).replace('@GAME@', game.as_posix())
              .replace('@BIOS@', bios_code.as_posix()).replace('@VERSION@', version).replace('@KIT@', ' '.join(kit)))
     write_if_changed(player / 'CMakeLists.txt', cmake.encode('utf-8'))

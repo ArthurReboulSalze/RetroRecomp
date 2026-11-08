@@ -196,6 +196,34 @@ static void full_script(void) {
         { int w = -1, h = -1; CHECK(rrhk_picture_limit(&w, &h)); CHECK(w >= 0 && h >= 0); }
         CHECK(ui->pads[0] != NULL && ui->pads[1] == NULL);
         CHECK(ui->rumble == 1 && ui->deadzone[0] == 0);
+        {   /* an action the machine handles itself: who pressed it, in play only; the binding is put back */
+            const SDL_Scancode bound_key = ui->keys[0][A_ANALOG];
+            const SDL_GameControllerButton bound_button = ui->buttons[0][A_ANALOG];
+            SDL_Event e;
+            ui->keys[0][A_ANALOG] = SDL_SCANCODE_F9;
+            ui->buttons[0][A_ANALOG] = SDL_CONTROLLER_BUTTON_MISC1;
+            memset(&e, 0, sizeof e);
+            e.type = SDL_KEYDOWN; e.key.keysym.scancode = SDL_SCANCODE_F9;
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 1u);
+            e.key.repeat = 1;
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 0);
+            e.key.repeat = 0;
+            e.key.keysym.scancode = SDL_SCANCODE_F10;
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 0);
+            e.key.keysym.scancode = SDL_SCANCODE_F9;
+            ui->menu = RRHK_MENU_OPTIONS;
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 0);
+            ui->menu = 0;
+            memset(&e, 0, sizeof e);
+            e.type = SDL_CONTROLLERBUTTONDOWN; e.cbutton.button = SDL_CONTROLLER_BUTTON_MISC1;
+            e.cbutton.which = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(ui->pads[0]));
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 1u);
+            e.cbutton.which = -1;      /* a gamepad no player holds */
+            CHECK(rrhk_action_pressed(&e, A_ANALOG) == 0);
+            ui->keys[0][A_ANALOG] = bound_key;
+            ui->buttons[0][A_ANALOG] = bound_button;
+        }
+        CHECK(!rrhk_action_held(0, A_LEFT));
         axis(SDL_CONTROLLER_AXIS_LEFTX, 20000); axis(SDL_CONTROLLER_AXIS_LEFTY, -30000);
         axis(SDL_CONTROLLER_AXIS_RIGHTX, -12345); axis(SDL_CONTROLLER_AXIS_RIGHTY, 32767);
         break;
@@ -210,6 +238,7 @@ static void full_script(void) {
         break;
     case 6:     /* the d-pad keeps the directions */
         CHECK(last_pad[0] == LEFT_BIT);
+        CHECK(rrhk_action_held(0, A_LEFT));
         button(SDL_CONTROLLER_BUTTON_DPAD_LEFT, false);
         rrhk_deadzone_step(0, false); rrhk_deadzone_step(0, false);
         CHECK(ui->deadzone[0] == 10);

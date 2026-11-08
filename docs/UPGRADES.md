@@ -189,6 +189,14 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
 consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
 
+## Host kit and resources: two small shared changes (1.7.1)
+
+**What moves.** The game and host stamps of every machine, compared entry by entry before and after. They move in 1.7.1 anyway, so no export is converted again because of this alone. No build stamp moves. The quick-state keys of the Mega Drive, the Super Nintendo and the CPS boards hash none of these files.
+
+**What changes.** Off Windows, `resources.embed_resources` no longer rewrites its three generated files with the same bytes, so a second preparation of a game relinks nothing; the Game Boy Advance's local workaround is gone. On Windows it does nothing, as before. `rrhk_action_pressed` and `rrhk_action_held` give an adapter the actions it handles itself, as the player bound them: the PlayStation's Analog button and the Nintendo 64's Stick actions use them, and neither adapter includes `hostkit_internal.h` any more. The rules are those the adapters had.
+
+**Checked.** The unit test of the embedding (on Windows, through `write_embedding`) and the kit's capabilities self-test with a virtual controller. **Not checked yet:** a game of either machine played or converted with these calls, and the embedding on Linux; both belong to the release checks.
+
 ## Sony PlayStation opens as an experimental machine (1.7.1)
 
 The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to players as an **experimental** machine. No export of
