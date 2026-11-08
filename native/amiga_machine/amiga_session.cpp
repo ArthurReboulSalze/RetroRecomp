@@ -68,12 +68,12 @@ struct RrAmigaSession {
     int view[4] = {};          // union of the display windows opened so far: left, top, right, bottom (picture columns, rows)
     bool observing = false, native = false;
     std::set<std::pair<uint32_t, std::string>> observed;
-    uint64_t native_count = 0, interpreted_count = 0;
+    uint64_t interpreted_count = 0;
     std::map<std::string, std::string> display;               // lower-case name -> the name as the install spells it
     std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
     uint32_t kick_base = 0, kick_size = 0;                    // where it sits in ExpMem once loaded (0: not loaded)
-    uint64_t kick_interpreted = 0, kick_native = 0;
+    uint64_t kick_interpreted = 0;
     // The Kickstart's instructions run on the interpreter while observing: the address and the words as they stand (a slave patches
     // some). Written beside the observations, in the conversion's private work folder only; the library keeps the addresses alone.
     std::set<std::pair<uint32_t, std::string>> kick_observed;
@@ -169,6 +169,23 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
     return 1;
 }
 
+#ifdef RR_AMIGA_NATIVE
+// The native code of this game (retrorecomp/amiga_codegen.py): the instruction known at this pc for the opcode the CPU has latched. It goes on
+// by itself to the instructions it knows come next; a step can never sit on a trap of the resload table, which stops the CPU before it runs.
+typedef void (*RrAmigaCode)(void *);
+extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
+extern "C" uint64_t rr_amiga_native_total, rr_amiga_kick_total;
+extern "C" const uint32_t *rr_amiga_run_flags;
+extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
+#endif
+// Where the native code counts the Kickstart's copy in ExpMem.
+static void native_kick_window() {
+#ifdef RR_AMIGA_NATIVE
+    rr_amiga_kick_base = S->kick_base;
+    rr_amiga_kick_size = S->kick_size;
+#endif
+}
+
 // The player's Kickstart into ExpMem, when the slave's request matches it. The image keeps the addresses it was built for (no
 // relocation table): vAmiga's WOM (the A1000's writable ROM, left unlocked) is pointed at the copy, so the window
 // $FC0000-$FFFFFF reads and writes the same bytes as ExpMem, and what the slave patches or writes into the image through either
@@ -194,6 +211,7 @@ static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t
     }
     S->kick_base = destination;
     S->kick_size = size;
+    native_kick_window();
     kick_window(true);
     return 1;
 }
@@ -229,28 +247,10 @@ static int remove_cb(void *, const char *name) {
 }
 
 // Observation and native steps: the hook Moira calls before each instruction (true: a native step ran it).
-#ifdef RR_AMIGA_NATIVE
-struct RrAmigaStep;
-extern "C" const RrAmigaStep *rr_amiga_lookup(uint32_t pc);
-extern "C" void (*rr_amiga_step_of(const RrAmigaStep *))(void *, uint16_t);
-// What the guard compares: what the CPU has latched for the instruction about to run (its opcode and next word), as the interpreter
-// would use them, and memory beyond them. A word rewritten after it was prefetched then misses, instead of running another step.
-static uint32_t latched_pc;
-static uint16_t latched_ird, latched_irc;
-extern "C" int rr_amiga_code_word(uint32_t pc, uint16_t *word) {
-    *word = pc == latched_pc ? latched_ird : pc == latched_pc + 2 ? latched_irc : peek16(pc);
-    return 1;
-}
-#endif
 static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
 #ifdef RR_AMIGA_NATIVE
     if (S->native) {
-        latched_pc = pc; latched_ird = op; latched_irc = m.getIRC();
-        if (const RrAmigaStep *step = rr_amiga_lookup(pc)) {
-            rr_amiga_step_of(step)(&m, op); S->native_count++;
-            if (in_kickstart(pc)) S->kick_native++;
-            return true;
-        }
+        if (RrAmigaCode run = rr_amiga_lookup(pc, op)) { run(&m); return true; }
     }
 #else
     (void)m; (void)op;
@@ -455,6 +455,10 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
         S->emu->set(Opt::AUD_ASR, 0);                       // a fixed sample rate: the sound does not follow the host's clock
         S->amiga = &S->emu->rrMain();
+#ifdef RR_AMIGA_NATIVE
+        rr_amiga_run_flags = S->amiga->rrRunFlags();
+        rr_amiga_native_total = rr_amiga_kick_total = 0;
+#endif
         S->amiga->audioPort.setSampleRate((double)RR_AMIGA_AUDIO_RATE);
         auto rom = boot_rom();
         S->amiga->mem.loadRom(rom.data(), (isize)rom.size());
@@ -592,7 +596,13 @@ extern "C" int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint1
     return 1;
 }
 extern "C" uint64_t rr_amiga_kickstart_interpreted_count(const RrAmigaSession *s) { return s->kick_interpreted; }
-extern "C" uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s) { return s->kick_native; }
+extern "C" uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_kick_total;
+#else
+    return 0;
+#endif
+}
 
 extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h) {
     if (!s->view_seen) return 0;
@@ -658,7 +668,13 @@ extern "C" int rr_amiga_write_observations(const RrAmigaSession *s, const char *
     for (auto &e : s->kick_observed) fprintf(k, "%06x %s\n", e.first, e.second.c_str());
     return fclose(k) == 0;
 }
-extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *s) { return s->native_count; }
+extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_native_total;
+#else
+    return 0;
+#endif
+}
 extern "C" uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { return s->interpreted_count; }
 extern "C" long rr_amiga_resload_calls(const RrAmigaSession *s) { return s->calls; }
 extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) {
@@ -737,6 +753,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     if (s->rl.kick_loaded && s->rl.exp_mem && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
         s->kick_base = s->rl.exp_mem;
         s->kick_size = s->rl.kick_size;
+        native_kick_window();
     }
     kick_window(true);
     s->frame = head.frame;

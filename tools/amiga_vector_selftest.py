@@ -12,8 +12,8 @@ No Amiga, no custom chip, no chip-RAM contention, no ROM overlay: the CPU alone.
 it does not show the Amiga's hardware, gameplay or latency, and it is not a statement about silicon.
 
 Three things are checked, each counted apart:
-  1. the native steps equal the interpreter. The steps are the ones the converter's own generator writes (`amiga_conversion.generate`: the shared
-     `m68k_observed.write_steps` with the Amiga's Moira hooks of `amiga_codegen.py`), from observations that put each vector's instruction at its
+  1. the native steps equal the interpreter. The steps are the ones the converter's own generator writes (`amiga_conversion.generate`:
+     `amiga_codegen.write_steps`, Moira's code specialised per opcode), from observations that put each vector's instruction at its
      own address. Each vector runs twice from the same state, through the jump table and through `rr_moira_native` -> `rr_amiga_lookup` (the
      live-word guard included); registers, SR, PC, the queue, the clock and every bus access (kind, address, size, value, clock) must be equal;
   2. Moira against the vectors: registers, SR (under the vector's mask), PC, the two queue words, every byte of RAM, the total clocks and, where

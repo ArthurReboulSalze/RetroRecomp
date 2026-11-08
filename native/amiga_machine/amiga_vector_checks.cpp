@@ -12,8 +12,7 @@
 // Two paths run every vector, from the same initial state:
 //   interpreter  Moira::execute() with no hook: the jump table, as in the reference run;
 //   native step  Moira::execute() with the hook set to the lookup of the steps the converter's own generator wrote (retrorecomp/
-//                amiga_codegen.py through the shared m68k_observed.write_steps): rr_amiga_lookup() finds the step of the instruction at
-//                the pc by its live words, and the hook runs it. A vector with no step stays on the interpreter and is counted.
+//                amiga_codegen.py): rr_amiga_lookup() finds the instruction at the pc for the latched opcode, and the hook runs it. A vector with no step stays on the interpreter and is counted.
 // Both are compared with the vector (registers, SR under its mask, PC, the two queue words, the bytes of RAM, the clocks, and the order and
 // clock of the bus accesses where the fixture has them), and the two paths with each other on everything, access by access.
 //
@@ -98,22 +97,16 @@ struct RrAmigaSteps {
 
 // ------------------------------------------------------------------------------------------------------- the native steps
 #ifdef RR_VECTOR_STEPS
-struct RrAmigaStep;
-extern "C" const RrAmigaStep *rr_amiga_lookup(uint32_t pc);
-extern "C" void (*rr_amiga_step_of(const RrAmigaStep *))(void *, uint16_t);
-static uint32_t code_base;
-static uint16_t code_ird, code_irc;
-extern "C" int rr_amiga_code_word(uint32_t pc, uint16_t *word) {
-    pc &= 0xffffff;
-    if (pc == code_base) *word = code_ird;
-    else if (pc == ((code_base + 2) & 0xffffff)) *word = code_irc;
-    else *word = (uint16_t)(*flat(pc) << 8 | *flat(pc + 1));
-    return 1;
-}
+typedef void (*RrAmigaCode)(void *);
+extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
+extern "C" const uint32_t *rr_amiga_run_flags;
+// One vector, one instruction: a run-loop flag stays up so that the code never goes on to the next one.
+static const uint32_t stop_after_one = 1;
 static bool step_ran;
 static bool native_hook(Moira &m, u32 pc, u16 op) {
-    if (const RrAmigaStep *step = rr_amiga_lookup(pc)) {
-        rr_amiga_step_of(step)(&m, op);
+    if (RrAmigaCode run = rr_amiga_lookup(pc, op)) {
+        rr_amiga_run_flags = &stop_after_one;
+        run(&m);
         step_ran = true;
         return true;
     }
@@ -151,7 +144,6 @@ static void load(Moira &cpu, const Vector &v) {
     cpu.setIRC((u16)v.init[20]);
     accesses.clear();
 #ifdef RR_VECTOR_STEPS
-    code_base = (u32)v.init[18] & 0xffffff; code_ird = (uint16_t)v.init[19]; code_irc = (uint16_t)v.init[20];
     step_ran = false;
 #endif
 }

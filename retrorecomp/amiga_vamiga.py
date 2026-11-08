@@ -86,6 +86,11 @@ REPLACEMENTS = [
      '                auto addr = cpu.debugger.breakpoints.hit->addr;\n',
      '                // Retro-Recomp modification (MPL-2.0, like this file): a trap of the table has no breakpoint object.\n'
      '                auto addr = cpu.debugger.breakpoints.hit ? cpu.debugger.breakpoints.hit->addr : (u32)cpu.getPC0();\n'),
+    # Native code goes on from instruction to instruction as long as nothing is pending for the Amiga's run loop: it reads the loop's flags.
+    ('Components/Amiga.h',
+     '    void setFlag(u32 flags);\n',
+     '    void setFlag(u32 flags);\n'
+     '    const RunLoopFlags *rrRunFlags() const { return &flags; }   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
     # The sound path keeps state a snapshot leaves out (the four samplers' pending samples, the three filters' memory, the
     # sub-sample fraction, the master volume ramps): two public methods save and restore exactly that, so a quick state
     # continues the sound sample for sample. The session appends the bytes to its own state file.

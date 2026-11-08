@@ -2,9 +2,8 @@
 
 Every conversion starts from a fresh reference run: the install (the slave and its data files, read from the player's archive)
 runs on vAmiga's Core with every 68000 instruction on Moira's interpreter, and the instructions it runs from RAM are recorded.
-Those become guarded native steps (the shared generator `m68k_observed` with the Amiga's Moira hooks, `amiga_codegen`): each
-calls the very Moira template the interpreter would run, behind a live-word guard, and anything not seen stays on the counted
-interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
+Those become native code (`amiga_codegen`): Moira's code specialised per opcode, chained from instruction to instruction behind the
+opcode the CPU has latched, and anything not seen stays on the counted interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
 its trace (picture, sound, RAM, CPU registers of every frame) must equal the reference's; so must the compressed copy that is
 delivered, and a quick state saved by it must continue the same timeline in a fresh process. Nothing is claimed beyond those
 bounded routes: the hardware fidelity is vAmiga's, unmeasured here, and the routes are scripts, not play.
@@ -38,8 +37,8 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 
 PLAYER = 'RetroRecomp-Amiga'
 # The notices every exported Amiga game carries (resource 203, as on the other machines): the vAmiga Core (MPL-2.0 per file) and
-# Moira (MIT), the 68000 decoder of m68k-recomp-core compiled into the index of native steps, SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md',
+# Moira (MIT), SDL and the host kit's parts.
+NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/SDL2.md', 'licenses/xbr.md',
                 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 # The player's Kickstart in the player's own export (decision D1, 6 November 2026): 1.x images (256 KiB) only, for now.
@@ -319,9 +318,8 @@ def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
 
 
 def generate(project: Path, samples: list, table: Path) -> dict:
-    """The guarded native steps of these observations (the shared generator with the Amiga's Moira hooks)."""
+    """The native code of these observations: Moira's code specialised per opcode, chained (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
-    from .megadrive_codegen import write_changed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
@@ -330,14 +328,8 @@ def generate(project: Path, samples: list, table: Path) -> dict:
                                          target='amiga_decode', name='RetroAmigaDecode')
     bodies = observed.load_bodies(engine)
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
-    write_changed(project / 'm68k_decoder.h', (engine / 'external/m68k-recomp-core/common/m68k_decoder.h').read_text(encoding='utf-8'))
-    write_changed(project / 'rom_parser.h', (engine / 'recompiler/src/rom_parser.h').read_text(encoding='utf-8'))
-    steps = m68k_observed.write_steps(project, samples, observed=observed, bodies=bodies, decode_tool=decode, diagnostic=[],
-                                      alias=lambda text: text, form_body=lambda body: body, descriptor=lambda ins, name: ins,
-                                      index_head=amiga_codegen.INDEX_HEAD, code_view=amiga_codegen.CODE_VIEW,
-                                      index_tail=amiga_codegen.index_tail)
-    return {'samples': len(samples), 'instructions': len(steps.instructions), 'forms': len(steps.forms), 'pcs': len(steps.groups),
-            'opcode_table_sha256': file_sha256(table)}
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, bodies=bodies, decode_tool=decode)
+    return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
@@ -424,7 +416,7 @@ def kickstart_fields(kick) -> dict:
     return {'used': True, 'version': known.get('version'), 'os': known.get('os'), 'model': known.get('model'), 'file': kick.file_name,
             'size': kick.size, 'crc16': kick.crc16, 'crc32': kick.crc32, 'sha256': kick.sha256, 'normalised': list(kick.normalisations),
             'player_supplied': True, 'stored_in_library': False, 'shared': False, 'embedded_in_export': True,
-            'native': 'guarded native steps written from this player\'s own image in the conversion\'s private work folder; what still runs '
+            'native': 'native code (Moira\'s code specialised) written from this player\'s own image in the conversion\'s private work folder; what still runs '
                       'on the interpreter is counted apart per route (final_checks.kickstart_interpreted)'}
 
 
@@ -643,7 +635,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed RAM instructions as guarded native steps calling the Moira templates of the reference CPU',
+            'native_coverage': "observed RAM instructions as native code: Moira's code specialised per opcode, chained, guarded by the latched opcode",
+            'native_code_is': "Moira's code specialised, not a translation",
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',

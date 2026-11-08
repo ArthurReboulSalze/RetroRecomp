@@ -5,7 +5,7 @@ with a sentence otherwise.
 
 What it converts: an Amiga 500 game installed for WHDLoad (an LHA archive holding a `.Slave` and the game's files), run without
 WHDLoad by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
-from RAM compiled to guarded native steps (Moira's own templates) and the rest counted on the interpreter. An install that
+from RAM compiled to native code (Moira's code specialised per opcode) and the rest counted on the interpreter. An install that
 asks for a Kickstart 1.x runs it from the player's own image (Options); its code stays interpreted and counted. Not yet:
 Kickstart 3.x installs, the Amiga 1200, disk images (ADF), Linux.
 """
@@ -51,8 +51,8 @@ class AmigaProfile(SystemProfile):
                                                         windows=tuple((low, last) for low, last, _ in APERTURES),
                                                         contained=True, length=(2, 16), length_align=2,
                                                         offset_align=2, address_align=2, span_max=131072)),))
-    # The instructions run from RAM become guarded native steps that call Moira's own templates (C++ with C linkage); the index
-    # that lists them is C (retrorecomp/amiga_codegen.py).
+    # The instructions run from RAM become native code, Moira's code specialised per opcode (C++ with C linkage); the index that
+    # finds them is C (retrorecomp/amiga_codegen.py).
     observed_code = ObservedCode('amiga_codegen:moira_bodies', 'rr_amiga_', 'RrAmigaStep', APERTURES,
                                  source_extension='.cpp', steps_head='#include "step_semantics.h"\n', index_extension='.c')
     report_shape = ReportShape('amiga_conversion', 'whdload')

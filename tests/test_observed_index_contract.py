@@ -38,13 +38,11 @@ def neutral_hooks(observed):
     return head, view, lambda links: '', bodies
 
 
-def amiga_hooks(folder):
+def amiga_bodies(folder):
     table = folder / 'moira-map.txt'
     table.write_text(''.join(f'{op:04x} {"Nop" if op == 0x4e71 else "Illegal"} 1 0 0\n' for op in range(65536)), encoding='ascii')
     amiga_codegen.load_opcode_map(table)
-    bodies = m68k_observed.InstructionBodies(NAMES, {'MN_NOP': ''}, '', '', 'e' * 64,
-                                             step_text=amiga_codegen._step, semantics_text=amiga_codegen._semantics)
-    return amiga_codegen.INDEX_HEAD, amiga_codegen.CODE_VIEW, amiga_codegen.index_tail, bodies
+    return m68k_observed.InstructionBodies(NAMES, {'MN_NOP': ''}, '', '', 'e' * 64, semantics_text=amiga_codegen._semantics)
 
 
 def declarations():
@@ -73,17 +71,22 @@ class ObservedIndexContract(unittest.TestCase):
                 self.assertEqual(observed.index_extension or observed.source_extension, '.c')
 
     def write_index(self, folder, name, observed):
-        head, view, tail, bodies = amiga_hooks(folder) if name == 'amiga' else neutral_hooks(observed)
         decoded = [instruction(0x6000, 0x4e71), instruction(0x6002, 0x4e71), instruction(0x7000, 0x4e71)]
         project = folder / name
+        samples = [(0x6000, '4e71'), (0x6002, '4e71'), (0x7000, '4e71')]
 
         def fake_run(command, log=None):
             Path(command[2]).write_text(json.dumps(decoded), encoding='utf-8')
         project.mkdir()
-        with patch.object(m68k_observed, 'run', fake_run):
-            m68k_observed.write_steps(project, [(0x6000, '4e71'), (0x6002, '4e71'), (0x7000, '4e71')], observed=observed, bodies=bodies,
-                                      decode_tool=Path('decode'), diagnostic=[], alias=lambda text: text, form_body=lambda body: body,
-                                      descriptor=lambda ins, mnemonic: ins, index_head=head, code_view=view, index_tail=tail)
+        if name == 'amiga':     # Its own writer: Moira's code per opcode, chained; no decoder header in the index.
+            with patch.object(amiga_codegen, 'run', fake_run):
+                amiga_codegen.write_steps(project, samples, observed=observed, bodies=amiga_bodies(folder), decode_tool=Path('decode'))
+        else:
+            head, view, tail, bodies = neutral_hooks(observed)
+            with patch.object(m68k_observed, 'run', fake_run):
+                m68k_observed.write_steps(project, samples, observed=observed, bodies=bodies, decode_tool=Path('decode'), diagnostic=[],
+                                          alias=lambda text: text, form_body=lambda body: body, descriptor=lambda ins, mnemonic: ins,
+                                          index_head=head, code_view=view, index_tail=tail)
         index = project / 'steps' / ('index' + (observed.index_extension or observed.source_extension))
         self.assertTrue(index.is_file())
         return index

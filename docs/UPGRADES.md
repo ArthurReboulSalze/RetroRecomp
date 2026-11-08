@@ -238,6 +238,21 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: Moira's code specialised per opcode, and chained (1.7.2, recompilation stage 2)
+
+A native step was a call to Moira's own handler behind a look-up and a comparison of every word through the memory map, which made it slower than the interpreter. Now a *form*
+is Moira's handler compiled for one opcode, with the opcode as a literal and Moira's code inlined, and each observed instruction (one per address and opcode) goes straight on
+to the instruction it knows comes next. This is Moira's code specialised, not a translation: same bus accesses, same cycles, same code. A form reads its extension words on
+the bus as the interpreter does, so it is right for its opcode at any address: the guard is now the opcode the CPU has latched, and a word rewritten in memory, by anything,
+needs no tracking. An instruction with the same opcode and other extension words now runs native where it was interpreted. The run loops see what they saw: the chain stops
+whenever a flag is pending for Moira or the Amiga, and returns there on anything it does not know.
+Vectors: 6,762 of 6,762 equal to the interpreter on registers, SR, PC, prefetch, clock and each bus access. Rick Dangerous, Apidya, Lemmings and Civilization, two routes of
+3,600 frames each: every frame equal to the fresh reference on picture, sound, RAM and registers, the packed copy and the state continuation too, with the same instruction counts.
+An estimate on a loaded PC, headless (hashing included), interpreted time over native time on 1,200 frames: Rick 1.00, Apidya 1.07, Lemmings 1.00, Civilization 1.01; not a timing.
+Licence: the index no longer contains `m68k_decoder.h`, so no PolyForm text enters an Amiga game, and its notice leaves the exports; the decoder still runs during the conversion.
+**Hot path:** the look-up and the word comparison are gone from most instructions; one count, two flag reads and a pc and opcode comparison per instruction added. **What
+moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: a debugging recorder off, the resload traps without breakpoints (1.7.2, recompilation stage 1)
 
 Two costs the machine paid for nothing a game can see. vAmiga's logic analyzer, a recorder for its debugger, is connected by default and took 12 to 14 % of a
