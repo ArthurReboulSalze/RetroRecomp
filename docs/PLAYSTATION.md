@@ -1,6 +1,6 @@
-# Sony PlayStation (experimental, in development)
+# Sony PlayStation (experimental)
 
-The PlayStation profile is **experimental** and only present in developer installations: it is being built. A conversion
+The PlayStation profile is **experimental** since 1.7.1. A conversion
 makes a playable game whose R3000A code, as far as the conversion saw it run, is **native steps**; the rest runs on the machine's
 interpreter and is counted and reported. This page says what it converts, how, and what it does not claim. The five measures
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.

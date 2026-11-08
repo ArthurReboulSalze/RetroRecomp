@@ -102,11 +102,7 @@ and its limits are on its page.
 
 Not available yet. Each one starts as an experimental profile; no date is promised.
 
-| Machine | Stage |
-| --- | --- |
-| Sony PlayStation | in development |
-
-Planned after it: Atari ST, the Amiga 1200 and Nintendo 64. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Planned: the Amiga 1200 and Nintendo 64. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

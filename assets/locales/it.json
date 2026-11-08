@@ -474,6 +474,7 @@
     "credits_x68_cpu": "CPU di riferimento Musashi usata dal prototipo",
     "credits_cps2_board": "Logica della scheda, catalogo dei romset e decifratura delle istruzioni · driver CPS-2 (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald), QSound (superctr, Valley Bell)",
     "credits_amiga_hardware": "Runtime della macchina (Agnus, Denise, Paula, CIA, floppy) e il suo core 68000 Moira · Dirk W. Hoffmann",
+    "credits_psx_machine": "Runtime della macchina (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), derivato da Mednafen · i team di Beetle PSX e Mednafen",
     "credits_atarist_hardware": "Runtime della macchina (68000, Shifter, MFP, YM2149, IKBD, floppy) · il team di Hatari",
     "credits_arm_core": "Decodificatore ARM e Thumb, interprete di riferimento ed emettitore di codice",
     "credits_experimental": "Sperimentale in questa versione",

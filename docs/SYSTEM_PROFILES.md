@@ -49,6 +49,9 @@ gameplay feedback kind is 21. See [Game Boy Advance](GAME_BOY_ADVANCE.md).
 The **Commodore Amiga** profile (`amiga`, experimental since 1.7.0) converts `.lha` WHDLoad installs
 that need no Kickstart and exports to `Games/Amiga`; see [Amiga](AMIGA.md).
 
+The **Sony PlayStation** profile (`psx`, experimental since 1.7.1) converts discs (EBOOT, CUE/BIN, CloneCD, ISO)
+and exports to `Games/PlayStation`; see [PlayStation](PLAYSTATION.md).
+
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
 chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,

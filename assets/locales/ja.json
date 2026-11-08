@@ -474,6 +474,7 @@
     "credits_x68_cpu": "プロトタイプで使用する Musashi 参照 CPU",
     "credits_cps2_board": "基板ロジック、ROM セットカタログ、命令の復号 · CPS-2 ドライバー (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald)、QSound (superctr, Valley Bell)",
     "credits_amiga_hardware": "マシンランタイム (Agnus, Denise, Paula, CIA, フロッピー) と 68000 コア Moira · Dirk W. Hoffmann",
+    "credits_psx_machine": "マシンランタイム (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), Mednafen 由来 · Beetle PSX と Mednafen のチーム",
     "credits_atarist_hardware": "マシンランタイム (68000, Shifter, MFP, YM2149, IKBD, フロッピー) · Hatari チーム",
     "credits_arm_core": "ARM と Thumb のデコーダー、参照インタープリター、コード生成",
     "credits_experimental": "このバージョンでは実験段階",

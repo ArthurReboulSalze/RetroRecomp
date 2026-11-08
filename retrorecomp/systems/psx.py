@@ -1,4 +1,6 @@
-"""Sony PlayStation profile (experimental, developer installations only: see docs/PLAYSTATION.md).
+"""Sony PlayStation profile (experimental since 1.7.1: see docs/PLAYSTATION.md).
+
+The machine is listed when the installation carries the converter's own files (`available()`).
 
 What it converts: a PlayStation disc as the player gives it (a PS1 Classics EBOOT, a CUE sheet with its BIN files, a CloneCD image,
 a bare raw image or an ISO), run on the Beetle PSX machine (GPL-2.0, pinned) with the player's own BIOS embedded in the game
@@ -40,10 +42,8 @@ class PlayStationProfile(SystemProfile):
     quick_frames = 3600
     fallback_display = 'opcodes'
     option_keys = (OptionKey('psx_bios', kind='path', label='psx_bios'),)
-    developer_only = True
     stamp_groups = ('conversion_gates',)
     host_adapter = 'adapters/rrhk_psx.c'
-    # Order 11 on this branch; 13 once the Game Boy Advance (11) and the Amiga (12) are merged (the lead renumbers at merge).
     path_spec = PathSpec(order=14, sections=(('r3000a', 'psx'),),
                          source_bounds=(('disc', (1, 1 << 32)), ('bios', (1, 1 << 20))),
                          shapes=(('r3000a', 'psx', dict(roles=('disc', 'bios'), caps={'insn': 262144, 'span': 65536},
@@ -58,8 +58,8 @@ class PlayStationProfile(SystemProfile):
     identify = Identify(path_order=60)
 
     def available(self) -> bool:
-        from ..psx import developer_available
-        return developer_available()
+        from ..psx import converter_available
+        return converter_available()
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix not in self.extensions and suffix not in RAW_EXTENSIONS:

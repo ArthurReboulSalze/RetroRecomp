@@ -21,8 +21,8 @@ from .paths import ASSETS
 OWN_EXTENSIONS = ('.pbp',)
 
 
-def developer_available() -> bool:
-    """True when this installation carries the PlayStation converter files (developer installations only)."""
+def converter_available() -> bool:
+    """True when this installation carries the PlayStation converter files."""
     return all((ASSETS / name).is_file() for name in (
         'native/psx_machine/CMakeLists.txt', 'native/hostkit/adapters/rrhk_psx.c', 'retrorecomp/psx_conversion.py'))
 

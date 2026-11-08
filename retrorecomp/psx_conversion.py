@@ -1,4 +1,4 @@
-"""PlayStation conversion (experimental, developer installations only; docs/PLAYSTATION.md). Retro-Recomp's own code, MIT.
+"""PlayStation conversion (experimental since 1.7.1; docs/PLAYSTATION.md). Retro-Recomp's own code, MIT.
 
 The game executable is the Beetle PSX machine with the player's BIOS embedded (OpenBIOS when he gave none) and his disc
 appended. The conversion first builds the observing machine (the interpreter alone, recording the R3000A code it runs) and plays
@@ -318,7 +318,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     report = {
         'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
-        'system': {'id': 'psx', 'name': 'Sony PlayStation', 'status': PLAYSTATION.status}, 'target': target_id(),
+        'system': {'id': 'psx', 'name': 'Sony PlayStation', 'status': PLAYSTATION.status}, 'private_development_only': False,
+        'target': target_id(),
         'rom': item.metadata(), 'converted': True,
         'disc': {'discs': [d.metadata() for d in item.discs], 'container': item.discs[0].container,
                  'carried': 'appended to the executable and read in place'},

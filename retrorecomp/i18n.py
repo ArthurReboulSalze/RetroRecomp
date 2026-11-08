@@ -435,6 +435,7 @@ STRINGS = {
     'credits_x68_cpu': ('Musashi reference CPU used by the prototype', 'CPU Musashi de référence utilisé par le prototype'),
     'credits_cps2_board': ('Board logic, romset catalogue and instruction decryption · CPS-2 driver (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald), QSound (superctr, Valley Bell)', 'Logique de la carte, catalogue des romsets et déchiffrement des instructions · pilote CPS-2 (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald), QSound (superctr, Valley Bell)'),
     'credits_amiga_hardware': ('Machine runtime (Agnus, Denise, Paula, CIAs, floppy) and its 68000 core Moira · Dirk W. Hoffmann', 'Moteur de la machine (Agnus, Denise, Paula, CIA, disquette) et son cœur 68000 Moira · Dirk W. Hoffmann'),
+    'credits_psx_machine': ('Machine runtime (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), derived from Mednafen · the Beetle PSX and Mednafen teams', 'Moteur de la machine (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), dérivé de Mednafen · les équipes Beetle PSX et Mednafen'),
     'credits_atarist_hardware': ('Machine runtime (68000, Shifter, MFP, YM2149, IKBD, floppy) · the Hatari team', 'Moteur de la machine (68000, Shifter, MFP, YM2149, IKBD, disquette) · l’équipe Hatari'),
     'credits_arm_core': ('ARM and Thumb decoder, reference interpreter and code emitter', 'Décodeur ARM et Thumb, interpréteur de référence et émetteur de code'),
     'credits_experimental': ('Experimental in this version', 'Expérimental dans cette version'),

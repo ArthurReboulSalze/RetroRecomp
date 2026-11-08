@@ -474,6 +474,7 @@
     "credits_x68_cpu": "Эталонный CPU Musashi для прототипа",
     "credits_cps2_board": "Логика платы, каталог ROM-наборов и расшифровка инструкций · драйвер CPS-2 (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald), QSound (superctr, Valley Bell)",
     "credits_amiga_hardware": "Среда машины (Agnus, Denise, Paula, CIA, дисковод) и её ядро 68000 Moira · Dirk W. Hoffmann",
+    "credits_psx_machine": "Среда машины (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), основана на Mednafen · команды Beetle PSX и Mednafen",
     "credits_atarist_hardware": "Среда машины (68000, Shifter, MFP, YM2149, IKBD, дисковод) · команда Hatari",
     "credits_arm_core": "Декодер ARM и Thumb, эталонный интерпретатор и генератор кода",
     "credits_experimental": "Экспериментально в этой версии",
