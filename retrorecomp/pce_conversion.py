@@ -535,5 +535,5 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'routes drive player 1',
             'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'PC Engine: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
+    emit(f'PC Engine: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable

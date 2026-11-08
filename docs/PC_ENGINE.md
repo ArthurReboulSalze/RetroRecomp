@@ -2,7 +2,7 @@
 
 Experimental profile (`pce`), **available since 1.6.9**: NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
 United States. It converts the player's own HuCard dumps (`.pce`, or a ZIP holding one) into a standalone game, US
-TurboGrafx-16 HuCards included, in both dumping orders ([below](#us-turbografx-16-cards-6-november-2026)). The native
+TurboGrafx-16 HuCards included, in both dumping orders (the bit-reversed order tested on two copies made for the test; [below](#us-turbografx-16-cards-6-november-2026)). The native
 code comes from what the game was seen to run; every instruction that was not seen stays interpreted, counted and
 reported. It is experimental: no gate of the qualification list is claimed beyond what was measured.
 
@@ -141,7 +141,7 @@ saved with F8 is loaded in a fresh process and must continue the saved timeline;
 
 ### US TurboGrafx-16 cards (6 November 2026)
 
-Twelve conversions through the same loop as the first panel (two routes of 3,600 frames, native against every-instruction
+Twelve conversions of eleven cards through the same loop as the first panel (two routes of 3,600 frames, native against every-instruction
 interpreted, packed replay, F8/F9 in a fresh process), one at a time, on the tree of the branch `spec/pce-us-cards`. The cards
 are read in place from the owner's library; no ROM is kept in the repository.
 
@@ -168,7 +168,7 @@ are read in place from the owner's library; no ROM is kept in the repository.
   US cards in memory and reading them back recovers each original, the four cards with an ambiguous vector included, once the
   first-instruction rule above is applied (without it those four were read as `linear` and decoded wrongly).
 - This is the reader and the conversion of those cards, not a claim about every US card: no title or checksum list is used,
-  and a US card is only as good as its play route. The owner has not played these twelve.
+  and a US card is only as good as its play route. The owner has not played any of these eleven cards.
 
 ### Linux witness (6 November 2026)
 
@@ -188,10 +188,10 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
 | Measure | State |
 |---|---|
-| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on the played routes of 8 of the 9 converted games; Street Fighter II' CE keeps a counted interpreted share |
+| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on the played routes of 8 of the 9 cards of the first panel and of all eleven US cards (twelve conversions); Street Fighter II' CE keeps a counted interpreted share |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported. No independent hardware comparison exists |
-| Gameplay validation | One owner play trial: eight of the nine converted cards were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). That is a trial, not a coverage claim: no game was checked end to end |
+| Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). That is a trial, not a coverage claim: no game was checked end to end |
 | Physical latency | Not reported and not measured |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.

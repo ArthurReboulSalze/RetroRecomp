@@ -26,7 +26,7 @@ class PcEngineProfile(SystemProfile):
     export_folder = 'PC Engine'
     video_modes = ('ntsc',)
     status = 'experimental'
-    scope_note = 'HuCards only; no CD-ROM2 and no SuperGrafx (a SuperGrafx game is refused when its picture never appears). Four players at most (the multitap takes five).'
+    scope_note = 'HuCards only; no CD-ROM2 and no SuperGrafx (a SuperGrafx game is refused when its picture never appears). A converted game is built for two players (the multitap seats four at most).'
     # The PSG is part of the HuC6280 chip: the machine has one processor. The engine counts retired
     # instructions, native and interpreted apart.
     cpus = (Cpu('huc6280', 'main', 'instructions'),)

@@ -642,7 +642,7 @@ Mega Drive picture hash. Results are always written as "model against MAME".
 ## PC Engine: evidence behind its column (5 November 2026)
 
 The PC Engine is **experimental since 1.6.9** ([PC_ENGINE.md](PC_ENGINE.md)): HuCards are converted and the first panel of ten real
-cards was run on 5 November 2026; twelve US cards (ten as dumped, two as bit-reversed copies) followed on 6 November ([PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026)). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
+cards was run on 5 November 2026; twelve conversions of eleven US cards (Tiger Road twice: as dumped and as a bit-reversed copy; Alien Crush as a bit-reversed copy only) followed on 6 November ([PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026)). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
 fidelity, gameplay coverage or latency; the owner's play trial of eight games is in the owner-acceptance table.
 
 | Gate | PC Engine | Evidence | What is missing |
