@@ -167,12 +167,12 @@ The page of each console, which the README links its line to (a console of the m
   5.6 to 6.0 % of the instructions interpreted on the routes, 0 guard misses. G4 `P`: every route of both conversions is identical,
   frame by frame (picture, sound, RDRAM, CPU registers), to a fresh reference on the core's pure interpreter; native plus interpreted
   equals the reference's count but the one instruction in flight at the frame's end. G5 `P`: the compressed copy too. G6 `P`: the
-  state saved on the main route continues CPU, RDRAM and picture for 400 frames in a fresh process (the sound samples are not
-  compared). G7 `P`: Ocarina of Time's SRAM, a file created in one process found by a fresh one; EEPROM, Flash and paks not exercised. G8 `P`: a moving picture is required on the main route. G9 `P`: Mario Kart 64's main route races; at the Extended
+  state saved on the main route must continue CPU, RDRAM and picture for 400 frames in a fresh process, or the conversion is refused; the
+  sound samples are not compared and differ on all 400 frames. Windows only since the state holds the renderer's memory. G7 `P`: Ocarina of Time's SRAM, a file created in one process found by a fresh one; EEPROM, Flash and paks not exercised. G8 `P`: a moving picture is required on the main route. G9 `P`: Mario Kart 64's main route races; at the Extended
   level Super Mario 64 (6,000 frames) and Ocarina of Time (16,800 frames) play routes of their own that reach play, equal to their
   references (Ocarina of Time: 16,489 guard misses on that route, run on the interpreter and counted); other games' generic routes
-  may stay in menus. G14 `P`: the owner played three games and gave his go for the experimental opening (owner-acceptance table); not an exit. G13 `P`: Mario Kart 64 converted on a Debian 13 PC (GCC, integrated graphics, 8 November 2026): both routes'
-  traces byte for byte equal to Windows'; one game, not played, the profile stays Linux `pending`. Nothing is
+  may stay in menus. G14 `P`: the owner played three games and gave his go for the experimental opening (owner-acceptance table); not an exit. G13 `P`: Mario Kart 64 and Super Mario 64 converted on a Debian 13 PC (GCC, integrated graphics, 8 November 2026): the
+  traces of their routes byte for byte equal to Windows'; profile Linux `witnessed`, not played there. Nothing is
   measured against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 

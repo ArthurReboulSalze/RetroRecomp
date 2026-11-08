@@ -8,7 +8,7 @@ What it converts: a cartridge image (any byte order: .z64, .v64, .n64, or a .rom
 and the LLE ParaLLEl-RSP. The VR4300 instructions the conversion sees running become guarded native blocks: C that calls the core's
 own instruction handlers with constant opcodes (no fetch, no decode, blocks chained), keyed by address and code identity; the rest
 runs, counted, on the core's interpreter. The game executable is GPL-3.0 as a whole and holds no noncommercial code. Not yet: the
-64DD, the Transfer Pak, the VRU, TLB-mapped code as native blocks, Linux.
+64DD, the Transfer Pak, the VRU, TLB-mapped code as native blocks, a game played on Linux.
 """
 from pathlib import Path
 
@@ -32,7 +32,7 @@ class Nintendo64Profile(SystemProfile):
     firmware = ()
     quick_state_family = 'n64'
     capabilities = Capabilities(battery=True)
-    linux = 'pending'
+    linux = 'witnessed'   # two games converted headless on a Debian 13 PC, traces equal to Windows'; not played there
     feedback_kinds = frozenset({25})
     default_frames = 3600
     quick_frames = 3600

@@ -130,6 +130,11 @@ REPLACEMENTS = [
     (VI, '#include "video_interface.hpp"\n', '#include "video_interface.hpp"\n/* Retro-Recomp modification (MIT, like this file): '
      'the seed of the VI noise (native/n64_machine/n64_session.cpp). */\nextern "C" uint32_t rr_n64_vi_noise_frame(uint32_t own);\n'),
     (VI, '\tpush.frame_count = frame_count;\n', '\tpush.frame_count = rr_n64_vi_noise_frame(frame_count);\n'),
+    # A quick state holds the renderer's own memory (native/n64_machine/glue/parallel_glue.cpp), which lives in the GPU's memory: the
+    # glue copies it through a staging buffer and needs the two buffers, which the renderer keeps private.
+    ('mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.hpp', '\tsize_t get_hidden_rdram_size() const;\n',
+     '\tsize_t get_hidden_rdram_size() const;\n\t/* Retro-Recomp modification (MIT, like this file): the buffers a quick state copies. */\n'
+     '\tVulkan::Buffer &rr_hidden_rdram() { return *hidden_rdram; }\n\tVulkan::Buffer &rr_tmem() { return *tmem; }\n'),
     # The core's ROM database (save types, timing per game) is built in (custom/mupen64plus-core/main/mupen64plus.ini.h); upstream
     # writes it into a folder of the host at every start and reads it back. It is read from memory instead: nothing is written,
     # and a path the host's code page cannot spell does not lose it.

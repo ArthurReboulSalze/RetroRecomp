@@ -22,13 +22,16 @@
 
 extern "C" {
 void parallel_quiesce(void);
+size_t parallel_rdp_memory_size(void);
+bool parallel_rdp_memory_save(void *out, size_t size);
+bool parallel_rdp_memory_load(const void *in, size_t size);
 void parallel_set_threaded_commands(bool enable);
 bool parallel_init(void);
 }
 
 namespace {
 constexpr uint64_t FNV_BASIS = 1469598103934665603ull, FNV_PRIME = 1099511628211ull;
-constexpr char STATE_MAGIC[8] = {'R', 'R', 'N', '6', '4', 'Q', 'S', '1'};
+constexpr char STATE_MAGIC[8] = {'R', 'R', 'N', '6', '4', 'Q', 'S', '2'};
 
 uint64_t fnv(const void *data, size_t size, uint64_t h = FNV_BASIS)
 {
@@ -574,33 +577,40 @@ int rr_n64_state_capture(RrN64Session *s, const char *abi, uint8_t **out, size_t
 {
     if (!s || !abi || !out || !size) return 4;
     const size_t core = retro_serialize_size();
-    const size_t head = sizeof STATE_MAGIC + 64 + 8;
-    uint8_t *data = static_cast<uint8_t *>(malloc(head + core));
-    if (!data || !core) { free(data); return 4; }
+    const uint64_t hidden = parallel_rdp_memory_size();
+    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8;
+    uint8_t *data = static_cast<uint8_t *>(malloc(head + hidden + core));
+    if (!data || !core || !hidden) { free(data); return 4; }
     memcpy(data, STATE_MAGIC, sizeof STATE_MAGIC);
     memset(data + 8, 0, 64);
     memcpy(data + 8, abi, strnlen(abi, 64));
     memcpy(data + 72, &s->frame, 8);
-    if (!retro_serialize(data + head, core)) { free(data); return 4; }
+    memcpy(data + 80, &hidden, 8);
+    if (!retro_serialize(data + head + hidden, core) || !parallel_rdp_memory_save(data + head, hidden)) { free(data); return 4; }
     *out = data;
-    *size = head + core;
+    *size = head + hidden + core;
     return 0;
 }
 
 int rr_n64_state_restore(RrN64Session *s, const char *abi, const uint8_t *data, size_t size)
 {
-    const size_t head = sizeof STATE_MAGIC + 64 + 8;
+    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8;
     if (!s || !data || size <= head || memcmp(data, STATE_MAGIC, sizeof STATE_MAGIC)) return 3;
     char key[64] = {};
     memcpy(key, abi, strnlen(abi, 64));
     if (memcmp(data + 8, key, 64)) return 2;
+    uint64_t hidden = 0;
+    memcpy(&hidden, data + 80, 8);
+    if (!hidden || hidden >= size - head) return 3;
     // The core starts its machine in the first frames it runs: a state loaded before them would land on nothing. Two frames
     // without input run first; the state then replaces all of the machine (the session's frame counter included).
     for (int warm = 0; s->frame == 0 && warm < 2; ++warm) {
         retro_run();
         s->audio.clear();
     }
-    if (!retro_unserialize(data + head, size - head)) return 3;
+    if (hidden != parallel_rdp_memory_size()) return 3;
+    if (!retro_unserialize(data + head + hidden, size - head - hidden)) return 3;
+    if (!parallel_rdp_memory_load(data + head, hidden)) return 3;
     memcpy(&s->frame, data + 72, 8);
     return 0;
 }

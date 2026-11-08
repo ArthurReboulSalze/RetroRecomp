@@ -5,6 +5,7 @@
 #define RR_N64_PARALLEL_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #ifndef VK_NO_PROTOTYPES
 #define VK_NO_PROTOTYPES   /* types only: the functions come from volk */
@@ -37,6 +38,10 @@ void parallel_profile_video_refresh_end(void);
 void parallel_set_threaded_commands(bool enable);
 /* Retro-Recomp: wait until the GPU has finished every command recorded so far (before RDRAM is hashed). */
 void parallel_quiesce(void);
+/* Retro-Recomp: the renderer's memory (hidden RDRAM, TMEM), which a quick state must hold with the core's own state. */
+size_t parallel_rdp_memory_size(void);
+bool parallel_rdp_memory_save(void *out, size_t size);
+bool parallel_rdp_memory_load(const void *in, size_t size);
 void parallel_set_synchronous_rdp(bool enable);
 void parallel_set_upscaling(unsigned factor, bool super_sampled);
 void parallel_set_super_sampled_read_back_dither(bool enable);

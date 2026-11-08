@@ -98,7 +98,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_identity_of_the_profile(self):
         p = self.profile
-        self.assertEqual((p.status, p.linux, p.export_folder, p.quick_state_family), ('experimental', 'pending', 'Nintendo 64', 'n64'))
+        self.assertEqual((p.status, p.linux, p.export_folder, p.quick_state_family), ('experimental', 'witnessed', 'Nintendo 64', 'n64'))
         self.assertEqual(p.feedback_kinds, frozenset({25}))
         self.assertEqual(p.path_spec.order, 14)
         self.assertEqual([(cpu.arch, cpu.role) for cpu in p.cpus], [('vr4300', 'main')])

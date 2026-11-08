@@ -320,9 +320,9 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# What a resumed process is not compared on until measured otherwise: the core's state leaves out the libretro audio resampler, so
-# the samples of the first frames after a load may differ while the machine (CPU, RDRAM, picture) continues the same timeline.
-# Reported as measured (`game_states.validation`).
+# The only thing a resumed process may differ on: the core's state leaves out the libretro audio resampler, so the samples after a
+# load differ (on every frame compared, and in number by under 0.05 %). A difference in the machine (CPU, RDRAM, picture) refuses
+# the conversion.
 CONTINUATION_IGNORED = ('pcm', 'samples')
 
 
@@ -340,6 +340,14 @@ def continuation(timeline: Path, resumed: Path) -> dict:
     kept = sum(1 for row in later if row[0] in earlier and all(row[i] == earlier[row[0]][i] for i in keep))
     differing = sorted({header[i] for row in later if row[0] in earlier for i in range(len(header)) if row[i] != earlier[row[0]][i]})
     return {'frames': len(later), 'equal_frames': exact, 'matches': bool(later) and kept == len(later), 'differing_columns': differing}
+
+
+def require_continuation(resumed: dict) -> None:
+    """A quick state that does not continue the machine is not delivered, as on the other machines."""
+    if not resumed['matches']:
+        differing = [name for name in resumed['differing_columns'] if name not in CONTINUATION_IGNORED]
+        raise ConversionError('Nintendo 64 F9 continuation differs from its saved timeline '
+                              f'({", ".join(differing) or "frames missing from the timeline"}); existing export preserved.')
 
 
 def game_entry(source) -> Path:
@@ -464,7 +472,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          nonblack_frames=result['nonblack_frames'], audible_frames=result['audible_frames'])
                     for (name, folder, _, _, _), result in zip(packed_runs, packed_results)]
         require_moving_picture(liveness[0], lambda: ConversionError('Nintendo 64 main route: the picture never changed.'))
-        # The quick state, loaded by a genuinely fresh process of the delivered file: how it continues is measured and reported.
+        # The quick state, loaded by a genuinely fresh process of the delivered file, continues the machine or the export is refused.
         restart = checks / 'restart'
         restart.mkdir()
         fresh = restart / candidate.name
@@ -472,6 +480,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         with timings.phase('state_checks'):
             replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
         resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
+        require_continuation(resumed)
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
             done = results[name]
@@ -515,7 +524,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
-                            'schema': 'RRN64QS1', 'machine': 'n64', 'rom_identity': source.sha256,
+                            'schema': 'RRN64QS2', 'machine': 'n64', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],

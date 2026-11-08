@@ -189,6 +189,78 @@ void parallel_quiesce(void)
 		g_rdp->wait_for_timeline(g_rdp->signal_timeline());
 }
 
+/* The renderer's own memory belongs to the machine's state and the core's state does not hold it: the hidden RDRAM (the coverage the
+ * VI's filters read) and TMEM. Both live in the GPU's memory, so a quick state goes through a staging buffer; the frames never do. */
+static bool transfer_rdp_buffer(Vulkan::Buffer &buffer, void *out, const void *in)
+{
+	const size_t size = buffer.get_create_info().size;
+	Vulkan::BufferCreateInfo info = {};
+	info.size = size;
+	info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	info.domain = Vulkan::BufferDomain::CachedHost;
+	Vulkan::BufferHandle staging = g_device->create_buffer(info);
+	if (!staging)
+		return false;
+	if (in)
+	{
+		void *mapped = g_device->map_host_buffer(*staging, Vulkan::MEMORY_ACCESS_WRITE_BIT);
+		if (!mapped)
+			return false;
+		memcpy(mapped, in, size);
+		g_device->unmap_host_buffer(*staging, Vulkan::MEMORY_ACCESS_WRITE_BIT);
+	}
+	auto cmd = g_device->request_command_buffer();
+	cmd->barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT);
+	if (in)
+		cmd->copy_buffer(buffer, *staging);
+	else
+		cmd->copy_buffer(*staging, buffer);
+	if (in)
+		cmd->barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+		             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+	else
+		cmd->barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+		             VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_HOST_READ_BIT);
+	Vulkan::Fence fence;
+	g_device->submit(cmd, &fence);
+	fence->wait();
+	if (!in)
+	{
+		const void *mapped = g_device->map_host_buffer(*staging, Vulkan::MEMORY_ACCESS_READ_BIT);
+		if (!mapped)
+			return false;
+		memcpy(out, mapped, size);
+		g_device->unmap_host_buffer(*staging, Vulkan::MEMORY_ACCESS_READ_BIT);
+	}
+	return true;
+}
+
+size_t parallel_rdp_memory_size(void)
+{
+	return g_rdp ? g_rdp->rr_hidden_rdram().get_create_info().size + g_rdp->rr_tmem().get_create_info().size : 0;
+}
+
+bool parallel_rdp_memory_save(void *out, size_t size)
+{
+	if (!g_rdp || !size || size != parallel_rdp_memory_size())
+		return false;
+	parallel_quiesce();
+	auto *bytes = static_cast<uint8_t *>(out);
+	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), bytes, nullptr) &&
+	       transfer_rdp_buffer(g_rdp->rr_tmem(), bytes + g_rdp->rr_hidden_rdram().get_create_info().size, nullptr);
+}
+
+bool parallel_rdp_memory_load(const void *in, size_t size)
+{
+	if (!g_rdp || !size || size != parallel_rdp_memory_size())
+		return false;
+	parallel_quiesce();
+	auto *bytes = static_cast<const uint8_t *>(in);
+	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), nullptr, bytes) &&
+	       transfer_rdp_buffer(g_rdp->rr_tmem(), nullptr, bytes + g_rdp->rr_hidden_rdram().get_create_info().size);
+}
+
 void parallel_profile_video_refresh_begin(void) {}
 void parallel_profile_video_refresh_end(void) {}
 

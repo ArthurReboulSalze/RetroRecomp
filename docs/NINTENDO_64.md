@@ -14,7 +14,7 @@ input takes to reach the screen: those are separate measures, listed below with 
 | Cartridge images in any of the three byte orders (`.z64` big-endian, `.v64` byte-swapped, `.n64` word-swapped; a `.rom` whose content is a cartridge image), NTSC and PAL | The 64DD and its disks; the Transfer Pak; the Voice Recognition Unit |
 | The Expansion Pak (8 MiB) always present; a controller pak in every pad (memory pak by default, Rumble Pak on request) | Per-game choice of pak in the interface |
 | Four pads with the analog stick, the C buttons on the right stick, rumble; quick states (F8/F9); the cartridge's saves and the memory paks kept in the game's data folder | A played-through game |
-| Windows with a graphics card that has Vulkan 1.1 | Linux (one game converted and validated headless on a Debian 13 PC, section 6; not opened yet); integrated graphics (unverified: one machine measured, section 6) |
+| Windows with a graphics card that has Vulkan 1.1; Linux, witnessed headless (two games converted on a Debian 13 PC, section 6) | A game played on Linux; integrated graphics (unverified: one machine measured, section 6) |
 
 The input is read in place and never changed; a byte-swapped dump is put in the console's order in memory, and the identity of the
 game is the SHA-256 of that big-endian image, so one cartridge dumped in two orders is one game. The player supplies the cartridge
@@ -43,8 +43,8 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
 4. **Validation.** The game executable is copied alone and replayed headless on the same bounded scripts (a main route of pad and
    stick inputs and, at the Standard level, a second exploration route, 3,600 frames each): the picture, sound, RDRAM and CPU
    registers of every frame must equal the fresh reference's. So must the compressed copy that is delivered. A quick state saved by
-   the game is loaded by a fresh process, whose continuation is compared with the unbroken run and reported. A conversion that fails
-   a check keeps the earlier export.
+   the game is loaded by a fresh process, whose CPU, RDRAM and picture must continue the unbroken run; only the sound may differ
+   (section 6). A conversion that fails a check keeps the earlier export.
 
 ## 3. The five measures
 
@@ -112,8 +112,9 @@ remain are versions no observation holds, whose cause is not established.
 **A Debian 13 PC with integrated graphics** (8 November 2026; Intel Core i7-6600U, 2 cores, Intel HD 520, Mesa 25.0.7, GCC 14). Mario Kart 64
 converted through the whole pipeline at the Standard level: the same 4,654 blocks, 96.3 % and 96.7 % native, 0 guard misses, the
 compressed copy equal to the reference, the quick state continued. **The traces of both routes are byte for byte equal to Windows'**
-(an NVIDIA GeForce RTX 3090, llvm-mingw): picture, sound, RDRAM and CPU registers of every frame. One game, not played; the profile stays
-Linux `pending`.
+(an NVIDIA GeForce RTX 3090, llvm-mingw): picture, sound, RDRAM and CPU registers of every frame. Super Mario 64, on the same PC after the correction of the hidden RDRAM below: its main route's trace is byte for byte
+equal to Windows' too, 0 guard misses. Those two conversions make the profile's Linux `witnessed`; neither game was played on Linux. Both ran before the quick state held the
+renderer's memory (below), and the picture of Super Mario 64's did not continue then, as on Windows at the time: a resumed game has not been measured on Linux since.
 
 Its speed, on the engine gate's own host and the states of its speed pass (the PAL games, one Vulkan present per frame on a real X
 display, 1,000 frames timed, three runs each; 50 frames per second is the console's rate):
@@ -152,6 +153,11 @@ RDRAM) was given an eighth, and the coverage of framebuffers higher in memory wa
 filters still on; no default changed. The window's scaling (nearest, 1.2 times in width at 768 x 576) leaves the text readable. The figures of this section before this paragraph, the Debian witness of
 Mario Kart 64 included, were measured before that correction.
 
+**The quick state and the renderer's memory.** The core's state does not hold the renderer's hidden RDRAM and TMEM, so a game resumed in a fresh process drew its first frames differently
+(4 of 400 on Super Mario 64). The state now holds both (format `RRN64QS2`, copied through a staging buffer at F8 and F9, so frames pay nothing), and a conversion whose resumed game differs
+in CPU, RDRAM or picture is refused. On the three games (8 November 2026, Windows, 400 frames from frame 3,000): CPU, RDRAM and picture continue on every frame. The sound does not: its samples
+differ on all 400 frames, their number per frame on 35 to 115 of them, by under 0.05 % in total (the core's state leaves out the audio resampler). Whether that can be heard has not been judged.
+
 **Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
 1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
@@ -161,7 +167,9 @@ found by a fresh process, and reading it leaves the file as it was. EEPROM, Flas
 
 - A game whose code moves under the TLB keeps that code on the interpreter.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
-- A quick state is refused by another build of the same game; a resumed game's sound differs for a moment (the resampler).
-- Linux is witnessed on one game only. Nobody has played a converted game yet: no real window, real pad, rumble or real sound has been exercised.
+- A quick state is refused by another build of the same game. A resumed game's sound samples differ from the unbroken run (section 6). At an internal resolution above 1x the upscaled
+  coverage is not in the state, and only the default resolution is checked.
+- Linux is witnessed on two games, headless, and a resumed game has not been measured there since the state holds the renderer's memory. The owner played three games on Windows
+  ([QUALIFICATION.md](QUALIFICATION.md)); no game has been played on Linux, and rumble has not been exercised.
 - Frame pacing is uneven on Ocarina of Time (section 6); no speed requirement is claimed.
 - The fallback hints of F12 are not recorded yet.

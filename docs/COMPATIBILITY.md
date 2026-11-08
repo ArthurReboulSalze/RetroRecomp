@@ -222,7 +222,7 @@ The **Nintendo 64** profile is experimental ([status](NINTENDO_64.md)): it conve
 Mupen64Plus-Next with the ParaLLEl renderer, which needs a graphics card with Vulkan 1.1 (integrated graphics unverified), within
 [its documented scope](NINTENDO_64.md). It has no list of compatible games: the VR4300 code a conversion sees running becomes guarded native blocks
 and the rest is counted as interpreted; CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures that are
-not claimed ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)). The 64DD, the Transfer Pak and Linux are not supported yet.
+not claimed ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)). The 64DD and the Transfer Pak are not supported yet; on Linux two games were converted headless and none was played.
 
 **Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
 recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;

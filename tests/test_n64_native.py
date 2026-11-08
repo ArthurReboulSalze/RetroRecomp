@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from retrorecomp import n64_core, n64_native
+from retrorecomp import n64_conversion, n64_core, n64_native
 from retrorecomp.core import ConversionError
 
 # Authored VR4300 words (no game byte): ADDIU, SW, LW, JR RA, BEQ, JAL, NOP, ERET, SYSCALL.
@@ -18,6 +18,55 @@ NOP = 0x00000000
 ERET = 0x42000018
 SYSCALL = 0x0000000C
 BLTZAL = 0x04500002     # bltzal v0, +2
+
+
+class ContinuationTests(unittest.TestCase):
+    """A quick state loaded by a fresh process: only the sound may differ, as the core's state leaves out the audio resampler."""
+    HEADER = ('frame', 'cpu', 'rdram', 'video', 'pcm', 'samples')
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.timeline = self.write('timeline.tsv', [(frame, 'c', 'r', 'v', 'p', '800') for frame in range(100, 110)])
+
+    def write(self, name, rows):
+        path = self.root / name
+        path.write_text('\n'.join('\t'.join(str(cell) for cell in row) for row in [self.HEADER, *rows]) + '\n', encoding='ascii')
+        return path
+
+    def resumed(self, **changed):
+        return self.write('resumed.tsv', [(frame, changed.get('cpu', 'c'), changed.get('rdram', 'r'), changed.get('video', 'v'),
+                                           changed.get('pcm', 'p'), changed.get('samples', '800')) for frame in range(105, 110)])
+
+    def test_an_equal_continuation_passes(self):
+        result = n64_conversion.continuation(self.timeline, self.resumed())
+        self.assertEqual((result['frames'], result['equal_frames'], result['matches'], result['differing_columns']), (5, 5, True, []))
+        n64_conversion.require_continuation(result)
+
+    def test_the_sound_alone_may_differ(self):
+        result = n64_conversion.continuation(self.timeline, self.resumed(pcm='other', samples='801'))
+        self.assertEqual((result['equal_frames'], result['matches'], result['differing_columns']), (0, True, ['pcm', 'samples']))
+        n64_conversion.require_continuation(result)
+
+    def test_cpu_rdram_or_picture_differences_refuse_the_conversion(self):
+        for column in ('cpu', 'rdram', 'video'):
+            with self.subTest(column=column):
+                result = n64_conversion.continuation(self.timeline, self.resumed(**{column: 'other'}))
+                self.assertFalse(result['matches'])
+                with self.assertRaisesRegex(ConversionError, column):
+                    n64_conversion.require_continuation(result)
+
+    def test_one_differing_frame_is_enough(self):
+        rows = [(frame, 'c', 'r', 'other' if frame == 105 else 'v', 'p', '800') for frame in range(105, 110)]
+        with self.assertRaises(ConversionError):
+            n64_conversion.require_continuation(n64_conversion.continuation(self.timeline, self.write('resumed.tsv', rows)))
+
+    def test_frames_outside_the_timeline_or_no_frame_refuse(self):
+        beyond = self.write('resumed.tsv', [(frame, 'c', 'r', 'v', 'p', '800') for frame in range(108, 112)])
+        with self.assertRaises(ConversionError):
+            n64_conversion.require_continuation(n64_conversion.continuation(self.timeline, beyond))
+        with self.assertRaises(ConversionError):
+            n64_conversion.require_continuation(n64_conversion.continuation(self.timeline, self.write('resumed.tsv', [])))
 
 
 class ClassificationTests(unittest.TestCase):
