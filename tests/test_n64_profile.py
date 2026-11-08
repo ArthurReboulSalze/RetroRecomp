@@ -100,7 +100,7 @@ class ProfileTests(unittest.TestCase):
         p = self.profile
         self.assertEqual((p.status, p.linux, p.export_folder, p.quick_state_family), ('experimental', 'witnessed', 'Nintendo 64', 'n64'))
         self.assertEqual(p.feedback_kinds, frozenset({25}))
-        self.assertEqual(p.path_spec.order, 14)
+        self.assertEqual(p.path_spec.order, 15)
         self.assertEqual([(cpu.arch, cpu.role) for cpu in p.cpus], [('vr4300', 'main')])
         self.assertEqual(p.video_modes, ('ntsc', 'pal'))
 
