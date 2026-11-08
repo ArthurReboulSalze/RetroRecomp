@@ -14,7 +14,7 @@ input takes to reach the screen: those are separate measures, listed below with 
 | Cartridge images in any of the three byte orders (`.z64` big-endian, `.v64` byte-swapped, `.n64` word-swapped; a `.rom` whose content is a cartridge image), NTSC and PAL | The 64DD and its disks; the Transfer Pak; the Voice Recognition Unit |
 | The Expansion Pak (8 MiB) always present; a controller pak in every pad (memory pak by default, Rumble Pak on request) | Per-game choice of pak in the interface |
 | Four pads with the analog stick, the C buttons on the right stick, rumble; quick states (F8/F9); the cartridge's saves and the memory paks kept in the game's data folder | A played-through game |
-| Windows with a graphics card that has Vulkan 1.1 | Linux (the machine was witnessed on a Debian 13 PC during the engine gate, the conversion is not); integrated graphics (unverified) |
+| Windows with a graphics card that has Vulkan 1.1 | Linux (one game converted and validated headless on a Debian 13 PC, section 6; not opened yet); integrated graphics (unverified: one machine measured, section 6) |
 
 The input is read in place and never changed; a byte-swapped dump is put in the console's order in memory, and the identity of the
 game is the SHA-256 of that big-endian image, so one cartridge dumped in two orders is one game. The player supplies the cartridge
@@ -109,9 +109,26 @@ A guard miss is a block whose words were not the live ones at that moment: the i
 interpreted share. Every observed version of a kept address is kept (before that, 1,648, 1,318 and 25,793 misses); the misses that
 remain are versions no observation holds, whose cause is not established.
 
+**A Debian 13 PC with integrated graphics** (8 November 2026; Intel Core i7-6600U, 2 cores, Intel HD 520, Mesa 25.0.7, GCC 14). Mario Kart 64
+converted through the whole pipeline at the Standard level: the same 4,654 blocks, 96.3 % and 96.7 % native, 0 guard misses, the
+compressed copy equal to the reference, the quick state continued. **The traces of both routes are byte for byte equal to Windows'**
+(an NVIDIA GeForce RTX 3090, llvm-mingw): picture, sound, RDRAM and CPU registers of every frame. One game, not played; the profile stays
+Linux `pending`.
+
+Its speed, on the engine gate's own host and the states of its speed pass (the PAL games, one Vulkan present per frame on a real X
+display, 1,000 frames timed, three runs each; 50 frames per second is the console's rate):
+
+| Game | Cached interpreter, median (worst) | With native blocks | Cached, with the RDP asynchronous |
+| --- | --- | --- | --- |
+| Ocarina of Time | 63.2 (62.6) | 71.7 (62.5) | 83.0 (82.6) |
+| Mario Kart 64 | 61.6 (61.6) | no block for this game in that build: 58.7 (58.4) | 62.6 (61.8) |
+
+These are averages over those scenes on one computer, without the game's own read-back and host kit, and they do not make a
+requirement: no per-frame figure, no dense scene, and no NTSC game (16.7 ms a frame instead of 20) has been measured.
+
 ## 7. Known limits
 
 - A game whose code moves under the TLB keeps that code on the interpreter.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - A quick state is refused by another build of the same game; a resumed game's sound differs for a moment (the resampler).
-- Linux conversions, integrated graphics and per-frame timing in play are not yet measured; no speed is claimed.
+- Linux is witnessed on one game only; per-frame timing in play is not measured; no speed is claimed.

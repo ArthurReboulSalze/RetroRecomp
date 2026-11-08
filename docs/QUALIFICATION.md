@@ -63,7 +63,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
-| Nintendo 64 | experimental | `███░░░░░░░` 25 % | ✅ 0 · 🟡 8 · ❔ 8 |
+| Nintendo 64 | experimental | `███░░░░░░░` 28 % | ✅ 0 · 🟡 9 · ❔ 7 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -81,7 +81,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ |
@@ -110,7 +110,7 @@ x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = 
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? |
 | G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | ? |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? |
@@ -171,8 +171,9 @@ The page of each console, which the README links its line to (a console of the m
   compared). G8 `P`: a moving picture is required on the main route. G9 `P`: Mario Kart 64's main route races; at the Extended
   level Super Mario 64 (6,000 frames) and Ocarina of Time (16,800 frames) play routes of their own that reach play, equal to their
   references (Ocarina of Time: 16,489 guard misses on that route, run on the interpreter and counted); other games' generic routes
-  may stay in menus. Nothing is
-  measured on Linux, against vectors or against hardware; no speed, hardware fidelity or latency is claimed
+  may stay in menus. G13 `P`: Mario Kart 64 converted on a Debian 13 PC (GCC, integrated graphics, 8 November 2026): both routes'
+  traces byte for byte equal to Windows'; one game, not played, the profile stays Linux `pending`. Nothing is
+  measured against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 
 - Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
