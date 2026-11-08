@@ -16,12 +16,16 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import zipfile
 from pathlib import Path
 from typing import Callable
 
-ROOT = Path(__file__).resolve().parents[1]
-PATCH_DIRECTORY = ROOT / 'native' / 'scummvm' / 'patches'
+# Never from this file's location: a packaged exe runs its modules from a temporary folder removed when it closes. ROOT is where .deps
+# lives (the exe's folder, or the project when the exe is in Export); the patches travel inside the exe (ASSETS).
+from .paths import ASSETS, ROOT
+
+PATCH_DIRECTORY = ASSETS / 'native' / 'scummvm' / 'patches'
 
 SCUMMVM_URL = 'https://github.com/scummvm/scummvm.git'
 SCUMMVM_TAG = 'v2026.4.0'
@@ -215,12 +219,39 @@ def _run(command: list, cwd: Path, log: Path, timeout: int = 3600) -> str:
     return result.stdout
 
 
+def _make_writable(function, path, _error) -> None:
+    os.chmod(path, 0o666)       # the read-only pack files of a git checkout
+    function(path)
+
+
+def _rename_retrying(source: Path, target: Path, attempts: int = 10) -> None:
+    """Windows refuses to move a folder while an antivirus or the indexer still reads a file just written in it."""
+    for attempt in range(attempts):
+        try:
+            source.rename(target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(1)
+
+
 def _checkout(path: Path, url: str, tag: str, revision: str, log: Path, emit: Callable[[str], None]) -> None:
     """A clean checkout of `revision` (shallow clone of `tag`); a checkout at another revision is refused, not replaced."""
     if not (path / '.git').exists():
         emit(f'Téléchargement de {path.name} {tag}…')
         path.parent.mkdir(parents=True, exist_ok=True)
-        _run(['git', 'clone', '--depth', '1', '--branch', tag, url, path], deps_directory(), log)
+        # Cloned beside its place, then moved: a window closed during the download leaves nothing that looks like a checkout.
+        partial = path.with_name(path.name + '.partial')
+        try:
+            if partial.exists():
+                shutil.rmtree(partial, onexc=_make_writable)
+            _run(['git', 'clone', '--depth', '1', '--branch', tag, url, partial], deps_directory(), log)
+            if path.is_dir() and not any(path.iterdir()):
+                path.rmdir()
+            _rename_retrying(partial, path)
+        except OSError as exc:
+            raise ScummvmBuildError(f'{path.name} could not be placed in {path.parent}: {exc}') from exc
     head = _run(['git', '-C', path, 'rev-parse', 'HEAD'], deps_directory(), log).strip()
     if head != revision:
         raise ScummvmBuildError(f'{path} is at {head[:12]}, not the pinned {revision[:12]}; remove the folder to fetch it again')
@@ -326,20 +357,22 @@ def _ensure_sdl(log: Path, emit: Callable[[str], None]) -> None:
     core.ensure_sdl(cmake, generator, sdl, sdl_install(), log, emit)
 
 
-def build_runtime(family: str, emit: Callable[[str], None] = print) -> Path:
+def build_runtime(family: str, emit: Callable[[str], None] = print, started: Callable[[], None] | None = None) -> Path:
     """Build (once) the stripped runtime of an engine family and return its path (one build at a time: create_project
-    rewrites shared files of the ScummVM tree)."""
+    rewrites shared files of the ScummVM tree). `started` is called only when a build really begins."""
     from .core import serialized_setup
-    return serialized_setup(_build_runtime)(family, emit)
+    return serialized_setup(_build_runtime)(family, emit, started)
 
 
-def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
+def _build_runtime(family: str, emit: Callable[[str], None], started: Callable[[], None] | None = None) -> Path:
     out = runtime_path(family)
     stamp = out.with_suffix('.json')
     identity = runtime_identity(family)
     if out.exists() and stamp.exists() and stamp.read_text(encoding='utf-8') == _json(identity):
         return out
     _require_portable_tools()
+    if started is not None:
+        started()
     root = build_root()
     root.mkdir(parents=True, exist_ok=True)
     log = root / f'{family}.log'
@@ -378,7 +411,9 @@ def _build_runtime(family: str, emit: Callable[[str], None]) -> Path:
     built = build / ('scummvm' + ('.exe' if os.name == 'nt' else ''))
     strip = 'llvm-strip' if os.name == 'nt' else 'strip'
     _run([strip, '-o', out, built], root, log)
-    stamp.write_text(_json(identity), encoding='utf-8')
+    # Read again now the tree exists: on a first build the detection family's engines come from the sources just fetched, and
+    # the identity read before them would call this runtime stale at once (a second full build).
+    stamp.write_text(_json(runtime_identity(family)), encoding='utf-8')
     return out
 
 

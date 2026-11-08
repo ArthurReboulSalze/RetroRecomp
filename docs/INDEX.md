@@ -43,6 +43,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
 | [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
 | [Atari ST](ATARI_ST.md) (experimental) | main | none | none | none | none |
+| [Sony PlayStation](PLAYSTATION.md) (experimental) | main | none | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 "Main" is the processor that runs the game; "sound" is a processor dedicated to the sound chips. The X68000 has no
@@ -114,8 +115,9 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs without Kickstart; scope, the five measures, licences).
 - **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences).
-- **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
-- **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, experimental since 1.7.0: emulated and 0 % native, one executable per game, licences, limits, evidence).
+- **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental since 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
+- **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (experimental since 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences).
+- **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project
 

@@ -12,7 +12,7 @@ faithfully or how long input takes to reach the screen: those are separate measu
 | --- | --- |
 | Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, played in the order of their names: `x (Disk 1).ipf`, `x (Disk 2).ipf`) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
 | EmuTOS 1.4 (free, GPL), the default: fetched once from the EmuTOS project with its source (`retrorecomp/atarist_emutos.py`); or the player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | TOS 1.6 and later (STE and beyond); EmuTOS in another language than English (UK) |
-| The joystick, the mouse and the keyboard; quick states (F8/F9) | A played-through game |
+| The joystick (the keyboard's arrows and keys, or a gamepad), the mouse and the keyboard; quick states (F8/F9) | A played-through game |
 | A disk whose boot stops at the GEM desktop: the desktop starts its only program (section 2) | A disk with several programs to choose from; TOS 1.00 and 1.02 (no autostart line) |
 | Windows; Linux (converted and validated headless on a Debian 13 PC, see below) | A game played on Linux |
 
@@ -87,24 +87,24 @@ With TOS 1.04 (United Kingdom):
 | Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged"; the same disk read as plain sectors by an independent reader reaches the title screen, so the IPF path is at fault (one defect found and fixed, see below; the cause is not found yet) |
 | Indiana Jones and the Temple of Doom (1) | 40,182,497 | 2 | yes (title, high scores) |
 
-With EmuTOS 1.4 (United Kingdom), the default:
+With EmuTOS 1.4 (United Kingdom), the default, and the joystick reaching the machine (7 November 2026, the delivered conversions:
+Standard level, main route of 3,600 frames; Turrican II with the player's TOS 1.04):
 
-| Game (disks) | Native | Interpreted | Own screen reached by the route |
+| Game (disks) | Native | Interpreted | What the route's last picture shows |
 | --- | ---: | ---: | --- |
-| Bomb Jack (1) | 33,168,244 | 5 | yes (title) |
-| Another World (2) | 47,047,023 | 5 | yes (code-wheel protection) |
-| Operation Stealth (3) | 50,203,805 | 883 | yes (colour-code protection), started from the desktop (`DELPHINE.PRG`; the installer is not a program to open); the interpreted ones are Hatari's GEMDOS traps |
-| Captain Blood (2) | 33,740,268 | 75 | yes (title, asks for disk 2), started from the desktop (`BLOOD.PRG`) |
-| Elite (1) | 43,015,000 | 4 | yes (manual-word protection) |
-| Lethal Xcess (2) | 39,537,299 | 4 | yes (music device menu) |
-| Turrican II (1) | 44,483,076 | 4 | no: the Rainbow Arts intro, then the game stops; EmuTOS's own `doc/incompatible.txt` names Turrican among the games that use low memory EmuTOS also uses ("this can never work with EmuTOS"): the player's TOS is the way |
-| Carrier Command (1) | 42,153,484 | 4 | yes (language menu) |
-| Kick Off 2 (1) | 43,770,897 | 4 | no: the same "Master file" error as with TOS 1.04 |
-| Indiana Jones and the Temple of Doom (1) | 45,965,879 | 6 | yes (in game) |
+| Bomb Jack (1) | 36,110,480 | 5 | the game, started by the joystick's fire |
+| Another World (2) | 54,602,986 | 5 | "ERROR": the route's random code-wheel entry is wrong (the protection) |
+| Operation Stealth (3) | 59,908,753 | 1,065 | colour-code protection; started from the desktop (`DELPHINE.PRG`; the installer is not a program to open); the interpreted ones are Hatari's GEMDOS traps |
+| Captain Blood (2) | 38,780,981 | 75 | its title (asks for disk 2); started from the desktop (`BLOOD.PRG`) |
+| Elite (1) | 50,657,290 | 4 | manual-word protection |
+| Lethal Xcess (2) | 47,421,455 | 4 | its credits, past the music menu |
+| Turrican II (1), TOS 1.04 | 47,864,686 | 0 | a level of the game; on EmuTOS it stops after its intro: EmuTOS's own `doc/incompatible.txt` names Turrican among the games that use low memory EmuTOS also uses ("this can never work with EmuTOS") |
+| Carrier Command (1) | 50,975,919 | 4 | language menu |
+| Indiana Jones and the Temple of Doom (1) | 53,278,013 | 6 | the game |
 
-Every route of the twenty conversions equals its fresh interpreted reference, the compressed copy too, and the state continues
-in a fresh process. On EmuTOS the desktop games are no longer interpreted for their system calls (EmuTOS does not use line-F
-calls); more instructions run in the same 3,000 frames because EmuTOS boots and idles differently, not because of a game.
+Every route of these conversions equals its fresh interpreted reference, the compressed copy too. A state saved on the main route
+continues in a fresh process on all of them but Turrican II, whose registers and RAM (not its picture) differ after the load
+once it plays with its music running: Hatari's snapshot keeps no sound-chip history (known limit, section 5).
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
 
@@ -120,7 +120,34 @@ sector (16) whose data mark is written one cell out of phase, and a 2 ms area wi
 longer (1,026 against 1,025 cells). So the flux is not the cause; what remains is how the WD1772 model reads those two sectors
 (capsimg reads with its own controller model, Hatari's built-in path with Hatari's).
 
-## 4. Known limits
+## 4. Controls
+
+Player 1 plays the ST's joystick port (the port games read by default): the arrows, W for the fire button (Button A) and X for
+Button B (an ST joystick has one button, so B does nothing in most games), Enter for Start; or a gamepad (the first one
+plugged is player 1). Player 2 plays the other port, the one the mouse uses (a two-player game reads it): the second keys
+of the options, or a second gamepad. F1 is the help, F2 the options, F8 and F9 save and load a quick state, F11 pauses.
+Ctrl+Alt+K gives the whole keyboard to the Atari (to type a protection's word); Ctrl+Alt+M or a middle click lets the mouse go;
+Ctrl+Alt+Page Up and Page Down change the disk in drive A.
+
+Until 7 November 2026 the joystick did not reach the games: Hatari's libretro frontend reads the ST's joystick port from its
+port 0 and the mouse port from its port 1 (its `joy_ui.c` swaps them), and the session handed the first player's joystick to
+the other one, where it was disabled; the validation routes' joystick events went the same way, so the routes of 6 and 7
+November exercised the keyboard and the mouse only. Fixed in `atarist_session.c`; the routes now play the joystick too.
+The check that found and proves it runs the converted game itself: with `RETRORECOMP_ST_TEST_SCRIPT` and
+`RETRORECOMP_ST_TEST_LOG` set (nothing runs and nothing is written without both), the player feeds real SDL input to the
+windowed game on an invisible desktop (`SDL_VIDEODRIVER=dummy`): keys through SDL's keyboard state, a virtual SDL game
+controller for the pad, pictures captured on the way. On Bomb Jack, before the fix the title never left the screen, with the
+pad or with the keys; after it, fire starts the game and the stick moves Jack, with the pad and with the keys alike (the same
+picture and RAM hashes at every step). The same check on the delivered, compressed executables (7 November, after the
+reconversion): Bomb Jack with the pad and with the keys, the same hashes as the development build; Lethal Xcess, whose intro
+waits for the stick (a run with no input stays on it for 800 frames, a run with a virtual pad leaves it at the first press and
+reaches its music menu). The second player's stick is enabled but not proven in a game yet.
+
+Owner play trial, 7 November 2026: the maintainer tried the nine reconverted games with the controls and reported that the
+gamepad control works (the first try, before the fix, found that it did not). It is a trial of the controls only, not a
+gameplay validation of any game, and it changes no gate.
+
+## 5. Known limits
 
 - STE, TT, Falcon, hard disks and CD-style media are out of scope.
 - **EmuTOS is not Atari's TOS** (known limit). Some games written for Atari's TOS do not run on it; EmuTOS's own
@@ -147,12 +174,13 @@ longer (1,026 against 1,025 cells). So the flux is not the cause; what remains i
   Hatari does not save the state of its sound output). A state saved while a disk is being read now resumes the read at the right
   place in the track (a fix to Hatari's IPF reader), but Bomb Jack saved during its loading still differs in its RAM from the second
   frame after the load (known limit, capped: a 92-byte table that the music driver updates; Hatari's snapshot does not keep the
-  state of its sound output). The conversion reports the comparison, it does not refuse the game for it.
+  state of its sound output). Turrican II saved in a level, with its music running, shows the same kind of gap (registers and RAM
+  differ, the picture does not). The conversion reports the comparison, it does not refuse the game for it.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).
 
-## 5. Licences
+## 6. Licences
 
 - Retro-Recomp's Atari ST files (the converter modules, `native/atarist_machine/`, the host-kit adapter) are MIT.
 - Hatari is **GPL-2.0-or-later**; three headers of its WinUAE CPU core say version 2 only, so **an exported Atari ST game is
@@ -168,7 +196,7 @@ longer (1,026 against 1,025 cells). So the flux is not the cause; what remains i
   combine it with GPL code in Retro-Recomp's exports.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
-## 6. Where it stands in the qualification
+## 7. Where it stands in the qualification
 
 The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) is `P` on the gates with evidence above and `?` elsewhere. Leaving the experimental status is the maintainer's
 own decision, after a very high evidence bar.

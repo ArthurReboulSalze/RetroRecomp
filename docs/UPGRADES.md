@@ -79,6 +79,20 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Adventure games (ScummVM): the options page, the keys and the supported status (1.7.1)
+
+"Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md)) leaves the experimental status on the owner's decision of 7 November 2026: `retrorecomp/systems/scummvm.py` says `supported`, the
+interface note and the documents follow in the eight languages, and the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here) because the qualification matrix
+(gates G1 to G16, risk cases, shared paths) is made for recompiled machines; `tests/test_machine_registry.py` asks of an emulated supported category a Linux witness and that page,
+instead. The same release carries the options page and the keys of the game (the ScummVM patch `0002-retrorecomp-options-page.patch`, [SCUMMVM.md](SCUMMVM.md)).
+
+**What moves.** `compilation_inputs.role_stamps` of the fourteen machines on the tree before the status (`fa196008`) and on this one: **only the Adventure (ScummVM) game stamp**,
+`4e3367b550d2` before, `0369d5533936` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
+released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80e824` (`scummvm_build.py` finds `.deps` from a packaged exe); the host stamps and the build stamps of every other machine do not move, and no other game stamp moves.
+
+**Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
+none moves, a game's saves are ScummVM's own, in `datas/`.
+
 ## Exports of 1.6.9 in 1.7.0
 
 1.7.0 is the release after 1.6.9 (published on 6 November 2026). This section is the index of its changes, one line per section below, with the stamps
@@ -175,6 +189,13 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
 consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
 
+## Sony PlayStation opens as an experimental machine (1.7.1)
+
+The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to players as an **experimental** machine. No export of
+it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none. The machine is Beetle
+PSX, pinned and fetched on the first conversion, with anchored changes listed in `psx_beetle.REPLACEMENTS`; the game executable
+is GPL-2.0 as a whole. Its files are game inputs of `psx` alone: no other console's stamp moves for them.
+
 ## Game Boy Advance opens as an experimental machine (1.7.0)
 
 The Game Boy Advance (profile `gba`, [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)) opens to players as an **experimental** machine in 1.7.0. It is new:
@@ -223,6 +244,105 @@ digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is u
 **What moves**: `retrorecomp/systems/specs.py` is an input of the game stamp of all nine consoles, so **the game stamp of every console moves**;
 `retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
 identical, but an export upgraded across this change is converted again once, as the stamps say.
+
+## Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock (1.7.1)
+
+Installs that load their files through the slave's own operating-system emulation (the `Examine` flag: 1,180 of the 2,967
+Amiga 500 installs of the maintainer's library that the profile reads, 1,040 of them with a Kickstart) stopped at boot with
+"not enough memory" (AmigaDOS 103). The cause, found by tracing exec: the emulation calls `resload_Examine` with a
+FileInfoBlock that has only 240 bytes before the next free chunk; the layer cleared and wrote all 260 bytes of a
+FileInfoBlock, zeroing that chunk's header, so exec's fast-memory list held one chunk of size 0 and every later
+allocation failed. `Examine` and `ExNext` now write only the fields they have values for (the name up to its NUL, the
+sizes, the date, an empty comment) and leave the rest of the buffer alone. Another World (FR) and 4D Sports Boxing, the
+two cases Arthur met, run; so do Maniac Mansion, Monkey Island 2 and Beneath a Steel Sky (the first two and the last
+stopped before the change). **What moves:** the Amiga's game stamp (`native/amiga_whdload/rr_resload.c`); no other console.
+
+## Commodore Amiga: a route the game ends itself (1.7.1)
+
+A scripted route may make a game quit through its own menu (`resload_Abort` with `TDREASON_OK`): 4D Sports Boxing does so at
+frame 1,702 of the exploration route. Such a reference run is accepted when it lasted at least 1,000 frames; every later run of
+that route (native passes, the compressed copy, the quick-state continuation) must end the same way, and its trace and resload
+log, the final call included, must equal the reference's. The report marks the route `ended_by_game` with the frames it ran.
+Any other stop still fails the conversion. **What moves:** the Amiga's game stamp (`amiga_conversion.py`, the session and the
+player); no other console.
+
+## Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad (1.7.1)
+
+Four changes to what a slave may ask of the layer, found by running 24 installs of the library headless with the player's
+Kickstart 1.3. **CUSTOM1 to CUSTOM5** are read from the install's own icon (`<slave>.info`, its ToolTypes, as WHDLoad does; a
+ToolType in parentheses is off) and answered to `resload_Control`; there is no per-game setting in the window. 432 of the 2,967
+installs carry one (413 CUSTOM1); Might & Magic 3 (DE) needs CUSTOM1=2 to start. **Names**: a guest name is ISO-8859-1 and the
+install's file name UTF-8; they are converted both ways (23 archives have accents), so a slave finds a file it names with an
+accent. **Memory**: an ExpMem that does not fit the 1.5 MiB of slow RAM (88 installs of the library did not fit) is given to a
+Zorro II fast RAM board configured at `$200000` (up to 8 MiB), with the slave area staying in slow RAM; a BaseMem above 1 MiB
+gets 2 MiB of chip RAM (3 installs). 72 of the 88 now fit (59 of them with Kickstart 1.x); the other 16 need a 512 KiB
+Kickstart (a later step). **Registered**: 198 slaves of the library name
+the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer for non-zero (zero makes them stop with
+`TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
+WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
+picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
+Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit:** three
+installs of the 24 (Twylyte, California Games, Time Runners 19) stop at boot because the slave's own patch code does what only
+a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68000, as on a real A500); the layer is a 68000.
+**What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
+console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image (1.7.1)
+
+An install that runs with the player's Kickstart spent most of its instructions in the Kickstart (81 to 98 % in Might & Magic 3,
+Civilization and Skidmarks), all on the counted interpreter. The player now observes the Kickstart's instructions by **address
+only**; the conversion keeps those addresses in the private memory of that image (`converter-kickstart-addresses.txt`, numbers,
+never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
+player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
+counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
+nothing derived from the image is shared, and the observation file and the library hold addresses only. **Measure** (Civilization,
+the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
+quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
+native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
+reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
+(`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: CIA-B enters the slave as the system leaves it (1.7.1)
+
+Blood Money played noise ("a 56K modem") from the first tune on. Cause, found by comparing with the real WHDLoad (private run of Copperline):
+the slave's loader wrapper adds 79 tracks to the offset of a `resload_DiskLoad` when bit 2 of CIA-B's port B (`$BFD100`, the disk side
+select) reads 0, and our boot ROM left CIA-B at its reset state, every pin an input, so the bit always read 1: the music samples (track 107)
+were read from track 28 instead, whose data the game played as sound (the same lengths, periods and pointers as on the real machine, other
+bytes). The real machine has CIA-B DDRA `$C0` and DDRB `$FF` while a slave runs (the disk lines are outputs, so a read gives back the
+latch). The boot ROM now sets CIA-B's PRA `$F8`, PRB `$FF` (no drive selected, motor off), DDRA `$C0` and DDRB `$FF`, in that order.
+After the change the three sample regions of Blood Money are byte for byte those of the real machine (0 of 74,256 bytes differ) and the
+sound has tonal structure instead of flat noise. 26 slaves of the maintainer's library name `$BFD100` in their own code (Blood Money,
+Menace, Nebulus, North And South, Lotus, Space Ace and others), so other disk-side readers may have loaded wrong tracks too; the native
+steps were never involved (the run on the interpreter plays the same noise). **What moves:** the Amiga's game stamp
+(`native/amiga_machine/amiga_session.cpp`); no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the chipset's collision detection is on (1.7.1)
+
+A real Amiga always detects collisions between sprites and between sprites and the playfields (CLXCON/CLXDAT); vAmiga ships the three
+detections off for speed and the Amiga machine did not turn them on, so a game that reads CLXDAT never saw a collision. They are on now
+(`native/amiga_machine/amiga_session.cpp`). Library check by counting CLXDAT reads over the standard route: Blood Money reads it (36
+reads in 2,500 frames), Xenon 2, Turrican, Shadow of the Beast, R-Type, Menace, Armalyte, Battle Squadron, Rick Dangerous, Lotus 2, Speedball 2 and
+Wings of Death do not (nor Apidya). **What moves:** the Amiga's game stamp; no other console. A game that reads CLXDAT may now play
+differently from an earlier export of it (as the real machine does). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
+
+With `--reference-cpu` (every instruction on the interpreter) the window's title said "Native code", because no hook counts instructions in
+that mode. The Amiga adapter now reports the run as interpreted, so the title reads "Interpreter fallback". Reports are unchanged (they count
+through the player). **What moves:** the Amiga's host and game stamps (`amiga_player.c`, `rrhk_amiga.inc`); no other console.
+
+## Commodore Amiga: a quick state continues the sound sample for sample (1.7.1)
+
+vAmiga's snapshot leaves out the memory of its sound path, so the samples after a load differed from an unbroken run and the
+conversion could not compare them. The adapted core (`retrorecomp/amiga_vamiga.py`, `Ports/AudioPort.h`, MPL-2.0 like the file) now
+saves and restores the four samplers' pending samples, the three filters' memory, the sub-sample fraction, the master volume ramps
+and the muted flag; the player appends them to its state file and clears the output stream after a load. Headless, a state
+saved mid-run and resumed in a fresh process gives the same sound hash on all 200 frames compared (Apidya, Zeewolf, Cyber Games),
+with the CPU registers, RAM and picture; the conversion now compares the sound after a load too. **What moves:** the Amiga's game
+stamp (the adapted core, `amiga_session.cpp`, `amiga_conversion.py`); no other console. **Quick states:** the state file schema is
+now `RRAMIGA-STATE-2`: states of earlier Amiga builds are refused cleanly. Hardware fidelity and physical latency are not
+measured by this check.
 
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 

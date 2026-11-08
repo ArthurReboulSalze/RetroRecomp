@@ -14,10 +14,12 @@ declaring them in a profile module moves no stamp of another console (the profil
 * `emulated` (str): the machine runs its games in an emulator instead of recompiling them, and says why in one sentence.
   It declares no CPU; its report has no CPU section, a native share of 0 and an `engine` section (report_schema).
 * `accepts_folders` (bool): the machine takes a game folder as its input. `discover_folders` offers a folder to the
-  machine's `find_folders(root)`; the machine's `identify_path` claims a folder it recognises. File discovery
+  machine's `find_folders(root, notice)`; the machine's `identify_path` claims a folder it recognises. File discovery
   (`systems.discover_roms`) is not changed: the folders are added beside the files.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 from . import SystemProfile
 from .amiga import AMIGA
@@ -34,6 +36,7 @@ from .neogeo import NEOGEO
 from .nes import NES
 from .pc_engine import PC_ENGINE
 from .scummvm import SCUMMVM
+from .psx import PLAYSTATION
 from .x68000 import X68000
 
 # Extensions of files that are cartridge images or disks of machines the converter does not handle, plus the
@@ -42,7 +45,7 @@ from .x68000 import X68000
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
     '.zip', '.bin', '.rom', '.gbc', '.fds', '.smd',
-    '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
+    '.a26', '.a78', '.7z', '.chd',
 })
 
 _REGISTERED: list[SystemProfile] = []
@@ -69,7 +72,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION):
     register(_profile)
 del _profile
 
@@ -131,15 +134,16 @@ class FolderDiscoveryUnavailable(Exception):
         self.key = key
 
 
-def discover_folders(folder, unavailable: list | None = None) -> list:
+def discover_folders(folder, unavailable: list | None = None, notice=None) -> list:
     """The game folders at or below `folder` that a machine taking folders recognises, beside `discover_roms`.
     A machine whose discovery cannot run (FolderDiscoveryUnavailable) is skipped; its exception is appended to
-    `unavailable` when the caller gives a list, so the interface can say why nothing was found."""
+    `unavailable` when the caller gives a list, so the interface can say why nothing was found. `notice` receives the
+    interface sentence of a long step that starts during the discovery (the first build of a machine's detection)."""
     found = {}
     for profile in folder_profiles():
         if profile.available():
             try:
-                paths = profile.find_folders(folder)
+                paths = profile.find_folders(folder, notice)
             except FolderDiscoveryUnavailable as exc:
                 if unavailable is not None:
                     unavailable.append(exc)
@@ -147,6 +151,17 @@ def discover_folders(folder, unavailable: list | None = None) -> list:
             for path in paths:
                 found.setdefault(str(path).casefold(), path)
     return sorted(found.values(), key=lambda path: str(path).casefold())
+
+
+def discover_games(folder, unavailable: list | None = None, notice=None) -> tuple[list, list]:
+    """(cartridge files, game folders) at or below `folder`, for the window and the command line alike.
+    The files of a folder a machine recognised as a game are that game's data, not cartridges: a `.bin` of an
+    adventure's data is never offered as a ROM of its own (it would be an unrecognised row, or an error)."""
+    from . import discover_roms
+    roms = discover_roms(Path(folder))
+    games = discover_folders(folder, unavailable, notice)
+    roots = [Path(game) for game in games]
+    return [rom for rom in roms if not any(root == rom or root in rom.parents for root in roots)], games
 
 
 _LISTS = {'ALL_PROFILES': all_profiles, 'PROFILES': listed_profiles,

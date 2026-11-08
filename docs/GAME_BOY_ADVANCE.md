@@ -48,10 +48,10 @@ BIOS) are not used either.
 What a trial on 5 November 2026 established (a development measurement, not a qualification, on one revision of the engine):
 
 * **CPU, one instruction at a time.** Against the public SingleStepTests ARM7TDMI vectors (45 files of 50,000, MIT, generated
-  from a model, not from hardware): the engine's interpreter agrees on 93.1 % of all of them, and its generated code on
-  91.0 % of an evenly spaced sample of 45,000. What disagrees is the three coprocessor families (not implemented in generated code),
-  encodings with R15 as an operand and other architecturally unpredictable cases, the carry flag after a multiply, and a tail of
-  250 failures not yet explained. Generated code agrees on every sampled branch, exchange, shift, load and store family, and on
+  from a model, not from hardware): the engine's interpreter agrees on 93.96 % of all of them (2,250,000), and its generated code on
+  91.08 % of an evenly spaced sample of 45,000 (figures of 5 November 2026, with the 30 patches of that day). What disagrees is the three coprocessor families (not implemented in generated code),
+  encodings with R15 as an operand and other architecturally unpredictable cases, the carry flag after a multiply, and a tail that
+  is now explained (below). Generated code agrees on every sampled branch, exchange, shift, load and store family, and on
   software interrupt entry in all seven modes.
 * **Unseen cartridges, no per-game file.** Four commercial cartridges the engine had never been given ran headless with its
   default analysis: one ran its scripted generic input to the end with no interpreted instruction, two reached gameplay scenes
@@ -106,7 +106,7 @@ on 6 November 2026 (next section).
 ## The panel of stage 6 (5 and 6 November 2026)
 
 Six cartridges through the whole conversion (`convert`, the player included), one at a time, on a Windows PC, with the engine of the last section
-of `docs/UPSTREAMS.md` (44 patches). Scenarios: `boot` (600 frames, no key) and `generic` (3,600 frames, a script that presses A, Start, then Right and taps A
+of `docs/UPSTREAMS.md` (47 patches; 44 at the 1.7.0 panel). Scenarios: `boot` (600 frames, no key) and `generic` (3,600 frames, a script that presses A, Start, then Right and taps A
 and B; it reaches menus and first scenes and proves nothing about gameplay). For each scenario the generated code and the engine's own interpreter run
 alone and are compared on the final picture, the guest's cycle count at the first VBlank after the frame limit, a hash of work RAM, IWRAM, VRAM, OAM, palette
 and I/O registers and a hash of the CPU registers. The clock of a cartridge that has one starts from a fixed time and follows the guest's cycles in every
@@ -146,10 +146,8 @@ What the panel found, in the order it happened (each one is a patch of the engin
 Its main loop and part of its code run from work RAM. Of the 37 RAM addresses the engine had to interpret on the first run, 21 resolve to a copy in the
 cartridge once the probe records the bytes found at the time of the miss (the RAM at the end of a run is another routine's), and the report says why the others stay
 interpreted (`unresolved_reasons`). The remaining ones have no copy in the cartridge: 15 Thumb routines in `0x02008030..0x02008436` and an ARM routine in IWRAM at
-`0x03000828` (326,128 bridges in 3,600 frames) are code the game decompresses or writes at run time. The interpreter counts them (17.7 million instructions in
-3,600 frames, 62 million before the changes above). Making them native needs the bytes themselves, which are derived from
-the cartridge: they can only live in the player's private conversion cache, never in the shared paths library nor in the repository (the paths keep numbers only). That
-is the next step of the plan for this cartridge and is not built.
+`0x03000828` (326,128 bridges in 3,600 frames) are code the game decompresses or writes at run time. The interpreter counted them (17.7 million instructions in
+3,600 frames, 62 million before the changes above). They are native since 7 November 2026 (section "Code the cartridge does not hold", below).
 
 What this table does not say: gameplay validation (none), hardware fidelity beyond what the authored test ROMs check, physical latency, the Linux player (built by the
 witness below, never played) and any cartridge outside the six.
@@ -198,6 +196,86 @@ earlier runs, the Debian pass from none and stopped after three passes, so the t
 anything else either; the checks above hold with them (the interpreter is counted, as always). The Linux player was built and packed by the same pass but
 nobody played it and nothing was timed: gameplay validation, hardware fidelity and physical latency are untouched by this witness.
 
+## Code the cartridge does not hold: guarded native RAM code (7 November 2026)
+
+Some games build code in work RAM that no stretch of the cartridge holds (a decompressed overlay, a routine written word by word by another one). Until then
+such a routine was interpreted, counted, and left in the report as "no copy". Now the converter makes it native under a guard, in four steps, all in the
+Game Boy Advance files (`gba_analysis.py`, `gba_conversion.py`, three patches of the engine in `gba_patches.py`):
+
+1. **The probe records the bytes** found at a RAM address when the game first reaches it with no generated function, once per *version*: a new sample is kept when
+   it differs from the recorded ones outside the words that have already taken eight different values (up to 256 versions an address). Before, eight whole-hash
+   versions were used up by one routine whose caller rewrites two arguments in its literal pool, and the routines that followed in the same place were never seen.
+2. **The converter keeps them in memory only** (`RamCode`). They are derived from the cartridge, so they are not paths: the paths library still holds numbers
+   about the cartridge and nothing else, and the bytes of a version reach the generated code of the player's own game (which holds the cartridge anyway) and no
+   file of the repository or the library. The generator is given the cartridge followed by those bytes (`generator_image`, each block aligned like its RAM address,
+   a zero gap after it, at most the 32 MiB window of the bus; beyond that the routine stays interpreted, reported as RAM code still reached by the interpreter).
+3. **The versions are told apart.** The generator keeps one function per address, so the first version of a routine keeps its address and the next ones are named
+   at the mirrors of the work RAM (IWRAM repeats every 32 KB, EWRAM every 256 KB); the guard of the generated code compares bytes and uses the live address, so the
+   mirror is only a name. The same rule now applies to copies from the cartridge: two overlays swapped into the same IWRAM address from different cartridge offsets
+   used to collapse into one native function.
+4. **Arguments are not code.** A word that took eight or more values across the versions of a routine is an argument its caller writes into the routine's
+   literal pool (read by the routine from the live RAM). It is declared to the generator as a data range and the guard of the fragment does not compare it
+   (an engine patch; the generator refuses a control flow that enters a declared data range, so an instruction word taken for an argument stops the conversion
+   instead of being compiled stale). One version per code shape is built.
+
+What the guard still is: a fragment of at most 64 bytes is entered only if the live bytes equal the bytes seen (outside the argument words), and a routine whose bytes
+are none of the versions seen goes to the interpreter, counted, as before. The report names the numbers (`native_coverage.ram_code`: addresses, versions, entries,
+argument words, bytes added to the image) and the reasons that remain.
+
+Measured on 7 November 2026 on a Windows PC (the same probe scenarios as the panel, three passes asked and up to two settling ones (four since, see the Linux section below), native equals the engine's interpreter in
+both scenarios, final picture hash and guest cycle count identical to the 1.7.0 panel):
+
+| Cartridge | Interpreted instructions, boot / generic, 1.7.0 | Now |
+|---|---|---|
+| Golden Sun | 36,339 / 17,740,494 | 0 / 32,394 |
+| The Minish Cap | 0 / 0 (Debian witness: 972 / 1,450,569, see above) | 0 / 0 |
+| Pokémon Emerald | 0 / 0 | 0 / 0 |
+
+Golden Sun's 40,656 calls of the IWRAM routine (three code shapes, three argument words) are native; what is left is two Thumb routines of EWRAM seen on the last
+pass. The packed players of Golden Sun and the Minish Cap run 600 frames hidden with return code 0, sound and no interpreted instruction. The Minish Cap now
+reaches 0 / 0 in the first pass because its paths are in the library of the machine that converted it; the Debian witness above started from an empty library.
+Played: the owner played the delivered Golden Sun and Minish Cap of this stage on 7 November 2026 and wrote that they work perfectly (a play trial of the exports, not a measure of gameplay validation and not a decision to leave the experimental status). Not measured: gameplay validation (no route of ours), the Linux player with this code, a cartridge whose RAM code does not fit the 32 MiB window.
+
+## The wider panel (7 November 2026)
+
+Four more cartridges chosen by the owner, through the whole conversion (`batch`, online covers on, the player included), one at a time, on a Windows PC, with the tree of
+7 November 2026: a second Flash 64 KB cartridge, three SRAM ones, and one (Metroid Fusion) whose code the engine finds entirely by itself. Scenarios: `boot` (600 frames) and `generic` (3,600 frames), compared with the engine's own interpreter as in the panel above.
+
+| Cartridge | Save (header) | Native = interpreter, 2 scenarios | Interpreted instructions (boot, generic) | Paths learned (ROM roots, RAM copies) | Packed player |
+|---|---|---|---|---|---|
+| Advance Wars (USA, Rev 1) | Flash 64 KB | yes | 0, 0 | 528, 3 | 9.6 MB |
+| Castlevania: Aria of Sorrow | SRAM | yes | 0, 0 | 26, 5 | 21.2 MB |
+| Metroid Fusion | SRAM | yes | 0, 0 | 0, 0 | 20.8 MB |
+| Wario Land 4 | SRAM | yes | 0, 0 | 26, 0 | 19.5 MB |
+
+Every report names `FULLY_STATIC` for both scenarios and an embedded libretro cover; none needed RAM code. The packed players run 600 frames hidden with return code 0,
+sound and no interpreted instruction. Nothing was found that needed a change: the four were converted by the tree of the previous stage as it stands. What this
+adds is breadth of cartridges and save types (ten cartridges in all); it is not gameplay validation, and nobody of ours played these four.
+
+### The Linux player played by script (7 November 2026)
+
+The witness above converted on Linux but never ran the Linux player. On 7 November 2026 two cartridges were converted on a Debian 13 PC (GCC 14, Python 3.13,
+Ninja, an empty library) from the tree of the same day and their Linux players were run under Xvfb, with the window, the OpenGL renderer and vsync on, the
+sound device replaced by SDL's dummy driver, and the same key script as the Windows players (`generic`: A, Start, Right, taps of A and B), for 1,800 frames.
+
+| Cartridge | Conversion on Debian | Native = interpreter (2 scenarios) | Picture at frame 1,800 | Sound counts (samples, non-zero, peak) |
+|---|---|---|---|---|
+| Golden Sun | 34 min 29 s, five passes | yes | SHA-256 equal to the Windows player's (`2904e7e6…`) | 987,391, 622,846, 21,408: equal |
+| Metroid Fusion | 21 min 15 s, one pass | yes | SHA-256 equal to the Windows player's (`1a1ae4f4…`) | 987,911, 852,299, 32,767: equal |
+
+The pictures and the sound counts are those of the Windows players, to the last bit, and the final picture hash and the guest's cycle count of both scenarios in the
+reports equal the Windows ones. The window ran at the display's rate (about 31 s for 1,800 frames). This is a scripted run, not a person playing; the owner decided on
+7 November 2026 that it counts as the cross-OS witness of gate G13. The sound counts are counts: the sound itself was not heard, nor recorded.
+
+One thing the pass showed about the converter, not about Linux: Golden Sun converted from an **empty library** ends its passes with millions of interpreted
+instructions on the generic scenario (boot: 0), where a machine whose library already held the paths of earlier runs ends at 32 thousand. With two settling passes
+(five in all) the Debian pass ended at 5.3 million. With **four** (`SETTLING_PASSES`, seven in all, only while the last pass still taught something) a conversion
+from an empty library on a Windows PC took 16 min 23 s in all, the player included, and ended at **3.9 million** (passes 5 to 7: 5.35, 4.17, 3.86 million); the
+report counts no unresolved miss at the end, the last three addresses having been turned into paths by the last pass. The picture and the cycle count are the same as
+with the full library. So every pass peels one layer (a routine reached only once the one before is native) and seven are not enough for this cartridge from
+nothing; what is not found when the passes stop is interpreted, counted, and kept (the paths are saved before the long replay), so a second conversion of the same
+cartridge continues from there. The figure of the table above (32 thousand) is that of a converted-again cartridge; the page does not promise it for a first conversion.
+
 ## Independent evidence (stage 5)
 
 Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
@@ -215,8 +293,15 @@ player and stays outside the repository (hashes and counts only are written here
   `PUSH`/`POP`); the generated code agrees on **91.08 %** (3,000 coprocessor, 230 multiply carry, 774 R15, **11 other**). The patches
   moved the interpreter by about 18,000 vectors (the FIQ bank on interrupt entry among them) and the generated code by 12. The
   coprocessor instructions are not implemented in generated code, by the engine's design, and the multiply carry and R15 cases are
-  where the model and the architecture's unpredictable results meet; the short tail of `LDM`/`STM`/`PUSH`/`POP` is unexplained and is
-  the next thing to look at. This is CPU fidelity against a model, not against hardware.
+  where the model and the architecture's unpredictable results meet. This is CPU fidelity against a model, not against hardware.
+
+  **The tail, explained on 7 November 2026** (the raw log of that run decoded, no new run; `tools/gba_vector_selftest.py report` now names two more
+  classes and the unexplained count is 0 in both checks). Of the 385: 247 are ARM `LDM`/`STM` with the S bit (user bank) **and write-back** in a banked mode
+  (FIQ, IRQ, supervisor, abort, undefined), an encoding the architecture leaves unpredictable and for which the model chooses one base register and one set
+  of written-back registers; and 138 (88 Thumb `LDMIA`/`STMIA`, 50 `PUSH`/`POP`) are Thumb block transfers with an **empty register list**, where the
+  ARM7TDMI transfers R15 and moves the base by `0x40`. The model has that behaviour; the engine's interpreter and its generated code do not. The 11 of
+  the generated code are the same two classes (7 and 4). So nothing in the tail is a defect in the transfers of real registers; the Thumb empty list is a
+  known hardware behaviour that is not modelled (hardware fidelity), not seen in the games of the panel, and not worth an engine patch before a game needs it.
 
 ## The player (stage 4)
 

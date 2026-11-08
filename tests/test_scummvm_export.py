@@ -131,6 +131,405 @@ class ToolsMissing(unittest.TestCase):
         self.assertTrue(all(catalog(code)['ui'].get('scummvm_tools_missing') for code in LANGUAGES[2:]))
 
 
+class WindowFolderImport(unittest.TestCase):
+    """The window's folder import (gui_queue: choose_directory -> import_paths -> _expand_paths -> identify) on authored
+    folders, with ScummVM's detection replaced by a fake that recognises a folder holding GAME.DAT. A game folder that
+    also holds `.bin` files was the case that left the window empty (the `.bin` data was queued as cartridges)."""
+
+    def setUp(self):
+        from unittest import mock
+        sx._DETECTED.clear()
+        candidate = sx.Candidate('eng1', 'gamea', 'Game A (DOS/English)', 'Game A', 'English', 'DOS')
+        self.patches = [
+            mock.patch.object(sx, '_detect_runtime', return_value=Path('fake-runtime')),
+            mock.patch.object(sx, 'detect', side_effect=lambda folder, runtime: [candidate]
+                              if (Path(folder) / 'GAME.DAT').is_file() else [])]
+        for patcher in self.patches:
+            patcher.start()
+        self.addCleanup(lambda: [patcher.stop() for patcher in self.patches])
+        self.addCleanup(sx._DETECTED.clear)
+
+    def games(self, tmp, with_bin=True):
+        """Authored folders: `Game A` (a game whose data has .bin files), `Other` (a plain cartridge dump beside it)."""
+        root = Path(tmp)
+        game = root / 'Game A'
+        game.mkdir()
+        (game / 'GAME.DAT').write_bytes(b'x' * 64)
+        if with_bin:
+            (game / 'LEVEL1.BIN').write_bytes(b'\1' * 64)
+            (game / 'LEVEL2.BIN').write_bytes(b'\2' * 64)
+        return root, game
+
+    def expand(self, paths):
+        from types import SimpleNamespace
+        from retrorecomp.gui_queue import QueueMixin
+        window = SimpleNamespace(tr=lambda key, **values: key)
+        return QueueMixin._expand_paths(window, paths)
+
+    def prepare(self, path, mode):
+        from types import SimpleNamespace
+        from retrorecomp.gui_queue import QueueMixin
+        return QueueMixin._prepare_path(SimpleNamespace(), path, mode, Path('Games'))
+
+    def test_the_data_files_of_a_game_folder_are_not_queued_as_cartridges(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            for given in (game, root):               # the folder that is the game, and its parent
+                files, logs = self.expand([given])
+                self.assertEqual([Path(path) for path in files], [game], given)
+                self.assertEqual(logs, [])
+
+    def test_both_system_modes_give_the_game_one_row_and_no_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            files, _ = self.expand([root])
+            for mode in ('auto', 'scummvm'):
+                rows = [self.prepare(path, mode) for path in files]
+                self.assertEqual([(row['item'].system, row['item'].title, row['status']) for row in rows],
+                                 [('scummvm', 'Game A', 'waiting')], mode)
+
+    def test_a_loose_file_in_the_adventure_mode_is_an_item_error_not_a_dead_scan(self):
+        # "Adventure (ScummVM)" hands every queued file to the profile: an adventure is a folder, never a file.
+        with tempfile.TemporaryDirectory() as tmp:
+            loose = Path(tmp) / 'LOOSE.BIN'
+            loose.write_bytes(b'\3' * 64)
+            row = self.prepare(loose, 'scummvm')
+            self.assertEqual(row['status'], 'invalid')
+            self.assertIn('is a folder', row['item'].error)
+
+    def test_a_folder_scummvm_does_not_recognise_is_an_item_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            (game / 'GAME.DAT').unlink()
+            row = self.prepare(game, 'scummvm')
+            self.assertIn(row['status'], ('invalid', 'unrecognized'))      # a row with its reason, in the queue
+            self.assertTrue(row['item'].error)
+
+    def test_whatever_the_reader_raises_the_scan_goes_on(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            with mock.patch('retrorecomp.gui_queue.identify', side_effect=RuntimeError('boom')):
+                row = self.prepare(game, 'auto')
+            self.assertEqual(row['status'], 'invalid')
+            self.assertIn('boom', row['item'].error)
+
+    def test_a_detection_that_fails_to_build_is_a_sentence_not_a_traceback(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            self.games(tmp, with_bin=False)
+            sx._DETECTED.clear()
+            with mock.patch.object(sx, '_detect_runtime', side_effect=scummvm_build.ScummvmBuildError('cmake failed')):
+                files, logs = self.expand([Path(tmp)])
+                self.assertEqual((files, logs), ([], ['scummvm_detect_failed']))
+                self.assertEqual(self.prepare(Path(tmp) / 'Game A', 'auto')['status'], 'invalid')
+
+    def test_a_folder_that_adds_nothing_says_so(self):
+        # What the player saw ("no ROM found") with a folder ScummVM does not recognise: now a sentence says why.
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp, with_bin=False)
+            (game / 'GAME.DAT').unlink()
+            files, logs = self.expand([game])
+            self.assertEqual([Path(path) for path in files], [])
+            self.assertEqual(logs, ['import_folder_empty'])
+            files, logs = self.expand([root])                       # the parent holds nothing recognised either
+            self.assertIn('import_folder_empty', logs)
+
+    def test_a_folder_with_a_game_does_not_say_it_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            self.assertNotIn('import_folder_empty', self.expand([game])[1])
+
+    def test_the_empty_folder_sentence_exists_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        for code in LANGUAGES:
+            self.assertIn('Game', tr('import_folder_empty', code, folder='Game'), code)
+        self.assertTrue(all(catalog(code)['ui'].get('import_folder_empty') for code in LANGUAGES[2:]))
+
+    def test_the_command_line_discovers_the_same_games(self):
+        from retrorecomp.systems.registry import discover_games
+        with tempfile.TemporaryDirectory() as tmp:
+            root, game = self.games(tmp)
+            (root / 'cartridge.sms').write_bytes(bytes(8192))
+            roms, folders = discover_games(root)
+            self.assertEqual(folders, [game])
+            self.assertEqual([Path(rom).name for rom in roms], ['cartridge.sms'])
+
+    def test_the_failure_sentence_exists_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        for code in LANGUAGES:
+            self.assertNotEqual(tr('scummvm_detect_failed', code), 'scummvm_detect_failed', code)
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_detect_failed') for code in LANGUAGES[2:]))
+        for code in LANGUAGES[:2]:
+            self.assertNotEqual(tr('scummvm_preparing', code), 'scummvm_preparing', code)
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_preparing') for code in LANGUAGES[2:]))
+
+    def test_the_scan_says_when_the_detection_has_to_be_built(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        from retrorecomp.gui_queue import QueueMixin
+        window = SimpleNamespace(tr=lambda key, **values: key)
+
+        def building(started=None):
+            started()
+            return Path('fake-runtime')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _root, game = self.games(tmp)
+            said = []
+            with mock.patch.object(sx, '_detect_runtime', side_effect=building):
+                files, _logs = QueueMixin._expand_paths(window, [game], notice=said.append)
+            self.assertEqual((files, said), ([game], ['scummvm_preparing']))
+            # A runtime already built: nothing to say.
+            sx._DETECTED.clear()
+            said = []
+            files, _logs = QueueMixin._expand_paths(window, [game], notice=said.append)
+            self.assertEqual((files, said), ([game], []))
+
+
+class PackagedExe(unittest.TestCase):
+    """A packaged exe runs its modules from a temporary folder removed when it closes (PyInstaller's _MEIPASS). A root read
+    from __file__ put .deps there: every first drop of a folder cloned and compiled ScummVM again in that folder, in silence."""
+
+    SIMULATION = (
+        'import json, sys\n'
+        'sys.frozen, sys._MEIPASS, sys.executable = True, sys.argv[1], sys.argv[2]\n'
+        'from retrorecomp import scummvm_build as build\n'
+        'print(json.dumps([str(build.deps_directory()), str(build.runtime_path("detect")), str(build.PATCH_DIRECTORY)]))\n')
+
+    def paths_of(self, unpacked, exe):
+        import json
+        import subprocess
+        import sys
+        repository = Path(__file__).resolve().parents[1]
+        output = subprocess.run([sys.executable, '-B', '-c', self.SIMULATION, str(unpacked), str(exe)], cwd=repository,
+                                capture_output=True, text=True, check=True).stdout
+        return [Path(item) for item in json.loads(output)]
+
+    def test_the_build_lives_beside_the_exe_and_the_patches_inside_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            unpacked = base / 'unpacked'
+            deps, runtime, patches = self.paths_of(unpacked, base / 'Games' / 'Retro-Recomp.exe')
+            self.assertEqual(deps, base / 'Games' / '.deps')
+            self.assertEqual(runtime.parents[2], deps)
+            self.assertEqual(patches, unpacked / 'native' / 'scummvm' / 'patches')
+
+    def test_an_exe_in_export_uses_the_deps_of_its_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp).resolve()
+            (project / 'retrorecomp').mkdir()
+            (project / 'RetroRecomp.py').touch()
+            (project / 'retrorecomp' / 'core.py').touch()
+            deps, _runtime, _patches = self.paths_of(project / 'unpacked', project / 'Export' / 'Retro-Recomp.exe')
+            self.assertEqual(deps, project / '.deps')
+
+    def test_no_module_of_the_exe_reads_a_folder_from_its_own_file(self):
+        """Each exception says why it is safe; a new module takes its root from retrorecomp.paths."""
+        allowed = {'paths.py',       # the one place that decides, and only outside a packaged exe
+                   'core.py',        # hashes the __file__ of modules, never a folder to work in
+                   'publishing.py',  # the branch that runs from the sources
+                   'upstreams.py'}   # read by tools/check_upstreams.py, from the sources
+        package = Path(__file__).resolve().parents[1] / 'retrorecomp'
+        found = {source.name for source in package.rglob('*.py') if '__file__' in source.read_text(encoding='utf-8')}
+        self.assertEqual(found - allowed, set())
+
+
+class FirstBuild(unittest.TestCase):
+    """A first use of the detection family, with every build step replaced: what it leaves and what it says."""
+
+    def setUp(self):
+        from unittest import mock
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.steps = []
+
+        def prepare(log, emit):
+            tree = scummvm_build.scummvm_checkout()
+            (tree / 'engines' / 'sci').mkdir(parents=True)
+            (tree / 'engines' / 'sci' / 'metaengine.cpp').write_text('fallbackDetectExtern', encoding='utf-8')
+            (tree / 'dists').mkdir()
+            return tree
+
+        def run(command, cwd, log, timeout=3600):
+            self.steps.append(Path(str(command[0])).name)
+            if Path(str(command[0])).name.endswith('strip'):
+                Path(command[2]).write_bytes(b'runtime')
+            return ''
+
+        from retrorecomp import core
+        for patcher in (mock.patch.object(scummvm_build, 'ROOT', self.root), mock.patch.object(core, 'ROOT', self.root),
+                        mock.patch.object(scummvm_build, '_require_portable_tools'),
+                        mock.patch.object(scummvm_build, 'prepare_sources', side_effect=prepare),
+                        mock.patch.object(scummvm_build, '_build_freetype', return_value=self.root),
+                        mock.patch.object(scummvm_build, '_ensure_sdl'),
+                        mock.patch.object(scummvm_build, '_host_tool', return_value=Path('create_project')),
+                        mock.patch.object(scummvm_build, '_sdl_shim', return_value=self.root),
+                        mock.patch.object(scummvm_build, 'collect_data', return_value=[]),
+                        mock.patch.object(scummvm_build, '_run', side_effect=run),
+                        mock.patch.object(core, 'toolchain', return_value=('cmake', 'Ninja'))):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_the_first_runtime_is_not_stale_at_once_and_it_is_announced_once(self):
+        started = []
+        family = scummvm_build.DETECT_FAMILY
+        out = scummvm_build.build_runtime(family, lambda text: None, started=lambda: started.append(1))
+        self.assertEqual(started, [1])
+        self.assertTrue(out.is_file())
+        self.steps.clear()
+        self.assertEqual(scummvm_build.build_runtime(family, lambda text: None, started=lambda: started.append(1)), out)
+        self.assertEqual((self.steps, started), ([], [1]), 'a second build, or a sentence with nothing being built')
+
+    def test_nothing_is_announced_without_the_tools(self):
+        from unittest import mock
+        started = []
+        with mock.patch.object(scummvm_build, '_require_portable_tools', side_effect=scummvm_build.ScummvmToolsMissing('no')):
+            with self.assertRaises(scummvm_build.ScummvmToolsMissing):
+                scummvm_build.build_runtime(scummvm_build.DETECT_FAMILY, lambda text: None, started=lambda: started.append(1))
+        self.assertEqual(started, [])
+
+
+class InterruptedClone(unittest.TestCase):
+    def test_a_window_closed_during_the_download_leaves_no_checkout(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            place = Path(tmp).resolve() / 'scummvm'
+            log = Path(tmp).resolve() / 'log'
+            attempts = []
+
+            def run(command, cwd, log, timeout=3600):
+                if 'clone' not in command:
+                    return 'wanted\n'
+                target = Path(command[-1])
+                self.assertFalse(target.exists(), 'the earlier partial clone was not removed')
+                (target / '.git').mkdir(parents=True)
+                pack = target / '.git' / 'pack'
+                pack.write_bytes(b'')
+                pack.chmod(0o444)       # git leaves its pack files read-only
+                attempts.append(target)
+                if len(attempts) == 1:
+                    raise KeyboardInterrupt('the process stops here')
+                return ''
+
+            with mock.patch.object(scummvm_build, '_run', side_effect=run):
+                with self.assertRaises(KeyboardInterrupt):
+                    scummvm_build._checkout(place, 'url', 'tag', 'wanted', log, lambda text: None)
+                self.assertFalse(place.exists())      # the next start does not mistake it for a checkout
+                scummvm_build._checkout(place, 'url', 'tag', 'wanted', log, lambda text: None)
+            self.assertTrue((place / '.git').is_dir())
+            self.assertEqual(attempts[0], attempts[1])
+            self.assertFalse(attempts[0].exists())
+            (place / '.git' / 'pack').chmod(0o666)    # the temporary folder can be removed
+
+
+class OptionsPage(unittest.TestCase):
+    """Patch 0002: the Retro-Recomp page of the in-game options and the settings shared through datas/Retro-Recomp.ini
+    (checked headless with the real runtime: .build/scummvm-step2/ui_cases.py; here, the text of the patch)."""
+
+    def setUp(self):
+        self.patch = (scummvm_build.PATCH_DIRECTORY / '0002-retrorecomp-options-page.patch').read_text(encoding='utf-8')
+
+    def test_the_series_has_both_patches_in_order(self):
+        names = sorted(path.name for path in scummvm_build.PATCH_DIRECTORY.glob('*.patch'))
+        self.assertEqual(names, ['0001-retrorecomp-pack-launch-nodialog.patch', '0002-retrorecomp-options-page.patch'])
+
+    def test_the_page_replaces_the_backend_tab_of_a_packed_exe_only(self):
+        self.assertIn('packedModeActive() ? retroRecompOptionsTabTitle()', self.patch)
+        self.assertIn('if (!packedModeActive())\n+\t\treturn nullptr;', self.patch)
+
+    def test_the_settings_are_shared_both_ways(self):
+        for key in ('fullscreen', 'stretch_mode', 'aspect_ratio', 'music_volume', 'sfx_volume', 'speech_volume', 'mute'):
+            self.assertIn(f'"{key}"', self.patch)
+        self.assertIn('void packedSyncSettings()', self.patch)
+        self.assertIn('packedSyncSettings();', self.patch)
+
+    def test_every_text_of_the_page_has_the_five_languages(self):
+        rows = [line for line in self.patch.splitlines() if line.startswith('+\t/* k') and '*/' in line]
+        self.assertGreaterEqual(len(rows), 10)
+        for row in rows:
+            if row.rstrip().endswith('},'):
+                self.assertEqual(row.count('", "') + 1, 5, row)
+
+    def test_the_menu_key_is_hinted_at_the_start_in_five_languages(self):
+        # ticked on the main thread only (a timer thread crashed some quits), at every event poll and every delay
+        self.assertIn('g_system->displayMessageOnOSD(retroRecompMenuHint())', self.patch)
+        self.assertIn('packedMainThreadTick(true);', self.patch)
+        self.assertIn('packedMainThreadTick();      // Retro-Recomp: the menu hint also appears while an engine waits', self.patch)
+        self.assertNotIn('installTimerProc(hintDriver', self.patch)
+        for text in ('"Help: Ctrl+F1 · Menu: Ctrl+F2"', '"Aide : Ctrl+F1 · Menu : Ctrl+F2"', '"Hilfe: Strg+F1 · Menü: Strg+F2"',
+                     '"Ayuda: Ctrl+F1 · Menú: Ctrl+F2"', '"Aiuto: Ctrl+F1 · Menu: Ctrl+F2"'):
+            self.assertIn(text, self.patch)
+        # shown for three seconds, once, from the first poll of the engine (an OSD message lasts about two seconds)
+        self.assertIn('g_hintBurst = 3;', self.patch)
+        self.assertNotIn('g_hintMouse', self.patch)
+
+    def test_the_help_tab_lists_the_shortcuts_in_five_languages(self):
+        self.assertIn('retroRecompHelpTabTitle()', self.patch)
+        for number in range(1, 12):
+            self.assertIn(f'/* kHelp{number} ', self.patch)
+        for shortcut in ('Ctrl+F1', 'Ctrl+F2', 'Ctrl+F5', 'Alt+Enter', 'Ctrl+F4', 'Ctrl+F3', 'Ctrl+U', 'Alt+F4', 'Alt+S'):
+            self.assertIn(shortcut, self.patch)
+        self.assertIn('static const int kLines = 11;', self.patch)
+
+    def test_ctrl_f1_and_ctrl_f2_open_the_options_dialog_on_their_tab(self):
+        self.assertIn('addDefaultInputMapping("C+F1")', self.patch)
+        self.assertIn('addDefaultInputMapping("C+F2")', self.patch)
+        self.assertIn('retroRecompRequestOptions(1);', self.patch)      # Ctrl+F1: the Help
+        self.assertIn('retroRecompRequestOptions(0);', self.patch)      # Ctrl+F2: the Retro-Recomp page
+        self.assertIn('retroRecompTakeOptionsRequest(rrTab)', self.patch)
+        self.assertIn('configDialog.selectRetroRecompTab(rrTab);', self.patch)
+        self.assertNotIn('"C+F5"', self.patch)       # Ctrl+F5 stays ScummVM's own menu
+
+    def test_the_osd_uses_retro_recomps_palette_in_a_packed_exe(self):
+        from retrorecomp.branding import COLORS
+        header, gold = COLORS['header'], COLORS['gold_hover']
+        self.assertEqual((int(header[1:3], 16), int(header[3:5], 16), int(header[5:7], 16)), (24, 24, 24))
+        self.assertEqual((int(gold[1:3], 16), int(gold[3:5], 16), int(gold[5:7], 16)), (239, 198, 79))
+        self.assertIn('rrPalette ? 24 : 64', self.patch)
+        self.assertIn('rrPalette ? 239 : 255', self.patch)
+        self.assertIn('rrPalette ? 198 : 255', self.patch)
+        self.assertIn('rrPalette ? 79 : 255', self.patch)
+
+    def test_the_scanlines_are_the_host_kits_mask_drawn_after_the_scaling(self):
+        # same arithmetic as native/scanlines.h: 85/255 on the last third of every source row, nothing under twice the rows
+        scanlines = (scummvm_build.ROOT / 'native' / 'scanlines.h').read_text(encoding='utf-8')
+        self.assertIn('(85 * (end - begin) + step / 2) / step', scanlines)
+        self.assertIn('(85 * (end - begin) + step / 2) / step', self.patch)
+        self.assertIn('(uint64)height < 2 * (uint64)sourceRows', self.patch)
+        self.assertIn('rrDrawScanlines(_renderer, viewport, _videoMode.screenHeight);', self.patch)
+        self.assertIn('packedScanlinesOn() && !_overlayVisible', self.patch)      # never over the menus
+        self.assertNotIn('"tv"', self.patch)
+        self.assertIn('{"Help", "Aide", "Hilfe", "Ayuda", "Aiuto"}', self.patch)
+
+    def test_ctrl_f3_cycles_the_host_kit_filters_and_ctrl_f4_toggles_pixel_perfect(self):
+        self.assertIn('addDefaultInputMapping("C+F3")', self.patch)
+        self.assertIn('addDefaultInputMapping("C+F4")', self.patch)
+        # the order of the host kit's F3: sharp pixels, xBR (HQ2x here), Scale2x, scanlines
+        import re
+        effects = re.findall(r'^\+\t\{"(normal|hq|advmame)",\s+\{"([^"]+)"', self.patch, re.M)
+        self.assertEqual([(scaler, name) for scaler, name in effects],
+                         [('normal', 'Sharp pixels'), ('hq', 'HQ2x'), ('advmame', 'Scale2x'), ('normal', 'Scanlines')])
+        self.assertNotIn('xBR"', self.patch)      # no mention of xBR in what the player sees
+        self.assertIn('"rr_scanlines"', self.patch)
+        self.assertIn('"pixel-perfect"', self.patch)
+        self.assertIn('ConfMan.flushToDisk();', self.patch)
+        for key in ('"scaler"', '"scale_factor"'):
+            self.assertIn(key, self.patch)
+
+    def test_the_text_table_follows_the_order_of_its_enum(self):
+        import re
+        enum = re.search(r'\+\s+(kTitle,[^\n]*?), kTextCount', self.patch)
+        self.assertIsNotNone(enum)
+        names = [name.strip() for name in enum.group(1).split(',')]
+        rows = list(dict.fromkeys(re.findall(r'^\+\t/\* (k\w+)\s*\*/\s+\{', self.patch, re.M)))     # one row may exist per platform
+        self.assertEqual(rows, names)
+
+    def test_screenshots_stay_in_the_games_folder(self):
+        self.assertIn('"screenshotpath"', self.patch)
+
+
 class NoModalWindow(unittest.TestCase):
     """The patch keeps every route to a modal window closed in a packed executable (checked headless on an invisible desktop
     with the real runtime; here, the text of the patch)."""

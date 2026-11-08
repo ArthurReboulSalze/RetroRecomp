@@ -38,7 +38,7 @@ class Nintendo64Profile(SystemProfile):
     quick_frames = 3600
     fallback_display = 'opcodes'
     stamp_groups = ('conversion_gates',)
-    path_spec = PathSpec(order=14, sections=(('vr4300', 'n64'),),
+    path_spec = PathSpec(order=15, sections=(('vr4300', 'n64'),),
                          source_bounds=(('cart', (0x101000, 64 * 1024 * 1024)),),
                          shapes=(('vr4300', 'n64', dict(roles=('cart',), caps={'insn': 262144, 'span': 65536},
                                                         windows=APERTURES, contained=True, length=(4, 4), length_align=4,

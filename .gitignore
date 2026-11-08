@@ -115,6 +115,7 @@ docs/*
 !docs/AMIGA.md
 !docs/ATARI_ST.md
 !docs/NINTENDO_64.md
+!docs/PLAYSTATION.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md

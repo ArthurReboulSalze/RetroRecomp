@@ -134,7 +134,7 @@ class ManifestTests(unittest.TestCase):
         # The reuse chains of the nine consoles of 1.6.2, now stated by the profiles.
         self.assertEqual(stamp_inputs.sharing('megadrive_codegen')[:3], ('md', 'x68', 'cps1'))
         self.assertEqual(sorted(stamp_inputs.sharing('conversion_gates')),
-                         sorted(('sms', 'gg', 'gb', 'nes', 'md', 'ng', 'x68', 'cps1', 'cps2', 'pce', 'amiga', 'atarist', 'n64')))  # the NES joined in 1.6.6, the CPS-2 and the PC Engine in 1.6.9, the Amiga in 1.7, the Atari ST in 1.7.1, the Nintendo 64 after
+                         sorted(('sms', 'gg', 'gb', 'nes', 'md', 'ng', 'x68', 'cps1', 'cps2', 'pce', 'amiga', 'atarist', 'n64', 'psx')))  # the NES joined in 1.6.6, the CPS-2 and the PC Engine in 1.6.9, the Amiga in 1.7, the Atari ST in 1.7.1, the Nintendo 64 after
         self.assertEqual(stamp_inputs.sharing('guns16')[:2], ('md', 'snes'))
         self.assertEqual(stamp_inputs.RR16_FAMILY[:4], ('md', 'snes', 'ng', 'cps1'))
         self.assertEqual(stamp_inputs.HOST_KIT_FAMILY[:8], ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'))

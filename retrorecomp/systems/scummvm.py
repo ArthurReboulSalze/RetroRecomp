@@ -18,7 +18,7 @@ class ScummvmProfile(SystemProfile):
     extensions = ()
     export_folder = 'ScummVM'
     video_modes = ('scummvm',)
-    status = 'experimental'
+    status = 'supported'     # the owner's decision of 7 November 2026; what that means here is written in docs/SCUMMVM.md
     scope_note = ('Emulated, 0 % native code, by design: ScummVM interprets the game. Games that need Ogg Vorbis, FLAC or '
                   'MP3 decoders (CD audio rips, compressed speech) are not supported yet.')
     emulated = 'ScummVM interprets the game; no CPU is recompiled and none will be: the native share is 0 by design.'
@@ -51,33 +51,39 @@ class ScummvmProfile(SystemProfile):
             return None
         return self if self.claims_folder(path) else None
 
-    def find_folders(self, root: Path) -> list[Path]:
+    def find_folders(self, root: Path, notice=None) -> list[Path]:
         """The game folders below `root`. Without the build tools (and no runtime built yet) detection cannot run: the
-        discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build."""
-        from ..scummvm_build import ScummvmToolsMissing
+        discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build. With them, `notice`
+        receives the sentence that says a build of the detection is starting (minutes, on a first use)."""
+        from ..scummvm_build import ScummvmBuildError, ScummvmToolsMissing
         from ..scummvm_export import find_game_folders
         from .registry import FolderDiscoveryUnavailable
         try:
-            return find_game_folders(Path(root))
+            return find_game_folders(Path(root), (lambda: notice('scummvm_preparing')) if notice else None)
         except ScummvmToolsMissing as exc:
             raise FolderDiscoveryUnavailable('scummvm_tools_missing', str(exc)) from exc
+        except ScummvmBuildError as exc:        # the detection runtime failed to build: say so, never a dead scan
+            raise FolderDiscoveryUnavailable('scummvm_detect_failed', str(exc)) from exc
 
     def claims_folder(self, folder: Path) -> bool:
         from ..core import ConversionError
-        from ..scummvm_build import ScummvmToolsMissing
+        from ..scummvm_build import ScummvmBuildError
         from ..scummvm_export import candidates_of
         try:
             return bool(candidates_of(Path(folder)))
-        except ScummvmToolsMissing as exc:
+        except ScummvmBuildError as exc:                   # tools missing, or the detection runtime failed to build
             raise ConversionError(str(exc)) from exc       # an error on that item, not a crash
 
     def read_rom(self, path: Path):
         from ..core import ConversionError
-        from ..scummvm_build import ScummvmToolsMissing
-        from ..scummvm_export import read_folder
+        from ..scummvm_build import ScummvmBuildError
+        from ..scummvm_export import ScummvmExportError, read_folder
+        if not Path(path).is_dir():
+            # The selection "Adventure (ScummVM)" hands every queued file here: an adventure is a folder, never one file.
+            raise ConversionError(f'An adventure game is a folder, not a file: {Path(path).name}')
         try:
             return read_folder(Path(path))
-        except ScummvmToolsMissing as exc:
+        except (ScummvmBuildError, ScummvmExportError) as exc:    # an error on that item, never a crash of the scan
             raise ConversionError(str(exc)) from exc
 
     def default_video_mode(self, path: Path) -> str:

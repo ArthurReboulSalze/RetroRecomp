@@ -94,6 +94,9 @@ UPSTREAM_CREDITS = (
     ('Nintendo 64', (
         ('libretro/mupen64plus-libretro-nx', 'https://github.com/libretro/mupen64plus-libretro-nx', 'credits_n64_machine'),
     )),
+    ('Sony PlayStation', (
+        ('libretro/beetle-psx-libretro', 'https://github.com/libretro/beetle-psx-libretro', 'credits_psx_machine'),
+    )),
     ('Adventure (ScummVM)', (
         ('scummvm/scummvm', 'https://github.com/scummvm/scummvm', 'credits_scummvm_engine'),
         ('freetype/freetype', 'https://github.com/freetype/freetype', 'credits_scummvm_font'),
@@ -107,6 +110,7 @@ UPSTREAM_CREDIT_NOTES = {
     'Commodore Amiga': 'credits_experimental',
     'Atari ST': 'credits_experimental',
     'Nintendo 64': 'credits_experimental',
+    'Sony PlayStation': 'credits_experimental',
     'Adventure (ScummVM)': 'credits_emulated',
 }
 

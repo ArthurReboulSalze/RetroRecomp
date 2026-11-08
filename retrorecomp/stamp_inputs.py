@@ -167,7 +167,8 @@ BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
 RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json',
                        # The ScummVM patch is applied byte for byte (-text) and the GPL text is pinned LF (.gitattributes).
-                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch', 'native/scummvm/LICENSE'))
+                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+                       'native/scummvm/patches/0002-retrorecomp-options-page.patch', 'native/scummvm/LICENSE'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -199,7 +200,10 @@ NOT_INPUTS = (
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
     # staged engine for a check, never into a game.
-    'native/gba_vector_checks/')
+    'native/gba_vector_checks/',
+    # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
+    # Beetle's cpu.c for a check, never into a game.
+    'native/psx_vector_checks/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -838,6 +842,7 @@ INPUTS = _resolve({
         'native/scummvm/LICENSE',
         'native/scummvm/README.md',
         'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+        'native/scummvm/patches/0002-retrorecomp-options-page.patch',
         'retrorecomp.scummvm_build',
         'retrorecomp.scummvm_export',
     ),
@@ -849,6 +854,25 @@ INPUTS = _resolve({
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_rom',
+    ),
+    # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
+    # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
+    ('psx',): (
+        'licenses/beetle-psx.md',
+        'native/psx_machine/CMakeLists.txt',
+        'native/psx_machine/psx_main.c',
+        'native/psx_machine/psx_observe.c',
+        'native/psx_machine/psx_reference.c',
+        'native/psx_machine/psx_session.c',
+        'native/psx_machine/psx_session.h',
+        'retrorecomp.psx',
+        'retrorecomp.psx_beetle',
+        'retrorecomp.psx_bios',
+        'retrorecomp.psx_build',
+        'retrorecomp.psx_conversion',
+        'retrorecomp.psx_disc',
+        'retrorecomp.psx_native',
+        'retrorecomp.psx_pack',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its

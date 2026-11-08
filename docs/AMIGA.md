@@ -39,10 +39,16 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    `.RTB` tables, which we neither make nor ship: the image keeps the addresses it was built for, and vAmiga's own writable-ROM
    mechanism (the A1000's WOM, left unlocked) is pointed at the copy, so the ROM window `$FC0000-$FFFFFF` and ExpMem are one set
    of bytes, read and written by both addresses (the slaves write into the image through its ROM addresses). The Kickstart's
-   instructions stay on the interpreter, counted apart in the report (`kickstart_interpreted` per route), and are never
-   observed, so no Kickstart byte reaches an observation file or the library. The image is copied only into the
+   code is native too (1.7.1): an observation of it keeps only the *addresses* of the instructions run (never a byte; the private
+   memory of that image keeps them in `converter-kickstart-addresses.txt`), and the conversion reads the words of each from the
+   player's own image, in memory, when it writes the guarded steps, so the generated source and the game built from it belong to
+   that player's image alone. What still runs on the interpreter (an instruction not reached in the observed runs, or one a
+   slave patched) is counted apart in the report (`kickstart_interpreted` and `kickstart_native` per route). The image is copied only into the
    conversion's private work folder and into the player's own export (resource 298), never into the repository, the library
    or a shared record; the report names it by numbers only. 256 KiB images (1.x) only for now.
+   **Memory beyond the slow RAM** (1.7.1): an ExpMem too large for the 1.5 MiB of slow RAM at `$C00000` goes to a fast RAM board
+   at `$200000` (up to 8 MiB; the slave area stays at `$C00000`), and the Kickstart copy and its ROM window follow it there; a
+   BaseMem above 1 MiB gets 2 MiB of chip RAM. CUSTOM1 to 5 come from the install's icon.
 3. **The machine.** The games run on the Amiga machine of [vAmiga](https://github.com/dirkwhoffmann/vAmiga) (Agnus, Denise, Paula,
    the CIAs, the floppy drive), pinned at one revision and adapted at build time by `retrorecomp/amiga_vamiga.py`, which drives it
    frame by frame inside the game. Its 68000 core, Moira, is the reference CPU of the Amiga profile.
@@ -56,8 +62,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    mouse and keyboard inputs, and at the Standard level a joystick exploration route, 3,000 frames each): the picture, sound, RAM
    and CPU registers of every frame and the resload calls must equal those of the fresh interpreted reference. So must the
    compressed copy that is delivered. A quick state saved by it is loaded by a fresh process, which must continue the same
-   timeline (CPU, RAM and picture; the sound samples after a load are not compared, because vAmiga does not save the state of its
-   audio resampler and filters). A conversion that fails any of these keeps the earlier export.
+   timeline (CPU, RAM, picture and the sound samples of every frame; vAmiga's snapshot leaves out the state of its sound path, so
+   the adapted core saves and restores the samplers' pending samples, the filters' memory and the volume ramps itself). A conversion that fails any of these keeps the earlier export.
 6. **Report.** The conversion report (schema v2, shape `amiga_conversion`) carries the interpreter fallback per CPU and keeps the
    five measures in separate objects.
 7. **Picture.** The game shows the display window the game opens, not the overscan border around it: the union of its
@@ -79,11 +85,11 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 4. Known limits
 
-- Kickstart installs whose slave loads the game's files through the operating system (the `Examine` flag), such as
-  Another World and 4D Sports Boxing, stop at boot (about frame 190): the slave's own operating-system emulation reports
-  that it cannot read the game's file for lack of memory (AmigaDOS error 103), before asking the resload layer for it.
-  The cause is not found yet; the conversion stops with that sentence. The five Kickstart installs validated so far
-  load from disk images or through the resload layer directly.
+- Of the 2,967 Amiga 500 installs of the maintainer's library that the profile can read, 1,180 carry the `Examine` flag
+  (their slave answers the game's file requests through its own operating-system emulation, which asks the resload layer
+  for each file's information) and 1,040 of those also ask for a Kickstart. Until 1.7.1 they stopped at boot with a
+  memory error (see UPGRADES); the fix is checked headless on eight of them, and through the converter on the ones listed
+  in section 3. The other Examine installs are not checked.
 - Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none
   played: section 1; no Kickstart install was converted on Linux). With a Kickstart, the operating system loads through the
   resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity limit, not claimed
@@ -91,7 +97,28 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
 - The slave is entered in the CPU state WHDLoad 20.1 gives it (supervisor, interrupt mask 0, marked registers), read once in a
   private run of the real WHDLoad; installs that depend on other WHDLoad behaviour stop with the reason in the report.
-- After a quick state is loaded, the sound samples are not bit-identical to an unbroken run (see Validation above).
+  CIA-B is left as the system leaves it (read on the real WHDLoad: DDRA `$C0`, DDRB `$FF`, no drive selected, motor off): the disk
+  lines are outputs, so a read of `$BFD100` gives back what the game wrote there. A slave that reads the side-select bit to know which
+  side of a disk the game asked for (Blood Money's does: 26 slaves of the library name `$BFD100`) otherwise reads the idle pin (1) and
+  loads the wrong tracks.
+- (1.7.1) After a quick state is loaded, the sound samples are bit-identical to an unbroken run on the games checked (Apidya, Zeewolf, Cyber Games, 200 frames each); a state saved by an earlier build is refused.
+- (1.7.1) Apidya's bee flickers, and is whole, cut to a thin strip or missing from frame to frame: the game draws it with the
+  blitter while the screen is being scanned. Compared with Copperline running the real WHDLoad (private, comparison only; the same
+  Apidya, the same joystick play): the scroll cadence (1 lores pixel every second frame) and the screen wipes agree frame for frame,
+  0.1 to 0.8 % of the playfield pixels differ (small moving objects), and the bee flickers on both with the same character, its pattern
+  differing from frame to frame as it depends on the exact timing. So it is the game's behaviour on this hardware model, not a defect of
+  the native steps (the interpreted run shows it too), of the display crop (nothing is drawn outside the shown window) or of the layer.
+  Does it depend on the machine's memory or timing settings? Same joystick play, 181 frames, each frame's picture compared with the
+  baseline's: **identical** with 512 KiB of slow RAM instead of our 1.5 MiB (the original configuration: chip 512 KiB plus 512 KiB slow;
+  Apidya has no ExpMem, so the fast RAM at `$200000` is not in play), with the slow-RAM delay off, with an OCS Agnus (8371) instead of
+  the ECS one, and with the collision detection on. Only the blitter's two less accurate modes change it (181 and 103 of 181 frames);
+  the machine runs the most accurate one (cycle-exact, vAmiga's default 2). A faster CPU changes the course of the game, so that run
+  cannot be compared and nothing is claimed from it. Whether a real Amiga 500 shows it as strongly is not measured here (hardware
+  fidelity is not claimed).
+- The chipset's collision detection (CLXCON/CLXDAT: sprite-sprite, sprite-playfield, playfield-playfield) is on since 1.7.1; vAmiga ships
+  it off for speed (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`), which would have hidden every collision from a game
+  that reads CLXDAT. Apidya reads it never (0 reads in 1,700 frames); Blood Money does (36 reads over the 2,500 frames of the standard
+  route, and its RAM then differs from frame 859 of that route with the detection on).
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

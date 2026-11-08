@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026)
 
 ### Progress through the qualification list
 
@@ -64,27 +64,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
+| Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | 🟡 |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | 🟡 | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | 🟡 | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -94,26 +95,27 @@ console's status is never a threshold of this bar: leaving the experimental stat
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
-x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64.
+x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64,
+psx = Sony PlayStation.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | P |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? |
-| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? | ? |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? | P | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | P | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? | P |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | P |
+| G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? | ? | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -134,6 +136,7 @@ The page of each console, which the README links its line to (a console of the m
 | amiga | [AMIGA.md](AMIGA.md) |
 | atarist | [ATARI_ST.md](ATARI_ST.md) |
 | n64 | [NINTENDO_64.md](NINTENDO_64.md) |
+| psx | [PLAYSTATION.md](PLAYSTATION.md) |
 
 </details>
 
@@ -144,10 +147,13 @@ The page of each console, which the README links its line to (a console of the m
   conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
   interpreted on a route (on 6 November Operation Stealth and Captain Blood stayed on the GEM desktop, whose line-F calls go to
   Hatari's illegal-instruction handler and stay interpreted), 0 to 3 elsewhere; with EmuTOS 1.4, the default, 4 to 6 on every game,
-  and 75 to 887 on the two games the desktop now starts (Hatari's GEMDOS traps). G4 `P`: every route of every conversion is identical, frame by
-  frame, to a fresh interpreted reference. G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
+  and 75 to 1,065 on the two games the desktop now starts (Hatari's GEMDOS traps). G4 `P`: every route of every conversion is identical, frame by
+  frame, to a fresh interpreted reference. (Until 7 November the joystick events of the routes did not reach the machine, a port swap of Hatari's frontend; they do now,
+  and a live check with real SDL keys and a virtual gamepad on the converted Bomb Jack proves the controls; the owner's play trial of
+  7 November, on the nine reconverted games, found the gamepad control working: a trial of the controls, not an exit and not a
+  gameplay validation.) G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
   fresh process (CPU, RAM and picture; the sound samples are not compared) on the ten games; a state saved while a disk is being read
-  is not yet known to continue exactly. G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
+  is not yet known to continue exactly, and Turrican II saved in a level with its music running differs in registers and RAM (not in its picture). G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
   fixtures through Hatari's cycle-exact 68000 and through the native steps (`tools/atarist_vector_selftest.py`): state agreement on
   every vector run except two divisions by zero whose flags the 68000 leaves undefined; clock differences explained by the ST's
   4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
@@ -195,18 +201,21 @@ The page of each console, which the README links its line to (a console of the m
   `release_check.py` was not run. G5 `P`: the packed players run 600 frames hidden with return code 0; not the packed replay of the tools.
   G6 `P`: a quick state saved and loaded in the same process gives the same picture; no fresh-process check. G7 `P`: the four authored
   save tests pass and the battery file is written; no game save was loaded back by a check of ours. G8 `P`: six packed players draw and
-  play sound for 600 frames; G12 `P`: that is the panel (six, not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
+  play sound for 600 frames; G12 `P`: that is the panel (six cartridges, and four more on 7 November 2026 with no interpreted instruction on the scenarios; not the owner's perimeter). G11 `P`: the authored hardware tests (jsmolka,
   MIT) pass with the staged patches; no external emulator. G14 `P`: the owner played the delivered Sonic Advance on 5 November 2026 and
-  then the series of delivered cartridges on 6 November 2026 ("it works perfectly"); play trials of the exports, not a decision to
+  then the series of delivered cartridges on 6 November 2026 ("it works perfectly"), and the rebuilt Golden Sun and Minish Cap with
+  guarded native RAM code on 7 November 2026 ("it works perfectly"); play trials of the exports, not a decision to
   leave the experimental status. G10 is `P`: `tools/gba_vector_selftest.py` runs SingleStepTests/ARM7TDMI (a model's behaviour, not
   hardware) on the patched engine, 93.96 % of the interpreter's 2,250,000 vectors and 91.08 % of a sample of 45,000 for the generated
-  code, the rest being coprocessor instructions (not in generated code), multiply carries and R15 operands, plus a tail of 385 and 11
-  `LDM`/`STM`/`PUSH`/`POP` failures not yet explained. G11 also rests on `tools/gba_hardware_selftest.py`: the eight self-checking
+  code, the rest being coprocessor instructions (not in generated code), multiply carries and R15 operands, and a tail of 385 and 11 that
+  was decoded on 7 November 2026 and is two classes: ARM `LDM`/`STM` with the user-bank bit and write-back in a banked mode (unpredictable in the
+  architecture) and Thumb block transfers with an empty register list (a hardware behaviour the engine does not model); unexplained: 0. G11 also rests on `tools/gba_hardware_selftest.py`: the eight self-checking
   authored suites pass. G13 is `P` (6 November 2026): the same six cartridges were converted on a Debian 13 PC from the tree to merge (the commit
   `31e39aee` plus `linux = 'witnessed'` as the only change; the commit between is a documents page), three passes from an empty library: on both
   scenarios the generated code equals the engine's interpreter, and the final picture hash and the guest's cycle count equal the Windows ones, 12
-  scenario runs of 12 ([the section of the page](GAME_BOY_ADVANCE.md#the-linux-witness-of-the-six-cartridges-6-november-2026)). The Linux player was
-  not played and not timed.
+  scenario runs of 12 ([the section of the page](GAME_BOY_ADVANCE.md#the-linux-witness-of-the-six-cartridges-6-november-2026)). On 7 November 2026 the Linux players of Golden Sun and Metroid Fusion
+  were also run under Xvfb with the key script of the Windows runs: the picture at frame 1,800 and the sound counts equal the Windows ones (a scripted run, which the owner
+  accepted as the G13 witness; nobody heard the sound).
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
@@ -655,12 +664,36 @@ fidelity, gameplay coverage or latency; the owner's play trial of eight games is
 | G15 | P | Nothing is claimed beyond "native equals the engine's interpreter": all five measures are kept apart in [PC_ENGINE.md](PC_ENGINE.md) | A read of the interface and the exported game |
 | G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
 
+## Sony PlayStation: evidence behind its column (8 November 2026)
+
+The PlayStation is **experimental since 1.7.1** ([PLAYSTATION.md](PLAYSTATION.md)): the panel of ten discs was converted once on 8 November 2026 on Windows with the
+players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency.
+
+| Gate | PlayStation | Evidence | What is missing |
+|---|---|---|---|
+| G1 | P | `retrorecomp/systems/psx.py` (status `experimental`), [PLAYSTATION.md](PLAYSTATION.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | No owner decision |
+| G2 | P | `retrorecomp/psx_conversion.py` goes through `report_schema.write_report`: native and interpreted instructions per route, the fetches that run no instruction apart, `latency_ms: null` | Scenario sections are filled for the routes played only |
+| G3 | P | On the two routes of each of the ten discs the interpreter ran 0.0003 % (Ape Escape, WipEout 2097) to 0.0131 % (Soul Reaver) of the instructions at most; Tobal No. 1, an eleventh disc, 0.0165 % | Only the code the routes ran is native: code seen for the first time runs on the interpreter, counted. No whole-game claim |
+| G4 | P | The published game equals the observing build, which runs the core's interpreter alone, on every frame of every route (picture, sound, RAM) on the ten discs | Agreement with Beetle's interpreter, not with a real R3000A |
+| G5 | P | The routes above are played by the published executable, disc inside and not compressed, against a fresh reference | No replay on a second machine of the same file |
+| G6 | P | F8/F9 continue the saved timeline in a fresh process for 600 frames on the play route of the ten discs; a truncated state is refused | A longer continuation; corrupted-state cases other than a truncated file |
+| G7 | P | The first memory card is written to `datas/saves` beside the game, atomically, and read back at start | No check saves in a game and reads it back after a restart; the second card port is off |
+| G8 | P | Every route must show a moving picture; the report gives picture changes and audible frames | Only routes of 3,600 and 3,900 frames, and they show little: Hi-Octane's attract picture stops changing after frame 1,537, Ape Escape's play route ends on a dark screen after its "DUALSHOCK required" notice, without gameplay |
+| G9 | ? | Not measured: the long routes of the higher levels exist and were not run on the panel | |
+| G10 | P | `tools/psx_vector_selftest.py` on 8 November 2026: SingleStepTests/r3000, generated from ares's interpreter (55,000 of 55,000 on the core's interpreter, 55,000 of 55,000 on the native steps), and the GTE vectors of JaCzekanski/ps1-tests (1,150 of 1,150); the check of the check corrupts vectors and sees it on each path | The CPU vectors come from a model, not silicon, and hold no COP0 or GTE instruction; the GTE values come from a console according to their author and run on the GTE directly, not through a COP2 step |
+| G11 | ? | No independent hardware comparison | |
+| G12 | P | Ten discs with different risks, none dropped: Ape Escape, Crash Bandicoot, Final Fantasy VII (3 discs), Hi-Octane (PAL, CloneCD), Metal Gear Solid (2 discs), R4 (NTSC-J), Soul Reaver, Symphony of the Night, Tomba!, WipEout 2097 (PAL, CUE). Hi-Octane stands in for Soul Blade, which the owner's library does not hold. All convert and pass the checks above | A broader panel. Routes reach a title screen, an intro, a menu or a first level, not the depth of a game |
+| G13 | P | Ape Escape converted on a Debian 13 PC with the system GCC (14.2) on 8 November 2026: on both routes the native, interpreted and unrun counts, the picture, sound and trace hashes and the native-step digest equal the Windows run's; controls and F8/F9 pass there too | One disc, as chosen; a quick state is not compared across systems; no game played on Linux |
+| G14 | ? | The owner tried Tobal No. 1 during development (8 November 2026: playable, then crackles, whose fix he has not confirmed by ear): a trial, not an acceptance | His decision; a play test of the panel |
+| G15 | P | Nothing is claimed beyond "native equals the core's interpreter"; the five measures are kept apart in [PLAYSTATION.md](PLAYSTATION.md) and in the report (`honesty`) | A read of the interface and the exported game |
+| G16 | - | The PlayStation shares no paths; it is not in `SHARED_SYSTEMS` (its runtime hints stay on the player's PC) | |
+
 ## Panel sizes
 
 No common panel size exists today. The panel sizes noted by the 27 October
 2026 inventory are: Neo Geo 24+10, Mega Drive 24+8, Super Nintendo DSP-1/CX4
 8, Super FX 9, NES 8+10+8+6, Game Boy 606, Master System 258, CPS-1 26,
-X68000 21 (19 before 2 November 2026). Whether G12 needs a common threshold is a policy decision that has
+X68000 21 (19 before 2 November 2026), PlayStation 10. Whether G12 needs a common threshold is a policy decision that has
 not been recorded; for CPS-1 the owner chose, on 1 November 2026, "every set of the perimeter he owns".
 
 ### Sharp X68000: the panel (2 November 2026)

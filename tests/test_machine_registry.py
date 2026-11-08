@@ -45,16 +45,17 @@ DECLINED = {
     # Random long routes: the X68000 plays routes of its own (x68000_scan.long_routes), in its own script format.
     # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
     # The Amiga plays routes of its own too (joystick, mouse and keyboard scripts of amiga_conversion).
+    # The PlayStation (in development) has no pad script writer yet: its routes come with its conversion.
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
     # The Nintendo 64 too (n64_conversion.main_route / explore_route: pad buttons and analog stick events in its own script format).
-    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64'},
+    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64', 'psx'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
     # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
-    'memory_view': {'cps1', 'cps2', 'pce', 'gba'},
+    'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
@@ -238,7 +239,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if not emulated and (system not in campaign.DEFAULT_FOLDERS or not set(campaign.EXTENSIONS.get(system, ())) & read):
         add('tools/campaign.py (DEFAULT_FOLDERS, EXTENSIONS) does not know the console')
     cases = json.loads(_text('tools/campaign-risk-cases.json'))['consoles']
-    if system not in cases and profile.status == 'supported':
+    if system not in cases and profile.status == 'supported' and not emulated:      # an emulated category has no risk case
         add('tools/campaign-risk-cases.json has no list for the console (an experimental machine may have none yet)')
     if not emulated and (system not in std_baseline.SYSTEMS or system not in std_baseline.CONSOLE_OPTIONS):
         add('tools/std_baseline.py (SYSTEMS, CONSOLE_OPTIONS) does not know the console')
@@ -256,6 +257,12 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if profile.status == 'supported':
         if profile.linux != 'witnessed':
             add('supported: the conversion must be witnessed on Linux (linux = "witnessed")')
+        if emulated:
+            # An emulated category has no path to share, no risk case and no matrix column: its criteria are written in its own page.
+            page = _text(f'docs/{profile.id.upper()}.md')
+            if '## What "supported" means here' not in page:
+                add('supported and emulated: docs/<MACHINE>.md must have a section \'What "supported" means here\'')
+            return problems
         if system not in path_profiles.SHARED_SYSTEMS:
             add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS')
         # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.

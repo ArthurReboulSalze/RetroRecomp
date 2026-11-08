@@ -24,6 +24,7 @@ retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
@@ -31,8 +32,12 @@ licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
-native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch
+native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch native/scummvm/patches/0002-retrorecomp-options-page.patch
 licenses/scummvm.md licenses/freetype.md tools/build_scummvm_source_archive.py tests/test_scummvm_export.py
+retrorecomp/psx.py retrorecomp/psx_bios.py retrorecomp/psx_disc.py retrorecomp/systems/psx.py
+tests/test_psx_disc.py tests/test_psx_pack.py tests/test_psx_native.py tests/test_psx_adapter.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
+native/psx_machine/CMakeLists.txt native/psx_machine/psx_session.c native/psx_machine/psx_session.h native/psx_machine/psx_reference.c
+native/psx_machine/psx_main.c native/psx_machine/psx_observe.c retrorecomp/psx_native.py retrorecomp/psx_build.py native/hostkit/adapters/rrhk_psx.c retrorecomp/psx_conversion.py
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
@@ -82,7 +87,7 @@ retrorecomp/amiga_codegen.py retrorecomp/amiga_conversion.py retrorecomp/amiga_k
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
-tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_whdload.py
+tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py docs/ATARI_ST.md
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h

@@ -36,7 +36,10 @@ class DefaultsOffTests(unittest.TestCase):
         # The 3D machines are the ones that declare them (decision D14); every other adapter leaves them out.
         declaring = {'rrhk_n64.inc': ('.analog_sticks', '.trigger_buttons', '.gfx_options', '.gfx_option_count', '.gfx_apply',
                                       '.pixel_pitch', '.rumble')}
+        # The PlayStation, for which they were made, declares them (tests/test_psx_adapter.py checks its table).
         for path in (KIT / 'adapters').iterdir():
+            if path.name == 'rrhk_psx.c':
+                continue
             text = path.read_text(encoding='utf-8')
             for field in fields:
                 if field in declaring.get(path.name, ()):

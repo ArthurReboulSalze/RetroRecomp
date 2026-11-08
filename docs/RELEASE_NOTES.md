@@ -1,3 +1,45 @@
+# RetroRecomp v1.7.1 — Adventure games (ScummVM) are supported, with a Retro-Recomp options page, picture effects and keys in the game
+
+- **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that
+  the category is no longer experimental. The profile says `supported`, the report and
+  the window say it, in the eight languages, and the display still says **"emulated,
+  0 % native"**: ScummVM interprets the game, nothing is recompiled, and that never
+  becomes a goal or a gap. The qualification matrix is made for recompiled machines, so
+  the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here):
+  ScummVM's own detection, the owner's play trial (ten prototype executables of eight
+  engine families on 6 November 2026, and the converter's own Lure of the Temptress
+  played several times on 7 November), Windows built and a Linux witness on one small
+  game, no window of the system, the options page, the written offer of the GPL source,
+  and the limits (no Ogg Vorbis, FLAC or MP3 decoder yet). Nothing is claimed beyond what
+  was played: no list of compatible games, no CPU or hardware fidelity, no measured latency.
+- **In the game.** Ctrl+F2 opens ScummVM's options on a Retro-Recomp page (menu language
+  in the five game-menu languages, full screen, scaling, aspect ratio, volumes, mute),
+  Ctrl+F1 on its Help tab, which lists every key; Ctrl+F5 stays ScummVM's own menu.
+  Ctrl+F3 cycles the picture effects in the order of the host kit's F3 (sharp pixels,
+  HQ2x, Scale2x, and the host kit's own scanlines, drawn after the scaling), Ctrl+F4
+  switches pixel-perfect full screen. What you choose is kept in
+  `datas/Retro-Recomp.ini` and applies to every adventure executable of the folder. A
+  three-second message at the start says where the help and the menu are, and the
+  on-screen messages use Retro-Recomp's colours. On Windows ScummVM quits with Ctrl+Z or
+  Alt+F4 (Ctrl+Q on Linux).
+- **Folders in the window.** Adding a game folder from the window (Add folder, or a drop) now
+  works for every adventure game, in Automatic and in Adventure (ScummVM): the files inside a
+  game folder that ScummVM recognises are that game's data, not cartridges. A game whose data
+  has `.bin` files used to leave the queue empty with the Adventure (ScummVM) selection, or
+  fill it with one error row per data file. A reader that fails is one row in error, never a
+  scan that stops in silence, a folder that adds nothing says so in the log, and a detection that
+  cannot be built says so too (all in the eight languages). The command line `batch` uses the same discovery.
+- **ScummVM in the packaged converter.** Retro-Recomp.exe looked for ScummVM's build in its own temporary
+  folder, removed when it closes: dropping a game folder fetched and compiled ScummVM again at every launch,
+  with nothing on screen, and looked like an endless scan (1.7.0 too). The build now lives in `.deps` beside the
+  converter and is made once. While it runs the window says so, in the status line and the log (eight languages);
+  its first time takes several minutes. Closing the window during the download no longer leaves a broken checkout.
+- **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
+  `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
+  changes, so no other export is converted again.
+  An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
+  effects until it is converted again.
+
 # RetroRecomp v1.7.0 — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
 
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November

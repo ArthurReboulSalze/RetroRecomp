@@ -224,10 +224,15 @@ Mupen64Plus-Next with the ParaLLEl renderer, which needs a graphics card with Vu
 and the rest is counted as interpreted; CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures that are
 not claimed ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)). The 64DD and the Transfer Pak are not supported yet; on Linux two games were converted headless and none was played.
 
-**Adventure (ScummVM)** is a category of its own, experimental (since 1.7.0): a game folder that ScummVM's own detection
+**Adventure (ScummVM)** is a category of its own, supported since 1.7.1 ([what that means here](SCUMMVM.md#what-supported-means-here)): a game folder that ScummVM's own detection
 recognises becomes one executable holding the whole game, with ScummVM as its runtime. It is emulated and 0 % native by design;
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
+
+The **Sony PlayStation** profile is experimental since 1.7.1 ([status](PLAYSTATION.md)): a conversion makes a
+playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
+is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
+pad) and its checks are on [its page](PLAYSTATION.md).
 
 ## Local game regression set
 

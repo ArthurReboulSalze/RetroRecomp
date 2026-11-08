@@ -185,11 +185,35 @@ class WindowsDropTests(unittest.TestCase):
 
     def test_inaccessible_folder_does_not_discard_other_dropped_files(self):
         path = self.fixture('a.sms', bytes(8192))
-        with patch_gui('discover_roms', side_effect=PermissionError('denied')):
+        with patch_gui('discover_games', side_effect=PermissionError('denied')):
             self.send_drop(self.app.table, [self.folder, path])
             self.settle()
         self.assertEqual(len(self.app.items), 1)
         self.assertIn(tr('drop_unreadable', 'en'), self.app.log.get('1.0', 'end'))
+
+    def test_a_long_step_of_the_scan_is_said_while_it_runs(self):
+        """The scan that has to build a machine's detection: the status and the log say it at once, not at the end."""
+        import threading
+        import time
+        release = threading.Event()
+
+        def discover(path, unavailable, notice):
+            notice('scummvm_preparing')
+            release.wait(20)
+            return [], []
+
+        with patch_gui('discover_games', side_effect=discover):
+            self.send_drop(self.app.table, [self.folder])
+            deadline = time.monotonic() + 20
+            while self.app.status_key != 'scummvm_preparing' and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(0.01)
+            self.assertEqual(self.app.status_key, 'scummvm_preparing')
+            self.assertTrue(self.app.importing)
+            self.app.drain()
+            self.assertIn(tr('scummvm_preparing', 'en'), self.app.log.get('1.0', 'end'))
+            release.set()
+            self.settle()
 
 
 if __name__ == '__main__':

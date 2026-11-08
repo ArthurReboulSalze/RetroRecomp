@@ -128,6 +128,14 @@ PCENGINERECOMP = Upstream(
     'the MIT PCECD_seek notice it carries: licenses/pcenginerecomp.md)',
     'the Python analysis and emitter and the C++ pce-runtime, fetched at the pin when a conversion needs them (no copy in the repository)',
     _py('retrorecomp/pce_conversion.py', 'ENGINE_REV'), checkout='pcenginerecomp')
+BEETLE_PSX = Upstream(
+    'beetle-psx-libretro', 'libretro/beetle-psx-libretro', 'master',
+    'PlayStation machine (derived from Mednafen): R3000A interpreter, GTE, GPU software renderer, SPU, CD-ROM, MDEC, pads, cards',
+    'GPL-2.0-or-later for the files that say so, GPL v2 for the rest: the game executable is GPL-2.0-only as a whole '
+    '(licenses/beetle-psx.md); OpenBIOS inside is MIT',
+    'the software-rendered machine (no EBOOT reader, no lightrec, no hardware renderer), fetched at the pin when a conversion '
+    'needs it and compiled into the game (no copy in the repository)',
+    _py('retrorecomp/psx_beetle.py', 'BEETLE_REV'), checkout='beetle-psx')
 GEOLITH = Upstream(
     'geolith-libretro', 'libretro/geolith-libretro', 'master',
     'Neo Geo hardware runtime; its Musashi 68000 is the reference CPU of Neo Geo, CPS-1 and X68000', 'BSD-3-Clause',
@@ -290,6 +298,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The Nintendo 64 runs on Mupen64Plus-Next; its native blocks call the core's own instruction functions.
     'n64': (MUPEN64PLUS_NEXT,),
     'scummvm': (SCUMMVM, FREETYPE),
+    'psx': (BEETLE_PSX,),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}
