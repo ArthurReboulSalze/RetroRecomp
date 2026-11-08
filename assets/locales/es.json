@@ -207,6 +207,7 @@
     "credits_own_pce": "PC Engine: la integración del motor pcenginerecomp, con su módulo nativo protegido, su informe y sus comprobaciones.",
     "credits_own_gba": "Game Boy Advance: la integración del motor gbarecomp, con la comprobación de la BIOS propia del jugador, las rutas aprendidas en las ejecuciones, su informe y sus comprobaciones.",
     "credits_own_amiga_scummvm": "Commodore Amiga y Aventura (ScummVM): los servicios de WHDLoad atendidos por nuestro propio código y el Kickstart del jugador integrado en la exportación; un ejecutable por juego de aventuras, con el juego leído desde dentro del propio ejecutable.",
+    "credits_own_cores": "Atari ST, Nintendo 64 y PlayStation: pasos nativos para la CPU principal, escritos a partir de lo que cada juego ejecutó y que llaman al código de instrucciones de los núcleos citados arriba, con su código de unión, la comparación con el intérprete de cada núcleo y sus comprobaciones.",
     "credits_license": "Algunos componentes tienen condiciones no comerciales. Lee sus licencias antes de reutilizarlos.",
     "credits_notices": "Licencias y avisos incluidos",
     "upx_source_link": "Código fuente de UPX ↗",

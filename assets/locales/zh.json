@@ -207,6 +207,7 @@
     "credits_own_pce": "PC Engine：集成 pcenginerecomp 引擎，含其受保护的原生部件、报告与校验。",
     "credits_own_gba": "Game Boy Advance：集成 gbarecomp 引擎，含对玩家自有 BIOS 的校验、由运行学得的路径、报告与校验。",
     "credits_own_amiga_scummvm": "Commodore Amiga 与 ScummVM 游戏：WHDLoad 的服务由我们自己的代码提供，玩家的 Kickstart 嵌入导出文件；每个游戏一个可点击的可执行文件，游戏从可执行文件内部读取。",
+    "credits_own_cores": "Atari ST、Nintendo 64 和 PlayStation：根据每款游戏实际运行的内容写出的主 CPU 原生步骤，调用上文所列核心的指令代码，并包含连接代码、与各核心解释器的比较及检查。",
     "credits_license": "部分上游组件仅限非商业用途。复用前请阅读其许可声明。",
     "credits_notices": "内置许可与声明",
     "upx_source_link": "UPX 源代码 ↗",

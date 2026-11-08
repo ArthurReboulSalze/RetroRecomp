@@ -207,6 +207,7 @@
     "credits_own_pce": "PC エンジン：pcenginerecomp エンジンの統合、保護されたネイティブモジュール、レポート、検証。",
     "credits_own_gba": "Game Boy Advance：gbarecomp エンジンの統合、プレイヤー自身の BIOS の検証、実行から学んだ経路、レポート、検証。",
     "credits_own_amiga_scummvm": "Commodore Amiga とアドベンチャー（ScummVM）：WHDLoad のサービスを自前のコードで提供し、プレイヤーの Kickstart を書き出しに埋め込む。アドベンチャーごとにクリックで起動できる実行ファイルが 1 つあり、ゲームは実行ファイルの中から読み込まれる。",
+    "credits_own_cores": "Atari ST、Nintendo 64、PlayStation：各ゲームの実行内容から書き出すメイン CPU のネイティブステップ。上記のコアの命令コードを使い、接続コード、各コアのインタプリタとの比較、検証を含む。",
     "credits_license": "一部の上流コンポーネントには非商用条件があります。再利用前に各ライセンスを確認してください。",
     "credits_notices": "同梱ライセンス・著作権表示",
     "upx_source_link": "UPXソースコード ↗",
