@@ -1,18 +1,28 @@
 """Native ELF resources, linked directly as bytes rather than compiled C arrays."""
+from io import BytesIO
 from pathlib import Path
 import json
 import os
+from .conversion_common import write_if_changed
 from .paths import ASSETS
 
 
 def embed_resources(project: Path, resources: dict[int, Path]) -> None:
     if os.name == 'nt':
         return
+    write_embedding(project, resources)
+
+
+def write_embedding(project: Path, resources: dict[int, Path]) -> None:
+    """The window icon and the two files that link `resources` into the program. A file that would not change keeps its
+    timestamp, so preparing a game again rebuilds and relinks nothing."""
     from PIL import Image
     icon=project/'game-icon.png'
     if not icon.is_file():icon=ASSETS/'assets/Retro-Recomp-icon-256.png'
     bitmap=project/'embedded-window-icon.bmp'
-    with Image.open(icon) as image:image.convert('RGBA').save(bitmap,format='BMP')
+    picture=BytesIO()
+    with Image.open(icon) as image:image.convert('RGBA').save(picture,format='BMP')
+    write_if_changed(bitmap,picture.getvalue())
     resources={101:bitmap,**resources}
     assembly=['.section .rodata',' .balign 16']
     source=['#include "embedded_resources.h"']
@@ -29,5 +39,5 @@ def embed_resources(project: Path, resources: dict[int, Path]) -> None:
     assembly.append('.section .note.GNU-stack,""')
     source.insert(0,'#include <stdint.h>')
     source += ['const void *rr_resource(unsigned id,size_t *size){switch(id){',*cases,'default:*size=0;return NULL;}}']
-    (project/'embedded_resources.S').write_text('\n'.join(assembly)+'\n',encoding='utf-8')
-    (project/'embedded_resources.c').write_text('\n'.join(source)+'\n',encoding='utf-8')
+    write_if_changed(project/'embedded_resources.S',('\n'.join(assembly)+'\n').encode('utf-8'))
+    write_if_changed(project/'embedded_resources.c',('\n'.join(source)+'\n').encode('utf-8'))
