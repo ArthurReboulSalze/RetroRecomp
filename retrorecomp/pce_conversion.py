@@ -180,8 +180,21 @@ def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *e
     return result
 
 
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of a quick state (native/console16_state.c: magic, version, system, region, size, checksum, ROM
+    identity, ABI, then the payload), by what is wrong with them: the game must refuse every one (exit 4)."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:40], 'one-byte-short': state[:-1], 'body-cut': state[:len(state) // 2],
+            'magic': flipped(0), 'version': flipped(8), 'system': flipped(12), 'size': flipped(20), 'checksum': flipped(24),
+            'rom': flipped(32), 'abi': flipped(96), 'payload': flipped(len(state) - 1), 'not-a-state': b'not a state.' * 4096}
+
+
 def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
-    """F8 at a frame, F9 in a fresh process: the continued timeline must match; a damaged state is refused (exit 4)."""
+    """F8 at a frame, F9 in a fresh process: the continued timeline must match; every damaged state is refused (exit 4)
+    and left as it was; loading a missing state is refused and creates nothing."""
     from .conversion_common import spawn
     from .conversion_gates import continuation_difference, require
     at = max(60, frames - STATE_SETTLE - 60)
@@ -192,13 +205,24 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
     resumed = (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:]
     require(continuation_difference(rows, resumed, at, STATE_SETTLE) is None,
             lambda: ConversionError('PC Engine F9 continuation differs from its saved timeline; existing export preserved.'))
-    invalid = folder / 'invalid.rrstate'
-    invalid.write_bytes(state.read_bytes()[:-17])
-    rejected = spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
-                     cwd=folder, timeout=120, capture_output=True)
-    require(rejected.returncode == 4, lambda: ConversionError('PC Engine accepted a truncated quick state.'))
+    def refused(path: Path) -> bool:
+        return spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(path)],
+                     cwd=folder, timeout=120, capture_output=True).returncode == 4
+    original = state.read_bytes()
+    damaged = damaged_states(original)
+    for label, data in damaged.items():
+        invalid = folder / f'invalid-{label}.rrstate'
+        invalid.write_bytes(data)
+        require(refused(invalid), lambda: ConversionError(f'PC Engine accepted a damaged quick state ({label}).'))
+        require(invalid.read_bytes() == data,
+                lambda: ConversionError(f'PC Engine rewrote a quick state it refused ({label}).'))
+    missing = folder / 'missing.rrstate'
+    missing.unlink(missing_ok=True)
+    require(refused(missing), lambda: ConversionError('PC Engine accepted a missing quick state.'))
+    require(not missing.exists(), lambda: ConversionError('Loading a missing quick state created a file.'))
     return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
-            'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
+            'truncated_state_rejected': True, 'damaged_states_refused': sorted(damaged),
+            'missing_state_creates_nothing': True, 'state_bytes': len(original)}
 
 
 def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):

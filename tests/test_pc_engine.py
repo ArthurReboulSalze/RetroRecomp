@@ -685,6 +685,77 @@ class MissingFilesTests(TempFiles):
             step.assert_not_called()
 
 
+class QuickStateCheckTests(TempFiles):
+    """pce_conversion.check_states on a fake game: every damaged state must be refused and left alone."""
+
+    STATE = bytes(range(256)) * 16
+
+    def check(self, *, accepts=(), rewrites=(), creates_missing=False):
+        frames = 1200
+        expected = self.root / 'expected.csv'
+        rows = ['frame,cpu,ram,image,pcm,samples'] + [f'{n},a,b,c,d,1' for n in range(frames)]
+        expected.write_text('\n'.join(rows) + '\n', encoding='ascii')
+        folder = self.root / 'states'
+        folder.mkdir()
+
+        def run(executable, where, name, count, script, *extra, ends_at=None):
+            if name == 'save':
+                (where / 'quick.rrstate').write_bytes(self.STATE)
+            else:
+                (where / 'load.csv').write_text('\n'.join(rows) + '\n', encoding='ascii')
+            return {}
+
+        seen = []
+
+        def spawn(command, **_):
+            path = Path(command[command.index('--load-state') + 1])
+            seen.append(path.name)
+            if path.name in rewrites:
+                path.write_bytes(b'rewritten')
+            if creates_missing and path.name == 'missing.rrstate':
+                path.write_bytes(b'')
+            return mock.Mock(returncode=0 if path.name in accepts else 4)
+
+        with mock.patch.object(pce_conversion, 'run', run), \
+                mock.patch('retrorecomp.conversion_common.spawn', spawn), \
+                mock.patch('retrorecomp.conversion_gates.continuation_difference', return_value=None):
+            result = pce_conversion.check_states(Path('game.exe'), folder, 'play', frames, Path('s.txt'), expected)
+        return result, seen
+
+    def test_every_damaged_state_and_a_missing_one_are_tried(self):
+        result, seen = self.check()
+        damaged = pce_conversion.damaged_states(self.STATE)
+        self.assertEqual({f'invalid-{name}.rrstate' for name in damaged} | {'missing.rrstate'}, set(seen))
+        self.assertEqual(sorted(damaged), result['damaged_states_refused'])
+        self.assertTrue(result['truncated_state_rejected'])
+        self.assertTrue(result['missing_state_creates_nothing'])
+        self.assertEqual(len(self.STATE), result['state_bytes'])
+
+    def test_each_case_really_is_damaged(self):
+        for name, data in pce_conversion.damaged_states(self.STATE).items():
+            with self.subTest(name):
+                self.assertNotEqual(self.STATE, data)
+
+    def test_a_damaged_state_that_is_accepted_stops_the_conversion(self):
+        for name in pce_conversion.damaged_states(self.STATE):
+            with self.subTest(name), tempfile.TemporaryDirectory() as folder:
+                self.root = Path(folder)
+                with self.assertRaisesRegex(ConversionError, name):
+                    self.check(accepts={f'invalid-{name}.rrstate'})
+
+    def test_a_refused_state_that_is_rewritten_stops_the_conversion(self):
+        with self.assertRaisesRegex(ConversionError, 'rewrote'):
+            self.check(rewrites={'invalid-payload.rrstate'})
+
+    def test_a_missing_state_that_is_accepted_or_created_stops_the_conversion(self):
+        with self.assertRaisesRegex(ConversionError, 'accepted a missing'):
+            self.check(accepts={'missing.rrstate'})
+        with tempfile.TemporaryDirectory() as folder:
+            self.root = Path(folder)
+            with self.assertRaisesRegex(ConversionError, 'created a file'):
+                self.check(creates_missing=True)
+
+
 class StateConfigTests(TempFiles):
     def config(self, title='Synthetic Game'):
         return pce_build.state_config(read_hucard(self.write(card(16))), title)
