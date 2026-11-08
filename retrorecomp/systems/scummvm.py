@@ -54,30 +54,35 @@ class ScummvmProfile(SystemProfile):
     def find_folders(self, root: Path) -> list[Path]:
         """The game folders below `root`. Without the build tools (and no runtime built yet) detection cannot run: the
         discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build."""
-        from ..scummvm_build import ScummvmToolsMissing
+        from ..scummvm_build import ScummvmBuildError, ScummvmToolsMissing
         from ..scummvm_export import find_game_folders
         from .registry import FolderDiscoveryUnavailable
         try:
             return find_game_folders(Path(root))
         except ScummvmToolsMissing as exc:
             raise FolderDiscoveryUnavailable('scummvm_tools_missing', str(exc)) from exc
+        except ScummvmBuildError as exc:        # the detection runtime failed to build: say so, never a dead scan
+            raise FolderDiscoveryUnavailable('scummvm_detect_failed', str(exc)) from exc
 
     def claims_folder(self, folder: Path) -> bool:
         from ..core import ConversionError
-        from ..scummvm_build import ScummvmToolsMissing
+        from ..scummvm_build import ScummvmBuildError
         from ..scummvm_export import candidates_of
         try:
             return bool(candidates_of(Path(folder)))
-        except ScummvmToolsMissing as exc:
+        except ScummvmBuildError as exc:                   # tools missing, or the detection runtime failed to build
             raise ConversionError(str(exc)) from exc       # an error on that item, not a crash
 
     def read_rom(self, path: Path):
         from ..core import ConversionError
-        from ..scummvm_build import ScummvmToolsMissing
-        from ..scummvm_export import read_folder
+        from ..scummvm_build import ScummvmBuildError
+        from ..scummvm_export import ScummvmExportError, read_folder
+        if not Path(path).is_dir():
+            # The selection "Adventure (ScummVM)" hands every queued file here: an adventure is a folder, never one file.
+            raise ConversionError(f'An adventure game is a folder, not a file: {Path(path).name}')
         try:
             return read_folder(Path(path))
-        except ScummvmToolsMissing as exc:
+        except (ScummvmBuildError, ScummvmExportError) as exc:    # an error on that item, never a crash of the scan
             raise ConversionError(str(exc)) from exc
 
     def default_video_mode(self, path: Path) -> str:

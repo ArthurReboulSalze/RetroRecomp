@@ -185,7 +185,7 @@ class WindowsDropTests(unittest.TestCase):
 
     def test_inaccessible_folder_does_not_discard_other_dropped_files(self):
         path = self.fixture('a.sms', bytes(8192))
-        with patch_gui('discover_roms', side_effect=PermissionError('denied')):
+        with patch_gui('discover_games', side_effect=PermissionError('denied')):
             self.send_drop(self.app.table, [self.folder, path])
             self.settle()
         self.assertEqual(len(self.app.items), 1)

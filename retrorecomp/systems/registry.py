@@ -19,6 +19,8 @@ declaring them in a profile module moves no stamp of another console (the profil
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from . import SystemProfile
 from .amiga import AMIGA
 from .atari_st import ATARI_ST
@@ -146,6 +148,17 @@ def discover_folders(folder, unavailable: list | None = None) -> list:
             for path in paths:
                 found.setdefault(str(path).casefold(), path)
     return sorted(found.values(), key=lambda path: str(path).casefold())
+
+
+def discover_games(folder, unavailable: list | None = None) -> tuple[list, list]:
+    """(cartridge files, game folders) at or below `folder`, for the window and the command line alike.
+    The files of a folder a machine recognised as a game are that game's data, not cartridges: a `.bin` of an
+    adventure's data is never offered as a ROM of its own (it would be an unrecognised row, or an error)."""
+    from . import discover_roms
+    roms = discover_roms(Path(folder))
+    games = discover_folders(folder, unavailable)
+    roots = [Path(game) for game in games]
+    return [rom for rom in roms if not any(root == rom or root in rom.parents for root in roots)], games
 
 
 _LISTS = {'ALL_PROFILES': all_profiles, 'PROFILES': listed_profiles,

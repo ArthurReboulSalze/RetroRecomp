@@ -22,8 +22,15 @@
   three-second message at the start says where the help and the menu are, and the
   on-screen messages use Retro-Recomp's colours. On Windows ScummVM quits with Ctrl+Z or
   Alt+F4 (Ctrl+Q on Linux).
+- **Folders in the window.** Adding a game folder from the window (Add folder, or a drop) now
+  works for every adventure game, in Automatic and in Adventure (ScummVM): the files inside a
+  game folder that ScummVM recognises are that game's data, not cartridges. A game whose data
+  has `.bin` files used to leave the queue empty with the Adventure (ScummVM) selection, or
+  fill it with one error row per data file. A reader that fails is one row in error, never a
+  scan that stops in silence, a folder that adds nothing says so in the log, and a detection that
+  cannot be built says so too (all in the eight languages). The command line `batch` uses the same discovery.
 - **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
-  `85b9bee929a3`); no other machine's stamp changes, so no other export is converted again.
+  `f1ba8d0d85a7`); no other machine's stamp changes, so no other export is converted again.
   An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
   effects until it is converted again.
 

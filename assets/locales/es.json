@@ -698,6 +698,8 @@
     "scan_note_scummvm": "Sin análisis: ScummVM interpreta el juego; no se recompila ni se aprende nada.",
     "scummvm_choice": "Edición (si coinciden varias)",
     "scummvm_tools_missing": "Los juegos de ScummVM necesitan las herramientas de compilación de Retro-Recomp, que aún no están instaladas, así que no se buscó en esta carpeta. Inicia una conversión (Retro-Recomp ofrece instalar las herramientas) y vuelve a añadir la carpeta.",
+    "import_folder_empty": "No hay nada que añadir desde \"{folder}\": ningún archivo ROM ni ningún juego que ScummVM reconozca.",
+    "scummvm_detect_failed": "No se pudo preparar la detección de carpetas de ScummVM (falló su compilación), así que no se buscó en esta carpeta. El registro está en la carpeta .deps de Retro-Recomp: scummvm-build/detect.log.",
     "tip_scummvm_choice": "0: una carpeta que coincide con varias ediciones se rechaza y se listan las ediciones. 1 a 9: se usa esa edición de la lista."
   },
   "runtime": {
