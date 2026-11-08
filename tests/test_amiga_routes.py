@@ -83,5 +83,79 @@ class KickstartAddressesTests(unittest.TestCase):
                     conversion.read_kick_addresses(path)
 
 
+class RememberedDataTests(unittest.TestCase):
+    """What the library remembers of an install (observations, Kickstart addresses) only ever helps: a file that is valid but wrong
+    never stops a conversion. A conversion that fails after merging it is tried once more without it, as a fresh one."""
+    def memory(self, folder, observations=None, addresses=None):
+        memory = Path(folder)
+        if observations is not None:
+            (memory / conversion.OBSERVATIONS).write_text(observations, encoding='ascii')
+        if addresses is not None:
+            (memory / conversion.KICK_ADDRESSES).write_text(addresses, encoding='ascii')
+        return memory
+
+    def test_a_valid_but_wrong_file_is_read_as_it_stands_and_a_damaged_or_oversized_one_is_ignored(self):
+        kick = SimpleNamespace()
+        said = []
+        with tempfile.TemporaryDirectory() as folder:
+            wrong = self.memory(folder, '001000 4afc\n001002 ffff\n', 'fc0100\n')              # words no program runs, in the right places
+            samples, addresses, ignored = conversion.load_remembered(wrong, kick, said.append)
+            self.assertEqual((samples, addresses, ignored), ({(0x1000, '4afc'), (0x1002, 'ffff')}, {0xFC0100}, []))
+            self.assertEqual(conversion.load_remembered(wrong, None, said.append)[1], set())      # no Kickstart: no address is merged
+            self.memory(folder, 'not a line\n', 'fc0101\n')                                      # damaged: bad words, an odd address
+            self.assertEqual(conversion.load_remembered(wrong, kick, said.append), (set(), set(), ['kickstart addresses', 'observations']))
+            big = ''.join(f'{pc:06x} 4e71\n' for pc in range(0x1000, 0x1000 + 2 * 1048577, 2))   # valid lines, past the observation bound
+            self.memory(folder, big, '')
+            self.assertEqual(conversion.load_remembered(wrong, kick, said.append)[2], ['observations'])
+        self.assertEqual(len(said), 3)                                                           # each ignored file was said
+
+    def test_the_report_says_what_the_memory_added_and_why_it_was_dropped(self):
+        self.assertEqual(conversion.remembered_report(0, 0, None), {'used': False, 'added_instructions': 0, 'added_kickstart_addresses': 0,
+                                                                     'ignored_unreadable': [], 'dropped_after_failure': False})
+        report = conversion.remembered_report(12, 3, 'diverged', ['observations'])
+        self.assertEqual((report['used'], report['dropped_after_failure'], report['failure_with_remembered_data']), (True, True, 'diverged'))
+
+    def run_convert(self, behaviour):
+        calls, said = [], []
+
+        def once(path, **options):
+            calls.append(options)
+            return behaviour(len(calls), options)
+        with patch.object(conversion, '_convert_once', once):
+            try:
+                return conversion.convert(Path('game.lha'), emit=said.append, passes=1), calls, said
+            except ConversionError as error:
+                return error, calls, said
+
+    def test_a_failure_after_the_memory_was_merged_is_tried_again_without_it(self):
+        def behaviour(n, options):
+            if n == 1:
+                options['trace']['remembered_used'] = True
+                raise ConversionError('Amiga main: the native game and the fresh reference diverged.')
+            return Path('exported.exe')
+        result, calls, said = self.run_convert(behaviour)
+        self.assertEqual(result, Path('exported.exe'))
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn('use_remembered', calls[0])                                             # the first call is the ordinary one
+        self.assertFalse(calls[1]['use_remembered'])
+        self.assertIn('diverged', calls[1]['dropped_reason'])
+        self.assertEqual(calls[1]['passes'], 1)                                                  # the options of the first call, unchanged
+        self.assertTrue(any('trying once more without them' in line for line in said))
+
+    def test_a_failure_the_memory_did_not_touch_is_not_retried_and_a_second_failure_is_the_failure(self):
+        def plain(n, options):
+            raise ConversionError('the install stopped at frame 40')
+        result, calls, _ = self.run_convert(plain)
+        self.assertIsInstance(result, ConversionError)
+        self.assertEqual(len(calls), 1)
+
+        def both(n, options):
+            if n == 1:
+                options['trace']['remembered_used'] = True
+            raise ConversionError(f'failure {n}')
+        result, calls, _ = self.run_convert(both)
+        self.assertEqual((len(calls), str(result)), (2, 'failure 2'))
+
+
 if __name__ == '__main__':
     unittest.main()

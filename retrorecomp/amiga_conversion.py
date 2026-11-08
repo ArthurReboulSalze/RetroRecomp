@@ -437,8 +437,54 @@ def place_kickstart(folder: Path, kick) -> None:
 
 
 # -------------------------------------------------------------------------------------------------------- conversion
-def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
-            emit=print, qualification_events=None, **unused):
+def convert(path, **options):
+    """One conversion. A conversion that fails after it merged what the library remembered of this install (earlier observations,
+    Kickstart addresses) is tried once more without them, as a fresh one: remembered data only ever helps, so a file that is valid
+    but wrong must not stop a game. On success the wrong data is dropped (the run's own replaces it in the library) and the report
+    says so (`remembered_data`); a second failure is the failure."""
+    trace: dict = {}
+    try:
+        return _convert_once(path, trace=trace, **options)
+    except Exception as error:     # a failure anywhere after the remembered data was merged
+        if not trace.get('remembered_used'):
+            raise
+        reason = ' '.join(str(error).split())[:240] or type(error).__name__
+        options.get('emit', print)('Amiga: the conversion failed with the remembered observations (' + reason + '); '
+                                   'trying once more without them.')
+        return _convert_once(path, use_remembered=False, dropped_reason=reason, **options)
+
+
+def load_remembered(memory: Path, kick, emit) -> tuple[set, set, list]:
+    """The (instructions, Kickstart addresses, what was ignored) the library remembers of this install; a file that cannot be read
+    (damaged, or past the bounds of an observation) is ignored, never a reason to stop."""
+    samples: set = set()
+    addresses: set = set()
+    ignored: list = []
+    if kick is not None and (memory / KICK_ADDRESSES).is_file():
+        try:
+            addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
+        except (OSError, ValueError, ConversionError):
+            ignored.append('kickstart addresses')
+            emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
+    if (memory / OBSERVATIONS).is_file():
+        try:
+            samples |= set(read_observations(memory / OBSERVATIONS))
+        except (OSError, ValueError, ConversionError):
+            ignored.append('observations')
+            emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+    return samples, addresses, ignored
+
+
+def remembered_report(added_instructions: int, added_kick_addresses: int, dropped_reason: str | None, ignored: list | None = None) -> dict:
+    """The report's `remembered_data`: what the library's memory added to this conversion, or why it was left out."""
+    return {'used': bool(added_instructions or added_kick_addresses), 'added_instructions': added_instructions,
+            'added_kickstart_addresses': added_kick_addresses, 'ignored_unreadable': list(ignored or []),
+            'dropped_after_failure': dropped_reason is not None,
+            **({'failure_with_remembered_data': dropped_reason} if dropped_reason is not None else {})}
+
+
+def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
+                  emit=print, qualification_events=None, use_remembered=True, dropped_reason=None, trace=None, **unused):
     from .amiga import converter_available, read_input
     from . import amiga_whdload
     if not converter_available():
@@ -511,16 +557,17 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
         kick_addresses = {pc for pc, _ in kick_observed}
-        if kick is not None and (memory / KICK_ADDRESSES).is_file():
-            try:
-                kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
-            except (OSError, ValueError):
-                emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
-        if remembered.is_file():
-            try:
-                samples |= set(read_observations(remembered))
-            except (OSError, ValueError):
-                emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+        before = (len(samples), len(kick_addresses))
+        ignored: list = []
+        if use_remembered:
+            remembered_samples, remembered_addresses, ignored = load_remembered(memory, kick, emit)
+            samples |= remembered_samples
+            kick_addresses |= remembered_addresses
+        added = (len(samples) - before[0], len(kick_addresses) - before[1])
+        if trace is not None and any(added):
+            trace['remembered_used'] = True
+        if dropped_reason is not None:
+            emit('Amiga: the remembered observations are left out of this conversion; its own replace them in the library.')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -643,6 +690,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
+            'remembered_data': remembered_report(*added, dropped_reason, ignored),
             'native_coverage': ('instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as guarded '
                                 'native steps calling the Moira templates of the reference CPU; anything not seen runs on the counted interpreter'),
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
