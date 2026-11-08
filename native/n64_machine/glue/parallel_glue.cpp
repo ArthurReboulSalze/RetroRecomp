@@ -139,8 +139,10 @@ bool parallel_init(void)
 		setenv("PARALLEL_RDP_SINGLE_THREADED_COMMAND", "1", 0);
 #endif
 	}
+	// The hidden RDRAM holds one byte per 16-bit word (parallel-rdp's shaders/memory_interfacing.h): half the size of RDRAM. A smaller
+	// buffer loses the coverage of framebuffers higher in memory, and the VI's filters then eat thin text.
 	g_rdp.reset(new RDP::CommandProcessor(*g_device, reinterpret_cast<void *>(ptr - offset), offset, rdram_size,
-	                                      rdram_size / 8, flags));
+	                                      rdram_size / 2, flags));
 	if (!g_rdp->device_is_supported()) {
 		fprintf(stderr, "n64 glue: the Vulkan device lacks what parallel-rdp needs\n");
 		g_rdp.reset();
