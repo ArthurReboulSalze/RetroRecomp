@@ -190,4 +190,5 @@ def write_embedded(path: Path, program: Path, output: Path) -> Path:
         offset = out.tell()
         out.write(manifest)
         out.write(_trailer(offset, len(manifest)))
+    shutil.copymode(program, output)     # the game stays executable (Linux)
     return output

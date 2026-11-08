@@ -1,4 +1,6 @@
 """The PlayStation disc pack and conversion routes on synthetic discs (no game, no BIOS)."""
+import os
+import stat
 import struct
 import tempfile
 import unittest
@@ -54,6 +56,15 @@ class PackTests(unittest.TestCase):
         image = next(line for line in lines if line.startswith('file disc1-1.bin raw 0 '))
         offset, size = map(int, image.split()[-2:])
         self.assertEqual(data[offset:offset + size], (self.dir / 'g.bin').read_bytes())
+
+
+    @unittest.skipIf(os.name == 'nt', 'Windows has no execute bit')
+    def test_the_embedded_game_stays_executable(self):
+        program = self.dir / 'program'
+        program.write_bytes(bytes(100))
+        program.chmod(0o755)
+        game = psx_pack.write_embedded(self.dir / 'g.cue', program, self.dir / 'game')
+        self.assertEqual(stat.S_IMODE(game.stat().st_mode), 0o755)
 
 
 class RouteTests(unittest.TestCase):
