@@ -84,6 +84,58 @@ class PinTests(unittest.TestCase):
         self.assertEqual(sum(value for known in selftest.KNOWN.values() for key, value in known.items() if key == 'cycles'),
                          expected['cycles_different'])
 
+    def test_every_pinned_sample_adds_up(self):
+        for per_opcode, pin in selftest.PINNED.items():
+            with self.subTest(per_opcode=per_opcode):
+                expected, selection, known = pin['expected'], pin['selection'], pin['known']
+                self.assertEqual(expected['cases'], expected['executed'] + expected['not_executed'])
+                self.assertEqual(0, expected['not_executed'])
+                self.assertEqual(0, expected['native_vs_interpreter_different'])
+                self.assertEqual(set(selftest.REASONS), set(selection['excluded']))
+                self.assertEqual(expected['cases'], selection['read'] - sum(selection['excluded'].values()))
+                self.assertEqual(5000, selection['excluded'][selftest.REASONS[0]])
+                self.assertEqual(256, selection['native_opcodes'] + selection['reserved_opcodes_skipped'])
+                self.assertEqual(expected['cases'] - sum(pin['short'].values()), per_opcode * (pin['opcodes'] - len(pin['short'])))
+                self.assertEqual(expected['executed'] - expected['flags'], expected['state_equal'])
+                self.assertEqual(expected['state_equal'] - expected['cycles_different'], expected['both_equal'])
+                self.assertEqual(expected['flags'], sum(value.get('flags', 0) for value in known.values()))
+                self.assertEqual(expected['cycles_different'], sum(value.get('cycles', 0) for value in known.values()))
+                self.assertLessEqual(max(number for value in known.values() for number in value.values()), per_opcode)
+                self.assertTrue(set(known).isdisjoint(pin['short']))
+                self.assertNotIn('43', known)
+                self.assertGreaterEqual(pin['modules'] * selftest.MODULE_SITES, expected['cases'])
+
+    def test_the_larger_sample_contains_the_default_one(self):
+        default, large = selftest.PINNED[40], selftest.PINNED[250]
+        self.assertEqual({40, 250}, set(selftest.PINNED))
+        self.assertEqual(selftest.PER_OPCODE, 40)                  # the default is what the quick check runs
+        self.assertEqual(set(default['known']), set(large['known']))
+        for opcode, counts in default['known'].items():           # the first 40 usable vectors are the first 40 of the first 250
+            for key, number in counts.items():
+                self.assertLessEqual(number, large['known'][opcode][key], opcode)
+        self.assertEqual(default['short'], large['short'])
+        self.assertEqual(default['opcodes'], large['opcodes'])
+        self.assertLess(default['expected']['cases'], large['expected']['cases'])
+        self.assertLess(default['selection']['read'], large['selection']['read'])
+
+    def test_a_pinned_sample_is_switched_to_and_the_default_comes_back(self):
+        self.addCleanup(selftest.use, 40)
+        selftest.use(250)
+        self.assertEqual(250, selftest.PER_OPCODE)
+        self.assertEqual(selftest.PINNED[250]['expected'], selftest.EXPECTED)
+        self.assertEqual(selftest.PINNED[250]['modules'], selftest.EXPECTED_MODULES)
+        self.assertEqual(selftest.interpreter.KNOWN['04']['reason'], selftest.KNOWN['04']['reason'])
+        self.assertEqual(selftest.PINNED[250]['known']['04']['flags'], selftest.KNOWN['04']['flags'])
+        selftest.use(40)
+        self.assertEqual(40, selftest.PER_OPCODE)
+        self.assertEqual(selftest.PINNED[40]['expected'], selftest.EXPECTED)
+        self.assertEqual(selftest.PINNED[40]['known']['04']['flags'], selftest.KNOWN['04']['flags'])
+        self.assertEqual(9097, selftest.EXPECTED['cases'])
+
+    def test_only_pinned_samples_can_be_asked_for(self):
+        with self.assertRaises(KeyError):
+            selftest.use(100)
+
     def test_the_modules_are_pinned_and_capped(self):
         self.assertGreaterEqual(selftest.EXPECTED_MODULES * selftest.MODULE_SITES, selftest.EXPECTED['cases'])
         self.assertEqual(40, selftest.PER_OPCODE)
@@ -204,8 +256,9 @@ class GroupingTests(unittest.TestCase):
 
 
 def row(opcode, **extra):
-    """An opcode of 40 cases, all executed and equal to the vectors and to the interpreter."""
-    base = {'opcode': opcode, 'cases': 40, 'executed': 40, 'not_executed': 0, 'state_equal': 40, 'both_equal': 40,
+    """An opcode of PER_OPCODE cases (40 or 250), all executed and equal to the vectors and to the interpreter."""
+    size = selftest.PER_OPCODE
+    base = {'opcode': opcode, 'cases': size, 'executed': size, 'not_executed': 0, 'state_equal': size, 'both_equal': size,
             **dict.fromkeys(selftest.CLASSES, 0), 'cycles_different': 0, 'interpreter_not_executed': 0,
             'interpreter': {**dict.fromkeys(selftest.CLASSES, 0), 'cycles_different': 0},
             'native_vs_interpreter_different': 0, 'first_difference': ''}
@@ -216,8 +269,8 @@ def row(opcode, **extra):
 def known_row(opcode):
     known = {('cycles_different' if key == 'cycles' else key): number
              for key, number in selftest.KNOWN[opcode].items() if key != 'reason'}
-    both = 40 - sum(known.values())
-    state = 40 - sum(number for key, number in known.items() if key != 'cycles_different')
+    both = selftest.PER_OPCODE - sum(known.values())
+    state = selftest.PER_OPCODE - sum(number for key, number in known.items() if key != 'cycles_different')
     return row(opcode, both_equal=both, state_equal=state, interpreter=dict(row(opcode)['interpreter'], **known), **known)
 
 
@@ -258,7 +311,7 @@ class JudgementTests(unittest.TestCase):
     def test_a_new_difference_is_not_explained(self):
         rows = self.clean()
         index = next(i for i, item in enumerate(rows) if item['opcode'] not in selftest.KNOWN)
-        rows[index] = row(rows[index]['opcode'], flags=1, both_equal=39, state_equal=39,
+        rows[index] = row(rows[index]['opcode'], flags=1, both_equal=selftest.PER_OPCODE - 1, state_equal=selftest.PER_OPCODE - 1,
                           interpreter=dict(row('00')['interpreter'], flags=1))
         _, unexplained = self.judge(rows)
         self.assertTrue(any(message.startswith(rows[index]['opcode'] + ':') for message in unexplained), unexplained)
@@ -266,7 +319,8 @@ class JudgementTests(unittest.TestCase):
     def test_a_changed_count_on_a_known_difference_is_not_explained(self):
         rows = self.clean()
         index = next(i for i, item in enumerate(rows) if item['opcode'] == '04')
-        rows[index] = row('04', flags=2, both_equal=38, state_equal=38, interpreter=dict(row('04')['interpreter'], flags=2))
+        rows[index] = row('04', flags=2, both_equal=selftest.PER_OPCODE - 2, state_equal=selftest.PER_OPCODE - 2,
+                          interpreter=dict(row('04')['interpreter'], flags=2))
         _, unexplained = self.judge(rows)
         self.assertTrue(any(message.startswith('04:') for message in unexplained), unexplained)
 
@@ -292,7 +346,8 @@ class JudgementTests(unittest.TestCase):
 
     def test_a_guard_miss_a_refusal_or_a_fault_is_never_counted_as_equal(self):
         rows = self.clean()
-        rows[0] = dict(rows[0], executed=39, not_executed=1, state_equal=39, both_equal=39, stops={'miss': 1})
+        less = selftest.PER_OPCODE - 1
+        rows[0] = dict(rows[0], executed=less, not_executed=1, state_equal=less, both_equal=less, stops={'miss': 1})
         _, unexplained = self.judge(rows)
         self.assertTrue(any(message.startswith(rows[0]['opcode'] + ': not executed') for message in unexplained), unexplained)
 
@@ -307,7 +362,8 @@ class JudgementTests(unittest.TestCase):
         self.assertTrue(any('opcodes with cases' in message for message in unexplained), unexplained)
         rows = self.clean()
         index = next(i for i, item in enumerate(rows) if item['opcode'] not in selftest.EXPECTED_SHORT and item['opcode'] not in selftest.KNOWN)
-        rows[index] = row(rows[index]['opcode'], cases=39, executed=39, state_equal=39, both_equal=39)
+        less = selftest.PER_OPCODE - 1
+        rows[index] = row(rows[index]['opcode'], cases=less, executed=less, state_equal=less, both_equal=less)
         _, unexplained = self.judge(rows)
         self.assertTrue(any('fewer than' in message for message in unexplained), unexplained)
 
@@ -330,6 +386,15 @@ class JudgementTests(unittest.TestCase):
         self.assertEqual({'miss': 1}, four['stops'])
         self.assertEqual({'ticks': 1}, four['tier_fields'])
         self.assertEqual('04_#0', four['first_difference'])
+
+
+class LargeSampleJudgementTests(JudgementTests):
+    """The same judgement under the second pinned configuration (250 usable vectors per opcode)."""
+
+    def setUp(self):
+        self.addCleanup(selftest.use, 40)
+        selftest.use(250)
+        self.assertEqual(250, selftest.PER_OPCODE)
 
 
 if __name__ == '__main__':
