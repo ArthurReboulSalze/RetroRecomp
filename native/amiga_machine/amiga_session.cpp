@@ -29,7 +29,7 @@ extern "C" {
 namespace fs = std::filesystem;
 using namespace vamiga;
 
-namespace vamiga::moira { extern bool (*rr_moira_native)(Moira &, u32 pc, u16 opcode); }
+namespace vamiga::moira { extern bool (*rr_moira_native)(Moira &, u32 pc, u16 opcode); extern u32 rr_moira_trap_base, rr_moira_trap_size; }
 
 static constexpr uint32_t SLOW_BASE = 0xC00000;
 static constexpr uint32_t SLOW_SIZE = 0x180000;     // 1.5 MiB of slow RAM: ExpMem, then the slave area
@@ -305,10 +305,10 @@ static std::vector<uint8_t> boot_rom() {
 
 static void jump(CPU &cpu, uint32_t pc) { cpu.setPC(pc); cpu.setIRD(peek16(pc)); cpu.setIRC(peek16(pc + 2)); }
 
-static void set_breakpoints() {
-    auto &bp = S->amiga->cpu.debugger.breakpoints;
-    for (uint32_t k = 0; k < RR_RESLOAD_ENTRIES; k++)
-        if (!bp.isSetAt(S->resload_table + 4 * k)) bp.setAt(S->resload_table + 4 * k);
+// A jump into the resload table stops the machine's run loop (amiga_vamiga.py: one comparison after each instruction).
+static void set_traps() {
+    vamiga::moira::rr_moira_trap_base = S->resload_table;
+    vamiga::moira::rr_moira_trap_size = 4 * RR_RESLOAD_ENTRIES;
 }
 
 static FILE *open_file(const char *path, const char *mode) {
@@ -395,7 +395,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     cpu.setA(7, base_mem);
     cpu.setUSP(stack_top - 0x4000);
     jump(cpu, loader);
-    set_breakpoints();
+    set_traps();
     char line[160];
     snprintf(line, sizeof line, "slave v%u flags %04x base %06x exp %06x@%06x slave %06x loader %06x resload %06x\n", version, flags,
              base_mem, exp_size, exp_base, slave_area, loader, S->resload_table);
@@ -449,6 +449,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::DENISE_CLX_SPR_SPR, 1);
         S->emu->set(Opt::DENISE_CLX_SPR_PLF, 1);
         S->emu->set(Opt::DENISE_CLX_PLF_PLF, 1);
+        S->emu->set(Opt::LA_CONNECT, 0);                    // vAmiga's logic analyzer, a debugging recorder: it changes nothing in the machine
         if (fast_kb) S->emu->set(Opt::MEM_FAST_RAM, fast_kb);
         S->emu->set(Opt::MON_PALETTE, (i64)Palette::RGB);   // plain 4-bit to 8-bit colours, no monitor model
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
@@ -742,7 +743,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
     memcpy(s->keys, keys, sizeof keys);
-    set_breakpoints();
+    set_traps();
     update_hook();
     return 0;
 }

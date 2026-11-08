@@ -238,6 +238,14 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: a debugging recorder off, the resload traps without breakpoints (1.7.2, recompilation stage 1)
+
+Two costs the machine paid for nothing a game can see. vAmiga's logic analyzer, a recorder for its debugger, is connected by default and took 12 to 14 % of a
+frame's samples; it is off (`Opt::LA_CONNECT`). The resload traps were debugger breakpoints, which keep every 68000 instruction on Moira's slow path and walk a list (0.6 to
+5.6 % of the samples); they are one comparison after each instruction (`rr_moira_trap`, a build-time change of Moira's MIT file). Shares of a sampling profile on a loaded PC,
+not a timing. **Hot path:** one comparison per instruction added, the slow path and the breakpoint walk removed. Nothing here is recompilation: the counters do not change. **What
+moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: the guard compares what the CPU has latched (1.7.2)
 
 A native step was chosen by comparing the instruction's words in memory, while the CPU was about to run the opcode it had already prefetched. A word rewritten just
