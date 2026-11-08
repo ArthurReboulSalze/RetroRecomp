@@ -6,7 +6,7 @@ interpreter and is counted and reported. This page says what it converts, how, a
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
 
 **What "native" means here.** The game runs on a complete emulator core inside the executable, Beetle PSX, with its machine, its chips and their timing. Only the R3000A
-instructions that the conversion saw running become native steps, and each step calls the core's own instruction handlers behind a guard: it is not a standalone translation of the
+instructions that the conversion saw running become native steps, and each step holds the core's own instruction handlers, expanded with the word fixed, behind a guard: it is not a standalone translation of the
 game. The GTE, the GPU, the SPU and the CD-ROM controller stay the core's own code. So the native share below measures how much CPU code avoids the core's interpreter; it cannot be
 compared with the figures of a machine whose game code is translated, and it says nothing about hardware fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core).
 

@@ -53,7 +53,7 @@
   core inside the executable (Beetle PSX; Mupen64Plus-Next with ParaLLEl-RSP and
   ParaLLEl-RDP; Hatari; vAmiga with the Moira 68000), with its machine, its chips and their
   timing. Only the main CPU's instructions seen running during the conversion become native
-  code, and that code calls the core's own instruction handlers behind guards; the other
+  code, and that code is the core's own instruction handlers behind guards; the other
   chips stay the core's. The native share of these machines therefore measures how much CPU
   code avoids the core's interpreter: it cannot be compared with the figures of machines whose
   game code is translated, and it says nothing about hardware fidelity
