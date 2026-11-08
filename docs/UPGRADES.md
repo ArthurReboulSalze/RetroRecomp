@@ -122,10 +122,10 @@ any of them.
 | PC Engine / TurboGrafx-16 | `78f5641c38ec`, `ebcbc2a403cd` | `bdcc346995e1`, `3da7363bd893` | `66d912662e5c` (same) |
 | Game Boy Advance | `05e06c23687a`, `1658c523234f` | `f94b7ff7c92f`, `7b18d021f143` | `6b70933a9b0a` (same) |
 | Amiga | `ff35e3b8af69`, `ba01a0a7e76e` | `136af9f804ed`, `b264a452712e` | `92ca8a0c142c` (same) |
-| Atari ST | new, `4ec00951397a` | new, `f8a69516f53e` | new, `54b75964897d` |
+| Atari ST | new, `fa09328f914f` | new, `f8a69516f53e` | new, `54b75964897d` |
 | Nintendo 64 | new, `ec87144eb331` | new, `3c4f6ccca458` | new, `4f6fedf926c7` |
 | Adventure (ScummVM) | `be8047b230ac`, `42dfc172e91c` | `4a96d24af08d`, `82088d749a09` | `97d9ad0da628`, `05417bbcea96` |
-| Sony PlayStation | new, `e89ec852740d` | new, `5dbdb5df79ca` | new, `b6c9cf73b176` |
+| Sony PlayStation | new, `920cf82497a6` | new, `5dbdb5df79ca` | new, `b6c9cf73b176` |
 
 (First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.0, on every machine, is converted again, from its qualified paths, once, when the
 player updates**, and the window offers it; it is not a quick host-only upgrade.
