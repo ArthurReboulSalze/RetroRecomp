@@ -218,7 +218,9 @@ only**; the conversion keeps those addresses in the private memory of that image
 never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
 player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
 counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
-nothing derived from the image is shared, and the observation file and the library hold addresses only. **Measure** (Civilization,
+nothing derived from the image is shared, and the observation file and the library hold addresses only (**changed in 1.7.2:** the run's own
+observation of the Kickstart keeps the words as they stood, a slave's patches included, in the conversion's private work folder only; the library
+still keeps the addresses alone). **Measure** (Civilization,
 the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
 quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
 native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
@@ -274,7 +276,7 @@ detections off for speed and the Amiga machine did not turn them on, so a game t
 (`native/amiga_machine/amiga_session.cpp`). Library check by counting CLXDAT reads over the standard route: Blood Money reads it (36
 reads in 2,500 frames), Xenon 2, Turrican, Shadow of the Beast, R-Type, Menace, Armalyte, Battle Squadron, Rick Dangerous, Lotus 2, Speedball 2 and
 Wings of Death do not (nor Apidya). **What moves:** the Amiga's game stamp; no other console. A game that reads CLXDAT may now play
-differently from an earlier export of it (as the real machine does). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+differently from an earlier export of it (the detection a real Amiga performs; the match of the game's behaviour with hardware is not measured). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
 

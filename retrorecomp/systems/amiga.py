@@ -6,8 +6,9 @@ with a sentence otherwise.
 What it converts: an Amiga 500 game installed for WHDLoad (an LHA archive holding a `.Slave` and the game's files), run without
 WHDLoad by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
 from RAM compiled to guarded native steps (Moira's own templates) and the rest counted on the interpreter. An install that
-asks for a Kickstart 1.x runs it from the player's own image (Options); its code stays interpreted and counted. Not yet:
-Kickstart 3.x installs, the Amiga 1200, disk images (ADF), Linux.
+asks for a Kickstart 1.x runs it from the player's own image (Options); its instructions seen running become guarded native
+steps, the rest is counted on the interpreter. Not yet: Kickstart 3.x installs, the Amiga 1200, disk images (ADF); Linux is
+witnessed, not played.
 """
 from pathlib import Path
 

@@ -634,16 +634,17 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
                         'data_files': len(extracted['files']),
                         'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
-            'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
+            'machine': {'model': 'Amiga 500-class (ECS, 68000), memory laid out as WHDLoad lays it out', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
                                     f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},
             **({'kickstart': kickstart_fields(kick)} if kick is not None else {}),
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
-            'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
+            'native_validation': {'passed': True, 'independent_cpu_oracle': False, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed RAM instructions as guarded native steps calling the Moira templates of the reference CPU',
+            'native_coverage': ('instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as guarded '
+                                'native steps calling the Moira templates of the reference CPU; anything not seen runs on the counted interpreter'),
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
@@ -658,11 +659,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'unit': 'picture columns (hires) and lines; the standard window when none was opened',
                         'measured_on': [name for name, _, _ in routes]},
             'input_players': 1, 'peripheral': {'joystick_ports': 1, 'mouse': 'port 1, captured on a click', 'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
-            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps']},
+            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps'], 'fps_is': 'nominal'},
             'runtime_data': {'directory': 'datas', 'shared_config': 'datas/Retro-Recomp.ini', 'game_directory': 'datas/games/amiga-' + source.sha256},
             'artwork': artwork, 'windows_metadata': metadata,
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
-            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs without Kickstart',
+            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs (.lha), with the player-supplied Kickstart 1.x for the installs that ask for one',
                                     'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
         write_report(output / 'conversion-report.json', report)
