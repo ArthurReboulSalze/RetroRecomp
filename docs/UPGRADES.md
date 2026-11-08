@@ -204,9 +204,9 @@ the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer fo
 `TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
 WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
 picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
-Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit:** three
-installs of the 24 (Twylyte, California Games, Time Runners 19) stop at boot because the slave's own patch code does what only
-a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68000, as on a real A500); the layer is a 68000.
+Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit as written in
+1.7.1, corrected in 1.7.2:** this note blamed a 68020 for three installs that stop at boot; the real WHDLoad boots them on a 68000 (see
+the 1.7.2 entry on the keyboard's handshake).
 **What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
@@ -225,6 +225,33 @@ native on the main route). This is the native-code measure only; CPU fidelity is
 reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the keyboard's power-up handshake is over when a slave starts (1.7.2)
+
+Twylyte and California Games stopped at boot with a guru, which 1.7.1 blamed on a 68020; that was wrong: the real WHDLoad boots them on a 68000
+(a private run of Copperline). The cause: vAmiga's keyboard waits a second after a reset and then sends `$FD` and `$FE`. On a real machine that ended
+long before WHDLoad started; here the slave starts a frame after the power-on, so the codes arrived about a second into the game, during the
+Kickstart's boot, and reached a slave's keyboard handler that a player's key would reach much later (that handler then read a word at an odd
+address, an address error on a 68000, as a real key press may also cause on such a slave; not checked). The machine now declares the handshake over
+at its power-on (`Keyboard::rrHandshakeOver`, a build-time change of the MPL-2.0 file). Both installs boot with picture and sound; Time Runners 19
+still stays black, for another reason not found yet. A game's run shifts by a few instructions around that second (Rick Dangerous: 24 more on each
+route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: Kickstart words a slave patched run native too (1.7.2)
+
+A slave patches some of the Kickstart's instructions; a step written from the pristine image then missed its guard for ever, and those instructions, often
+in loops, stayed on the interpreter. The observation of a run (`<observations>.kick`, in the conversion's private work folder, with the image itself) now
+keeps the words as they stood; the steps come from those and from the image, and the library still keeps the addresses alone, no byte. Civilization: 14,988
+Kickstart instructions interpreted on the main route become 19 of 4.42 million; California Games 48, Twylyte 10,638 of 49.0 million (0.022 %), on two routes of
+3,600 frames, each frame equal to the fresh interpreted reference, the compressed copy too and the quick state with its sound. Native code and CPU fidelity only.
+**What moves:** the Amiga's game stamp; no other console.
+
+## Commodore Amiga: an archive with an intro or editor slave beside the game (1.7.2)
+
+An archive with several slaves was refused. The slave named as the install's own folder is now the game, the others staying aside (`Superfrog/Superfrog.slave` beside
+`SuperfrogIntro.slave`): 17 of the 25 such archives of the maintainer's library. A collection where no single slave is so named stays refused, never guessed.
+**What moves:** the Amiga's game stamp; an install that was refused converts; nothing else changes.
 
 ## Commodore Amiga: CIA-B enters the slave as the system leaves it (1.7.1)
 

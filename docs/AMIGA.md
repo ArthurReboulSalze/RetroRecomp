@@ -21,7 +21,9 @@ core's interpreter; it cannot be compared with the figures of a machine whose ga
 | Windows; Linux (`linux = 'witnessed'`): one conversion checked on a Debian 13 PC with the system GCC (Rick Dangerous, tree `fd953b8c`, 6 November 2026: validated on both routes, compressed copy and quick state included, 0 interpreted), not played there | Kickstart installs on Linux: none was run there (the same machine path; not witnessed) |
 | | A library of qualified paths: the profile is not in the sharing |
 
-A `.lha` that holds no slave, or more than one, is refused with a sentence, never guessed. The archive is read in place and never
+A `.lha` that holds no slave is refused with a sentence. With several slaves (25 archives of the maintainer's library), the one named as
+the install's folder is the game and its intro, editor or helper slaves stay aside (`other_slaves` in the report; 17 of the 25); an archive
+where no single slave is named so, a collection such as Dizzy Collection or Time Runners Series (8 of the 25), is refused, never guessed. The archive is read in place and never
 changed. An install that asks for a Kickstart uses the player's own image (section 2a); Retro-Recomp supplies none, fetches none
 and shares none. The player supplies the install; Retro-Recomp publishes no game, no disk and no firmware.
 
@@ -95,8 +97,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   for each file's information) and 1,040 of those also ask for a Kickstart. Until 1.7.1 they stopped at boot with a
   memory error (see UPGRADES); the fix is checked headless on eight of them, and through the converter on the ones listed
   in section 3. The other Examine installs are not checked.
-- Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is pending (one conversion checked, none
-  played: section 1; no Kickstart install was converted on Linux). With a Kickstart, the operating system loads through the
+- Kickstart 3.x installs, ADF, Amiga 1200, CD32 and CDTV are out of scope; Linux is witnessed, not played (section 1). With a Kickstart, the operating system loads through the
   resload layer at no emulated cost: loading is faster than on the real machine (a hardware-fidelity limit, not claimed
   otherwise).
 - The first conversion needs the pinned vAmiga sources (fetched into the workspace) and the C++ toolchain of the converter.
@@ -117,7 +118,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   baseline's: **identical** with 512 KiB of slow RAM instead of our 1.5 MiB (the original configuration: chip 512 KiB plus 512 KiB slow;
   Apidya has no ExpMem, so the fast RAM at `$200000` is not in play), with the slow-RAM delay off, with an OCS Agnus (8371) instead of
   the ECS one, and with the collision detection on. Only the blitter's two less accurate modes change it (181 and 103 of 181 frames);
-  the machine runs the most accurate one (cycle-exact, vAmiga's default 2). A faster CPU changes the course of the game, so that run
+  the machine runs vAmiga's most precise mode (its default 2, which vAmiga calls cycle-exact; not checked here against hardware). A faster CPU changes the course of the game, so that run
   cannot be compared and nothing is claimed from it. Whether a real Amiga 500 shows it as strongly is not measured here (hardware
   fidelity is not claimed).
 - The chipset's collision detection (CLXCON/CLXDAT: sprite-sprite, sprite-playfield, playfield-playfield) is on since 1.7.1; vAmiga ships
@@ -131,6 +132,10 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - Retro-Recomp's Amiga files (the converter modules, `native/amiga_whdload/`, `native/amiga_machine/`, the host-kit adapter) are MIT.
 - vAmiga's `Core/` is **MPL-2.0** per file; our changes to those files, applied at build time, are MPL-2.0 too. Moira, the CPU
   inside it, is **MIT**. The vAmiga application (GPL-3.0 or later) is not used. Notice: [licenses/vamiga.md](../licenses/vamiga.md).
+- The index of native steps compiles one header of `m68k-recomp-core`, `m68k_decoder.h` (its instruction layout), which is under the
+  **PolyForm Noncommercial 1.0.0** license of segagenesisrecomp ([licenses/segagenesisrecomp.md](../licenses/segagenesisrecomp.md), carried by
+  each export); the maintainer holds the author's permission. So an exported Amiga game is MIT, MPL-2.0 and that header; no GPL code joins it
+  (searched on 8 November 2026 in the adapted Core, the Amiga's native files and the notices of SDL and xBR: no GPL notice).
 - Each exported game carries its notices as resource 203, like the other machines: Retro-Recomp's licence, vAmiga and Moira, the
   68000 decoder of m68k-recomp-core (compiled into the index of native steps), SDL and the host kit's parts
   (`amiga_conversion.NOTICE_FILES`).
