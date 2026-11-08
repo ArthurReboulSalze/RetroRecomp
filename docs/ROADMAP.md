@@ -142,7 +142,6 @@ on the owner's decision after the qualification list.
 - Atari ST
 - Amiga 1200 AGA (WHDLoad-based)
 - Nintendo 64
-- PlayStation
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

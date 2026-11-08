@@ -189,6 +189,13 @@ built from `git archive 27e30e0 native tools`, the B side from this tree, both a
 Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
 consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
 
+## Sony PlayStation opens as an experimental machine (1.7.1)
+
+The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to players as an **experimental** machine. No export of
+it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none. The machine is Beetle
+PSX, pinned and fetched on the first conversion, with anchored changes listed in `psx_beetle.REPLACEMENTS`; the game executable
+is GPL-2.0 as a whole. Its files are game inputs of `psx` alone: no other console's stamp moves for them.
+
 ## Game Boy Advance opens as an experimental machine (1.7.0)
 
 The Game Boy Advance (profile `gba`, [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)) opens to players as an **experimental** machine in 1.7.0. It is new:

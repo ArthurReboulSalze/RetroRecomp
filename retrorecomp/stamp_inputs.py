@@ -200,7 +200,10 @@ NOT_INPUTS = (
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
     # staged engine for a check, never into a game.
-    'native/gba_vector_checks/')
+    'native/gba_vector_checks/',
+    # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
+    # Beetle's cpu.c for a check, never into a game.
+    'native/psx_vector_checks/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -827,6 +830,25 @@ INPUTS = _resolve({
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_rom',
+    ),
+    # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
+    # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
+    ('psx',): (
+        'licenses/beetle-psx.md',
+        'native/psx_machine/CMakeLists.txt',
+        'native/psx_machine/psx_main.c',
+        'native/psx_machine/psx_observe.c',
+        'native/psx_machine/psx_reference.c',
+        'native/psx_machine/psx_session.c',
+        'native/psx_machine/psx_session.h',
+        'retrorecomp.psx',
+        'retrorecomp.psx_beetle',
+        'retrorecomp.psx_bios',
+        'retrorecomp.psx_build',
+        'retrorecomp.psx_conversion',
+        'retrorecomp.psx_disc',
+        'retrorecomp.psx_native',
+        'retrorecomp.psx_pack',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its

@@ -35,6 +35,7 @@ from .neogeo import NEOGEO
 from .nes import NES
 from .pc_engine import PC_ENGINE
 from .scummvm import SCUMMVM
+from .psx import PLAYSTATION
 from .x68000 import X68000
 
 # Extensions of files that are cartridge images or disks of machines the converter does not handle, plus the
@@ -43,7 +44,7 @@ from .x68000 import X68000
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
     '.zip', '.bin', '.rom', '.gbc', '.fds', '.n64', '.z64', '.v64', '.smd',
-    '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
+    '.a26', '.a78', '.7z', '.chd',
 })
 
 _REGISTERED: list[SystemProfile] = []
@@ -70,7 +71,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, SCUMMVM):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, SCUMMVM, PLAYSTATION):
     register(_profile)
 del _profile
 

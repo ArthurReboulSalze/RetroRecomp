@@ -45,15 +45,16 @@ DECLINED = {
     # Random long routes: the X68000 plays routes of its own (x68000_scan.long_routes), in its own script format.
     # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
     # The Amiga plays routes of its own too (joystick, mouse and keyboard scripts of amiga_conversion).
+    # The PlayStation (in development) has no pad script writer yet: its routes come with its conversion.
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
-    'random_routes': {'x68', 'pce', 'amiga', 'atarist'},
+    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'psx'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
     # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
-    'memory_view': {'cps1', 'cps2', 'pce', 'gba'},
+    'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
