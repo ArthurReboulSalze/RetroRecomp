@@ -143,7 +143,7 @@ The page of each console, which the README links its line to (a console of the m
 ### Caveats
 
 - Atari ST (6 and 7 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): G1 `P`: the profile is declared
-  experimental and `tools/status_lint.py` agrees, but the machine is not opened to players yet. G2 `P`: the common report v2 of every
+  experimental and `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every
   conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
   interpreted on a route (on 6 November Operation Stealth and Captain Blood stayed on the GEM desktop, whose line-F calls go to
   Hatari's illegal-instruction handler and stay interpreted), 0 to 3 elsewhere; with EmuTOS 1.4, the default, 4 to 6 on every game,
@@ -168,7 +168,7 @@ The page of each console, which the README links its line to (a console of the m
   claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
-  `tools/status_lint.py` agrees; not opened to players. G2 `P`: the common report v2 of every conversion, the VR4300 counted in
+  `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in
   instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,
   5.6 to 6.0 % of the instructions interpreted on the routes, 0 guard misses. G4 `P`: every route of both conversions is identical,
   frame by frame (picture, sound, RDRAM, CPU registers), to a fresh reference on the core's pure interpreter; native plus interpreted

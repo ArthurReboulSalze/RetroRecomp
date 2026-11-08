@@ -3,8 +3,9 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Thirteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, experimental, the PC Engine / TurboGrafx-16, the Game Boy Advance and the Commodore Amiga.
+never hidden. Sixteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, experimental, the PC Engine / TurboGrafx-16, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64
+and the Sony PlayStation; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
@@ -43,10 +44,10 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
 | [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
 | [Atari ST](ATARI_ST.md) (experimental) | main | none | none | none | none |
-| [Sony PlayStation](PLAYSTATION.md) (experimental) | main | none | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
-"Main" is the processor that runs the game; "sound" is a processor dedicated to the sound chips. The X68000 has no
+The PC Engine (HuC6280), the Game Boy Advance (ARM), the Nintendo 64 (VR4300) and the Sony PlayStation (R3000A) have no processor page yet: their processor
+is described on their machine page. "Main" is the processor that runs the game; "sound" is a processor dedicated to the sound chips. The X68000 has no
 sound processor in the project: its YM2151 and ADPCM are part of the reference machine.
 
 ## Play

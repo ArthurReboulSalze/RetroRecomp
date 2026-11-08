@@ -8,7 +8,7 @@ Five measures stay separate in every step below: native code, CPU fidelity, hard
 physical latency. Native execution alone guarantees neither complete compatibility nor zero latency, and the interpreter
 fallback stays counted and shown wherever it is used.
 
-## Where things stand (1.7.0, November 2026)
+## Where things stand (1.7.1, November 2026)
 
 | Machine | Status | Next step |
 | --- | --- | --- |
@@ -24,8 +24,12 @@ fallback stays counted and shown wherever it is used.
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | experimental (since 1.6.9) | a speed measure on a quiet PC, more HuCards (Gradius and Santatlantean still to witness on Linux) |
-| Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, Golden Sun's run-time code, the LDM/STM vectors, an independent emulator comparison |
-| Commodore Amiga 500 | experimental (since 1.7.0) | installs that need a player's own Kickstart, then ADF images; more installs converted and played; the Linux witness |
+| Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, the LDM/STM vectors, an independent emulator comparison |
+| Commodore Amiga 500 | experimental (since 1.7.0) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; the Linux witness of a Kickstart install |
+| Atari ST | experimental (since 1.7.1) | the cause of Kick Off 2's stop on its protected tracks, more games played, the Linux play, the STE |
+| Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
+| Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
+| Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
 [QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.
@@ -123,25 +127,41 @@ stays partly native. SuperGrafx and CD-ROM² are separate later studies.
 
 Experimental since 1.7.0 ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)): `.gba` cartridges with your own BIOS, native code from what each
 game was seen to run, the rest interpreted and counted, cartridge saves. Next: the Linux witness, the box-art covers on a first
-conversion, the cartridge sensors (tilt, gyroscope, solar) as host inputs, the code Golden Sun decompresses at run time (made native
-only in the player's private conversion cache), a comparison with an independent emulator (today the agreement is with the engine's own
+conversion, the cartridge sensors (tilt, gyroscope, solar) as host inputs, a comparison with an independent emulator (today the agreement is with the engine's own
 interpreter) and the owner's decision, which alone ends the experimental status.
 
-## Machines in development
+### Commodore Amiga 500
 
-Each new machine starts as an experimental profile, follows [NEW_MACHINE.md](NEW_MACHINE.md), and leaves that status only
-on the owner's decision after the qualification list.
+Experimental since 1.7.0 ([AMIGA.md](AMIGA.md)): a pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000
+steps structured by the shared decoder; games installed for WHDLoad, with no WHDLoad run (its services are answered by our own code). Installs
+that ask for a Kickstart 1.3 convert with the player's own image since 1.7.0, and the Kickstart's code runs as guarded native steps since 1.7.1.
+Next: Kickstart 1.2 and 3.x installs, then ADF images.
 
-- **Commodore Amiga 500** (experimental since 1.7.0, [AMIGA.md](AMIGA.md)). A pinned machine core (vAmiga, with its 68000
-  Moira) driven frame by frame, native 68000 steps structured by the shared decoder; games installed for WHDLoad, with no
-  Kickstart and no WHDLoad run (its services are answered by our own code). Next: installs that need the player's own
-  Kickstart, then ADF images.
+### Atari ST
+
+Experimental since 1.7.1 ([ATARI_ST.md](ATARI_ST.md)): ST, STF and Mega ST floppy games on Hatari, EmuTOS 1.4 by default or the player's own TOS,
+native steps for the 68000 code the reference run saw. Next: the cause of Kick Off 2's stop, more games through the same loop, the owner's play
+trials and a game played on Linux. The STE, TT, Falcon and hard disks are out of scope today.
+
+### Nintendo 64
+
+Experimental since 1.7.1 ([NINTENDO_64.md](NINTENDO_64.md)): cartridge images on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded
+native blocks for the VR4300 code the reference run saw. Next: frame pacing on Ocarina of Time, independent processor vectors, more games and
+a game played on Linux. The 64DD is out of scope today.
+
+### Sony PlayStation
+
+Experimental since 1.7.1 ([PLAYSTATION.md](PLAYSTATION.md)): discs on Beetle PSX with native R3000A steps for the code the conversion saw run. Next:
+the owner's play of the panel discs, more discs, the Linux witness beyond one disc, and the mouse, multitap and light guns, which are out of scope today.
+
+### Adventure games (ScummVM)
+
+Supported since 1.7.1 as a category of its own, emulated and 0 % native by design ([SCUMMVM.md](SCUMMVM.md)). Next: Ogg Vorbis, FLAC and MP3 decoders
+(games that need CD audio rips or compressed speech), and the witness on Linux of more engine families.
 
 ## Planned after that
 
-- Atari ST
 - Amiga 1200 AGA (WHDLoad-based)
-- Nintendo 64
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

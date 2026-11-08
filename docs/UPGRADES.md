@@ -79,6 +79,62 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.0 in 1.7.1
+
+1.7.1 is the release after 1.7.0 (published on 7 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
+section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
+computed on `main` on 8 November 2026.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Adventure games (ScummVM): the options page, the keys and the supported status](#adventure-games-scummvm-the-options-page-the-keys-and-the-supported-status-171) | the Adventure (ScummVM) game stamp, and nothing else in that section | the Adventure (ScummVM) build stamp (`97d9ad0da628` to `fd819f80e824`) | no key moves; the saves are ScummVM's own, in `datas/` |
+| [Host kit and resources: two small shared changes](#host-kit-and-resources-two-small-shared-changes-171) | **every machine's game stamp** (already moving in 1.7.1, so no conversion on top) | **every machine's host stamp** (already moving in 1.7.1); no build stamp | no key moves (the Mega Drive, Super Nintendo and CPS keys hash none of these files) |
+| [Sony PlayStation opens as an experimental machine](#sony-playstation-opens-as-an-experimental-machine-171) | a new machine: the PlayStation stamps are new | its own | its key is new |
+| [Atari ST opens as an experimental machine](ATARI_ST.md) (no section of this page; the facts are on the machine page) | a new machine: the Atari ST stamps are new | its own | its key is new |
+| [Nintendo 64 opens as an experimental machine](NINTENDO_64.md) (no section of this page; the facts are on the machine page) | a new machine: the Nintendo 64 stamps are new | its own | its key is new |
+| [Game Boy Advance: guarded native RAM code](GAME_BOY_ADVANCE.md#code-the-cartridge-does-not-hold-guarded-native-ram-code-7-november-2026) (no section of this page) | the Game Boy Advance | none stated | not stated |
+| [Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock](#commodore-amiga-examine-no-longer-overwrites-the-memory-behind-a-slaves-fileinfoblock-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: a route the game ends itself](#commodore-amiga-a-route-the-game-ends-itself-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad](#commodore-amiga-the-icons-custom1-to-5-names-with-accents-a-larger-expmem-and-basemem-a-registered-whdload-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image](#commodore-amiga-the-kickstarts-code-runs-as-guarded-native-steps-written-from-the-players-own-image-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: CIA-B enters the slave as the system leaves it](#commodore-amiga-cia-b-enters-the-slave-as-the-system-leaves-it-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the chipset's collision detection is on](#commodore-amiga-the-chipsets-collision-detection-is-on-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the window says so when the whole run is interpreted](#commodore-amiga-the-window-says-so-when-the-whole-run-is-interpreted-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: a quick state continues the sound sample for sample](#commodore-amiga-a-quick-state-continues-the-sound-sample-for-sample-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+
+Taken together (`compilation_inputs.role_stamps` of the seventeen profiles, the tree of `v1.7.0` against `main`): **the game stamp and the host stamp of all fourteen earlier profiles move**
+(the thirteen machines of 1.7.0 and Adventure (ScummVM)), and **no build stamp moves except the Adventure (ScummVM) one**. The Atari ST, the Nintendo 64 and the PlayStation are new, with
+stamps of their own. The sections above that say "no other console's stamp moves" were computed before the three machines joined the registry and the notices; the sum is larger than
+any of them.
+
+| Machine | Game stamp (v1.7.0, now) | Host stamp (v1.7.0, now) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `ffb447e12968`, `ac17f3b7f4f5` | `4c698ce40729`, `1d81e0239a18` | `fe2d99b3cd5e` (same) |
+| Game Gear | `9f3d2cd547bb`, `a250c6369a98` | `9e302b729213`, `95eca500eaf2` | `f5671c38cf26` (same) |
+| Game Boy | `1c847126de1d`, `c3ebd5a20379` | `d03f39763f54`, `673b4bb363db` | `819a054ad881` (same) |
+| NES | `88240b6d2e3b`, `b7d4bc713a58` | `a91c8c6c0d28`, `e8d1628945c9` | `8e0941f93b43` (same) |
+| Mega Drive | `3c62c2e5c7a3`, `16b75838c960` | `b45d74b5e78f`, `ea63d23e1fca` | `9615ff2e96c8` (same) |
+| Super Nintendo | `0bc2b194ed99`, `2bfb9796116e` | `ebe78ef356a1`, `4c8d71f37bf3` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `328279cbfc1c`, `78178ab816e2` | `098ae12034e1`, `e27c023e5ba4` | `110349f043bd` (same) |
+| X68000 | `d42bb1882a76`, `358beb258c80` | `4cc410c21d5a`, `eb3c4c50dec2` | `5903c0449429` (same) |
+| CPS-1 | `b2ef983bc3fd`, `c5891dc16283` | `ff2e8295501f`, `2b88568dbd51` | `2782cd370f91` (same) |
+| CPS-2 | `71a11548e45d`, `e4946514b291` | `7f31bbdfb091`, `c1210f0aa34e` | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `78f5641c38ec`, `80aab1f7765c` | `bdcc346995e1`, `e05702e59dfe` | `66d912662e5c` (same) |
+| Game Boy Advance | `05e06c23687a`, `23eaeffd6202` | `f94b7ff7c92f`, `efdde4bce8a0` | `6b70933a9b0a` (same) |
+| Amiga | `ff35e3b8af69`, `b0533dd74d03` | `136af9f804ed`, `a9bb67f8bec9` | `92ca8a0c142c` (same) |
+| Atari ST | new, `35cc8520f1c1` | new, `646132cfbaca` | new, `54b75964897d` |
+| Nintendo 64 | new, `6d4336661f92` | new, `4cecea150992` | new, `4f6fedf926c7` |
+| Adventure (ScummVM) | `be8047b230ac`, `566ba9a2ef3c` | `4a96d24af08d`, `d14de71b0ff3` | `97d9ad0da628`, `fd819f80e824` |
+| Sony PlayStation | new, `cb37f9e885cb` | new, `d75433ec7f13` | new, `b6c9cf73b176` |
+
+(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.0, on every machine, is converted again, from its qualified paths, once, when the
+player updates**, and the window offers it; it is not a quick host-only upgrade.
+
+**Quick states.** The **Mega Drive and Super Nintendo keys move** (`native/runtime_catalog.inc` and `native/runtime_feedback.h`, which those two keys hash, changed): a quick state of 1.7.0 of
+those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The **Amiga's key moves** with its sound-carrying state (an
+earlier Amiga state is refused). The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the X68000 hash none of the files that changed, so their states of 1.7.0 load; the
+Master System, Game Gear and Game Boy have no such key. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
+
 ## Adventure games (ScummVM): the options page, the keys and the supported status (1.7.1)
 
 "Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md)) leaves the experimental status on the owner's decision of 7 November 2026: `retrorecomp/systems/scummvm.py` says `supported`, the
@@ -92,102 +148,6 @@ released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80
 
 **Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
 none moves, a game's saves are ScummVM's own, in `datas/`.
-
-## Exports of 1.6.9 in 1.7.0
-
-1.7.0 is the release after 1.6.9 (published on 6 November 2026). This section is the index of its changes, one line per section below, with the stamps
-that section says move. Each section computed its stamps for its own change alone; the totals are under the table. It lists what is on `main` so far.
-
-| Change | Game stamps that move | Host and build stamps | Quick states |
-| --- | --- | --- | --- |
-| [Computers: a press of the middle button releases the mouse](#computers-a-press-of-the-middle-button-releases-the-mouse-170) | none | X68000 host (`rrhk_computer.inc`) | no key moves |
-| [Game Boy Advance opens as an experimental machine](#game-boy-advance-opens-as-an-experimental-machine-170) | none (a new machine: Game Boy Advance stamps are new) | host stamp of all eleven other consoles (THIRD_PARTY_NOTICES) | none (no earlier export) |
-| [Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change](#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170) | none | **host stamp of all eleven consoles** (the kit, `runtime_catalog.inc`) | **the Mega Drive and Super Nintendo keys move** (the catalogue); no other key |
-| [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
-| [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
-
-| [The index of native steps may have its own language](#the-index-of-native-steps-may-have-its-own-language-170) | **every console** (`systems/specs.py`, an input of every game stamp), and the X68000 again (`m68k_observed.py`) | none | no key stated to move |
-| [Covers: a subtitle that names the game, and extra names from a profile](#covers-a-subtitle-that-names-the-game-and-extra-names-from-a-profile-170) | none | **host stamp of every console** (`cover_titles.py`, `artwork.py`) | no key moves |
-| [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
-| [The F12 recorder accepts the hints of every machine](#the-f12-recorder-accepts-the-hints-of-every-machine-170) | **the game stamp of all thirteen machines** (`runtime_feedback.c` and `.h`, `freshness.py`) | none | no key moves for it (the Mega Drive and Super Nintendo keys hash the recorder but already move) |
-| [Commodore Amiga: the player's own Kickstart 1.3](#commodore-amiga-the-players-own-kickstart-13-170) | the Amiga only (`f68fb739871c` at the time of the section) | none | the Amiga's key moves (a state of an earlier Amiga build is refused cleanly); no other key |
-| [Adventure games (ScummVM): a category of its own](#adventure-games-scummvm-a-category-of-its-own-170) | **the game stamp of the thirteen earlier machines** (`batch.py`, `report_schema.py`; no new conversion on top of the others); the ScummVM stamps are new | **host stamp of the thirteen earlier machines** (the notices, the licence pages); the ScummVM stamps are new | no key moves; the exports have no state of ours |
-
-<!-- Rows of the changes merged after this index go here, in the order of their merge, with their new stamps and keys. -->
-
-Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp and the host stamp of the eleven consoles of 1.6.9 move; no build stamp moves** (the Amiga section computed it on the tree of `v1.6.9`; the game stamps move through
-`systems/specs.py`, which every game stamp hashes, and the host stamps through the notices, the host kit and the box-art modules). The Game Boy Advance and the Amiga are new. So every export of 1.6.9
-is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. The recorder change above moves the game stamp of all thirteen machines for itself, and adds no conversion on top of this total. Adventure (ScummVM) is a fourteenth profile with stamps of its own, new; it moves no stamp that was not already moving.
-
-**Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
-written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
-NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Game Boy Advance and the Amiga have keys of their own, new; the Master System, Game Gear and Game Boy have no key.
-**Cartridge saves** are kept on every console; the EEPROM of the CPS-1.5 and the CPS-2 is now written by a worker thread (a stop within about a second of the last change loses that change).
-
-## Computers: a press of the middle button releases the mouse (1.7.0)
-
-On the computers, a press of the middle mouse button (the wheel) now releases a captured mouse, as Ctrl+Alt+M does; the
-button never reaches the game (the X68000's and the Amiga's mice had two buttons). The capture notices say so, in English
-and French. What moves: the **host stamp of the X68000** (`native/hostkit/adapters/rrhk_computer.inc`, host role); no game
-or build stamp, no quick-state key. An export of 1.6.9 keeps working as it is; reconverting it brings the middle-button release.
-
-## Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change (1.7.0)
-
-Five capabilities of the player shell for the PlayStation, written for every machine ([HOST_KIT.md section 2.4](HOST_KIT.md#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170),
-decision [D14](HOST_KIT.md#d14)): `rrhk_pad_axes` and a Stick dead zone row, the F3 graphics page, a picture that grows past
-its opening size, `rrhk_rumble` and a shared Vibration row, a Change disc action, and up to twenty controls per machine
-(`RRHK_MAX_ACTIONS` 12 to 20; an F2 page scrolls past fifteen rows; the triggers bindable as buttons with `trigger_buttons`).
-Each one is a new field of the machine table (or a limit no machine of 1.6.9 reaches) that is off when an adapter leaves it
-out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the menus, the input, the bindings and preferences
-(the X68000's `player.cfg` included) and the pictures are unchanged (A/B below).
-
-**What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles, the tree of `main` at `27e30e0` against
-this change (all five capabilities, the twenty controls and the review fixes, recomputed on the final tree): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
-`native/hostkit/shell/` and `native/runtime_catalog.inc` are host inputs). **No game stamp and no build stamp moves**: an export
-of 1.6.9 that has nothing else to rebuild is upgraded (rebuilt from its paths, no rediscovery).
-
-| Console | Game stamp | Host stamp (before, after) | Build stamp |
-| --- | --- | --- | --- |
-| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `5e19fd3e1507` | `fe2d99b3cd5e` (same) |
-| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `6a0a2110937d` | `f5671c38cf26` (same) |
-| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `c545c7240609` | `819a054ad881` (same) |
-| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `82968356d271` | `8e0941f93b43` (same) |
-| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `d6f288c77b93` | `9615ff2e96c8` (same) |
-| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `45d3816ac86c` | `3f0a58ad3c7c` (same) |
-| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `57af9580985d` | `110349f043bd` (same) |
-| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `1df1d70e5a4b` (with the middle-click release above) | `5903c0449429` (same) |
-| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `33eca10a92c8` | `2782cd370f91` (same) |
-| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `453594c99c49` | `81a51ad49349` (same) |
-| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `98e3865903b4` | `66d912662e5c` (same) |
-
-(First twelve hexadecimal digits of each stamp.)
-
-**Quick states.** The kit's nine new strings are in the five-language game catalogue, `native/runtime_catalog.inc`, which the
-**Mega Drive and Super Nintendo** keys hash (`compilation_inputs.state_native_files`): **those two keys move**, and a quick state
-written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly by its 1.7.0 build (no compatibility key is carried,
-[GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the
-PC Engine and the X68000 hash none of the changed files and do not move; the Master System, the Game Gear and the Game Boy have
-no key of this kind. `native/game_options.h` and `native/retro_menu.c` are unchanged. **Cartridge saves** are kept on every console.
-
-**Preferences.** Nothing is renamed or read differently on the eleven consoles. A machine that declares the new fields adds
-`deadzone` to `[<Console>.Gamepad.PlayerN]`, its options' keys to `[<Console>.Video]`, and `rumble` to `[Manettes]`.
-
-**A/B** (Windows, llvm-mingw, offscreen SDL, `tools/hostkit_ab.py` with its virtual clock and modelled audio device; the A side
-built from `git archive 27e30e0 native tools`, the B side from this tree, both against the same kept builds):
-
-* X68000 (`build-x68`, the kept conversion of `.build/x68`): the scripts `play` (3,280 frames), `autofire`, `keyboard`, `mouse`,
-  `states` and `ui` (518 frames, 47 pictures of help, F2 and options pages in five languages) with the machine's per-frame trace
-  (`--trace`): **identical**, every file (pictures, trace, audio, window log, preferences).
-* CPS-1, Warriors of Fate (three players, a DIP page; `build --refresh-kit`), the standard battery of 3,968 iterations (both
-  players' keys and pads, the filters and display modes, every language, every F2 page, states, preferences): **identical** (61
-  files: 3,968 picture hashes, 52 captures, 2,768 audio pushes, the state file, the preferences).
-* Both A/B runs were made again on the final tree (the twenty controls, the scrolling pages, `trigger_buttons` and the review fixes): identical
-  again, every file.
-* ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine of eighteen controls, its scrolling F2
-  page and its triggers as L2 and R2, then the same machine with every field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
-
-Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
-consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
 
 ## Host kit and resources: two small shared changes (1.7.1)
 
@@ -203,55 +163,6 @@ The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to 
 it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none. The machine is Beetle
 PSX, pinned and fetched on the first conversion, with anchored changes listed in `psx_beetle.REPLACEMENTS`; the game executable
 is GPL-2.0 as a whole. Its files are game inputs of `psx` alone: no other console's stamp moves for them.
-
-## Game Boy Advance opens as an experimental machine (1.7.0)
-
-The Game Boy Advance (profile `gba`, [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)) opens to players as an **experimental** machine in 1.7.0. It is new:
-no export of it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none (it is not in the base). It asks for
-your own BIOS (`gba_bios.bin`, checked by its SHA-1); a converted game holds code derived from it and stays private to you. The engine is
-[mstan/gbarecomp](https://github.com/mstan/gbarecomp) pinned at `c1a5fda36fb4` (PolyForm Noncommercial, with the author's permission) and its submodule
-`arm-recomp-core` (MIT), fetched on the first conversion and carried with 44 anchored patches ([UPSTREAMS.md](UPSTREAMS.md)).
-
-What the change moves, computed with `compilation_inputs.role_stamps` on `main` (27e30e03) and on the branch (game, host, build, first 12 hexadecimal digits):
-
-| Console | Game stamp | Host stamp | Build stamp |
-|---|---|---|---|
-| sms | 3e16a0301d90 (same) | 1b834d7b9fbc → 033d55196e25 | same |
-| gg | 4f9d69e86e89 (same) | c9e0e360f031 → 1a565bafd044 | same |
-| gb | ff30f88ca9f1 (same) | 772d06158394 → 67546878fe4b | same |
-| nes | a3537f590fcf (same) | 21b599f4ec81 → b49e7d1d6a9a | same |
-| md | a0de8eae71a4 (same) | 7bda64083b03 → 75dc61baeb8b | same |
-| snes | ae2146874e49 (same) | 2a4bc2c7b468 → ab414537de23 | same |
-| ng | a3733e1113ff (same) | 1f2e8a0e2450 → a17e0dd77249 | same |
-| cps1 | e6380523c2d1 (same) | 0f8432dcd5c5 → 28aaed430011 | same |
-| x68 | 6c7509bf49d2 (same) | 47212d53043d → be0daff05bb1 | same |
-| cps2 | 8d2c63c4b35a (same) | 0f2bade664f6 → 56a02d1ee4c6 | same |
-| pce | c8545bf9018e (same) | 6ea8ea8ac8eb → 78d65184c1bf | same |
-| gba (new) | a90b434c6d70 | 8eb4c3a0974e | 6b70933a9b0a |
-
-- **No game stamp and no build stamp of another console moves.** The profile declares its own ZIP limit (`archived_rom_limits`), its own path order (11), its own
-  feedback kind (21) and its own files in `stamp_inputs.py`; no shared module was edited for it besides the registry (an interface module that no stamp hashes).
-- **The host stamp of the eleven other consoles moves**, because `THIRD_PARTY_NOTICES.md` (a host input) gains the row of gbarecomp and arm-recomp-core. No
-  export changes behaviour: a host stamp that moved only means the licence page of the next conversion is newer.
-- `.gba` is no longer a "foreign" extension: a `.gba` file is claimed by the Game Boy Advance profile (or reported as unavailable when the installation lacks its files).
-
-## The index of native steps may have its own language (1.7.0)
-
-The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
-C (its page tables are array designators); the Amiga's steps are C++ (they call Moira's instruction templates), and a C++ index needed a warning switched
-off. `ObservedCode.index_extension` (`retrorecomp/systems/specs.py`) names the extension of `steps/index` when it differs from the steps'; `None`, the
-default, keeps the steps' extension. The Amiga sets `'.c'`: its steps are C++ functions with C linkage and its index is C. One line of `write_steps`
-reads the field; no other line of the shared module changes. A contract test (`tests/test_observed_index_contract.py`) writes the index of every
-machine that declares an `ObservedCode` and compiles it, warnings as errors, in the language its extension names; the former C++ index of the Amiga fails it.
-
-**Proof that the X68000 does not change.** The native project of two games (R-Type and Lemmings, the variants of their recorded observations) was written
-with the converter of `main` and with this tree: **78 files, 0 differences** (the decoder's build folder and the logs name the tree and are left out).
-The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, as for the move of the generator in 1.6.9, so no qualified path is lost; the
-digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is updated.
-
-**What moves**: `retrorecomp/systems/specs.py` is an input of the game stamp of all nine consoles, so **the game stamp of every console moves**;
-`retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
-identical, but an export upgraded across this change is converted again once, as the stamps say.
 
 ## Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock (1.7.1)
 
@@ -351,6 +262,151 @@ with the CPU registers, RAM and picture; the conversion now compares the sound a
 stamp (the adapted core, `amiga_session.cpp`, `amiga_conversion.py`); no other console. **Quick states:** the state file schema is
 now `RRAMIGA-STATE-2`: states of earlier Amiga builds are refused cleanly. Hardware fidelity and physical latency are not
 measured by this check.
+
+## Exports of 1.6.9 in 1.7.0
+
+1.7.0 is the release after 1.6.9 (published on 6 November 2026). This section is the index of its changes, one line per section below, with the stamps
+that section says move. Each section computed its stamps for its own change alone; the totals are under the table. It lists what is on `main` so far.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Computers: a press of the middle button releases the mouse](#computers-a-press-of-the-middle-button-releases-the-mouse-170) | none | X68000 host (`rrhk_computer.inc`) | no key moves |
+| [Game Boy Advance opens as an experimental machine](#game-boy-advance-opens-as-an-experimental-machine-170) | none (a new machine: Game Boy Advance stamps are new) | host stamp of all eleven other consoles (THIRD_PARTY_NOTICES) | none (no earlier export) |
+| [Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change](#host-kit-analog-sticks-rumble-the-3d-graphics-page-larger-pictures-and-disc-change-170) | none | **host stamp of all eleven consoles** (the kit, `runtime_catalog.inc`) | **the Mega Drive and Super Nintendo keys move** (the catalogue); no other key |
+| [Capcom CPS-2 leaves the experimental status](#capcom-cps-2-leaves-the-experimental-status-170) | CPS-1 (and CPS-1.5, the same board) and CPS-2; the other nine consoles keep theirs (`path_profiles.py` untouched) | **host stamp of every console** (`artwork.py`, box art of the CPS family) | no key moves (`native/cps1_persistence.c`, the EEPROM writer, is hashed by none) |
+| [PC Engine / TurboGrafx-16: US cards, the reset-instruction tie-break, the Linux build](#pc-engine-an-experimental-machine-169) (the paragraph "US TurboGrafx-16 cards") | the PC Engine only (the reader, the profile and the report writer) | none | not stated |
+
+| [The index of native steps may have its own language](#the-index-of-native-steps-may-have-its-own-language-170) | **every console** (`systems/specs.py`, an input of every game stamp), and the X68000 again (`m68k_observed.py`) | none | no key stated to move |
+| [Covers: a subtitle that names the game, and extra names from a profile](#covers-a-subtitle-that-names-the-game-and-extra-names-from-a-profile-170) | none | **host stamp of every console** (`cover_titles.py`, `artwork.py`) | no key moves |
+| [Commodore Amiga: an experimental machine](#commodore-amiga-an-experimental-machine-170) | a new machine: the Amiga stamps are new; its profile and converter modules are the only game inputs it adds | the notices (a vAmiga row) and the Amiga files; no build stamp | the Amiga's key is new; no other console's key moves for it |
+| [The F12 recorder accepts the hints of every machine](#the-f12-recorder-accepts-the-hints-of-every-machine-170) | **the game stamp of all thirteen machines** (`runtime_feedback.c` and `.h`, `freshness.py`) | none | no key moves for it (the Mega Drive and Super Nintendo keys hash the recorder but already move) |
+| [Commodore Amiga: the player's own Kickstart 1.3](#commodore-amiga-the-players-own-kickstart-13-170) | the Amiga only (`f68fb739871c` at the time of the section) | none | the Amiga's key moves (a state of an earlier Amiga build is refused cleanly); no other key |
+| [Adventure games (ScummVM): a category of its own](#adventure-games-scummvm-a-category-of-its-own-170) | **the game stamp of the thirteen earlier machines** (`batch.py`, `report_schema.py`; no new conversion on top of the others); the ScummVM stamps are new | **host stamp of the thirteen earlier machines** (the notices, the licence pages); the ScummVM stamps are new | no key moves; the exports have no state of ours |
+
+<!-- Rows of the changes merged after this index go here, in the order of their merge, with their new stamps and keys. -->
+
+Taken together (`compilation_inputs.role_stamps` of the eleven consoles, the tree of `v1.6.9` against `main`, from the stamps each section lists): **the game stamp and the host stamp of the eleven consoles of 1.6.9 move; no build stamp moves** (the Amiga section computed it on the tree of `v1.6.9`; the game stamps move through
+`systems/specs.py`, which every game stamp hashes, and the host stamps through the notices, the host kit and the box-art modules). The Game Boy Advance and the Amiga are new. So every export of 1.6.9
+is converted again from its paths, once, when it is upgraded. `LEGACY_GAME_STAMPS` stays empty. The recorder change above moves the game stamp of all thirteen machines for itself, and adds no conversion on top of this total. Adventure (ScummVM) is a fourteenth profile with stamps of its own, new; it moves no stamp that was not already moving.
+
+**Quick states.** Only **the Mega Drive and the Super Nintendo keys** move (the host kit's strings are in `native/runtime_catalog.inc`, which those two keys hash): a quick state
+written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the
+NES, the Neo Geo, the CPS-1 and CPS-1.5, the CPS-2 and the X68000 hash none of the files that changed, so their 1.6.9 states load (the PC Engine section does not state its key); the Game Boy Advance and the Amiga have keys of their own, new; the Master System, Game Gear and Game Boy have no key.
+**Cartridge saves** are kept on every console; the EEPROM of the CPS-1.5 and the CPS-2 is now written by a worker thread (a stop within about a second of the last change loses that change).
+
+## Computers: a press of the middle button releases the mouse (1.7.0)
+
+On the computers, a press of the middle mouse button (the wheel) now releases a captured mouse, as Ctrl+Alt+M does; the
+button never reaches the game (the X68000's and the Amiga's mice had two buttons). The capture notices say so, in English
+and French. What moves: the **host stamp of the X68000** (`native/hostkit/adapters/rrhk_computer.inc`, host role); no game
+or build stamp, no quick-state key. An export of 1.6.9 keeps working as it is; reconverting it brings the middle-button release.
+
+## Host kit: analog sticks, rumble, the 3D graphics page, larger pictures and disc change (1.7.0)
+
+Five capabilities of the player shell for the PlayStation, written for every machine ([HOST_KIT.md section 2.4](HOST_KIT.md#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170),
+decision [D14](HOST_KIT.md#d14)): `rrhk_pad_axes` and a Stick dead zone row, the F3 graphics page, a picture that grows past
+its opening size, `rrhk_rumble` and a shared Vibration row, a Change disc action, and up to twenty controls per machine
+(`RRHK_MAX_ACTIONS` 12 to 20; an F2 page scrolls past fifteen rows; the triggers bindable as buttons with `trigger_buttons`).
+Each one is a new field of the machine table (or a limit no machine of 1.6.9 reaches) that is off when an adapter leaves it
+out, and **no adapter of 1.6.9 declares one**: on the eleven consoles F3, the menus, the input, the bindings and preferences
+(the X68000's `player.cfg` included) and the pictures are unchanged (A/B below).
+
+**What moves.** Computed with `compilation_inputs.role_stamps` of the eleven consoles, the tree of `main` at `27e30e0` against
+this change (all five capabilities, the twenty controls and the review fixes, recomputed on the final tree): **the host stamp of all eleven consoles** (`native/hostkit/hostkit.h`, `hostkit_internal.h`, seven files of
+`native/hostkit/shell/` and `native/runtime_catalog.inc` are host inputs). **No game stamp and no build stamp moves**: an export
+of 1.6.9 that has nothing else to rebuild is upgraded (rebuilt from its paths, no rediscovery).
+
+| Console | Game stamp | Host stamp (before, after) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `3e16a0301d90` (same) | `1b834d7b9fbc`, `5e19fd3e1507` | `fe2d99b3cd5e` (same) |
+| Game Gear | `4f9d69e86e89` (same) | `c9e0e360f031`, `6a0a2110937d` | `f5671c38cf26` (same) |
+| Game Boy | `ff30f88ca9f1` (same) | `772d06158394`, `c545c7240609` | `819a054ad881` (same) |
+| NES | `a3537f590fcf` (same) | `21b599f4ec81`, `82968356d271` | `8e0941f93b43` (same) |
+| Mega Drive | `a0de8eae71a4` (same) | `7bda64083b03`, `d6f288c77b93` | `9615ff2e96c8` (same) |
+| Super Nintendo | `ae2146874e49` (same) | `2a4bc2c7b468`, `45d3816ac86c` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `a3733e1113ff` (same) | `1f2e8a0e2450`, `57af9580985d` | `110349f043bd` (same) |
+| X68000 | `6c7509bf49d2` (same) | `47212d53043d`, `1df1d70e5a4b` (with the middle-click release above) | `5903c0449429` (same) |
+| CPS-1 | `e6380523c2d1` (same) | `0f8432dcd5c5`, `33eca10a92c8` | `2782cd370f91` (same) |
+| CPS-2 | `8d2c63c4b35a` (same) | `0f2bade664f6`, `453594c99c49` | `81a51ad49349` (same) |
+| PC Engine | `c8545bf9018e` (same) | `6ea8ea8ac8eb`, `98e3865903b4` | `66d912662e5c` (same) |
+
+(First twelve hexadecimal digits of each stamp.)
+
+**Quick states.** The kit's nine new strings are in the five-language game catalogue, `native/runtime_catalog.inc`, which the
+**Mega Drive and Super Nintendo** keys hash (`compilation_inputs.state_native_files`): **those two keys move**, and a quick state
+written by a Mega Drive or Super Nintendo export of 1.6.9 is refused cleanly by its 1.7.0 build (no compatibility key is carried,
+[GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the
+PC Engine and the X68000 hash none of the changed files and do not move; the Master System, the Game Gear and the Game Boy have
+no key of this kind. `native/game_options.h` and `native/retro_menu.c` are unchanged. **Cartridge saves** are kept on every console.
+
+**Preferences.** Nothing is renamed or read differently on the eleven consoles. A machine that declares the new fields adds
+`deadzone` to `[<Console>.Gamepad.PlayerN]`, its options' keys to `[<Console>.Video]`, and `rumble` to `[Manettes]`.
+
+**A/B** (Windows, llvm-mingw, offscreen SDL, `tools/hostkit_ab.py` with its virtual clock and modelled audio device; the A side
+built from `git archive 27e30e0 native tools`, the B side from this tree, both against the same kept builds):
+
+* X68000 (`build-x68`, the kept conversion of `.build/x68`): the scripts `play` (3,280 frames), `autofire`, `keyboard`, `mouse`,
+  `states` and `ui` (518 frames, 47 pictures of help, F2 and options pages in five languages) with the machine's per-frame trace
+  (`--trace`): **identical**, every file (pictures, trace, audio, window log, preferences).
+* CPS-1, Warriors of Fate (three players, a DIP page; `build --refresh-kit`), the standard battery of 3,968 iterations (both
+  players' keys and pads, the filters and display modes, every language, every F2 page, states, preferences): **identical** (61
+  files: 3,968 picture hashes, 52 captures, 2,768 audio pushes, the state file, the preferences).
+* Both A/B runs were made again on the final tree (the twenty controls, the scrolling pages, `trigger_buttons` and the review fixes): identical
+  again, every file.
+* ROM-free: `tests/test_hostkit_capabilities.py` (the five capabilities on a fake machine of eighteen controls, its scrolling F2
+  page and its triggers as L2 and R2, then the same machine with every field left out), `tests/test_hostkit_players.py`, `tests/test_hostkit.py` and the X68000 harnesses of the suite.
+
+Not measured: a real gamepad (stick values and rumble go through SDL's virtual controller only), a real display, Linux, the other
+consoles by A/B (same shell code; only the X68000 and the CPS-1 were run), and a 3D machine itself (none exists yet).
+
+## Game Boy Advance opens as an experimental machine (1.7.0)
+
+The Game Boy Advance (profile `gba`, [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)) opens to players as an **experimental** machine in 1.7.0. It is new:
+no export of it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none (it is not in the base). It asks for
+your own BIOS (`gba_bios.bin`, checked by its SHA-1); a converted game holds code derived from it and stays private to you. The engine is
+[mstan/gbarecomp](https://github.com/mstan/gbarecomp) pinned at `c1a5fda36fb4` (PolyForm Noncommercial, with the author's permission) and its submodule
+`arm-recomp-core` (MIT), fetched on the first conversion and carried with 44 anchored patches ([UPSTREAMS.md](UPSTREAMS.md)).
+
+What the change moves, computed with `compilation_inputs.role_stamps` on `main` (27e30e03) and on the branch (game, host, build, first 12 hexadecimal digits):
+
+| Console | Game stamp | Host stamp | Build stamp |
+|---|---|---|---|
+| sms | 3e16a0301d90 (same) | 1b834d7b9fbc → 033d55196e25 | same |
+| gg | 4f9d69e86e89 (same) | c9e0e360f031 → 1a565bafd044 | same |
+| gb | ff30f88ca9f1 (same) | 772d06158394 → 67546878fe4b | same |
+| nes | a3537f590fcf (same) | 21b599f4ec81 → b49e7d1d6a9a | same |
+| md | a0de8eae71a4 (same) | 7bda64083b03 → 75dc61baeb8b | same |
+| snes | ae2146874e49 (same) | 2a4bc2c7b468 → ab414537de23 | same |
+| ng | a3733e1113ff (same) | 1f2e8a0e2450 → a17e0dd77249 | same |
+| cps1 | e6380523c2d1 (same) | 0f8432dcd5c5 → 28aaed430011 | same |
+| x68 | 6c7509bf49d2 (same) | 47212d53043d → be0daff05bb1 | same |
+| cps2 | 8d2c63c4b35a (same) | 0f2bade664f6 → 56a02d1ee4c6 | same |
+| pce | c8545bf9018e (same) | 6ea8ea8ac8eb → 78d65184c1bf | same |
+| gba (new) | a90b434c6d70 | 8eb4c3a0974e | 6b70933a9b0a |
+
+- **No game stamp and no build stamp of another console moves.** The profile declares its own ZIP limit (`archived_rom_limits`), its own path order (11), its own
+  feedback kind (21) and its own files in `stamp_inputs.py`; no shared module was edited for it besides the registry (an interface module that no stamp hashes).
+- **The host stamp of the eleven other consoles moves**, because `THIRD_PARTY_NOTICES.md` (a host input) gains the row of gbarecomp and arm-recomp-core. No
+  export changes behaviour: a host stamp that moved only means the licence page of the next conversion is newer.
+- `.gba` is no longer a "foreign" extension: a `.gba` file is claimed by the Game Boy Advance profile (or reported as unavailable when the installation lacks its files).
+
+## The index of native steps may have its own language (1.7.0)
+
+The shared generator of observed 68000 code (`retrorecomp/m68k_observed.py`) wrote the index of native steps in the language of the steps. The index is
+C (its page tables are array designators); the Amiga's steps are C++ (they call Moira's instruction templates), and a C++ index needed a warning switched
+off. `ObservedCode.index_extension` (`retrorecomp/systems/specs.py`) names the extension of `steps/index` when it differs from the steps'; `None`, the
+default, keeps the steps' extension. The Amiga sets `'.c'`: its steps are C++ functions with C linkage and its index is C. One line of `write_steps`
+reads the field; no other line of the shared module changes. A contract test (`tests/test_observed_index_contract.py`) writes the index of every
+machine that declares an `ObservedCode` and compiles it, warnings as errors, in the language its extension names; the former C++ index of the Amiga fails it.
+
+**Proof that the X68000 does not change.** The native project of two games (R-Type and Lemmings, the variants of their recorded observations) was written
+with the converter of `main` and with this tree: **78 files, 0 differences** (the decoder's build folder and the logs name the tree and are left out).
+The generator's revision (`x68_knowledge.GENERATOR_REVISION`) stays 1, as for the move of the generator in 1.6.9, so no qualified path is lost; the
+digest of `retrorecomp/m68k_observed.py` in `tests/x68_generator_pins.json` is updated.
+
+**What moves**: `retrorecomp/systems/specs.py` is an input of the game stamp of all nine consoles, so **the game stamp of every console moves**;
+`retrorecomp/m68k_observed.py` moves the game stamp of the X68000 again. No host or build stamp moves. The output of the X68000's generator is
+identical, but an export upgraded across this change is converted again once, as the stamps say.
 
 ## Commodore Amiga: resload_Abort read as documented, and said in words (1.7.0)
 
