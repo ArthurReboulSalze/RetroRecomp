@@ -305,8 +305,17 @@ def custom_options(blob: bytes, chosen: 'Install') -> tuple[int, int, int, int, 
     return tuple(values)
 
 
+def _named_after_its_folder(slaves: list) -> list:
+    """The slave named as the install's own folder ("Superfrog/Superfrog.slave" beside "Superfrog/SuperfrogIntro.slave"): the game,
+    the others being its intro, an editor or a helper. A collection of several games names none of them so."""
+    def plain(text: str) -> str:
+        return ''.join(c for c in text.lower() if c.isalnum())
+    return [m for m in slaves if plain(posixpath.splitext(posixpath.basename(m.name))[0]) == plain(m.name.split('/')[0])]
+
+
 def install(blob: bytes, choose: str | None = None) -> Install:
-    """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use (else it is refused)."""
+    """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use; without it the one named as the
+    install's folder is the game, and an archive where no single slave is (a collection) is refused, never guessed."""
     listed = amiga_lha.members(blob)
     slaves = [m for m in listed if m.name.lower().endswith('.slave')]
     if not slaves:
@@ -314,7 +323,7 @@ def install(blob: bytes, choose: str | None = None) -> Install:
     if choose is not None:
         chosen = [m for m in slaves if m.name == choose]
     else:
-        chosen = slaves if len(slaves) == 1 else []
+        chosen = slaves if len(slaves) == 1 else _named_after_its_folder(slaves)
     if len(chosen) != 1:
         raise InstallError('choose one slave: ' + ', '.join(m.name for m in slaves))
     member = chosen[0]

@@ -149,12 +149,20 @@ class InstallTest(unittest.TestCase):
         blob = level1('Game/Game.Slave', hunk_file(code)) + level1('Game/data/main', b'x') + b'\x00'
         self.assertEqual(sorted(W.install(blob).files), ['main'])
 
-    def test_several_slaves_need_a_choice(self):
-        blob = self.archive(('Game/Game.Slave', 'Game/GameNTSC.Slave'))
+    def test_a_collection_of_slaves_needs_a_choice(self):
+        blob = self.archive(('Games/Disk1.Slave', 'Games/Disk2.Slave'))
         with self.assertRaisesRegex(W.InstallError, 'choose one slave'):
             W.install(blob)
-        chosen = W.install(blob, 'Game/GameNTSC.Slave')
-        self.assertEqual(chosen.other_slaves, ('Game/Game.Slave',))
+        chosen = W.install(blob, 'Games/Disk2.Slave')
+        self.assertEqual(chosen.other_slaves, ('Games/Disk1.Slave',))
+
+    def test_the_slave_named_as_its_folder_is_the_game(self):
+        blob = self.archive(('Game/GameIntro.Slave', 'Game/Game.Slave'))
+        chosen = W.install(blob)
+        self.assertEqual((chosen.slave_path, chosen.other_slaves), ('Game/Game.Slave', ('Game/GameIntro.Slave',)))
+        two = self.archive(('Game/Game.Slave', 'Game/more/Game.Slave'))           # two of that name: refused, never guessed
+        with self.assertRaisesRegex(W.InstallError, 'choose one slave'):
+            W.install(two)
 
     def test_no_slave(self):
         with self.assertRaisesRegex(W.InstallError, 'no WHDLoad slave'):
