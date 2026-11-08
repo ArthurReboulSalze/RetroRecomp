@@ -94,6 +94,12 @@ native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c n
 native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py tests/test_atarist_disk.py
 native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
+retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
+native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
+native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
+native/n64_machine/glue/parallel_glue.cpp native/n64_machine/glue/parallel.h native/n64_machine/glue/libretro_private.h
+native/n64_machine/glue/libretro_memory.h native/n64_machine/glue/osal_export.h native/n64_machine/glue/GLideN64_libretro.h
+native/hostkit/adapters/rrhk_n64.inc licenses/mupen64plus-next.md tests/test_n64_profile.py tests/test_n64_native.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py

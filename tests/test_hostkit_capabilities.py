@@ -33,13 +33,19 @@ class DefaultsOffTests(unittest.TestCase):
     def test_no_adapter_of_today_declares_the_new_fields(self):
         fields = ('.analog_sticks', '.script_axes', '.trigger_buttons', '.gfx_options', '.gfx_option_count', '.gfx_apply', '.pixel_pitch',
                   '.rumble', '.host_media', '.media_count', '.media_current', '.media_select')
+        # The 3D machines are the ones that declare them (decision D14); every other adapter leaves them out.
+        declaring = {'rrhk_n64.inc': ('.analog_sticks', '.trigger_buttons', '.gfx_options', '.gfx_option_count', '.gfx_apply',
+                                      '.pixel_pitch', '.rumble')}
         # The PlayStation, for which they were made, declares them (tests/test_psx_adapter.py checks its table).
         for path in (KIT / 'adapters').iterdir():
             if path.name == 'rrhk_psx.c':
                 continue
             text = path.read_text(encoding='utf-8')
             for field in fields:
-                self.assertNotIn(field + ' =', text, (path.name, field))
+                if field in declaring.get(path.name, ()):
+                    self.assertIn(field + ' =', text, (path.name, field))
+                else:
+                    self.assertNotIn(field + ' =', text, (path.name, field))
 
     def test_the_kit_reaches_the_new_paths_only_through_the_new_fields(self):
         input_c = (KIT / 'shell/rrhk_input.c').read_text(encoding='utf-8')
