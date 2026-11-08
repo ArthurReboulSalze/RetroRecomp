@@ -43,7 +43,11 @@
   panel**; Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice.
   Hardware fidelity is Beetle's, not measured here, and latency is not measured. The game
   executable is GPL-2.0 as a whole, carrying its licence text. Multitap, light guns, the
-  hardware renderers, LibCrypt and CHD images are not supported.
+  hardware renderers, LibCrypt and CHD images are not supported. Off the panel, Tobal No. 1,
+  which the owner played: rows a wrapping display reads and the game cannot draw are shown black,
+  and a CUE sheet that leaves each CD-audio track's silent gap to the track before it is
+  corrected in the sheet the game holds (your files do not change), which brought back its
+  fight music. Other discs with such a sheet were not converted again.
 - **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that the
   category is no longer experimental. The profile says `supported`, the report and the window
   say it, in the eight languages, and the display still says **"emulated, 0 % native"**:
