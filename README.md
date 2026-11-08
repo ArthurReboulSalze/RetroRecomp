@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.7.0-d4a737" alt="Release version 1.7.0">
-  <img src="https://img.shields.io/badge/console_profiles-13-626262" alt="Thirteen console profiles">
+  <img src="https://img.shields.io/badge/console_profiles-16-626262" alt="Sixteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -96,7 +96,7 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
 and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
-CPS-2 the key file of the romset). What each machine converts, its options
+CPS-2 the key file of the romset). The Atari ST (a TOS) and the PlayStation (a BIOS) take your own as an option and have a free fallback. What each machine converts, its options
 and its limits are on its page.
 
 ### In development
@@ -110,7 +110,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.1.** Adventure (ScummVM) is supported, with the criteria written in [SCUMMVM.md](docs/SCUMMVM.md#what-supported-means-here); in the game, Ctrl+F2 opens a Retro-Recomp options page (language, full screen, scaling, volume), Ctrl+F1 its help, Ctrl+F3 cycles picture effects and Ctrl+F4 switches pixel-perfect full screen, all remembered for every adventure executable of the folder.
+**New in 1.7.1.** The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure (ScummVM) is supported, with an options page and keys in the game (Ctrl+F2, Ctrl+F1, Ctrl+F3, Ctrl+F4) and a game folder that the window now finds; the Amiga runs the Kickstart's code natively from your own image and the Game Boy Advance runs its work-RAM code natively under a guard. Every export of 1.7.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 **New in 1.7.0.** The Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga 500 (WHDLoad installs, and those that ask for Kickstart 1.3 with your own image) open as experimental machines; the adventure games of ScummVM (one clickable executable per game, emulated, 0 % native) are added, and supported since 1.7.1; the PC Engine takes US TurboGrafx-16 HuCards; the host kit gains analog sticks, rumble, a 3D graphics page and disc change; F12 hints now work on every machine, so every 1.6.9 export is reconverted at the update. Details in the [release notes](docs/RELEASE_NOTES.md).
 

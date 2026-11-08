@@ -28,6 +28,7 @@ from . import psx_disc
 MAGIC = b'RRPSXPK1'
 FORMAT_LINE = 'RRPSX-PACK 1'
 CHUNK = 8 * 1024 * 1024
+_GAP_LEAST, _GAP_MOST = 75, 150     # a stored gap of an audio track: one second (a seek may land 74 sectors early) to two
 
 
 @dataclass
@@ -47,10 +48,31 @@ def _msf(frames: int) -> str:
     return f'{frames // 4500:02d}:{frames // 75 % 60:02d}:{frames % 75:02d}'
 
 
+def _stored_gap(track: psx_disc.Track, previous: psx_disc.Track | None) -> int:
+    """The sectors of a CD-audio track's gap that a CUE sheet left at the end of the track before it; 0 when it has none.
+
+    A sheet may list only the INDEX 01 of its audio tracks while the image keeps their two-second gaps, as digital silence, before
+    each one (Tobal No. 1). The console's table of contents gives a track's start in whole seconds, so a game that seeks to that
+    start can land up to 74 sectors early: on the disc, in the gap, which already belongs to the track. Without the gap in the sheet
+    it lands in the track before, and the auto-pause stops the sound at the track change: Tobal restarts it for ever and its fight
+    has no music. The silence decides, from one second (those 74 sectors) up to the usual two, and it changes nothing else: the
+    positions on the disc stay, and the only sectors that change track hold no sound."""
+    if (not track.audio or track.pregap or previous is None or not previous.audio or previous.source is not track.source):
+        return 0
+    stride = track.source.stride
+    silent = 0
+    while silent < min(_GAP_MOST, previous.length - 1):
+        if any(track.source.read(track.offset - (silent + 1) * stride, psx_disc.SECTOR)):
+            break
+        silent += 1
+    return silent if silent >= _GAP_LEAST else 0
+
+
 def _cue_for(disc: psx_disc.Disc, names: dict) -> bytes:
     """A CUE sheet of the disc's tracks over the pack's files (`names`: source object -> pack name)."""
     lines = []
     current = None
+    previous = None
     for track in disc.tracks:
         source = track.source
         if source is not current:
@@ -63,9 +85,11 @@ def _cue_for(disc: psx_disc.Disc, names: dict) -> bytes:
         unstored = track.pregap - track.stored_pregap
         if unstored and track.number > 1:
             lines.append(f'    PREGAP {_msf(unstored)}')
-        if track.stored_pregap:
-            lines.append(f'    INDEX 00 {_msf(position - track.stored_pregap)}')
+        gap = track.stored_pregap or (_stored_gap(track, previous) if disc.container == 'cue' else 0)
+        if gap:
+            lines.append(f'    INDEX 00 {_msf(position - gap)}')
         lines.append(f'    INDEX 01 {_msf(position)}')
+        previous = track
     return ('\r\n'.join(lines) + '\r\n').encode('ascii')
 
 

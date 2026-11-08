@@ -1,55 +1,158 @@
-# RetroRecomp v1.7.1 — Adventure games (ScummVM) are supported, with a Retro-Recomp options page, picture effects and keys in the game
+# RetroRecomp v1.7.1 — The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure games (ScummVM) are supported; the Amiga and the Game Boy Advance run more of their code natively
 
-- **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that
-  the category is no longer experimental. The profile says `supported`, the report and
-  the window say it, in the eight languages, and the display still says **"emulated,
-  0 % native"**: ScummVM interprets the game, nothing is recompiled, and that never
-  becomes a goal or a gap. The qualification matrix is made for recompiled machines, so
-  the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here):
-  ScummVM's own detection, the owner's play trial (ten prototype executables of eight
-  engine families on 6 November 2026, and the converter's own Lure of the Temptress
-  played several times on 7 November), Windows built and a Linux witness on one small
-  game, no window of the system, the options page, the written offer of the GPL source,
-  and the limits (no Ogg Vorbis, FLAC or MP3 decoder yet). Nothing is claimed beyond what
-  was played: no list of compatible games, no CPU or hardware fidelity, no measured latency.
-- **In the game.** Ctrl+F2 opens ScummVM's options on a Retro-Recomp page (menu language
-  in the five game-menu languages, full screen, scaling, aspect ratio, volumes, mute),
-  Ctrl+F1 on its Help tab, which lists every key; Ctrl+F5 stays ScummVM's own menu.
-  Ctrl+F3 cycles the picture effects in the order of the host kit's F3 (sharp pixels,
-  HQ2x, Scale2x, and the host kit's own scanlines, drawn after the scaling), Ctrl+F4
-  switches pixel-perfect full screen. What you choose is kept in
-  `datas/Retro-Recomp.ini` and applies to every adventure executable of the folder. A
-  three-second message at the start says where the help and the menu are, and the
-  on-screen messages use Retro-Recomp's colours. On Windows ScummVM quits with Ctrl+Z or
-  Alt+F4 (Ctrl+Q on Linux).
-- **Folders in the window.** Adding a game folder from the window (Add folder, or a drop) now
-  works for every adventure game, in Automatic and in Adventure (ScummVM): the files inside a
-  game folder that ScummVM recognises are that game's data, not cartridges. A game whose data
-  has `.bin` files used to leave the queue empty with the Adventure (ScummVM) selection, or
-  fill it with one error row per data file. A reader that fails is one row in error, never a
-  scan that stops in silence, a folder that adds nothing says so in the log, and a detection that
-  cannot be built says so too (all in the eight languages). The command line `batch` uses the same discovery.
-- **ScummVM in the packaged converter.** Retro-Recomp.exe looked for ScummVM's build in its own temporary
-  folder, removed when it closes: dropping a game folder fetched and compiled ScummVM again at every launch,
-  with nothing on screen, and looked like an endless scan (1.7.0 too). The build now lives in `.deps` beside the
-  converter and is made once. While it runs the window says so, in the status line and the log (eight languages);
-  its first time takes several minutes. Closing the window during the download no longer leaves a broken checkout.
-- **ScummVM pack.** Options, Consoles, Adventure (ScummVM) has a button that fetches and compiles what adventure games need
-  before their first conversion, in the background. It shows each step and the result, says when the pack is already there,
-  and says to check the connection when there is no network (eight languages). A conversion still fetches what is missing by itself.
-- **ScummVM's menus in Retro-Recomp's colours.** Every menu of an adventure game (the main menu, the options with the
-  Retro-Recomp and Help pages, loading and saving) is dark and gold. Only colours change: the same fonts, layouts and files.
-- **A CMake error on a ScummVM conversion.** Rebuilding an engine's runtime in a build folder made with the compiler at another
-  place (the converter moved, or another copy of it made the build) stopped on CMake's search for SDL2. That folder now starts
-  again. A build that stops says what is missing and what to do; the tool's own output stays in the log. Without Git, the window
-  now says the tools are missing instead of failing.
-- **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
-  `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
-  changes, so no other export is converted again. The pack and the CMake fix move those two again, and only those
-  (game `aa2b67d2bcd4` to `8af339f2af21`, build `fd819f80e824` to `de9fefa86a8b`). The menu colours move them once more, and only
-  them (game to `42dfc172e91c`, build to `05417bbcea96`); the next conversion with each engine rebuilds that engine's runtime.
-  An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
-  effects until it is converted again.
+- **Atari ST (experimental).** An Atari ST, STF or Mega ST floppy game (one disk image in
+  IPF, STX, MSA or ST format, or a ZIP of up to eight disks played in the order of their
+  names) becomes a standalone Windows or Linux executable that runs the game on Hatari,
+  with native steps for the 68000 instructions its reference run saw executing and Hatari's
+  interpreter, counted, for the others. EmuTOS 1.4 (free, fetched once with its source) is
+  the default; you can choose your own TOS 1.00, 1.02 or 1.04 in Options, and some games need
+  it (Turrican II does not run on EmuTOS). On the panel of ten games every route equals its
+  fresh interpreted reference frame by frame (picture, sound, RAM, CPU registers), the
+  compressed copy too, with a handful of interpreted instructions per route on most games
+  (4 to 6 with EmuTOS) and 75 to 1,065 on the two that the desktop starts (Hatari's GEMDOS
+  traps). Kick Off 2 stops on "Master file not present or damaged": a known limit, cause not
+  found. Three games were converted and validated on a Debian 13 PC; none was played there. The
+  owner tried the controls of nine games on 7 November (the gamepad works): a trial of the
+  controls, not gameplay validation. Hardware fidelity is not claimed and latency is not
+  measured. The STE, TT and Falcon, hard-disk images and CD-style media are out of scope.
+- **Nintendo 64 (experimental).** A cartridge image (`.z64`, `.v64` or `.n64`, NTSC or PAL)
+  becomes a standalone Windows executable that runs the game on Mupen64Plus-Next with the
+  ParaLLEl renderer on Vulkan, with guarded native blocks for the VR4300 code its reference
+  run saw and the core's interpreter, counted, for the rest. Super Mario 64 and Ocarina of
+  Time (PAL) converted with 5.6 to 6.0 % of the instructions interpreted on the routes, 0 guard
+  misses, and every frame equal (picture, sound, RDRAM, CPU registers) to a fresh reference
+  on the core's interpreter. The owner played Super Mario 64, Ocarina of Time and Mario Kart 64
+  (PAL) on 8 November and gave his go for an experimental opening, while finding Super Mario
+  64's text unreadable; that was corrected afterwards, so the games he played predate the fix.
+  Linux is witnessed on two games, headless; none was played there. A game's speed depends on
+  the graphics card (integrated graphics are unverified) and no speed or real-time claim is
+  made; frame pacing is uneven on Ocarina of Time, a game whose code moves under the TLB keeps
+  that code interpreted, and the 64DD, the Transfer Pak and the Voice Recognition Unit are out.
+  No independent processor vectors have been run and hardware fidelity is not claimed.
+- **Sony PlayStation (experimental).** A disc as you have it (a PS1 Classics EBOOT, a CUE sheet
+  with its BIN files, a CloneCD image, a bare image or an ISO, whose XA sound and CD audio are
+  missing, and the report says so) becomes a standalone game on Beetle PSX, with native steps
+  for the R3000A code the conversion saw run and the core's interpreter, counted, for the rest.
+  NTSC-U, NTSC-J and PAL discs, two DualShock pads (analog mode, vibration), the first memory
+  card, a disc-change action and the F3 graphics page. The BIOS is your own, embedded in the
+  game; without one the game runs on OpenBIOS and the report says "free BIOS". On the ten
+  panel discs, at most 0.0003 to 0.0131 % of the instructions ran on the interpreter on the two
+  routes of each, and every route equals the core's interpreter frame by frame; 55,000 R3000A
+  vectors and 1,150 GTE vectors pass (a model's behaviour, from ares, not a console). Ape
+  Escape converted on a Debian 13 PC gives the same hashes as Windows. **Nobody has played the
+  panel**; Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice.
+  Hardware fidelity is Beetle's, not measured here, and latency is not measured. The game
+  executable is GPL-2.0 as a whole, carrying its licence text. Multitap, light guns, the
+  hardware renderers, LibCrypt and CHD images are not supported. Off the panel, Tobal No. 1,
+  which the owner played: rows a wrapping display reads and the game cannot draw are shown black,
+  and a CUE sheet that leaves each CD-audio track's silent gap to the track before it is
+  corrected in the sheet the game holds (your files do not change), which brought back its
+  fight music. Other discs with such a sheet were not converted again.
+- **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that the
+  category is no longer experimental. The profile says `supported`, the report and the window
+  say it, in the eight languages, and the display still says **"emulated, 0 % native"**:
+  ScummVM interprets the game, nothing is recompiled, and that never becomes a goal or a
+  gap. The qualification matrix is made for recompiled machines, so the criteria are written
+  in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here): ScummVM's own detection, the owner's
+  play trial (ten prototype executables of eight engine families on 6 November 2026, and the
+  converter's own Lure of the Temptress played several times on 7 November), Windows built and
+  a Linux witness on one small game, no window of the system, the options page, the written
+  offer of the GPL source, and the limits (no Ogg Vorbis, FLAC or MP3 decoder yet). Nothing is
+  claimed beyond what was played: no list of compatible games, no CPU or hardware fidelity, no
+  measured latency.
+  - **In the game.** Ctrl+F2 opens ScummVM's options on a Retro-Recomp page (menu language in
+    the five game-menu languages, full screen, scaling, aspect ratio, volumes, mute), Ctrl+F1
+    its Help tab, which lists every key; Ctrl+F5 stays ScummVM's own menu. Ctrl+F3 cycles the
+    picture effects in the order of the host kit's F3 (sharp pixels, HQ2x, Scale2x, and the
+    host kit's own scanlines), Ctrl+F4 switches pixel-perfect full screen. What you choose is
+    kept in `datas/Retro-Recomp.ini` and applies to every adventure executable of the folder.
+    On Windows ScummVM quits with Ctrl+Z or Alt+F4 (Ctrl+Q on Linux).
+  - **Folders in the window.** Adding a game folder from the window (Add folder, or a drop) works
+    for every adventure game, in Automatic and in Adventure (ScummVM): the files inside a game
+    folder that ScummVM recognises are that game's data, not cartridges. **In the published
+    1.7.0, selecting a game folder from the window finds nothing**: a game whose data has `.bin`
+    files left the queue empty or filled it with one error row per data file. A folder that adds
+    nothing now says so in the log, a reader that fails is one row in error, and the command
+    line `batch` uses the same discovery.
+  - **ScummVM in the packaged converter.** Retro-Recomp.exe looked for ScummVM's build in its own
+    temporary folder, removed when it closes, so dropping a game folder fetched and compiled
+    ScummVM again at every launch with nothing on screen (1.7.0 too). The build now lives in
+    `.deps` beside the converter and is made once; its first time takes several minutes, and the
+    window says so.
+  - **ScummVM pack.** Options, Consoles, Adventure (ScummVM) has a button that fetches and compiles
+    what adventure games need before their first conversion, in the background. It shows each step
+    and the result, says when the pack is already there, and says to check the connection when there
+    is no network (eight languages). A conversion still fetches what is missing by itself.
+  - **A CMake error on a conversion.** Rebuilding an engine's runtime in a build folder made with the
+    compiler at another place (the converter moved, or another copy of it made the build) stopped on
+    CMake's search for SDL2. That folder now starts again. A build that stops says what is missing and
+    what to do; the tool's own output stays in the log. Without Git, the window now says the tools are
+    missing instead of failing.
+  - **ScummVM's menus in Retro-Recomp's colours.** Every menu of an adventure game (the main menu, the
+    options with the Retro-Recomp and Help pages, loading and saving) is dark and gold. Only colours
+    change: the same fonts, layouts and files.
+- **Commodore Amiga (experimental).**
+  - Installs that load their files through the slave's own operating-system emulation (about
+    1,180 of the 2,967 Amiga 500 installs of the maintainer's library that the profile reads)
+    stopped at boot with "not enough memory": `Examine` and `ExNext` overwrote the memory behind
+    a FileInfoBlock. They no longer do.
+  - A wider Kickstart route: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and
+    BaseMem, a registered WHDLoad, and a route that the game ends itself.
+  - **The Kickstart's code runs as guarded native steps, written from your own image.** It used to
+    be 81 to 98 % of the instructions of a Kickstart install (Might & Magic 3, Civilization,
+    Skidmarks), all interpreted. The conversion keeps the addresses only, never a byte, in the
+    private memory of that image; the generated steps and the game exist only in your own work
+    folder and export, and the live-word guard sends a patched word back to the counted
+    interpreter.
+  - A quick state now continues the sound sample for sample (checked on three games, 200 frames
+    each); a state of an earlier Amiga build is refused. The chipset's collision detection is on
+    (it was off, so a game that reads it never saw a collision), CIA-B enters the slave as the
+    system leaves it (Blood Money played noise from its first tune), and the window says so when
+    a whole run is interpreted.
+  - **Known limit:** Apidya's bee flickers, and is whole, cut to a thin strip or missing from
+    frame to frame, because the game draws it with the blitter while the screen is scanned; a
+    comparison with another emulator running the real WHDLoad shows the same character. Nothing
+    here claims hardware fidelity, and no game was checked end to end.
+- **Game Boy Advance (experimental).** Code that a game builds in work RAM and that no stretch of
+  the cartridge holds (a decompressed overlay, a routine written word by word) is now native
+  under a guard that compares the live bytes with the bytes seen; the routines whose bytes match
+  none of the versions seen go to the interpreter, counted. On Golden Sun the interpreted
+  instructions of the generic scenario fall from 17,740,494 to 32,394. The owner played the
+  delivered Golden Sun and Minish Cap on 7 November and they work: a play trial, not an exit
+  from the experimental status.
+
+**Speed.** [mesure de coût par image 1.7.1 contre 1.7.0 à venir]. None of the new machines has
+a speed figure.
+
+These are three new experimental machines, one category of emulated games becoming supported,
+and native-code coverage and window fixes on two machines, each on the evidence above; none of
+them is a measure of hardware fidelity, complete gameplay or physical latency, and the
+interpreter fallback is still counted and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.1 moves the game stamp and the host stamp of every
+machine of 1.7.0, so **every export of 1.7.0, on every machine, is converted again** from its
+qualified paths, once, and the window offers it when you update; it is not a quick host-only
+rebuild. The Mega Drive and Super Nintendo quick-state keys move, so a quick state of 1.7.0 is
+refused cleanly on those two machines, with a message (nothing is lost but the state); the Amiga's
+state of an earlier build is refused too, and the other machines' states still load. Cartridge
+saves (battery SRAM, EEPROM, memory cards) are kept; a save the new export cannot use is set
+aside and never crashes or blocks the game. The Atari ST, the Nintendo 64 and the PlayStation are
+new: no export of theirs exists before 1.7.1. The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-170-in-171).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
 
 # RetroRecomp v1.7.0 — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
 
