@@ -24,6 +24,7 @@ retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py

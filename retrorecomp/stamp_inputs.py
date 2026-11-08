@@ -200,7 +200,10 @@ NOT_INPUTS = (
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
     # staged engine for a check, never into a game.
-    'native/gba_vector_checks/')
+    'native/gba_vector_checks/',
+    # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
+    # Beetle's cpu.c for a check, never into a game.
+    'native/psx_vector_checks/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
