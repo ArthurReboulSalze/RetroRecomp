@@ -103,7 +103,7 @@ and its limits are on its page.
 
 ### In development
 
-Nothing is in development as a profile you can use today. Each new machine starts as an experimental profile; no date is promised.
+No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
 
 Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
@@ -113,8 +113,6 @@ code, CPU fidelity, hardware fidelity, gameplay validation and physical latency 
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
 **New in 1.7.1.** The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure (ScummVM) is supported; the Amiga and the Game Boy Advance run more of their code natively. Every export of 1.7.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
-
-**New in 1.7.0.** The Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga 500 (WHDLoad installs, and those that ask for Kickstart 1.3 with your own image) open as experimental machines; the adventure games of ScummVM (one clickable executable per game, emulated, 0 % native) are added, and supported since 1.7.1; the PC Engine takes US TurboGrafx-16 HuCards; the host kit gains analog sticks, rumble, a 3D graphics page and disc change; F12 hints now work on every machine, so every 1.6.9 export is reconverted at the update. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

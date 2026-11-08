@@ -124,7 +124,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 
 - [QUALIFICATION.md](QUALIFICATION.md) — per-console qualification record: the G1-G16 gates, the status matrix and the owner-acceptance log.
 - [UPGRADES.md](UPGRADES.md) — upgrading exports without rediscovery; host versus game inputs; the current and the previous release.
-- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md) and [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md) — the same detail for releases 1.6.7 to 1.6.5, and 1.6.4 and before.
+- [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md) and [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md) — the same detail for releases 1.6.9, 1.6.7 and 1.6.6, and for 1.6.5 and before.
 - [UPSTREAMS.md](UPSTREAMS.md) — every pinned upstream repository (revision, where it is pinned, licence, what we compile, last review), how to check them with `tools/check_upstreams.py`, the rules for moving a pin or carrying a fix, and the deferred list.
 - [NEW_MACHINE.md](NEW_MACHINE.md) — the template for adding a machine (experimental, then supported), measured on an Atari ST dry run, with what is still scattered.
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — what changed, release by release.
