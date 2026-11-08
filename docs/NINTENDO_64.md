@@ -103,10 +103,11 @@ compressed copy too, the quick state continued in a fresh process.
 | Game | Route | Frames | Native share | Guard misses |
 | --- | --- | --- | --- | --- |
 | Super Mario 64 | main, explore, play | 3,600, 3,600, 6,000 | 94.4 %, 94.7 %, 93.1 % (3,540 blocks) | 0 |
-| Ocarina of Time | main, explore, play | 3,600, 3,600, 16,800 | 94.2 %, 94.2 %, 95.1 % (5,098 blocks) | 1,648, 1,318, 25,793 |
+| Ocarina of Time | main, explore, play | 3,600, 3,600, 16,800 | 94.2 %, 94.2 %, 95.1 % (5,166 blocks) | 1,166, 936, 16,489 |
 
-A guard miss is a block whose words were not the live ones at that moment (code another route loaded at the same place, in a
-version that was not kept): the interpreter ran those instructions, counted in the interpreted share.
+A guard miss is a block whose words were not the live ones at that moment: the interpreter ran those instructions, counted in the
+interpreted share. Every observed version of a kept address is kept (before that, 1,648, 1,318 and 25,793 misses); the misses that
+remain are versions no observation holds, whose cause is not established.
 
 ## 7. Known limits
 

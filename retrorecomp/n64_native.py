@@ -101,6 +101,11 @@ def choose(variants: dict, coverage: float = 0.995) -> list[tuple[int, tuple, in
             break
         chosen.append((pc, words, count))
         covered += weight
+    # Every observed version of a kept address is kept too: overlays load other code at a place the game runs often, and a
+    # version left out is a guard miss each time it runs (Ocarina of Time's play route: 25,793 of them before this).
+    kept = {pc for pc, _, _ in chosen}
+    have = {(pc, words) for pc, words, _ in chosen}
+    chosen += [(pc, words, count) for _, pc, words, count in weighted if pc in kept and (pc, words) not in have]
     chosen.sort(key=lambda item: (item[0], -item[2], item[1]))
     return chosen
 

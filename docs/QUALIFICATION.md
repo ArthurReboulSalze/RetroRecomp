@@ -170,7 +170,7 @@ The page of each console, which the README links its line to (a console of the m
   state saved on the main route continues CPU, RDRAM and picture for 400 frames in a fresh process (the sound samples are not
   compared). G8 `P`: a moving picture is required on the main route. G9 `P`: Mario Kart 64's main route races; at the Extended
   level Super Mario 64 (6,000 frames) and Ocarina of Time (16,800 frames) play routes of their own that reach play, equal to their
-  references (Ocarina of Time: 25,793 guard misses on that route, run on the interpreter and counted); other games' generic routes
+  references (Ocarina of Time: 16,489 guard misses on that route, run on the interpreter and counted); other games' generic routes
   may stay in menus. Nothing is
   measured on Linux, against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
