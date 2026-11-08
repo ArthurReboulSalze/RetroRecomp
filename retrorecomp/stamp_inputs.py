@@ -626,6 +626,7 @@ INPUTS = _resolve({
         'licenses/vamiga.md',
         'native/amiga_machine/CMakeLists.txt',
         'native/amiga_machine/amiga_player.c',
+        'native/amiga_machine/amiga_savefile.h',
         'native/amiga_machine/amiga_session.cpp',
         'native/amiga_machine/amiga_session.h',
         'native/amiga_machine/moira_map.cpp',

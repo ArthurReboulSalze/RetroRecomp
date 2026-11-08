@@ -14,6 +14,7 @@
 extern "C" {
 #include "rr_resload.h"
 }
+#include "amiga_savefile.h"
 #include "amiga_session.h"
 
 #include <algorithm>
@@ -222,27 +223,30 @@ static bool in_kickstart(uint32_t pc) {
     return S->kick_size && (pc >= 0xFC0000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
 }
 
-// A save goes to the game's own folder (and replaces the install's file there on the next start).
+// A save goes to the game's own folder (and replaces the install's file there on the next start). Below that folder only (a name
+// that would leave it is refused), through a temporary file that replaces the old one once every byte reached the disk
+// (amiga_savefile.h); the game's view of the file changes only when the disk took the save, so a refused write is reported to the
+// slave (disk full) and leaves both the file and what the game reads back as they were.
 static int save_cb(void *, const char *name, uint32_t offset, const uint8_t *data, uint32_t size, int whole) {
-    auto &f = S->files[key_of(name)];
-    if (whole) f.assign(data, data + size);
-    else { if (f.size() < (size_t)offset + size) f.resize((size_t)offset + size, 0); std::copy(data, data + size, f.begin() + offset); }
-    if (!S->saves) return 0;
-    std::error_code ec;
-    fs::path target = S->save_dir / upath(key_of(name));
-    fs::create_directories(target.parent_path(), ec);
-    fs::path temporary = target; temporary += ".tmp";
-    {
-        std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-        if (!out.write((const char *)f.data(), (std::streamsize)f.size())) return RR_DOS_DISK_FULL;
+    const std::string key = key_of(name);
+    if (S->saves && !rr_amiga_savefile::inside_folder(key)) return RR_DOS_WRITE_PROTECTED;
+    std::vector<uint8_t> next;
+    if (whole) next.assign(data, data + size);
+    else {
+        auto it = S->files.find(key);
+        if (it != S->files.end()) next = it->second;
+        if (next.size() < (size_t)offset + size) next.resize((size_t)offset + size, 0);
+        std::copy(data, data + size, next.begin() + offset);
     }
-    fs::rename(temporary, target, ec);
-    return ec ? RR_DOS_DISK_FULL : 0;
+    if (S->saves && !rr_amiga_savefile::replace_file(S->save_dir / upath(key), next)) return RR_DOS_DISK_FULL;
+    S->files[key] = std::move(next);
+    return 0;
 }
 
 static int remove_cb(void *, const char *name) {
-    S->files.erase(key_of(name));
-    if (S->saves) { std::error_code ec; fs::remove(S->save_dir / upath(key_of(name)), ec); }
+    const std::string key = key_of(name);
+    S->files.erase(key);
+    if (S->saves && rr_amiga_savefile::inside_folder(key)) { std::error_code ec; fs::remove(S->save_dir / upath(key), ec); }
     return 0;
 }
 

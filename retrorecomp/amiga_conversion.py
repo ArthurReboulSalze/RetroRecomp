@@ -429,8 +429,54 @@ def place_kickstart(folder: Path, kick) -> None:
 
 
 # -------------------------------------------------------------------------------------------------------- conversion
-def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
-            emit=print, qualification_events=None, **unused):
+def convert(path, **options):
+    """One conversion. A conversion that fails after it merged what the library remembered of this install (earlier observations,
+    Kickstart addresses) is tried once more without them, as a fresh one: remembered data only ever helps, so a file that is valid
+    but wrong must not stop a game. On success the wrong data is dropped (the run's own replaces it in the library) and the report
+    says so (`remembered_data`); a second failure is the failure."""
+    trace: dict = {}
+    try:
+        return _convert_once(path, trace=trace, **options)
+    except Exception as error:     # a failure anywhere after the remembered data was merged
+        if not trace.get('remembered_used'):
+            raise
+        reason = ' '.join(str(error).split())[:240] or type(error).__name__
+        options.get('emit', print)('Amiga: the conversion failed with the remembered observations (' + reason + '); '
+                                   'trying once more without them.')
+        return _convert_once(path, use_remembered=False, dropped_reason=reason, **options)
+
+
+def load_remembered(memory: Path, kick, emit) -> tuple[set, set, list]:
+    """The (instructions, Kickstart addresses, what was ignored) the library remembers of this install; a file that cannot be read
+    (damaged, or past the bounds of an observation) is ignored, never a reason to stop."""
+    samples: set = set()
+    addresses: set = set()
+    ignored: list = []
+    if kick is not None and (memory / KICK_ADDRESSES).is_file():
+        try:
+            addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
+        except (OSError, ValueError, ConversionError):
+            ignored.append('kickstart addresses')
+            emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
+    if (memory / OBSERVATIONS).is_file():
+        try:
+            samples |= set(read_observations(memory / OBSERVATIONS))
+        except (OSError, ValueError, ConversionError):
+            ignored.append('observations')
+            emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+    return samples, addresses, ignored
+
+
+def remembered_report(added_instructions: int, added_kick_addresses: int, dropped_reason: str | None, ignored: list | None = None) -> dict:
+    """The report's `remembered_data`: what the library's memory added to this conversion, or why it was left out."""
+    return {'used': bool(added_instructions or added_kick_addresses), 'added_instructions': added_instructions,
+            'added_kickstart_addresses': added_kick_addresses, 'ignored_unreadable': list(ignored or []),
+            'dropped_after_failure': dropped_reason is not None,
+            **({'failure_with_remembered_data': dropped_reason} if dropped_reason is not None else {})}
+
+
+def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
+                  emit=print, qualification_events=None, use_remembered=True, dropped_reason=None, trace=None, **unused):
     from .amiga import converter_available, read_input
     from . import amiga_whdload
     if not converter_available():
@@ -503,16 +549,17 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
         kick_addresses = {pc for pc, _ in kick_observed}
-        if kick is not None and (memory / KICK_ADDRESSES).is_file():
-            try:
-                kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
-            except (OSError, ValueError):
-                emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
-        if remembered.is_file():
-            try:
-                samples |= set(read_observations(remembered))
-            except (OSError, ValueError):
-                emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+        before = (len(samples), len(kick_addresses))
+        ignored: list = []
+        if use_remembered:
+            remembered_samples, remembered_addresses, ignored = load_remembered(memory, kick, emit)
+            samples |= remembered_samples
+            kick_addresses |= remembered_addresses
+        added = (len(samples) - before[0], len(kick_addresses) - before[1])
+        if trace is not None and any(added):
+            trace['remembered_used'] = True
+        if dropped_reason is not None:
+            emit('Amiga: the remembered observations are left out of this conversion; its own replace them in the library.')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -626,16 +673,18 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
                         'data_files': len(extracted['files']),
                         'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
-            'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
+            'machine': {'model': 'Amiga 500-class (ECS, 68000), memory laid out as WHDLoad lays it out', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
                                     f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},
             **({'kickstart': kickstart_fields(kick)} if kick is not None else {}),
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
-            'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
+            'native_validation': {'passed': True, 'independent_cpu_oracle': False, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': "observed RAM instructions as native code: Moira's code specialised per opcode, chained, guarded by the latched opcode",
+            'remembered_data': remembered_report(*added, dropped_reason, ignored),
+            'native_coverage': ("instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as native code: "
+                                "Moira's code specialised per opcode, chained, guarded by the latched opcode; anything not seen runs on the counted interpreter"),
             'native_code_is': "Moira's code specialised, not a translation",
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
@@ -651,11 +700,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'unit': 'picture columns (hires) and lines; the standard window when none was opened',
                         'measured_on': [name for name, _, _ in routes]},
             'input_players': 1, 'peripheral': {'joystick_ports': 1, 'mouse': 'port 1, captured on a click', 'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
-            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps']},
+            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps'], 'fps_is': 'nominal'},
             'runtime_data': {'directory': 'datas', 'shared_config': 'datas/Retro-Recomp.ini', 'game_directory': 'datas/games/amiga-' + source.sha256},
             'artwork': artwork, 'windows_metadata': metadata,
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
-            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs without Kickstart',
+            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs (.lha), with the player-supplied Kickstart 1.x for the installs that ask for one',
                                     'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
         write_report(output / 'conversion-report.json', report)

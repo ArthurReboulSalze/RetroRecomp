@@ -88,7 +88,7 @@ class ProfileTests(unittest.TestCase):
             profile_for_path(path)
 
     def test_two_slaves_are_refused_not_guessed(self):
-        path = self.write(install('Game/Game.Slave', 'Game/GameNTSC.Slave'))
+        path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))
         self.assertIsNone(amiga.slave_member(path))
         with self.assertRaises(UnsupportedConsoleError):
             profile_for_path(path)

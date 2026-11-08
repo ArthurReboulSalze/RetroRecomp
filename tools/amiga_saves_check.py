@@ -9,9 +9,12 @@ too: RETRO_RECOMP_LIBRARY_DIR is set below it, a different one for each conversi
   1. convert the game, copy its player to a play folder and run it headless with the exploration route: a file must appear under
      datas/games/amiga-<identity>/saves;
   2. run the same player again for a moment, and once more with the file moved aside: the machine's RAM must differ between the two, so the
-     game really read the kept file, and the file must be the one the first run left;
+     game really read the kept file, and the file must be the one the first run left (when the game saved what its install already holds, the
+     read is shown through a copy with one byte changed, and the result says so: `saved_equals_install_file`, `changed_byte`);
   3. a quick state saved before the game wrote the file, loaded by a fresh process: the kept file is not rolled back;
-  4. damaged saves: cut to half, empty, a folder in its place: the game must still start and run (the file stays the player's);
+  4. damaged saves: cut to half, empty, a folder in its place: the game must still start and run (the file stays the player's); then a
+     disk that refuses a save (a folder where the file goes): the game is told (a NoError slave stops there with the message, as WHDLoad
+     does), the file is untouched and no temporary file stays;
   5. convert a second time (a new library, a new build folder), put that player in the same play folder and run it: the file must still be
      the one the first run left, in the same single data folder.
 
@@ -19,6 +22,7 @@ Only sizes, names and digests are printed, never the game's bytes. The folder ho
 Exit status 0 only when every check holds.
 """
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -50,6 +54,15 @@ def ram_column(trace):
     lines = Path(trace).read_text(encoding='ascii').splitlines()
     index = lines[0].split('\t').index('ram')
     return [line.split('\t')[index] for line in lines[1:]]
+
+
+def install_file(lha, name):
+    """The bytes of the install's own data file of that name (case-insensitive), or None."""
+    from retrorecomp import amiga_lha, amiga_whdload
+    blob = Path(lha).read_bytes()
+    install = amiga_whdload.install(blob)
+    member = next((m for rel, m in install.files.items() if rel.lower() == name.lower()), None)
+    return amiga_lha.extract(blob, member) if member is not None else None
 
 
 def saved_files(folder):
@@ -97,18 +110,35 @@ def main(argv=None):
     kept = files[0]
     written = sha(kept)
 
-    # 2. The fresh process reads it: the machine differs with and without the file.
+    # 2. The fresh process reads it: the machine differs with and without the file. A game that saves what its install already holds
+    #    (a high-score table nobody beat on this route: 5th Gear) writes a file the machine cannot tell from the install's own, so the
+    #    kept file is then shown through a copy with one byte changed, the first that makes the machine differ; the result says so.
     run_player(player, 1500, '--trace', output / 'with.tsv')
     result['kept_at_relaunch'] = sha(kept) == written
     aside = output / 'aside.bin'
     shutil.move(kept, aside)
     run_player(player, 1500, '--trace', output / 'without.tsv')
-    (saved_files(saves)[0].unlink() if saved_files(saves) else None)
+    for extra in saved_files(saves):
+        extra.unlink()
+    base = ram_column(output / 'without.tsv')
+    data = aside.read_bytes()
+    default = install_file(options.lha, kept.name)
+    result['saved_equals_install_file'] = default == data
+    variants = [(None, data)]
+    if default == data:
+        variants = [(at, data[:at] + bytes([data[at] ^ 1]) + data[at + 1:]) for at in (len(data) // 2, 8, 100, 255, len(data) - 8) if 0 <= at < len(data)]
+    result['game_read_the_file'], result['first_frame_it_shows'], result['changed_byte'] = False, None, None
+    for at, content in variants:
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        kept.write_bytes(content)
+        run_player(player, 1500, '--trace', output / 'with.tsv')
+        kept.unlink()
+        differ = [a != b for a, b in zip(ram_column(output / 'with.tsv'), base)]
+        if any(differ):
+            result['game_read_the_file'], result['first_frame_it_shows'], result['changed_byte'] = True, differ.index(True) + 1, at
+            break
     kept.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(aside, kept)
-    differ = [a != b for a, b in zip(ram_column(output / 'with.tsv'), ram_column(output / 'without.tsv'))]
-    result['game_read_the_file'] = any(differ)
-    result['first_frame_it_shows'] = differ.index(True) + 1 if any(differ) else None
 
     # 3. A quick state saved before the file exists does not roll it back. The state comes from a run without the file, stopped early.
     shutil.move(kept, aside)
@@ -136,6 +166,26 @@ def main(argv=None):
     result['damaged_saves'] = damage
     result['damaged_saves_ran'] = all(entry['frames'] == 600 for entry in damage.values())
 
+    # 4b. A disk that refuses the save: a folder where the file goes, so the replacing rename fails. The game saves on the same route as
+    #     in step 1 and is told it failed (DOS error 221). A slave that sets WHDLoad's NoError flag expects no error back, so the run
+    #     stops there with the message, as WHDLoad does; any other slave gets the error and may go on. Either way the save must have been
+    #     refused (no successful SaveFile), no temporary file may stay behind and the folder is not touched.
+    kept.unlink()
+    kept.mkdir()
+    refused_log = output / 'refused-resload.log'
+    status = run_player(player, options.frames, '--input-events', events, '--report', output / 'refused.json', '--resload-log', refused_log,
+                        allow_stop=True)
+    report = json.loads((output / 'refused.json').read_text(encoding='utf-8'))
+    save_calls = [line.split()[2] for line in refused_log.read_text(encoding='ascii').splitlines()[1:] if line.split()[1:2] == ['0C']]
+    stopped_there = bool(report.get('stopped')) and report.get('error', '').startswith('SaveFile failed with DOS error 221')
+    result['refused_save'] = {'frames': report['frames'], 'status': status, 'save_calls': dict(Counter(save_calls)),
+                              'game_stopped_at_the_save': stopped_there, 'message': report.get('error', '')[:80],
+                              'temporaries_left': [p.name for p in saves.rglob('*.tmp')], 'still_a_folder': kept.is_dir()}
+    result['refused_save_handled'] = (bool(save_calls) and 'ok' not in save_calls and (stopped_there or report['frames'] == options.frames) and
+                                      not result['refused_save']['temporaries_left'] and kept.is_dir())
+    shutil.rmtree(kept, ignore_errors=True)
+    shutil.copy2(aside, kept)
+
     # 5. A second conversion finds the same folder and the same file.
     player, second_build = build(2)
     result['second_build_differs_from_first_file'] = first_build != second_build
@@ -144,7 +194,7 @@ def main(argv=None):
     result['data_folders'] = len(list((play / 'datas/games').iterdir()))
     print(json.dumps(result, indent=1))
     good = (result['kept_at_relaunch'] and result['game_read_the_file'] and result['state_does_not_roll_back_the_file'] and
-            result['damaged_saves_ran'] and result['kept_after_reconversion'] and result['data_folders'] == 1)
+            result['damaged_saves_ran'] and result['refused_save_handled'] and result['kept_after_reconversion'] and result['data_folders'] == 1)
     return 0 if good else 1
 
 

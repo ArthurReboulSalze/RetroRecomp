@@ -16,7 +16,7 @@ core's interpreter; it cannot be compared with the figures of a machine whose ga
 | Converted (experimental) | Not yet |
 | --- | --- |
 | Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a 512 KiB Kickstart (3.x, 12 of the library's installs without a 68020/AGA flag); the installs that also need resload calls the layer lacks stop with the call's number |
-| Installs that need a Kickstart 1.3 (in the slave header or through `resload_LoadKick`), with the player's own image chosen in Options (section 2a). First milestone: about 230 of the library's installs ask for Kickstart 1.x and no resload service the layer lacked (1,280 ask for 1.3 in all); `resload_Examine`, `ExNext` and `ListFiles` are answered too, tested on authored data only: none of the five Kickstart installs converted so far calls them | Kickstart 1.2 installs (17; the same path, not run yet) |
+| Installs that need a Kickstart 1.3 (in the slave header or through `resload_LoadKick`), with the player's own image chosen in Options (section 2a). First milestone: about 230 of the library's installs ask for Kickstart 1.x and no resload service the layer lacked (1,280 ask for 1.3 in all); `resload_Examine`, `ExNext` and `ListFiles` are answered too: none of the Kickstart installs converted through the converter calls them (the five of section 3 and the 1.7.1 checks); tested on authored data only | Kickstart 1.2 installs (17; the same path, not run yet) |
 | The joystick (port 2, two buttons), the mouse (port 1, captured on a click) and the keyboard; quick states (F8/F9) and the files an install saves | ADF disk images, IPF, hard-disk images, Amiga 1200 (68020, AGA), CD32, CDTV |
 | Windows; Linux (`linux = 'witnessed'`): one conversion checked on a Debian 13 PC with the system GCC (Rick Dangerous, tree `fd953b8c`, 6 November 2026: validated on both routes, compressed copy and quick state included, 0 interpreted), not played there | Kickstart installs on Linux: none was run there (the same machine path; not witnessed) |
 | | A library of qualified paths: the profile is not in the sharing |
@@ -32,7 +32,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 1. **Reading the install.** `retrorecomp/amiga_lha.py` lists and extracts the members of the archive (LHA levels 0 to 2, methods
    `-lh0-` and `-lh5-` to `-lh7-`, CRC-16 checked); `retrorecomp/amiga_whdload.py` reads the slave's AmigaDOS hunk file and its
    `ws_` header (memory sizes, flags, the Kickstart it asks for) and lays out the install: the slave, its data folder, the disk
-   images. The identity of a game is the SHA-256 of the archive.
+   images. The data folder is the one the icon's `DATA` ToolType names when the archive has it (1.7.2), else the one `ws_CurrentDir` names (Drakkhen's slave names none,
+   its icon says `DATA=data`). The identity of a game is the SHA-256 of the archive.
 2. **No WHDLoad, no Kickstart.** WHDLoad is closed source with all rights reserved; it is neither run nor copied. The slave is a
    68000 program that calls a table of `resload_*` services, so `native/amiga_whdload/` answers those calls itself (our own MIT
    code, written from the public autodoc; every call is counted and a service it does not provide is refused with its number,
@@ -46,10 +47,11 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    `.RTB` tables, which we neither make nor ship: the image keeps the addresses it was built for, and vAmiga's own writable-ROM
    mechanism (the A1000's WOM, left unlocked) is pointed at the copy, so the ROM window `$FC0000-$FFFFFF` and ExpMem are one set
    of bytes, read and written by both addresses (the slaves write into the image through its ROM addresses). The Kickstart's
-   code is native too (1.7.1): an observation of it keeps only the *addresses* of the instructions run (never a byte; the private
-   memory of that image keeps them in `converter-kickstart-addresses.txt`), and the conversion reads the words of each from the
-   player's own image, in memory, when it writes the guarded steps, so the generated source and the game built from it belong to
-   that player's image alone. What still runs on the interpreter (an instruction not reached in the observed runs, or one a
+   code is native too (1.7.1): the library's private memory of that image keeps only the *addresses* of the instructions run (never a
+   byte; `converter-kickstart-addresses.txt`). Since 1.7.2 the run's own observation of it (`<observations>.kick`) also keeps the words as
+   they stood, a slave's patches included, but only in the conversion's private work folder beside the image, never in the library; the
+   steps are written from those words and from the player's own image, in memory, so the generated source and the game built from it
+   belong to that player's image alone. What still runs on the interpreter (an instruction not reached in the observed runs, or one a
    slave patched) is counted apart in the report (`kickstart_interpreted` and `kickstart_native` per route). The image is copied only into the
    conversion's private work folder and into the player's own export (resource 298), never into the repository, the library
    or a shared record; the report names it by numbers only. 256 KiB images (1.x) only for now.
@@ -84,7 +86,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | The ten-install panel (6 November 2026): 0 interpreted instructions on every route of 3,000 frames, 44.8 to 76.0 million native entries per game over two routes. The five Kickstart 1.3 installs (6 November 2026): the game's own code native, every interpreted instruction the Kickstart's (counted apart, `kickstart_interpreted`): main route, native entries / Kickstart instructions interpreted: Black Tiger 31.1 M / 2.34 M, Flying Shark 23.7 M / 1.58 M, North & South (NTSC) 13.1 M / 3.42 M, Dungeon Master 19.7 M / 7.67 M, Hostages 23.7 M / 5.32 M. |
+| Native code | Measured with the 1.7.2 tree (8 November 2026; main and exploration routes of 3,600 frames; native entries, then instructions left on the counted interpreter): Rick Dangerous 36.1 M and 36.5 M, 0 and 0; Civilization (Kickstart) 4.42 M and 4.35 M, 19 and 19; California Games (Kickstart) 45.8 M and 46.1 M, 48 and 49; Twylyte (Kickstart) 49.0 M and 43.1 M, 10,638 and 10,601 (0.022 % and 0.025 %). Every interpreted instruction of the three Kickstart installs is the Kickstart's, counted apart (`kickstart_interpreted`). **Not measured again since 1.7.0:** the ten-install panel (6 November 2026: 0 interpreted on every route of 3,000 frames, 44.8 to 76.0 million native entries per game over two routes) and the five Kickstart 1.3 installs (main route, native entries / Kickstart instructions interpreted: Black Tiger 31.1 M / 2.34 M, Flying Shark 23.7 M / 1.58 M, North & South (NTSC) 13.1 M / 3.42 M, Dungeon Master 19.7 M / 7.67 M, Hostages 23.7 M / 5.32 M); the Kickstart counts there were taken before 1.7.2 stopped a slave's patched words from missing their guard. |
 | CPU fidelity | The steps call Moira's own templates. Moira (MIT) was compared with the SingleStepTests 68000 vectors; its deviations from them are recorded in 15 families (private engine-gate notes). On Rick Dangerous the trace of every frame (picture, sound, RAM, CPU registers) and the resload log of the native game are identical to the interpreted reference machine's, on both routes. |
 | Hardware fidelity | Not claimed. As a development check, the same installs were run privately in an independent emulator with the real WHDLoad and its pictures compared with ours on 59 reference frames each: Lotus 2 matched 59/59, Lemmings 58/59, Speedball 2 54/59, Elite 51/59, Turrican 2 49/59. Pinball Dreams (NTSC) first scored 19/59; looked for at any offset at the Amiga's 4-bit colour depth, all 59 of its pictures are in the other emulator's stream (the two tools crop some display windows differently). These are counts of equal pictures on a few frames, not a fidelity claim. |
 | Gameplay validation | One owner play trial: the ten panel installs, converted with the tree at `977cf63e` and delivered in `Export`, were played on 6 November 2026 and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). A trial, not a coverage claim: no game was checked end to end, and it is not a decision to leave the experimental status. |
@@ -125,6 +127,13 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   it off for speed (`DENISE_CLX_SPR_SPR`, `DENISE_CLX_SPR_PLF`, `DENISE_CLX_PLF_PLF`), which would have hidden every collision from a game
   that reads CLXDAT. Apidya reads it never (0 reads in 1,700 frames); Blood Money does (36 reads over the 2,500 frames of the standard
   route, and its RAM then differs from frame 859 of that route with the detection on).
+- (1.7.2) The files an install saves go to `datas/games/amiga-<identity>/saves`, below that folder only, whole or not at all (a temporary file replaces the old
+  one once every byte is flushed and closed; a refusal is reported to the slave as a full disk and leaves the file and the game's view of it as they were).
+  Shown on one game, 5th Gear (`tools/amiga_saves_check.py`, 8 November 2026): it writes `5thgear.highs` by itself on the exploration route, a relaunch keeps it, a fresh
+  process reads it (through a one-byte-changed copy: the game saved what its install already holds), a quick state does not roll it back, a damaged file never stops the
+  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
+- (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
+  is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
@@ -145,5 +154,6 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md) is mostly `?`: only the rows above are measured. Leaving the
-experimental status is the maintainer's own decision, after a very high evidence bar.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 8 November 2026: `Y` on G1; `P` on G2 to G8, G10, G11, G13, G14
+and G15; `-` on G16 (the Amiga shares no paths); `?` on G9 and G12. Each `P` names what is shown and what is missing there; none of them says hardware fidelity, gameplay
+coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.

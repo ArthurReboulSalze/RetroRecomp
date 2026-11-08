@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026)
 
 ### Progress through the qualification list
 
@@ -61,7 +61,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
-| Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
+| Commodore Amiga | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 12 · ❔ 2 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
@@ -76,7 +76,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | 🟡 | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
@@ -84,8 +84,8 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ | ➖ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ❔ | ❔ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -106,7 +106,7 @@ psx = Sony PlayStation.
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | ? | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | P | ? | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | P | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? | P |
@@ -114,8 +114,8 @@ psx = Sony PlayStation.
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | ? | ? | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? | - |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | P | ? | ? | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | - | ? | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -182,16 +182,23 @@ The page of each console, which the README links its line to (a console of the m
   measured against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 
-- Amiga (5 November 2026; opened to players as experimental in 1.7.0): the column is mostly `?`. G13 `P`: Rick Dangerous converted
-  and validated on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh
-  interpreted reference, 0 interpreted, the compressed copy and the quick state); one install, not compared hash for hash with a
-  Windows run of the same tree, and not played on Linux. G1 `Y`: the profile, `docs/AMIGA.md` and
-  `tools/status_lint.py` agree. G2, G3, G4, G5, G6, G8 `P`: one game converted (Rick Dangerous, Standard level, 5 November 2026): a schema 2 report, 0 interpreted
-  instructions on two routes of 3,000 frames, every frame equal to the fresh interpreted reference, the compressed copy too, a quick state continued by a fresh
-  process (CPU, RAM and picture; the sound samples after a load are not compared), liveness recorded. G10 `P`: Moira (MIT) was compared with the SingleStepTests
-  68000 vectors and its deviations are recorded in 15 families. G11 `P`: six installs compared picture by picture with an independent emulator running the real
-  WHDLoad (private; 49 to 59 of 59 reference pictures matched on five, and all 59 of Pinball Dreams NTSC once looked for at any offset); that is not a fidelity
-  claim. G13 `N`: the profile is `linux = 'pending'`. Not yet: saves, deeper routes, a panel, owner acceptance ([AMIGA.md](AMIGA.md#3-the-five-measures)).
+- Amiga (8 November 2026; opened to players as experimental in 1.7.0): the evidence of each letter is in
+  [its section](#commodore-amiga-evidence-behind-its-column-8-november-2026). G1 `Y`: the profile, `docs/AMIGA.md` and `tools/status_lint.py` agree.
+  G2 to G6 and G8 `P`: Rick Dangerous and, with the player's own Kickstart, Civilization, California Games, Twylyte and Drakkhen (NTSC) converted on the 1.7.2
+  tree, two routes of 3,600 frames each (one at the quick level): a schema 2 report, every frame (picture, sound, RAM, CPU registers) and the resload calls
+  equal to the fresh interpreted reference of the same machine, the compressed copy too, a quick state continued by a fresh process (CPU, RAM, picture and
+  the sound samples, compared since 1.7.1), liveness recorded; the interpreted instructions of the Kickstart installs (19 to 10,638) are counted apart. The
+  reference is the same machine's interpreter, not an independent oracle. G7 `P`: one game (5th Gear) writes a file by itself on the exploration route and
+  keeps it; the other cases of the gate are shown through a copy or a refused write, below. G10 `P`: `tools/amiga_vector_selftest.py` (6,762 vectors of the four
+  fixtures: the native steps equal Moira's interpreter on 6,762, Moira agrees with the vectors on 6,440 and differs on 322, all in named families, 0 unexplained);
+  Moira is the Amiga's own reference CPU, so this is Moira against an oracle made with MAME, not an independent check of the steps. G11 `P`: six installs compared
+  picture by picture with an independent emulator running the real WHDLoad (private; 49 to 59 of 59 reference pictures matched on five, and all 59 of Pinball
+  Dreams NTSC once looked for at any offset); that is not a fidelity claim. G13 `P`: Rick Dangerous converted and validated on a Debian 13 PC with the system GCC
+  (tree `fd953b8c`, 6 November 2026: both routes of 3,000 frames equal to the fresh interpreted reference, 0 interpreted, the compressed copy and the quick
+  state); one install, not compared hash for hash with a Windows run of the same tree, not played on Linux, no Kickstart install there. G14 `P`: the owner played the
+  ten panel installs on 6 November 2026 (owner-acceptance table); not an exit. G15 `P`: the interface, report and page wording was audited on 8 November 2026 and
+  its findings applied. G16 `-`: the Amiga shares no paths and is not in `SHARED_SYSTEMS`. G9 and G12 are `?` (no deeper routes measured; the ten installs are the owner's
+  trial, not a panel against the gate). Not yet: Kickstart 3.x installs, ADF, the Amiga 1200, Linux for the Kickstart installs ([AMIGA.md](AMIGA.md#3-the-five-measures)).
 
 - Game Boy Advance (6 November 2026, tree of `spec/gba-170`): the machine is prepared to open as experimental in 1.7.0. G3 and G4 are `P`:
   six cartridges converted (Pokémon Emerald, Mario Kart Super Circuit, The Minish Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and
@@ -687,6 +694,31 @@ players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named
 | G14 | ? | The owner tried Tobal No. 1 during development (8 November 2026: playable; its fight music, after the CD-audio fix: "c'est ok"; whether the sudden crackles measured at 4x are gone was not said): a trial, not an acceptance | The owner's decision; a play test of the panel |
 | G15 | P | Nothing is claimed beyond "native equals the core's interpreter"; the five measures are kept apart in [PLAYSTATION.md](PLAYSTATION.md) and in the report (`honesty`) | A read of the interface and the exported game |
 | G16 | - | The PlayStation shares no paths; it is not in `SHARED_SYSTEMS` (its runtime hints stay on the player's PC) | |
+
+## Commodore Amiga: evidence behind its column (8 November 2026)
+
+The Amiga is **experimental since 1.7.0** ([AMIGA.md](AMIGA.md)): an Amiga 500 game installed for WHDLoad is converted, with the player's own Kickstart 1.x for the
+installs that ask for one. It runs on the vAmiga machine and its 68000, Moira, the steps calling Moira's own templates behind a live-word guard. `P` means a part is
+shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency.
+
+| Gate | Amiga | Evidence | What is missing |
+|---|---|---|---|
+| G1 | Y | `retrorecomp/systems/amiga.py` (status `experimental`), [AMIGA.md](AMIGA.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | Nothing for an experimental machine; no owner decision to leave it |
+| G2 | P | `retrorecomp/amiga_conversion.py` goes through `report_schema.write_report` (shape `amiga_conversion`): native and interpreted instructions per route, the Kickstart's apart, `remembered_data`, `native_validation.independent_cpu_oracle: false`, `latency_ms: null` | Scenario sections are filled for the two scripted routes only |
+| G3 | P | 1.7.2 working tree (`spec/amiga-172` and this branch), two routes of 3,600 frames: Rick Dangerous 0 interpreted of 36.1 and 36.5 million native entries; Civilization 19 of 4.42 and 4.35 million; California Games 48 and 49 of 45.8 and 46.1 million; Twylyte 10,638 and 10,601 of 49.0 and 43.1 million; Drakkhen (NTSC) 1,667 and 1,667 of 24.96 million (8 November); every interpreted instruction of the Kickstart installs is the Kickstart's | Only the code the routes ran is native; the ten-install panel (0 interpreted, 3,000-frame routes) and the five Kickstart 1.3 installs are of 1.7.0 and were not measured again |
+| G4 | P | The native game equals the fresh interpreted reference of the same machine on every frame of every route (picture, sound, RAM, CPU registers) and on the resload calls | The reference is the machine's own interpreter (Moira): agreement with it, not with a real 68000 |
+| G5 | P | The compressed executable is replayed on every route against the fresh reference | Windows; no second-machine replay of the same file |
+| G6 | P | F8/F9: a state saved 600 frames before the end of the main route continues in a fresh process of the delivered file for 400 frames (CPU, RAM, picture, sound samples; the sound is compared since 1.7.1) | A longer continuation; corrupted-state cases are not checked |
+| G7 | P | `tools/amiga_saves_check.py` on 5th Gear (8 November 2026, Windows, two conversions with fresh libraries): the game writes `5thgear.highs` (512 bytes) by itself at frame 1,686 of the exploration route; a relaunch keeps it unchanged; a state saved before the file existed does not roll it back; cut to half, emptied or replaced by a folder it never stops the game (600 frames); a second conversion leaves one data folder and the same file. The game saved what its install already holds, so that a fresh process reads the kept file is shown through a copy with one byte changed (byte 256): the machine differs from frame 5, the load is at frame 4. A refused save (a folder where the file goes) is reported to the slave as DOS error 221, the run stops there as WHDLoad's NoError slaves do, the folder stays and no temporary file is left. The write helper (`amiga_savefile.h`) is checked by an authored program | One game, and a file equal to the install's; a changed save (a new high score) and a save slot were not seen; a really full disk is not made (a refused rename is); Linux; the second conversion gave the same executable byte for byte, which is not a test of a rebuild |
+| G8 | P | Every route must show a moving picture; the report gives distinct pictures, sound blocks, RAM states and program counters per route (Drakkhen 501 and 537 pictures, 3,410 sound blocks; Civilization and California Games show 2 sound blocks: silent on those routes) | Routes of 3,000 to 3,600 frames; no gameplay depth |
+| G9 | ? | Not measured | |
+| G10 | P | `tools/amiga_vector_selftest.py` (8 November 2026): the four SingleStepTests fixtures (6,764 vectors; the two that expect the trace exception after the instruction are left out and counted): the Amiga's native steps equal Moira's interpreter on 6,762 of 6,762 (registers, SR, PC, queue, clock, every bus access); Moira against the vectors: 6,440 agree on everything, 322 differ, all 322 in named families with a written reason and a fixed count, 0 unexplained; a corrupted vector is seen | The corpus is generated with MAME, not recorded on a chip; Moira is the Amiga's reference CPU, so the steps are checked against Moira, and Moira against an oracle of another kind; flat memory, no chip-RAM contention; no 68020 |
+| G11 | P | Six installs compared picture by picture with an independent emulator running the real WHDLoad (private): Lotus 2 59 of 59, Lemmings 58, Speedball 2 54, Elite 51, Turrican 2 49; Pinball Dreams NTSC 19 of 59 until looked for at any offset (all 59 then) | Counts of equal pictures on a few frames; not a fidelity claim |
+| G12 | ? | Not set: the ten installs of the owner's trial (below) and the conversions above are not a panel judged against the gate | A panel chosen for risk, with its criteria |
+| G13 | P | Rick Dangerous on a Debian 13 PC with the system GCC (tree `fd953b8c`, 6 November 2026): both routes of 3,000 frames equal to the fresh interpreted reference, 0 interpreted, the compressed copy and the quick state | One install, no Kickstart install there, not played on Linux, not compared hash for hash with Windows |
+| G14 | P | The owner played the ten panel installs on 6 November 2026 and reported that they work (owner-acceptance table) | A trial, not the decision to leave the experimental status (Arthur's own) |
+| G15 | P | The audit of 8 November 2026 read the report writer (`amiga_conversion.py`: `native_coverage`, `qualification_scope`, `machine.model`, `video_model`, `native_validation`), the profile docstring, the Options note and the Kickstart check string in the eight languages, `docs/AMIGA.md`, the Amiga caveat and `docs/UPGRADES.md`, the README clause on files the player supplies, `docs/COMPATIBILITY.md`, `docs/SYSTEM_PROFILES.md`, `docs/INDEX.md`, `docs/CPU_68000.md`, `rrhk_amiga.inc` and `amiga_player.c`; its findings were applied the same day (what the Kickstart code is, media, the F2 page of a second player that did not exist, nominal frame rate, no independent CPU oracle). The wording of `rr_resload.c` was searched for claim words, not read line by line | A read of the interface and of an exported game in its window |
+| G16 | - | The Amiga shares no paths; it is not in `SHARED_SYSTEMS`. The library keeps its own observations on the player's PC: one that cannot be read or is past the bound of an observation is ignored, and a conversion that fails after merging it is tried once more without it (Rick Dangerous at the quick level with a valid 13.6 MB file of 1,048,577 lines: ignored, ready in 6 min 34 s, the report says so, the file is replaced by the run's own 4,896 lines). The retry itself is tested with a fake conversion, not on a real failure | |
 
 ## Panel sizes
 

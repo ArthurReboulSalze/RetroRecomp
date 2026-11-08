@@ -218,13 +218,55 @@ only**; the conversion keeps those addresses in the private memory of that image
 never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
 player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
 counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
-nothing derived from the image is shared, and the observation file and the library hold addresses only. **Measure** (Civilization,
+nothing derived from the image is shared, and the observation file and the library hold addresses only (**changed in 1.7.2:** the run's own
+observation of the Kickstart keeps the words as they stood, a slave's patches included, in the conversion's private work folder only; the library
+still keeps the addresses alone). **Measure** (Civilization,
 the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
 quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
 native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
 reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the icon's DATA ToolType names the data folder (1.7.2)
+
+An install whose slave leaves `ws_CurrentDir` empty and whose icon says `DATA=data` (Drakkhen, NTSC, French, German and the plain one) was read with its
+data folder at the archive's top: the `Disk.N` images in `data/` were not found and the game stopped at boot with "DiskLoad failed with DOS error 205
+(Disk.1)". The icon (`<slave>.info`, read the way `CUSTOM1` to `5` are) is now asked for `DATA`; when it names a folder of the archive that holds files, that is
+the data folder, as WHDLoad lets it replace the slave's `ws_CurrentDir` (a ToolType in parentheses is off; a name that matches nothing leaves the earlier rule).
+Run headless with the interpreted machine for 1,500 frames, the four Drakkhen installs reach the end with picture and sound (non-black frames 1,309 to
+1,340 of 1,500), where the tree before stops at frame 135 (NTSC). Any other install whose icon carries a `DATA` ToolType (about 14 of the maintainer's library)
+may now find its files where it did not; none of them was run again. **What moves:** the Amiga's game stamp for those installs only (the install's files
+change); the code is `retrorecomp/amiga_whdload.py`. No other console.
+
+## Commodore Amiga: a file the game saves reaches the disk whole or not at all (1.7.2)
+
+What an install saves (`resload_SaveFile`) goes to `datas/games/amiga-<identity>/saves`. The write went through a temporary file but did not look at the
+flush and the close, so a disk that took only part of the bytes could still replace a good save with a short one and tell the game it worked; the game's own view
+of the file changed before the disk was asked. Now the temporary file replaces the old one only when every byte is flushed and closed, the game is told the save
+failed (disk full) when anything refused, its view of the file and the file on disk stay as they were, and no temporary file stays behind. A name that would
+leave the save folder (absolute, a volume or drive colon, a backslash, `.` or `..`) is refused with "write-protected" instead of being written elsewhere;
+deleting follows the same rule. On 5th Gear (8 November 2026), with a folder where the file goes so that the replacing rename fails, the save was refused, the run stopped at it
+with DOS error 221 as WHDLoad does for a slave that sets NoError, the folder stayed and no temporary file was left. The helper is `native/amiga_machine/amiga_savefile.h` and is checked by an authored program (`tests/test_amiga_resload.py`:
+names, a first write, a replacement, a folder in the file's place, a file in the folder's place, a stale temporary). A disk that is really full cannot be made in
+that test; a refused rename is. **What moves:** the Amiga's game stamp (`amiga_session.cpp`); no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a conversion that fails with remembered data is tried again without it (1.7.2)
+
+The library remembers, per install, the instructions earlier conversions saw (and the Kickstart addresses). A remembered file that cannot be read was ignored, but one
+that is valid and too large (past the bound of an observation) stopped the conversion for good, since the file was only replaced by a conversion that finished. It
+is now ignored like a damaged one, and a conversion that fails after it merged anything from that memory is tried once more without it; on success the
+run's own observations replace the remembered ones. Checked on Rick Dangerous (quick level) with a valid file of 1,048,577 lines (13.6 MB): ignored, ready in 6 min 34 s, the file replaced
+by the run's own 4,896 lines; the retry itself is tested with a fake conversion, not on a real failure. The report says what the memory added, what was ignored and, after a retry, why (`remembered_data`). The
+Amiga does not share paths (G16 `-`). **What moves:** the converter only (`retrorecomp/amiga_conversion.py`), plus the report's wording below.
+
+## Commodore Amiga: the report and the F2 menu say less than they did (1.7.2)
+
+The report states what it measures: `native_coverage` names the Kickstart instructions of the player's image when the install uses one, `qualification_scope.media`
+the installs that ask for a Kickstart 1.x, `machine.model` that the memory is laid out as WHDLoad lays it out, `video_model.fps_is: nominal` (the frame rate the
+player paces by, not a measurement) and `native_validation.independent_cpu_oracle: false` (the native steps and the reference both run Moira). The F2 menu offers
+one player's page (one joystick is wired; the mouse is port 1), no second page that led nowhere. The Options note and the Kickstart check ("recognised", since the
+image is known by its size and CRC) are reworded in the eight languages. **What moves:** the Amiga's game stamp (`rrhk_amiga.inc`); no other console.
 
 ## Commodore Amiga: the keyboard's power-up handshake is over when a slave starts (1.7.2)
 
@@ -305,7 +347,7 @@ detections off for speed and the Amiga machine did not turn them on, so a game t
 (`native/amiga_machine/amiga_session.cpp`). Library check by counting CLXDAT reads over the standard route: Blood Money reads it (36
 reads in 2,500 frames), Xenon 2, Turrican, Shadow of the Beast, R-Type, Menace, Armalyte, Battle Squadron, Rick Dangerous, Lotus 2, Speedball 2 and
 Wings of Death do not (nor Apidya). **What moves:** the Amiga's game stamp; no other console. A game that reads CLXDAT may now play
-differently from an earlier export of it (as the real machine does). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+differently from an earlier export of it (the detection a real Amiga performs; the match of the game's behaviour with hardware is not measured). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
 
