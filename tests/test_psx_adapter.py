@@ -62,6 +62,12 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('pads[p] = stick_directions(p, pads[p], axes[p]);', ADAPTER)
         self.assertIn('if (rr_psx_pad_analog_mode(rr_psx_host_session(), player) != 0) return pad;', ADAPTER)
 
+    def test_a_raised_resolution_the_pc_cannot_draw_is_said(self):
+        # Tobal No. 1 at 4x runs 18 % too slow in combat and its sound breaks up: the labels and a notice say so.
+        self.assertIn('"4x (heavy)", "8x (very heavy)"', ADAPTER)
+        self.assertIn('watch_load();', ADAPTER)
+        self.assertIn('if (scale == 1 || warned_scale == scale || interrupted)', ADAPTER)
+
     def test_graphics_defaults_are_the_cores(self):
         # The default of each option is the setting every gate uses: Beetle's own, except deinterlacing (progressive).
         defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)', 'deinterlacing_values': 'off',

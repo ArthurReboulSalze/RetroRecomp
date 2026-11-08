@@ -59,7 +59,9 @@ static const RrhkAction actions[ACTIONS] = {
 static const int ps_bits[ACTIONS] = {14, 13, 15, 12, 10, 11, 8, 9, 1, 2, 3, 0, 4, 6, 7, 5, 16, -1};
 
 /* ---- the graphics page (D14): what the player sees only; the default of each is the reference the gates use ---- */
-static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x"};
+/* The renderer is the core's, in software, on one thread: 4x is more than a fast desktop draws in time in a busy scene (Tobal
+ * No. 1 in combat on a Ryzen 9 3900X: 18 % too slow, its sound in pieces; 2x holds). */
+static const char *const resolutions[] = {"1x (native)", "2x", "4x (heavy)", "8x (very heavy)"};
 static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
@@ -147,6 +149,28 @@ static void follow_frame_rate(void) {
     if (fps > 45.0 && fps < 65.0) machine.frame_seconds = 1.0 / fps;
 }
 
+/* A raised internal resolution this PC does not draw in time makes the game slow and its sound break up, and nothing tells the
+ * player why. Over five seconds of play, 8 % behind the console's rate: one notice per resolution. Only a menu, a pause or a
+ * speed change (a long frame, or the kit holding the sound) restarts the count. It reads the clock, never the machine. */
+enum { LOAD_FRAMES = 300 };
+static void watch_load(void) {
+    static Uint64 window_start, last;
+    static int frames, warned_scale;
+    const Uint64 now = SDL_GetPerformanceCounter(), hz = SDL_GetPerformanceFrequency();
+    const bool interrupted = !last || now - last > hz / 4 || rrhk_audio_held();
+    last = now;
+    if (scale == 1 || warned_scale == scale || interrupted) { window_start = now; frames = 0; return; }
+    if (++frames < LOAD_FRAMES) return;
+    const double behind = (double)(now - window_start) / (double)hz / (frames * machine.frame_seconds);
+    if (behind > 1.08) {
+        warned_scale = scale;
+        fprintf(stderr, "[host] internal resolution %dx: %.0f%% of the console's speed on this PC\n", scale, 100.0 / behind);
+        rrhk_notice(rrhk_tr("Resolution too heavy for this PC: lower it with F3", "Resolution trop lourde pour ce PC : baisse-la avec F3"), 6000);
+    }
+    window_start = now;
+    frames = 0;
+}
+
 static bool run_frame(uint16_t p1, uint16_t p2) {
     uint16_t pads[2] = {p1, p2};
     int16_t axes[2][4];
@@ -157,6 +181,7 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     }
     const bool ran = rr_psx_host_frame(pads, axes) != 0;
     follow_frame_rate();
+    watch_load();
     rumble();
     return ran;
 }

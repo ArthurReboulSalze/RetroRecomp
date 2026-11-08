@@ -108,6 +108,7 @@ static Input *script;
 static unsigned script_count, script_pos;
 static uint16_t script_pads[2];
 static int16_t frame_audio[2 * 8192];
+static FILE *pcm_file;   /* --pcm: the sound of every frame as the host receives it, raw 16-bit stereo (evidence) */
 static size_t frame_audio_count, audio_read;
 static wchar_t card_path[4096];
 static uint64_t card_hash;
@@ -224,6 +225,7 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
     if (rr_psx_frame(session) != 0) { snprintf(fault, sizeof fault, "%s", rr_psx_error(session)); return 0; }
     frame++;
     frame_audio_count = rr_psx_audio(session, frame_audio, sizeof frame_audio / sizeof frame_audio[0] / 2) * 2;
+    if (pcm_file) fwrite(frame_audio, sizeof frame_audio[0], frame_audio_count, pcm_file);
     audio_read = 0;
     if (diagnostics) {
         RrPsxFrameInfo info;
@@ -391,6 +393,7 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--pack")) pack_override = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--gfx") && gfx_count < 8) gfx[gfx_count++] = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--pcm")) { if (!(pcm_file = file_open(argv[++i], L"wb"))) return 3; }
         else if (!strcmp(argv[i], "--input-check")) input_check = 1;
 #ifdef RR_PSX_OBSERVE
         else if (i + 1 < argc && !strcmp(argv[i], "--observe")) observe_path = argv[++i];
@@ -443,6 +446,7 @@ static int execute(int argc, char **argv) {
     }
 #endif
     if (trace_file && fclose(trace_file)) okay = 0;
+    if (pcm_file && fclose(pcm_file)) okay = 0;
     hints_finish();
     rr_psx_close(session);
     SDL_Quit();

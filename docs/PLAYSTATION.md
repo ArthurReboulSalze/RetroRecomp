@@ -20,6 +20,9 @@ stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation
   switches it itself. A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x, 8x), dithering, deinterlacing, aspect ratio and overscan
   crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings, progressive).
+- **A raised internal resolution has a real cost**: the renderer works in software on one thread. In combat in Tobal No. 1 on
+  a Ryzen 9 3900X (informal, a busy PC), 2x holds the console's speed and 4x does not (about 18 % too slow, the sound breaks
+  up). The game says so with a notice when a raised resolution stays behind; 1x and 2x are the settings to try first.
 - **Interlaced pictures** (480 lines, Tobal No. 1's) are shown **progressive** by default: the GPU draws both fields of the
   displayed frame, so the picture is whole, without combing (the console itself draws one field per frame there; its drawing
   time is kept). Weave and Bob, on the graphics page, show the console's fields instead.
