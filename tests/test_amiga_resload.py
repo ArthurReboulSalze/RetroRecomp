@@ -136,5 +136,84 @@ class ResloadHarnessTest(unittest.TestCase):
         self.assertEqual(struct.unpack('>I', packed[4:8])[0], 9)
 
 
+SAVEFILE_HARNESS = r'''// Authored harness for native/amiga_machine/amiga_savefile.h: which names stay inside the save folder, and what a refused write leaves.
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include "amiga_savefile.h"
+namespace fs = std::filesystem;
+using namespace rr_amiga_savefile;
+static int failures = 0;
+#define CHECK(x) do { if (!(x)) { std::printf("FAIL line %d: %s\n", __LINE__, #x); failures++; } } while (0)
+static std::vector<uint8_t> bytes(const char *text) { std::vector<uint8_t> v; while (*text) v.push_back((uint8_t)*text++); return v; }
+static std::string read(const fs::path &p) { std::ifstream in(p, std::ios::binary); return std::string((std::istreambuf_iterator<char>(in)), {}); }
+int main(int, char **argv) {
+    const char *good[] = {"highs", "dir/file", "a b/c.d", "save.1", "x/y/z"};
+    const char *bad[] = {"", "/x", "../x", "a/../x", "a//b", "c:x", "dh0:x", "a\\b", ".", "..", "a/", "a/./b", "x/..", "\\x", "C:/x"};
+    for (const char *name : good) CHECK(inside_folder(name));
+    for (const char *name : bad) CHECK(!inside_folder(name));
+    const fs::path root = fs::path(argv[1]);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+    // A first write creates the folders and the file; a second replaces it; no temporary stays.
+    CHECK(replace_file(root / "saves/sub/highs", bytes("first")));
+    CHECK(read(root / "saves/sub/highs") == "first");
+    CHECK(replace_file(root / "saves/sub/highs", bytes("second, longer")));
+    CHECK(read(root / "saves/sub/highs") == "second, longer");
+    CHECK(!fs::exists(root / "saves/sub/highs.tmp"));
+    CHECK(replace_file(root / "saves/sub/empty", {}));
+    CHECK(fs::exists(root / "saves/sub/empty") && fs::file_size(root / "saves/sub/empty") == 0);
+    // The target is a folder: refused, the folder stays, no temporary is left.
+    fs::create_directories(root / "saves/folder", ec);
+    CHECK(!replace_file(root / "saves/folder", bytes("x")));
+    CHECK(fs::is_directory(root / "saves/folder"));
+    CHECK(!fs::exists(root / "saves/folder.tmp"));
+    // A file where the folder should be: refused, the file is untouched.
+    CHECK(!replace_file(root / "saves/sub/highs/inside", bytes("x")));
+    CHECK(read(root / "saves/sub/highs") == "second, longer");
+    // A temporary left by a crash does not stop the next write.
+    { std::ofstream(root / "saves/old.tmp", std::ios::binary) << "junk"; }
+    CHECK(replace_file(root / "saves/old", bytes("fresh")));
+    CHECK(read(root / "saves/old") == "fresh" && !fs::exists(root / "saves/old.tmp"));
+    std::printf(failures ? "FAILED (%d failures)\n" : "OK (%d failures)\n", failures);
+    return failures ? 1 : 0;
+}
+'''
+
+
+class SaveFileHarnessTest(unittest.TestCase):
+    def test_the_save_helper_keeps_names_inside_and_a_refused_write_leaves_nothing(self):
+        from retrorecomp.core import toolchain
+        from retrorecomp.platforms import build_executable, cmake_target_args
+        with tempfile.TemporaryDirectory(prefix='rr-amiga-savefile-') as temp:
+            project = Path(temp)
+            (project / 'harness.cpp').write_text(SAVEFILE_HARNESS, encoding='utf-8')
+            native = (ROOT / 'native/amiga_machine').as_posix()
+            (project / 'CMakeLists.txt').write_text(
+                'cmake_minimum_required(VERSION 3.20)\n'
+                'project(SaveFileChecks LANGUAGES CXX)\n'
+                'set(CMAKE_CXX_STANDARD 20)\n'
+                f'add_executable(savefile-checks "{(project / "harness.cpp").as_posix()}")\n'
+                f'target_include_directories(savefile-checks PRIVATE "{native}")\n'
+                'if(MSVC)\n'
+                'target_compile_options(savefile-checks PRIVATE /W4 /WX /utf-8)\n'
+                'else()\n'
+                'target_compile_options(savefile-checks PRIVATE -Wall -Wextra -Werror)\n'
+                'endif()\n', encoding='utf-8')
+            cmake, generator = toolchain()
+            for command in ([str(cmake), '-S', str(project), '-B', str(project / 'build'), '-G', generator,
+                             *cmake_target_args()],
+                            [str(cmake), '--build', str(project / 'build'), '--config', 'Release']):
+                built = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+            result = subprocess.run([str(build_executable(project / 'build', 'savefile-checks')), str(project / 'run')],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('OK (0 failures)', result.stdout)
+
+
 if __name__ == '__main__':
     unittest.main()
