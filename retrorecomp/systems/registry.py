@@ -8,11 +8,20 @@ code in `systems/__init__.py` reads the registered profiles and names none of th
 
 The order of the registration is the one of the documents and settings (X68000 before CPS-1). The order of
 detection is not this one: each profile declares its own `identify` orders.
+
+Two optional capabilities of a profile are read here and by the registry and report checks with `getattr`, so that
+declaring them in a profile module moves no stamp of another console (the profile base class is a stamp input of all):
+* `emulated` (str): the machine runs its games in an emulator instead of recompiling them, and says why in one sentence.
+  It declares no CPU; its report has no CPU section, a native share of 0 and an `engine` section (report_schema).
+* `accepts_folders` (bool): the machine takes a game folder as its input. `discover_folders` offers a folder to the
+  machine's `find_folders(root)`; the machine's `identify_path` claims a folder it recognises. File discovery
+  (`systems.discover_roms`) is not changed: the folders are added beside the files.
 """
 from __future__ import annotations
 
 from . import SystemProfile
 from .amiga import AMIGA
+from .atari_st import ATARI_ST
 from .cps1 import CPS1
 from .cps2 import CPS2
 from .game_boy import GAME_BOY
@@ -23,6 +32,7 @@ from .master_system import MASTER_SYSTEM
 from .neogeo import NEOGEO
 from .nes import NES
 from .pc_engine import PC_ENGINE
+from .scummvm import SCUMMVM
 from .psx import PLAYSTATION
 from .x68000 import X68000
 
@@ -59,7 +69,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, PLAYSTATION):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, SCUMMVM, PLAYSTATION):
     register(_profile)
 del _profile
 
@@ -101,6 +111,42 @@ def content_stage() -> tuple[SystemProfile, ...]:
     """The profiles that sniff the bytes of a headerless dump, in the order they are asked."""
     return tuple(sorted((profile for profile in _REGISTERED if profile.identify.content_order is not None),
                         key=lambda profile: profile.identify.content_order))
+
+
+def emulated(profile: SystemProfile) -> str:
+    """The reason a machine is emulated (empty for a recompiled machine)."""
+    return getattr(profile, 'emulated', '') or ''
+
+
+def folder_profiles() -> tuple[SystemProfile, ...]:
+    """The registered machines that take a game folder as their input."""
+    return tuple(profile for profile in _REGISTERED if getattr(profile, 'accepts_folders', False))
+
+
+class FolderDiscoveryUnavailable(Exception):
+    """A machine's folder discovery cannot run yet (its build tools are missing). `key` is the interface sentence that says so."""
+
+    def __init__(self, key: str, message: str = ''):
+        super().__init__(message or key)
+        self.key = key
+
+
+def discover_folders(folder, unavailable: list | None = None) -> list:
+    """The game folders at or below `folder` that a machine taking folders recognises, beside `discover_roms`.
+    A machine whose discovery cannot run (FolderDiscoveryUnavailable) is skipped; its exception is appended to
+    `unavailable` when the caller gives a list, so the interface can say why nothing was found."""
+    found = {}
+    for profile in folder_profiles():
+        if profile.available():
+            try:
+                paths = profile.find_folders(folder)
+            except FolderDiscoveryUnavailable as exc:
+                if unavailable is not None:
+                    unavailable.append(exc)
+                continue
+            for path in paths:
+                found.setdefault(str(path).casefold(), path)
+    return sorted(found.values(), key=lambda path: str(path).casefold())
 
 
 _LISTS = {'ALL_PROFILES': all_profiles, 'PROFILES': listed_profiles,

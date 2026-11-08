@@ -186,6 +186,19 @@ VAMIGA = Upstream(
     'Core/ only, copied into a build folder and adapted by retrorecomp/amiga_vamiga.py (each replacement must find its pinned '
     'text exactly once); the application and its tests are not used',
     _py('retrorecomp/amiga_vamiga.py', 'VAMIGA_REV'), checkout='vamiga')
+HATARI = Upstream(
+    'hatari', 'hatari/hatari', 'main',
+    'Atari ST machine (WinUAE cycle-exact 68000, Shifter/GLUE/MMU video, YM2149, MFP, IKBD, WD1772 and DMA, IPF/STX/MSA readers) '
+    'with its libretro frontend, driven frame by frame by the Atari ST export',
+    'GPL-2.0-or-later (three WinUAE headers say version 2 only: a build is GPL-2.0); src/floppies/ipf_dsk.c is BSD-3-Clause',
+    'CMakeLists.txt, cmake/ and src/ copied into a build folder and adapted by retrorecomp/atarist_hatari.py (each replacement must '
+    'find its pinned text exactly once), built as a static libretro core; no capsimg, zlib, PNG or SDL program',
+    _py('retrorecomp/atarist_hatari.py', 'HATARI_REV'), checkout='hatari')
+EMUTOS = Upstream(
+    'EmuTOS', 'emutos/emutos', 'master', 'Atari ST operating system booted by a game when the player gives no TOS of his own',
+    'GPL-2.0-or-later', 'the official 192 KiB release images and source archive (SourceForge), checked by size and SHA-256; '
+    'the UK image and the source archive embedded in a game that boots it',
+    _py('retrorecomp/atarist_emutos.py', 'RELEASE_REV'))
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -238,6 +251,17 @@ SST_SPC700 = Upstream(
     'checked against a pinned digest); not shipped',
     _py('tools/fetch_snes_vectors.py', 'REVISION_SPC700'), shared_by=('snes',))
 
+SCUMMVM = Upstream(
+    'ScummVM', 'scummvm/scummvm', 'master', 'runtime of the adventure exes (a separate GPL program, patched by native/scummvm)',
+    'GPL-3.0-or-later (third-party parts of ScummVM keep the notices of its LICENSES/ folder)',
+    'the release tree at the pin with the patch series of native/scummvm, built per engine family by scummvm_build; '
+    'fetched into .deps at build time, never copied into the repository; corresponding source by tools/build_scummvm_source_archive.py',
+    _py('retrorecomp/scummvm_build.py', 'SCUMMVM_REV'), checkout='scummvm')
+FREETYPE = Upstream(
+    'FreeType', 'freetype/freetype', 'master', 'font renderer of the ScummVM runtime (its GUI themes need it)',
+    'FreeType License (FTL)', 'the library, static, without zlib, png, bzip2, HarfBuzz or Brotli, linked into the ScummVM runtime',
+    _py('retrorecomp/scummvm_build.py', 'FREETYPE_REV'), checkout='freetype')
+
 COMMON: tuple[Upstream, ...] = (SDL, LLVM_MINGW, CMAKE, NINJA, UPX, SST_Z80, SST_SM83, SST_HUC6280, SST_M68000, SST_65816, SST_SPC700)
 
 # --- the machines ------------------------------------------------------------------------------------------------
@@ -259,6 +283,10 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The decoder of m68k-recomp-core structures the guarded native steps of the Amiga (the bodies are Moira's); segagenesisrecomp
     # is listed because that decoder is its submodule.
     'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
+    # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
+    'atarist': (HATARI, EMUTOS, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    'scummvm': (SCUMMVM, FREETYPE),
     'psx': (BEETLE_PSX,),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).

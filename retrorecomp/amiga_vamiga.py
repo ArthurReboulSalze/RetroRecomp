@@ -64,6 +64,57 @@ REPLACEMENTS = [
      '                // Retro-Recomp modification (MIT): a guarded native step, else the jump table.\n'
      '                if (!(rr_moira_native && rr_moira_native(*this, reg.pc - 2, queue.ird))) (this->*exec[queue.ird])(queue.ird);\n'
      '            } catch (const std::exception &exc) {\n                processException(exc);\n            }\n        }\n\n    done:'),
+    # The sound path keeps state a snapshot leaves out (the four samplers' pending samples, the three filters' memory, the
+    # sub-sample fraction, the master volume ramps): two public methods save and restore exactly that, so a quick state
+    # continues the sound sample for sample. The session appends the bytes to its own state file.
+    ('Ports/AudioPort.h',
+     '    // Resets the output buffer and the two audio filters\n    void clear();\n',
+     r"""    // Retro-Recomp modification (MPL-2.0, like this file): the state of the sound path that a snapshot does not hold.
+    void rrSaveAudio(std::vector<u8> &o) const
+    {
+        auto put = [&](const void *p, size_t n) { o.insert(o.end(), (const u8 *)p, (const u8 *)p + n); };
+        for (const auto &s : sampler) {
+            i64 n = (i64)s.count(); put(&n, 8);
+            for (isize i = 0, k = s.r; i < (isize)n; i++, k = s.next(k)) { put(&s.elements[k], sizeof(i16)); put(&s.keys[k], 8); }
+        }
+        put(&fraction, 8); put(&sampleRateError, 8);
+        double a[6] = { volL.current, volL.maximum, volL.delta, volR.current, volR.maximum, volR.delta }; put(a, sizeof a);
+        const OnePoleFilter *one[2] = { &filter.loFilter, &filter.hiFilter };
+        for (auto *f : one) { double b[5] = { f->cutoff, f->a1, f->a2, f->tmpL, f->tmpR }; put(b, sizeof b); }
+        const TwoPoleFilter &t = filter.ledFilter;
+        double c[6] = { t.cutoff, t.qFactor, t.a1, t.a2, t.b1, t.b2 }; put(c, sizeof c);
+        put(t.tmpL, sizeof t.tmpL); put(t.tmpR, sizeof t.tmpR);
+        u8 m = wasMuted ? 1 : 0; put(&m, 1);
+    }
+    bool rrLoadAudio(const u8 *p, size_t size)
+    {
+        const u8 *end = p + size;
+        auto get = [&](void *d, size_t n) { if ((size_t)(end - p) < n) return false; memcpy(d, p, n); p += n; return true; };
+        for (auto &s : sampler) {
+            i64 n; if (!get(&n, 8) || n < 0 || n >= (i64)s.cap()) return false;
+            s.clear();
+            for (i64 i = 0; i < n; i++) {
+                i16 e; i64 k; if (!get(&e, sizeof e) || !get(&k, 8)) return false;
+                s.elements[s.w] = e; s.keys[s.w] = k; s.w = s.next(s.w);
+            }
+        }
+        if (!get(&fraction, 8) || !get(&sampleRateError, 8)) return false;
+        double a[6]; if (!get(a, sizeof a)) return false;
+        volL.current = a[0]; volL.maximum = a[1]; volL.delta = a[2]; volR.current = a[3]; volR.maximum = a[4]; volR.delta = a[5];
+        OnePoleFilter *one[2] = { &filter.loFilter, &filter.hiFilter };
+        for (auto *f : one) { double b[5]; if (!get(b, sizeof b)) return false; f->cutoff = b[0]; f->a1 = b[1]; f->a2 = b[2]; f->tmpL = b[3]; f->tmpR = b[4]; }
+        TwoPoleFilter &t = filter.ledFilter;
+        double c[6]; if (!get(c, sizeof c)) return false;
+        t.cutoff = c[0]; t.qFactor = c[1]; t.a1 = c[2]; t.a2 = c[3]; t.b1 = c[4]; t.b2 = c[5];
+        if (!get(t.tmpL, sizeof t.tmpL) || !get(t.tmpR, sizeof t.tmpR)) return false;
+        u8 m; if (!get(&m, 1)) return false;
+        wasMuted = m != 0;
+        return p == end;
+    }
+
+    // Resets the output buffer and the two audio filters
+    void clear();
+"""),
     ('Components/Denise/Texture.cpp',
      '    auto *ptr = pixels.ptr + row * HPIXELS + 4 * cycle;\n\n    for (isize col = 4 * cycle; col < 4 * cycle + 4; col++) {',
      '    // Retro-Recomp modification (MPL-2.0, like this file): the column index already holds the cycle offset.\n'

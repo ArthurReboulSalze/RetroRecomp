@@ -33,6 +33,11 @@ typedef struct RrAmigaGame {
     const RrAmigaFile *files; unsigned file_count;     /* the install's data files, names relative to its data folder */
     const char *save_dir;     /* UTF-8 folder where resload_SaveFile writes (and whose files replace the install's), NULL: none */
     int ntsc;
+    /* The player's own Kickstart image (normalised, 256 KiB), for the installs that ask for one; NULL: none. The session copies
+     * it to ExpMem when the slave's request (size, CRC-16) matches it; it is never written anywhere else. */
+    const uint8_t *kickstart; uint32_t kickstart_size;
+    /* CUSTOM1..5 as the install's own icon sets them (its ToolTypes), what resload_Control's CUSTOMn_GET answer. */
+    uint32_t custom[5];
 } RrAmigaGame;
 
 typedef struct RrAmigaSession RrAmigaSession;
@@ -48,6 +53,9 @@ void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
 /* Runs one frame (resload calls answered on the way). 0: the frame ran; -1: the install stopped (resload refused, Abort, or
  * the CPU left the resload table at a breakpoint); the reason is rr_amiga_error. */
 int rr_amiga_frame(RrAmigaSession *s);
+/* 1 when the install stopped because it ended itself normally (resload_Abort with TDREASON_OK), 0 for any other stop. */
+int rr_amiga_quit(const RrAmigaSession *s);
+uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
 /* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */
@@ -55,6 +63,10 @@ const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *heigh
 /* The union of the display windows the game opened so far (DIWSTRT/DIWSTOP, from vAmiga's viewport tracking), in picture
  * columns and rows: what the player shows instead of the whole overscan picture. 0 while no window was opened. */
 int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w, int *h);
+/* The Kickstart the install runs with: 1 and its size and CRC-16 once loaded (slave header or resload_LoadKick), else 0. Its
+ * instructions run on the interpreter (counted apart: rr_amiga_kickstart_interpreted_count, included in the total). */
+int rr_amiga_kickstart(const RrAmigaSession *s, uint32_t *size, uint16_t *crc16);
+uint64_t rr_amiga_kickstart_interpreted_count(const RrAmigaSession *s);
 /* The sound of the last frame: interleaved stereo int16 at RR_AMIGA_AUDIO_RATE; returns frames copied. */
 size_t rr_amiga_audio(RrAmigaSession *s, int16_t *pcm, size_t capacity_frames);
 

@@ -14,9 +14,23 @@ from .paths import ROOT, APP_NAME, games_root, data_directory
 from .i18n import log_text
 from .dropfiles import enable_file_drop
 from .systems import discover_roms, find_profile, get_profile
+from .systems.registry import discover_folders
 from .branding import COLORS
 from .platforms import open_local
 from .gui_common import PROFILES
+
+
+# Shapes a dump can come in besides a machine's own extension (an archive, a raw dump, a Game Boy Color cartridge).
+GENERIC_ROM_EXTENSIONS = ('.zip', '.bin', '.rom', '.gbc')
+
+
+def rom_patterns() -> str:
+    """The ROM picker's filter: the generic shapes and every profile's own extensions, so a new machine is offered
+    without touching this list (1.7.0 missed the Amiga's .lha this way)."""
+    extensions = dict.fromkeys(GENERIC_ROM_EXTENSIONS)
+    for profile in PROFILES:
+        extensions.update(dict.fromkeys(getattr(profile, 'extensions', ()) or ()))
+    return ' '.join('*' + extension for extension in extensions)
 
 
 class QueueMixin:
@@ -163,6 +177,7 @@ class QueueMixin:
         A multi-disk X68000 game is one entry: its disks become one playlist."""
         from .rom_sources import disk_sets
         files, logs = [], []
+        unavailable = []
         def walk(entries):
             sets = disk_sets(entries)
             if sets.grouped:
@@ -177,12 +192,19 @@ class QueueMixin:
                 if path.is_dir():
                     try:
                         walk(discover_roms(path))
+                        # Game folders of a machine that takes folders, beside the files (never walked again).
+                        games = discover_folders(path, unavailable)
                     except OSError:
                         logs.append(self.tr('drop_unreadable'))
+                        continue
+                    files.extend(games)
+                    found(len(files))
                     continue
                 files.append(path)
                 found(len(files))
         walk(list(paths))
+        # A machine whose folder discovery cannot run yet (no build tools): say so once, never a traceback.
+        logs.extend(self.tr(key) for key in dict.fromkeys(exc.key for exc in unavailable))
         return files, logs
 
     def _prepare_path(self, path, mode, output):
@@ -322,8 +344,7 @@ class QueueMixin:
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
-            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.fig *.md *.gen *.pce *.dim *.xdf *.d88 *.88d *.hdm *.2hd *.dup *.m3u'),
-                       ('All files', '*.*')])
+            filetypes=[('ROM files', rom_patterns()), ('All files', '*.*')])
         self.import_paths(paths)
 
     def choose_directory(self):

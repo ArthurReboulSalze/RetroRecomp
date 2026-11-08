@@ -44,7 +44,7 @@ class PlayStationProfile(SystemProfile):
     stamp_groups = ('conversion_gates',)
     host_adapter = 'adapters/rrhk_psx.c'
     # Order 11 on this branch; 13 once the Game Boy Advance (11) and the Amiga (12) are merged (the lead renumbers at merge).
-    path_spec = PathSpec(order=13, sections=(('r3000a', 'psx'),),
+    path_spec = PathSpec(order=14, sections=(('r3000a', 'psx'),),
                          source_bounds=(('disc', (1, 1 << 32)), ('bios', (1, 1 << 20))),
                          shapes=(('r3000a', 'psx', dict(roles=('disc', 'bios'), caps={'insn': 262144, 'span': 65536},
                                                         windows=APERTURES, contained=True, length=(4, 4), length_align=4,

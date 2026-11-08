@@ -1,5 +1,28 @@
 # Runtime performance without changing the output
 
+## Measured on 6 November 2026 — 1.6.9 against 1.7.0 (CPS-1, CPS-2, X68000)
+
+Only the machines whose game code moved in 1.7.0 beyond the lines every console shares were measured: the CPS-1 and CPS-2
+(the board, the EEPROM writer, QSound) and the X68000. The other nine machines of 1.6.9 only share the recorder and freshness lines,
+which run once per recorded miss and never in the frame loop. Same method as below: one pinned core of a Ryzen 9 3900X, best of
+five, A and B interleaved after one dropped warm-up each, headless from boot with the machine's play route (the CPS boards: the
+credited `play` route of `cps1_conversion.routes`). This time both sides are the packaged converters a player runs: A is the
+published 1.6.9 `Retro-Recomp.exe`, B the 1.7.0 one (`ac214ec6`). Each converted the three games in its own folder with the
+portable tools, an empty library, no shared base and no online cover (`.build/release-1.7.0/bench_prepare_170.py` and
+`bench_timing.py`, results in `bench_results.json` there). No compiler, conversion or game ran during the timing (processes sampled
+every 2 seconds).
+
+| Machine | Game | Frames | 1.6.9 | 1.7.0 | 1.7.0 / 1.6.9 |
+|---|---|---|---|---|---|
+| Capcom CPS-1 | Final Fight | 3,600 | 1.043 ms | 1.048 ms | 1.00 |
+| Capcom CPS-2 | 19XX: The War Against Destiny | 3,600 | 1.265 ms | 1.250 ms | 0.99 |
+| Sharp X68000 | R-Type | 4,000 | 0.670 ms | 0.670 ms | 1.00 |
+
+The three games move by -1.2 to +0.4 %, within the noise of the method (the five runs of each side overlap). The branch per bus
+access that the CPS-1 family gained in 1.6.9 is on both sides and is not measured here. Windows only: the 1.7.0 Linux build was not
+timed. This measures host time only: nothing about the native code share, CPU fidelity, hardware fidelity, gameplay validation or
+physical latency.
+
 ## Measured on 5 November 2026 — 1.6.8 against 1.6.9
 
 Same method as below: one pinned core of a Ryzen 9 3900X, a quiet PC (every agent stopped), best of three, A and B interleaved

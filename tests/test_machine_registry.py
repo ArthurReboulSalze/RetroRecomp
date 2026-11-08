@@ -46,7 +46,8 @@ DECLINED = {
     # The PC Engine plays the attract and play routes of its own converter (pce_conversion), not the random pad layout.
     # The Amiga plays routes of its own too (joystick, mouse and keyboard scripts of amiga_conversion).
     # The PlayStation (in development) has no pad script writer yet: its routes come with its conversion.
-    'random_routes': {'x68', 'pce', 'amiga', 'psx'},
+    # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
+    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'psx'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
@@ -55,6 +56,12 @@ DECLINED = {
     # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
     'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
 }
+# An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
+# asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
+# apart from the matrix of recompiled consoles) and no recompilation campaign, baseline or release reader. Adventure (ScummVM):
+# also no random pad routes (the games are played with the pointer) and no library record to summarise (nothing is learned).
+DECLINED['random_routes'] |= {'scummvm'}
+DECLINED['memory_view'] |= {'scummvm'}
 
 QUALIFICATION_CELLS = set('YPN?-')
 
@@ -81,7 +88,7 @@ def _qualification_matrix() -> dict:
 def _gui_builds_the_tab(source: str, system: str) -> bool:
     """The options panel of gui.py builds a tab for this console: the generic page over the registered profiles
     (1.6.3), else a call or a loop over a tuple of ids."""
-    if 'self.build_console_tab(profile, tab, checkbox)' in source:
+    if 'self.build_console_tab(profile, tab, checkbox)' in source or 'self.build_console_tab(profile, page_of(profile), checkbox)' in source:
         return system in {profile.id for profile in ALL_PROFILES}
     quoted = r"""['"]%s['"]""" % re.escape(system)
     call = re.search(r'build_scan_options\([^)\n]*' + quoted + r'[^)\n]*\)', source)
@@ -102,11 +109,15 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if profile.status not in STATUSES:
         add(f'status {profile.status!r} is not one of {STATUSES}')
     cpus = list(profile.cpus)
-    if sum(cpu.role == 'main' for cpu in cpus) != 1:
+    reason = getattr(profile, 'emulated', '') or ''
+    emulated = bool(reason)
+    if emulated and (cpus or len(reason.split()) < 4):
+        add('an emulated profile declares no CPU and says why in a sentence (SystemProfile.emulated)')
+    if not emulated and sum(cpu.role == 'main' for cpu in cpus) != 1:
         add('the profile must declare exactly one main CPU')
-    if not profile.extensions or not set(profile.extensions) <= ROM_CANDIDATE_EXTENSIONS:
+    if not (profile.extensions or getattr(profile, 'accepts_folders', False)) or not set(profile.extensions) <= ROM_CANDIDATE_EXTENSIONS:
         add('extensions missing from systems.ROM_CANDIDATE_EXTENSIONS (discover_roms would skip them)')
-    if not profile.video_modes or not profile.feedback_kinds or not profile.quick_state_family:
+    if not profile.video_modes or not emulated and (not profile.feedback_kinds or not profile.quick_state_family):
         add('video_modes, feedback_kinds and quick_state_family must be declared')
     if profile.linux not in ('witnessed', 'pending'):
         add('linux must be "witnessed" or "pending"')
@@ -121,24 +132,31 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         if system not in listed:
             add(f'{name} does not list the console')
 
-    # --- paths, schema 3 -----------------------------------------------------------------------
+    # --- paths, schema 3 (not for an emulated machine: nothing is recompiled, no path is learned) --------------
     sections = path_profiles.SYSTEM_SECTIONS.get(system)
-    if system not in path_profiles.SYSTEMS or not path_profiles.GAME_KEY.fullmatch(f'{system}:' + '0' * 64):
-        add('path_profiles.SYSTEMS (and so GAME_KEY) does not list the console')
-    if not sections:
-        add('path_profiles.SYSTEM_SECTIONS has no CPU section for the console')
+    if emulated:
+        if sections or system in path_profiles.SYSTEMS:
+            add('an emulated machine has no path profile (path_spec must stay None)')
     else:
-        for section in sections:
-            known = path_profiles.PROFILES.get(section)
-            if known is None or system not in known.systems:
-                add(f'path_profiles.PROFILES has no {section} profile naming the console')
-    if system not in path_profiles.SOURCE_BOUNDS:
-        add('path_profiles.SOURCE_BOUNDS has no source bounds for the console')
+        if system not in path_profiles.SYSTEMS or not path_profiles.GAME_KEY.fullmatch(f'{system}:' + '0' * 64):
+            add('path_profiles.SYSTEMS (and so GAME_KEY) does not list the console')
+        if not sections:
+            add('path_profiles.SYSTEM_SECTIONS has no CPU section for the console')
+        else:
+            for section in sections:
+                known = path_profiles.PROFILES.get(section)
+                if known is None or system not in known.systems:
+                    add(f'path_profiles.PROFILES has no {section} profile naming the console')
+        if system not in path_profiles.SOURCE_BOUNDS:
+            add('path_profiles.SOURCE_BOUNDS has no source bounds for the console')
 
     # --- reports -------------------------------------------------------------------------------
     shape = report_schema._SHAPES.get(system)
     if shape is None:
         add('report_schema._SHAPES has no entry (read_report would refuse the console)')
+    elif emulated:
+        if not shape.emulated:
+            add('report_schema._SHAPES does not give the emulated machine its emulated shape')
     elif cpus:
         main = next((cpu for cpu in cpus if cpu.role == 'main'), None)
         sound = next((cpu for cpu in cpus if cpu.role == 'sound'), None)
@@ -200,24 +218,29 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if not pattern.search(_text('docs/COMPATIBILITY.md')):
         add('docs/COMPATIBILITY.md does not name the console')
     matrix = _qualification_matrix()
-    if system not in matrix:
+    if emulated:
+        if system in matrix:
+            add('an emulated machine is a category apart: no column in the qualification matrix of the recompiled consoles')
+    elif system not in matrix:
         add('docs/QUALIFICATION.md has no column for the console in its status matrix')
     elif not all(cell in QUALIFICATION_CELLS for cell in matrix[system].values()) or len(matrix[system]) != 16:
         add('docs/QUALIFICATION.md: the console column must hold G1..G16, each one of Y P N ? -')
     if f'retrorecomp/systems/{_module_leaf(profile)}.py' not in _public_files():
         add('tools/prepare_publication.py PUBLIC_FILES does not list the profile module')
 
-    # --- verification tools --------------------------------------------------------------------
-    if system not in release_check.CONSOLES or not callable(release_check.READERS.get(system)):
+    # --- verification tools (recompilation campaigns: not for an emulated machine) ---------------------
+    if emulated:
+        pass
+    elif system not in release_check.CONSOLES or not callable(release_check.READERS.get(system)):
         add('tools/release_check.py (CONSOLES, READERS) does not know the console')
     # A romset console is read from ZIPs whatever its own extension (Neo Geo also reads .neo).
     read = set(profile.extensions) | ({'.zip'} if 'romset' in profile.media_kinds else set())
-    if system not in campaign.DEFAULT_FOLDERS or not set(campaign.EXTENSIONS.get(system, ())) & read:
+    if not emulated and (system not in campaign.DEFAULT_FOLDERS or not set(campaign.EXTENSIONS.get(system, ())) & read):
         add('tools/campaign.py (DEFAULT_FOLDERS, EXTENSIONS) does not know the console')
     cases = json.loads(_text('tools/campaign-risk-cases.json'))['consoles']
-    if system not in cases and profile.status == 'supported':
+    if system not in cases and profile.status == 'supported' and not emulated:      # an emulated category has no risk case
         add('tools/campaign-risk-cases.json has no list for the console (an experimental machine may have none yet)')
-    if system not in std_baseline.SYSTEMS or system not in std_baseline.CONSOLE_OPTIONS:
+    if not emulated and (system not in std_baseline.SYSTEMS or system not in std_baseline.CONSOLE_OPTIONS):
         add('tools/std_baseline.py (SYSTEMS, CONSOLE_OPTIONS) does not know the console')
 
     # --- registries a machine may decline, on the record --------------------------------------
@@ -233,6 +256,12 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if profile.status == 'supported':
         if profile.linux != 'witnessed':
             add('supported: the conversion must be witnessed on Linux (linux = "witnessed")')
+        if emulated:
+            # An emulated category has no path to share, no risk case and no matrix column: its criteria are written in its own page.
+            page = _text(f'docs/{profile.id.upper()}.md')
+            if '## What "supported" means here' not in page:
+                add('supported and emulated: docs/<MACHINE>.md must have a section \'What "supported" means here\'')
+            return problems
         if system not in path_profiles.SHARED_SYSTEMS:
             add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS')
         # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.
@@ -279,7 +308,9 @@ class RegistryTests(unittest.TestCase):
         self.assertTrue(DECLINED['artwork'].isdisjoint(artwork.REPOSITORIES))
 
     def test_the_qualification_matrix_has_one_column_per_machine_and_no_stranger(self):
-        self.assertEqual(set(_qualification_matrix()), set(system_ids()))
+        # An emulated machine is a category apart from the matrix of the recompiled consoles.
+        recompiled = {profile.id for profile in ALL_PROFILES if not getattr(profile, 'emulated', '')}
+        self.assertEqual(set(_qualification_matrix()), recompiled)
 
     def test_the_lints_and_tools_list_exactly_the_machines_of_the_profiles(self):
         ids = set(system_ids())
@@ -289,9 +320,10 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(set(release_check.READERS), ids)
         self.assertEqual(set(campaign.DEFAULT_FOLDERS), ids)
         self.assertEqual(set(std_baseline.SYSTEMS), ids)
-        self.assertEqual(set(path_profiles.SYSTEMS), ids)
+        recompiled = {profile.id for profile in ALL_PROFILES if not getattr(profile, 'emulated', '')}
+        self.assertEqual(set(path_profiles.SYSTEMS), recompiled)     # an emulated machine learns no path
         self.assertEqual(set(report_schema._SHAPES), ids)
-        self.assertEqual(set(path_profiles.SYSTEM_SECTIONS), ids)
+        self.assertEqual(set(path_profiles.SYSTEM_SECTIONS), recompiled)
         self.assertLessEqual(set(path_profiles.SHARED_SYSTEMS), ids)
         self.assertLessEqual(set(hostkit.ADAPTERS), ids)
 
@@ -353,6 +385,24 @@ class DetectionOfGapsTests(unittest.TestCase):
         for expected in ('supported: the conversion must be witnessed on Linux', 'supported: shared knowledge',
                          'supported: tools/campaign-risk-cases.json needs at least four'):
             self.assertIn(expected, problems)
+
+    def test_an_emulated_machine_is_asked_for_no_cpu_and_no_path_but_still_for_the_rest(self):
+        from unittest.mock import patch
+        fake = self.profile(cpus=(), quick_state_family='', feedback_kinds=frozenset(), extensions=(), accepts_folders=True,
+                            emulated='An emulator runs the games, so nothing is recompiled.')
+        with patch(__name__ + '.system_ids', return_value=(*system_ids(), 'zx')):
+            problems = ' | '.join(registry_problems(fake))
+        for absent in ('main CPU', 'path_profiles', 'quick_state_family', 'QUALIFICATION.md', 'campaign.py', 'std_baseline',
+                       'release_check', 'ROM_CANDIDATE_EXTENSIONS'):
+            self.assertNotIn(absent, problems)
+        for expected in ('report_schema._SHAPES', 'stamp_inputs.INPUTS', "i18n.STRINGS has no 'options_zx'", 'README.md'):
+            self.assertIn(expected, problems)
+
+    def test_an_emulated_machine_with_a_cpu_or_no_reason_is_reported(self):
+        for attributes in ({'emulated': 'An emulator runs the games here.'},
+                           {'emulated': 'emulated', 'cpus': ()}):
+            with self.subTest(attributes=attributes):
+                self.assertIn('an emulated profile declares no CPU', ' | '.join(registry_problems(self.profile(**attributes))))
 
     def test_a_status_outside_the_two_known_ones_is_reported(self):
         self.assertIn("status 'beta' is not one of", ' | '.join(registry_problems(self.profile('beta'))))

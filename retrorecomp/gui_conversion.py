@@ -147,6 +147,12 @@ class ConversionMixin:
                         cps1_qsound.validate_dsp_rom(options.get('qsound_rom'))
                     except ValueError as exc:
                         raise ValueError(self.tr('qsound_rom_required') + ' ' + self.tr('qsound_rom_invalid', error=str(exc))) from exc
+            if any(self.items[row].system == 'amiga' and not self.items[row].error for row in chosen_rows):
+                from . import amiga_kickstart
+                # Only the installs that ask for a Kickstart need one; the others convert without (a header read decides)
+                for row in chosen_rows:
+                    if self.items[row].system == 'amiga' and not self.items[row].error:
+                        amiga_kickstart.require(options.get('amiga_kickstart'), self.items[row].path, self.language)
             for row in chosen_rows:
                 if self.items[row].system == 'x68' and not self.items[row].error:
                     from .x68000 import machine

@@ -689,6 +689,9 @@ class Registration(unittest.TestCase):
         self.assertEqual(set(shapes), {profile.id for profile in ALL_PROFILES})
         for profile in ALL_PROFILES:
             shape = shapes[profile.id]
+            if getattr(profile, 'emulated', ''):
+                self.assertTrue(shape.emulated)
+                continue
             main = next(cpu for cpu in profile.cpus if cpu.role == 'main')
             sound = next((cpu for cpu in profile.cpus if cpu.role == 'sound'), None)
             with self.subTest(console=profile.id):

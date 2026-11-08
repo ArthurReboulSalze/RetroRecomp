@@ -38,6 +38,8 @@ PAGE_LAYOUT = {
 # dialog ('browse', or the option's own label), whether the saved path is shown resolved against the export
 # folder ('resolve'; the X68000's two files are still shown as saved, as in 1.6.2) and, for a firmware the
 # window can verify, the (module, function) that does it: the row then has a Check button and a status line.
+# 'folder' adds a second Browse button for a folder (the Amiga Kickstart row takes a file or a folder); 'text' says that the
+# check function returns the status text itself (it is given the interface language) instead of an identity to report.
 FIRMWARE_ROWS_DEFAULT = {'pady': (8, 4), 'title': 'browse', 'resolve': False,
                          'filetypes': [('ROM / DAT', '*.dat *.rom *.bin'), ('All files', '*.*')]}
 FIRMWARE_ROWS = {
@@ -45,6 +47,11 @@ FIRMWARE_ROWS = {
                 'check': ('neogeo', 'validate_bios')},
     'qsound_rom': {'pady': (8, 8), 'title': 'label', 'filetypes': [('ZIP / BIN', '*.zip *.bin'), ('All files', '*.*')], 'resolve': True,
                    'check': ('cps1_qsound', 'validate_dsp_rom')},
+    'amiga_kickstart': {'pady': (0, 8), 'title': 'label', 'filetypes': [('Kickstart', '*.rom *.bin'), ('All files', '*.*')],
+                        'resolve': True, 'folder': True, 'text': True, 'check': ('amiga_kickstart', 'validate_kickstarts')},
+    # The Atari ST TOS: a file or a folder like the Kickstart, but without a Check button (the conversion reads it by content).
+    'atarist_tos': {'pady': (0, 8), 'title': 'label', 'filetypes': [('TOS', '*.img *.rom'), ('All files', '*.*')],
+                    'resolve': True, 'folder': True},
 }
 
 
@@ -200,9 +207,9 @@ class OptionsMixin:
         disk.grid(row=7, column=0, sticky='ew', pady=(14, 0))
         self.build_disk_options(disk)
 
-        # One page per machine, built from its profile (build_console_tab).
-        for profile in PROFILES:
-            self.build_console_tab(profile, tab, checkbox)
+        # One page per machine, built from its profile (build_console_tab), all in a second tab: a list at the top picks
+        # the machine whose page shows below (one tab per machine no longer fitted the window).
+        self.build_console_pages(notebook, checkbox)
 
         # Over a list or a number field, the wheel scrolls the page rather
         # than changing the value under the pointer by accident.
@@ -221,6 +228,49 @@ class OptionsMixin:
         ttk.Button(buttons, text=self.tr('close_options'), width=-26,
                    command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
         self.queue_background(self.body)
+
+    def build_console_pages(self, notebook, checkbox):
+        """The Consoles tab: a read-only list of the machines, then the options page of the one chosen. The list opens
+        on the machine chosen in the queue's system list (else the last page shown, else the first)."""
+        holder = ttk.Frame(notebook)
+        notebook.add(holder, text=self.tr('options_consoles'))
+        notebook._retro_tab_keys[str(holder)] = 'options_consoles'
+        top = ttk.Frame(holder, padding=(18, 14, 18, 0))
+        top.pack(fill='x')
+        stack = ttk.Frame(holder)
+        stack.pack(fill='both', expand=True)
+        pages = []   # (profile id, page title key, frame)
+
+        def page_of(profile):
+            def tab(key):
+                frame = ttk.Frame(stack)
+                pages.append((profile.id, key, frame))
+                return self.scrolled_page(frame)
+            return tab
+
+        for profile in PROFILES:
+            self.build_console_tab(profile, page_of(profile), checkbox)
+        picker = ttk.Combobox(top, state='readonly', width=36, values=[self.tr(key) for _, key, _ in pages])
+        picker._retro_value_keys = [key for _, key, _ in pages]   # retranslated by refresh_language
+        picker.pack(anchor='w')
+        self.options_console_picker = picker
+        self.options_console_pages = pages
+
+        def show(index):
+            for position, (_, _, frame) in enumerate(pages):
+                if position == index:
+                    frame.pack(fill='both', expand=True)
+                else:
+                    frame.pack_forget()
+            picker.current(index)
+            self.options_console_index = index
+
+        picker.bind('<<ComboboxSelected>>', lambda event: show(picker.current()))
+        self.show_console_page = show
+        ids = [system for system, _, _ in pages]
+        chosen = getattr(self, 'system_mode', 'auto')
+        index = ids.index(chosen) if chosen in ids else getattr(self, 'options_console_index', 0)
+        show(index if 0 <= index < len(pages) else 0)
 
     def build_console_tab(self, profile, tab, checkbox):
         """The options page of one machine, read from its profile: the scan level, the on/off options it declares
@@ -267,6 +317,11 @@ class OptionsMixin:
         browse = ttk.Button(row, text=self.tr('browse'), command=lambda name=key.name: self.choose_firmware(name))
         browse.pack(side='left', padx=(8, 0))
         self.option_controls.append((browse, 'normal'))
+        if row_style.get('folder'):
+            folder = ttk.Button(row, text=self.tr('browse_folder'),
+                                command=lambda name=key.name: self.choose_firmware(name, folder=True))
+            folder.pack(side='left', padx=(8, 0))
+            self.option_controls.append((folder, 'normal'))
         if row_style.get('check'):
             check = ttk.Button(row, text=self.tr(key.name + '_check'),
                                command=lambda name=key.name: self.check_firmware(name))
@@ -348,14 +403,15 @@ class OptionsMixin:
                 self.messages.put(('feedback_import', system, None, str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
-    def choose_firmware(self, name):
-        """Browse for a firmware file; one the window can verify is checked at once."""
+    def choose_firmware(self, name, folder=False):
+        """Browse for a firmware file (or, for a row that takes one, a folder); one the window can verify is checked at once."""
         row_style = {**FIRMWARE_ROWS_DEFAULT, **FIRMWARE_ROWS.get(name, {})}
         key = next(key for _, key in console_options('path') if key.name == name)
-        path = filedialog.askopenfilename(
-            parent=self.options_panel,
-            title=self.tr('browse' if row_style['title'] == 'browse' else key.label),
-            filetypes=row_style['filetypes'])
+        title = self.tr('browse' if row_style['title'] == 'browse' else key.label)
+        if folder:
+            path = filedialog.askdirectory(parent=self.options_panel, title=title)
+        else:
+            path = filedialog.askopenfilename(parent=self.options_panel, title=title, filetypes=row_style['filetypes'])
         if path:
             getattr(self, name).set(path)
             if row_style.get('check'):
@@ -370,6 +426,9 @@ class OptionsMixin:
         if path is None:
             status.set(self.tr(name + '_missing'))
             return False
+        if FIRMWARE_ROWS[name].get('text'):
+            status.set(validate(path, self.language))
+            return True
         try:
             info = validate(path)
             status.set(self.tr(name + ('_dual' if 'aes' in info else '_valid')))

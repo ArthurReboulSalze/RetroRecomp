@@ -2,6 +2,7 @@
 #include "rr_resload.h"
 #include "rr_decrunch.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,6 +77,73 @@ static void guest_name(const RrResload *r, uint32_t address, char *out, size_t c
         out[n] = c;
     }
     out[n] = 0;
+}
+
+/* An AmigaDOS error code in words (the codes of dos/dos.h a slave reports through resload_Abort). */
+static const char *dos_error_name(uint32_t code) {
+    switch (code) {
+    case 103: return "not enough memory";
+    case 202: return "object in use";
+    case 204: return "folder not found";
+    case 205: return "file not found";
+    case 213: return "disk not validated";
+    case 214: return "disk write-protected";
+    case 218: return "device not mounted";
+    case 221: return "disk full";
+    case 225: return "not a DOS disk";
+    case 226: return "no disk";
+    default: return NULL;
+    }
+}
+
+/* The sentence a resload_Abort leaves for the player: what the slave could not do, named, with its raw numbers kept after
+   it. The TDREASON values are those of WHDLoad's public include whdload.i; primary and secondary mean what the autodoc
+   of resload_Abort says for each reason. */
+static void describe_abort(RrResload *r) {
+    const uint32_t reason = r->abort_reason[0], primary = r->abort_reason[1], secondary = r->abort_reason[2];
+    char name[128];
+    const char *dos = dos_error_name(primary);
+    char error[64];
+    if (dos) snprintf(error, sizeof error, "%s, AmigaDOS error %u", dos, (unsigned)primary);
+    else snprintf(error, sizeof error, "AmigaDOS error %u", (unsigned)primary);
+    switch ((int32_t)reason) {
+    case -1:
+        snprintf(r->message, sizeof r->message, "the game quit (resload_Abort, TDREASON_OK)");
+        return;
+    case 1: case 2: case 27:
+        guest_name(r, secondary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the install could not %s %s%s%s (%s; resload_Abort reason %d)",
+                 reason == 1 ? "read" : reason == 2 ? "write" : "delete", name[0] ? "the file \"" : "a file", name,
+                 name[0] ? "\"" : "", error, (int)(int32_t)reason);
+        return;
+    case 6:
+        guest_name(r, secondary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the install could not list the folder \"%s\" (%s; resload_Abort reason 6)", name, error);
+        return;
+    case 7:
+        snprintf(r->message, sizeof r->message, "the install could not read its disk %u (error %u; resload_Abort reason 7)",
+                 (unsigned)secondary, (unsigned)primary);
+        return;
+    case 9:
+        snprintf(r->message, sizeof r->message, "the slave does not recognise this version of the game's files (resload_Abort reason 9)");
+        return;
+    case 10:
+        guest_name(r, primary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the slave's operating-system emulation failed in \"%s\" (error %u; resload_Abort reason 10)",
+                 name, (unsigned)secondary);
+        return;
+    case 11: snprintf(r->message, sizeof r->message, "the install needs a 68020 processor (resload_Abort reason 11)"); return;
+    case 12: snprintf(r->message, sizeof r->message, "the install needs the AGA chipset (resload_Abort reason 12)"); return;
+    case 13: snprintf(r->message, sizeof r->message, "the install runs on NTSC only (resload_Abort reason 13)"); return;
+    case 14: snprintf(r->message, sizeof r->message, "the install runs on PAL only (resload_Abort reason 14)"); return;
+    case 43:
+        guest_name(r, primary, name, sizeof name);
+        snprintf(r->message, sizeof r->message, "the slave stopped: \"%s\" (resload_Abort reason 43)", name);
+        return;
+    default:
+        snprintf(r->message, sizeof r->message, "the slave ended the program (resload_Abort reason %d, %u, %u)",
+                 (int)(int32_t)reason, (unsigned)primary, (unsigned)secondary);
+    }
 }
 
 static int find(RrResload *r, const char *name, const uint8_t **data, uint32_t *size) {
@@ -447,6 +515,10 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 0: wr32(r, slot, r->attn_flags); break;                 /* ATTNFLAGS_GET */
         case 1: wr32(r, slot, r->eclock); break;                     /* ECLOCKFREQ_GET */
         case 2: wr32(r, slot, r->monitor); break;                    /* MONITOR_GET */
+        /* Private3: undocumented. The slaves read (198 of the A500 library name it) only test it for non-zero: zero makes
+           them refuse with TDREASON_MUSTREG or skip their extra patches, as with a WHDLoad not registered. WHDLoad has
+           needed no key since 18.0, so it is answered as registered; 1 is our value, not one read from WHDLoad. */
+        case 5: wr32(r, slot, 1); break;
         case 6: wr32(r, slot, (uint32_t)r->button_wait); break;      /* BUTTONWAIT_GET */
         case 7: case 8: case 9: case 10: case 11: wr32(r, slot, r->custom[tag - 0x88000007u]); break;
         case 12: r->cbswitch = rd32(r, slot); break;                 /* CBSWITCH_SET */
@@ -526,6 +598,334 @@ static int decrunch(RrResload *r, uint32_t regs[16]) {
     return RR_RESLOAD_RETURN;
 }
 
+/* ---- Kickstart ------------------------------------------------------------------------------------------------ */
+
+static void format_to(char *buffer, size_t cap, const char *fmt, ...) {
+    size_t used = strlen(buffer);
+    if (used + 1 >= cap) return;
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer + used, cap - used, fmt, args);
+    va_end(args);
+}
+
+/* Where the image goes: the start of ExpMem, which must exist and hold it. */
+static int kick_room(RrResload *r, uint32_t size) {
+    if (!r->exp_mem) return refuse(r, RL_LOADKICK, "no ExpMem to load a Kickstart image into%s", "");
+    if (r->exp_mem_size && size > r->exp_mem_size) {
+        r->refused_offset = RL_LOADKICK;
+        snprintf(r->message, sizeof r->message, "the Kickstart image asked for (%u bytes) is larger than ExpMem (%u bytes)",
+                 (unsigned)size, (unsigned)r->exp_mem_size);
+        return RR_RESLOAD_REFUSED;
+    }
+    return RR_RESLOAD_RETURN;
+}
+
+/* One try: the host owns the image, answers whether the player's matches and copies it to ExpMem. */
+static int kick_try(RrResload *r, uint32_t size, uint16_t crc, const char *name) {
+    if (!r->host.kickstart || !r->host.kickstart(r->host.user, size, crc, name, r->exp_mem)) return 0;
+    r->kick_loaded = 1;
+    r->kick_size = size;
+    r->kick_crc = crc;
+    snprintf(r->kick_name, sizeof r->kick_name, "%s", name);
+    flush(r);
+    return 1;
+}
+
+static void kick_wanted(RrResload *r, uint32_t size, uint16_t crc, const char *name, uint32_t count) {
+    r->kick_wanted_size = size;
+    r->kick_wanted_crc = crc;
+    snprintf(r->kick_wanted_name, sizeof r->kick_wanted_name, "%s", name);
+    r->kick_wanted_count = count;
+}
+
+/* One image asked for and not found: the refusal names it by size, CRC-16 and name. */
+static int kick_missing(RrResload *r, uint32_t size, uint16_t crc, const char *name) {
+    kick_wanted(r, size, crc, name, 1);
+    r->refused_offset = RL_LOADKICK;
+    snprintf(r->message, sizeof r->message,
+             "the Kickstart image the slave asks for is not among the player's: size %u, CRC-16 %04X, name %s",
+             (unsigned)size, (unsigned)crc, name);
+    return RR_RESLOAD_REFUSED;
+}
+
+/* resload_LoadKick: only returns on success, as the autodoc says; WHDLoad's switch to the operating system afterwards
+   has no counterpart here (the slave goes on with the image at the start of ExpMem). */
+static int load_kick(RrResload *r, uint32_t regs[16]) {
+    uint32_t size = regs[D0];
+    uint16_t crc = (uint16_t)regs[D1];
+    char name[64];
+    guest_name(r, regs[A0], name, sizeof name);
+    r->kick_loaded = 0;
+    int room = kick_room(r, size);
+    if (room != RR_RESLOAD_RETURN) return room;
+    return kick_try(r, size, crc, name) ? RR_RESLOAD_RETURN : kick_missing(r, size, crc, name);
+}
+
+/* Offsets in the slave structure (whdload.i): ws_kickname (RPTR), ws_kicksize (ULONG), ws_kickcrc (UWORD). */
+enum { WS_KICKNAME = 42, WS_KICKSIZE = 44, WS_KICKCRC = 48 };
+
+int rr_resload_load_slave_kickstart(RrResload *r) {
+    r->kick_loaded = 0;
+    if (r->slave_version < 16) return RR_RESLOAD_RETURN;
+    uint32_t base = r->slave_base;
+    uint32_t rptr = rd16(r, base + WS_KICKNAME), size = rd32(r, base + WS_KICKSIZE);
+    uint16_t crc = rd16(r, base + WS_KICKCRC);
+    if (!size || !rptr) return RR_RESLOAD_RETURN;         /* the slave asks for no Kickstart */
+    int room = kick_room(r, size);
+    if (room != RR_RESLOAD_RETURN) return room;
+    char name[64];
+    if (crc != 0xFFFFu) {
+        guest_name(r, base + rptr, name, sizeof name);
+        return kick_try(r, size, crc, name) ? RR_RESLOAD_RETURN : kick_missing(r, size, crc, name);
+    }
+    /* WHDLoad 16.1: pairs of (CRC-16, RPTR to a name) ended by a CRC-16 of 0, tried in order */
+    char list[256];
+    list[0] = 0;
+    uint32_t count = 0;
+    for (uint32_t pos = base + rptr; count < 32; pos += 4) {
+        uint16_t entry_crc = rd16(r, pos);
+        if (!entry_crc) break;
+        guest_name(r, base + rd16(r, pos + 2), name, sizeof name);
+        if (!count) kick_wanted(r, size, entry_crc, name, 0);
+        count++;
+        if (kick_try(r, size, entry_crc, name)) {
+            wr16(r, base + WS_KICKCRC, entry_crc);       /* the slave learns which image it got */
+            r->kick_wanted_count = 0;
+            return RR_RESLOAD_RETURN;
+        }
+        format_to(list, sizeof list, "%s%04X %s", count > 1 ? ", " : "", (unsigned)entry_crc, name);
+    }
+    r->kick_wanted_count = count;
+    r->refused_offset = RL_LOADKICK;
+    snprintf(r->message, sizeof r->message,
+             "none of the %u Kickstart images the slave asks for is among the player's: size %u, CRC-16 and name %s",
+             (unsigned)count, (unsigned)size, list);
+    return RR_RESLOAD_REFUSED;
+}
+
+/* ---- Examine, ExNext, ListFiles ------------------------------------------------------------------------------ */
+
+/* The install's files as the host lists them; folders are implied by the names ('/' separated, AmigaDOS compares
+   names without regard to case). WHDLoad's autodoc is silent on several points, settled here and the same everywhere:
+   - the entries of a folder come sorted by name (case-insensitive, then byte order), folders among the files;
+   - a folder shows the spelling of its name that sorts first when several files spell it differently;
+   - dates are the fixed start time of Control TIME_GET, protection bits are 0 (all allowed), no comment, no owner;
+   - a file's fib_NumBlocks is its size in 512-byte blocks, rounded up; a folder's size and blocks are 0;
+   - the data folder itself is "" and examines as a folder with an empty name;
+   - Examine and ExNext failures return their error without ending the program, with or without WHDLF_NoError (the
+     autodoc says "only returns on success" of ListFiles alone), and Examine does not require WHDLF_Examine. */
+
+enum {
+    FIB_DISKKEY = 0, FIB_DIRENTRYTYPE = 4, FIB_FILENAME = 8, FIB_PROTECTION = 116, FIB_ENTRYTYPE = 120, FIB_SIZE = 124,
+    FIB_NUMBLOCKS = 128, FIB_DATE = 132, FIB_COMMENT = 144, FIB_NAME_CAP = 108
+};
+#define ST_FILE ((uint32_t)-3)
+#define ST_USERDIR 2u
+
+typedef struct DirEntry {
+    char name[FIB_NAME_CAP];
+    int is_dir;
+    uint32_t size;
+} DirEntry;
+
+static unsigned fold(unsigned char c) { return (c >= 'a' && c <= 'z') ? (unsigned)(c - 'a' + 'A') : c; }
+
+static int name_compare(const char *a, const char *b) {
+    for (; *a && *b; a++, b++) if (fold((unsigned char)*a) != fold((unsigned char)*b)) break;
+    return (int)fold((unsigned char)*a) - (int)fold((unsigned char)*b);
+}
+
+/* Are the first `n` characters of `a` the name `b` (without regard to case)? */
+static int name_prefix_is(const char *a, size_t n, const char *b) {
+    if (strlen(b) != n) return 0;
+    for (size_t i = 0; i < n; i++) if (fold((unsigned char)a[i]) != fold((unsigned char)b[i])) return 0;
+    return 1;
+}
+
+static int listing(RrResload *r, uint32_t index, const char **name, uint32_t *size) {
+    return r->host.list && r->host.list(r->host.user, index, name, size);
+}
+
+/* The entry of folder `dir` that follows `last` in the sorted order (the first one when `last` is NULL). Needs no
+   copy of the listing: one pass over the host's files picks the smallest name above `last`. */
+static int next_child(RrResload *r, const char *dir, const char *last, DirEntry *out) {
+    const char *file;
+    uint32_t size, found = 0;
+    size_t dir_len = strlen(dir);
+    for (uint32_t i = 0; listing(r, i, &file, &size); i++) {
+        const char *rest = file;
+        if (dir_len) {
+            if (strlen(file) <= dir_len + 1 || file[dir_len] != '/' || !name_prefix_is(file, dir_len, dir)) continue;
+            rest = file + dir_len + 1;
+        }
+        size_t len = strcspn(rest, "/");
+        if (!len) continue;
+        DirEntry c;
+        c.is_dir = rest[len] == '/';
+        c.size = c.is_dir ? 0 : size;
+        if (len >= sizeof c.name) len = sizeof c.name - 1;
+        memcpy(c.name, rest, len);
+        c.name[len] = 0;
+        if (last && name_compare(c.name, last) <= 0) continue;
+        if (found) {
+            int order = name_compare(c.name, out->name);
+            if (order > 0 || (order == 0 && strcmp(c.name, out->name) >= 0)) continue;
+        }
+        *out = c;
+        found = 1;
+    }
+    return (int)found;
+}
+
+/* What `path` names: 1 a file, 2 a folder, 0 nothing; `leaf` gets the object's own name as the install spells it. */
+static int resolve(RrResload *r, const char *path, DirEntry *leaf) {
+    memset(leaf, 0, sizeof *leaf);
+    if (!*path) { leaf->is_dir = 1; return 2; }
+    size_t plen = strlen(path);
+    const char *slash = strrchr(path, '/');
+    size_t own_len = strlen(slash ? slash + 1 : path);
+    if (!own_len) return 0;
+    const char *file;
+    uint32_t size;
+    int kind = 0;
+    for (uint32_t i = 0; listing(r, i, &file, &size); i++) {
+        size_t flen = strlen(file);
+        const char *own = file + (plen - own_len);      /* the last part of the path, as this file spells it */
+        if (flen >= plen && (flen == plen || file[plen] == '/') && name_prefix_is(file, plen, path)) {
+            if (flen == plen) {                           /* the file itself */
+                leaf->is_dir = 0;
+                leaf->size = size;
+                snprintf(leaf->name, sizeof leaf->name, "%.*s", (int)(own_len < FIB_NAME_CAP - 1 ? own_len : FIB_NAME_CAP - 1), own);
+                return 1;
+            }
+            char spelled[FIB_NAME_CAP];                   /* a file below it: the folder exists */
+            snprintf(spelled, sizeof spelled, "%.*s", (int)(own_len < FIB_NAME_CAP - 1 ? own_len : FIB_NAME_CAP - 1), own);
+            if (kind != 2 || strcmp(spelled, leaf->name) < 0) memcpy(leaf->name, spelled, sizeof spelled);
+            leaf->is_dir = 1;
+            kind = 2;
+        }
+    }
+    if (!kind && !r->host.list) {            /* a host without a listing can still answer for a file by name */
+        const uint8_t *data;
+        if (find(r, path, &data, &size)) {
+            leaf->size = size;
+            snprintf(leaf->name, sizeof leaf->name, "%.*s", (int)(own_len < FIB_NAME_CAP - 1 ? own_len : FIB_NAME_CAP - 1), slash ? slash + 1 : path);
+            return 1;
+        }
+    }
+    return kind;
+}
+
+/* Only the fields the layer has values for are written, the name up to its NUL and the comment as an empty string: the
+   buffer is not cleared and its owner and reserved tail (offset 145 on) are left alone. The autodoc says the buffer
+   holds 260 bytes, but the operating-system emulation of Another World and 4D Sports Boxing (Kickstart 1.3) hands the
+   layer a FileInfoBlock with only 240 bytes before the end of its allocation: writing all 260 zeroed the header of the
+   free chunk behind it, which emptied exec's fast-memory list and made every later allocation fail (AmigaDOS 103). */
+static void fill_fib(RrResload *r, uint32_t fib, uint32_t key, const DirEntry *e) {
+    wr32(r, fib + FIB_DISKKEY, key);
+    wr32(r, fib + FIB_DIRENTRYTYPE, e->is_dir ? ST_USERDIR : ST_FILE);
+    size_t length = 0;
+    for (; e->name[length] && length < FIB_NAME_CAP - 1; length++) wr8(r, fib + FIB_FILENAME + (uint32_t)length, (uint8_t)e->name[length]);
+    wr8(r, fib + FIB_FILENAME + (uint32_t)length, 0);
+    wr32(r, fib + FIB_PROTECTION, 0);
+    wr32(r, fib + FIB_ENTRYTYPE, e->is_dir ? ST_USERDIR : ST_FILE);
+    wr32(r, fib + FIB_SIZE, e->size);
+    wr32(r, fib + FIB_NUMBLOCKS, (e->size + 511u) / 512u);
+    wr32(r, fib + FIB_DATE, r->time_days);
+    wr32(r, fib + FIB_DATE + 4, r->time_mins);
+    wr32(r, fib + FIB_DATE + 8, r->time_ticks);
+    wr8(r, fib + FIB_COMMENT, 0);                  /* no comment */
+}
+
+static int examine_failed(RrResload *r, uint32_t regs[16], uint32_t error) {
+    r->io_error = error;
+    regs[D0] = 0;
+    regs[D1] = error;
+    return RR_RESLOAD_RETURN;
+}
+
+/* fib_DiskKey of a folder: the token of its walk (low 4 bits: slot) in the high half, how many entries ExNext has
+   returned so far in the low half. The walk's folder lives in r->scans; the position is in the FIB itself, so a copy of
+   the FIB goes on from where it was. */
+static uint16_t scan_open(RrResload *r, const char *dir) {
+    unsigned slot = RR_SCAN_SLOTS;
+    for (unsigned i = 0; i < RR_SCAN_SLOTS; i++)
+        if (r->scans[i].token && !name_compare(r->scans[i].dir, dir)) return r->scans[i].token;
+    for (unsigned i = 0; i < RR_SCAN_SLOTS && slot == RR_SCAN_SLOTS; i++) if (!r->scans[i].token) slot = i;
+    if (slot == RR_SCAN_SLOTS) slot = r->scan_generation % RR_SCAN_SLOTS;      /* all busy: one walk gives way */
+    r->scan_generation++;
+    uint16_t generation = (uint16_t)((r->scan_generation & 0xFFFu) | 1u);
+    r->scans[slot].token = (uint16_t)((generation << 4) | slot);
+    snprintf(r->scans[slot].dir, sizeof r->scans[slot].dir, "%s", dir);
+    return r->scans[slot].token;
+}
+
+static int examine(RrResload *r, uint32_t regs[16]) {
+    char name[256];
+    guest_name(r, regs[A0], name, sizeof name);
+    DirEntry e;
+    int kind = resolve(r, name, &e);
+    if (!kind) return examine_failed(r, regs, RR_DOS_OBJECT_NOT_FOUND);
+    fill_fib(r, regs[A1], kind == 2 ? (uint32_t)scan_open(r, name) << 16 : 0, &e);
+    regs[D0] = 0xFFFFFFFFu;
+    regs[D1] = 0;
+    return RR_RESLOAD_RETURN;
+}
+
+static int exnext(RrResload *r, uint32_t regs[16]) {
+    uint32_t fib = regs[A0], key = rd32(r, fib + FIB_DISKKEY);
+    uint16_t token = (uint16_t)(key >> 16);
+    const RrScan *scan = &r->scans[token & 15u];
+    if (!token || scan->token != token) return examine_failed(r, regs, RR_DOS_OBJECT_WRONG_TYPE);   /* not a folder's FIB */
+    char last[FIB_NAME_CAP];
+    size_t n = 0;
+    for (; n + 1 < sizeof last && (last[n] = (char)rd8(r, fib + FIB_FILENAME + (uint32_t)n)) != 0; n++) {}
+    last[n] = 0;
+    uint32_t done = key & 0xFFFFu;
+    DirEntry e;
+    if (!next_child(r, scan->dir, done ? last : NULL, &e)) return examine_failed(r, regs, RR_DOS_NO_MORE_ENTRIES);
+    fill_fib(r, fib, (key & 0xFFFF0000u) | (done < 0xFFFFu ? done + 1 : done), &e);
+    regs[D0] = 0xFFFFFFFFu;
+    regs[D1] = 0;
+    return RR_RESLOAD_RETURN;
+}
+
+/* resload_ListFiles: the names of a folder's files (folders are skipped), each followed by a 0, sorted; D0 is how
+   many were written. A name that does not fit ends the list with ERROR_BUFFER_OVERFLOW (the autodoc names no code). */
+static int list_files(RrResload *r, uint32_t regs[16]) {
+    uint32_t capacity = regs[D0], buffer = regs[A1], used = 0, amount = 0;
+    char name[256];
+    guest_name(r, regs[A0], name, sizeof name);
+    DirEntry dir;
+    int kind = resolve(r, name, &dir);
+    if (kind != 2) return failed(r, regs, kind ? RR_DOS_OBJECT_WRONG_TYPE : RR_DOS_OBJECT_NOT_FOUND, RL_LISTFILES, name);
+    DirEntry e;
+    const char *last = NULL;
+    char previous[FIB_NAME_CAP];
+    int overflow = 0;
+    while (next_child(r, name, last, &e)) {
+        snprintf(previous, sizeof previous, "%s", e.name);
+        last = previous;
+        if (e.is_dir) continue;
+        uint32_t need = (uint32_t)strlen(e.name) + 1;
+        if (need > capacity - used) { overflow = 1; break; }
+        for (uint32_t i = 0; i < need; i++) wr8(r, buffer + used + i, (uint8_t)e.name[i]);
+        used += need;
+        amount++;
+    }
+    if (amount) flush(r);
+    if (overflow) {
+        int status = failed(r, regs, RR_DOS_BUFFER_OVERFLOW, RL_LISTFILES, name);
+        regs[D0] = amount;
+        return status;
+    }
+    regs[D0] = amount;
+    regs[D1] = 0;
+    r->io_error = 0;
+    return RR_RESLOAD_RETURN;
+}
+
 /* ---- The table ------------------------------------------------------------------------------------------------ */
 
 int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
@@ -539,10 +939,16 @@ int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
     uint32_t size;
     switch (offset) {
     case RL_ABORT:
-        for (int k = 0; k < 3; k++) r->abort_reason[k] = rd32(r, regs[A7] + 4 + 4 * (uint32_t)k);
-        snprintf(r->message, sizeof r->message, "the slave ended the program (%u, %u, %u)",
-                 (unsigned)r->abort_reason[0], (unsigned)r->abort_reason[1], (unsigned)r->abort_reason[2]);
+    {
+        /* resload_Abort(success, primary, secondary) takes its arguments at (a7): the documented call pushes them and jumps
+           through `rts`, so no return address lies above them. A slave that called it with jsr has its return address
+           first (an address, never one of the small TDREASON values): it is skipped. */
+        uint32_t sp = regs[A7], first = rd32(r, sp);
+        if (first > 0xFFFFu && first != 0xFFFFFFFFu) sp += 4;
+        for (int k = 0; k < 3; k++) r->abort_reason[k] = rd32(r, sp + 4 * (uint32_t)k);
+        describe_abort(r);
         return RR_RESLOAD_ABORT;
+    }
     case RL_LOADFILE: case RL_LOADFILEOFFSET: {
         uint32_t want = regs[D0], from = regs[D1];
         guest_name(r, regs[A0], name, sizeof name);
@@ -601,6 +1007,10 @@ int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
     case RL_SETCACR: case RL_SETCPU: regs[D0] = 0; return RR_RESLOAD_RETURN;    /* a 68000 has no cache */
     case RL_DELAY: return RR_RESLOAD_RETURN;     /* returns at once: the wait is not modelled yet */
     case RL_CONTROL: return control(r, regs);
+    case RL_LOADKICK: return load_kick(r, regs);
+    case RL_EXAMINE: return examine(r, regs);
+    case RL_EXNEXT: return exnext(r, regs);
+    case RL_LISTFILES: return list_files(r, regs);
     case RL_PATCH: return rr_resload_patch(r, regs[A0], regs[A1]);
     case RL_PATCHSEG: { PatchTarget t = {0, regs[A1] << 2}; return patch_list(r, regs[A0], &t); }
     case RL_RELOCATE: return relocate(r, regs);

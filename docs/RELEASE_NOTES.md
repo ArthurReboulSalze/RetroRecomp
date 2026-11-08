@@ -1,38 +1,33 @@
-# RetroRecomp v1.7.0 (in preparation) — Capcom CPS-2 is supported; the host kit gains analog sticks, rumble, a graphics page and disc change
+# RetroRecomp v1.7.1 — Adventure games (ScummVM) are supported, with a Retro-Recomp options page, picture effects and keys in the game
 
-Not published: this section lists what is already on `main` and is completed at the release.
+- **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that
+  the category is no longer experimental. The profile says `supported`, the report and
+  the window say it, in the eight languages, and the display still says **"emulated,
+  0 % native"**: ScummVM interprets the game, nothing is recompiled, and that never
+  becomes a goal or a gap. The qualification matrix is made for recompiled machines, so
+  the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here):
+  ScummVM's own detection, the owner's play trial (ten prototype executables of eight
+  engine families on 6 November 2026, and the converter's own Lure of the Temptress
+  played several times on 7 November), Windows built and a Linux witness on one small
+  game, no window of the system, the options page, the written offer of the GPL source,
+  and the limits (no Ogg Vorbis, FLAC or MP3 decoder yet). Nothing is claimed beyond what
+  was played: no list of compatible games, no CPU or hardware fidelity, no measured latency.
+- **In the game.** Ctrl+F2 opens ScummVM's options on a Retro-Recomp page (menu language
+  in the five game-menu languages, full screen, scaling, aspect ratio, volumes, mute),
+  Ctrl+F1 on its Help tab, which lists every key; Ctrl+F5 stays ScummVM's own menu.
+  Ctrl+F3 cycles the picture effects in the order of the host kit's F3 (sharp pixels,
+  HQ2x, Scale2x, and the host kit's own scanlines, drawn after the scaling), Ctrl+F4
+  switches pixel-perfect full screen. What you choose is kept in
+  `datas/Retro-Recomp.ini` and applies to every adventure executable of the folder. A
+  three-second message at the start says where the help and the menu are, and the
+  on-screen messages use Retro-Recomp's colours. On Windows ScummVM quits with Ctrl+Z or
+  Alt+F4 (Ctrl+Q on Linux).
+- **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
+  `85b9bee929a3`); no other machine's stamp changes, so no other export is converted again.
+  An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
+  effects until it is converted again.
 
-- **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
-  Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
-  reader tells the two bit orders of a dump apart by the first instruction at the reset
-  vector when the vector is plausible both ways (4 of the 91 US cards of the
-  maintainer's library), so a bit-reversed dump is read as such. Twelve US cards
-  converted with 0 interpreted instructions and 0 guard misses on the routes played, the
-  native run equal to the interpreted reference frame by frame, the compressed copy equal
-  and a quick state resumed in a fresh process; the owner has not played these twelve,
-  and no real bit-reversed dump exists in his library (two copies made for the test).
-  A Linux build now converts these cards: 9 of the 11 cards chosen give the CPU, RAM,
-  picture and sound hashes of Windows (two were not run there). The processor is compared
-  with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
-  interpreter, three differences are known, and 9,097 native cases show no difference with
-  the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
-- **Game Boy Advance (experimental).** `.gba` cartridges (or a ZIP holding one) become a
-  standalone Windows game with your own BIOS (`gba_bios.bin`): native code from what the
-  game was seen to run, a counted interpreter for the rest, battery saves and the
-  cartridge clock. Six cartridges (Pokémon Emerald, Mario Kart Super Circuit, The Minish
-  Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and Golden Sun) were checked on
-  Windows and on a Debian 13 PC against the engine's own interpreter, on the final
-  picture, the guest's cycle count and hashes of the memory and the CPU registers over 600
-  and 3,600 frames (12 scenario runs of 12 equal on Linux): five have 0 interpreted
-  instructions on those scenarios, and Golden Sun runs 17.7 million instructions of its
-  own code that has no copy in the cartridge, counted and reported. That interpreter is
-  the engine's, not an independent oracle: no gameplay validation, no hardware fidelity
-  claim. The owner played the delivered cartridges on 5 and 6 November 2026 and they work;
-  that is a play trial, not an exit from the experimental status. The language chosen in
-  Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
-  does not store it, such as Alien Hominid, asks again). The Linux player was not played;
-  no link cable, e-Reader or cartridge sensors.
-<!-- Bullets of the machines still to merge for this release (Game Boy Advance, Amiga 500, PC Engine / TurboGrafx-16 cards, ScummVM) go here, in the order of their merge. -->
+# RetroRecomp v1.7.0 — Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga and the adventure games of ScummVM open as experimental, and the host kit gains analog sticks and rumble
 
 - **Capcom CPS-2: supported.** The owner played the eight panel games on 5 November
   2026 and the 17 sets of the final pass on 6 November, and decided that the machine
@@ -55,6 +50,85 @@ Not published: this section lists what is already on `main` and is completed at 
   the 236, the spinner and paddle sets, or a game played interactively on Linux. Its
   paths are shared like the CPS-1's and none is qualified yet, because none of the sets
   observes a path.
+- **Game Boy Advance (experimental).** `.gba` cartridges (or a ZIP holding one) become a
+  standalone Windows game with your own BIOS (`gba_bios.bin`): native code from what the
+  game was seen to run, a counted interpreter for the rest, battery saves and the
+  cartridge clock. Six cartridges (Pokémon Emerald, Mario Kart Super Circuit, The Minish
+  Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and Golden Sun) were checked on
+  Windows and on a Debian 13 PC against the engine's own interpreter, on the final
+  picture, the guest's cycle count and hashes of the memory and the CPU registers over 600
+  and 3,600 frames (12 scenario runs of 12 equal on Linux): five have 0 interpreted
+  instructions on those scenarios, and Golden Sun runs 17.7 million instructions of its
+  own code that has no copy in the cartridge, counted and reported. That interpreter is
+  the engine's, not an independent oracle: no gameplay validation, no hardware fidelity
+  claim. The owner played the delivered cartridges on 5 and 6 November 2026 and they work;
+  that is a play trial, not an exit from the experimental status. The language chosen in
+  Sonic Advance 2's menus is kept by its cartridge save across a restart (a cartridge that
+  does not store it, such as Alien Hominid, asks again). The Linux player was not played;
+  no link cable, e-Reader or cartridge sensors.
+- **Commodore Amiga 500 (experimental).** WHDLoad installs (one `.lha` holding exactly one
+  `.Slave` and the game's files or `Disk.N` images) become a standalone Windows game on the
+  vAmiga core and Moira's 68000, with guarded native code for the 68000 code the game runs
+  from RAM and a counted interpreter for everything else; the joystick, the mouse, the
+  keyboard, quick states and the files an install saves are there. Installs that need no
+  Kickstart run no code from Commodore's firmware. Installs that ask for a **Kickstart 1.3**
+  convert with **your own image**, chosen in Options (one file or a folder of images,
+  recognised by content): it goes only into the conversion's private work folder and your own
+  export, never into the repository, the library or a shared record, and Retro-Recomp supplies
+  none. Its code is interpreted and counted apart (`kickstart_interpreted` in the report), so
+  these games are not native-only: on five installs (Black Tiger, Flying Shark, North & South,
+  Dungeon Master, Hostages) the game's own code is native and 1.6 to 7.7 million Kickstart
+  instructions are interpreted on the main route. Kickstart 1.2 and 3.x installs, ADF and IPF
+  images, hard-disk images, the Amiga 1200, the CD32 and the CDTV are not supported. The ten
+  installs of the first panel (Rick Dangerous, Lemmings, Elite, Pinball Dreams, Speedball 2,
+  Turrican 2, Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia) converted with 0
+  interpreted instructions on their two routes of 3,000 frames; on Rick Dangerous the trace of
+  every frame (picture, sound, RAM, CPU registers) equals the interpreted reference machine's,
+  and one conversion on a Debian 13 PC validated on both routes (not played there; the
+  Kickstart installs were not run on Linux). The owner played the ten and they work: a play
+  trial, not an exit from the experimental status, and it does not cover the five Kickstart
+  installs. Hardware fidelity is not claimed (private comparisons with another emulator match
+  most reference frames of some installs and fewer of others), no game was checked end to end,
+  and physical latency is not measured. After a quick state is loaded, the sound samples are
+  not bit-identical to an unbroken run. The box-art lookup also tries a game's own name, so
+  Lotus 2 and Speedball 2 find their boxes. Known limit: installs that load their files
+  through the slave's own system emulation (Another World and 4D Sports Boxing among
+  them) stop with "not enough memory"; the message names the file and the AmigaDOS error.
+- **PC Engine / TurboGrafx-16: US cards and a Linux build.** The machine is named PC
+  Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
+  reader tells the two bit orders of a dump apart by the first instruction at the reset
+  vector when the vector is plausible both ways (4 of the 91 US cards of the
+  maintainer's library), so a bit-reversed dump is read as such. Twelve US cards
+  converted with 0 interpreted instructions and 0 guard misses on the routes played, the
+  native run equal to the interpreted reference frame by frame, the compressed copy equal
+  and a quick state resumed in a fresh process; the owner has not played these twelve,
+  and no real bit-reversed dump exists in his library (two copies made for the test).
+  A Linux build now converts these cards: 9 of the 11 cards chosen give the CPU, RAM,
+  picture and sound hashes of Windows (two were not run there). The processor is compared
+  with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
+  interpreter, three differences are known, and 9,097 native cases show no difference with
+  the interpreter; the oracle is an emulator, not silicon. The machine stays experimental.
+- **Adventure games (ScummVM), a category of its own (experimental).** A folder of a
+  point-and-click adventure that ScummVM's own detection recognises becomes one
+  executable holding ScummVM and your own game files, to click and play; its settings
+  and saves are in `datas/` beside it, and nothing is extracted. **It is emulated and 0 %
+  native, and stays so**: ScummVM interprets the game, so the measures of native code and
+  CPU fidelity do not apply and none is claimed (the five measures do not apply the same
+  way here as to the consoles; it is not part of the qualification matrix). Gameplay is
+  checked game by game: the owner played ten executables of eight engine families on
+  6 November 2026 (a play trial of prototypes), and physical latency is not measured. The
+  game data is yours and stays private; an executable that holds it is not to be shared.
+  ScummVM and Retro-Recomp's patch of it are under the GPL (version 3 or later), apart from
+  the MIT code, and each executable carries the licence text and a written offer of the
+  source (the release publishes the source archive). The menus come in five languages
+  (English, French, Italian, Spanish, German); the music needs no MT-32 ROM. Windows is
+  built; Linux is witnessed on one small game (Lure of the Temptress) only. Games that
+  need Ogg Vorbis, FLAC or MP3 decoders (CD audio rips, compressed speech) are not
+  supported yet. The engine is fetched (pinned sources) and built on your PC with the
+  portable tools on the first conversion; a game never opens an error window (a fatal
+  error goes to `scummvm.log`, a crash to `crash.log`), and a folder search before the
+  tools are installed says so instead of failing.
+
 - **Box art for the CPS family.** The CPS-1, the CPS-1.5 and the CPS-2 find their
   covers from the MAME thumbnails of libretro, and from ScreenScraper and TheGamesDB:
   the set's catalogue title is tried, then its parent's, so a clone shows its parent's
@@ -78,27 +152,39 @@ Not published: this section lists what is already on `main` and is completed at 
   audio pushes, states and preferences with and without the change). Not measured: a real
   gamepad (stick values and rumble go through SDL's virtual controller only), a real
   display, and Linux.
+- **Interpreter hints of the newest machines.** A game keeps the interpreter misses it
+  meets as hints for the next recompilation. The recorder dropped every kind above the
+  CPS-1's, so the CPS-2, PC Engine, Game Boy Advance and Amiga hints were never recorded;
+  it now accepts every machine's. This moves the game stamp of every machine, which is
+  why every 1.6.9 export is converted again in 1.7.0.
 - **Computers.** A press of the middle mouse button (the wheel) releases a captured
   mouse, as Ctrl+Alt+M does; the button never reaches the game.
+- **The converter window.** The options are two tabs, Common and Consoles, with a list at
+  the top of Consoles to choose the machine (fourteen tabs no longer fitted); the ROM
+  picker offers every machine's own files, the Amiga's `.lha` included. The CPS boards
+  convert again with the Visual Studio fallback (the new EEPROM writer did not compile
+  there).
 
-**Speed.** [mesure de coût par image 1.7.0 contre 1.6.9 à venir]. Nothing in this
-section touches the hot path of a game; the branch per bus access that the CPS-1
-family gained in 1.6.9 is still to be measured.
+**Speed.** Measured on a quiet PC against 1.6.9, one pinned core, on the machines whose
+game code moved: Final Fight (CPS-1) 1.00, 19XX (CPS-2) 0.99 and R-Type (X68000) 1.00
+of their 1.6.9 time per frame, within the noise of the method
+([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). The other machines only gained lines
+that run once per recorded miss. Windows only; none of the new machines (nor the ScummVM
+games) has a speed figure.
 
-These are packaging, input and covers changes, and one machine leaving the
-experimental tier on the evidence above; none of them is a measure of hardware
+These are three new experimental machines and a category of emulated adventure games, one machine leaving the experimental tier,
+and input, covers and recorder changes, each on the evidence above; none of them is a measure of hardware
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.0 moves the host stamp of all eleven consoles
-and the game stamp of the CPS-1 and the CPS-2 only (no build stamp): an export of 1.6.9
-of any other console is upgraded (rebuilt from its paths, no rediscovery) the next time
-it is converted, and an export of the CPS-1, CPS-1.5 or CPS-2 is converted again from its
-paths. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
+**Your exports and quick states.** 1.7.0 moves the game stamp and the host stamp of all
+eleven earlier consoles (no build stamp), so every export of 1.6.9 is converted again,
+with its discovery routes and from its qualified paths, once, when it is upgraded: it is
+not the quick host-only rebuild of a smaller update. Only the Mega Drive and Super Nintendo quick-state keys move (the new strings are
 in their catalogue): a quick state of 1.6.9 is refused cleanly there, with a message
 (nothing is lost but the state); the states of the NES, Neo Geo, CPS-1, CPS-2, PC Engine
 and X68000 still load, and the Master System, Game Gear and Game Boy have none to
-refuse. Cartridge saves (battery SRAM, EEPROM, memory cards) are kept; a save the new
+refuse. The Game Boy Advance, the Amiga and the ScummVM games are new: no export of theirs exists before 1.7.0. Cartridge saves (battery SRAM, EEPROM, memory cards) are kept; a save the new
 export cannot use is set aside and never crashes or blocks the game. Exports older than
 1.6.9 are converted in full. The details and the evidence are in
 [UPGRADES.md](UPGRADES.md#exports-of-169-in-170).

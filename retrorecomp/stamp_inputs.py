@@ -80,7 +80,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
 # game runs. A change limited to build inputs rebuilds an export from the paths
 # already learned, like a host change, because the executable is recompiled and
 # rechecked on the quick routes.
-BUILD_MODULES = frozenset(('toolchain', 'packing'))
+BUILD_MODULES = frozenset(('toolchain', 'packing', 'scummvm_build'))
 
 # Game stamps of the PREVIOUS release only, whose exports stay upgradable: the code that
 # differed from today's was only how the game is built, and the exports were
@@ -150,7 +150,8 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
-    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
+    'hostkit/adapters/rrhk_atarist.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -164,7 +165,10 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
 BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
 # Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
-RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json'))
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json', 'assets/cps2-catalogue.json',
+                       # The ScummVM patch is applied byte for byte (-text) and the GPL text is pinned LF (.gitattributes).
+                       'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+                       'native/scummvm/patches/0002-retrorecomp-options-page.patch', 'native/scummvm/LICENSE'))
 
 # Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
 # inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
@@ -189,6 +193,9 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    # tools/atarist_vector_selftest.py (the ST's cycle-exact 68000 against an independent corpus): built against the adapted Hatari for a
+    # check, never into a game (the folder's CMakeLists.txt does not build it).
+    'native/atarist_machine/atarist_vector_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
@@ -624,9 +631,30 @@ INPUTS = _resolve({
         'retrorecomp.amiga',
         'retrorecomp.amiga_codegen',
         'retrorecomp.amiga_conversion',
+        'retrorecomp.amiga_kickstart',
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
+    ),
+    # The Atari ST (experimental from 1.7.1): its converter modules, the machine session on Hatari (GPL-2.0 engine, patched at
+    # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE
+    # above). The profile module comes from the profile; the computer adapter and the gates it shares come from stamp_groups.
+    ('atarist',): (
+        'licenses/emutos.md',
+        'licenses/hatari.md',
+        'native/atarist_machine/CMakeLists.txt',
+        'native/atarist_machine/atarist_player.c',
+        'native/atarist_machine/atarist_session.c',
+        'native/atarist_machine/atarist_session.h',
+        'native/atarist_machine/libretro/libretro.h',
+        'native/hostkit/adapters/rrhk_atarist.inc',
+        'retrorecomp.atarist',
+        'retrorecomp.atarist_codegen',
+        'retrorecomp.atarist_conversion',
+        'retrorecomp.atarist_disk',
+        'retrorecomp.atarist_emutos',
+        'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_tos',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',
@@ -779,6 +807,18 @@ INPUTS = _resolve({
         'retrorecomp.cps2_tables',
     ),
     # The PC Engine (experimental, docs/PC_ENGINE.md): its reader, its report writer and the engine's notices.
+    # Adventure (ScummVM): the GPL patch of the runtime and its notices are the game side of its exes (the runtime is the
+    # machine, like native/x68000_machine); scummvm_build decides the runtime (build role, BUILD_MODULES).
+    ('scummvm',): (
+        'licenses/freetype.md',
+        'licenses/scummvm.md',
+        'native/scummvm/LICENSE',
+        'native/scummvm/README.md',
+        'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
+        'native/scummvm/patches/0002-retrorecomp-options-page.patch',
+        'retrorecomp.scummvm_build',
+        'retrorecomp.scummvm_export',
+    ),
     ('pce',): (
         'licenses/pcenginerecomp.md',
         'native/pce_machine.cpp',

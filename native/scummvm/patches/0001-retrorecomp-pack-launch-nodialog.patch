@@ -1,0 +1,1125 @@
+diff --git a/backends/fs/packed/packed-fs.cpp b/backends/fs/packed/packed-fs.cpp
+new file mode 100644
+index 00000000..7b74d48d
+--- /dev/null
++++ b/backends/fs/packed/packed-fs.cpp
+@@ -0,0 +1,710 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++// Retro-Recomp patch (step 1 prototype), see packed-fs.h.
++
++// Disable symbol overrides so that we can use system headers.
++#define FORBIDDEN_SYMBOL_ALLOW_ALL
++
++#if defined(WIN32)
++#include <windows.h>
++#else
++#include <unistd.h>
++#include <limits.h>
++#include <errno.h>
++#include <sys/stat.h>
++#endif
++#include <stdio.h>
++
++#include "backends/fs/packed/packed-fs.h"
++#include "common/array.h"
++#include "common/fs.h"
++#include "common/stream.h"
++#include "common/substream.h"
++#include "common/textconsole.h"
++
++#include <signal.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include <exception>
++
++namespace {
++
++#if defined(WIN32)
++const char kNativeSep = '\\';
++#else
++const char kNativeSep = '/';
++#endif
++
++struct PackEntry {
++	Common::String path;   // relative, '/' separated, no leading separator
++	uint64 offset;
++	uint64 size;
++};
++
++/** The index of the pack, read once from the end of the executable. */
++class Pack {
++public:
++	Common::String exePath;
++	Common::Array<PackEntry> files;
++	bool loaded = false;
++	bool present = false;
++
++	void load(FilesystemFactory *real);
++};
++
++Pack g_pack;
++
++Common::String executablePath() {
++#if defined(WIN32)
++	char buffer[MAX_PATH * 2];
++	DWORD n = GetModuleFileNameA(nullptr, buffer, sizeof(buffer));
++	if (n == 0 || n >= sizeof(buffer))
++		return Common::String();
++	return Common::String(buffer, n);
++#else
++	char buffer[PATH_MAX];
++	ssize_t n = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
++	if (n <= 0)
++		return Common::String();
++	return Common::String(buffer, n);
++#endif
++}
++
++void Pack::load(FilesystemFactory *real) {
++	if (loaded)
++		return;
++	loaded = true;
++
++	exePath = executablePath();
++	if (exePath.empty())
++		return;
++
++	AbstractFSNode *node = real->makeFileNodePath(exePath);
++	Common::SeekableReadStream *in = node ? node->createReadStream() : nullptr;
++	delete node;
++	if (!in)
++		return;
++
++	const int64 total = in->size();
++	if (total < 24 || !in->seek(total - 24, SEEK_SET)) {
++		delete in;
++		return;
++	}
++	char magic[8];
++	in->read(magic, 8);
++	const uint64 indexOffset = in->readUint64LE();
++	const uint64 indexSize = in->readUint64LE();
++	if (memcmp(magic, "RRADVPK1", 8) != 0 || indexOffset + indexSize + 24 > (uint64)total) {
++		delete in;
++		return;
++	}
++
++	in->seek((int64)indexOffset, SEEK_SET);
++	const uint64 end = indexOffset + indexSize;
++	while ((uint64)in->pos() < end && !in->eos()) {
++		const uint16 length = in->readUint16LE();
++		Common::String path;
++		for (uint16 i = 0; i < length; i++)
++			path += (char)in->readByte();
++		PackEntry entry;
++		entry.path = path;
++		entry.offset = in->readUint64LE();
++		entry.size = in->readUint64LE();
++		files.push_back(entry);
++	}
++	delete in;
++	present = !files.empty();
++}
++
++/** "pack:" followed by a separator, then the relative path with the native separator. */
++Common::String nodePath(const Common::String &rel) {
++	Common::String out("pack:");
++	out += kNativeSep;
++	for (uint i = 0; i < rel.size(); i++)
++		out += (rel[i] == '/') ? kNativeSep : rel[i];
++	return out;
++}
++
++/** Relative path of a "pack:..." path, normalised to '/' with no leading or trailing separator. */
++Common::String relativeOf(const Common::String &path) {
++	Common::String rel;
++	for (uint i = 5; i < path.size(); i++) {   // skip "pack:"
++		char c = path[i] == '\\' ? '/' : path[i];
++		if (c == '/' && (rel.empty() || rel.lastChar() == '/'))
++			continue;
++		rel += c;
++	}
++	while (!rel.empty() && rel.lastChar() == '/')
++		rel.deleteLastChar();
++	return rel;
++}
++
++/**
++ * One file of the pack, read through its own handle on the executable. It behaves like a
++ * file on disk: a seek to a negative position fails and leaves the position unchanged, a
++ * seek past the end succeeds and the next read reports the end of the stream. (The common
++ * sub-stream classes assert instead, which is why they are not used here.) Positions are
++ * 64-bit, so packs larger than 4 GB are not a problem.
++ */
++class PackedReadStream final : public Common::SeekableReadStream {
++public:
++	PackedReadStream(Common::SeekableReadStream *parent, uint64 begin, uint64 size)
++		: _parent(parent), _begin(begin), _size(size), _pos(0), _eos(false) {}
++	~PackedReadStream() override { delete _parent; }
++
++	bool err() const override { return _parent->err(); }
++	void clearErr() override { _eos = false; _parent->clearErr(); }
++	bool eos() const override { return _eos; }
++	int64 pos() const override { return (int64)_pos; }
++	int64 size() const override { return (int64)_size; }
++
++	bool seek(int64 offset, int whence = SEEK_SET) override {
++		int64 target;
++		switch (whence) {
++		case SEEK_END:
++			target = (int64)_size + offset;
++			break;
++		case SEEK_CUR:
++			target = (int64)_pos + offset;
++			break;
++		default:
++			target = offset;
++			break;
++		}
++		if (target < 0)
++			return false;
++		_pos = (uint64)target;
++		_eos = false;
++		return true;
++	}
++
++	uint32 read(void *dataPtr, uint32 dataSize) override {
++		if (_pos >= _size) {
++			_eos = true;
++			return 0;
++		}
++		const uint64 left = _size - _pos;
++		if ((uint64)dataSize > left) {
++			dataSize = (uint32)left;
++			_eos = true;
++		}
++		const int64 where = (int64)(_begin + _pos);
++		if (_parent->pos() != where && !_parent->seek(where, SEEK_SET))
++			return 0;
++		const uint32 got = _parent->read(dataPtr, dataSize);
++		_pos += got;
++		return got;
++	}
++
++private:
++	Common::SeekableReadStream *_parent;
++	uint64 _begin, _size, _pos;
++	bool _eos;
++};
++
++class PackedNode final : public AbstractFSNode {
++public:
++	PackedNode(const Common::String &rel) : _rel(rel), _entry(-1), _dir(false), _exists(false) {
++		resolve();
++	}
++
++	bool exists() const override { return _exists; }
++	Common::U32String getDisplayName() const override { return Common::U32String(getName()); }
++	Common::String getName() const override {
++		if (_rel.empty())
++			return "pack:";
++		const size_t slash = _rel.rfind('/');
++		return slash == Common::String::npos ? _rel : _rel.substr(slash + 1);
++	}
++	Common::String getPath() const override { return nodePath(_rel); }
++	bool isDirectory() const override { return _dir; }
++	bool isReadable() const override { return _exists; }
++	bool isWritable() const override { return false; }
++
++	AbstractFSNode *getChild(const Common::String &name) const override {
++		if (!_dir)
++			return nullptr;
++		return new PackedNode(_rel.empty() ? name : _rel + "/" + name);
++	}
++
++	bool getChildren(AbstractFSList &list, ListMode mode, bool hidden) const override {
++		if (!_dir)
++			return false;
++		const Common::String prefix = _rel.empty() ? Common::String() : _rel + "/";
++		Common::Array<Common::String> dirs;
++		// The root never lists ".rr" (the pack's own files); a listing of ".rr" itself shows only ".rr/data" (the engine data
++		// and GUI themes of builds without embedded resources, reached by --extrapath and --themepath).
++		const bool inInternal = prefix.hasPrefixIgnoreCase(".rr/");
++		for (uint i = 0; i < g_pack.files.size(); i++) {
++			const Common::String &p = g_pack.files[i].path;
++			if (p.hasPrefixIgnoreCase(".rr/") && (!inInternal || !p.hasPrefixIgnoreCase(".rr/data/")))
++				continue;
++			if (!prefix.empty() && !p.hasPrefixIgnoreCase(prefix))
++				continue;
++			const Common::String rest = p.substr(prefix.size());
++			const size_t slash = rest.find('/');
++			if (slash == Common::String::npos) {
++				if (mode != Common::FSNode::kListDirectoriesOnly)
++					list.push_back(new PackedNode(p));
++			} else if (mode != Common::FSNode::kListFilesOnly) {
++				const Common::String dir = rest.substr(0, slash);
++				bool known = false;
++				for (uint k = 0; k < dirs.size(); k++)
++					known = known || dirs[k].equalsIgnoreCase(dir);
++				if (!known) {
++					dirs.push_back(dir);
++					list.push_back(new PackedNode(prefix + dir));
++				}
++			}
++		}
++		return true;
++	}
++
++	AbstractFSNode *getParent() const override {
++		if (_rel.empty())
++			return new PackedNode(_rel);
++		const size_t slash = _rel.rfind('/');
++		return new PackedNode(slash == Common::String::npos ? Common::String() : _rel.substr(0, slash));
++	}
++
++	Common::SeekableReadStream *createReadStream() override {
++		if (_entry < 0)
++			return nullptr;
++		AbstractFSNode *node = g_pack_real->makeFileNodePath(g_pack.exePath);
++		Common::SeekableReadStream *parent = node ? node->createReadStream() : nullptr;
++		delete node;
++		if (!parent)
++			return nullptr;
++		const PackEntry &e = g_pack.files[_entry];
++		return new PackedReadStream(parent, e.offset, e.size);
++	}
++
++	Common::SeekableWriteStream *createWriteStream(bool) override { return nullptr; }
++	bool createDirectory() override { return false; }
++
++	static FilesystemFactory *g_pack_real;
++
++private:
++	void resolve() {
++		if (_rel.empty()) {
++			_dir = _exists = true;
++			return;
++		}
++		const Common::String prefix = _rel + "/";
++		for (uint i = 0; i < g_pack.files.size(); i++) {
++			const Common::String &p = g_pack.files[i].path;
++			if (p.hasPrefixIgnoreCase(".rr/") && !p.hasPrefixIgnoreCase(".rr/data/"))
++				continue;
++			if (p.equalsIgnoreCase(_rel)) {
++				_entry = (int)i;
++				_exists = true;
++				_rel = p;   // the stored spelling
++				return;
++			}
++			if (p.hasPrefixIgnoreCase(prefix)) {
++				_dir = _exists = true;
++				_rel = p.substr(0, _rel.size());
++				return;
++			}
++		}
++	}
++
++	Common::String _rel;
++	int _entry;
++	bool _dir;
++	bool _exists;
++};
++
++FilesystemFactory *PackedNode::g_pack_real = nullptr;
++
++} // namespace
++
++PackedFilesystemFactory::PackedFilesystemFactory(FilesystemFactory *real) : _real(real) {
++	PackedNode::g_pack_real = real;
++	g_pack.load(real);
++}
++
++PackedFilesystemFactory::~PackedFilesystemFactory() {
++	delete _real;
++}
++
++AbstractFSNode *PackedFilesystemFactory::makeRootFileNode() const {
++	return _real->makeRootFileNode();
++}
++
++AbstractFSNode *PackedFilesystemFactory::makeCurrentDirectoryFileNode() const {
++	return _real->makeCurrentDirectoryFileNode();
++}
++
++AbstractFSNode *PackedFilesystemFactory::makeFileNodePath(const Common::String &path) const {
++	if (g_pack.present && path.hasPrefixIgnoreCase("pack:"))
++		return new PackedNode(relativeOf(path));
++	return _real->makeFileNodePath(path);
++}
++
++Common::String PackedFilesystemFactory::getSystemFullPath(const Common::String &path) const {
++	return _real->getSystemFullPath(path);
++}
++
++// ---------------------------------------------------------------------------------------------
++// Start-up without arguments: run the game that this executable carries.
++
++namespace {
++
++/** Contents of a file of the pack as text (empty when absent). */
++Common::String readPackText(const char *path) {
++	for (uint i = 0; i < g_pack.files.size(); i++) {
++		if (!g_pack.files[i].path.equalsIgnoreCase(path))
++			continue;
++		AbstractFSNode *node = PackedNode::g_pack_real->makeFileNodePath(g_pack.exePath);
++		Common::SeekableReadStream *parent = node ? node->createReadStream() : nullptr;
++		delete node;
++		if (!parent)
++			return Common::String();
++		const PackEntry &e = g_pack.files[i];
++		Common::String text;
++		if (e.size < 65536 && parent->seek((int64)e.offset, SEEK_SET)) {
++			for (uint64 k = 0; k < e.size; k++)
++				text += (char)parent->readByte();
++		}
++		delete parent;
++		return text;
++	}
++	return Common::String();
++}
++
++Common::String manifestValue(const Common::String &text, const char *key) {
++	const Common::String wanted = Common::String(key) + "=";
++	uint start = 0;
++	while (start < text.size()) {
++		size_t end = text.find('\n', start);
++		if (end == Common::String::npos)
++			end = text.size();
++		Common::String line = text.substr(start, end - start);
++		while (!line.empty() && (line.lastChar() == '\r' || line.lastChar() == ' '))
++			line.deleteLastChar();
++		if (line.hasPrefix(wanted))
++			return line.substr(wanted.size());
++		start = end + 1;
++	}
++	return Common::String();
++}
++
++bool makeDirectory(const Common::String &path) {
++#if defined(WIN32)
++	return CreateDirectoryA(path.c_str(), nullptr) != 0 || GetLastError() == ERROR_ALREADY_EXISTS;
++#else
++	return mkdir(path.c_str(), 0755) == 0 || errno == EEXIST;
++#endif
++}
++
++void makeDirectories(const Common::String &path) {
++	Common::String part;
++	for (uint i = 0; i < path.size(); i++) {
++		if ((path[i] == '/' || path[i] == '\\') && i > 2)
++			makeDirectory(part);
++		part += path[i];
++	}
++	makeDirectory(part);
++}
++
++Common::String readTextFile(const Common::String &path) {
++	Common::String text;
++	if (FILE *in = fopen(path.c_str(), "rb")) {
++		char buffer[4096];
++		size_t n;
++		while ((n = fread(buffer, 1, sizeof(buffer), in)) > 0)
++			text += Common::String(buffer, n);
++		fclose(in);
++	}
++	return text;
++}
++
++void writeTextFile(const Common::String &path, const Common::String &text) {
++	if (FILE *out = fopen(path.c_str(), "wb")) {
++		fwrite(text.c_str(), 1, text.size(), out);
++		fclose(out);
++	}
++}
++
++/** Lines of a text without their line ends. */
++Common::Array<Common::String> textLines(const Common::String &text) {
++	Common::Array<Common::String> lines;
++	Common::String line;
++	for (uint i = 0; i < text.size(); i++) {
++		if (text[i] == '\n') {
++			if (!line.empty() && line.lastChar() == '\r')
++				line.deleteLastChar();
++			lines.push_back(line);
++			line.clear();
++		} else {
++			line += text[i];
++		}
++	}
++	if (!line.empty())
++		lines.push_back(line);
++	return lines;
++}
++
++/** Value of key in [section] of an INI text (empty when absent). */
++Common::String iniValue(const Common::String &text, const char *section, const char *key) {
++	const Common::Array<Common::String> lines = textLines(text);
++	const Common::String header = Common::String("[") + section + "]";
++	const Common::String prefix = Common::String(key) + "=";
++	bool inside = false;
++	for (uint i = 0; i < lines.size(); i++) {
++		if (!lines[i].empty() && lines[i][0] == '[')
++			inside = lines[i].equalsIgnoreCase(header);
++		else if (inside && lines[i].hasPrefix(prefix))
++			return lines[i].substr(prefix.size());
++	}
++	return Common::String();
++}
++
++/** The INI text with key=value set in [section] (section and key added when missing). */
++Common::String setIniValue(const Common::String &text, const char *section, const char *key, const char *value) {
++	const Common::Array<Common::String> lines = textLines(text);
++	const Common::String header = Common::String("[") + section + "]";
++	const Common::String prefix = Common::String(key) + "=";
++	const Common::String wanted = prefix + value;
++	Common::Array<Common::String> out;
++	bool inside = false, done = false, seen = false;
++	for (uint i = 0; i < lines.size(); i++) {
++		const Common::String &l = lines[i];
++		if (!l.empty() && l[0] == '[') {
++			if (inside && !done) {
++				out.push_back(wanted);
++				done = true;
++			}
++			inside = l.equalsIgnoreCase(header);
++			seen = seen || inside;
++		} else if (inside && l.hasPrefix(prefix)) {
++			if (!done)
++				out.push_back(wanted);
++			done = true;
++			continue;
++		}
++		out.push_back(l);
++	}
++	if (inside && !done) {
++		out.push_back(wanted);
++		done = true;
++	}
++	if (!seen) {
++		out.insert_at(0, wanted);
++		out.insert_at(0, header);
++	}
++	Common::String result;
++	for (uint i = 0; i < out.size(); i++)
++		result += out[i] + "\n";
++	return result;
++}
++
++} // namespace
++
++// ---------------------------------------------------------------------------------------------
++// Fatal paths. A packed executable never shows a window of its own: an error() ends in the log
++// (scummvm.log, through the platform's logMessage) and exit code 1; a crash, an abort or an
++// uncaught exception writes one line to crash.log beside the log and ends the process quietly.
++
++namespace {
++
++char g_crashLog[1024];
++
++void writeCrashLine(const char *what, unsigned long code, const void *where) {
++	if (!g_crashLog[0])
++		return;
++	FILE *out = fopen(g_crashLog, "ab");
++	if (!out)
++		return;
++	char stamp[32] = "";
++	const time_t now = time(nullptr);
++	if (const struct tm *local = localtime(&now))
++		strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", local);
++	fprintf(out, "[%s] FATAL: %s (code 0x%lx at %p)\n", stamp, what, code, where);
++	fclose(out);
++}
++
++void onSignal(int sig) {
++	writeCrashLine(sig == SIGABRT ? "abort" : "fatal signal", (unsigned long)sig, nullptr);
++	_exit(sig == SIGABRT ? 3 : 1);
++}
++
++void onTerminate() {
++	writeCrashLine("terminate called after an uncaught C++ exception", 0, nullptr);
++	_exit(3);
++}
++
++#ifdef _WIN32
++LONG WINAPI onUnhandledException(EXCEPTION_POINTERS *info) {
++	writeCrashLine("unhandled exception", info->ExceptionRecord->ExceptionCode, info->ExceptionRecord->ExceptionAddress);
++	return EXCEPTION_EXECUTE_HANDLER;   // ends the process; SEM_NOGPFAULTERRORBOX keeps Windows from opening its box
++}
++#endif
++
++void installCrashLog(const Common::String &path) {
++	if (path.size() >= sizeof(g_crashLog))
++		return;
++	memcpy(g_crashLog, path.c_str(), path.size() + 1);
++	signal(SIGABRT, onSignal);
++	signal(SIGSEGV, onSignal);
++	signal(SIGFPE, onSignal);
++	signal(SIGILL, onSignal);
++#ifdef SIGBUS
++	signal(SIGBUS, onSignal);
++#endif
++	std::set_terminate(onTerminate);
++#ifdef _WIN32
++	SetUnhandledExceptionFilter(onUnhandledException);
++#endif
++}
++
++} // namespace
++
++void packedFaultForTest() {
++	if (!g_pack.present)
++		return;
++	if (getenv("RR_TEST_FATAL"))
++		error("Retro-Recomp: deliberate fatal error");
++	if (getenv("RR_TEST_CRASH")) {
++		volatile int *nothing = nullptr;
++		*nothing = 1;
++	}
++}
++
++void packedLaunchArguments(int &argc, char **&argv) {
++	if (!g_pack.present || argc != 1)
++		return;
++	const Common::String manifest = readPackText(".rr/launch.ini");
++	const Common::String target = manifestValue(manifest, "target");
++	if (target.empty())
++		return;
++	Common::String name = manifestValue(manifest, "name");
++	Common::String id = manifestValue(manifest, "id");
++	if (name.empty())
++		name = target;
++
++	Common::String exeDir = g_pack.exePath;
++	size_t cut = exeDir.rfind('\\');
++	if (cut == Common::String::npos)
++		cut = exeDir.rfind('/');
++	exeDir = cut == Common::String::npos ? Common::String(".") : exeDir.substr(0, cut);
++
++	const Common::String datas = exeDir + kNativeSep + "datas";
++	const Common::String gameDir = datas + kNativeSep + "games" + kNativeSep + name + (id.empty() ? Common::String() : "-" + id);
++	makeDirectories(gameDir + kNativeSep + "saves");
++	installCrashLog(gameDir + kNativeSep + "crash.log");
++
++	// datas/Retro-Recomp.ini with defaults, created once and never rewritten here.
++	const Common::String ini = datas + kNativeSep + "Retro-Recomp.ini";
++	if (FILE *probe = fopen(ini.c_str(), "rb")) {
++		fclose(probe);
++	} else if (FILE *out = fopen(ini.c_str(), "wb")) {
++		fputs("[Interface]\nlanguage=en\n[Adventure]\n", out);
++		fclose(out);
++	}
++
++	// The interface language of Retro-Recomp (one of the five game-menu languages) sets ScummVM's GUI
++	// language at every start; any other value, or none, gives English. The game's own language is
++	// never touched here: it comes from the data and the manifest.
++	const Common::String language = iniValue(readTextFile(ini), "Interface", "language");
++	const char *guiLanguage = "C";
++	if (language == "fr")
++		guiLanguage = "fr_FR";
++	else if (language == "de")
++		guiLanguage = "de_DE";
++	else if (language == "es")
++		guiLanguage = "es_ES";
++	else if (language == "it")
++		guiLanguage = "it_IT";
++	const Common::String config = gameDir + kNativeSep + "scummvm.ini";
++	writeTextFile(config, setIniValue(readTextFile(config), "scummvm", "gui_language", guiLanguage));
++
++	static Common::Array<Common::String> strings;
++	strings.clear();
++	strings.push_back(argv[0]);
++	strings.push_back(Common::String("--path=pack:") + kNativeSep);
++	strings.push_back("--config=" + config);
++	strings.push_back("--joystick=0");
++	strings.push_back("--savepath=" + gameDir + kNativeSep + "saves");
++	strings.push_back("--logfile=" + gameDir + kNativeSep + "scummvm.log");
++	if (manifestValue(manifest, "data") == "1") {
++		// Builds without the Windows resources (Linux) carry the engine data files and the GUI themes in the pack.
++		const Common::String data = Common::String("pack:") + kNativeSep + ".rr" + kNativeSep + "data";
++		strings.push_back("--extrapath=" + data);
++		strings.push_back("--themepath=" + data);
++	}
++	strings.push_back(target);
++
++	static Common::Array<char *> pointers;
++	pointers.clear();
++	for (uint i = 0; i < strings.size(); i++)
++		pointers.push_back(const_cast<char *>(strings[i].c_str()));
++	pointers.push_back(nullptr);
++	argc = (int)strings.size();
++	argv = &pointers[0];
++}
++
++bool packedModeActive() {
++	return g_pack.present;
++}
++
++// ---------------------------------------------------------------------------------------------
++// Authored self-test of the pack streams (no game data): the packer stores ".rr/selftest.bin",
++// the 256 bytes 0..255; RR_PACK_SELFTEST=1 runs these checks and exits with their result.
++
++int packedSelfTest() {
++	int index = -1;
++	for (uint i = 0; i < g_pack.files.size(); i++)
++		if (g_pack.files[i].path.equalsIgnoreCase(".rr/selftest.bin"))
++			index = (int)i;
++	if (index < 0) {
++		fprintf(stderr, "selftest: no .rr/selftest.bin in this pack\n");
++		return 2;
++	}
++	AbstractFSNode *node = PackedNode::g_pack_real->makeFileNodePath(g_pack.exePath);
++	Common::SeekableReadStream *parent = node ? node->createReadStream() : nullptr;
++	delete node;
++	if (!parent)
++		return 2;
++	PackedReadStream s(parent, g_pack.files[index].offset, g_pack.files[index].size);
++	int failures = 0;
++	byte b[16];
++#define RR_CHECK(cond, what) do { bool ok_ = (cond); fprintf(stderr, "selftest %s: %s\n", ok_ ? "ok  " : "FAIL", what); if (!ok_) failures++; } while (0)
++	RR_CHECK(s.size() == 256, "size is 256");
++	RR_CHECK(s.seek(10, SEEK_SET) && s.pos() == 10, "seek 10 from start");
++	RR_CHECK(!s.seek(-1, SEEK_SET) && s.pos() == 10, "seek -1 from start fails, position kept");
++	RR_CHECK(!s.seek(-11, SEEK_CUR) && s.pos() == 10, "seek -11 from current fails, position kept");
++	RR_CHECK(s.seek(-10, SEEK_CUR) && s.pos() == 0, "seek -10 from current reaches 0");
++	RR_CHECK(!s.seek(-257, SEEK_END) && s.pos() == 0, "seek -257 from end fails");
++	RR_CHECK(s.seek(-10, SEEK_END) && s.pos() == 246, "seek -10 from end gives 246");
++	RR_CHECK(s.read(b, 10) == 10 && b[0] == 246 && b[9] == 255 && !s.eos(), "read the last 10 bytes, no end yet");
++	RR_CHECK(s.read(b, 1) == 0 && s.eos(), "one more byte: end of stream");
++	RR_CHECK(s.seek(0, SEEK_SET) && !s.eos() && s.read(b, 4) == 4 && b[0] == 0 && b[3] == 3, "back to 0 clears the end, reads 0..3");
++	RR_CHECK(s.seek(-2, SEEK_END) && s.read(b, 8) == 2 && b[0] == 254 && b[1] == 255 && s.eos(), "short read at the end");
++	RR_CHECK(s.seek(1000, SEEK_SET) && s.pos() == 1000 && s.read(b, 1) == 0 && s.eos(), "seek past the end succeeds, read gives the end");
++	RR_CHECK(s.seek(128, SEEK_SET) && s.seek(-64, SEEK_CUR) && s.read(b, 1) == 1 && b[0] == 64, "relative seek backwards");
++#undef RR_CHECK
++	fprintf(stderr, "selftest: %d failure(s)\n", failures);
++	return failures == 0 ? 0 : 1;
++}
+diff --git a/backends/fs/packed/packed-fs.h b/backends/fs/packed/packed-fs.h
+new file mode 100644
+index 00000000..1b7bc73e
+--- /dev/null
++++ b/backends/fs/packed/packed-fs.h
+@@ -0,0 +1,75 @@
++/* ScummVM - Graphic Adventure Engine
++ *
++ * ScummVM is the legal property of its developers, whose names
++ * are too numerous to list here. Please refer to the COPYRIGHT
++ * file distributed with this source distribution.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ */
++
++/* Retro-Recomp patch (step 1 prototype): a read-only virtual file system whose
++ * files are stored, byte for byte, at the end of the executable itself.
++ *
++ * Layout of the executable: [original program][file data...][index][trailer]
++ * Trailer (24 bytes, little endian): "RRADVPK1", index offset (u64), index size (u64).
++ * Index: for each file, u16 path length, the path (UTF-8, '/' separated, no leading
++ * separator), u64 offset of the data in the executable, u64 size.
++ *
++ * Paths that start with "pack:" are served from the pack; every other path goes to
++ * the real file system of the platform. Nothing is ever extracted.
++ */
++
++#ifndef BACKEND_FS_PACKED_H
++#define BACKEND_FS_PACKED_H
++
++#include "backends/fs/fs-factory.h"
++
++class PackedFilesystemFactory final : public FilesystemFactory {
++public:
++	/** Takes ownership of @p real, the factory of the platform. */
++	explicit PackedFilesystemFactory(FilesystemFactory *real);
++	~PackedFilesystemFactory() override;
++
++	AbstractFSNode *makeRootFileNode() const override;
++	AbstractFSNode *makeCurrentDirectoryFileNode() const override;
++	AbstractFSNode *makeFileNodePath(const Common::String &path) const override;
++	Common::String getSystemFullPath(const Common::String &path) const override;
++
++private:
++	FilesystemFactory *_real;
++};
++
++/**
++ * When this executable carries a game and was started without arguments, replaces
++ * the argument list by the one that runs that game: the path of the pack, and the
++ * configuration, saves and log inside datas/games/<Game>-<id>/ next to the executable
++ * (created on first use, with datas/Retro-Recomp.ini). Does nothing otherwise.
++ */
++void packedLaunchArguments(int &argc, char **&argv);
++
++/** True when this executable carries a game: the platform then creates no folder of its own outside datas/. */
++bool packedModeActive();
++
++/** Authored checks of the pack streams (negative and end-relative seeks); 0 when all pass. */
++int packedSelfTest();
++
++/**
++ * Authored checks of the fatal paths of a packed executable (RR_TEST_FATAL raises a ScummVM error(), RR_TEST_CRASH an access
++ * violation): neither may show a window; the first leaves its text in the log, the second in crash.log. Called by
++ * scummvm_main once the log is open; does nothing without those variables.
++ */
++void packedFaultForTest();
++
++#endif
+diff --git a/backends/module.mk b/backends/module.mk
+index 02a21d2f..93b7faa6 100644
+--- a/backends/module.mk
++++ b/backends/module.mk
+@@ -280,6 +280,7 @@ MODULE_OBJS += \
+ 	fs/posix/posix-fs.o \
+ 	fs/posix/posix-fs-factory.o \
+ 	fs/posix/posix-iostream.o \
++	fs/packed/packed-fs.o \
+ 	fs/posix-drives/posix-drives-fs.o \
+ 	fs/posix-drives/posix-drives-fs-factory.o \
+ 	fs/chroot/chroot-fs-factory.o \
+@@ -330,6 +331,7 @@ MODULE_OBJS += \
+ 	dialogs/win32/win32-dialogs.o \
+ 	fs/windows/windows-fs.o \
+ 	fs/windows/windows-fs-factory.o \
++	fs/packed/packed-fs.o \
+ 	midi/windows.o \
+ 	plugins/win32/win32-provider.o \
+ 	printing/win32/win32-printman.o \
+diff --git a/backends/platform/sdl/posix/posix-main.cpp b/backends/platform/sdl/posix/posix-main.cpp
+index acdadd76..9232a26e 100644
+--- a/backends/platform/sdl/posix/posix-main.cpp
++++ b/backends/platform/sdl/posix/posix-main.cpp
+@@ -31,6 +31,7 @@
+ #else
+ #include "backends/plugins/sdl/sdl-provider.h"
+ #endif
++#include "backends/fs/packed/packed-fs.h"
+ #include "base/main.h"
+ 
+ int main(int argc, char *argv[]) {
+@@ -53,7 +54,10 @@ int main(int argc, char *argv[]) {
+ #endif
+ 
+ 	// Invoke the actual ScummVM main entry point:
+-	int res = scummvm_main(argc, argv);
++	int launchArgc = argc;
++	char **launchArgv = argv;
++	packedLaunchArguments(launchArgc, launchArgv);
++	int res = scummvm_main(launchArgc, launchArgv);
+ 
+ 	// Free OSystem
+ 	g_system->destroy();
+diff --git a/backends/platform/sdl/posix/posix.cpp b/backends/platform/sdl/posix/posix.cpp
+index f2330f7f..653bf716 100644
+--- a/backends/platform/sdl/posix/posix.cpp
++++ b/backends/platform/sdl/posix/posix.cpp
+@@ -35,6 +35,7 @@
+ #include "backends/platform/sdl/posix/posix.h"
+ #include "backends/saves/posix/posix-saves.h"
+ #include "backends/fs/posix/posix-fs-factory.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "backends/fs/posix/posix-fs.h"
+ #include "backends/taskbar/unity/unity-taskbar.h"
+ #include "backends/dialogs/gtk/gtk-dialogs.h"
+@@ -62,7 +63,7 @@ extern char **environ;
+ 
+ void OSystem_POSIX::init() {
+ 	// Initialze File System Factory
+-	_fsFactory = new POSIXFilesystemFactory();
++	_fsFactory = new PackedFilesystemFactory(new POSIXFilesystemFactory());
+ 
+ #if defined(USE_TASKBAR) && defined(USE_UNITY)
+ 	// Initialize taskbar manager
+@@ -236,6 +237,9 @@ Common::String OSystem_POSIX::getXdgUserDir(const char *name) {
+ Common::Path OSystem_POSIX::getDefaultIconsPath() {
+ 	Common::String iconsPath;
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	// On POSIX systems we follow the XDG Base Directory Specification for
+ 	// where to store files. The version we based our code upon can be found
+ 	// over here: https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.8.html
+@@ -261,6 +265,9 @@ Common::Path OSystem_POSIX::getDefaultIconsPath() {
+ Common::Path OSystem_POSIX::getDefaultDLCsPath() {
+ 	Common::String dlcsPath;
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	// On POSIX systems we follow the XDG Base Directory Specification for
+ 	// where to store files. The version we based our code upon can be found
+ 	// over here: https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.8.html
+diff --git a/backends/platform/sdl/sdl.cpp b/backends/platform/sdl/sdl.cpp
+index f2c4e514..ed057d5c 100644
+--- a/backends/platform/sdl/sdl.cpp
++++ b/backends/platform/sdl/sdl.cpp
+@@ -23,6 +23,7 @@
+ #define SDL_FUNCTION_POINTER_IS_VOID_POINTER
+ 
+ #include "backends/platform/sdl/sdl.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "common/config-manager.h"
+ #include "gui/EventRecorder.h"
+ #include "common/taskbar.h"
+@@ -853,6 +854,9 @@ void OSystem_SDL::messageBox(LogMessageType::Type type, const char *message) {
+ 		break;
+ 	}
+ 
++	// Retro-Recomp: a packed executable and the tests (RR_NO_DIALOGS) never open a modal window; the message is in the log.
++	if (packedModeActive() || getenv("RR_NO_DIALOGS"))
++		return;
+ 	SDL_ShowSimpleMessageBox(flags, "ScummVM", message, _window ? _window->getSDLWindow() : nullptr);
+ }
+ #endif
+diff --git a/backends/platform/sdl/win32/win32-main.cpp b/backends/platform/sdl/win32/win32-main.cpp
+index 87669248..eb3e9d48 100644
+--- a/backends/platform/sdl/win32/win32-main.cpp
++++ b/backends/platform/sdl/win32/win32-main.cpp
+@@ -32,10 +32,13 @@
+ // "ARRAYSIZE" for example.
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
++#include <stdlib.h>
++#include <assert.h>
+ 
+ #include "backends/platform/sdl/win32/win32.h"
+ #include "backends/platform/sdl/win32/win32_wrapper.h"
+ #include "backends/plugins/win32/win32-provider.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "base/main.h"
+ 
+ int __stdcall WinMain(HINSTANCE /*hInst*/, HINSTANCE /*hPrevInst*/,  LPSTR /*lpCmdLine*/, int /*iShowCmd*/) {
+@@ -56,6 +59,16 @@ int __stdcall WinMain(HINSTANCE /*hInst*/, HINSTANCE /*hPrevInst*/,  LPSTR /*lpC
+ }
+ 
+ int main(int argc, char *argv[]) {
++	// Retro-Recomp: never a modal window from the runtime. Assertions and runtime errors
++	// go to stderr, a crash shows no Windows error box (see also RR_NO_DIALOGS in sdl.cpp).
++	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
++	_set_error_mode(_OUT_TO_STDERR);
++	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
++
++	// Authored check of the line above: an assertion must print and stop, never show a dialog.
++	if (getenv("RR_TEST_ASSERT"))
++		assert(!"RR_TEST_ASSERT: deliberate assertion");
++
+ #ifdef UNICODE
+ 	argv = Win32::getArgvUtf8(&argc);
+ #endif
+@@ -71,8 +84,18 @@ int main(int argc, char *argv[]) {
+ 	PluginManager::instance().addPluginProvider(new Win32PluginProvider());
+ #endif
+ 
++	// Retro-Recomp: an executable that carries a game starts that game
++	int launchArgc = argc;
++	char **launchArgv = argv;
++	if (getenv("RR_PACK_SELFTEST") && packedModeActive()) {
++		int rc = packedSelfTest();
++		g_system->destroy();
++		return rc;
++	}
++	packedLaunchArguments(launchArgc, launchArgv);
++
+ 	// Invoke the actual ScummVM main entry point:
+-	int res = scummvm_main(argc, argv);
++	int res = scummvm_main(launchArgc, launchArgv);
+ 
+ 	// Free OSystem
+ 	g_system->destroy();
+diff --git a/backends/platform/sdl/win32/win32.cpp b/backends/platform/sdl/win32/win32.cpp
+index 60b27186..a622f850 100644
+--- a/backends/platform/sdl/win32/win32.cpp
++++ b/backends/platform/sdl/win32/win32.cpp
+@@ -45,6 +45,7 @@
+ #include "backends/platform/sdl/win32/win32_wrapper.h"
+ #include "backends/saves/windows/windows-saves.h"
+ #include "backends/fs/windows/windows-fs-factory.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "backends/taskbar/win32/win32-taskbar.h"
+ #include "backends/updates/win32/win32-updates.h"
+ #include "backends/dialogs/win32/win32-dialogs.h"
+@@ -65,7 +66,7 @@ OSystem_Win32::OSystem_Win32() :
+ 
+ void OSystem_Win32::init() {
+ 	// Initialize File System Factory
+-	_fsFactory = new WindowsFilesystemFactory();
++	_fsFactory = new PackedFilesystemFactory(new WindowsFilesystemFactory());
+ 
+ 	// Create Win32 specific window
+ 	initSDL();
+@@ -265,6 +266,9 @@ Common::String OSystem_Win32::getSystemLanguage() const {
+ Common::Path OSystem_Win32::getDefaultIconsPath() {
+ 	TCHAR iconsPath[MAX_PATH];
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	if (_isPortable) {
+ 		Win32::getProcessDirectory(iconsPath, MAX_PATH);
+ 		_tcscat(iconsPath, TEXT("\\Icons\\"));
+@@ -283,6 +287,9 @@ Common::Path OSystem_Win32::getDefaultIconsPath() {
+ Common::Path OSystem_Win32::getDefaultDLCsPath() {
+ 	TCHAR dlcsPath[MAX_PATH];
+ 
++	if (packedModeActive())
++		return Common::Path();
++
+ 	if (_isPortable) {
+ 		Win32::getProcessDirectory(dlcsPath, MAX_PATH);
+ 		_tcscat(dlcsPath, TEXT("\\DLCs\\"));
+diff --git a/backends/saves/posix/posix-saves.cpp b/backends/saves/posix/posix-saves.cpp
+index 24698499..4bd12715 100644
+--- a/backends/saves/posix/posix-saves.cpp
++++ b/backends/saves/posix/posix-saves.cpp
+@@ -32,6 +32,7 @@
+ 
+ #include "backends/saves/posix/posix-saves.h"
+ #include "backends/fs/posix/posix-fs.h"
++#include "backends/fs/packed/packed-fs.h"
+ #if defined(MACOSX)
+ #include "backends/platform/sdl/macosx/macosx_wrapper.h"
+ #endif
+@@ -43,6 +44,10 @@
+ #include <sys/stat.h>
+ 
+ POSIXSaveFileManager::POSIXSaveFileManager() {
++	// Packed Retro-Recomp executable: the saves go to datas/ (--savepath); nothing is created in the home folder.
++	if (packedModeActive())
++		return;
++
+ 	// Register default savepath.
+ 	Common::Path savePath;
+ 
+diff --git a/base/main.cpp b/base/main.cpp
+index ef3997f1..af6ffae0 100644
+--- a/base/main.cpp
++++ b/base/main.cpp
+@@ -100,6 +100,8 @@
+ 
+ #include "gui/dump-all-dialogs.h"
+ 
++#include "backends/fs/packed/packed-fs.h"
++
+ static bool launcherDialog() {
+ 
+ 	// Discard any command line options. Those that affect the graphics
+@@ -755,8 +757,17 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 			extensionSupportString[neonSupport].c_str());
+ 	}
+ 
++	// Retro-Recomp: a packed executable runs its game and ends with it. It never shows the launcher: when ScummVM does not
++	// know the game, or after a failed run, the reason is in the log and the exit code is 1.
++	int rrExitCode = 0;
++	if (packedModeActive() && nullptr == ConfMan.getActiveDomain()) {
++		g_system->logMessage(LogMessageType::kError, "ScummVM does not know the game of this executable.\n");
++		rrExitCode = 1;
++	}
++	packedFaultForTest();
++
+ 	// Unless a game was specified, show the launcher dialog
+-	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs"))
++	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs") && !packedModeActive())
+ 		launcherDialog();
+ 
+ 	// FIXME: We're now looping the launcher. This, of course, doesn't
+@@ -870,6 +881,12 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 				GUI::displayErrorDialog(result, _("Error running game:"));
+ 			}
+ 
++			// Retro-Recomp: a packed executable ends with its game (also on "Return to Launcher" and after an error).
++			if (packedModeActive()) {
++				rrExitCode = (result.getCode() == Common::kNoError || result.getCode() == Common::kUserCanceled) ? 0 : 1;
++				break;
++			}
++
+ 			// Quit unless an error occurred, or Return to launcher was requested
+ 			if (result.getCode() == Common::kNoError && !g_system->getEventManager()->shouldReturnToLauncher() &&
+ 			    !g_system->hasFeature(OSystem::kFeatureNoQuit) && !ConfMan.getBool("gui_return_to_launcher_at_exit"))
+@@ -918,6 +935,11 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 
+ 			GUI::displayErrorDialog(result, _("Error running game:"));
+ 
++			if (packedModeActive()) {
++				rrExitCode = 1;
++				break;
++			}
++
+ 			// Clear the active domain
+ 			ConfMan.setActiveDomain("");
+ 		}
+@@ -965,5 +987,5 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
+ 	EngineManager::destroy();
+ 	Graphics::YUVToRGBManager::destroy();
+ 
+-	return 0;
++	return rrExitCode;
+ }
+diff --git a/gui/error.cpp b/gui/error.cpp
+index 8f3aa27a..cf5c7ba0 100644
+--- a/gui/error.cpp
++++ b/gui/error.cpp
+@@ -20,12 +20,24 @@
+  */
+ 
+ #include "common/error.h"
++#include "common/system.h"
++#include "backends/fs/packed/packed-fs.h"
+ #include "gui/message.h"
+ #include "gui/error.h"
+ 
+ namespace GUI {
+ 
++// Retro-Recomp: a packed executable shows no error window; the text goes to the log and the run ends.
++static bool logInsteadOfDialog(const Common::U32String &text) {
++	if (!packedModeActive() || !g_system)
++		return false;
++	g_system->logMessage(LogMessageType::kError, (text.encode() + "\n").c_str());
++	return true;
++}
++
+ void displayErrorDialog(const Common::U32String &text) {
++	if (logInsteadOfDialog(text))
++		return;
+ 	GUI::MessageDialog alert(text);
+ 	alert.runModal();
+ }
+@@ -34,6 +46,8 @@ void displayErrorDialog(const Common::Error &error, const Common::U32String &ext
+ 	Common::U32String errorText(extraText);
+ 	errorText += Common::U32String(" ");
+ 	errorText += error.getTranslatedDesc();
++	if (logInsteadOfDialog(errorText))
++		return;
+ 	GUI::MessageDialog alert(errorText);
+ 	alert.runModal();
+ }

@@ -268,6 +268,43 @@ def _data_dir(listed: list[amiga_lha.Member], folder: str, current: str) -> str:
     return folder
 
 
+_CUSTOM = re.compile(r'(?i)^CUSTOM([1-5])=\s*(\$[0-9a-f]+|0x[0-9a-f]+|-?\d+)\s*$')
+
+
+def icon_strings(data: bytes) -> list[str]:
+    """The strings of an icon (.info) file: its default tool and its ToolTypes, which icon.library's DiskObject layout
+    stores each as a 32-bit length followed by the bytes, the last one NUL. Found by that framing; nothing is run."""
+    strings, i, n = [], 0, len(data)
+    while i + 5 <= n:
+        length = int.from_bytes(data[i:i + 4], 'big')
+        end = i + 4 + length
+        if 2 <= length <= 256 and end <= n and data[end - 1] == 0:
+            text = data[i + 4:end - 1]
+            if all(32 <= c < 127 or c >= 160 for c in text):
+                strings.append(text.decode('latin-1'))
+                i = end
+                continue
+        i += 1
+    return strings
+
+
+def custom_options(blob: bytes, chosen: 'Install') -> tuple[int, int, int, int, int]:
+    """CUSTOM1..5 as the install's own icon sets them: WHDLoad reads the ToolTypes of the icon it is started from, the
+    slave's icon beside it (`<slave>.info`), and gives them to the slave through resload_Control. A ToolType in
+    parentheses is switched off, as on the Workbench; a value is decimal, or hexadecimal written $10 or 0x10."""
+    name = chosen.slave_path.rsplit('.', 1)[0].lower() + '.info'
+    icon = next((m for m in amiga_lha.members(blob) if m.name.lower() == name), None)
+    values = [0] * 5
+    if icon is not None:
+        for text in icon_strings(amiga_lha.extract(blob, icon)):
+            match = _CUSTOM.match(text.strip())
+            if match:
+                raw = match.group(2)
+                number = int(raw[1:], 16) if raw.startswith('$') else int(raw, 16) if raw.lower().startswith('0x') else int(raw)
+                values[int(match.group(1)) - 1] = number & 0xFFFFFFFF
+    return tuple(values)
+
+
 def install(blob: bytes, choose: str | None = None) -> Install:
     """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use (else it is refused)."""
     listed = amiga_lha.members(blob)

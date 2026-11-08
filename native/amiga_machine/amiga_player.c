@@ -38,6 +38,7 @@
 /* ---- what rrhk_computer.inc and the adapter read ---- */
 static bool guest_keyboard, mouse_grab, mouse_game, input_focus = true, fast_forward, want_swap, want_eject;
 static int loading_holdoff, swap_drive, swap_direction;
+static bool interpreter_only;                       /* --reference-cpu: every instruction runs on the interpreter (the window says so) */
 static const Uint8 *keys;
 static int mouse_dx, mouse_dy;
 static Uint32 mouse_buttons;
@@ -100,6 +101,14 @@ static bool load_install(const char *dir, RrAmigaGame *game, RrAmigaFile **files
          if (!game->slave) { fclose(f); return false; }
       } else if (!strncmp(line, "ntsc ", 5)) {
          game->ntsc = atoi(line + 5) != 0;
+      } else if (!strncmp(line, "custom ", 7)) {        /* "custom N VALUE": CUSTOMn from the install's icon */
+         unsigned k = 0, value = 0;
+         if (sscanf(line + 7, "%u %u", &k, &value) != 2 || k < 1 || k > 5) { fclose(f); return false; }
+         game->custom[k - 1] = value;
+      } else if (!strncmp(line, "kickstart ", 10)) {   /* the player's Kickstart, normalised by the converter (its own work folder) */
+         snprintf(path, sizeof path, "%s/%s", dir, line + 10);
+         game->kickstart = read_file(path, &game->kickstart_size);
+         if (!game->kickstart) { fclose(f); return false; }
       } else if (!strncmp(line, "file ", 5)) {
          char *tab = strchr(line + 5, '\t');
          RrAmigaFile *grown;
@@ -141,6 +150,18 @@ static bool embedded_install(RrAmigaGame *game, RrAmigaFile **files) {
    game->files = *files;
    game->file_count = RR_AMIGA_FILE_COUNT;
    game->ntsc = RR_AMIGA_NTSC;
+#ifdef RR_AMIGA_CUSTOM
+   {
+      static const uint32_t custom[5] = RR_AMIGA_CUSTOM;
+      memcpy(game->custom, custom, sizeof custom);
+   }
+#endif
+#ifdef RR_AMIGA_KICKSTART_RESOURCE
+   /* The player's own Kickstart, built into the player's own export (decision D1, 6 Nov 2026), as the X68000 does its IPL. */
+   game->kickstart = (const uint8_t *)rr_resource(RR_AMIGA_KICKSTART_RESOURCE, &size);
+   game->kickstart_size = (uint32_t)size;
+   if (!game->kickstart || !size) return false;
+#endif
    return true;
 }
 #endif
@@ -291,9 +312,18 @@ static int run_headless(const char *trace_path, const char *report_path, const c
          if (rr_amiga_viewport(session, &vx, &vy, &vw, &vh)) fprintf(r, "{\"view\":[%d,%d,%d,%d],", vx, vy, vw, vh);
          else fputs("{\"view\":null,", r);
       }
-      fprintf(r, "\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
+      {
+         uint32_t ksize;
+         uint16_t kcrc;
+         if (rr_amiga_kickstart(session, &ksize, &kcrc))
+            fprintf(r, "\"kickstart\":{\"size\":%u,\"crc16\":%u,\"interpreted\":%llu,\"native\":%llu},", ksize, kcrc,
+                    (unsigned long long)rr_amiga_kickstart_interpreted_count(session),
+                    (unsigned long long)rr_amiga_kickstart_native_count(session));
+         else fputs("\"kickstart\":null,", r);
+      }
+      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
-              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
+              rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
               (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
               RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
@@ -330,7 +360,7 @@ int main(int argc, char **argv) {
    for (i = 1; i < argc; i++) {
       const char *a = argv[i];
       if (!strcmp(a, "--headless")) headless = true;
-      else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
+      else if (!strcmp(a, "--reference-cpu")) { reference_cpu = true; interpreter_only = true; }
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE\n"

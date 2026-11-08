@@ -269,7 +269,8 @@ class PackingBuildRoleTests(unittest.TestCase):
 
     def test_packing_is_a_build_input_of_every_console(self):
         self.assertEqual(inputs.role('retrorecomp.packing'), 'build')
-        self.assertEqual(inputs.BUILD_MODULES, frozenset(('toolchain', 'packing')))
+        # scummvm_build is the build input of the Adventure (ScummVM) runtime only (owned by 'scummvm').
+        self.assertEqual(inputs.BUILD_MODULES, frozenset(('toolchain', 'packing', 'scummvm_build')))
         for system in sorted(inputs.SYSTEMS):
             self.assertIn('retrorecomp.packing', dict(inputs.input_fingerprints(system)), system)
 

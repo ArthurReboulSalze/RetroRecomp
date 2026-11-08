@@ -3,12 +3,12 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 (experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga (the last three experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.9-d4a737" alt="Release version 1.6.9">
-  <img src="https://img.shields.io/badge/console_profiles-12-626262" alt="Twelve console profiles">
+  <img src="https://img.shields.io/badge/release-1.7.0-d4a737" alt="Release version 1.7.0">
+  <img src="https://img.shields.io/badge/console_profiles-13-626262" alt="Thirteen console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -80,6 +80,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `████░░░░░░` 43 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
 | [Commodore Amiga](docs/AMIGA.md) | experimental | `████░░░░░░` 38 % |
+| [Atari ST](docs/ATARI_ST.md) | experimental | `███░░░░░░░` 31 % |
 | [Sony PlayStation](docs/PLAYSTATION.md) | experimental | `░░░░░░░░░░` 0 % |
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
@@ -87,6 +88,10 @@ partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#
 measures, and it never decides a status: leaving the experimental status is the owner's own decision.
 
 <!-- qualification-gauges:end -->
+
+**Adventure (ScummVM)** is a category of its own, supported since 1.7.1: point-and-click adventure games run in ScummVM, emulated
+(0 % native code, by design), each packed with its own files into one executable with its saves in `datas/`
+([how it works and what supported means here](docs/SCUMMVM.md)). It is not part of the qualification matrix of the recompiled consoles.
 
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
 and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
@@ -108,7 +113,9 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.6.9.** The Sharp X68000 and the QSound boards (CPS-1.5) are supported, and the X68000 shares its paths like the CPS-1; the PC Engine opens as an experimental machine; players 3 and 4 are no longer blocked and the keyboard of a computer is chosen per game from F2; an upload sends only the paths the local base lacks. The Capcom CPS-2 opened in 1.6.9 and is no longer experimental in 1.7.0 (your own key file and QSound DSP ROM). Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.1.** Adventure (ScummVM) is supported, with the criteria written in [SCUMMVM.md](docs/SCUMMVM.md#what-supported-means-here); in the game, Ctrl+F2 opens a Retro-Recomp options page (language, full screen, scaling, volume), Ctrl+F1 its help, Ctrl+F3 cycles picture effects and Ctrl+F4 switches pixel-perfect full screen, all remembered for every adventure executable of the folder.
+
+**New in 1.7.0.** The Capcom CPS-2 is supported; the Game Boy Advance, the Commodore Amiga 500 (WHDLoad installs, and those that ask for Kickstart 1.3 with your own image) open as experimental machines; the adventure games of ScummVM (one clickable executable per game, emulated, 0 % native) are added, and supported since 1.7.1; the PC Engine takes US TurboGrafx-16 HuCards; the host kit gains analog sticks, rumble, a 3D graphics page and disc change; F12 hints now work on every machine, so every 1.6.9 export is reconverted at the update. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

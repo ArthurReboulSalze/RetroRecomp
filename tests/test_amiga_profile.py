@@ -111,7 +111,7 @@ class ProfileTests(unittest.TestCase):
 class AvailabilityTests(unittest.TestCase):
     def test_the_profile_is_offered_only_when_its_converter_files_are_installed(self):
         needed = ('native/amiga_machine/CMakeLists.txt', 'native/amiga_whdload/rr_resload.c',
-                  'native/hostkit/adapters/rrhk_amiga.inc', 'retrorecomp/amiga_conversion.py')
+                  'native/hostkit/adapters/rrhk_amiga.inc')
         with TemporaryDirectory() as folder, patch('retrorecomp.amiga.ASSETS', Path(folder)):
             self.assertFalse(amiga.converter_available())
             for name in needed:
@@ -128,6 +128,17 @@ class AvailabilityTests(unittest.TestCase):
         self.assertEqual(cover_title('Lotus Turbo Challenge II'), 'Lotus Turbo Challenge II')
         self.assertEqual(cover_title('Dungeon Master (V3.6)'), 'Dungeon Master (V3.6)')
         self.assertEqual(cover_title(''), '')
+
+
+class PackagedConverterTests(unittest.TestCase):
+    def test_the_decoder_reads_the_generated_folder_of_the_working_root_not_the_unpacked_assets(self):
+        # A packaged converter unpacks its files to a temporary ASSETS folder; the shared decoder folder
+        # (.build/megadrive-step-decoder, written by megadrive_codegen.decoder_tool) is under ROOT, as for the X68000.
+        source = Path(amiga.__file__).with_name('amiga_conversion.py').read_text(encoding='utf-8')
+        call = source[source.index('m68k_observed.build_decoder('):]
+        call = call[:call.index(')\n')]
+        self.assertIn('root=ROOT', call)
+        self.assertNotIn('root=ASSETS', call)
 
 
 if __name__ == '__main__':
