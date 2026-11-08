@@ -270,7 +270,7 @@ class WindowFolderImport(unittest.TestCase):
         from retrorecomp.gui_queue import QueueMixin
         window = SimpleNamespace(tr=lambda key, **values: key)
 
-        def building(started=None):
+        def building(started=None, emit=None):
             started()
             return Path('fake-runtime')
 
@@ -422,6 +422,362 @@ class InterruptedClone(unittest.TestCase):
             self.assertEqual(attempts[0], attempts[1])
             self.assertFalse(attempts[0].exists())
             (place / '.git' / 'pack').chmod(0o666)    # the temporary folder can be removed
+
+
+class ReconfiguredFolder(unittest.TestCase):
+    """A build folder made with the compiler at another place: CMake deletes its cache, loses the -D values of the command line and
+    stops on find_package(SDL2) (what Sam & Max met in the packaged exe, once the runtime of its family was stale)."""
+
+    def setUp(self):
+        from unittest import mock
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name).resolve()
+        self.build, self.log = base / 'scumm' / 'build', base / 'scumm.log'
+        self.compiler = 'A/clang'
+        self.fail = False
+
+        def run(command, cwd, log, timeout=3600):
+            self.build.mkdir(parents=True, exist_ok=True)
+            (self.build / 'CMakeCache.txt').write_text('cache', encoding='utf-8')
+            if self.fail:
+                raise scummvm_build.ScummvmBuildError('configure failed')
+            return ''
+
+        for patcher in (mock.patch.object(scummvm_build, '_run', side_effect=run),
+                        mock.patch.object(scummvm_build.shutil, 'which', side_effect=lambda name, path=None: self.compiler)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def configure(self, flag='-DSDL2_DIR=x'):
+        scummvm_build._configure('cmake', Path('cfg'), self.build, 'Ninja', [flag], Path('.'), self.log)
+
+    def objects(self):
+        place = self.build / 'CMakeFiles' / 'game.obj'
+        place.parent.mkdir(parents=True, exist_ok=True)
+        place.touch()
+        return place
+
+    def test_the_same_command_and_compiler_keep_the_objects(self):
+        self.configure()
+        objects = self.objects()
+        self.configure()
+        self.assertTrue(objects.exists())
+
+    def test_a_compiler_elsewhere_starts_from_a_new_folder(self):
+        self.configure()
+        objects = self.objects()
+        self.compiler = 'B/clang'
+        self.configure()
+        self.assertFalse(objects.exists())
+        self.assertTrue((self.build / 'CMakeCache.txt').exists())
+
+    def test_another_command_starts_from_a_new_folder(self):
+        self.configure()
+        objects = self.objects()
+        self.configure('-DSDL2_DIR=moved')
+        self.assertFalse(objects.exists())
+
+    def test_a_folder_from_an_earlier_version_starts_again(self):
+        objects = self.objects()
+        self.configure()
+        self.assertFalse(objects.exists())
+
+    def test_nothing_goes_on_from_a_configure_that_failed(self):
+        self.configure()
+        self.fail = True
+        with self.assertRaises(scummvm_build.ScummvmBuildError):
+            self.configure()
+        self.fail = False
+        objects = self.objects()
+        self.configure()
+        self.assertFalse(objects.exists())
+
+
+class WhatThePlayerReads(unittest.TestCase):
+    """What is missing and what to do, never a tool's own failure; the raw output stays in the log."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.log = Path(self.temp.name).resolve() / 'family.log'
+
+    def test_a_tool_that_fails_is_a_sentence_and_its_output_is_in_the_log(self):
+        import sys
+        with self.assertRaises(scummvm_build.ScummvmBuildError) as caught:
+            scummvm_build._run([sys.executable, '-c', 'print("raw output"); raise SystemExit(3)'], self.log.parent, self.log)
+        self.assertEqual(str(caught.exception), scummvm_build.BUILD_FAILED.format(log=self.log))
+        self.assertIn('raw output', self.log.read_text(encoding='utf-8'))
+
+    def test_a_missing_program_is_a_missing_tool_not_a_crash(self):
+        with self.assertRaises(scummvm_build.ScummvmToolsMissing) as caught:
+            scummvm_build._run(['no-such-program-of-retro-recomp'], self.log.parent, self.log)
+        self.assertIn('no-such-program-of-retro-recomp is missing', str(caught.exception))
+
+    def test_a_clone_that_fails_says_to_check_the_connection(self):
+        from unittest import mock
+        place = self.log.parent / 'scummvm'
+        with mock.patch.object(scummvm_build, '_run', side_effect=scummvm_build.ScummvmBuildError('git')):
+            with self.assertRaises(scummvm_build.ScummvmDownloadFailed) as caught:
+                scummvm_build._checkout(place, 'url', 'tag', 'wanted', self.log, lambda text: None)
+        self.assertEqual(str(caught.exception), scummvm_build.DOWNLOAD_FAILED.format(log=self.log))
+        self.assertEqual(caught.exception.key, 'scummvm_detect_offline')
+        self.assertFalse(place.exists())
+
+    def sdl(self, follow=None, build=None):
+        from unittest import mock
+        from retrorecomp import core
+        with mock.patch.object(core, 'toolchain', return_value=('cmake', 'Ninja')), \
+                mock.patch.object(core, 'follow_pin', side_effect=follow), mock.patch.object(core, 'ensure_sdl', side_effect=build), \
+                mock.patch('retrorecomp.platforms.sdl_install', return_value=self.log.parent):
+            scummvm_build._ensure_sdl(self.log, lambda text: None)
+
+    def test_the_sdl_of_a_first_use_says_the_same(self):
+        from retrorecomp.core import ConversionError, StopRequested
+        for text in ('Commande interrompue (128).\nfatal: unable to access', 'Impossible de récupérer la version épinglée de SDL'):
+            with self.assertRaises(scummvm_build.ScummvmDownloadFailed):
+                self.sdl(follow=ConversionError(text))
+        with self.assertRaises(scummvm_build.ScummvmBuildError) as caught:
+            self.sdl(build=ConversionError('Commande interrompue (1).\nCMake Error'))
+        self.assertEqual(str(caught.exception), scummvm_build.BUILD_FAILED.format(log=self.log))
+        with self.assertRaises(StopRequested):       # Stop stays Stop
+            self.sdl(build=StopRequested('stop'))
+
+    def test_a_folder_it_refuses_to_touch_keeps_its_own_sentence(self):
+        from retrorecomp.core import ConversionError
+        text = 'Le dossier SDL contient des modifications locales : il n’est ni utilisé ni remplacé.'
+        with self.assertRaises(scummvm_build.ScummvmBuildError) as caught:
+            self.sdl(follow=ConversionError(text))
+        self.assertEqual(str(caught.exception), text)
+        self.assertNotIsInstance(caught.exception, scummvm_build.ScummvmDownloadFailed)
+
+    def test_the_window_shows_them_in_each_language_after_the_title(self):
+        from retrorecomp.i18n import LANGUAGES, STRINGS, log_text, tr
+        self.assertEqual(scummvm_build.DOWNLOAD_FAILED, STRINGS['scummvm_download_failed'][0])
+        self.assertEqual(scummvm_build.BUILD_FAILED, STRINGS['scummvm_build_failed'][0])
+        for sentence, key in ((scummvm_build.DOWNLOAD_FAILED, 'scummvm_download_failed'),
+                              (scummvm_build.BUILD_FAILED, 'scummvm_build_failed')):
+            for code in LANGUAGES:
+                self.assertEqual(log_text('Sam : ' + sentence.format(log=r'C:\d\f.log'), code),
+                                 'Sam : ' + tr(key, code, log=r'C:\d\f.log'), code)
+
+    def test_a_scan_stopped_by_the_network_says_so(self):
+        from unittest import mock
+        from retrorecomp.i18n import LANGUAGES, catalog, tr
+        from retrorecomp.systems.scummvm import SCUMMVM
+        from retrorecomp.systems.registry import FolderDiscoveryUnavailable
+        for code in LANGUAGES[:2]:
+            self.assertNotEqual(tr('scummvm_detect_offline', code), 'scummvm_detect_offline')
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_detect_offline') for code in LANGUAGES[2:]))
+        with mock.patch.object(sx, 'find_game_folders', side_effect=scummvm_build.ScummvmDownloadFailed('no network')):
+            with self.assertRaises(FolderDiscoveryUnavailable) as caught:
+                SCUMMVM.find_folders(self.log.parent)
+        self.assertEqual(caught.exception.key, 'scummvm_detect_offline')
+
+    def test_a_conversion_that_builds_the_detection_says_so_in_its_log(self):
+        from unittest import mock
+        sx._DETECTED.clear()
+        self.addCleanup(sx._DETECTED.clear)
+        said = []
+
+        def build(family, emit, started=None):
+            emit('Compilation de ScummVM (detect)…')
+            return Path('fake-runtime')
+
+        with mock.patch.object(scummvm_build, 'build_runtime', side_effect=build), mock.patch.object(sx, 'detect', return_value=[]):
+            sx.candidates_of(self.log.parent, emit=said.append)
+        self.assertEqual(said, ['Compilation de ScummVM (detect)…'])
+
+    @unittest.skipUnless(os.name == 'nt', 'the portable tools are the Windows route')
+    def test_without_git_nothing_starts(self):
+        from unittest import mock
+        from retrorecomp import toolchain
+        with mock.patch.object(toolchain, 'select', return_value=mock.Mock(kind=toolchain.LLVM)), \
+                mock.patch.object(toolchain, 'portable_installed', return_value=True), \
+                mock.patch.object(scummvm_build.shutil, 'which', return_value=None):
+            with self.assertRaises(scummvm_build.ScummvmToolsMissing):
+                scummvm_build._require_portable_tools()
+
+
+class Pack(unittest.TestCase):
+    def test_a_pack_already_there_builds_nothing(self):
+        from unittest import mock
+        with mock.patch.object(scummvm_build, 'runtime_current', return_value=True), \
+                mock.patch.object(scummvm_build, 'build_runtime') as build:
+            self.assertFalse(scummvm_build.prepare_pack(lambda text: None))
+        build.assert_not_called()
+
+    def test_a_pack_absent_is_the_detection_runtime_built(self):
+        from unittest import mock
+        emit = lambda text: None
+        with mock.patch.object(scummvm_build, 'runtime_current', return_value=False), \
+                mock.patch.object(scummvm_build, 'build_runtime') as build:
+            self.assertTrue(scummvm_build.prepare_pack(emit))
+        build.assert_called_once_with(scummvm_build.DETECT_FAMILY, emit)
+
+    def test_its_steps_and_results_are_interface_strings(self):
+        from unittest import mock
+        from retrorecomp.i18n import STRINGS
+        from retrorecomp.systems.scummvm import SCUMMVM
+        steps = []
+
+        def prepare(emit):
+            for text in ('Téléchargement de scummvm v2026.4.0…', 'Téléchargement de SDL…', 'Application du correctif Retro-Recomp à ScummVM…',
+                         'Compilation de FreeType…', 'Mise à jour de SDL vers la version épinglée…',
+                         'Compilation de SDL2 statique (première utilisation)…', 'Préparation de ScummVM (detect)…'):
+                emit(text)
+            return True
+
+        with mock.patch.object(scummvm_build, 'prepare_pack', side_effect=prepare):
+            result = SCUMMVM.run_option_action('scummvm_pack', lambda key, **values: steps.append((key, values)))
+        self.assertEqual(result, 'scummvm_pack_done')
+        self.assertEqual(steps, [('tools_step_download', {'name': 'scummvm'}), ('tools_step_download', {'name': 'SDL'}),
+                                 ('scummvm_pack_compile', {}), ('scummvm_pack_compile', {}), ('deps_step_sdl_update', {}),
+                                 ('deps_step_sdl', {}), ('scummvm_pack_compile', {})])
+        for key, _values in steps:
+            self.assertIn(key, STRINGS)
+        with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False):
+            self.assertEqual(SCUMMVM.run_option_action('scummvm_pack', lambda key, **values: None), 'scummvm_pack_ready')
+
+    def test_the_strings_of_the_button_exist_in_every_language(self):
+        from retrorecomp.i18n import LANGUAGES, catalog
+        names = ('scummvm_pack', 'scummvm_pack_note', 'scummvm_pack_button', 'scummvm_pack_working', 'scummvm_pack_compile',
+                 'scummvm_pack_done', 'scummvm_pack_ready', 'tip_scummvm_pack', 'scummvm_download_failed', 'scummvm_build_failed')
+        for code in LANGUAGES[2:]:
+            for name in names:
+                self.assertTrue(catalog(code)['ui'].get(name), (code, name))
+
+
+@unittest.skipUnless(os.name == 'nt', 'a real window, as in test_dropfiles')
+class PackButton(unittest.TestCase):
+    """The button in a real window: Options, Consoles, Adventure (ScummVM). Nothing runs but its worker."""
+
+    def setUp(self):
+        import tkinter as tk
+        from unittest import mock
+        from retrorecomp.gui import Application
+        from tools.gui_patching import patch_gui
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        folder = Path(self.temp.name).resolve()
+        self.root = tk.Tk()
+        self.root.withdraw()
+        with patch_gui('load_preferences', return_value={}), patch_gui('preferred_games_root', return_value=(folder / 'exports', False)):
+            self.app = Application(self.root)
+        self.addCleanup(self.close_window)
+        self.app.save_preferences = mock.Mock()
+        self.app.ensure_build_tools = mock.Mock(return_value=True)
+        self.app.show_options()
+        ids = [system for system, _, _ in self.app.options_console_pages]
+        self.app.show_console_page(ids.index('scummvm'))
+        self.root.update()
+        self.button, self.bar, self.status = self.app.option_action_rows['scummvm_pack']
+
+    def close_window(self):
+        def widgets(parent):
+            yield parent
+            for child in parent.winfo_children():
+                yield from widgets(child)
+        owners = {name: widget for widget in widgets(self.root) for name in (widget._tclCommands or [])}
+        for job in self.root.tk.call('after', 'info'):
+            owners.get(self.root.tk.call('after', 'info', job)[0], self.root).after_cancel(job)
+        self.root.destroy()
+
+    def pump(self, until, seconds=20):
+        import time
+        deadline = time.monotonic() + seconds
+        while not until() and time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.01)
+        self.root.update()
+        self.assertTrue(until(), self.status.get())
+
+    def phase(self):
+        return self.app.option_actions.get('scummvm_pack', {}).get('phase')
+
+    def log(self):
+        self.app.drain()
+        return self.app.log.get('1.0', 'end')
+
+    def test_the_page_offers_the_button_and_says_nothing_before_it_is_used(self):
+        self.assertEqual(self.button.cget('text'), self.app.tr('scummvm_pack_button'))
+        self.assertEqual(self.status.get(), '')
+        self.assertFalse(self.bar.winfo_ismapped())
+
+    def test_it_runs_off_the_window_and_shows_each_step_then_the_result(self):
+        import threading
+        from unittest import mock
+        release = threading.Event()
+        self.addCleanup(release.set)
+
+        def prepare(emit):
+            emit('Téléchargement de scummvm v2026.4.0…')
+            release.wait(20)
+            return True
+
+        with mock.patch.object(scummvm_build, 'prepare_pack', side_effect=prepare):
+            self.button.invoke()
+            downloading = self.app.tr('tools_step_download', name='scummvm')
+            self.pump(lambda: self.status.get() == downloading)     # the window is being pumped while the worker waits
+            self.assertEqual(str(self.button.cget('state')), 'disabled')
+            self.assertEqual(self.phase(), 'working')
+            self.button.invoke()                                    # a second click starts nothing
+            self.app.set_controls(True)                             # nor does the end of something else enable the button
+            self.assertEqual(str(self.button.cget('state')), 'disabled')
+            self.assertIn(downloading, self.log())
+            release.set()
+            self.pump(lambda: self.phase() == 'done')
+            self.pump(lambda: self.status.get() == self.app.tr('scummvm_pack_done'))
+        self.assertEqual(str(self.button.cget('state')), 'normal')
+        self.assertFalse(self.bar.winfo_ismapped())
+        self.assertIn(self.app.tr('scummvm_pack_done'), self.log())
+
+    def test_it_says_when_the_pack_is_already_there(self):
+        from unittest import mock
+        with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False):
+            self.button.invoke()
+            self.pump(lambda: self.status.get() == self.app.tr('scummvm_pack_ready'))
+        self.assertEqual(str(self.button.cget('state')), 'normal')
+
+    def test_with_no_network_it_says_what_to_do_and_can_be_used_again(self):
+        from unittest import mock
+        failure = scummvm_build.ScummvmDownloadFailed(scummvm_build.DOWNLOAD_FAILED.format(log='family.log'))
+        with mock.patch.object(scummvm_build, 'prepare_pack', side_effect=failure):
+            self.button.invoke()
+            self.pump(lambda: self.status.get() == self.app.tr('scummvm_download_failed', log='family.log'))
+        self.assertEqual(str(self.button.cget('state')), 'normal')
+        self.assertIn(self.app.tr('scummvm_download_failed', log='family.log'), self.log())
+        with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False):
+            self.button.invoke()
+            self.pump(lambda: self.status.get() == self.app.tr('scummvm_pack_ready'))
+
+    def test_the_build_tools_come_first(self):
+        from unittest import mock
+        self.app.ensure_build_tools.return_value = False
+        with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False) as prepare:
+            self.button.invoke()
+            self.root.update()
+            prepare.assert_not_called()
+            self.assertIsNone(self.phase())
+            retry = self.app.ensure_build_tools.call_args.args[0]    # the tools are installed: the window calls it again
+            self.app.ensure_build_tools.return_value = True
+            retry()
+            self.pump(lambda: self.phase() == 'done')
+        prepare.assert_called_once()
+
+    def test_it_follows_the_language_and_a_reopened_page(self):
+        from unittest import mock
+        with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False):
+            self.button.invoke()
+            self.pump(lambda: self.phase() == 'done')
+        self.app.language = 'fr'
+        self.app.render_option_actions()
+        self.assertEqual(self.status.get(), self.app.tr('scummvm_pack_ready'))
+        self.app.close_options()
+        self.app.show_options()
+        self.root.update()
+        status = self.app.option_action_rows['scummvm_pack'][2]
+        self.assertEqual(status.get(), self.app.tr('scummvm_pack_ready'))
 
 
 class OptionsPage(unittest.TestCase):

@@ -416,6 +416,28 @@ STRINGS = {
                           "Préparation de la détection des dossiers ScummVM (téléchargement et compilation). La première fois, cela prend plusieurs minutes ; la fenêtre n'est pas bloquée."),
     'scummvm_detect_failed': ("ScummVM's folder detection could not be prepared (its build failed), so this folder was not searched. The build log is in the .deps folder of Retro-Recomp: scummvm-build/detect.log.",
                               "La détection des dossiers ScummVM n'a pas pu être préparée (sa compilation a échoué) : ce dossier n'a pas été exploré. Le journal est dans le dossier .deps de Retro-Recomp : scummvm-build/detect.log."),
+    'scummvm_pack': ("ScummVM pack",
+        "Pack ScummVM"),
+    'scummvm_pack_note': ("What adventure games need before their first conversion: ScummVM, FreeType and SDL are downloaded and compiled once on this computer, with the folder detection. It takes several minutes and about 1.5 GB. Optional: without it, the first folder you add fetches the same things.",
+        "Ce qu'il faut aux jeux d'aventure avant leur première conversion : ScummVM, FreeType et SDL sont téléchargés et compilés une fois sur cet ordinateur, avec la détection des dossiers. Cela prend plusieurs minutes et environ 1,5 Go. Facultatif : sans cela, le premier dossier ajouté récupère les mêmes éléments."),
+    'scummvm_pack_button': ("Download the ScummVM pack",
+        "Télécharger le pack ScummVM"),
+    'tip_scummvm_pack': ("Downloads and compiles what adventure games need, in the background. The window stays usable.",
+        "Télécharge et compile ce qu'il faut aux jeux d'aventure, en arrière-plan. La fenêtre reste utilisable."),
+    'scummvm_pack_working': ("Checking the ScummVM pack…",
+        "Vérification du pack ScummVM…"),
+    'scummvm_pack_compile': ("Compiling ScummVM's folder detection. This takes a few minutes; you can keep using the window.",
+        "Compilation de la détection des dossiers ScummVM. Cela prend quelques minutes ; tu peux continuer à utiliser la fenêtre."),
+    'scummvm_pack_done': ("ScummVM pack ready. The first conversion with each engine still compiles that engine once.",
+        "Pack ScummVM prêt. La première conversion avec chaque moteur compile encore ce moteur une fois."),
+    'scummvm_pack_ready': ("The ScummVM pack is already there: nothing to download.",
+        "Le pack ScummVM est déjà là : rien à télécharger."),
+    'scummvm_download_failed': ("ScummVM's files could not be downloaded. Check the internet connection, then try again. Details: {log}",
+        "Les fichiers de ScummVM n'ont pas pu être téléchargés. Vérifie la connexion à Internet, puis réessaie. Détails : {log}"),
+    'scummvm_build_failed': ("ScummVM could not be built on this computer, so nothing was converted. Try again; the details are in {log}",
+        "ScummVM n'a pas pu être compilé sur cet ordinateur : rien n'a été converti. Réessaie ; les détails sont dans {log}"),
+    'scummvm_detect_offline': ("ScummVM's folder detection could not be downloaded, so this folder was not searched. Check the internet connection, then add the folder again.",
+        "La détection des dossiers ScummVM n'a pas pu être téléchargée : ce dossier n'a pas été exploré. Vérifie la connexion à Internet, puis ajoute à nouveau le dossier."),
     'tip_scummvm_choice': ("0: a folder that matches several editions is refused and the editions are listed. 1 to 9: that edition of the list is used.", "0 : un dossier qui correspond à plusieurs éditions est refusé et les éditions sont listées. 1 à 9 : cette édition de la liste est utilisée."),
     'options_psx': ('Sony PlayStation', 'Sony PlayStation'),
     'options_psx_note': ('Experimental PlayStation profile: discs as EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) or ISO, NTSC and PAL, two players. Your own BIOS goes into the game; without one the free OpenBIOS is used. The native code comes from what the game was seen to run; the rest stays interpreted and counted. No BIOS is downloaded or supplied.', 'Profil PlayStation expérimental : disques en EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) ou ISO, NTSC et PAL, deux joueurs. Ton propre BIOS est mis dans le jeu ; sans BIOS, l’OpenBIOS libre est utilisé. Le code natif vient de ce que le jeu a été vu exécuter ; le reste reste interprété et compté. Aucun BIOS téléchargé ni fourni.'),
@@ -820,10 +842,24 @@ LOG_PATTERNS = [
     (r'^Le dossier (.*) contient des modifications locales : il n’est ni utilisé ni remplacé\. Annule-les, ou supprime le dossier pour qu’il soit téléchargé à nouveau\.$',
      r'The folder \1 has local changes: it is neither used nor replaced. Undo them, or delete the folder so that it is downloaded again.'),
     (r'^Version inattendue de (.*) : (.*)\. Attendu : (.*)\.$', r'Unexpected revision of \1: \2. Expected: \3.'),
+    # scummvm_build: the build of a runtime.
+    (r'^Téléchargement de (.*)…$', r'Downloading \1…'),
+    (r'^Application du correctif Retro-Recomp à ScummVM…$', r"Applying Retro-Recomp's patches to ScummVM…"),
+    (r'^Compilation de FreeType…$', r'Compiling FreeType…'),
+    (r'^Préparation de ScummVM \((.*)\)…$', r'Preparing ScummVM (\1)…'),
+    (r'^Compilation de ScummVM \((.*)\)…$', r'Compiling ScummVM (\1)…'),
 ]
+# Sentences a conversion raises in English, since a build module knows no language: the window shows them in the player's own,
+# with what comes before them on the line (the title of the game).
+LOG_SENTENCES = ('scummvm_download_failed', 'scummvm_build_failed')
 
 
 def log_text(text: str, language: str = 'en') -> str:
+    for key in LOG_SENTENCES:
+        start, _, end = STRINGS[key][0].partition('{log}')
+        before, found, rest = text.partition(start)
+        if found and rest.endswith(end):
+            return before + tr(key, language, log=rest[:len(rest) - len(end)] if end else rest)
     if language == 'fr':
         return text
     if text in LOG_TRANSLATIONS:

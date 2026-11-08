@@ -62,12 +62,25 @@ DETECT_ENGINES = ('lure',)
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 
+# What the player reads when a build stops. The window shows them in its language: i18n.log_text finds each one by its English
+# text, which is the 'scummvm_download_failed' and 'scummvm_build_failed' of its catalogue. The raw output stays in the log.
+DOWNLOAD_FAILED = "ScummVM's files could not be downloaded. Check the internet connection, then try again. Details: {log}"
+BUILD_FAILED = "ScummVM could not be built on this computer, so nothing was converted. Try again; the details are in {log}"
+
+
 class ScummvmBuildError(RuntimeError):
-    pass
+    """`key`: the interface sentence of a folder scan that this stopped (the conversion of one game shows the text itself)."""
+    key = 'scummvm_detect_failed'
 
 
 class ScummvmToolsMissing(ScummvmBuildError):
     """The build tools are not installed: nothing was started (discovery and the interface answer with a sentence)."""
+    key = 'scummvm_tools_missing'
+
+
+class ScummvmDownloadFailed(ScummvmBuildError):
+    """A pinned source could not be fetched: no network, most of the time."""
+    key = 'scummvm_detect_offline'
 
 
 def family_for(engine: str) -> str:
@@ -196,9 +209,9 @@ def _require_portable_tools() -> None:
         kind = select().kind
     except ToolchainError:
         kind = ''
-    if kind != LLVM or not portable_installed():
+    if kind != LLVM or not portable_installed() or not shutil.which('git', path=_environment()['PATH']):
         raise ScummvmToolsMissing('The ScummVM runtime is built with the portable tools Retro-Recomp installs '
-                                  '(llvm-mingw, CMake, Ninja): install them from the converter, Visual Studio is not used.')
+                                  '(Git, llvm-mingw, CMake, Ninja): install them from the converter, Visual Studio is not used.')
 
 
 def _run(command: list, cwd: Path, log: Path, timeout: int = 3600) -> str:
@@ -209,14 +222,50 @@ def _run(command: list, cwd: Path, log: Path, timeout: int = 3600) -> str:
     if not os.path.dirname(program):
         # Windows resolves a bare program name with the PATH of this process, not the one given to the child.
         program = shutil.which(program, path=env['PATH']) or program
-    result = subprocess.run([program, *(str(part) for part in command[1:])], cwd=cwd, env=env, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', timeout=timeout,
-                            creationflags=NO_WINDOW)
+    try:
+        result = subprocess.run([program, *(str(part) for part in command[1:])], cwd=cwd, env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', timeout=timeout,
+                                creationflags=NO_WINDOW)
+    except FileNotFoundError as exc:
+        raise ScummvmToolsMissing(f"{Path(program).name} is missing. Retro-Recomp's build tools install it: start a "
+                                  'conversion from the window, or use the ScummVM pack button in its options.') from exc
+    except (OSError, subprocess.SubprocessError) as exc:
+        with open(log, 'a', encoding='utf-8', errors='replace') as out:
+            out.write(f'{exc}\n')
+        raise ScummvmBuildError(BUILD_FAILED.format(log=log)) from exc
     with open(log, 'a', encoding='utf-8', errors='replace') as out:
         out.write(result.stdout)
     if result.returncode != 0:
-        raise ScummvmBuildError(f'{Path(str(command[0])).name} failed ({result.returncode}); see {log}')
+        with open(log, 'a', encoding='utf-8', errors='replace') as out:
+            out.write(f'{Path(program).name} failed ({result.returncode})\n')
+        raise ScummvmBuildError(BUILD_FAILED.format(log=log))
     return result.stdout
+
+
+def _configure(cmake, source: Path, build: Path, generator: str, flags: list, cwd: Path, log: Path) -> None:
+    """Configure `build`, in a folder that this same command made with these same compilers, or in a new one.
+
+    A CMake cache belongs to the folders and the compiler it was made with. When the compiler name now resolves to another
+    folder (the converter moved, or another copy of it made the build), CMake deletes the cache and goes on without the -D values
+    of its command line: SDL2_DIR and CMAKE_PREFIX_PATH are lost and find_package(SDL2) fails. When the source moved, it refuses.
+    Another command's folder is removed, objects included: they came from the other compiler."""
+    command = [cmake, '-S', source, '-B', build, '-G', generator, *flags]
+    path = _environment()['PATH']
+    wanted = _json({'command': [str(part) for part in command],
+                    'compilers': [shutil.which(name, path=path) for name in (('clang', 'clang++') if os.name == 'nt'
+                                                                             else ('cc', 'c++'))]})
+    marker = build / '.retrorecomp-configure'
+    try:
+        same = marker.read_text(encoding='utf-8') == wanted
+    except OSError:
+        same = False
+    if same:
+        marker.unlink()          # a configure that fails here leaves a cache nothing should go on from
+    elif build.exists():
+        shutil.rmtree(build, onexc=_make_writable)
+    _run(command, cwd, log)
+    build.mkdir(parents=True, exist_ok=True)
+    marker.write_text(wanted, encoding='utf-8')
 
 
 def _make_writable(function, path, _error) -> None:
@@ -246,7 +295,12 @@ def _checkout(path: Path, url: str, tag: str, revision: str, log: Path, emit: Ca
         try:
             if partial.exists():
                 shutil.rmtree(partial, onexc=_make_writable)
-            _run(['git', 'clone', '--depth', '1', '--branch', tag, url, partial], deps_directory(), log)
+            try:
+                _run(['git', 'clone', '--depth', '1', '--branch', tag, url, partial], deps_directory(), log)
+            except ScummvmToolsMissing:
+                raise
+            except ScummvmBuildError as exc:
+                raise ScummvmDownloadFailed(DOWNLOAD_FAILED.format(log=log)) from exc
             if path.is_dir() and not any(path.iterdir()):
                 path.rmdir()
             _rename_retrying(partial, path)
@@ -299,17 +353,19 @@ def _trim_resources(tree: Path, log: Path) -> None:
     trimmed.replace(fonts)
 
 
-def _build_freetype(log: Path) -> Path:
+def _build_freetype(log: Path, emit: Callable[[str], None] = print) -> Path:
     prefix = build_root() / 'freetype-install'
     if (prefix / 'lib' / 'libfreetype.a').exists():
         return prefix
+    emit('Compilation de FreeType…')
     build = build_root() / 'freetype-build'
     from .core import toolchain
     cmake, generator = toolchain()
-    _run([cmake, '-S', freetype_checkout(), '-B', build, '-G', generator, '-DCMAKE_BUILD_TYPE=Release',
-          *(['-DCMAKE_C_COMPILER=clang'] if os.name == 'nt' else []), f'-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}',
-          '-DBUILD_SHARED_LIBS=OFF', '-DFT_DISABLE_ZLIB=ON', '-DFT_DISABLE_BZIP2=ON', '-DFT_DISABLE_PNG=ON',
-          '-DFT_DISABLE_HARFBUZZ=ON', '-DFT_DISABLE_BROTLI=ON'], build_root(), log)
+    _configure(cmake, freetype_checkout(), build, generator,
+               ['-DCMAKE_BUILD_TYPE=Release', *(['-DCMAKE_C_COMPILER=clang'] if os.name == 'nt' else []),
+                f'-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}', '-DBUILD_SHARED_LIBS=OFF', '-DFT_DISABLE_ZLIB=ON',
+                '-DFT_DISABLE_BZIP2=ON', '-DFT_DISABLE_PNG=ON', '-DFT_DISABLE_HARFBUZZ=ON', '-DFT_DISABLE_BROTLI=ON'],
+               build_root(), log)
     _run([cmake, '--build', build, '--config', 'Release'], build_root(), log)
     _run([cmake, '--install', build, '--config', 'Release'], build_root(), log)
     return prefix
@@ -353,8 +409,38 @@ def _ensure_sdl(log: Path, emit: Callable[[str], None]) -> None:
     from .platforms import sdl_install
     cmake, generator = core.toolchain()
     sdl = deps_directory() / 'SDL'
-    core.follow_pin(sdl, 'https://github.com/libsdl-org/SDL.git', core.SDL_REV, log, emit)
-    core.ensure_sdl(cmake, generator, sdl, sdl_install(), log, emit)
+    try:
+        core.follow_pin(sdl, 'https://github.com/libsdl-org/SDL.git', core.SDL_REV, log, emit)
+    except core.StopRequested:
+        raise
+    except core.ConversionError as exc:
+        # A failed git command, or a fetch that says so. A folder it refuses to touch keeps its own sentence (what to do with it).
+        if str(exc).startswith(('Commande interrompue', 'Impossible de récupérer')):
+            raise ScummvmDownloadFailed(DOWNLOAD_FAILED.format(log=log)) from exc
+        raise ScummvmBuildError(str(exc)) from exc
+    try:
+        core.ensure_sdl(cmake, generator, sdl, sdl_install(), log, emit)
+    except core.StopRequested:
+        raise
+    except core.ConversionError as exc:
+        raise ScummvmBuildError(BUILD_FAILED.format(log=log)) from exc
+
+
+def runtime_current(family: str) -> bool:
+    """Whether the runtime of a family is built, from these sources and these patches."""
+    out = runtime_path(family)
+    stamp = out.with_suffix('.json')
+    return out.exists() and stamp.exists() and stamp.read_text(encoding='utf-8') == _json(runtime_identity(family))
+
+
+def prepare_pack(emit: Callable[[str], None] = print) -> bool:
+    """The ScummVM pack: what adventure games need before their first conversion, made ahead of time. The pinned sources of
+    ScummVM, FreeType and SDL, FreeType and SDL built, and the detection runtime, which is what a folder scan waits for. False
+    when it is already there. The runtime of an engine family is still built by the first conversion that needs it."""
+    if runtime_current(DETECT_FAMILY):
+        return False
+    build_runtime(DETECT_FAMILY, emit)
+    return True
 
 
 def build_runtime(family: str, emit: Callable[[str], None] = print, started: Callable[[], None] | None = None) -> Path:
@@ -367,8 +453,7 @@ def build_runtime(family: str, emit: Callable[[str], None] = print, started: Cal
 def _build_runtime(family: str, emit: Callable[[str], None], started: Callable[[], None] | None = None) -> Path:
     out = runtime_path(family)
     stamp = out.with_suffix('.json')
-    identity = runtime_identity(family)
-    if out.exists() and stamp.exists() and stamp.read_text(encoding='utf-8') == _json(identity):
+    if runtime_current(family):
         return out
     _require_portable_tools()
     if started is not None:
@@ -378,7 +463,7 @@ def _build_runtime(family: str, emit: Callable[[str], None], started: Callable[[
     log = root / f'{family}.log'
     log.write_text('', encoding='utf-8')
     tree = prepare_sources(log, emit)
-    freetype = _build_freetype(log)
+    freetype = _build_freetype(log, emit)
     _ensure_sdl(log, emit)
     create_project = _host_tool('create_project', sorted((tree / 'devtools/create_project').glob('*.cpp')), log)
     family_dir = root / family
@@ -399,14 +484,15 @@ def _build_runtime(family: str, emit: Callable[[str], None], started: Callable[[
     cmake, generator = toolchain()
     build = family_dir / 'build'
     emit(f'Compilation de ScummVM ({family})…')
-    _run([cmake, '-S', config, '-B', build, '-G', generator, '-DCMAKE_BUILD_TYPE=Release',
-          *(['-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++', '-DCMAKE_EXE_LINKER_FLAGS=-static']
-            if os.name == 'nt'
-            # Linux: the generated CMake asks pkg-config for SDL (a hard REQUIRED) before find_package; the converter's own
-            # SDL and FreeType are reached through the shim and the prefix, as on Windows (which has no pkg-config).
-            else ['-DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE']),
-          f'-DCMAKE_PREFIX_PATH={freetype.as_posix()}', f'-DSDL2_DIR={_sdl_shim(family_dir / "sdl2").as_posix()}'],
-         root, log)
+    _configure(cmake, config, build, generator,
+               ['-DCMAKE_BUILD_TYPE=Release',
+                *(['-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++', '-DCMAKE_EXE_LINKER_FLAGS=-static']
+                  if os.name == 'nt'
+                  # Linux: the generated CMake asks pkg-config for SDL (a hard REQUIRED) before find_package; the converter's own
+                  # SDL and FreeType are reached through the shim and the prefix, as on Windows (which has no pkg-config).
+                  else ['-DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE']),
+                f'-DCMAKE_PREFIX_PATH={freetype.as_posix()}', f'-DSDL2_DIR={_sdl_shim(family_dir / "sdl2").as_posix()}'],
+               root, log)
     _run([cmake, '--build', build, '--config', 'Release'], root, log, timeout=7200)
     built = build / ('scummvm' + ('.exe' if os.name == 'nt' else ''))
     strip = 'llvm-strip' if os.name == 'nt' else 'strip'

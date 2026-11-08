@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import online
 from .paths import APP_NAME, save_preferences, selected_bios_path, console_options
-from .i18n import STRINGS
+from .i18n import STRINGS, log_text
 from .languages import language_code
 from .cover_settings import (
     FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings,
@@ -275,7 +275,8 @@ class OptionsMixin:
     def build_console_tab(self, profile, tab, checkbox):
         """The options page of one machine, read from its profile: the scan level, the on/off options it declares
         (OptionKey 'flag' with a label), its note, the firmware files and choices it declares ('path', 'choice'),
-        then the ROM and feedback folders. Only how the page is laid out comes from PAGE_LAYOUT."""
+        the long tasks it offers ('action'), then the ROM and feedback folders. Only how the page is laid out comes
+        from PAGE_LAYOUT."""
         layout = PAGE_LAYOUT.get(profile.id, {})
         page = tab(profile.options_tab)
         self.build_scan_options(page, profile.id)
@@ -296,6 +297,9 @@ class OptionsMixin:
         for key in profile.option_keys:
             if key.kind == 'choice':
                 self.build_choice_row(page, key)
+        for key in profile.option_keys:
+            if key.kind == 'action':
+                self.build_action_row(page, profile, key)
         self.build_feedback_options(page, profile.id)
 
     def option_text(self, label):
@@ -337,6 +341,84 @@ class OptionsMixin:
                                state='readonly')
         control.pack(anchor='w')
         self.option_controls.append((control, 'readonly'))
+
+    def build_action_row(self, page, profile, key):
+        """A long task a machine offers (OptionKey 'action'; the strings are named after its label): a note, a button, then
+        what it is doing and how it ended. It runs off Tk, so the window stays usable; reopening the options finds it running."""
+        section = ttk.LabelFrame(page, text=self.tr(key.label), padding=12)
+        section.pack(fill='x', pady=(12, 0))
+        ttk.Label(section, text=self.tr(key.label + '_note'), style='Muted.TLabel', wraplength=840,
+                  justify='left').pack(anchor='w', pady=(0, 10))
+        row = ttk.Frame(section)
+        row.pack(fill='x')
+        button = ttk.Button(row, text=self.tr(key.label + '_button'),
+                            command=lambda: self.start_option_action(profile, key))
+        button.pack(side='left')
+        self.hint(button, key.hint)
+        bar = ttk.Progressbar(row, mode='indeterminate', length=180)
+        status = tk.StringVar()
+        ttk.Label(section, textvariable=status, style='Muted.TLabel', wraplength=840,
+                  justify='left').pack(anchor='w', pady=(8, 0))
+        self.option_action_rows[key.name] = (button, bar, status)
+        self.render_option_actions()
+
+    def start_option_action(self, profile, key):
+        """The button of an 'action' option: what it needs is what a conversion needs, so the build tools come first."""
+        state = self.option_actions.get(key.name)
+        if self.busy or self.updating or (state and state['phase'] == 'working'):
+            return
+        if not self.ensure_build_tools(lambda: self.start_option_action(profile, key)):
+            return
+        state = self.option_actions[key.name] = {'phase': 'working', 'key': key.label + '_working', 'values': {}, 'error': ''}
+
+        def step(text_key, **values):
+            state.update(key=text_key, values=values)
+
+        def worker():
+            try:
+                state.update(key=profile.run_option_action(key.name, step), values={}, phase='done')
+            except Exception as exc:         # the window says what stopped it: never a worker that ends in silence
+                state.update(error=str(exc) or type(exc).__name__, phase='failed')
+
+        logged = [None]
+
+        def poll():
+            text = self.option_action_text(state)
+            if text != logged[0]:
+                logged[0] = text
+                self.messages.put(('log', text))
+                self.render_option_actions()
+            if state['phase'] == 'working':
+                self.app.after(250, poll)
+            else:
+                self.render_option_actions()
+
+        threading.Thread(target=worker, daemon=True).start()
+        poll()
+
+    def option_action_text(self, state):
+        if state['phase'] == 'failed':
+            return log_text(state['error'], self.language)
+        return self.tr(state['key'], **state['values'])
+
+    def render_option_actions(self):
+        """The buttons of the 'action' options, from their state (after a change of language or of what is allowed too)."""
+        for name, (button, bar, status) in getattr(self, 'option_action_rows', {}).items():
+            state = self.option_actions.get(name)
+            working = bool(state) and state['phase'] == 'working'
+            try:
+                if not button.winfo_exists():
+                    continue
+                status.set(self.option_action_text(state) if state else '')
+                button.configure(state='disabled' if working or self.busy or self.updating else 'normal')
+                if working:
+                    bar.pack(side='left', padx=(12, 0))
+                    bar.start(12)
+                else:
+                    bar.stop()
+                    bar.pack_forget()
+            except tk.TclError:
+                pass
 
     def build_feedback_options(self, page, system):
         section = ttk.LabelFrame(page,text=self.tr('rom_folder'),padding=10)

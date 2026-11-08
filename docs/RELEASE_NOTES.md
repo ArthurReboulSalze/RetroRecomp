@@ -34,9 +34,17 @@
   with nothing on screen, and looked like an endless scan (1.7.0 too). The build now lives in `.deps` beside the
   converter and is made once. While it runs the window says so, in the status line and the log (eight languages);
   its first time takes several minutes. Closing the window during the download no longer leaves a broken checkout.
+- **ScummVM pack.** Options, Consoles, Adventure (ScummVM) has a button that fetches and compiles what adventure games need
+  before their first conversion, in the background. It shows each step and the result, says when the pack is already there,
+  and says to check the connection when there is no network (eight languages). A conversion still fetches what is missing by itself.
+- **A CMake error on a ScummVM conversion.** Rebuilding an engine's runtime in a build folder made with the compiler at another
+  place (the converter moved, or another copy of it made the build) stopped on CMake's search for SDL2. That folder now starts
+  again. A build that stops says what is missing and what to do; the tool's own output stays in the log. Without Git, the window
+  now says the tools are missing instead of failing.
 - **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
   `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
-  changes, so no other export is converted again.
+  changes, so no other export is converted again. The pack and the CMake fix move those two again, and only those
+  (game `566ba9a2ef3c` to `73d9fdff6a92`, build `fd819f80e824` to `de9fefa86a8b`).
   An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
   effects until it is converted again.
 

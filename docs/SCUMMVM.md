@@ -38,6 +38,20 @@ when the exe is in `Export/`), and kept. The window says so as soon as that buil
 log. The paths of the build come from `retrorecomp/paths.py`, never from a module's own file: a packaged exe runs its modules
 from a temporary folder removed when it closes (`PackagedExe` in `tests/test_scummvm_export.py`).
 
+**The pack.** Options, Consoles, Adventure (ScummVM) has a button (an `OptionKey` of kind `action`, `run_option_action`
+of this profile) that makes ahead of time what a first use would: the build tools if they are missing, the pinned sources of
+ScummVM, FreeType and SDL, FreeType and SDL built, and the detection runtime. It runs off the window's thread, and it says so
+when the pack is already there. The runtime of an engine family is not part of it: the first conversion with that family builds it.
+
+**When a build stops.** A failed download says to check the connection, a failed build says where its log is, and a missing
+program says the tools are missing; the raw output of the tools stays in `.deps/scummvm-build/<family>.log`. These sentences are
+raised in English and shown in the window's language by `i18n.log_text`.
+
+**A build folder belongs to one configuration.** `_configure` records the CMake command and the compilers it resolved in
+`build/.retrorecomp-configure`, and removes a folder made any other way. Without that, a bare `clang` that resolves to another
+folder makes CMake delete its cache and go on without the `-D` values of its command line: `SDL2_DIR` is lost and
+`find_package(SDL2)` stops the build. Sam & Max met this in the packaged exe on 8 November 2026.
+
 ## The exported game
 
 Started with no argument, `<Game>.exe` runs its game. Next to it, `datas/` has the same structure as for every machine:
