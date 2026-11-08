@@ -109,23 +109,23 @@ any of them.
 
 | Machine | Game stamp (v1.7.0, now) | Host stamp (v1.7.0, now) | Build stamp |
 | --- | --- | --- | --- |
-| Master System | `ffb447e12968`, `ac17f3b7f4f5` | `4c698ce40729`, `1d81e0239a18` | `fe2d99b3cd5e` (same) |
-| Game Gear | `9f3d2cd547bb`, `a250c6369a98` | `9e302b729213`, `95eca500eaf2` | `f5671c38cf26` (same) |
-| Game Boy | `1c847126de1d`, `c3ebd5a20379` | `d03f39763f54`, `673b4bb363db` | `819a054ad881` (same) |
-| NES | `88240b6d2e3b`, `b7d4bc713a58` | `a91c8c6c0d28`, `e8d1628945c9` | `8e0941f93b43` (same) |
-| Mega Drive | `3c62c2e5c7a3`, `16b75838c960` | `b45d74b5e78f`, `ea63d23e1fca` | `9615ff2e96c8` (same) |
-| Super Nintendo | `0bc2b194ed99`, `2bfb9796116e` | `ebe78ef356a1`, `4c8d71f37bf3` | `3f0a58ad3c7c` (same) |
-| Neo Geo | `328279cbfc1c`, `78178ab816e2` | `098ae12034e1`, `e27c023e5ba4` | `110349f043bd` (same) |
-| X68000 | `d42bb1882a76`, `358beb258c80` | `4cc410c21d5a`, `eb3c4c50dec2` | `5903c0449429` (same) |
-| CPS-1 | `b2ef983bc3fd`, `c5891dc16283` | `ff2e8295501f`, `2b88568dbd51` | `2782cd370f91` (same) |
-| CPS-2 | `71a11548e45d`, `e4946514b291` | `7f31bbdfb091`, `c1210f0aa34e` | `81a51ad49349` (same) |
-| PC Engine / TurboGrafx-16 | `78f5641c38ec`, `80aab1f7765c` | `bdcc346995e1`, `e05702e59dfe` | `66d912662e5c` (same) |
-| Game Boy Advance | `05e06c23687a`, `23eaeffd6202` | `f94b7ff7c92f`, `efdde4bce8a0` | `6b70933a9b0a` (same) |
-| Amiga | `ff35e3b8af69`, `b0533dd74d03` | `136af9f804ed`, `a9bb67f8bec9` | `92ca8a0c142c` (same) |
-| Atari ST | new, `35cc8520f1c1` | new, `646132cfbaca` | new, `54b75964897d` |
-| Nintendo 64 | new, `6d4336661f92` | new, `4cecea150992` | new, `4f6fedf926c7` |
-| Adventure (ScummVM) | `be8047b230ac`, `566ba9a2ef3c` | `4a96d24af08d`, `d14de71b0ff3` | `97d9ad0da628`, `fd819f80e824` |
-| Sony PlayStation | new, `cb37f9e885cb` | new, `d75433ec7f13` | new, `b6c9cf73b176` |
+| Master System | `ffb447e12968`, `63c93fcb0264` | `4c698ce40729`, `62a7e9f65d83` | `fe2d99b3cd5e` (same) |
+| Game Gear | `9f3d2cd547bb`, `70eafce5937a` | `9e302b729213`, `fa5e7fa22b05` | `f5671c38cf26` (same) |
+| Game Boy | `1c847126de1d`, `b218f94d2c75` | `d03f39763f54`, `2a0942586a4a` | `819a054ad881` (same) |
+| NES | `88240b6d2e3b`, `af5a3a096738` | `a91c8c6c0d28`, `39c36bfa861a` | `8e0941f93b43` (same) |
+| Mega Drive | `3c62c2e5c7a3`, `ed3a49ab59a8` | `b45d74b5e78f`, `8f4324fbcb85` | `9615ff2e96c8` (same) |
+| Super Nintendo | `0bc2b194ed99`, `064bd8544d76` | `ebe78ef356a1`, `d35383911455` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `328279cbfc1c`, `b45ca489a2c9` | `098ae12034e1`, `f1fde4b7a652` | `110349f043bd` (same) |
+| X68000 | `d42bb1882a76`, `107b51de2145` | `4cc410c21d5a`, `55ac9db11502` | `5903c0449429` (same) |
+| CPS-1 | `b2ef983bc3fd`, `28dd85714948` | `ff2e8295501f`, `0220746ac9ad` | `2782cd370f91` (same) |
+| CPS-2 | `71a11548e45d`, `cb7b5d304275` | `7f31bbdfb091`, `7889559074ad` | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `78f5641c38ec`, `ebcbc2a403cd` | `bdcc346995e1`, `3da7363bd893` | `66d912662e5c` (same) |
+| Game Boy Advance | `05e06c23687a`, `1658c523234f` | `f94b7ff7c92f`, `7b18d021f143` | `6b70933a9b0a` (same) |
+| Amiga | `ff35e3b8af69`, `ba01a0a7e76e` | `136af9f804ed`, `b264a452712e` | `92ca8a0c142c` (same) |
+| Atari ST | new, `4ec00951397a` | new, `f8a69516f53e` | new, `54b75964897d` |
+| Nintendo 64 | new, `ec87144eb331` | new, `3c4f6ccca458` | new, `4f6fedf926c7` |
+| Adventure (ScummVM) | `be8047b230ac`, `42dfc172e91c` | `4a96d24af08d`, `82088d749a09` | `97d9ad0da628`, `05417bbcea96` |
+| Sony PlayStation | new, `e89ec852740d` | new, `5dbdb5df79ca` | new, `b6c9cf73b176` |
 
 (First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.0, on every machine, is converted again, from its qualified paths, once, when the
 player updates**, and the window offers it; it is not a quick host-only upgrade.
