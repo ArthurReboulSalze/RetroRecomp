@@ -5,6 +5,11 @@ makes a playable game whose R3000A code, as far as the conversion saw it run, is
 interpreter and is counted and reported. This page says what it converts, how, and what it does not claim. The five measures
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
 
+**What "native" means here.** The game runs on a complete emulator core inside the executable, Beetle PSX, with its machine, its chips and their timing. Only the R3000A
+instructions that the conversion saw running become native steps, and each step calls the core's own instruction handlers behind a guard: it is not a standalone translation of the
+game. The GTE, the GPU, the SPU and the CD-ROM controller stay the core's own code. So the native share below measures how much CPU code avoids the core's interpreter; it cannot be
+compared with the figures of a machine whose game code is translated, and it says nothing about hardware fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core).
+
 ## 1. What is converted
 
 - **Discs as the player gives them**, read in place and never changed: a PS1 Classics EBOOT (`.pbp`, one to five discs), a CUE

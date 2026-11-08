@@ -78,6 +78,23 @@ RAM variants can use the corrected reference interpreter. Fallback cycles,
 in-memory dispatch observations and the window title make that use visible. Fullscreen
 does not overlay interpreter diagnostics on gameplay.
 
+## Machines that run on an emulator core
+
+Most machines are recompiled: the converter translates the game's own code into C, and the game is that C plus a small hardware runtime. Four machines work differently: the
+**Sony PlayStation**, the **Nintendo 64**, the **Atari ST** and the **Commodore Amiga** (the adventure games of ScummVM are emulated outright, with no native code at all). The game
+executable holds a **complete emulator core**, with its machine, its chips and their timing: Beetle PSX; Mupen64Plus-Next with ParaLLEl-RSP and ParaLLEl-RDP; Hatari; vAmiga with the
+Moira 68000. The converter watches the game run on the core's interpreter and keeps the main CPU's instructions it saw executing. Each straight run of them becomes a "native" step or
+block: a piece of C in which every instruction is a call to **the core's own handler** for that instruction, with the opcode fixed (decoded once, at conversion time), behind a guard.
+The step runs only when the words the CPU really fetches are the words it was made for; for any other code, and for code never seen, the core's interpreter runs and is counted.
+
+This is **not a standalone translation of the game**. Everything that is not the main CPU stays the core's own code: on the PlayStation the GTE, the GPU, the SPU and the CD-ROM
+controller; on the Nintendo 64 the RSP, whose microcode ParaLLEl-RSP recompiles at run time, and the RDP, which runs on the graphics card through Vulkan; on the Atari ST and the Amiga
+the video, sound, disk and custom chips of Hatari and of vAmiga.
+
+**How to read the native share of these four machines.** It measures how much of the main CPU's code avoids the core's interpreter. It cannot be compared with the native share of a
+machine whose game code is translated (the same percentage means something else there), and it says nothing about hardware fidelity, which is the core's and is not measured here. The
+five measures stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
+
 ## Report schema 2
 
 Seven converters write `conversion-report.json` in seven shapes: Master System
