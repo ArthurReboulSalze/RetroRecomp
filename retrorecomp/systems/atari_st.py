@@ -7,7 +7,7 @@ What it converts: a game on the floppy images of a plain ST, STF or Mega ST (IPF
 holds only them), run on Hatari (GPL-2.0, its cycle-exact 68000) with the player's own TOS 1.00-1.04 or EmuTOS. The 68000
 instructions it is seen running (RAM, TOS ROM, cartridge area) become guarded native steps that call Hatari's own handler of their
 opcode; the rest runs on Hatari's interpreter, counted. Not yet:
-the STE, the Mega STE, the TT and the Falcon, hard disks, the monochrome monitor, Linux.
+the STE, the Mega STE, the TT and the Falcon, hard disks, the monochrome monitor.
 """
 from pathlib import Path
 

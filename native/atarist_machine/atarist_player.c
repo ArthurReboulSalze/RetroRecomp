@@ -43,6 +43,7 @@ static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed, verbose;
 static unsigned dump_at;
 static const char *dump_path, *opcode_map_path, *opcode_lengths_path;
+static char writes_path[PATH_CAP];
 
 static void fail(const char *message) {
    if (!failed) fprintf(stderr, "%s\n", message ? message : "failed");
@@ -106,6 +107,7 @@ static int state_load(const char *slot) {
 }
 
 static void live_test_tick(unsigned frame);
+static void writes_tick(bool now);
 #include "hostkit/adapters/rrhk_atarist.inc"
 
 /* Makes every folder of `path` (UTF-8). */
@@ -187,6 +189,50 @@ static void write_trace_line(FILE *trace) {
    for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.d[r]);
    for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.a[r]);
    fputc('\n', trace);
+}
+
+/* ---- what the game wrote to its disks: one file per game, beside its quick state ----
+ * The game's own saves survive without F8/F9. Written in a temporary file then moved, once the game has written nothing for half
+ * a second and at exit. A file that is not valid is kept aside as `<name>.unusable-N` and the game starts from its disks: a
+ * damaged save never blocks a game. */
+static void writes_load(void) {
+   uint32_t size;
+   uint8_t *data;
+   wchar_t from[PATH_CAP], to[PATH_CAP];
+   char aside[PATH_CAP + 32];
+   int n;
+   if (!writes_path[0] || !(data = read_file(writes_path, &size))) return;
+   n = rr_st_writes_restore(session, data, size);
+   free(data);
+   if (!n) return;
+   fprintf(stderr, "The saved disk writes are not valid: kept aside, the game starts from its disks.\n");
+   for (n = 1; n < 1000; n++) {
+      FILE *probe;
+      snprintf(aside, sizeof aside, "%s.unusable-%d", writes_path, n);
+      if ((probe = open_utf8(aside, L"rb"))) { fclose(probe); continue; }
+      if (rr_from_utf8(writes_path, from, PATH_CAP) && rr_from_utf8(aside, to, PATH_CAP)) rr_replace(from, to);
+      break;
+   }
+}
+
+static void writes_save(void) {
+   uint8_t *data;
+   size_t size = rr_st_writes_serialize(session, &data);
+   char temporary[PATH_CAP + 8];
+   wchar_t from[PATH_CAP], to[PATH_CAP];
+   FILE *f;
+   bool ok;
+   if (!size) return;
+   snprintf(temporary, sizeof temporary, "%s.tmp", writes_path);
+   if (!(f = open_utf8(temporary, L"wb"))) { free(data); return; }
+   ok = fwrite(data, 1, size, f) == size;
+   free(data);
+   if (fclose(f) || !ok || !rr_from_utf8(temporary, from, PATH_CAP) || !rr_from_utf8(writes_path, to, PATH_CAP) || !rr_replace(from, to))
+      fprintf(stderr, "The disk writes could not be saved.\n");
+}
+
+static void writes_tick(bool now) {
+   if (writes_path[0] && rr_st_writes_pending(session, now ? 0 : 25)) writes_save();
 }
 
 static bool write_capture(const char *path);
@@ -312,10 +358,12 @@ static int run_headless(const char *trace_path, const char *report_path, const c
          if (d) { fwrite(ram, 1, ram_size, d); fclose(d); }
       }
       while (rr_st_audio(session, pcm, 4096)) {}
+      writes_tick(false);
       if (save_at && info.frame == save_at && state_save(state_slot, probe)) {
          fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
       }
    }
+   writes_tick(true);
    rate = (unsigned)rr_st_refresh_rate(session);
    if (trace && fclose(trace)) { fail("Cannot write the trace"); return 1; }
    if (capture_path && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
@@ -339,11 +387,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       rr_st_picture(session, &w, &h, &stride);
       fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
-                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s}\n",
+                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"disk_writes\":%u}\n",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
-              rr_st_desktop_started(session) ? "true" : "false");
+              rr_st_desktop_started(session) ? "true" : "false", rr_st_writes_count(session));
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
@@ -422,7 +470,7 @@ int main(int argc, char **argv) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
               "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
               "an exported game that boots EmuTOS: --write-sources DIR (writes EmuTOS's source archive there)\n"
-              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG");
+              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG\na headless run keeps what the game writes to its disks only with --disk-writes FILE");
          return 0;
       } else if (i + 1 < argc) {
          const char *v = argv[++i];
@@ -442,6 +490,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--machine")) game.machine = v;
          else if (!strcmp(a, "--memory")) game.memory_kb = (unsigned)strtoul(v, NULL, 10);
          else if (!strcmp(a, "--autostart")) game.autostart = v;
+         else if (!strcmp(a, "--disk-writes")) snprintf(writes_path, sizeof writes_path, "%s", v);
          else if (!strcmp(a, "--state-slot")) slot = v;
          else if (!strcmp(a, "--ram-dump-at")) dump_at = (unsigned)strtoul(v, NULL, 10);
          else if (!strcmp(a, "--ram-dump")) dump_path = v;
@@ -478,6 +527,7 @@ int main(int argc, char **argv) {
    if (!slot) snprintf(state_slot, sizeof state_slot, "%s/quick.rrstate", game_dir);
    if (headless && ((save_at && !probe) || load_start) && !slot) { fail("States need --state-slot"); return 1; }
    snprintf(player_config, sizeof player_config, "%s/player.cfg", game_dir);
+   if (!headless) snprintf(writes_path, sizeof writes_path, "%s/disk-writes.bin", game_dir);
    if (events_path && !load_events(events_path)) { fail("Invalid input event file"); return 1; }
    if (verbose) game.log = log_line;
    session = rr_st_open(&game, error, sizeof error);
@@ -493,6 +543,7 @@ int main(int argc, char **argv) {
    /* A build with native steps runs them unless the run is the interpreted reference (--reference-cpu); a build without them
     * runs every instruction on Hatari's interpreter. */
    if (!reference_cpu) rr_st_set_native(session, 1);
+   writes_load();
    if (headless) {
       result = run_headless(trace_path, report_path, capture_path, observe_path, save_at, load_start, probe);
    } else {
@@ -501,6 +552,7 @@ int main(int argc, char **argv) {
 #else
       result = player_run_windowed("Retro-Recomp Atari ST (development)");
 #endif
+      writes_tick(true);
       player_store_exit();
       if (restart_requested) restart_self();
    }
