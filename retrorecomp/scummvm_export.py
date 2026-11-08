@@ -417,9 +417,9 @@ def parse_detection_all(output: str) -> dict[str, list[Candidate]]:
     return folders
 
 
-def _detect_runtime(started=None) -> Path:
+def _detect_runtime(started=None, emit=print) -> Path:
     from .scummvm_build import DETECT_FAMILY, build_runtime
-    return build_runtime(DETECT_FAMILY, started=started)
+    return build_runtime(DETECT_FAMILY, emit, started=started)
 
 
 # Files that never make a folder an adventure game by themselves: pictures, documents, videos, playlists, saves and
@@ -460,11 +460,11 @@ def find_game_folders(root: Path, started=None) -> list[Path]:
     return found
 
 
-def candidates_of(folder: Path, started=None) -> list[Candidate]:
+def candidates_of(folder: Path, started=None, emit=print) -> list[Candidate]:
     """ScummVM's candidates for exactly `folder` (from the discovery run when it saw the folder)."""
     key = os.path.normcase(os.path.normpath(str(folder)))
     if key not in _DETECTED:
-        _DETECTED[key] = detect(Path(folder), _detect_runtime(started))
+        _DETECTED[key] = detect(Path(folder), _detect_runtime(started, emit))
     return _DETECTED[key]
 
 
@@ -483,8 +483,8 @@ class FolderGame:
                 'candidates': [c.as_dict() for c in self.candidates]}
 
 
-def read_folder(folder: Path) -> FolderGame:
-    candidates = candidates_of(folder)
+def read_folder(folder: Path, emit=print) -> FolderGame:
+    candidates = candidates_of(folder, emit=emit)
     if not candidates:
         raise ScummvmExportError(f'ScummVM recognises no game in {folder}')
     lines = sorted(f'{rel}\t{path.stat().st_size}' for rel, path in game_files(Path(folder)))
@@ -503,7 +503,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     from .report_schema import write_report
     from .scummvm_build import build_runtime, runtime_identity
     folder = Path(path)
-    game = read_folder(folder)
+    game = read_folder(folder, emit)     # a detection to fetch and build first says so in the log of this game
     candidates = game.candidates
     choice = int(scummvm_choice) if scummvm_choice not in (None, '', 0, '0') else None
     if len(candidates) > 1 and choice is None:
@@ -529,7 +529,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         except Exception as exc:     # a missing cover never stops a conversion
             artwork = {'embedded': False, 'source': 'missing', 'error': str(exc)}
     emit(f'ScummVM: {picked.description} ({picked.engine}), runtime {picked.engine} family.')
-    export = export_game(folder, work, _detect_runtime(), lambda family: build_runtime(family, emit),
+    export = export_game(folder, work, _detect_runtime(emit=emit), lambda family: build_runtime(family, emit),
                          choice=choice, icon=icon)
     identity = file_identity(export.exe)
     refuse_compression(identity['sha256'], 'An adventure executable carries its game after the program: it is published '

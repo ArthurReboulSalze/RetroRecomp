@@ -798,6 +798,12 @@ class OptionsFromProfiles(unittest.TestCase):
                     self.assertIn(key.hint, STRINGS)
                 if key.kind == 'path':
                     self.assertIn(key.label or key.name, STRINGS)
+                if key.kind == 'action':
+                    for suffix in ('', '_note', '_button', '_working'):
+                        self.assertIn(key.label + suffix, STRINGS)
+                    self.assertIn(key.hint, STRINGS)
+                    self.assertTrue(callable(profile.run_option_action))
+                    self.assertFalse(key.signature)
         for name, row in FIRMWARE_ROWS.items():
             if row.get('check'):
                 for suffix in ('_check', '_missing', '_not_checked', '_valid', '_invalid'):

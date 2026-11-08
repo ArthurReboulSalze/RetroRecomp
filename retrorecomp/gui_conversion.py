@@ -260,6 +260,7 @@ class ConversionMixin:
         self.selection_changed()
         self.update_new_paths()
         self.render_disk_space()
+        self.render_option_actions()
 
     def stop(self):
         """Ask how to stop, then do it. "Stop now": no more games start and the
