@@ -704,6 +704,7 @@
     "scummvm_choice": "版（複数が一致する場合）",
     "scummvm_tools_missing": "ScummVM のゲームには Retro-Recomp のビルドツールが必要ですが、まだインストールされていないため、このフォルダーは検索されませんでした。変換を一度開始して（ツールのインストールが提案されます）、フォルダーをもう一度追加してください。",
     "import_folder_empty": "\"{folder}\" から追加できるものはありません。ROM ファイルも、ScummVM が認識するゲームもありません。",
+    "scummvm_preparing": "ScummVM のフォルダー検出を準備しています（ダウンロードとビルド）。初回は数分かかります。ウィンドウは固まっていません。",
     "scummvm_detect_failed": "ScummVM のフォルダー検出を準備できなかった（ビルドに失敗した）ため、このフォルダーは検索されませんでした。ログは Retro-Recomp の .deps フォルダーの scummvm-build/detect.log にあります。",
     "tip_scummvm_choice": "0：複数の版に一致するフォルダーは変換せず、版の一覧を表示します。1～9：一覧のその版を使います。"
   },

@@ -51,14 +51,15 @@ class ScummvmProfile(SystemProfile):
             return None
         return self if self.claims_folder(path) else None
 
-    def find_folders(self, root: Path) -> list[Path]:
+    def find_folders(self, root: Path, notice=None) -> list[Path]:
         """The game folders below `root`. Without the build tools (and no runtime built yet) detection cannot run: the
-        discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build."""
+        discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build. With them, `notice`
+        receives the sentence that says a build of the detection is starting (minutes, on a first use)."""
         from ..scummvm_build import ScummvmBuildError, ScummvmToolsMissing
         from ..scummvm_export import find_game_folders
         from .registry import FolderDiscoveryUnavailable
         try:
-            return find_game_folders(Path(root))
+            return find_game_folders(Path(root), (lambda: notice('scummvm_preparing')) if notice else None)
         except ScummvmToolsMissing as exc:
             raise FolderDiscoveryUnavailable('scummvm_tools_missing', str(exc)) from exc
         except ScummvmBuildError as exc:        # the detection runtime failed to build: say so, never a dead scan

@@ -29,8 +29,14 @@
   fill it with one error row per data file. A reader that fails is one row in error, never a
   scan that stops in silence, a folder that adds nothing says so in the log, and a detection that
   cannot be built says so too (all in the eight languages). The command line `batch` uses the same discovery.
+- **ScummVM in the packaged converter.** Retro-Recomp.exe looked for ScummVM's build in its own temporary
+  folder, removed when it closes: dropping a game folder fetched and compiled ScummVM again at every launch,
+  with nothing on screen, and looked like an endless scan (1.7.0 too). The build now lives in `.deps` beside the
+  converter and is made once. While it runs the window says so, in the status line and the log (eight languages);
+  its first time takes several minutes. Closing the window during the download no longer leaves a broken checkout.
 - **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
-  `f1ba8d0d85a7`); no other machine's stamp changes, so no other export is converted again.
+  `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
+  changes, so no other export is converted again.
   An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
   effects until it is converted again.
 

@@ -410,6 +410,8 @@ STRINGS = {
                               "Les jeux ScummVM ont besoin des outils de compilation de Retro-Recomp, pas encore installés : ce dossier n'a pas été exploré. Lance une conversion (Retro-Recomp propose d'installer les outils), puis ajoute à nouveau le dossier."),
     'import_folder_empty': ("Nothing to add from \"{folder}\": no ROM file, and no game that ScummVM recognises.",
                             "Rien à ajouter depuis \"{folder}\" : aucun fichier ROM, et aucun jeu reconnu par ScummVM."),
+    'scummvm_preparing': ("Preparing ScummVM's folder detection (download and compilation). The first time takes several minutes; the window is not stuck.",
+                          "Préparation de la détection des dossiers ScummVM (téléchargement et compilation). La première fois, cela prend plusieurs minutes ; la fenêtre n'est pas bloquée."),
     'scummvm_detect_failed': ("ScummVM's folder detection could not be prepared (its build failed), so this folder was not searched. The build log is in the .deps folder of Retro-Recomp: scummvm-build/detect.log.",
                               "La détection des dossiers ScummVM n'a pas pu être préparée (sa compilation a échoué) : ce dossier n'a pas été exploré. Le journal est dans le dossier .deps de Retro-Recomp : scummvm-build/detect.log."),
     'tip_scummvm_choice': ("0: a folder that matches several editions is refused and the editions are listed. 1 to 9: that edition of the list is used.", "0 : un dossier qui correspond à plusieurs éditions est refusé et les éditions sont listées. 1 à 9 : cette édition de la liste est utilisée."),
