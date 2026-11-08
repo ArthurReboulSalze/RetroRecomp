@@ -32,7 +32,7 @@ class Nintendo64Profile(SystemProfile):
     firmware = ()
     quick_state_family = 'n64'
     capabilities = Capabilities(battery=True)
-    linux = 'witnessed'   # two games converted headless on a Debian 13 PC, traces equal to Windows'; not played there
+    linux = 'witnessed'   # two games converted headless on a Debian 13 PC, traces equal to Windows', a state resumed; not played there
     feedback_kinds = frozenset({25})
     default_frames = 3600
     quick_frames = 3600

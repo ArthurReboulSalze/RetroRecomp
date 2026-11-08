@@ -525,7 +525,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
                             'schema': 'RRN64QS2', 'machine': 'n64', 'rom_identity': source.sha256,
-                            'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
+                            'validation': {'process': 'fresh', 'compressed_copy': delivered.kind == 'packed', 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],
                                            'saving_leaves_the_timeline': True,

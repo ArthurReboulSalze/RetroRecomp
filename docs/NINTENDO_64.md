@@ -112,9 +112,10 @@ remain are versions no observation holds, whose cause is not established.
 **A Debian 13 PC with integrated graphics** (8 November 2026; Intel Core i7-6600U, 2 cores, Intel HD 520, Mesa 25.0.7, GCC 14). Mario Kart 64
 converted through the whole pipeline at the Standard level: the same 4,654 blocks, 96.3 % and 96.7 % native, 0 guard misses, the
 compressed copy equal to the reference, the quick state continued. **The traces of both routes are byte for byte equal to Windows'**
-(an NVIDIA GeForce RTX 3090, llvm-mingw): picture, sound, RDRAM and CPU registers of every frame. Super Mario 64, on the same PC after the correction of the hidden RDRAM below: its main route's trace is byte for byte
-equal to Windows' too, 0 guard misses. Those two conversions make the profile's Linux `witnessed`; neither game was played on Linux. Both ran before the quick state held the
-renderer's memory (below), and the picture of Super Mario 64's did not continue then, as on Windows at the time: a resumed game has not been measured on Linux since.
+(an NVIDIA GeForce RTX 3090, llvm-mingw): picture, sound, RDRAM and CPU registers of every frame. Super Mario 64, on the same PC with all the corrections below (the Quick level, its main route): its trace is byte for byte
+equal to Windows' too, 94.2 % native, 0 guard misses, and the quick state continues CPU, RDRAM and picture for 400 frames, only the sound differing. Its compressed copy stopped at start,
+twice, on a trap signal and before any output (a first run on this PC, from an earlier tree, showed no such stop; the cause has not been looked for), so the common fallback delivered
+the build unpacked, as built and validated: a larger file. Those two conversions make the profile's Linux `witnessed`; neither game was played on Linux.
 
 Its speed, on the engine gate's own host and the states of its speed pass (the PAL games, one Vulkan present per frame on a real X
 display, 1,000 frames timed, three runs each; 50 frames per second is the console's rate):
@@ -169,7 +170,7 @@ found by a fresh process, and reading it leaves the file as it was. EEPROM, Flas
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - A quick state is refused by another build of the same game. A resumed game's sound samples differ from the unbroken run (section 6). At an internal resolution above 1x the upscaled
   coverage is not in the state, and only the default resolution is checked.
-- Linux is witnessed on two games, headless, and a resumed game has not been measured there since the state holds the renderer's memory. The owner played three games on Windows
+- Linux is witnessed on two games, headless, one of them delivered unpacked (section 6). The owner played three games on Windows
   ([QUALIFICATION.md](QUALIFICATION.md)); no game has been played on Linux, and rumble has not been exercised.
 - Frame pacing is uneven on Ocarina of Time (section 6); no speed requirement is claimed.
 - The fallback hints of F12 are not recorded yet.
