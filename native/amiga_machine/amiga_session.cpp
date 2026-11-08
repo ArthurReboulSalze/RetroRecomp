@@ -233,11 +233,19 @@ static int remove_cb(void *, const char *name) {
 struct RrAmigaStep;
 extern "C" const RrAmigaStep *rr_amiga_lookup(uint32_t pc);
 extern "C" void (*rr_amiga_step_of(const RrAmigaStep *))(void *, uint16_t);
-extern "C" int rr_amiga_code_word(uint32_t pc, uint16_t *word) { *word = peek16(pc); return 1; }
+// What the guard compares: what the CPU has latched for the instruction about to run (its opcode and next word), as the interpreter
+// would use them, and memory beyond them. A word rewritten after it was prefetched then misses, instead of running another step.
+static uint32_t latched_pc;
+static uint16_t latched_ird, latched_irc;
+extern "C" int rr_amiga_code_word(uint32_t pc, uint16_t *word) {
+    *word = pc == latched_pc ? latched_ird : pc == latched_pc + 2 ? latched_irc : peek16(pc);
+    return 1;
+}
 #endif
 static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
 #ifdef RR_AMIGA_NATIVE
     if (S->native) {
+        latched_pc = pc; latched_ird = op; latched_irc = m.getIRC();
         if (const RrAmigaStep *step = rr_amiga_lookup(pc)) {
             rr_amiga_step_of(step)(&m, op); S->native_count++;
             if (in_kickstart(pc)) S->kick_native++;

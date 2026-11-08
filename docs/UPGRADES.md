@@ -238,6 +238,14 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the guard compares what the CPU has latched (1.7.2)
+
+A native step was chosen by comparing the instruction's words in memory, while the CPU was about to run the opcode it had already prefetched. A word rewritten just
+after its prefetch could therefore run the step of the new word with the old opcode. It never happened on a game (8 games, 16 routes, about 480 million instructions:
+memory and the latched words never differed), and an authored program shows it (358 of 367 cases differ from the interpreter); the frame comparison covers the routes
+only, so a player's play beyond them had no proof. The guard now compares the latched opcode and next word, and memory beyond them; on the same authored program no step
+runs and nothing differs. **Hot path:** three stores per instruction, and two reads through the memory map less. **What moves:** the Amiga's game stamp; no other console.
+
 ## Commodore Amiga: Kickstart words a slave patched run native too (1.7.2)
 
 A slave patches some of the Kickstart's instructions; a step written from the pristine image then missed its guard for ever, and those instructions, often
