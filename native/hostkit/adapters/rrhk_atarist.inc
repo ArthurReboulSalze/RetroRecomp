@@ -177,6 +177,7 @@ static bool s_run_frame(uint16_t p1, uint16_t p2) {
    s_disks();
    if (rr_st_frame(session) != 0) { fail(rr_st_error(session)); return false; }
    frame_number++;
+   writes_tick(false);
    rr_st_picture(session, &w, &h, &stride);
    if (w > 0 && h > 0) { width = (unsigned)w; height = (unsigned)h; }
    if (sa.audio_taken) { memmove(sa.audio, sa.audio + sa.audio_taken, (sa.audio_count - sa.audio_taken) * sizeof(int16_t)); sa.audio_count -= sa.audio_taken; sa.audio_taken = 0; }

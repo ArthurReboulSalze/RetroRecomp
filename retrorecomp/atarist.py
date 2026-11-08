@@ -2,7 +2,7 @@
 
 The game's identity is the SHA-256 of the file the player gave: the report's rom.sha256, the export's marker, the library key.
 The disks are the ZIP's members in name order (Disk 1, Disk 2... or Disk A, Disk B..., a boot disk first), every one an image
-Hatari reads: IPF (the preservation format, protections kept), STX (Pasti), MSA or a plain sector image (.st). Nothing in them is
+Hatari reads: IPF (the preservation format: a disk's protection data stays in the image; whether it runs is per game), STX (Pasti), MSA or a plain sector image (.st). Nothing in them is
 run here.
 """
 from __future__ import annotations
