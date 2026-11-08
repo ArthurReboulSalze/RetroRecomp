@@ -75,24 +75,50 @@ def _script(rows) -> str:
     return ''.join(f'{frame} {p1:03x} {p2:03x}\n' for frame, p1, p2 in rows) or '0 000 000\n'
 
 
-START_PRESSES = (1, 2, 3)        # the start variants a conversion tries on its play route (fresh reference runs)
+START_PRESSES = (1, 2, 3, 4, 6)   # the start variants a conversion tries on its play route (fresh reference runs)
+PRESS_SPACING = 240              # frames between two Run presses of the start
+WALK_SETTLE = 180                # frames between the last press and the walk: directions must not move a menu's cursor early
+RUN_PAIR_EVERY = 900             # frames between two pairs of Run presses during the walk
+QUIET_WALK = 900                 # frames of walk with directions only: no I or II, which would type into a password screen
+
+
+def walk_start(presses: int) -> int:
+    return max(900, PRESS_SPACING * presses + WALK_SETTLE)
+
+
+def start_candidates(frames: int) -> list[int]:
+    """The start variants that leave a route of `frames` at least ten seconds of walk."""
+    return [presses for presses in START_PRESSES if walk_start(presses) + 600 <= frames]
 
 
 def play_rows(frames: int, seed: int, presses: int = 3) -> list:
-    """Run pressed `presses` times during the title (most HuCards start on Run, some need a second press to leave
-    a menu), then a deterministic walk: a held direction changing every second or so, I and II tapped, Run never
-    pressed again (it pauses). One press too many pauses the game: `choose_start` keeps the livelier variant."""
+    """Run pressed `presses` times during the title (most HuCards start on Run; stories, menus and password screens
+    ask for more), then a deterministic walk: a held direction changing every second or so, I and II tapped, and now and
+    then Run twice in a row. In play that is a pause and its end; on a screen that waits for Run, the way out (a story,
+    a continue prompt, a game over). The first QUIET_WALK frames of the walk use directions only, so a menu or a password
+    screen answers with a cursor and not with typed letters (that is what `reach` counts). One press too many pauses the
+    game: `choose_start` keeps the variant that answers."""
     rows = []
-    for at in (240, 480, 720)[:presses]:
+    for index in range(presses):
+        at = PRESS_SPACING * (index + 1)
         rows += [(at, RUN, 0), (at + 6, 0, 0)]
     state = seed & 0xFFFFFFFF or 1
     directions = (RIGHT, RIGHT | UP, RIGHT | DOWN, LEFT, UP, DOWN, RIGHT)
-    frame = 900
+    frame = walk_start(presses)
+    pair = frame + RUN_PAIR_EVERY
     while frame < frames:
+        if frame >= pair and frame + 36 < frames:     # a pair is whole or absent
+            rows += [(frame, RUN, 0), (frame + 6, 0, 0), (frame + 24, RUN, 0), (frame + 30, 0, 0)]
+            frame += 36
+            pair = frame + RUN_PAIR_EVERY
         state = (state * 1103515245 + 12345) & 0x7FFFFFFF
         held = directions[state % len(directions)]
         span = 30 + (state >> 8) % 60
+        if frame < walk_start(presses) + QUIET_WALK:
+            rows.append((frame, held, 0))
         for tap in range(0, span - 4, 12):      # every release falls inside this span: frames never go back
+            if frame < walk_start(presses) + QUIET_WALK:
+                break
             button = I if (state >> (tap % 7)) & 1 else II
             rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
         frame += span
@@ -130,16 +156,31 @@ def divergence(trace: Path, baseline: Path) -> int:
     return sum(1 for frame, value in ours.items() if theirs.get(frame) != value)
 
 
+def reach(trace: Path, baseline: Path, start: int) -> int:
+    """How many distinct pictures the directions-only part of the walk (QUIET_WALK frames after `start`) showed that the same
+    frames without input never showed: how much the game answers the pad. A demo, a title, a story and a paused game show the
+    same pictures with or without the walk, a menu or a password screen a handful (the cursor's places), and a game in play
+    hundreds of its own."""
+    def pictures(path):
+        found = set()
+        for line in Path(path).read_text(encoding='ascii').splitlines()[1:]:
+            fields = line.split(',')
+            if len(fields) == 6 and fields[0].isdigit() and start <= int(fields[0]) < start + QUIET_WALK:
+                found.add(fields[3])
+        return found
+    return len(pictures(trace) - pictures(baseline))
+
+
 def choose_start(results: dict, frames: int) -> int:
-    """The number of Run presses for the play route. `results` maps presses to {'liveness', 'divergence'}.
+    """The number of Run presses for the play route. `results` maps presses to {'liveness', 'divergence', 'reach'}.
 
     A variant must keep the picture moving until its last 120 frames (a press too many pauses the game); among those,
-    the one the input changed the most from the demo wins (a press too few leaves the game in its attract loop; ties:
-    the fewest presses). When none stays alive, the livelier one is kept."""
+    the one whose walk reached the most pictures of its own wins, then the one the input changed the most from the demo
+    (ties: the fewest presses). When none stays alive, the livelier one is kept."""
     alive = [presses for presses, result in results.items()
              if (result['liveness'].get('last_picture_change_frame') or 0) >= frames - 120]
     if alive:
-        return max(sorted(alive), key=lambda presses: (results[presses]['divergence'], -presses))
+        return max(sorted(alive), key=lambda presses: (results[presses]['reach'], results[presses]['divergence'], -presses))
     return max(sorted(results), key=lambda presses: (liveness_score(results[presses]['liveness']), -presses))
 
 
@@ -351,20 +392,21 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     baseline = checks / 'inputs' / 'play-start0.inputs'
                     baseline.write_text(_script([]), encoding='ascii', newline='\n')
                     variants = {0: run(candidate, checks / 'reference', 'play-start0', play_count, baseline, '--reference')}
-                    for presses in START_PRESSES:
+                    for presses in start_candidates(play_count):
                         script = checks / 'inputs' / f'play-start{presses}.inputs'
                         script.write_text(_script(play_rows(play_count, int(card.sha256[:8], 16), presses)),
                                           encoding='ascii', newline='\n')
                         variants[presses] = run(candidate, checks / 'reference', f'play-start{presses}', play_count,
                                                 script, '--reference')
                     start = {presses: {'liveness': route_liveness(Path(result['trace'])),
-                                       'divergence': divergence(result['trace'], variants[0]['trace'])}
+                                       'divergence': divergence(result['trace'], variants[0]['trace']),
+                                       'reach': reach(result['trace'], variants[0]['trace'], walk_start(presses))}
                              for presses, result in variants.items() if presses}
                     presses = choose_start(start, play_count)
                     route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()},
-                                   'rule': 'alive until the last 120 frames, then most frames changed by the input'}
+                                   'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed'}
                     emit(f'PC Engine: play route starts with Run pressed {presses} time(s) '
-                         f'({start[presses]["divergence"]} frames changed by the input).')
+                         f'({start[presses]["reach"]} pictures reached that no input never showed).')
                     plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
                     for name, count, text in plan:
                         scripts[name].write_text(text, encoding='ascii', newline='\n')
