@@ -119,7 +119,8 @@ static bool n64_stick_held(int p, int action, const Uint8 *keys) {
 static bool n64_run_frame(uint16_t p1, uint16_t p2) {
     const uint64_t frame = frame_number;
     const Uint8 *keys = SDL_GetKeyboardFocus() == rrhk_window() ? SDL_GetKeyboardState(NULL) : NULL;
-    for (int p = 0; p < 4; ++p) {
+    if (event_count) scripted_inputs(rr_n64_frame_index(session));   /* a test run replays its script */
+    else for (int p = 0; p < 4; ++p) {
         int16_t axes[RRHK_AXES] = {0, 0, 0, 0};
         const uint16_t word = p == 0 ? p1 : p == 1 ? p2 : rrhk_pad_word(p, frame);
         rrhk_pad_axes(p, frame, axes);
@@ -133,6 +134,11 @@ static bool n64_run_frame(uint16_t p1, uint16_t p2) {
     if (!player_frame()) return false;
     n64_rumble();
     return !quit_requested && (!frame_limit || frame_number < frame_limit);
+}
+/* --frame-times of a windowed run: the kit's cost of each frame (the machine, the sound, the drawing, the present; not the pacing). */
+static bool n64_cost_enabled(void) { return frame_log != NULL; }
+static void n64_cost(double busy_ms, double present_ms) {
+    fprintf(frame_log, "%llu\t%.4f\t%.4f\n", (unsigned long long)rr_n64_frame_index(session), busy_ms, present_ms);
 }
 static void n64_pause(bool paused) {
     if (paused) for (int p = 0; p < 4; ++p) if (n64_rumbling[p][0] || n64_rumbling[p][1]) { rrhk_rumble(p, 0, 0, 0); n64_rumbling[p][0] = n64_rumbling[p][1] = 0; }
@@ -185,6 +191,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = n64_audio, .interpreted = n64_interpreted, .audio_interpreted = n64_zero,
             .state_path = n64_state_path, .state_ready = n64_state_ready, .state_file = n64_state_file,
             .input_frame = n64_input_frame, .help_controls = n64_help_controls,
+            .cost_enabled = n64_cost_enabled, .cost = n64_cost,
             .analog_sticks = 2, .trigger_buttons = true, .rumble = true,
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
         };

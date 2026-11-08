@@ -23,6 +23,7 @@
 extern "C" {
 void parallel_quiesce(void);
 void parallel_set_threaded_commands(bool enable);
+bool parallel_init(void);
 }
 
 namespace {
@@ -457,16 +458,19 @@ int rr_n64_frame(RrN64Session *s)
     s->frame_new = false;
     retro_run();
     s->frame++;
-    if (s->renderer_reset && s->hw.context_destroy && s->hw.context_reset) {
-        // The internal resolution is read when the renderer starts: a new one, between two frames.
+    if (s->renderer_reset) {
+        // The internal resolution is read when the renderer starts: a new renderer, between two frames, on the same Vulkan device
+        // (the libretro context calls would drop the device, which only a frontend that recreates it may do).
         s->renderer_reset = false;
         {
             std::lock_guard<std::mutex> lock(s->queue_lock);
             vkQueueWaitIdle(s->context.queue);
         }
-        s->hw.context_destroy();
         s->have_image = false;
-        s->hw.context_reset();
+        if (!parallel_init()) {
+            s->error = "The renderer could not start again with these graphics options.";
+            return -1;
+        }
     }
     // The evidence of the frame, once (headless checks only): the GPU has finished, then the picture, RDRAM and the CPU registers.
     if (s->game.evidence) {

@@ -123,12 +123,35 @@ display, 1,000 frames timed, three runs each; 50 frames per second is the consol
 | Ocarina of Time | 63.2 (62.6) | 71.7 (62.5) | 83.0 (82.6) |
 | Mario Kart 64 | 61.6 (61.6) | no block for this game in that build: 58.7 (58.4) | 62.6 (61.8) |
 
-These are averages over those scenes on one computer, without the game's own read-back and host kit, and they do not make a
-requirement: no per-frame figure, no dense scene, and no NTSC game (16.7 ms a frame instead of 20) has been measured.
+These are averages over those scenes on one computer, through the engine gate's host: no per-frame figure, no dense scene and no NTSC
+game there, and they do not make a requirement.
+
+**What a player's path costs, on a strong desktop** (8 November 2026; Windows, Ryzen 9 3900X, GeForce RTX 3090). The game's own path: the host kit,
+the read-back of the renderer's image, Direct3D 11 without vsync, a hidden window paced by the kit, a silent sound driver. Three runs of 1,800 frames from a
+state in a busy scene with a script moving the player; worst of the three, after 200 warm-up frames; each frame's cost without the wait:
+
+| Scene | Budget per frame | Rate kept | Median | 99th percentile | Worst frame | Frames over budget, of 1,600 | Native share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Super Mario 64 (PAL), castle grounds | 20 ms | 50 per second | 9.1 ms | 19.0 ms | 28.0 ms | 8 | 94.7 % |
+| Ocarina of Time (PAL), Hyrule Field | 20 ms | 50 per second | 10.1 ms | 22.5 ms | 26.5 ms | 216 | 95.1 % |
+| Mario Kart 64 (PAL), a 4-player race | 20 ms | 50 per second | 12.5 ms | 20.0 ms | 23.6 ms | 16 | 91.1 % |
+| Ocarina of Time (NTSC), Hyrule Field, no block | 16.7 ms | 60 per second | 11.7 ms | 21.5 ms | 27.1 ms | 471 | 0 % |
+
+The rate held on every run (the lowest was 49.997 per second), because cheaper frames absorb the costly ones: the pacing is uneven on Ocarina of Time, above all in
+NTSC, and how that feels has not been judged. The first 200 frames hold stalls of 31 to 60 ms. The GPU stays in its low power state nearly all the time: after an
+idle, its driver leaves it at low clocks under this light load, and the fixed work of each picture then takes about 13 ms instead of under 1 ms (the unpaced run falls from
+176 to 51 frames per second until it flips, between two processes). On this card that still fits. A weaker card, integrated graphics through this path, a visible window with
+vsync and real sound have not been measured, so no hardware requirement is written.
+
+**Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
+1152; changing one in the middle of a game, which the kit does the same way, was not exercised. Ocarina of Time's SRAM: a file created in one process is
+found by a fresh process, and reading it leaves the file as it was. EEPROM, Flash and the controller paks were not exercised.
 
 ## 7. Known limits
 
 - A game whose code moves under the TLB keeps that code on the interpreter.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - A quick state is refused by another build of the same game; a resumed game's sound differs for a moment (the resampler).
-- Linux is witnessed on one game only; per-frame timing in play is not measured; no speed is claimed.
+- Linux is witnessed on one game only. Nobody has played a converted game yet: no real window, real pad, rumble or real sound has been exercised.
+- Frame pacing is uneven on Ocarina of Time (section 6); no speed requirement is claimed.
+- The fallback hints of F12 are not recorded yet.

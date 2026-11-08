@@ -172,6 +172,10 @@ static size_t player_audio(int16_t *pcm, size_t capacity) {
     return count / 2;
 }
 
+/* A hidden-window test run can replay the same inputs and log each frame's cost (--input-events, --frame-times). */
+static unsigned event_count;
+static void scripted_inputs(uint64_t frame);
+static FILE *frame_log;
 #ifdef RR_N64_WINDOWED
 #include "hostkit/adapters/rrhk_n64.inc"
 #else
@@ -197,7 +201,6 @@ static bool make_dirs(const char *path) {
 /* ---- headless runs: the input events, the trace, the report ---- */
 typedef struct { unsigned begin, end; char kind; int code, value; } Event;
 static Event events[MAX_EVENTS];
-static unsigned event_count;
 
 /* "begin end kind code value" per line: kind pad (code = bit 0..13 of RR_N64_PAD_*, value = player 0..3) or stick (code = 4 *
  * player + axis: left X, left Y, right X, right Y; value -32768..32767); frames are the machine's own (absolute, so that a
@@ -257,6 +260,7 @@ static void json_text(FILE *f, const char *text) {
     }
     fputc('"', f);
 }
+
 
 static int run_headless(const char *trace_path, const char *report_path, const char *capture_path, const char *observe_path,
                         const char *times_path, unsigned save_at, bool load_start) {
@@ -358,7 +362,7 @@ static int cpu_mode(const char *name) {
 
 int main(int argc, char **argv) {
     const char *trace_path = NULL, *report_path = NULL, *capture_path = NULL, *events_path = NULL, *rom_path = NULL, *slot = NULL;
-    const char *observe_path = NULL, *times_path = NULL, *gfx[16];
+    const char *observe_path = NULL, *times_path = NULL, *saves_file = NULL, *gfx[16];
     unsigned save_at = 0, gfx_count = 0, k;
     bool headless = false, load_start = false, verbose = false;
     RrN64Game game;
@@ -385,7 +389,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--help")) {
             puts("Retro-Recomp Nintendo 64 player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
                  "--observations FILE --frame-times TSV --cpu cached|pure|observe|native --gpu NAME --gfx KEY=INDEX --threaded-rdp\n"
-                 "--pak memory|rumble|none --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+                 "--pak memory|rumble|none --saves FILE --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
                  "a build without an embedded game: --rom FILE");
             return 0;
         } else if (i + 1 < argc) {
@@ -402,6 +406,7 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--pak")) game.pak = v;
             else if (!strcmp(a, "--gfx")) { if (gfx_count == 16) { fail("Too many --gfx"); return 1; } gfx[gfx_count++] = v; }
             else if (!strcmp(a, "--rom")) rom_path = v;
+            else if (!strcmp(a, "--saves")) saves_file = v;
             else if (!strcmp(a, "--state-slot")) slot = v;
             else if (!strcmp(a, "--state-save-at")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid state frame"); return 1; } save_at = (unsigned)n; }
             else { fail("Unknown option"); return 1; }
@@ -436,7 +441,8 @@ int main(int argc, char **argv) {
     snprintf(state_slot, sizeof state_slot, "%s", slot ? slot : "");
     if (!slot) snprintf(state_slot, sizeof state_slot, "%s/quick.rrstate", game_dir);
     if (headless && (save_at || load_start) && !slot) { fail("States need --state-slot"); return 1; }
-    if (!headless) snprintf(save_path, sizeof save_path, "%s/saves.bin", game_dir);
+    if (saves_file) snprintf(save_path, sizeof save_path, "%s", saves_file);
+    else if (!headless) snprintf(save_path, sizeof save_path, "%s/saves.bin", game_dir);
     if (events_path && !load_events(events_path)) { fail("Invalid input event file"); return 1; }
     game.rom = rom;
     game.rom_size = rom_size;
@@ -450,15 +456,19 @@ int main(int argc, char **argv) {
         n64_gfx_defaults();
         for (k = 0; k < gfx_count; k++) if (!n64_gfx_assign(gfx[k], false)) { fail("Unknown --gfx option or value"); return 1; }
         result = run_headless(trace_path, report_path, capture_path, observe_path, times_path, save_at, load_start);
+        saves_store();
     } else {
 #ifdef RR_N64_WINDOWED
         for (k = 0; k < gfx_count; k++) if (!n64_gfx_assign(gfx[k], true)) { fail("Unknown --gfx option or value"); return 1; }
+        if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); return 1; }
+        if (times_path && !(frame_log = open_utf8(times_path, L"wb"))) { fail("Cannot write the frame times"); return 1; }
 #ifdef RR_N64_LINKED
         result = player_run_windowed(RR_N64_GAME_TITLE " | Nintendo 64");
 #else
         result = player_run_windowed("Retro-Recomp Nintendo 64 (development)");
 #endif
         saves_store();
+        if (frame_log) fclose(frame_log);
         if (restart_requested) restart_self();
 #else
         fail("This build has no window (RR_N64_SDL off)");
