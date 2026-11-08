@@ -324,7 +324,7 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_option_keys_say_what_they_are(self):
         from retrorecomp.i18n import STRINGS
-        kinds = {'flag', 'path', 'choice', 'count', 'plan'}
+        kinds = {'flag', 'path', 'choice', 'count', 'plan', 'action'}
         seen = {}
         for profile in ALL_PROFILES:
             for key in profile.option_keys:

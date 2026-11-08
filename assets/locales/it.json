@@ -711,7 +711,7 @@
     "import_folder_empty": "Niente da aggiungere da \"{folder}\": nessun file ROM e nessun gioco riconosciuto da ScummVM.",
     "scummvm_preparing": "Preparazione del rilevamento delle cartelle di ScummVM (download e compilazione). La prima volta richiede alcuni minuti; la finestra non è bloccata.",
     "scummvm_pack": "Pacchetto ScummVM",
-    "scummvm_pack_note": "Ciò che serve ai giochi d'avventura prima della prima conversione: ScummVM, FreeType e SDL vengono scaricati e compilati una volta su questo computer, con il rilevamento delle cartelle. Richiede alcuni minuti e circa 1,5 GB. Facoltativo: senza, la prima cartella aggiunta recupera le stesse cose.",
+    "scummvm_pack_note": "Ciò che serve ai giochi d'avventura prima della prima conversione: ScummVM, FreeType e SDL vengono scaricati e compilati una volta su questo computer, con il rilevamento delle cartelle. Richiede alcuni minuti e circa 1,2 GB. Facoltativo: senza, la prima cartella aggiunta recupera le stesse cose.",
     "scummvm_pack_button": "Scarica il pacchetto ScummVM",
     "tip_scummvm_pack": "Scarica e compila in background ciò che serve ai giochi d'avventura. La finestra resta utilizzabile.",
     "scummvm_pack_working": "Verifica del pacchetto ScummVM…",

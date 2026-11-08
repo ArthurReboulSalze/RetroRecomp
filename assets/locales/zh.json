@@ -711,7 +711,7 @@
     "import_folder_empty": "无法从 \"{folder}\" 添加任何内容：没有 ROM 文件，也没有 ScummVM 识别的游戏。",
     "scummvm_preparing": "正在准备 ScummVM 的文件夹检测（下载并构建）。首次需要几分钟；窗口并未卡住。",
     "scummvm_pack": "ScummVM 包",
-    "scummvm_pack_note": "ScummVM 游戏首次转换前所需的内容：在这台电脑上下载并构建一次 ScummVM、FreeType 和 SDL，并准备文件夹检测。需要几分钟，占用约 1.5 GB。可选：否则首次添加文件夹时会获取相同的内容。",
+    "scummvm_pack_note": "ScummVM 游戏首次转换前所需的内容：在这台电脑上下载并构建一次 ScummVM、FreeType 和 SDL，并准备文件夹检测。需要几分钟，占用约 1.2 GB。可选：否则首次添加文件夹时会获取相同的内容。",
     "scummvm_pack_button": "下载 ScummVM 包",
     "tip_scummvm_pack": "在后台下载并构建 ScummVM 游戏所需的内容。窗口仍可使用。",
     "scummvm_pack_working": "正在检查 ScummVM 包…",
