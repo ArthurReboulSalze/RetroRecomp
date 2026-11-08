@@ -140,6 +140,34 @@ class InstallTest(unittest.TestCase):
         i = W.install(blob)
         self.assertEqual((i.data_dir, sorted(i.disks)), ('Game/data', [1]))
 
+    def icon(self, *tooltypes):
+        def tool(text):
+            raw = text.encode('latin-1') + b'\x00'
+            return struct.pack('>I', len(raw)) + raw
+        return b'\xe3\x10\x00\x01' + b'\x00' * 74 + tool('WHDLoad') + struct.pack('>I', 20) + b''.join(tool(t) for t in tooltypes)
+
+    def test_the_icons_data_tooltype_names_the_data_folder(self):
+        # A slave whose ws_CurrentDir is empty (Drakkhen's): the icon says DATA=data, the Disk.N files are in data/.
+        disks = level1('Game/data/Disk.1', b'\x01' * 64) + level1('Game/data/Disk.2', b'\x02' * 64) + level1('Game/ReadMe', b'r')
+        slave = level1('Game/Game.Slave', hunk_file(slave_code(current='')))
+        without = W.install(slave + disks + b'\x00')
+        self.assertEqual((without.data_dir, sorted(without.disks)), ('Game', []))           # what 1.7.1 did: no disks
+        for text in ('DATA=data', 'data=Data', 'DATA = data/'):
+            blob = slave + level1('Game/Game.info', self.icon('SLAVE=Game.Slave', text, 'PRELOAD')) + disks + b'\x00'
+            found = W.install(blob)
+            self.assertEqual((found.data_dir, sorted(found.disks)), ('Game/data', [1, 2]), text)
+        off = slave + level1('Game/Game.info', self.icon('(DATA=data)')) + disks + b'\x00'      # switched off: ignored
+        self.assertEqual(W.install(off).data_dir, 'Game')
+
+    def test_the_data_tooltype_wins_over_ws_currentdir_and_falls_back_when_it_names_nothing(self):
+        files = level1('Game/data/Disk.1', b'\x01') + level1('Game/other/f', b'o')
+        slave = level1('Game/Game.Slave', hunk_file(slave_code(current='other/')))
+        both = slave + level1('Game/Game.info', self.icon('DATA=data')) + files + b'\x00'
+        self.assertEqual(W.install(both).data_dir, 'Game/data')
+        missing = slave + level1('Game/Game.info', self.icon('DATA=nowhere')) + files + b'\x00'
+        self.assertEqual(W.install(missing).data_dir, 'Game/other')                          # the old rule when DATA names nothing
+        self.assertEqual(W.data_tooltype(['WHDLoad', 'SLAVE=Game.Slave']), '')
+
     def test_a_slave_kept_inside_its_data_folder(self):
         blob = level1('Game/data/Game.slave', hunk_file(slave_code(current='data'))) + level1('Game/data/Disk.1', b'x')
         self.assertEqual(W.install(blob + b'\x00').data_dir, 'Game/data')
