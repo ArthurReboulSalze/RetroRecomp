@@ -277,6 +277,7 @@ class WindowMixin:
                 pass
         self.update_account_options()
         self.render_disk_space()
+        self.render_option_actions()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():

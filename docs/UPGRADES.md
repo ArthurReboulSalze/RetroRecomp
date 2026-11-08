@@ -146,6 +146,10 @@ instead. The same release carries the options page and the keys of the game (the
 `4e3367b550d2` before, `0369d5533936` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
 released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80e824` (`scummvm_build.py` finds `.deps` from a packaged exe); the host stamps and the build stamps of every other machine do not move, and no other game stamp moves.
 
+**The ScummVM pack and the CMake fix** move those two stamps again, and only those: game `aa2b67d2bcd4` to `8af339f2af21` (`systems/scummvm.py`, `scummvm_export.py`), build `fd819f80e824` to `de9fefa86a8b` (`scummvm_build.py`). The button itself is interface code (`gui_options.py`, `i18n.py`), which no stamp hashes. A runtime that is already current is not rebuilt; a stale one starts from a new build folder the first time, because folders made before this version carry no record of how they were configured.
+
+**The menu colours** (`0003-retrorecomp-theme-colours.patch`, `_pack_theme` in `scummvm_build.py`) move the same two stamps once more, and only those: game `8af339f2af21` to `42dfc172e91c`, build `de9fefa86a8b` to `05417bbcea96`. The patch digest is part of every runtime's identity, so each engine family's runtime is rebuilt by its next conversion.
+
 **Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
 none moves, a game's saves are ScummVM's own, in `datas/`.
 

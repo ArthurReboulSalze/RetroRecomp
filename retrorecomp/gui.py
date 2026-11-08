@@ -168,6 +168,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         from .rom_sources import rom_folders
         rom_roots = rom_folders(preferences)
         self.rom_paths = {p.id:tk.StringVar(value=str(rom_roots.get(p.id,''))) for p in PROFILES}
+        self.option_actions = {}        # the button of an option of kind 'action': its state, its controls
+        self.option_action_rows = {}
         self.feedback_importing = set()
         self.feedback_import_buttons = {}
         self.feedback_status = {profile.id: tk.StringVar() for profile in PROFILES}

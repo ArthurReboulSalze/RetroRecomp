@@ -29,4 +29,5 @@ assets/cps2-catalogue.json -text whitespace=cr-at-eol
 # The ScummVM patch series is applied byte for byte with git apply: never converted.
 native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch -text
 native/scummvm/patches/0002-retrorecomp-options-page.patch -text
+native/scummvm/patches/0003-retrorecomp-theme-colours.patch -text
 native/scummvm/LICENSE -text

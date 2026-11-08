@@ -89,6 +89,18 @@
     ScummVM again at every launch with nothing on screen (1.7.0 too). The build now lives in
     `.deps` beside the converter and is made once; its first time takes several minutes, and the
     window says so.
+  - **ScummVM pack.** Options, Consoles, Adventure (ScummVM) has a button that fetches and compiles
+    what adventure games need before their first conversion, in the background. It shows each step
+    and the result, says when the pack is already there, and says to check the connection when there
+    is no network (eight languages). A conversion still fetches what is missing by itself.
+  - **A CMake error on a conversion.** Rebuilding an engine's runtime in a build folder made with the
+    compiler at another place (the converter moved, or another copy of it made the build) stopped on
+    CMake's search for SDL2. That folder now starts again. A build that stops says what is missing and
+    what to do; the tool's own output stays in the log. Without Git, the window now says the tools are
+    missing instead of failing.
+  - **ScummVM's menus in Retro-Recomp's colours.** Every menu of an adventure game (the main menu, the
+    options with the Retro-Recomp and Help pages, loading and saving) is dark and gold. Only colours
+    change: the same fonts, layouts and files.
 - **Commodore Amiga (experimental).**
   - Installs that load their files through the slave's own operating-system emulation (about
     1,180 of the 2,967 Amiga 500 installs of the maintainer's library that the profile reads)

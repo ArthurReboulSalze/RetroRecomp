@@ -6,6 +6,7 @@ game folder; ScummVM's own detection names the game; the runtime is the build fa
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from . import OptionKey, SystemProfile
@@ -28,7 +29,8 @@ class ScummvmProfile(SystemProfile):
     linux = 'witnessed'   # one small game (Lure of the Temptress) from its packed exe on a Debian 13 PC, 6 November 2026 (docs/SCUMMVM.md)
     fallback_display = 'opcodes'
     option_keys = (OptionKey('scummvm_choice', kind='choice', label='scummvm_choice', hint='tip_scummvm_choice',
-                             choices=tuple(range(0, 10)), default=0),)
+                             choices=tuple(range(0, 10)), default=0),
+                   OptionKey('scummvm_pack', signature=False, kind='action', label='scummvm_pack', hint='tip_scummvm_pack'))
     # A folder is claimed in the stage that looks at the input itself, before any other machine (a file is never this one's).
     identify = Identify(path_order=5)
     report_shape = ReportShape('scummvm_export', 'scummvm')
@@ -55,15 +57,30 @@ class ScummvmProfile(SystemProfile):
         """The game folders below `root`. Without the build tools (and no runtime built yet) detection cannot run: the
         discovery refuses with a sentence (FolderDiscoveryUnavailable) instead of starting a build. With them, `notice`
         receives the sentence that says a build of the detection is starting (minutes, on a first use)."""
-        from ..scummvm_build import ScummvmBuildError, ScummvmToolsMissing
+        from ..scummvm_build import ScummvmBuildError
         from ..scummvm_export import find_game_folders
         from .registry import FolderDiscoveryUnavailable
         try:
             return find_game_folders(Path(root), (lambda: notice('scummvm_preparing')) if notice else None)
-        except ScummvmToolsMissing as exc:
-            raise FolderDiscoveryUnavailable('scummvm_tools_missing', str(exc)) from exc
-        except ScummvmBuildError as exc:        # the detection runtime failed to build: say so, never a dead scan
-            raise FolderDiscoveryUnavailable('scummvm_detect_failed', str(exc)) from exc
+        except ScummvmBuildError as exc:        # no tools, no network, or a failed build: say which, never a dead scan
+            raise FolderDiscoveryUnavailable(exc.key, str(exc)) from exc
+
+    def run_option_action(self, name: str, step) -> str:
+        """The button of an OptionKey of kind 'action', off the window's thread: `step(key, **values)` says what it is doing
+        (interface string keys). Returns the key of the result; an exception's text is the failure. The only one: the pack."""
+        from ..scummvm_build import prepare_pack
+
+        def said(text: str) -> None:
+            fetched = re.match(r'Téléchargement de (\S+?)(?:…| )', text)
+            if fetched:
+                step('tools_step_download', name=fetched.group(1))
+            elif text.startswith('Mise à jour de SDL'):
+                step('deps_step_sdl_update')
+            elif 'SDL2' in text:
+                step('deps_step_sdl')
+            else:
+                step('scummvm_pack_compile')
+        return 'scummvm_pack_done' if prepare_pack(said) else 'scummvm_pack_ready'
 
     def claims_folder(self, folder: Path) -> bool:
         from ..core import ConversionError
