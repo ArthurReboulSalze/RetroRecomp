@@ -63,27 +63,27 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
-| Sony PlayStation | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 15 |
+| Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Sony PlayStation |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | ❔ |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | ❔ | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | ❔ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
