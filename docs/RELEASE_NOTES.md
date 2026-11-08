@@ -44,7 +44,7 @@
 - **Upgrading.** Only the Adventure (ScummVM) game stamp moves (`4e3367b550d2` to
   `0369d5533936`), with its build stamp (`97d9ad0da628` to `fd819f80e824`); no other machine's stamp
   changes, so no other export is converted again. The pack and the CMake fix move those two again, and only those
-  (game `566ba9a2ef3c` to `73d9fdff6a92`, build `fd819f80e824` to `de9fefa86a8b`).
+  (game `aa2b67d2bcd4` to `8af339f2af21`, build `fd819f80e824` to `de9fefa86a8b`).
   An adventure executable of 1.7.0 keeps working and does not have the new page, keys or
   effects until it is converted again.
 
