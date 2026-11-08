@@ -235,6 +235,8 @@ STRINGS = {
     'deps_step_sdl': ('Compiling the static SDL2 (first use)…', 'Compilation de SDL2 statique (première utilisation)…'),
     'deps_step_sdl_again': ('Compiling the static SDL2 again (new build settings)…', 'Compilation de SDL2 statique (nouveaux réglages)…'),
     'deps_step_hint': ('Once only; a few minutes depending on the computer.', 'Une seule fois ; quelques minutes selon l’ordinateur.'),
+    'deps_download_failed': ("The pieces shared by all conversions could not be downloaded. Check the internet connection, then try again.",
+        "Les éléments communs à toutes les conversions n'ont pas pu être téléchargés. Vérifie la connexion à Internet, puis réessaie."),
     'tools_failed': ('The build tools could not be installed: {error}', 'Les outils de compilation n’ont pas pu être installés : {error}'),
     'tools_manual_windows': ('You can also install “Visual Studio Build Tools 2022” yourself with the “Desktop development with C++” workload, then convert again.', 'Tu peux aussi installer toi-même « Visual Studio Build Tools 2022 » avec la charge « Développement Desktop en C++ », puis relancer la conversion.'),
     'tools_manual_linux': ('Retro-Recomp cannot install build tools on this distribution. Install these commands with your package manager, then convert again: {commands}', 'Retro-Recomp ne sait pas installer les outils de compilation sur cette distribution. Installe ces commandes avec ton gestionnaire de paquets, puis relance la conversion : {commands}'),

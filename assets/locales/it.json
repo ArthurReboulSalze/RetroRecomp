@@ -44,6 +44,7 @@
     "deps_step_sdl": "Compilazione della SDL2 statica (primo utilizzo)…",
     "deps_step_sdl_again": "Nuova compilazione della SDL2 statica (nuove impostazioni di compilazione)…",
     "deps_step_hint": "Una sola volta; qualche minuto a seconda del computer.",
+    "deps_download_failed": "Non è stato possibile scaricare gli elementi comuni a tutte le conversioni. Controlla la connessione a Internet, poi riprova.",
     "tools_failed": "Impossibile installare gli strumenti di compilazione: {error}",
     "tools_manual_windows": "Puoi anche installare tu stesso «Visual Studio Build Tools 2022» con il carico di lavoro «Sviluppo di applicazioni desktop con C++», poi riconvertire.",
     "tools_manual_linux": "Retro-Recomp non sa installare gli strumenti di compilazione su questa distribuzione. Installa questi comandi con il tuo gestore di pacchetti, poi riconverti: {commands}",

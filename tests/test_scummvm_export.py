@@ -639,6 +639,15 @@ class Pack(unittest.TestCase):
         with mock.patch.object(scummvm_build, 'prepare_pack', return_value=False):
             self.assertEqual(SCUMMVM.run_option_action('scummvm_pack', lambda key, **values: None), 'scummvm_pack_ready')
 
+    def test_the_shared_pieces_with_no_network_are_a_sentence(self):
+        from retrorecomp.gui_updates import shared_pieces_unreachable
+        from retrorecomp.i18n import LANGUAGES, catalog
+        self.assertTrue(shared_pieces_unreachable("Commande interrompue (128).\nfatal: unable to access 'https://...'"))
+        self.assertTrue(shared_pieces_unreachable('Impossible de récupérer la version épinglée de SDL'))
+        self.assertFalse(shared_pieces_unreachable('Commande interrompue (1).\nCMake Error'))
+        self.assertFalse(shared_pieces_unreachable('Git: download failed (timed out).'))
+        self.assertTrue(all(catalog(code)['ui'].get('deps_download_failed') for code in LANGUAGES[2:]))
+
     def test_the_strings_of_the_button_exist_in_every_language(self):
         from retrorecomp.i18n import LANGUAGES, catalog
         names = ('scummvm_pack', 'scummvm_pack_note', 'scummvm_pack_button', 'scummvm_pack_working', 'scummvm_pack_compile',

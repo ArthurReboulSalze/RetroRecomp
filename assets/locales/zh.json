@@ -44,6 +44,7 @@
     "deps_step_sdl": "正在编译静态 SDL2（首次使用）…",
     "deps_step_sdl_again": "正在重新编译静态 SDL2（新的编译设置）…",
     "deps_step_hint": "只需一次；视电脑而定需要几分钟。",
+    "deps_download_failed": "无法下载所有转换共用的内容。请检查网络连接，然后重试。",
     "tools_failed": "无法安装编译工具：{error}",
     "tools_manual_windows": "你也可以自行安装“Visual Studio Build Tools 2022”并选择“使用 C++ 的桌面开发”工作负载，然后重新转换。",
     "tools_manual_linux": "Retro-Recomp 无法在此发行版上安装编译工具。请用软件包管理器安装以下命令，然后重新转换：{commands}",

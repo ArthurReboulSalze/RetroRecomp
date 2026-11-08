@@ -18,6 +18,11 @@ from .gui_common import UPDATE_CHECK_EVERY, base_is_newer, update_error_text
 from .gui_drawing import badged_icon
 
 
+def shared_pieces_unreachable(error: str) -> bool:
+    """Whether core.dependencies stopped because Git could not reach a pinned source (128 is how Git ends on a fatal error)."""
+    return error.startswith(('Commande interrompue (128)', 'Impossible de récupérer'))
+
+
 class UpdatesMixin:
     """Updates of the converter and of the shared base, and the build tools installation."""
 
@@ -469,6 +474,10 @@ class UpdatesMixin:
                 self.messages.put(('log', self.tr('tools_done')))
                 messagebox.showinfo(APP_NAME, self.tr('tools_done'), parent=self.app)
                 retry()
+            elif shared_pieces_unreachable(error):
+                # Its own output goes to the log, and there is nothing to install by hand.
+                self.messages.put(('log', log_text(error, self.language)))
+                messagebox.showerror(APP_NAME, self.tr('deps_download_failed'), parent=self.app)
             else:
                 manual = (self.tr('tools_manual_windows') if os.name == 'nt' else
                           'sudo ' + ' '.join(updater.linux_install_command(missing.get('packages', ()))))
