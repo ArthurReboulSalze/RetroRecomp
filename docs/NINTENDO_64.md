@@ -147,6 +147,11 @@ An unpaced run started after an idle can be slowed by the GPU's driver: the fixe
 176, until it flips between two processes, with the GPU seen at low clocks (samples, no clock forced). The paced runs above do not show that cost. A weaker card, integrated
 graphics through this path, a visible window with vsync and real sound have not been measured, so no hardware requirement is written.
 
+**Small text and the hidden RDRAM.** The owner found Super Mario 64's text unreadable. The cause was in our own glue: the renderer's hidden RDRAM (one byte per 16-bit word, so half the size of
+RDRAM) was given an eighth, and the coverage of framebuffers higher in memory was lost, so that the VI's anti-aliasing and divot filters ate thin strokes. Corrected on 8 November 2026, with the default
+filters still on; no default changed. The window's scaling (nearest, 1.2 times in width at 768 x 576) leaves the text readable. The figures of this section before this paragraph, the Debian witness of
+Mario Kart 64 included, were measured before that correction.
+
 **Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
 1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
