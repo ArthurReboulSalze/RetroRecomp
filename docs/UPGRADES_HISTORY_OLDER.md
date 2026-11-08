@@ -1,8 +1,407 @@
-# Upgrading exports: history of releases 1.6.4 and before
+# Upgrading exports: history of releases 1.6.5 and before
 
-The per-release detail of releases 1.6.4 and before, moved from [UPGRADES.md](UPGRADES.md) so that each page stays readable (the text and the
-anchors of every section are unchanged). The current release and the one before it, the rules and the classification of host and game inputs stay in
-[UPGRADES.md](UPGRADES.md); releases 1.6.7 to 1.6.5 are in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md).
+The per-release detail of releases 1.6.5 and before, moved from [UPGRADES.md](UPGRADES.md) so that each page stays readable (the text and the
+anchors of every section are unchanged). The current release, the one before it, the sections of 1.6.8, the rules and the classification of host and
+game inputs stay in [UPGRADES.md](UPGRADES.md); releases 1.6.9, 1.6.7 and 1.6.6 are in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md).
+
+## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
+
+Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
+`[GameGear.Video] reduce_sprite_flicker`; the Game Gear VDP has the same eight-sprite line limit). The renderer change is in
+`native/video_mode4.inc` (the three Game Gear guards are gone: with the option off the code does less, not more) and the key, the
+F2 row and the setting are in the shared adapter `native/hostkit/adapters/rrhk_sms.c`. The option changes the presentation only: no
+ROM patch, collision and overflow flags keep using the original eight sprites, and the checks of the native and the reference
+renderer still agree on every scene (`tools/pixel_optimization_selftest.py`, `tools/video_selftest.py`).
+
+Stamps (computed with the tree of 1.6.4 and the tree of this change): the **game stamp of the Master System and the Game Gear moves**
+(renderer) and so does their **host stamp** (adapter); like every export of 1.6.4, they are converted again in full once. In the same change
+`native/video_mode4.inc` and `native/video_checks.c`, which only the Master System and the Game Gear use, move from the group
+owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`): the manifest of the seven other consoles loses
+two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
+two Sega consoles. A Game Gear export of 1.6.4 or before keeps answering "Config unavailable" to F5 until it is rebuilt.
+
+## Master System and Game Gear: repeating block instructions in the functions engine (1.6.5)
+
+Exports made with the "functions" engine are reconverted: a repeating block instruction (`LDIR`, `CPIR`, `OTIR` and the others)
+that goes on after an iteration now leaves the flags of the NMOS repeat cycle, as the banked engine and the reference CPU
+already did (X and Y from the high byte of the instruction's address, H and P from B for the input and output groups). It
+shows when an interrupt is accepted between two iterations and pushes AF; Alex Kidd: High-Tech World passes the comparison with the
+reference CPU with it (CPU fidelity on the project's own tested routes, nothing about hardware, gameplay or latency). The default banked engine
+generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
+with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of all nine consoles moves with `core` (`retrorecomp.core` is an input of every console).
+
+A second change of the same engine: a `RET` that pops an address the routine pushed itself ("push continuation; jump; ret") now
+continues at that address, as the Z80 does, instead of resuming the caller (each generated function keeps its entry SP; a tail jump
+whose callee returned below it does the same; nesting bounded at 256, beyond it the continuation runs in the counted interpreter and is counted as `ret_nest_overflow`, 0 on the 15 games tried). Action Fighter and Super Columns pass the comparison with the
+reference CPU with it; the 9 games that passed still pass with the same demo trace, and the banked sources are byte-identical on Bank Panic
+and Factory Panic. Cost, functions engine only: one load and one local store per function entry and one compare per `RET`;
+nothing per ordinary instruction. The route "play" of three passing games (High-Tech World, Shinobi World, Factory Panic) is not
+part of the gate and already differs from the reference in a clean learning state (from frame 3032 for Shinobi World, with or without
+this change); it differs from the earlier run after that frame.
+
+A third change: a jump that crosses a 16 KiB slot inside one generated function now goes through the bank-checking dispatch instead of a
+`goto` (Sonic Triple Trouble passes the comparison with it; every other game gives the same demo and play trace as before, except Sonic
+Spinball, which fails later). From an empty learning state 12 of the 15 games tried pass; Alex Kidd: The Lost Stars, Sonic Spinball
+(Game Gear) and Aladdin do not. Cost, functions engine only: a direct jump across slots becomes a dispatch call (a target that is not a function entry costs a few counted interpreter steps until the next pass learns it: Alex Kidd in Miracle World shows 0.154 % interpreted in its first pass against 0.0 % before).
+
+Interpreter share per pass (demo route, `main` before these changes -> this branch, from an empty learning state; native code is 100 minus this): the first pass is within 0.2 points for 14 of the 15 games (Lost Stars 61.9 -> 32.6 %); the last pass is equal or lower for every game that passes (Super Columns 59.6 -> 12.1, Action Fighter 34.1 -> 6.3, Shinobi World 19.0 -> 8.7; High-Tech World 0.222 -> 0.333). It is higher for the games that still fail (Aladdin, Sonic Spinball, Triple Trouble before it passed), where the run beyond the first divergence is no longer the same run. The main loop of Aladdin and Spinball is entered through a dispatch miss in the first pass (99 % interpreted, with or without this change).
+
+## Mega Drive: the clocks of register-count shifts (1.6.5)
+
+A Mega Drive shift or rotate with its count in a register (`LSL.W D1,D0` and the seven other mnemonics) was charged the pinned
+core's estimate for a count of four, whatever the count. It is now charged what the MC68000 manual gives: `6 + 2n` clocks for a
+byte or a word, `8 + 2n` for a long, `n` being the count modulo 64 read before the shift. The immediate-count and memory forms
+keep their figures. The time is set in `retrorecomp/megadrive_codegen.py` (`adapt_shift_timing`), for the native bodies and for
+the reference path alike, through the bus hook that `MULU` uses (the prefetch read first, then the internal clocks); the
+shared `m68000.py` is not touched, and Neo Geo, CPS-1 and X68000 already charged this time. It is a **CPU
+fidelity** fix about clocks; the other four measures are not moved by it. *Edited:* `retrorecomp/megadrive_codegen.py` (a game
+input). **The `md`, `cps1` and `x68` game stamps move**, because `megadrive_codegen` is in the stamp groups of the CPS-1 and
+the X68000 profiles (they import its `write_changed` and the decoder tool); the CPS-1 and X68000 output is unchanged, as the
+hook is applied only by `megadrive_codegen`'s `generate_steps` and `adapt_interpreter`. No host or build stamp, no native file,
+no quick-state key, not the base. Because it changes the clocks a Mega Drive game runs on, the Mega Drive exports of 1.6.4 are
+converted in full, not upgraded (`LEGACY_GAME_STAMPS` must list no 1.6.4 entry for the Mega Drive; it is empty today); the
+CPS-1 and X68000 exports have the same code and only a moved stamp, so the release procedure decides for them as for any
+stamp-only move. **Cost:** one out-of-line hook call per register-count shift executed, as `MULU` and `DIVU` already pay (the
+`reg_count` test is a compile-time constant in the native steps); not timed. Checked with the 834 SingleStepTests shift vectors replayed with their clocks on the
+native and the reference paths (they cover `ROXL`, `ROXR` and `ASL.L`; the other mnemonics share the line but have no vector of
+their own yet), and by one conversion of Blockout compared with the tree before the change (`tools/ab_conversion.py`): both
+succeed, 0 interpreted 68000 instructions and 0 interpreted Z80 cycles on the demo and the play routes in both, native and
+reference runs equal. The frame, RAM, VRAM, FM, Z80 and sequence hashes, the instruction set learned in the first pass and the
+generated step sources differ, as expected, because a different count of clocks moves where the interrupts fall (Blockout
+has seven register-count shifts); that is a change of clocks, not a regression, and no measure of play, latency or speed is made by it.
+
+## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
+
+The 68000 now sees the grant of the Z80 bus (`$A11100` bit 0) at the end of the sound CPU's machine cycle in progress when it
+wrote BUSREQ, also when the sound CPU already stands ahead (its last instruction of a line retires beyond the line), and as soon as
+that date has passed, not only after the 68000 has caught up to the sound CPU's clock. Barkley Shut Up and Jam! (USA), which does
+not loop on the bit and stopped converting, now converts. The sound CPU resumes after the release as before. Details and the
+ROM-free reproducer: [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md#busack-after-a-line-end--2026-10-30-165).
+*Edited:* `native/md_z80_bus.inc`, `retrorecomp/megadrive_bus.py` and `native/md_boundary_checks.c` (its reproducer), all game
+inputs of the Mega Drive only. **The `md` game stamp moves**, and with the native files the Mega Drive quick-state key. A quick
+state now also carries the sound CPU's eight latest machine-cycle ends (72 bytes after the machine section's tail), so the first
+BUSACK after F9 is dated as in an uninterrupted run; the machine section grows by those bytes and a state of an earlier build is
+refused cleanly (quick states are not carried over in 1.6.5). Because a game that polls the bit can
+now see the grant one poll earlier, the Mega Drive exports of 1.6.4 are converted in full, not upgraded. **Cost:** one compare and
+one store per sound-CPU access, I/O cycle and instruction end, one condition per arbiter loop, and a scan of at most eight entries
+per BUSREQ write; nothing on the 68000's instructions or bus accesses; not timed.
+
+Checked by `tools/ab_conversion.py` on 13 games against the tree before the change. All 26 conversions succeed, keep 0 interpreted
+68000 instructions and 0 interpreted Z80 cycles on their final demo and play routes, and their native and reference runs agree.
+Blockout gives identical outputs (only the changed sources, the clang profile built from them and the packed size ratio differ).
+In the 12 others the sound, the Z80 and 68000 state and, for some, the picture sequence change. For each of them both executables
+were replayed with a per-frame trace and a per-frame hash of the arbiter's events: on both routes, the first frame that differs is
+the first frame whose arbiter events differ, and the first differing event is a 68000 read of `$A11100` that the previous rule
+answered "not granted" and that is now "granted", made after the end of the sound CPU's cycle following the request:
+
+| Game | Demo: frame, read / sound CPU (master clocks) | Play: frame, read / sound CPU |
+|---|---|---|
+| Sonic The Hedgehog 2 (USA) | 682, 637 / 615 | 1337, 1463 / 1440 |
+| Sonic The Hedgehog 3 (USA) | 279, 269 / 255 (ahead after the line end) | 279, same |
+| Gunstar Heroes (USA) | 808, 3525 / 3420 | 431, 638 / 615 |
+| Streets of Rage 2 (USA) | 153, 2726 / 2700 | 153, same |
+| Mortal Kombat II (USA) | 1178, 1665 / 1650 | 977, 2355 / 2355 |
+| Street Fighter II' Plus - Champion Edition (Japan) | 531, 3169 / 3150 | 332, 3184 / 3165 |
+| Super Street Fighter II (USA) | 471, 590 / 585 | 332, 745 / 720 |
+| Comix Zone (USA) | 49, 3157 / 3135 | 49, same |
+| Thunder Force IV (Japan) | 708, 3387 / 3360 | 346, 3520 / 3495 |
+| Contra - Hard Corps (USA) | 2759, 1886 / 1860 | 875, 2511 / 2490 |
+| Earthworm Jim (USA) | 1709, 3510 / 3420 | 1989, 218 / 225 (ahead after the line end) |
+| Ecco the Dolphin (USA) | 116, 2921 / 2895 | 116, same |
+
+The previous rule recorded the grant only once the 68000 had been run up to the sound CPU's clock, and that run can end one
+instruction later, so a poll made there was answered "not granted". These are differences of the bus model observed by the
+game, explained frame by frame; they are not measurements on a console and say nothing about play beyond these routes.
+
+## Mega Drive: the supervisor RESET instruction is executed (1.6.5)
+
+A cartridge that executes the 68000 `RESET` instruction (opcode `$4E70`, supervisor mode) used to stop the conversion: the pinned
+core halted on it as unimplemented, and the demo probe failed. Boxing Legends of the Ring runs it at boot (at `$30C`, in its second
+frame). According to the hardware notes (C. MacDonald, "Fun with reset signals", SpritesMind, 2012) the instruction pulses only the
+VRES# line, which goes to the 68000 and to the cartridge port; no other reset is driven. Genesis Plus GX, BlastEm and Musashi
+likewise do nothing but spend the clocks (none resets the YM2612). This was not measured here. The instruction is therefore executed
+as a native instruction that changes nothing but the program counter and takes its 132 clocks (the manual's figure, one prefetch
+read). The pulse itself is not modelled, and no cartridge circuit of this converter reacts to it. **Open case:** a cartridge mapper
+that resets on VRES# (the Sega 512 KiB bank mapper, `physical_rom_mapper` `sega_512k`, is the plausible candidate) would return to its
+starting banks on a console, whereas here nothing happens; neither Boxing Legends nor Dragon's Revenge uses it. A user-mode `RESET`
+still takes the privilege violation (vector 8), checked natively and on the reference path in `tools/megadrive_native_selftest.py`. *Edited:* `retrorecomp/megadrive_codegen.py` (`adapt_reset`, applied to the native bodies and to the reference
+path; `m68000.py` is untouched, so Neo Geo, CPS-1 and X68000 keep their own handling). It is a **CPU fidelity** fix; the other four
+measures are not moved. **The `md`, `cps1` and `x68` game stamps move** (the module is in their stamp groups; their output is
+unchanged), together with the shift-clock change above, and a Mega Drive game that never executes `RESET` generates the same code:
+a conversion of Blockout compared with the tree before the change (`tools/ab_conversion.py`) differs only in the generation
+identity, the text of the reference interpreter and the step analysis derived from it, with every frame, audio and state hash and
+every report field identical. Checked by the manual total of `RESET` on both paths (`tools/megadrive_cycles_selftest.py`: 132
+clocks, program counter advanced by two) and by a conversion of Boxing Legends of the Ring, which now succeeds (0 interpreted 68000
+instructions and 0 interpreted Z80 cycles on its demo and play routes; the picture and the sound change during them). Dragon's Revenge, listed for the same instruction,
+also converts now (same result on its demo and play routes: 0 interpreted 68000 instructions, 0 interpreted Z80 cycles). Gameplay beyond those
+routes is not validated for either.
+
+## Mega Drive on Windows: ThinLTO and a clang profile (1.6.5)
+
+On Windows with the portable llvm-mingw tools, a Mega Drive game is now built twice, like a Super Nintendo game since 1.6.4: a
+first build with clang's instrumentation and ThinLTO runs a private 1,800-frame `--play` training run, then the engine's own
+sources (never the generated cartridge steps) are rebuilt with that profile. It changes how fast the same C runs, not what it does;
+`RETRO_RECOMP_PGO=0` switches it off, Visual Studio keeps the ordinary build, and a training run that fails builds without the
+profile. *Edited:* `retrorecomp/console16_optimization.py` (`CLANG_PROFILE_CONSOLES = ('snes', 'md')`), shared by the Mega Drive
+and the Super Nintendo: it is a **game** input of both, so the **`md` and `snes` game stamps move** (nothing else: no host or
+build stamp, no native file, no quick-state key, not the base). The Super Nintendo build is unchanged. The conversion runs one
+training pass and one more build per game; no gain is claimed or timed here. Checked by one conversion each of Blockout, Sonic The
+Hedgehog and Gunstar Heroes (USA) with `tools/ab_conversion.py`, the tree of 1.6.5 before the change against this one: all six
+conversions succeed, and the only differences are the ones that come from the build itself: the profile file
+(`hardware-profile.profdata`, only in the new tree), `hardware-optimization.json` (`profile_guided`) and the size ratio of the
+packed executable. Every frame, audio, state, RAM, VRAM, FM, PSG and Z80 hash, every counter of the reports (so the counted interpreter fallback of
+the 68000 and of the Z80 is the same as before) and every generated source are identical. That is a check of equal outputs; the speed is not measured (a quiet-PC measurement is the lead's).
+
+## Neo Geo: a 64 KiB fixed-graphics ROM is repeated, and the native game gets a clang profile (1.6.5)
+
+Two changes of the Neo Geo converter, both in the game stamp of the Neo Geo.
+
+- **A 64 KiB fixed-graphics ROM (S1) is repeated up to 128 KiB when the cartridge is assembled** (`neogeo.mirror_short_fixed_rom`,
+  called by `neogeo_build.convert_reference` right after the preparation tool). Last Hope (NG:DEV.TEAM) is the first such cartridge
+  seen: its conversion stopped at the container check ("NEO program/fixed graphics are smaller than the cartridge layout") and now
+  converts, with zero interpreted opcodes on the main and sound CPUs. The reference engine indexes the fix region with 12-bit
+  tile numbers and no mask, so a shorter region would be read past its end; the chip's unused address line repeats its contents,
+  so tile n above 2048 is tile n - 2048. A ROM of 128 KiB or more is not touched: **every other game keeps the bytes of its
+  container**, checked on nam1975 by an A/B conversion of the tree before and after (`tools/ab_conversion.py`: every generated and
+  adapted source, the report and the evidence under `checks/` identical).
+- **The native game is built with ThinLTO and a clang profile on Windows** with the portable llvm-mingw tools
+  (`neogeo_optimization.py`, [NEOGEO.md](NEOGEO.md)): the same C is laid out and inlined differently, the outputs are identical
+  (A/B on nam1975, puzzledp and mslug3), and the conversion takes about a minute longer.
+
+**What moves.** The Neo Geo game stamp (`neogeo`, `neogeo_build`, `neogeo_conversion` (the probes now run side by side, schedule
+only) and `neogeo_optimization` are converter modules of its stamp groups): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry. The CPS-1 game stamp moves too, because it
+shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build` is edited and its fingerprint is hashed): from
+1.6.5 no compatibility key is carried, so a quick state of 1.6.4 is refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge
+saves are kept. The host stamp does not move for these two changes.
+
+## Neo Geo: an attract route that reaches the BIOS restart (1.6.5)
+
+Every Neo Geo cartridge except the NAM-1975 receipt (its historic routes are kept) now replays one more route, `long-attract`: attract
+mode with no credit for at least 7,200 frames (`neogeo_validation.BIOS_RESTART_FRAMES`; the 9,000-frame routes that eleven sets already had
+are kept, Metal Slug's 5,400 becomes 7,200). Without a credit the BIOS restarts after about 4,200 to 5,400 frames and runs a routine it copies
+into work RAM (about 8.3 million instructions); the 3,600-frame attract route and a game started at about 2,400 never reached it, so six
+exports measured on a longer route (Breakers Revenge, Rage of the Dragons, Matrimelee, Metal Slug 4, Prehistoric Isle 2, Strikers 1945
+Plus) ran the same nine instruction sites of it, 2,319 instructions, in the counted interpreter. The conversion now observes those RAM
+variants and translates them. Nothing in a saved state or a save changes.
+
+**What moves.** The Neo Geo game stamp (`neogeo_validation` is a converter module of its stamp groups, and the route table is part of
+what a conversion learns from): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry, as for the other 1.6.5
+Neo Geo changes. The host stamp and the quick-state key do not move for this change. The report of a converted game lists one more route.
+Cost: one more route replays on the reference and on the packed game; for most cartridges it is not longer than the `play` route, so a
+conversion alone waits no longer, and a batch adds about a tenth of its replay work (not timed).
+
+## X68000: DMA channel restart and moved-sprite redraw (1.6.5)
+
+Two defects of the machine base (`tools/x68000_base74.py` adapts the pinned hissorii/px68k files at build time), both found while
+checking the deferred px68k-libretro fixes of [UPSTREAMS.md](UPSTREAMS.md#deferred) against our own base.
+
+- **DMA start on a busy channel.** A CCR START on a channel that was still active, or whose completion or error flags the game had
+  not acknowledged, ended in an operation timing error (CER `0x02`, ERR and COC set, ACT cleared). It now restarts the channel with
+  ACT, COC, BTC, NDT and ERR cleared, as MAME's HD63450 does. Count errors, software abort and the other error codes are unchanged.
+  Games that re-arm their ADPCM channel early are the ones that notice (the libretro fork reports one such game).
+  `tests/test_x68000_dmac.py` (with `tests/x68000_dmac_harness.c`) runs the adapted `dmac.c` on authored bus bytes and fails on the
+  previous code.
+- **Redraw lines of a moved sprite.** Lines of the picture are redrawn only when marked, and a write to a sprite register marked
+  sixteen lines from `Y + BG_VLINE - 16 - v`. The line drawing selects a sprite row for the lines whose background row,
+  `((line << s1) >> s2) - v`, lies in `[Y + BG_VLINE - 16, Y + BG_VLINE - 1]`: the marks sat two `v` lines too high or too low
+  whenever the background's vertical start differs from the display's, and covered too few or too many lines when their line counts
+  differ, so a part of a moved sprite stayed on screen. The marks now come from the same mapping.
+  `tests/test_x68000_sprite_dirty.py` (with `tests/x68000_sprite_dirty_harness.c`) asks the real `BG_DrawLine` which lines show an
+  authored sprite and checks that the register write marked them; the previous code left 2 of 16 lines unmarked at a 2-line start
+  offset and 32 of 64 with a 256-line background on a 512-line display.
+
+Both changes live in `tools/x68000_base74.py`, a game input of the X68000 (`stamp_inputs.py`) that `RR_X68K_STATE_ABI` also hashes: the
+X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier builds are refused (as at every release), and an
+X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
+says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
+
+## X68000: exact redraw marks for the background and the sprites (1.6.5)
+
+The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background
+map or pattern, and sixteen lines for any write to a sprite register, drawn or not. The marks now cover exactly the lines whose
+picture can have changed, using the mapping of the line drawing ([the section on the DMA channel and the moved sprite](#x68000-dma-channel-restart-and-moved-sprite-redraw-165)):
+
+- a write to a background **map entry** marks the lines of its tile row (8 or 16 lines, on the ring of 512 or 1024 lines, with the
+  plane's scroll and the vertical offset of the background);
+- a write to a **pattern** is noted by pattern number; the next line drawn (`rr_bg_resolve`, called by `WinDraw_DrawLine`) marks the
+  lines of the sprites and map entries that use a noted pattern, once for all the patterns written since the last line;
+- a write to a **sprite register** marks nothing for a sprite that is not drawn before and after (priority 0, or off screen);
+- a change of the screen-resolution register of the background redraws everything, as the other registers that move the picture
+  already did; a saved state resolves the noted patterns first, and a loaded state starts with none.
+
+This is a speed change, not a behaviour change: the picture is meant to be the same as a full redraw. `tests/test_x68000_redraw_marks.py`
+(with `tests/x68000_redraw_marks_harness.c`) draws random authored scenes line after line with the real `BG_DrawLine`, once redrawing
+only the marked lines and once every line, with random map, pattern, sprite and scroll writes between the lines, and requires the two
+to be identical after every line; it redraws 3 to 4 times fewer lines when few things change, and it catches two deliberately broken
+variants of the marks. The same bookkeeping applies to the native player and to the reference, so their comparison is unchanged.
+`tools/ab_conversion.py` on two games (R-Type, which scrolls, and Puyo Puyo, which hardly does), before and after, compared 314 files
+each (CPU, memory, picture, PCM and clock traces, frame images, hashes, quick states, reports): the only differences are the three
+adapted sources that changed (`bg.c`, `windraw_compose.c` and the generation record). No timing was taken here; the gain is the number of lines no longer redrawn and is
+measured on a quiet machine. The only extra work is one call per drawn line (`rr_bg_resolve`, a test of one flag) and, after pattern
+writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line drawn, instead of the redraw of every line.
+
+The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
+
+## X68000: saved disks, the delivered file replayed, liveness (1.6.5)
+
+Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.md):
+
+- **Saved disks (G7).** `native/x68000_reference/payload.c` prepares the game's private data at every start. A writable disk is
+  kept as the player left it (as before), but one that cannot be this disk (another size, a folder in its place, a missing
+  file) and a host copy that was changed (playlist, IPL, font ROM) no longer stop the game: they are moved to
+  `<name>.unusable-N` (never deleted) and written again from the executable. A link or a hard link in place of a file, and
+  another running copy of the game, still refuse the start. `tests/test_x68000_payload.py` covers each case.
+- **The delivered file replayed (G5).** Every X68000 conversion now compresses a copy of the final player as it is
+  published and replays that compressed copy on the main route and on every exploration route against the same fresh reference
+  (a difference refuses the export, as on Neo Geo and CPS-1); the F9 fresh-process and early-floppy-DMA checks run on that copy
+  too. The report carries `native_validation.packed_reference_match` and `packed_candidate_sha256`. The conversion takes about
+  30 to 40 seconds longer (the compressed replays run side by side within the game's share of the CPUs).
+- **Liveness (G8).** The report records, per route, the number of different pictures, audio blocks, RAM states and program
+  counters of the delivered file (`liveness`), and the conversion refuses a main route whose picture never changes.
+
+`payload.c` and `retrorecomp/x68000_conversion.py` are game inputs of the X68000: the X68000 game stamp and `x68_sdk` move; nothing
+the CPU executes changes. An export of 1.6.4 is converted in full once, as at every release.
+
+## X68000: evidence tools for the saved disk and the play routes (1.6.5)
+
+Two developer tools, not part of a conversion and not read by it, for the gates G7 and G8 of [QUALIFICATION.md](QUALIFICATION.md):
+`tools/x68000_saves_check.py` converts a game, runs its player, runs it again and runs the player of a second conversion over the same
+data folder, and checks that the disk the game wrote is kept each time; `tools/x68000_play_route.py` converts a game with an authored
+input script as its main route (`tools/x68000_play_routes.py`, one exact disk set each, numbers only: Lemmings reaches its first
+level) and keeps the last picture of the delivered file. `retrorecomp/x68000_conversion.py` names the check of an input script
+(`valid_qualification_events`), the same rule as before. The X68000 game stamp moves with that module.
+
+## X68000: a picture line made visible during its machine line (1.6.5)
+
+The frame loop (`native/x68000_machine/machine.c`) chooses the picture line when a machine line begins, and a line outside the CRTC's
+window gets the "no line" marker (`0xffffffff`). A game that reprograms the CRTC during that line (as it switches to its own screen mode, on two sets
+of the test collection) can make the line visible before it is drawn; the line drawing then received the marker and indexed its line
+tables 4 GiB out, which crashed the reference with a segmentation fault between frames 431 and 440 of Tetris v5 and of TF4G v0.3A09
+(the 32-bit original wrapped to the byte before the table). A line without a chosen picture line now takes the one the CRTC gives at
+that moment (`native/x68000_machine/glue_line.h`, `tests/test_x68000_picture_line.py`); a line chosen earlier is never changed, so
+the games that ran before are drawn as they were. A game that never reaches this case sees nothing different.
+
+Both sets now convert (0 interpreted opcodes on the three routes, the compressed copy replayed against the reference). The crash
+appeared only on a first start: a saved `sram.dat` changed the start-up enough to avoid it, and a conversion always starts without one.
+`glue_line.h` and `machine.c` are game files: the X68000 game stamp and `x68_sdk` move.
+
+**A silent route is accepted (X68000 only).** A main route whose sound is all zero used to refuse the conversion ("did not produce
+usable picture and PCM"). A few X68000 games play no sound there, some only through an external Roland MIDI module that will not be
+modelled; such a route is now accepted, the conversion log says so and the report carries `native_validation.sound_heard: false`
+(sound not validated). The picture is still required. The other machines keep their sound requirement.
+
+**The sound is looked for on every route (X68000, 1.6.5).** Measured on the 84 reviewed mouse sets (`tools/x68000_mouse_survey.py`, the
+reference only, no conversion), the 4,000-frame main route has no sound for 14 sets and a picture that stops changing for 15, because a game
+that waits for a click or a key speaks and moves only on the route that gives it one: the 10,000-frame mouse route has no sound for 10 and
+a frozen picture for 4 (other sets), and no set is frozen on both. The conversion therefore takes `native_validation.sound_heard` from all
+the routes it replays and records the routes that had sound (`sound_routes`): Pensan CD, Boyon Boyon, Get Ready, Magritte, Oh! Hajiki! and
+Tonkotsu Pro Roku Hachi Kei no longer count as silent on the standard scan level; eight sets stay silent on every route (Fire, Future Wars,
+Ganbare! Paichan, Giga Fight 68K, Last Tempest A, Puzzle (1991), See Through v2, Uno). A quick scan, which replays the main route only, is
+unchanged. No input is added to any route: the checks of the fresh reference, the compressed copy and the F9 continuation are as before.
+
+The report's `packing.compared_on` now says when a packed copy was replayed (Neo Geo, CPS-1 and X68000:
+`unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
+executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
+
+The time allowed to one UPX pass on Windows was a fixed 120 seconds. It stopped Dragon Warrior IV (a 512 KiB NES board, a large
+executable) after every check had passed, while other conversions shared the CPUs. The limit now grows with the file on Windows and
+Linux alike (`packing.upx_timeout`: 10 seconds per MB, never below 300); it only exists to stop a packer that hangs.
+
+## Other machines whose game stamp moves in 1.6.5
+
+Each of these changes a game input of its machine, so the game stamp moves and an export of 1.6.4 is converted again once, as at
+every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge saves are kept.
+
+- **Game Boy.** The one-by-one executor of writable-memory code (`native/gb_ram_helpers.h`) now runs the `CB` prefix (rotates,
+  shifts, `BIT`, `RES`, `SET`, on a register or `(HL)`) with the interpreter's own helpers and cycle split (8, 12 for `BIT n,(HL)`,
+  16 for the other `(HL)` forms). Wario Land II's interpreter sessions fall to zero; those instructions are counted as one-by-one
+  executor instructions, not native code. `retrorecomp/gameboy.py` changes its scope text. Reviewed against the pinned interpreter;
+  `tools/gameboy_ram_selftest.py` compares all 256 second bytes at four placements. The runtime's `gb_tick` also gets an inline
+  ordinary case, described in [the next section](#game-boy-the-ordinary-case-of-gb_tick-runs-inline-in-the-runtime-165).
+- **NES.** The MMC1 bank tables are rebuilt on a PPU A12 change only when that change can alter them
+  ([UPSTREAMS.md](UPSTREAMS.md)); generated sources and evidence are identical. The quick-state key is now independent of the build
+  folder (`RRNESST2`).
+- **Super Nintendo.** The cartridge is checked once when it is bound instead of at every instruction, and code in work RAM is found
+  through a direct table; outputs identical on Secret of Mana, Super Mario World, Chrono Trigger and Star Fox. The conversion log
+  says when a run went past the 16,384-variant limit of RAM code observations (`retrorecomp/console16.py`, shared with the Mega
+  Drive).
+- **Neo Geo.** See its own section above (a 64 KiB fixed-graphics ROM repeated, and the clang profile on Windows).
+- **Super Nintendo, identification.** A LoROM header whose map mode is `$32` with no chip (type 0, 1 or 2) is an ordinary
+  LoROM (Duel/Test Drive II, the Popeye translation); every other `$32` header stays refused (`supernintendo.validate_cartridge`).
+- **Super Nintendo, DSP-1 on HiROM.** A HiROM header (map mode `$31`) with chip type `$03` is recognised as a DSP-1 board like
+  Super Mario Kart's (`retrorecomp/snes_chips.py`): seven cartridges of the test library, Lock On converted as proof.
+- **CPS-1.** `IM 0` on the sound Z80 is counted (generator revision 8); independent 68000 vectors are replayed through the CPS-1
+  generator and each route's liveness is recorded, a frozen route being refused.
+
+## Game Boy: the ordinary case of gb_tick runs inline in the runtime (1.6.5)
+
+`gb_tick` advances the clock of a Game Boy export after nearly every instruction and runs a large general sequence (double speed,
+real-time clock, OAM DMA, serial, timer, PPU synchronisation, interrupts, audio). `native/gb_tick_fast.h`, included by the runtime file
+`gbrt.c`, now runs the ordinary case in the caller, with the same effects in the same order, and calls the real `gb_tick` for every
+other case before it changes anything: a ticking real-time clock (cartridge type `0x0F` or `0x10`), OAM DMA pending or active, a serial
+transfer, a TIMA reload or a timer edge inside the cycles, double speed, and the runtime's test switches. It is a **speed change
+only**: native code, CPU fidelity, hardware fidelity and gameplay validation are not touched, and physical latency stays unmeasured.
+
+*What moves.* The Game Boy **game stamp** (a new game file, `native/gb_tick_fast.h`, and the runtime patch in
+`retrorecomp/gameboy_runtime.py`; the Game Boy game stamp already moves in 1.6.5 for the `CB` prefix executor above). No host stamp, no
+build stamp, no quick-state key, no change of what a conversion generates: the generated C sources are the same. An export of 1.6.4 is
+converted again once, as at every release. The patch is four `replace_once` on the private runtime copy (the include, the macro off
+around the definition of `gb_tick` and around `gb_handle_interrupts`, back on for `gb_run_cycles`, and the CGB HDMA stall kept as a
+real call); it exists only when the runtime is built without its performance counters, which is the export build.
+
+*Hot path: modified.* This is a per-tick change. For 87.0 percent of the 54.0 million calls of `gb_tick` counted on Super Mario Land
+(3,600 frames, title screen without input) it replaces a call to the large general function by the ordinary case in the caller: a test
+of conditions on fields `gb_tick` already reads, then the same effects. Where the calls are: 40 million happen while the CPU is halted
+(the HALT loop of `gb_run_cycles` steps by 4 cycles while the PPU's next-event deadline is one dot, in mode 3), the others come from the
+timed jumps, calls, returns, stack and bus accesses of `gbrt.c`; 1.3 percent are handed to the real `gb_tick` (a timer edge) and 11.7
+percent are direct calls of the generated bodies, which keep calling the real function (forcing the inline there would add about 400
+bytes at each of thousands of call sites per source file; the compiler does not inline it on its own). The code of `gbrt.c` grows by about
+44 KB (41,728 to 85,810 bytes); the generated sources do not change. **The speed gain is not measured**: speed is measured on a quiet PC,
+by the lead, with Arthur's agreement; nothing here is a timing.
+
+*Proof.* `tools/gameboy_tick_selftest.py` (with `native/gb_tick_checks.c`) applies 48 random operation streams of 6,000 operations (ticks
+of 1 to 456 cycles, writes to the timer, LCD, interrupt, DMA, serial and sound registers, reads, IME changes) to two contexts, one ticking
+through the real `gb_tick` and the other through the inline path, and compares them field by field: 309,660 comparisons, the whole context,
+the five memory blocks, the PPU, the audio output and registers `FF10`-`FF4B`, plus six cases that must take the real path. Five mutations of
+the inline path are caught. Because the runtime itself now uses the inline path, an independent check was added: `tools/ab_conversion.py`
+(reference `af885a0` against the branch) on Tetris, Super Mario Land and Wario Land II gives kept build folders that differ only in
+`runtime/include/gb_tick_fast.h` (new) and `runtime/src/gbrt.c`, and reports with identical cycles, interpreter and one-by-one counts and CPU
+comparison step counts; and the final executables of Tetris and Super Mario Land, run for 3,600 frames on three input scripts with
+`--dump-state`, write state files identical byte for byte (registers, cycles, WRAM, HRAM, PPU mode, RTC).
+
+## Game Boy: a frame lasts 70,224 cycles with the LCD off (1.6.5)
+
+With the LCD off the Game Boy has no vblank, and the runtime completed a frame only at vblank: a game that keeps the screen off
+while it waits for a key never completed another frame. In the windowed export the loop already ran in slices of 70,224 cycles and
+showed the last picture, but the frame counter, the clock of frame-anchored input scripts and the limit of headless runs advance only at a
+completed frame, so every headless probe and every scripted route stopped there. The Ren & Stimpy Show: Veediots! did so at the end
+of frame 215 of the probe (screen off at cycle 16,201,199, never on again, 30 million instructions without a frame).
+`gb_add_cycles` (and its copy in `native/gb_tick_fast.h`) now ends the frame when the frame's cycles reach 70,224 while the LCD is
+off; the host shows the picture the PPU kept. This is a **change of the frame count, not of the emulation**.
+
+*What moves.* The Game Boy **game stamp** only (it already moves in 1.6.5): `retrorecomp/gameboy_runtime.py` (one more
+`replace_once` on `gbrt.c`) and `native/gb_tick_fast.h`. No host or build stamp, no quick-state key. An export of 1.6.4 is converted
+again once, as at every release; a quick state can now be taken during an LCD-off span (the frame is complete there).
+
+*What it changes in a conversion.* The LCD-off span of the boot (several frames, 15 more in Tetris and 39 more in Super Mario Land over the
+first 3,600) used to count as one frame; it now counts as the frames it lasts. The probes of N frames therefore cover fewer cycles
+at the start, frame-anchored scripts meet other guest cycles, and the counts, the observed entries and the step counts of the reports move
+a little (Super Mario Land: 8,232 translated functions before, 8,211 after; nothing becomes interpreted). Existing observations stay valid.
+Outside the boot, a frame boundary moves only when the LCD is off at the instant the frame's cycles reach 70,224 (a span that starts
+at line n of a frame and lasts more than about 65,664 - 456 n cycles): the effect is one more host frame showing the same picture,
+never a change of the emulated state.
+
+*Hot path: modified (one comparison).* The test is made only while the LCD is off, in the function that adds the cycles of a tick,
+and in its inline copy. Not timed.
+
+*Proof.* `tools/gameboy_tick_selftest.py` checks that the real tick and the inline tick end the frame at the same cycle, for four tick
+sizes, and uses the frame reset of the host loop in its random streams (a mutation of the threshold is caught). At the same total of
+cycles the full `--dump-state` of Tetris (3,600 frames before, 3,615 after) and of Super Mario Land (3,600 and 3,639) is identical without
+`completed_frames`. Veediots now converts alone in 105 s with zero interpreter cycles and matching CPU comparisons (it stopped
+at the first input probe before); Tetris, Super Mario Land and Wario Land II convert on both sides with matching CPU comparisons and
+unchanged interpreter figures. Spiritual Warfare (an unlicensed cartridge whose header says ROM only, 32 KiB, for 256 KiB) now also
+completes its probes, with 1,029,772 interpreter cycles at four sites and the program running garbage: it is not a game that works,
+and a refusal for an inconsistent header would be a separate decision.
 
 ## Exports of 1.6.3 in 1.6.4
 

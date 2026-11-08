@@ -6,6 +6,11 @@ or Linux executable that runs the game on [Hatari](https://github.com/hatari/hat
 reference runs observed and Hatari's interpreter, counted, for the others. Nothing here says that a game plays completely, that the hardware is reproduced
 faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each.
 
+**What "native" means here.** The game runs on a complete emulator core inside the executable, Hatari, with its machine, its chips and their timing. Only the 68000 instructions that
+the conversion saw running become native steps, and each step calls Hatari's own instruction handlers behind a guard: it is not a standalone translation of the game. The video,
+the sound, the disk controller and the other chips stay Hatari's own code. So the native share below measures how much CPU code avoids the core's interpreter; it cannot be compared
+with the figures of a machine whose game code is translated, and it says nothing about hardware fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core).
+
 ## 1. What is converted, and what is not
 
 | Converted (experimental) | Not yet |

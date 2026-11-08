@@ -138,7 +138,7 @@ Seven gave fallback, the Z80 never: Breakers Revenge, Rage of the Dragons, Matri
   already translated it). A screenshot sequence of Breakers Revenge shows the BIOS logo at that point. The routes of a conversion stop at
   3,600 frames (attract) or enter a game at about 2,400 (play), so they never reached it. Fallback is 0.0007 % of the instructions there.
 - **The rule.** One attract route of at least 7,200 frames for every cartridge (`BIOS_RESTART_FRAMES`), described in
-  [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-an-attract-route-that-reaches-the-bios-restart-165). The NAM-1975 receipt keeps its routes.
+  [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#neo-geo-an-attract-route-that-reaches-the-bios-restart-165). The NAM-1975 receipt keeps its routes.
 - **Proof.** `tools/ab_conversion.py` on nam1975, the tree before and after: identical. Matrimelee, Strikers 1945 Plus and Rage of the Dragons
   converted alone with the new tree: zero interpreted opcodes on every route of the conversion, and on a 9,000-frame attract and the first
   18,000-frame pseudo-random route run on the produced executables (the same 8.3 million RAM instructions, now native). The packed-replay

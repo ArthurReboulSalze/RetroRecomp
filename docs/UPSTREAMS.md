@@ -341,7 +341,7 @@ The first fix agrees with MAME (the `hd63450.cpp` read on 29 October 2026 never 
 ended the channel with that error. The libretro fork reports a game whose ADPCM stopped for that reason; we have not looked for a game of our collection
 that depends on it. The second is a defect of the pinned base itself, found with its reproducer; the pull request names frozen sprites
 in Gardis Light 2.10, which is in our test collection and has not been converted again for this change. The reproducer shows 2 of 16 lines left unmarked at a 2-line start offset, and 32 of 64 with a 256-line background on a 512-line display.
-Both are described in [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#x68000-dma-channel-restart-and-moved-sprite-redraw-165).
+Both are described in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#x68000-dma-channel-restart-and-moved-sprite-redraw-165).
 
 And two 68000 fixes for the Mega Drive:
 

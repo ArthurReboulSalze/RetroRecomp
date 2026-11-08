@@ -48,6 +48,16 @@
   and a CUE sheet that leaves each CD-audio track's silent gap to the track before it is
   corrected in the sheet the game holds (your files do not change), which brought back its
   fight music. Other discs with such a sheet were not converted again.
+- **What "native" means on four machines.** The PlayStation, the Nintendo 64, the Atari ST
+  and the Amiga are not fully recompiled systems. Each game runs on a complete emulator
+  core inside the executable (Beetle PSX; Mupen64Plus-Next with ParaLLEl-RSP and
+  ParaLLEl-RDP; Hatari; vAmiga with the Moira 68000), with its machine, its chips and their
+  timing. Only the main CPU's instructions seen running during the conversion become native
+  code, and that code is the core's own instruction handlers behind guards; the other
+  chips stay the core's. The native share of these machines therefore measures how much CPU
+  code avoids the core's interpreter: it cannot be compared with the figures of machines whose
+  game code is translated, and it says nothing about hardware fidelity
+  ([ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core)).
 - **Adventure games (ScummVM): supported.** The owner decided on 7 November 2026 that the
   category is no longer experimental. The profile says `supported`, the report and the window
   say it, in the eight languages, and the display still says **"emulated, 0 % native"**:
