@@ -172,7 +172,7 @@ class QueueMixin:
         if outer:
             self.offer_compiled(self.compiled_added)
 
-    def _expand_paths(self, paths, found=lambda count: None, cancel=None):
+    def _expand_paths(self, paths, found=lambda count: None, cancel=None, notice=lambda key: None):
         """Files to queue from files, folders and disk sets, without Tk calls.
         A multi-disk X68000 game is one entry: its disks become one playlist."""
         from .rom_sources import disk_sets
@@ -194,7 +194,7 @@ class QueueMixin:
                         # Game folders of a machine that takes folders, beside the files (never walked again); the
                         # files inside such a folder are the game's data and are not queued as cartridges.
                         before = len(unavailable)
-                        roms, games = discover_games(path, unavailable)
+                        roms, games = discover_games(path, unavailable, notice)
                         if not roms and not games and len(unavailable) == before:
                             logs.append(self.tr('import_folder_empty', folder=path.name or str(path)))
                         walk(roms)
@@ -296,14 +296,19 @@ class QueueMixin:
         before = len(self.items)
         mode, output = self.system_mode, Path(self.output.get()).expanduser()
         existing = {item.path for item in self.items.values()}
-        state = {'found': 0, 'total': 0, 'done': 0, 'ready': [], 'logs': [], 'finished': False}
+        state = {'found': 0, 'total': 0, 'done': 0, 'ready': [], 'logs': [], 'finished': False, 'notice': None}
         self.progress.configure(mode='indeterminate', value=0)
         self.progress.start(12)
         self.set_status('import_scanning', count=0)
 
+        def notice(key):
+            # A long step of the scan (the first build of a machine's detection): the window says it at once, not at the end.
+            state['notice'] = key
+            self.messages.put(('log', self.tr(key)))
+
         def worker():
             try:
-                files, logs = self._expand_paths(paths, lambda count: state.update(found=count), self.cancel)
+                files, logs = self._expand_paths(paths, lambda count: state.update(found=count), self.cancel, notice)
                 state['logs'] = logs
                 state['total'] = len(files)
                 for path in files:
@@ -333,7 +338,7 @@ class QueueMixin:
                 self.progress.configure(value=state['done'])
                 self.set_status('import_reading', done=state['done'], total=state['total'])
             else:
-                self.set_status('import_scanning', count=state['found'])
+                self.set_status(state['notice'] or 'import_scanning', count=state['found'])
             if ready:
                 self._finish_adding()
             if not state['finished'] or state['ready']:

@@ -304,11 +304,11 @@ def _first_icon_group(exe: Path):
 
 def legal_notice() -> str:
     """The licence pack stored in every exe (pack member '.rr/legal.md'): the written offer, the GPL text, FreeType, SDL2."""
-    root = Path(__file__).resolve().parents[1]
-    parts = [('Licences of this executable', root / 'licenses' / 'scummvm.md'),
-             ('GNU General Public License', root / 'native' / 'scummvm' / 'LICENSE'),
-             ('FreeType', root / 'licenses' / 'freetype.md'),
-             ('SDL2', root / 'licenses' / 'SDL2.md')]
+    from .paths import ASSETS
+    parts = [('Licences of this executable', ASSETS / 'licenses' / 'scummvm.md'),
+             ('GNU General Public License', ASSETS / 'native' / 'scummvm' / 'LICENSE'),
+             ('FreeType', ASSETS / 'licenses' / 'freetype.md'),
+             ('SDL2', ASSETS / 'licenses' / 'SDL2.md')]
     return '\n\n'.join(f'# {title}\n\n' + path.read_text(encoding='utf-8') for title, path in parts)
 
 
@@ -417,9 +417,9 @@ def parse_detection_all(output: str) -> dict[str, list[Candidate]]:
     return folders
 
 
-def _detect_runtime() -> Path:
+def _detect_runtime(started=None) -> Path:
     from .scummvm_build import DETECT_FAMILY, build_runtime
-    return build_runtime(DETECT_FAMILY)
+    return build_runtime(DETECT_FAMILY, started=started)
 
 
 # Files that never make a folder an adventure game by themselves: pictures, documents, videos, playlists, saves and
@@ -442,10 +442,11 @@ def _may_hold_a_game(names: list[str], rom_extensions: frozenset) -> bool:
     return False
 
 
-def find_game_folders(root: Path) -> list[Path]:
+def find_game_folders(root: Path, started=None) -> list[Path]:
     """The game folders at or below `root`: ScummVM's own detection, run on each folder that may hold a game (a cheap
     look at its file names first), and never below a folder already recognised (its sub-folders are part of that game).
-    A folder of console ROMs, archives, pictures and front-end files launches no detection at all."""
+    A folder of console ROMs, archives, pictures and front-end files launches no detection at all. `started` is called when
+    the detection runtime has to be built first (minutes, on a first use), so the window can say so."""
     from .systems.registry import rom_candidate_extensions
     rom_extensions = rom_candidate_extensions()
     found = []
@@ -453,17 +454,17 @@ def find_game_folders(root: Path) -> list[Path]:
         subfolders.sort()
         if not _may_hold_a_game(names, rom_extensions):
             continue
-        if candidates_of(Path(folder)):
+        if candidates_of(Path(folder), started):
             found.append(Path(folder))
             subfolders[:] = []
     return found
 
 
-def candidates_of(folder: Path) -> list[Candidate]:
+def candidates_of(folder: Path, started=None) -> list[Candidate]:
     """ScummVM's candidates for exactly `folder` (from the discovery run when it saw the folder)."""
     key = os.path.normcase(os.path.normpath(str(folder)))
     if key not in _DETECTED:
-        _DETECTED[key] = detect(Path(folder), _detect_runtime())
+        _DETECTED[key] = detect(Path(folder), _detect_runtime(started))
     return _DETECTED[key]
 
 

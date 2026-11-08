@@ -260,6 +260,168 @@ class WindowFolderImport(unittest.TestCase):
         for code in LANGUAGES:
             self.assertNotEqual(tr('scummvm_detect_failed', code), 'scummvm_detect_failed', code)
         self.assertTrue(all(catalog(code)['ui'].get('scummvm_detect_failed') for code in LANGUAGES[2:]))
+        for code in LANGUAGES[:2]:
+            self.assertNotEqual(tr('scummvm_preparing', code), 'scummvm_preparing', code)
+        self.assertTrue(all(catalog(code)['ui'].get('scummvm_preparing') for code in LANGUAGES[2:]))
+
+    def test_the_scan_says_when_the_detection_has_to_be_built(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        from retrorecomp.gui_queue import QueueMixin
+        window = SimpleNamespace(tr=lambda key, **values: key)
+
+        def building(started=None):
+            started()
+            return Path('fake-runtime')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _root, game = self.games(tmp)
+            said = []
+            with mock.patch.object(sx, '_detect_runtime', side_effect=building):
+                files, _logs = QueueMixin._expand_paths(window, [game], notice=said.append)
+            self.assertEqual((files, said), ([game], ['scummvm_preparing']))
+            # A runtime already built: nothing to say.
+            sx._DETECTED.clear()
+            said = []
+            files, _logs = QueueMixin._expand_paths(window, [game], notice=said.append)
+            self.assertEqual((files, said), ([game], []))
+
+
+class PackagedExe(unittest.TestCase):
+    """A packaged exe runs its modules from a temporary folder removed when it closes (PyInstaller's _MEIPASS). A root read
+    from __file__ put .deps there: every first drop of a folder cloned and compiled ScummVM again in that folder, in silence."""
+
+    SIMULATION = (
+        'import json, sys\n'
+        'sys.frozen, sys._MEIPASS, sys.executable = True, sys.argv[1], sys.argv[2]\n'
+        'from retrorecomp import scummvm_build as build\n'
+        'print(json.dumps([str(build.deps_directory()), str(build.runtime_path("detect")), str(build.PATCH_DIRECTORY)]))\n')
+
+    def paths_of(self, unpacked, exe):
+        import json
+        import subprocess
+        import sys
+        repository = Path(__file__).resolve().parents[1]
+        output = subprocess.run([sys.executable, '-B', '-c', self.SIMULATION, str(unpacked), str(exe)], cwd=repository,
+                                capture_output=True, text=True, check=True).stdout
+        return [Path(item) for item in json.loads(output)]
+
+    def test_the_build_lives_beside_the_exe_and_the_patches_inside_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            unpacked = base / 'unpacked'
+            deps, runtime, patches = self.paths_of(unpacked, base / 'Games' / 'Retro-Recomp.exe')
+            self.assertEqual(deps, base / 'Games' / '.deps')
+            self.assertEqual(runtime.parents[2], deps)
+            self.assertEqual(patches, unpacked / 'native' / 'scummvm' / 'patches')
+
+    def test_an_exe_in_export_uses_the_deps_of_its_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp).resolve()
+            (project / 'retrorecomp').mkdir()
+            (project / 'RetroRecomp.py').touch()
+            (project / 'retrorecomp' / 'core.py').touch()
+            deps, _runtime, _patches = self.paths_of(project / 'unpacked', project / 'Export' / 'Retro-Recomp.exe')
+            self.assertEqual(deps, project / '.deps')
+
+    def test_no_module_of_the_exe_reads_a_folder_from_its_own_file(self):
+        """Each exception says why it is safe; a new module takes its root from retrorecomp.paths."""
+        allowed = {'paths.py',       # the one place that decides, and only outside a packaged exe
+                   'core.py',        # hashes the __file__ of modules, never a folder to work in
+                   'publishing.py',  # the branch that runs from the sources
+                   'upstreams.py'}   # read by tools/check_upstreams.py, from the sources
+        package = Path(__file__).resolve().parents[1] / 'retrorecomp'
+        found = {source.name for source in package.rglob('*.py') if '__file__' in source.read_text(encoding='utf-8')}
+        self.assertEqual(found - allowed, set())
+
+
+class FirstBuild(unittest.TestCase):
+    """A first use of the detection family, with every build step replaced: what it leaves and what it says."""
+
+    def setUp(self):
+        from unittest import mock
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.steps = []
+
+        def prepare(log, emit):
+            tree = scummvm_build.scummvm_checkout()
+            (tree / 'engines' / 'sci').mkdir(parents=True)
+            (tree / 'engines' / 'sci' / 'metaengine.cpp').write_text('fallbackDetectExtern', encoding='utf-8')
+            (tree / 'dists').mkdir()
+            return tree
+
+        def run(command, cwd, log, timeout=3600):
+            self.steps.append(Path(str(command[0])).name)
+            if Path(str(command[0])).name.endswith('strip'):
+                Path(command[2]).write_bytes(b'runtime')
+            return ''
+
+        from retrorecomp import core
+        for patcher in (mock.patch.object(scummvm_build, 'ROOT', self.root), mock.patch.object(core, 'ROOT', self.root),
+                        mock.patch.object(scummvm_build, '_require_portable_tools'),
+                        mock.patch.object(scummvm_build, 'prepare_sources', side_effect=prepare),
+                        mock.patch.object(scummvm_build, '_build_freetype', return_value=self.root),
+                        mock.patch.object(scummvm_build, '_ensure_sdl'),
+                        mock.patch.object(scummvm_build, '_host_tool', return_value=Path('create_project')),
+                        mock.patch.object(scummvm_build, '_sdl_shim', return_value=self.root),
+                        mock.patch.object(scummvm_build, 'collect_data', return_value=[]),
+                        mock.patch.object(scummvm_build, '_run', side_effect=run),
+                        mock.patch.object(core, 'toolchain', return_value=('cmake', 'Ninja'))):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_the_first_runtime_is_not_stale_at_once_and_it_is_announced_once(self):
+        started = []
+        family = scummvm_build.DETECT_FAMILY
+        out = scummvm_build.build_runtime(family, lambda text: None, started=lambda: started.append(1))
+        self.assertEqual(started, [1])
+        self.assertTrue(out.is_file())
+        self.steps.clear()
+        self.assertEqual(scummvm_build.build_runtime(family, lambda text: None, started=lambda: started.append(1)), out)
+        self.assertEqual((self.steps, started), ([], [1]), 'a second build, or a sentence with nothing being built')
+
+    def test_nothing_is_announced_without_the_tools(self):
+        from unittest import mock
+        started = []
+        with mock.patch.object(scummvm_build, '_require_portable_tools', side_effect=scummvm_build.ScummvmToolsMissing('no')):
+            with self.assertRaises(scummvm_build.ScummvmToolsMissing):
+                scummvm_build.build_runtime(scummvm_build.DETECT_FAMILY, lambda text: None, started=lambda: started.append(1))
+        self.assertEqual(started, [])
+
+
+class InterruptedClone(unittest.TestCase):
+    def test_a_window_closed_during_the_download_leaves_no_checkout(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            place = Path(tmp).resolve() / 'scummvm'
+            log = Path(tmp).resolve() / 'log'
+            attempts = []
+
+            def run(command, cwd, log, timeout=3600):
+                if 'clone' not in command:
+                    return 'wanted\n'
+                target = Path(command[-1])
+                self.assertFalse(target.exists(), 'the earlier partial clone was not removed')
+                (target / '.git').mkdir(parents=True)
+                pack = target / '.git' / 'pack'
+                pack.write_bytes(b'')
+                pack.chmod(0o444)       # git leaves its pack files read-only
+                attempts.append(target)
+                if len(attempts) == 1:
+                    raise KeyboardInterrupt('the process stops here')
+                return ''
+
+            with mock.patch.object(scummvm_build, '_run', side_effect=run):
+                with self.assertRaises(KeyboardInterrupt):
+                    scummvm_build._checkout(place, 'url', 'tag', 'wanted', log, lambda text: None)
+                self.assertFalse(place.exists())      # the next start does not mistake it for a checkout
+                scummvm_build._checkout(place, 'url', 'tag', 'wanted', log, lambda text: None)
+            self.assertTrue((place / '.git').is_dir())
+            self.assertEqual(attempts[0], attempts[1])
+            self.assertFalse(attempts[0].exists())
+            (place / '.git' / 'pack').chmod(0o666)    # the temporary folder can be removed
 
 
 class OptionsPage(unittest.TestCase):

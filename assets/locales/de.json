@@ -699,6 +699,7 @@
     "scummvm_choice": "Ausgabe (wenn mehrere passen)",
     "scummvm_tools_missing": "ScummVM-Spiele brauchen die Build-Werkzeuge von Retro-Recomp, die noch nicht installiert sind; dieser Ordner wurde nicht durchsucht. Starte einmal eine Konvertierung (Retro-Recomp bietet die Installation der Werkzeuge an) und füge den Ordner dann erneut hinzu.",
     "import_folder_empty": "Aus \"{folder}\" ist nichts hinzuzufügen: keine ROM-Datei und kein Spiel, das ScummVM erkennt.",
+    "scummvm_preparing": "Die Ordnererkennung von ScummVM wird vorbereitet (Download und Kompilierung). Beim ersten Mal dauert das einige Minuten; das Fenster hängt nicht.",
     "scummvm_detect_failed": "Die Ordnererkennung von ScummVM konnte nicht vorbereitet werden (ihre Kompilierung ist fehlgeschlagen); dieser Ordner wurde nicht durchsucht. Das Protokoll liegt im Ordner .deps von Retro-Recomp: scummvm-build/detect.log.",
     "tip_scummvm_choice": "0: Ein Ordner, der zu mehreren Ausgaben passt, wird abgelehnt und die Ausgaben werden aufgelistet. 1 bis 9: Diese Ausgabe der Liste wird verwendet."
   },
