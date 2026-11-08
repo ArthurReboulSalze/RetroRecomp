@@ -223,6 +223,11 @@ recognises becomes one executable holding the whole game, with ScummVM as its ru
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
 
+The **Sony PlayStation** profile is experimental since 1.7.1 ([status](PLAYSTATION.md)): a conversion makes a
+playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
+is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
+pad) and its checks are on [its page](PLAYSTATION.md).
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy
