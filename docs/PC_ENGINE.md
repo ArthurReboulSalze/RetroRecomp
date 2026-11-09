@@ -185,8 +185,10 @@ compared across systems: its key holds the target.
 On 9 November 2026, two more cards were converted on the same Debian 13 PC at the extended level, from the tree `4fe3cdc6` and
 with the play route that answers the game: Boxyboy (6 Run presses) and Santatlantean (4). On all three routes of each, the 18,000-frame
 ones included, the CPU, RAM, picture and PCM hashes equal the Windows run's (built with llvm-mingw), with the same native counts.
-That makes 11 of the 15 cards of the extended panel witnessed on Linux; the nine of 6 November were witnessed before the start choice
-changed, and Gradius, Street Fighter II' CE, Tonma, Military Madness and Soldier Blade were not run there.
+That makes 10 of the 15 cards of the extended panel witnessed on Linux (Night Creatures, one of the nine of 6 November, is not in
+the extended panel). The eight others of 6 November were witnessed before the start choice changed, so only Boxyboy and
+Santatlantean were seen on the current routes; Gradius, Street Fighter II' CE, Tonma, Military Madness and Soldier Blade were not
+run there. The cross-OS gate (G13) therefore stays partial until the whole panel is witnessed, a later campaign if the owner decides one.
 
 ### The extended panel (9 November 2026)
 
@@ -245,7 +247,7 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
 | Measure | State |
 |---|---|
-| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on every route of 14 of the 15 cards of the extended panel, the 18,000-frame walks included ([above](#the-extended-panel-9-november-2026)); Street Fighter II' CE keeps a counted interpreted share |
+| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on every route of 14 of the 15 cards of the extended panel, the 18,000-frame walks included ([above](#the-extended-panel-9-november-2026)); Street Fighter II' CE keeps a counted interpreted share: 19.3 %, 33.5 % and 74.7 % of its instructions on the attract, play and long routes, because the card needs more than the engine's 65,536 instruction identities per module |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames (pictures equal on 3 of 4 cards bar one frame, sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
 | Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. That is a trial, not a coverage claim: no game was checked end to end |
@@ -257,7 +259,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 - Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
 - A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
-  engine's design.
+  engine's design: 19.3 %, 33.5 % and 74.7 % of its instructions ran interpreted on the attract, play and long routes of the extended panel.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
   runs, never from the ROM alone.
 - Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
@@ -267,7 +269,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
   established.
 - Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
-- The Linux build is witnessed on 11 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
+- The Linux build is witnessed on 10 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
