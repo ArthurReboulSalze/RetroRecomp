@@ -46,6 +46,7 @@ NOTICE_RESOURCE = 203
 KICKSTART_RESOURCE = 298
 KICKSTART_1X_SIZE = 0x40000
 OBSERVATIONS = 'converter-observations.txt'
+FEEDBACK_KIND = 22       # The Amiga's kind in native/runtime_feedback.h and its profile's feedback_kinds.
 # The liveness keys of the report, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'distinct_audio_blocks': 'distinct_sound_blocks',
                    'distinct_ram_states': 'distinct_ram_states', 'distinct_program_counters': 'distinct_program_counters'}
@@ -246,6 +247,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               f'#define RR_AMIGA_FILE_COUNT {len(rows)}u',
               'static const volatile unsigned char rr_amiga_export_marker[]={' + ','.join(str(c) for c in marker) + '};', '#endif']
     (project / 'amiga_payload.h').write_text('\n'.join(header) + '\n', encoding='utf-8')
+    (project / 'runtime_feedback_config.h').write_text(f'#define RR_FEEDBACK_SYSTEM "amiga"\n#define RR_FEEDBACK_IDENTITY "{source.sha256}"\n', encoding='ascii')
     if not (project / 'game.ico').is_file():
         shutil.copy2(ASSETS / 'assets/Retro-Recomp.ico', project / 'game.ico')
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=True, standard='native', system_id='amiga')
@@ -353,15 +355,16 @@ def blitter_counts(report: dict) -> dict:
             'left_midway': (report.get('blitter') or {}).get('left_midway', 0), 'shapes': shapes}
 
 
-def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=()) -> dict:
-    """The native code of these observations, of what a sweep reaches from them over these images of memory, and of the Blitter shapes these reports saw (amiga_codegen)."""
+def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=(), windows: list = ()) -> dict:
+    """The native code of these observations, of what a sweep reaches from them over these images of memory, of the Blitter shapes these reports saw and of the windows of a player's own record (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
+    learned, walked = amiga_codegen.walk_records(windows, observed=observed)
     steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images),
-                                      shapes=amiga_codegen.blit_shapes(reports))
+                                      shapes=amiga_codegen.blit_shapes(reports), learned=learned, walked=walked)
     return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -540,6 +543,10 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     emit('Amiga: reading the WHDLoad install (slave and data files).')
+    # The player's own record: only an interpreted instruction of a real session, private to this player, never shared. It carries the same guard and counts apart; the routes below prove the game as usual.
+    from .feedback import ingest, records
+    feedback = ingest('amiga', source.sha256, output, emit=emit)
+    windows = [(row.address, row.data) for row in records('amiga', source.sha256, FEEDBACK_KIND)] if use_remembered else []
     from .console16 import dependencies16
     dependencies16('md', emit)   # SDL and the shared 68000 decoder of the generator
     core = machine_core(base, emit)
@@ -613,7 +620,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             with timings.phase('code_generation'):
                 images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
                 rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images, expected.values())
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images, expected.values(), windows)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
@@ -694,6 +701,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
                          'native_moira_specialised': native - results[name].get('translated', 0), 'native_swept': results[name].get('swept', 0),
+                         'native_learned': results[name].get('learned', 0), 'native_walked': results[name].get('walked', 0),
                          'blitter': blitter_counts(results[name]),
                          'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
@@ -732,7 +740,11 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                "specialised, not a translation (final_checks.native_translated, native_moira_specialised)"),
             'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
                              'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
-                             'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)'},
+                             'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)',
+                             'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
+                             'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it (final_checks.native_learned counts those that ran)",
+                             'walked_means': "reached by walking the window a player's session noted: it may never have run there, and no route proves it (final_checks.native_walked counts those that ran)"},
+            'runtime_learning': True, 'runtime_feedback': feedback,
             'hardware_devices': [
                 {'id': 'blitter', 'kind': 'video_unit', 'mode': 'copy blits of the shapes seen: specialised routines; line blits and other shapes: emulated',
                  'details': {'routines_are': ("vAmiga's Blitter microprogram compiled per shape (BLTCON0 and BLTCON1 without the shift fields), one step per bus slot, in the slots the reference uses: "

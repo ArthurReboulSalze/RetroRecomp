@@ -16,6 +16,9 @@ code ran. Those instructions become
 native code too, with the same guard, and count apart when they run (`rr_amiga_swept_total`): a sweep guesses, so a report never presents one as proved on a route. A wrong guess
 (data read as code, code that a later load replaces) can only be a compiled routine that never runs, or an opcode that does not match and goes to the interpreter.
 
+A player's own record (`walk_records`) adds windows of bytes at instructions that ran on the interpreter in a real session. The first instruction of a window ran there; those a walk finds after it may not have, since
+walking can reach bytes the game never executed. Both become native code with the same guard and count apart when they run (`rr_amiga_learned_total`, `rr_amiga_walked_total`): no route proves them.
+
 The Blitter's copy blits get a specialised routine per shape (`blit_shapes`, `_blitter_source`): vAmiga's own microprogram compiled for BLTCON0 and BLTCON1 without their shift fields
 (`amiga_vamiga.blitter_shape_header`), one step per bus slot, reading everything else live. A specialised routine, not a translated program. It checks its shape at every slot, since a
 game may change BLTCON during a blit. Line blits and rare shapes stay in vAmiga's microprogram; both are counted by shape.
@@ -31,7 +34,7 @@ from pathlib import Path
 from . import amiga_translate, amiga_vamiga, m68k_observed
 from .megadrive_codegen import write_changed
 
-FORMAT = 6
+FORMAT = 7
 # Moira's template parameter for the CPU of the machine.
 CORE = 'C68000'
 PARTS = 16
@@ -76,7 +79,7 @@ def _semantics(prefix: str, alias) -> str:
         for name in handlers)
     return ('#pragma once\n#include "vaconfig.h"\n#include "MoiraConfig.h"\n#include "Moira.h"\n#include "MoiraMacros.h"\n'
             '#include <cassert>\n#include <cstdio>\n#include <algorithm>\n#include <cmath>\n#include <bit>\n#include <vector>\n#include <stdexcept>\n#include <cstdint>\n'
-            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
+            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_learned_total, rr_amiga_walked_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
             'extern uint32_t rr_amiga_kick_base, rr_amiga_kick_size;\n}\n'
             'namespace vamiga::moira {\nusing namespace Flag;\n'
             '#ifdef RR_AMIGA_FORMS\n'
@@ -134,9 +137,10 @@ def _count(pc: int) -> str:
     return ''
 
 
-def _instruction(prefix: str, pc: int, form: tuple, following: list, swept: bool = False) -> str:
+def _instruction(prefix: str, pc: int, form: tuple, following: list, origin: str = '') -> str:
+    """`origin` is 'swept', 'learned' or 'walked' for an instruction no route ran: it counts apart when it runs."""
     chain = ''.join(f'    if (S::at(m, 0x{next_pc:x}, 0x{opcode:04x})) RR_AMIGA_NEXT {_symbol(prefix, next_pc, opcode)}(p);\n' for next_pc, opcode in following)
-    translated = (' rr_amiga_translated_total++;' if _translated(form[1]) is not None else '') + (' rr_amiga_swept_total++;' if swept else '')
+    translated = (' rr_amiga_translated_total++;' if _translated(form[1]) is not None else '') + (f' rr_amiga_{origin}_total++;' if origin else '')
     return (f'extern "C" void {_symbol(prefix, pc, form[1])}(void *p) {{\n    auto &m = *static_cast<vamiga::moira::Moira *>(p);\n    {form[0]}(p);\n'
             f'    rr_amiga_native_total++;{translated}{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
 
@@ -230,6 +234,29 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
     return sorted((pc, text) for (pc, _), text in found.items())
 
 
+def walk_records(records: list, *, observed) -> tuple[list, list]:
+    """From a player's record, windows of (pc, bytes), the (pc, words in hex) of the instructions each first ran there and of those a walk through the rest of the window finds. A walk goes on past a jump, because
+    the recorder relies on it for what follows in the window; it stops at what cannot be an instruction. A guess that is not code is only a routine that never runs. Nothing here says the walked ones ran."""
+    started: dict[tuple[int, int], str] = {}
+    walked: dict[tuple[int, int], str] = {}
+    for pc, data in records:
+        at = 0
+        while at + 2 <= len(data):
+            opcode = data[at] << 8 | data[at + 1]
+            if _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
+                break
+            text = data[at:at + 2 * _WORDS[opcode]].hex()
+            text = text[:len(text) // 4 * 4]
+            try:
+                observed.check_sample(pc + at, text)
+            except ValueError:
+                break
+            (started if at == 0 else walked).setdefault((pc + at, opcode), text)
+            at += 2 * _WORDS[opcode]
+    return (sorted((pc, text) for (pc, _), text in started.items()),
+            sorted((key[0], text) for key, text in walked.items() if key not in started))
+
+
 def blit_shapes(reports, limit: int = BLIT_SHAPE_LIMIT) -> list:
     """The copy shapes the runs of these reports saw (their `blitter`), as (BLTCON0, BLTCON1) without the shift fields: the most words first, up to the limit, in a stable order. Line blits have no routine."""
     words: dict[tuple[int, int], int] = {}
@@ -265,7 +292,7 @@ def _blit_table(prefix: str, shapes: list) -> str:
             + f'const unsigned rr_amiga_blit_shape_count={len(shapes)};\n')
 
 
-def write_steps(project: Path, samples: list, *, observed, swept: list = (), shapes: list = ()) -> dict:
+def write_steps(project: Path, samples: list, *, observed, swept: list = (), shapes: list = (), learned: list = (), walked: list = ()) -> dict:
     """From the observed instructions (pc, their words in hex) and the swept ones, write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
     and the index that finds an instruction from a pc and an opcode (`steps/index.c`); from the Blitter's shapes, their routines (`steps/blitter.cpp`) and their table in the index."""
     prefix = observed.prefix
@@ -273,7 +300,7 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
     observed_samples = set(samples)
     # What may follow each (pc, opcode): the targets its variants name first (a loop's branch), then where they fall through.
     following: dict[tuple[int, int], list] = {}
-    for pc, text in sorted(set(samples) | set(swept)):
+    for pc, text in sorted(set(samples) | set(swept) | set(learned) | set(walked)):
         seen = [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)]
         count = _WORDS[seen[0]]
         seen = seen[:count]
@@ -288,6 +315,12 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
             places[1].append(fall)
     instructions = sorted(following)
     was_seen = {(pc, int(text[:4], 16)) for pc, text in samples}
+    was_learned = {(pc, int(text[:4], 16)) for pc, text in learned} - was_seen
+    was_walked = {(pc, int(text[:4], 16)) for pc, text in walked} - was_seen - was_learned
+
+    def origin(key):
+        return '' if key in was_seen else 'learned' if key in was_learned else 'walked' if key in was_walked else 'swept'
+
     opcodes_at: dict[int, list] = {}
     for pc, opcode in instructions:
         opcodes_at.setdefault(pc, []).append(opcode)
@@ -313,7 +346,7 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
             if forms[opcode] not in declared:
                 text.append(f'extern "C" void {forms[opcode]}(void *);\n')
                 declared.add(forms[opcode])
-            text.append(_instruction(prefix, pc, (forms[opcode], opcode), chain, swept=(pc, opcode) not in was_seen))
+            text.append(_instruction(prefix, pc, (forms[opcode], opcode), chain, origin((pc, opcode))))
         write_changed(steps / f'chain{n:02}{observed.source_extension}',
                       observed.steps_head + 'using S = vamiga::moira::RrAmigaSteps;\n' + ''.join(text))
     groups = []
@@ -327,7 +360,7 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
         page = pages.setdefault(pc >> 12, {'base': index, 'slots': {}})
         page['slots'][(pc & 0xfff) >> 1] = index - page['base'] + 1
     source = ['#include <stddef.h>\n#include <stdint.h>\n',
-              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_swept_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
+              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_swept_total,rr_amiga_learned_total,rr_amiga_walked_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
               'typedef void (*RrAmigaCode)(void *);\n']
     source.extend(f'void {_symbol(prefix, pc, opcode)}(void *);\n' for pc, opcode in instructions)
     source.append('static const struct {uint16_t opcode;RrAmigaCode run;} entries[]={'
@@ -354,7 +387,8 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
     write_changed(steps / f'blitter{observed.source_extension}', _blitter_source(prefix, list(shapes)))
     return {'samples': len(samples), 'blitter_shapes': len(shapes), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
-            'swept_instructions': sum(key not in was_seen for key in instructions),
+            'swept_instructions': sum(origin(key) == 'swept' for key in instructions),
+            'learned_instructions': sum(origin(key) == 'learned' for key in instructions), 'walked_instructions': sum(origin(key) == 'walked' for key in instructions),
             'translated_forms': sum(_translated(opcode) is not None for opcode in forms),
             'translated_instructions': sum(_translated(opcode) is not None for _, opcode in instructions)}
 
