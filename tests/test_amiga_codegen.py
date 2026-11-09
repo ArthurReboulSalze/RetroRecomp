@@ -127,6 +127,15 @@ class AmigaCodegenTest(unittest.TestCase):
         swept = amiga_codegen.sweep([(0x1000, '6604'), (0x1006, '4e71')], [memory], observed=observed)
         self.assertEqual(swept, [(0x1002, '7001'), (0x1004, '4e75'), (0x1008, '4e75')])    # $100a holds no legal opcode
 
+    def test_the_record_is_the_kind_the_profile_declares_and_a_window_recording_can_start_late(self):
+        from retrorecomp import amiga_conversion
+        self.assertIn(amiga_conversion.FEEDBACK_KIND, get_profile('amiga').feedback_kinds)
+        player = (Path(__file__).resolve().parents[1] / 'native/amiga_machine/amiga_player.c').read_text(encoding='utf-8')
+        # F12 can switch recording on after the start: in a window the recorder is always wired; the shared recorder keeps nothing while off.
+        self.assertIn('if (!reference_cpu && (!headless || rr_feedback_enabled())) rr_amiga_set_recorder(session, record_note);', player)
+        # The exit of the player runs no handler: the record is written by hand before it.
+        self.assertLess(player.index('rr_feedback_finish();     /* The exit below'), player.index('_Exit(failed ? 1 : result)'))
+
     def test_a_window_gives_the_instruction_that_ran_and_counts_what_a_walk_finds_apart(self):
         self.sweep_table()
         observed = get_profile('amiga').observed_code

@@ -286,6 +286,10 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the player's own record (1.7.2)
+
+An exported Amiga game now records windows of 16 bytes at the 68000 instructions it interprets in RAM (feedback kind 22, the shared recorder, F12, written at a normal exit), and a reconversion beside that game makes them native, behind the same guard. What ran counts as `native_learned`, what a walk found after it as `native_walked`, apart from route-proved and swept code. These are private hints of that conversion: never in the library, never shared (G16 stays `-`). No shared file changes, so the 4,096-record limit holds. **What moves:** the Amiga's game stamp; no other console. **Hot path:** the instruction hook gains one test while a game runs, and each interpreted RAM instruction compares its window; a native instruction learned or walked adds one counter, as a swept one does. An export made before this records nothing until it is reconverted.
+
 ## Commodore Amiga: the keyboard reaches a game that never enables its interrupt; F1-F4 on the long route (1.7.2)
 
 A key changing now sets `CIAICRF_SP` in CIA-A's interrupt mask, as WHDLoad's autodoc describes, unless the slave has `WHDLF_NoKbd` (`native/amiga_machine/amiga_session.cpp`). Found on Pinball Dreams, whose level 2 handler waits for a mask it never sets: no key reached it, with the native code or on the fresh vAmiga reference. The long route's menu keys gain F1 to F4. **What moves:** the Amiga's game stamp; no other console. **Hot path:** none, it runs when a key changes. An export keeps its old behaviour until it is reconverted.
