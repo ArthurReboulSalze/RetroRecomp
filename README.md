@@ -80,7 +80,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `█████████░` 89 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
 | [Commodore Amiga](docs/AMIGA.md) | experimental | `█████░░░░░` 47 % |
-| [Atari ST](docs/ATARI_ST.md) | experimental | `█████░░░░░` 47 % |
+| [Atari ST](docs/ATARI_ST.md) | experimental | `█████░░░░░` 50 % |
 | [Nintendo 64](docs/NINTENDO_64.md) | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md) | experimental | `████░░░░░░` 40 % |
 

@@ -62,7 +62,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | experimental | `█████████░` 89 % | ✅ 11 · 🟡 3 · ❔ 0 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 12 · ❔ 2 |
-| Atari ST | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 13 · ❔ 2 |
+| Atari ST | experimental | `█████░░░░░` 50 % | ✅ 1 · 🟡 13 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 
@@ -85,7 +85,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ❔ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ➖ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -115,7 +115,7 @@ psx = Sony PlayStation.
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | ? | P | P | ? | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | - | ? | ? | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | - | - | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -142,7 +142,7 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Atari ST (6 to 8 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
+- Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:
   the ten panel games converted at the Standard level: with TOS 1.04 0 to 3 instructions interpreted on a route (2,139 on Turrican II on 6 November, 0 in the
   delivered conversion of 8 November), with EmuTOS 1.4, the default, 4 to 6 on seven games, 75 and 1,065 on the two the desktop starts (Hatari's
@@ -181,8 +181,10 @@ The page of each console, which the README links its line to (a console of the m
   matrix, COMPATIBILITY, the README, the release notes and upgrades, UPSTREAMS, INDEX, KNOWN_FAILURES, the roadmap, the architecture page, the two licence notices, every
   string that names the machine in the eight languages, the conversion's messages and every field of the report, the adapter and player strings, nine reports); 15
   statements were corrected (one stale, six overclaiming or incomplete, eight wording); still open and not the specialist's to change: the shared F1 help lists drive B
-  and eject controls the Atari ST answers "not available" to, the common report's `gameplay.claim`, and the site's card that lists the machine as upcoming. G14 and G16 stay
-  `?`: the owner's acceptance is his decision, and the sharing of paths touches the site. No hardware fidelity is claimed, no game is validated and the latency is not
+  and eject controls the Atari ST answers "not available" to, the common report's `gameplay.claim`, and the site's card that lists the machine as upcoming. G14 stays
+  `?`: the acceptance is the owner's decision. G16 `-`: the Atari ST shares no paths and is not in `SHARED_SYSTEMS`, the owner's decision of 9 November 2026: its steps
+  call Hatari's own handlers, so a shared path would raise the native count without making a game faster. The question comes back with a translated 68000, and a
+  supported Atari ST would have to join the sharing (`tests/test_machine_registry.py`). No hardware fidelity is claimed, no game is validated and the latency is not
   measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
