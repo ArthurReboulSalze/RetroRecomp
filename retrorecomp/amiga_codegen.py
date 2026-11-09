@@ -16,6 +16,10 @@ code ran. Those instructions become
 native code too, with the same guard, and count apart when they run (`rr_amiga_swept_total`): a sweep guesses, so a report never presents one as proved on a route. A wrong guess
 (data read as code, code that a later load replaces) can only be a compiled routine that never runs, or an opcode that does not match and goes to the interpreter.
 
+The Blitter's copy blits get a specialised routine per shape (`blit_shapes`, `_blitter_source`): vAmiga's own microprogram compiled for BLTCON0 and BLTCON1 without their shift fields
+(`amiga_vamiga.blitter_shape_header`), one step per bus slot, reading everything else live. A specialised routine, not a translated program. It checks its shape at every slot, since a
+game may change BLTCON during a blit. Line blits and rare shapes stay in vAmiga's microprogram; both are counted by shape.
+
 `opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time (`<opcode hex> <handler> <Instr> <Mode> <Size> <words>`,
 the words being what Moira's disassembler consumes); nothing of Moira is copied here.
 """
@@ -24,16 +28,18 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from . import amiga_translate, m68k_observed
+from . import amiga_translate, amiga_vamiga, m68k_observed
 from .megadrive_codegen import write_changed
 
-FORMAT = 5
+FORMAT = 6
 # Moira's template parameter for the CPU of the machine.
 CORE = 'C68000'
 PARTS = 16
 # How far a sweep goes, instructions per conversion: a bound on the build, not on what is right.
 SWEEP_LIMIT = 150000
 SWEEP_PAGE_BITS = 12
+# Blitter shapes compiled per conversion, the most words first; the others stay in vAmiga's microprogram, counted.
+BLIT_SHAPE_LIMIT = 64
 # Handlers after which the next word is not the next instruction.
 _NO_FALL_THROUGH = frozenset(('Bra', 'Jmp', 'Rts', 'Rte', 'Rtr', 'Stop', 'Illegal', 'LineA', 'LineF'))
 # Moira's Mode values (MoiraTypes.h) of the addressing modes that name a place: (####).w, (####).l, (d,PC).
@@ -224,9 +230,44 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
     return sorted((pc, text) for (pc, _), text in found.items())
 
 
-def write_steps(project: Path, samples: list, *, observed, swept: list = ()) -> dict:
+def blit_shapes(reports, limit: int = BLIT_SHAPE_LIMIT) -> list:
+    """The copy shapes the runs of these reports saw (their `blitter`), as (BLTCON0, BLTCON1) without the shift fields: the most words first, up to the limit, in a stable order. Line blits have no routine."""
+    words: dict[tuple[int, int], int] = {}
+    for report in reports:
+        for con0, con1, _, _, native_words, _, interpreted_words in (report.get('blitter') or {}).get('shapes', ()):
+            if not con1 & 1:
+                words[(con0, con1)] = words.get((con0, con1), 0) + native_words + interpreted_words
+    return sorted(sorted(words, key=lambda shape: (-words[shape], shape))[:limit])
+
+
+def _blit_symbol(prefix: str, con0: int, con1: int) -> str:
+    return f'{prefix}blit_{con0:03x}_{con1:02x}'
+
+
+def _blitter_source(prefix: str, shapes: list) -> str:
+    """steps/blitter.cpp: the routines of these shapes. Nothing to compile for a game without a blit."""
+    if not shapes:
+        return '// This game has no Blitter shape of its own.\n'
+    for con0, con1 in shapes:
+        if con0 & ~amiga_vamiga.SHAPE_CON0_MASK or con1 & ~amiga_vamiga.SHAPE_CON1_MASK or con1 & 1:
+            raise ValueError('Not a copy-blit shape.')
+    return ('#include "RrBlitterShape.h"\n#if defined(__GNUC__) || defined(__clang__)\n#define RR_AMIGA_BLIT __attribute__((flatten))\n#else\n#define RR_AMIGA_BLIT\n#endif\n'
+            + ''.join(f'extern "C" RR_AMIGA_BLIT void {_blit_symbol(prefix, con0, con1)}(void *blitter) {{ static_cast<vamiga::Blitter *>(blitter)->rrRun<0x{con0:03x}, 0x{con1:02x}>(); }}\n'
+                      for con0, con1 in shapes))
+
+
+def _blit_table(prefix: str, shapes: list) -> str:
+    """The table the session reads, in C (`RrAmigaCode` is declared before it)."""
+    return ('typedef struct {uint16_t con0,con1;RrAmigaCode run;} RrAmigaBlitShape;\n'
+            + ''.join(f'void {_blit_symbol(prefix, con0, con1)}(void *);\n' for con0, con1 in shapes)
+            + 'const RrAmigaBlitShape rr_amiga_blit_shapes[]={'
+            + (','.join(f'{{0x{con0:03x},0x{con1:02x},{_blit_symbol(prefix, con0, con1)}}}' for con0, con1 in shapes) or '{0,0,NULL}') + '};\n'
+            + f'const unsigned rr_amiga_blit_shape_count={len(shapes)};\n')
+
+
+def write_steps(project: Path, samples: list, *, observed, swept: list = (), shapes: list = ()) -> dict:
     """From the observed instructions (pc, their words in hex) and the swept ones, write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
-    and the index that finds an instruction from a pc and an opcode (`steps/index.c`)."""
+    and the index that finds an instruction from a pc and an opcode (`steps/index.c`); from the Blitter's shapes, their routines (`steps/blitter.cpp`) and their table in the index."""
     prefix = observed.prefix
     words = set()
     observed_samples = set(samples)
@@ -309,8 +350,10 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = ()) -> 
     return NULL;
 }
 """)
+    source.append(_blit_table(prefix, list(shapes)))
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
-    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
+    write_changed(steps / f'blitter{observed.source_extension}', _blitter_source(prefix, list(shapes)))
+    return {'samples': len(samples), 'blitter_shapes': len(shapes), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
             'swept_instructions': sum(key not in was_seen for key in instructions),
             'translated_forms': sum(_translated(opcode) is not None for opcode in forms),
             'translated_instructions': sum(_translated(opcode) is not None for _, opcode in instructions)}

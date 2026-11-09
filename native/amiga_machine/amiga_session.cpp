@@ -70,6 +70,9 @@ struct RrAmigaSession {
     bool observing = false, native = false;
     std::set<std::pair<uint32_t, std::string>> observed;
     uint64_t interpreted_count = 0;
+    // The Blitter's counters by shape (BLTCON0 and BLTCON1 without the shift fields): blits, and words or line steps, in a specialised routine (native) and in vAmiga's microprogram (interpreted).
+    struct BlitCount { void (*run)(void *) = nullptr; uint64_t native_blits = 0, native_words = 0, interpreted_blits = 0, interpreted_words = 0; };
+    std::map<uint32_t, BlitCount> blit;
     std::map<std::string, std::string> display;               // lower-case name -> the name as the install spells it
     std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
@@ -178,7 +181,19 @@ extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
 extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;
 extern "C" const uint32_t *rr_amiga_run_flags;
 extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
+// The specialised routines of this game's Blitter shapes (retrorecomp/amiga_codegen.py).
+typedef struct { uint16_t con0, con1; RrAmigaCode run; } RrAmigaBlitShape;
+extern "C" const RrAmigaBlitShape rr_amiga_blit_shapes[];
+extern "C" const unsigned rr_amiga_blit_shape_count;
 #endif
+// A blit begins: count it under its shape, and give the slot event this shape's routine if the game has one. A line blit never has one.
+static void (*blit_begin(u16 con0, u16 con1, u32 size))(void *) {
+    auto &count = S->blit[(uint32_t)(con0 & 0x0fff) << 16 | (con1 & 0x001f)];
+    if (count.run && S->native) { count.native_blits++; count.native_words += size; return count.run; }
+    count.interpreted_blits++;
+    count.interpreted_words += size;
+    return nullptr;
+}
 // Where the native code counts the Kickstart's copy in ExpMem.
 static void native_kick_window() {
 #ifdef RR_AMIGA_NATIVE
@@ -462,7 +477,11 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
         rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_swept_total = rr_amiga_kick_total = 0;
+        for (unsigned n = 0; n < rr_amiga_blit_shape_count; n++)
+            S->blit[(uint32_t)rr_amiga_blit_shapes[n].con0 << 16 | rr_amiga_blit_shapes[n].con1].run = rr_amiga_blit_shapes[n].run;
 #endif
+        rr_blit_begin = blit_begin;
+        rr_blit_left_midway = 0;
         S->amiga->audioPort.setSampleRate((double)RR_AMIGA_AUDIO_RATE);
         auto rom = boot_rom();
         S->amiga->mem.loadRom(rom.data(), (isize)rom.size());
@@ -712,6 +731,16 @@ extern "C" uint64_t rr_amiga_swept_count(const RrAmigaSession *) {
 #endif
 }
 extern "C" uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { return s->interpreted_count; }
+extern "C" void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *o) {
+    fprintf(o, "{\"left_midway\":%llu,\"shapes\":[", (unsigned long long)rr_blit_left_midway);
+    const char *comma = "";
+    for (auto &e : s->blit) {
+        fprintf(o, "%s[%u,%u,%d,%llu,%llu,%llu,%llu]", comma, e.first >> 16, e.first & 0xffff, e.second.run != nullptr, (unsigned long long)e.second.native_blits,
+                (unsigned long long)e.second.native_words, (unsigned long long)e.second.interpreted_blits, (unsigned long long)e.second.interpreted_words);
+        comma = ",";
+    }
+    fputs("]}", o);
+}
 extern "C" long rr_amiga_resload_calls(const RrAmigaSession *s) { return s->calls; }
 extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) {
     FILE *o = open_file(path, "wb");

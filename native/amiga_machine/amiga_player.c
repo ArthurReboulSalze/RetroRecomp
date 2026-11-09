@@ -324,6 +324,9 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)rr_amiga_kickstart_native_count(session));
          else fputs("\"kickstart\":null,", r);
       }
+      fputs("\"blitter\":", r);
+      rr_amiga_write_blitter(session, r);
+      fputc(',', r);
       fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
               rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),

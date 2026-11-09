@@ -7,12 +7,14 @@ MPL-2.0 file are MPL-2.0 too (licenses/vamiga.md); the changed Moira files stay 
 
 What they do: give a host that drives the machine frame by frame (no emulator thread) access to it; let the generated native
 steps call Moira's instruction templates and know each opcode's handler; the hook that runs a guarded native step instead of the
-jump table; and the fix of an upstream bug in `Texture::clear` that writes past the picture on short PAL lines.
+jump table; the specialised routines of the Blitter's copy blits (its own code compiled per shape, `blitter_shape_header`); and the fix
+of an upstream bug in `Texture::clear` that writes past the picture on short PAL lines.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -20,7 +22,7 @@ from .paths import ROOT
 
 VAMIGA_REPOSITORY = 'https://github.com/dirkwhoffmann/vAmiga.git'
 VAMIGA_REV = 'f51a6bf9e4e19387a27a31b149ef298f6f6807f8'
-FORMAT = 1
+FORMAT = 2       # Raised when what `blitter_shape_header` makes changes.
 
 REPLACEMENTS = [
     ('Infrastructure/Emulator.h',
@@ -162,14 +164,125 @@ REPLACEMENTS = [
      '    auto *ptr = pixels.ptr + row * HPIXELS + 4 * cycle;\n\n    for (isize col = 4 * cycle; col < 4 * cycle + 4; col++) {',
      '    // Retro-Recomp modification (MPL-2.0, like this file): the column index already holds the cycle offset.\n'
      '    auto *ptr = pixels.ptr + row * HPIXELS;\n\n    for (isize col = 4 * cycle; col < 4 * cycle + 4; col++) {'),
+    # The Blitter's copy blits, a specialised routine per shape (`blitter_shape_header` below, generated per game by amiga_codegen): the host looks one up when a blit begins and the
+    # slot event runs it instead of the table of the microprogram. A line blit only reports itself. Without a routine, nothing changes.
+    ('Components/Agnus/Blitter/Blitter.h',
+     'namespace vamiga {\n\n/* The Blitter supports three accuracy levels:\n',
+     'namespace vamiga {\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): the host is told of each blit (BLTCON0, BLTCON1, words or line steps) and may answer with a routine for its shape.\n'
+     'extern void (*(*rr_blit_begin)(u16 con0, u16 con1, u32 size))(void *);\n'
+     '// How many blits changed shape under a routine and went on in the microprogram\'s table.\n'
+     'extern u64 rr_blit_left_midway;\n\n'
+     '/* The Blitter supports three accuracy levels:\n'),
+    ('Components/Agnus/Blitter/Blitter.h',
+     'class Blitter final : public SubComponent\n{\n    friend class Agnus;\n',
+     'class Blitter final : public SubComponent\n{\n    friend class Agnus;\n'
+     '    friend struct RrBlitChecks;\n\n'
+     'public:\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): this blit\'s routine, if any. Not part of a snapshot: every routine checks its shape at each slot.\n'
+     '    void (*rrShape)(void *) = nullptr;\n'
+     '    template <u16 CON0, u16 CON1> void rrRun();\n\n'
+     'private:\n\n'
+     '    template <u16 instr, u8 MINTERM, bool DESC, bool EFE> void rrExec();\n'
+     '    template <bool EFE> void rrFill(u16 &data, bool &carry) const;\n'),
+    ('Components/Agnus/Blitter/Blitter.cpp',
+     'void\nBlitter::_initialize()\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file).\n'
+     'void (*(*rr_blit_begin)(u16 con0, u16 con1, u32 size))(void *) = nullptr;\n'
+     'u64 rr_blit_left_midway = 0;\n\n'
+     'void\nBlitter::_initialize()\n'),
+    ('Components/Agnus/Blitter/SlowBlitter.cpp',
+     '    // Schedule the first slow Blitter execution event\n    agnus.scheduleRel<SLOT_BLT>(DMA_CYCLES(1), BLT_COPY_SLOW);\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the routine of this shape, if the game has one.\n'
+     '    rrShape = rr_blit_begin ? rr_blit_begin(bltcon0, bltcon1, (u32)bltsizeH * bltsizeV) : nullptr;\n\n'
+     '    // Schedule the first slow Blitter execution event\n    agnus.scheduleRel<SLOT_BLT>(DMA_CYCLES(1), BLT_COPY_SLOW);\n'),
+    ('Components/Agnus/Blitter/SlowBlitter.cpp',
+     '    // Schedule the first slow Blitter execution event\n    agnus.scheduleRel<SLOT_BLT>(DMA_CYCLES(1), BLT_LINE_SLOW);\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): a line blit stays in the microprogram; the host counts it.\n'
+     '    if (rr_blit_begin) rr_blit_begin(bltcon0, bltcon1, bltsizeV);\n\n'
+     '    // Schedule the first slow Blitter execution event\n    agnus.scheduleRel<SLOT_BLT>(DMA_CYCLES(1), BLT_LINE_SLOW);\n'),
+    ('Components/Agnus/Blitter/BlitterEvents.cpp',
+     '            (this->*copyBlitInstr[bltconUSE()][0][bltconFE()][bltpc])();\n',
+     '            // Retro-Recomp modification (MPL-2.0, like this file): the routine of this blit\'s shape, else the table.\n'
+     '            if (rrShape) rrShape(this);\n'
+     '            else (this->*copyBlitInstr[bltconUSE()][0][bltconFE()][bltpc])();\n'),
 ]
+
+# What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.
+SHAPE_CON0_MASK = 0x0fff
+SHAPE_CON1_MASK = 0x001f
+BLITTER_SHAPE_HEADER = 'Components/Agnus/Blitter/RrBlitterShape.h'
+
+
+def _between(text: str, start: str, end: str, where: str) -> str:
+    """The text from `start` up to `end`, each found exactly once: an upstream change fails loudly."""
+    if text.count(start) != 1:
+        raise ValueError(f'vAmiga {where}: the pinned text was not found exactly once: {start!r}')
+    at = text.index(start)
+    stop = text.find(end, at)
+    if stop < 0:
+        raise ValueError(f'vAmiga {where}: the pinned text was not found: {end!r}')
+    return text[at:stop]
+
+
+def _rewrite(text: str, pairs: list, where: str) -> str:
+    for old, new, count in pairs:
+        if text.count(old) != count:
+            raise ValueError(f'vAmiga {where}: {old!r} was not found {count} times.')
+        text = text.replace(old, new)
+    return text
+
+
+def blitter_shape_header(core: Path) -> str:
+    """The Blitter's own code, made ready to be compiled once per shape (MPL-2.0, like the files it comes from). Nothing is written by hand here: the text of `exec`, of the shifter,
+    of the minterm switch and of the fill comes out of the adapted sources with the shape's values as template parameters, so a compiler folds what the shape fixes; the microprogram
+    is read from the table it fills. One step per slot, the same bus requests in the same slots as the reference: its accuracy level 2."""
+    slow = (core / 'Components/Agnus/Blitter/SlowBlitter.cpp').read_text(encoding='utf-8')
+    blitter = (core / 'Components/Agnus/Blitter/Blitter.cpp').read_text(encoding='utf-8')
+    constants = _between(slow, 'static constexpr u16 NOTHING', 'void\nBlitter::initSlowBlitter()', 'SlowBlitter.cpp')
+    table = _between(slow, 'void (Blitter::*copyBlitInstr[16][2][2][6])(void) = {', '/* The Line Blitter micro programs', 'SlowBlitter.cpp')
+    entries = re.findall(r'&Blitter::(exec|fakeExec) *<([^>]+)>', table)
+    if len(entries) != 16 * 2 * 2 * 6 or any((kind == 'exec') != (n % 24 < 12) for n, (kind, _) in enumerate(entries)):
+        raise ValueError('vAmiga SlowBlitter.cpp: the copy microprograms do not have the pinned layout.')
+    programs = ''.join('    {' + ', '.join('{' + ', '.join(entries[use * 24 + fill * 6 + slot][1] for slot in range(6)) + '}' for fill in (0, 1)) + '},\n' for use in range(16))
+    execute = _rewrite(_between(slow, 'template <u16 instr> void\nBlitter::exec()\n{', 'template <u16 instr> void\nBlitter::fakeExec()', 'SlowBlitter.cpp'), [
+        ('template <u16 instr> void\nBlitter::exec()\n', 'template <u16 instr, u8 MINTERM, bool DESC, bool EFE> inline void\nBlitter::rrExec()\n', 1),
+        ('bool desc = bltconDESC();', 'constexpr bool desc = DESC;', 1),
+        ('barrelShifter(anew & mask, aold, bltconASH(), desc)', 'rrBarrelShifter<desc>(anew & mask, aold, bltconASH())', 1),
+        ('barrelShifter(bnew, bold, bltconBSH(), desc)', 'rrBarrelShifter<desc>(bnew, bold, bltconBSH())', 1),
+        ('doMintermLogic(ahold, bhold, chold, bltcon0 & 0xFF)', '(u16)rrMinterm<MINTERM>(ahold, bhold, chold)', 2),
+        ('doFill(dhold, fillCarry)', 'rrFill<EFE>(dhold, fillCarry)', 1),
+    ], 'SlowBlitter.cpp')
+    shifter = _rewrite(_between(blitter, 'u16\nBlitter::barrelShifter(u16 anew, u16 aold, u16 shift, bool desc) const\n{', 'u16\nBlitter::doMintermLogic(', 'Blitter.cpp'), [
+        ('u16\nBlitter::barrelShifter(u16 anew, u16 aold, u16 shift, bool desc) const\n', 'template <bool desc> static inline u16\nrrBarrelShifter(u16 anew, u16 aold, u16 shift)\n', 1),
+        ('if (desc) {', 'if constexpr (desc) {', 1),
+    ], 'Blitter.cpp')
+    minterm = _rewrite(_between(blitter, 'int\nBlitter::doMintermLogicQuick(u16 a, u16 b, u16 c, u8 minterm) const\n{', 'void\nBlitter::doFill(', 'Blitter.cpp'), [
+        ('int\nBlitter::doMintermLogicQuick(u16 a, u16 b, u16 c, u8 minterm) const\n', 'template <u8 minterm> static inline int\nrrMinterm(u16 a, u16 b, u16 c)\n', 1),
+    ], 'Blitter.cpp')
+    fill = _rewrite(_between(blitter, 'void\nBlitter::doFill(u16 &data, bool &carry) const\n{', 'void\nBlitter::doLine()', 'Blitter.cpp'), [
+        ('void\nBlitter::doFill(u16 &data, bool &carry) const\n', 'template <bool EFE> inline void\nBlitter::rrFill(u16 &data, bool &carry) const\n', 1),
+        ('u8 exclusive = !!bltconEFE();', 'constexpr u8 exclusive = EFE;', 1),
+    ], 'Blitter.cpp')
+    steps = ''.join(f'        case {slot}: rrExec<rrCopyProgram[use][fill][{slot}], (u8)CON0, desc, efe>(); break;\n' for slot in range(6))
+    return ('// Written by retrorecomp/amiga_vamiga.py from vAmiga\'s Blitter (Dirk W. Hoffmann, MPL-2.0, like this file): its copy microprograms, compiled per shape.\n'
+            '#pragma once\n#include "vaconfig.h"\n#include "Blitter.h"\n#include "Agnus.h"\n#include "Memory.h"\n#include "Paula.h"\n\nnamespace vamiga {\n\n'
+            + constants + '\nstatic constexpr u16 rrCopyProgram[16][2][6] = {\n' + programs + '};\n\n' + shifter + minterm + fill + execute
+            + 'template <u16 CON0, u16 CON1> inline void\nBlitter::rrRun()\n{\n'
+            f'    if ((bltcon0 & 0x{SHAPE_CON0_MASK:04x}) != CON0 || (bltcon1 & 0x{SHAPE_CON1_MASK:04x}) != CON1) {{\n'
+            '        // BLTCON0 or BLTCON1 changed during the blit: the table goes on with it, as it reads them at every slot.\n'
+            '        rrShape = nullptr;\n        rr_blit_left_midway++;\n'
+            '        (this->*copyBlitInstr[bltconUSE()][0][bltconFE()][bltpc])();\n        return;\n    }\n'
+            '    constexpr int use = (CON0 >> 8) & 0xF;\n    constexpr int fill = (CON1 & 0x18) != 0;\n    constexpr bool desc = (CON1 & 2) != 0;\n    constexpr bool efe = (CON1 & 0x10) != 0;\n'
+            '    switch (bltpc) {\n' + steps + '        default: (this->*copyBlitInstr[bltconUSE()][0][bltconFE()][bltpc])(); break;\n    }\n}\n\n}\n')
 
 
 def adaptation_digest() -> str:
-    """What the adapted tree depends on besides the pin: the replacements themselves."""
+    """What the adapted tree depends on besides the pin: the replacements themselves and how the Blitter's shape header is made."""
     value = hashlib.sha256(b'amiga-vamiga-adaptation\0' + str(FORMAT).encode() + b'\0' + VAMIGA_REV.encode())
     for rel, old, new in REPLACEMENTS:
         value.update(b'\0' + rel.encode() + b'\0' + old.encode() + b'\0' + new.encode())
+    value.update(b'\0' + BLITTER_SHAPE_HEADER.encode() + b'\0' + str(FORMAT).encode())
     return value.hexdigest()
 
 
@@ -214,6 +327,7 @@ def adapt(checkout: Path, target: Path) -> Path:
         if text.count(old) != 1:
             raise ValueError(f'vAmiga {rel}: the pinned text was not found exactly once.')
         path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+    (core / BLITTER_SHAPE_HEADER).write_text(blitter_shape_header(core), encoding='utf-8', newline='\n')
     ready.write_text(json.dumps({'revision': VAMIGA_REV, 'adaptation': digest, 'replacements': len(REPLACEMENTS)}) + '\n',
                      encoding='utf-8')
     return core

@@ -280,6 +280,18 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the Blitter's copy blits, specialised routines by shape (1.7.2, recompilation stage 6)
+
+A game's copy blits of the shapes its reference runs saw now go through a routine compiled for that shape: vAmiga's own microprogram (its accuracy level 2), whose text `amiga_vamiga.blitter_shape_header` takes at build time
+with BLTCON0 and BLTCON1 without their shift fields as template parameters, so the compiler folds the channels, the direction, the fill and the minterm's 256-way switch. One step per bus slot, in the slots the reference uses,
+everything else read live. Specialised routines, not a translated program. A routine checks its shape at every slot; a game that changes BLTCON during a blit goes on in vAmiga's table (`left_midway`). Line blits, shapes beyond
+the 64 that move the most words, and shapes the routes never saw stay in vAmiga's microprogram. Native and interpreted counters by shape: `final_checks[].blitter`; the report's `hardware_devices` names the Blitter apart from Agnus and
+the Copper, Denise and Paula, which stay emulated. The Copper is not compiled ([AMIGA.md](AMIGA.md), section 2).
+Proof: `tools/amiga_blitter_selftest.py` runs 1,023 shapes (every channel set with every fill and direction, every minterm) on 8,184 random blits, a quarter with BLTCON changed on the way, through vAmiga's table and through the routine, with the same random bus from slot to slot:
+the Blitter's whole snapshot and the slot's bus record after each of 970,162 slots, then Agnus, Paula and chip RAM, 0 differ; a routine that writes a wrong word is seen 16 times out of 16. Rick Dangerous, Apidya, Lemmings and Civilization: every frame equals the fresh reference on both routes,
+with the same CPU counts and sound hashes as stage 4 and every copy word in a routine (shapes 1, 4, 3, 12). **What it brings:** little. On a loaded PC a slot took about 2 ns less out of 11 to 20 ns, with runs from 0.83 to 1.57 times, no timing; the Blitter is 0.1 to 3.6 % of a frame, so under 1 % of a frame at best.
+**Hot path:** one pointer test per copy-blit slot, and a table lookup per blit. **Size:** 4 to 14 KiB more per compressed game on the four. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds; a state saved during a blit goes on correctly in the table.
+
 ## Commodore Amiga: a sweep beyond the routes (1.7.2, recompilation stage 4)
 
 What a player reaches beyond the scripted routes ran on the interpreter. The conversion now reads the memory each route's fresh reference leaves (in its private work folder, removed once read) and
