@@ -13,9 +13,10 @@ reported. It is experimental: no gate of the qualification list is claimed beyon
 3. [How a HuCard file is read](#3-how-a-hucard-file-is-read)
 4. [Engine and upstream](#4-engine-and-upstream)
 5. [What was measured](#5-what-was-measured)
-6. [The five measures](#6-the-five-measures)
-7. [Known limits](#7-known-limits)
-8. [Next stages](#8-next-stages)
+6. [Saves](#6-saves)
+7. [The five measures](#7-the-five-measures)
+8. [Known limits](#8-known-limits)
+9. [Next stages](#9-next-stages)
 
 ## 1. At a glance
 
@@ -26,7 +27,7 @@ reported. It is experimental: no gate of the qualification list is claimed beyon
 | Processor | One HuC6280 (a 65C02 derivative that also holds the sound generator); fallback counted in instructions |
 | Engine | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp), MIT, pinned by commit; runtime ABI 29 |
 | Reports | Common report v2 through `write_report`: native and interpreted instructions per route, guard misses, the five measures kept apart |
-| Exports | A standalone Windows game per card; quick states (F8/F9); two players, six buttons for the Street Fighter II board |
+| Exports | A standalone Windows game per card; quick states (F8/F9); a Backup RAM file beside the game ([below](#6-saves)); two players, six buttons for the Street Fighter II board |
 
 ## 2. Scope
 
@@ -43,7 +44,8 @@ Decided on 5 November 2026.
   none are refused, and a `.sgx` is refused). The size limit of a ZIP member is declared by the profile.
 - **A SuperGrafx game** (a `.pce` that needs the second video chip) cannot be told from its bytes: it starts on one chip,
   shows no picture, and the conversion refuses it ("no picture was produced"). Dai Makaimura is the example tried.
-- **Saves:** HuCards have no save memory.
+- **Saves:** a HuCard has no save memory of its own, but a game can keep 2 KiB on the console's backup unit, and some do: the
+  export gives it that memory, in a file beside the game ([Saves](#6-saves)).
 
 ## 3. How a HuCard file is read
 
@@ -188,12 +190,13 @@ ones included, the CPU, RAM, picture and PCM hashes equal the Windows run's (bui
 That makes 10 of the 15 cards of the extended panel witnessed on Linux (Night Creatures, one of the nine of 6 November, is not in
 the extended panel). The eight others of 6 November were witnessed before the start choice changed, so only Boxyboy and
 Santatlantean were seen on the current routes; Gradius, Street Fighter II' CE, Tonma, Military Madness and Soldier Blade were not
-run there. The cross-OS gate (G13) therefore stays partial until the whole panel is witnessed, a later campaign if the owner decides one.
+run there. The cross-OS gate (G13) therefore stays partial until the whole panel is witnessed, a later campaign if the owner decides one. All of this predates the Backup RAM: the RAM hash now
+holds that bank, so these hashes are not comparable with today's, and the memory itself has not run on Linux.
 
 ### The extended panel (9 November 2026)
 
 Fifteen cards through the same loop at the **extended** level, built with the toolchain players use (llvm-mingw), one at a
-time or two at once, on the tree of the branch `spec/pce-172`. Each plays three routes (attract with no input, play, and a
+time or three at once, on the tree of the branch `spec/pce-173`, the Backup RAM included ([Saves](#6-saves)). Each plays three routes (attract with no input, play, and a
 pseudo-random walk of 18,000 frames), runs each twice (every instruction interpreted, then the guarded native module) and
 requires the per-frame CPU, RAM, picture and PCM traces to be equal; the compressed executable is replayed against the
 same reference; a quick state is saved, loaded in a fresh process and must continue the timeline, thirteen damaged states
@@ -207,9 +210,9 @@ instructions / interpreted share (millions).
 | Raiden (USA) | 1 | 110 M / 0 | 106 M / 0 | 526 M / 0 | in play (stage 1), ends on a continue countdown |
 | Space Harrier (USA) | 3 | 106 M / 0 | 98 M / 0 | 542 M / 0 | plays, then a stage banner stays up (uncertain) |
 | Splatterhouse (USA) | 4 | 89 M / 0 | 88 M / 0 | 425 M / 0 | in play to the end, several rooms |
-| Bomberman '93 (USA) | 4 | 105 M / 0 | 104 M / 0 | 528 M / 0 | plays, then the stage restarts; ends on the password screen |
+| Bomberman '93 (USA) | 4 | 105 M / 0 | 104 M / 0 | 528 M / 0 | plays, then the stage restarts; ends on a city scene |
 | Gradius (Japan) | 1 | 104 M / 0 | 103 M / 0 | 506 M / 0 | plays, then frozen from about frame 7,500 (cause not found) |
-| Santatlantean (aetherbyte) | 4 | 87 M / 0 | 97 M / 0 | 472 M / 0 | plays, then loops between title and options |
+| Santatlantean (aetherbyte) | 4 | 103 M / 0 | 98 M / 0 | 473 M / 0 | plays to a game over and a new high score, then loops between title and options |
 | Street Fighter II' - Champion Edition (Japan) | 4 | 81 M / 19.3 % | 68 M / 33.5 % | 132 M / 74.7 % | fights (score 13,900), ends on an idle fight screen after a pause |
 | Boxyboy (USA) | 6 | 96 M / 0 | 96 M / 0 | 480 M / 0 | in play (puzzle stages), not solved |
 | Legend of Hero Tonma (USA) | 6 | 71 M / 0 | 64 M / 0 | 351 M / 0 | in play, reaches a tower section |
@@ -221,6 +224,10 @@ instructions / interpreted share (millions).
 - **0 interpreted on every route of 14 cards.** Street Fighter II' Champion Edition keeps a counted interpreted share, from
   the engine's bound of 65,536 instruction identities per module (four captures were left out); `release_check` reports it as
   its one failure against the limit of 0, which is the rule working.
+- **The Backup RAM and the stalls.** Compared with the same panel just before the memory existed: 14 cards keep their counts to the million, Santatlantean's attract loop goes
+  from 87 M to 103 M instructions because it no longer stops, and its stall on the long route stays. The memory explains no other stall. The 12 pictures of the attract and
+  long routes of Gradius and Military Madness are identical to before. Bomberman '93 only probes the memory: its pictures are the same up to the last one, where it now ends on
+  a city scene and no longer on the password screen, and it still restarts its stage. Space Harrier and Street Fighter II' CE do not write it, keep their counts and were not looked at again.
 - **The start.** The first panel pressed Run at fixed frames; on 7 of 18 cards the play route then stayed on a menu, a story,
   a sound test or a password screen while every check passed. The conversion now tries 1, 2, 3, 4 and 6 presses (Run pairs
   also come now and then during the walk, to leave stories and prompts), walks with the directions only for 900 frames, and
@@ -235,13 +242,75 @@ instructions / interpreted share (millions).
   as it was; loading a missing state is refused and creates nothing.
 - **MAME.** `tools/pce_mame_compare.py` compares the delivered game with MAME 0.289 (`tg16`), no input on either side, the first
   3,000 frames, on four US cards: 3,000 of 3,000 pictures equal on Soldier Blade, 2,999 of 3,000 on Bonk's Adventure and on
-  Military Madness (one frame, or one scanline, of timing), 727 of 2,999 on Boxyboy, which parts from MAME at frame 729
-  (MAME shows its title menu where the game waits on a "FILE NOT CONNECTED" screen; cause not established). The two write the
+  Military Madness (one frame, or one scanline, of timing), 2,992 of 2,999 on Boxyboy (7 single frames, each differing on under 0.6 % of its pixels). Both sides
+  start from the same formatted Backup RAM, and Soldier Blade leaves the same 2,048 bytes in both. The two write the
   VDC's eight colour levels with different tables, so pictures are compared per colour channel at that level. The game's sound is
   a near-constant 9.3 to 9.5 dB below MAME's with spectra that agree (cosine 0.98 to 0.999); no waveform match is claimed.
   This is a comparison with an emulator, not with hardware.
+- **Why Boxyboy once differed.** Before the Backup RAM it matched MAME on 727 of 2,999 pictures, parting at frame 729: MAME showed the title menu, the game a "FILE NOT
+  CONNECTED" screen. The card tests bank `$F7` at about that frame, and MAME maps a memory there on every card while the engine's base HuCard profile does not. Forcing that bank to read `$FF` in
+  MAME made 2,999 of 2,999 pictures equal the game of that time. The engine was consistent with its documented profile, and no engine fault was shown.
 
-## 6. The five measures
+## 6. Saves
+
+Added on 9 November 2026. A HuCard has no memory of its own, but the console's backup units (the CD interface, the Tennokoe 2, the Backup
+Booster) hold 2 KiB of Backup RAM at bank `$F7`, and a card can look for it. 86 of the 286 cards of the owner's library hold the mark of the file system (`HUBM`), 63 of them with
+the unlock sequence as well. Under MAME 0.289, with no input and a formatted memory, 18 of the 22 US cards among those touch it in their
+first 3,000 frames and 8 create a file (Boxyboy, Chew Man Fu, Falcon, Parasol Stars, Soldier Blade, Tiger Road, Timeball, World Sports
+Competition). The engine's base HuCard profile has no such memory: the bank reads `$FF`, and Boxyboy then shows "FILE NOT CONNECTED. COPY
+THE PASSWORD".
+
+**The model.** `native/pce_machine.cpp` maps bank `$F7` as plain RAM after the engine's own HuCard setup, on the same pin and with no change
+to the engine. It is a choice of our bridge, not something the pinned engine offers on a HuCard. It differs from the hardware in named ways:
+
+- **Formatted from the start.** With no save file the memory holds the file system's header (`HUBM 00 88 10 80`) and zeros. A real unit
+  starts as whatever it last held and a game may offer to format it. This is what Beetle does for a HuCard (its source was read, not run). MAME
+  gets the same bytes when it is compared with the game ([below](#the-extended-panel-9-november-2026)).
+- **No lock.** The chip's unlock sequence and lock are not modelled: the bank is always open.
+- **8 KiB of RAM, 2 KiB kept.** The file holds the first 2 KiB, the size of the chip. A write past them stays in RAM until the game is closed,
+  and the report counts those bytes (`backup_beyond_2k`): none on any route of the panel.
+- **One file per card.** A real unit is shared between all games; here a game sees only what it wrote.
+- **No CD attached.** The pad port still says no CD is attached. MAME's says one is; forcing Boxyboy's to say none changed no picture.
+
+**The file.** `datas/saves/<game>-<first 12 hex of the card's SHA-256>.rrsram`, 2,160 bytes: a 112-byte header (magic `RRPCEBR1`, version,
+size, FNV-1a hash of the memory, the card's SHA-256) and the memory. It is written atomically, two seconds after the game's last change and
+when the game closes. It belongs to the exact card and survives a rebuild of the game. `native/pce_backup.c` holds it, and `pce_main.c` asks
+it once per frame.
+
+**A file that cannot be used** (empty, cut, one byte too short or long, the raw memory without a header, another magic, version or size, a
+wrong hash, another card's) is renamed `<file>.unusable-N` unchanged, the game starts as if there were none, and a notice says so. If it cannot be
+moved, saving stops for that run and a notice says so. A file never stops a game. An older export simply has no file and starts formatted.
+
+**Quick states are separate.** A save needs no F8/F9. A quick state also holds the memory, as on the Mega Drive and the Super Nintendo: F9 brings
+it back as it was, and the file follows. Quick states of earlier builds are refused, as any other change of the bridge makes them.
+
+**What was proved** on the conversions of 9 November 2026 (Windows, llvm-mingw; each check in `pce_conversion.check_backup`, written into the report's `backup_ram`):
+
+| Check | Result |
+|---|---|
+| With no file, every card of the panel starts formatted | 15 of 15 |
+| A valid file is read back in a fresh process | 15 of 15 |
+| 11 kinds of damaged file are set aside unchanged and the game starts | 15 of 15 |
+| With the same memory given to both, the native run equals the fully interpreted reference | 15 of 15 |
+| The play route writes the memory, and a fresh process finds what was written | 3 of 15 (Boxyboy, Santatlantean, Soldier Blade); on the 12 others the routes only probe it |
+| Bytes written past 2 KiB | 0 on every route of the 15 |
+
+Three cards were looked at further, in fresh processes with no window:
+
+- **Boxyboy, a player's save.** Construction mode, a floor saved with the game's own SAVE command ("THE DATA HAS BEEN SAVED", a file `SOKO-EDIT1`
+  appears beside the `SOKO-DATA` the game makes at boot); the process ends; a new process's LOAD command then lists "EDIT 1: SAVED". The native game and
+  the fully interpreted reference give equal traces and equal files, and loading leaves the file unchanged. The editor is not on the conversion's
+  routes, so those two runs are partly interpreted, and counted: 18.8 % (15.6 M of 82.8 M instructions) and 6.8 % (4.4 M of 64.7 M).
+- **Santatlantean, a high score.** The long route's game over writes a score of 380 in the table (`SANTA!.his`); a new process's title loop shows it in 8th place,
+  where a first start shows `BLZ` with 300. That run has 15,513 interpreted instructions of 102.7 M: the path of a table that was changed is not on the routes. Its attract
+  loop, which stopped after a few frames without the memory, now loops through its title and its score table.
+- **Soldier Blade, a file with no visible use shown.** The game makes `SOLDIBLADE` at its first start and finds it again in a new process, but a scripted
+  game over left it unchanged, and changing the top score in the file (with the game's own checksum recomputed) changed no picture in 1,600 frames. It is a
+  card that writes the memory; that it reads a result back on screen is not shown.
+
+What this does not say: nothing here was run on a real backup unit, on Linux, or against Beetle.
+
+## 7. The five measures
 
 They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
@@ -249,13 +318,13 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 |---|---|
 | Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on every route of 14 of the 15 cards of the extended panel, the 18,000-frame walks included ([above](#the-extended-panel-9-november-2026)); Street Fighter II' CE keeps a counted interpreted share: 19.3 %, 33.5 % and 74.7 % of its instructions on the attract, play and long routes, because the card needs more than the engine's 65,536 instruction identities per module |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
-| Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames (pictures equal on 3 of 4 cards bar one frame, sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
+| Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames, the same Backup RAM on both sides (pictures equal on 3 of 4 cards bar one frame, and bar 7 on the fourth; sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
 | Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. That is a trial, not a coverage claim: no game was checked end to end |
 | Physical latency | Not reported and not measured |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
-## 7. Known limits
+## 8. Known limits
 
 - Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
 - A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
@@ -265,15 +334,15 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 - Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
 - The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a frozen screen, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
-- Boxyboy parts from MAME at frame 729 (a "FILE NOT CONNECTED" screen in the game, the title menu in MAME); the cause is not
-  established.
+- The Backup RAM is a model of ours, on Windows only so far: plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
+  not on the routes, so they run partly interpreted, and counted.
 - Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
-- The Linux build is witnessed on 10 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
+- The Linux build is witnessed on 10 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)), all before the Backup RAM; a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
-## 8. Next stages
+## 9. Next stages
 
 1. A speed measure on a quiet PC.
 2. The owner's play trials of the new exports.

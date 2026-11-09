@@ -21,7 +21,7 @@ pixel has the same level in each of its three channels. The VDC's colour has 8 l
 differently (MAME 0, 36, 73, 109, 146, 182, 219, 255; the game 0, 36, 72, 109, 145, 182, 218, 255: read from a capture of each side), so
 the equality of the 24-bit colours is reported apart (`identical_exact`): it is not a different picture, it is a different table,
 and which table is closer to a real console is not known. The frame offset (MAME frame f against game frame f + offset) is chosen
-among -3 to 3 by the number of equal frames on a sample, and reported, not corrected afterwards.
+among -3 to 3 together with the places, by the number of equal frames on a sample, and reported, not corrected afterwards.
 
 For a frame that is not equal the tool says why, in this order: `offset` (it equals the game's picture of a frame one or two away),
 `shifted` (it equals the game's picture of a frame further away: the run is the same, the timing is not; the distance is reported),
@@ -342,19 +342,23 @@ class Comparer:
         return equal
 
     def choose_offset(self, sample_size: int = 150) -> dict:
-        """Calibrate and pick the frame offset: the geometries are searched at offset 0 first, then at the next ones until some
-        size is placed; the offset is the one with the most equal frames on a sample (0 wins ties)."""
-        used = 0
-        for used in OFFSETS:
-            if self.calibrate(used):
-                break
+        """Pick the places and the frame offset together: a picture that scrolls one row a frame also fits one row away at the wrong
+        offset (close enough to place it, and then no frame is equal). So the places are searched at each offset in turn, the likeliest
+        first, and the offset whose places give the most equal frames on a sample wins (the earlier one on a tie)."""
         step = max(1, (self.frames - 4) // sample_size)
         sample = list(range(4, self.frames - 3, step))
+        best, best_places, best_equal = 0, {}, -1
+        for offset in OFFSETS:
+            self.geometries = {}
+            if not self.calibrate(offset):
+                continue
+            equal = self.score(offset, sample)
+            if equal > best_equal:
+                best, best_places, best_equal = offset, dict(self.geometries), equal
+            if equal == len(sample):
+                break
+        self.geometries, self.offset = best_places, best
         scores = {offset: self.score(offset, sample) for offset in sorted(OFFSETS)}
-        best = max(sorted(scores, key=abs), key=lambda offset: scores[offset])
-        self.offset = best
-        if best != used:
-            self.calibrate(best)
         return {'offset': best, 'sample_frames': len(sample), 'equal_on_sample': scores}
 
     @staticmethod
