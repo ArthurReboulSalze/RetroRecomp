@@ -326,6 +326,8 @@ static bool write_capture(const char *path) {
    return fclose(f) == 0;
 }
 
+static bool bare_frames;
+
 static int run_headless(const char *trace_path, const char *report_path, const char *capture_path, const char *observe_path,
                         unsigned save_at, bool load_start, bool probe) {
    FILE *trace = trace_path ? open_utf8(trace_path, L"wb") : NULL;
@@ -344,6 +346,12 @@ static int run_headless(const char *trace_path, const char *report_path, const c
    for (n = 0; n < frame_limit; n++) {
       RrStFrameInfo info, before;
       int16_t pcm[2 * 4096];
+      if (bare_frames) {   /* what a frame costs, without the hashes of the checks: nothing is compared in such a run */
+         scripted_inputs(n);
+         if (rr_st_frame(session)) { stopped = true; error = rr_st_error(session); break; }
+         while (rr_st_audio(session, pcm, 4096)) {}
+         continue;
+      }
       rr_st_frame_info(session, &before);
       scripted_inputs(before.frame);
       if (rr_st_frame(session)) { stopped = true; error = rr_st_error(session); break; }
@@ -385,10 +393,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       escaped[k] = 0;
       if (!r) { fail("Cannot write the report"); return 1; }
       rr_st_picture(session, &w, &h, &stride);
-      fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
+      fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
                  "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"disk_writes\":%u}\n",
-              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session),
+              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
               rr_st_desktop_started(session) ? "true" : "false", rr_st_writes_count(session));
@@ -466,6 +474,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--verbose")) verbose = true;
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
+      else if (!strcmp(a, "--bare-frames")) bare_frames = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
               "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
