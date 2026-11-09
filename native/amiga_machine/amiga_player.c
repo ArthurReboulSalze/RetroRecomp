@@ -56,13 +56,19 @@ static void fail(const char *message) {
    failed = true;
 }
 
-/* The kit's two calls into the fallback-hint feedback: this experimental player records none. */
+#ifdef RR_AMIGA_LINKED
+#include "runtime_feedback.h"
+/* An exported game keeps the player's own record (native/runtime_feedback.c, F12): what ran on the interpreter, for the next conversion. */
+static void record_note(uint32_t pc, const uint8_t *bytes, unsigned size) { rr_feedback_note(RR_FB_AMIGA, pc, 0, bytes, size); }
+#else
+/* The development player records nothing. */
 void rr_feedback_start(int gameplay) { (void)gameplay; }
 int rr_feedback_enabled(void) { return 0; }
 int rr_feedback_toggle(void) { return 0; }
 const char *rr_feedback_label(void) { return "Fallback hints unavailable"; }
 int rr_feedback_pending(void) { return 0; }
 void rr_feedback_finish(void) {}
+#endif
 #if !defined(_WIN32) && !defined(RR_AMIGA_LINKED)
 const void *rr_resource(unsigned id, size_t *size) { (void)id; *size = 0; return NULL; }
 #endif
@@ -333,10 +339,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       fputs("\"blitter\":", r);
       rr_amiga_write_blitter(session, r);
       fputc(',', r);
-      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
+      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"learned\":%llu,\"walked\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
               rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
-              (unsigned long long)rr_amiga_translated_count(session), (unsigned long long)rr_amiga_swept_count(session), (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
+              (unsigned long long)rr_amiga_translated_count(session), (unsigned long long)rr_amiga_swept_count(session), (unsigned long long)rr_amiga_learned_count(session), (unsigned long long)rr_amiga_walked_count(session), (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
               RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
@@ -425,6 +431,11 @@ int main(int argc, char **argv) {
    if (!session) { fail(error); return 1; }
    if (!reference_cpu && !rr_amiga_set_native(session, 1)) { fail("This build has no native steps"); return 1; }
    if (observe_path) rr_amiga_set_observe(session, 1);
+#ifdef RR_AMIGA_LINKED
+   rr_feedback_start(!headless);    /* Headless, only with RETRO_RECOMP_FEEDBACK=1. */
+   /* In a window F12 can switch recording on later: the shared recorder keeps nothing while it is off. */
+   if (!reference_cpu && (!headless || rr_feedback_enabled())) rr_amiga_set_recorder(session, record_note);
+#endif
    if (events_path && !load_events(events_path)) { fail("Invalid input event file"); return 1; }
    if (headless) {
       result = run_headless(trace_path, report_path, observe_path, capture_path, resload_path, save_at, load_start);
@@ -435,8 +446,10 @@ int main(int argc, char **argv) {
       result = player_run_windowed("Retro-Recomp Amiga (development)", game.ntsc);
 #endif
       player_store_exit();
+      rr_feedback_finish();
       if (restart_requested) restart_self();
    }
+   rr_feedback_finish();     /* The exit below runs no exit handler. */
    fflush(stdout); fflush(stderr);
    /* The machine's destructor expects its emulator thread, which this host never starts: leave without it. */
    _Exit(failed ? 1 : result);

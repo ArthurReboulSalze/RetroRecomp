@@ -21,7 +21,7 @@ What this is: hardware-fidelity evidence that the named behaviours agree with th
 machine is reproduced, a measure of native code, gameplay or physical latency. Timing is in guest cycles and in samples; nothing
 here reads a host clock.
 
-Behaviours: video (frame and line structure at 50 and 60 Hz), mfp-prescalers, mfp-timer-b, picture, ym2149, ikbd, wd1772.
+Behaviours: video (frame and line structure at 50 and 60 Hz), mfp-prescalers, mfp-timer-b, mfp-timer-d, picture, ym2149, ikbd, wd1772.
 """
 from __future__ import annotations
 
@@ -82,6 +82,8 @@ PRESCALERS = {1: 4, 2: 10, 3: 16, 4: 50, 5: 64, 6: 100, 7: 200}   # TxCR delay-m
 RECORDED: dict[str, str] = {
     'ym2149-clock-nominal': 'the manuals say 2 MHz; on a PAL ST the PSG clock is the CPU clock / 4 = crystal / 16 = 2.005312 MHz, 0.27 % above the round number '
                             '(the tone rows expect the crystal-derived value; see check_ym2149)',
+    'mfp-timer-d-tos': "the machine runs Hatari's timer D patch on purpose: when the code that starts the timer is in the TOS's addresses, Hatari starts it at prescaler 200, data 100 "
+                       "(docs/ATARI_ST.md, known limits). From RAM, as a game, the timer keeps the data sheet's rate (mfp-timer-d-game)",
 }
 
 # ----------------------------------------------------------------------------------------------------- the authored machine
@@ -492,6 +494,79 @@ def check_mfp_prescalers(driver: Path) -> list[dict]:
         out.append(finding(f'mfp-prescaler-{divider}', f'Timer A /{divider}, data {data or 256}: MFP clocks elapsed in {frames - 1} frames', 'mc68901 + st-crystal',
                            round(expected, 1), measured, 'agree' if close(measured, expected, tolerance) else 'differ',
                            f'{ticks} ticks of {divider} clocks; difference {measured - expected:+.1f} clocks ({(measured - expected) / expected * 100:+.4f} %)'))
+    return out
+
+
+TIMER_D_CODE, TIMER_D_DATA = 4, 64          # /50, data 64: 3,200 MFP clocks per interrupt
+
+
+def timer_d_program(from_ram: bool, frames: int) -> bytes:
+    """Timer D started with its interrupt on, by code running where a game runs (RAM) or where TOS runs (the ROM). Counts its interrupts between the second and the last vertical blank."""
+    setup = f"""
+setup:  move.b  #{TIMER_D_DATA},$fffa25
+        move.b  #{TIMER_D_CODE},$fffa1d
+        rts
+setup_end:
+"""
+    call = ("""
+        lea     setup,a0
+        lea     $3000,a1
+        move.w  #63,d0
+copy:   move.b  (a0)+,(a1)+
+        dbra    d0,copy
+        jsr     $3000
+""" if from_ram else """
+        jsr     setup
+""")
+    source = PROLOGUE + f"""
+        move.l  #hbl,$68
+        move.l  #vbl,$70
+        move.l  #timer_d,$110
+        move.b  #2,$ff820a
+        clr.b   $fffa07
+        clr.b   $fffa13
+        clr.b   $fffa19
+        clr.b   $fffa1b
+        move.b  #$40,$fffa17
+        clr.b   $fffa1d
+        move.b  #$10,$fffa09
+        move.b  #$10,$fffa15
+{call}
+        move.w  #$2000,sr
+wait:   stop    #$2000
+        cmpi.l  #{frames},$2008.w
+        blt     wait
+        move.w  #$2700,sr
+        move.l  $2010.w,$2018.w
+        move.l  #{DONE},$2000
+        bra.s   *
+
+hbl:    rte
+timer_d: addq.l #1,$2010.w
+        rte
+vbl:    addq.l  #1,$2008.w
+        cmpi.l  #2,$2008.w
+        bne.s   vdone
+        move.l  $2010.w,$2014.w
+vdone:  rte
+{setup}
+""" + TRAP
+    return assemble(source)
+
+
+def check_mfp_timer_d(driver: Path) -> list[dict]:
+    """Hatari's timer D patch, which this machine runs on purpose (`hatari_timerd`, docs/ATARI_ST.md): the same setup of timer D, /50 with data 64, by code in RAM, as a game has it, must give the data
+    sheet's rate; by code in the ROM, as TOS has it, it gives Hatari's slower one (prescaler 200, data 100). That second row is a recorded difference: it is the limit, measured."""
+    out = []
+    frames = 41
+    expected = (frames - 2) * FRAME_CYCLES_50 * MFP_HZ / CPU_HZ / (PRESCALERS[TIMER_D_CODE] * TIMER_D_DATA)
+    for label, from_ram in (('game', True), ('tos', False)):
+        result = run_program(driver, f'timerd-{label}', timer_d_program(from_ram, frames), frames + 40, done=0x2000)
+        if result.long(0x2000) != DONE or result.word(0x3FF0):
+            raise HarnessError(f'timerd-{label}: the program did not finish (done {result.long(0x2000):08x}, trap {result.word(0x3FF0):04x})')
+        measured = result.long(0x2018) - result.long(0x2014)
+        out.append(finding(f'mfp-timer-d-{label}', f'Timer D /50, data 64, started from {"RAM, as a game" if from_ram else "the ROM, as TOS"}: interrupts in {frames - 2} frames', 'mc68901 + st-crystal',
+                           round(expected, 1), measured, 'agree' if close(measured, expected, 2) else 'differ'))
     return out
 
 
@@ -1038,7 +1113,7 @@ def check_ikbd(driver: Path) -> list[dict]:
 
 
 # ------------------------------------------------------------------------------------------------------------------ the tool
-CHECKS = {'video': check_video, 'mfp-prescalers': check_mfp_prescalers, 'mfp-timer-b': check_mfp_timer_b, 'picture': check_picture,
+CHECKS = {'video': check_video, 'mfp-prescalers': check_mfp_prescalers, 'mfp-timer-b': check_mfp_timer_b, 'mfp-timer-d': check_mfp_timer_d, 'picture': check_picture,
           'ym2149': check_ym2149, 'ikbd': check_ikbd, 'wd1772': check_wd1772}
 
 

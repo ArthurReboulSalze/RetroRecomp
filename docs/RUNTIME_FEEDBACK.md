@@ -115,6 +115,7 @@ alone never promotes raw candidates into the qualified shared knowledge snapshot
 | Neo Geo | Cartridge/BIOS physical roots, guarded 68000 RAM instructions and Z80 variants |
 | Capcom CPS-1 | Guarded work-RAM 68000 instructions (kind 15) and sound-RAM Z80 variants (kind 16) as private build hints of this conversion only; they are not written into the library. Kind 14 (a program-ROM instruction left interpreted) is recorded and read by nobody: the ROM is swept whole, so no path can change it. Diagnostic only, never shared |
 | Sharp X68000 | Interpreted instruction words (kind 13) reused as memory-word observation variants of the next discovery |
+| Commodore Amiga | Windows of 16 bytes at an interpreted 68000 instruction in RAM (kind 22), as private build hints of this conversion: never written into the library, never shared. The first instruction of a window ran and counts as `native_learned`. The instructions a walk finds after it count as `native_walked`, because a walk can reach bytes the game never ran. Each keeps the same guard. The Kickstart is not recorded |
 
 The file is a **candidate source**, not proof of correct execution. Input sizes,
 checksums, identities, memory bounds and ROM signatures are checked. The current

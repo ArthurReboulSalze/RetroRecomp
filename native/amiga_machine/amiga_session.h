@@ -89,6 +89,11 @@ uint64_t rr_amiga_native_count(const RrAmigaSession *s);
 uint64_t rr_amiga_translated_count(const RrAmigaSession *s);
 /* Of the native instructions, those a sweep reached and no route had seen. */
 uint64_t rr_amiga_swept_count(const RrAmigaSession *s);
+/* Of the native instructions, those learned from a player's own record: an instruction the player's session ran (learned), or one reached by walking the window it noted (walked: not known to have run). */
+uint64_t rr_amiga_learned_count(const RrAmigaSession *s);
+uint64_t rr_amiga_walked_count(const RrAmigaSession *s);
+/* The player's own record: told the 16 bytes at an interpreted instruction of game RAM, unless the window it was told just before holds that instruction. Never the Kickstart. It reads memory without touching the machine. */
+void rr_amiga_set_recorder(RrAmigaSession *s, void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size));
 int rr_amiga_write_memory(const RrAmigaSession *s, const char *path);
 uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s);
 /* The Blitter's counters as JSON: blits that changed shape under a routine, then by shape [BLTCON0, BLTCON1 (without the shift fields), has a routine,
