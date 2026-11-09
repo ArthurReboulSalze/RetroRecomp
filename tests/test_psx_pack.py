@@ -123,6 +123,49 @@ class UndrawnRowsTests(unittest.TestCase):
         self.assertNotIn('height =', gpu)
 
 
+class SetupTests(unittest.TestCase):
+    WORKER = r'''
+import os, sys, time
+from pathlib import Path
+from retrorecomp import conversion_common, core, psx_beetle
+root = Path(sys.argv[1])
+core.ROOT = psx_beetle.ROOT = root
+def checkout(target, revision, git, **_):
+    busy = root / 'busy'
+    try:
+        busy.mkdir()                        # fails while another conversion is in the checkout
+    except FileExistsError:
+        (root / ('overlap-%d' % os.getpid())).touch()
+        return
+    time.sleep(.05)
+    busy.rmdir()
+conversion_common.pinned_checkout = checkout
+setup = psx_beetle.source if sys.argv[2] == 'gated' else psx_beetle.source.__wrapped__
+(root / ('ready-%d' % os.getpid())).touch()
+deadline = time.monotonic() + 60
+while len(list(root.glob('ready-*'))) < 4 and time.monotonic() < deadline:
+    time.sleep(.02)                         # all four start together, after their imports
+for _ in range(3):
+    setup(emit=lambda text: None)
+'''
+
+    def _overlaps(self, mode: str) -> int:
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory(prefix='rr-psx-setup-') as temp:
+            processes = [subprocess.Popen([sys.executable, '-c', self.WORKER, temp, mode], cwd=Path(__file__).resolve().parents[1],
+                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for _ in range(4)]
+            for process in processes:
+                stdout, stderr = process.communicate(timeout=120)
+                self.assertEqual(process.returncode, 0, stdout + stderr)
+            return len(list(Path(temp).glob('overlap-*')))
+
+    def test_two_conversions_never_clone_beetle_at_once(self):
+        # The checkout is shared by every disc; the per-game work lock does not cover it (two discs at once, a fresh .deps).
+        self.assertEqual(self._overlaps('gated'), 0)
+        self.assertGreater(self._overlaps('bare'), 0)          # the probe sees a race when the gate is taken away
+
+
 class RouteTests(unittest.TestCase):
     def test_routes_are_deterministic_and_ordered(self):
         a = psx_conversion.routes('0123456789abcdef', frames=3600, level='standard')

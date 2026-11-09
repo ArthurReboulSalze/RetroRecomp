@@ -79,6 +79,12 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Sony PlayStation: two discs at once no longer fetch Beetle PSX together (1.7.2)
+
+The pinned Beetle PSX checkout in `.deps` is shared by every disc, but only the game's own work folder was locked. Two discs converted at once on a fresh `.deps` could both clone it. Fetching it now goes through the shared setup gate, as the other machines' setups do. Nothing changes in the machine or in a game.
+
+**What moves:** only the PlayStation's game stamp: game `920cf82497a6` to `4a3b197254a5` (`psx_beetle.py`). Its host and build stamps and every other console's stamps do not move. A PlayStation export of an earlier version is rebuilt when it is upgraded, to the same machine.
+
 ## PC Engine / TurboGrafx-16: a Backup RAM beside the game (1.7.2)
 
 A game can now keep the 2 KiB of the console's backup unit between runs. Bank `$F7` is mapped as plain RAM by our bridge, on the same engine pin and with no change to the engine. With no file it starts with the file system's header, a written choice ([PC_ENGINE.md](PC_ENGINE.md#6-saves)). The file is `datas/saves/<game>-<card>.rrsram`, beside the other machines' saves; a damaged or wrong-size file is set aside as `.unusable-N` and never blocks a game. Boxyboy, which showed "FILE NOT CONNECTED. COPY THE PASSWORD", now starts and saves.

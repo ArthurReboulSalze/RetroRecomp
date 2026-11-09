@@ -21,6 +21,7 @@ import json
 import shutil
 from pathlib import Path
 
+from .core import serialized_setup
 from .paths import ROOT
 
 BEETLE_REPOSITORY = 'https://github.com/libretro/beetle-psx-libretro.git'
@@ -383,8 +384,10 @@ def adaptation_digest() -> str:
     return value.hexdigest()
 
 
+@serialized_setup
 def source(emit=print) -> Path:
-    """The pinned Beetle PSX checkout under `.deps` (cloned when missing, refused when moved or edited)."""
+    """The pinned Beetle PSX checkout under `.deps` (cloned when missing, refused when moved or edited). Shared by every disc:
+    the shared setup gate keeps two conversions, threads or processes, from cloning it at once."""
     from .conversion_common import pinned_checkout
     from .core import run
     target = ROOT / '.deps' / 'beetle-psx'
