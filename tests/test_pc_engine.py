@@ -469,22 +469,63 @@ class RouteTests(unittest.TestCase):
         texts = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='thorough')}
         self.assertEqual(3, len({texts['play'], texts['long-1'], texts['long-2']}))
 
-    def test_run_is_pressed_at_240_480_and_720_of_play(self):
-        for frames in (600, 3600):
-            plan = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=frames, level='standard')}
-            with self.subTest(frames=frames):
-                pressed = [row[0] for row in parse_script(plan['play']) if row[1] & pce_conversion.RUN]
-                self.assertEqual([240, 480, 720], pressed)
+    def runs(self, text):
+        """The frames at which Run goes down (a press is a change from released to held)."""
+        down, previous = [], False
+        for frame, p1, _ in parse_script(text):
+            held = bool(p1 & pce_conversion.RUN)
+            if held and not previous:
+                down.append(frame)
+            previous = held
+        return down
+
+    def test_the_start_presses_come_every_240_frames(self):
+        for presses in pce_conversion.START_PRESSES:
+            with self.subTest(presses=presses):
+                plan = {name: text for name, _, text in
+                        pce_conversion.routes(IDENTITY, frames=10000, level='standard', presses=presses)}
+                self.assertEqual([240 * k for k in range(1, presses + 1)],
+                                 self.runs(plan['play'])[:presses])
                 rows = {row[0]: row for row in parse_script(plan['play'])}
-                for at in (240, 480, 720):
+                for at in (240 * k for k in range(1, presses + 1)):
                     self.assertEqual((at, pce_conversion.RUN, 0), rows[at])
                     self.assertEqual((at + 6, 0, 0), rows[at + 6])      # released a few frames later
 
-    def test_no_route_pushes_run_after_frame_900(self):
-        for name, _, text in pce_conversion.routes(IDENTITY, frames=10000, level='thorough'):
-            with self.subTest(name):
-                late = [row for row in parse_script(text) if row[0] > 900 and (row[1] | row[2]) & pce_conversion.RUN]
-                self.assertEqual([], late)
+    def test_after_the_start_run_comes_only_as_a_pair_every_900_frames(self):
+        for presses in pce_conversion.START_PRESSES:
+            for name, _, text in pce_conversion.routes(IDENTITY, frames=10000, level='thorough', presses=presses):
+                with self.subTest(presses=presses, name=name):
+                    late = self.runs(text)[presses:]
+                    self.assertEqual(0, len(late) % 2)
+                    pairs = list(zip(late[::2], late[1::2]))
+                    for first, second in pairs:
+                        self.assertEqual(24, second - first)
+                    firsts = [first for first, _ in pairs]
+                    self.assertTrue(all(b - a >= pce_conversion.RUN_PAIR_EVERY for a, b in zip(firsts, firsts[1:])))
+                    self.assertTrue(all(first >= pce_conversion.walk_start(presses) for first in firsts))
+
+    def test_the_first_part_of_the_walk_uses_the_directions_only(self):
+        for presses in pce_conversion.START_PRESSES:
+            start = pce_conversion.walk_start(presses)
+            buttons = pce_conversion.I | pce_conversion.II
+            for name, _, text in pce_conversion.routes(IDENTITY, frames=10000, level='thorough', presses=presses):
+                if name == 'attract':
+                    continue
+                with self.subTest(presses=presses, name=name):
+                    quiet = [row for row in parse_script(text) if start <= row[0] < start + pce_conversion.QUIET_WALK]
+                    self.assertTrue(quiet)
+                    self.assertEqual([], [row for row in quiet if row[1] & buttons])
+                    self.assertTrue(any(row[1] & buttons for row in parse_script(text) if row[0] >= start + pce_conversion.QUIET_WALK))
+
+    def test_the_walk_starts_after_the_last_press_and_a_settling_time(self):
+        for presses in pce_conversion.START_PRESSES:
+            self.assertGreaterEqual(pce_conversion.walk_start(presses), 240 * presses + pce_conversion.WALK_SETTLE)
+            self.assertGreaterEqual(pce_conversion.walk_start(presses), 900)
+
+    def test_the_candidates_leave_ten_seconds_of_walk(self):
+        self.assertEqual([1, 2, 3, 4, 6], pce_conversion.start_candidates(3600))
+        self.assertEqual([1, 2, 3, 4], pce_conversion.start_candidates(1800))
+        self.assertEqual([], pce_conversion.start_candidates(1000))
 
     def test_the_second_pad_stays_idle(self):
         for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='thorough'):
@@ -685,6 +726,77 @@ class MissingFilesTests(TempFiles):
             step.assert_not_called()
 
 
+class QuickStateCheckTests(TempFiles):
+    """pce_conversion.check_states on a fake game: every damaged state must be refused and left alone."""
+
+    STATE = bytes(range(256)) * 16
+
+    def check(self, *, accepts=(), rewrites=(), creates_missing=False):
+        frames = 1200
+        expected = self.root / 'expected.csv'
+        rows = ['frame,cpu,ram,image,pcm,samples'] + [f'{n},a,b,c,d,1' for n in range(frames)]
+        expected.write_text('\n'.join(rows) + '\n', encoding='ascii')
+        folder = self.root / 'states'
+        folder.mkdir()
+
+        def run(executable, where, name, count, script, *extra, ends_at=None):
+            if name == 'save':
+                (where / 'quick.rrstate').write_bytes(self.STATE)
+            else:
+                (where / 'load.csv').write_text('\n'.join(rows) + '\n', encoding='ascii')
+            return {}
+
+        seen = []
+
+        def spawn(command, **_):
+            path = Path(command[command.index('--load-state') + 1])
+            seen.append(path.name)
+            if path.name in rewrites:
+                path.write_bytes(b'rewritten')
+            if creates_missing and path.name == 'missing.rrstate':
+                path.write_bytes(b'')
+            return mock.Mock(returncode=0 if path.name in accepts else 4)
+
+        with mock.patch.object(pce_conversion, 'run', run), \
+                mock.patch('retrorecomp.conversion_common.spawn', spawn), \
+                mock.patch('retrorecomp.conversion_gates.continuation_difference', return_value=None):
+            result = pce_conversion.check_states(Path('game.exe'), folder, 'play', frames, Path('s.txt'), expected)
+        return result, seen
+
+    def test_every_damaged_state_and_a_missing_one_are_tried(self):
+        result, seen = self.check()
+        damaged = pce_conversion.damaged_states(self.STATE)
+        self.assertEqual({f'invalid-{name}.rrstate' for name in damaged} | {'missing.rrstate'}, set(seen))
+        self.assertEqual(sorted(damaged), result['damaged_states_refused'])
+        self.assertTrue(result['truncated_state_rejected'])
+        self.assertTrue(result['missing_state_creates_nothing'])
+        self.assertEqual(len(self.STATE), result['state_bytes'])
+
+    def test_each_case_really_is_damaged(self):
+        for name, data in pce_conversion.damaged_states(self.STATE).items():
+            with self.subTest(name):
+                self.assertNotEqual(self.STATE, data)
+
+    def test_a_damaged_state_that_is_accepted_stops_the_conversion(self):
+        for name in pce_conversion.damaged_states(self.STATE):
+            with self.subTest(name), tempfile.TemporaryDirectory() as folder:
+                self.root = Path(folder)
+                with self.assertRaisesRegex(ConversionError, name):
+                    self.check(accepts={f'invalid-{name}.rrstate'})
+
+    def test_a_refused_state_that_is_rewritten_stops_the_conversion(self):
+        with self.assertRaisesRegex(ConversionError, 'rewrote'):
+            self.check(rewrites={'invalid-payload.rrstate'})
+
+    def test_a_missing_state_that_is_accepted_or_created_stops_the_conversion(self):
+        with self.assertRaisesRegex(ConversionError, 'accepted a missing'):
+            self.check(accepts={'missing.rrstate'})
+        with tempfile.TemporaryDirectory() as folder:
+            self.root = Path(folder)
+            with self.assertRaisesRegex(ConversionError, 'created a file'):
+                self.check(creates_missing=True)
+
+
 class StateConfigTests(TempFiles):
     def config(self, title='Synthetic Game'):
         return pce_build.state_config(read_hucard(self.write(card(16))), title)
@@ -819,23 +931,50 @@ class ProfileWiringTests(unittest.TestCase):
 
 
 class StartChoiceTests(unittest.TestCase):
-    def variant(self, last, divergence):
+    def variant(self, last, divergence, reach=0):
         return {'liveness': {'last_picture_change_frame': last, 'picture_changes': 100, 'audible_frames': 0},
-                'divergence': divergence}
+                'divergence': divergence, 'reach': reach}
 
     def test_bonks_adventure_of_5_november(self):
         # One press: the demo went on, no picture differs from the route without input. Three: the third pressed
         # pause at frame 720. Two: alive to the end and the input changed 3,118 pictures.
-        variants = {1: self.variant(3600, 0), 2: self.variant(3597, 3118), 3: self.variant(721, 3118)}
+        variants = {1: self.variant(3600, 0), 2: self.variant(3597, 3118, 40), 3: self.variant(721, 3118, 40)}
         self.assertEqual(pce_conversion.choose_start(variants, 3600), 2)
 
+    def test_the_walk_that_reached_the_most_pictures_wins_over_the_input_that_changed_the_most(self):
+        # Military Madness: one press leaves the continue screen (the input changes pictures there), three reach the map.
+        variants = {1: self.variant(3600, 3300, 30), 3: self.variant(3600, 2900, 400), 4: self.variant(3600, 3000, 120)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 3)
+
+    def test_a_variant_that_paused_is_never_chosen_for_its_reach(self):
+        variants = {1: self.variant(3600, 10, 5), 2: self.variant(721, 3000, 900)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 1)
+
     def test_a_tie_keeps_the_fewest_presses(self):
-        variants = {1: self.variant(3600, 50), 2: self.variant(3600, 50), 3: self.variant(3600, 50)}
+        variants = {1: self.variant(3600, 50, 9), 2: self.variant(3600, 50, 9), 3: self.variant(3600, 50, 9)}
         self.assertEqual(pce_conversion.choose_start(variants, 3600), 1)
 
     def test_when_none_stays_alive_the_livelier_is_kept(self):
         variants = {1: self.variant(900, 0), 2: self.variant(1500, 0), 3: self.variant(721, 10)}
         self.assertEqual(pce_conversion.choose_start(variants, 3600), 2)
+
+    def test_reach_counts_the_pictures_of_the_quiet_walk_that_no_input_never_showed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base, walk = Path(folder) / 'base.csv', Path(folder) / 'walk.csv'
+            write_trace(base, [(n, 'c', 'r', 'a' if n < 1500 else 'b', 's', 735) for n in range(0, 3000)])
+            start, quiet = 1000, pce_conversion.QUIET_WALK
+            rows = []
+            for n in range(0, 3000):
+                if n < start:
+                    image = 'a'
+                elif n < start + quiet:
+                    image = f'x{n // 100}' if n % 2 else 'a'          # ten novel pictures, and the demo's own
+                else:
+                    image = f'late{n}'                                # beyond the window: not counted
+                rows.append((n, 'c', 'r', image, 's', 735))
+            write_trace(walk, rows)
+            self.assertEqual(pce_conversion.QUIET_WALK // 100, pce_conversion.reach(walk, base, start))
+            self.assertEqual(0, pce_conversion.reach(base, base, start))
 
     def test_divergence_counts_pictures_only(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -851,8 +990,15 @@ class StartChoiceTests(unittest.TestCase):
             for name, _, text in plan:
                 if name == 'attract':
                     continue
-                runs = [line for line in text.splitlines() if int(line.split()[1], 16) & pce_conversion.RUN]
-                self.assertEqual(len(runs), presses, name)
+                pressed, down, held = [], [], False
+                for line in text.splitlines():
+                    frame, p1, _ = line.split()
+                    now = bool(int(p1, 16) & pce_conversion.RUN)
+                    if now and not held:
+                        down.append(int(frame))
+                    held = now
+                self.assertEqual([240 * k for k in range(1, presses + 1)], down[:presses], name)
+                self.assertTrue(all(frame >= pce_conversion.walk_start(presses) for frame in down[presses:]), name)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,12 @@ interpreter on those operands, not on every one; each case runs at the guarded m
 Results: `.build/pce-huc6280-native-selftest/results.json`; `KNOWN` below lists each opcode that differs from the vectors and why
 (the interpreter's own differences, pinned in `pce_huc6280_vector_selftest.KNOWN`).
 
-    python tools/pce_huc6280_native_vector_selftest.py [--fetch]
+The default sample is 40 usable vectors per opcode (about 9,100 cases, minutes). `--per-opcode 250` runs a larger one, 250 per
+opcode: its cases are a superset of the default's (the first 40 usable vectors of an opcode are the first 40 of its first 250), it
+builds about six times as many modules, and it has its own pinned counts (`LARGE`) and its own folder; the default stays what the
+quick check runs.
+
+    python tools/pce_huc6280_native_vector_selftest.py [--fetch] [--per-opcode 40|250]
 """
 from pathlib import Path
 import argparse
@@ -63,6 +68,34 @@ EXPECTED_SHORT = {'C3': 2, 'D3': 4, 'E3': 4, 'F3': 7}        # the opcodes with 
 EXPECTED_MODULES = 9
 EXPECTED_SELECTION = {'read': 27692, 'excluded': {REASONS[0]: 5000, REASONS[1]: 12481, REASONS[2]: 1108, REASONS[3]: 6},
                       'native_opcodes': 234, 'reserved_opcodes_skipped': 22}
+
+# The second pinned configuration: the first 250 usable vectors of each opcode (`--per-opcode 250`). Same rules as above; `known` holds
+# the counts of the differences of KNOWN (their reasons are the interpreter's), the others the counterparts of the EXPECTED_* names.
+LARGE = {
+    'known': {'03': {'cycles': 250}, '13': {'cycles': 250}, '23': {'cycles': 250},
+              '04': {'flags': 18}, '0C': {'flags': 22}, '14': {'flags': 56}, '1C': {'flags': 61}},
+    'expected': {'cases': 56767, 'executed': 56767, 'not_executed': 0, 'state_equal': 56610, 'both_equal': 55860, 'registers': 0,
+                 'flags': 157, 'pc': 0, 'mpr': 0, 'memory': 0, 'cycles_different': 750, 'native_vs_interpreter_different': 0},
+    'short': {'C3': 2, 'D3': 4, 'E3': 4, 'F3': 7},
+    'modules': 49,
+    'selection': {'read': 81156, 'excluded': {REASONS[0]: 5000, REASONS[1]: 12481, REASONS[2]: 6870, REASONS[3]: 38},
+                  'native_opcodes': 234, 'reserved_opcodes_skipped': 22},
+    'opcodes': EXPECTED_OPCODES,
+}
+DEFAULT = {'known': {opcode: {key: value for key, value in known.items() if key != 'reason'} for opcode, known in KNOWN.items()},
+           'expected': EXPECTED, 'short': EXPECTED_SHORT, 'modules': EXPECTED_MODULES, 'selection': EXPECTED_SELECTION,
+           'opcodes': EXPECTED_OPCODES}
+PINNED = {PER_OPCODE: DEFAULT, 250: LARGE}
+
+
+def use(per_opcode: int):
+    """Switch the tool to one of its pinned samples: PER_OPCODE and every pin that depends on it."""
+    global PER_OPCODE, KNOWN, EXPECTED, EXPECTED_SHORT, EXPECTED_MODULES, EXPECTED_SELECTION, EXPECTED_OPCODES
+    pin = PINNED[per_opcode]
+    KNOWN = {opcode: {**counts, 'reason': interpreter.KNOWN[opcode]['reason']} for opcode, counts in pin['known'].items()}
+    EXPECTED, EXPECTED_SHORT, EXPECTED_MODULES = pin['expected'], pin['short'], pin['modules']
+    EXPECTED_SELECTION, EXPECTED_OPCODES = pin['selection'], pin['opcodes']
+    PER_OPCODE = per_opcode
 
 
 # ------------------------------------------------------------------ the corpus
@@ -356,14 +389,18 @@ def main():
     from retrorecomp.pce_build import _engine_on_path, ensure_engine
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--fetch', action='store_true', help='fetch the corpus when it is not cached')
+    parser.add_argument('--per-opcode', type=int, choices=sorted(PINNED), default=PER_OPCODE,
+                        help=f'usable vectors kept per opcode (default {PER_OPCODE}); each value has its own pinned counts')
     args = parser.parse_args()
+    default = args.per_opcode == PER_OPCODE
+    use(args.per_opcode)
     if not corpus.cached():
         if not args.fetch:
             raise SystemExit('The HuC6280 vectors are not cached: run tools/fetch_huc6280_vectors.py (or pass --fetch).')
         corpus.fetch()
     started = time.monotonic()
     ensure_engine(print)
-    project = ROOT / '.build/pce-huc6280-native-selftest'
+    project = ROOT / ('.build/pce-huc6280-native-selftest' if default else f'.build/pce-huc6280-native-selftest-{PER_OPCODE}')
     if (project / 'modules').exists():
         import shutil
         shutil.rmtree(project / 'modules')       # the emitter refuses a folder that exists; the build folder is kept
