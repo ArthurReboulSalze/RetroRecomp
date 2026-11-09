@@ -93,8 +93,6 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 <!-- qualification-gauges:end -->
 
-The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
-
 **Adventure (ScummVM)** is a category of its own, supported since 1.7.1: point-and-click adventure games run in ScummVM, emulated
 (0 % native code, by design), each packed with its own files into one executable with its saves in `datas/`
 ([how it works and what supported means here](docs/SCUMMVM.md)). It is not part of the qualification matrix of the recompiled consoles.
