@@ -382,11 +382,11 @@ class PathsAndUpstreamTests(unittest.TestCase):
         self.assertEqual((0x2000, 0x280000), tuple(path_profiles.SOURCE_BOUNDS['pce']['rom']))
         self.assertEqual(SF2_BYTES, path_profiles.SOURCE_BOUNDS['pce']['rom'][1])
 
-    def test_an_experimental_machine_shares_nothing(self):
-        self.assertNotIn('pce', path_profiles.SHARED_SYSTEMS)
+    def test_the_pc_engine_shares_in_the_experimental_tier_only(self):
+        self.assertIn('pce', path_profiles.SHARED_SYSTEMS)
         self.assertNotIn('pce', path_profiles.STABLE_SHARED)
-        self.assertNotIn('pce', path_profiles.EXPERIMENTAL_SHARED)
-        self.assertIsNone(get_profile('pce').shared_knowledge)
+        self.assertIn('pce', path_profiles.EXPERIMENTAL_SHARED)
+        self.assertEqual(get_profile('pce').shared_knowledge.module, 'pce_knowledge')
 
     def test_the_engine_upstream_is_pinned_in_the_code(self):
         declared = upstreams.MACHINE_UPSTREAMS['pce']
