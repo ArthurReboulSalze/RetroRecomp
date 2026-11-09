@@ -98,7 +98,7 @@ with `-fwrapv`, and the same check without it finds that family. The whole panel
 An estimate on a loaded PC, headless, no hashing, host cycles of 3,000 frames, table over native: Bomb Jack 1.05, Turrican II 1.09 to 1.17, Indiana Jones 0.98 to 1.00, Kick Off 2 1.04, Lethal Xcess 1.20; not a timing.
 Licence: no text of `m68k_decoder.h` is in a game any more, so the notice of segagenesisrecomp leaves the exports; the decoder still runs during the conversion.
 **Hot path:** the look-up and the word comparison are gone from the instructions inside a chain; two calls of one shared test per instruction instead, one count per entry. Handlers keep their pointers on the interpreted path. **What moves:** the
-Atari ST's game stamp; no other machine. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. The window title and the note "not fully recompiled" are unchanged.
+Atari ST's game stamp, and its host stamp through its notice (`licenses/hatari.md`); no other machine. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. The window title and the note "not fully recompiled" are unchanged.
 
 ## PC Engine / TurboGrafx-16: the play route answers the game (1.7.2)
 
