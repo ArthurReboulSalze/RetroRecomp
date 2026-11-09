@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Callable
 
 ENGINE_URL = 'https://github.com/rages4calm/pcenginerecomp.git'
-BUILD_TIMEOUT = 3600
+BUILD_TIMEOUT = 4 * 3600     # the Street Fighter II board's module takes an hour of eight compiler jobs: two jobs on a small machine need much longer
 
 
 class PceBuildError(RuntimeError):
