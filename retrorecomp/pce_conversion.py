@@ -30,7 +30,7 @@ from .report_schema import write_report
 # runtime ABI means re-emitting, rebuilding and requalifying (docs/UPSTREAMS.md). Gate of 5 November 2026 at this pin:
 # .build notes of the PC Engine specialist, summarised in docs/PC_ENGINE.md.
 ENGINE_REPO = 'rages4calm/pcenginerecomp'
-ENGINE_REV = '81b5c231e452c6879d58585c8863012e438f1d55'
+ENGINE_REV = '6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0'
 ENGINE_ABI = 29
 
 NOT_YET = 'The PC Engine converter files are missing from this installation.'
@@ -42,7 +42,8 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 I, II, SELECT, RUN, UP, RIGHT, DOWN, LEFT = 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080
 LONG_ROUTES = {'quick': 0, 'standard': 0, 'extended': 1, 'thorough': 2}
 LONG_FRAMES = 18000
-CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile
+CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile of its ordinary format
+EXTENDED_CAPTURE_LIMIT = 1048576    # the bound of its larger format: opt-in, for a card the ordinary one cannot hold (the Street Fighter II board)
 
 
 def _system() -> dict:
@@ -439,21 +440,50 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
 
 
 def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):
-    """(capture, frames): a complete capture of the start of a route whose full capture lost identities, or (None, 0)."""
+    """(capture, frames): a complete capture, in the larger format, of the start of a route that has more identities than that format holds, or (None, 0). A capture that
+    lost identities cannot become a module, and the route then stays interpreted past its prefix, counted."""
     frames = int(result['capture_first_drop_frame']) - 1
     for attempt in range(3):
         if frames < 60:
-            emit(f'PC Engine {name}: the engine met more than {CAPTURE_IDENTITY_LIMIT} distinct code identities '
-                 'within the first minute: no observation can be kept from this route.')
+            emit(f'PC Engine {name}: more than {EXTENDED_CAPTURE_LIMIT} distinct code identities within the first second: no observation can be kept from this route.')
             return None, 0
-        capture = folder / f'{name}-prefix{attempt}-capture.json'
-        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture))
+        capture = folder / f'{name}-prefix{attempt}-capture.jsonl'
+        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture), '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
         if not again.get('capture_dropped'):
-            emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames '
-                 f'({again.get("capture_identities")} identities).')
+            emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames ({again.get("capture_identities")} identities); the rest stays interpreted, counted.')
             return capture, frames
         frames = int(again['capture_first_drop_frame']) - 1
     return None, 0
+
+
+def fitting_captures(captures: list, limit: int = EXTENDED_CAPTURE_LIMIT) -> tuple[list, list, set]:
+    """(kept, left out, identities of the kept ones): the captures whose union fits the engine's bound of one module, in order. One that would pass it is left out whole and
+    counted: its route stays interpreted where nothing else covers it, never a failed conversion."""
+    from .pce_knowledge import identity_of, read_captures
+    kept, skipped, identities = [], [], set()
+    for capture in captures:
+        own = {identity_of(row) for row in read_captures([capture])}
+        if len(identities | own) > limit:
+            skipped.append(capture)
+            continue
+        identities |= own
+        kept.append(capture)
+    return kept, skipped, identities
+
+
+def fitting_received(received: list, identities: set, limit: int = EXTENDED_CAPTURE_LIMIT) -> tuple[list, int]:
+    """(rows, rows left out): the received rows that fit the engine's bound beside what this conversion really ran, which comes first. A row it also ran costs nothing."""
+    from .pce_knowledge import identity_of
+    room, rows, left = limit - len(identities), [], 0
+    for row in received:
+        if identity_of(row) in identities:
+            rows.append(row)
+        elif room > 0:
+            room -= 1
+            rows.append(row)
+        else:
+            left += 1
+    return rows, left
 
 
 def compose_fitting(captures: list, out: Path, work: Path):
@@ -486,14 +516,15 @@ def knowledge_block(record: dict, promotion: dict, use: dict) -> dict:
     from .systems import get_profile
     return {'machine_status': get_profile('pce').status, 'shared': 'pce' in path_profiles.SHARED_SYSTEMS, 'cores': pce_knowledge.engine(),
             'record_sha256': pce_knowledge.record_digest(record), 'paths': promotion['paths'],
-            'promotion': {key: promotion[key] for key in ('observed', 'card', 'ram_tied', 'private', 'board', 'truncated')},
+            'promotion': {key: promotion[key] for key in ('observed', 'card', 'ram_or_other', 'private', 'board', 'truncated')},
             'source': 'the captures of this conversion, which passed every check', 'use': dict(use),
-            'received_rows_build_no_native_code': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}
+            'declared_is_not_executed': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}
 
 
 def observed(capture: Path) -> int:
+    from .pce_knowledge import read_captures
     try:
-        return len(json.loads(capture.read_text(encoding='utf-8')).get('observations', ()))
+        return len(read_captures([capture]))
     except (OSError, ValueError):
         return 0
 
@@ -552,20 +583,22 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         pce_build.ensure_engine(emit)
         reference, results, captures, module, prepared = {}, {}, [], None, None
         emitted, skipped_captures = None, 0
-        # Paths from the shared base, an imported file and this player's own library, read against their own ROM. They build no code: an unexecuted row does not
-        # belong in the engine's execution captures, and the engine has no input for declared roots yet (rages4calm/pcenginerecomp#13). The conversion counts
-        # which of them its own routes reached and validated. A record is made only from what its own captures hold.
+        # Paths from the shared base, an imported file and this player's own library. The engine reads them as declared roots, a separate input from what ran: a row
+        # that did not run is never written into a capture. The report keeps declared, emitted and executed apart, and only what a route ran is validated by it.
+        # A record is made only from what this conversion's own captures hold.
         from . import knowledge, pce_knowledge
         from .pce_rom import decode as decode_card, file_bytes
-        decoded_rom = decode_card(file_bytes(card.path))[0]
+        raw_card = file_bytes(card.path)
+        decoded_rom = decode_card(raw_card)[0]
         received, hints_used = pce_knowledge.shared_rows(card.sha256, decoded_rom, qualified=knowledge.qualified_game('pce', card.sha256),
                                                          imported=knowledge.imported_game('pce', card.sha256),
                                                          library=pce_knowledge.library_record(card.sha256))
         if card.board != pce_knowledge.SHARED_BOARD:
             received = []
         if received:
-            emit(f'PC Engine: {len(received)} instructions received from shared paths; the routes count what they reach (no native code from them yet).')
+            emit(f'PC Engine: {len(received)} instructions received from shared paths, declared to the engine as roots; the routes validate only what they run.')
         attempts = max(1, min(int(passes or 1), 10))
+        extended_capture, capture_counts = False, {}
         for attempt in range(attempts):
             stages.begin_pass(attempt + 1)
             phase = time.perf_counter()
@@ -629,16 +662,32 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
-                    results[name] = run(candidate, capture.parent, name, count, scripts[name],
-                                        '--code-capture', str(capture))
-                    results[name]['capture'] = capture
+                    larger = capture.with_suffix('.jsonl')
+                    if extended_capture:
+                        results[name] = run(candidate, capture.parent, name, count, scripts[name], '--code-capture', str(larger),
+                                            '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
+                        results[name]['capture'] = larger
+                    else:
+                        results[name] = run(candidate, capture.parent, name, count, scripts[name],
+                                            '--code-capture', str(capture))
+                        results[name]['capture'] = capture
                     results[name]['capture_frames'] = count
+                    if results[name].get('capture_dropped') and not extended_capture:
+                        # The ordinary format keeps at most 65,536 distinct code identities (address, the eight bank registers and
+                        # the bytes) and drops the rest: such a capture cannot become a module. The same route is played again in
+                        # the engine's larger format, and this card's later routes and passes use it from the start.
+                        emit(f'PC Engine {name}: more than {CAPTURE_IDENTITY_LIMIT} code identities: the larger capture format takes over.')
+                        extended_capture = True
+                        again = run(candidate, capture.parent, name + '-extended', count, scripts[name], '--code-capture', str(larger),
+                                    '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
+                        results[name].update(capture=larger, capture_identities=again.get('capture_identities'), capture_dropped=again.get('capture_dropped'),
+                                             capture_first_drop_frame=again.get('capture_first_drop_frame'))
+                    capture_counts[name] = {'format': 'extended' if results[name]['capture'] == larger else 'ordinary',
+                                            'identities': results[name].get('capture_identities'), 'dropped': results[name].get('capture_dropped')}
                     if results[name].get('capture_dropped'):
-                        # The engine keeps at most 65,536 distinct code identities (address, the eight bank registers
-                        # and the bytes) per capture and drops the rest: such a capture cannot become a module. The
-                        # same route is played again up to the frame before the first drop, which is complete.
                         results[name]['capture'], results[name]['capture_frames'] = complete_prefix(
-                            candidate, capture.parent, name, scripts[name], results[name], emit)
+                            candidate, capture.parent, name, scripts[name], {**results[name], 'frames': count}, emit)
+                        capture_counts[name]['complete_frames'] = results[name]['capture_frames']
             for name, _, _ in plan:
                 require_same_file(results[name]['trace'], reference[name]['trace'], lambda: ConversionError(
                     f'PC Engine {name}: native and reference CPU/RAM/picture/PCM traces differ; existing export preserved.'))
@@ -659,17 +708,39 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 break
             emit(f'PC Engine: {fallback} interpreted instructions observed; emitting guarded native code.')
             with stages.phase('code_generation'):
-                profile_path = work / f'observations-{attempt + 1}.json'
-                profile_path.unlink(missing_ok=True)
-                kept, skipped = compose_fitting(captures, profile_path, work)
-                skipped_captures += len(skipped)
-                captures = kept
                 new_module = work / f'module-{attempt + 1}'
                 shutil.rmtree(new_module, ignore_errors=True)
-                manifest = pce_build.emit_module(profile_path, new_module)
+                if extended_capture or received:
+                    history = work / f'history-{attempt + 1}'
+                    shutil.rmtree(history, ignore_errors=True)
+                    captures, skipped, identities = fitting_captures(captures)
+                    skipped_captures += len(skipped)
+                    index = pce_build.compose_history(captures, history, EXTENDED_CAPTURE_LIMIT)
+                    received, left_out = fitting_received(received, identities)
+                    hints_used['left_out_at_the_bound'] = left_out
+                    if received:
+                        # What this player received is declared to the engine as roots, in numbers, beside what this conversion really ran.
+                        roots = work / 'declared-roots.json'
+                        roots.write_text(json.dumps(pce_knowledge.roots_document(received, image_sha256=card.sha256, header=card.header, encoding=card.encoding)),
+                                         encoding='utf-8')
+                        image = work / 'declared-image.pce'
+                        if not image.is_file() or file_sha256(image) != card.sha256:
+                            image.write_bytes(raw_card)
+                        manifest = pce_build.emit_roots_module(roots, image, index, new_module)
+                        hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap', 'observed_only',
+                                                                                    'unsupported_declarations', 'emitted_instructions')}
+                    else:
+                        manifest = pce_build.emit_history_module(index, new_module)
+                else:
+                    profile_path = work / f'observations-{attempt + 1}.json'
+                    profile_path.unlink(missing_ok=True)
+                    kept, skipped = compose_fitting(captures, profile_path, work)
+                    skipped_captures += len(skipped)
+                    captures = kept
+                    manifest = pce_build.emit_module(profile_path, new_module)
             emit(f'PC Engine: {manifest.get("native_instructions_emitted", 0)} instructions in '
                  f'{manifest.get("native_contexts", 0)} bank contexts emitted'
-                 + (f' ({len(skipped)} capture(s) left out: the engine keeps at most 65,536 identities).' if skipped else '.'))
+                 + (f' ({len(skipped)} capture(s) left out: the engine bounds the identities of a module).' if skipped else '.'))
             if manifest.get('native_instructions_emitted') == emitted:
                 emit('PC Engine: nothing new fits in the module; the remaining interpreted instructions stay counted.')
                 break
@@ -755,6 +826,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'build_directory': str(project), **delivered.report_fields(), 'scan_level': level,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
         'route_start': route_start,
+        'capture_counts': capture_counts,
         'qualification_scope': {
             'controls': f'{prepared["pad_buttons"]}-button pads, players 1 to {prepared["players"]}; the validation '
                         'routes drive player 1',

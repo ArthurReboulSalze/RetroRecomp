@@ -67,7 +67,7 @@ is what the engine maps.
 ## 4. Engine and upstream
 
 The profile is built on [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp) at commit
-`81b5c231e452c6879d58585c8863012e438f1d55`: its Python analysis and emitter, and its C++ runtime (HuC6280 interpreter,
+`6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0`: its Python analysis and emitter, and its C++ runtime (HuC6280 interpreter,
 video and colour chips, sound generator, timer, interrupts, pads, HuCard boards). The engine is MIT. The upstream has no
 release or tag, so the pin is a commit, and every change of its runtime ABI (29 values in 11 days, none touching
 HuCards since 28 October 2026) means re-emitting, rebuilding and requalifying. Notices, including the MAME opcode table

@@ -6,16 +6,18 @@ revision (`cores`) that validated it, and the whole sharing can be withdrawn wit
 What is shared. The engine knows an instruction by its logical PC, all eight bank registers (MPRs) and its bytes. A conversion's captures hold those; a
 record holds numbers about the player's own decoded ROM instead:
 
-* `insn` rows `[context << 16 | pc, offset, length]`: the instruction's bytes are `length` bytes at `offset` of the ROM. For code that runs from the card, that is
-  where it sits. For code that runs from work RAM, it is a place of the ROM that holds the same bytes.
+* `insn` rows `[context << 16 | pc, offset, length]`: the instruction's first byte is at `offset` of the decoded ROM. Only code that runs from the card's read-only view is
+  a path: the MPRs and the board's map then give every byte's offset.
 * `opcode_ptr` rows `[context * 8 + register, value]`: the table of MPR contexts the `insn` rows name, eight rows a context. These two shapes already exist, so
   `path_profiles`, which every console's game stamp hashes, is not edited: the profile only declares them for its map. `identity.layout` is empty, as for the CPS-2.
 
-A player with the same card reads the instructions from their own ROM (`expanded_rows`) and their conversion counts which of them its routes reach (`reached`). A received
-row builds no native code yet: the engine's captures are records of execution, and its input for declared roots does not exist yet (rages4calm/pcenginerecomp#13). What cannot
-be tied to the ROM (code generated at run time, code run from the Backup RAM) **stays private**: it is counted, never shared. A record is made only from the captures of a conversion that then passed every check
-(`promote`, `pce_conversion`), never from the paths it received. The Street Fighter II board shares nothing: its mapper's latch is not part of the engine's
-identity, so a position cannot be told from a logical address, and its module is already at the engine's bound.
+A player with the same card turns a record into the engine's own input for what did not run, `pce-declared-roots-1` (`roots_document`, its docs/DECLARED_ROOTS.md): the raw
+image's SHA-256, board, header, encoding, and for each root the PC, the eight MPRs, the mapper selector and every byte's offset. The engine rebuilds the code from the player's
+image and emits it with its ordinary guards. A declared root is not an execution: only a window that really runs it qualifies it, and `reached` counts those apart.
+
+What stays private, counted and never shared: code run from work RAM or the Backup RAM (the format covers read-only views, and a ROM position would not say what the RAM held), and the
+Street Fighter II board (its selector, the mapper's latch, is not in the engine's capture identity, so it cannot be told from an observation). A record is made only from the
+captures of a conversion that then passed every check (`promote`, `pce_conversion`), never from the paths it received.
 """
 from __future__ import annotations
 
@@ -197,36 +199,38 @@ def salvaged_record(identity: str, record) -> dict | None:
 
 # --- Observations to paths -----------------------------------------------------------------------------------
 
+def rom_offsets(banks: list, pc: int, mpr, length: int) -> list[int] | None:
+    """The decoded-ROM offset of each byte of an instruction on the standard board, or None when a byte is not fetched from the card."""
+    offsets = []
+    for address in physical_of(pc, mpr, length):
+        if address >> 13 >= ROM_BANKS:
+            return None
+        offsets.append(banks[address >> 13] * BANK + (address & (BANK - 1)))
+    return offsets
+
+
 def translate(rom: bytes, board: str, observations) -> tuple[list, dict]:
-    """Paths for the observations `{'pc', 'mpr', 'data', 'physical'}` of a conversion's captures that sit in the player's own ROM. Returns the rows and the
-    counts; nothing but numbers. A place in the card is where the instruction runs from; for anything else, the first place in the ROM with the same bytes."""
+    """Paths for the observations `{'pc', 'mpr', 'data'}` of a conversion's captures that run from the card. Returns the rows and the counts; nothing but numbers."""
     seen, out = set(), []
-    counts = {'observed': 0, 'card': 0, 'ram_tied': 0, 'private': 0, 'board': board}
-    if board != SHARED_BOARD:
-        counts['private'] = sum(1 for _ in observations)
-        counts['observed'] = counts['private']
-        return [], counts
-    banks, found = bank_map(len(rom)), {}
+    counts = {'observed': 0, 'card': 0, 'ram_or_other': 0, 'private': 0, 'board': board}
+    banks = bank_map(len(rom)) if board == SHARED_BOARD else None
     for item in observations:
-        pc, mpr, data = item['pc'], tuple(item['mpr']), bytes(item['data'])
-        if (mpr, pc, data) in seen:
+        key = identity_of(item)
+        if key in seen:
             continue
-        seen.add((mpr, pc, data))
+        seen.add(key)
         counts['observed'] += 1
-        first = item['physical'][0]
-        if first >> 13 < ROM_BANKS:
-            offset = banks[first >> 13] * BANK + (first & (BANK - 1))
-            if rom[offset:offset + len(data)] == data:
-                out.append((mpr, pc, offset, len(data)))
-                counts['card'] += 1
-                continue
-        if data not in found:
-            found[data] = rom.find(data)
-        if found[data] < 0:
+        if banks is None:
             counts['private'] += 1
+            continue
+        mpr, pc, data = key
+        offsets = rom_offsets(banks, pc, mpr, len(data))
+        if offsets is not None and bytes(rom[offset] for offset in offsets) == data:
+            out.append((mpr, pc, offsets[0], len(data)))
+            counts['card'] += 1
         else:
-            out.append((mpr, pc, found[data], len(data)))
-            counts['ram_tied'] += 1
+            counts['ram_or_other'] += 1
+            counts['private'] += 1
     return sorted(set(out)), counts
 
 
@@ -274,29 +278,39 @@ def promote(identity: str, rom: bytes, board: str, observations, *, previous: di
 # --- Paths to observations -----------------------------------------------------------------------------------
 
 def expanded_rows(record: dict, rom: bytes) -> list[dict]:
-    """The instructions of a record, read from the player's own ROM, as `{'pc', 'mpr', 'data'}`. ValueError when the record is not for exactly this ROM.
-    Local to the process: they are compared with what the conversion ran, never written as an observation."""
+    """The instructions of a record, read from the player's own ROM, as `{'pc', 'mpr', 'data', 'rom_offsets'}`. ValueError when the record is not for exactly this ROM.
+    Local to the process: `roots_document` gives the engine the numbers; none of this is ever written as an observation."""
     validate_record(record)
     if record['identity']['sources'][ROM] != source_facts(rom)[ROM]:
         raise ValueError('PC Engine hints are for another ROM.')
-    out = {}
+    banks, out = bank_map(len(rom)), {}
     for mpr, pc, offset, length in rows(record):
-        data = rom[offset:offset + length]
-        out[(mpr, pc, data)] = {'pc': pc, 'mpr': list(mpr), 'data': list(data)}
+        offsets = rom_offsets(banks, pc, mpr, length)
+        if offsets is None or offsets[0] != offset:
+            raise ValueError('A PC Engine path disagrees with the mapping of its board.')
+        data = bytes(rom[at] for at in offsets)
+        out[(mpr, pc, data)] = {'pc': pc, 'mpr': list(mpr), 'data': list(data), 'rom_offsets': offsets}
     return list(out.values())
 
 
+def roots_document(received, *, image_sha256: str, header: str, encoding: str) -> dict:
+    """The engine's numeric input for the received rows: no opcode byte, no path, no hit, no execution claim. The image is supplied apart and must have this hash."""
+    return {'format': 'pce-declared-roots-1', 'schema': 1, 'kind': 'declared', 'execution_evidence': False,
+            'image': {'sha256': image_sha256, 'profile': SHARED_BOARD, 'header': header, 'encoding': encoding},
+            'roots': [{'pc': row['pc'], 'mpr': row['mpr'], 'selector': 0, 'rom_offsets': row['rom_offsets']} for row in received]}
+
+
 def identity_of(row) -> tuple:
-    """The engine's identity of an observation: logical PC, all eight MPRs, bytes."""
-    return tuple(row['mpr']), row['pc'], tuple(row['data'])
+    """The engine's identity of an observation: all eight MPRs, logical PC, bytes."""
+    return tuple(row['mpr']), row['pc'], bytes(row['data'])
 
 
 def reached(received, observations) -> dict:
-    """How many received rows this conversion's own captures reached. What it reached, it ran and validated against its fresh reference: that is what qualifies a
-    path. The others stay interpreted until a route reaches them: a row that did not run builds no code here (rages4calm/pcenginerecomp#13)."""
+    """How many received rows this conversion's own routes really ran: what they ran is validated against the fresh reference, and only that qualifies a path. The
+    others are declared and emitted, and no window here says anything about them."""
     own = {identity_of(row) for row in observations}
     hits = sum(1 for row in received if identity_of(row) in own)
-    return {'received_rows': len(received), 'reached': hits, 'not_reached': len(received) - hits}
+    return {'received_rows': len(received), 'executed_on_routes': hits, 'not_executed': len(received) - hits}
 
 
 def shared_rows(identity: str, rom: bytes, *, qualified=None, imported=None, library=None) -> tuple[list, dict]:

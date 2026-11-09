@@ -82,6 +82,25 @@ def emit_module(profile: Path, module: Path) -> dict:
     return json.loads((module / 'module.json').read_text(encoding='utf-8'))
 
 
+def compose_history(captures: list[Path], out: Path, capacity: int) -> Path:
+    """Several captures, of the engine's larger format or not, as one version 2 history in the new folder `out`. Returns its index."""
+    engine_cli(['compose-history', *captures, '--history-version', '2', '--capacity', capacity, '--out', out])
+    return out / 'history.json'
+
+
+def emit_history_module(history: Path, module: Path) -> dict:
+    """Emit the guarded native module of a version 2 history into the new folder `module`, in large translation units: a catalogue this size in small ones
+    repeats the compiler's header work thousands of times."""
+    engine_cli(['emit-history', history, '--out', module, '--partition-layout', 'balanced', '--partition-size', 4096])
+    return json.loads((module / 'module.json').read_text(encoding='utf-8'))
+
+
+def emit_roots_module(roots: Path, image: Path, history: Path, module: Path) -> dict:
+    """Emit the guarded native module of a history and of received paths declared as roots (their format holds numbers; the engine reads the bytes from `image`)."""
+    engine_cli(['emit-roots', roots, '--image', image, '--history', history, '--out', module, '--partition-layout', 'balanced', '--partition-size', 4096])
+    return json.loads((module / 'module.json').read_text(encoding='utf-8'))
+
+
 def compose(captures: list[Path], out: Path) -> Path:
     """Several captures of one game as one observation profile (`compose-observations`), for one module."""
     engine_cli(['compose-observations', *captures, '--out', out])

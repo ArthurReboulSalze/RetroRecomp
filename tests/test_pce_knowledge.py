@@ -114,17 +114,26 @@ class TranslateTests(unittest.TestCase):
     def test_code_on_the_card_is_where_it_runs_from(self):
         rows, counts = pk.translate(self.rom, 'base', [observation(self.rom, 0x4000, self.card_mpr, 3)])
         self.assertEqual(rows, [(self.card_mpr, 0x4000, 1 * pk.BANK, 3)])
-        self.assertEqual((counts['card'], counts['ram_tied'], counts['private']), (1, 0, 0))
+        self.assertEqual((counts['card'], counts['ram_or_other'], counts['private']), (1, 0, 0))
 
-    def test_work_ram_code_is_tied_to_a_place_of_the_rom_with_the_same_bytes(self):
-        item = observation(self.rom, 0x2100, self.card_mpr, 7, offset=0x3456)
+    def test_work_ram_code_stays_private_even_when_the_rom_holds_the_same_bytes(self):
+        ram_mpr = (0xFF, 0xF8, 1, 2, 3, 4, 5, 0)
+        item = {'pc': 0x2100, 'mpr': list(ram_mpr), 'physical': pk.physical_of(0x2100, ram_mpr, 7), 'data': list(self.rom[0x3456:0x345D]), 'native_hits': 0, 'interpreted_hits': 1}
         rows, counts = pk.translate(self.rom, 'base', [item])
-        self.assertEqual(rows, [(self.card_mpr, 0x2100, self.rom.find(bytes(item['data'])), 7)])
-        self.assertEqual(counts['ram_tied'], 1)
+        self.assertEqual((rows, counts['ram_or_other'], counts['private']), ([], 1, 1))
 
-    def test_code_the_rom_does_not_hold_stays_private(self):
-        missing = next(bytes([n]) * 7 for n in range(256) if bytes([n]) * 7 not in self.rom)
-        item = {'pc': 0x2100, 'mpr': list(self.card_mpr), 'physical': pk.physical_of(0x2100, self.card_mpr, 7), 'data': list(missing), 'native_hits': 0, 'interpreted_hits': 1}
+    def test_an_instruction_over_two_pages_keeps_each_byte_s_offset(self):
+        mpr = (0xFF, 0xF8, 1, 5, 3, 4, 5, 0)              # the pages after $5FFF map banks 1 and 5: the bytes are not next to each other in the ROM
+        data = [self.rom[pk.BANK + 0x1FFF], self.rom[5 * pk.BANK]]
+        item = {'pc': 0x5FFF, 'mpr': list(mpr), 'physical': pk.physical_of(0x5FFF, mpr, 2), 'data': data, 'native_hits': 0, 'interpreted_hits': 1}
+        rows, _ = pk.translate(self.rom, 'base', [item])
+        self.assertEqual(rows, [(mpr, 0x5FFF, pk.BANK + 0x1FFF, 2)])
+        record = pk.make_record(IDENTITY, self.rom, rows)
+        self.assertEqual(pk.expanded_rows(record, self.rom)[0]['rom_offsets'], [pk.BANK + 0x1FFF, 5 * pk.BANK])
+
+    def test_bytes_that_are_not_the_card_s_stay_private(self):
+        item = observation(self.rom, 0x4000, self.card_mpr, 3)
+        item['data'] = [(value + 1) & 255 for value in item['data']]
         rows, counts = pk.translate(self.rom, 'base', [item])
         self.assertEqual((rows, counts['private']), ([], 1))
 
@@ -183,8 +192,42 @@ class ExpansionTests(unittest.TestCase):
         self.assertNotIn('native_hits', rows[0])
         self.assertNotIn('interpreted_hits', rows[0])
         ran = [{'pc': rows[0]['pc'], 'mpr': rows[0]['mpr'], 'data': rows[0]['data'], 'physical': [], 'native_hits': 0, 'interpreted_hits': 9}]
-        self.assertEqual(pk.reached(rows, ran), {'received_rows': 2, 'reached': 1, 'not_reached': 1})
-        self.assertEqual(pk.reached([], ran), {'received_rows': 0, 'reached': 0, 'not_reached': 0})
+        self.assertEqual(pk.reached(rows, ran), {'received_rows': 2, 'executed_on_routes': 1, 'not_executed': 1})
+        self.assertEqual(pk.reached([], ran), {'received_rows': 0, 'executed_on_routes': 0, 'not_executed': 0})
+
+    def test_the_declared_document_holds_numbers_and_no_evidence(self):
+        rows = pk.expanded_rows(self.record, self.rom)
+        document = pk.roots_document(rows, image_sha256=IDENTITY, header='none', encoding='linear')
+        self.assertEqual(document['execution_evidence'], False)
+        self.assertEqual(set(document['roots'][0]), {'pc', 'mpr', 'selector', 'rom_offsets'})
+        self.assertEqual(document['roots'][0]['selector'], 0)
+        text = json.dumps(document)
+        self.assertNotIn('hits', text)
+        self.assertNotIn('data', text)
+
+    def test_the_pinned_engine_admits_the_roots_and_refuses_another_image(self):
+        engine = Path(__file__).resolve().parents[1] / '.deps' / 'pcenginerecomp'
+        if not (engine / 'pcerecomp' / 'declarations.py').is_file():
+            self.skipTest('the pinned engine is not checked out')
+        sys.path.insert(0, str(engine))
+        try:
+            from pcerecomp.declarations import load_declarations
+        finally:
+            sys.path.remove(str(engine))
+        # Real instruction shapes: the decoder checks lengths, so the bytes are authored opcodes (NOP, LDA #, JMP abs).
+        rom = bytearray(authored_rom())
+        rom[pk.BANK:pk.BANK + 6] = bytes((0xEA, 0xA9, 0x12, 0x4C, 0x00, 0x40))
+        rom = bytes(rom)
+        record = pk.make_record(IDENTITY, rom, [(self.mpr, 0x4000, pk.BANK, 1), (self.mpr, 0x4001, pk.BANK + 1, 2), (self.mpr, 0x4003, pk.BANK + 3, 3)])
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder).resolve()
+            image, roots = folder / 'card.pce', folder / 'roots.json'
+            image.write_bytes(rom)
+            roots.write_text(json.dumps(pk.roots_document(pk.expanded_rows(record, rom), image_sha256=hashlib.sha256(rom).hexdigest(), header='none', encoding='linear')), encoding='utf-8')
+            self.assertEqual(len(load_declarations(roots, image).instructions), 3)
+            image.write_bytes(rom[:pk.BANK] + bytes((0xEB,)) + rom[pk.BANK + 1:])
+            with self.assertRaises(ValueError):
+                load_declarations(roots, image)
 
     def test_both_capture_formats_are_read(self):
         row = {'pc': 0x4000, 'mpr': list(self.mpr), 'physical': [0x2000], 'data': [0xEA], 'native_hits': 0, 'interpreted_hits': 1}

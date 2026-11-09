@@ -1181,5 +1181,47 @@ class RouteRepairTests(unittest.TestCase):
             self.assertLessEqual(len(calls), pce_conversion.REPAIR_ATTEMPTS)
 
 
+
+class IdentityBoundTests(unittest.TestCase):
+    """At the engine's bound of one module, captures and received rows are left out and counted: a conversion never fails for it (authored rows, small limits)."""
+
+    def row(self, pc):
+        return {'pc': pc, 'mpr': [0xFF, 0xF8, 1, 2, 3, 4, 5, 0], 'physical': [0x2000 + pc], 'data': [0xEA], 'native_hits': 0, 'interpreted_hits': 1}
+
+    def capture(self, folder, name, pcs):
+        path = folder / name
+        path.write_text(json.dumps({'schema': 1, 'observations': [self.row(pc) for pc in pcs]}), encoding='utf-8')
+        return path
+
+    def test_a_capture_past_the_bound_is_left_out_whole_and_the_next_one_can_still_fit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            first, big, small = self.capture(folder, 'a', range(4)), self.capture(folder, 'b', range(10, 20)), self.capture(folder, 'c', [0, 1, 30])
+            kept, skipped, identities = pce_conversion.fitting_captures([first, big, small], limit=5)
+            self.assertEqual((kept, skipped, len(identities)), ([first, small], [big], 5))
+
+    def test_received_rows_past_the_bound_are_left_out_and_counted_and_a_row_already_run_costs_nothing(self):
+        own = {(tuple(self.row(pc)['mpr']), pc, bytes(self.row(pc)['data'])) for pc in range(3)}
+        received = [self.row(pc) for pc in (0, 1, 7, 8, 9)]
+        rows, left = pce_conversion.fitting_received(received, own, limit=4)
+        self.assertEqual(([row['pc'] for row in rows], left), ([0, 1, 7], 2))
+
+    def test_a_route_past_the_larger_format_keeps_a_complete_prefix(self):
+        calls = []
+
+        def played(executable, folder, name, frames, script, *extra):
+            calls.append((name, frames))
+            return {'capture_dropped': 0 if frames < 500 else 3, 'capture_first_drop_frame': 400, 'capture_identities': 9}
+        with mock.patch.object(pce_conversion, 'run', played), tempfile.TemporaryDirectory() as folder:
+            capture, frames = pce_conversion.complete_prefix(Path('x'), Path(folder), 'long-1', Path('s'), {'capture_first_drop_frame': 900, 'frames': 18000}, lambda text: None)
+            self.assertEqual(frames, 399)
+            self.assertEqual(capture.suffix, '.jsonl')
+            self.assertEqual(calls, [('long-1-prefix0', 899), ('long-1-prefix1', 399)])
+
+    def test_a_route_with_no_complete_start_stays_interpreted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(pce_conversion.complete_prefix(Path('x'), Path(folder), 'long-1', Path('s'), {'capture_first_drop_frame': 30, 'frames': 18000}, lambda text: None), (None, 0))
+
+
 if __name__ == '__main__':
     unittest.main()

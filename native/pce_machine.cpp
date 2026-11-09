@@ -304,12 +304,12 @@ int pce_machine_state_load(const uint8_t *data, size_t size) {
 
 void pce_machine_free(void *data) { std::free(data); }
 
-int pce_machine_capture_begin(const char *path, unsigned capacity, char *error, size_t error_size) {
+int pce_machine_capture_begin(const char *path, unsigned capacity, int extended, char *error, size_t error_size) {
     return guarded(error, error_size, [&] {
         if (capture) throw pce::Fault("code capture already started");
         capture_first_drop_frame = 0;
         const auto name = std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(path)));
-        capture = std::make_unique<pce::CodeCapture>(name, capacity);
+        capture = std::make_unique<pce::CodeCapture>(name, capacity, extended ? pce::CodeCapture::Profile::extended : pce::CodeCapture::Profile::legacy);
     });
 }
 

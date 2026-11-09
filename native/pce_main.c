@@ -30,7 +30,7 @@ void rrhk_notice(const char *text, Uint64 milliseconds);
 static unsigned frame;
 static int headless, frames, scripted, diagnostics, reference, native_only;
 static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path, *capture_dir, *backup_path;
-static unsigned save_at, capture_every = 600;
+static unsigned save_at, capture_every = 600, capture_limit;
 static uint64_t backup_start_hash;
 static int ignore_load_error, state_loaded, load_rejected, save_failed;
 static FILE *trace_file, *pcm;
@@ -300,6 +300,7 @@ static int execute(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--code-capture")) code_capture_path = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--capture-limit")) capture_limit = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--script")) { if (!load_script(argv[++i])) return 2; }
         else return 2;
     }
@@ -325,7 +326,7 @@ static int execute(int argc, char **argv)
         rr_pce_backup_open(backup_file);
     }
     backup_start_hash = backup_hash();
-    if (code_capture_path && !pce_machine_capture_begin(code_capture_path, 65536, fault, sizeof fault)) {
+    if (code_capture_path && !pce_machine_capture_begin(code_capture_path, capture_limit ? capture_limit : 65536, capture_limit != 0, fault, sizeof fault)) {
         fprintf(stderr, "%s\n", fault); SDL_Quit(); return 3;
     }
     if (pcm_path && !(pcm = file_open(pcm_path, L"wb"))) return 3;
