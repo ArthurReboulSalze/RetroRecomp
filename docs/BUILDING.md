@@ -284,7 +284,7 @@ Gear game converted by the commit before and by this change are identical files.
 **A compressed copy that fails its replay is published unpacked (1.6.7).** Every conversion replays a compressed copy
 of the build on all its routes against the fresh reference (gate G5, `retrorecomp/delivery_evidence.py`). On Linux one
 X68000 game builds and runs unpacked and `upx -t` passes, but the compressed copy stopped at start (SIGTRAP, exit
-133) at `-9`, `-1` and `--lzma`, and the replay refused the whole conversion. When the replay of a copy that really
+133) at `-9`, `-1` and `--lzma` (a bug of UPX 5.3.0's 64-bit Linux stub, upx/upx#18967, for about 0.27 % of builds, by where the executable segment ends: see [KNOWN_FAILURES.md](KNOWN_FAILURES.md)), and the replay refused the whole conversion. When the replay of a copy that really
 was compressed fails (the replay raises, or the comparison does not hold), the compressed copy is kept aside
 (`<file>.upx-failed`), the build exactly as built and validated takes its place, the conversion log says "the compressed
 copy failed its replay on this system (...); replaying the unpacked build instead", and every route is replayed again on

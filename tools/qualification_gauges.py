@@ -11,8 +11,10 @@ the one source of truth; test_machine_registry reads it too. This tool writes, b
   gameplay validation, physical latency) and it never decides a status: leaving the experimental status is the owner's
   decision (gate G14);
 * the matrix with symbols, the console names and the short name of each gate (the third column of the "Gates" table);
-* in README.md, between two markers of its own, the short form: one line per console with its bar, its percentage and its status.
-  Both blocks come from the same matrix and the same `--check`, so the README cannot drift from it.
+* in README.md, between two markers of its own, the short form: one line per console with its bar, its percentage and its status,
+  an asterisk on the machines that run on an emulator core with its explanation under the table, and a line without a bar for an
+  emulated category, which is outside the matrix. Both blocks come from the same matrix and the same `--check`, so the README cannot
+  drift from it.
 
     python tools/qualification_gauges.py --check    # exit 1 when the page differs from what the matrix says
     python tools/qualification_gauges.py --write    # rewrite the block between the markers
@@ -35,6 +37,14 @@ ANCHOR = 'docs/QUALIFICATION.md#progress-through-the-qualification-list'
 SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
+# The machines of the matrix whose game runs on a complete emulator core, marked with an asterisk in the README (docs/ARCHITECTURE.md).
+EMULATOR_CORE = ('amiga', 'atarist', 'n64', 'psx')
+EMULATOR_CORE_NOTE = (
+    "\\* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core "
+    "inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' "
+    "([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).")
+# The page of each emulated category (profile.emulated): these have no column in the matrix, so no entry in its table of pages.
+EMULATED_PAGES = {'scummvm': 'SCUMMVM.md'}
 
 
 def _rows(text: str, header_start: str):
@@ -82,6 +92,13 @@ def profile_facts() -> dict[str, tuple[str, str]]:
     sys.path.insert(0, str(REPO))
     from retrorecomp.systems import ALL_PROFILES
     return {profile.id: (profile.name, profile.status) for profile in ALL_PROFILES}
+
+
+def emulated_categories() -> list[tuple[str, str, str]]:
+    """[(id, name, status)] of the profiles that are emulated outright, from the registry."""
+    sys.path.insert(0, str(REPO))
+    from retrorecomp.systems import ALL_PROFILES
+    return [(profile.id, profile.name, profile.status) for profile in ALL_PROFILES if getattr(profile, 'emulated', '')]
 
 
 def gauge(letters: list[str]) -> dict:
@@ -139,12 +156,17 @@ def render(text: str) -> str:
 
 
 def short(text: str) -> str:
-    """The short form for the README: one line per console (linked to its page), its status and its bar, then a sentence."""
+    """The short form for the README: one line per console (linked to its page), its status and its bar, the emulated categories, then the notes."""
     pages = read_pages(text)
     lines = ['| Console | Status | Qualification progress |', '| --- | --- | --- |']
     for row in gauges(text):
-        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}) | {row['status']} | `{row['bar']}` {row['percent']} % |")
+        mark = '\\*' if row['id'] in EMULATOR_CORE else ''
+        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{row['bar']}` {row['percent']} % |")
+    for console, name, status in emulated_categories():
+        lines.append(f"| **[{name}](docs/{EMULATED_PAGES[console]})** | {status} | outside this list: emulated, 0 % native code |")
     lines += ['',
+              EMULATOR_CORE_NOTE,
+              '',
               '**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a',
               f'partial one), drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five',
               "measures, and it never decides a status: leaving the experimental status is the owner's own decision."]
