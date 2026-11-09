@@ -23,6 +23,8 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+from .core import serialized_setup
+
 ENGINE_URL = 'https://github.com/rages4calm/pcenginerecomp.git'
 BUILD_TIMEOUT = 4 * 3600     # the Street Fighter II board's module takes an hour of eight compiler jobs: two jobs on a small machine need much longer
 
@@ -40,8 +42,10 @@ def checkout_path() -> Path:
     return _core().ROOT / '.deps' / 'pcenginerecomp'
 
 
+@serialized_setup
 def ensure_engine(emit: Callable[[str], None] = print) -> Path:
-    """A clean checkout of the pinned revision (cloned when absent; never reset when it carries edits)."""
+    """A clean checkout of the pinned revision (cloned when absent; never reset when it carries edits). Under the shared
+    setup gate like every engine fetch, so two cards converted at once on a fresh `.deps` never clone it together."""
     from .pce_conversion import ENGINE_REV
     core = _core()
     deps = core.ROOT / '.deps'
