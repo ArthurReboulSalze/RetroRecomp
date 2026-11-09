@@ -224,9 +224,13 @@ instructions / interpreted share (millions).
 - **0 interpreted on every route of 14 cards.** Street Fighter II' Champion Edition keeps a counted interpreted share, from
   the engine's bound of 65,536 instruction identities per module (four captures were left out); `release_check` reports it as
   its one failure against the limit of 0, which is the rule working.
-- **Gradius's stall is the walk's.** The walk presses Run in pairs, to leave stories and prompts. From about frame 7,700 the game's pause is on between pairs: the CPU and RAM hashes change on every frame, while the picture cycles through
-  32 stars pictures between pairs and changes on all 24 frames inside a later pair. The same walk with one more Run press at frame 8,000 goes back to play, reaches a game over, the title, and a new game, with 489 distinct pictures in the next 694 frames against 32. So a press of an earlier
-  pair was lost and the pairs now leave the pause on. No fault of ours is shown; this was checked on the delivered game alone, not against MAME.
+- **A pause the walk leaves on.** The walk presses Run in pairs, to leave stories and prompts; in play that is a pause and its end. A press of a pair can be lost (a game ignores Run while
+  it restarts), and every later pair then leaves the pause on. On Gradius, from about frame 7,700, the CPU and RAM hashes changed on every frame while the picture cycled through 32 star pictures, and one more Run press
+  brought the game back to play: no fault of ours was shown (checked on the delivered game, not against MAME). The conversion now looks for this on the fresh reference (`pce_conversion.repair_route`): where the picture hardly changes for a
+  stretch between presses (at most 5 % distinct pictures over at least 300 frames), it tries one more Run press 60 frames in, and keeps it only if at least 20 % of the pictures to the next press are then distinct. Two presses with no answer end the search on a route,
+  and the presses kept are recorded in the report (`route_start.repairs`). What it changed on three cards converted to prove it: Gradius's long route goes from 4,754 to 8,856 distinct pictures (0 interpreted); Street Fighter II' CE's from 4,521 to 11,257. What it does not fix:
+  Space Harrier's long route stays at 2,409 distinct pictures. Two more presses get no answer there, and although a later one helps (4,428 distinct pictures), it took four more runs of the route to find. Military Madness's prompt, Boxyboy's still puzzle stages and
+  Santatlantean's title screen also get no answer, on the delivered games, and each such route costs two more reference runs. Each run of a long route costs about 3 minutes at three conversions at once.
 - **The Backup RAM and the stalls.** Compared with the same panel just before the memory existed: 14 cards keep their counts to the million, Santatlantean's attract loop goes
   from 87 M to 103 M instructions because it no longer stops, and its stall on the long route stays. The memory explains no other stall. The 12 pictures of the attract and
   long routes of Gradius and Military Madness are identical to before. Bomberman '93 only probes the memory: its pictures are the same up to the last one, where it now ends on

@@ -1092,5 +1092,94 @@ class StartChoiceTests(unittest.TestCase):
                 self.assertTrue(all(frame >= pce_conversion.walk_start(presses) for frame in down[presses:]), name)
 
 
+
+class RouteRepairTests(unittest.TestCase):
+    """The walk's Run pairs can leave a game's pause on: one more press where the picture stands still, kept when the game answers."""
+    FRAMES, SEED, PRESSES = 6000, 12345, 2
+
+    def trace(self, folder, name, pictures):
+        path = folder / f'{name}.csv'
+        path.write_text('frame,cpu,ram,image,pcm,samples\n' + ''.join(f'{n},c,r,{value},p,0\n' for n, value in enumerate(pictures)), encoding='ascii', newline='\n')
+        return {'trace': path}
+
+    def pairs(self, rows=None):
+        rows = rows or pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        pressed = [row[0] for row in rows if row[1] & pce_conversion.RUN]
+        return [frame for frame in pressed if frame + pce_conversion.PAIR_GAP in pressed]
+
+    def still_from(self, frame):
+        return [str(n) if n < frame else 'still' for n in range(self.FRAMES)]
+
+    def test_a_route_with_no_repair_is_the_walk_of_before(self):
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        self.assertEqual(rows, pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES, ()))
+        identity = 'ab' * 32
+        self.assertEqual(pce_conversion.routes(identity, frames=3600, level='extended', presses=2),
+                         pce_conversion.routes(identity, frames=3600, level='extended', presses=2, repairs={}))
+
+    def test_a_repair_adds_one_press_and_keeps_the_rest_of_the_route(self):
+        plain = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        press = self.pairs(plain)[0] + 300
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES, [press])
+        self.assertEqual([row[0] for row in rows], sorted(row[0] for row in rows))
+        self.assertIn((press, pce_conversion.RUN, 0), rows)
+        outside = lambda row: not press <= row[0] <= press + 6
+        self.assertEqual([row for row in rows if outside(row)], [row for row in plain if outside(row)])
+
+    def test_a_moving_picture_is_not_stuck_and_a_still_one_is(self):
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        self.assertIsNone(pce_conversion.stuck_stretch([str(n) for n in range(self.FRAMES)], rows))
+        first = self.pairs(rows)[0]
+        start, end = pce_conversion.stuck_stretch(self.still_from(first), rows)
+        self.assertEqual(start, first + pce_conversion.PAIR_GAP + 6)
+        self.assertGreater(end, start + pce_conversion.STUCK_FRAMES)
+
+    def test_a_press_the_game_answers_is_kept_and_the_route_goes_on(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            first = self.pairs()[0]
+            calls = []
+
+            def play(name, frames, script):
+                calls.append(name)
+                return self.trace(folder, name, [str(n) for n in range(self.FRAMES)])
+            repairs, result = pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder,
+                                                          self.trace(folder, 'long-1', self.still_from(first)), play, lambda text: None)
+            self.assertEqual(repairs, [first + pce_conversion.PAIR_GAP + 6 + pce_conversion.REPAIR_DELAY])
+            self.assertEqual(calls, ['long-1-repair1'])
+            self.assertEqual(result['trace'].name, 'long-1-repair1.csv')
+
+    def test_presses_that_get_no_answer_are_dropped_and_two_end_the_search(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            still = self.trace(folder, 'long-1', self.still_from(self.pairs()[0]))
+            calls = []
+
+            def play(name, frames, script):
+                calls.append(name)
+                return self.trace(folder, name, self.still_from(self.pairs()[0]))
+            repairs, result = pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder, still, play, lambda text: None)
+            self.assertEqual(repairs, [])
+            self.assertLessEqual(len(calls), pce_conversion.REPAIR_MISSES)
+            self.assertEqual(result, still)
+
+    def test_the_search_is_bounded(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            calls = []
+            rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+
+            def play(name, frames, script):
+                calls.append(name)
+                # Each press wakes the game up to the next pair, where it stands still again.
+                return self.trace(folder, name, self.still_from(self.pairs(rows)[min(len(calls), len(self.pairs(rows)) - 1)]))
+            pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder,
+                                        self.trace(folder, 'long-1', self.still_from(self.pairs(rows)[0])), play, lambda text: None)
+            self.assertLessEqual(len(calls), pce_conversion.REPAIR_ATTEMPTS)
+
+
 if __name__ == '__main__':
     unittest.main()

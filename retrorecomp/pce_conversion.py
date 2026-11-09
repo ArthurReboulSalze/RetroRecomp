@@ -80,6 +80,13 @@ PRESS_SPACING = 240              # frames between two Run presses of the start
 WALK_SETTLE = 180                # frames between the last press and the walk: directions must not move a menu's cursor early
 RUN_PAIR_EVERY = 900             # frames between two pairs of Run presses during the walk
 QUIET_WALK = 900                 # frames of walk with directions only: no I or II, which would type into a password screen
+PAIR_GAP = 24                    # frames between the two presses of a pair
+STUCK_SHARE = 0.05               # at most this share of distinct pictures, over a stretch between pairs: the game may be paused or waiting
+STUCK_FRAMES = 300               # a shorter stretch says nothing
+ANSWER_SHARE = 0.2               # at least this share of distinct pictures after one more press: the game answered
+REPAIR_ATTEMPTS = 8              # presses tried on one route (each is one more reference run of that route)
+REPAIR_MISSES = 2                # presses with no answer that end the search on a route
+REPAIR_DELAY = 60                # frames from the start of the stretch to the press
 
 
 def walk_start(presses: int) -> int:
@@ -91,13 +98,14 @@ def start_candidates(frames: int) -> list[int]:
     return [presses for presses in START_PRESSES if walk_start(presses) + 600 <= frames]
 
 
-def play_rows(frames: int, seed: int, presses: int = 3) -> list:
+def play_rows(frames: int, seed: int, presses: int = 3, repairs=()) -> list:
     """Run pressed `presses` times during the title (most HuCards start on Run; stories, menus and password screens
     ask for more), then a deterministic walk: a held direction changing every second or so, I and II tapped, and now and
     then Run twice in a row. In play that is a pause and its end; on a screen that waits for Run, the way out (a story,
     a continue prompt, a game over). The first QUIET_WALK frames of the walk use directions only, so a menu or a password
     screen answers with a cursor and not with typed letters (that is what `reach` counts). One press too many pauses the
-    game: `choose_start` keeps the variant that answers."""
+    game: `choose_start` keeps the variant that answers. A press of a pair can be lost (a game ignores Run while it restarts),
+    and every later pair then leaves the pause on: `repairs` are frames of one more press, which `repair_route` chose."""
     rows = []
     for index in range(presses):
         at = PRESS_SPACING * (index + 1)
@@ -108,7 +116,7 @@ def play_rows(frames: int, seed: int, presses: int = 3) -> list:
     pair = frame + RUN_PAIR_EVERY
     while frame < frames:
         if frame >= pair and frame + 36 < frames:     # a pair is whole or absent
-            rows += [(frame, RUN, 0), (frame + 6, 0, 0), (frame + 24, RUN, 0), (frame + 30, 0, 0)]
+            rows += [(frame, RUN, 0), (frame + 6, 0, 0), (frame + PAIR_GAP, RUN, 0), (frame + PAIR_GAP + 6, 0, 0)]
             frame += 36
             pair = frame + RUN_PAIR_EVERY
         state = (state * 1103515245 + 12345) & 0x7FFFFFFF
@@ -123,20 +131,85 @@ def play_rows(frames: int, seed: int, presses: int = 3) -> list:
             rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
         frame += span
     rows = [row for row in rows if row[0] < frames]
+    for press in sorted(repairs):
+        held = next((row[1] for row in reversed(rows) if row[0] <= press + 6), 0) & ~RUN
+        rows = [row for row in rows if not press <= row[0] <= press + 6]
+        rows = sorted(rows + [(press, RUN, 0), (press + 6, held, 0)], key=lambda row: row[0])
     assert all(a[0] <= b[0] for a, b in zip(rows, rows[1:])), 'route frames must not go back'
     return rows
 
 
-def routes(identity: str, *, frames: int, level: str, presses: int = 3) -> list[tuple[str, int, str]]:
-    """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels."""
+def route_seed(identity: str, name: str) -> int:
+    """The seed of a route's walk: the card's, and one more step per long route."""
     seed = int(identity[:8], 16)
+    return seed + 7919 * int(name.split('-')[1]) if name.startswith('long-') else seed
+
+
+def routes(identity: str, *, frames: int, level: str, presses: int = 3, repairs: dict | None = None) -> list[tuple[str, int, str]]:
+    """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels. `repairs`: the
+    extra Run presses of each route (`repair_route`), which the report records."""
+    repairs = repairs or {}
     rows = [] if level == 'quick' else [('attract', frames, _script([]))]
     play = max(frames, 1800)
-    rows.append(('play', play, _script(play_rows(play, seed, presses))))
+    rows.append(('play', play, _script(play_rows(play, route_seed(identity, 'play'), presses, repairs.get('play', ())))))
     for index in range(LONG_ROUTES[level]):
-        rows.append((f'long-{index + 1}', LONG_FRAMES,
-                     _script(play_rows(LONG_FRAMES, seed + 7919 * (index + 1), presses))))
+        name = f'long-{index + 1}'
+        rows.append((name, LONG_FRAMES, _script(play_rows(LONG_FRAMES, route_seed(identity, name), presses, repairs.get(name, ())))))
     return rows
+
+
+def trace_pictures(trace: Path) -> list:
+    """The picture hash of each frame of a trace."""
+    return [fields[3] for fields in (line.split(',') for line in Path(trace).read_text(encoding='ascii').splitlines()[1:]) if len(fields) == 6]
+
+
+def stuck_stretch(pictures: list, rows: list, after: int = 0) -> tuple[int, int] | None:
+    """The first stretch from the end of a pair (or of an extra press) to the next press or to the end of the route, starting at or
+    after `after`, in which the picture hardly changes: a pause the walk left on, a prompt or a screen that waits. None when none does."""
+    pressed = [row[0] for row in rows if row[1] & RUN]
+    pairs = [frame for frame in pressed if frame + PAIR_GAP in pressed]
+    if not pairs:
+        return None
+    seconds = {frame + PAIR_GAP for frame in pairs}
+    ends = sorted({frame + 6 for frame in pressed if frame in seconds or (frame > pairs[0] and frame not in pairs)})
+    for start in ends:
+        if start < after:
+            continue
+        end = next((frame for frame in pressed if frame > start), len(pictures))
+        length = end - start
+        if length >= STUCK_FRAMES and len(set(pictures[start:end])) <= STUCK_SHARE * length:
+            return start, end
+    return None
+
+
+def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, result: dict, play, emit) -> tuple[list, dict]:
+    """(extra presses, reference run): one more Run press where the walk leaves the game on a picture that hardly changes, kept
+    only when the game answers. A press is tried once per stretch, and the search ends after REPAIR_MISSES presses with no answer, so
+    a screen that really waits costs two runs. `play(name, frames, script)` plays a script on the reference."""
+    repairs, after, misses = [], 0, 0
+    for attempt in range(REPAIR_ATTEMPTS):
+        rows = play_rows(count, seed, presses, repairs)
+        stretch = stuck_stretch(trace_pictures(result['trace']), rows, after)
+        if stretch is None:
+            break
+        press = stretch[0] + REPAIR_DELAY
+        if press + 36 >= stretch[1]:
+            break
+        script = scripts / f'{name}-repair{attempt + 1}.inputs'
+        script.write_text(_script(play_rows(count, seed, presses, [*repairs, press])), encoding='ascii', newline='\n')
+        trial = play(f'{name}-repair{attempt + 1}', count, script)
+        window = trace_pictures(trial['trace'])[press + 36:stretch[1]]
+        if len(set(window)) < ANSWER_SHARE * len(window):
+            emit(f'PC Engine {name}: the picture stays still from frame {stretch[0]}, and one more Run press gets no answer.')
+            misses += 1
+            after = stretch[1]
+            if misses >= REPAIR_MISSES:
+                break
+            continue
+        emit(f'PC Engine {name}: the walk left the game still from frame {stretch[0]}; one more Run press at frame {press} brings it back.')
+        repairs.append(press)
+        result, after = trial, press + 6
+    return repairs, result
 
 
 def liveness_score(liveness: dict) -> tuple:
@@ -503,7 +576,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                              for presses, result in variants.items() if presses}
                     presses = choose_start(start, play_count)
                     route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()},
-                                   'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed'}
+                                   'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed',
+                                   'repairs': {}}
                     emit(f'PC Engine: play route starts with Run pressed {presses} time(s) '
                          f'({start[presses]["reach"]} pictures reached that no input never showed).')
                     plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
@@ -517,6 +591,16 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         else:
                             reference[name] = (variants[presses] if name == 'play' else
                                                run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
+                            # The walk may have left the game on a pause: one more press where that helps, kept in the report.
+                            repaired, reference[name] = repair_route(
+                                name, count, route_seed(card.sha256, name), presses, checks / 'inputs', reference[name],
+                                lambda trial, frames_, script: run(candidate, checks / 'reference', trial, frames_, script, '--reference'), emit)
+                            if repaired:
+                                route_start['repairs'][name] = repaired
+                                scripts[name].write_text(_script(play_rows(count, route_seed(card.sha256, name), presses, repaired)),
+                                                         encoding='ascii', newline='\n')
+                    if route_start['repairs']:
+                        plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'])
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
