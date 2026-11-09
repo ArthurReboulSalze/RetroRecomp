@@ -266,6 +266,105 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
             'missing_state_creates_nothing': True, 'state_bytes': len(original)}
 
 
+# ------------------------------------------------------------------ the Backup RAM file (native/pce_backup.c)
+
+BACKUP_BYTES = 2048
+BACKUP_HEADER = 112
+BACKUP_MAGIC = b'RRPCEBR1'
+BACKUP_FRAMES = 60          # frames of a run that only checks what a file gave the game at the start
+# What the game finds with no save: the file system header as Beetle formats it on a HuCard, nothing stored.
+BACKUP_FORMATTED = b'HUBM\x00\x88\x10\x80' + bytes(BACKUP_BYTES - 8)
+
+
+def fnv64(data: bytes) -> int:
+    value = 14695981039346656037
+    for byte in data:
+        value = ((value ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
+def backup_file(memory: bytes, rom_sha256: str) -> bytes:
+    """A Backup RAM file: magic, version 1, size, FNV-1a of the memory, reserved, the HuCard's SHA-256 in hex, reserved, the memory."""
+    header = bytearray(BACKUP_HEADER)
+    header[:8] = BACKUP_MAGIC
+    header[8:12] = (1).to_bytes(4, 'little')
+    header[12:16] = len(memory).to_bytes(4, 'little')
+    header[16:24] = fnv64(memory).to_bytes(8, 'little')
+    header[40:104] = rom_sha256.encode('ascii')
+    return bytes(header) + memory
+
+
+def damaged_backups(good: bytes) -> dict[str, bytes]:
+    """Files the game cannot use, by what is wrong with them: each must be set aside whole, and the game must start formatted."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(good)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': good[:40], 'one-byte-short': good[:-1], 'one-byte-long': good + b'\0',
+            'raw-memory': good[BACKUP_HEADER:], 'magic': flipped(0), 'version': flipped(8), 'size': flipped(12),
+            'hash': flipped(16), 'other-card': flipped(40), 'memory': flipped(len(good) - 1)}
+
+
+def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str) -> dict:
+    """The save beside the game, in fresh processes. No file: the formatted memory, and nothing written unless the game wrote. A
+    valid file reaches the game. Damaged files are set aside whole and never block it. What the play route leaves in the memory
+    is there in the next process. With the same memory, the game and the interpreted reference stay equal on the play route."""
+    from .conversion_gates import require, require_same_file
+    from .delivery_evidence import same_trace
+
+    def failure(text: str):
+        return lambda: ConversionError(f'PC Engine Backup RAM: {text}')
+
+    def hex64(data: bytes) -> str:
+        return f'{fnv64(data):016x}'
+    quiet = folder / 'quiet.inputs'
+    folder.mkdir(parents=True, exist_ok=True)
+    quiet.write_text(_script([]), encoding='ascii', newline='\n')
+    none = folder / 'none.rrsram'
+    start = run(executable, folder, 'backup-none', BACKUP_FRAMES, quiet, '--backup', str(none))
+    require(start['backup_start_hash'] == hex64(BACKUP_FORMATTED) and not start['backup_notice'],
+            failure('without a file the game did not find the formatted memory.'))
+    require(none.exists() == (start['backup_hash'] != start['backup_start_hash']),
+            failure('a file was written though the game wrote nothing, or the reverse.'))
+    seeded = BACKUP_FORMATTED[:-1] + b'\x5a'
+    valid = folder / 'valid.rrsram'
+    good = backup_file(seeded, rom_sha256)
+    valid.write_bytes(good)
+    loaded = run(executable, folder, 'backup-valid', BACKUP_FRAMES, quiet, '--backup', str(valid))
+    require(loaded['backup_start_hash'] == hex64(seeded) and not loaded['backup_notice'],
+            failure('a valid file did not reach the game.'))
+    damaged = damaged_backups(good)
+    for label, data in damaged.items():
+        path = folder / f'damaged-{label}.rrsram'
+        path.write_bytes(data)
+        result = run(executable, folder, f'backup-{label}', BACKUP_FRAMES, quiet, '--backup', str(path))
+        aside = path.with_name(path.name + '.unusable-1')
+        require(result['backup_notice'] == 1 and result['backup_start_hash'] == hex64(BACKUP_FORMATTED),
+                failure(f'a damaged file ({label}) was used.'))
+        require(aside.is_file() and aside.read_bytes() == data, failure(f'a damaged file ({label}) was not kept as it was.'))
+    route = folder / 'route.rrsram'
+    played = run(executable, folder, 'backup-route', frames, script, '--backup', str(route))
+    changed = played['backup_hash'] != played['backup_start_hash']
+    require(route.exists() == changed, failure('the file does not follow what the game wrote on the play route.'))
+    if changed:
+        survived = run(executable, folder, 'backup-survived', BACKUP_FRAMES, quiet, '--backup', str(route))
+        require(survived['backup_start_hash'] == played['backup_hash'],
+                failure('what the game wrote did not survive into a fresh process.'))
+    memory = route.read_bytes() if changed else good
+    native_copy, reference_copy = folder / 'same-native.rrsram', folder / 'same-reference.rrsram'
+    native_copy.write_bytes(memory)
+    reference_copy.write_bytes(memory)
+    native = run(executable, folder, 'backup-same-native', frames, script, '--backup', str(native_copy))
+    reference = run(executable, folder, 'backup-same-reference', frames, script, '--reference', '--backup', str(reference_copy))
+    require(same_trace(native['trace'], reference['trace']),
+            failure('with the same memory the game and the reference differ on the play route.'))
+    require_same_file(native_copy, reference_copy, failure('with the same memory the two runs saved different files.'))
+    return {'play_route_wrote_memory': changed, 'written_memory_survives_a_fresh_process': changed or None,
+            'no_file_starts_formatted': True, 'valid_file_loaded': True, 'damaged_files_set_aside': sorted(damaged),
+            'same_memory_reference_match': True, 'same_memory_was': 'the play route\'s' if changed else 'an authored file',
+            'bytes_beyond_2k_on_play_route': played['backup_beyond']}
+
+
 def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):
     """(capture, frames): a complete capture of the start of a route whose full capture lost identities, or (None, 0)."""
     frames = int(result['capture_first_drop_frame']) - 1
@@ -484,6 +583,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         with stages.phase('state_checks'):
             states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'])
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
+        phase = time.perf_counter()
+        emit('PC Engine: checking the Backup RAM file in fresh processes and setting damaged files aside.')
+        with stages.phase('state_checks'):
+            backup = check_backup(packed, checks / 'backup', play[1], scripts['play'], card.sha256)
+        timings['backup_checks'] = round(time.perf_counter() - phase, 3)
+    beyond = {name: final[name]['backup_beyond'] for name, _, _ in plan if final[name]['backup_beyond']}
+    if beyond:
+        emit(f'PC Engine: the game wrote past the 2 KiB of the Backup RAM on {sorted(beyond)}: reported, the chip has no cell there.')
     checks_rows = []
     for name, count, text in plan:
         native = final[name]
@@ -494,6 +601,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'],
             'nonzero_samples': native['nonzero_samples'], 'cropped_frames': native['cropped_frames'],
+            'backup_hash': native['backup_hash'], 'backup_written': native['backup_hash'] != native['backup_start_hash'],
+            'backup_beyond_2k': native['backup_beyond'],
             'liveness': route_liveness(Path(native['trace'])), 'trace_sha256': file_sha256(native['trace']),
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] for row in checks_rows)
@@ -525,6 +634,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'hardware_accuracy_validated': False, 'full_game_validated': False,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',
                         'compatibility': 'exact HuCard, engine revision and bridge sources', 'validation': states},
+        'backup_ram': {'supported': True, 'bytes': BACKUP_BYTES, 'file': 'datas/saves/<game>-<card>.rrsram',
+                       'compatibility': 'exact HuCard; survives a rebuild of the game',
+                       'model': 'bank $F7 as plain RAM set by the host (no lock; 8 KiB where the chip has 2 KiB; past 2 KiB is reported)',
+                       'formatted_without_a_save': 'the file system header HUBM 00 88 10 80, then zeros, as Beetle does on a HuCard',
+                       'quick_state': 'holds the memory too: F9 brings it back as it was, and the file follows',
+                       'validation': backup},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
         'build_directory': str(project), **delivered.report_fields(), 'scan_level': level,

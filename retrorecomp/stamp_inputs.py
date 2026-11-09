@@ -858,6 +858,8 @@ INPUTS = _resolve({
     ),
     ('pce',): (
         'licenses/pcenginerecomp.md',
+        'native/pce_backup.c',
+        'native/pce_backup.h',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
         'native/pce_main.c',

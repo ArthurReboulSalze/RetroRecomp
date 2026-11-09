@@ -85,7 +85,8 @@ class ShapeHeaderTests(unittest.TestCase):
             core = amiga_vamiga.adapt(PINNED.parent, Path(folder))
             header = (core / amiga_vamiga.BLITTER_SHAPE_HEADER).read_text(encoding='utf-8')
         self.assertIn('rrCopyProgram[16][2][6]', header)
-        self.assertEqual(header.count('case 255:'), 1)
+        self.assertEqual(header.count('case 254:'), 1)      # minterm 255 is the switch's `default`, in vAmiga's text too
+        self.assertIn('default:  return 0xFFFF;', header)
         self.assertNotIn('doMintermLogic(', header)
         self.assertNotIn('bltconDESC()', header)
 

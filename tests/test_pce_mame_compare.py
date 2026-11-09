@@ -122,6 +122,19 @@ class VerdictTests(unittest.TestCase):
             self.assertEqual({item['status'] for item in verdicts if item['frame'] > 8}, {'equal'})
             self.assertEqual(comparer.geometries, {(64, 40): compare.Geometry(4, 32, -2)})
 
+    def test_a_picture_that_scrolls_a_row_a_frame_is_placed_at_the_right_offset_and_row(self):
+        # At offset 0 this picture also fits one row away, on nearly all its pixels: the place and the offset must be chosen together.
+        base = numpy.random.default_rng(7).integers(0, 8, (200, 64, 3))
+        table = numpy.array(compare.LEVELS['game'], dtype=numpy.uint8)
+        levels = {n: numpy.roll(base, n, axis=0) for n in range(1, self.FRAMES + 8)}
+        game = {n: table[picture] for n, picture in levels.items()}
+        mame = {f: mame_frame(levels[f + 1], 4, 32, -2) for f in range(1, self.FRAMES + 1)}
+        comparer = compare.Comparer(game.get, mame.get, self.FRAMES, self.FRAMES + 7)
+        calibration = comparer.choose_offset()
+        self.assertEqual(calibration['offset'], 1)
+        self.assertEqual(comparer.geometries, {(64, 200): compare.Geometry(4, 32, -2)})
+        self.assertEqual({comparer.verdict(f)['status'] for f in range(1, self.FRAMES + 1)}, {'equal'})
+
     def test_a_frame_that_is_one_frame_late_is_an_offset(self):
         def alter(f, frame):
             return mame_frame(scene(f + 1)[0], 4, 32, -2) if f == 15 else frame
