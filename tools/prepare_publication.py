@@ -266,7 +266,7 @@ tools/gameboy_states_check.py tests/test_gameboy_states_tool.py
 retrorecomp/gameboy_cartridge.py tests/test_gameboy_cartridge.py
 tools/fetch_sm83_vectors.py native/gb_sm83_vector_checks.c tools/gameboy_sm83_vector_selftest.py tests/test_gameboy_sm83_vectors.py
 tools/fetch_huc6280_vectors.py native/pce_huc6280_vector_checks.cpp tools/pce_huc6280_vector_selftest.py tests/test_pce_huc6280_vectors.py
-tools/pce_mame_compare.py tests/test_pce_mame_compare.py tools/pce_route_captures.py tests/test_pce_route_captures.py
+tools/pce_mame_compare.py tests/test_pce_mame_compare.py tools/pce_route_captures.py tests/test_pce_route_captures.py tests/test_pce_knowledge.py
 native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py tests/test_pce_huc6280_native_vectors.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
