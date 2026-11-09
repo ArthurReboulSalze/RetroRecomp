@@ -306,8 +306,8 @@ else; a Kickstart image is walked but not filled. A guess that is not code is on
 they run (`final_checks.native_swept`; `native_forms.swept_instructions` is what is known), so a report never presents swept code that did not run as proved on a route; the routes it was read from
 ran the observed code, so on them the count stays at 0. Nothing swept enters the library.
 Proof: Rick Dangerous, Apidya, Lemmings and Civilization as usual, equal to the reference with the same counts. And a build that learned only the main route, playing the explore route it never saw: every frame
-and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is not
-in memory yet when the main route ends, and images taken at other moments of the route did not hold it either, so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
+and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is no longer
+in memory when the main route ends: later loads overwrite it (an image at frame 130 holds it), so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
 The routes are scripts and these are about a minute of each game; this does not say what share of a whole game a sweep reaches. **Size:** 12,730 to 95,933 more instructions compiled; Rick's exe goes from 2.88 MB to 3.28 MB, Civilization's is 8.33 MB
 against the first sweep. **Hot path:** one more count per swept instruction that runs. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 

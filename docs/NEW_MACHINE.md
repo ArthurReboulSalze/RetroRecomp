@@ -225,7 +225,7 @@ states, saves, packed replay, languages, headless routes) plus its own.
 | ARM7TDMI, MIPS R3000A/VR4300, 68020 | none | nothing | a recompiler, a CPU vector set, a path profile and shapes, a report CPU entry |
 
 CPS-2 reuses the CPS-1 modules (68000, Z80, romset reader, kit adapter) and adds the QSound device as a cartridge-device entry; the
-Amiga 500 and Atari ST reuse the 68000 chain; the Amiga 1200, Game Boy Advance, Nintendo 64 and PlayStation start with a new CPU.
+Atari ST reuses the 68000 chain and the Amiga 500 has its own, on Moira, with translated forms (`retrorecomp/amiga_translate.py`); the Amiga 1200, Game Boy Advance, Nintendo 64 and PlayStation start with a new CPU.
 
 ## What the registry test checks
 
