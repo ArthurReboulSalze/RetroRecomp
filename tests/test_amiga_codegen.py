@@ -127,6 +127,43 @@ class AmigaCodegenTest(unittest.TestCase):
         swept = amiga_codegen.sweep([(0x1000, '6604'), (0x1006, '4e71')], [memory], observed=observed)
         self.assertEqual(swept, [(0x1002, '7001'), (0x1004, '4e75'), (0x1008, '4e75')])    # $100a holds no legal opcode
 
+    def test_a_window_gives_the_instruction_that_ran_and_counts_what_a_walk_finds_apart(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        # moveq #1,d0; rts; nop: the walk goes on past the return, and neither of those is known to have run.
+        started, walked = amiga_codegen.walk_records([(0x1000, bytes.fromhex('70014e754e71'))], observed=observed)
+        self.assertEqual(started, [(0x1000, '7001')])
+        self.assertEqual(walked, [(0x1002, '4e75'), (0x1004, '4e71')])
+
+    def test_a_walk_stops_at_what_cannot_be_an_instruction(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        illegal = next(opcode for opcode, entry in amiga_codegen._MAP.items() if entry[0] == 'Illegal')
+        data = bytes.fromhex('7001') + illegal.to_bytes(2, 'big') + bytes.fromhex('4e71')
+        started, walked = amiga_codegen.walk_records([(0x1000, data)], observed=observed)
+        self.assertEqual((started, walked), ([(0x1000, '7001')], []))
+
+    def test_an_instruction_that_also_began_a_window_counts_as_having_run(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        started, walked = amiga_codegen.walk_records([(0x1000, bytes.fromhex('70014e75')), (0x1002, bytes.fromhex('4e75'))], observed=observed)
+        self.assertEqual(started, [(0x1000, '7001'), (0x1002, '4e75')])
+        self.assertEqual(walked, [])
+
+    def test_learned_and_walked_instructions_count_apart_from_what_a_route_ran(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            stats = amiga_codegen.write_steps(project, [(0x1000, '4e71')], observed=observed, swept=[(0x1006, '4e71')], learned=[(0x1000, '4e71'), (0x1002, '7001')], walked=[(0x1002, '7001'), (0x1004, '4e75')])
+            chains = ''.join(path.read_text(encoding='utf-8') for path in sorted((project / 'steps').glob('chain*.cpp')))
+        self.assertEqual((stats['swept_instructions'], stats['learned_instructions'], stats['walked_instructions']), (1, 1, 1))
+        count = lambda pc, opcode: chains[chains.index(f'void rr_amiga_at_{pc:06x}_{opcode:04x}(void *p) {{'):].split('}', 1)[0]
+        self.assertNotIn('rr_amiga_learned_total', count(0x1000, 0x4e71))    # A route ran it: that is what it counts as.
+        self.assertIn('rr_amiga_learned_total++', count(0x1002, 0x7001))
+        self.assertIn('rr_amiga_walked_total++', count(0x1004, 0x4e75))
+        self.assertIn('rr_amiga_swept_total++', count(0x1006, 0x4e71))
+
     def test_a_sweep_fills_the_pages_where_code_ran_in_ram_not_in_rom_and_not_other_pages(self):
         self.sweep_table()
         observed = get_profile('amiga').observed_code

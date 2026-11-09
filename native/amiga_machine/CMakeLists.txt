@@ -79,6 +79,7 @@ target_compile_definitions(amiga_player PRIVATE RR_AMIGA_STATE_ABI="${RR_STATE_A
 if(RR_AMIGA_PAYLOAD_DIR)
     target_include_directories(amiga_player PRIVATE "${RR_AMIGA_PAYLOAD_DIR}")
     target_compile_definitions(amiga_player PRIVATE RR_AMIGA_LINKED)
+    target_sources(amiga_player PRIVATE "${RR_COMMON_NATIVE}/runtime_feedback.c")
     if(WIN32)
         # No console window for the game; the headless validation entry stays.
         if(MSVC)

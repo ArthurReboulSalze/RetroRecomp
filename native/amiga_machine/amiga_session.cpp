@@ -73,6 +73,11 @@ struct RrAmigaSession {
     // The Blitter's counters by shape (BLTCON0 and BLTCON1 without the shift fields): blits, and words or line steps, in a specialised routine (native) and in vAmiga's microprogram (interpreted).
     struct BlitCount { void (*run)(void *) = nullptr; uint64_t native_blits = 0, native_words = 0, interpreted_blits = 0, interpreted_words = 0; };
     std::map<uint32_t, BlitCount> blit;
+    // The player's own record, and the window it was told last.
+    void (*recorder)(uint32_t, const uint8_t *, unsigned) = nullptr;
+    uint32_t window = 0, window_last = 0;
+    uint8_t window_bytes[16] = {};
+    bool window_set = false;
     std::map<std::string, std::string> display;               // lower-case name -> the name as the install spells it
     std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
@@ -178,7 +183,7 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
 // by itself to the instructions it knows come next; a step can never sit on a trap of the resload table, which stops the CPU before it runs.
 typedef void (*RrAmigaCode)(void *);
 extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
-extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;
+extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_learned_total, rr_amiga_walked_total, rr_amiga_kick_total;
 extern "C" const uint32_t *rr_amiga_run_flags;
 extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
 // The specialised routines of this game's Blitter shapes (retrorecomp/amiga_codegen.py).
@@ -265,6 +270,20 @@ static int remove_cb(void *, const char *name) {
     return 0;
 }
 
+// The player's own record (kind 22 of native/runtime_feedback.c): 16 bytes at an interpreted instruction, which the conversion walks into instructions, so that the bounded record holds
+// more of them. An instruction that follows the one before in the window it was told just now needs no record of its own, as long as the window still holds its opcode.
+static void record_window(uint32_t pc) {
+    if (S->window_set && pc > S->window_last && pc - S->window_last <= 10 && pc - S->window + 1 < 16 &&
+        peek(nullptr, pc) == S->window_bytes[pc - S->window] && peek(nullptr, pc + 1) == S->window_bytes[pc - S->window + 1]) {
+        S->window_last = pc;
+        return;
+    }
+    for (uint32_t i = 0; i < 16; i++) S->window_bytes[i] = peek(nullptr, pc + i);
+    S->recorder(pc, S->window_bytes, 16);
+    S->window = S->window_last = pc;
+    S->window_set = true;
+}
+
 // Observation and native steps: the hook Moira calls before each instruction (true: a native step ran it).
 static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
 #ifdef RR_AMIGA_NATIVE
@@ -287,6 +306,7 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
         }
         return false;
     }
+    if (S->recorder && in_ram(pc)) record_window(pc);
     if (S->observing && in_ram(pc)) {
         char hex[25];
         for (int i = 0; i < 12; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
@@ -476,7 +496,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->amiga = &S->emu->rrMain();
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
-        rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_swept_total = rr_amiga_kick_total = 0;
+        rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_swept_total = rr_amiga_learned_total = rr_amiga_walked_total = rr_amiga_kick_total = 0;
         for (unsigned n = 0; n < rr_amiga_blit_shape_count; n++)
             S->blit[(uint32_t)rr_amiga_blit_shapes[n].con0 << 16 | rr_amiga_blit_shapes[n].con1].run = rr_amiga_blit_shapes[n].run;
 #endif
@@ -730,6 +750,21 @@ extern "C" uint64_t rr_amiga_swept_count(const RrAmigaSession *) {
     return 0;
 #endif
 }
+extern "C" uint64_t rr_amiga_learned_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_learned_total;
+#else
+    return 0;
+#endif
+}
+extern "C" uint64_t rr_amiga_walked_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_walked_total;
+#else
+    return 0;
+#endif
+}
+extern "C" void rr_amiga_set_recorder(RrAmigaSession *s, void (*note)(uint32_t, const uint8_t *, unsigned)) { s->recorder = note; }
 extern "C" uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { return s->interpreted_count; }
 extern "C" void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *o) {
     fprintf(o, "{\"left_midway\":%llu,\"shapes\":[", (unsigned long long)rr_blit_left_midway);
