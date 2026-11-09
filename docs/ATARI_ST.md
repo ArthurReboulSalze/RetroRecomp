@@ -76,7 +76,7 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 | --- | --- |
 | Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
 | CPU fidelity | The native code is Hatari's own handlers, specialised per opcode (section 2): on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native form was compared on 6,107 vectors of the flat bus and 3,569 of the ST's map, those whose opcode has a form, and equals the interpreter on all of them; with `--all-forms`, each of the 45,814 forms of every opcode but RESET equals the table's handler on eight random states (366,512 runs: registers, flags, clocks in each position of the bus slot, interrupt level changing during the instruction, prefetch, RAM, and 834,101 bus accesses in order and clock). These checks found that a compiler reads a literal differently: ADDX.L D6,D6 gave wrong flags until the forms were compiled with wrapping arithmetic. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
-| Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 37 measurements, 36 agree): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. One recorded difference: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the round 2 MHz its data sheet gives as a maximum. The 263 lines at 60 Hz rest on the GLUE's vertical counter as MAME and the gstmcu replica model it; several numbers rest on Hatari and MAME, as the check's `SOURCES` say (the WD1772 data sheet, the Atari Compendium and the ST's schematics were not reached). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
+| Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 39 measurements, 37 agree, 2 recorded differences): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. Two recorded differences: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the round 2 MHz its data sheet gives as a maximum; and timer D, started from the TOS's addresses, runs slower on purpose (section 5). The 263 lines at 60 Hz rest on the GLUE's vertical counter as MAME and the gstmcu replica model it; several numbers rest on Hatari and MAME, as the check's `SOURCES` say (the WD1772 data sheet, the Atari Compendium and the ST's schematics were not reached). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |
 
@@ -117,21 +117,24 @@ continues in a fresh process on all ten, on every column, sound samples included
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
 
-At the thorough level (9 November 2026, one tree, every game: main and exploration routes of 3,000 frames, two pseudo-random routes of 18,000, Turrican II with the player's TOS 1.04, the others on EmuTOS). All 40 routes equal their
+At the thorough level, with the timer D patch (9 November 2026, one tree, every game: main and exploration routes of 3,000 frames, two pseudo-random routes of 18,000, Turrican II with the player's TOS 1.04, the others on EmuTOS; a scratch library holding the same tree's Standard pass). All 40 routes equal their
 fresh interpreted reference and the compressed copy; a state continues on every game:
 
 | Game | Native, the two long routes | Interpreted, the two long routes | What the long routes' last pictures show |
 | --- | ---: | ---: | --- |
-| Bomb Jack | 136,907,471 / 138,237,061 | 5 / 5 | the game |
-| Another World | 234,379,563 / 235,274,078 | 5 / 5 | "ERROR": the random entry at the code wheel is wrong |
-| Operation Stealth | 285,910,180 / 285,061,396 | 5,030 / 5,068 | colour-code protection |
-| Captain Blood | 167,058,885 / 211,761,208 | 291 / 197 | its title (asks for disk 2) / the cockpit, on the route that changes disk |
-| Elite | 234,159,606 / 234,193,136 | 4 / 4 | manual-word protection |
-| Lethal Xcess | 210,834,689 / 216,231,471 | 4 / 4 | asks for disk B / a level, on the route that changes disk |
+| Bomb Jack | 136,890,241 / 138,174,475 | 5 / 5 | the game |
+| Another World | 234,420,603 / 235,342,206 | 5 / 5 | "ERROR": the random entry at the code wheel is wrong |
+| Operation Stealth | 286,238,048 / 284,651,047 | 5,026 / 5,075 | colour-code protection |
+| Captain Blood | 167,032,020 / 211,808,239 | 291 / 197 | its title (asks for disk 2) / the cockpit, on the route that changes disk |
+| Elite | 234,129,207 / 234,162,312 | 4 / 4 | manual-word protection |
+| Lethal Xcess | 210,827,512 / 216,224,316 | 4 / 4 | asks for disk B / a level, on the route that changes disk |
 | Turrican II | 188,091,921 / 189,277,948 | 0 / 0 | a level |
-| Carrier Command | 330,586,259 / 291,892,045 | 4 / 4 | black, after its language menu, with few program counters and no sound: a stop not explained |
-| Indiana Jones and the Temple of Doom | 265,364,451 / 266,378,956 | 6 / 6 | the game |
-| Kick Off 2 | 246,147,304 / 242,438,886 | 1,781 / 1,781 | a practice match |
+| Carrier Command | 330,585,019 / 291,890,645 | 4 / 4 | black: its manual-word protection after three wrong entries, on TOS 1.04 as well; the game idles, nothing failed |
+| Indiana Jones and the Temple of Doom | 264,303,741 / 265,577,441 | 6 / 6 | the game |
+| Kick Off 2 | 240,242,407 / 243,229,276 | 2,095 / 1,781 | a practice match |
+
+**Which library these figures come from.** A conversion keeps the instructions it saw in the player's library and starts from them next time, so what is native beyond a route depends on it. The tables of 6 and 7 November and the qualification runs before 9 November had earlier conversions of the same game and TOS in their library (the converter's own working copy, never a player's). The Standard pass of 9 November started from an empty one: on Linux for every game, and with the same counts on Windows. A route's own counts barely depend on it, as a conversion adds what a route misses until none is left.
+**Beyond its routes, it decides.** Turrican II converted once at the Standard level from an empty library ran 7 % of its instructions natively in a window of play past its routes (frames 3,800 to 5,200); with the conversions of the days before in its library, 99.99 %. A player's first conversion is the first case: the rest is interpreted, counted, and equal on the routes.
 
 IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool, not shipped) and
 against the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in the repository). Two defects
@@ -174,6 +177,13 @@ gameplay validation of any game, and it changes no gate.
 ## 5. Known limits
 
 - STE, TT, Falcon, hard disks and CD-style media are out of scope.
+- **The MFP's timer D does not run as on an ST when TOS starts it** (known limit, on purpose, since 1.7.2). TOS, EmuTOS as well as Atari's, starts this timer at a very high rate with its interrupt off; each tick costs an event in Hatari, one every couple of instructions. This
+  machine runs Hatari's own option (`hatari_timerd`): when the code that starts the timer is in the TOS's addresses, Hatari starts it far slower, and tells TOS the old value when TOS reads it back. The rate left differs by TOS, as the patch of the control register fires once: TOS 1.04 stays at prescaler 200, data 100, 123 Hz; EmuTOS writes the register again at boot and stays at prescaler 4, data 100, 6,144 Hz, which is 123 events per frame of about 974. **A game that uses the timer as TOS left it sees another rhythm, or another value in its data
+  register; a game that programs the timer itself is not touched** (`tools/atarist_hardware_check.py` measures both: 599 interrupts from RAM for 598.4 by the data sheet, 96 from the ROM). No exact fidelity is claimed. The frame comparison cannot see this limit, as the reference has the patch too; each run's report says so, and a conversion refuses a run
+  without it (`machine.timer_d`). What it buys, an estimate on a PC that was not quiet, host cycles of the main route, the option off over on, nothing else changed (5 runs, median and min): on EmuTOS Bomb Jack 1.55 and 1.58, Indiana Jones 1.30 and 1.57 (noisy), Kick Off 2 1.70 and 1.60; on TOS 1.04 Bomb Jack 1.56 and 1.58, Indiana Jones 1.80 and 1.76, Kick Off 2 1.76 and 1.65. So on the default too. Not a timing.
+  **Which games:** none of the ten panel games reads timer D or relies on its rate outside TOS (counters on their main and first long routes, 9 November 2026): Lethal Xcess and Turrican II touch the timer but program it themselves. Hatari's compatibility list names three games that need the option off: Exterminator and The Seven Gates of Jambala (colour rasters), Super Sprint (music too fast).
+  Only Jambala is in the library tried here: it reads the register once, its run then differs from the unpatched machine, and it reaches its title with both; nothing later was looked at. Hatari's source also names Paradroid and Speedball as using the timer without setting it up; they were not tried. With EmuTOS, the boot itself runs a little differently from the unpatched machine, so a game's course
+  can differ from that run (Elite draws another word at its protection, Kick Off 2's long route ends elsewhere): the same sensitivity as a shift of one frame in the inputs. There is no setting to turn the option off.
 - **EmuTOS is not Atari's TOS** (known limit). Some games written for Atari's TOS do not run on it; EmuTOS's own
   `doc/incompatible.txt` lists the known ones. Turrican II is one of them on the panel: it uses low memory that EmuTOS also uses
   ("this can never work with EmuTOS"), and it stops after its Rainbow Arts intro. **The player's own TOS is needed for such a

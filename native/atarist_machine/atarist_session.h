@@ -62,6 +62,8 @@ uint64_t rr_st_native_count(const RrStSession *s);
 uint64_t rr_st_chain_entries(const RrStSession *s);
 /* 1 once the TOS opened the desktop file that carries the autostart line: the boot reached the desktop. */
 int rr_st_desktop_started(const RrStSession *s);
+/* Whether Hatari's timer D patch is on in this machine, as Hatari has it set. */
+int rr_st_timer_d_patched(const RrStSession *s);
 void rr_st_set_observe(RrStSession *s, int enabled);
 /* The instruction length of every opcode in 16-bit words (the 68000 decoder's table, 65,536 bytes): what an observation keeps. */
 void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]);

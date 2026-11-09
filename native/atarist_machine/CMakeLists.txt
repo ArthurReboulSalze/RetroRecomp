@@ -98,6 +98,10 @@ endif()
 # -fwrapv: a form is Hatari's handler with the opcode as a literal. ADDX.L D6,D6 then shows the compiler that both operands are one register, and without it the signed sum of the
 # handler is taken not to overflow and the flags come out wrong (tools/atarist_vector_selftest.py finds it).
 target_compile_options(rr_atarist_session PRIVATE -O2 -fno-fast-math -fwrapv)
+# Link-time optimisation of the session and of the generated code together with the player (Hatari's core stays as it is built): the forms reach the shared bus functions directly.
+if(RR_ST_GENERATED)
+    set_property(TARGET rr_atarist_session atarist_player PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 target_compile_options(atarist_player PRIVATE -O2 -fno-fast-math)
 target_link_libraries(atarist_player PRIVATE m)
 if(WIN32)

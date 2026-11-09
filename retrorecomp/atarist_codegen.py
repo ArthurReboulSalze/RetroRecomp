@@ -81,7 +81,7 @@ def load_opcode_map(path: Path, cpustbl: Path) -> dict[int, str]:
     return table
 
 
-# step_semantics.h: Hatari's CPU headers, which declare every generated handler (cputbl.h of its build). `rr_st_quiet` and `rr_st_next` (steps/bus.c) are the work of `m68k_run_1_ce`
+# step_semantics.h: Hatari's CPU headers, which declare every generated handler (cputbl.h of its build). `rr_st_quiet` and `rr_st_next` are the work of `m68k_run_1_ce`
 # between two instructions when nothing is due. The test comes first and changes nothing, so the loop still does all of it for an instruction after which something is due: the
 # wait states of an access (never on this CPU), an event whose clock has passed, an MFP update, a special flag, an interrupt level above the mask. Then the statements are the
 # loop's, in its order, and those of its next turn.
@@ -103,8 +103,23 @@ SEMANTICS = """#pragma once
 #include "cycInt.h"
 #include "mfp.h"
 extern uint64_t rr_st_native_total;
-int rr_st_quiet(void);
-int rr_st_next(uint32_t pc, uint32_t opcode);
+static inline __attribute__((always_inline)) int rr_st_quiet(void) {
+    /* An interrupt level below the CPU's mask is the usual state of an ST (HBL pending): `do_specialties` then does nothing, as `time_for_interrupt` answers 0. */
+    return !(regs.spcflags | regs.loop_mode | regs.memory_waitstate_cycles | MFP_UpdateNeeded) && regs.ipl[0] <= regs.intmask && regs.ipl[0] != 7 && regs.ce020extracycles < 16 &&
+           CycInt_ActiveInt_Cycles > ((CyclesGlobalClockCounter + (uint64_t)(currcycle * 2 / CYCLE_UNIT)) << CYCINT_SHIFT);
+}
+static inline __attribute__((always_inline)) int rr_st_next(uint32_t pc, uint32_t opcode) {
+    if (m68k_getpc() != pc || regs.ir != opcode) return 0;
+    regs.ird = regs.opcode;
+    regs.instruction_cnt++;
+    M68000_AddCycles_CE(currcycle * 2 / CYCLE_UNIT);
+    regs.ipl[0] = regs.ipl[1];
+    regs.ipl[1] = 0;
+    regs.opcode = regs.ir;
+    currcycle = 0;
+    regs.instruction_pc = pc;
+    return 1;
+}
 #if defined(__clang__)
 #define RR_ST_NEXT [[clang::musttail]] return
 #else
@@ -126,33 +141,26 @@ void rr_st_put_byte(uaecptr addr, uae_u32 v);
 #define x_put_word rr_st_put_word
 #define x_get_byte rr_st_get_byte
 #define x_put_byte rr_st_put_byte
+/* A fault is rare: its exits out of the way of the hot path. This changes no statement. */
+#define hardware_bus_error __builtin_expect(hardware_bus_error, 0)
+extern void exception3_read_access(uae_u32 opcode, uaecptr addr, int size, int fc) __attribute__((cold));
+extern void exception3_write_access(uae_u32 opcode, uaecptr addr, int size, uae_u32 val, int fc) __attribute__((cold));
+extern void exception3_read_prefetch(uae_u32 opcode, uaecptr addr) __attribute__((cold));
+extern void exception3_read_prefetch_only(uae_u32 opcode, uaecptr addr) __attribute__((cold));
+extern void exception2_read(uae_u32 opcode, uaecptr addr, int size, int fc) __attribute__((cold));
+extern void exception2_write(uae_u32 opcode, uaecptr addr, int size, uae_u32 val, int fc) __attribute__((cold));
+extern void exception2_fetch_opcode(uae_u32 opcode, int offset, int pcoffset) __attribute__((cold));
+extern void exception2_fetch(uae_u32 opcode, int offset, int pcoffset) __attribute__((cold));
 #endif
 """
 
 
-# steps/bus.c: what the instructions and the forms share, one copy of it. The work of the loop between two instructions (see SEMANTICS), and the bus without the calls and pointers
+# steps/bus.c: what the forms share, one copy of it: the bus without the calls and pointers
 # in between: the code of `mem_access_delay_*` (newcpu.c), `wait_cpu_cycle_*` (custom.c) and `memory_get_*` (memory.c) of Hatari's cycle-exact 68000, on the bank type the ST's memory
 # has. A blitter at work (its own functions behind the pointers) and any other bank type go through Hatari's functions.
 BUS = """#include "step_semantics.h"
 #include "blitter.h"
 uint64_t rr_st_native_total;
-int rr_st_quiet(void) {
-    /* An interrupt level below the CPU's mask is the usual state of an ST (HBL pending): `do_specialties` then does nothing, as `time_for_interrupt` answers 0. */
-    return !(regs.spcflags | regs.loop_mode | regs.memory_waitstate_cycles | MFP_UpdateNeeded) && regs.ipl[0] <= regs.intmask && regs.ipl[0] != 7 && regs.ce020extracycles < 16 &&
-           CycInt_ActiveInt_Cycles > ((CyclesGlobalClockCounter + (uint64_t)(currcycle * 2 / CYCLE_UNIT)) << CYCINT_SHIFT);
-}
-int rr_st_next(uint32_t pc, uint32_t opcode) {
-    if (m68k_getpc() != pc || regs.ir != opcode) return 0;
-    regs.ird = regs.opcode;
-    regs.instruction_cnt++;
-    M68000_AddCycles_CE(currcycle * 2 / CYCLE_UNIT);
-    regs.ipl[0] = regs.ipl[1];
-    regs.ipl[1] = 0;
-    regs.opcode = regs.ir;
-    currcycle = 0;
-    regs.instruction_pc = pc;
-    return 1;
-}
 extern uae_u32 extra_cycle;
 static inline void cycles_add(int cycles) {
     currcycle += cycles + extra_cycle;

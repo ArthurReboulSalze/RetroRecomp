@@ -6,53 +6,44 @@ Sources: a sampling profile of the current tree, three games, on a PC that was n
 
 ## 1. Where the time goes now
 
-Native code since 1.7.2 is Hatari's handlers compiled again per opcode and chained ([ATARI_ST.md](ATARI_ST.md#2-how-the-conversion-works)). Percent of the main thread's host cycles, native path, 5 runs merged per column, the same windows of play as the first profile:
+Native code since 1.7.2 is Hatari's handlers compiled again per opcode and chained, with Hatari's timer D patch on and link-time optimisation ([ATARI_ST.md](ATARI_ST.md#2-how-the-conversion-works), [its limit](ATARI_ST.md#5-known-limits)). Percent of the main thread's host cycles, native path, 5 runs merged per column, windows of play, on a PC that was not quiet:
 
-| Component | Bomb Jack | Turrican II | Indiana Jones |
-| --- | ---: | ---: | ---: |
-| Way in and chain: hook, look-up, instruction, test of what is due, next | 12.8 | 13.7 | 19.5 |
-| The 68000 loop | 6.0 | 1.4 | 7.8 |
-| The handlers' own work (registers, flags, addresses) | 7.1 | 9.3 | 8.9 |
-| Bus: memory, wait states, prefetch | 25.2 | 32.6 | 15.0 |
-| Cycle accounting | 1.7 | 2.5 | 1.9 |
-| Interrupt and flag checks between instructions | 11.1 | 5.3 | 14.9 |
-| **68000 in all** | **63.9** | **64.7** | **68.1** |
-| Clock events and MFP | 19.1 | 3.2 | 17.9 |
-| Video | 9.6 | 21.7 | 6.6 |
-| Sound, keyboard, copies | 7.4 | 10.0 | 7.3 |
+| Component | Bomb Jack, EmuTOS | Bomb Jack, TOS 1.04 | Indiana Jones, EmuTOS | Indiana Jones, TOS 1.04 |
+| --- | ---: | ---: | ---: | ---: |
+| Way in and chain: hook, look-up, instruction, test of what is due, next | 11.2 | 10.0 | 21.2 | 20.7 |
+| The 68000 loop | 2.0 | 1.6 | 3.3 | 1.6 |
+| The handlers' own work (registers, flags, addresses) | 9.8 | 10.5 | 11.2 | 9.2 |
+| Bus: memory, wait states, prefetch | 40.6 | 41.0 | 28.5 | 33.7 |
+| Cycle accounting | 0.7 | 1.4 | 1.2 | 1.4 |
+| Interrupt and flag checks between instructions | 3.9 | 3.7 | 7.0 | 4.7 |
+| **68000 in all** | **68.2** | **68.4** | **72.4** | **71.2** |
+| Clock events and MFP | 4.6 | 3.9 | 3.8 | 2.7 |
+| Video | 13.4 | 12.5 | 11.1 | 11.6 |
+| Sound | 9.0 | 7.4 | 8.2 | 9.7 |
 
-So the most a perfect translation could gain, the whole 68000 costing nothing, is 2.8, 2.8 and 3.1 times against today's native path. It is a ceiling, not a target: the bus, the slot waits and the interrupt sampling stay.
+Turrican II is left out: that conversion, Standard level from an empty library, ran 7 % of this window natively (past its routes), so the figure would say nothing of native code.
 
-**The handlers' own work, the only part a translation of the semantics removes by itself, is 7 to 9 %.** The bus is three times that, and inlining it gains nothing measurable (below): its cost is what it does, not how it is called.
+So the most a perfect translation could gain, the whole 68000 costing nothing, is 3.1 to 3.6 times against today's native path. It is a ceiling, not a target: the bus, the slot waits and the interrupt sampling stay.
 
-## 2. A finding that comes first: the timer D
+**The handlers' own work, the only part a translation of the semantics removes by itself, is 9 to 11 %.** The bus is three or four times that, and did not move in host cycles when everything else did. Inlining it gained nothing measurable (section 3): its cost is what it does, not how it is called.
 
-TOS programs the MFP's timer D at a very high rate and leaves its interrupt off. Hatari still runs an event for it, one every 1.6 instructions on Bomb Jack (4,212 per frame; measured, the same with TOS 1.04 and EmuTOS, so not EmuTOS's doing). 70 to 97 % of the chains stop because of an event due, which is why a chain is 1.5 to 1.9 instructions long on these games, and any translated block would stop there too.
+## 2. What was done before this page's decision
 
-Hatari has its own option for this, off today (`hatari_timerd`): when TOS itself starts the timer, it starts it far slower. Its source says the rate halves the frame rate. Tried on one tree, not shipped; each game's fresh reference has the patch too, every route equal to it, the compressed copy and the state too (Standard level):
+On the owner's word of 9 November 2026, the machine now runs Hatari's timer D patch and the native code is compiled better: the test between instructions inline, cold fault exits, LTO. The limit and the gain per TOS are on the [machine page](ATARI_ST.md#5-known-limits). It was the largest gain seen and it was not a translation. A chain is now about 3.5 to 4.9 instructions on EmuTOS over a whole route, 13 to 16 on TOS 1.04; in play 6 to 14. What stops them now is the machine's own events (HBL and end of line 628 per frame, IKBD 156, MIDI 62, of about 974 on EmuTOS) and, on EmuTOS, a STOP in its ROM.
 
-| Game | Host cycles, today over patched (5 alternated runs: median, min) | Mean chain, today, patched |
-| --- | ---: | ---: |
-| Bomb Jack | 1.49, 1.50 | 1.52, 3.51 |
-| Indiana Jones | 1.52, 1.51 | 1.74, 4.05 |
-| Kick Off 2 | 1.52, 1.56 | 1.86, 4.87 |
+## 3. What did not need a translation
 
-Turrican II, on TOS 1.04, stops the timer itself in play: little to gain there. **This is about as much as a translation is estimated to give, for one line.** But it changes the machine, not the code: a game that uses the timer as TOS left it sees another rate, and a game reading its data register gets Hatari's fake value. Hatari names two games that use the timer without setting it up (Paradroid, Speedball) and calls the patch compatible; we have checked neither. It would be a named limit of hardware fidelity, and the panel would run again. The native counts move a little (a game's course changes with the timing): the reference changes with it, so the frame comparison does not see the difference from an unpatched machine, and a check of that kind would have to be added.
-
-## 3. Compiling what exists better (measured, no translation)
-
-On private copies of Bomb Jack, Turrican II and Indiana Jones, 6 to 8 alternated rounds, the trace of each game's main route equal to its reference. Cycles of the variant over today's, lower is better; noise about +/- 3 to 5 %:
+Measured before the patch, on private copies of Bomb Jack, Turrican II and Indiana Jones, 6 to 8 alternated rounds, the trace of each game's main route equal to its reference. Cycles of the variant over the code of then, lower is better; noise about +/- 3 to 5 %:
 
 | Change | Bomb Jack | Turrican II | Indiana Jones |
 | --- | ---: | ---: | ---: |
-| Link-time optimisation of the steps | 0.950 | 0.944 | 0.971 |
-| Test of what is due inline in each instruction | 0.985 | 0.946 | 0.995 |
-| Fault exits marked cold | 0.989 | 0.962 | 0.984 |
+| Link-time optimisation of the steps (kept) | 0.950 | 0.944 | 0.971 |
+| Test of what is due inline in each instruction (kept) | 0.985 | 0.946 | 0.995 |
+| Fault exits marked cold (kept) | 0.989 | 0.962 | 0.984 |
 | Shift and A7 tables local | 1.001 | 0.980 | 1.000 |
 | Bus inline in each form | 1.017 | 0.967 | 0.994 |
-| Those last four together | 0.965 | 0.895 to 0.929 | 0.986 |
 
-The programs grow by 10 to 21 %. LTO was not tried on Linux, and these variants did not run the vectors. **Removing `OpcodeFamily` is not valid**: Hatari reads it on the cycle-exact path (`ioMem.c`, `psg.c`, for MOVEM to I/O registers), and Turrican II's trace differs without it.
+**Removing `OpcodeFamily` is not valid**: Hatari reads it on the cycle-exact path (`ioMem.c`, `psg.c`, for MOVEM to I/O registers), and Turrican II's trace differs without it.
 
 ## 4. What a translator would be
 
@@ -73,16 +64,15 @@ Two routes:
 
 Staying as they are, in both routes: DIVU, DIVS, MULU, MULS, TAS, CHK, TRAP, TRAPV, RTE, RTR, STOP, RESET, MOVEP, the BCD group, moves and logic on SR and CCR, line A and F, illegal opcodes, and every fault exit. A mask, a displacement or an immediate stays read on the bus: the guard is the opcode only, so MOVEM cannot be unrolled and immediates cannot be folded.
 
-**Gain, an estimate on the profile above, not a measurement.** Assuming a translated instruction pays half of today's way in, chain and loop, 40 % of the handlers' work, 80 % of the bus, 30 % of the cycle accounting and 60 % of the checks: **1.32, 1.30 and 1.41 times** against today's native path, before section 2 and with chains as short as today. The bus term matters most, 10 points of it being about 0.03 to 0.05 on the factor. With the timer D patched the estimate is not additive: the shares must be measured again. A rough product with section 2 is near 2 times on the games it helps (not measured).
+**Gain, an estimate on the profile above, not a measurement.** Assuming a translated instruction pays half of today's way in, chain and loop, 40 % of the handlers' work, 80 % of the bus, 30 % of the cycle accounting and 60 % of the checks: **1.29 and 1.30 times on Bomb Jack, 1.39 and 1.36 on Indiana Jones** (EmuTOS and TOS 1.04), against today's native path, with the patch and LTO in it. The bus term matters most, 10 points of it being about 0.03 to 0.05 on the factor.
 
 ## 5. The proof
 
 Nothing ships unless it equals its fresh interpreted reference, frame by frame, on picture, sound, RAM and registers, on every route. Per form, `tools/atarist_vector_selftest.py --all-forms` already compares every form with Hatari's table handler: registers, flags, clock in each slot position, 834,101 bus accesses in order and clock, an interrupt line changing during the instruction, prefetch and buffers, RAM, through a device bank and on direct RAM; the 6,764 fixtures go on the same way. It finds no difference on today's forms, and without `-fwrapv` it finds the ADDX.L family. With code written by hand it would become the main gate. To add before a translator: an injected bus error (no fixture and no run reaches those exits), the hidden fault state (`last_addr_for_exception_3` and its kin), `extra_cycle`, the raw flag words, and the fixtures' own transaction lists compared with Hatari's order. Estimate: 150 to 250 lines. Any form can stay on Hatari's text, form by form.
 
-## 6. Recommendation and choices
+## 6. Where the decision stands
 
-1. **Compile better first** (section 3): LTO, the inline test, cold exits. Hours, no change to any behaviour, the same proof. Not a decision for the owner unless it should be.
-2. **Timer D: the owner's decision.** It is the largest gain seen, measured, but a change to the machine. Recommended **with** the limit written down and a first read on the panel, since a game that needs it can be recognised only by trying.
-3. **Then measure again, and only then decide on a translator.** Recommended order if the goal is *the share that is really translated*: the translator of the Amiga's kind, since a pass over Hatari's text would not change what the report may honestly say. If the goal is speed alone, the pass, or nothing: after 1 and 2 the games on the panel may have no need of more.
+Done: compiling better, and the timer D patch with its limit. **Still the owner's: a translator.** The figure for that decision is 1.3 to 1.4 times, estimated, against the native path of today, for 2 to 4 days of AI time and the largest proof of the machine.
+If the goal is **the share that is really translated**, the translator of the Amiga's kind is the route, since a pass over Hatari's text would not change what the report may honestly say. If the goal is **speed alone**, the bus is the row to attack, and a translator touches it little: a pass, or nothing.
 
-Not studied here: a sweep outward from observed code as on the Amiga (Turrican II's window of play is now 99.99 % native, so the need is less clear than on 8 November); saving more than the 68000, since the chips stay Hatari's in every route; Linux for LTO.
+Not studied here: a sweep outward from observed code as on the Amiga. It would address what a first conversion leaves on the interpreter past its routes (Turrican II at 7 % native in a window of play from an empty library), which matters more to a player than any figure on this page. Saving more than the 68000 is not possible on this route: the chips stay Hatari's.

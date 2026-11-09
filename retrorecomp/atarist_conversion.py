@@ -360,6 +360,9 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
     if result.returncode not in (0, 2):
         raise ConversionError('Atari ST replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
+    # The reference, the native game and its packed copy are one machine: the comparison cannot see an option that all of them share, so each says what Hatari has set.
+    if report.get('timer_d_patch') is not True:
+        raise ConversionError("Atari ST: a run without Hatari's timer D patch; the reference and the game must run the same machine.")
     if report.get('stopped'):
         raise ConversionError(f'Atari ST: the machine stopped at frame {report.get("frames")}: {report.get("error")}')
     if report.get('frames') != frames:
@@ -598,6 +601,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'machine': {'model': 'Atari ST (STF), 68000 at 8 MHz, 1 MiB', 'reference': 'Hatari (GPL-2.0) at its pinned revision, adapted at '
                         'build time, its cycle-exact 68000 mode and its floppy timing model (fast loading off), borders shown; accuracy against hardware '
                         'is not measured here',
+                        'timer_d': {'hatari_option': 'hatari_timerd', 'patched': True, 'runs_with_it': 'the reference, the native game and its packed copy',
+                                    'limit': 'when TOS starts the MFP timer D, Hatari starts it far slower than TOS asks (its interrupt is off). A game that uses this timer as TOS left it '
+                                             'sees another rhythm; a game that sets the timer itself is not touched. The frame comparison cannot see this: the reference has the patch too.'},
                         'tos': {'used': tos.label(), 'version': tos.version_text(), 'country': tos.country,
                                 'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': tos.player_supplied, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
