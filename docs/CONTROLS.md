@@ -217,7 +217,7 @@ Ctrl+F2 opens F2, Ctrl+Shift+F1 restarts, Ctrl+F8/F9 save and load, a held
 Ctrl+F5 accelerates loading. F11 (pause) and F12, absent from the X68000
 keyboard, keep working without Ctrl, and every function key acts on Retro-Recomp
 while a menu is open. Ctrl+F1–F12 also work with the row on Retro-Recomp and in
-full guest typing (Ctrl+Alt+K), which still sends F2–F10 to the computer.
+full guest typing (Ctrl+Alt+K), which sends F1–F10 to the computer on the X68000, the Amiga and the Atari ST; the help is then at Ctrl+F1 or Ctrl+Alt+H.
 
 ### Keyboard games on a computer
 

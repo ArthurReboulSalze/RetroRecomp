@@ -35,12 +35,13 @@ static int player_escape_held(void) { return ca.windowed && ca.escape_held; }
 
 static void player_notice(const char *message) { if (ca.windowed) rrhk_notice(rr_tr(message), 3500); }
 
-/* Function keys are Retro-Recomp shortcuts unless the options hand F1-F10 to the guest, or full typing keeps F2-F10
- * for it. Ctrl+F1-F12 (not Ctrl+Alt) and any function key inside a menu stay with Retro-Recomp. */
+/* Function keys are Retro-Recomp shortcuts unless the options hand F1-F10 to the guest, or full typing keeps F1-F10
+ * for it (Pinball Dreams picks its table with F1-F4). Ctrl+F1-F12 (not Ctrl+Alt) and any function key inside a menu stay
+ * with Retro-Recomp, so the help stays at Ctrl+F1 and Ctrl+Alt+H. */
 static int player_host_fkey(int key, SDL_Keymod mod) {
    if (key < SDL_SCANCODE_F1 || key > SDL_SCANCODE_F12) return 0;
    if ((ca.windowed && rrhk_ui()->menu) || ((mod & KMOD_CTRL) && !(mod & KMOD_ALT))) return 1;
-   if (guest_keyboard && key >= SDL_SCANCODE_F2 && key <= RRC_GUEST_FKEY_LAST) return 0;
+   if (guest_keyboard && key <= RRC_GUEST_FKEY_LAST) return 0;
    return rrhk_options_host_fkey(key, mod, false);
 }
 
