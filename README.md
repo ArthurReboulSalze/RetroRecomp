@@ -79,18 +79,19 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `█████████░` 89 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
-| [Commodore Amiga](docs/AMIGA.md) | experimental | `█████░░░░░` 47 % |
-| [Atari ST](docs/ATARI_ST.md) | experimental | `█████░░░░░` 50 % |
-| [Nintendo 64](docs/NINTENDO_64.md) | experimental | `███░░░░░░░` 34 % |
-| [Sony PlayStation](docs/PLAYSTATION.md) | experimental | `████░░░░░░` 40 % |
+| [Commodore Amiga](docs/AMIGA.md)\* | experimental | `█████░░░░░` 47 % |
+| [Atari ST](docs/ATARI_ST.md)\* | experimental | `█████░░░░░` 50 % |
+| [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
+| [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
+| **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
+
+\* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
 measures, and it never decides a status: leaving the experimental status is the owner's own decision.
 
 <!-- qualification-gauges:end -->
-
-The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
 
 **Adventure (ScummVM)** is a category of its own, supported since 1.7.1: point-and-click adventure games run in ScummVM, emulated
 (0 % native code, by design), each packed with its own files into one executable with its saves in `datas/`
