@@ -111,6 +111,62 @@ class AmigaCodegenTest(unittest.TestCase):
         self.assertIn('0x200000u - rr_amiga_kick_base < rr_amiga_kick_size', self.body(chain, 'rr_amiga_at_200000_4e71'))
         self.assertIn('rr_amiga_kick_total++', self.body(chain, 'rr_amiga_at_fc0000_4e71'))
 
+    def sweep_table(self):
+        table(self.path, {0x4e71: ('Nop', 1, 12, 4), 0x6604: ('Bcc', 14, 12, 1), 0x4e75: ('Rts', 77, 12, 4), 0x7001: ('Moveq', 4, 11, 4), 0x303c: ('Move0', 50, 11, 2, 2)})
+        amiga_codegen.load_opcode_map(self.path)
+
+    @staticmethod
+    def image(start, *words):
+        return [(start, b''.join(word.to_bytes(2, 'big') for word in words))]
+
+    def test_a_sweep_follows_the_branch_not_taken_and_stops_where_the_code_does(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        # BNE +4 at $1000: the route saw the branch taken ($1006); what falls through it was never run.
+        memory = self.image(0x1000, 0x6604, 0x7001, 0x4e75, 0x4e71, 0x4e75, 0x0000)
+        swept = amiga_codegen.sweep([(0x1000, '6604'), (0x1006, '4e71')], [memory], observed=observed)
+        self.assertEqual(swept, [(0x1002, '7001'), (0x1004, '4e75'), (0x1008, '4e75')])    # $100a holds no legal opcode
+
+    def test_a_sweep_fills_the_pages_where_code_ran_in_ram_not_in_rom_and_not_other_pages(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        # $1000: a return, so nothing falls through it; a subroutine further in the page, and another in the next page.
+        memory = [(0x1000, b'\x4e\x75' + b'\x00\x00' * 7 + b'\x70\x01'), (0x2000, b'\x70\x01')]
+        self.assertEqual(amiga_codegen.sweep([(0x1000, '4e75')], [memory], observed=observed), [(0x1010, '7001')])
+        self.assertEqual(amiga_codegen.sweep([(0x1000, '4e75')], [], observed=observed, rom_images=[memory]), [])
+
+    def test_a_sweep_starts_only_where_the_image_still_holds_what_was_observed(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        # The code of $1000 was replaced: its branch names nothing any more; in a ROM image nothing else is added.
+        memory = self.image(0x1000, 0x7001, 0x4e71)
+        self.assertEqual(amiga_codegen.sweep([(0x1000, '6604')], [], observed=observed, rom_images=[memory]), [])
+
+    def test_a_sweep_keeps_the_words_of_an_instruction_and_is_bounded(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        memory = self.image(0x1000, 0x4e71, 0x303c, 0x1234, 0x4e71, 0x4e71, 0x4e71)
+        self.assertEqual(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed)[0], (0x1002, '303c1234'))
+        self.assertEqual(len(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, limit=2)), 2)
+
+    def test_a_sweep_leaves_a_window_no_code_can_be_in(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        memory = self.image(0x9ffffe, 0x4e71, 0x4e71, 0x4e71)
+        swept = amiga_codegen.sweep([(0x9ffffe, '4e71')], [memory], observed=observed)
+        self.assertEqual(swept, [])
+
+    def test_a_swept_instruction_counts_apart_and_an_observed_one_never_does(self):
+        self.sweep_table()
+        project = Path(self.temp.name) / 'project'
+        project.mkdir()
+        stats = amiga_codegen.write_steps(project, [(0x1000, '4e71')], observed=get_profile('amiga').observed_code, swept=[(0x1002, '7001')])
+        self.assertEqual((stats['instructions'], stats['native_instructions'], stats['swept_instructions']), (1, 2, 1))
+        chain = ''.join((project / 'steps' / f'chain{n:02}.cpp').read_text(encoding='utf-8') for n in range(amiga_codegen.PARTS))
+        self.assertIn('rr_amiga_swept_total++', self.body(chain, 'rr_amiga_at_001002_7001'))
+        self.assertNotIn('rr_amiga_swept_total++', self.body(chain, 'rr_amiga_at_001000_4e71'))
+        self.assertIn('S::at(m, 0x1002, 0x7001)', self.body(chain, 'rr_amiga_at_001000_4e71'))
+
     def test_the_declaration_the_profile_will_carry(self):
         observed = get_profile('amiga').observed_code
         self.assertEqual((observed.source_extension, observed.index_extension), (amiga_codegen.SOURCE_EXTENSION, amiga_codegen.INDEX_EXTENSION))

@@ -11,6 +11,11 @@ observed, `rr_amiga_at_<pc>_<opcode>`) runs its form, counts, and goes straight 
 that opcode latched and nothing is pending for Moira's or the Amiga's run loop; anything else returns to the run loop, whose checks then see exactly what
 they would have seen. `rr_amiga_lookup` is the way in, from the interpreter and after a jump the generator could not know.
 
+Beyond what was observed, `sweep` goes outward from it over images of memory: what a branch not taken on a route leads to, what follows it, and the rest of the pages where
+code ran. Those instructions become
+native code too, with the same guard, and count apart when they run (`rr_amiga_swept_total`): a sweep guesses, so a report never presents one as proved on a route. A wrong guess
+(data read as code, code that a later load replaces) can only be a compiled routine that never runs, or an opcode that does not match and goes to the interpreter.
+
 `opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time (`<opcode hex> <handler> <Instr> <Mode> <Size> <words>`,
 the words being what Moira's disassembler consumes); nothing of Moira is copied here.
 """
@@ -22,10 +27,15 @@ from pathlib import Path
 from . import amiga_translate, m68k_observed
 from .megadrive_codegen import write_changed
 
-FORMAT = 4
+FORMAT = 5
 # Moira's template parameter for the CPU of the machine.
 CORE = 'C68000'
 PARTS = 16
+# How far a sweep goes, instructions per conversion: a bound on the build, not on what is right.
+SWEEP_LIMIT = 150000
+SWEEP_PAGE_BITS = 12
+# Handlers after which the next word is not the next instruction.
+_NO_FALL_THROUGH = frozenset(('Bra', 'Jmp', 'Rts', 'Rte', 'Rtr', 'Stop', 'Illegal', 'LineA', 'LineF'))
 # Moira's Mode values (MoiraTypes.h) of the addressing modes that name a place: (####).w, (####).l, (d,PC).
 MODE_AW, MODE_AL, MODE_DIPC = 7, 8, 9
 _MAP: dict[int, tuple[str, int, int, int]] = {}
@@ -60,7 +70,7 @@ def _semantics(prefix: str, alias) -> str:
         for name in handlers)
     return ('#pragma once\n#include "vaconfig.h"\n#include "MoiraConfig.h"\n#include "Moira.h"\n#include "MoiraMacros.h"\n'
             '#include <cassert>\n#include <cstdio>\n#include <algorithm>\n#include <cmath>\n#include <bit>\n#include <vector>\n#include <stdexcept>\n#include <cstdint>\n'
-            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
+            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
             'extern uint32_t rr_amiga_kick_base, rr_amiga_kick_size;\n}\n'
             'namespace vamiga::moira {\nusing namespace Flag;\n'
             '#ifdef RR_AMIGA_FORMS\n'
@@ -118,9 +128,9 @@ def _count(pc: int) -> str:
     return ''
 
 
-def _instruction(prefix: str, pc: int, form: tuple, following: list) -> str:
+def _instruction(prefix: str, pc: int, form: tuple, following: list, swept: bool = False) -> str:
     chain = ''.join(f'    if (S::at(m, 0x{next_pc:x}, 0x{opcode:04x})) RR_AMIGA_NEXT {_symbol(prefix, next_pc, opcode)}(p);\n' for next_pc, opcode in following)
-    translated = ' rr_amiga_translated_total++;' if _translated(form[1]) is not None else ''
+    translated = (' rr_amiga_translated_total++;' if _translated(form[1]) is not None else '') + (' rr_amiga_swept_total++;' if swept else '')
     return (f'extern "C" void {_symbol(prefix, pc, form[1])}(void *p) {{\n    auto &m = *static_cast<vamiga::moira::Moira *>(p);\n    {form[0]}(p);\n'
             f'    rr_amiga_native_total++;{translated}{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
 
@@ -149,18 +159,85 @@ def _target(pc: int, words: list) -> int | None:
     return None
 
 
-def write_steps(project: Path, samples: list, *, observed) -> dict:
-    """From the observed instructions (pc, their words in hex), write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
+def _word(image: tuple, address: int) -> int | None:
+    start, data = image
+    at = address - start
+    return data[at] << 8 | data[at + 1] if 0 <= at and at + 1 < len(data) else None
+
+
+def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit: int = SWEEP_LIMIT) -> list:
+    """(pc, words in hex) of the instructions reached from the observed ones over images of memory, each a list of (start address, bytes) regions, and not observed themselves.
+    Only where an image still holds the observed opcode does the walk start from it, following branches and what falls through them. Then, in RAM images, every even address of a
+    4 KiB page where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs. Bounded."""
+    seen = {(pc, int(text[:4], 16)) for pc, text in samples}
+    found: dict[tuple[int, int], str] = {}
+    by_address = sorted(set(samples))
+    pages = sorted({pc >> SWEEP_PAGE_BITS for pc, _ in by_address})
+    for regions, fill in [(image, True) for image in images] + [(image, False) for image in rom_images]:
+        def read(address):
+            return next((value for value in (_word(region, address) for region in regions) if value is not None), None)
+
+        def add(pc):
+            """The words of a legal instruction at this address, recorded unless observed."""
+            opcode = read(pc)
+            if opcode is None or _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
+                return None
+            words = [read(pc + 2 * n) for n in range(_WORDS[opcode])]
+            if None in words:
+                return None
+            text = ''.join(f'{word:04x}' for word in words)
+            try:
+                observed.check_sample(pc, text)
+            except ValueError:
+                return None
+            if (pc, opcode) not in seen:
+                found.setdefault((pc, opcode), text)
+            return words
+        visited: set[int] = set()
+        queue: list[int] = []
+
+        def follow(pc, words):
+            target = _target(pc, words)
+            places = [] if target is None else [target & 0xffffff]
+            if _MAP[words[0]][0] not in _NO_FALL_THROUGH:
+                places.append((pc + 2 * _WORDS[words[0]]) & 0xffffff)
+            queue.extend(place for place in places if not place & 1)
+        for pc, text in by_address:
+            if read(pc) == int(text[:4], 16):
+                follow(pc, [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)])
+        position = 0
+        while position < len(queue) and len(found) < limit:
+            pc = queue[position]
+            position += 1
+            if pc in visited:
+                continue
+            visited.add(pc)
+            words = add(pc)
+            if words is not None:
+                follow(pc, words)
+        if fill:
+            for page in pages:
+                for pc in range(page << SWEEP_PAGE_BITS, (page + 1) << SWEEP_PAGE_BITS, 2):
+                    if len(found) >= limit:
+                        break
+                    add(pc)
+    return sorted((pc, text) for (pc, _), text in found.items())
+
+
+def write_steps(project: Path, samples: list, *, observed, swept: list = ()) -> dict:
+    """From the observed instructions (pc, their words in hex) and the swept ones, write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
     and the index that finds an instruction from a pc and an opcode (`steps/index.c`)."""
     prefix = observed.prefix
     words = set()
+    observed_samples = set(samples)
     # What may follow each (pc, opcode): the targets its variants name first (a loop's branch), then where they fall through.
     following: dict[tuple[int, int], list] = {}
-    for pc, text in sorted(set(samples)):
+    for pc, text in sorted(set(samples) | set(swept)):
         seen = [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)]
         count = _WORDS[seen[0]]
         seen = seen[:count]
-        words.add((pc, tuple(seen)))
+        if (pc, text) in observed_samples:
+            words.add((pc, tuple(seen)))
         places = following.setdefault((pc, seen[0]), [[], []])
         target = _target(pc, seen)
         if target is not None and not target & 1 and target & 0xffffff not in places[0]:
@@ -169,6 +246,7 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
         if fall not in places[1]:
             places[1].append(fall)
     instructions = sorted(following)
+    was_seen = {(pc, int(text[:4], 16)) for pc, text in samples}
     opcodes_at: dict[int, list] = {}
     for pc, opcode in instructions:
         opcodes_at.setdefault(pc, []).append(opcode)
@@ -194,7 +272,7 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
             if forms[opcode] not in declared:
                 text.append(f'extern "C" void {forms[opcode]}(void *);\n')
                 declared.add(forms[opcode])
-            text.append(_instruction(prefix, pc, (forms[opcode], opcode), chain))
+            text.append(_instruction(prefix, pc, (forms[opcode], opcode), chain, swept=(pc, opcode) not in was_seen))
         write_changed(steps / f'chain{n:02}{observed.source_extension}',
                       observed.steps_head + 'using S = vamiga::moira::RrAmigaSteps;\n' + ''.join(text))
     groups = []
@@ -208,7 +286,7 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
         page = pages.setdefault(pc >> 12, {'base': index, 'slots': {}})
         page['slots'][(pc & 0xfff) >> 1] = index - page['base'] + 1
     source = ['#include <stddef.h>\n#include <stdint.h>\n',
-              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
+              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_swept_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
               'typedef void (*RrAmigaCode)(void *);\n']
     source.extend(f'void {_symbol(prefix, pc, opcode)}(void *);\n' for pc, opcode in instructions)
     source.append('static const struct {uint16_t opcode;RrAmigaCode run;} entries[]={'
@@ -233,6 +311,7 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
 """)
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
     return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
+            'swept_instructions': sum(key not in was_seen for key in instructions),
             'translated_forms': sum(_translated(opcode) is not None for opcode in forms),
             'translated_instructions': sum(_translated(opcode) is not None for _, opcode in instructions)}
 

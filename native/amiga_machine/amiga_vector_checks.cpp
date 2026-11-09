@@ -135,7 +135,7 @@ static bool native_hook(Moira &m, u32 pc, u16 op) {
 
 #ifdef RR_VECTOR_FORMS
 extern "C" void (*const rr_amiga_all_forms[65536])(void *);
-extern "C" { uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total; const uint32_t *rr_amiga_run_flags; uint32_t rr_amiga_kick_base, rr_amiga_kick_size; }
+extern "C" { uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total; const uint32_t *rr_amiga_run_flags; uint32_t rr_amiga_kick_base, rr_amiga_kick_size; }
 static void (*form_to_run)(void *);
 static bool form_hook(Moira &m, u32, u16) { form_to_run(&m); return true; }
 #endif

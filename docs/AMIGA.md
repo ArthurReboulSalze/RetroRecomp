@@ -67,7 +67,9 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    code specialised, not a translation). Chip-RAM contention stays exact either way. Each instruction seen runs its form and goes straight on to the instruction it knows comes next, when the CPU is
    there with that opcode latched and nothing is pending for a run loop. A form reads its extension words on the bus, so it is right
    for its opcode at any address, and the guard is the latched opcode alone: unpacked, patched or self-modified code that changes an
-   opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`).
+   opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`). Beyond what ran, a sweep over the memory each
+   route left adds what branches lead to and the rest of the 4 KiB pages where code ran, with the same guard; a swept instruction counts apart when it runs
+   (`final_checks.native_swept`), and no route proves those that did not run. Code a game has not loaded yet when a route ends cannot be swept.
 5. **Validation.** The game executable is copied alone and replayed headless on the same bounded scripts (a main route of joystick,
    mouse and keyboard inputs, and at the Standard level a joystick exploration route, 3,000 frames each): the picture, sound, RAM
    and CPU registers of every frame and the resload calls must equal those of the fresh interpreted reference. So must the

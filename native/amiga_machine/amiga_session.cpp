@@ -175,7 +175,7 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
 // by itself to the instructions it knows come next; a step can never sit on a trap of the resload table, which stops the CPU before it runs.
 typedef void (*RrAmigaCode)(void *);
 extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
-extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total;
+extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;
 extern "C" const uint32_t *rr_amiga_run_flags;
 extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
 #endif
@@ -461,7 +461,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->amiga = &S->emu->rrMain();
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
-        rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_kick_total = 0;
+        rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_swept_total = rr_amiga_kick_total = 0;
 #endif
         S->amiga->audioPort.setSampleRate((double)RR_AMIGA_AUDIO_RATE);
         auto rom = boot_rom();
@@ -661,6 +661,24 @@ extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {
 #endif
 }
 extern "C" void rr_amiga_set_observe(RrAmigaSession *s, int enabled) { s->observing = enabled != 0; update_hook(); }
+// What the memory holds now, for the conversion's sweep of code (retrorecomp/amiga_codegen.py): each RAM as a big-endian start and size, then its bytes. The conversion's private work
+// folder only.
+extern "C" int rr_amiga_write_memory(const RrAmigaSession *, const char *path) {
+    FILE *o = open_file(path, "wb");
+    if (!o) return 0;
+    Memory &mem = S->amiga->mem;
+    const struct { uint32_t start; size_t size; } regions[] = {
+        {0, (size_t)mem.chipRamSize()}, {FAST_BASE, (size_t)mem.fastRamSize()}, {SLOW_BASE, (size_t)mem.slowRamSize()}};
+    for (auto &r : regions) {
+        if (!r.size) continue;
+        std::vector<uint8_t> bytes(r.size);
+        for (size_t i = 0; i < r.size; i++) bytes[i] = peek(nullptr, r.start + (uint32_t)i);
+        const uint32_t head[2] = {r.start, (uint32_t)r.size};
+        for (uint32_t value : head) for (int k = 24; k >= 0; k -= 8) fputc((int)(value >> k & 0xff), o);
+        if (fwrite(bytes.data(), 1, bytes.size(), o) != bytes.size()) { fclose(o); return 0; }
+    }
+    return fclose(o) == 0;
+}
 extern "C" int rr_amiga_write_observations(const RrAmigaSession *s, const char *path) {
     FILE *o = open_file(path, "wb");
     if (!o) return 0;
@@ -682,6 +700,13 @@ extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *) {
 extern "C" uint64_t rr_amiga_translated_count(const RrAmigaSession *) {
 #ifdef RR_AMIGA_NATIVE
     return rr_amiga_translated_total;
+#else
+    return 0;
+#endif
+}
+extern "C" uint64_t rr_amiga_swept_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_swept_total;
 #else
     return 0;
 #endif

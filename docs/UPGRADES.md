@@ -280,6 +280,19 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: a sweep beyond the routes (1.7.2, recompilation stage 4)
+
+What a player reaches beyond the scripted routes ran on the interpreter. The conversion now reads the memory each route's fresh reference leaves (in its private work folder, removed once read) and
+goes outward from the observed code: what branches lead to, what follows them, then the rest of the 4 KiB pages where code ran, since a subroutine called through a pointer is reached by nothing
+else; a Kickstart image is walked but not filled. A guess that is not code is only a routine that never runs. The swept instructions carry the same guard, the latched opcode. They count apart when
+they run (`final_checks.native_swept`; `native_forms.swept_instructions` is what is known), so a report never presents swept code that did not run as proved on a route; the routes it was read from
+ran the observed code, so on them the count stays at 0. Nothing swept enters the library.
+Proof: Rick Dangerous, Apidya, Lemmings and Civilization as usual, equal to the reference with the same counts. And a build that learned only the main route, playing the explore route it never saw: every frame
+and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is not
+in memory yet when the main route ends, and images taken at other moments of the route did not hold it either, so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
+The routes are scripts and these are about a minute of each game; this does not say what share of a whole game a sweep reaches. **Size:** 12,730 to 95,933 more instructions compiled; Rick's exe goes from 2.88 MB to 3.28 MB, Civilization's is 8.33 MB
+against the first sweep. **Hot path:** one more count per swept instruction that runs. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: 68000 forms translated to C (1.7.2, recompilation stage 3)
 
 The forms of 50 Moira handlers are now written out as C by a translator (`amiga_translate`): the effective address, the operation and the flags for that opcode, every register a

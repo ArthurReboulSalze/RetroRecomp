@@ -86,6 +86,9 @@ int rr_amiga_write_observations(const RrAmigaSession *s, const char *path);   /*
 uint64_t rr_amiga_native_count(const RrAmigaSession *s);
 /* Of those, the instructions whose form is translated C; the others are Moira's code specialised. */
 uint64_t rr_amiga_translated_count(const RrAmigaSession *s);
+/* Of the native instructions, those a sweep reached and no route had seen. */
+uint64_t rr_amiga_swept_count(const RrAmigaSession *s);
+int rr_amiga_write_memory(const RrAmigaSession *s, const char *path);
 uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s);
 long rr_amiga_resload_calls(const RrAmigaSession *s);
 int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path);

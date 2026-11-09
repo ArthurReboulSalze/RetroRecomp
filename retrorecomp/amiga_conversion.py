@@ -4,7 +4,7 @@ Every conversion starts from a fresh reference run: the install (the slave and i
 runs on vAmiga's Core with every 68000 instruction on Moira's interpreter, and the instructions it runs from RAM are recorded.
 Those become native code (`amiga_codegen`), per opcode: translated C for the forms the translator knows (`amiga_translate`, the bus functions staying the machine's), Moira's
 code specialised for the others, each counted, chained from instruction to instruction behind the opcode the CPU has latched; anything not seen stays on the counted
-interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
+interpreter; beyond the routes a sweep over images of memory adds more of the same, counted apart when it runs. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
 its trace (picture, sound, RAM, CPU registers of every frame) must equal the reference's; so must the compressed copy that is
 delivered, and a quick state saved by it must continue the same timeline in a fresh process. Nothing is claimed beyond those
 bounded routes: the hardware fidelity is vAmiga's, unmeasured here, and the routes are scripts, not play.
@@ -318,14 +318,25 @@ def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
     return samples
 
 
-def generate(project: Path, samples: list, table: Path) -> dict:
-    """The native code of these observations: Moira's code specialised per opcode, chained (amiga_codegen)."""
+def read_memory_image(path: Path) -> list:
+    """The regions a route's run left in memory (`--memory-image`): (start address, bytes), in the conversion's private work folder only."""
+    data = Path(path).read_bytes()
+    regions, at = [], 0
+    while at < len(data):
+        start, size = int.from_bytes(data[at:at + 4], 'big'), int.from_bytes(data[at + 4:at + 8], 'big')
+        regions.append((start, data[at + 8:at + 8 + size]))
+        at += 8 + size
+    return regions
+
+
+def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = ()) -> dict:
+    """The native code of these observations, and of what a sweep reaches from them over these images of memory (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
-    steps = amiga_codegen.write_steps(project, samples, observed=observed)
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images))
     return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -525,7 +536,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], install=work / 'install',
-                                        reference=True, observe=True, game_may_quit=True)
+                                        reference=True, observe=True, game_may_quit=True, extra=['--memory-image', checks / f'reference-{name}' / 'memory.bin'])
         ended = {name: report['frames'] for name, report in expected.items() if report.get('ended_by_game')}
         for name, frames_ in ended.items():
             emit(f'Amiga: the game ended itself after {frames_} frames of the {name} route (its own Quit): the route ends there.')
@@ -572,10 +583,12 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         for attempt in range(max(1, min(int(passes), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table)
+                images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
+                rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
-            emit(f'Amiga: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
+            emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
             with timings.phase('compile'):
                 candidate = cmake_build(work / 'build', core, emit=emit, generated=project, payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
@@ -609,6 +622,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             kick_observed |= more_kick
             kick_addresses |= {pc for pc, _ in more_kick}
         timings.end_passes()
+        for name, _, _ in routes:       # The route's memory, the game's and the player's bytes: read for the sweep, not kept.
+            (checks / f'reference-{name}' / 'memory.bin').unlink(missing_ok=True)
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Amiga', emit)
@@ -650,7 +665,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
-                         'native_moira_specialised': native - results[name].get('translated', 0), 'interpreted_opcodes': interpreted,
+                         'native_moira_specialised': native - results[name].get('translated', 0), 'native_swept': results[name].get('swept', 0),
+                         'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
                              'kickstart_native': (results[name].get('kickstart') or {}).get('native', 0)} if kick is not None else {}),
@@ -686,7 +702,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'native_code_is': ("translated C per opcode for the forms the translator knows, with the bus functions of the reference machine; the other forms are Moira's code "
                                "specialised, not a translation (final_checks.native_translated, native_moira_specialised)"),
             'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
-                             'translated_instructions': generation['translated_instructions']},
+                             'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
+                             'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)'},
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
