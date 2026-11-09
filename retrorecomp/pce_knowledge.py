@@ -11,8 +11,9 @@ record holds numbers about the player's own decoded ROM instead:
 * `opcode_ptr` rows `[context * 8 + register, value]`: the table of MPR contexts the `insn` rows name, eight rows a context. These two shapes already exist, so
   `path_profiles`, which every console's game stamp hashes, is not edited: the profile only declares them for its map. `identity.layout` is empty, as for the CPS-2.
 
-A player with the same card rebuilds the instructions from their own ROM (`expanded_rows`). What cannot be tied to the ROM (code generated at run time, code
-run from the Backup RAM) **stays private**: it is counted, never shared. A record is made only from the captures of a conversion that then passed every check
+A player with the same card reads the instructions from their own ROM (`expanded_rows`) and their conversion counts which of them its routes reach (`reached`). A received
+row builds no native code yet: the engine's captures are records of execution, and its input for declared roots does not exist yet (rages4calm/pcenginerecomp#13). What cannot
+be tied to the ROM (code generated at run time, code run from the Backup RAM) **stays private**: it is counted, never shared. A record is made only from the captures of a conversion that then passed every check
 (`promote`, `pce_conversion`), never from the paths it received. The Street Fighter II board shares nothing: its mapper's latch is not part of the engine's
 identity, so a position cannot be told from a logical address, and its module is already at the engine's bound.
 """
@@ -230,10 +231,16 @@ def translate(rom: bytes, board: str, observations) -> tuple[list, dict]:
 
 
 def read_captures(paths) -> list:
-    """The observations of the engine's capture files of this conversion (private files: they hold the game's bytes)."""
+    """The observations of the engine's capture files of this conversion (private files: they hold the game's bytes), one JSON document (format 1) or framed lines
+    (format 2: a format line, a header, the observations, an end record)."""
     observations = []
     for path in paths:
         with open(path, encoding='utf-8') as stream:
+            if stream.read(1) == '{' and stream.readline().startswith('"format":"pce-code-capture-2"'):
+                stream.readline()
+                observations += [row for row in map(json.loads, stream) if 'pc' in row]
+                continue
+            stream.seek(0)
             observations += json.load(stream).get('observations', ())
     return observations
 
@@ -267,34 +274,35 @@ def promote(identity: str, rom: bytes, board: str, observations, *, previous: di
 # --- Paths to observations -----------------------------------------------------------------------------------
 
 def expanded_rows(record: dict, rom: bytes) -> list[dict]:
-    """The instructions of a record rebuilt from the player's own ROM, as a capture's observations. ValueError when the record is not for exactly this ROM.
-    Local build input; it never leaves the process's work folder."""
+    """The instructions of a record, read from the player's own ROM, as `{'pc', 'mpr', 'data'}`. ValueError when the record is not for exactly this ROM.
+    Local to the process: they are compared with what the conversion ran, never written as an observation."""
     validate_record(record)
     if record['identity']['sources'][ROM] != source_facts(rom)[ROM]:
         raise ValueError('PC Engine hints are for another ROM.')
     out = {}
     for mpr, pc, offset, length in rows(record):
         data = rom[offset:offset + length]
-        out[(mpr, pc, data)] = {'pc': pc, 'mpr': list(mpr), 'physical': physical_of(pc, mpr, length), 'data': list(data), 'native_hits': 0, 'interpreted_hits': 1}
+        out[(mpr, pc, data)] = {'pc': pc, 'mpr': list(mpr), 'data': list(data)}
     return list(out.values())
 
 
-def received_capture(rows_in, known, *, runtime_abi: int, capacity: int) -> tuple[dict | None, int]:
-    """(capture document, rows left out): what the received rows add to the identities `known` (this conversion's own), within the engine's bound. It is a local
-    input of the module, in the engine's capture format: one hit a row stands for "received", no run; the report says so (`knowledge.use`)."""
-    fresh = [row for row in rows_in if (tuple(row['mpr']), row['pc'], tuple(row['data'])) not in known]
-    room = max(0, capacity - len(known))
-    kept = fresh[:room]
-    if not kept:
-        return None, len(fresh)
-    return ({'schema': 1, 'runtime_abi': runtime_abi, 'capacity': capacity, 'dropped_instructions': 0, 'unreadable_instructions': 0,
-             'retired_instructions': len(kept), 'complete': True, 'observations': kept}, len(fresh) - len(kept))
+def identity_of(row) -> tuple:
+    """The engine's identity of an observation: logical PC, all eight MPRs, bytes."""
+    return tuple(row['mpr']), row['pc'], tuple(row['data'])
+
+
+def reached(received, observations) -> dict:
+    """How many received rows this conversion's own captures reached. What it reached, it ran and validated against its fresh reference: that is what qualifies a
+    path. The others stay interpreted until a route reaches them: a row that did not run builds no code here (rages4calm/pcenginerecomp#13)."""
+    own = {identity_of(row) for row in observations}
+    hits = sum(1 for row in received if identity_of(row) in own)
+    return {'received_rows': len(received), 'reached': hits, 'not_reached': len(received) - hits}
 
 
 def shared_rows(identity: str, rom: bytes, *, qualified=None, imported=None, library=None) -> tuple[list, dict]:
     """(rows, info): the guidance of the shared and library records for this card, expanded from its ROM. Three sources, counted apart: the qualified bank (used
-    only for the engine that qualified it), the player's own library record, and the imported bank (other players' paths, which guide discovery and are rechecked
-    like everything else). The rows are build input only: never added to what the conversion keeps. `info` says what each gave and what was ignored and why."""
+    only for the engine that qualified it), the player's own library record, and the imported bank (other players' paths). The rows are never added to what the
+    conversion keeps. `info` says what each gave and what was ignored and why."""
     rows_out, seen = [], set()
     info = {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}}
     current = engine()
@@ -311,7 +319,7 @@ def shared_rows(identity: str, rom: bytes, *, qualified=None, imported=None, lib
             continue
         info[name] = len(expanded)
         for row in expanded:
-            key = (tuple(row['mpr']), row['pc'], tuple(row['data']))
+            key = identity_of(row)
             if key not in seen:
                 seen.add(key)
                 rows_out.append(row)

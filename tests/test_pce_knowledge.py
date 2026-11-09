@@ -162,7 +162,6 @@ class ExpansionTests(unittest.TestCase):
         rows = pk.expanded_rows(self.record, self.rom)
         self.assertEqual({(row['pc'], tuple(row['data'])) for row in rows},
                          {(0x4000, tuple(self.rom[pk.BANK:pk.BANK + 3])), (0x6000, tuple(self.rom[2 * pk.BANK:2 * pk.BANK + 2]))})
-        self.assertEqual(rows[0]['physical'], pk.physical_of(rows[0]['pc'], self.mpr, len(rows[0]['data'])))
 
     def test_another_rom_is_refused_and_counted_as_ignored(self):
         other = authored_rom(seed=2)
@@ -179,31 +178,23 @@ class ExpansionTests(unittest.TestCase):
         rows, info = pk.shared_rows(IDENTITY, self.rom, imported=old)
         self.assertEqual((len(rows), info['imported']), (2, 2))
 
-    def test_the_capture_holds_what_the_conversion_does_not_know_within_the_bound(self):
+    def test_reached_counts_what_the_conversion_ran_and_never_writes_an_observation(self):
         rows = pk.expanded_rows(self.record, self.rom)
-        known = {(tuple(rows[0]['mpr']), rows[0]['pc'], tuple(rows[0]['data']))}
-        capture, left = pk.received_capture(rows, known, runtime_abi=29, capacity=65536)
-        self.assertEqual((len(capture['observations']), left, capture['retired_instructions'], capture['complete']), (1, 0, 1, True))
-        capture, left = pk.received_capture(rows, known, runtime_abi=29, capacity=1)
-        self.assertEqual((capture, left), (None, 1))
-        self.assertEqual(pk.received_capture(rows, {(tuple(r['mpr']), r['pc'], tuple(r['data'])) for r in rows}, runtime_abi=29, capacity=65536), (None, 0))
+        self.assertNotIn('native_hits', rows[0])
+        self.assertNotIn('interpreted_hits', rows[0])
+        ran = [{'pc': rows[0]['pc'], 'mpr': rows[0]['mpr'], 'data': rows[0]['data'], 'physical': [], 'native_hits': 0, 'interpreted_hits': 9}]
+        self.assertEqual(pk.reached(rows, ran), {'received_rows': 2, 'reached': 1, 'not_reached': 1})
+        self.assertEqual(pk.reached([], ran), {'received_rows': 0, 'reached': 0, 'not_reached': 0})
 
-    def test_the_pinned_engine_reads_the_capture(self):
-        engine = Path(__file__).resolve().parents[1] / '.deps' / 'pcenginerecomp'
-        if not (engine / 'pcerecomp' / 'capture.py').is_file():
-            self.skipTest('the pinned engine is not checked out')
-        sys.path.insert(0, str(engine))
-        try:
-            from pcerecomp.capture import validate_capture
-        finally:
-            sys.path.remove(str(engine))
-        # Real instruction shapes: the decoder checks lengths, so the bytes are authored opcodes (NOP, LDA #, JMP abs).
-        rom = bytearray(authored_rom())
-        rom[pk.BANK:pk.BANK + 6] = bytes((0xEA, 0xA9, 0x12, 0x4C, 0x00, 0x40))
-        rom = bytes(rom)
-        record = pk.make_record(IDENTITY, rom, [(self.mpr, 0x4000, pk.BANK, 1), (self.mpr, 0x4001, pk.BANK + 1, 2), (self.mpr, 0x4003, pk.BANK + 3, 3)])
-        capture, _ = pk.received_capture(pk.expanded_rows(record, rom), set(), runtime_abi=29, capacity=65536)
-        self.assertEqual(len(validate_capture(capture)), 3)
+    def test_both_capture_formats_are_read(self):
+        row = {'pc': 0x4000, 'mpr': list(self.mpr), 'physical': [0x2000], 'data': [0xEA], 'native_hits': 0, 'interpreted_hits': 1}
+        with tempfile.TemporaryDirectory() as folder:
+            one, two = Path(folder) / 'one.json', Path(folder) / 'two.jsonl'
+            one.write_text(json.dumps({'schema': 1, 'observations': [row]}), encoding='utf-8')
+            two.write_text('{"format":"pce-code-capture-2","schema":2}\n' + json.dumps({'runtime_abi': 29, 'capacity': 8, 'dropped_instructions': 0, 'unreadable_instructions': 0,
+                                                                                          'retired_instructions': 1, 'complete': True}) + '\n'
+                           + json.dumps(row) + '\n{"record":"end","observations":1}\n', encoding='utf-8')
+            self.assertEqual(pk.read_captures([one, two]), [row, row])
 
 
 class SharingTests(unittest.TestCase):

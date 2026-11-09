@@ -479,24 +479,6 @@ def compose_fitting(captures: list, out: Path, work: Path):
     return kept, skipped
 
 
-def add_received(received: list, kept: list, profile_path: Path, work: Path, attempt: int, use: dict, emit) -> None:
-    """Compose the conversion's own captures with what the received paths add, within the engine's bound. The extra capture is a local build
-    input in the engine's format, with one hit a row, that stands for no run; the report says what it held (`knowledge.use`)."""
-    from .pce_build import compose
-    from .pce_knowledge import read_captures, received_capture
-    own = read_captures(kept)
-    known = {(tuple(row['mpr']), row['pc'], tuple(row['data'])) for row in own}
-    abi = json.loads(kept[0].read_text(encoding='utf-8'))['runtime_abi']
-    capture, left = received_capture(received, known, runtime_abi=abi, capacity=CAPTURE_IDENTITY_LIMIT)
-    use['added'], use['left_out'] = len(capture['observations']) if capture else 0, left
-    if capture:
-        path = work / f'received-{attempt + 1}.json'
-        path.write_text(json.dumps(capture), encoding='utf-8')
-        profile_path.unlink(missing_ok=True)
-        compose([*kept, path], profile_path)
-        emit(f'PC Engine: {use["added"]} instructions from received paths join the module; the routes recheck what they reach.')
-
-
 def knowledge_block(record: dict, promotion: dict, use: dict) -> dict:
     """The report's `knowledge` section. `shared` says whether the PC Engine is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`), not that
     this conversion shared anything."""
@@ -506,7 +488,7 @@ def knowledge_block(record: dict, promotion: dict, use: dict) -> dict:
             'record_sha256': pce_knowledge.record_digest(record), 'paths': promotion['paths'],
             'promotion': {key: promotion[key] for key in ('observed', 'card', 'ram_tied', 'private', 'board', 'truncated')},
             'source': 'the captures of this conversion, which passed every check', 'use': dict(use),
-            'received_rows_stand_for_no_run': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}
+            'received_rows_build_no_native_code': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}
 
 
 def observed(capture: Path) -> int:
@@ -570,8 +552,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         pce_build.ensure_engine(emit)
         reference, results, captures, module, prepared = {}, {}, [], None, None
         emitted, skipped_captures = None, 0
-        # Paths from the shared base, an imported file and this player's own library, rebuilt from their own ROM. Build input only: a record is made only from
-        # what this conversion's own captures hold.
+        # Paths from the shared base, an imported file and this player's own library, read against their own ROM. They build no code: an unexecuted row does not
+        # belong in the engine's execution captures, and the engine has no input for declared roots yet (rages4calm/pcenginerecomp#13). The conversion counts
+        # which of them its own routes reached and validated. A record is made only from what its own captures hold.
         from . import knowledge, pce_knowledge
         from .pce_rom import decode as decode_card, file_bytes
         decoded_rom = decode_card(file_bytes(card.path))[0]
@@ -581,7 +564,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         if card.board != pce_knowledge.SHARED_BOARD:
             received = []
         if received:
-            emit(f'PC Engine: {len(received)} instructions received from shared paths.')
+            emit(f'PC Engine: {len(received)} instructions received from shared paths; the routes count what they reach (no native code from them yet).')
         attempts = max(1, min(int(passes or 1), 10))
         for attempt in range(attempts):
             stages.begin_pass(attempt + 1)
@@ -681,8 +664,6 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 kept, skipped = compose_fitting(captures, profile_path, work)
                 skipped_captures += len(skipped)
                 captures = kept
-                if received:
-                    add_received(received, kept, profile_path, work, attempt, hints_used, emit)
                 new_module = work / f'module-{attempt + 1}'
                 shutil.rmtree(new_module, ignore_errors=True)
                 manifest = pce_build.emit_module(profile_path, new_module)
@@ -779,7 +760,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'routes drive player 1',
             'universal_zero_fallback_claim': False}}
     # The shared path record: numbers about this card's own ROM, from this conversion's own captures, once every check above has passed.
-    record, promotion = pce_knowledge.promote(card.sha256, decoded_rom, card.board, pce_knowledge.read_captures(own_captures),
+    own_observations = pce_knowledge.read_captures(own_captures)
+    hints_used.update(pce_knowledge.reached(received, own_observations))
+    record, promotion = pce_knowledge.promote(card.sha256, decoded_rom, card.board, own_observations,
                                               previous=pce_knowledge.library_record(card.sha256))
     report['knowledge'] = knowledge_block(record, promotion, hints_used)
     write_report(output / 'conversion-report.json', report)
