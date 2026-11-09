@@ -46,30 +46,35 @@ HATARI = Path(os.environ.get('RR_ATARIST_HATARI_DIR') or ROOT / '.build' / 'atar
 SOURCES = {
     'atari-st-internals': 'The Atari ST Internals (STINTERN), "General Information": 512 clock cycles per line and 313 lines per VBL at 50 Hz, '
                           '160,256 clock cycles per VBL, 508 cycles per line at 60 Hz; MFP prescalers 4, 10, 16, 50, 64, 100, 200 for timers A to D',
-    'st-crystal': 'PAL Atari ST master crystal 32.084988 MHz, CPU clock = crystal / 4 = 8.021247 MHz (Atari ST service schematics; tabulated in the '
-                  'AtariAge thread "Mystery of the ST\'s weird clock oscillator frequency choices" and the atari-forum thread on ST video timing)',
-    'mc68901': 'Motorola MC68901 MFP data sheet: timer clock 2.4576 MHz on the ST (its own crystal), timers A/B delay mode with prescalers '
-               '/4 /10 /16 /50 /64 /100 /200, TxDR counts down and reloads, event-count mode (TxCR = 8) counts the pulses of the external input',
-    'st-timer-b': 'Atari ST hardware documentation (Atari Compendium, MFP / Shifter chapters): MFP timer B input is the GLUE\'s display-enable '
-                  'signal, so in event-count mode it counts the lines on which the Shifter displays (200 per frame in low and medium resolution)',
-    'st-shifter': 'Atari ST hardware documentation (Atari Compendium, Shifter): 16 colours of 3 bits per component, bitplane words interleaved '
-                  'plane 0 first, the leftmost pixel in the most significant bit, plane 0 the least significant bit of the colour index, '
-                  '320x200 pixels in 32,000 bytes; the border shows colour 0',
-    'ym2149': 'Yamaha YM2149 data sheet, as wired in the ST: master clock 2 MHz, tone frequency = clock / (16 x TP) with TP = 256 x coarse + fine '
-              '(register pairs 0-1, 2-3, 4-5); mixer register 7 (a 0 bit enables), volume registers 8-10',
-    'ikbd': 'Atari "Intelligent Keyboard (ikbd) Protocol" document: the keyboard ACIA (MC6850) runs at 7812.5 baud, 8N1; command $14 sets joystick '
-            'event reporting: a change of joystick 0 (mouse port) is reported as $FE + state byte, of joystick 1 (joystick port) as $FF + state '
-            'byte, state = bit 7 fire, bit 3 right, bit 2 left, bit 1 down, bit 0 up; a key press is its scancode and the release the scancode + $80; '
-            'command $08 sets relative mouse reporting: header $F8 + (left button << 1 | right button), then signed dx and dy',
-    'wd1772': 'Western Digital WD1772 data sheet and the ST floppy interface: Type I step rates r1r0 = 00, 01, 10, 11 are 6, 12, 2, 3 ms; the force-'
-              'interrupt command $D4 raises the interrupt on every index pulse; drive speed 300 rpm, so an index pulse every 200 ms; a '
-              'Read Sector command with DMA fills the DMA address (advancing by the 512 bytes) and sets the DMA status bit 0 (no error)',
+    # What each entry rests on was reread on 9 November 2026. Read: STINTERN, the MC68901 and YM2149 data sheets, the ikbd protocol text. Not reached: the Atari Compendium, the ST
+    # service schematics, the WD1772 data sheet. What only an emulator or a model states is said so: nothing here was measured on a real ST.
+    'st-crystal': 'PAL Atari ST master crystal 32.084988 MHz, CPU clock = crystal / 4 = 8.021247 MHz (the constants of MAME atarist.cpp and Hatari clocks_timings.c, which agree; '
+                  'the service schematics were not reached)',
+    'glue-vertical-counter': 'The GLUE\'s vertical counter: reloaded at its overflow (512) with 199 at 50 Hz, 249 at 60 Hz and 11 at 71 Hz, so 313, 263 and 501 lines. The GLUE as modelled '
+                             'in MAME stvideo.cpp; the replica of the schematics gstmcu (vsyncgen.v) loads exactly 50 less at 50 Hz than at 60 Hz. No real ST was counted',
+    'mc68901': 'Motorola MC68901 MFP data sheet (January 1984): delay-mode prescalers /4 /10 /16 /50 /64 /100 /200 (Fig. 5-3), TxDR counts down and reloads (5.1.1), event-count mode '
+               '(TxCR = 8) counts the pulses of the external input (5.1.3). The ST\'s timer clock 2.4576 MHz is the sheet\'s typical crystal and the constant of Hatari and MAME',
+    'st-timer-b': 'MFP timer B input is the GLUE\'s display-enable signal, so in event-count mode it counts the lines on which the Shifter displays (200 per frame in low and medium '
+                  'resolution): the GLUE as modelled in MAME stvideo.cpp, and Brandt\'s fullscreen.txt. The Atari Compendium was not reached',
+    'st-shifter': 'Atari ST Shifter: 16 colours of 3 bits per component (STINTERN, Screen Display); bitplane words interleaved plane 0 first, the leftmost pixel in the most significant '
+                  'bit, plane 0 the least significant bit of the colour index (MAME stvideo.cpp); 320x200 pixels in 32,000 bytes (arithmetic); the border shows colour 0 (no document read '
+                  'says it). The Atari Compendium was not reached',
+    'ym2149': 'Yamaha YM2149 data sheet: tone frequency = clock / (16 x TP) with TP = 256 x coarse + fine (register pairs 0-1, 2-3, 4-5); mixer register 7 (a 0 bit enables), volume '
+              'registers 8-10; 2 MHz is the sheet\'s maximum with SEL high. The ST feeds it crystal / 16 = 2.005 MHz (MAME, Hatari)',
+    'ikbd': 'Atari "Intelligent Keyboard (ikbd) Protocol" document: command $14 sets joystick event reporting: a change of joystick 0 (mouse port) is reported as $FE + state byte, of '
+            'joystick 1 (joystick port) as $FF + state byte, bit 7 of the state is fire; a key press is its scancode and the release the scancode + $80; command $08 sets relative '
+            'mouse reporting: header $F8 + (left button << 1 | right button), then signed dx and dy. The 7812.5 baud of the keyboard ACIA (MC6850), 8N1, and the direction bits (3 right, '
+            '2 left, 1 down, 0 up) are Hatari\'s (ikbd.c, joy.h): the document does not give them',
+    'wd1772': 'WD1772 and the ST floppy interface: Type I step rates r1r0 = 00, 01, 10, 11 are 6, 12, 2, 3 ms (Hatari fdc.c, MAME wd_fdc.cpp, STINTERN\'s seek rates; the data sheet was not '
+              'reached and one transcription of its summary gives 2, 3, 5, 6 ms); the force-interrupt command $D4 raises the interrupt on every index pulse (the same transcription); '
+              'drive speed 300 rpm, so an index pulse every 200 ms (a comment of Hatari fdc.c); a Read Sector command with DMA fills the DMA address (advancing by the 512 bytes) and sets '
+              'the DMA status bit 0 (no error)',
 }
 CPU_HZ = 32_084_988 / 4          # PAL ST: 8,021,247 Hz
 MFP_HZ = 2_457_600
 LINES_50, LINE_CYCLES_50 = 313, 512
 LINE_CYCLES_60 = 508
-LINES_60 = 263                    # see check_video: the documents disagree (262 and 263 are both quoted; STINTERN says 315)
+LINES_60 = 263                    # 512 - 249: SOURCES['glue-vertical-counter'] (STINTERN's 315 fits no frame)
 FRAME_CYCLES_50 = LINES_50 * LINE_CYCLES_50          # 160,256
 PRESCALERS = {1: 4, 2: 10, 3: 16, 4: 50, 5: 64, 6: 100, 7: 200}   # TxCR delay-mode code -> divider
 
@@ -438,12 +443,11 @@ def check_video(driver: Path) -> list[dict]:
     The program counts HBL interrupts between vertical blanks and reads Timer A (delay mode, /4, data 256) at each blank. Over 50
     frames the elapsed MFP clocks, times the documented ratio CPU clock / MFP clock (8.021247 MHz / 2.4576 MHz), give the CPU cycles per
     frame: 160,256 at 50 Hz (313 lines of 512 cycles). The HBL total over the same frames gives the lines per frame. The MFP crystal is
-    independent of the machine's video timing, so a wrong frame length shows. At 60 Hz the line is 508 cycles; the documents disagree
-    on the number of lines (262 or 263: STINTERN's 315 is not credible), so the line count is reported against both and the verdict
-    rests on the cycles per line, which every source gives as 508."""
+    independent of the machine's video timing, so a wrong frame length shows. At 60 Hz the line is 508 cycles and the frame 263 lines, from the
+    GLUE's vertical counter as MAME and gstmcu model it (`glue-vertical-counter`); no real ST was counted. STINTERN's 315 lines fit no frame, and a forum's 262 was not read."""
     out = []
     frames = 50
-    for sync, label, lines, line_cycles, candidates in ((2, '50 Hz', LINES_50, LINE_CYCLES_50, (LINES_50,)), (0, '60 Hz', None, LINE_CYCLES_60, (262, 263))):
+    for sync, label, lines, line_cycles, source in ((2, '50 Hz', LINES_50, LINE_CYCLES_50, 'atari-st-internals'), (0, '60 Hz', LINES_60, LINE_CYCLES_60, 'glue-vertical-counter')):
         result, rows = run_timer(driver, f'video{label[:2]}', sync, 1, 0, frames)
         used = frames - 1       # the first sample is left out: a vertical blank pending at start-up can come early (MAME's does, 54 lines after)
         hbl_total = rows[frames]['hbl'] - rows[1]['hbl']
@@ -452,18 +456,14 @@ def check_video(driver: Path) -> list[dict]:
         frame_cycles = clocks * CPU_HZ / MFP_HZ / used
         line_measured = frame_cycles / lines_measured
         deltas = result.info['frame_cycles'][2:frames + 1] or [0]
-        if lines is not None:
+        out.append(finding(f'video-{label[:2]}-lines', f'{label}: lines per frame (HBL interrupts per vertical blank, mean of {used})', source,
+                           lines, round(lines_measured, 3), 'agree' if abs(lines_measured - lines) < 0.05 else 'differ'))
+        if sync == 2:
             expected_frame = lines * line_cycles
-            out.append(finding(f'video-{label[:2]}-lines', f'{label}: lines per frame (HBL interrupts per vertical blank, mean of {used})', 'atari-st-internals',
-                               lines, round(lines_measured, 3), 'agree' if abs(lines_measured - lines) < 0.05 else 'differ'))
             out.append(finding(f'video-{label[:2]}-frame', f'{label}: CPU cycles per frame measured by the MFP clock', 'atari-st-internals + st-crystal + mc68901',
                                expected_frame, round(frame_cycles, 1), 'agree' if close(frame_cycles, expected_frame, expected_frame * 0.0002) else 'differ',
                                (f"Hatari's own cycle counter per frame: mean {sum(deltas) / len(deltas):.1f}, min {min(deltas)}, max {max(deltas)}" if max(deltas) else '')))
         else:
-            fits = [n for n in candidates if abs(lines_measured - n) < 0.05]
-            out.append(finding(f'video-{label[:2]}-lines', f'{label}: lines per frame (HBL interrupts per vertical blank, mean of {used})', 'atari-st-internals',
-                               'documents disagree: 262 or 263 (STINTERN: 315)', round(lines_measured, 3), 'inconclusive',
-                               f'measured {lines_measured:.3f}: ' + (f'{fits[0]} fits' if fits else 'neither 262 nor 263')))
             out.append(finding(f'video-{label[:2]}-line', f'{label}: CPU cycles per line (frame cycles measured by the MFP clock / lines measured)', 'atari-st-internals',
                                line_cycles, round(line_measured, 2), 'agree' if close(line_measured, line_cycles, 0.05) else 'differ',
                                f'frame {frame_cycles:.1f} cycles' + (f'; Hatari counter mean {sum(deltas) / len(deltas):.1f}' if max(deltas) else '')))

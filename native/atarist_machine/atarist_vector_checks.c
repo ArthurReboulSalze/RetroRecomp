@@ -153,17 +153,37 @@ static uae_u8 flat_ram[FLAT_BYTES];
 static addrbank flat_bank;
 /* Every address aliases into this much of the flat RAM: --all-forms confines an instruction with random registers to a window it can compare. */
 static uae_u32 flat_mask = 0xffffffu;
-static uae_u32 REGPARAM2 flat_lget(uaecptr a) { a &= flat_mask; return (uae_u32)flat_ram[a] << 24 | (uae_u32)flat_ram[(a + 1) & flat_mask] << 16 |
+/* --all-forms: each access of the flat bank in order, with its clock, and an interrupt line that changes at one of them. */
+typedef struct { uint32_t kind, addr, value; int64_t clock; } BusAccess;
+static BusAccess bus_log[256];
+static unsigned bus_count;
+static int bus_logging, bus_flip_at = -1, bus_flip_level;
+static void bus_note(uint32_t kind, uae_u32 addr, uint32_t value) {
+    if (!bus_logging) return;
+    if (bus_count < sizeof bus_log / sizeof *bus_log) {
+        BusAccess *b = &bus_log[bus_count];
+        b->kind = kind; b->addr = addr; b->value = value;
+        b->clock = (int64_t)CyclesGlobalClockCounter * 2 * CYCLE_UNIT + (int64_t)currcycle * 2;
+    }
+    if ((int)bus_count == bus_flip_at) {
+        regs.ipl_pin_p = regs.ipl_pin; regs.ipl_pin_change_evt_p = regs.ipl_pin_change_evt;
+        regs.ipl_pin = bus_flip_level; regs.ipl_pin_change_evt = currcycle;
+    }
+    ++bus_count;
+}
+static uae_u32 REGPARAM2 flat_lget(uaecptr a) { a &= flat_mask; bus_note(4, a, 0); return (uae_u32)flat_ram[a] << 24 | (uae_u32)flat_ram[(a + 1) & flat_mask] << 16 |
                                                    (uae_u32)flat_ram[(a + 2) & flat_mask] << 8 | flat_ram[(a + 3) & flat_mask]; }
-static uae_u32 REGPARAM2 flat_wget(uaecptr a) { a &= flat_mask; return (uae_u32)flat_ram[a] << 8 | flat_ram[(a + 1) & flat_mask]; }
-static uae_u32 REGPARAM2 flat_bget(uaecptr a) { return flat_ram[a & flat_mask]; }
+static uae_u32 REGPARAM2 flat_wget(uaecptr a) { a &= flat_mask; bus_note(2, a, 0); return (uae_u32)flat_ram[a] << 8 | flat_ram[(a + 1) & flat_mask]; }
+static uae_u32 REGPARAM2 flat_wgeti(uaecptr a) { a &= flat_mask; bus_note(3, a, 0); return (uae_u32)flat_ram[a] << 8 | flat_ram[(a + 1) & flat_mask]; }
+static uae_u32 REGPARAM2 flat_bget(uaecptr a) { a &= flat_mask; bus_note(1, a, 0); return flat_ram[a]; }
 static void REGPARAM2 flat_lput(uaecptr a, uae_u32 v) {
     a &= flat_mask;
+    bus_note(8, a, v);
     flat_ram[a] = (uae_u8)(v >> 24); flat_ram[(a + 1) & flat_mask] = (uae_u8)(v >> 16);
     flat_ram[(a + 2) & flat_mask] = (uae_u8)(v >> 8); flat_ram[(a + 3) & flat_mask] = (uae_u8)v;
 }
-static void REGPARAM2 flat_wput(uaecptr a, uae_u32 v) { a &= flat_mask; flat_ram[a] = (uae_u8)(v >> 8); flat_ram[(a + 1) & flat_mask] = (uae_u8)v; }
-static void REGPARAM2 flat_bput(uaecptr a, uae_u32 v) { flat_ram[a & flat_mask] = (uae_u8)v; }
+static void REGPARAM2 flat_wput(uaecptr a, uae_u32 v) { a &= flat_mask; bus_note(6, a, v & 0xffff); flat_ram[a] = (uae_u8)(v >> 8); flat_ram[(a + 1) & flat_mask] = (uae_u8)v; }
+static void REGPARAM2 flat_bput(uaecptr a, uae_u32 v) { a &= flat_mask; bus_note(5, a, v & 0xff); flat_ram[a] = (uae_u8)v; }
 static int REGPARAM2 flat_check(uaecptr a, uae_u32 size) { return (a & 0xffffffu) + size <= FLAT_BYTES; }
 static uae_u8 *REGPARAM2 flat_xlate(uaecptr a) { return flat_ram + (a & 0xffffffu); }
 
@@ -172,7 +192,7 @@ static void install_flat_bank(void) {
     memset(&flat_bank, 0, sizeof flat_bank);
     flat_bank.lget = flat_lget; flat_bank.wget = flat_wget; flat_bank.bget = flat_bget;
     flat_bank.lput = flat_lput; flat_bank.wput = flat_wput; flat_bank.bput = flat_bput;
-    flat_bank.lgeti = flat_lget; flat_bank.wgeti = flat_wget;
+    flat_bank.lgeti = flat_lget; flat_bank.wgeti = flat_wgeti;
     flat_bank.check = flat_check; flat_bank.xlateaddr = flat_xlate;
     flat_bank.baseaddr = flat_ram;
     flat_bank.label = "flat"; flat_bank.name = "Flat 24-bit RAM";
@@ -332,7 +352,7 @@ typedef struct { Outcome o; uint32_t ipl0, ipl1, ipl_evt, irc, ir, opcode, spcfl
 static uint32_t form_seed;
 static uint32_t form_random(void) { form_seed = form_seed * 1664525u + 1013904223u; return form_seed ^ (form_seed >> 15); }
 
-static void form_run(unsigned op, uint32_t seed, uint64_t clock, const uint8_t *pattern, cpuop_func_noret *handler, void (*form)(void), FormOutcome *out) {
+static void form_run(unsigned op, uint32_t seed, uint64_t clock, const uint8_t *pattern, cpuop_func_noret *handler, void (*form)(void), FormOutcome *out, BusAccess *log, unsigned *log_count) {
     unsigned i;
     uint32_t sr;
     memcpy(flat_ram, pattern, WINDOW_BYTES);
@@ -355,7 +375,15 @@ static void form_run(unsigned op, uint32_t seed, uint64_t clock, const uint8_t *
     hardware_bus_error = 0;
     CyclesGlobalClockCounter = clock;
     currcycle = 0;
+    bus_count = 0;
+    memset(bus_log, 0, sizeof bus_log);
+    bus_flip_at = (int)(form_random() % 6);
+    bus_flip_level = (int)(form_random() & 7);
+    bus_logging = 1;
     run_handler(handler, form, &out->o);
+    bus_logging = 0;
+    memcpy(log, bus_log, sizeof bus_log);
+    *log_count = bus_count;
     out->ipl0 = (uint32_t)regs.ipl[0]; out->ipl1 = (uint32_t)regs.ipl[1]; out->ipl_evt = (uint32_t)regs.ipl_evt; out->irc = regs.irc; out->ir = regs.ir; out->opcode = regs.opcode;
     out->spcflags = (uint32_t)regs.spcflags; out->db = regs.db; out->read_buffer = regs.read_buffer; out->write_buffer = regs.write_buffer;
 }
@@ -363,8 +391,10 @@ static void form_run(unsigned op, uint32_t seed, uint64_t clock, const uint8_t *
 static int all_forms_check(void) {
     static const unsigned reset = 0x4e70;   /* resets the machine's devices: not a state these runs can compare */
     uint8_t *pattern = (uint8_t *)malloc(WINDOW_BYTES), *first = (uint8_t *)malloc(WINDOW_BYTES);
-    unsigned long runs = 0, differ = 0, forms = 0;
-    unsigned op, s, i;
+    unsigned long runs = 0, differ = 0, forms = 0, accesses = 0;
+    unsigned op, s, i, pass;
+    static BusAccess table_log[256], native_log[256];
+    unsigned table_count, native_count;
     uint64_t clock = CyclesGlobalClockCounter & ~(uint64_t)3u;
     if (!pattern || !first) return 2;
     form_seed = 0x5eed;
@@ -373,31 +403,39 @@ static int all_forms_check(void) {
         pattern[i] = (uint8_t)(word >> 8);
         pattern[i + 1] = (uint8_t)word;
     }
+    /* Pass 0: through the bank's functions, each access logged. Pass 1: the bank offers its RAM directly, the path ST memory takes in steps/bus.c. */
+    for (pass = 0; pass < 2; ++pass) {
+    flat_bank.baseaddr_direct_r = flat_bank.baseaddr_direct_w = pass ? flat_ram : NULL;
+    flat_bank.startaccessmask = 0;
+    flat_bank.mask = flat_mask;
     for (op = 0; op < 65536; ++op) {
         if (!native_step[op] || op == reset) continue;
-        ++forms;
+        forms += !pass;
         for (s = 0; s < 4; ++s) {
             FormOutcome table, native;
-            uint32_t seed = op * 2654435761u + s;
+            uint32_t seed = op * 2654435761u + s + pass * 97u;
             uint64_t start = clock + s;   /* each position in the bus slot */
-            form_run(op, seed, start, pattern, cpufunctbl_noret[op], NULL, &table);
+            form_run(op, seed, start, pattern, cpufunctbl_noret[op], NULL, &table, table_log, &table_count);
             memcpy(first, flat_ram, WINDOW_BYTES);
-            form_run(op, seed, start, pattern, NULL, native_step[op], &native);
+            form_run(op, seed, start, pattern, NULL, native_step[op], &native, native_log, &native_count);
             ++runs;
+            accesses += table_count;
             /* uninitialised padding of the two structures is cleared by comparing field by field */
             if (memcmp(table.o.reg, native.o.reg, sizeof table.o.reg) || table.o.cycles != native.o.cycles || table.o.stopped != native.o.stopped || table.o.bus_error != native.o.bus_error ||
                 table.ipl0 != native.ipl0 || table.ipl1 != native.ipl1 || table.ipl_evt != native.ipl_evt || table.irc != native.irc || table.ir != native.ir ||
                 table.opcode != native.opcode || table.spcflags != native.spcflags || table.db != native.db || table.read_buffer != native.read_buffer ||
-                table.write_buffer != native.write_buffer || memcmp(first, flat_ram, WINDOW_BYTES)) {
+                table.write_buffer != native.write_buffer || memcmp(first, flat_ram, WINDOW_BYTES) ||
+                table_count != native_count || memcmp(table_log, native_log, sizeof table_log)) {
                 if (++differ <= 40) {
-                    fprintf(stderr, "form differs | op %04x | seed %u | clocks %d against %d | db %x against %x | ipl %u %u against %u %u | ram %d\n", op, s, native.o.cycles, table.o.cycles, native.db, table.db,
-                            native.ipl0, native.ipl1, table.ipl0, table.ipl1, memcmp(first, flat_ram, WINDOW_BYTES) != 0);
+                    fprintf(stderr, "form differs | pass %u | op %04x | seed %u | clocks %d against %d | db %x against %x | ipl %u %u against %u %u | ram %d | accesses %u against %u, log %d\n", pass, op, s, native.o.cycles, table.o.cycles, native.db, table.db,
+                            native.ipl0, native.ipl1, table.ipl0, table.ipl1, memcmp(first, flat_ram, WINDOW_BYTES) != 0, native_count, table_count, memcmp(table_log, native_log, sizeof table_log) != 0);
                     for (i = 0; i < 19; ++i) if (native.o.reg[i] != table.o.reg[i]) fprintf(stderr, "  field %s: %08x against %08x\n", field_name[i], native.o.reg[i], table.o.reg[i]);
                 }
             }
         }
     }
-    printf("{\"forms\":%lu,\"runs\":%lu,\"differ\":%lu}\n", forms, runs, differ);
+    }
+    printf("{\"forms\":%lu,\"runs\":%lu,\"bus_accesses_compared\":%lu,\"differ\":%lu}\n", forms, runs, accesses, differ);
     return differ ? 1 : 0;
 }
 

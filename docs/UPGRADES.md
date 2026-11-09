@@ -79,6 +79,12 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Atari ST: a write after a seek without verify finds its sector (1.7.3)
+
+Hatari's read commands load the track under the head; its write command did not, as an MFM write only ever ended in "record not found" before Retro-Recomp kept what a game writes. A TOS that seeks without verify, as EmuTOS does, then looked for the sector on the track last loaded:
+The Lurking Horror's save answered "Failed." on EmuTOS. It now saves on EmuTOS and TOS 1.04, and restores in a new process, on Windows and a Debian 13 PC (`tools/atarist_saves_game.py`). **Exports:** a game that saved on EmuTOS keeps what it has; one
+whose save failed had written nothing. **What moves:** the Hatari adaptation, so the Atari ST's game stamp; no other machine.
+
 ## Atari ST: Hatari's code specialised per opcode, and chained (1.7.3)
 
 A native step was a call to Hatari's own handler behind a page-table look-up and a comparison of every word in memory, which made it slower than the interpreter (14 to 29 % on a loaded PC). Now a *form* is
@@ -87,8 +93,8 @@ and opcode) goes straight on to the instruction it knows comes next. This is Hat
 the guard is the opcode the CPU has latched and a word rewritten in memory needs no tracking; an instruction with the same opcode and other extension words now runs native where it was interpreted. The 68000 loop
 sees what it saw: a chain stops, untouched, whenever something is due after an instruction (a clock event, an MFP update, a special flag, an interrupt level above the mask). Chains are short: the MFP's timer D, as TOS
 programs it, makes an event every few instructions, about 2 instructions per entry on Bomb Jack (`chain_entries` in the report).
-Vectors: every native form equals the interpreter on the vectors that have one, and with `--all-forms` each of the 45814 forms equals the table's handler on four random states (183256 runs). They found ADDX.L D6,D6 wrong with a literal opcode: the forms are compiled
-with `-fwrapv`. Bomb Jack, Turrican II, Indiana Jones, Kick Off 2 and Lethal Xcess, Quick or Standard level: every frame of every route equal to the fresh reference, the packed copy and the state continuation too.
+Vectors: every native form equals the interpreter on the vectors that have one, and with `tools/atarist_vector_selftest.py --all-forms` each of the 45,814 forms equals the table's handler on eight random states (366,512 runs, 834,101 bus accesses compared in order and clock, an interrupt line changing during the instruction, through the bank's functions and on direct RAM). The vectors found ADDX.L D6,D6 wrong with a literal opcode: the forms are compiled
+with `-fwrapv`, and the same check without it finds that family. The whole panel at the thorough level: every frame of all 40 routes equal to the fresh reference, the packed copy and the state continuation too.
 An estimate on a loaded PC, headless, no hashing, host cycles of 3,000 frames, table over native: Bomb Jack 1.05, Turrican II 1.09 to 1.17, Indiana Jones 0.98 to 1.00, Kick Off 2 1.04, Lethal Xcess 1.20; not a timing.
 Licence: no text of `m68k_decoder.h` is in a game any more, so the notice of segagenesisrecomp leaves the exports; the decoder still runs during the conversion.
 **Hot path:** the look-up and the word comparison are gone from the instructions inside a chain; two calls of one shared test per instruction instead, one count per entry. Handlers keep their pointers on the interpreted path. **What moves:** the

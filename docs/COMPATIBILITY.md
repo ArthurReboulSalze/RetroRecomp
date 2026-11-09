@@ -215,7 +215,7 @@ not measured ([AMIGA.md](AMIGA.md#3-the-five-measures)). Kickstart 3.x installs,
 
 The **Atari ST** profile is experimental since 1.7.1 ([status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
 images, or a ZIP holding only them) on Hatari, with EmuTOS 1.4 by default or your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of
-compatible games. The 68000 instructions its reference run saw become native steps that call Hatari's own instruction handlers, and every other
+compatible games. The 68000 instructions its reference run saw become native code, Hatari's own instruction handlers compiled again per opcode and chained, and every other
 instruction runs on Hatari's interpreter and is counted per route; the video, sound and disk chips are Hatari's. CPU fidelity, hardware fidelity, gameplay
 validation and physical latency are separate measures ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)): hardware fidelity and latency are not claimed, and no game is validated as played. STE, TT, Falcon and hard disks are not converted.
 
