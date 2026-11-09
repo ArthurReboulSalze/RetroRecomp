@@ -79,6 +79,12 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Sony PlayStation: two discs at once no longer fetch Beetle PSX together (1.7.2)
+
+The pinned Beetle PSX checkout in `.deps` is shared by every disc, but only the game's own work folder was locked. Two discs converted at once on a fresh `.deps` could both clone it. Fetching it now goes through the shared setup gate, as the other machines' setups do. Nothing changes in the machine or in a game.
+
+**What moves:** only the PlayStation's game stamp: game `920cf82497a6` to `4a3b197254a5` (`psx_beetle.py`). Its host and build stamps and every other console's stamps do not move. A PlayStation export of an earlier version is rebuilt when it is upgraded, to the same machine.
+
 ## PC Engine / TurboGrafx-16: the larger capture format, shared paths, the walk repair, and an exit prepared (1.7.2)
 
 **Engine pin** `81b5c231` to `6bb848e8` (pcenginerecomp, ABI 29). A card that needs more than 65,536 instruction identities gets the engine's larger capture format (up to 1,048,576, past it left out and counted): Street Fighter II' Champion Edition now runs 0 interpreted instructions on its three routes, where it ran 19.3 %, 33.5 % and 74.7 % interpreted; its game is 25.4 MB packed and its conversion takes about 34 minutes on its own. **Shared paths**, numbers only, in the experimental tier of the base: a record is made from a passed conversion's captures, and a conversion that receives paths gives them to the engine as declared roots, never as captures ([PC_ENGINE.md](PC_ENGINE.md#7-shared-paths)). **The walk repair:** where the play walk left a game paused, one more Run press is kept if the game answers (Gradius at frame 7,811). **The fetch of the engine** goes through the shared setup gate, so two cards at once on a fresh `.deps` no longer clone it together. **Status:** the profile says supported, pending the owner's word; it is one commit, reverted if he says no. Evidence: the 15-card panel on Windows and on a Debian 13 PC, 45 of 45 routes equal ([PC_ENGINE.md](PC_ENGINE.md#the-panel-of-the-release-tree-9-november-2026)).
