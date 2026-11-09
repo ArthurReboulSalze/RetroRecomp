@@ -70,6 +70,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`). Beyond what ran, a sweep over the memory each
    route left adds what branches lead to and the rest of the 4 KiB pages where code ran, with the same guard; a swept instruction counts apart when it runs
    (`final_checks.native_swept`), and no route proves those that did not run. Code a game has not loaded yet when a route ends cannot be swept.
+   The Copper is not compiled: its lists hold values that change from frame to frame (colour gradients, scroll offsets, page pointers; a guard on the whole list held 7 to 20 % of the time on the
+   games that do this, measured over 72 s of eight games), and it takes at most 0.5 % of a frame, so a compiled list would be vAmiga's fetch and write with a guard in front. It stays vAmiga's unless new evidence changes one of those two figures.
 5. **Validation.** The game executable is copied alone and replayed headless on the same bounded scripts (a main route of joystick,
    mouse and keyboard inputs, and at the Standard level a joystick exploration route, 3,000 frames each): the picture, sound, RAM
    and CPU registers of every frame and the resload calls must equal those of the fresh interpreted reference. So must the
