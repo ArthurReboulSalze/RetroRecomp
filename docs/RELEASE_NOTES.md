@@ -239,12 +239,12 @@ again, the game is delivered unpacked: larger, and the same program (and
   Engine / TurboGrafx-16 where it is listed (the export folder stays `PC Engine`). The
   reader tells the two bit orders of a dump apart by the first instruction at the reset
   vector when the vector is plausible both ways (4 of the 91 US cards of the
-  maintainer's library), so a bit-reversed dump is read as such. Twelve US cards
+  maintainer's library), so a bit-reversed dump is read as such. Twelve conversions of eleven US cards
   converted with 0 interpreted instructions and 0 guard misses on the routes played, the
   native run equal to the interpreted reference frame by frame, the compressed copy equal
-  and a quick state resumed in a fresh process; the owner has not played these twelve,
+  and a quick state resumed in a fresh process; the owner has not played any of these eleven cards,
   and no real bit-reversed dump exists in his library (two copies made for the test).
-  A Linux build now converts these cards: 9 of the 11 cards chosen give the CPU, RAM,
+  A Linux build now converts HuCards: 9 of the 11 cards chosen (6 of the first panel, 3 US cards) give the CPU, RAM,
   picture and sound hashes of Windows (two were not run there). The processor is compared
   with 640,000 independent HuC6280 vectors: 563,514 of the 572,519 comparable agree on the
   interpreter, three differences are known, and 9,097 native cases show no difference with

@@ -59,7 +59,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
+| PC Engine / TurboGrafx-16 | experimental | `█████████░` 89 % | ✅ 11 · 🟡 3 · ❔ 0 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `████░░░░░░` 38 % | ✅ 1 · 🟡 10 · ❔ 5 |
 | Atari ST | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 13 · ❔ 2 |
@@ -70,21 +70,21 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | 🟡 | 🟡 | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | 🟡 | 🟡 | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ❔ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ❔ | 🟡 | ❔ | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | 🟡 | ❔ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ❔ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -100,21 +100,21 @@ psx = Sony PlayStation.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | Y | P | P |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | ? | P | P | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | P | P | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? | P |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | ? | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | P | P | ? |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | Y | P | P | P | ? | P |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | ? | P | ? | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | ? | P | ? | P |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | ? | ? | P | ? | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | ? | ? | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -660,26 +660,26 @@ Mega Drive picture hash. Results are always written as "model against MAME".
 ## PC Engine: evidence behind its column (5 November 2026)
 
 The PC Engine is **experimental since 1.6.9** ([PC_ENGINE.md](PC_ENGINE.md)): HuCards are converted and the first panel of ten real
-cards was run on 5 November 2026; twelve US cards (ten as dumped, two as bit-reversed copies) followed on 6 November ([PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026)). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
+cards was run on 5 November 2026; twelve conversions of eleven US cards (Tiger Road twice: as dumped and as a bit-reversed copy; Alien Crush as a bit-reversed copy only) followed on 6 November ([PC_ENGINE.md](PC_ENGINE.md#us-turbografx-16-cards-6-november-2026)). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware
 fidelity, gameplay coverage or latency; the owner's play trial of eight games is in the owner-acceptance table.
 
 | Gate | PC Engine | Evidence | What is missing |
 |---|---|---|---|
-| G1 | P | `retrorecomp/systems/pc_engine.py` (status `experimental`), [PC_ENGINE.md](PC_ENGINE.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | Linux `pending`; no owner acceptance |
-| G2 | P | `retrorecomp/pce_conversion.py` goes through `report_schema.write_report`: native and interpreted instructions per route, guard misses, `latency_ms: null` | Scenario and state sections are filled for the routes played only |
-| G3 | P | Eight of nine converted panel cards: 0 interpreted instructions and 0 guard misses on the played routes; Street Fighter II' CE keeps 28.6 and 35.1 million interpreted instructions on its two routes (the engine bounds a module at 65,536 identities) | Only observed code is native; no whole-game claim |
-| G4 | P | The native module equals the engine's interpreter frame by frame (CPU hash, work RAM, picture, PCM) on every route of the nine cards | Agreement with the engine, not with a real HuC6280 |
-| G5 | P | The compressed executable is replayed against the fresh reference on every route | Windows only; no second-machine replay |
-| G6 | P | F8/F9 continue the saved timeline in a fresh process for 600 frames; a truncated state is refused | A longer continuation and corrupted-state cases |
+| G1 | Y | `retrorecomp/systems/pc_engine.py` (status `experimental`), [PC_ENGINE.md](PC_ENGINE.md), the README, COMPATIBILITY, INDEX, UPGRADES, the interface strings in eight languages and the credits agree (`tools/status_lint.py`: 0 contradictions, 0 drift items; the honesty audit of 9 November 2026 read them all) | The owner's acceptance is G14, not this gate |
+| G2 | Y | `retrorecomp/pce_conversion.py` goes through `report_schema.write_report` (v2): native and interpreted instructions per route and per CPU, guard misses, the five measures apart, `latency_ms: null`, the route start, the quick-state validation and the packed replay; read by `tools/release_check.py` on the 15 conversions of the panel | The device section is empty: the machine has one processor and no cartridge device |
+| G3 | Y | 15 cards at the extended level (attract and play of 3,600 frames, a long route of 18,000), built with the players' toolchain (llvm-mingw): 0 interpreted instructions and 0 guard misses on every final scenario of 14 cards. Street Fighter II' Champion Edition is listed with its counts: 19.3 %, 33.5 % and 74.7 % interpreted instructions on its three routes (the engine bounds a module at 65,536 instruction identities, the card needs more; four captures were left out) | Only observed code is native; no whole-game claim |
+| G4 | Y | The native run equals a fresh run with every instruction interpreted, frame by frame (CPU hash, work RAM, picture, PCM), on every route of the 15 cards, the 18,000-frame ones included | Agreement with the engine's own interpreter, not with a real HuC6280 (the engine against independent vectors is G10) |
+| G5 | Y | The compressed executable is replayed against the fresh reference on every route of the 15 cards on Windows, and on the Debian 13 PC on the cards witnessed there (their Linux reports carry the same replay) | |
+| G6 | Y | F8/F9 continue the saved timeline in a fresh process for 600 frames on all 15; 13 damaged states (an empty file, a text file, a header cut, one byte short, half cut, and a flipped bit in the magic, version, system, size, checksum, ROM identity, ABI and payload) are refused and left as they were; loading a missing state is refused and creates nothing (`pce_conversion.check_states`) | A continuation longer than 600 frames |
 | G7 | - | HuCards have no save memory | |
-| G8 | P | Every route must show a moving picture (an attract loop with no input of Space Harrier and Santatlantean stops after a few frames and is reported) | Only 3,600-frame routes |
-| G9 | ? | Not measured: no random-route levels | |
-| G10 | P | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) replayed by tools of ours, 6 November 2026 (`tools/pce_huc6280_vector_selftest.py`, `tools/pce_huc6280_native_vector_selftest.py`, exact pinned counts): on the pinned engine's interpreter 563,514 of the 572,519 comparable vectors agree (three known differences: the TSB/TRB Z flag, ST0-2 at 5 cycles against 4, TMA #0; the 22 reserved opcodes are refused by design, 12,481 block-transfer vectors are cut by the corpus); natively 9,097 cases (231 opcodes, 40 each) show 0 differences with that interpreter | The oracle is an emulator, not silicon; the native tier replays 40 cases per opcode, not the 2,500 |
-| G11 | ? | No independent hardware comparison | |
-| G12 | P | Ten real cards tried (nine converted, one SuperGrafx card refused); the panel is the owner's library, read in place | A broader panel |
-| G13 | P | 9 of the 11 cards chosen were witnessed on a Debian 13 PC (GCC 14.2, Ninja) on 6 November 2026, from the same tree (commit `92545231`), the same engine revision and an empty library at the standard level: Bonk's Adventure, Bonk III, Neutopia II, Night Creatures, Blazing Lazers, Raiden, Space Harrier, Splatterhouse and Bomberman '93 give the same CPU, RAM, image and PCM hashes on both routes of 3,600 frames as the Windows run, with the same native counts (0 interpreted, 0 guard misses). The Windows side was built with Visual Studio; three cards (Bonk's Adventure, Blazing Lazers, Night Creatures) built with llvm-mingw, the toolchain players use, give the same hashes | Gradius and Santatlantean were not run on Linux (the Debian PC was freed); a quick state is not compared across systems (the state key holds the target) |
+| G8 | Y | Every route shows moving pictures and sound by the liveness rule; the last picture change of the 18,000-frame route falls within 600 frames of its end on all 15 cards; the long routes were inspected (G9). The attract loop with no input of Space Harrier and Santatlantean stops after a few frames and is reported | |
+| G9 | Y | The extended level plays a pseudo-random 18,000-frame route seeded from the card, on 15 cards. The start (1 to 6 Run presses) is chosen by how many pictures the walk shows that the same frames without input never show, so a card that waits on a menu, a story or a password screen is not kept there (before this, 7 of 18 cards stayed on such a screen). Contact sheets of 12 pictures of each long route were looked at: every card reaches play at some point; 9 end in play with progress (Bonk's Adventure reaches stage 1-2, Blazing Lazers, Bonk III, Soldier Blade, Raiden, Boxyboy, Tonma, Neutopia II on its first overworld screens, Splatterhouse) and 6 reach play and then stall (Military Madness on a FIGHT/SURRENDER prompt from about frame 6,000, Santatlantean looping between its title and its options, Gradius frozen from about frame 7,500 for a cause not found, Bomberman '93 restarting its stage, Space Harrier uncertain, Street Fighter II' CE on an idle fight screen after a pause) | Pseudo-random walks do not finish games (most stay in stage 1); the pictures were inspected by the specialist agent, not by the owner |
+| G10 | Y | SingleStepTests/huc6280 (MIT, generated by Mesen, 640,000 vectors) replayed by tools of ours with exact pinned counts (`tools/pce_huc6280_vector_selftest.py`, `tools/pce_huc6280_native_vector_selftest.py`): on the pinned engine's interpreter 563,514 of the 572,519 comparable vectors agree; natively 9,097 cases by default and 56,767 on request (231 opcodes, 40 or 250 each) show 0 differences with that interpreter. Upstream's own adapter gives the same interpreter numbers on the same corpus. The three known differences are explained against a second independent model, the source of MAME 0.289's HuC6280 core (read, not run), not resolved: on the TSB/TRB Z flag and on ST0-2 at 5 cycles the engine and MAME agree and the corpus differs (the corpus has no VDC); on TMA the engine agrees with the corpus on all 2,487 nonzero-mask vectors where MAME's multi-bit rule does not, and the 13 mask-0 vectors depend on a latch the corpus does not carry | Both sources are emulators, not silicon; the native tier replays a sample of each opcode, not its 2,500 vectors |
+| G11 | P | The delivered game against MAME 0.289 (`tg16` driver), no input on either side, the first 3,000 frames, `tools/pce_mame_compare.py`, on four US cards. Pictures after placing the game's picture in MAME's frame, at the level of each colour channel: 3,000 of 3,000 equal on Soldier Blade, 2,999 of 3,000 on Bonk's Adventure and on Military Madness (the other frame is a one-frame or one-scanline timing difference), 727 of 2,999 on Boxyboy, which parts from MAME at frame 729 (MAME shows its title menu, the game a "FILE NOT CONNECTED" screen; cause not established). The two write the VDC's 8 colour levels with different tables, so 24-bit equality is reported apart. Sound: the game's AC level is a near-constant 9.3 to 9.5 dB below MAME's, spectra agree to a cosine of 0.98 to 0.999 averaged over one-second windows; no waveform match is claimed | A comparison with MAME, not hardware: four cards, the first 50 seconds, no input, no gameplay, no latency. MAME's output has a DC offset the game's does not, its frame is 263 lines, the engine's frame length differs on Bonk's Adventure (734.3 against 737.3 samples a frame), and on the `pce` driver two US cards stay black |
+| G12 | Y | 15 cards chosen from the owner's library, read in place, none kept in the repository: boards of 128 KiB to 1 MiB, the 384 KiB and 768 KiB mirror maps, the 2.5 MiB Street Fighter II board, a Japanese ZIP, a homebrew card, and bit-reversed copies read as such. 14 of the 15 run 0 interpreted instructions on every route; Street Fighter II' Champion Edition runs 19.3 %, 33.5 % and 74.7 % interpreted on its three routes, because the card needs more than the 65,536 instruction identities the engine allows a module. The only card of the first panel not converted is a SuperGrafx game (Dai Makaimura), refused by scope: one video chip, no picture appears. Windows and Debian hashes are equal on the cards witnessed (G13) | The panel is the owner's library, chosen by the specialist; no SuperGrafx or CD card |
+| G13 | P | Windows and a Debian 13 PC (GCC 14.2, Ninja, an empty library) give the same CPU, RAM, picture and PCM hashes, with the same native counts (0 interpreted, 0 guard misses): 9 cards at the standard level on 6 November 2026 from the tree `92545231` (Bonk's Adventure, Bonk III, Neutopia II, Night Creatures, Blazing Lazers, Raiden, Space Harrier, Splatterhouse, Bomberman '93; their Windows side built with Visual Studio, and three of them rebuilt with llvm-mingw give the same hashes), and at the extended level on 9 November from the tree `4fe3cdc6`, with the play route that answers the game: Boxyboy (6 Run presses) and Santatlantean (4), all three routes of each, the 18,000-frame ones included | The criterion is identical route hashes on both systems for the whole panel, and it is not met: of the 15 panel cards 10 were witnessed (the nine of 6 November, Night Creatures excepted, which is not in the extended panel, and the two of 9 November) and 5 never ran on Linux (Gradius, Street Fighter II' CE, Tonma, Military Madness, Soldier Blade); the eight earlier cards were witnessed before the start choice changed, so their play routes are not the current ones, and only two cards (Boxyboy, Santatlantean) were seen on the current routes; a quick state is not compared across systems (the state key holds the target). `Y` waits for the whole panel on Linux, a later campaign if the owner decides one |
 | G14 | P | The owner played eight exports on 5 November 2026 and reported that all eight work (owner-acceptance table) | Those exports come from the tree before the merge of `main`; the exports of the 1.6.9 tree are not played yet; no decision to leave the experimental status |
-| G15 | P | Nothing is claimed beyond "native equals the engine's interpreter": all five measures are kept apart in [PC_ENGINE.md](PC_ENGINE.md) | A read of the interface and the exported game |
+| G15 | Y | The honesty audit of 9 November 2026 read the documents, the interface strings in eight languages, the exported game and the report fields: no claim of exactness, hardware fidelity, whole-game coverage or latency without proof; every flag that should be false is false and every claim string names what was tested. It found one misleading line ("ready (native code only)", now "no interpreter on the routes played"), the scope note, and counts that disagreed; all fixed | Two shared items are not this profile's (the report lists eight interface languages for a game that ships five; the CPS-1 prints the same "ready" sentence) |
 | G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
 
 ## Sony PlayStation: evidence behind its column (8 November 2026)

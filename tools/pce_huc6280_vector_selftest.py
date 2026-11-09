@@ -22,15 +22,17 @@ import fetch_huc6280_vectors as corpus
 # The opcodes on which the pinned engine differs from the vectors, with the number of vectors that differ on each (the corpus is
 # pinned, so the numbers are exact) and why. A new difference, or a changed number, fails the run.
 KNOWN = {
-    '03': {'cycles': 2500, 'reason': 'ST0: the engine adds a fixed wait for the VDC (5 cycles); the vectors give 4. State agrees.'},
+    '03': {'cycles': 2500, 'reason': 'ST0: the engine adds the 1-cycle VDC access penalty to the 4 base cycles (5, as the MAME h6280 core '
+                                     'does); the corpus has no VDC page and counts 4. State agrees.'},
     '13': {'cycles': 2500, 'reason': 'ST1: as ST0 (5 cycles against 4). State agrees.'},
     '23': {'cycles': 2500, 'reason': 'ST2: as ST0 (5 cycles against 4). State agrees.'},
-    '04': {'flags': 254, 'reason': 'TSB zp: the Z flag. The engine tests the memory byte, the vectors the accumulator and the byte.'},
+    '04': {'flags': 254, 'reason': 'TSB zp: the Z flag. The engine sets it from the stored result (as the MAME h6280 core does), the vectors '
+                                   '(Mesen) from A AND the byte, the 65C02 rule: two emulators disagree, neither is silicon.'},
     '0C': {'flags': 250, 'reason': 'TSB abs: as TSB zp.'},
     '14': {'flags': 496, 'reason': 'TRB zp: as TSB zp.'},
     '1C': {'flags': 492, 'reason': 'TRB abs: as TSB zp.'},
     '43': {'registers': 13, 'reason': 'TMA with mask 0: the instruction reads the transfer latch, which the vectors do not carry; the '
-                                      'engine returns its deterministic 0.'},
+                                      'engine returns its deterministic 0 (MAME has no such latch and leaves A unchanged).'},
 }
 # The 22 reserved opcodes the engine stops on by design (they are never executed as NOPs); the vectors give them as 2-cycle NOPs.
 REFUSED = {'0B', '1B', '2B', '33', '3B', '4B', '5B', '5C', '63', '6B', '7B', '8B', '9B', 'AB', 'BB', 'CB', 'DB', 'DC', 'E2', 'EB',
