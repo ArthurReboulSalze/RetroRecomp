@@ -58,6 +58,8 @@ unsigned rr_st_disk_count(const RrStSession *s);
  * observation of the instructions run from RAM, the TOS ROM or the cartridge area: lines "pc words" (the instruction's own bytes). */
 uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
+/* How many times the 68000 loop entered native code: the native count over this is the mean length of a chain. */
+uint64_t rr_st_chain_entries(const RrStSession *s);
 /* 1 once the TOS opened the desktop file that carries the autostart line: the boot reached the desktop. */
 int rr_st_desktop_started(const RrStSession *s);
 void rr_st_set_observe(RrStSession *s, int enabled);

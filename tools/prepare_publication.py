@@ -97,7 +97,7 @@ native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py 
 native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
 native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
-tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py
+tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_saves_game.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
@@ -402,7 +402,7 @@ native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
 tools/snes_ram_selftest.py
 native/snes_video_checks.c tools/snes_video_selftest.py tools/snes_object_selftest.py
 tests/test_snes_video.py
-docs/SNES.md docs/SNES_SUPERFX.md
+docs/SNES.md docs/SNES_SUPERFX.md docs/ATARI_ST_TRANSLATION.md
 native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
 retrorecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py

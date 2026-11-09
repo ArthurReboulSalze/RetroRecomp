@@ -268,6 +268,24 @@ REPLACEMENTS = [
      '\t\t\t}\n'
      '\t\t}\n\n'
      '\t\tif ( Status & FDC_STR_BIT_RNF )\t\t\t\t/* Sector FDC.SR was not correctly written */\n'),
+    # A write after a seek without verify (EmuTOS seeks so; TOS verifies): Hatari's read commands load the track under the head, its write command does not, as an MFM write only ever ended
+    # in "record not found". The write looked for its sector on the track last loaded and failed (The Lurking Horror's save on EmuTOS: tools/atarist_saves_game.py).
+    ('src/fdc.c',
+     '\t\tif ( Floppy_ImageIsMFM ( EmulationDrives[ FDC.DriveSelSignal ].ImageType ) )\n'
+     '\t\t\tFDC_DRIVES[ FDC.DriveSelSignal ].IndexPulse_Mode = FDC_INDEX_PULSE_MODE_BIT_STREAM;\n\n'
+     '\t\tFDC.CommandState = FDCEMU_RUN_WRITESECTORS_WRITEDATA_NEXT_SECTOR_HEADER;\n',
+     '\t\t/* Retro-Recomp modification (GPL-2.0, like this file): the track under the head, as the read commands load it. */\n'
+     '\t\tif ( Floppy_ImageIsMFM ( EmulationDrives[ FDC.DriveSelSignal ].ImageType ) )\n'
+     '\t\t{\n'
+     '\t\t\tif ( FDC_LoadTrack_MFM ( FDC.DriveSelSignal , FDC_DRIVES[ FDC.DriveSelSignal ].HeadTrack , FDC.SideSignal ) != 0 )\n'
+     '\t\t\t{\n'
+     '\t\t\t\tFDC.CommandState = FDCEMU_RUN_WRITESECTORS_RNF;\n'
+     '\t\t\t\tFdcCycles = FDC_DELAY_CYCLE_COMMAND_IMMEDIATE;\n'
+     '\t\t\t\tbreak;\n'
+     '\t\t\t}\n'
+     '\t\t\tFDC_DRIVES[ FDC.DriveSelSignal ].IndexPulse_Mode = FDC_INDEX_PULSE_MODE_BIT_STREAM;\n'
+     '\t\t}\n\n'
+     '\t\tFDC.CommandState = FDCEMU_RUN_WRITESECTORS_WRITEDATA_NEXT_SECTOR_HEADER;\n'),
     ('src/fdc.c',
      'static uint8_t	FDC_WriteSector_ST ( uint8_t Drive , uint8_t Track , uint8_t Sector , uint8_t Side , int SectorSize );\n',
      '/* Retro-Recomp modification (GPL-2.0, like this file): the sectors a game writes, kept by the session (atarist_session.c). */\n'

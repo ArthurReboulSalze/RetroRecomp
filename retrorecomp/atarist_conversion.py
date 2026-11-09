@@ -5,9 +5,9 @@ Every conversion starts from a fresh reference run: the game (its disks and the 
 its 68000 on Hatari's cycle-exact interpreter, every instruction counted. The game executable (the disks, the TOS, the machine and
 the host kit) is then replayed headless, copied alone, and its trace (picture, sound, RAM, CPU registers of every frame) must equal
 the reference's; so must the compressed copy that is delivered, and a quick state saved by it is loaded by a fresh process.
-The instructions the reference runs are observed (pc and words, from RAM, the TOS ROM and the cartridge area) and become guarded
-native steps (the shared generator `m68k_observed` with the ST's hooks, `atarist_codegen`): each calls the very handler of
-Hatari's cycle-exact table for its opcode, behind a live-word guard, and anything not seen, changed or illegal stays on the
+The instructions the reference runs are observed (pc and words, from RAM, the TOS ROM and the cartridge area) and become native
+code (`atarist_codegen`): Hatari's own handler of each opcode compiled for that opcode, chained from instruction to instruction,
+guarded by the opcode the CPU has latched, and anything not seen or illegal stays on the
 counted interpreter. Nothing is claimed beyond those bounded routes: the hardware fidelity is Hatari's, unmeasured here, and the
 routes are scripts, not play.
 
@@ -39,9 +39,8 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 
 PLAYER = 'RetroRecomp-AtariST'
 # The notices every exported ST game carries (resource 203, as on the other machines): Retro-Recomp's licence, Hatari (GPL-2.0)
-# with the GPL text and where its corresponding source is, the libretro API header, the 68000 decoder of m68k-recomp-core compiled
-# into the index of native steps (Matthew Stan's permission of 6 November 2026), SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
+# with the GPL text and where its corresponding source is, the libretro API header, SDL and the host kit's parts.
+NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
                 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 SOURCES_RESOURCE = 297     # EmuTOS's complete source archive, in a game that boots EmuTOS
@@ -323,9 +322,8 @@ def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path
 
 
 def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> dict:
-    """The guarded native steps of these observations (the shared generator with the ST's hooks on Hatari's handlers)."""
+    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers)."""
     from . import atarist_codegen, m68k_observed
-    from .megadrive_codegen import write_changed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('atarist').observed_code
     atarist_codegen.load_opcode_map(table, hatari_build / 'src/cpu/cpustbl.c')
@@ -334,15 +332,10 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> d
                                          target='atarist_decode', name='RetroAtariSTDecode')
     bodies = observed.load_bodies(engine)
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
-    write_changed(project / 'm68k_decoder.h', (engine / 'external/m68k-recomp-core/common/m68k_decoder.h').read_text(encoding='utf-8'))
-    write_changed(project / 'rom_parser.h', (engine / 'recompiler/src/rom_parser.h').read_text(encoding='utf-8'))
     usable = atarist_codegen.native_samples(samples)
-    steps = m68k_observed.write_steps(project, usable, observed=observed, bodies=bodies, decode_tool=decode, diagnostic=[],
-                                      alias=lambda text: text, form_body=lambda body: body, descriptor=lambda ins, name: ins,
-                                      index_head=atarist_codegen.INDEX_HEAD, code_view=atarist_codegen.CODE_VIEW,
-                                      index_tail=atarist_codegen.index_tail)
-    return {'samples': len(samples), 'with_handler': len(usable), 'instructions': len(steps.instructions), 'forms': len(steps.forms),
-            'pcs': len(steps.groups), 'opcode_table_sha256': file_sha256(table)}
+    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode)
+    return {'samples': len(samples), 'with_handler': len(usable), 'instructions': steps['instructions'], 'native_instructions': steps['native_instructions'],
+            'forms': steps['forms'], 'pcs': steps['pcs'], 'opcode_table_sha256': file_sha256(table)}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
@@ -454,7 +447,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     output.mkdir(parents=True, exist_ok=True)
     emit(f'Atari ST: reading {len(source.disks)} floppy image(s); {tos.label()}.')
     from .console16 import dependencies16
-    dependencies16('md', emit)   # SDL (and the shared 68000 decoder the native steps of the next stage use)
+    dependencies16('md', emit)   # SDL, and the shared 68000 decoder that tells the length and the target of an observed instruction during the conversion
     tree, hatari_build = machine_core(base.parent, emit)
     reference_player = reference_build(base, tree, hatari_build, stamp, emit)
     work = base / source.sha256[:16] / tos.sha256[:16]
@@ -586,7 +579,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             native = results[name]['native']
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
-            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
+            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted, 'chain_entries': results[name].get('chain_entries'),
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
@@ -612,7 +605,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                    {'fetched_from': 'the EmuTOS project (SourceForge), pinned size and SHA-256',
                                     'source_embedded': atarist_emutos.SOURCE[0], 'source_sha256': atarist_emutos.SOURCE[2],
                                     'licence': 'GPL-2.0-or-later'}),
-                                'native': 'its instructions seen running become native steps like the RAM code; positions in the '
+                                'native': 'its instructions seen running become native code like the RAM code; positions in the '
                                           'TOS are not kept in any shared path'}},
             'tos_note': hint,
             'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'reason': autostart_reason,
@@ -623,7 +616,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area) as guarded native steps calling the handler of '
+            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area) as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
                                'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
