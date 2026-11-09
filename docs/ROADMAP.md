@@ -118,10 +118,10 @@ planned. Hard-disk images stay out of scope. The screen contrast of the system p
 
 ### PC Engine
 
-Experimental since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the Street Fighter II board, NTSC,
-two players. Next: a speed measure on a quiet PC, more HuCards through the same
-loop and the owner's play trials. The Linux build is witnessed on nine cards. A card that needs more than the engine's 65,536 instruction identities
-stays partly native. SuperGrafx and CD-ROM² are separate later studies.
+Supported from 1.7.2, pending the owner's word; open since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the
+Street Fighter II board, NTSC, two players. Next: a speed measure on a quiet PC, more HuCards through the same loop and the owner's play
+trials. Street Fighter II' CE is native on its routes with the engine's larger capture format, at the cost of a large game and a long
+conversion. SuperGrafx and CD-ROM² are separate later studies.
 
 ### Game Boy Advance
 
