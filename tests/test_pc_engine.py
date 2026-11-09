@@ -1,4 +1,4 @@
-"""The PC Engine (experimental, developer-only): HuCard reader, profile, identification report, paths, upstream.
+"""The PC Engine: HuCard reader, profile, identification report, paths, upstream.
 
 Every HuCard image is built here from synthetic bytes (a reset vector and zeros) inside a temporary folder: no
 ROM is read and nothing is written elsewhere. Nothing here reaches the user's preferences.
@@ -290,9 +290,9 @@ class ReaderTests(TempFiles):
 
 
 class ProfileTests(TempFiles):
-    def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
+    def test_the_profile_is_supported_listed_and_available_with_its_files(self):
         profile = get_profile('pce')
-        self.assertEqual('experimental', profile.status)
+        self.assertEqual('supported', profile.status)
         self.assertFalse(profile.developer_only)
         self.assertTrue(profile.available())          # this checkout carries the native files
         self.assertIn(profile, ALL_PROFILES)
@@ -331,7 +331,7 @@ class ReportTests(TempFiles):
         report = report_schema.read_report(destination)
         self.assertEqual({'name': report_schema.SCHEMA_NAME, 'version': 2}, report['schema'])
         self.assertEqual('pce', report['system']['id'])
-        self.assertEqual('experimental', report['system']['status'])
+        self.assertEqual('supported', report['system']['status'])
         self.assertEqual('pce_conversion', report['read_from']['writer'])   # recognised by the marker hucard_checks
         self.assertEqual('pce', report['rom']['system'])
         self.assertEqual(found.sha256, report['rom']['sha256'])
@@ -356,7 +356,7 @@ class ReportTests(TempFiles):
         pce_conversion.write_identification_report(destination, found)
         raw = json.loads(destination.read_text(encoding='utf-8'))
         self.assertIn('hucard_checks', raw)                  # the marker of this writer
-        self.assertEqual('experimental', raw['status'])
+        self.assertEqual('supported', raw['status'])
         self.assertEqual({'name': report_schema.SCHEMA_NAME, 'version': 2}, raw['schema'])
         self.assertFalse(raw['converted'])
         self.assertFalse(raw['hardware_accuracy_validated'])

@@ -1,4 +1,4 @@
-"""PC Engine / TurboGrafx-16 HuCard profile (experimental since 1.6.9: see docs/PC_ENGINE.md).
+"""PC Engine / TurboGrafx-16 HuCard profile (open as experimental in 1.6.9: see docs/PC_ENGINE.md).
 
 Scope decided on 5 November 2026: HuCards only (no CD-ROM2, no SuperGrafx), NTSC, 2- and 6-button pads, the
 Street Fighter II mapper, the multitap read for four players (the console takes five: Bomberman is the named case; a converted
@@ -25,7 +25,7 @@ class PcEngineProfile(SystemProfile):
     archived_rom_limits = (('.pce', 0x280000 + 512),)
     export_folder = 'PC Engine'
     video_modes = ('ntsc',)
-    status = 'experimental'
+    status = 'supported'
     scope_note = 'HuCards only; no CD-ROM2 and no SuperGrafx (a SuperGrafx game is refused when its picture never appears). A converted game is built for two players (the multitap seats four at most).'
     # The PSG is part of the HuC6280 chip: the machine has one processor. The engine counts retired
     # instructions, native and interpreted apart.

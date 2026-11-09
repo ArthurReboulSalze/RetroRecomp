@@ -536,7 +536,7 @@
     "options_cps1_note": "Capcom CPS-1 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。",
     "options_cps2_note": "Capcom CPS-2 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。 プログラムはあなたのロムセットのキーファイルで復号します。音声にはあなた自身の QSound DSP ROM が必要です。プレイヤー数などの設定はゲームのテストメニューにあります：F2、スイッチのページ、Service switch、その後に再起動。",
     "options_pce": "PC Engine / TurboGrafx-16",
-    "options_pce_note": "実験的な PC Engine / TurboGrafx-16 プロファイル：標準ボードと Street Fighter II のボードの HuCard（.pce、またはそれを含む ZIP。アメリカ版 TurboGrafx-16 のカードはどちらのビット順でも対応）、NTSC、2 人用。ネイティブコードはゲームの実行が確認された部分から作られ、残りはインタプリタで実行され数えられます。CD-ROM2 と SuperGrafx には対応しません。",
+    "options_pce_note": "PC Engine / TurboGrafx-16 プロファイル：標準ボードと Street Fighter II のボードの HuCard（.pce、またはそれを含む ZIP。アメリカ版 TurboGrafx-16 のカードはどちらのビット順でも対応）、NTSC、2 人用。ネイティブコードはゲームの実行が確認された部分から作られ、残りはインタプリタで実行され数えられます。CD-ROM2 と SuperGrafx には対応しません。",
     "options_psx": "Sony PlayStation",
     "options_psx_note": "実験的な Sony PlayStation プロファイル：ディスク（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO）、NTSC と PAL、2 人用。自分の BIOS が必要です（ない時は OpenBIOS）。ネイティブコードはゲームの実行が確認された部分から作られ、残りはインタプリタで実行され数えられます。",
     "psx_bios": "PlayStation BIOS（ファイル）",
