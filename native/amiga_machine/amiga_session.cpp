@@ -62,6 +62,7 @@ struct RrAmigaSession {
     unsigned joy = 0;
     int mouse_left = 0, mouse_right = 0;
     uint8_t keys[128] = {};
+    bool no_keyboard = false;                            // the slave's WHDLF_NoKbd: nothing here touches its keyboard interrupt
     std::vector<int16_t> pcm;
     std::vector<uint32_t> picture;
     int lines = 0;
@@ -70,6 +71,9 @@ struct RrAmigaSession {
     bool observing = false, native = false;
     std::set<std::pair<uint32_t, std::string>> observed;
     uint64_t interpreted_count = 0;
+    // The Blitter's counters by shape (BLTCON0 and BLTCON1 without the shift fields): blits, and words or line steps, in a specialised routine (native) and in vAmiga's microprogram (interpreted).
+    struct BlitCount { void (*run)(void *) = nullptr; uint64_t native_blits = 0, native_words = 0, interpreted_blits = 0, interpreted_words = 0; };
+    std::map<uint32_t, BlitCount> blit;
     std::map<std::string, std::string> display;               // lower-case name -> the name as the install spells it
     std::vector<std::pair<std::string, uint32_t>> listing;    // the files as resload_Examine/ExNext/ListFiles see them
     std::vector<uint8_t> kick;                                // the player's Kickstart (host memory only)
@@ -178,7 +182,19 @@ extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
 extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;
 extern "C" const uint32_t *rr_amiga_run_flags;
 extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
+// The specialised routines of this game's Blitter shapes (retrorecomp/amiga_codegen.py).
+typedef struct { uint16_t con0, con1; RrAmigaCode run; } RrAmigaBlitShape;
+extern "C" const RrAmigaBlitShape rr_amiga_blit_shapes[];
+extern "C" const unsigned rr_amiga_blit_shape_count;
 #endif
+// A blit begins: count it under its shape, and give the slot event this shape's routine if the game has one. A line blit never has one.
+static void (*blit_begin(u16 con0, u16 con1, u32 size))(void *) {
+    auto &count = S->blit[(uint32_t)(con0 & 0x0fff) << 16 | (con1 & 0x001f)];
+    if (count.run && S->native) { count.native_blits++; count.native_words += size; return count.run; }
+    count.interpreted_blits++;
+    count.interpreted_words += size;
+    return nullptr;
+}
 // Where the native code counts the Kickstart's copy in ExpMem.
 static void native_kick_window() {
 #ifdef RR_AMIGA_NATIVE
@@ -339,6 +355,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     if (p + 36 > n) return fail(error, error_size, "The slave's header is truncated.");
     uint16_t version = (uint16_t)(slave[p + 12] << 8 | slave[p + 13]);
     uint16_t flags = (uint16_t)(slave[p + 14] << 8 | slave[p + 15]);
+    S->no_keyboard = (flags & 0x40) != 0;
     uint32_t base_mem = be32(p + 16);
     int32_t exp_mem = version >= 8 ? (int32_t)be32(p + 32) : 0;
     uint32_t exp_size = exp_mem < 0 ? (uint32_t)-exp_mem : (uint32_t)exp_mem;
@@ -462,7 +479,11 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
         rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_swept_total = rr_amiga_kick_total = 0;
+        for (unsigned n = 0; n < rr_amiga_blit_shape_count; n++)
+            S->blit[(uint32_t)rr_amiga_blit_shapes[n].con0 << 16 | rr_amiga_blit_shapes[n].con1].run = rr_amiga_blit_shapes[n].run;
 #endif
+        rr_blit_begin = blit_begin;
+        rr_blit_left_midway = 0;
         S->amiga->audioPort.setSampleRate((double)RR_AMIGA_AUDIO_RATE);
         auto rom = boot_rom();
         S->amiga->mem.loadRom(rom.data(), (isize)rom.size());
@@ -509,6 +530,10 @@ extern "C" void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int 
 extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
     for (unsigned k = 0; k < 128; k++) {
         if (!held[k] == !s->keys[k]) continue;
+        // WHDLoad sets CIAICRF_SP in CIA-A's interrupt mask on each interrupt, unless WHDLF_NoKbd (its autodoc, "cias"), and older
+        // ones left AmigaOS's mask: a game that takes the machine over with a level 2 handler may never enable it itself (Pinball
+        // Dreams). Here it is set when a key changes, the only moment it can matter: a route without a key sees no difference.
+        if (!s->no_keyboard) s->amiga->ciaA.poke(0x0D, 0x88);
         if (held[k]) s->amiga->keyboard.press((KeyCode)k); else s->amiga->keyboard.release((KeyCode)k);
         s->keys[k] = held[k] ? 1 : 0;
     }
@@ -712,6 +737,16 @@ extern "C" uint64_t rr_amiga_swept_count(const RrAmigaSession *) {
 #endif
 }
 extern "C" uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { return s->interpreted_count; }
+extern "C" void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *o) {
+    fprintf(o, "{\"left_midway\":%llu,\"shapes\":[", (unsigned long long)rr_blit_left_midway);
+    const char *comma = "";
+    for (auto &e : s->blit) {
+        fprintf(o, "%s[%u,%u,%d,%llu,%llu,%llu,%llu]", comma, e.first >> 16, e.first & 0xffff, e.second.run != nullptr, (unsigned long long)e.second.native_blits,
+                (unsigned long long)e.second.native_words, (unsigned long long)e.second.interpreted_blits, (unsigned long long)e.second.interpreted_words);
+        comma = ",";
+    }
+    fputs("]}", o);
+}
 extern "C" long rr_amiga_resload_calls(const RrAmigaSession *s) { return s->calls; }
 extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) {
     FILE *o = open_file(path, "wb");

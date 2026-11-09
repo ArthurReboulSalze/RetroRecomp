@@ -107,6 +107,16 @@ def explore_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, 
     return sorted(events)
 
 
+# The menu keys of a long route, Amiga raw codes: Return, Space, Y, 1, 2, and F1-F4 (Pinball Dreams picks its table with them).
+LONG_ROUTE_KEYS = (0x44, 0x40, 0x15, 0x01, 0x02, 0x50, 0x51, 0x52, 0x53)
+
+
+def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
+    """A long varied route (extended level and above), fully determined by the exact install; never the slave's quit key. It does not finish a game."""
+    from .computer_routes import long_events
+    return long_events(f'amiga-long:{identity}:{index}', frames, tuple(key for key in LONG_ROUTE_KEYS if key != key_exit))
+
+
 def write_events(path: Path, events) -> Path:
     if len(events) > 4096:
         raise ConversionError('Too many Amiga route events.')
@@ -329,14 +339,29 @@ def read_memory_image(path: Path) -> list:
     return regions
 
 
-def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = ()) -> dict:
-    """The native code of these observations, and of what a sweep reaches from them over these images of memory (amiga_codegen)."""
+def blitter_counts(report: dict) -> dict:
+    """The Blitter's counters of a run: native is a specialised routine, interpreted is vAmiga's microprogram. Words of a copy blit, steps of a line blit; a line blit is always interpreted."""
+    shapes = [{'bltcon0': f'{con0:03x}', 'bltcon1': f'{con1:02x}', 'line': bool(con1 & 1), 'has_routine': bool(routine), 'native_blits': native_blits, 'native_words': native_words,
+               'interpreted_blits': interpreted_blits, 'interpreted_words': interpreted_words}
+              for con0, con1, routine, native_blits, native_words, interpreted_blits, interpreted_words in (report.get('blitter') or {}).get('shapes', ())
+              if native_blits or interpreted_blits]
+    copies = [shape for shape in shapes if not shape['line']]
+    lines = [shape for shape in shapes if shape['line']]
+    return {'native_blits': sum(shape['native_blits'] for shape in copies), 'native_words': sum(shape['native_words'] for shape in copies),
+            'interpreted_blits': sum(shape['interpreted_blits'] for shape in copies), 'interpreted_words': sum(shape['interpreted_words'] for shape in copies),
+            'line_blits': sum(shape['interpreted_blits'] for shape in lines), 'line_steps': sum(shape['interpreted_words'] for shape in lines),
+            'left_midway': (report.get('blitter') or {}).get('left_midway', 0), 'shapes': shapes}
+
+
+def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=()) -> dict:
+    """The native code of these observations, of what a sweep reaches from them over these images of memory, and of the Blitter shapes these reports saw (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
-    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images))
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images),
+                                      shapes=amiga_codegen.blit_shapes(reports))
     return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -530,6 +555,9 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
         if level != 'quick':
             routes.append(('explore', count, explore_route(count, slave.key_exit)))
+        from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
+        for index in range(LONG_ROUTES.get(level, 0)):
+            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES, long_route(source.sha256, index, LONG_ROUTE_FRAMES, slave.key_exit)))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {count} frames, interpreted 68000).')
         expected = {}
@@ -585,7 +613,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             with timings.phase('code_generation'):
                 images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
                 rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images)
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images, expected.values())
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
@@ -666,6 +694,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
                          'native_moira_specialised': native - results[name].get('translated', 0), 'native_swept': results[name].get('swept', 0),
+                         'blitter': blitter_counts(results[name]),
                          'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
@@ -685,7 +714,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'whdload': {'slave': source.slave_path, 'slave_version': slave.version, 'flags': list(slave.flag_names), 'base_mem': slave.base_mem,
                         'exp_mem': slave.exp_mem, 'kickstart_required': kick is not None, 'whdload_used': False,
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
-                        'data_files': len(extracted['files']),
+                        'data_files': len(extracted['files']), 'key_exit': slave.key_exit,
                         'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
             'machine': {'model': 'Amiga 500-class (ECS, 68000), memory laid out as WHDLoad lays it out', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
@@ -704,7 +733,18 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
                              'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
                              'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)'},
+            'hardware_devices': [
+                {'id': 'blitter', 'kind': 'video_unit', 'mode': 'copy blits of the shapes seen: specialised routines; line blits and other shapes: emulated',
+                 'details': {'routines_are': ("vAmiga's Blitter microprogram compiled per shape (BLTCON0 and BLTCON1 without the shift fields), one step per bus slot, in the slots the reference uses: "
+                                              "specialised routines, not a translated program"),
+                             'shapes_with_a_routine': generation['blitter_shapes'], 'counts': 'final_checks.blitter, by shape, native and interpreted'}},
+                {'id': 'agnus_copper', 'kind': 'video_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga', 'copper': 'not compiled (docs/AMIGA.md)'}},
+                {'id': 'denise', 'kind': 'video_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga'}},
+                {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga'}}],
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
+            'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
+                              'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
+                                                                   'generator': 'computer_routes.long_events'} for name, frames_, events in routes if name.startswith('long-')]},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
                             'schema': 'RRAMIGA-STATE-2', 'machine': 'amiga500', 'rom_identity': source.sha256,

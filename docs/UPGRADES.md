@@ -292,6 +292,26 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the keyboard reaches a game that never enables its interrupt; F1-F4 on the long route (1.7.2)
+
+A key changing now sets `CIAICRF_SP` in CIA-A's interrupt mask, as WHDLoad's autodoc describes, unless the slave has `WHDLF_NoKbd` (`native/amiga_machine/amiga_session.cpp`). Found on Pinball Dreams, whose level 2 handler waits for a mask it never sets: no key reached it, with the native code or on the fresh vAmiga reference. The long route's menu keys gain F1 to F4. **What moves:** the Amiga's game stamp; no other console. **Hot path:** none, it runs when a key changes. An export keeps its old behaviour until it is reconverted.
+
+## Commodore Amiga: a long route at the extended level (1.7.2)
+
+The extended level now adds one route of 18,000 frames, seeded from the install (`computer_routes.long_events`, the same body as the Atari ST's, which a test shows; the ST keeps its own so that its stamps do not move), and the thorough level two. It is for route depth, not for native code: on Apidya and Lemmings 18,000 frames brought under 2 % more instructions. A route does not finish a game. `tools/amiga_route_captures.py` takes pictures along each route of a delivered game (`--capture-every`, headless only). **What moves:** the Amiga's game stamp; no other console. A conversion at the standard level runs the same routes as before.
+
+## Commodore Amiga: the Blitter's copy blits, specialised routines by shape (1.7.2, recompilation stage 6)
+
+A game's copy blits of the shapes its reference runs saw now go through a routine compiled for that shape: vAmiga's own microprogram (its accuracy level 2), whose text `amiga_vamiga.blitter_shape_header` takes at build time
+with BLTCON0 and BLTCON1 without their shift fields as template parameters, so the compiler folds the channels, the direction, the fill and the minterm's 256-way switch. One step per bus slot, in the slots the reference uses,
+everything else read live. Specialised routines, not a translated program. A routine checks its shape at every slot; a game that changes BLTCON during a blit goes on in vAmiga's table (`left_midway`). Line blits, shapes beyond
+the 64 that move the most words, and shapes the routes never saw stay in vAmiga's microprogram. Native and interpreted counters by shape: `final_checks[].blitter`; the report's `hardware_devices` names the Blitter apart from Agnus and
+the Copper, Denise and Paula, which stay emulated. The Copper is not compiled ([AMIGA.md](AMIGA.md), section 2).
+Proof: `tools/amiga_blitter_selftest.py` runs 1,023 shapes (every channel set with every fill and direction, every minterm) on 8,184 random blits, a quarter with BLTCON changed on the way, through vAmiga's table and through the routine, with the same random bus from slot to slot:
+the Blitter's whole snapshot and the slot's bus record after each of 970,162 slots, then Agnus, Paula and chip RAM, 0 differ; a routine that writes a wrong word is seen 16 times out of 16. Rick Dangerous, Apidya, Lemmings and Civilization: every frame equals the fresh reference on both routes,
+with the same CPU counts and sound hashes as stage 4 and every copy word in a routine (shapes 1, 4, 3, 12). **What it brings:** little. On a loaded PC a slot took about 2 ns less out of 11 to 20 ns, with runs from 0.83 to 1.57 times, no timing; the Blitter is 0.1 to 3.6 % of a frame, so under 1 % of a frame at best.
+**Hot path:** one pointer test per copy-blit slot, and a table lookup per blit. **Size:** 4 to 14 KiB more per compressed game on the four. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds; a state saved during a blit goes on correctly in the table.
+
 ## Commodore Amiga: a sweep beyond the routes (1.7.2, recompilation stage 4)
 
 What a player reaches beyond the scripted routes ran on the interpreter. The conversion now reads the memory each route's fresh reference leaves (in its private work folder, removed once read) and
@@ -300,8 +320,8 @@ else; a Kickstart image is walked but not filled. A guess that is not code is on
 they run (`final_checks.native_swept`; `native_forms.swept_instructions` is what is known), so a report never presents swept code that did not run as proved on a route; the routes it was read from
 ran the observed code, so on them the count stays at 0. Nothing swept enters the library.
 Proof: Rick Dangerous, Apidya, Lemmings and Civilization as usual, equal to the reference with the same counts. And a build that learned only the main route, playing the explore route it never saw: every frame
-and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is not
-in memory yet when the main route ends, and images taken at other moments of the route did not hold it either, so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
+and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is no longer
+in memory when the main route ends: later loads overwrite it (an image at frame 130 holds it), so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
 The routes are scripts and these are about a minute of each game; this does not say what share of a whole game a sweep reaches. **Size:** 12,730 to 95,933 more instructions compiled; Rick's exe goes from 2.88 MB to 3.28 MB, Civilization's is 8.33 MB
 against the first sweep. **Hot path:** one more count per swept instruction that runs. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
