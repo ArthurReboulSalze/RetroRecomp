@@ -9,6 +9,7 @@
  *   its section of the settings file:                RRC_INI_SECTION
  *   the notice of the full guest keyboard (a translated text, it names the machine): RRC_KEYBOARD_ON
  *   the last function key the guest owns with full typing: RRC_GUEST_FKEY_LAST
+ *   the disk keys its help page lists, each followed by a comma: RRC_HELP_DISKS (only those the computer answers)
  * and its frontend (the file that includes the adapter) defines these variables, which the libretro callbacks and the kit's loop share:
  *   guest_keyboard mouse_grab mouse_game input_focus fast_forward loading_holdoff want_swap swap_drive swap_direction want_eject
  *   keys mouse_dx mouse_dy mouse_buttons width height aspect_ratio player_config
@@ -274,7 +275,7 @@ static void x_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
 }
 static bool x_help_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
    const char *const lines[] = {"Ctrl+Alt+K: full guest keyboard", rrhk_tr("Ctrl+Alt+M / middle click: mouse", "Ctrl+Alt+M / clic milieu : souris"), "Ctrl+Alt+F: rapid fire",
-      "Ctrl+Alt+Page Up/Down: FDD0", "Add Shift: FDD1", "Ctrl+Alt+Backspace: eject disk", "Ctrl+Alt+H: help", "Ctrl+Alt+O: options",
+      RRC_HELP_DISKS "Ctrl+Alt+H: help", "Ctrl+Alt+O: options",
       "Ctrl+Alt+Enter: display mode", "Ctrl+Alt+Q: quit", "Ctrl+F1-F12: Retro-Recomp shortcuts"};
    unsigned n;
    (void)ui;

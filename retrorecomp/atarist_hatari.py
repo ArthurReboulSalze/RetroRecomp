@@ -155,6 +155,125 @@ REPLACEMENTS = [
      '\t\t\t\tif (!(rr_hatari_step && rr_hatari_step(r->instruction_pc, r->opcode)))\n'
      '\t\t\t\t\t(*cpufunctbl_noret[r->opcode])(r->opcode);\n\t\t\t\tif (!regs.loop_mode)\n\t\t\t\t\tregs.ird = regs.opcode;\n'
      '\t\t\t\tregs.instruction_cnt++;\n\t\t\t\twait_memory_cycles();'),
+    # Upstream defect (c453b85, src/floppies/ipf_dsk.c, ipf_generate_track; the draw of the write splice is MAME's): the splice is
+    # three inverted cells at the end of the last block's gap. A track whose last block has no gap (data runs to the end of the
+    # track: the protected tracks 2 to 6 of Kick Off 2) has it on the first three cells of the track, here the first A1 sync mark of
+    # the ID field of sector 1: the field then has two syncs, the WD1772 needs three, and Read Sector answers "record not found"
+    # (the game stops on "Master file not present or damaged"). The same cells are also inside the data of the 1024-byte sector 0
+    # (a wrong byte, so a wrong CRC). Our change: the splice is drawn only where its three cells lie in gaps, never over data;
+    # every ordinary track keeps it where it was.
+    ('src/floppies/ipf_dsk.c',
+     '\tipf_mark_track_splice(track, splice_pos[t->block_count-1], t->size_cells);\n',
+     '\t/* Retro-Recomp modification (BSD-3-Clause, like this file): the splice (three inverted cells) only where they lie in gaps. */\n'
+     '\t{\n\t\tbool splice_in_gap = true;\n\t\tfor (int s = 0; s < 3; s++)\n\t\t{\n'
+     '\t\t\tuint32_t at = (splice_pos[t->block_count-1] + s) % t->size_cells;\n\t\t\tbool in_gap = false;\n'
+     '\t\t\tfor (uint32_t b = 0; b != t->block_count; b++)\n\t\t\t\tif (at >= gap_pos[b] && at < data_pos[b+1])\n'
+     '\t\t\t\t\tin_gap = true;\n\t\t\tif (!in_gap)\n\t\t\t\tsplice_in_gap = false;\n\t\t}\n'
+     '\t\tif (splice_in_gap)\n\t\t\tipf_mark_track_splice(track, splice_pos[t->block_count-1], t->size_cells);\n\t}\n'),
+    # A restored state continues the unbroken run (G6). Hatari's restore ejects and reinserts the floppies after the controller's
+    # state came back: the index pulse's position, the head's loaded track and the disk-change signal restart, so the next read
+    # meets the disk elsewhere. The drives are restored again once the floppies are back.
+    ('src/fdc.c',
+     '\tMemorySnapShot_Store(&FDC_DRIVES, sizeof(FDC_DRIVES));\n',
+     '\tMemorySnapShot_Store(&FDC_DRIVES, sizeof(FDC_DRIVES));\n'
+     '\t/* Retro-Recomp modification (GPL-2.0, like this file): see rr_fdc_restore_drives. */\n'
+     '\tif ( !bSave )\n\t\tmemcpy ( rr_restored_drives , FDC_DRIVES , sizeof ( FDC_DRIVES ) );\n'),
+    ('src/fdc.c',
+     '/**\n * Save/Restore snapshot of local variables(\'MemorySnapShot_Store\' handles type)\n */\nvoid	FDC_MemorySnapShot_Capture(bool bSave)\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): what the snapshot held for the drives, put back after the restore\n'
+     ' * ejected and reinserted the floppies (memorySnapShot.c). */\n'
+     'static FDC_DRIVE_STRUCT rr_restored_drives[ MAX_FLOPPYDRIVES ];\n'
+     'void	rr_fdc_restore_drives ( void )\n{\n\tmemcpy ( FDC_DRIVES , rr_restored_drives , sizeof ( FDC_DRIVES ) );\n}\n\n'
+     '/**\n * Save/Restore snapshot of local variables(\'MemorySnapShot_Store\' handles type)\n */\nvoid	FDC_MemorySnapShot_Capture(bool bSave)\n'),
+    ('src/memorySnapShot.c',
+     '\t\tKFS_MemorySnapShot_Capture(false);\t\t\t/* After fdc/floppy are restored, as KFS depends on them */\n',
+     '\t\tKFS_MemorySnapShot_Capture(false);\t\t\t/* After fdc/floppy are restored, as KFS depends on them */\n'
+     '\t\t{ /* Retro-Recomp modification (GPL-2.0, like this file): see src/fdc.c */\n'
+     '\t\t\textern void rr_fdc_restore_drives ( void );\n\t\t\trr_fdc_restore_drives ();\n\t\t}\n'),
+    # The restore's own reset must not reach the player's speakers (its mixing buffer of silence, in the frame that follows a load).
+    ('src/memorySnapShot.c',
+     'void MemorySnapShot_Restore_Do(void)\n{\n\tuint32_t magic;\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): set while a restore runs; the session drops the sound it would send. */\n'
+     'int rr_snapshot_restoring;\n\n'
+     'void MemorySnapShot_Restore_Do(void)\n{\n\tuint32_t magic;\n'),
+    ('src/memorySnapShot.c',
+     '\tif (MemorySnapShot_OpenFile(Temp_FileName, false, Temp_Confirm))\n\t{\n\t\tConfiguration_MemorySnapShot_Capture(false);\n',
+     '\tif (MemorySnapShot_OpenFile(Temp_FileName, false, Temp_Confirm))\n\t{\n\t\trr_snapshot_restoring = 1;\n\t\tConfiguration_MemorySnapShot_Capture(false);\n'),
+    ('src/memorySnapShot.c',
+     '\t\tMemorySnapShot_CloseFile();\n\n\t\t/* changes may affect also info shown in statusbar */\n',
+     '\t\tMemorySnapShot_CloseFile();\n\t\trr_snapshot_restoring = 0;\n\n\t\t/* changes may affect also info shown in statusbar */\n'),
+    # The sound continues too: the filters' memory and the mixing buffer that a restore clears (Reset_Cold) are part of the state.
+    ('src/sound.c',
+     'ymsample	Subsonic_IIR_HPF_Left(ymsample x0)\n{\n\tstatic	yms32	x1 = 0, y1 = 0, y0 = 0;\n\n\tif ( YM2149_HPF_Filter == YM2149_HPF_FILTER_NONE )\n\t\treturn x0;\n\n\ty1 += ((x0 - x1) * 32768) - (y0 * 64);\n\ty0 = y1 / 32768;\n\tx1 = x0;\n\n\treturn y0;\n}\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the memory of the four filters below is kept in a state. */\n'
+     'static yms32	rr_hpf_left[ 3 ] , rr_hpf_right[ 3 ] , rr_lpf[ 2 ] , rr_pwm[ 2 ];\n\n'
+     'ymsample	Subsonic_IIR_HPF_Left(ymsample x0)\n{\n\tif ( YM2149_HPF_Filter == YM2149_HPF_FILTER_NONE )\n\t\treturn x0;\n\n'
+     '\trr_hpf_left[ 1 ] += ((x0 - rr_hpf_left[ 0 ]) * 32768) - (rr_hpf_left[ 2 ] * 64);\n\trr_hpf_left[ 2 ] = rr_hpf_left[ 1 ] / 32768;\n\trr_hpf_left[ 0 ] = x0;\n\n\treturn rr_hpf_left[ 2 ];\n}\n'),
+    ('src/sound.c',
+     'ymsample	Subsonic_IIR_HPF_Right(ymsample x0)\n{\n\tstatic	yms32	x1 = 0, y1 = 0, y0 = 0;\n\n\tif ( YM2149_HPF_Filter == YM2149_HPF_FILTER_NONE )\n\t\treturn x0;\n\n\ty1 += ((x0 - x1) * 32768) - (y0 * 64);\n\ty0 = y1 / 32768;\n\tx1 = x0;\n\n\treturn y0;\n}\n',
+     'ymsample	Subsonic_IIR_HPF_Right(ymsample x0)\n{\n\tif ( YM2149_HPF_Filter == YM2149_HPF_FILTER_NONE )\n\t\treturn x0;\n\n'
+     '\trr_hpf_right[ 1 ] += ((x0 - rr_hpf_right[ 0 ]) * 32768) - (rr_hpf_right[ 2 ] * 64);\n\trr_hpf_right[ 2 ] = rr_hpf_right[ 1 ] / 32768;\n\trr_hpf_right[ 0 ] = x0;\n\n\treturn rr_hpf_right[ 2 ];\n}\n'),
+    ('src/sound.c',
+     'static ymsample	LowPassFilter(ymsample x0)\n{\n\tstatic	yms32 y0 = 0, x1 = 0;\n\n\tif (x0 >= y0)\n\t/* YM Pull up:   fc = 7586.1 Hz (44.1 KHz), fc = 8257.0 Hz (48 KHz) */\n\t\ty0 = (3*(x0 + x1) + (y0<<1)) >> 3;\n\telse\n\t/* R8 Pull down: fc = 1992.0 Hz (44.1 KHz), fc = 2168.0 Hz (48 KHz) */\n\t\ty0 = ((x0 + x1) + (6*y0)) >> 3;\n\n\tx1 = x0;\n\treturn y0;\n}\n',
+     'static ymsample	LowPassFilter(ymsample x0)\n{\n\tif (x0 >= rr_lpf[ 0 ])\n\t/* YM Pull up:   fc = 7586.1 Hz (44.1 KHz), fc = 8257.0 Hz (48 KHz) */\n\t\trr_lpf[ 0 ] = (3*(x0 + rr_lpf[ 1 ]) + (rr_lpf[ 0 ]<<1)) >> 3;\n\telse\n\t/* R8 Pull down: fc = 1992.0 Hz (44.1 KHz), fc = 2168.0 Hz (48 KHz) */\n\t\trr_lpf[ 0 ] = ((x0 + rr_lpf[ 1 ]) + (6*rr_lpf[ 0 ])) >> 3;\n\n\trr_lpf[ 1 ] = x0;\n\treturn rr_lpf[ 0 ];\n}\n'),
+    ('src/sound.c',
+     'static ymsample	PWMaliasFilter(ymsample x0)\n{\n\tstatic	yms32 y0 = 0, x1 = 0;\n\n\tif (x0 >= y0)\n\t/* YM Pull up   */\n\t\ty0 = x0;\n\telse\n\t/* R8 Pull down */\n\t\ty0 = (3*(x0 + x1) + (y0<<1)) >> 3;\n\n\tx1 = x0;\n\treturn y0;\n}\n',
+     'static ymsample	PWMaliasFilter(ymsample x0)\n{\n\tif (x0 >= rr_pwm[ 0 ])\n\t/* YM Pull up   */\n\t\trr_pwm[ 0 ] = x0;\n\telse\n\t/* R8 Pull down */\n\t\trr_pwm[ 0 ] = (3*(x0 + rr_pwm[ 1 ]) + (rr_pwm[ 0 ]<<1)) >> 3;\n\n\trr_pwm[ 1 ] = x0;\n\treturn rr_pwm[ 0 ];\n}\n'),
+    ('src/sound.c',
+     '\tMemorySnapShot_Store(&pos_fract_weighted_n, sizeof(pos_fract_weighted_n));\n',
+     '\tMemorySnapShot_Store(&pos_fract_weighted_n, sizeof(pos_fract_weighted_n));\n\n'
+     '\t/* Retro-Recomp modification (GPL-2.0, like this file): the filters\' memory and the mixing buffer, so the sound continues. */\n'
+     '\tMemorySnapShot_Store(rr_hpf_left, sizeof(rr_hpf_left));\n\tMemorySnapShot_Store(rr_hpf_right, sizeof(rr_hpf_right));\n'
+     '\tMemorySnapShot_Store(rr_lpf, sizeof(rr_lpf));\n\tMemorySnapShot_Store(rr_pwm, sizeof(rr_pwm));\n'
+     '\tMemorySnapShot_Store(AudioMixBuffer, sizeof(AudioMixBuffer));\n\tMemorySnapShot_Store(&AudioMixBuffer_pos_write, sizeof(AudioMixBuffer_pos_write));\n'
+     '\tMemorySnapShot_Store(&AudioMixBuffer_pos_read, sizeof(AudioMixBuffer_pos_read));\n\tMemorySnapShot_Store(&AudioMixBuffer_pos_write_avi, sizeof(AudioMixBuffer_pos_write_avi));\n'
+     '\tMemorySnapShot_Store(&nGeneratedSamples, sizeof(nGeneratedSamples));\n\tMemorySnapShot_Store(&bEnvelopeFreqFlag, sizeof(bEnvelopeFreqFlag));\n'
+     '\tMemorySnapShot_Store(&Sound_BufferIndexNeedReset, sizeof(Sound_BufferIndexNeedReset));\n'),
+    # What a game writes to its disks (G7): Hatari's built-in IPF path refuses every write with "record not found", and only its
+    # ST path keeps a write, for the session. The controller now hands each written sector of any format to the session, and a
+    # read of that sector returns what was written (same timing as the track gives, CRC good).
+    ('src/fdc.c',
+     'static uint8_t	FDC_WriteSector_MFM ( uint8_t Drive , uint8_t Track , uint8_t Sector , uint8_t Side , int SectorSize )\n{\n\treturn FDC_STR_BIT_RNF;\n}\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the session keeps the sector (see FDCEMU_RUN_WRITESECTORS_CRC). */\n'
+     'static uint8_t	FDC_WriteSector_MFM ( uint8_t Drive , uint8_t Track , uint8_t Sector , uint8_t Side , int SectorSize )\n{\n\treturn rr_fdc_sector_written ? 0 : FDC_STR_BIT_RNF;\n}\n'),
+    ('src/fdc.c',
+     '\t\tif ( FDC.Status_Temp & FDC_STR_BIT_RNF )\t\t/* Sector FDC.SR was not found */\n',
+     '\t\t/* Retro-Recomp modification (GPL-2.0, like this file): a sector the game wrote reads back as written. */\n'
+     '\t\tif ( !( FDC.Status_Temp & FDC_STR_BIT_RNF ) && rr_fdc_sector_read )\n'
+     '\t\t{\n'
+     '\t\t\tstatic uint8_t rr_sector[ 8192 ];\n'
+     '\t\t\tint rr_size = FDC_Buffer_Get_Size () , rr_i;\n'
+     '\t\t\tif ( rr_size <= (int)sizeof ( rr_sector ) && rr_fdc_sector_read ( FDC.DriveSelSignal , FDC_DRIVES[ FDC.DriveSelSignal ].HeadTrack ,\n'
+     '\t\t\t\tFDC.SideSignal , FDC.SR , rr_sector , rr_size ) )\n'
+     '\t\t\t{\n'
+     '\t\t\t\tfor ( rr_i = 0 ; rr_i < rr_size ; rr_i++ )\n'
+     '\t\t\t\t\tFDC_BUFFER.Data[ rr_i ].Byte = rr_sector[ rr_i ];\n'
+     '\t\t\t\tFDC.Status_Temp &= ~FDC_STR_BIT_CRC_ERROR;\n'
+     '\t\t\t}\n'
+     '\t\t}\n\n'
+     '\t\tif ( FDC.Status_Temp & FDC_STR_BIT_RNF )\t\t/* Sector FDC.SR was not found */\n'),
+    ('src/fdc.c',
+     '\t\tif ( Status & FDC_STR_BIT_RNF )\t\t\t\t/* Sector FDC.SR was not correctly written */\n',
+     '\t\t/* Retro-Recomp modification (GPL-2.0, like this file): the session keeps what was written, whatever the format. */\n'
+     '\t\tif ( !( Status & FDC_STR_BIT_RNF ) && rr_fdc_sector_written )\n'
+     '\t\t{\n'
+     '\t\t\tstatic uint8_t rr_sector[ 8192 ];\n'
+     '\t\t\tint rr_size = FDC_Buffer_Get_Size () , rr_i;\n'
+     '\t\t\tif ( rr_size <= (int)sizeof ( rr_sector ) )\n'
+     '\t\t\t{\n'
+     '\t\t\t\tfor ( rr_i = 0 ; rr_i < rr_size ; rr_i++ )\n'
+     '\t\t\t\t\trr_sector[ rr_i ] = FDC_Buffer_Read_Byte_pos ( rr_i );\n'
+     '\t\t\t\trr_fdc_sector_written ( FDC.DriveSelSignal , FDC_DRIVES[ FDC.DriveSelSignal ].HeadTrack ,\n'
+     '\t\t\t\t\tFDC.SideSignal , FDC.SR , rr_sector , rr_size );\n'
+     '\t\t\t}\n'
+     '\t\t}\n\n'
+     '\t\tif ( Status & FDC_STR_BIT_RNF )\t\t\t\t/* Sector FDC.SR was not correctly written */\n'),
+    ('src/fdc.c',
+     'static uint8_t	FDC_WriteSector_ST ( uint8_t Drive , uint8_t Track , uint8_t Sector , uint8_t Side , int SectorSize );\n',
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the sectors a game writes, kept by the session (atarist_session.c). */\n'
+     'extern void (*rr_fdc_sector_written) ( int Drive , int Track , int Side , int Sector , const uint8_t *Data , int Size );\n'
+     'extern int (*rr_fdc_sector_read) ( int Drive , int Track , int Side , int Sector , uint8_t *Data , int Size );\n'
+     'static uint8_t	FDC_WriteSector_ST ( uint8_t Drive , uint8_t Track , uint8_t Sector , uint8_t Side , int SectorSize );\n'),
     # The desktop autostart (retrorecomp/atarist_disk.py): whether the TOS opened the desktop file Hatari serves, i.e. whether the
     # boot reached the desktop, so that a conversion keeps the autostart only for a disk that needs it.
     ('src/inffile.c',

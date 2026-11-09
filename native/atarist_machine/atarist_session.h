@@ -93,6 +93,14 @@ void rr_st_frame_info(const RrStSession *s, RrStFrameInfo *info);
 /* The ST RAM (for development dumps). */
 const uint8_t *rr_st_ram(const RrStSession *s, size_t *size);
 
+/* What the game wrote to its disks, sector by sector, whatever the disk's format (the image itself never changes). The table is
+ * also part of a quick state. serialize: malloc'd bytes (the file form, versioned, with a checksum). restore: 0 done, 3 invalid
+ * (the table stays empty). pending: 1 once when the table changed and no sector was written for `quiet` frames. */
+size_t rr_st_writes_serialize(const RrStSession *s, uint8_t **out);
+int rr_st_writes_restore(RrStSession *s, const uint8_t *data, size_t size);
+int rr_st_writes_pending(RrStSession *s, unsigned quiet);
+unsigned rr_st_writes_count(const RrStSession *s);
+
 /* Quick states (F8/F9): the whole machine, with the session's frame and disk, in memory (the caller writes the file); refused
  * between builds (`abi`). capture: 0 done (*out malloc'd), 4 failed. restore: 0 done; 2 another build or game; 3 invalid. */
 int rr_st_state_capture(RrStSession *s, const char *abi, uint8_t **out, size_t *size);

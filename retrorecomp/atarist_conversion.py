@@ -113,6 +113,43 @@ def write_events(path: Path, events) -> Path:
     return path
 
 
+def long_route(identity: str, index: int, frames: int, disks: int) -> list[tuple[int, int, str, int, int]]:
+    """A long varied route (extended level and above), fully determined by the exact game: joystick phases with the fire held at
+    times, taps, menu keys, mouse moves and clicks and, in the second route of a game of several disks, one change to the next disk
+    (frame 9,000) followed by the keys a player presses when a game asks for it: a route cannot tell when a game asks, and a disk
+    changed under a game that did not ask can crash it (Lethal Xcess did), so the first route never changes disk. The model is the
+    X68000's (x68000_scan.long_routes); a route does not finish a game."""
+    import random
+    rng = random.Random(f'atarist-long:{identity}:{index}')
+    events = []
+    frame = 300
+    next_disk, disk = (9000 if index == 1 and disks > 1 else 10 ** 9), 0
+    while frame < frames - 200:
+        if disks > 1 and frame >= next_disk:
+            disk = (disk + 1) % disks
+            events.append((frame, frame + 1, 'disk', disk, 0))
+            for offset, key in ((30, KEY_SPACE), (90, KEY_RETURN)):
+                events.append((frame + offset, frame + offset + 6, 'key', key, 1))
+            frame += 200
+            next_disk = 10 ** 9
+        roll = rng.random()
+        if roll < 0.5:                             # move, often firing
+            length = rng.randint(20, 160)
+            events.append((frame, frame + length, 'joy', rng.choice((0, 1, 2, 3, 3)), 1))
+            if rng.random() < 0.6:
+                events.append((frame, frame + length, 'joy', 4, 1))
+        elif roll < 0.72:                          # fire taps
+            events.append((frame, frame + rng.randint(3, 12), 'joy', 4, 1))
+        elif roll < 0.84:                          # menu keys: Return, Space, Y, the first digits
+            events.append((frame, frame + 6, 'key', rng.choice((KEY_RETURN, KEY_SPACE, 121, 49, 50)), 1))
+        else:                                      # mouse move and click
+            events.append((frame, frame + 20, 'mouse', rng.choice((0, 1)), rng.choice((-6, -2, 2, 6))))
+            if rng.random() < 0.5:
+                events.append((frame + 22, frame + 28, 'mouse', 2, 1))
+        frame += rng.randint(30, 120)
+    return sorted(events)
+
+
 # --------------------------------------------------------------------------------------------------------- building
 def machine_core(toolchain_root: Path, emit) -> tuple[Path, Path]:
     """The adapted Hatari tree and its own build (the static libretro core), done once per adaptation and toolchain: our own
@@ -361,10 +398,9 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# What a resumed process is not compared on (as on the Amiga): Hatari's snapshot leaves out the state of its sound output (the YM
-# mixing and resampling restart on load), so the samples of the first frames after a load differ while the machine (CPU, RAM,
-# picture) continues the same timeline. Reported as such (`game_states.validation`).
-CONTINUATION_IGNORED = ('pcm',)
+# What a resumed process is not compared on: nothing since the adapted Hatari keeps the sound's own memory in a state (the YM
+# filters and the mixing buffer) and the floppy drives' rotation through a restore.
+CONTINUATION_IGNORED = ()
 
 
 def continuation(timeline: Path, resumed: Path) -> dict:
@@ -430,6 +466,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         routes = [('main', count, main_route(count) if qualification_events is None else list(qualification_events))]
         if level != 'quick':
             routes.append(('explore', count, explore_route(count)))
+        from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
+        for index in range(LONG_ROUTES.get(level, 0)):
+            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES, long_route(source.sha256, index, LONG_ROUTE_FRAMES, len(source.disks))))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Atari ST: fresh reference runs ({len(routes)} route(s) of {count} frames, interpreted 68000).')
         expected = {}
@@ -534,7 +573,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         if hint:
             emit('Atari ST: ' + hint)
         # The quick state, loaded by a genuinely fresh process of the delivered file: how it continues is measured and reported
-        # (a state saved during a floppy transfer is not yet known to continue exactly: reported, not refused, while experimental).
+        # (reported, not refused, while experimental).
         restart = checks / 'restart'
         restart.mkdir()
         fresh = restart / candidate.name
@@ -564,7 +603,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                        'reader': "Hatari's built-in readers (IPF: src/floppies/ipf_dsk.c, BSD-3-Clause; no capsimg)",
                        'drive_a_at_start': 1, 'disk_changes': 'Ctrl+Alt+Page Up/Down in the game; none in the routes'},
             'machine': {'model': 'Atari ST (STF), 68000 at 8 MHz, 1 MiB', 'reference': 'Hatari (GPL-2.0) at its pinned revision, adapted at '
-                        'build time, cycle-exact 68000, real floppy timing, borders shown',
+                        'build time, its cycle-exact 68000 mode and its floppy timing model (fast loading off), borders shown; accuracy against hardware '
+                        'is not measured here',
                         'tos': {'used': tos.label(), 'version': tos.version_text(), 'country': tos.country,
                                 'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': tos.player_supplied, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
@@ -579,7 +619,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'mechanism': 'the TOS\'s own autostart line (#Z) in a desktop file Hatari serves in memory; the disk '
                                                'image is not changed' if autostart else None},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
-            'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
+            'native_validation': {'passed': True, 'independent_cpu_oracle': False, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
@@ -593,9 +633,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],
                                            'saving_leaves_the_timeline': True,
-                                           'compared': 'CPU registers, RAM and picture of every frame; not the sound samples (Hatari does '
-                                                       'not save the state of its sound output)'}},
-            'ordinary_saves': {'supported': False, 'scope': 'saves a game writes to its floppy stay in memory for the session only (not yet kept)'},
+                                           'compared': 'CPU registers, RAM, picture and sound samples of every frame'}},
+            'ordinary_saves': {'supported': True, 'scope': 'the sectors a game writes to its floppy, whatever the image format, are kept in '
+                               'datas/games/atarist-<game>/disk-writes.bin beside the quick state; the image is never changed; a format (write '
+                               'track) is not kept', 'routes_with_writes': {name: result.get('disk_writes', 0) for (name, _, _), result in
+                                                                            zip(routes, packed_results) if result.get('disk_writes')}},
             'input_players': 2, 'peripheral': {'joystick_ports': 2, 'mouse': 'port 0, captured on a click',
                                                'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
             'video_model': {'standard': 'PAL' if tos.pal else 'NTSC', 'frameskip': False, 'fps': packed_results[0]['fps']},
