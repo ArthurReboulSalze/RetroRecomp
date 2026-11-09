@@ -289,9 +289,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
     'gba': (GBARECOMP, ARM_RECOMP_CORE),
     'pce': (PCENGINERECOMP,),
-    # The decoder of m68k-recomp-core structures the guarded native steps of the Amiga (the bodies are Moira's); segagenesisrecomp
-    # is listed because that decoder is its submodule.
-    'amiga': (VAMIGA, SEGAGENESISRECOMP, M68K_RECOMP_CORE),
+    # Everything the Amiga's native code comes from is vAmiga's Moira: its handlers, and the instructions' lengths through its disassembler.
+    'amiga': (VAMIGA,),
     # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
     # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
     'atarist': (HATARI, EMUTOS, SEGAGENESISRECOMP, M68K_RECOMP_CORE),

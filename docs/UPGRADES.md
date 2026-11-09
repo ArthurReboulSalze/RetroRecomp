@@ -210,9 +210,9 @@ the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer fo
 `TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
 WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
 picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
-Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit:** three
-installs of the 24 (Twylyte, California Games, Time Runners 19) stop at boot because the slave's own patch code does what only
-a 68020 allows (Twylyte reads a word at an odd address: an address error on a 68000, as on a real A500); the layer is a 68000.
+Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit as written in
+1.7.1, corrected in 1.7.2:** this note blamed a 68020 for three installs that stop at boot; the real WHDLoad boots them on a 68000 (see
+the 1.7.2 entry on the keyboard's handshake).
 **What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
@@ -224,13 +224,148 @@ only**; the conversion keeps those addresses in the private memory of that image
 never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
 player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
 counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
-nothing derived from the image is shared, and the observation file and the library hold addresses only. **Measure** (Civilization,
+nothing derived from the image is shared, and the observation file and the library hold addresses only (**changed in 1.7.2:** the run's own
+observation of the Kickstart keeps the words as they stood, a slave's patches included, in the conversion's private work folder only; the library
+still keeps the addresses alone). **Measure** (Civilization,
 the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
 quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
 native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
 reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the icon's DATA ToolType names the data folder (1.7.2)
+
+An install whose slave leaves `ws_CurrentDir` empty and whose icon says `DATA=data` (Drakkhen, NTSC, French, German and the plain one) was read with its
+data folder at the archive's top: the `Disk.N` images in `data/` were not found and the game stopped at boot with "DiskLoad failed with DOS error 205
+(Disk.1)". The icon (`<slave>.info`, read the way `CUSTOM1` to `5` are) is now asked for `DATA`; when it names a folder of the archive that holds files, that is
+the data folder, as WHDLoad lets it replace the slave's `ws_CurrentDir` (a ToolType in parentheses is off; a name that matches nothing leaves the earlier rule).
+Run headless with the interpreted machine for 1,500 frames, the four Drakkhen installs reach the end with picture and sound (non-black frames 1,309 to
+1,340 of 1,500), where the tree before stops at frame 135 (NTSC). Any other install whose icon carries a `DATA` ToolType (about 14 of the maintainer's library)
+may now find its files where it did not; none of them was run again. **What moves:** the Amiga's game stamp for those installs only (the install's files
+change); the code is `retrorecomp/amiga_whdload.py`. No other console.
+
+## Commodore Amiga: a file the game saves reaches the disk whole or not at all (1.7.2)
+
+What an install saves (`resload_SaveFile`) goes to `datas/games/amiga-<identity>/saves`. The write went through a temporary file but did not look at the
+flush and the close, so a disk that took only part of the bytes could still replace a good save with a short one and tell the game it worked; the game's own view
+of the file changed before the disk was asked. Now the temporary file replaces the old one only when every byte is flushed and closed, the game is told the save
+failed (disk full) when anything refused, its view of the file and the file on disk stay as they were, and no temporary file stays behind. A name that would
+leave the save folder (absolute, a volume or drive colon, a backslash, `.` or `..`) is refused with "write-protected" instead of being written elsewhere;
+deleting follows the same rule. On 5th Gear (8 November 2026), with a folder where the file goes so that the replacing rename fails, the save was refused, the run stopped at it
+with DOS error 221 as WHDLoad does for a slave that sets NoError, the folder stayed and no temporary file was left. The helper is `native/amiga_machine/amiga_savefile.h` and is checked by an authored program (`tests/test_amiga_resload.py`:
+names, a first write, a replacement, a folder in the file's place, a file in the folder's place, a stale temporary). A disk that is really full cannot be made in
+that test; a refused rename is. **What moves:** the Amiga's game stamp (`amiga_session.cpp`); no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a conversion that fails with remembered data is tried again without it (1.7.2)
+
+The library remembers, per install, the instructions earlier conversions saw (and the Kickstart addresses). A remembered file that cannot be read was ignored, but one
+that is valid and too large (past the bound of an observation) stopped the conversion for good, since the file was only replaced by a conversion that finished. It
+is now ignored like a damaged one, and a conversion that fails after it merged anything from that memory is tried once more without it; on success the
+run's own observations replace the remembered ones. Checked on Rick Dangerous (quick level) with a valid file of 1,048,577 lines (13.6 MB): ignored, ready in 6 min 34 s, the file replaced
+by the run's own 4,896 lines; the retry itself is tested with a fake conversion, not on a real failure. The report says what the memory added, what was ignored and, after a retry, why (`remembered_data`). The
+Amiga does not share paths (G16 `-`). **What moves:** the converter only (`retrorecomp/amiga_conversion.py`), plus the report's wording below.
+
+## Commodore Amiga: the report and the F2 menu say less than they did (1.7.2)
+
+The report states what it measures: `native_coverage` names the Kickstart instructions of the player's image when the install uses one, `qualification_scope.media`
+the installs that ask for a Kickstart 1.x, `machine.model` that the memory is laid out as WHDLoad lays it out, `video_model.fps_is: nominal` (the frame rate the
+player paces by, not a measurement) and `native_validation.independent_cpu_oracle: false` (the native steps and the reference both run Moira). The F2 menu offers
+one player's page (one joystick is wired; the mouse is port 1), no second page that led nowhere. The Options note and the Kickstart check ("recognised", since the
+image is known by its size and CRC) are reworded in the eight languages. **What moves:** the Amiga's game stamp (`rrhk_amiga.inc`); no other console.
+
+## Commodore Amiga: the keyboard's power-up handshake is over when a slave starts (1.7.2)
+
+Twylyte and California Games stopped at boot with a guru, which 1.7.1 blamed on a 68020; that was wrong: the real WHDLoad boots them on a 68000
+(a private run of Copperline). The cause: vAmiga's keyboard waits a second after a reset and then sends `$FD` and `$FE`. On a real machine that ended
+long before WHDLoad started; here the slave starts a frame after the power-on, so the codes arrived about a second into the game, during the
+Kickstart's boot, and reached a slave's keyboard handler that a player's key would reach much later (that handler then read a word at an odd
+address, an address error on a 68000, as a real key press may also cause on such a slave; not checked). The machine now declares the handshake over
+at its power-on (`Keyboard::rrHandshakeOver`, a build-time change of the MPL-2.0 file). Both installs boot with picture and sound; Time Runners 19
+still stays black, for another reason not found yet. A game's run shifts by a few instructions around that second (Rick Dangerous: 24 more on each
+route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a sweep beyond the routes (1.7.2, recompilation stage 4)
+
+What a player reaches beyond the scripted routes ran on the interpreter. The conversion now reads the memory each route's fresh reference leaves (in its private work folder, removed once read) and
+goes outward from the observed code: what branches lead to, what follows them, then the rest of the 4 KiB pages where code ran, since a subroutine called through a pointer is reached by nothing
+else; a Kickstart image is walked but not filled. A guess that is not code is only a routine that never runs. The swept instructions carry the same guard, the latched opcode. They count apart when
+they run (`final_checks.native_swept`; `native_forms.swept_instructions` is what is known), so a report never presents swept code that did not run as proved on a route; the routes it was read from
+ran the observed code, so on them the count stays at 0. Nothing swept enters the library.
+Proof: Rick Dangerous, Apidya, Lemmings and Civilization as usual, equal to the reference with the same counts. And a build that learned only the main route, playing the explore route it never saw: every frame
+and the resload log equal to the reference on the three games tried; 320,225 instructions swept and run with none interpreted on Rick, 1,227,349 and none on Lemmings. On Apidya it reaches 6 of 9,565: that code is not
+in memory yet when the main route ends, and images taken at other moments of the route did not hold it either, so it stays on the counted interpreter. Civilization has no such test: its routes run the same code.
+The routes are scripts and these are about a minute of each game; this does not say what share of a whole game a sweep reaches. **Size:** 12,730 to 95,933 more instructions compiled; Rick's exe goes from 2.88 MB to 3.28 MB, Civilization's is 8.33 MB
+against the first sweep. **Hot path:** one more count per swept instruction that runs. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: 68000 forms translated to C (1.7.2, recompilation stage 3)
+
+The forms of 50 Moira handlers are now written out as C by a translator (`amiga_translate`): the effective address, the operation and the flags for that opcode, every register a
+literal index, calling the machine's bus functions (`read`, `write`, `prefetch`, `readExt`, `sync`) in Moira's order. Extension words are still read on the bus, so the guard stays the latched
+opcode. Other forms stay Moira's code specialised. Each route's report counts the two apart (`final_checks.native_translated`, `native_moira_specialised`), and `native_forms` gives the
+static counts. Translated share of the instructions executed on two routes of 3,600 frames: Rick Dangerous 99.8 %, Apidya 99.9 %, Lemmings 99.9 %, Civilization 99.0 %. Translated is a statement about the 68000's code:
+Agnus, Denise, Paula and the CIAs stay emulated, and this says nothing of hardware fidelity.
+Proof: `tools/amiga_vector_selftest.py` now runs every one of the 40,586 translated opcodes against Moira's handler on 32 random states over a random memory, with the interrupt lines
+changing at a random bus access: 1,298,752 runs, 0 differ on registers, SR, PC, queue, clock, each bus access, internal buffers, function code and flags. Deliberate errors were reported
+(a flag, a clock, a moved poll of the lines, a register, the order of a long write, an address error frame); one was not (a `readBuffer` write that a later prefetch overwrites). This shows equality with Moira, not
+with the hardware; the corpus of 6,762 vectors still runs through the steps, all equal. The same four games: every frame equal to the fresh reference, packed copy and state continuation too, with the same counts.
+An estimate on a loaded PC, headless (hashing included), interpreted time over native time on 1,200 frames: Rick 1.00, Apidya 1.01, Lemmings 1.00, Civilization 1.00; the 68000 is a small part of a frame here, not a timing.
+**Hot path:** one more count per translated instruction; the form's text differs, its bus accesses do not. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the instructions' lengths come from Moira, and no recompiler is needed (1.7.2)
+
+The chain of the native code needs the length of an observed instruction and the address it names. Both came from the decoder of `m68k-recomp-core`, built during each
+conversion. The length now comes from Moira's disassembler, in the table of its handlers, and the address from the handler and the instruction's words; a wrong guess could only
+miss a chain, which still compares the pc at run time. An Amiga conversion no longer reads anything from segagenesisrecomp or m68k-recomp-core, so no PolyForm Noncommercial
+text is involved in it, and a machine with extension words the decoder cannot read (a later Amiga) stays open. An opcode the decoder refused now runs native, Moira's code like
+the rest. **Hot path:** none. **What moves:** the Amiga's game stamp; no other console.
+
+## Commodore Amiga: Moira's code specialised per opcode, and chained (1.7.2, recompilation stage 2)
+
+A native step was a call to Moira's own handler behind a look-up and a comparison of every word through the memory map, which made it slower than the interpreter. Now a *form*
+is Moira's handler compiled for one opcode, with the opcode as a literal and Moira's code inlined, and each observed instruction (one per address and opcode) goes straight on
+to the instruction it knows comes next. This is Moira's code specialised, not a translation: same bus accesses, same cycles, same code. A form reads its extension words on
+the bus as the interpreter does, so it is right for its opcode at any address: the guard is now the opcode the CPU has latched, and a word rewritten in memory, by anything,
+needs no tracking. An instruction with the same opcode and other extension words now runs native where it was interpreted. The run loops see what they saw: the chain stops
+whenever a flag is pending for Moira or the Amiga, and returns there on anything it does not know.
+Vectors: 6,762 of 6,762 equal to the interpreter on registers, SR, PC, prefetch, clock and each bus access. Rick Dangerous, Apidya, Lemmings and Civilization, two routes of
+3,600 frames each: every frame equal to the fresh reference on picture, sound, RAM and registers, the packed copy and the state continuation too, with the same instruction counts.
+An estimate on a loaded PC, headless (hashing included), interpreted time over native time on 1,200 frames: Rick 1.00, Apidya 1.07, Lemmings 1.00, Civilization 1.01; not a timing.
+Licence: the index no longer contains `m68k_decoder.h`, so no PolyForm text enters an Amiga game, and its notice leaves the exports; the decoder still runs during the conversion.
+**Hot path:** the look-up and the word comparison are gone from most instructions; one count, two flag reads and a pc and opcode comparison per instruction added. **What
+moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a debugging recorder off, the resload traps without breakpoints (1.7.2, recompilation stage 1)
+
+Two costs the machine paid for nothing a game can see. vAmiga's logic analyzer, a recorder for its debugger, is connected by default and took 12 to 14 % of a
+frame's samples; it is off (`Opt::LA_CONNECT`). The resload traps were debugger breakpoints, which keep every 68000 instruction on Moira's slow path and walk a list (0.6 to
+5.6 % of the samples); they are one comparison after each instruction (`rr_moira_trap`, a build-time change of Moira's MIT file). Shares of a sampling profile on a loaded PC,
+not a timing. **Hot path:** one comparison per instruction added, the slow path and the breakpoint walk removed. Nothing here is recompilation: the counters do not change. **What
+moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the guard compares what the CPU has latched (1.7.2)
+
+A native step was chosen by comparing the instruction's words in memory, while the CPU was about to run the opcode it had already prefetched. A word rewritten just
+after its prefetch could therefore run the step of the new word with the old opcode. It never happened on a game (8 games, 16 routes, about 480 million instructions:
+memory and the latched words never differed), and an authored program shows it (358 of 367 cases differ from the interpreter); the frame comparison covers the routes
+only, so a player's play beyond them had no proof. The guard now compares the latched opcode and next word, and memory beyond them; on the same authored program no step
+runs and nothing differs. **Hot path:** three stores per instruction, and two reads through the memory map less. **What moves:** the Amiga's game stamp; no other console.
+
+## Commodore Amiga: Kickstart words a slave patched run native too (1.7.2)
+
+A slave patches some of the Kickstart's instructions; a step written from the pristine image then missed its guard for ever, and those instructions, often
+in loops, stayed on the interpreter. The observation of a run (`<observations>.kick`, in the conversion's private work folder, with the image itself) now
+keeps the words as they stood; the steps come from those and from the image, and the library still keeps the addresses alone, no byte. Civilization: 14,988
+Kickstart instructions interpreted on the main route become 19 of 4.42 million; California Games 48, Twylyte 10,638 of 49.0 million (0.022 %), on two routes of
+3,600 frames, each frame equal to the fresh interpreted reference, the compressed copy too and the quick state with its sound. Native code and CPU fidelity only.
+**What moves:** the Amiga's game stamp; no other console.
+
+## Commodore Amiga: an archive with an intro or editor slave beside the game (1.7.2)
+
+An archive with several slaves was refused. The slave named as the install's own folder is now the game, the others staying aside (`Superfrog/Superfrog.slave` beside
+`SuperfrogIntro.slave`): 17 of the 25 such archives of the maintainer's library. A collection where no single slave is so named stays refused, never guessed.
+**What moves:** the Amiga's game stamp; an install that was refused converts; nothing else changes.
 
 ## Commodore Amiga: CIA-B enters the slave as the system leaves it (1.7.1)
 
@@ -253,7 +388,7 @@ detections off for speed and the Amiga machine did not turn them on, so a game t
 (`native/amiga_machine/amiga_session.cpp`). Library check by counting CLXDAT reads over the standard route: Blood Money reads it (36
 reads in 2,500 frames), Xenon 2, Turrican, Shadow of the Beast, R-Type, Menace, Armalyte, Battle Squadron, Rick Dangerous, Lotus 2, Speedball 2 and
 Wings of Death do not (nor Apidya). **What moves:** the Amiga's game stamp; no other console. A game that reads CLXDAT may now play
-differently from an earlier export of it (as the real machine does). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+differently from an earlier export of it (the detection a real Amiga performs; the match of the game's behaviour with hardware is not measured). **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: the window says so when the whole run is interpreted (1.7.1)
 

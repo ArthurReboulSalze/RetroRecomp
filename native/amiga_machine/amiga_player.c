@@ -260,6 +260,8 @@ static FILE *open_utf8(const char *path, const wchar_t *mode) {
    return rr_from_utf8(path, wide, PATH_CAP) ? rr_fopen(wide, mode) : NULL;
 }
 
+static const char *memory_path;   /* --memory-image: where a headless run leaves its memory, for the conversion's sweep */
+
 static int run_headless(const char *trace_path, const char *report_path, const char *observe_path, const char *capture_path,
                         const char *resload_path, unsigned save_at, bool load_start) {
    FILE *trace = trace_path ? open_utf8(trace_path, L"wb") : NULL;
@@ -297,6 +299,7 @@ static int run_headless(const char *trace_path, const char *report_path, const c
    }
    if (trace && fclose(trace)) { fail("Cannot write the trace"); return 1; }
    if (observe_path && !rr_amiga_write_observations(session, observe_path)) { fail("Cannot write the observations"); return 1; }
+   if (memory_path && !rr_amiga_write_memory(session, memory_path)) { fail("Cannot write the memory image"); return 1; }
    if (resload_path && !rr_amiga_write_resload_log(session, resload_path)) { fail("Cannot write the resload log"); return 1; }
    if (capture_path && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
    if (report_path) {
@@ -321,10 +324,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)rr_amiga_kickstart_native_count(session));
          else fputs("\"kickstart\":null,", r);
       }
-      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
+      fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
               rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
-              (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
+              (unsigned long long)rr_amiga_translated_count(session), (unsigned long long)rr_amiga_swept_count(session), (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
               RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
@@ -363,7 +366,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--reference-cpu")) { reference_cpu = true; interpreter_only = true; }
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--help")) {
-         puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE\n"
+         puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE --memory-image FILE\n"
               "--capture PPM --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
               "--install DIR (a build without an embedded game) --saves DIR");
          return 0;
@@ -374,6 +377,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--trace")) trace_path = v;
          else if (!strcmp(a, "--report")) report_path = v;
          else if (!strcmp(a, "--observations")) observe_path = v;
+         else if (!strcmp(a, "--memory-image")) memory_path = v;
          else if (!strcmp(a, "--capture")) capture_path = v;
          else if (!strcmp(a, "--resload-log")) resload_path = v;
          else if (!strcmp(a, "--state-slot")) slot = v;

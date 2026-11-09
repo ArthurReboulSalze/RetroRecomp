@@ -79,7 +79,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | experimental | `█████████░` 89 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
-| [Commodore Amiga](docs/AMIGA.md) | experimental | `████░░░░░░` 38 % |
+| [Commodore Amiga](docs/AMIGA.md) | experimental | `█████░░░░░` 47 % |
 | [Atari ST](docs/ATARI_ST.md) | experimental | `█████░░░░░` 47 % |
 | [Nintendo 64](docs/NINTENDO_64.md) | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md) | experimental | `████░░░░░░` 40 % |
@@ -98,7 +98,7 @@ The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recom
 
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
 and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
-CPS-2 the key file of the romset). The Atari ST (a TOS) and the PlayStation (a BIOS) take your own as an option and have a free fallback. What each machine converts, its options
+CPS-2 the key file of the romset). The Atari ST (a TOS) and the PlayStation (a BIOS) take your own as an option and have a free fallback. The Commodore Amiga takes your own Kickstart image, needed only by the installs that ask for one. What each machine converts, its options
 and its limits are on its page.
 
 ### In development

@@ -64,6 +64,33 @@ REPLACEMENTS = [
      '                // Retro-Recomp modification (MIT): a guarded native step, else the jump table.\n'
      '                if (!(rr_moira_native && rr_moira_native(*this, reg.pc - 2, queue.ird))) (this->*exec[queue.ird])(queue.ird);\n'
      '            } catch (const std::exception &exc) {\n                processException(exc);\n            }\n        }\n\n    done:'),
+    # The resload traps as one comparison after each instruction, instead of debugger breakpoints: those keep every instruction on Moira's
+    # slow path and walk a list. Same place in the loop as the breakpoint test, same stop for the run loop (RL::BREAKPOINT_REACHED).
+    ('Components/CPU/Moira/Moira.cpp',
+     'bool (*rr_moira_native)(Moira &, u32 pc, u16 opcode) = nullptr;\n',
+     'bool (*rr_moira_native)(Moira &, u32 pc, u16 opcode) = nullptr;\n'
+     '// Retro-Recomp modification (MIT, like this file): a table of trap addresses, 4 bytes apart, that stops the run loop.\n'
+     'u32 rr_moira_trap_base = 0, rr_moira_trap_size = 0;\n'
+     'static inline bool rr_moira_trap(u32 pc) { u32 at = pc - rr_moira_trap_base; return at < rr_moira_trap_size && !(at & 3); }\n'),
+    ('Components/CPU/Moira/Moira.cpp',
+     '        } catch (const std::exception &exc) {\n            processException(exc);\n        }\n\n    } else {\n',
+     '        } catch (const std::exception &exc) {\n            processException(exc);\n        }\n'
+     '        if (rr_moira_trap(reg.pc0)) didReachBreakpoint(reg.pc0);   // Retro-Recomp modification (MIT)\n\n    } else {\n'),
+    ('Components/CPU/Moira/Moira.cpp',
+     '    done:\n\n        // Check if a breakpoint has been reached\n',
+     '    done:\n\n'
+     '        // Retro-Recomp modification (MIT): the trap table, under the condition the breakpoint test has.\n'
+     '        if (!(flags & TRACE_EXC) && rr_moira_trap(reg.pc0)) didReachBreakpoint(reg.pc0);\n\n'
+     '        // Check if a breakpoint has been reached\n'),
+    ('Components/Amiga.cpp',
+     '                auto addr = cpu.debugger.breakpoints.hit->addr;\n',
+     '                // Retro-Recomp modification (MPL-2.0, like this file): a trap of the table has no breakpoint object.\n'
+     '                auto addr = cpu.debugger.breakpoints.hit ? cpu.debugger.breakpoints.hit->addr : (u32)cpu.getPC0();\n'),
+    # Native code goes on from instruction to instruction as long as nothing is pending for the Amiga's run loop: it reads the loop's flags.
+    ('Components/Amiga.h',
+     '    void setFlag(u32 flags);\n',
+     '    void setFlag(u32 flags);\n'
+     '    const RunLoopFlags *rrRunFlags() const { return &flags; }   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
     # The sound path keeps state a snapshot leaves out (the four samplers' pending samples, the three filters' memory, the
     # sub-sample fraction, the master volume ramps): two public methods save and restore exactly that, so a quick state
     # continues the sound sample for sample. The session appends the bytes to its own state file.
@@ -115,6 +142,22 @@ REPLACEMENTS = [
     // Resets the output buffer and the two audio filters
     void clear();
 """),
+    # The keyboard's power-up handshake (a second of self test, then the codes $FD and $FE) ended long before a real WHDLoad starts a
+    # slave. The machine here enters the slave a frame after its power-on, so the host declares the handshake over: otherwise those
+    # two codes arrive about a second into the game, and a slave's keyboard handler that a player's key would reach much later runs
+    # during the Kickstart's boot.
+    ('Peripherals/Keyboard/Keyboard.h',
+     'class Keyboard final : public SubComponent {\n',
+     'class Keyboard final : public SubComponent {\n\n'
+     'public:\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the keyboard has long been up and is waiting for a key.\n'
+     '    void rrHandshakeOver();\n\n'
+     'private:\n'),
+    ('Peripherals/Keyboard/Keyboard.cpp',
+     'void\nKeyboard::wakeUp()\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file).\n'
+     'void\nKeyboard::rrHandshakeOver()\n{\n    agnus.cancel<SLOT_KBD>();\n    state = KbState::SEND;\n}\n\n'
+     'void\nKeyboard::wakeUp()\n'),
     ('Components/Denise/Texture.cpp',
      '    auto *ptr = pixels.ptr + row * HPIXELS + 4 * cycle;\n\n    for (isize col = 4 * cycle; col < 4 * cycle + 4; col++) {',
      '    // Retro-Recomp modification (MPL-2.0, like this file): the column index already holds the cycle offset.\n'

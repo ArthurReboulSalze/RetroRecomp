@@ -193,6 +193,9 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
+    # never into a game (the folder's CMakeLists.txt does not build it).
+    'native/amiga_machine/amiga_vector_checks.cpp',
     # tools/atarist_vector_selftest.py (the ST's cycle-exact 68000 against an independent corpus): built against the adapted Hatari for a
     # check, never into a game (the folder's CMakeLists.txt does not build it).
     'native/atarist_machine/atarist_vector_checks.c',
@@ -625,6 +628,7 @@ INPUTS = _resolve({
         'licenses/vamiga.md',
         'native/amiga_machine/CMakeLists.txt',
         'native/amiga_machine/amiga_player.c',
+        'native/amiga_machine/amiga_savefile.h',
         'native/amiga_machine/amiga_session.cpp',
         'native/amiga_machine/amiga_session.h',
         'native/amiga_machine/moira_map.cpp',
@@ -635,6 +639,7 @@ INPUTS = _resolve({
         'native/hostkit/adapters/rrhk_amiga.inc',
         'retrorecomp.amiga',
         'retrorecomp.amiga_codegen',
+        'retrorecomp.amiga_translate',
         'retrorecomp.amiga_conversion',
         'retrorecomp.amiga_kickstart',
         'retrorecomp.amiga_lha',

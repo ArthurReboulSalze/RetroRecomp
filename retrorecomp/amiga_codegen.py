@@ -1,97 +1,336 @@
-"""Amiga native steps on Moira's instruction templates (MIT): the hooks the shared observed-code generator calls.
+"""Amiga native code (MIT), one routine per opcode, chained from instruction to instruction.
 
-The Amiga's reference machine is vAmiga, whose CPU is Moira (MIT, pinned with vAmiga). A native step must make the same
-bus accesses at the same cycles as the reference (chip-RAM contention), so it calls the very template Moira dispatches
-the opcode to, with the opcode as a literal, instead of going through Moira's jump table: no table and no decoding at
-run time; the extension words still come through Moira's prefetch, as on the bus. The shared generator
-(`m68k_observed.write_steps`) groups the observed instructions into forms by the decoder's structural key, which starts
-with the opcode word, so every form has exactly one Moira template. The live-word guard of the shared index keeps a
-changed instruction on the counted interpreter.
+The Amiga's reference machine is vAmiga, whose CPU is Moira (MIT, pinned with vAmiga). Native code must make the same bus accesses at the same cycles as the
+reference (chip-RAM contention). A *form* is the code of one opcode, in one of two kinds, counted apart: translated (`amiga_translate`: the instruction written out as C, calling
+the machine's bus functions), or Moira's code specialised (Moira's own handler compiled for that opcode, with the opcode as a literal and its code inlined). Either reads its
+extension words on the bus, as the interpreter does.
 
-`opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time
-(`<opcode hex> <handler> <Instr> <Mode> <Size>`); nothing of Moira is copied here. The steps are C++ (Moira's templates)
-with C linkage; the index that lists them is C (`ObservedCode.index_extension = '.c'`).
+That is why the guard is one comparison. A form is correct for its opcode at any address and with any extension words, so all that decides whether it
+may run is the opcode the CPU has latched: a word rewritten in memory, by anything, needs no tracking. An *instruction* (one per address and opcode
+observed, `rr_amiga_at_<pc>_<opcode>`) runs its form, counts, and goes straight on to the instruction it knows comes next when the CPU is there with
+that opcode latched and nothing is pending for Moira's or the Amiga's run loop; anything else returns to the run loop, whose checks then see exactly what
+they would have seen. `rr_amiga_lookup` is the way in, from the interpreter and after a jump the generator could not know.
+
+Beyond what was observed, `sweep` goes outward from it over images of memory: what a branch not taken on a route leads to, what follows it, and the rest of the pages where
+code ran. Those instructions become
+native code too, with the same guard, and count apart when they run (`rr_amiga_swept_total`): a sweep guesses, so a report never presents one as proved on a route. A wrong guess
+(data read as code, code that a later load replaces) can only be a compiled routine that never runs, or an opcode that does not match and goes to the interpreter.
+
+`opcode_map` is read from the table a small tool linked with the adapted Moira writes at conversion time (`<opcode hex> <handler> <Instr> <Mode> <Size> <words>`,
+the words being what Moira's disassembler consumes); nothing of Moira is copied here.
 """
 from __future__ import annotations
 
 import hashlib
 from pathlib import Path
 
-from . import m68k_observed
-from .m68000 import mnemonic_names
+from . import amiga_translate, m68k_observed
+from .megadrive_codegen import write_changed
 
-FORMAT = 1
+FORMAT = 5
+# Moira's template parameter for the CPU of the machine.
+CORE = 'C68000'
+PARTS = 16
+# How far a sweep goes, instructions per conversion: a bound on the build, not on what is right.
+SWEEP_LIMIT = 150000
+SWEEP_PAGE_BITS = 12
+# Handlers after which the next word is not the next instruction.
+_NO_FALL_THROUGH = frozenset(('Bra', 'Jmp', 'Rts', 'Rte', 'Rtr', 'Stop', 'Illegal', 'LineA', 'LineF'))
+# Moira's Mode values (MoiraTypes.h) of the addressing modes that name a place: (####).w, (####).l, (d,PC).
+MODE_AW, MODE_AL, MODE_DIPC = 7, 8, 9
 _MAP: dict[int, tuple[str, int, int, int]] = {}
+_WORDS: dict[int, int] = {}
 _MAP_SHA256 = ''
 
 
 def load_opcode_map(path: Path) -> dict[int, tuple[str, int, int, int]]:
-    """The opcode -> (handler, Instr, Mode, Size) table of the 68000 core; every one of the 65,536 opcodes must be there."""
-    global _MAP, _MAP_SHA256
+    """The opcode -> (handler, Instr, Mode, Size) table of the 68000 core, and each opcode's number of words; every one of the 65,536 opcodes must be there."""
+    global _MAP, _WORDS, _MAP_SHA256
     table = {}
+    words = {}
     text = Path(path).read_text(encoding='ascii')
     for line in text.splitlines():
-        code, name, instr, mode, size = line.split()
+        code, name, instr, mode, size, count = line.split()
         if not name.isidentifier():
             raise ValueError('Invalid Moira handler name: ' + name)
         table[int(code, 16)] = (name, int(instr), int(mode), int(size))
+        words[int(code, 16)] = int(count)
     if len(table) != 65536:
         raise ValueError('The Moira opcode table is incomplete.')
-    _MAP, _MAP_SHA256 = table, hashlib.sha256(text.encode()).hexdigest()
+    _MAP, _WORDS, _MAP_SHA256 = table, words, hashlib.sha256(text.encode()).hexdigest()
     return table
 
 
 def _semantics(prefix: str, alias) -> str:
-    """step_semantics.h: the adapted Moira and one forwarder per handler inside the struct Moira declares its friend."""
+    """step_semantics.h: inside the struct Moira declares its friend, one forwarder per handler and what an instruction reads of the CPU. The forms define
+    RR_AMIGA_FORMS to see Moira's code and inline it, as `MoiraCore_cpp.h` compiles it for the jump table; the instructions only need the declarations."""
     handlers = sorted({entry[0] for entry in _MAP.values()})
     forwarders = ''.join(
         f'    template <Core C, Instr I, Mode M, Size S> static void run_{name}(Moira &m, u16 op) {{ m.exec{name}<C, I, M, S>(op); }}\n'
         for name in handlers)
-    return ('#pragma once\n#include "vaconfig.h"\n#include "Moira.h"\n#include <cstdint>\n'
-            'namespace vamiga::moira {\nstruct RrAmigaSteps {\n' + forwarders + '};\n}\n')
-
-
-def _step(symbol: str, ins: dict, name: str, body: str) -> tuple[str, str]:
-    opcode = ins['words'][0]
-    handler, instr, mode, size = _MAP[opcode]
-    # C linkage and an opaque machine pointer: the index that lists the steps is C.
-    call = (f'vamiga::moira::RrAmigaSteps::run_{handler}<vamiga::moira::Core::C68000, (vamiga::moira::Instr){instr}, '
-            f'(vamiga::moira::Mode){mode}, (vamiga::moira::Size){size}>(*static_cast<vamiga::moira::Moira *>(m), op);')
-    return (f'extern "C" void {symbol}(void *m, uint16_t op) {{ {call} }}\n',
-            f'void {symbol}(void *m, uint16_t op);\n')
+    return ('#pragma once\n#include "vaconfig.h"\n#include "MoiraConfig.h"\n#include "Moira.h"\n#include "MoiraMacros.h"\n'
+            '#include <cassert>\n#include <cstdio>\n#include <algorithm>\n#include <cmath>\n#include <bit>\n#include <vector>\n#include <stdexcept>\n#include <cstdint>\n'
+            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_swept_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
+            'extern uint32_t rr_amiga_kick_base, rr_amiga_kick_size;\n}\n'
+            'namespace vamiga::moira {\nusing namespace Flag;\n'
+            '#ifdef RR_AMIGA_FORMS\n'
+            '#include "MoiraInit_cpp.h"\n#include "MoiraALU_cpp.h"\n#include "MoiraDataflow_cpp.h"\n#include "MoiraExceptions_cpp.h"\n#include "MoiraExec_cpp.h"\n'
+            '#endif\n'
+            'struct RrAmigaSteps {\n' + forwarders +
+            '    // A translated form (retrorecomp/amiga_translate.py), a member of the struct Moira declares its friend.\n'
+            '    template <int OPCODE> static void translated(Moira &m);\n'
+            '    // Something is pending for a run loop: back to it. Only the interpreter\'s slow path and the Amiga\'s loop deal with those.\n'
+            '    static inline bool pending(const Moira &m) { return m.flags != 0 || *rr_amiga_run_flags != 0; }\n'
+            '    // The CPU is at this instruction, with this opcode latched: it starts as Moira::execute() starts it.\n'
+            '    static inline bool at(Moira &m, u32 pc, u16 opcode) {\n'
+            '        if (m.reg.pc0 != pc || m.queue.ird != opcode) return false;\n'
+            '        m.reg.pc += 2;\n'
+            '        return true;\n'
+            '    }\n'
+            '};\n}\n'
+            '#if defined(__clang__)\n#define RR_AMIGA_NEXT [[clang::musttail]] return\n#else\n#define RR_AMIGA_NEXT return\n#endif\n'
+            '#if defined(__GNUC__) || defined(__clang__)\n#define RR_AMIGA_FORM __attribute__((flatten))\n#else\n#define RR_AMIGA_FORM\n#endif\n')
 
 
 def moira_bodies(engine: Path, prefix: str) -> m68k_observed.InstructionBodies:
-    """The `ObservedCode.bodies` entry point of the Amiga: every decoded mnemonic is accepted (Moira handles them all);
-    the steps and their header come from the hooks. Call `load_opcode_map` first."""
+    """The `ObservedCode.bodies` entry point of the Amiga: its code is Moira's, nothing comes from a recompiler. Call `load_opcode_map` first."""
     if not _MAP:
         raise ValueError('Load the Moira opcode table first.')
-    names = mnemonic_names(engine)
-    return m68k_observed.InstructionBodies(names, {name: '' for name in names}, '', '', _MAP_SHA256,
-                                           step_text=_step, semantics_text=_semantics)
+    return m68k_observed.InstructionBodies([], {}, '', '', _MAP_SHA256, semantics_text=_semantics)
 
 
-# The index of the Amiga steps, in C: the decoder's instruction type, the step type and the guard's word reader. vAmiga keeps
-# memory big-endian, so the guard reads words through the machine (MSB_FIRST branch of the shared guard). The steps it lists
-# are C++ functions with C linkage.
-INDEX_HEAD = '''#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
-#include "m68k_decoder.h"
-#define MSB_FIRST 1
-typedef struct RrAmigaStep { M68KInstr instruction; void (*run)(void *machine, uint16_t opcode); } RrAmigaStep;
-int rr_amiga_code_word(uint32_t pc, uint16_t *word);
-'''
-# Unused on the MSB_FIRST branch of the shared guard (the words come from rr_amiga_code_word).
-CODE_VIEW = ('#if defined(__GNUC__) || defined(__clang__)\n__attribute__((unused))\n#endif\n'
-             'static const uint8_t *code_view(uint32_t pc, uint32_t *available) { (void)pc; (void)available; return NULL; }\n')
+def _translated(opcode: int) -> str | None:
+    handler, _, mode, size = _MAP[opcode]
+    return amiga_translate.translate(opcode, handler, mode, size, core=CORE)
 
 
-def index_tail(links: list) -> str:
-    """After the lookup: the accessor the machine's dispatch uses (the step type stays inside the index)."""
-    return 'void (*rr_amiga_step_of(const RrAmigaStep *s))(void *, uint16_t) { return s->run; }\n'
+def _form(symbol: str, opcode: int) -> str:
+    handler, instr, mode, size = _MAP[opcode]
+    body = _translated(opcode)
+    if body is not None:
+        return (f'namespace vamiga::moira {{\ntemplate <> inline void RrAmigaSteps::translated<0x{opcode:04x}>(Moira &m) {{\n    [[maybe_unused]] auto &r = m.reg;\n'
+                f'    [[maybe_unused]] auto &q = m.queue;\n{body}}}\n}}\n'
+                f'extern "C" RR_AMIGA_FORM void {symbol}(void *m) {{ vamiga::moira::RrAmigaSteps::translated<0x{opcode:04x}>(*static_cast<vamiga::moira::Moira *>(m)); }}\n')
+    return (f'extern "C" RR_AMIGA_FORM void {symbol}(void *m) {{ vamiga::moira::RrAmigaSteps::run_{handler}<vamiga::moira::Core::{CORE}, (vamiga::moira::Instr){instr}, '
+            f'(vamiga::moira::Mode){mode}, (vamiga::moira::Size){size}>(*static_cast<vamiga::moira::Moira *>(m), 0x{opcode:04x}); }}\n')
 
 
-STEPS_HEAD = '#include "step_semantics.h"\n'
+def _symbol(prefix: str, pc: int, opcode: int) -> str:
+    return f'{prefix}at_{pc:06x}_{opcode:04x}'
+
+
+def _count(pc: int) -> str:
+    """The Kickstart's instructions are counted apart: its window, or its copy in ExpMem, which is outside chip RAM and known at run time only."""
+    if pc >= 0xfc0000:
+        return ' rr_amiga_kick_total++;'
+    if pc >= 0x200000:
+        return f' if (0x{pc:x}u - rr_amiga_kick_base < rr_amiga_kick_size) rr_amiga_kick_total++;'
+    return ''
+
+
+def _instruction(prefix: str, pc: int, form: tuple, following: list, swept: bool = False) -> str:
+    chain = ''.join(f'    if (S::at(m, 0x{next_pc:x}, 0x{opcode:04x})) RR_AMIGA_NEXT {_symbol(prefix, next_pc, opcode)}(p);\n' for next_pc, opcode in following)
+    translated = (' rr_amiga_translated_total++;' if _translated(form[1]) is not None else '') + (' rr_amiga_swept_total++;' if swept else '')
+    return (f'extern "C" void {_symbol(prefix, pc, form[1])}(void *p) {{\n    auto &m = *static_cast<vamiga::moira::Moira *>(p);\n    {form[0]}(p);\n'
+            f'    rr_amiga_native_total++;{translated}{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
+
+
+def _signed(value: int, bits: int) -> int:
+    return value - (1 << bits) if value >> (bits - 1) else value
+
+
+def _target(pc: int, words: list) -> int | None:
+    """The address an observed instruction names, when it names one: a guess for the chain only, which still compares the pc at run time."""
+    handler, _, mode, _ = _MAP[words[0]]
+    if handler in ('Bcc', 'Bra', 'Bsr'):
+        displacement = words[0] & 0xff
+        if displacement:
+            return pc + 2 + _signed(displacement, 8)
+        return pc + 2 + _signed(words[1], 16) if len(words) > 1 else None
+    if handler == 'Dbcc':
+        return pc + 2 + _signed(words[1], 16) if len(words) > 1 else None
+    if handler in ('Jmp', 'Jsr'):
+        if mode == MODE_AW and len(words) > 1:
+            return _signed(words[1], 16)
+        if mode == MODE_AL and len(words) > 2:
+            return words[1] << 16 | words[2]
+        if mode == MODE_DIPC and len(words) > 1:
+            return pc + 2 + _signed(words[1], 16)
+    return None
+
+
+def _word(image: tuple, address: int) -> int | None:
+    start, data = image
+    at = address - start
+    return data[at] << 8 | data[at + 1] if 0 <= at and at + 1 < len(data) else None
+
+
+def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit: int = SWEEP_LIMIT) -> list:
+    """(pc, words in hex) of the instructions reached from the observed ones over images of memory, each a list of (start address, bytes) regions, and not observed themselves.
+    Only where an image still holds the observed opcode does the walk start from it, following branches and what falls through them. Then, in RAM images, every even address of a
+    4 KiB page where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs. Bounded."""
+    seen = {(pc, int(text[:4], 16)) for pc, text in samples}
+    found: dict[tuple[int, int], str] = {}
+    by_address = sorted(set(samples))
+    pages = sorted({pc >> SWEEP_PAGE_BITS for pc, _ in by_address})
+    for regions, fill in [(image, True) for image in images] + [(image, False) for image in rom_images]:
+        def read(address):
+            return next((value for value in (_word(region, address) for region in regions) if value is not None), None)
+
+        def add(pc):
+            """The words of a legal instruction at this address, recorded unless observed."""
+            opcode = read(pc)
+            if opcode is None or _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
+                return None
+            words = [read(pc + 2 * n) for n in range(_WORDS[opcode])]
+            if None in words:
+                return None
+            text = ''.join(f'{word:04x}' for word in words)
+            try:
+                observed.check_sample(pc, text)
+            except ValueError:
+                return None
+            if (pc, opcode) not in seen:
+                found.setdefault((pc, opcode), text)
+            return words
+        visited: set[int] = set()
+        queue: list[int] = []
+
+        def follow(pc, words):
+            target = _target(pc, words)
+            places = [] if target is None else [target & 0xffffff]
+            if _MAP[words[0]][0] not in _NO_FALL_THROUGH:
+                places.append((pc + 2 * _WORDS[words[0]]) & 0xffffff)
+            queue.extend(place for place in places if not place & 1)
+        for pc, text in by_address:
+            if read(pc) == int(text[:4], 16):
+                follow(pc, [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)])
+        position = 0
+        while position < len(queue) and len(found) < limit:
+            pc = queue[position]
+            position += 1
+            if pc in visited:
+                continue
+            visited.add(pc)
+            words = add(pc)
+            if words is not None:
+                follow(pc, words)
+        if fill:
+            for page in pages:
+                for pc in range(page << SWEEP_PAGE_BITS, (page + 1) << SWEEP_PAGE_BITS, 2):
+                    if len(found) >= limit:
+                        break
+                    add(pc)
+    return sorted((pc, text) for (pc, _), text in found.items())
+
+
+def write_steps(project: Path, samples: list, *, observed, swept: list = ()) -> dict:
+    """From the observed instructions (pc, their words in hex) and the swept ones, write the forms (`steps/partNN.cpp`), the instructions in address order (`steps/chainNN.cpp`)
+    and the index that finds an instruction from a pc and an opcode (`steps/index.c`)."""
+    prefix = observed.prefix
+    words = set()
+    observed_samples = set(samples)
+    # What may follow each (pc, opcode): the targets its variants name first (a loop's branch), then where they fall through.
+    following: dict[tuple[int, int], list] = {}
+    for pc, text in sorted(set(samples) | set(swept)):
+        seen = [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)]
+        count = _WORDS[seen[0]]
+        seen = seen[:count]
+        if (pc, text) in observed_samples:
+            words.add((pc, tuple(seen)))
+        places = following.setdefault((pc, seen[0]), [[], []])
+        target = _target(pc, seen)
+        if target is not None and not target & 1 and target & 0xffffff not in places[0]:
+            places[0].append(target & 0xffffff)
+        fall = (pc + 2 * count) & 0xffffff
+        if fall not in places[1]:
+            places[1].append(fall)
+    instructions = sorted(following)
+    was_seen = {(pc, int(text[:4], 16)) for pc, text in samples}
+    opcodes_at: dict[int, list] = {}
+    for pc, opcode in instructions:
+        opcodes_at.setdefault(pc, []).append(opcode)
+    forms = {opcode: f'{prefix}form_{opcode:04x}' for opcode in sorted({opcode for _, opcode in instructions})}
+    steps = project / 'steps'
+    steps.mkdir(exist_ok=True)
+    chunks = [[] for _ in range(PARTS)]
+    for opcode, symbol in forms.items():
+        chunks[(opcode >> 1) % PARTS].append(_form(symbol, opcode))
+    for n, chunk in enumerate(chunks):
+        write_changed(steps / f'part{n:02}{observed.source_extension}', '#define RR_AMIGA_FORMS 1\n' + observed.steps_head + ''.join(chunk))
+    # Neighbours in memory stay in one file: a chain's jumps stay short.
+    size = max(1, (len(instructions) + PARTS - 1) // PARTS)
+    for n in range(PARTS):
+        text, declared = [], set()
+        for pc, opcode in instructions[n * size:(n + 1) * size]:
+            places = following[(pc, opcode)]
+            ordered = list(dict.fromkeys(places[0] + places[1]))
+            chain = [(place, other) for place in ordered for other in opcodes_at.get(place, [])]
+            needed = {(pc, opcode)} | set(chain)
+            text.extend(f'extern "C" void {_symbol(prefix, *item)}(void *);\n' for item in sorted(needed - declared))
+            declared |= needed
+            if forms[opcode] not in declared:
+                text.append(f'extern "C" void {forms[opcode]}(void *);\n')
+                declared.add(forms[opcode])
+            text.append(_instruction(prefix, pc, (forms[opcode], opcode), chain, swept=(pc, opcode) not in was_seen))
+        write_changed(steps / f'chain{n:02}{observed.source_extension}',
+                      observed.steps_head + 'using S = vamiga::moira::RrAmigaSteps;\n' + ''.join(text))
+    groups = []
+    for index, (pc, _) in enumerate(instructions):
+        if groups and groups[-1][0] == pc:
+            groups[-1][2] += 1
+        else:
+            groups.append([pc, index, 1])
+    pages: dict[int, dict] = {}
+    for index, (pc, _, _) in enumerate(groups):
+        page = pages.setdefault(pc >> 12, {'base': index, 'slots': {}})
+        page['slots'][(pc & 0xfff) >> 1] = index - page['base'] + 1
+    source = ['#include <stddef.h>\n#include <stdint.h>\n',
+              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_swept_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
+              'typedef void (*RrAmigaCode)(void *);\n']
+    source.extend(f'void {_symbol(prefix, pc, opcode)}(void *);\n' for pc, opcode in instructions)
+    source.append('static const struct {uint16_t opcode;RrAmigaCode run;} entries[]={'
+                  + (',\n'.join(f'{{0x{opcode:04x},{_symbol(prefix, pc, opcode)}}}' for pc, opcode in instructions) or '{0,NULL}') + '};\n')
+    source.append('static const struct {uint32_t start,count;} groups[]={' + (','.join(f'{{{start},{count}}}' for _, start, count in groups) or '{0,0}') + '};\n')
+    for number, page in sorted(pages.items()):
+        source.append(f'static const uint16_t page_{number:x}[2048]={{' + ','.join(f'[{slot}]={value}' for slot, value in sorted(page['slots'].items())) + '};\n')
+    source.append('static const struct {uint32_t base;const uint16_t *slots;} pages[4096]={'
+                  + ','.join(f'[{number}]={{{page["base"]},page_{number:x}}}' for number, page in sorted(pages.items())) + '};\n')
+    source.append("""RrAmigaCode rr_amiga_lookup(uint32_t pc,uint16_t opcode) {
+    pc&=0xffffffu;
+    if(pc&1u)return NULL;
+    const uint16_t *slots=pages[pc>>12].slots;
+    if(!slots)return NULL;
+    unsigned slot=slots[(pc&0xfffu)>>1];
+    if(!slot)return NULL;
+    unsigned group=pages[pc>>12].base+slot-1u;
+    for(unsigned k=0;k<groups[group].count;++k)
+        if(entries[groups[group].start+k].opcode==opcode)return entries[groups[group].start+k].run;
+    return NULL;
+}
+""")
+    write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
+    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
+            'swept_instructions': sum(key not in was_seen for key in instructions),
+            'translated_forms': sum(_translated(opcode) is not None for opcode in forms),
+            'translated_instructions': sum(_translated(opcode) is not None for _, opcode in instructions)}
+
+
+def write_all_translated_forms(project: Path, *, observed) -> list:
+    """For the self-test: every opcode the translator knows, in the files of the forms, and a table of them by opcode. Returns the opcodes."""
+    opcodes = sorted(opcode for opcode in _MAP if _translated(opcode) is not None)
+    steps = project / 'steps'
+    steps.mkdir(parents=True, exist_ok=True)
+    chunks = [[] for _ in range(PARTS)]
+    for opcode in opcodes:
+        chunks[(opcode >> 1) % PARTS].append(_form(f'{observed.prefix}form_{opcode:04x}', opcode))
+    for n, chunk in enumerate(chunks):
+        write_changed(steps / f'part{n:02}{observed.source_extension}', '#define RR_AMIGA_FORMS 1\n' + observed.steps_head + ''.join(chunk))
+    declarations = ''.join(f'void {observed.prefix}form_{opcode:04x}(void *);\n' for opcode in opcodes)
+    entries = ','.join(f'[0x{opcode:04x}]={observed.prefix}form_{opcode:04x}' for opcode in opcodes)
+    write_changed(steps / f'forms_table{INDEX_EXTENSION}', f'{declarations}void (*const rr_amiga_all_forms[65536])(void *)={{{entries}}};\n')
+    return opcodes
+
+
 SOURCE_EXTENSION = '.cpp'
 INDEX_EXTENSION = '.c'

@@ -2,9 +2,9 @@
 
 Every conversion starts from a fresh reference run: the install (the slave and its data files, read from the player's archive)
 runs on vAmiga's Core with every 68000 instruction on Moira's interpreter, and the instructions it runs from RAM are recorded.
-Those become guarded native steps (the shared generator `m68k_observed` with the Amiga's Moira hooks, `amiga_codegen`): each
-calls the very Moira template the interpreter would run, behind a live-word guard, and anything not seen stays on the counted
-interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
+Those become native code (`amiga_codegen`), per opcode: translated C for the forms the translator knows (`amiga_translate`, the bus functions staying the machine's), Moira's
+code specialised for the others, each counted, chained from instruction to instruction behind the opcode the CPU has latched; anything not seen stays on the counted
+interpreter; beyond the routes a sweep over images of memory adds more of the same, counted apart when it runs. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
 its trace (picture, sound, RAM, CPU registers of every frame) must equal the reference's; so must the compressed copy that is
 delivered, and a quick state saved by it must continue the same timeline in a fresh process. Nothing is claimed beyond those
 bounded routes: the hardware fidelity is vAmiga's, unmeasured here, and the routes are scripts, not play.
@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
@@ -37,8 +38,8 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 
 PLAYER = 'RetroRecomp-Amiga'
 # The notices every exported Amiga game carries (resource 203, as on the other machines): the vAmiga Core (MPL-2.0 per file) and
-# Moira (MIT), the 68000 decoder of m68k-recomp-core compiled into the index of native steps, SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md',
+# Moira (MIT), SDL and the host kit's parts.
+NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/SDL2.md', 'licenses/xbr.md',
                 'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 # The player's Kickstart in the player's own export (decision D1, 6 November 2026): 1.x images (256 KiB) only, for now.
@@ -263,8 +264,9 @@ def read_observations(path: Path) -> list[tuple[int, str]]:
 
 
 # The Kickstart code a game runs: its addresses only (never a byte) are kept, in the private memory beside the observations of
-# that image; the words of each instruction are read from the player's own image, in this conversion's private work folder, when
-# the steps are written, so the generated source and the game built from it belong to that player's image alone.
+# that image. The words of each instruction come from this conversion's own runs (`<observations>.kick`, as they stand, a slave's
+# patches included) and from the player's own image, both in the private work folder, when the steps are written, so the generated
+# source and the game built from it belong to that player's image alone.
 KICK_ADDRESSES = 'converter-kickstart-addresses.txt'
 # The window a 256 KiB Kickstart (1.x) runs in, the one the machine's writable-ROM alias covers; the authored boot ROM below it is
 # not the Kickstart.
@@ -279,6 +281,22 @@ def read_kick_addresses(path: Path) -> set[int]:
         if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
             raise ValueError('Unsupported Kickstart address.')
         found.add(pc)
+        if len(found) > 262144:
+            raise ConversionError('Amiga Kickstart observation bound exceeded.')
+    return found
+
+
+def read_kick_observation(path: Path) -> set[tuple[int, str]]:
+    """(address, words) of a run's `<observations>.kick`, in the private work folder: the Kickstart's instructions as they stood."""
+    found = set()
+    for line in Path(path).read_text(encoding='ascii').splitlines():
+        address, words = line.split()
+        pc = int(address, 16)
+        if pc & 1 or not KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+            raise ValueError('Unsupported Kickstart address.')
+        if not re.fullmatch('(?:[0-9a-f]{4}){1,8}', words):
+            raise ValueError('Invalid Kickstart words.')
+        found.add((pc, words))
         if len(found) > 262144:
             raise ConversionError('Amiga Kickstart observation bound exceeded.')
     return found
@@ -300,26 +318,26 @@ def kick_samples(addresses: set[int], image: bytes) -> set[tuple[int, str]]:
     return samples
 
 
-def generate(project: Path, samples: list, table: Path) -> dict:
-    """The guarded native steps of these observations (the shared generator with the Amiga's Moira hooks)."""
+def read_memory_image(path: Path) -> list:
+    """The regions a route's run left in memory (`--memory-image`): (start address, bytes), in the conversion's private work folder only."""
+    data = Path(path).read_bytes()
+    regions, at = [], 0
+    while at < len(data):
+        start, size = int.from_bytes(data[at:at + 4], 'big'), int.from_bytes(data[at + 4:at + 8], 'big')
+        regions.append((start, data[at + 8:at + 8 + size]))
+        at += 8 + size
+    return regions
+
+
+def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = ()) -> dict:
+    """The native code of these observations, and of what a sweep reaches from them over these images of memory (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
-    from .megadrive_codegen import write_changed
-    engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('amiga').observed_code
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
-    decode = m68k_observed.build_decoder(project, engine, source=ASSETS / 'native/x68000_native/decode.c', root=ROOT,
-                                         target='amiga_decode', name='RetroAmigaDecode')
-    bodies = observed.load_bodies(engine)
-    m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
-    write_changed(project / 'm68k_decoder.h', (engine / 'external/m68k-recomp-core/common/m68k_decoder.h').read_text(encoding='utf-8'))
-    write_changed(project / 'rom_parser.h', (engine / 'recompiler/src/rom_parser.h').read_text(encoding='utf-8'))
-    steps = m68k_observed.write_steps(project, samples, observed=observed, bodies=bodies, decode_tool=decode, diagnostic=[],
-                                      alias=lambda text: text, form_body=lambda body: body, descriptor=lambda ins, name: ins,
-                                      index_head=amiga_codegen.INDEX_HEAD, code_view=amiga_codegen.CODE_VIEW,
-                                      index_tail=amiga_codegen.index_tail)
-    return {'samples': len(samples), 'instructions': len(steps.instructions), 'forms': len(steps.forms), 'pcs': len(steps.groups),
-            'opcode_table_sha256': file_sha256(table)}
+    m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images))
+    return {**steps, 'opcode_table_sha256': file_sha256(table)}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
@@ -344,7 +362,7 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     with (folder / 'stdout.log').open('wb') as out, (folder / 'stderr.log').open('wb') as err:
         result = spawn(args, cwd=folder, timeout=max(600, frames // 4), stdout=out, stderr=err)
     if result.returncode not in (0, 2):
-        raise ConversionError('Amiga replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
+        raise ConversionError(f'Amiga replay failed (exit code {result.returncode}): ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
     if report.get('stopped') and game_may_quit and report.get('quit') and report.get('frames', 0) >= MIN_ENDED_ROUTE_FRAMES:
         report['ended_by_game'] = True
@@ -406,7 +424,7 @@ def kickstart_fields(kick) -> dict:
     return {'used': True, 'version': known.get('version'), 'os': known.get('os'), 'model': known.get('model'), 'file': kick.file_name,
             'size': kick.size, 'crc16': kick.crc16, 'crc32': kick.crc32, 'sha256': kick.sha256, 'normalised': list(kick.normalisations),
             'player_supplied': True, 'stored_in_library': False, 'shared': False, 'embedded_in_export': True,
-            'native': 'guarded native steps written from this player\'s own image in the conversion\'s private work folder; what still runs '
+            'native': 'native code (Moira\'s code specialised) written from this player\'s own image in the conversion\'s private work folder; what still runs '
                       'on the interpreter is counted apart per route (final_checks.kickstart_interpreted)'}
 
 
@@ -419,8 +437,54 @@ def place_kickstart(folder: Path, kick) -> None:
 
 
 # -------------------------------------------------------------------------------------------------------- conversion
-def convert(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
-            emit=print, qualification_events=None, **unused):
+def convert(path, **options):
+    """One conversion. A conversion that fails after it merged what the library remembered of this install (earlier observations,
+    Kickstart addresses) is tried once more without them, as a fresh one: remembered data only ever helps, so a file that is valid
+    but wrong must not stop a game. On success the wrong data is dropped (the run's own replaces it in the library) and the report
+    says so (`remembered_data`); a second failure is the failure."""
+    trace: dict = {}
+    try:
+        return _convert_once(path, trace=trace, **options)
+    except Exception as error:     # a failure anywhere after the remembered data was merged
+        if not trace.get('remembered_used'):
+            raise
+        reason = ' '.join(str(error).split())[:240] or type(error).__name__
+        options.get('emit', print)('Amiga: the conversion failed with the remembered observations (' + reason + '); '
+                                   'trying once more without them.')
+        return _convert_once(path, use_remembered=False, dropped_reason=reason, **options)
+
+
+def load_remembered(memory: Path, kick, emit) -> tuple[set, set, list]:
+    """The (instructions, Kickstart addresses, what was ignored) the library remembers of this install; a file that cannot be read
+    (damaged, or past the bounds of an observation) is ignored, never a reason to stop."""
+    samples: set = set()
+    addresses: set = set()
+    ignored: list = []
+    if kick is not None and (memory / KICK_ADDRESSES).is_file():
+        try:
+            addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
+        except (OSError, ValueError, ConversionError):
+            ignored.append('kickstart addresses')
+            emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
+    if (memory / OBSERVATIONS).is_file():
+        try:
+            samples |= set(read_observations(memory / OBSERVATIONS))
+        except (OSError, ValueError, ConversionError):
+            ignored.append('observations')
+            emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+    return samples, addresses, ignored
+
+
+def remembered_report(added_instructions: int, added_kick_addresses: int, dropped_reason: str | None, ignored: list | None = None) -> dict:
+    """The report's `remembered_data`: what the library's memory added to this conversion, or why it was left out."""
+    return {'used': bool(added_instructions or added_kick_addresses), 'added_instructions': added_instructions,
+            'added_kickstart_addresses': added_kick_addresses, 'ignored_unreadable': list(ignored or []),
+            'dropped_after_failure': dropped_reason is not None,
+            **({'failure_with_remembered_data': dropped_reason} if dropped_reason is not None else {})}
+
+
+def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, passes=3, frames=3000, scan_level=None,
+                  emit=print, qualification_events=None, use_remembered=True, dropped_reason=None, trace=None, **unused):
     from .amiga import converter_available, read_input
     from . import amiga_whdload
     if not converter_available():
@@ -472,7 +536,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], install=work / 'install',
-                                        reference=True, observe=True, game_may_quit=True)
+                                        reference=True, observe=True, game_may_quit=True, extra=['--memory-image', checks / f'reference-{name}' / 'memory.bin'])
         ended = {name: report['frames'] for name, report in expected.items() if report.get('ended_by_game')}
         for name, frames_ in ended.items():
             emit(f'Amiga: the game ended itself after {frames_} frames of the {name} route (its own Quit): the route ends there.')
@@ -481,26 +545,29 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
         kick_addresses: set[int] = set()
+        kick_observed: set[tuple[int, str]] = set()
         kick_image = b''
         if kick is not None:
             kick_image = (work / 'install' / 'kickstart.rom').read_bytes()
             for name, _, _ in routes:
                 try:
-                    kick_addresses |= read_kick_addresses(checks / f'reference-{name}' / 'observations.txt.kick')
+                    kick_observed |= read_kick_observation(checks / f'reference-{name}' / 'observations.txt.kick')
                 except (OSError, ValueError) as error:
                     raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
-        if kick is not None and (memory / KICK_ADDRESSES).is_file():
-            try:
-                kick_addresses |= read_kick_addresses(memory / KICK_ADDRESSES)
-            except (OSError, ValueError):
-                emit('Amiga: the remembered Kickstart addresses are unreadable; this conversion uses its own only.')
-        if remembered.is_file():
-            try:
-                samples |= set(read_observations(remembered))
-            except (OSError, ValueError):
-                emit('Amiga: the remembered observations are unreadable; this conversion uses its own only.')
+        kick_addresses = {pc for pc, _ in kick_observed}
+        before = (len(samples), len(kick_addresses))
+        ignored: list = []
+        if use_remembered:
+            remembered_samples, remembered_addresses, ignored = load_remembered(memory, kick, emit)
+            samples |= remembered_samples
+            kick_addresses |= remembered_addresses
+        added = (len(samples) - before[0], len(kick_addresses) - before[1])
+        if trace is not None and any(added):
+            trace['remembered_used'] = True
+        if dropped_reason is not None:
+            emit('Amiga: the remembered observations are left out of this conversion; its own replace them in the library.')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -516,16 +583,18 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples | kick_samples(kick_addresses, kick_image)), table)
+                images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
+                rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
-            emit(f'Amiga: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
+            emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
             with timings.phase('compile'):
                 candidate = cmake_build(work / 'build', core, emit=emit, generated=project, payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
             more = set()
-            more_kick: set[int] = set()
+            more_kick: set[tuple[int, str]] = set()
             with timings.phase('native_runs'):
                 for name, frames_, _ in routes:
                     folder = run_dir / name
@@ -540,18 +609,21 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     more |= set(read_observations(folder / 'observations.txt'))
                     if kick is not None:
                         try:
-                            more_kick |= read_kick_addresses(folder / 'observations.txt.kick')
+                            more_kick |= read_kick_observation(folder / 'observations.txt.kick')
                         except (OSError, ValueError) as error:
                             raise ConversionError(f'Amiga {name}: the Kickstart addresses of the native run are unreadable: {error}') from error
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not ((more - samples) or (more_kick - kick_addresses)):
+            if not interpreted or not ((more - samples) or (more_kick - kick_observed)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
-            kick_addresses |= more_kick
+            kick_observed |= more_kick
+            kick_addresses |= {pc for pc, _ in more_kick}
         timings.end_passes()
+        for name, _, _ in routes:       # The route's memory, the game's and the player's bytes: read for the sweep, not kept.
+            (checks / f'reference-{name}' / 'memory.bin').unlink(missing_ok=True)
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Amiga', emit)
@@ -592,7 +664,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             native = results[name]['native']
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
-            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
+            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
+                         'native_moira_specialised': native - results[name].get('translated', 0), 'native_swept': results[name].get('swept', 0),
+                         'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
                              'kickstart_native': (results[name].get('kickstart') or {}).get('native', 0)} if kick is not None else {}),
@@ -613,16 +687,23 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'resload': 'Retro-Recomp MIT resload layer (native/amiga_whdload)', 'video': 'NTSC' if ntsc_install(source) else 'PAL',
                         'data_files': len(extracted['files']),
                         'custom_tooltypes': {f'CUSTOM{k + 1}': value for k, value in enumerate(extracted['custom']) if value}},
-            'machine': {'model': 'Amiga 500 (ECS, 68000)', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
+            'machine': {'model': 'Amiga 500-class (ECS, 68000), memory laid out as WHDLoad lays it out', 'reference': 'vAmiga Core (MPL-2.0) at its pinned revision, adapted at build time',
                         'boot_rom': 'authored boot ROM (no Kickstart)' if kick is None else
                                     f"authored boot ROM, then the player's Kickstart {kick.label()} in ExpMem and the ROM window (vAmiga WOM)"},
             **({'kickstart': kickstart_fields(kick)} if kick is not None else {}),
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
-            'native_validation': {'passed': True, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
+            'native_validation': {'passed': True, 'independent_cpu_oracle': False, **delivered.validation_fields(), 'sound_heard': bool(sound_routes), 'sound_routes': sound_routes,
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed RAM instructions as guarded native steps calling the Moira templates of the reference CPU',
+            'remembered_data': remembered_report(*added, dropped_reason, ignored),
+            'native_coverage': ("instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as native code per "
+                                "opcode, chained, guarded by the latched opcode; anything not seen runs on the counted interpreter"),
+            'native_code_is': ("translated C per opcode for the forms the translator knows, with the bus functions of the reference machine; the other forms are Moira's code "
+                               "specialised, not a translation (final_checks.native_translated, native_moira_specialised)"),
+            'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
+                             'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
+                             'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)'},
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
@@ -637,11 +718,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'unit': 'picture columns (hires) and lines; the standard window when none was opened',
                         'measured_on': [name for name, _, _ in routes]},
             'input_players': 1, 'peripheral': {'joystick_ports': 1, 'mouse': 'port 1, captured on a click', 'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
-            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps']},
+            'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps'], 'fps_is': 'nominal'},
             'runtime_data': {'directory': 'datas', 'shared_config': 'datas/Retro-Recomp.ini', 'game_directory': 'datas/games/amiga-' + source.sha256},
             'artwork': artwork, 'windows_metadata': metadata,
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
-            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs without Kickstart',
+            'qualification_scope': {'controls': 'bounded joystick, mouse and keyboard scripts', 'media': 'WHDLoad installs (.lha), with the player-supplied Kickstart 1.x for the installs that ask for one',
                                     'universal_zero_fallback_claim': False},
             'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
         write_report(output / 'conversion-report.json', report)

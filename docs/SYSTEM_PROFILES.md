@@ -47,7 +47,7 @@ exports to `Games/Game Boy Advance`. Its status is experimental; its paths come 
 gameplay feedback kind is 21. See [Game Boy Advance](GAME_BOY_ADVANCE.md).
 
 The **Commodore Amiga** profile (`amiga`, experimental since 1.7.0) converts `.lha` WHDLoad installs
-that need no Kickstart and exports to `Games/Amiga`; see [Amiga](AMIGA.md).
+(a Kickstart 1.x of your own for those that ask for one) and exports to `Games/Amiga`; see [Amiga](AMIGA.md).
 
 The **Sony PlayStation** profile (`psx`, experimental since 1.7.1) converts discs (EBOOT, CUE/BIN, CloneCD, ISO)
 and exports to `Games/PlayStation`; see [PlayStation](PLAYSTATION.md).

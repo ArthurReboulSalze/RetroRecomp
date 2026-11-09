@@ -208,10 +208,10 @@ engine's own interpreter, not with real hardware, and it establishes no complete
 The **Game Boy Advance** profile is experimental since 1.7.0 ([status](GAME_BOY_ADVANCE.md)): `.gba` cartridges are converted with your own BIOS (`gba_bios.bin`), the native code comes from what each game was seen to run and the rest is interpreted, counted and reported. Six cartridges of the first panel match the engine's own interpreter on state hashes at 600 and 3,600 frames; that is an agreement with that interpreter, not with real hardware, and it establishes no complete gameplay, speed or physical latency.
 
 The **Commodore Amiga** profile is experimental since 1.7.0 ([status](AMIGA.md)): it converts Amiga 500 games installed for
-WHDLoad (an `.lha` with one `.Slave`) that need no Kickstart, within [its documented scope](AMIGA.md). It has no list of compatible games: native
-code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too, and only the first three are
-partly measured on a handful of installs ([AMIGA.md](AMIGA.md#3-the-five-measures)). Installs that need a Kickstart, ADF disks and the
-Amiga 1200 are not converted.
+WHDLoad (an `.lha` with a `.Slave`), with a Kickstart 1.x of your own for those that ask for one, within [its documented scope](AMIGA.md). It has
+no list of compatible games: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too.
+Native code and CPU fidelity are measured on a handful of installs, hardware fidelity is not claimed, gameplay rests on owner play trials, latency is
+not measured ([AMIGA.md](AMIGA.md#3-the-five-measures)). Kickstart 3.x installs, ADF disks and the Amiga 1200 are not converted.
 
 The **Atari ST** profile is experimental since 1.7.1 ([status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
 images, or a ZIP holding only them) on Hatari, with EmuTOS 1.4 by default or your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of

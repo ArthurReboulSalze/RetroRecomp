@@ -83,17 +83,19 @@ tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardwa
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 retrorecomp/m68k_observed.py tests/test_m68k_observed.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
 retrorecomp/systems/amiga.py retrorecomp/amiga.py retrorecomp/amiga_lha.py retrorecomp/amiga_whdload.py
-retrorecomp/amiga_codegen.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_vamiga.py docs/AMIGA.md
+retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_vamiga.py docs/AMIGA.md
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
-tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
+tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translate.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py docs/ATARI_ST.md
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
 native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py tests/test_atarist_disk.py
 native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
+native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py tests/test_amiga_vectors.py tools/amiga_saves_check.py
+native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md

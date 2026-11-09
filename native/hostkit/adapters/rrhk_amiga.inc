@@ -206,7 +206,8 @@ static bool a_run_frame(uint16_t p1, uint16_t p2) {
    return !quit_requested && (!frame_limit || frame_number < frame_limit);
 }
 static void a_pause(bool paused) { (void)paused; }
-static int a_players(void) { return 2; }
+/* One joystick is wired (port 2: a_inputs reads pad 0 only; the mouse is port 1), so the F2 menu offers one player's page. */
+static int a_players(void) { return 1; }
 /* A reset starts the install again from ws_GameLoader: the process restarts itself (the session is one per process). */
 static void a_reset(void) { restart_requested = true; quit_requested = true; }
 /* The reference CPU runs no hook, so nothing is counted: the run is the interpreter's all the same. */

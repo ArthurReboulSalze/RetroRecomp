@@ -239,13 +239,14 @@ class Install:
     other_slaves: tuple[str, ...]
 
 
-def _data_dir(listed: list[amiga_lha.Member], folder: str, current: str) -> str:
-    """The archive folder the slave's ws_CurrentDir names, as stored in the archive.
+def _data_dir(listed: list[amiga_lha.Member], folder: str, current: str, tooltype: str = '') -> str:
+    """The archive folder the install's data is in, as stored in the archive: the icon's DATA ToolType when it names one that
+    exists (WHDLoad lets it replace the slave's ws_CurrentDir), else the folder ws_CurrentDir names.
 
     WHDLoad resolves ws_CurrentDir from the folder it was started in (the install's own folder), which is the slave's
     folder in most installs; some keep the slave inside its data folder. AmigaDOS names are case-insensitive, and a
     slave may carry a developer's absolute path ("SOURCES:…/data"): its last part is then tried. The first candidate
-    that holds files wins; with none, the slave's folder. Icons' DATA tooltypes are not read yet."""
+    that holds files wins; with none, the slave's folder."""
     names = [m.name for m in listed]
 
     def existing(path: str) -> str | None:
@@ -255,16 +256,22 @@ def _data_dir(listed: list[amiga_lha.Member], folder: str, current: str) -> str:
             return ''
         prefix = path.lower() + '/'
         return next((n[:len(prefix) - 1] for n in names if n.lower().startswith(prefix)), None)
-    if not current:
-        return folder
-    rel = current.rstrip('/')
-    if ':' in rel:
-        rel = rel.rsplit('/', 1)[-1].rsplit(':', 1)[-1]
     root = folder.split('/', 1)[0] if folder else ''
-    for base in dict.fromkeys((folder, posixpath.dirname(folder), root)):
-        found = existing(posixpath.join(base, rel) if base else rel)
-        if found is not None:
-            return found
+
+    def search(spec: str) -> str | None:
+        rel = spec.rstrip('/')
+        if ':' in rel:
+            rel = rel.rsplit('/', 1)[-1].rsplit(':', 1)[-1]
+        for base in dict.fromkeys((folder, posixpath.dirname(folder), root)):
+            found = existing(posixpath.join(base, rel) if base else rel)
+            if found is not None:
+                return found
+        return None
+    for spec in (tooltype, current):
+        if spec:
+            found = search(spec)
+            if found is not None:
+                return found
     return folder
 
 
@@ -288,12 +295,29 @@ def icon_strings(data: bytes) -> list[str]:
     return strings
 
 
+_DATA_TOOLTYPE = re.compile(r'(?i)^DATA\s*=\s*(.*?)\s*$')
+
+
+def slave_icon(listed: list[amiga_lha.Member], slave_path: str) -> amiga_lha.Member | None:
+    """The slave's icon beside it (`<slave>.info`), whose ToolTypes WHDLoad reads."""
+    name = slave_path.rsplit('.', 1)[0].lower() + '.info'
+    return next((m for m in listed if m.name.lower() == name), None)
+
+
+def data_tooltype(strings: list[str]) -> str:
+    """The DATA ToolType of an icon ('' when it has none; one in parentheses is switched off, as on the Workbench)."""
+    for text in strings:
+        match = _DATA_TOOLTYPE.match(text.strip())
+        if match and match.group(1):
+            return match.group(1)
+    return ''
+
+
 def custom_options(blob: bytes, chosen: 'Install') -> tuple[int, int, int, int, int]:
     """CUSTOM1..5 as the install's own icon sets them: WHDLoad reads the ToolTypes of the icon it is started from, the
     slave's icon beside it (`<slave>.info`), and gives them to the slave through resload_Control. A ToolType in
     parentheses is switched off, as on the Workbench; a value is decimal, or hexadecimal written $10 or 0x10."""
-    name = chosen.slave_path.rsplit('.', 1)[0].lower() + '.info'
-    icon = next((m for m in amiga_lha.members(blob) if m.name.lower() == name), None)
+    icon = slave_icon(amiga_lha.members(blob), chosen.slave_path)
     values = [0] * 5
     if icon is not None:
         for text in icon_strings(amiga_lha.extract(blob, icon)):
@@ -305,8 +329,17 @@ def custom_options(blob: bytes, chosen: 'Install') -> tuple[int, int, int, int, 
     return tuple(values)
 
 
+def _named_after_its_folder(slaves: list) -> list:
+    """The slave named as the install's own folder ("Superfrog/Superfrog.slave" beside "Superfrog/SuperfrogIntro.slave"): the game,
+    the others being its intro, an editor or a helper. A collection of several games names none of them so."""
+    def plain(text: str) -> str:
+        return ''.join(c for c in text.lower() if c.isalnum())
+    return [m for m in slaves if plain(posixpath.splitext(posixpath.basename(m.name))[0]) == plain(m.name.split('/')[0])]
+
+
 def install(blob: bytes, choose: str | None = None) -> Install:
-    """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use (else it is refused)."""
+    """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use; without it the one named as the
+    install's folder is the game, and an archive where no single slave is (a collection) is refused, never guessed."""
     listed = amiga_lha.members(blob)
     slaves = [m for m in listed if m.name.lower().endswith('.slave')]
     if not slaves:
@@ -314,13 +347,15 @@ def install(blob: bytes, choose: str | None = None) -> Install:
     if choose is not None:
         chosen = [m for m in slaves if m.name == choose]
     else:
-        chosen = slaves if len(slaves) == 1 else []
+        chosen = slaves if len(slaves) == 1 else _named_after_its_folder(slaves)
     if len(chosen) != 1:
         raise InstallError('choose one slave: ' + ', '.join(m.name for m in slaves))
     member = chosen[0]
     slave = slave_header(hunks(amiga_lha.extract(blob, member)))
     folder = posixpath.dirname(member.name)
-    data_dir = _data_dir(listed, folder, slave.current_dir)
+    icon = slave_icon(listed, member.name)
+    tooltype = data_tooltype(icon_strings(amiga_lha.extract(blob, icon))) if icon is not None else ''
+    data_dir = _data_dir(listed, folder, slave.current_dir, tooltype)
     prefix = (data_dir + '/' if data_dir else '').lower()
     files, disks = {}, {}
     for m in listed:
