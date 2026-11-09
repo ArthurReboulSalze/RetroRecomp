@@ -262,7 +262,7 @@
     "scan_note_ng": "Consigliato: Standard. I percorsi di qualificazione di ogni cartuccia sono il minimo, quindi Rapido equivale a Standard. Esteso aggiunge un percorso pseudocasuale con credito, Approfondito due; il fallback che incontrano viene segnalato, non è fatale. Conta qualche minuto in più per percorso.",
     "scan_note_x68": "Consigliato: Standard: percorso principale più esplorazione con mouse e tastiera, circa 3 minuti. Approfondito ripete i tre percorsi di 36.000 frame che hanno qualificato la libreria (circa 9 minuti con percorsi in parallelo): usalo per nuovi set di dischi. Rapido mantiene solo il percorso principale; Esteso aggiunge un percorso di 18.000 frame.",
     "scan_note_amiga": "Consigliato: Standard: percorso principale più un’esplorazione con joystick, 3.000 frame ciascuno. Rapido usa solo il percorso principale; gli altri livelli non sono ancora regolati per l’Amiga.",
-    "scan_note_atarist": "Consigliato: Standard: percorso principale più un’esplorazione con joystick e tastiera, 3.000 frame ciascuno. Rapido usa solo il percorso principale; gli altri livelli non sono ancora regolati per l’Atari ST.",
+    "scan_note_atarist": "Consigliato: Standard: percorso principale più un’esplorazione con joystick e tastiera. Rapido usa solo il percorso principale; Esteso aggiunge un percorso pseudocasuale di 18.000 frame, Approfondito due (più lento).",
     "scan_note_n64": "Consigliato: Standard: il percorso principale più un percorso di esplorazione con lo stick, 3.600 fotogrammi ciascuno. Rapido mantiene solo il percorso principale; gli altri livelli non sono ancora regolati per il Nintendo 64.",
     "jobs": "Giochi simultanei",
     "start": "Converti / rigenera",

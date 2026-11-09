@@ -39,7 +39,8 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    memory through a libretro virtual file system, so no file of the player is written to a work folder for the machine to read.
 3. **Validation.** A conversion starts with a fresh interpreted reference run of the game. The game executable is then copied alone
    and replayed headless on the same bounded scripts (a main route of joystick, mouse and keyboard inputs and, at the Standard level,
-   a second exploration route, 3,000 frames each): the picture, sound, RAM and CPU registers of every frame must equal the
+   a second exploration route, 3,000 frames each with TOS 1.04 and 3,600 with EmuTOS; the extended and thorough levels add one and two
+   pseudo-random routes of 18,000 frames): the picture, sound, RAM and CPU registers of every frame must equal the
    reference's. So must the compressed copy that is delivered. A quick state saved by the game is loaded by a fresh process, whose
    continuation is compared with the unbroken run and reported. A conversion that fails a check keeps the earlier export.
 4. **A boot that stops at the desktop.** Some disks do not start by themselves: the boot reaches the GEM desktop and the player
@@ -72,8 +73,8 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 | Measure | What is known today |
 | --- | --- |
 | Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
-| CPU fidelity | The native steps call Hatari's own handlers: on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`, on the ST memory map and on a flat 24-bit bus): the final state agrees on every vector run except two authored divisions by zero whose N/Z flags the 68000 leaves undefined; the clock differences are the ST's 4-cycle bus rounding except 14 CHK vectors (4 clocks more); the native step equals the interpreter on every vector. The vectors are MAME-made, not silicon. |
-| Hardware fidelity | Not claimed. |
+| CPU fidelity | The native steps call Hatari's own handlers: on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native step was compared on 6,107 vectors, those whose opcode has a step, and equals the interpreter on all of them. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
+| Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 37 measurements, 35 agree): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. One recorded difference: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the manuals' round 2 MHz; one point the documents do not settle (262 or 263 lines at 60 Hz, Hatari gives 263). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |
 
@@ -89,7 +90,7 @@ With TOS 1.04 (United Kingdom):
 | Lethal Xcess (2) | 34,895,160 | 0 | yes (music device menu) |
 | Turrican II (1) | 39,532,761 | 2,139 | yes (title, credits) |
 | Carrier Command (1) | 38,039,056 | 0 | yes (language menu) |
-| Kick Off 2 (1) | 39,538,414 | 2 | no: "Master file not present or damaged"; the same disk read as plain sectors by an independent reader reaches the title screen, so the IPF path is at fault (one defect found and fixed, see below; the cause is not found yet) |
+| Kick Off 2 (1) | 39,538,414 | 2 | no on 6 November: "Master file not present or damaged" (fixed on 8 November, see below) |
 | Indiana Jones and the Temple of Doom (1) | 40,182,497 | 2 | yes (title, high scores) |
 
 With EmuTOS 1.4 (United Kingdom), the default, and the joystick reaching the machine (7 November 2026, the delivered conversions:
@@ -106,24 +107,24 @@ Standard level, main route of 3,600 frames; Turrican II with the player's TOS 1.
 | Turrican II (1), TOS 1.04 | 47,864,686 | 0 | a level of the game; on EmuTOS it stops after its intro: EmuTOS's own `doc/incompatible.txt` names Turrican among the games that use low memory EmuTOS also uses ("this can never work with EmuTOS") |
 | Carrier Command (1) | 50,975,919 | 4 | language menu |
 | Indiana Jones and the Temple of Doom (1) | 53,278,013 | 6 | the game |
+| Kick Off 2 (1) | 56,306,524 | 1,781 | a practice match (its protection passes: section 3) |
 
 Every route of these conversions equals its fresh interpreted reference, the compressed copy too. A state saved on the main route
-continues in a fresh process on all of them but Turrican II, whose registers and RAM (not its picture) differ after the load
-once it plays with its music running: Hatari's snapshot keeps no sound-chip history (known limit, section 5).
+continues in a fresh process on all ten, on every column, sound samples included (section 5). Kick Off 2 was added on 8 November 2026
+(delivered conversion, Standard level, EmuTOS).
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
 
-IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool,
-not shipped): on ordinary tracks the sectors decoded from the flux Hatari generates equal the IPF's own. On the five protected
-tracks of Kick Off 2 (a 1024-byte sector written across the index) a phantom flux transition at the index corrupted the sector
-after it; fixed in `retrorecomp/atarist_hatari.py` (the time from the last transition to the index joins the first interval). The
-game still stops, so a second cause remains (its protection sector holds a no-flux area, which a real drive reads as noise).
-A second opinion from the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in
-the repository) on 7 November 2026: on cylinders 1 to 7 of side 0 its rendering and Hatari's agree on the index position, the
-flux of every ordinary sector and sectors 1 to 10 of the protected tracks; the protected tracks also hold a second 1024-byte
-sector (16) whose data mark is written one cell out of phase, and a 2 ms area without flux, which capsimg renders one cell
-longer (1,026 against 1,025 cells). So the flux is not the cause; what remains is how the WD1772 model reads those two sectors
-(capsimg reads with its own controller model, Hatari's built-in path with Hatari's).
+IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool, not shipped) and
+against the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in the repository). Two defects
+of the reader were found this way on Kick Off 2's protected tracks (cylinders 2 to 6 of side 0: a 1024-byte sector written across the index, a
+second 1024-byte sector whose data mark is one cell out of phase, a 2 ms area without flux), and fixed in `retrorecomp/atarist_hatari.py`:
+a phantom flux transition at the index, and the write splice. The reader draws a track's write splice as three inverted cells at the end of the last
+block's gap; on a track whose last block has no gap those are the first cells of the track, here the first A1 mark of sector 1's ID, which then has two
+marks where the WD1772 needs three: an ordinary read answers "record not found" and the game stops on its own error. The splice is now drawn only
+where its cells lie in gaps. Every ordinary track keeps it where it was (the other panel games skip none, and Bomb Jack's controller trace is
+byte for byte the same). Kick Off 2 now reaches its menus, its protection passes through the WD1772 model, and the first 981 controller commands
+equal those of the same disk as plain sectors. With the fix the flux and the sector CRCs agree with capsimg's rendering.
 
 ## 4. Controls
 
@@ -161,10 +162,6 @@ gameplay validation of any game, and it changes no gate.
   game.** Every conversion on EmuTOS says so in its messages and in its report (`tos_note`): no signal tells a game that EmuTOS
   cannot run from a game waiting on a still screen, so the sentence is the same for every game. The private memory of a game is
   kept per TOS.
-- **Kick Off 2** (known limit, investigation capped on 7 November 2026). It stops on "Master file not present or damaged" with
-  TOS 1.04 and with EmuTOS. Its disk read as plain sectors boots to the title, and two independent renderings of its protected
-  tracks (Hatari's IPF reader and the SPS decoder library) give the same flux, so the cause is in how Hatari's WD1772 model reads
-  the two 1024-byte protection sectors of cylinders 2 to 6 (section 3). Not worked on further for now.
 - The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
 - Linux: two panel games were converted and validated on a Debian 13 PC (7 November 2026, system GCC, the tree of Windows'
   witness): Bomb Jack (Quick, 32,910,583 native, 1 interpreted) and Another World (Standard, 33,425,244 and 33,425,310 native,
@@ -173,14 +170,18 @@ gameplay validation of any game, and it changes no gate.
   The same day, Captain Blood on EmuTOS (fetched by the converter on Linux) with the desktop autostart (Standard): 33,740,268 and
   33,742,577 native, 75 and 83 interpreted, every check passed, and the traces of both routes byte for byte those of Windows.
   No game was played interactively on Linux (window, sound, pad).
-- Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on
-  its main route and its trace still equals the reference). A state loaded by a fresh process continued the saved timeline on the
-  ten panel games (CPU registers, RAM and picture of 400 frames; the sound samples of the first frames after a load differ, because
-  Hatari does not save the state of its sound output). A state saved while a disk is being read now resumes the read at the right
-  place in the track (a fix to Hatari's IPF reader), but Bomb Jack saved during its loading still differs in its RAM from the second
-  frame after the load (known limit, capped: a 92-byte table that the music driver updates; Hatari's snapshot does not keep the
-  state of its sound output). Turrican II saved in a level, with its music running, shows the same kind of gap (registers and RAM
-  differ, the picture does not). The conversion reports the comparison, it does not refuse the game for it.
+- Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on its main route and its
+  trace still equals the reference), and a fresh process that loads it continues the unbroken run on every column, sound samples included (compared by every
+  conversion over 400 frames, reported, not refused). Three mechanisms were found for this on 8 November 2026 by comparing a state of the running machine with a
+  state of the loaded one, stored block by stored block: Hatari's restore ejects and reinserts the floppies after the controller came back, which restarted the
+  drive's rotation and its loaded track (a later read met the disk elsewhere: Bomb Jack saved during a load, Turrican II before its next load); the filters' memory
+  and the mixing buffer were not in a state; the restore's reset sent its silent mixing buffer to the speakers. A damaged state, or one of another build, is refused
+  before the machine is touched, a missing one creates nothing (`tools/atarist_saves_check.py`).
+- Saves: what a game writes to its disks (any image format; on IPF Hatari itself refused every write with "record not found") is kept beside the quick state, in
+  `datas/games/atarist-<game>/disk-writes.bin`, and survives without F8/F9; the image is never changed. A file that is not valid is kept aside as
+  `disk-writes.bin.unusable-N` and the game starts from its disks. A state brings the disks back as they were when it was saved. Not kept: a track the game formats
+  (WD1772 Write Track on an IPF answers an error, as before), and a Read Track shows the original track, not the written sectors. A game that asks for a separate blank
+  save disk has none to use yet.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).

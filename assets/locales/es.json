@@ -262,7 +262,7 @@
     "scan_note_ng": "Recomendado: Estándar. Las rutas de cualificación de cada cartucho son el mínimo, así que Rápido equivale a Estándar. Extendido añade una ruta pseudoaleatoria con crédito, Exhaustivo dos; el respaldo que encuentran se informa, no es fatal. Cuenta con algunos minutos más por ruta.",
     "scan_note_x68": "Recomendado: Estándar: ruta principal más exploración con ratón y teclado, unos 3 minutos. Exhaustivo reproduce las tres rutas de 36 000 fotogramas que cualificaron la biblioteca (unos 9 minutos con rutas en paralelo): úsalo para conjuntos de discos nuevos. Rápido conserva solo la ruta principal; Extendido añade una ruta de 18 000 fotogramas.",
     "scan_note_amiga": "Recomendado: Estándar: ruta principal más una exploración con joystick, 3000 fotogramas cada una. Rápido solo usa la ruta principal; los demás niveles aún no están ajustados para el Amiga.",
-    "scan_note_atarist": "Recomendado: Estándar: ruta principal más una exploración con joystick y teclado, 3000 fotogramas cada una. Rápido solo usa la ruta principal; los demás niveles aún no están ajustados para el Atari ST.",
+    "scan_note_atarist": "Recomendado: Estándar: ruta principal más una exploración con joystick y teclado. Rápido solo usa la ruta principal; Extendido añade una ruta pseudoaleatoria de 18 000 fotogramas, Exhaustivo dos (más lento).",
     "scan_note_n64": "Recomendado: Estándar: la ruta principal y una ruta de exploración con el stick, 3.600 fotogramas cada una. Rápido conserva solo la ruta principal; los demás niveles aún no están ajustados para la Nintendo 64.",
     "jobs": "Juegos simultáneos",
     "start": "Convertir / regenerar",

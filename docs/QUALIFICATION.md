@@ -62,7 +62,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 12 · ❔ 2 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 12 · ❔ 2 |
-| Atari ST | experimental | `███░░░░░░░` 31 % | ✅ 0 · 🟡 10 · ❔ 6 |
+| Atari ST | experimental | `█████░░░░░` 47 % | ✅ 1 · 🟡 13 · ❔ 2 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 
@@ -75,16 +75,16 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ➖ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | 🟡 | ❔ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | 🟡 | 🟡 | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | ❔ | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ❔ | ❔ | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -105,16 +105,16 @@ psx = Sony PlayStation.
 | G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | P | ? | P | P |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | - | P | P | P | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | P | ? |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | P | P | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | P | P | P | P | ? | P |
-| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | ? | ? | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | ? | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | P | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | P | ? | ? | P |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | P | ? | P | P | ? | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | - | ? | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -142,30 +142,48 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- Atari ST (6 and 7 November 2026; experimental profile of 1.7.1, branch `spec/atarist-170`): G1 `P`: the profile is declared
-  experimental and `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every
-  conversion. G3 `P`: the ten panel games converted at the Standard level (Bomb Jack at Quick), at most 0.9 % of the instructions
-  interpreted on a route (on 6 November Operation Stealth and Captain Blood stayed on the GEM desktop, whose line-F calls go to
-  Hatari's illegal-instruction handler and stay interpreted), 0 to 3 elsewhere; with EmuTOS 1.4, the default, 4 to 6 on every game,
-  and 75 to 1,065 on the two games the desktop now starts (Hatari's GEMDOS traps). G4 `P`: every route of every conversion is identical, frame by
-  frame, to a fresh interpreted reference. (Until 7 November the joystick events of the routes did not reach the machine, a port swap of Hatari's frontend; they do now,
-  and a live check with real SDL keys and a virtual gamepad on the converted Bomb Jack proves the controls; the owner's play trial of
-  7 November, on the nine reconverted games, found the gamepad control working: a trial of the controls, not an exit and not a
-  gameplay validation.) G5 `P`: the compressed copy too. G6 `P`: the state saved on the main route continues in a
-  fresh process (CPU, RAM and picture; the sound samples are not compared) on the ten games; a state saved while a disk is being read
-  is not yet known to continue exactly, and Turrican II saved in a level with its music running differs in registers and RAM (not in its picture). G8 `P`: a moving picture is required on the main route. G10 `P`: the SingleStepTests 68000
-  fixtures through Hatari's cycle-exact 68000 and through the native steps (`tools/atarist_vector_selftest.py`): state agreement on
-  every vector run except two divisions by zero whose flags the 68000 leaves undefined; clock differences explained by the ST's
-  4-cycle bus rounding except 14 CHK vectors (+4 clocks); the native step equals the interpreter on every vector. G12 `P`: 7 of the 10
-  panel games reach their own screens; Operation Stealth and Captain Blood are started from the GEM desktop (a route that opens
-  them is needed; Captain Blood's disk was read identically by an independent reader), Kick Off 2 stops on its own error (its
-  plain sectors boot; one IPF reader defect found and fixed; a second cause remains, in the controller reading of its two
-  1024-byte protection sectors, since capsimg renders the same flux); with EmuTOS 8 of the 10 since the desktop starts the only program of a
-  disk whose boot stops there (Operation Stealth, Captain Blood); Turrican II is one EmuTOS documents as incompatible. G13 `P`: Bomb Jack and Another World converted
-  and validated on a Debian 13 PC with the system GCC (7 November 2026): the same native and interpreted counts as Windows and
-  reference traces byte for byte equal to Windows' on the three routes, then Captain Blood on EmuTOS with the desktop autostart
-  (both routes byte for byte equal to Windows'); no game played on Linux. No hardware fidelity is
-  claimed, no game is validated and the latency is not measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
+- Atari ST (6 to 8 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
+  `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:
+  the ten panel games converted at the Standard level: with TOS 1.04 0 to 3 instructions interpreted on a route (2,139 on Turrican II on 6 November, 0 in the
+  delivered conversion of 8 November), with EmuTOS 1.4, the default, 4 to 6 on seven games, 75 and 1,065 on the two the desktop starts (Hatari's
+  GEMDOS traps), 1,781 on Kick Off 2. At the thorough level Lethal Xcess shows 4 interpreted over four routes including two of 18,000 frames
+  (a first read ran 145 million on a route when the disk was changed under a game that did not ask for it: the long routes now change disk once, in the
+  second route only). G4 `P`: every route of every conversion is identical, frame by frame, to a fresh interpreted reference; this shows that the
+  steps equal the core, not that the core equals a 68000 (the independent corpus is G10). An authored program that rewrites its very next instruction
+  (`tools/atarist_prefetch_check.py`) gives the interpreter's result through the steps: the step runs only when the opcode Hatari latched is its own
+  (8 November 2026). The routes play the joystick since 7 November (a port swap of Hatari's frontend had left it unplugged); a live check with real SDL
+  keys and a virtual gamepad on the delivered Bomb Jack and Lethal Xcess proves the controls, and the owner's play trial of 7 November, on the nine
+  reconverted games, found the gamepad control working: a trial of the controls, not an exit and not a gameplay validation. G5 `P`: the compressed
+  copy too. G6 `Y`: on the ten panel games of 8 November 2026 the state saved on the main route continues in a fresh process on every column,
+  CPU registers, RAM, picture and sound samples, for 400 frames (the sound used to be left out and Turrican II and a state taken during a disk read used
+  to differ: three mechanisms of Hatari's restore were found and fixed, ATARI_ST.md section 5); `tools/atarist_saves_check.py`, authored, shows that a
+  missing state creates nothing and that a damaged state and a state of another build are refused before the machine is touched, on an IPF and on a
+  plain-sector disk. G7 `P`: what a game writes to its disks is kept beside the quick state and survives without F8/F9 (the same authored check, in separate
+  processes, on both formats: written, found by a new process, the image unchanged, a damaged file kept aside); not kept: a formatted track, and no game of the
+  panel was seen saving. G8 `P`: a moving picture is required on the main route. G9 `P`: the extended and thorough levels add one and two pseudo-random
+  routes of 18,000 frames; read on four games at the thorough level (Bomb Jack, Captain Blood, Kick Off 2, Lethal Xcess): each reached play on a long route
+  (a level, the cockpit, a practice match, a level of the second disk), every route equal to its fresh reference and to the compressed copy, the captures
+  inspected; the panel was not run at that level. G10 `P`: the SingleStepTests 68000 fixtures through Hatari's cycle-exact 68000 and the native steps
+  (`tools/atarist_vector_selftest.py`): 6,764 vectors; flat bus 6,762 run, the state agrees on 6,760 (the two others are divisions by zero whose flags the 68000
+  leaves undefined); ST map 3,593 run, all agree; clocks on the flat bus 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither
+  explained nor refuted (a fixture without a list of bus transactions); the native step was compared on 6,107 vectors and equals the interpreter on all of them;
+  the fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. G11 `P`: authored 68000 programs measured from inside the machine against
+  the hardware's documentation (`tools/atarist_hardware_check.py`, 37 measurements: the PAL frame and line, the MFP's prescalers and timer B, a 320x200 picture pixel by
+  pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads): 35 agree, one is a recorded difference
+  (the YM2149 runs on the PAL crystal's division, 0.27 % above the manuals' round 2 MHz), one is not settled by the documents (262 or 263 lines at 60 Hz); MAME 0.289
+  agrees on the video and MFP lines it can run and could not run the WD1772, the IKBD, the picture or the sound; five sources are quoted from memory and to be reread; no
+  real ST was measured, STF PAL only. G12 `P`: with EmuTOS the panel reaches 9 of 10 own screens (Another World shows its code wheel, then "ERROR" for the route's
+  random entry), Operation Stealth and Captain Blood being started from the desktop; Kick Off 2, which stopped on its own error until 8 November, now plays (the write
+  splice of Hatari's IPF reader covered the first sync mark of a sector, ATARI_ST.md section 3); Turrican II is one EmuTOS documents as incompatible and plays in a
+  level with the player's TOS 1.04. G13 `P`: Bomb Jack and Another World converted and validated on a Debian 13 PC with the system GCC (7 November 2026): the same
+  native and interpreted counts as Windows and reference traces byte for byte equal to Windows' on the three routes, then Captain Blood on EmuTOS with the desktop
+  autostart (both routes byte for byte equal to Windows'); no game played on Linux. G15 `P`: read on 8 November 2026 for this gate (the machine page, this
+  matrix, COMPATIBILITY, the README, the release notes and upgrades, UPSTREAMS, INDEX, KNOWN_FAILURES, the roadmap, the architecture page, the two licence notices, every
+  string that names the machine in the eight languages, the conversion's messages and every field of the report, the adapter and player strings, nine reports); 15
+  statements were corrected (one stale, six overclaiming or incomplete, eight wording); still open and not the specialist's to change: the shared F1 help lists drive B
+  and eject controls the Atari ST answers "not available" to, the common report's `gameplay.claim`, and the site's card that lists the machine as upcoming. G14 and G16 stay
+  `?`: the owner's acceptance is his decision, and the sharing of paths touches the site. No hardware fidelity is claimed, no game is validated and the latency is not
+  measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in

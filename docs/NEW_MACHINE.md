@@ -2,12 +2,13 @@
 
 The model for the next machines (CPS-2, PC Engine, Game Boy Advance, Atari ST, Amiga 500/1200, Nintendo 64,
 PlayStation). It follows [STANDARDS.md](STANDARDS.md) ("standardize before adding a machine") and was built from two dry
-runs of the same experiment: a tenth machine, an **Atari ST** (68000, disk images, TOS firmware), added on a throwaway
+runs of the same experiment: a tenth machine, a synthetic **Atari ST** (68000, disk images, TOS firmware; not the Atari ST
+of 1.7.1, see [ATARI_ST.md](ATARI_ST.md)), added on a throwaway
 branch with a profile, detection of a synthetic disk, a schema 3 path section, a report written by the common builder, a
 skeleton host-kit adapter, every registry, the verification tools, the translations and the documents. The first run was
 on 27 October 2026 (`e4-dry-run`), before the standardization of 1.6.3; the second on 29 October 2026 (branches
 `dryrun-atari-st-164` and `dryrun-atari-st-164-after`), as the acceptance test of that standardization and of the
-1.6.4 fixes that followed. None is merged. The machine converts nothing, and no claim here goes beyond what those runs
+1.6.4 fixes that followed. None is merged. That throwaway machine converts nothing, and no claim here goes beyond what those runs
 and the suite measured.
 
 ## What the dry run measured

@@ -67,9 +67,166 @@ struct RrStSession {
     size_t observed_count, observed_capacity;
     char error[256];
     void (*log)(const char *line);
+    struct DiskWrite *writes;
+    unsigned write_count, write_capacity, writes_quiet;
+    int writes_dirty;
 };
 
 static RrStSession *current;
+
+extern int rr_snapshot_restoring;   /* the adapted memorySnapShot.c: a restore is running */
+
+/* ------------------------------------------------------------------------------- what the game wrote to its disks */
+/* The adapted controller (src/fdc.c, retrorecomp/atarist_hatari.py) hands over each sector a game writes and asks for each
+ * sector it reads. A sector is known by its disk, the head's track, the side, its number and its size. */
+typedef struct DiskWrite { uint8_t disk, track, side, sector; uint16_t size; uint8_t *data; } DiskWrite;
+void (*rr_fdc_sector_written)(int drive, int track, int side, int sector, const uint8_t *data, int size);
+int (*rr_fdc_sector_read)(int drive, int track, int side, int sector, uint8_t *data, int size);
+
+/* The disk in a drive, from the name Hatari holds ("...rr:<sep>diskN.ext"), -1 when none of the game's. */
+static int disk_in_drive(int drive) {
+    const char *name = drive >= 0 && drive < 2 ? ConfigureParams.DiskImage.szDiskFileName[drive] : "";
+    const char *at = strstr(name, "rr:");
+    unsigned n;
+    if (!at || !current) return -1;
+    for (n = 0; n < current->game.disk_count; n++) {
+        const char *base = strrchr(current->disk_paths[n], PATHSEP);
+        if (base && strstr(at, base + 1)) return (int)n;
+    }
+    return -1;
+}
+
+static DiskWrite *find_write(int disk, int track, int side, int sector, int size) {
+    unsigned n;
+    for (n = 0; n < current->write_count; n++) {
+        DiskWrite *w = &current->writes[n];
+        if (w->disk == disk && w->track == track && w->side == side && w->sector == sector && w->size == size) return w;
+    }
+    return NULL;
+}
+
+static DiskWrite *add_write(int disk, int track, int side, int sector, int size) {
+    DiskWrite *w;
+    if (current->write_count == current->write_capacity) {
+        unsigned capacity = current->write_capacity ? current->write_capacity * 2 : 64;
+        DiskWrite *grown = (DiskWrite *)realloc(current->writes, capacity * sizeof *grown);
+        if (!grown) return NULL;
+        current->writes = grown;
+        current->write_capacity = capacity;
+    }
+    w = &current->writes[current->write_count];
+    if (!(w->data = (uint8_t *)malloc((size_t)size))) return NULL;
+    w->disk = (uint8_t)disk; w->track = (uint8_t)track; w->side = (uint8_t)side; w->sector = (uint8_t)sector; w->size = (uint16_t)size;
+    current->write_count++;
+    return w;
+}
+
+static void sector_written(int drive, int track, int side, int sector, const uint8_t *data, int size) {
+    int disk = disk_in_drive(drive);
+    DiskWrite *w;
+    if (disk < 0 || track < 0 || track > 255 || side < 0 || side > 1 || sector < 0 || sector > 255 || size <= 0 || size > 8192) return;
+    w = find_write(disk, track, side, sector, size);
+    if (!w) w = add_write(disk, track, side, sector, size);
+    if (!w) return;
+    memcpy(w->data, data, (size_t)size);
+    current->writes_dirty = 1;
+    current->writes_quiet = 0;
+}
+
+static int sector_read(int drive, int track, int side, int sector, uint8_t *data, int size) {
+    int disk = disk_in_drive(drive);
+    const DiskWrite *w = disk < 0 ? NULL : find_write(disk, track, side, sector, size);
+    if (!w) return 0;
+    memcpy(data, w->data, (size_t)size);
+    return 1;
+}
+
+#define WRITES_MAGIC "RRATARIST-DISKWRITES-1\n"
+
+static uint64_t writes_hash(const uint8_t *data, size_t size) {
+    uint64_t h = 0xcbf29ce484222325ull;
+    size_t n;
+    for (n = 0; n < size; n++) { h ^= data[n]; h *= 0x100000001b3ull; }
+    return h;
+}
+
+size_t rr_st_writes_serialize(const RrStSession *s, uint8_t **out) {
+    size_t magic = sizeof WRITES_MAGIC - 1, size = magic + 12, at, body;
+    unsigned n;
+    uint8_t *data;
+    uint64_t h;
+    for (n = 0; n < s->write_count; n++) size += 6 + s->writes[n].size;
+    if (!(data = (uint8_t *)malloc(size))) { *out = NULL; return 0; }
+    memcpy(data, WRITES_MAGIC, magic);
+    at = magic;
+    for (n = 0; n < 4; n++) data[at++] = (uint8_t)(s->write_count >> (8 * n));
+    body = at + 8;
+    at = body;
+    for (n = 0; n < s->write_count; n++) {
+        const DiskWrite *w = &s->writes[n];
+        data[at++] = w->disk; data[at++] = w->track; data[at++] = w->side; data[at++] = w->sector;
+        data[at++] = (uint8_t)w->size; data[at++] = (uint8_t)(w->size >> 8);
+        memcpy(data + at, w->data, w->size);
+        at += w->size;
+    }
+    h = writes_hash(data + body, size - body);
+    for (n = 0; n < 8; n++) data[magic + 4 + n] = (uint8_t)(h >> (8 * n));
+    *out = data;
+    return size;
+}
+
+static void writes_clear(RrStSession *s) {
+    unsigned n;
+    for (n = 0; n < s->write_count; n++) free(s->writes[n].data);
+    s->write_count = 0;
+}
+
+/* The whole form is checked before anything changes: an invalid one leaves the table as it was. */
+static int writes_check(const RrStSession *s, const uint8_t *data, size_t size, uint32_t *count) {
+    size_t magic = sizeof WRITES_MAGIC - 1, at, body;
+    uint64_t h = 0;
+    unsigned n;
+    *count = 0;
+    if (size < magic + 12 || memcmp(data, WRITES_MAGIC, magic)) return 3;
+    for (n = 0; n < 4; n++) *count |= (uint32_t)data[magic + n] << (8 * n);
+    for (n = 0; n < 8; n++) h |= (uint64_t)data[magic + 4 + n] << (8 * n);
+    body = magic + 12;
+    if (writes_hash(data + body, size - body) != h) return 3;
+    at = body;
+    for (n = 0; n < *count; n++) {
+        unsigned length;
+        if (at + 6 > size) return 3;
+        length = data[at + 4] | (unsigned)data[at + 5] << 8;
+        if (!length || length > 8192 || at + 6 + length > size || data[at] >= s->game.disk_count || data[at + 2] > 1) return 3;
+        at += 6 + length;
+    }
+    return at == size ? 0 : 3;
+}
+
+int rr_st_writes_restore(RrStSession *s, const uint8_t *data, size_t size) {
+    size_t at = sizeof WRITES_MAGIC - 1 + 12;
+    uint32_t count;
+    unsigned n;
+    if (writes_check(s, data, size, &count)) return 3;
+    writes_clear(s);
+    s->writes_dirty = 0;
+    for (n = 0; n < count; n++) {
+        unsigned length = data[at + 4] | (unsigned)data[at + 5] << 8;
+        DiskWrite *w = add_write(data[at], data[at + 1], data[at + 2], data[at + 3], (int)length);
+        if (!w) return 3;
+        memcpy(w->data, data + at + 6, length);
+        at += 6 + length;
+    }
+    return 0;
+}
+
+int rr_st_writes_pending(RrStSession *s, unsigned quiet) {
+    if (!s->writes_dirty || s->writes_quiet < quiet) return 0;
+    s->writes_dirty = 0;
+    return 1;
+}
+
+unsigned rr_st_writes_count(const RrStSession *s) { return s->write_count; }
 
 /* The step hook of the adapted Hatari's 68000 loop (defined below). */
 extern bool (*rr_hatari_step)(uint32_t pc, uint32_t opcode);
@@ -241,7 +398,8 @@ static struct retro_vfs_interface vfs = {
 
 /* ----------------------------------------------------------------------------------------- the machine's fixed settings */
 /* Hatari's core options as the conversion runs the machine: a plain ST at 8 MHz with its cycle-exact 68000, the real TOS
- * (not patched for a faster boot), real floppy timing, the borders shown (overscan tricks stay visible), no blitter. */
+ * (not patched for a faster boot), Hatari's floppy timing model (fast loading off), the borders shown (overscan tricks stay visible),
+ * no blitter. */
 static const char *option_value(const char *key) {
     /* Every option Hatari's frontend reads (src/retro/options.c), so none falls back to a default chosen elsewhere. Booleans are
      * "enabled" or "disabled". Port 0 is the mouse port (the mouse, and the second player's joystick, as on the machine: a
@@ -332,6 +490,7 @@ static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsig
 }
 
 static size_t RETRO_CALLCONV audio_batch(const int16_t *data, size_t frames) {
+    if (rr_snapshot_restoring) return frames;
     size_t room;
     if (!current) return frames;
     room = AUDIO_CAPACITY - current->audio_frames;
@@ -435,6 +594,8 @@ RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
     }
     if (game->disk_count > 1) add_file("game.m3u", (const uint8_t *)playlist, used, 0);
     rr_hatari_step = step_hook;
+    rr_fdc_sector_written = sector_written;
+    rr_fdc_sector_read = sector_read;
     retro_set_environment(environment);
     retro_set_video_refresh(video_refresh);
     retro_set_audio_sample(audio_sample);
@@ -629,6 +790,7 @@ int rr_st_frame(RrStSession *s) {
     s->audio_frames = s->audio_read = 0;
     retro_run();
     s->frames++;
+    s->writes_quiet++;
     if (bQuitProgram) { snprintf(s->error, sizeof s->error, "the machine stopped"); return -1; }
     return 0;
 }
@@ -684,7 +846,7 @@ void rr_st_frame_info(const RrStSession *s, RrStFrameInfo *info) {
 const uint8_t *rr_st_ram(const RrStSession *s, size_t *size) { (void)s; *size = STRamEnd; return STRam; }
 
 /* ------------------------------------------------------------------------------------------------------ quick states */
-#define STATE_MAGIC "RRATARIST-STATE-1"
+#define STATE_MAGIC "RRATARIST-STATE-2"
 #define STATE_SCRATCH "hatari_savestate.tmp"
 
 /* One capture of Hatari's snapshot (retro_serialize_size writes it to the scratch file of the system folder, which is this
@@ -693,22 +855,27 @@ int rr_st_state_capture(RrStSession *s, const char *abi, uint8_t **out, size_t *
     char header[256];
     VFile *scratch;
     int length;
-    uint8_t *data;
+    uint8_t *data, *writes = NULL;
+    size_t writes_size;
     *out = NULL; *out_size = 0;
     if (!retro_serialize_size() || !(scratch = find_file(VFS_PREFIX STATE_SCRATCH)) || !scratch->size) return 4;
-    length = snprintf(header, sizeof header, "%s\n%s\n%llu %llu %u\n", STATE_MAGIC, abi, (unsigned long long)scratch->size,
-                      (unsigned long long)s->frames, s->disk_index);
-    if (length <= 0 || (size_t)length >= sizeof header || !(data = (uint8_t *)malloc((size_t)length + scratch->size))) return 4;
+    if (!(writes_size = rr_st_writes_serialize(s, &writes))) return 4;
+    length = snprintf(header, sizeof header, "%s\n%s\n%llu %llu %u %llu %016llx\n", STATE_MAGIC, abi, (unsigned long long)scratch->size,
+                      (unsigned long long)s->frames, s->disk_index, (unsigned long long)writes_size,
+                      (unsigned long long)writes_hash(scratch->data, scratch->size));
+    if (length <= 0 || (size_t)length >= sizeof header || !(data = (uint8_t *)malloc((size_t)length + scratch->size + writes_size))) { free(writes); return 4; }
     memcpy(data, header, (size_t)length);
     memcpy(data + length, scratch->data, scratch->size);
+    memcpy(data + length + scratch->size, writes, writes_size);
+    free(writes);
     *out = data;
-    *out_size = (size_t)length + scratch->size;
+    *out_size = (size_t)length + scratch->size + writes_size;
     return 0;
 }
 
 int rr_st_state_restore(RrStSession *s, const char *abi, const uint8_t *data, size_t size) {
     char magic[64], stored[128], counts[96];
-    unsigned long long length, frames;
+    unsigned long long length, frames, writes_size, checksum;
     unsigned disk;
     size_t at = 0, n;
     char *lines[3] = {magic, stored, counts};
@@ -722,10 +889,20 @@ int rr_st_state_restore(RrStSession *s, const char *abi, const uint8_t *data, si
     }
     if (strcmp(magic, STATE_MAGIC)) return 3;
     if (strcmp(stored, abi)) return 2;
-    if (sscanf(counts, "%llu %llu %u", &length, &frames, &disk) != 3 || !length || length != size - at ||
-        disk >= s->game.disk_count) return 3;
+    /* Hatari restores inside the next frame and cannot go back: a damaged state is refused here, before the machine is touched. */
+    if (sscanf(counts, "%llu %llu %u %llu %llx", &length, &frames, &disk, &writes_size, &checksum) != 5 || !length || !writes_size ||
+        length >= size - at || writes_size != size - at - length || disk >= s->game.disk_count ||
+        writes_hash(data + at, (size_t)length) != checksum) return 3;
+    {
+        uint32_t count;
+        if (writes_check(s, data + at + length, (size_t)writes_size, &count)) return 3;
+    }
     if (!retro_unserialize(data + at, (size_t)length)) return 3;
     s->frames = frames;
     s->disk_index = disk;
+    /* A state brings the disks back as they were when it was saved. */
+    rr_st_writes_restore(s, data + at + length, (size_t)writes_size);
+    s->writes_dirty = 1;
+    s->writes_quiet = 1000;
     return 0;
 }

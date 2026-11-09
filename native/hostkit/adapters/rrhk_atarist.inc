@@ -40,6 +40,7 @@ static const RrhkAction s_actions[S_ACTIONS] = {
 #define RRC_INI_SECTION L"AtariST"
 #define RRC_KEYBOARD_ON "Full guest keyboard: ON (F8/F9 sent to Atari ST)"
 #define RRC_GUEST_FKEY_LAST SDL_SCANCODE_F10
+#define RRC_HELP_DISKS "Ctrl+Alt+Page Up/Down: FDD0",   /* drive B and eject are not offered (s_disks) */
 #include "hostkit/adapters/rrhk_computer.inc"
 
 /* The libretro key code of an SDL scancode (the code Hatari's frontend maps to an ST scan code), 0: none. Home is ClrHome,
@@ -177,6 +178,7 @@ static bool s_run_frame(uint16_t p1, uint16_t p2) {
    s_disks();
    if (rr_st_frame(session) != 0) { fail(rr_st_error(session)); return false; }
    frame_number++;
+   writes_tick(false);
    rr_st_picture(session, &w, &h, &stride);
    if (w > 0 && h > 0) { width = (unsigned)w; height = (unsigned)h; }
    if (sa.audio_taken) { memmove(sa.audio, sa.audio + sa.audio_taken, (sa.audio_count - sa.audio_taken) * sizeof(int16_t)); sa.audio_count -= sa.audio_taken; sa.audio_taken = 0; }

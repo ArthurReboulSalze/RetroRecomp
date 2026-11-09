@@ -199,6 +199,8 @@ NOT_INPUTS = (
     # tools/atarist_vector_selftest.py (the ST's cycle-exact 68000 against an independent corpus): built against the adapted Hatari for a
     # check, never into a game (the folder's CMakeLists.txt does not build it).
     'native/atarist_machine/atarist_vector_checks.c',
+    # tools/atarist_hardware_check.py (authored 68000 programs measured against the hardware's documentation): built for a check only.
+    'native/atarist_machine/atarist_hardware_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the

@@ -44,6 +44,7 @@ static const RrhkAction a_actions[A_ACTIONS] = {
 #define RRC_INI_SECTION L"Amiga"
 #define RRC_KEYBOARD_ON "Full guest keyboard: ON (F8/F9 sent to Amiga)"
 #define RRC_GUEST_FKEY_LAST SDL_SCANCODE_F10
+#define RRC_HELP_DISKS   /* a WHDLoad install has no disk to change: the keys do nothing here, the help lists none */
 #include "hostkit/adapters/rrhk_computer.inc"
 
 /* The Amiga raw key code of an SDL scancode (US layout positions), 0xFF: none. */

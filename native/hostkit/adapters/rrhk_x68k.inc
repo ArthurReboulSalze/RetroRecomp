@@ -54,6 +54,7 @@ static const RrhkAction x_actions[X_ACTIONS] = {
 #define RRC_INI_SECTION L"X68000"
 #define RRC_KEYBOARD_ON "Full guest keyboard: ON (F8/F9 sent to X68000)"
 #define RRC_GUEST_FKEY_LAST SDL_SCANCODE_F10
+#define RRC_HELP_DISKS "Ctrl+Alt+Page Up/Down: FDD0", "Add Shift: FDD1", "Ctrl+Alt+Backspace: eject disk",
 
 /* The largest picture the machine renders (800 x 600) and the one the window starts with. */
 #define X_MAX_WIDTH 800
