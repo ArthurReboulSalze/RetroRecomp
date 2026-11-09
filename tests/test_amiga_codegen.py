@@ -23,13 +23,25 @@ class AmigaCodegenTest(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_a_form_is_the_template_of_its_opcode_with_the_opcode_as_a_literal(self):
-        table(self.path, {0xd240: ('AddEaRg', 2, 0, 2), 0x4e75: ('Rts', 77, 12, 0)})
+    def test_a_form_not_translated_is_the_template_of_its_opcode_with_the_opcode_as_a_literal(self):
+        table(self.path, {0xc0c1: ('Mulu', 90, 0, 2), 0x4e75: ('Rts', 77, 12, 0)})
         amiga_codegen.load_opcode_map(self.path)
-        definition = amiga_codegen._form('rr_amiga_form_d240', 0xd240)
-        self.assertIn('extern "C" RR_AMIGA_FORM void rr_amiga_form_d240(void *m)', definition)
-        self.assertIn('RrAmigaSteps::run_AddEaRg<vamiga::moira::Core::C68000, (vamiga::moira::Instr)2, '
-                      '(vamiga::moira::Mode)0, (vamiga::moira::Size)2>(*static_cast<vamiga::moira::Moira *>(m), 0xd240);', definition)
+        definition = amiga_codegen._form('rr_amiga_form_c0c1', 0xc0c1)
+        self.assertIn('extern "C" RR_AMIGA_FORM void rr_amiga_form_c0c1(void *m)', definition)
+        self.assertIn('RrAmigaSteps::run_Mulu<vamiga::moira::Core::C68000, (vamiga::moira::Instr)90, '
+                      '(vamiga::moira::Mode)0, (vamiga::moira::Size)2>(*static_cast<vamiga::moira::Moira *>(m), 0xc0c1);', definition)
+
+    def test_a_translated_form_says_so_and_is_counted_apart(self):
+        table(self.path, {0x4e71: ('Nop', 1, 12, 4), 0xc0c1: ('Mulu', 90, 0, 2)})
+        amiga_codegen.load_opcode_map(self.path)
+        self.assertIn('RrAmigaSteps::translated<0x4e71>', amiga_codegen._form('rr_amiga_form_4e71', 0x4e71))
+        project = Path(self.temp.name) / 'project'
+        project.mkdir()
+        stats = amiga_codegen.write_steps(project, [(0x1000, '4e71'), (0x1002, 'c0c1')], observed=get_profile('amiga').observed_code)
+        self.assertEqual((stats['forms'], stats['translated_forms'], stats['native_instructions'], stats['translated_instructions']), (2, 1, 2, 1))
+        chain = ''.join((project / 'steps' / f'chain{n:02}.cpp').read_text(encoding='utf-8') for n in range(amiga_codegen.PARTS))
+        self.assertIn('rr_amiga_translated_total++', self.body(chain, 'rr_amiga_at_001000_4e71'))
+        self.assertNotIn('rr_amiga_translated_total++', self.body(chain, 'rr_amiga_at_001002_c0c1'))
 
     def test_the_header_has_one_forwarder_per_handler_inside_the_friend(self):
         table(self.path, {0xd240: ('AddEaRg', 2, 0, 2)})

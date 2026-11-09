@@ -2,8 +2,9 @@
 
 Every conversion starts from a fresh reference run: the install (the slave and its data files, read from the player's archive)
 runs on vAmiga's Core with every 68000 instruction on Moira's interpreter, and the instructions it runs from RAM are recorded.
-Those become native code (`amiga_codegen`): Moira's code specialised per opcode, chained from instruction to instruction behind the
-opcode the CPU has latched, and anything not seen stays on the counted interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
+Those become native code (`amiga_codegen`), per opcode: translated C for the forms the translator knows (`amiga_translate`, the bus functions staying the machine's), Moira's
+code specialised for the others, each counted, chained from instruction to instruction behind the opcode the CPU has latched; anything not seen stays on the counted
+interpreter. The game executable (install, steps, the machine and the host kit) is then replayed headless, copied alone, and
 its trace (picture, sound, RAM, CPU registers of every frame) must equal the reference's; so must the compressed copy that is
 delivered, and a quick state saved by it must continue the same timeline in a fresh process. Nothing is claimed beyond those
 bounded routes: the hardware fidelity is vAmiga's, unmeasured here, and the routes are scripts, not play.
@@ -648,7 +649,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             native = results[name]['native']
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
-            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted,
+            rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
+                         'native_moira_specialised': native - results[name].get('translated', 0), 'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
                              'kickstart_native': (results[name].get('kickstart') or {}).get('native', 0)} if kick is not None else {}),
@@ -679,9 +681,12 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                            'and the resload calls, on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
             'remembered_data': remembered_report(*added, dropped_reason, ignored),
-            'native_coverage': ("instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as native code: "
-                                "Moira's code specialised per opcode, chained, guarded by the latched opcode; anything not seen runs on the counted interpreter"),
-            'native_code_is': "Moira's code specialised, not a translation",
+            'native_coverage': ("instructions seen running from RAM, and the Kickstart instructions of the player-supplied image when the install uses one, as native code per "
+                                "opcode, chained, guarded by the latched opcode; anything not seen runs on the counted interpreter"),
+            'native_code_is': ("translated C per opcode for the forms the translator knows, with the bus functions of the reference machine; the other forms are Moira's code "
+                               "specialised, not a translation (final_checks.native_translated, native_moira_specialised)"),
+            'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
+                             'translated_instructions': generation['translated_instructions']},
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',

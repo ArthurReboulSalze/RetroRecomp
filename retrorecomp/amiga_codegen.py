@@ -1,8 +1,9 @@
-"""Amiga native code on Moira's instruction templates (MIT), one routine per opcode, chained from instruction to instruction.
+"""Amiga native code (MIT), one routine per opcode, chained from instruction to instruction.
 
-The Amiga's reference machine is vAmiga, whose CPU is Moira (MIT, pinned with vAmiga). Native code must make the same bus accesses at the same
-cycles as the reference (chip-RAM contention), so a *form* is Moira's own handler compiled for one opcode, with the opcode as a literal and Moira's
-code inlined: "Moira's code specialised", not a translation. It reads its extension words through Moira's prefetch, on the bus, as the interpreter does.
+The Amiga's reference machine is vAmiga, whose CPU is Moira (MIT, pinned with vAmiga). Native code must make the same bus accesses at the same cycles as the
+reference (chip-RAM contention). A *form* is the code of one opcode, in one of two kinds, counted apart: translated (`amiga_translate`: the instruction written out as C, calling
+the machine's bus functions), or Moira's code specialised (Moira's own handler compiled for that opcode, with the opcode as a literal and its code inlined). Either reads its
+extension words on the bus, as the interpreter does.
 
 That is why the guard is one comparison. A form is correct for its opcode at any address and with any extension words, so all that decides whether it
 may run is the opcode the CPU has latched: a word rewritten in memory, by anything, needs no tracking. An *instruction* (one per address and opcode
@@ -18,10 +19,10 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from . import m68k_observed
+from . import amiga_translate, m68k_observed
 from .megadrive_codegen import write_changed
 
-FORMAT = 3
+FORMAT = 4
 # Moira's template parameter for the CPU of the machine.
 CORE = 'C68000'
 PARTS = 16
@@ -59,13 +60,15 @@ def _semantics(prefix: str, alias) -> str:
         for name in handlers)
     return ('#pragma once\n#include "vaconfig.h"\n#include "MoiraConfig.h"\n#include "Moira.h"\n#include "MoiraMacros.h"\n'
             '#include <cassert>\n#include <cstdio>\n#include <algorithm>\n#include <cmath>\n#include <bit>\n#include <vector>\n#include <stdexcept>\n#include <cstdint>\n'
-            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
+            'extern "C" {\nextern uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total;\nextern const uint32_t *rr_amiga_run_flags;\n'
             'extern uint32_t rr_amiga_kick_base, rr_amiga_kick_size;\n}\n'
             'namespace vamiga::moira {\nusing namespace Flag;\n'
             '#ifdef RR_AMIGA_FORMS\n'
             '#include "MoiraInit_cpp.h"\n#include "MoiraALU_cpp.h"\n#include "MoiraDataflow_cpp.h"\n#include "MoiraExceptions_cpp.h"\n#include "MoiraExec_cpp.h"\n'
             '#endif\n'
             'struct RrAmigaSteps {\n' + forwarders +
+            '    // A translated form (retrorecomp/amiga_translate.py), a member of the struct Moira declares its friend.\n'
+            '    template <int OPCODE> static void translated(Moira &m);\n'
             '    // Something is pending for a run loop: back to it. Only the interpreter\'s slow path and the Amiga\'s loop deal with those.\n'
             '    static inline bool pending(const Moira &m) { return m.flags != 0 || *rr_amiga_run_flags != 0; }\n'
             '    // The CPU is at this instruction, with this opcode latched: it starts as Moira::execute() starts it.\n'
@@ -86,8 +89,18 @@ def moira_bodies(engine: Path, prefix: str) -> m68k_observed.InstructionBodies:
     return m68k_observed.InstructionBodies([], {}, '', '', _MAP_SHA256, semantics_text=_semantics)
 
 
+def _translated(opcode: int) -> str | None:
+    handler, _, mode, size = _MAP[opcode]
+    return amiga_translate.translate(opcode, handler, mode, size, core=CORE)
+
+
 def _form(symbol: str, opcode: int) -> str:
     handler, instr, mode, size = _MAP[opcode]
+    body = _translated(opcode)
+    if body is not None:
+        return (f'namespace vamiga::moira {{\ntemplate <> inline void RrAmigaSteps::translated<0x{opcode:04x}>(Moira &m) {{\n    [[maybe_unused]] auto &r = m.reg;\n'
+                f'    [[maybe_unused]] auto &q = m.queue;\n{body}}}\n}}\n'
+                f'extern "C" RR_AMIGA_FORM void {symbol}(void *m) {{ vamiga::moira::RrAmigaSteps::translated<0x{opcode:04x}>(*static_cast<vamiga::moira::Moira *>(m)); }}\n')
     return (f'extern "C" RR_AMIGA_FORM void {symbol}(void *m) {{ vamiga::moira::RrAmigaSteps::run_{handler}<vamiga::moira::Core::{CORE}, (vamiga::moira::Instr){instr}, '
             f'(vamiga::moira::Mode){mode}, (vamiga::moira::Size){size}>(*static_cast<vamiga::moira::Moira *>(m), 0x{opcode:04x}); }}\n')
 
@@ -105,10 +118,11 @@ def _count(pc: int) -> str:
     return ''
 
 
-def _instruction(prefix: str, pc: int, form: str, following: list) -> str:
+def _instruction(prefix: str, pc: int, form: tuple, following: list) -> str:
     chain = ''.join(f'    if (S::at(m, 0x{next_pc:x}, 0x{opcode:04x})) RR_AMIGA_NEXT {_symbol(prefix, next_pc, opcode)}(p);\n' for next_pc, opcode in following)
-    return (f'extern "C" void {_symbol(prefix, pc, int(form[1]))}(void *p) {{\n    auto &m = *static_cast<vamiga::moira::Moira *>(p);\n    {form[0]}(p);\n'
-            f'    rr_amiga_native_total++;{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
+    translated = ' rr_amiga_translated_total++;' if _translated(form[1]) is not None else ''
+    return (f'extern "C" void {_symbol(prefix, pc, form[1])}(void *p) {{\n    auto &m = *static_cast<vamiga::moira::Moira *>(p);\n    {form[0]}(p);\n'
+            f'    rr_amiga_native_total++;{translated}{_count(pc)}\n    if (S::pending(m)) return;\n{chain}}}\n')
 
 
 def _signed(value: int, bits: int) -> int:
@@ -194,7 +208,7 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
         page = pages.setdefault(pc >> 12, {'base': index, 'slots': {}})
         page['slots'][(pc & 0xfff) >> 1] = index - page['base'] + 1
     source = ['#include <stddef.h>\n#include <stdint.h>\n',
-              'uint64_t rr_amiga_native_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
+              'uint64_t rr_amiga_native_total,rr_amiga_translated_total,rr_amiga_kick_total;\nconst uint32_t *rr_amiga_run_flags;\nuint32_t rr_amiga_kick_base,rr_amiga_kick_size;\n',
               'typedef void (*RrAmigaCode)(void *);\n']
     source.extend(f'void {_symbol(prefix, pc, opcode)}(void *);\n' for pc, opcode in instructions)
     source.append('static const struct {uint16_t opcode;RrAmigaCode run;} entries[]={'
@@ -218,7 +232,25 @@ def write_steps(project: Path, samples: list, *, observed) -> dict:
 }
 """)
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
-    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups)}
+    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len(forms), 'pcs': len(groups),
+            'translated_forms': sum(_translated(opcode) is not None for opcode in forms),
+            'translated_instructions': sum(_translated(opcode) is not None for _, opcode in instructions)}
+
+
+def write_all_translated_forms(project: Path, *, observed) -> list:
+    """For the self-test: every opcode the translator knows, in the files of the forms, and a table of them by opcode. Returns the opcodes."""
+    opcodes = sorted(opcode for opcode in _MAP if _translated(opcode) is not None)
+    steps = project / 'steps'
+    steps.mkdir(parents=True, exist_ok=True)
+    chunks = [[] for _ in range(PARTS)]
+    for opcode in opcodes:
+        chunks[(opcode >> 1) % PARTS].append(_form(f'{observed.prefix}form_{opcode:04x}', opcode))
+    for n, chunk in enumerate(chunks):
+        write_changed(steps / f'part{n:02}{observed.source_extension}', '#define RR_AMIGA_FORMS 1\n' + observed.steps_head + ''.join(chunk))
+    declarations = ''.join(f'void {observed.prefix}form_{opcode:04x}(void *);\n' for opcode in opcodes)
+    entries = ','.join(f'[0x{opcode:04x}]={observed.prefix}form_{opcode:04x}' for opcode in opcodes)
+    write_changed(steps / f'forms_table{INDEX_EXTENSION}', f'{declarations}void (*const rr_amiga_all_forms[65536])(void *)={{{entries}}};\n')
+    return opcodes
 
 
 SOURCE_EXTENSION = '.cpp'

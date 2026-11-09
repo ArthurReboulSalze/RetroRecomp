@@ -175,7 +175,7 @@ static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
 // by itself to the instructions it knows come next; a step can never sit on a trap of the resload table, which stops the CPU before it runs.
 typedef void (*RrAmigaCode)(void *);
 extern "C" RrAmigaCode rr_amiga_lookup(uint32_t pc, uint16_t opcode);
-extern "C" uint64_t rr_amiga_native_total, rr_amiga_kick_total;
+extern "C" uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total;
 extern "C" const uint32_t *rr_amiga_run_flags;
 extern "C" uint32_t rr_amiga_kick_base, rr_amiga_kick_size;
 #endif
@@ -461,7 +461,7 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->amiga = &S->emu->rrMain();
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
-        rr_amiga_native_total = rr_amiga_kick_total = 0;
+        rr_amiga_native_total = rr_amiga_translated_total = rr_amiga_kick_total = 0;
 #endif
         S->amiga->audioPort.setSampleRate((double)RR_AMIGA_AUDIO_RATE);
         auto rom = boot_rom();
@@ -675,6 +675,13 @@ extern "C" int rr_amiga_write_observations(const RrAmigaSession *s, const char *
 extern "C" uint64_t rr_amiga_native_count(const RrAmigaSession *) {
 #ifdef RR_AMIGA_NATIVE
     return rr_amiga_native_total;
+#else
+    return 0;
+#endif
+}
+extern "C" uint64_t rr_amiga_translated_count(const RrAmigaSession *) {
+#ifdef RR_AMIGA_NATIVE
+    return rr_amiga_translated_total;
 #else
     return 0;
 #endif

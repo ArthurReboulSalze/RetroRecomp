@@ -280,6 +280,20 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: 68000 forms translated to C (1.7.2, recompilation stage 3)
+
+The forms of 50 Moira handlers are now written out as C by a translator (`amiga_translate`): the effective address, the operation and the flags for that opcode, every register a
+literal index, calling the machine's bus functions (`read`, `write`, `prefetch`, `readExt`, `sync`) in Moira's order. Extension words are still read on the bus, so the guard stays the latched
+opcode. Other forms stay Moira's code specialised. Each route's report counts the two apart (`final_checks.native_translated`, `native_moira_specialised`), and `native_forms` gives the
+static counts. Translated share of the instructions executed on two routes of 3,600 frames: Rick Dangerous 99.8 %, Apidya 99.9 %, Lemmings 99.9 %, Civilization 99.0 %. Translated is a statement about the 68000's code:
+Agnus, Denise, Paula and the CIAs stay emulated, and this says nothing of hardware fidelity.
+Proof: `tools/amiga_vector_selftest.py` now runs every one of the 40,586 translated opcodes against Moira's handler on 32 random states over a random memory, with the interrupt lines
+changing at a random bus access: 1,298,752 runs, 0 differ on registers, SR, PC, queue, clock, each bus access, internal buffers, function code and flags. Deliberate errors were reported
+(a flag, a clock, a moved poll of the lines, a register, the order of a long write, an address error frame); one was not (a `readBuffer` write that a later prefetch overwrites). This shows equality with Moira, not
+with the hardware; the corpus of 6,762 vectors still runs through the steps, all equal. The same four games: every frame equal to the fresh reference, packed copy and state continuation too, with the same counts.
+An estimate on a loaded PC, headless (hashing included), interpreted time over native time on 1,200 frames: Rick 1.00, Apidya 1.01, Lemmings 1.00, Civilization 1.00; the 68000 is a small part of a frame here, not a timing.
+**Hot path:** one more count per translated instruction; the form's text differs, its bus accesses do not. **What moves:** the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: the instructions' lengths come from Moira, and no recompiler is needed (1.7.2)
 
 The chain of the native code needs the length of an observed instruction and the address it names. Both came from the decoder of `m68k-recomp-core`, built during each

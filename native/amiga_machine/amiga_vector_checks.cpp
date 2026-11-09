@@ -20,6 +20,10 @@
 //   idx want_cycles sr_mask want_stopped ntx [kind clock addr size]*ntx  init[21] final[21]  n_in [addr value]*  n_out [addr value]*
 // (ntx = -1: the fixture has no transaction list; init/final = d0-d7 a0-a6 usp ssp sr pc ird irc, the pc already architectural.)
 // Output: one JSON object per line. `--opcode-map <file>` writes the table the generator needs and exits.
+//
+// `--differential <states>` (built with RR_VECTOR_FORMS, every translated form linked): for every translated opcode, that many random states over a random flat memory,
+// through the jump table and through the translated form, compared on registers, SR, PC, queue, clock, every bus access, the stopped state, Moira's internal buffers, the
+// function code and its flags. The output is one object per opcode that differs, with what differed, and the counts.
 #include "vaconfig.h"
 #include "Emulator.h"
 #include "Amiga.h"
@@ -39,6 +43,9 @@ static unsigned char mem[1 << 24];
 static std::vector<Access> accesses;
 static std::vector<unsigned> touched;
 static bool recording = true;
+// The differential check raises the interrupt lines at one bus access, so that a poll of the lines in another place of an instruction leaves another result.
+static size_t lines_change_at = 0;
+static u8 lines_change_to = 0;
 
 static unsigned char *flat(u32 address) { return &mem[address & 0xffffff]; }
 
@@ -48,7 +55,7 @@ extern const char *rr_moira_exec_name[65536];
 extern bool (*rr_moira_native)(Moira &, u32 pc, u16 opcode);
 
 // ---------------------------------------------------------------------------------------------- the CPU's client API, flat
-void Moira::sync(int cycles) { clock += cycles; }
+void Moira::sync(int cycles) { clock += cycles; if (lines_change_at && accesses.size() >= lines_change_at) ipl = lines_change_to; }
 
 u8 Moira::read8(u32 addr) const {
     u8 v = *flat(addr);
@@ -96,6 +103,13 @@ struct RrAmigaSteps {
     // The state a vector starts from: no pending flags, no interrupt, no leftover trace or stop from the previous vector.
     static void clear(Moira &m) { m.flags = 0; m.reg.ipl = 0; m.ipl = 0; }
     static bool stopped(Moira &m) { return (m.flags & State::STOPPED) != 0; }
+    static void same_function_code(Moira &m) { m.fcl = FC::USER_PROG; }
+    // What an instruction leaves behind that no register shows, for the differential check.
+    static std::string inside(Moira &m) {
+        char text[96];
+        snprintf(text, sizeof text, "rb=%x wb=%x fc=%d flags=%x ipl=%d", (unsigned)m.readBuffer, (unsigned)m.writeBuffer, (int)m.fcl, (unsigned)m.flags, (int)m.reg.ipl);
+        return text;
+    }
 };
 
 }  // namespace vamiga::moira
@@ -117,6 +131,13 @@ static bool native_hook(Moira &m, u32 pc, u16 op) {
     }
     return false;
 }
+#endif
+
+#ifdef RR_VECTOR_FORMS
+extern "C" void (*const rr_amiga_all_forms[65536])(void *);
+extern "C" { uint64_t rr_amiga_native_total, rr_amiga_translated_total, rr_amiga_kick_total; const uint32_t *rr_amiga_run_flags; uint32_t rr_amiga_kick_base, rr_amiga_kick_size; }
+static void (*form_to_run)(void *);
+static bool form_hook(Moira &m, u32, u16) { form_to_run(&m); return true; }
 #endif
 
 // ---------------------------------------------------------------------------------------------------------------- a vector
@@ -185,6 +206,102 @@ static bool read_vector(FILE *f, Vector &v) {
     return true;
 }
 
+#ifdef RR_VECTOR_FORMS
+static unsigned long long rng_state = 0x9E3779B97F4A7C15ull;
+static u32 rnd() { rng_state ^= rng_state << 13; rng_state ^= rng_state >> 7; rng_state ^= rng_state << 17; return (u32)(rng_state >> 16); }
+
+struct Start { u32 d[8], a[7], usp, ssp, sr, pc, irc; };
+
+// The instruction in memory with its first extension word; the rest of memory is the random fill, restored between runs.
+static std::vector<unsigned char> base_mem;
+static void start(Moira &cpu, const Start &s, u16 op) {
+    for (unsigned a : touched) mem[a] = base_mem[a];
+    touched.clear();
+    const unsigned char code[4] = {(unsigned char)(op >> 8), (unsigned char)op, (unsigned char)(s.irc >> 8), (unsigned char)s.irc};
+    for (u32 n = 0; n < 4; n++) { mem[(s.pc + n) & 0xffffff] = code[n]; touched.push_back((s.pc + n) & 0xffffff); }
+    RrAmigaSteps::clear(cpu);
+    RrAmigaSteps::same_function_code(cpu);     // A run that faults before any access reports the code the previous instruction left.
+    cpu.setClock(0);
+    cpu.setSR((u16)s.sr);
+    for (int i = 0; i < 8; i++) cpu.setD(i, s.d[i]);
+    for (int i = 0; i < 7; i++) cpu.setA(i, s.a[i]);
+    cpu.setUSP(s.usp); cpu.setISP(s.ssp); cpu.setPC(s.pc); cpu.setPC0(s.pc);
+    cpu.setIRD(op); cpu.setIRC((u16)s.irc);
+    accesses.clear();
+}
+
+// An address: mostly even, mostly in the 24-bit space, so that both the access and the address error are seen.
+static u32 random_address() {
+    u32 a = rnd() & 0xffffff;
+    if ((rnd() & 7) != 0) a &= ~1u;
+    if ((rnd() & 15) == 0) a |= rnd() << 24;
+    return a;
+}
+
+static int differential(Moira &cpu, int states) {
+    for (size_t i = 0; i < sizeof mem; i++) mem[i] = (unsigned char)rnd();
+    base_mem.assign(mem, mem + sizeof mem);
+    long long opcodes = 0, runs = 0, differ = 0;
+    for (int op = 0; op < 65536; op++) {
+        if (!rr_amiga_all_forms[op]) continue;
+        opcodes++;
+        bool reported = false;
+        for (int k = 0; k < states; k++) {
+            Start s;
+            for (auto &v : s.d) v = rnd();
+            // Small counts and values reach other paths of shifts, bit numbers and divisions of the masks.
+            if (k & 1) for (auto &v : s.d) v &= 0x3f;
+            for (auto &v : s.a) v = random_address();
+            s.usp = random_address(); s.ssp = random_address();
+            s.sr = (rnd() & 0x271f) | ((rnd() & 7) ? 0x2000u : 0u);
+            s.pc = (rnd() & 0xfffffe) | 0x1000;
+            s.irc = rnd() & 0xffff;
+            if (k & 2) s.irc &= 0x0ffe;
+            lines_change_at = 1 + rnd() % 4;
+            lines_change_to = (u8)(1 + rnd() % 7);
+            rr_moira_native = nullptr;
+            start(cpu, s, (u16)op);
+            std::string note, theirs, ours;
+            cpu.execute();
+            Final interp = capture(cpu);
+            theirs = RrAmigaSteps::inside(cpu);
+            form_to_run = rr_amiga_all_forms[op];
+            rr_moira_native = form_hook;
+            start(cpu, s, (u16)op);
+            cpu.execute();
+            rr_moira_native = nullptr;
+            Final nat = capture(cpu);
+            ours = RrAmigaSteps::inside(cpu);
+            for (int i = 0; i < 21; i++) if (nat.regs[i] != interp.regs[i]) { note += REG_NAMES[i]; note += ' '; }
+            if (nat.clock != interp.clock) note += "clock ";
+            if (nat.stopped != interp.stopped) note += "stopped ";
+            if (ours != theirs) note += "inside(" + ours + " / " + theirs + ") ";
+            if (nat.log.size() != interp.log.size()) note += "bus-count ";
+            else for (size_t i = 0; i < nat.log.size(); i++) {
+                const Access &a = nat.log[i], &b = interp.log[i];
+                if (a.kind != b.kind || a.clock != b.clock || a.addr != b.addr || a.size != b.size || a.value != b.value) {
+                    char text[128];
+                    snprintf(text, sizeof text, "bus(%zu: %c %x.%u=%x @%lld / %c %x.%u=%x @%lld) ", i, a.kind, a.addr, a.size, a.value, a.clock, b.kind, b.addr, b.size, b.value, b.clock);
+                    note += text;
+                    break;
+                }
+            }
+            runs++;
+            if (!note.empty()) {
+                differ++;
+                if (!reported) {
+                    reported = true;
+                    printf("{\"op\":\"%04x\",\"k\":%d,\"pc\":\"%x\",\"sr\":\"%x\",\"diff\":\"%s\"}\n", op, k, s.pc, s.sr, note.c_str());
+                }
+            }
+        }
+    }
+    printf("{\"opcodes\":%lld,\"runs\":%lld,\"differ\":%lld}\n", opcodes, runs, differ);
+    fflush(stdout);
+    return differ ? 1 : 0;
+}
+#endif
+
 int main(int argc, char **argv) {
     Emulator emu;
     emu.initialize();
@@ -200,6 +317,9 @@ int main(int argc, char **argv) {
         fflush(stderr);
         std::_Exit(n == 65536 ? 0 : 3);
     }
+#ifdef RR_VECTOR_FORMS
+    if (argc > 2 && !strcmp(argv[1], "--differential")) std::_Exit(differential(cpu, atoi(argv[2])));
+#endif
     if (argc < 2) return 2;
     FILE *in = fopen(argv[1], "rb");
     if (!in) return 2;

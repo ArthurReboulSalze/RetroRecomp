@@ -637,6 +637,7 @@ INPUTS = _resolve({
         'native/hostkit/adapters/rrhk_amiga.inc',
         'retrorecomp.amiga',
         'retrorecomp.amiga_codegen',
+        'retrorecomp.amiga_translate',
         'retrorecomp.amiga_conversion',
         'retrorecomp.amiga_kickstart',
         'retrorecomp.amiga_lha',

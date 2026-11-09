@@ -23,6 +23,7 @@ Three things are checked, each counted apart:
 """
 from __future__ import annotations
 import json
+import subprocess
 import os
 from collections import Counter
 from pathlib import Path
@@ -33,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 
 FIXTURES = ('m68k-groups', 'm68k-shifts', 'md-prefetch', 'md-exceptions')
 TRACE_DELIVERY = 'post-instruction trace'    # the name of the two authored vectors that expect the trace exception after the instruction
+DIFFERENTIAL_STATES = 32                     # random states per translated opcode
 SAMPLE_BYTES = 12                            # the bytes read at a vector's address for the generator: six words, as a conversion observes
 REGS = [*(f'd{i}' for i in range(8)), *(f'a{i}' for i in range(7)), 'usp', 'ssp', 'sr', 'pc']
 KINDS = ('state', 'clocks', 'bus')
@@ -247,9 +249,9 @@ def ensure_core(workspace: Path, work: Path) -> Path:
     return amiga_vamiga.adapt(amiga_vamiga.source(), work / 'vamiga')
 
 
-def write_cmake(work: Path, core: Path) -> Path:
+def write_cmake(work: Path, core: Path, name: str = 'cmake') -> Path:
     machine = (ROOT / 'native' / 'amiga_machine').as_posix()
-    folder = work / 'cmake'
+    folder = work / name
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'CMakeLists.txt').write_text(f"""cmake_minimum_required(VERSION 3.20)
 project(RetroAmigaVectors LANGUAGES C CXX)
@@ -259,6 +261,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(RR_VECTOR_STEPS "" CACHE PATH "The generated native steps (steps/*, step_semantics.h)")
+set(RR_VECTOR_FORMS "" CACHE PATH "Every translated form (steps/*, step_semantics.h), for the differential check")
 add_subdirectory("{core.as_posix()}" vacore)
 # vAmiga's warnings-as-errors stay on its own files.
 foreach(RR_TARGET VACore rvlib utlib)
@@ -275,6 +278,12 @@ add_executable(amiga_vector_checks ${{RR_SOURCES}})
 if(RR_VECTOR_STEPS)
     target_include_directories(amiga_vector_checks PRIVATE "${{RR_VECTOR_STEPS}}")
     target_compile_definitions(amiga_vector_checks PRIVATE RR_VECTOR_STEPS=1)
+endif()
+if(RR_VECTOR_FORMS)
+    file(GLOB RR_FORMS "${{RR_VECTOR_FORMS}}/steps/*.cpp" "${{RR_VECTOR_FORMS}}/steps/*.c")
+    target_sources(amiga_vector_checks PRIVATE ${{RR_FORMS}})
+    target_include_directories(amiga_vector_checks PRIVATE "${{RR_VECTOR_FORMS}}")
+    target_compile_definitions(amiga_vector_checks PRIVATE RR_VECTOR_FORMS=1)
 endif()
 target_link_libraries(amiga_vector_checks PRIVATE VACore)
 # The harness's definitions of the CPU's client functions come first and shadow vAmiga's (Components/CPU/CPU.cpp).
@@ -301,6 +310,34 @@ def build_harness(work: Path, core: Path, steps: Path | None) -> Path:
     run(configure, log=work / 'build.log', cwd=work)
     run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'amiga_vector_checks'], log=work / 'build.log', timeout=7200, cwd=work)
     return build_executable(build, 'amiga_vector_checks')
+
+
+def differential(work: Path, core: Path, states: int) -> tuple[dict, list]:
+    """Every opcode the translator knows against Moira's handler, on random states and a random flat memory (the harness's `--differential`). No fixture: the states are
+    the harness's own, so what it shows is equality with Moira, not with the hardware. Returns the counts and the opcodes that differ."""
+    from retrorecomp import amiga_codegen, m68k_observed
+    from retrorecomp.core import run, toolchain
+    from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
+    from retrorecomp.systems import get_profile
+    amiga_codegen.load_opcode_map(work / 'opcode-map.txt')
+    observed = get_profile('amiga').observed_code
+    folder = work / 'all-forms'
+    folder.mkdir(parents=True, exist_ok=True)
+    m68k_observed.write_step_semantics(folder, observed.load_bodies(None), observed.prefix, lambda text: text)
+    amiga_codegen.write_all_translated_forms(folder, observed=observed)
+    source = write_cmake(work, core, 'cmake-forms')
+    build = work / 'build-forms'
+    cmake, generator = toolchain()
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(), '-DCMAKE_BUILD_TYPE=Release', f'-DRR_VECTOR_FORMS={folder.as_posix()}'],
+        log=work / 'build.log')
+    run([cmake, '--build', build, '--config', 'Release', '--parallel', str(build_jobs())], log=work / 'build.log')
+    program = build_executable(build, 'amiga_vector_checks')
+    output = subprocess.run([str(program), '--differential', str(states)], cwd=work, capture_output=True, text=True).stdout   # Exit 1: something differs, its lines say what.
+    rows = [json.loads(line) for line in output.splitlines() if line.startswith('{')]
+    totals = next((row for row in rows if 'opcodes' in row), None)
+    if totals is None:
+        raise RuntimeError('The differential check gave no result: ' + output[-500:])
+    return totals, [row for row in rows if 'op' in row]
 
 
 def generate_steps(work: Path, program: Path, samples: list[tuple[int, str]]) -> dict:
@@ -502,6 +539,14 @@ def main(argv: list[str]) -> int:
         for text in self_check(program, work, replayed[0]):
             failed += 1
             print('PROBLEM', text)
+    forms = None
+    if '--no-differential' not in argv:
+        forms, different = differential(work, core, DIFFERENTIAL_STATES)
+        print(f"translated forms against Moira's handlers: {forms['opcodes']} opcodes, {forms['runs']} random states, {forms['differ']} differ "
+              f"(registers, SR, PC, queue, clock, each bus access, internal buffers, function code, flags)")
+        for row in different[:40]:
+            print('PROBLEM translated form', row)
+        failed += len(different)
     (work / 'results.json').write_text(json.dumps([
         {'fixture': e['fixture'], 'totals': e['totals'], 'main_offset': e['main_offset'],
          'families': [{'name': f.name, 'key': list(f.key), 'count': e['covered'].get(f.key + (n,), 0), 'recorded': f.count}

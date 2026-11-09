@@ -7,8 +7,8 @@ Nothing here says that a game plays completely, that the hardware is reproduced 
 screen: those are separate measures, listed below with what is known of each.
 
 **What "native" means here.** The game runs on a complete emulator core inside the executable, vAmiga, with its machine, its chips and their timing and its 68000, Moira. Only the
-68000 instructions that the conversion saw running (the player's Kickstart included) become native code, which is Moira's code specialised per opcode behind a guard: it is
-not a translation of the game. The custom chips, the CIAs and the floppy drive stay vAmiga's own code. So the native share below measures how much CPU code avoids the
+68000 instructions that the conversion saw running (the player's Kickstart included) become native code, per opcode behind a guard: translated C for the forms the translator
+knows (about 99 % of what four games execute), Moira's code specialised for the others, the two counted apart. The translation stops at the CPU: its bus functions, and the machine behind them, stay vAmiga's. The custom chips, the CIAs and the floppy drive stay vAmiga's own code. So the native share below measures how much CPU code avoids the
 core's interpreter; it cannot be compared with the figures of a machine whose game code is translated, and it says nothing about hardware fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core).
 
 ## 1. What is converted, and what is not
@@ -62,9 +62,9 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    the CIAs, the floppy drive), pinned at one revision and adapted at build time by `retrorecomp/amiga_vamiga.py`, which drives it
    frame by frame inside the game. Its 68000 core, Moira, is the reference CPU of the Amiga profile.
 4. **Native code.** A conversion first runs the install on the interpreted machine and records the 68000 instructions seen
-   executing from RAM. Each opcode seen becomes a form, the very instruction template Moira dispatches it to, compiled for that
-   opcode alone (Moira's code specialised, not a translation), so the bus accesses and their cycles (chip-RAM contention included)
-   stay Moira's. Each instruction seen runs its form and goes straight on to the instruction it knows comes next, when the CPU is
+   executing from RAM. Each opcode seen becomes a form: written out as C by the translator (`retrorecomp/amiga_translate.py`), calling the machine's bus functions in the
+   order and at the cycles of Moira's handler, or, for a form it does not know, the very template Moira dispatches the opcode to, compiled for that opcode alone (Moira's
+   code specialised, not a translation). Chip-RAM contention stays exact either way. Each instruction seen runs its form and goes straight on to the instruction it knows comes next, when the CPU is
    there with that opcode latched and nothing is pending for a run loop. A form reads its extension words on the bus, so it is right
    for its opcode at any address, and the guard is the latched opcode alone: unpacked, patched or self-modified code that changes an
    opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`).
@@ -88,7 +88,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 | Measure | What is known today |
 | --- | --- |
 | Native code | Measured with the 1.7.2 tree (8 November 2026; main and exploration routes of 3,600 frames; native entries, then instructions left on the counted interpreter): Rick Dangerous 36.1 M and 36.5 M, 0 and 0; Civilization (Kickstart) 4.42 M and 4.35 M, 19 and 19; California Games (Kickstart) 45.8 M and 46.1 M, 48 and 49; Twylyte (Kickstart) 49.0 M and 43.1 M, 10,638 and 10,601 (0.022 % and 0.025 %). Every interpreted instruction of the three Kickstart installs is the Kickstart's, counted apart (`kickstart_interpreted`). **Not measured again since 1.7.0:** the ten-install panel (6 November 2026: 0 interpreted on every route of 3,000 frames, 44.8 to 76.0 million native entries per game over two routes) and the five Kickstart 1.3 installs (main route, native entries / Kickstart instructions interpreted: Black Tiger 31.1 M / 2.34 M, Flying Shark 23.7 M / 1.58 M, North & South (NTSC) 13.1 M / 3.42 M, Dungeon Master 19.7 M / 7.67 M, Hostages 23.7 M / 5.32 M); the Kickstart counts there were taken before 1.7.2 stopped a slave's patched words from missing their guard. |
-| CPU fidelity | The native code is Moira's code specialised per opcode. Moira (MIT) was compared with the SingleStepTests 68000 vectors; its deviations from them are recorded in 15 families (private engine-gate notes). On Rick Dangerous the trace of every frame (picture, sound, RAM, CPU registers) and the resload log of the native game are identical to the interpreted reference machine's, on both routes. |
+| CPU fidelity | `tools/amiga_vector_selftest.py`: every translated opcode (40,586) against Moira's handler on random states, 0 differ. Moira (MIT) was compared with the SingleStepTests 68000 vectors; its deviations from them are recorded in 15 families (private engine-gate notes). On Rick Dangerous the trace of every frame (picture, sound, RAM, CPU registers) and the resload log of the native game are identical to the interpreted reference machine's, on both routes. |
 | Hardware fidelity | Not claimed. As a development check, the same installs were run privately in an independent emulator with the real WHDLoad and its pictures compared with ours on 59 reference frames each: Lotus 2 matched 59/59, Lemmings 58/59, Speedball 2 54/59, Elite 51/59, Turrican 2 49/59. Pinball Dreams (NTSC) first scored 19/59; looked for at any offset at the Amiga's 4-bit colour depth, all 59 of its pictures are in the other emulator's stream (the two tools crop some display windows differently). These are counts of equal pictures on a few frames, not a fidelity claim. |
 | Gameplay validation | One owner play trial: the ten panel installs, converted with the tree at `977cf63e` and delivered in `Export`, were played on 6 November 2026 and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). A trial, not a coverage claim: no game was checked end to end, and it is not a decision to leave the experimental status. |
 | Physical latency | Not measured. |
