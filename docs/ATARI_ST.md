@@ -2,12 +2,12 @@
 
 Experimental profile (`atarist`), added in 1.7.1: the converter offers it when the installation carries the Atari ST files, and it
 is not shared through the compilation library. It converts an Atari ST, STF or Mega ST floppy game into a standalone Windows
-or Linux executable that runs the game on [Hatari](https://github.com/hatari/hatari), with native steps for the 68000 instructions its
+or Linux executable that runs the game on [Hatari](https://github.com/hatari/hatari), with native code for the 68000 instructions its
 reference runs observed and Hatari's interpreter, counted, for the others. Nothing here says that a game plays completely, that the hardware is reproduced
 faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each.
 
 **What "native" means here.** The game runs on a complete emulator core inside the executable, Hatari, with its machine, its chips and their timing. Only the 68000 instructions that
-the conversion saw running become native steps, and each step calls Hatari's own instruction handlers behind a guard: it is not a standalone translation of the game. The video,
+the conversion saw running become native code, Hatari's own instruction handlers compiled again per opcode and chained: it is not a standalone translation of the game. The video,
 the sound, the disk controller and the other chips stay Hatari's own code. So the native share below measures how much CPU code avoids the core's interpreter; it cannot be compared
 with the figures of a machine whose game code is translated, and it says nothing about hardware fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core).
 
@@ -58,13 +58,15 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 5. **Report.** The conversion report (schema v2, shape `atarist_conversion`) carries the interpreter fallback per CPU, in
    instructions, and keeps the five measures in separate objects.
 6. **Native code.** The reference run records the 68000 instructions it runs from RAM, the TOS ROM and the cartridge area (their
-   address and their own bytes). Each becomes a native step, grouped by form, that calls the very handler Hatari's cycle-exact
-   table would call for its opcode (`retrorecomp/atarist_codegen.py`, read from the opcode table the reference player writes and
-   the handler names of Hatari's generated `cpustbl.c`), so the prefetch, the cycles and the bus waits of the ST stay Hatari's.
-   Every step starts with a live comparison of the instruction's words in memory and of the opcode Hatari prefetched: a word that
-   changed (unpacked, loaded or self-modified code) sends the instruction back to the counted interpreter, and an opcode Hatari's
-   table treats as illegal is never a step. The generator is the one the X68000 and the Amiga use (`retrorecomp/m68k_observed.py`,
-   with the 68000 decoder of m68k-recomp-core). A pass that still meets interpreted instructions adds them and builds again. An observation keeps each instruction's
+   address and their own bytes). A *form* is the very handler Hatari's cycle-exact table would call for an opcode, its generated
+   text compiled again with the opcode as a literal, on one shared copy of Hatari's bus path without its pointers (`retrorecomp/atarist_codegen.py`,
+   from the opcode table the reference player writes and Hatari's generated `cpustbl.c` and `cpuemu_13.c`): Hatari's code specialised, not a
+   translation, so the prefetch, the cycles and the bus waits of the ST stay Hatari's. An *instruction* (one per address and opcode observed)
+   runs its form and goes straight on to the instruction it knows comes next, without the 68000 loop, when the CPU is there and nothing is due
+   between the two (an event whose clock has passed, an MFP update, a special flag, an interrupt level above the mask); otherwise it returns to the loop, whose work then sees
+   what it would have seen. The guard is the opcode the CPU has latched: a form reads its extension words on the bus, so it is right for its opcode at any address and with any
+   extension words, and a word rewritten in memory needs no tracking (`tools/atarist_prefetch_check.py`). An opcode Hatari's table treats as illegal is never native. The 68000
+   decoder of m68k-recomp-core tells the length and the target of an observed instruction, during the conversion only. A pass that still meets interpreted instructions adds them and builds again. An observation keeps each instruction's
    own words by the decoder's length table (`--opcode-lengths`): Hatari's table gives the length of its handlers' fetches, which
    is shorter for some instructions (JMP (d8,PC,Xn)), and an instruction observed without its extension word cannot be decoded.
 
@@ -73,8 +75,8 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 | Measure | What is known today |
 | --- | --- |
 | Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
-| CPU fidelity | The native steps call Hatari's own handlers: on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native step was compared on 6,107 vectors, those whose opcode has a step, and equals the interpreter on all of them. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
-| Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 37 measurements, 35 agree): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. One recorded difference: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the manuals' round 2 MHz; one point the documents do not settle (262 or 263 lines at 60 Hz, Hatari gives 263). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
+| CPU fidelity | The native code is Hatari's own handlers, specialised per opcode (section 2): on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native form was compared on 6,107 vectors of the flat bus and 3,569 of the ST's map, those whose opcode has a form, and equals the interpreter on all of them; with `--all-forms`, each of the 45,814 forms of every opcode but RESET equals the table's handler on eight random states (366,512 runs: registers, flags, clocks in each position of the bus slot, interrupt level changing during the instruction, prefetch, RAM, and 834,101 bus accesses in order and clock). These checks found that a compiler reads a literal differently: ADDX.L D6,D6 gave wrong flags until the forms were compiled with wrapping arithmetic. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
+| Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 37 measurements, 36 agree): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. One recorded difference: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the round 2 MHz its data sheet gives as a maximum. The 263 lines at 60 Hz rest on the GLUE's vertical counter as MAME and the gstmcu replica model it; several numbers rest on Hatari and MAME, as the check's `SOURCES` say (the WD1772 data sheet, the Atari Compendium and the ST's schematics were not reached). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
 | Gameplay validation | None. |
 | Physical latency | Not measured. |
 
@@ -114,6 +116,22 @@ continues in a fresh process on all ten, on every column, sound samples included
 (delivered conversion, Standard level, EmuTOS).
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
+
+At the thorough level (9 November 2026, one tree, every game: main and exploration routes of 3,000 frames, two pseudo-random routes of 18,000, Turrican II with the player's TOS 1.04, the others on EmuTOS). All 40 routes equal their
+fresh interpreted reference and the compressed copy; a state continues on every game:
+
+| Game | Native, the two long routes | Interpreted, the two long routes | What the long routes' last pictures show |
+| --- | ---: | ---: | --- |
+| Bomb Jack | 136,907,471 / 138,237,061 | 5 / 5 | the game |
+| Another World | 234,379,563 / 235,274,078 | 5 / 5 | "ERROR": the random entry at the code wheel is wrong |
+| Operation Stealth | 285,910,180 / 285,061,396 | 5,030 / 5,068 | colour-code protection |
+| Captain Blood | 167,058,885 / 211,761,208 | 291 / 197 | its title (asks for disk 2) / the cockpit, on the route that changes disk |
+| Elite | 234,159,606 / 234,193,136 | 4 / 4 | manual-word protection |
+| Lethal Xcess | 210,834,689 / 216,231,471 | 4 / 4 | asks for disk B / a level, on the route that changes disk |
+| Turrican II | 188,091,921 / 189,277,948 | 0 / 0 | a level |
+| Carrier Command | 330,586,259 / 291,892,045 | 4 / 4 | black, after its language menu, with few program counters and no sound: a stop not explained |
+| Indiana Jones and the Temple of Doom | 265,364,451 / 266,378,956 | 6 / 6 | the game |
+| Kick Off 2 | 246,147,304 / 242,438,886 | 1,781 / 1,781 | a practice match |
 
 IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool, not shipped) and
 against the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in the repository). Two defects
@@ -163,13 +181,8 @@ gameplay validation of any game, and it changes no gate.
   cannot run from a game waiting on a still screen, so the sentence is the same for every game. The private memory of a game is
   kept per TOS.
 - The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
-- Linux: two panel games were converted and validated on a Debian 13 PC (7 November 2026, system GCC, the tree of Windows'
-  witness): Bomb Jack (Quick, 32,910,583 native, 1 interpreted) and Another World (Standard, 33,425,244 and 33,425,310 native,
-  1 interpreted on each route). Every route equals its fresh reference, the compressed copy too, and the state continues in a
-  fresh process; the reference traces (CPU registers, RAM, picture and sound of every frame) are byte for byte those of Windows.
-  The same day, Captain Blood on EmuTOS (fetched by the converter on Linux) with the desktop autostart (Standard): 33,740,268 and
-  33,742,577 native, 75 and 83 interpreted, every check passed, and the traces of both routes byte for byte those of Windows.
-  No game was played interactively on Linux (window, sound, pad).
+- Linux: the ten panel games were converted and validated on a Debian 13 PC (9 November 2026, system GCC, Standard level, the tree of the Windows panel above): the same counts as Windows, the
+  traces of all 20 routes (CPU registers, RAM, picture and sound of every frame) byte for byte those of Windows, the compressed copy and the state continuation too. No game was played interactively on Linux (window, sound, pad).
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on its main route and its
   trace still equals the reference), and a fresh process that loads it continues the unbroken run on every column, sound samples included (compared by every
   conversion over 400 frames, reported, not refused). Three mechanisms were found for this on 8 November 2026 by comparing a state of the running machine with a
@@ -182,6 +195,8 @@ gameplay validation of any game, and it changes no gate.
   `disk-writes.bin.unusable-N` and the game starts from its disks. A state brings the disks back as they were when it was saved. Not kept: a track the game formats
   (WD1772 Write Track on an IPF answers an error, as before), and a Read Track shows the original track, not the written sectors. A game that asks for a separate blank
   save disk has none to use yet.
+  One real game was seen saving (`tools/atarist_saves_game.py`, 9 November 2026, TOS 1.04 and EmuTOS, Windows and Linux): The Lurking Horror writes 27 sectors by GEMDOS, and a new process with the file restores to the
+  room of the save, where one without it answers "Failed."; no game of the panel was seen saving.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).
@@ -198,8 +213,8 @@ gameplay validation of any game, and it changes no gate.
 - EmuTOS is **GPL-2.0-or-later**. A game that boots it embeds the image and the release's complete source archive, which the game
   writes into a folder on request (`Game.exe --write-sources FOLDER`). Retro-Recomp's repository and installer hold no EmuTOS
   file. Notice: [licenses/emutos.md](../licenses/emutos.md).
-- The 68000 decoder of m68k-recomp-core (PolyForm Noncommercial) is used under Matthew Stan's permission of 6 November 2026 to
-  combine it with GPL code in Retro-Recomp's exports.
+- The 68000 decoder of m68k-recomp-core (PolyForm Noncommercial) runs during the conversion only, to tell the length and the
+  target of an observed instruction; since 1.7.2 none of its text enters a game.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
 ## 7. Where it stands in the qualification

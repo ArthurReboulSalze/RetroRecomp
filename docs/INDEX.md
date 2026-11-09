@@ -115,7 +115,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs, with your own Kickstart 1.x when one asks for it; scope, the five measures, licences).
-- **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences).
+- **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).
 - **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental since 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (experimental since 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).

@@ -261,6 +261,7 @@ static FILE *open_utf8(const char *path, const wchar_t *mode) {
 }
 
 static const char *memory_path;   /* --memory-image: where a headless run leaves its memory, for the conversion's sweep */
+static unsigned capture_every;    /* --capture-every N: a picture every N frames, at the --capture path plus .<frame>.ppm (tools/amiga_route_captures.py) */
 
 static int run_headless(const char *trace_path, const char *report_path, const char *observe_path, const char *capture_path,
                         const char *resload_path, unsigned save_at, bool load_start) {
@@ -293,6 +294,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       audible += info.audible != 0;
       if (trace) write_trace_line(trace);
       while (rr_amiga_audio(session, pcm, 4096)) {}
+      if (capture_every && capture_path && (n + 1) % capture_every == 0) {
+         char numbered[PATH_CAP];
+         snprintf(numbered, sizeof numbered, "%s.%06u.ppm", capture_path, n + 1);
+         if (!write_capture(numbered)) { fail("Cannot write the capture"); if (trace) fclose(trace); return 1; }
+      }
       if (save_at && info.frame == save_at && rr_amiga_state_save(session, state_slot, RR_AMIGA_STATE_ABI)) {
          fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
       }
@@ -301,7 +307,7 @@ static int run_headless(const char *trace_path, const char *report_path, const c
    if (observe_path && !rr_amiga_write_observations(session, observe_path)) { fail("Cannot write the observations"); return 1; }
    if (memory_path && !rr_amiga_write_memory(session, memory_path)) { fail("Cannot write the memory image"); return 1; }
    if (resload_path && !rr_amiga_write_resload_log(session, resload_path)) { fail("Cannot write the resload log"); return 1; }
-   if (capture_path && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
+   if (capture_path && !capture_every && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
    if (report_path) {
       FILE *r = open_utf8(report_path, L"wb");
       char escaped[400];
@@ -324,6 +330,9 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)rr_amiga_kickstart_native_count(session));
          else fputs("\"kickstart\":null,", r);
       }
+      fputs("\"blitter\":", r);
+      rr_amiga_write_blitter(session, r);
+      fputc(',', r);
       fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
               rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
@@ -367,7 +376,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE --memory-image FILE\n"
-              "--capture PPM --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
+              "--capture PPM --capture-every N --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
               "--install DIR (a build without an embedded game) --saves DIR");
          return 0;
       } else if (i + 1 < argc) {
@@ -379,6 +388,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--observations")) observe_path = v;
          else if (!strcmp(a, "--memory-image")) memory_path = v;
          else if (!strcmp(a, "--capture")) capture_path = v;
+         else if (!strcmp(a, "--capture-every")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid capture period"); return 1; } capture_every = (unsigned)n; }
          else if (!strcmp(a, "--resload-log")) resload_path = v;
          else if (!strcmp(a, "--state-slot")) slot = v;
          else if (!strcmp(a, "--state-save-at")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid state frame"); return 1; } save_at = (unsigned)n; }

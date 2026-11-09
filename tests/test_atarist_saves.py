@@ -36,6 +36,25 @@ class AuthoredDiskTests(unittest.TestCase):
         self.assertEqual(tos[0x20:0x28], check.move_b(0x05, 0xff8001))
 
 
+class RealGameRouteTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('atarist_saves_game', ROOT / 'tools' / 'atarist_saves_game.py')
+        self.game = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.game)
+
+    def test_a_typed_text_is_one_short_key_after_another_and_return_ends_it(self):
+        events = self.game.typed(100, 'ab|')
+        self.assertEqual([e[3] for e in events], [ord('a'), ord('b'), 13])
+        self.assertEqual(events[1][0] - events[0][0], self.game.KEY_GAP)
+        self.assertTrue(all(begin < end and kind == 'key' for begin, end, kind, _, _ in events))
+
+    def test_the_routes_stay_inside_their_frames_and_keep_no_game_byte(self):
+        for route in (self.game.save_route(1500), self.game.restore_route(1500)):
+            events, frames = route
+            self.assertLessEqual(max(end for _, end, _, _, _ in events), frames)
+            self.assertTrue(all(isinstance(value, int) for event in events for value in (event[0], event[1], event[3], event[4])))
+
+
 class LongRouteTests(unittest.TestCase):
     def test_a_route_is_fixed_by_the_exact_game_and_changes_with_it(self):
         self.assertEqual(atarist_conversion.long_route('a' * 64, 0, 18000, 1), atarist_conversion.long_route('a' * 64, 0, 18000, 1))
