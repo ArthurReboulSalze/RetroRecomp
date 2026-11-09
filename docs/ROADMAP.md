@@ -23,7 +23,7 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-1.5 (QSound) | supported, with the CPS-1 (since 5 November 2026) | Linux witness of the QSound games; a run of the DSP16 |
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
-| PC Engine / TurboGrafx-16 | experimental (since 1.6.9) | a speed measure on a quiet PC, more HuCards (Gradius and Santatlantean still to witness on Linux) |
+| PC Engine / TurboGrafx-16 | supported from 1.7.2, pending the owner's word | a speed measure on a quiet PC, more HuCards |
 | Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, the LDM/STM vectors, an independent emulator comparison |
 | Commodore Amiga 500 | experimental (since 1.7.0) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; the Linux witness of a Kickstart install |
 | Atari ST | experimental (since 1.7.1) | the cause of Kick Off 2's stop on its protected tracks, more games played, the Linux play, the STE |

@@ -59,7 +59,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| PC Engine / TurboGrafx-16 | experimental | `█████████░` 88 % | ✅ 12 · 🟡 4 · ❔ 0 |
+| PC Engine / TurboGrafx-16 | supported | `█████████░` 88 % | ✅ 12 · 🟡 4 · ❔ 0 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
 | Atari ST | experimental | `█████░░░░░` 53 % | ✅ 2 · 🟡 12 · ❔ 1 |

@@ -1,10 +1,10 @@
 # PC Engine
 
-Experimental profile (`pce`), **available since 1.6.9**: NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
+Profile `pce`, **available since 1.6.9**, supported from 1.7.2 pending the owner's word ([G14](QUALIFICATION.md#owner-acceptance)): NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
 United States. It converts the player's own HuCard dumps (`.pce`, or a ZIP holding one) into a standalone game, US
 TurboGrafx-16 HuCards included, in both dumping orders (the bit-reversed order tested on two copies made for the test; [below](#us-turbografx-16-cards-6-november-2026)). The native
 code comes from what the game was seen to run; every instruction that was not seen stays interpreted, counted and
-reported. It is experimental: no gate of the qualification list is claimed beyond what was measured.
+reported. No gate of the qualification list is claimed beyond what was measured.
 
 ## Contents
 
@@ -23,7 +23,7 @@ reported. It is experimental: no gate of the qualification list is claimed beyon
 
 | | |
 |---|---|
-| Status | **Experimental**, available since 1.6.9 |
+| Status | **Supported** from 1.7.2, pending the owner's word; open since 1.6.9 |
 | Input | `.pce` HuCard images, or a ZIP holding exactly one (read by its content, [below](#3-how-a-hucard-file-is-read)) |
 | Processor | One HuC6280 (a 65C02 derivative that also holds the sound generator); fallback counted in instructions |
 | Engine | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp), MIT, pinned by commit; runtime ABI 29 |
@@ -370,7 +370,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 9. Known limits
 
-- Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
+- Only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
 - A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
   engine's design: 19.3 %, 33.5 % and 74.7 % of its instructions ran interpreted on the attract, play and long routes of the extended panel.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
