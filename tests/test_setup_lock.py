@@ -62,8 +62,6 @@ class EngineSetupTests(unittest.TestCase):
         'amiga_vamiga.source': "called under entry_lock('vamiga-lock') in amiga_conversion.machine_core",
         'atarist_hatari.source': "called under entry_lock('hatari-lock') in atarist_conversion.machine_core",
         'n64_core.source': "called under entry_lock('core-lock') in n64_conversion.machine_core",
-        'psx_beetle.source': "called under psx_conversion's entry_lock of the game's own folder only (raised with the "
-                             'PlayStation specialist on 9 November 2026)',
         'scummvm_build._checkout': 'called by prepare_sources from _build_runtime, which runs through serialized_setup',
         'scummvm_build._ensure_sdl': 'called by _build_runtime, which runs through serialized_setup',
     }
