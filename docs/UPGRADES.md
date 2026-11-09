@@ -79,6 +79,12 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## PC Engine / TurboGrafx-16: the play route answers the game (1.7.2)
+
+The first panel pressed Run at fixed frames, and on 7 of 18 cards the play route then stayed on a menu, a story, a sound test or a password screen while every check passed. The conversion now tries 1, 2, 3, 4 and 6 Run presses, walks with the directions only for 900 frames (so a password screen is not typed into), keeps the variant whose walk showed the most pictures that the same frames without input never show, and presses Run twice now and then to leave stories and prompts (`pce_conversion.start_candidates`, `reach`, `choose_start`). Quick states are checked with 13 damaged states (all refused and left as they were) and a missing one (refused, creates nothing). The line printed when a game is ready says "no interpreter on the routes played" instead of "native code only", and the profile's scope note says a converted game is built for two players.
+
+**What moves:** only the PC Engine's game stamp (`pce_conversion.py` and `systems/pc_engine.py` are inputs of it): game `GAMESTAMP`; its host and build stamps and every other console's stamps do not. A PC Engine export of an earlier version is rebuilt when it is upgraded: the routes it was checked on change, the game does not. Tools only, no stamp: `tools/pce_mame_compare.py` (the delivered game against MAME 0.289, a private oracle), `tools/pce_route_captures.py` (pictures along each route) and the native vector tier widened on request (`--per-opcode 250`). Evidence: [PC_ENGINE.md](PC_ENGINE.md#the-extended-panel-9-november-2026).
+
 ## Exports of 1.7.0 in 1.7.1
 
 1.7.1 is the release after 1.7.0 (published on 7 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

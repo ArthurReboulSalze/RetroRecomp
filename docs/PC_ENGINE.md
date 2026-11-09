@@ -182,6 +182,12 @@ The Windows runs used Visual Studio's compiler; Bonk's Adventure, Blazing Lazers
 llvm-mingw toolchain that players use and give the same hashes (they converted in 5 to 13 minutes). A quick state (F8) is not
 compared across systems: its key holds the target.
 
+On 9 November 2026, two more cards were converted on the same Debian 13 PC at the extended level, from the tree `4fe3cdc6` and
+with the play route that answers the game: Boxyboy (6 Run presses) and Santatlantean (4). On all three routes of each, the 18,000-frame
+ones included, the CPU, RAM, picture and PCM hashes equal the Windows run's (built with llvm-mingw), with the same native counts.
+That makes 11 of the 15 cards of the extended panel witnessed on Linux; the nine of 6 November were witnessed before the start choice
+changed, and Gradius, Street Fighter II' CE, Tonma, Military Madness and Soldier Blade were not run there.
+
 ### The extended panel (9 November 2026)
 
 Fifteen cards through the same loop at the **extended** level, built with the toolchain players use (llvm-mingw), one at a
@@ -261,7 +267,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
   established.
 - Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
-- The Linux build is witnessed on 9 of 11 cards ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
+- The Linux build is witnessed on 11 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)); a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
