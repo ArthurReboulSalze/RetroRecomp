@@ -107,8 +107,8 @@ def explore_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, 
     return sorted(events)
 
 
-# The menu keys of a long route, Amiga raw codes: Return, Space, Y, 1, 2.
-LONG_ROUTE_KEYS = (0x44, 0x40, 0x15, 0x01, 0x02)
+# The menu keys of a long route, Amiga raw codes: Return, Space, Y, 1, 2, and F1-F4 (Pinball Dreams picks its table with them).
+LONG_ROUTE_KEYS = (0x44, 0x40, 0x15, 0x01, 0x02, 0x50, 0x51, 0x52, 0x53)
 
 
 def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
