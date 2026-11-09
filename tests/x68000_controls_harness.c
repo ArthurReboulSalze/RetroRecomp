@@ -99,7 +99,9 @@ int main(void){
      typed.key.keysym.scancode=SDL_SCANCODE_F2;typed.key.keysym.sym=SDLK_F2;
      check(rrhk_adapter()->event(&typed,&harness_running),"in full typing F2 belongs to the guest");
      typed.key.keysym.scancode=SDL_SCANCODE_F1;typed.key.keysym.sym=SDLK_F1;
-     check(!rrhk_adapter()->event(&typed,&harness_running),"in full typing F1 still reaches the kit's help");}
+     check(rrhk_adapter()->event(&typed,&harness_running),"in full typing F1 belongs to the guest too");
+     typed.key.keysym.mod=KMOD_LCTRL;
+     check(!rrhk_adapter()->event(&typed,&harness_running),"in full typing Ctrl+F1 still reaches the kit's help");}
     key_event(SDLK_k,(SDL_Keymod)(KMOD_CTRL|KMOD_ALT));
     check(!guest_keyboard,"the same chord returns to game shortcuts");
     release_all();
@@ -166,7 +168,10 @@ int main(void){
     release_all();held()[SDL_SCANCODE_H]=held()[SDL_SCANCODE_P]=1;
     check(guest_key(RETROK_h)&&guest_key(RETROK_p),"H and P reach the guest in ordinary shortcut mode");
     guest_keyboard=true;held()[SDL_SCANCODE_F1]=held()[SDL_SCANCODE_F11]=1;
-    check(!guest_key(RETROK_F1)&&!guest_key(RETROK_F11),"help and pause F keys cannot leak into the guest");
+    check(guest_key(RETROK_F1)&&!guest_key(RETROK_F11),"in full typing F1 reaches the guest and the pause key F11 cannot leak");
+    SDL_SetModState(KMOD_LCTRL);
+    check(!guest_key(RETROK_F1),"Ctrl+F1 stays with Retro-Recomp and cannot leak into the guest");
+    SDL_SetModState(KMOD_NONE);
     guest_keyboard=false;
     release_all();held()[SDL_GetScancodeFromKey(SDLK_w)]=1;
     SDL_SetModState((SDL_Keymod)(KMOD_CTRL|KMOD_ALT));held()[SDL_SCANCODE_UP]=1;held()[SDL_GetScancodeFromKey(SDLK_h)]=1;next();
