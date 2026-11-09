@@ -211,7 +211,7 @@ instructions / interpreted share (millions).
 | Space Harrier (USA) | 3 | 106 M / 0 | 98 M / 0 | 542 M / 0 | plays, then a stage banner stays up (uncertain) |
 | Splatterhouse (USA) | 4 | 89 M / 0 | 88 M / 0 | 425 M / 0 | in play to the end, several rooms |
 | Bomberman '93 (USA) | 4 | 105 M / 0 | 104 M / 0 | 528 M / 0 | plays, then the stage restarts; ends on a city scene |
-| Gradius (Japan) | 1 | 104 M / 0 | 103 M / 0 | 506 M / 0 | plays, then frozen from about frame 7,500 (cause not found) |
+| Gradius (Japan) | 1 | 104 M / 0 | 103 M / 0 | 506 M / 0 | plays, then left paused by the walk from about frame 7,700 (below) |
 | Santatlantean (aetherbyte) | 4 | 103 M / 0 | 98 M / 0 | 473 M / 0 | plays to a game over and a new high score, then loops between title and options |
 | Street Fighter II' - Champion Edition (Japan) | 4 | 81 M / 19.3 % | 68 M / 33.5 % | 132 M / 74.7 % | fights (score 13,900), ends on an idle fight screen after a pause |
 | Boxyboy (USA) | 6 | 96 M / 0 | 96 M / 0 | 480 M / 0 | in play (puzzle stages), not solved |
@@ -224,6 +224,9 @@ instructions / interpreted share (millions).
 - **0 interpreted on every route of 14 cards.** Street Fighter II' Champion Edition keeps a counted interpreted share, from
   the engine's bound of 65,536 instruction identities per module (four captures were left out); `release_check` reports it as
   its one failure against the limit of 0, which is the rule working.
+- **Gradius's stall is the walk's.** The walk presses Run in pairs, to leave stories and prompts. From about frame 7,700 the game's pause is on between pairs: the CPU and RAM hashes change on every frame, while the picture cycles through
+  32 stars pictures between pairs and changes on all 24 frames inside a later pair. The same walk with one more Run press at frame 8,000 goes back to play, reaches a game over, the title, and a new game, with 489 distinct pictures in the next 694 frames against 32. So a press of an earlier
+  pair was lost and the pairs now leave the pause on. No fault of ours is shown; this was checked on the delivered game alone, not against MAME.
 - **The Backup RAM and the stalls.** Compared with the same panel just before the memory existed: 14 cards keep their counts to the million, Santatlantean's attract loop goes
   from 87 M to 103 M instructions because it no longer stops, and its stall on the long route stays. The memory explains no other stall. The 12 pictures of the attract and
   long routes of Gradius and Military Madness are identical to before. Bomberman '93 only probes the memory: its pictures are the same up to the last one, where it now ends on
@@ -332,7 +335,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
   runs, never from the ROM alone.
 - Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
-- The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a frozen screen, a restarting
+- The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a pause the walk left on, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
 - The Backup RAM is a model of ours, on Windows only so far: plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
   not on the routes, so they run partly interpreted, and counted.
