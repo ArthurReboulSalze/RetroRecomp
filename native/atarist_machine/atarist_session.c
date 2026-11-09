@@ -399,13 +399,15 @@ static struct retro_vfs_interface vfs = {
 /* ----------------------------------------------------------------------------------------- the machine's fixed settings */
 /* Hatari's core options as the conversion runs the machine: a plain ST at 8 MHz with its cycle-exact 68000, the real TOS
  * (not patched for a faster boot), Hatari's floppy timing model (fast loading off), the borders shown (overscan tricks stay visible),
- * no blitter. */
+ * no blitter. One option departs from the machine on purpose: `hatari_timerd`. TOS starts the MFP's timer D with its interrupt off, one event every couple of instructions; with the
+ * option, Hatari starts it far slower when TOS is the one starting it, and a game that uses the timer as TOS left it sees another rhythm (docs/ATARI_ST.md, known limits). The
+ * reference, the native game and the player all run this table, and each report says what Hatari has set (rr_st_timer_d_patched). */
 static const char *option_value(const char *key) {
     /* Every option Hatari's frontend reads (src/retro/options.c), so none falls back to a default chosen elsewhere. Booleans are
      * "enabled" or "disabled". Port 0 is the mouse port (the mouse, and the second player's joystick, as on the machine: a
      * two-player game reads it), port 1 the first player's joystick port; the second fire button is not turned into "up". */
     static const char *const fixed[][2] = {
-        {"hatari_dsp_type", "none"}, {"hatari_blitter", "disabled"}, {"hatari_fastboot", "disabled"}, {"hatari_timerd", "disabled"},
+        {"hatari_dsp_type", "none"}, {"hatari_blitter", "disabled"}, {"hatari_fastboot", "disabled"}, {"hatari_timerd", "enabled"},
         {"hatari_cpu_level", "0"}, {"hatari_cpu_clock", "8"}, {"hatari_cpu_compatible", "enabled"},
         {"hatari_cpu_cycle_exact", "enabled"}, {"hatari_cpu_addr24", "enabled"}, {"hatari_cpu_data_cache", "disabled"},
         {"hatari_fpu_type", "none"}, {"hatari_fpu_softfloat", "disabled"}, {"hatari_mmu", "disabled"},
@@ -562,6 +564,7 @@ static int disk_extension_ok(const char *name) {
 }
 
 int rr_st_desktop_started(const RrStSession *s) { (void)s; return rr_inf_opened; }
+int rr_st_timer_d_patched(const RrStSession *s) { (void)s; return ConfigureParams.System.bPatchTimerD ? 1 : 0; }
 
 RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
     static char playlist[RR_ST_MAX_DISKS * 64];

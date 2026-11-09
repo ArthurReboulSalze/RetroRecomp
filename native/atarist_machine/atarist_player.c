@@ -395,11 +395,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       rr_st_picture(session, &w, &h, &stride);
       fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
-                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"disk_writes\":%u}\n",
+                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"disk_writes\":%u}\n",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
-              rr_st_desktop_started(session) ? "true" : "false", rr_st_writes_count(session));
+              rr_st_desktop_started(session) ? "true" : "false", rr_st_timer_d_patched(session) ? "true" : "false", rr_st_writes_count(session));
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
