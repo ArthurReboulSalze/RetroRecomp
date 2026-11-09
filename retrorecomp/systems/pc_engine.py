@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Cpu, SystemProfile
+from . import Capabilities, Cpu, SystemProfile
 from .specs import Catalogues, LibraryLayout, PathSpec, ReportShape
 
 # Decoded HuCard sizes: 8 KiB to 1 MiB, or 2.5 MiB for the Street Fighter II board.
@@ -31,6 +31,8 @@ class PcEngineProfile(SystemProfile):
     # instructions, native and interpreted apart.
     cpus = (Cpu('huc6280', 'main', 'instructions'),)
     media_kinds = ('cartridge',)
+    # A HuCard has no save memory of its own; a game can keep 2 KiB on the console's backup unit (docs/PC_ENGINE.md, "Saves").
+    capabilities = Capabilities(battery=True)
     # Quick states use the 16-bit family's file (console16_state.c: header, hash, atomic write); the payload is the
     # engine's in-memory checkpoint. The window is the host kit's.
     quick_state_family = 'rr16'

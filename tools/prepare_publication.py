@@ -29,7 +29,7 @@ native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
-retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h
+retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
 native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch native/scummvm/patches/0002-retrorecomp-options-page.patch native/scummvm/patches/0003-retrorecomp-theme-colours.patch

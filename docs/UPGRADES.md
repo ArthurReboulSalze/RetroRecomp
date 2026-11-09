@@ -79,6 +79,12 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## PC Engine / TurboGrafx-16: a Backup RAM beside the game (1.7.2)
+
+A game can now keep the 2 KiB of the console's backup unit between runs. Bank `$F7` is mapped as plain RAM by our bridge, on the same engine pin and with no change to the engine. With no file it starts with the file system's header, a written choice ([PC_ENGINE.md](PC_ENGINE.md#6-saves)). The file is `datas/saves/<game>-<card>.rrsram`, beside the other machines' saves; a damaged or wrong-size file is set aside as `.unusable-N` and never blocks a game. Boxyboy, which showed "FILE NOT CONNECTED. COPY THE PASSWORD", now starts and saves.
+
+**What moves:** only the PC Engine's game stamp: game `750e062dca69` to `4d4c66fc090c` (`native/pce_backup.c`, `native/pce_machine.cpp`, `native/pce_main.c`, `pce_conversion.py`, `pce_build.py`, `systems/pc_engine.py`). Its host and build stamps and every other console's stamps do not move. A PC Engine export of an earlier version is rebuilt when it is upgraded. It has no save to lose: it starts formatted. Its quick states are refused cleanly, as after any change of the bridge. Tool, no stamp: `tools/pce_mame_compare.py` gives MAME the same formatted memory.
+
 ## PC Engine / TurboGrafx-16: the play route answers the game (1.7.2)
 
 The first panel pressed Run at fixed frames, and on 7 of 18 cards the play route then stayed on a menu, a story, a sound test or a password screen while every check passed. The conversion now tries 1, 2, 3, 4 and 6 Run presses, walks with the directions only for 900 frames (so a password screen is not typed into), keeps the variant whose walk showed the most pictures that the same frames without input never show, and presses Run twice now and then to leave stories and prompts (`pce_conversion.start_candidates`, `reach`, `choose_start`). Quick states are checked with 13 damaged states (all refused and left as they were) and a missing one (refused, creates nothing). The line printed when a game is ready says "no interpreter on the routes played" instead of "native code only", and the profile's scope note says a converted game is built for two players.
