@@ -23,7 +23,7 @@
 </p>
 <p align="center"><sub>Powered by <a href="https://github.com/mstan">mstan</a> &amp; <a href="https://github.com/RetroPortingToolKit">RetroPortingToolKit</a></sub></p>
 
-https://github.com/user-attachments/assets/818d3278-d698-491e-a58b-e11edc602923
+https://github.com/user-attachments/assets/ac82a7b7-56d3-4ba2-a49c-c0a8ca068e2e
 
 <p align="center"><sub><em>RetroRecomp in under two minutes: how your own game dumps become native Windows and Linux programs.</em></sub></p>
 
