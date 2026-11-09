@@ -59,7 +59,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-1 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| PC Engine / TurboGrafx-16 | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
+| PC Engine / TurboGrafx-16 | experimental | `█████████░` 88 % | ✅ 12 · 🟡 4 · ❔ 0 |
 | Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
 | Atari ST | experimental | `█████░░░░░` 53 % | ✅ 2 · 🟡 12 · ❔ 1 |
@@ -85,7 +85,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ➖ | ❔ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -115,7 +115,7 @@ psx = Sony PlayStation.
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | P | P | P | Y | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | ? | P | P | ? | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | - | - | - | - | ? | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | - | - | - | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -689,7 +689,7 @@ fidelity, gameplay coverage or latency; the owner's play trial of eight games is
 | G13 | P | Windows and a Debian 13 PC (GCC 14.2, Ninja, an empty library) give the same CPU, RAM, picture and PCM hashes, with the same native counts (0 interpreted, 0 guard misses): 9 cards at the standard level on 6 November 2026 from the tree `92545231` (Bonk's Adventure, Bonk III, Neutopia II, Night Creatures, Blazing Lazers, Raiden, Space Harrier, Splatterhouse, Bomberman '93; their Windows side built with Visual Studio, and three of them rebuilt with llvm-mingw give the same hashes), and at the extended level on 9 November from the tree `4fe3cdc6`, with the play route that answers the game: Boxyboy (6 Run presses) and Santatlantean (4), all three routes of each, the 18,000-frame ones included | The criterion is identical route hashes on both systems for the whole panel, and it is not met: of the 15 panel cards 10 were witnessed (the nine of 6 November, Night Creatures excepted, which is not in the extended panel, and the two of 9 November) and 5 never ran on Linux (Gradius, Street Fighter II' CE, Tonma, Military Madness, Soldier Blade); the eight earlier cards were witnessed before the start choice changed, so their play routes are not the current ones, and only two cards (Boxyboy, Santatlantean) were seen on the current routes; a quick state is not compared across systems (the state key holds the target). All of these hashes predate the Backup RAM, which the RAM hash now holds, and the memory has not run on Linux. `Y` waits for the whole panel on Linux, a later campaign if the owner decides one |
 | G14 | P | The owner played eight exports on 5 November 2026 and reported that all eight work (owner-acceptance table) | Those exports come from the tree before the merge of `main`; the exports of the 1.6.9 tree are not played yet; no decision to leave the experimental status |
 | G15 | Y | The honesty audit of 9 November 2026 read the documents, the interface strings in eight languages, the exported game and the report fields: no claim of exactness, hardware fidelity, whole-game coverage or latency without proof; every flag that should be false is false and every claim string names what was tested. It found one misleading line ("ready (native code only)", now "no interpreter on the routes played"), the scope note, and counts that disagreed; all fixed | Two shared items are not this profile's (the report lists eight interface languages for a game that ships five; the CPS-1 prints the same "ready" sentence) |
-| G16 | - | The PC Engine shares no paths; it is not in `SHARED_SYSTEMS` | |
+| G16 | P | Numeric paths: PC, eight MPRs and a ROM offset per instruction, with no byte of the ROM; a record is made only from the captures of a conversion that passed, and a player's conversion gives the engine the received rows as declared roots (`pce-declared-roots-1`), never as captures. A failed conversion starts again without them, and one line withdraws them (`path_profiles.EXPERIMENTAL_SHARED`). The proof on Soldier Blade, from two empty libraries: the routes of the conversion that received the paths equal those of a control with none, and A's long route, which it never played, runs 535,661,326 native, 219 interpreted (work-RAM code, which does not travel) and 219 guard misses against 7,348,650 interpreted on the control, equal to the fresh reference; a card with one byte changed is refused ([PC_ENGINE.md](PC_ENGINE.md#7-shared-paths)) | No path is qualified in the base yet (a conversion that received it from another player through the base must reach it); a declared row is qualified only by a window that runs it; one card in the proof; work-RAM code and the Street Fighter II board do not travel. The PC Engine stays in the experimental tier of the base (a tier of the base, not the machine's status) |
 
 ## Sony PlayStation: evidence behind its column (8 November 2026)
 

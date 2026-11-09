@@ -14,9 +14,10 @@ reported. It is experimental: no gate of the qualification list is claimed beyon
 4. [Engine and upstream](#4-engine-and-upstream)
 5. [What was measured](#5-what-was-measured)
 6. [Saves](#6-saves)
-7. [The five measures](#7-the-five-measures)
-8. [Known limits](#8-known-limits)
-9. [Next stages](#9-next-stages)
+7. [Shared paths](#7-shared-paths)
+8. [The five measures](#8-the-five-measures)
+9. [Known limits](#9-known-limits)
+10. [Next stages](#10-next-stages)
 
 ## 1. At a glance
 
@@ -317,7 +318,43 @@ Three cards were looked at further, in fresh processes with no window:
 
 What this does not say: nothing here was run on a real backup unit, on Linux, or against Beetle.
 
-## 7. The five measures
+## 7. Shared paths
+
+Added on 9 November 2026. The PC Engine is in the experimental tier of the shared base, and `path_profiles.EXPERIMENTAL_SHARED` withdraws it in one line. The site's limits and deployment are the maintainer's.
+
+**What travels.** A record (`retrorecomp/pce_knowledge.py`) holds numbers about the player's own decoded ROM and no byte of it: for each instruction its logical PC, its eight bank registers and the offset of its first byte. The MPRs and the board's map give the
+other offsets. It is made only from the captures of a conversion that passed every check, never from paths it received. A record never holds what did not come from the card:
+
+- **Code run from work RAM or the Backup RAM** stays private and counted: the engine's format covers read-only views, and a ROM position would not say what the RAM held. On Soldier Blade that is 156 of 39,649 identities.
+- **The Street Fighter II board** shares nothing: its mapper's latch is not in the engine's capture identity, so the selector the format needs cannot be told from an observation.
+
+**What a player does with it.** The conversion gives the engine the received rows as declared roots, `pce-declared-roots-1`, the engine's own input (their [DECLARED_ROOTS.md](https://github.com/rages4calm/pcenginerecomp/blob/6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0/docs/DECLARED_ROOTS.md)), beside the history of what
+that conversion really ran. The engine rebuilds the code from the player's exact image, refuses any other, and emits it with its ordinary guards. A root is not written into a capture, because a capture is a record of execution (the upstream's request). A failed conversion starts again without the received paths.
+
+**Declared is not executed.** The report keeps them apart (`knowledge.use`): received rows; declared, declared only, overlapping and emitted, from the engine's manifest; rows the conversion's own routes really ran. A declared row says nothing until a window runs it, and the
+comparison with the reference qualifies only the window it ran. No reachability is inferred: a row is one instruction, not a routine.
+
+**At the bound.** The engine's module holds 1,048,576 identities. What a conversion really ran comes first. A capture that would pass the bound is left out whole, and received rows past it are left out, each counted (`captures_left_out`, `left_out_at_the_bound`); code
+left out stays interpreted and counted, and the conversion does not fail. A route with more identities than one capture holds keeps a complete capture of its start (`complete_prefix`). Tests: `tests/test_pc_engine.py`, `IdentityBoundTests`, on small authored limits.
+
+**The proof** (9 November 2026, Windows, llvm-mingw, Soldier Blade (USA), two empty libraries, no base, no service). A, at the extended level, makes a record of 39,493 instructions in 372 contexts; its exchange file is 20,022 bytes and holds no window of 16 bytes of the ROM. A control converts at the
+standard level with no paths. B imports the file and converts at the standard level:
+
+| | Control | B (received paths) |
+|---|---|---|
+| Attract and play routes, CPU, RAM, picture, PCM, trace | | equal to the control's and to A's, 0 interpreted on both routes |
+| Declared rows, of which only declared, overlapping | none | 39,493, of which 6,299, 33,194 |
+| Declared rows B's own routes really ran | | 33,194 |
+| Executable, packed | 2,524,160 bytes | 2,720,768 bytes |
+| A's long route (18,000 frames), which B's routes never played: native / interpreted / guard misses | 528,312,895 / 7,348,650 / 7,348,650 | 535,661,326 / 219 / 219 |
+| That route's trace against the fresh reference | equal | equal |
+| Declared rows that route really ran | | 36,355 of 39,493 |
+
+The 219 interpreted instructions left are work-RAM code, which does not travel. A copy of the card with one byte changed is refused: the engine refuses the roots (`Snapshot SHA256 mismatch`), our reader refuses the record, and the copy's own hash finds nothing in the bank.
+
+**What this does not say.** One card, on Windows. The long route was replayed on B's game after its conversion: it qualifies that window, not the rows it did not run, and nothing beyond. No path is qualified in the base yet: that takes a conversion that received it from another player, through the shared base.
+
+## 8. The five measures
 
 They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
@@ -326,12 +363,12 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 | Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on every route of 14 of the 15 cards of the extended panel, the 18,000-frame walks included ([above](#the-extended-panel-9-november-2026)); Street Fighter II' CE keeps a counted interpreted share: 19.3 %, 33.5 % and 74.7 % of its instructions on the attract, play and long routes, because the card needs more than the engine's 65,536 instruction identities per module |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames, the same Backup RAM on both sides (pictures equal on 3 of 4 cards bar one frame, and bar 7 on the fourth; sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
-| Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. That is a trial, not a coverage claim: no game was checked end to end |
-| Physical latency | Not reported and not measured |
+| Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. On 9 November 2026 the owner also played Street Fighter II' CE, on the export of the tree `700b72cb` (19 to 47 % interpreted, before the larger capture format), and said "tout marche nickel"; pressing left and right very fast to feel the lag, "extrêmement réactif"; on the interpreted share, "on avancera un peu de toute manière par la suite". That is an impression of feel: it measures neither speed nor latency. These are trials, not a coverage claim: no game was checked end to end |
+| Physical latency | Not reported and not measured: `latency_ms` stays null, whatever a player feels |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
-## 8. Known limits
+## 9. Known limits
 
 - Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
 - A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
@@ -349,7 +386,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
-## 9. Next stages
+## 10. Next stages
 
 1. A speed measure on a quiet PC.
 2. The owner's play trials of the new exports.

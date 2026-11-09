@@ -40,7 +40,7 @@ class PcEngineProfile(SystemProfile):
     host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({20})
     fallback_display = 'opcodes'
-    linux = 'witnessed'   # 9 of 11 cards equal on a Debian 13 PC, 6 November 2026 (QUALIFICATION.md, G13)
+    linux = 'witnessed'   # on a Debian 13 PC; the cards and the figure are in QUALIFICATION.md, gate G13
     # Paths: an instruction is its logical pc, its eight MPRs and its bytes, so a row is `insn` [context << 16 | pc, ROM offset, length] and the
     # contexts are `opcode_ptr` rows [context * 8 + register, value] (pce_knowledge.py). The window bounds context << 16 | pc and the table's rows.
     path_spec = PathSpec(order=10, sections=(('huc6280', 'pce'),), source_bounds=(('rom', HUCARD_BOUNDS),),
