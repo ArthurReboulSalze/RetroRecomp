@@ -286,6 +286,10 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: a long route at the extended level (1.7.2)
+
+The extended level now adds one route of 18,000 frames, seeded from the install (`computer_routes.long_events`, the same body as the Atari ST's, which a test shows; the ST keeps its own so that its stamps do not move), and the thorough level two. It is for route depth, not for native code: on Apidya and Lemmings 18,000 frames brought under 2 % more instructions. A route does not finish a game. `tools/amiga_route_captures.py` takes pictures along each route of a delivered game (`--capture-every`, headless only). **What moves:** the Amiga's game stamp; no other console. A conversion at the standard level runs the same routes as before.
+
 ## Commodore Amiga: the Blitter's copy blits, specialised routines by shape (1.7.2, recompilation stage 6)
 
 A game's copy blits of the shapes its reference runs saw now go through a routine compiled for that shape: vAmiga's own microprogram (its accuracy level 2), whose text `amiga_vamiga.blitter_shape_header` takes at build time
