@@ -38,6 +38,7 @@ difference that is not recorded, or a recorded one whose count changed, makes th
 from __future__ import annotations
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,13 +179,13 @@ def ensure_hatari() -> tuple[Path, Path]:
 
 
 def compile_harness(folder: Path, tree: Path, build: Path, steps: Path | None) -> Path:
-    """The harness against the adapted Hatari: with the generated native steps (`steps`: a folder holding steps.c and step_semantics.h)
+    """The harness against the adapted Hatari: with the generated native steps (`steps`: a folder holding steps/*.c and step_semantics.h)
     or without."""
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
     machine = (ROOT / 'native' / 'atarist_machine').as_posix()
     folder.mkdir(parents=True, exist_ok=True)
-    sources = f'"{machine}/atarist_vector_checks.c" "{machine}/atarist_session.c"' + (f' "{steps.as_posix()}/steps.c"' if steps else '')
+    sources = f'"{machine}/atarist_vector_checks.c" "{machine}/atarist_session.c"' + (''.join(f' "{item.as_posix()}"' for item in sorted((steps / 'steps').glob('*.c'))) if steps else '')
     steps_include = f'"{steps.as_posix()}"' if steps else ''
     steps_define = 'target_compile_definitions(checks PRIVATE RR_VECTOR_STEPS=1)' if steps else ''
     (folder / 'CMakeLists.txt').write_text(f"""cmake_minimum_required(VERSION 3.20)
@@ -204,7 +205,7 @@ if(NOT WIN32)
 else()
   target_link_libraries(checks PRIVATE ws2_32)
 endif()
-target_compile_options(checks PRIVATE -O2 -fno-fast-math)
+target_compile_options(checks PRIVATE -O2 -fno-fast-math -fwrapv)
 """, encoding='utf-8', newline='\n')
     cmake, generator = toolchain()
     run([cmake, '-S', folder, '-B', folder / 'build', '-G', generator, *cmake_target_args(), '-DCMAKE_BUILD_TYPE=Release'], log=folder / 'build.log')
@@ -218,24 +219,23 @@ def step_opcodes(names) -> list[int]:
 
 
 def write_steps(opcodes, map_file: Path, build: Path, folder: Path) -> int:
-    """The native steps of the opcodes, written by the converter's own ST generator (`retrorecomp/atarist_codegen.py`) from the opcode
-    table the harness wrote (an opcode Hatari's table sends to its illegal-instruction handlers gets no step, as in a conversion).
-    Returns how many steps were written."""
+    """The forms of the opcodes, written by the converter's own ST generator (`retrorecomp/atarist_codegen.py`) from the opcode table the harness wrote (an opcode Hatari's table
+    sends to its illegal-instruction handlers gets no form, as in a conversion), and the table that lists them. Returns how many forms were written."""
     from retrorecomp import atarist_codegen
+    from retrorecomp.systems import get_profile
     atarist_codegen.load_opcode_map(map_file, build / 'src' / 'cpu' / 'cpustbl.c')
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'step_semantics.h').write_text(atarist_codegen._semantics('', None), encoding='utf-8', newline='\n')
-    text, table = [atarist_codegen.STEPS_HEAD, 'typedef struct { uint16_t opcode; void (*run)(uint32_t opcode); } VectorStep;\n'], []
-    for opcode in opcodes:
-        if atarist_codegen._MAP.get(opcode, '-') == '-':
-            continue
-        definition, _ = atarist_codegen._step(f'rr_vector_step_{opcode:04x}', {'words': [opcode]}, '', '')
-        text.append(definition)
-        table.append(f'    {{0x{opcode:04x}, rr_vector_step_{opcode:04x}}},')
-    text.append('const VectorStep rr_vector_steps[] = {\n' + '\n'.join(table) + '\n};\n')
-    text.append(f'const unsigned rr_vector_step_count = {len(table)};\n')
-    (folder / 'steps.c').write_text(''.join(text), encoding='utf-8', newline='\n')
-    return len(table)
+    observed = get_profile('atarist').observed_code
+    known = [opcode for opcode in opcodes if atarist_codegen._MAP.get(opcode, '-') != '-']
+    atarist_codegen.write_forms(folder, known, observed=observed)
+    symbols = [f'{observed.prefix}form_{opcode:04x}' for opcode in known]
+    text = ['#include <stdint.h>\ntypedef struct { uint16_t opcode; void (*run)(void); } VectorStep;\n']
+    text.extend(f'void {symbol}(void);\n' for symbol in symbols)
+    text.append('const VectorStep rr_vector_steps[] = {\n' + ''.join(f'    {{0x{opcode:04x}, {symbol}}},\n' for opcode, symbol in zip(known, symbols)) + '};\n')
+    text.append(f'const unsigned rr_vector_step_count = {len(known)};\n')
+    (folder / 'steps' / 'table.c').write_text(''.join(text), encoding='utf-8', newline='\n')
+    return len(known)
 
 
 def build_harness(names=FIXTURES) -> tuple[Path, int]:
@@ -292,7 +292,24 @@ def summary(result: dict) -> str:
             f"native step {t['native_step']:>5} (state agrees {t['native_state_ok']:>5}), same as interpreter {t['paths_equal']:>5}")
 
 
+def all_forms() -> int:
+    """Every opcode's form against the table's handler of its opcode, on random states (`--all-forms`; a large build, several minutes)."""
+    from retrorecomp.core import run
+    tree, build = ensure_hatari()
+    first = compile_harness(WORK / 'map', tree, build, None)
+    map_file = WORK / 'opcode-map.txt'
+    run([first, '--opcode-map', map_file], cwd=WORK)
+    write_steps(range(65536), map_file, build, WORK / 'generated-all')
+    program = compile_harness(WORK / 'native-all', tree, build, WORK / 'generated-all')
+    done = subprocess.run([program, '--all-forms'], cwd=WORK, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(done.stdout.strip())
+    print('\n'.join(done.stderr.strip().splitlines()[-60:]))
+    return done.returncode
+
+
 def main(names=None) -> int:
+    if names == ['--all-forms']:
+        return all_forms()
     program, steps = build_harness(names or FIXTURES)
     results = []
     for name in names or FIXTURES:

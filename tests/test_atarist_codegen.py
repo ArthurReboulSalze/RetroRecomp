@@ -1,10 +1,13 @@
-"""Atari ST native-step hooks (retrorecomp/atarist_codegen.py), ROM-free: the handler names read from a synthetic cpustbl.c, the
-opcode map of the reference player, the samples that can become steps and the text of a step."""
+"""Atari ST native code (retrorecomp/atarist_codegen.py), ROM-free: the handler names read from a synthetic cpustbl.c, the opcode map of the reference player, the samples that can
+become native, the text of a form and of an instruction, the index."""
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from retrorecomp import atarist_codegen
+from retrorecomp.systems import get_profile
 
 CPUSTBL = '''/* generated */
 const struct cputbl op_smalltbl_13[] = {
@@ -50,15 +53,44 @@ class CodegenTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             atarist_codegen.load_opcode_map(self.folder / 'bad.txt', self.folder / 'cpustbl.c')
 
-    def test_only_opcodes_with_a_handler_become_steps_and_a_step_calls_it(self):
+    def test_only_opcodes_with_a_handler_become_native_and_a_form_without_its_text_calls_it(self):
         (self.folder / 'map.txt').write_text(opcode_map({0x4e75: 2}), encoding='ascii')
         atarist_codegen.load_opcode_map(self.folder / 'map.txt', self.folder / 'cpustbl.c')
         self.assertEqual(atarist_codegen.native_samples([(0x1000, '4e75'), (0x1002, 'a000')]), [(0x1000, '4e75')])
-        definition, declaration = atarist_codegen._step('rr_st_form_0', {'words': [0x4e75]}, 'MN_RTS', '')
-        self.assertIn('op_4e75_14_ff(op);', definition)
-        self.assertEqual(declaration, 'void rr_st_form_0(uint32_t op);\n')
+        self.assertIn('op_4e75_14_ff(0x4e75);', atarist_codegen.form_definition('rr_st_form_4e75', 0x4e75))
         with self.assertRaises(ValueError):
-            atarist_codegen._step('rr_st_form_1', {'words': [0xa000]}, 'MN_LINEA', '')
+            atarist_codegen.form_definition('rr_st_form_a000', 0xa000)
+
+    def test_a_form_is_the_handler_text_with_the_opcode_as_a_literal(self):
+        (self.folder / 'map.txt').write_text(opcode_map({0x4e75: 2}), encoding='ascii')
+        (self.folder / 'cpuemu_13.c').write_text('void REGPARAM2 op_4e75_14_ff(uae_u32 opcode)\n{\n\tuae_u32 real_opcode = opcode;\n\treturn;\n}\n', encoding='utf-8')
+        atarist_codegen.load_opcode_map(self.folder / 'map.txt', self.folder / 'cpustbl.c')
+        form = atarist_codegen.form_definition('rr_st_form_4e75', 0x4e75)
+        self.assertIn('uae_u32 opcode = 0x4e75;', form)
+        self.assertIn('uae_u32 real_opcode = opcode;', form)
+        self.assertNotIn('op_4e75_14_ff', form)
+
+    def test_an_instruction_runs_its_form_counts_and_goes_on_to_what_it_knows_comes_next(self):
+        (self.folder / 'map.txt').write_text(opcode_map({0x0000: 0, 0x4e75: 2}), encoding='ascii')
+        atarist_codegen.load_opcode_map(self.folder / 'map.txt', self.folder / 'cpustbl.c')
+        observed = get_profile('atarist').observed_code
+        decoded = [{'addr': 0x1000, 'words': [0x0000, 0x0012], 'word_count': 2, 'has_target': False, 'target_addr': 0, 'byte_length': 4},
+                   {'addr': 0x1004, 'words': [0x4e75], 'word_count': 1, 'has_target': False, 'target_addr': 0, 'byte_length': 2}]
+
+        def decode(command, log=None):
+            Path(command[2]).write_text(json.dumps(decoded), encoding='utf-8')
+        with mock.patch.object(atarist_codegen, 'run', decode):
+            steps = atarist_codegen.write_steps(self.folder, [(0x1000, '00000012'), (0x1004, '4e75')], observed=observed, decode_tool=Path('decode'))
+        self.assertEqual((steps['native_instructions'], steps['forms'], steps['pcs']), (2, 2, 2))
+        chain = ''.join(path.read_text(encoding='utf-8') for path in sorted((self.folder / 'steps').glob('chain*.c')))
+        first = chain[chain.index('void rr_st_at_001000_0000(void) {'):]
+        self.assertIn('rr_st_form_0000();', first)
+        self.assertIn('rr_st_native_total++;', first)
+        self.assertIn('if (rr_st_next(0x1004, 0x4e75)) RR_ST_NEXT rr_st_at_001004_4e75();', first)
+        index = (self.folder / 'steps' / 'index.c').read_text(encoding='utf-8')
+        self.assertIn('RrStCode rr_st_lookup(uint32_t pc,uint32_t opcode)', index)
+        self.assertNotIn('m68k_decoder', index)   # no text of the recompiler's decoder in a game
+        self.assertNotIn('m68k_decoder', chain)
 
 
 if __name__ == '__main__':

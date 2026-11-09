@@ -61,7 +61,7 @@ struct RrStSession {
     size_t audio_frames, audio_read;
     uint64_t frames;
     char memory_option[16];
-    uint64_t interpreted, native;
+    uint64_t interpreted, chain_entries;
     int observe, native_enabled;
     struct Observation *observed;
     size_t observed_count, observed_capacity;
@@ -676,22 +676,12 @@ static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes, uns
 }
 
 #ifdef RR_ST_NATIVE
-/* The generated index of native steps (retrorecomp/atarist_codegen.py and the shared m68k_observed generator): a step is found
- * by its pc and kept only while every word of its instruction is the one observed (the live-word guard of the index, which
- * reads the words through rr_st_code_word); the session also requires the opcode Hatari prefetched to be the step's own. */
-struct RrStStep;
-const struct RrStStep *rr_st_lookup(uint32_t pc);
-void (*rr_st_step_of(const struct RrStStep *s))(uint32_t);
-uint32_t rr_st_step_opcode(const struct RrStStep *s);
+/* The generated native code (retrorecomp/atarist_codegen.py): an instruction is found by its pc and the opcode the CPU has latched, runs Hatari's own handler of that opcode and
+ * goes on to the instructions it knows come next while nothing is due in the loop; it counts itself. A handler is right for its opcode at any address, with any extension words. */
+typedef void (*RrStCode)(void);
+RrStCode rr_st_lookup(uint32_t pc, uint32_t opcode);
+extern uint64_t rr_st_native_total;
 #endif
-
-/* One instruction word at pc for the guard, big-endian from the machine's arrays (never through the bus). */
-int rr_st_code_word(uint32_t pc, uint16_t *word) {
-    pc &= 0xffffff;
-    if (pc + 2 <= STRamEnd) { *word = (uint16_t)(STRam[pc] << 8 | STRam[pc + 1]); return 1; }
-    if (pc >= 0xe00000 && pc + 2 <= 0x1000000 && ROMmemory) { *word = (uint16_t)(RomMem[pc] << 8 | RomMem[pc + 1]); return 1; }
-    return 0;
-}
 
 static bool step_hook(uint32_t pc, uint32_t opcode) {
     if (!current) return false;
@@ -703,12 +693,8 @@ static bool step_hook(uint32_t pc, uint32_t opcode) {
     }
 #ifdef RR_ST_NATIVE
     if (current->native_enabled) {
-        const struct RrStStep *step = rr_st_lookup(pc);
-        if (step && rr_st_step_opcode(step) == (opcode & 0xffff)) {
-            rr_st_step_of(step)(opcode);   /* Hatari's own handler of this opcode, called directly */
-            current->native++;
-            return true;
-        }
+        RrStCode run = rr_st_lookup(pc, opcode & 0xffff);
+        if (run) { current->chain_entries++; run(); return true; }
     }
 #endif
     current->interpreted++;
@@ -745,7 +731,15 @@ int rr_st_write_opcode_map(const RrStSession *s, FILE *out) {
 }
 
 uint64_t rr_st_interpreted_count(const RrStSession *s) { return s->interpreted; }
-uint64_t rr_st_native_count(const RrStSession *s) { return s->native; }
+uint64_t rr_st_chain_entries(const RrStSession *s) { return s->chain_entries; }
+uint64_t rr_st_native_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_native_total;
+#else
+    return 0;
+#endif
+}
 void rr_st_set_observe(RrStSession *s, int enabled) { s->observe = enabled != 0; }
 size_t rr_st_observation_count(const RrStSession *s) { return s->observed_count; }
 

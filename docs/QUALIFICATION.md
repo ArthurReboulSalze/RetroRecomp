@@ -150,8 +150,8 @@ The page of each console, which the README links its line to (a console of the m
   (a first read ran 145 million on a route when the disk was changed under a game that did not ask for it: the long routes now change disk once, in the
   second route only). G4 `P`: every route of every conversion is identical, frame by frame, to a fresh interpreted reference; this shows that the
   steps equal the core, not that the core equals a 68000 (the independent corpus is G10). An authored program that rewrites its very next instruction
-  (`tools/atarist_prefetch_check.py`) gives the interpreter's result through the steps: the step runs only when the opcode Hatari latched is its own
-  (8 November 2026). The routes play the joystick since 7 November (a port swap of Hatari's frontend had left it unplugged); a live check with real SDL
+  (`tools/atarist_prefetch_check.py`) gives the interpreter's result through the native code, guarded by the opcode Hatari latched (8 November 2026). Since 1.7.3 the native code is Hatari's handlers
+  specialised per opcode and chained; all 45814 forms equal the table's handlers on random states, and the frame comparison stands. The routes play the joystick since 7 November (a port swap of Hatari's frontend had left it unplugged); a live check with real SDL
   keys and a virtual gamepad on the delivered Bomb Jack and Lethal Xcess proves the controls, and the owner's play trial of 7 November, on the nine
   reconverted games, found the gamepad control working: a trial of the controls, not an exit and not a gameplay validation. G5 `P`: the compressed
   copy too. G6 `Y`: on the ten panel games of 8 November 2026 the state saved on the main route continues in a fresh process on every column,
@@ -166,7 +166,7 @@ The page of each console, which the README links its line to (a console of the m
   inspected; the panel was not run at that level. G10 `P`: the SingleStepTests 68000 fixtures through Hatari's cycle-exact 68000 and the native steps
   (`tools/atarist_vector_selftest.py`): 6,764 vectors; flat bus 6,762 run, the state agrees on 6,760 (the two others are divisions by zero whose flags the 68000
   leaves undefined); ST map 3,593 run, all agree; clocks on the flat bus 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither
-  explained nor refuted (a fixture without a list of bus transactions); the native step was compared on 6,107 vectors and equals the interpreter on all of them;
+  explained nor refuted (a fixture without a list of bus transactions); the native form was compared on 6,107 vectors and equals the interpreter on all of them;
   the fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. G11 `P`: authored 68000 programs measured from inside the machine against
   the hardware's documentation (`tools/atarist_hardware_check.py`, 37 measurements: the PAL frame and line, the MFP's prescalers and timer B, a 320x200 picture pixel by
   pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads): 35 agree, one is a recorded difference

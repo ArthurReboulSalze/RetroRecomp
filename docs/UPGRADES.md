@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Atari ST: Hatari's code specialised per opcode, and chained (1.7.3)
+
+A native step was a call to Hatari's own handler behind a page-table look-up and a comparison of every word in memory, which made it slower than the interpreter (14 to 29 % on a loaded PC). Now a *form* is
+Hatari's handler, its generated text compiled again with the opcode as a literal, on one shared copy of Hatari's bus path without its pointers, and each observed instruction (one per address
+and opcode) goes straight on to the instruction it knows comes next. This is Hatari's code specialised, not a translation: same bus accesses, same cycles. A form reads its extension words on the bus, so
+the guard is the opcode the CPU has latched and a word rewritten in memory needs no tracking; an instruction with the same opcode and other extension words now runs native where it was interpreted. The 68000 loop
+sees what it saw: a chain stops, untouched, whenever something is due after an instruction (a clock event, an MFP update, a special flag, an interrupt level above the mask). Chains are short: the MFP's timer D, as TOS
+programs it, makes an event every few instructions, about 2 instructions per entry on Bomb Jack (`chain_entries` in the report).
+Vectors: every native form equals the interpreter on the vectors that have one, and with `--all-forms` each of the 45814 forms equals the table's handler on four random states (183256 runs). They found ADDX.L D6,D6 wrong with a literal opcode: the forms are compiled
+with `-fwrapv`. Bomb Jack, Turrican II, Indiana Jones, Kick Off 2 and Lethal Xcess, Quick or Standard level: every frame of every route equal to the fresh reference, the packed copy and the state continuation too.
+An estimate on a loaded PC, headless, no hashing, host cycles of 3,000 frames, table over native: Bomb Jack 1.05, Turrican II 1.09 to 1.17, Indiana Jones 0.98 to 1.00, Kick Off 2 1.04, Lethal Xcess 1.20; not a timing.
+Licence: no text of `m68k_decoder.h` is in a game any more, so the notice of segagenesisrecomp leaves the exports; the decoder still runs during the conversion.
+**Hot path:** the look-up and the word comparison are gone from the instructions inside a chain; two calls of one shared test per instruction instead, one count per entry. Handlers keep their pointers on the interpreted path. **What moves:** the
+Atari ST's game stamp; no other machine. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. The window title and the note "not fully recompiled" are unchanged.
+
 ## PC Engine / TurboGrafx-16: the play route answers the game (1.7.2)
 
 The first panel pressed Run at fixed frames, and on 7 of 18 cards the play route then stayed on a menu, a story, a sound test or a password screen while every check passed. The conversion now tries 1, 2, 3, 4 and 6 Run presses, walks with the directions only for 900 frames (so a password screen is not typed into), keeps the variant whose walk showed the most pictures that the same frames without input never show, and presses Run twice now and then to leave stories and prompts (`pce_conversion.start_candidates`, `reach`, `choose_start`). Quick states are checked with 13 damaged states (all refused and left as they were) and a missing one (refused, creates nothing). The line printed when a game is ready says "no interpreter on the routes played" instead of "native code only", and the profile's scope note says a converted game is built for two players.

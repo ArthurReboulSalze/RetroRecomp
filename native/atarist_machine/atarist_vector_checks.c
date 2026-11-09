@@ -151,17 +151,19 @@ static int flat, verbose;
 /* The flat bus (--flat): one bank over all 256 64-KiB blocks of the 24-bit space, plain big-endian RAM. */
 static uae_u8 flat_ram[FLAT_BYTES];
 static addrbank flat_bank;
-static uae_u32 REGPARAM2 flat_lget(uaecptr a) { a &= 0xffffffu; return (uae_u32)flat_ram[a] << 24 | (uae_u32)flat_ram[(a + 1) & 0xffffffu] << 16 |
-                                                   (uae_u32)flat_ram[(a + 2) & 0xffffffu] << 8 | flat_ram[(a + 3) & 0xffffffu]; }
-static uae_u32 REGPARAM2 flat_wget(uaecptr a) { a &= 0xffffffu; return (uae_u32)flat_ram[a] << 8 | flat_ram[(a + 1) & 0xffffffu]; }
-static uae_u32 REGPARAM2 flat_bget(uaecptr a) { return flat_ram[a & 0xffffffu]; }
+/* Every address aliases into this much of the flat RAM: --all-forms confines an instruction with random registers to a window it can compare. */
+static uae_u32 flat_mask = 0xffffffu;
+static uae_u32 REGPARAM2 flat_lget(uaecptr a) { a &= flat_mask; return (uae_u32)flat_ram[a] << 24 | (uae_u32)flat_ram[(a + 1) & flat_mask] << 16 |
+                                                   (uae_u32)flat_ram[(a + 2) & flat_mask] << 8 | flat_ram[(a + 3) & flat_mask]; }
+static uae_u32 REGPARAM2 flat_wget(uaecptr a) { a &= flat_mask; return (uae_u32)flat_ram[a] << 8 | flat_ram[(a + 1) & flat_mask]; }
+static uae_u32 REGPARAM2 flat_bget(uaecptr a) { return flat_ram[a & flat_mask]; }
 static void REGPARAM2 flat_lput(uaecptr a, uae_u32 v) {
-    a &= 0xffffffu;
-    flat_ram[a] = (uae_u8)(v >> 24); flat_ram[(a + 1) & 0xffffffu] = (uae_u8)(v >> 16);
-    flat_ram[(a + 2) & 0xffffffu] = (uae_u8)(v >> 8); flat_ram[(a + 3) & 0xffffffu] = (uae_u8)v;
+    a &= flat_mask;
+    flat_ram[a] = (uae_u8)(v >> 24); flat_ram[(a + 1) & flat_mask] = (uae_u8)(v >> 16);
+    flat_ram[(a + 2) & flat_mask] = (uae_u8)(v >> 8); flat_ram[(a + 3) & flat_mask] = (uae_u8)v;
 }
-static void REGPARAM2 flat_wput(uaecptr a, uae_u32 v) { a &= 0xffffffu; flat_ram[a] = (uae_u8)(v >> 8); flat_ram[(a + 1) & 0xffffffu] = (uae_u8)v; }
-static void REGPARAM2 flat_bput(uaecptr a, uae_u32 v) { flat_ram[a & 0xffffffu] = (uae_u8)v; }
+static void REGPARAM2 flat_wput(uaecptr a, uae_u32 v) { a &= flat_mask; flat_ram[a] = (uae_u8)(v >> 8); flat_ram[(a + 1) & flat_mask] = (uae_u8)v; }
+static void REGPARAM2 flat_bput(uaecptr a, uae_u32 v) { flat_ram[a & flat_mask] = (uae_u8)v; }
 static int REGPARAM2 flat_check(uaecptr a, uae_u32 size) { return (a & 0xffffffu) + size <= FLAT_BYTES; }
 static uae_u8 *REGPARAM2 flat_xlate(uaecptr a) { return flat_ram + (a & 0xffffffu); }
 
@@ -185,15 +187,15 @@ static void install_flat_bank(void) {
 /* -------------------------------------------------------------------------------------------- one instruction */
 typedef struct { uint32_t reg[19]; int cycles; int bus_error; int stopped; } Outcome;
 
-/* The native steps the converter's own generator writes for the opcodes of the vectors (retrorecomp/atarist_codegen.py: one function
- * per opcode that calls Hatari's handler of the opcode by its name, as a game's steps do). A harness built without them (the first
- * pass of tools/atarist_vector_selftest.py, which only writes Hatari's opcode table) has no native step. */
-typedef struct { uint16_t opcode; void (*run)(uint32_t opcode); } VectorStep;
+/* The forms the converter's own generator writes for the opcodes of the vectors (retrorecomp/atarist_codegen.py: Hatari's handler of the opcode compiled for that opcode, on the
+ * shared bus functions, as a game's instructions run them). A harness built without them (the first pass of tools/atarist_vector_selftest.py, which only writes Hatari's opcode
+ * table) has no native step. */
+typedef struct { uint16_t opcode; void (*run)(void); } VectorStep;
 #ifdef RR_VECTOR_STEPS
 extern const VectorStep rr_vector_steps[];
 extern const unsigned rr_vector_step_count;
 #endif
-static void (*native_step[65536])(uint32_t);   /* by opcode; NULL: Hatari's table sends the opcode to an illegal handler, or no step was generated */
+static void (*native_step[65536])(void);   /* by opcode; NULL: Hatari's table sends the opcode to an illegal handler, or no step was generated */
 
 static void build_native_table(void) {
 #ifdef RR_VECTOR_STEPS
@@ -239,12 +241,13 @@ static void load_vector(const Vector *v) {
     currcycle = 0;
 }
 
-static void run_handler(cpuop_func_noret *handler, Outcome *out) {
+static void run_handler(cpuop_func_noret *handler, void (*form)(void), Outcome *out) {
     uint64_t clock = CyclesGlobalClockCounter;
     uint32_t opcode = regs.ir;
     regs.opcode = (uae_u16)opcode;
     regs.instruction_pc = m68k_getpc();
-    handler(opcode);
+    if (form) form();
+    else handler(opcode);
     if (regs.memory_waitstate_cycles) { x_do_cycles(regs.memory_waitstate_cycles); regs.memory_waitstate_cycles = 0; }
     out->cycles = (int)(CyclesGlobalClockCounter - clock) + (int)(currcycle * 2 / CYCLE_UNIT);
     out->bus_error = hardware_bus_error;
@@ -322,6 +325,82 @@ static void add_example(Example *list, unsigned *count, const char *name, const 
     ++*count;
 }
 
+/* --all-forms: every form of the build against the table's handler of its opcode, on random states: registers, condition codes, interrupt mask and pin, the position in the bus slot,
+ * and the RAM in a window every address aliases into. The forms are Hatari's own text compiled again for one opcode: what could differ is what the compiler does with a literal. */
+#define WINDOW_BYTES 0x40000u
+typedef struct { Outcome o; uint32_t ipl0, ipl1, ipl_evt, irc, ir, opcode, spcflags, db, read_buffer, write_buffer; } FormOutcome;
+static uint32_t form_seed;
+static uint32_t form_random(void) { form_seed = form_seed * 1664525u + 1013904223u; return form_seed ^ (form_seed >> 15); }
+
+static void form_run(unsigned op, uint32_t seed, uint64_t clock, const uint8_t *pattern, cpuop_func_noret *handler, void (*form)(void), FormOutcome *out) {
+    unsigned i;
+    uint32_t sr;
+    memcpy(flat_ram, pattern, WINDOW_BYTES);
+    form_seed = seed;
+    for (i = 0; i < 8; ++i) regs.regs[i] = form_random();
+    for (i = 0; i < 7; ++i) regs.regs[8 + i] = (form_random() & (WINDOW_BYTES - 1)) & ~(form_random() & 1u);
+    sr = form_random() & 0xa71fu;
+    if (!(seed & 7)) sr &= 0x7fffu; else sr &= 0x271fu;
+    regs.t1 = (sr >> 15) & 1; regs.t0 = 0; regs.s = (sr >> 13) & 1; regs.m = 0; regs.intmask = (int)((sr >> 8) & 7);
+    regs.usp = form_random() & (WINDOW_BYTES - 2); regs.isp = form_random() & (WINDOW_BYTES - 2);
+    regs.regs[15] = regs.s ? regs.isp : regs.usp;
+    SET_XFLG((sr >> 4) & 1); SET_NFLG((sr >> 3) & 1); SET_ZFLG((sr >> 2) & 1); SET_VFLG((sr >> 1) & 1); SET_CFLG(sr & 1);
+    regs.sr = (uae_u16)sr;
+    regs.stopped = 0; regs.halted = 0; regs.exception = 0; regs.loop_mode = 0; regs.spcflags = 0;
+    regs.ipl[0] = (int)(form_random() & 7); regs.ipl[1] = 0; regs.ipl_pin = regs.ipl_pin_p = (int)(form_random() & 7); regs.lastipl = 0;
+    regs.ipl_evt = 0; regs.ipl_pin_change_evt = regs.ipl_pin_change_evt_p = 0;
+    regs.read_buffer = regs.write_buffer = 0; regs.memory_waitstate_cycles = 0; regs.ce020extracycles = 0;
+    m68k_setpc(0x1000u + (form_random() & 0xfffeu));
+    regs.ir = (uae_u16)op; regs.irc = (uae_u16)form_random(); regs.ird = regs.ir; regs.opcode = regs.ir;
+    hardware_bus_error = 0;
+    CyclesGlobalClockCounter = clock;
+    currcycle = 0;
+    run_handler(handler, form, &out->o);
+    out->ipl0 = (uint32_t)regs.ipl[0]; out->ipl1 = (uint32_t)regs.ipl[1]; out->ipl_evt = (uint32_t)regs.ipl_evt; out->irc = regs.irc; out->ir = regs.ir; out->opcode = regs.opcode;
+    out->spcflags = (uint32_t)regs.spcflags; out->db = regs.db; out->read_buffer = regs.read_buffer; out->write_buffer = regs.write_buffer;
+}
+
+static int all_forms_check(void) {
+    static const unsigned reset = 0x4e70;   /* resets the machine's devices: not a state these runs can compare */
+    uint8_t *pattern = (uint8_t *)malloc(WINDOW_BYTES), *first = (uint8_t *)malloc(WINDOW_BYTES);
+    unsigned long runs = 0, differ = 0, forms = 0;
+    unsigned op, s, i;
+    uint64_t clock = CyclesGlobalClockCounter & ~(uint64_t)3u;
+    if (!pattern || !first) return 2;
+    form_seed = 0x5eed;
+    for (i = 0; i < WINDOW_BYTES; i += 2) {
+        uint32_t word = form_random();
+        pattern[i] = (uint8_t)(word >> 8);
+        pattern[i + 1] = (uint8_t)word;
+    }
+    for (op = 0; op < 65536; ++op) {
+        if (!native_step[op] || op == reset) continue;
+        ++forms;
+        for (s = 0; s < 4; ++s) {
+            FormOutcome table, native;
+            uint32_t seed = op * 2654435761u + s;
+            uint64_t start = clock + s;   /* each position in the bus slot */
+            form_run(op, seed, start, pattern, cpufunctbl_noret[op], NULL, &table);
+            memcpy(first, flat_ram, WINDOW_BYTES);
+            form_run(op, seed, start, pattern, NULL, native_step[op], &native);
+            ++runs;
+            /* uninitialised padding of the two structures is cleared by comparing field by field */
+            if (memcmp(table.o.reg, native.o.reg, sizeof table.o.reg) || table.o.cycles != native.o.cycles || table.o.stopped != native.o.stopped || table.o.bus_error != native.o.bus_error ||
+                table.ipl0 != native.ipl0 || table.ipl1 != native.ipl1 || table.ipl_evt != native.ipl_evt || table.irc != native.irc || table.ir != native.ir ||
+                table.opcode != native.opcode || table.spcflags != native.spcflags || table.db != native.db || table.read_buffer != native.read_buffer ||
+                table.write_buffer != native.write_buffer || memcmp(first, flat_ram, WINDOW_BYTES)) {
+                if (++differ <= 40) {
+                    fprintf(stderr, "form differs | op %04x | seed %u | clocks %d against %d | db %x against %x | ipl %u %u against %u %u | ram %d\n", op, s, native.o.cycles, table.o.cycles, native.db, table.db,
+                            native.ipl0, native.ipl1, table.ipl0, table.ipl1, memcmp(first, flat_ram, WINDOW_BYTES) != 0);
+                    for (i = 0; i < 19; ++i) if (native.o.reg[i] != table.o.reg[i]) fprintf(stderr, "  field %s: %08x against %08x\n", field_name[i], native.o.reg[i], table.o.reg[i]);
+                }
+            }
+        }
+    }
+    printf("{\"forms\":%lu,\"runs\":%lu,\"differ\":%lu}\n", forms, runs, differ);
+    return differ ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     uint8_t *tos = authored_tos();
     static RrStDisk disk;
@@ -332,15 +411,16 @@ int main(int argc, char **argv) {
     unsigned total_state = 0, total_cycle_ok = 0, total_bus = 0, total_other = 0, total_unmodelled = 0, total_plain = 0, total_checked = 0, total_model = 0, total_native = 0, total_equal = 0;
     unsigned differ = 0, total_native_state = 0;
     const char *path = NULL, *map_path = NULL;
-    int i;
+    int i, all_forms = 0;
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--flat")) flat = 1;
         else if (!strcmp(argv[i], "--log")) log_text = "1";
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--all-forms")) all_forms = 1;
         else if (!strcmp(argv[i], "--opcode-map") && i + 1 < argc) map_path = argv[++i];
         else path = argv[i];
     }
-    if ((!path && !map_path) || !tos) {
+    if ((!path && !map_path && !all_forms) || !tos) {
         fprintf(stderr, "usage: atarist_vector_checks [--flat] [--log] [--verbose] [--opcode-map map.txt] vectors.txt\n");
         return 2;
     }
@@ -370,6 +450,11 @@ int main(int argc, char **argv) {
         if (!path) return 0;
     }
     build_native_table();
+    if (all_forms) {
+        flat_mask = WINDOW_BYTES - 1;
+        install_flat_bank();
+        return all_forms_check();
+    }
     if (flat) { install_flat_bank(); memory = flat_ram; memory_low = 0; memory_end = FLAT_BYTES; }
     else { memory = STRam; memory_low = 8; memory_end = STRamEnd; }
     expected_ram = (uint8_t *)calloc(1, FLAT_BYTES);
@@ -380,7 +465,7 @@ int main(int argc, char **argv) {
         const Vector *v = &vectors[n];
         Outcome interpreter, native, plain;
         cpuop_func_noret *table_handler = cpufunctbl_noret[v->ir & 0xffff];
-        void (*step)(uint32_t) = native_step[v->ir & 0xffff];
+        void (*step)(void) = native_step[v->ir & 0xffff];
         Group *g;
         int bad_regs, bad_native_regs = 0, state_ok, paths_equal = 1, cycle_kind, plain_cycles;
         int64_t bad_ram, bad_native_ram = 0;
@@ -396,7 +481,7 @@ int main(int argc, char **argv) {
         ++g->run; ++ran;
 
         load_vector(v);
-        run_handler(table_handler, &interpreter);
+        run_handler(table_handler, NULL, &interpreter);
         bad_regs = registers_differ(v, &interpreter);
         bad_ram = ram_differs(v);
         state_ok = !bad_regs && !bad_ram;
@@ -406,19 +491,25 @@ int main(int argc, char **argv) {
             /* The native path: the very same call, through the step the converter generated for the opcode. */
             ++g->native_available;
             load_vector(v);
-            run_handler((cpuop_func_noret *)step, &native);
+            run_handler(NULL, step, &native);
             bad_native_regs = registers_differ(v, &native);
             bad_native_ram = ram_differs(v);
             paths_equal = !memcmp(native.reg, interpreter.reg, sizeof native.reg) && native.cycles == interpreter.cycles &&
                           native.stopped == interpreter.stopped && !memcmp(snapshot_ram, memory, memory_end);
             g->paths_equal += paths_equal;
+            if (!paths_equal) {
+                unsigned r;
+                fprintf(stderr, "native differs | %s | op %04x | clocks %d against %d | stopped %d against %d\n", v->name, v->ir, native.cycles, interpreter.cycles, native.stopped, interpreter.stopped);
+                for (r = 0; r < sizeof native.reg / sizeof native.reg[0]; ++r)
+                    if (native.reg[r] != interpreter.reg[r]) fprintf(stderr, "  field %s: %08x against %08x\n", field_name[r], native.reg[r], interpreter.reg[r]);
+            }
             g->native_state_ok += !bad_native_regs && !bad_native_ram;
         }
 
         /* The same instruction once more with every bank a plain 16-bit bus (no ST slot): the CPU's own timing, as the vector's 68000 has it. */
         use_plain_bus(1);
         load_vector(v);
-        run_handler(table_handler, &plain);
+        run_handler(table_handler, NULL, &plain);
         use_plain_bus(0);
         plain_cycles = plain.cycles;
         /* The clocks are the vector's (0); or the difference is the ST's 4-cycle bus slots (1): the vector's own bus transactions placed on
