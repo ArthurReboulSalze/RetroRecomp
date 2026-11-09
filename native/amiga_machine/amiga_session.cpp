@@ -62,6 +62,7 @@ struct RrAmigaSession {
     unsigned joy = 0;
     int mouse_left = 0, mouse_right = 0;
     uint8_t keys[128] = {};
+    bool no_keyboard = false;                            // the slave's WHDLF_NoKbd: nothing here touches its keyboard interrupt
     std::vector<int16_t> pcm;
     std::vector<uint32_t> picture;
     int lines = 0;
@@ -374,6 +375,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     if (p + 36 > n) return fail(error, error_size, "The slave's header is truncated.");
     uint16_t version = (uint16_t)(slave[p + 12] << 8 | slave[p + 13]);
     uint16_t flags = (uint16_t)(slave[p + 14] << 8 | slave[p + 15]);
+    S->no_keyboard = (flags & 0x40) != 0;
     uint32_t base_mem = be32(p + 16);
     int32_t exp_mem = version >= 8 ? (int32_t)be32(p + 32) : 0;
     uint32_t exp_size = exp_mem < 0 ? (uint32_t)-exp_mem : (uint32_t)exp_mem;
@@ -548,6 +550,10 @@ extern "C" void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int 
 extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
     for (unsigned k = 0; k < 128; k++) {
         if (!held[k] == !s->keys[k]) continue;
+        // WHDLoad sets CIAICRF_SP in CIA-A's interrupt mask on each interrupt, unless WHDLF_NoKbd (its autodoc, "cias"), and older
+        // ones left AmigaOS's mask: a game that takes the machine over with a level 2 handler may never enable it itself (Pinball
+        // Dreams). Here it is set when a key changes, the only moment it can matter: a route without a key sees no difference.
+        if (!s->no_keyboard) s->amiga->ciaA.poke(0x0D, 0x88);
         if (held[k]) s->amiga->keyboard.press((KeyCode)k); else s->amiga->keyboard.release((KeyCode)k);
         s->keys[k] = held[k] ? 1 : 0;
     }

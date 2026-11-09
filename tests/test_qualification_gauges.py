@@ -87,7 +87,7 @@ class PageTests(unittest.TestCase):
     def test_the_compact_form_has_one_line_per_console_and_says_what_it_is(self):
         text = qg.short(_page())
         rows = [line for line in text.splitlines() if line.startswith('| ')]
-        self.assertEqual(len(rows), 2 + len(RECOMPILED))
+        self.assertEqual(len(rows), 2 + len(ALL_PROFILES))
         self.assertIn('not a quality score', text)
         self.assertIn(qg.ANCHOR, text)
 
@@ -105,6 +105,30 @@ class ReadmeTests(unittest.TestCase):
             self.assertIn(' ' + profile.status + ' ', line)
         # No machine of the list is experimental since 1.6.9: the status column reads the profile, so a new experimental machine shows up here.
         self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in RECOMPILED))
+
+    def test_the_asterisk_marks_the_machines_on_an_emulator_core_and_its_explanation_only(self):
+        block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
+        rows = [line for line in block.splitlines() if line.startswith('| [')]
+        marked = {profile.id for profile in RECOMPILED
+                  if next(row for row in rows if row.startswith('| [' + profile.name + '](docs/')).split(' | ')[0].endswith('\\*')}
+        self.assertEqual(marked, set(qg.EMULATOR_CORE))
+        notes = [line for line in block.splitlines() if line.startswith('\\* ')]
+        self.assertEqual(notes, [qg.EMULATOR_CORE_NOTE])
+        for word in ('PlayStation', 'Nintendo 64', 'Atari ST', 'Amiga', 'not fully recompiled'):
+            self.assertIn(word, notes[0])
+
+    def test_an_emulated_category_has_a_visible_line_without_a_bar(self):
+        block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
+        emulated = [profile for profile in ALL_PROFILES if getattr(profile, 'emulated', '')]
+        self.assertTrue(emulated)
+        for profile in emulated:
+            page = qg.EMULATED_PAGES[profile.id]
+            self.assertTrue((qg.REPO / 'docs' / page).is_file(), page)
+            line = next(row for row in block.splitlines() if row.startswith(f'| **[{profile.name}](docs/{page})** |'))
+            self.assertIn(f' {profile.status} ', line)
+            self.assertIn('0 % native code', line)
+            self.assertNotIn('█', line)
+            self.assertNotIn('░', line)
 
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()

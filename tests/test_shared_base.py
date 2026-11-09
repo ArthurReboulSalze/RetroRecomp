@@ -371,7 +371,8 @@ class PublishedBaseTests(BaseHarness):
         self.server.hits.clear()
         summary = online.sync_base([KEY], now=self.later())
         self.assertEqual(self.gets(), ['base3'])
-        self.assertEqual((summary['discarded'], summary['games']), (1, 1))
+        # The summary in the message: this failed once as (1, 0) on a loaded PC, cause not found (9 Nov 2026).
+        self.assertEqual((summary['discarded'], summary['games']), (1, 1), summary)
         self.assertEqual(knowledge.imported_record('sms', IDENTITY)['rom_entries'], [[0x180, 0, 0, 0, 1]])
         self.assertEqual(knowledge.imported_observations('sms', IDENTITY), [])
         self.assertEqual(online.shared_paths([KEY]), {KEY: {'level': 'quick', 'records': 1}})

@@ -286,6 +286,10 @@ still stays black, for another reason not found yet. A game's run shifts by a fe
 route, the picture, sound and memory of each frame again equal to the fresh reference). **What moves:** the Amiga's game stamp; no other console.
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the keyboard reaches a game that never enables its interrupt; F1-F4 on the long route (1.7.2)
+
+A key changing now sets `CIAICRF_SP` in CIA-A's interrupt mask, as WHDLoad's autodoc describes, unless the slave has `WHDLF_NoKbd` (`native/amiga_machine/amiga_session.cpp`). Found on Pinball Dreams, whose level 2 handler waits for a mask it never sets: no key reached it, with the native code or on the fresh vAmiga reference. The long route's menu keys gain F1 to F4. **What moves:** the Amiga's game stamp; no other console. **Hot path:** none, it runs when a key changes. An export keeps its old behaviour until it is reconverted.
+
 ## Commodore Amiga: a long route at the extended level (1.7.2)
 
 The extended level now adds one route of 18,000 frames, seeded from the install (`computer_routes.long_events`, the same body as the Atari ST's, which a test shows; the ST keeps its own so that its stamps do not move), and the thorough level two. It is for route depth, not for native code: on Apidya and Lemmings 18,000 frames brought under 2 % more instructions. A route does not finish a game. `tools/amiga_route_captures.py` takes pictures along each route of a delivered game (`--capture-every`, headless only). **What moves:** the Amiga's game stamp; no other console. A conversion at the standard level runs the same routes as before.
