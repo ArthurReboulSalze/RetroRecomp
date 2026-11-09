@@ -726,6 +726,96 @@ class MissingFilesTests(TempFiles):
             step.assert_not_called()
 
 
+class BackupRamCheckTests(TempFiles):
+    """pce_conversion.check_backup on a fake game that behaves as native/pce_backup.c says, unless a test breaks one thing."""
+
+    SHA = 'ab' * 32
+
+    def fake_run(self, *, uses_damaged=False, keeps_nothing_aside=False, loses_write=False, reference_differs=False,
+                 writes_without_change=False, writes_on_route=True, unformatted=False):
+        def run(executable, where, name, count, script, *extra, ends_at=None):
+            path = Path(extra[extra.index('--backup') + 1])
+            memory, notice = bytes(2048) if unformatted else pce_conversion.BACKUP_FORMATTED, 0
+            if path.exists():
+                data = path.read_bytes()
+                header = data[:pce_conversion.BACKUP_HEADER]
+                if len(data) == 2160 and header[:8] == pce_conversion.BACKUP_MAGIC and header[8:12] == b'\x01\0\0\0' \
+                        and header[12:16] == b'\0\x08\0\0' and header[40:104] == self.SHA.encode() \
+                        and header[16:24] == pce_conversion.fnv64(data[112:]).to_bytes(8, 'little'):
+                    memory = data[112:]
+                elif uses_damaged:
+                    memory = data[:2048].ljust(2048, b'\0')
+                else:
+                    notice = 1
+                    if not keeps_nothing_aside:
+                        path.rename(path.with_name(path.name + '.unusable-1'))
+            start = memory
+            if name == 'backup-route' and writes_on_route:
+                memory = b'SAVE' + memory[4:]
+            if name.startswith('backup-same'):
+                memory = b'SAME' + memory[4:]
+            if name == 'backup-none' and writes_without_change:
+                path.write_bytes(b'x')
+            elif memory != start and not (loses_write and name == 'backup-route'):
+                path.write_bytes(pce_conversion.backup_file(memory, self.SHA))
+            trace = where / f'{name}.csv'
+            trace.write_text('reference' if reference_differs and '--reference' in extra else 'same', encoding='ascii')
+            return {'backup_start_hash': f'{pce_conversion.fnv64(start):016x}', 'backup_hash': f'{pce_conversion.fnv64(memory):016x}',
+                    'backup_notice': notice, 'backup_beyond': 0, 'trace': trace}
+        return run
+
+    def check(self, **broken):
+        with mock.patch.object(pce_conversion, 'run', self.fake_run(**broken)):
+            return pce_conversion.check_backup(Path('game.exe'), self.root / 'backup', 3600, Path('play.inputs'), self.SHA)
+
+    def test_the_file_format_is_the_one_the_game_reads(self):
+        self.assertEqual(14695981039346656037, pce_conversion.fnv64(b''))
+        self.assertEqual(0xaf63dc4c8601ec8c, pce_conversion.fnv64(b'a'))
+        data = pce_conversion.backup_file(pce_conversion.BACKUP_FORMATTED, self.SHA)
+        self.assertEqual(112 + 2048, len(data))
+        self.assertEqual(b'RRPCEBR1', data[:8])
+        self.assertEqual((1, 2048), (int.from_bytes(data[8:12], 'little'), int.from_bytes(data[12:16], 'little')))
+        self.assertEqual(pce_conversion.fnv64(data[112:]), int.from_bytes(data[16:24], 'little'))
+        self.assertEqual(self.SHA.encode(), data[40:104])
+        source = (Path(__file__).parents[1] / 'native/pce_backup.c').read_text(encoding='utf-8')
+        for fragment in ("'R', 'R', 'P', 'C', 'E', 'B', 'R', '1'", 'HEADER_BYTES = 112', 'header + 16', 'header + 20', 'header + 40'):
+            self.assertIn(fragment, source)
+
+    def test_the_formatted_memory_is_written_down_in_both_places(self):
+        self.assertEqual(b'HUBM\x00\x88\x10\x80', pce_conversion.BACKUP_FORMATTED[:8])
+        self.assertEqual(bytes(2040), pce_conversion.BACKUP_FORMATTED[8:])
+        source = (Path(__file__).parents[1] / 'native/pce_machine.cpp').read_text(encoding='utf-8')
+        self.assertIn("{'H', 'U', 'B', 'M', 0x00, 0x88, 0x10, 0x80}", source)
+
+    def test_every_damaged_file_differs_from_the_good_one(self):
+        good = pce_conversion.backup_file(pce_conversion.BACKUP_FORMATTED, self.SHA)
+        damaged = pce_conversion.damaged_backups(good)
+        self.assertGreaterEqual(len(damaged), 10)
+        self.assertNotIn(good, damaged.values())
+
+    def test_a_game_that_keeps_the_rules_passes(self):
+        result = self.check()
+        self.assertTrue(result['play_route_wrote_memory'])
+        self.assertTrue(result['written_memory_survives_a_fresh_process'])
+        self.assertTrue(result['same_memory_reference_match'])
+        self.assertEqual("the play route's", result['same_memory_was'])
+        self.assertIn('other-card', result['damaged_files_set_aside'])
+
+    def test_a_route_that_writes_nothing_says_so_and_uses_an_authored_file(self):
+        result = self.check(writes_on_route=False)
+        self.assertFalse(result['play_route_wrote_memory'])
+        self.assertIsNone(result['written_memory_survives_a_fresh_process'])
+        self.assertEqual('an authored file', result['same_memory_was'])
+
+    def test_each_broken_rule_is_refused(self):
+        for broken in ({'uses_damaged': True}, {'keeps_nothing_aside': True}, {'loses_write': True},
+                       {'reference_differs': True}, {'writes_without_change': True}, {'unformatted': True}):
+            with self.subTest(broken), tempfile.TemporaryDirectory() as folder:
+                self.root = Path(folder)
+                with self.assertRaises(ConversionError):
+                    self.check(**broken)
+
+
 class QuickStateCheckTests(TempFiles):
     """pce_conversion.check_states on a fake game: every damaged state must be refused and left alone."""
 
@@ -892,7 +982,7 @@ class GameCmakeTests(TempFiles):
         text = pce_build.game_cmake(None, '1.0')
         statement = text[text.index('add_executable(game'):]
         statement = statement[:statement.index(')\n') + 1]
-        for name in ('pce_main.c', 'pce_machine.cpp', 'console16_state.c', *hostkit.sources('pce'),
+        for name in ('pce_main.c', 'pce_machine.cpp', 'pce_backup.c', 'console16_state.c', *hostkit.sources('pce'),
                      '$<TARGET_OBJECTS:pce_module>'):
             self.assertIn(name, statement)
 
@@ -914,7 +1004,8 @@ class ProfileWiringTests(unittest.TestCase):
 
     def test_the_compilation_inputs_of_the_machine(self):
         names = compilation_inputs.manifest_names('pce')
-        for name in ('native/pce_main.c', 'native/pce_machine.cpp', 'native/pce_machine.h', 'retrorecomp.pce_build',
+        for name in ('native/pce_main.c', 'native/pce_machine.cpp', 'native/pce_machine.h', 'native/pce_backup.c',
+                     'native/pce_backup.h', 'retrorecomp.pce_build',
                      'retrorecomp.pce_conversion', 'retrorecomp.pce_rom'):
             with self.subTest(name):
                 self.assertIn(name, names)

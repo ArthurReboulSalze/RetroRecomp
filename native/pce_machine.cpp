@@ -11,6 +11,7 @@
 #include "pce/runtime.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -38,7 +39,10 @@ struct Recipe {
     pce::HuCardProfile profile = pce::HuCardProfile::base;
     unsigned buttons = 2;
     bool multitap = false;
+    std::array<std::uint8_t, PCE_BACKUP_BYTES> backup{};
 };
+
+constexpr std::uint32_t kBackupBank = 0xF7, kBankBytes = 0x2000;
 
 Recipe recipe;
 std::unique_ptr<Machine> machine;
@@ -72,6 +76,15 @@ std::unique_ptr<Machine> build() {
     auto &bus = fresh->bus;
     const auto decoded = pce::decode_hucard(recipe.file, recipe.header, recipe.encoding, recipe.profile);
     bus.configure_hucard(recipe.profile, decoded.rom);
+    // The Backup RAM of a console with a backup unit. The engine attaches none to a HuCard: its own model needs the CD hardware it
+    // refuses there, and $1800 and up answer $FF. So the bank is plain RAM, set by this host as the engine's own host sets its
+    // payload banks: no lock, like Beetle on a HuCard, and 8 KiB where the chip has 2 (the rest reads $FF until a game writes
+    // it, which pce_machine_backup_beyond reports). Nothing of the engine changes.
+    bus.kind[kBackupBank] = pce::BankKind::ram;
+    bus.generation[kBackupBank] = 1;
+    auto *backup = bus.bytes->data() + (kBackupBank << 13);
+    std::fill_n(backup, kBankBytes, std::uint8_t(0xFF));
+    std::copy(recipe.backup.begin(), recipe.backup.end(), backup);
     bus.enable_continuous_video();
     bus.enable_interrupts();
     bus.enable_psg();
@@ -140,6 +153,11 @@ int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bi
         recipe.profile = board == PCE_BOARD_SF2 ? pce::HuCardProfile::sf2 : pce::HuCardProfile::base;
         recipe.buttons = unsigned(pad_buttons);
         recipe.multitap = multitap != 0;
+        // Without a save, the memory is formatted as Beetle formats it on a HuCard: the file system header, nothing stored. A
+        // player with only the card has no CD System Card screen to format it with.
+        static constexpr std::uint8_t kFormatted[8] = {'H', 'U', 'B', 'M', 0x00, 0x88, 0x10, 0x80};
+        recipe.backup.fill(0);
+        std::copy(std::begin(kFormatted), std::end(kFormatted), recipe.backup.begin());
         machine = build();
         last_sequence = machine->bus.vdc.video.sequence();
         frames = cropped_frames = 0;
@@ -152,6 +170,8 @@ int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bi
 int pce_machine_reset(char *error, size_t error_size) {
     return guarded(error, error_size, [&] {
         if (recipe.file.empty()) throw pce::Fault("the machine was never started");
+        // The reset button leaves a backup unit's memory as it is.
+        if (machine) std::copy_n(pce_machine_backup(), recipe.backup.size(), recipe.backup.begin());
         machine = build();
         last_sequence = machine->bus.vdc.video.sequence();
         audio.clear();
@@ -237,7 +257,23 @@ uint64_t pce_machine_cpu_hash(void) {
 
 uint64_t pce_machine_ram_hash(void) {
     if (!machine) return 0;
-    return fnv(kFnvBasis, machine->bus.bytes->data() + 0xF8 * 0x2000, 0x2000);
+    const auto *bytes = machine->bus.bytes->data();
+    return fnv(fnv(kFnvBasis, bytes + 0xF8 * kBankBytes, kBankBytes), bytes + kBackupBank * kBankBytes, kBankBytes);
+}
+
+const uint8_t *pce_machine_backup(void) {
+    return machine ? machine->bus.bytes->data() + kBackupBank * kBankBytes : nullptr;
+}
+
+void pce_machine_set_backup(const uint8_t data[PCE_BACKUP_BYTES]) {
+    std::copy_n(data, recipe.backup.size(), recipe.backup.begin());
+    if (machine) std::copy_n(data, recipe.backup.size(), machine->bus.bytes->data() + kBackupBank * kBankBytes);
+}
+
+unsigned pce_machine_backup_beyond(void) {
+    if (!machine) return 0;
+    const auto *bank = machine->bus.bytes->data() + kBackupBank * kBankBytes;
+    return unsigned(std::count_if(bank + PCE_BACKUP_BYTES, bank + kBankBytes, [](std::uint8_t byte) { return byte != 0xFF; }));
 }
 
 uint8_t *pce_machine_state_save(size_t *size) {

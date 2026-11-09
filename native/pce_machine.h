@@ -13,6 +13,7 @@ extern "C" {
 #define PCE_MAX_HEIGHT 264
 #define PCE_PADS 5
 #define PCE_AUDIO_RATE 44100u   /* the engine's raw PSG profile (48 kHz needs its filtered one) */
+#define PCE_BACKUP_BYTES 2048u
 
 enum { PCE_BOARD_BASE = 0, PCE_BOARD_SF2 = 1 };
 enum { PCE_POLICY_HYBRID = 0, PCE_POLICY_REFERENCE = 1, PCE_POLICY_NATIVE_ONLY = 2 };
@@ -37,6 +38,12 @@ size_t pce_machine_audio(int16_t *out, size_t capacity);
 void pce_machine_counters(PceCounters *counters);
 uint64_t pce_machine_cpu_hash(void);
 uint64_t pce_machine_ram_hash(void);
+/* The Backup RAM, the low 2 KiB of bank $F7 as the game sees it (docs/PC_ENGINE.md, "Saves"). A reset keeps it; a quick state
+ * holds it, so F9 brings it back as it was. Set it between init and the first frame. */
+const uint8_t *pce_machine_backup(void);
+void pce_machine_set_backup(const uint8_t data[PCE_BACKUP_BYTES]);
+/* Bytes of the rest of the bank ($F7:0800 and up, past the 2 KiB) that are no longer $FF: a game wrote where the chip has no cell. */
+unsigned pce_machine_backup_beyond(void);
 /* Quick states: the engine's versioned in-memory checkpoint, bound by the caller to this exact executable. */
 uint8_t *pce_machine_state_save(size_t *size);
 int pce_machine_state_load(const uint8_t *data, size_t size);

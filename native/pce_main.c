@@ -18,16 +18,20 @@
 #include "retro16_state_config.h"
 #include "pce_game.h"
 #include "pce_machine.h"
+#include "pce_backup.h"
+#include "runtime_i18n.h"
 
 int rr_pce_sdl_main(const char *title, int scale);
+void rrhk_notice(const char *text, Uint64 milliseconds);
 
 #define FNV_BASIS 14695981039346656037ull
 #define FNV_PRIME 1099511628211ull
 
 static unsigned frame;
 static int headless, frames, scripted, diagnostics, reference, native_only;
-static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path, *capture_dir;
+static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path, *capture_dir, *backup_path;
 static unsigned save_at, capture_every = 600;
+static uint64_t backup_start_hash;
 static int ignore_load_error, state_loaded, load_rejected, save_failed;
 static FILE *trace_file, *pcm;
 static uint64_t pcm_hash = FNV_BASIS, image_hash = FNV_BASIS, samples, nonzero, energy;
@@ -86,6 +90,14 @@ static int load_script(const char *path)
     return script_count != 0;
 }
 
+static uint64_t backup_hash(void)
+{
+    const uint8_t *memory = pce_machine_backup();
+    uint64_t hash = FNV_BASIS;
+    for (unsigned n = 0; memory && n < PCE_BACKUP_BYTES; n++) hash = (hash ^ memory[n]) * FNV_PRIME;
+    return hash;
+}
+
 static uint64_t picture_hash(void)
 {
     unsigned width, height;
@@ -120,6 +132,17 @@ int rr_pce_host_frame(const uint16_t pads[4])
     pce_machine_set_pads(masks);
     if (!pce_machine_run_frame(fault, sizeof fault)) return 0;
     frame++;
+    if (!headless) {
+        /* A save the game could not use never stops it: it is set aside, the game starts formatted, the player is told once. */
+        static int told;
+        if (!told) {
+            told = 1;
+            unsigned state = rr_pce_backup_notice();
+            if (state == 1) rrhk_notice(rr_tr("Save unreadable: set aside"), 6000);
+            else if (state == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
+        }
+        rr_pce_backup_flush(SDL_GetTicks64(), false);
+    }
     frame_audio_count = pce_machine_audio(frame_audio, sizeof frame_audio / sizeof *frame_audio);
     audio_read = 0;
     uint64_t image = 0, sound = FNV_BASIS;
@@ -242,7 +265,8 @@ static int report(void)
                "\"nonzero_samples\":%llu,\"peak\":%u,\"rms\":%.4f,\"nonuniform_frames\":%u,\"pcm_rate\":%u,"
                "\"pcm_channels\":2,\"cpu_hash\":\"%016llx\",\"ram_hash\":\"%016llx\",\"cropped_frames\":%llu,"
                "\"state_loaded\":%s,\"load_rejected\":%s,\"save_failed\":%s,\"capture_identities\":%llu,"
-               "\"capture_dropped\":%llu,\"capture_first_drop_frame\":%llu,\"fault\":\"%s\"}\n",
+               "\"capture_dropped\":%llu,\"capture_first_drop_frame\":%llu,\"backup_start_hash\":\"%016llx\","
+               "\"backup_hash\":\"%016llx\",\"backup_beyond\":%u,\"backup_notice\":%u,\"fault\":\"%s\"}\n",
             RR_PCE_BOARD == PCE_BOARD_SF2 ? "sf2" : "base", frame, (unsigned long long)counters.native,
             (unsigned long long)counters.interpreted, (unsigned long long)counters.guard_misses,
             (unsigned long long)counters.irq_entries, reference ? "true" : "false", native_only ? "true" : "false",
@@ -252,7 +276,8 @@ static int report(void)
             (unsigned long long)pce_machine_ram_hash(), (unsigned long long)counters.cropped_frames,
             state_loaded ? "true" : "false", load_rejected ? "true" : "false", save_failed ? "true" : "false",
             (unsigned long long)capture_identities, (unsigned long long)capture_dropped,
-            (unsigned long long)capture_first_drop_frame, escaped);
+            (unsigned long long)capture_first_drop_frame, (unsigned long long)backup_start_hash,
+            (unsigned long long)backup_hash(), pce_machine_backup_beyond(), rr_pce_backup_notice(), escaped);
     int okay = !ferror(f);
     return fclose(f) == 0 && okay;
 }
@@ -269,6 +294,7 @@ static int execute(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--save-state")) save_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--save-at")) save_at = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--load-state")) load_path = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--backup")) backup_path = argv[++i];
         else if (!strcmp(argv[i], "--ignore-load-error")) ignore_load_error = 1;
         else if (i + 1 < argc && !strcmp(argv[i], "--trace")) trace_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
@@ -289,6 +315,16 @@ static int execute(int argc, char **argv)
         return 3;
     }
     pce_machine_policy(reference ? PCE_POLICY_REFERENCE : native_only ? PCE_POLICY_NATIVE_ONLY : PCE_POLICY_HYBRID);
+    /* The player's save: beside the game in a window. A headless run touches no file unless --backup names one. */
+    static wchar_t backup_file[32768];
+    if (backup_path) {
+        wchar_t *name = wide(backup_path);
+        rr_pce_backup_open(name);
+        free(name);
+    } else if (!headless && rr_pce_backup_path(backup_file, sizeof backup_file / sizeof *backup_file)) {
+        rr_pce_backup_open(backup_file);
+    }
+    backup_start_hash = backup_hash();
     if (code_capture_path && !pce_machine_capture_begin(code_capture_path, 65536, fault, sizeof fault)) {
         fprintf(stderr, "%s\n", fault); SDL_Quit(); return 3;
     }
@@ -311,6 +347,7 @@ static int execute(int argc, char **argv)
         ran = !fault[0];
     }
     if (save_path && !save_at && !state_file(save_path, 0)) save_failed = 1;
+    rr_pce_backup_flush(SDL_GetTicks64(), true);
     if (code_capture_path) pce_machine_capture_status(&capture_identities, &capture_dropped, &capture_first_drop_frame);
     if (code_capture_path && !pce_machine_capture_finish(fault, sizeof fault)) ran = 0;
     if (!ran) fprintf(stderr, "%s\n", fault);

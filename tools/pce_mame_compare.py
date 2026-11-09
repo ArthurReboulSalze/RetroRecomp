@@ -41,6 +41,9 @@ Which MAME driver. `tg16` runs the United States cards, and a Japanese card too 
 (Japan)); on `pce` the two United States cards tried (Bonk's Adventure, Boxyboy) stay black, so `tg16` is the default. The game's
 engine sets the `japanese` flag of its pad port (the console-region bit) whatever the card, while `tg16` answers as the TurboGrafx-16: a
 card that reads that bit may take another path on the two sides. The tool reports where the pictures part, not why.
+The Backup RAM. MAME gives every card one (its nvram), and the game does too: MAME's starts here with the same formatted memory as
+the game with no save (`seed_backup`). The two still differ in one way: MAME's has a lock and its pad port always says a CD is attached;
+the game's has no lock and its pad port says none is.
 
 What this says: agreement of the game's pictures and sound level with MAME 0.289's on the first seconds after power on, no input,
 for the cards run. It says nothing of the original hardware (MAME is not hardware), of gameplay, of input, of physical latency or of
@@ -585,9 +588,19 @@ def mame_command(mame: Path, machine: str, cartridge: Path, lua: Path, work: Pat
     return command
 
 
+def seed_backup(machine: str, work: Path) -> Path:
+    """MAME's Backup RAM (its nvram, 2,048 raw bytes) starts as the game's does with no save: the same formatted memory."""
+    from retrorecomp.pce_conversion import BACKUP_FORMATTED
+    path = work / 'nvram' / machine / 'pce_cd_bram'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(BACKUP_FORMATTED)
+    return path
+
+
 def run_mame(mame: Path, machine: str, cartridge: Path, frames: int, work: Path, sound: bool) -> Path:
     out = work / 'mame'
     out.mkdir(parents=True, exist_ok=True)
+    seed_backup(machine, work)
     lua = work / 'capture.lua'
     lua.write_text(LUA % {'out': out.resolve().as_posix(), 'last': frames}, encoding='utf-8')
     result = subprocess.run(mame_command(mame, machine, cartridge, lua, work, work / 'mame.wav' if sound else None, frames),
