@@ -1,6 +1,6 @@
 # PC Engine
 
-Profile `pce`, **available since 1.6.9**, supported from 1.7.2 pending the owner's word ([G14](QUALIFICATION.md#owner-acceptance)): NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
+Profile `pce`, **available since 1.6.9**, supported since 1.7.2 on the owner's decision of 10 November 2026 ([G14](QUALIFICATION.md#owner-acceptance)): NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
 United States. It converts the player's own HuCard dumps (`.pce`, or a ZIP holding one) into a standalone game, US
 TurboGrafx-16 HuCards included, in both dumping orders (the bit-reversed order tested on two copies made for the test; [below](#us-turbografx-16-cards-6-november-2026)). The native
 code comes from what the game was seen to run; every instruction that was not seen stays interpreted, counted and
@@ -23,7 +23,7 @@ reported. No gate of the qualification list is claimed beyond what was measured.
 
 | | |
 |---|---|
-| Status | **Supported** from 1.7.2, pending the owner's word; open since 1.6.9 |
+| Status | **Supported** since 1.7.2 (the owner's decision of 10 November 2026); open since 1.6.9 |
 | Input | `.pce` HuCard images, or a ZIP holding exactly one (read by its content, [below](#3-how-a-hucard-file-is-read)) |
 | Processor | One HuC6280 (a 65C02 derivative that also holds the sound generator); fallback counted in instructions |
 | Engine | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp), MIT, pinned by commit; runtime ABI 29 |
@@ -112,7 +112,7 @@ was used. It measures the pinned engine, not a Retro-Recomp conversion.
   are emulators, not silicon.
 - **Licence audit:** a token-overlap comparison of the engine's device sources against Geargrafx, Beetle and Mesen2 (GPL),
   MAME (BSD) and ares (ISC). No copied expression was found. This is a screening, not a legal opinion.
-- **Speed:** not measured yet. It needs a quiet PC and the owner's go.
+- **Speed:** measured on a quiet PC, 10 November 2026, one core, the headless attract route with no input, the best of three runs of 2,400 frames, host time only: against games built with the 1.7.1 pin `81b5c231` (no published 1.7.1 PC Engine export exists to measure), the frame cost is 1.09x on Blazing Lazers (4.44 to 4.84 ms a frame) and 1.04x on Street Fighter II' CE (4.49 to 4.69 ms; its old game ran 19.3 % interpreted on that route), and Street Fighter II' CE starts in 1.40 s instead of 0.21 s (its game is 25.4 MB). The bus observer of the new pin is ruled out as the cause: the same module of Blazing Lazers built with the observer compiled out costs the same (4.81 against 4.76 ms a frame, within noise). Where the rest comes from (the module the new engine emits, the rest of its runtime, the Backup RAM) is not measured apart.
 
 ### The first panel (5 November 2026)
 
@@ -416,7 +416,7 @@ They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 | Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted and 0 guard misses on every route of the 15 cards of the release tree's panel, the 18,000-frame walks and Street Fighter II' CE included ([above](#the-panel-of-the-release-tree-9-november-2026)). That card needs the engine's larger capture format (up to 1,048,576 instruction identities per module); before it, 19.3 %, 33.5 % and 74.7 % of its instructions ran interpreted |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames, the same Backup RAM on both sides (pictures equal on 3 of 4 cards bar one frame, and bar 7 on the fourth; sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
-| Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. On 9 November 2026 the owner also played Street Fighter II' CE, on the export of the tree `700b72cb` (19 to 47 % interpreted, before the larger capture format), and said "tout marche nickel"; pressing left and right very fast to feel the lag, "extrêmement réactif"; on the interpreted share, "on avancera un peu de toute manière par la suite". That is an impression of feel: it measures neither speed nor latency. These are trials, not a coverage claim: no game was checked end to end |
+| Gameplay validation | Owner play trials: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. On 9 November 2026 the owner also played Street Fighter II' CE, on the export of the tree `700b72cb` (19 to 47 % interpreted, before the larger capture format), and said "tout marche nickel"; pressing left and right very fast to feel the lag, "extrêmement réactif"; on the interpreted share, "on avancera un peu de toute manière par la suite". That is an impression of feel: it measures neither speed nor latency. On 10 November 2026 he played the fifteen exports of the release tree and said « ils marchent tous parfaitement. Les sauvegardes marchent parfaitement. Tout est ok », then decided the exit from the experimental status. He saw the limit named here: code past the routes runs interpreted, counted and shown in the game (the owner saw it on Boxyboy after Start), and a PC Engine game keeps no player's record yet, so the code a player reaches is not made native at the next conversion. These are trials, not a coverage claim: no game was checked end to end |
 | Physical latency | Not reported and not measured: `latency_ms` stays null, whatever a player feels |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
@@ -429,7 +429,8 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
   Past 1,048,576 identities, what does not fit is left out, counted and interpreted; the conversion does not fail.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
   runs, never from the ROM alone.
-- Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
+- Speed is measured on two cards only, against the 1.7.1 pin ([above](#5-what-was-measured)), and the vectors have three known differences on the interpreter (the oracle is an emulator).
+- A PC Engine game keeps no player's record yet: the F12 line of its help page says the record is off, and the code a player reaches past the routes stays interpreted at the next conversion.
 - The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a pause the walk left on, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
 - The Backup RAM is a model of ours (its bank is in the RAM hash, equal on Linux on the panel's routes): plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
@@ -442,8 +443,8 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 10. Next stages
 
-1. A speed measure on a quiet PC.
-2. The owner's play trials of the new exports.
+1. The player's own record (kind 20, F12), so the code a player reaches becomes native at the next conversion, as on the Amiga.
+2. A play route that answers a screen confirmed with I (Boxyboy after Start).
 3. SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
