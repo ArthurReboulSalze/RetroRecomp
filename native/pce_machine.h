@@ -49,7 +49,7 @@ uint8_t *pce_machine_state_save(size_t *size);
 int pce_machine_state_load(const uint8_t *data, size_t size);
 void pce_machine_free(void *data);
 /* Code observation for the converter (the engine's own capture JSON), off by default. */
-int pce_machine_capture_begin(const char *path, unsigned capacity, char *error, size_t error_size);
+int pce_machine_capture_begin(const char *path, unsigned capacity, int extended, char *error, size_t error_size);
 int pce_machine_capture_finish(char *error, size_t error_size);
 /* Identities held, instructions dropped for want of capacity, and the first frame that dropped one (0: none). */
 void pce_machine_capture_status(uint64_t *identities, uint64_t *dropped, uint64_t *first_drop_frame);

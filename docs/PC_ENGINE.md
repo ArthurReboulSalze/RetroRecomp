@@ -1,10 +1,10 @@
 # PC Engine
 
-Experimental profile (`pce`), **available since 1.6.9**: NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
+Profile `pce`, **available since 1.6.9**, supported since 1.7.2 on the owner's decision of 10 November 2026 ([G14](QUALIFICATION.md#owner-acceptance)): NEC/Hudson's PC Engine, sold as the TurboGrafx-16 in the
 United States. It converts the player's own HuCard dumps (`.pce`, or a ZIP holding one) into a standalone game, US
 TurboGrafx-16 HuCards included, in both dumping orders (the bit-reversed order tested on two copies made for the test; [below](#us-turbografx-16-cards-6-november-2026)). The native
 code comes from what the game was seen to run; every instruction that was not seen stays interpreted, counted and
-reported. It is experimental: no gate of the qualification list is claimed beyond what was measured.
+reported. No gate of the qualification list is claimed beyond what was measured.
 
 ## Contents
 
@@ -14,15 +14,16 @@ reported. It is experimental: no gate of the qualification list is claimed beyon
 4. [Engine and upstream](#4-engine-and-upstream)
 5. [What was measured](#5-what-was-measured)
 6. [Saves](#6-saves)
-7. [The five measures](#7-the-five-measures)
-8. [Known limits](#8-known-limits)
-9. [Next stages](#9-next-stages)
+7. [Shared paths](#7-shared-paths)
+8. [The five measures](#8-the-five-measures)
+9. [Known limits](#9-known-limits)
+10. [Next stages](#10-next-stages)
 
 ## 1. At a glance
 
 | | |
 |---|---|
-| Status | **Experimental**, available since 1.6.9 |
+| Status | **Supported** since 1.7.2 (the owner's decision of 10 November 2026); open since 1.6.9 |
 | Input | `.pce` HuCard images, or a ZIP holding exactly one (read by its content, [below](#3-how-a-hucard-file-is-read)) |
 | Processor | One HuC6280 (a 65C02 derivative that also holds the sound generator); fallback counted in instructions |
 | Engine | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp), MIT, pinned by commit; runtime ABI 29 |
@@ -67,7 +68,7 @@ is what the engine maps.
 ## 4. Engine and upstream
 
 The profile is built on [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp) at commit
-`81b5c231e452c6879d58585c8863012e438f1d55`: its Python analysis and emitter, and its C++ runtime (HuC6280 interpreter,
+`6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0`: its Python analysis and emitter, and its C++ runtime (HuC6280 interpreter,
 video and colour chips, sound generator, timer, interrupts, pads, HuCard boards). The engine is MIT. The upstream has no
 release or tag, so the pin is a commit, and every change of its runtime ABI (29 values in 11 days, none touching
 HuCards since 28 October 2026) means re-emitting, rebuilding and requalifying. Notices, including the MAME opcode table
@@ -111,7 +112,7 @@ was used. It measures the pinned engine, not a Retro-Recomp conversion.
   are emulators, not silicon.
 - **Licence audit:** a token-overlap comparison of the engine's device sources against Geargrafx, Beetle and Mesen2 (GPL),
   MAME (BSD) and ares (ISC). No copied expression was found. This is a screening, not a legal opinion.
-- **Speed:** not measured yet. It needs a quiet PC and the owner's go.
+- **Speed:** measured on a quiet PC, 10 November 2026, one core, the headless attract route with no input, the best of three runs of 2,400 frames, host time only: against games built with the 1.7.1 pin `81b5c231` (no published 1.7.1 PC Engine export exists to measure), the frame cost is 1.09x on Blazing Lazers (4.44 to 4.84 ms a frame) and 1.04x on Street Fighter II' CE (4.49 to 4.69 ms; its old game ran 19.3 % interpreted on that route), and Street Fighter II' CE starts in 1.40 s instead of 0.21 s (its game is 25.4 MB). The bus observer of the new pin is ruled out as the cause: the same module of Blazing Lazers built with the observer compiled out costs the same (4.81 against 4.76 ms a frame, within noise). Where the rest comes from (the module the new engine emits, the rest of its runtime, the Backup RAM) is not measured apart.
 
 ### The first panel (5 November 2026)
 
@@ -190,8 +191,25 @@ ones included, the CPU, RAM, picture and PCM hashes equal the Windows run's (bui
 That makes 10 of the 15 cards of the extended panel witnessed on Linux (Night Creatures, one of the nine of 6 November, is not in
 the extended panel). The eight others of 6 November were witnessed before the start choice changed, so only Boxyboy and
 Santatlantean were seen on the current routes; Gradius, Street Fighter II' CE, Tonma, Military Madness and Soldier Blade were not
-run there. The cross-OS gate (G13) therefore stays partial until the whole panel is witnessed, a later campaign if the owner decides one. All of this predates the Backup RAM: the RAM hash now
-holds that bank, so these hashes are not comparable with today's, and the memory itself has not run on Linux.
+run there. All of this predates the Backup RAM: the RAM hash now holds that bank, so these hashes are not comparable with today's.
+
+### The whole panel on Linux (9 and 10 November 2026)
+
+The 15 cards of [the release-tree panel](#the-panel-of-the-release-tree-9-november-2026) were converted again on the same Debian 13 PC from the same tree
+(`cf6d56fa`), with GCC 14.2 and Ninja, an empty library, no shared base and the extended level: fourteen cards two at a time, then Street Fighter II' CE
+alone. On **45 of 45 routes**, the 18,000-frame ones included, the CPU, RAM, picture, PCM and Backup RAM hashes equal the Windows panel's (llvm-mingw),
+with the same native counts (0 interpreted instructions, 0 guard misses) and the same walk repairs; on every card the packed replay and the
+fresh-process states pass. That meets the cross-OS criterion (G13). Street Fighter II' CE's three routes (191,563 to 590,308 identities, the larger
+capture format) are equal too.
+
+- In the run's first part, two conversions at once set up the engine's checkout at the same time: thirteen of the fourteen cards failed with a
+  git error and were run again, unchanged, once the checkout was there. The fetch is now under the shared setup gate like the other engines'
+  (commit `6a02b0f4`, after the panel): Boxyboy and Blazing Lazers, two at once from an empty `.deps` on the same PC, both converted
+  (10 November 2026, the engine fetched once).
+- Conversion times on that PC (4 cores, 7.8 GB): 26 to 37 minutes a card two at a time, about two hours for Street Fighter II' CE alone. Its
+  memory stayed above 2.9 GB available, and the conversion's processes used at most 3.7 GB. These are not speed measures.
+- What this does not say: nobody played a game on Linux (window, pad, sound out); a quick state is not compared across systems (its key holds
+  the target); no save made by a player was tried on Linux.
 
 ### The extended panel (9 November 2026)
 
@@ -211,7 +229,7 @@ instructions / interpreted share (millions).
 | Space Harrier (USA) | 3 | 106 M / 0 | 98 M / 0 | 542 M / 0 | plays, then a stage banner stays up (uncertain) |
 | Splatterhouse (USA) | 4 | 89 M / 0 | 88 M / 0 | 425 M / 0 | in play to the end, several rooms |
 | Bomberman '93 (USA) | 4 | 105 M / 0 | 104 M / 0 | 528 M / 0 | plays, then the stage restarts; ends on a city scene |
-| Gradius (Japan) | 1 | 104 M / 0 | 103 M / 0 | 506 M / 0 | plays, then frozen from about frame 7,500 (cause not found) |
+| Gradius (Japan) | 1 | 104 M / 0 | 103 M / 0 | 506 M / 0 | plays, then left paused by the walk from about frame 7,700 (below) |
 | Santatlantean (aetherbyte) | 4 | 103 M / 0 | 98 M / 0 | 473 M / 0 | plays to a game over and a new high score, then loops between title and options |
 | Street Fighter II' - Champion Edition (Japan) | 4 | 81 M / 19.3 % | 68 M / 33.5 % | 132 M / 74.7 % | fights (score 13,900), ends on an idle fight screen after a pause |
 | Boxyboy (USA) | 6 | 96 M / 0 | 96 M / 0 | 480 M / 0 | in play (puzzle stages), not solved |
@@ -221,9 +239,17 @@ instructions / interpreted share (millions).
 | Soldier Blade (USA) | 6 | 106 M / 0 | 106 M / 0 | 536 M / 0 | in play, restarts stage 1 after each game over |
 | Bonk III - Bonk's Big Adventure (USA) | 1 | 107 M / 0 | 106 M / 0 | 534 M / 0 | in play (stage 1-1), then leaves for a menu |
 
-- **0 interpreted on every route of 14 cards.** Street Fighter II' Champion Edition keeps a counted interpreted share, from
-  the engine's bound of 65,536 instruction identities per module (four captures were left out); `release_check` reports it as
-  its one failure against the limit of 0, which is the rule working.
+- **0 interpreted on every route of 14 cards.** Street Fighter II' Champion Edition kept a counted interpreted share on that tree, from
+  the engine's bound of 65,536 instruction identities per module (four captures were left out); `release_check` reported it as
+  its one failure against the limit of 0, which is the rule working. With the engine's larger capture format it runs 0 interpreted
+  ([the release tree](#the-panel-of-the-release-tree-9-november-2026)).
+- **A pause the walk leaves on.** The walk presses Run in pairs, to leave stories and prompts; in play that is a pause and its end. A press of a pair can be lost (a game ignores Run while
+  it restarts), and every later pair then leaves the pause on. On Gradius, from about frame 7,700, the CPU and RAM hashes changed on every frame while the picture cycled through 32 star pictures, and one more Run press
+  brought the game back to play: no fault of ours was shown (checked on the delivered game, not against MAME). The conversion now looks for this on the fresh reference (`pce_conversion.repair_route`): where the picture hardly changes for a
+  stretch between presses (at most 5 % distinct pictures over at least 300 frames), it tries one more Run press 60 frames in, and keeps it only if at least 20 % of the pictures to the next press are then distinct. Two presses with no answer end the search on a route,
+  and the presses kept are recorded in the report (`route_start.repairs`). What it changed on three cards converted to prove it: Gradius's long route goes from 4,754 to 8,856 distinct pictures (0 interpreted); Street Fighter II' CE's from 4,521 to 11,257. What it does not fix:
+  Space Harrier's long route stays at 2,409 distinct pictures. Two more presses get no answer there, and although a later one helps (4,428 distinct pictures), it took four more runs of the route to find. Military Madness's prompt, Boxyboy's still puzzle stages and
+  Santatlantean's title screen also get no answer, on the delivered games, and each such route costs two more reference runs. Each run of a long route costs about 3 minutes at three conversions at once.
 - **The Backup RAM and the stalls.** Compared with the same panel just before the memory existed: 14 cards keep their counts to the million, Santatlantean's attract loop goes
   from 87 M to 103 M instructions because it no longer stops, and its stall on the long route stays. The memory explains no other stall. The 12 pictures of the attract and
   long routes of Gradius and Military Madness are identical to before. Bomberman '93 only probes the memory: its pictures are the same up to the last one, where it now ends on
@@ -250,6 +276,41 @@ instructions / interpreted share (millions).
 - **Why Boxyboy once differed.** Before the Backup RAM it matched MAME on 727 of 2,999 pictures, parting at frame 729: MAME showed the title menu, the game a "FILE NOT
   CONNECTED" screen. The card tests bank `$F7` at about that frame, and MAME maps a memory there on every card while the engine's base HuCard profile does not. Forcing that bank to read `$FF` in
   MAME made 2,999 of 2,999 pictures equal the game of that time. The engine was consistent with its documented profile, and no engine fault was shown.
+
+### The panel of the release tree (9 November 2026)
+
+The same fifteen cards through the same loop, at the extended level, with the walk repair ([above](#the-extended-panel-9-november-2026)), the shared paths
+([below](#7-shared-paths)) and the engine at `6bb848e8` with its larger capture format, on the tree `cf6d56fa` of the branch `spec/pce-exit`: Windows, llvm-mingw,
+three conversions at once, online covers on, no base. These are the games delivered to the owner. All fifteen conversions passed every check (traces equal to
+the fresh interpreted reference on all 45 routes, packed replay, quick states, Backup RAM).
+
+| Card | Run presses | Repairs kept (frame) | attract | play | long route (18,000) |
+|---|---|---|---|---|---|
+| Bonk's Adventure (USA) | 2 | long 16,563 | 107 M / 0 | 107 M / 0 | 535 M / 0 |
+| Blazing Lazers (USA) | 2 | | 118 M / 0 | 114 M / 0 | 572 M / 0 |
+| Raiden (USA) | 1 | | 110 M / 0 | 106 M / 0 | 526 M / 0 |
+| Space Harrier (USA) | 3 | | 106 M / 0 | 98 M / 0 | 542 M / 0 |
+| Splatterhouse (USA) | 4 | | 89 M / 0 | 88 M / 0 | 425 M / 0 |
+| Bomberman '93 (USA) | 4 | play 3,076; long 3,129, 4,101, 5,056 | 105 M / 0 | 104 M / 0 | 529 M / 0 |
+| Gradius (Japan) | 1 | long 7,811 | 104 M / 0 | 103 M / 0 | 512 M / 0 |
+| Santatlantean (aetherbyte) | 4 | | 103 M / 0 | 98 M / 0 | 473 M / 0 |
+| Street Fighter II' - Champion Edition (Japan) | 4 | long 7,996 | 100 M / 0 | 102 M / 0 | 514 M / 0 |
+| Boxyboy (USA) | 6 | | 96 M / 0 | 96 M / 0 | 480 M / 0 |
+| Legend of Hero Tonma (USA) | 6 | | 71 M / 0 | 64 M / 0 | 351 M / 0 |
+| Military Madness (USA) | 2 | long 6,746 | 91 M / 0 | 92 M / 0 | 464 M / 0 |
+| Neutopia II (USA) | 1 | | 102 M / 0 | 104 M / 0 | 506 M / 0 |
+| Soldier Blade (USA) | 6 | | 106 M / 0 | 106 M / 0 | 536 M / 0 |
+| Bonk III - Bonk's Big Adventure (USA) | 1 | play 2,882; long 2,878 | 107 M / 0 | 106 M / 0 | 533 M / 0 |
+
+- **0 interpreted instructions and 0 guard misses on all 45 routes**, Street Fighter II' CE included. Its three routes captured 191,563, 248,856 and 590,308
+  instruction identities in the larger format, none dropped; 734,635 were emitted in 3,757 bank contexts. The cost is in the build: a 25.4 MB packed executable
+  (about 120 MB unpacked), and about 34 minutes of conversion on its own (code generation about 3 minutes, the native compile about 8).
+- **The 14 other cards keep their counts** to the million against the extended panel, except where a repair changed the long route: Bomberman '93 528 → 529 M,
+  Gradius 506 → 512 M, Military Madness 456 → 464 M, Bonk III 534 → 533 M; each stays at 0 interpreted.
+- **Conversion times are not comparable** with the earlier panels: a batch stopped before this one kept running beside it for about two hours, so up to six
+  conversions shared the PC (15 to 49 minutes each). For the same reason seven cards (Splatterhouse, Gradius, Santatlantean, Tonma, Neutopia II, Soldier Blade,
+  Bonk III) received their own record of that earlier batch from the library, as declared roots: every declared row was also run by their own routes
+  (none declared only), so what was emitted is what they ran.
 
 ## 6. Saves
 
@@ -310,42 +371,80 @@ Three cards were looked at further, in fresh processes with no window:
 
 What this does not say: nothing here was run on a real backup unit, on Linux, or against Beetle.
 
-## 7. The five measures
+## 7. Shared paths
+
+Added on 9 November 2026. The PC Engine is in the experimental tier of the shared base, and `path_profiles.EXPERIMENTAL_SHARED` withdraws it in one line. The site's limits and deployment are the maintainer's.
+
+**What travels.** A record (`retrorecomp/pce_knowledge.py`) holds numbers about the player's own decoded ROM and no byte of it: for each instruction its logical PC, its eight bank registers and the offset of its first byte. The MPRs and the board's map give the
+other offsets. It is made only from the captures of a conversion that passed every check, never from paths it received. A record never holds what did not come from the card:
+
+- **Code run from work RAM or the Backup RAM** stays private and counted: the engine's format covers read-only views, and a ROM position would not say what the RAM held. On Soldier Blade that is 156 of 39,649 identities.
+- **The Street Fighter II board** shares nothing: its mapper's latch is not in the engine's capture identity, so the selector the format needs cannot be told from an observation.
+
+**What a player does with it.** The conversion gives the engine the received rows as declared roots, `pce-declared-roots-1`, the engine's own input (their [DECLARED_ROOTS.md](https://github.com/rages4calm/pcenginerecomp/blob/6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0/docs/DECLARED_ROOTS.md)), beside the history of what
+that conversion really ran. The engine rebuilds the code from the player's exact image, refuses any other, and emits it with its ordinary guards. A root is not written into a capture, because a capture is a record of execution (the upstream's request). A failed conversion starts again without the received paths.
+
+**Declared is not executed.** The report keeps them apart (`knowledge.use`): received rows; declared, declared only, overlapping and emitted, from the engine's manifest; rows the conversion's own routes really ran. A declared row says nothing until a window runs it, and the
+comparison with the reference qualifies only the window it ran. No reachability is inferred: a row is one instruction, not a routine.
+
+**At the bound.** The engine's module holds 1,048,576 identities. What a conversion really ran comes first. A capture that would pass the bound is left out whole, and received rows past it are left out, each counted (`captures_left_out`, `left_out_at_the_bound`); code
+left out stays interpreted and counted, and the conversion does not fail. A route with more identities than one capture holds keeps a complete capture of its start (`complete_prefix`). Tests: `tests/test_pc_engine.py`, `IdentityBoundTests`, on small authored limits.
+
+**The proof** (9 November 2026, Windows, llvm-mingw, Soldier Blade (USA), two empty libraries, no base, no service). A, at the extended level, makes a record of 39,493 instructions in 372 contexts; its exchange file is 20,022 bytes and holds no window of 16 bytes of the ROM. A control converts at the
+standard level with no paths. B imports the file and converts at the standard level:
+
+| | Control | B (received paths) |
+|---|---|---|
+| Attract and play routes, CPU, RAM, picture, PCM, trace | | equal to the control's and to A's, 0 interpreted on both routes |
+| Declared rows, of which only declared, overlapping | none | 39,493, of which 6,299, 33,194 |
+| Declared rows B's own routes really ran | | 33,194 |
+| Executable, packed | 2,524,160 bytes | 2,720,768 bytes |
+| A's long route (18,000 frames), which B's routes never played: native / interpreted / guard misses | 528,312,895 / 7,348,650 / 7,348,650 | 535,661,326 / 219 / 219 |
+| That route's trace against the fresh reference | equal | equal |
+| Declared rows that route really ran | | 36,355 of 39,493 |
+
+The 219 interpreted instructions left are work-RAM code, which does not travel. A copy of the card with one byte changed is refused: the engine refuses the roots (`Snapshot SHA256 mismatch`), our reader refuses the record, and the copy's own hash finds nothing in the bank.
+
+**What this does not say.** One card, on Windows. The long route was replayed on B's game after its conversion: it qualifies that window, not the rows it did not run, and nothing beyond. No path is qualified in the base yet: that takes a conversion that received it from another player, through the shared base.
+
+## 8. The five measures
 
 They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).
 
 | Measure | State |
 |---|---|
-| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted on every route of 14 of the 15 cards of the extended panel, the 18,000-frame walks included ([above](#the-extended-panel-9-november-2026)); Street Fighter II' CE keeps a counted interpreted share: 19.3 %, 33.5 % and 74.7 % of its instructions on the attract, play and long routes, because the card needs more than the engine's 65,536 instruction identities per module |
+| Native code | Reported per route and per CPU: native and interpreted instructions and guard misses, from the game's own counters. 0 interpreted and 0 guard misses on every route of the 15 cards of the release tree's panel, the 18,000-frame walks and Street Fighter II' CE included ([above](#the-panel-of-the-release-tree-9-november-2026)). That card needs the engine's larger capture format (up to 1,048,576 instruction identities per module); before it, 19.3 %, 33.5 % and 74.7 % of its instructions ran interpreted |
 | CPU fidelity | The native module equals the engine's own interpreter, frame by frame, on the routes played (CPU state, work RAM, picture, PCM). That is agreement with the engine, not with a real HuC6280: the engine's interpreter has three known differences from an independent vector set ([above](#5-what-was-measured)) |
 | Hardware fidelity | Not reported as validated. One comparison with an emulator exists, not with hardware: the delivered game against MAME 0.289 on four US cards, no input, 3,000 frames, the same Backup RAM on both sides (pictures equal on 3 of 4 cards bar one frame, and bar 7 on the fourth; sound level 9.3 to 9.5 dB below MAME's; [above](#the-extended-panel-9-november-2026)) |
-| Gameplay validation | One owner play trial: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. That is a trial, not a coverage claim: no game was checked end to end |
-| Physical latency | Not reported and not measured |
+| Gameplay validation | Owner play trials: eight of the nine cards of the first panel were played on 5 November 2026 (earlier tree) and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). The extended panel's walks are pseudo-random: the long routes reach play on every card but finish no game. On 9 November 2026 the owner also played Street Fighter II' CE, on the export of the tree `700b72cb` (19 to 47 % interpreted, before the larger capture format), and said "tout marche nickel"; pressing left and right very fast to feel the lag, "extrêmement réactif"; on the interpreted share, "on avancera un peu de toute manière par la suite". That is an impression of feel: it measures neither speed nor latency. On 10 November 2026 he played the fifteen exports of the release tree and said « ils marchent tous parfaitement. Les sauvegardes marchent parfaitement. Tout est ok », then decided the exit from the experimental status. He saw the limit named here: code past the routes runs interpreted, counted and shown in the game (the owner saw it on Boxyboy after Start), and a PC Engine game keeps no player's record yet, so the code a player reaches is not made native at the next conversion. These are trials, not a coverage claim: no game was checked end to end |
+| Physical latency | Not reported and not measured: `latency_ms` stays null, whatever a player feels |
 
 Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
-## 8. Known limits
+## 9. Known limits
 
-- Experimental: only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
-- A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) is only partly native by the
-  engine's design: 19.3 %, 33.5 % and 74.7 % of its instructions ran interpreted on the attract, play and long routes of the extended panel.
+- Only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
+- A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) takes the engine's larger capture format: it is
+  native on its routes, but its game is large (25.4 MB packed, about 120 MB unpacked) and its conversion long (about 34 minutes on its own).
+  Past 1,048,576 identities, what does not fit is left out, counted and interpreted; the conversion does not fail.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
   runs, never from the ROM alone.
-- Speed on a real card is unmeasured, and the vectors have three known differences on the interpreter (the oracle is an emulator).
-- The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a frozen screen, a restarting
+- Speed is measured on two cards only, against the 1.7.1 pin ([above](#5-what-was-measured)), and the vectors have three known differences on the interpreter (the oracle is an emulator).
+- A PC Engine game keeps no player's record yet: the F12 line of its help page says the record is off, and the code a player reaches past the routes stays interpreted at the next conversion.
+- The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a pause the walk left on, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
-- The Backup RAM is a model of ours, on Windows only so far: plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
+- The Backup RAM is a model of ours (its bank is in the RAM hash, equal on Linux on the panel's routes): plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
   not on the routes, so they run partly interpreted, and counted.
 - Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
-- The Linux build is witnessed on 10 of the 15 cards of the extended panel ([above](#linux-witness-6-november-2026)), all before the Backup RAM; a quick state is not shared between Windows and Linux.
+- The Linux build is witnessed on the 15 cards of the release-tree panel, route hashes only ([above](#the-whole-panel-on-linux-9-and-10-november-2026)); nobody played on Linux, and a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
 - No claim is made about hardware behaviour, complete gameplay or latency.
 
-## 9. Next stages
+## 10. Next stages
 
-1. A speed measure on a quiet PC.
-2. The owner's play trials of the new exports.
+1. The player's own record (kind 20, F12), so the code a player reaches becomes native at the next conversion, as on the Amiga.
+2. A play route that answers a screen confirmed with I (Boxyboy after Start).
 3. SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine

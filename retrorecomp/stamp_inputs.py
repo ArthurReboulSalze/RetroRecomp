@@ -865,6 +865,7 @@ INPUTS = _resolve({
         'native/pce_main.c',
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
+        'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,

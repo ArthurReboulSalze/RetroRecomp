@@ -4,7 +4,7 @@ Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Sixteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, experimental, the PC Engine / TurboGrafx-16, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64
+Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16 and, experimental, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64
 and the Sony PlayStation; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
@@ -112,7 +112,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Capcom CPS-1** — [CPS1.md](CPS1.md) (supported since 1.6.6: conversion, controls, qualified sets); log: [CPS1_LOG.md](CPS1_LOG.md).
 - **Sharp X68000** — [X68000.md](X68000.md) (supported since 1.6.9: floppy games, availability and licences).
 - **Capcom CPS-2** — [CPS2.md](CPS2.md) (supported since 1.7.0, experimental in 1.6.9: the standard boards, with the key file of your own romset and your own QSound DSP ROM).
-- **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (experimental since 1.6.9: HuCards, panel, limits).
+- **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (HuCards, panel, shared paths, limits; open since 1.6.9, supported since 1.7.2).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (experimental since 1.7.0: Amiga 500 WHDLoad installs, with your own Kickstart 1.x when one asks for it; scope, the five measures, licences).
 - **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).

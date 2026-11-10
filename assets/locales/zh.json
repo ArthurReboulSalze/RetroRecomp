@@ -536,7 +536,7 @@
     "options_cps1_note": "Capcom CPS-1 配置：MAME 或 FBNeo 的 ZIP 游戏包，按 ROM 的 CRC 识别（clone 需要把 parent ZIP 放在同一文件夹）。依基板支持最多 4 名玩家、最多 6 个按钮，Shift/Back 投币。直立画面的游戏会自动调整显示方向。共用菜单、滤镜及 F8/F9。不下载也不提供 ROM。",
     "options_cps2_note": "Capcom CPS-2 配置：MAME 或 FBNeo 的 ZIP 游戏包，按 ROM 的 CRC 识别（clone 需要把 parent ZIP 放在同一文件夹）。依基板支持最多 4 名玩家、最多 6 个按钮，Shift/Back 投币。直立画面的游戏会自动调整显示方向。共用菜单、滤镜及 F8/F9。不下载也不提供 ROM。 程序用你自己游戏包中的密钥文件解密；声音需要你自己的 QSound DSP ROM。玩家人数等设置在游戏的测试菜单里：F2、开关页面、Service switch，然后重新启动。",
     "options_pce": "PC Engine / TurboGrafx-16",
-    "options_pce_note": "实验性的 PC Engine / TurboGrafx-16 配置：支持标准板和 Street Fighter II 板的 HuCard（.pce，或包含它的 ZIP；美版 TurboGrafx-16 卡带，两种转储方式都可），NTSC，双人。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。不支持 CD-ROM2 和 SuperGrafx。",
+    "options_pce_note": "PC Engine / TurboGrafx-16 配置：支持标准板和 Street Fighter II 板的 HuCard（.pce，或包含它的 ZIP；美版 TurboGrafx-16 卡带，两种转储方式都可），NTSC，双人。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。不支持 CD-ROM2 和 SuperGrafx。",
     "options_psx": "Sony PlayStation",
     "options_psx_note": "实验性的 Sony PlayStation 配置：光盘（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO），NTSC 和 PAL，双人。请提供自己的 BIOS（没有时使用 OpenBIOS）。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。",
     "psx_bios": "PlayStation BIOS（文件）",

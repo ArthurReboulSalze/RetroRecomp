@@ -1843,6 +1843,11 @@ fresh reference runs, so an upload holding the path proves it), for CPS-1 from c
   inputs, the side banks and their bytes, exchange files of both versions, the base with a moving engine, the switch, the
   experimental label, kind 14) and the updated schema tests.
 
+## PC Engine joins the base (9 November 2026)
+
+The PC Engine shares its paths in the experimental tier, as schema 3 records with an empty layout (`retrorecomp/pce_knowledge.py`): the shapes `insn` and `opcode_ptr` already exist, so `path_profiles`, which every console's game stamp hashes, is not edited and only the PC Engine's stamp moves.
+A path is qualified for the engine's pin and our revision of its use (`pce_knowledge.engine`), not for our game stamp. Received rows reach the engine as declared roots, never as captures, and the report keeps declared, emitted and executed apart. [PC_ENGINE.md](PC_ENGINE.md#7-shared-paths) has the record, the limits at the engine's bound and the proof.
+
 ## X68000 joins the base (1.6.9, 5 November 2026)
 
 Arthur approved it on 5 November 2026 ("on fait comme tu as dit"), and asked that the converter also **take** the paths of others, not only send its own.

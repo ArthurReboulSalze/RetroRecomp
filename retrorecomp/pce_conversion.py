@@ -30,7 +30,7 @@ from .report_schema import write_report
 # runtime ABI means re-emitting, rebuilding and requalifying (docs/UPSTREAMS.md). Gate of 5 November 2026 at this pin:
 # .build notes of the PC Engine specialist, summarised in docs/PC_ENGINE.md.
 ENGINE_REPO = 'rages4calm/pcenginerecomp'
-ENGINE_REV = '81b5c231e452c6879d58585c8863012e438f1d55'
+ENGINE_REV = '6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0'
 ENGINE_ABI = 29
 
 NOT_YET = 'The PC Engine converter files are missing from this installation.'
@@ -42,7 +42,8 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 I, II, SELECT, RUN, UP, RIGHT, DOWN, LEFT = 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080
 LONG_ROUTES = {'quick': 0, 'standard': 0, 'extended': 1, 'thorough': 2}
 LONG_FRAMES = 18000
-CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile
+CAPTURE_IDENTITY_LIMIT = 65536      # the engine's bound on identities per capture and per module profile of its ordinary format
+EXTENDED_CAPTURE_LIMIT = 1048576    # the bound of its larger format: opt-in, for a card the ordinary one cannot hold (the Street Fighter II board)
 
 
 def _system() -> dict:
@@ -80,6 +81,13 @@ PRESS_SPACING = 240              # frames between two Run presses of the start
 WALK_SETTLE = 180                # frames between the last press and the walk: directions must not move a menu's cursor early
 RUN_PAIR_EVERY = 900             # frames between two pairs of Run presses during the walk
 QUIET_WALK = 900                 # frames of walk with directions only: no I or II, which would type into a password screen
+PAIR_GAP = 24                    # frames between the two presses of a pair
+STUCK_SHARE = 0.05               # at most this share of distinct pictures, over a stretch between pairs: the game may be paused or waiting
+STUCK_FRAMES = 300               # a shorter stretch says nothing
+ANSWER_SHARE = 0.2               # at least this share of distinct pictures after one more press: the game answered
+REPAIR_ATTEMPTS = 8              # presses tried on one route (each is one more reference run of that route)
+REPAIR_MISSES = 2                # presses with no answer that end the search on a route
+REPAIR_DELAY = 60                # frames from the start of the stretch to the press
 
 
 def walk_start(presses: int) -> int:
@@ -91,13 +99,14 @@ def start_candidates(frames: int) -> list[int]:
     return [presses for presses in START_PRESSES if walk_start(presses) + 600 <= frames]
 
 
-def play_rows(frames: int, seed: int, presses: int = 3) -> list:
+def play_rows(frames: int, seed: int, presses: int = 3, repairs=()) -> list:
     """Run pressed `presses` times during the title (most HuCards start on Run; stories, menus and password screens
     ask for more), then a deterministic walk: a held direction changing every second or so, I and II tapped, and now and
     then Run twice in a row. In play that is a pause and its end; on a screen that waits for Run, the way out (a story,
     a continue prompt, a game over). The first QUIET_WALK frames of the walk use directions only, so a menu or a password
     screen answers with a cursor and not with typed letters (that is what `reach` counts). One press too many pauses the
-    game: `choose_start` keeps the variant that answers."""
+    game: `choose_start` keeps the variant that answers. A press of a pair can be lost (a game ignores Run while it restarts),
+    and every later pair then leaves the pause on: `repairs` are frames of one more press, which `repair_route` chose."""
     rows = []
     for index in range(presses):
         at = PRESS_SPACING * (index + 1)
@@ -108,7 +117,7 @@ def play_rows(frames: int, seed: int, presses: int = 3) -> list:
     pair = frame + RUN_PAIR_EVERY
     while frame < frames:
         if frame >= pair and frame + 36 < frames:     # a pair is whole or absent
-            rows += [(frame, RUN, 0), (frame + 6, 0, 0), (frame + 24, RUN, 0), (frame + 30, 0, 0)]
+            rows += [(frame, RUN, 0), (frame + 6, 0, 0), (frame + PAIR_GAP, RUN, 0), (frame + PAIR_GAP + 6, 0, 0)]
             frame += 36
             pair = frame + RUN_PAIR_EVERY
         state = (state * 1103515245 + 12345) & 0x7FFFFFFF
@@ -123,20 +132,85 @@ def play_rows(frames: int, seed: int, presses: int = 3) -> list:
             rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
         frame += span
     rows = [row for row in rows if row[0] < frames]
+    for press in sorted(repairs):
+        held = next((row[1] for row in reversed(rows) if row[0] <= press + 6), 0) & ~RUN
+        rows = [row for row in rows if not press <= row[0] <= press + 6]
+        rows = sorted(rows + [(press, RUN, 0), (press + 6, held, 0)], key=lambda row: row[0])
     assert all(a[0] <= b[0] for a, b in zip(rows, rows[1:])), 'route frames must not go back'
     return rows
 
 
-def routes(identity: str, *, frames: int, level: str, presses: int = 3) -> list[tuple[str, int, str]]:
-    """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels."""
+def route_seed(identity: str, name: str) -> int:
+    """The seed of a route's walk: the card's, and one more step per long route."""
     seed = int(identity[:8], 16)
+    return seed + 7919 * int(name.split('-')[1]) if name.startswith('long-') else seed
+
+
+def routes(identity: str, *, frames: int, level: str, presses: int = 3, repairs: dict | None = None) -> list[tuple[str, int, str]]:
+    """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels. `repairs`: the
+    extra Run presses of each route (`repair_route`), which the report records."""
+    repairs = repairs or {}
     rows = [] if level == 'quick' else [('attract', frames, _script([]))]
     play = max(frames, 1800)
-    rows.append(('play', play, _script(play_rows(play, seed, presses))))
+    rows.append(('play', play, _script(play_rows(play, route_seed(identity, 'play'), presses, repairs.get('play', ())))))
     for index in range(LONG_ROUTES[level]):
-        rows.append((f'long-{index + 1}', LONG_FRAMES,
-                     _script(play_rows(LONG_FRAMES, seed + 7919 * (index + 1), presses))))
+        name = f'long-{index + 1}'
+        rows.append((name, LONG_FRAMES, _script(play_rows(LONG_FRAMES, route_seed(identity, name), presses, repairs.get(name, ())))))
     return rows
+
+
+def trace_pictures(trace: Path) -> list:
+    """The picture hash of each frame of a trace."""
+    return [fields[3] for fields in (line.split(',') for line in Path(trace).read_text(encoding='ascii').splitlines()[1:]) if len(fields) == 6]
+
+
+def stuck_stretch(pictures: list, rows: list, after: int = 0) -> tuple[int, int] | None:
+    """The first stretch from the end of a pair (or of an extra press) to the next press or to the end of the route, starting at or
+    after `after`, in which the picture hardly changes: a pause the walk left on, a prompt or a screen that waits. None when none does."""
+    pressed = [row[0] for row in rows if row[1] & RUN]
+    pairs = [frame for frame in pressed if frame + PAIR_GAP in pressed]
+    if not pairs:
+        return None
+    seconds = {frame + PAIR_GAP for frame in pairs}
+    ends = sorted({frame + 6 for frame in pressed if frame in seconds or (frame > pairs[0] and frame not in pairs)})
+    for start in ends:
+        if start < after:
+            continue
+        end = next((frame for frame in pressed if frame > start), len(pictures))
+        length = end - start
+        if length >= STUCK_FRAMES and len(set(pictures[start:end])) <= STUCK_SHARE * length:
+            return start, end
+    return None
+
+
+def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, result: dict, play, emit) -> tuple[list, dict]:
+    """(extra presses, reference run): one more Run press where the walk leaves the game on a picture that hardly changes, kept
+    only when the game answers. A press is tried once per stretch, and the search ends after REPAIR_MISSES presses with no answer, so
+    a screen that really waits costs two runs. `play(name, frames, script)` plays a script on the reference."""
+    repairs, after, misses = [], 0, 0
+    for attempt in range(REPAIR_ATTEMPTS):
+        rows = play_rows(count, seed, presses, repairs)
+        stretch = stuck_stretch(trace_pictures(result['trace']), rows, after)
+        if stretch is None:
+            break
+        press = stretch[0] + REPAIR_DELAY
+        if press + 36 >= stretch[1]:
+            break
+        script = scripts / f'{name}-repair{attempt + 1}.inputs'
+        script.write_text(_script(play_rows(count, seed, presses, [*repairs, press])), encoding='ascii', newline='\n')
+        trial = play(f'{name}-repair{attempt + 1}', count, script)
+        window = trace_pictures(trial['trace'])[press + 36:stretch[1]]
+        if len(set(window)) < ANSWER_SHARE * len(window):
+            emit(f'PC Engine {name}: the picture stays still from frame {stretch[0]}, and one more Run press gets no answer.')
+            misses += 1
+            after = stretch[1]
+            if misses >= REPAIR_MISSES:
+                break
+            continue
+        emit(f'PC Engine {name}: the walk left the game still from frame {stretch[0]}; one more Run press at frame {press} brings it back.')
+        repairs.append(press)
+        result, after = trial, press + 6
+    return repairs, result
 
 
 def liveness_score(liveness: dict) -> tuple:
@@ -366,21 +440,50 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
 
 
 def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):
-    """(capture, frames): a complete capture of the start of a route whose full capture lost identities, or (None, 0)."""
+    """(capture, frames): a complete capture, in the larger format, of the start of a route that has more identities than that format holds, or (None, 0). A capture that
+    lost identities cannot become a module, and the route then stays interpreted past its prefix, counted."""
     frames = int(result['capture_first_drop_frame']) - 1
     for attempt in range(3):
         if frames < 60:
-            emit(f'PC Engine {name}: the engine met more than {CAPTURE_IDENTITY_LIMIT} distinct code identities '
-                 'within the first minute: no observation can be kept from this route.')
+            emit(f'PC Engine {name}: more than {EXTENDED_CAPTURE_LIMIT} distinct code identities within the first second: no observation can be kept from this route.')
             return None, 0
-        capture = folder / f'{name}-prefix{attempt}-capture.json'
-        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture))
+        capture = folder / f'{name}-prefix{attempt}-capture.jsonl'
+        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture), '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
         if not again.get('capture_dropped'):
-            emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames '
-                 f'({again.get("capture_identities")} identities).')
+            emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames ({again.get("capture_identities")} identities); the rest stays interpreted, counted.')
             return capture, frames
         frames = int(again['capture_first_drop_frame']) - 1
     return None, 0
+
+
+def fitting_captures(captures: list, limit: int = EXTENDED_CAPTURE_LIMIT) -> tuple[list, list, set]:
+    """(kept, left out, identities of the kept ones): the captures whose union fits the engine's bound of one module, in order. One that would pass it is left out whole and
+    counted: its route stays interpreted where nothing else covers it, never a failed conversion."""
+    from .pce_knowledge import identity_of, read_captures
+    kept, skipped, identities = [], [], set()
+    for capture in captures:
+        own = {identity_of(row) for row in read_captures([capture])}
+        if len(identities | own) > limit:
+            skipped.append(capture)
+            continue
+        identities |= own
+        kept.append(capture)
+    return kept, skipped, identities
+
+
+def fitting_received(received: list, identities: set, limit: int = EXTENDED_CAPTURE_LIMIT) -> tuple[list, int]:
+    """(rows, rows left out): the received rows that fit the engine's bound beside what this conversion really ran, which comes first. A row it also ran costs nothing."""
+    from .pce_knowledge import identity_of
+    room, rows, left = limit - len(identities), [], 0
+    for row in received:
+        if identity_of(row) in identities:
+            rows.append(row)
+        elif room > 0:
+            room -= 1
+            rows.append(row)
+        else:
+            left += 1
+    return rows, left
 
 
 def compose_fitting(captures: list, out: Path, work: Path):
@@ -406,9 +509,22 @@ def compose_fitting(captures: list, out: Path, work: Path):
     return kept, skipped
 
 
+def knowledge_block(record: dict, promotion: dict, use: dict) -> dict:
+    """The report's `knowledge` section. `shared` says whether the PC Engine is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`), not that
+    this conversion shared anything."""
+    from . import path_profiles, pce_knowledge
+    from .systems import get_profile
+    return {'machine_status': get_profile('pce').status, 'shared': 'pce' in path_profiles.SHARED_SYSTEMS, 'cores': pce_knowledge.engine(),
+            'record_sha256': pce_knowledge.record_digest(record), 'paths': promotion['paths'],
+            'promotion': {key: promotion[key] for key in ('observed', 'card', 'ram_or_other', 'private', 'board', 'truncated')},
+            'source': 'the captures of this conversion, which passed every check', 'use': dict(use),
+            'declared_is_not_executed': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}
+
+
 def observed(capture: Path) -> int:
+    from .pce_knowledge import read_captures
     try:
-        return len(json.loads(capture.read_text(encoding='utf-8')).get('observations', ()))
+        return len(read_captures([capture]))
     except (OSError, ValueError):
         return 0
 
@@ -467,7 +583,22 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         pce_build.ensure_engine(emit)
         reference, results, captures, module, prepared = {}, {}, [], None, None
         emitted, skipped_captures = None, 0
+        # Paths from the shared base, an imported file and this player's own library. The engine reads them as declared roots, a separate input from what ran: a row
+        # that did not run is never written into a capture. The report keeps declared, emitted and executed apart, and only what a route ran is validated by it.
+        # A record is made only from what this conversion's own captures hold.
+        from . import knowledge, pce_knowledge
+        from .pce_rom import decode as decode_card, file_bytes
+        raw_card = file_bytes(card.path)
+        decoded_rom = decode_card(raw_card)[0]
+        received, hints_used = pce_knowledge.shared_rows(card.sha256, decoded_rom, qualified=knowledge.qualified_game('pce', card.sha256),
+                                                         imported=knowledge.imported_game('pce', card.sha256),
+                                                         library=pce_knowledge.library_record(card.sha256))
+        if card.board != pce_knowledge.SHARED_BOARD:
+            received = []
+        if received:
+            emit(f'PC Engine: {len(received)} instructions received from shared paths, declared to the engine as roots; the routes validate only what they run.')
         attempts = max(1, min(int(passes or 1), 10))
+        extended_capture, capture_counts = False, {}
         for attempt in range(attempts):
             stages.begin_pass(attempt + 1)
             phase = time.perf_counter()
@@ -503,7 +634,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                              for presses, result in variants.items() if presses}
                     presses = choose_start(start, play_count)
                     route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()},
-                                   'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed'}
+                                   'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed',
+                                   'repairs': {}}
                     emit(f'PC Engine: play route starts with Run pressed {presses} time(s) '
                          f'({start[presses]["reach"]} pictures reached that no input never showed).')
                     plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
@@ -517,19 +649,45 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         else:
                             reference[name] = (variants[presses] if name == 'play' else
                                                run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
+                            # The walk may have left the game on a pause: one more press where that helps, kept in the report.
+                            repaired, reference[name] = repair_route(
+                                name, count, route_seed(card.sha256, name), presses, checks / 'inputs', reference[name],
+                                lambda trial, frames_, script: run(candidate, checks / 'reference', trial, frames_, script, '--reference'), emit)
+                            if repaired:
+                                route_start['repairs'][name] = repaired
+                                scripts[name].write_text(_script(play_rows(count, route_seed(card.sha256, name), presses, repaired)),
+                                                         encoding='ascii', newline='\n')
+                    if route_start['repairs']:
+                        plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'])
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
-                    results[name] = run(candidate, capture.parent, name, count, scripts[name],
-                                        '--code-capture', str(capture))
-                    results[name]['capture'] = capture
+                    larger = capture.with_suffix('.jsonl')
+                    if extended_capture:
+                        results[name] = run(candidate, capture.parent, name, count, scripts[name], '--code-capture', str(larger),
+                                            '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
+                        results[name]['capture'] = larger
+                    else:
+                        results[name] = run(candidate, capture.parent, name, count, scripts[name],
+                                            '--code-capture', str(capture))
+                        results[name]['capture'] = capture
                     results[name]['capture_frames'] = count
+                    if results[name].get('capture_dropped') and not extended_capture:
+                        # The ordinary format keeps at most 65,536 distinct code identities (address, the eight bank registers and
+                        # the bytes) and drops the rest: such a capture cannot become a module. The same route is played again in
+                        # the engine's larger format, and this card's later routes and passes use it from the start.
+                        emit(f'PC Engine {name}: more than {CAPTURE_IDENTITY_LIMIT} code identities: the larger capture format takes over.')
+                        extended_capture = True
+                        again = run(candidate, capture.parent, name + '-extended', count, scripts[name], '--code-capture', str(larger),
+                                    '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
+                        results[name].update(capture=larger, capture_identities=again.get('capture_identities'), capture_dropped=again.get('capture_dropped'),
+                                             capture_first_drop_frame=again.get('capture_first_drop_frame'))
+                    capture_counts[name] = {'format': 'extended' if results[name]['capture'] == larger else 'ordinary',
+                                            'identities': results[name].get('capture_identities'), 'dropped': results[name].get('capture_dropped')}
                     if results[name].get('capture_dropped'):
-                        # The engine keeps at most 65,536 distinct code identities (address, the eight bank registers
-                        # and the bytes) per capture and drops the rest: such a capture cannot become a module. The
-                        # same route is played again up to the frame before the first drop, which is complete.
                         results[name]['capture'], results[name]['capture_frames'] = complete_prefix(
-                            candidate, capture.parent, name, scripts[name], results[name], emit)
+                            candidate, capture.parent, name, scripts[name], {**results[name], 'frames': count}, emit)
+                        capture_counts[name]['complete_frames'] = results[name]['capture_frames']
             for name, _, _ in plan:
                 require_same_file(results[name]['trace'], reference[name]['trace'], lambda: ConversionError(
                     f'PC Engine {name}: native and reference CPU/RAM/picture/PCM traces differ; existing export preserved.'))
@@ -550,22 +708,45 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 break
             emit(f'PC Engine: {fallback} interpreted instructions observed; emitting guarded native code.')
             with stages.phase('code_generation'):
-                profile_path = work / f'observations-{attempt + 1}.json'
-                profile_path.unlink(missing_ok=True)
-                kept, skipped = compose_fitting(captures, profile_path, work)
-                skipped_captures += len(skipped)
-                captures = kept
                 new_module = work / f'module-{attempt + 1}'
                 shutil.rmtree(new_module, ignore_errors=True)
-                manifest = pce_build.emit_module(profile_path, new_module)
+                if extended_capture or received:
+                    history = work / f'history-{attempt + 1}'
+                    shutil.rmtree(history, ignore_errors=True)
+                    captures, skipped, identities = fitting_captures(captures)
+                    skipped_captures += len(skipped)
+                    index = pce_build.compose_history(captures, history, EXTENDED_CAPTURE_LIMIT)
+                    received, left_out = fitting_received(received, identities)
+                    hints_used['left_out_at_the_bound'] = left_out
+                    if received:
+                        # What this player received is declared to the engine as roots, in numbers, beside what this conversion really ran.
+                        roots = work / 'declared-roots.json'
+                        roots.write_text(json.dumps(pce_knowledge.roots_document(received, image_sha256=card.sha256, header=card.header, encoding=card.encoding)),
+                                         encoding='utf-8')
+                        image = work / 'declared-image.pce'
+                        if not image.is_file() or file_sha256(image) != card.sha256:
+                            image.write_bytes(raw_card)
+                        manifest = pce_build.emit_roots_module(roots, image, index, new_module)
+                        hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap', 'observed_only',
+                                                                                    'unsupported_declarations', 'emitted_instructions')}
+                    else:
+                        manifest = pce_build.emit_history_module(index, new_module)
+                else:
+                    profile_path = work / f'observations-{attempt + 1}.json'
+                    profile_path.unlink(missing_ok=True)
+                    kept, skipped = compose_fitting(captures, profile_path, work)
+                    skipped_captures += len(skipped)
+                    captures = kept
+                    manifest = pce_build.emit_module(profile_path, new_module)
             emit(f'PC Engine: {manifest.get("native_instructions_emitted", 0)} instructions in '
                  f'{manifest.get("native_contexts", 0)} bank contexts emitted'
-                 + (f' ({len(skipped)} capture(s) left out: the engine keeps at most 65,536 identities).' if skipped else '.'))
+                 + (f' ({len(skipped)} capture(s) left out: the engine bounds the identities of a module).' if skipped else '.'))
             if manifest.get('native_instructions_emitted') == emitted:
                 emit('PC Engine: nothing new fits in the module; the remaining interpreted instructions stay counted.')
                 break
             module, emitted = new_module, manifest.get('native_instructions_emitted')
         stages.end_passes()
+        own_captures = list(captures)
         if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
             emit('PC Engine: no route produced sound (reported, not refused: a silent title screen is possible).')
         phase = time.perf_counter()
@@ -645,10 +826,23 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'build_directory': str(project), **delivered.report_fields(), 'scan_level': level,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
         'route_start': route_start,
+        'capture_counts': capture_counts,
         'qualification_scope': {
             'controls': f'{prepared["pad_buttons"]}-button pads, players 1 to {prepared["players"]}; the validation '
                         'routes drive player 1',
             'universal_zero_fallback_claim': False}}
+    # The shared path record: numbers about this card's own ROM, from this conversion's own captures, once every check above has passed.
+    own_observations = pce_knowledge.read_captures(own_captures)
+    hints_used.update(pce_knowledge.reached(received, own_observations))
+    record, promotion = pce_knowledge.promote(card.sha256, decoded_rom, card.board, own_observations,
+                                              previous=pce_knowledge.library_record(card.sha256))
+    report['knowledge'] = knowledge_block(record, promotion, hints_used)
     write_report(output / 'conversion-report.json', report)
+    from .library import atomic_json, library_root
+    summary = library_root('pce') / card.sha256 / 'compilation.json'
+    summary.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(summary, {'schema': 1, 'title': title, 'system': 'pce', 'game': card.sha256, 'rom_sha256': card.sha256,
+                          'private_development_only': True, 'fresh_reference_passed': True, 'record': record,
+                          'cores': pce_knowledge.engine(), 'record_source': 'the captures of this conversion', 'record_counts': promotion})
     emit(f'PC Engine: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable

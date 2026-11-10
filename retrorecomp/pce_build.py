@@ -23,8 +23,10 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+from .core import serialized_setup
+
 ENGINE_URL = 'https://github.com/rages4calm/pcenginerecomp.git'
-BUILD_TIMEOUT = 3600
+BUILD_TIMEOUT = 4 * 3600     # the Street Fighter II board's module takes an hour of eight compiler jobs: two jobs on a small machine need much longer
 
 
 class PceBuildError(RuntimeError):
@@ -40,8 +42,10 @@ def checkout_path() -> Path:
     return _core().ROOT / '.deps' / 'pcenginerecomp'
 
 
+@serialized_setup
 def ensure_engine(emit: Callable[[str], None] = print) -> Path:
-    """A clean checkout of the pinned revision (cloned when absent; never reset when it carries edits)."""
+    """A clean checkout of the pinned revision (cloned when absent; never reset when it carries edits). Under the shared
+    setup gate like every engine fetch, so two cards converted at once on a fresh `.deps` never clone it together."""
     from .pce_conversion import ENGINE_REV
     core = _core()
     deps = core.ROOT / '.deps'
@@ -79,6 +83,25 @@ def engine_cli(arguments: list[str]) -> str:
 def emit_module(profile: Path, module: Path) -> dict:
     """Emit the guarded native module of a composed observation profile (`compose`) into the new folder `module`."""
     engine_cli(['emit-profile', profile, '--out', module])
+    return json.loads((module / 'module.json').read_text(encoding='utf-8'))
+
+
+def compose_history(captures: list[Path], out: Path, capacity: int) -> Path:
+    """Several captures, of the engine's larger format or not, as one version 2 history in the new folder `out`. Returns its index."""
+    engine_cli(['compose-history', *captures, '--history-version', '2', '--capacity', capacity, '--out', out])
+    return out / 'history.json'
+
+
+def emit_history_module(history: Path, module: Path) -> dict:
+    """Emit the guarded native module of a version 2 history into the new folder `module`, in large translation units: a catalogue this size in small ones
+    repeats the compiler's header work thousands of times."""
+    engine_cli(['emit-history', history, '--out', module, '--partition-layout', 'balanced', '--partition-size', 4096])
+    return json.loads((module / 'module.json').read_text(encoding='utf-8'))
+
+
+def emit_roots_module(roots: Path, image: Path, history: Path, module: Path) -> dict:
+    """Emit the guarded native module of a history and of received paths declared as roots (their format holds numbers; the engine reads the bytes from `image`)."""
+    engine_cli(['emit-roots', roots, '--image', image, '--history', history, '--out', module, '--partition-layout', 'balanced', '--partition-size', 4096])
     return json.loads((module / 'module.json').read_text(encoding='utf-8'))
 
 

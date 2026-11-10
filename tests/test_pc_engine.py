@@ -1,4 +1,4 @@
-"""The PC Engine (experimental, developer-only): HuCard reader, profile, identification report, paths, upstream.
+"""The PC Engine: HuCard reader, profile, identification report, paths, upstream.
 
 Every HuCard image is built here from synthetic bytes (a reset vector and zeros) inside a temporary folder: no
 ROM is read and nothing is written elsewhere. Nothing here reaches the user's preferences.
@@ -290,9 +290,9 @@ class ReaderTests(TempFiles):
 
 
 class ProfileTests(TempFiles):
-    def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
+    def test_the_profile_is_supported_listed_and_available_with_its_files(self):
         profile = get_profile('pce')
-        self.assertEqual('experimental', profile.status)
+        self.assertEqual('supported', profile.status)
         self.assertFalse(profile.developer_only)
         self.assertTrue(profile.available())          # this checkout carries the native files
         self.assertIn(profile, ALL_PROFILES)
@@ -331,7 +331,7 @@ class ReportTests(TempFiles):
         report = report_schema.read_report(destination)
         self.assertEqual({'name': report_schema.SCHEMA_NAME, 'version': 2}, report['schema'])
         self.assertEqual('pce', report['system']['id'])
-        self.assertEqual('experimental', report['system']['status'])
+        self.assertEqual('supported', report['system']['status'])
         self.assertEqual('pce_conversion', report['read_from']['writer'])   # recognised by the marker hucard_checks
         self.assertEqual('pce', report['rom']['system'])
         self.assertEqual(found.sha256, report['rom']['sha256'])
@@ -356,7 +356,7 @@ class ReportTests(TempFiles):
         pce_conversion.write_identification_report(destination, found)
         raw = json.loads(destination.read_text(encoding='utf-8'))
         self.assertIn('hucard_checks', raw)                  # the marker of this writer
-        self.assertEqual('experimental', raw['status'])
+        self.assertEqual('supported', raw['status'])
         self.assertEqual({'name': report_schema.SCHEMA_NAME, 'version': 2}, raw['schema'])
         self.assertFalse(raw['converted'])
         self.assertFalse(raw['hardware_accuracy_validated'])
@@ -382,11 +382,11 @@ class PathsAndUpstreamTests(unittest.TestCase):
         self.assertEqual((0x2000, 0x280000), tuple(path_profiles.SOURCE_BOUNDS['pce']['rom']))
         self.assertEqual(SF2_BYTES, path_profiles.SOURCE_BOUNDS['pce']['rom'][1])
 
-    def test_an_experimental_machine_shares_nothing(self):
-        self.assertNotIn('pce', path_profiles.SHARED_SYSTEMS)
+    def test_the_pc_engine_shares_in_the_experimental_tier_only(self):
+        self.assertIn('pce', path_profiles.SHARED_SYSTEMS)
         self.assertNotIn('pce', path_profiles.STABLE_SHARED)
-        self.assertNotIn('pce', path_profiles.EXPERIMENTAL_SHARED)
-        self.assertIsNone(get_profile('pce').shared_knowledge)
+        self.assertIn('pce', path_profiles.EXPERIMENTAL_SHARED)
+        self.assertEqual(get_profile('pce').shared_knowledge.module, 'pce_knowledge')
 
     def test_the_engine_upstream_is_pinned_in_the_code(self):
         declared = upstreams.MACHINE_UPSTREAMS['pce']
@@ -1090,6 +1090,137 @@ class StartChoiceTests(unittest.TestCase):
                     held = now
                 self.assertEqual([240 * k for k in range(1, presses + 1)], down[:presses], name)
                 self.assertTrue(all(frame >= pce_conversion.walk_start(presses) for frame in down[presses:]), name)
+
+
+
+class RouteRepairTests(unittest.TestCase):
+    """The walk's Run pairs can leave a game's pause on: one more press where the picture stands still, kept when the game answers."""
+    FRAMES, SEED, PRESSES = 6000, 12345, 2
+
+    def trace(self, folder, name, pictures):
+        path = folder / f'{name}.csv'
+        path.write_text('frame,cpu,ram,image,pcm,samples\n' + ''.join(f'{n},c,r,{value},p,0\n' for n, value in enumerate(pictures)), encoding='ascii', newline='\n')
+        return {'trace': path}
+
+    def pairs(self, rows=None):
+        rows = rows or pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        pressed = [row[0] for row in rows if row[1] & pce_conversion.RUN]
+        return [frame for frame in pressed if frame + pce_conversion.PAIR_GAP in pressed]
+
+    def still_from(self, frame):
+        return [str(n) if n < frame else 'still' for n in range(self.FRAMES)]
+
+    def test_a_route_with_no_repair_is_the_walk_of_before(self):
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        self.assertEqual(rows, pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES, ()))
+        identity = 'ab' * 32
+        self.assertEqual(pce_conversion.routes(identity, frames=3600, level='extended', presses=2),
+                         pce_conversion.routes(identity, frames=3600, level='extended', presses=2, repairs={}))
+
+    def test_a_repair_adds_one_press_and_keeps_the_rest_of_the_route(self):
+        plain = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        press = self.pairs(plain)[0] + 300
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES, [press])
+        self.assertEqual([row[0] for row in rows], sorted(row[0] for row in rows))
+        self.assertIn((press, pce_conversion.RUN, 0), rows)
+        outside = lambda row: not press <= row[0] <= press + 6
+        self.assertEqual([row for row in rows if outside(row)], [row for row in plain if outside(row)])
+
+    def test_a_moving_picture_is_not_stuck_and_a_still_one_is(self):
+        rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+        self.assertIsNone(pce_conversion.stuck_stretch([str(n) for n in range(self.FRAMES)], rows))
+        first = self.pairs(rows)[0]
+        start, end = pce_conversion.stuck_stretch(self.still_from(first), rows)
+        self.assertEqual(start, first + pce_conversion.PAIR_GAP + 6)
+        self.assertGreater(end, start + pce_conversion.STUCK_FRAMES)
+
+    def test_a_press_the_game_answers_is_kept_and_the_route_goes_on(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            first = self.pairs()[0]
+            calls = []
+
+            def play(name, frames, script):
+                calls.append(name)
+                return self.trace(folder, name, [str(n) for n in range(self.FRAMES)])
+            repairs, result = pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder,
+                                                          self.trace(folder, 'long-1', self.still_from(first)), play, lambda text: None)
+            self.assertEqual(repairs, [first + pce_conversion.PAIR_GAP + 6 + pce_conversion.REPAIR_DELAY])
+            self.assertEqual(calls, ['long-1-repair1'])
+            self.assertEqual(result['trace'].name, 'long-1-repair1.csv')
+
+    def test_presses_that_get_no_answer_are_dropped_and_two_end_the_search(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            still = self.trace(folder, 'long-1', self.still_from(self.pairs()[0]))
+            calls = []
+
+            def play(name, frames, script):
+                calls.append(name)
+                return self.trace(folder, name, self.still_from(self.pairs()[0]))
+            repairs, result = pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder, still, play, lambda text: None)
+            self.assertEqual(repairs, [])
+            self.assertLessEqual(len(calls), pce_conversion.REPAIR_MISSES)
+            self.assertEqual(result, still)
+
+    def test_the_search_is_bounded(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            calls = []
+            rows = pce_conversion.play_rows(self.FRAMES, self.SEED, self.PRESSES)
+
+            def play(name, frames, script):
+                calls.append(name)
+                # Each press wakes the game up to the next pair, where it stands still again.
+                return self.trace(folder, name, self.still_from(self.pairs(rows)[min(len(calls), len(self.pairs(rows)) - 1)]))
+            pce_conversion.repair_route('long-1', self.FRAMES, self.SEED, self.PRESSES, folder,
+                                        self.trace(folder, 'long-1', self.still_from(self.pairs(rows)[0])), play, lambda text: None)
+            self.assertLessEqual(len(calls), pce_conversion.REPAIR_ATTEMPTS)
+
+
+
+class IdentityBoundTests(unittest.TestCase):
+    """At the engine's bound of one module, captures and received rows are left out and counted: a conversion never fails for it (authored rows, small limits)."""
+
+    def row(self, pc):
+        return {'pc': pc, 'mpr': [0xFF, 0xF8, 1, 2, 3, 4, 5, 0], 'physical': [0x2000 + pc], 'data': [0xEA], 'native_hits': 0, 'interpreted_hits': 1}
+
+    def capture(self, folder, name, pcs):
+        path = folder / name
+        path.write_text(json.dumps({'schema': 1, 'observations': [self.row(pc) for pc in pcs]}), encoding='utf-8')
+        return path
+
+    def test_a_capture_past_the_bound_is_left_out_whole_and_the_next_one_can_still_fit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            first, big, small = self.capture(folder, 'a', range(4)), self.capture(folder, 'b', range(10, 20)), self.capture(folder, 'c', [0, 1, 30])
+            kept, skipped, identities = pce_conversion.fitting_captures([first, big, small], limit=5)
+            self.assertEqual((kept, skipped, len(identities)), ([first, small], [big], 5))
+
+    def test_received_rows_past_the_bound_are_left_out_and_counted_and_a_row_already_run_costs_nothing(self):
+        own = {(tuple(self.row(pc)['mpr']), pc, bytes(self.row(pc)['data'])) for pc in range(3)}
+        received = [self.row(pc) for pc in (0, 1, 7, 8, 9)]
+        rows, left = pce_conversion.fitting_received(received, own, limit=4)
+        self.assertEqual(([row['pc'] for row in rows], left), ([0, 1, 7], 2))
+
+    def test_a_route_past_the_larger_format_keeps_a_complete_prefix(self):
+        calls = []
+
+        def played(executable, folder, name, frames, script, *extra):
+            calls.append((name, frames))
+            return {'capture_dropped': 0 if frames < 500 else 3, 'capture_first_drop_frame': 400, 'capture_identities': 9}
+        with mock.patch.object(pce_conversion, 'run', played), tempfile.TemporaryDirectory() as folder:
+            capture, frames = pce_conversion.complete_prefix(Path('x'), Path(folder), 'long-1', Path('s'), {'capture_first_drop_frame': 900, 'frames': 18000}, lambda text: None)
+            self.assertEqual(frames, 399)
+            self.assertEqual(capture.suffix, '.jsonl')
+            self.assertEqual(calls, [('long-1-prefix0', 899), ('long-1-prefix1', 399)])
+
+    def test_a_route_with_no_complete_start_stays_interpreted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(pce_conversion.complete_prefix(Path('x'), Path(folder), 'long-1', Path('s'), {'capture_first_drop_frame': 30, 'frames': 18000}, lambda text: None), (None, 0))
 
 
 if __name__ == '__main__':
