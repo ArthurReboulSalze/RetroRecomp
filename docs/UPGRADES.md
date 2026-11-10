@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
+
+Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each
+function, fewer operations. Denise's draw routines take a shift register's slices from a table and write the line buffer four or two entries at a time; when both parities are armed
+at the same offset one pass writes what the two passes wrote. The dual-playfield translation runs vAmiga's own loop once on the 256 possible bytes for a playfield state and then
+looks each pixel up. The palette pass takes eight entries at a time where none is border. `Agnus::execute`, called at every colour clock, is defined in its header so it can be
+inlined. Agnus and Denise stay emulated; nothing here is specialised from a game. A ThinLTO switch (`RR_AMIGA_THINLTO`, clang) is added, off; it is kept only if a quiet-PC timing
+shows 3 % or more.
+Proof: `tools/amiga_display_selftest.py --against` the build made before the change: 40 scenarios of 4 frames (1,301,275 instructions) and the 12 of the default run, every
+instruction's record and every frame's record equal; each of the four new paths broken on purpose in its own build is seen (in 3 to 6 scenarios of 6). Lotus 2's native game and the
+reference player, built before and after (and after with ThinLTO), give the same trace on every one of 3,600 frames of a racing route (picture, sound, RAM, registers). The first-read
+conversions and the timing are not done yet. **What it brings:** not measured; an estimate from shares of a loaded PC is 12-17 % of the machine part of a frame (21-25 % on a dual-playfield
+game). **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga
+builds; the dual-playfield table is derived and rebuilt after a load.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

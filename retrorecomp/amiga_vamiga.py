@@ -206,6 +206,194 @@ REPLACEMENTS = [
      '            // Retro-Recomp modification (MPL-2.0, like this file): the routine of this blit\'s shape, else the table.\n'
      '            if (rrShape) rrShape(this);\n'
      '            else (this->*copyBlitInstr[bltconUSE()][0][bltconFE()][bltpc])();\n'),
+] + [
+    # Agnus and Denise, step 1 (hand optimisations at unchanged instants): the same events at the same instants, the same bytes in
+    # every buffer after each function, fewer operations. tools/amiga_display_selftest.py --against compares a build with them
+    # against one without, instruction by instruction and frame by frame.
+    # Denise's draw routines: the slices of the shift registers and their expansion into the line buffer by table and by word.
+    ('Components/Denise/Denise.cpp',
+     'void\nDenise::updateShiftRegistersOdd()\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file): the per-16-pixel work of the draw routines by table. rrSpread gives, for\n'
+     '// a byte of a shift register, one byte per pixel (left pixel first) holding that byte\'s bit; rrSlices ORs the planes first,\n'
+     '// first + step, ... into the 16 slices extractSlices* make; rrExpand writes the slices into the line buffer as the loops of\n'
+     '// drawOdd, drawEven and drawBoth do, keeping the bits `keep` of what is there. Same bytes, fewer operations.\n'
+     'struct RrSpread {\n'
+     '    u64 v[256];\n'
+     '    constexpr RrSpread() : v() {\n'
+     '        for (int b = 0; b < 256; b++) {\n'
+     '            u64 x = 0;\n'
+     '            for (int i = 0; i < 8; i++) x |= (u64)((b >> (7 - i)) & 1) << (8 * i);\n'
+     '            v[b] = x;\n'
+     '        }\n'
+     '    }\n'
+     '};\n'
+     'static constexpr RrSpread rrSpread;\n'
+     'static constexpr bool rrByTable = true;\n\n'
+     'static inline void\n'
+     'rrSlices(u8 slices[16], const u16 shiftReg[8], int first, int step)\n'
+     '{\n'
+     '    u64 left = 0, right = 0;\n'
+     '    for (int p = first; p < 8; p += step) {\n'
+     '        left |= rrSpread.v[shiftReg[p] >> 8] << p;\n'
+     '        right |= rrSpread.v[shiftReg[p] & 0xFF] << p;\n'
+     '    }\n'
+     '    for (int i = 0; i < 8; i++) {\n'
+     '        slices[i] = (u8)(left >> (8 * i));\n'
+     '        slices[8 + i] = (u8)(right >> (8 * i));\n'
+     '    }\n'
+     '}\n\n'
+     'template <Resolution mode, u8 keep> static inline void\n'
+     'rrExpand(u8 *buffer, const u8 slices[16], u8 mask)\n'
+     '{\n'
+     '    for (isize i = 0; i < 16; i++) {\n'
+     '        const u8 index = slices[i] & mask;\n'
+     '        if constexpr (mode == Resolution::LORES) {\n'
+     '            u32 v = index * 0x01010101u;\n'
+     '            if constexpr (keep != 0) { u32 old; std::memcpy(&old, buffer, 4); v |= old & (keep * 0x01010101u); }\n'
+     '            std::memcpy(buffer, &v, 4);\n'
+     '            buffer += 4;\n'
+     '        } else if constexpr (mode == Resolution::HIRES) {\n'
+     '            u16 v = (u16)(index * 0x0101u);\n'
+     '            if constexpr (keep != 0) { u16 old; std::memcpy(&old, buffer, 2); v = (u16)(v | (old & (keep * 0x0101u))); }\n'
+     '            std::memcpy(buffer, &v, 2);\n'
+     '            buffer += 2;\n'
+     '        } else {\n'
+     '            *buffer = keep != 0 ? (u8)((*buffer & keep) | index) : index;\n'
+     '            buffer += 1;\n'
+     '        }\n'
+     '    }\n'
+     '}\n\n'
+     'void\nDenise::updateShiftRegistersOdd()\n'),
+    ('Components/Denise/Denise.cpp',
+     'Denise::extractSlices(u8 slices[16])\n{\n',
+     'Denise::extractSlices(u8 slices[16])\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the same slices by table.\n'
+     '    if (rrByTable) { rrSlices(slices, shiftReg, 0, 1); return; }\n'),
+    ('Components/Denise/Denise.cpp',
+     'Denise::extractSlicesOdd(u8 slices[16])\n{\n',
+     'Denise::extractSlicesOdd(u8 slices[16])\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the same slices by table.\n'
+     '    if (rrByTable) { rrSlices(slices, shiftReg, 0, 2); return; }\n'),
+    ('Components/Denise/Denise.cpp',
+     'Denise::extractSlicesEven(u8 slices[16])\n{\n',
+     'Denise::extractSlicesEven(u8 slices[16])\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the same slices by table.\n'
+     '    if (rrByTable) { rrSlices(slices, shiftReg, 1, 2); return; }\n'),
+    ('Components/Denise/Denise.cpp',
+     '    u8 slices[16];\n    extractSlicesOdd(slices);\n\n    for (isize i = 0; i < 16; i++) {\n',
+     '    u8 slices[16];\n    extractSlicesOdd(slices);\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the loop below, by word (it then runs no iteration).\n'
+     '    if (rrByTable) rrExpand<mode, 0b10101010>(dBuffer + pixel, slices, (u8)mask);\n'
+     '    for (isize i = 0; i < (rrByTable ? 0 : 16); i++) {\n'),
+    ('Components/Denise/Denise.cpp',
+     '    u8 slices[16];\n    extractSlicesEven(slices);\n\n    for (isize i = 0; i < 16; i++) {\n',
+     '    u8 slices[16];\n    extractSlicesEven(slices);\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the loop below, by word (it then runs no iteration).\n'
+     '    if (rrByTable) rrExpand<mode, 0b01010101>(dBuffer + pixel, slices, (u8)mask);\n'
+     '    for (isize i = 0; i < (rrByTable ? 0 : 16); i++) {\n'),
+    ('Components/Denise/Denise.cpp',
+     '    u8 slices[16];\n    extractSlices(slices);\n\n    for (isize i = 0; i < 16; i++) {\n',
+     '    u8 slices[16];\n    extractSlices(slices);\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the loop below, by word (it then runs no iteration).\n'
+     '    if (rrByTable) rrExpand<mode, 0>(dBuffer + pixel, slices, (u8)mask);\n'
+     '    for (isize i = 0; i < (rrByTable ? 0 : 16); i++) {\n'),
+] + [
+    # Both parities armed at the same offset: one pass of drawBoth writes the bytes the two passes leave, since
+    # ((x & 0xAA) | odd) & 0x55 | even is odd | even (the odd bits are under 0x55, the even ones under 0xAA), its mask is the
+    # union of the two, and it clears the eight shift registers the two passes clear. Otherwise the two passes, as before.
+    ('Components/Denise/Denise.cpp',
+     f'Denise::draw{name}Both()\n{{\n    draw{name}Odd();\n    draw{name}Even();\n}}\n',
+     f'Denise::draw{name}Both()\n{{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): one pass when both parities are armed at the same offset.\n'
+     '    if (!isAGA() && armedOdd && armedEven && pixelOffsetOdd == pixelOffsetEven) {\n'
+     '        updateShiftRegistersOdd();\n'
+     '        updateShiftRegistersEven();\n'
+     f'        drawBoth <Resolution::{mode}> (pixelOffsetOdd);\n'
+     '        armedOdd = false;\n'
+     '        armedEven = false;\n'
+     '        return;\n'
+     '    }\n'
+     f'    draw{name}Odd();\n    draw{name}Even();\n}}\n')
+    for name, mode in (('Lores', 'LORES'), ('Hires', 'HIRES'), ('Shres', 'SHRES'))
+] + [
+    # Dual playfield: translateDPF<prio> gives each pixel a pure function of its dBuffer byte and of the playfield state, so its own
+    # loop runs once on the 256 bytes for a state and the line is looked up.
+    ('Components/Denise/Denise.h',
+     '    u16 zBuffer[BUF_CNT];\n',
+     '    u16 zBuffer[BUF_CNT];\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): translateDPF\'s colour index and z value of each dBuffer byte for\n'
+     '    // one playfield state (Denise.cpp, rrBuildDpf). Derived, rebuilt when the state changes; not part of a snapshot.\n'
+     '    struct { bool valid = false; u64 key = 0; u8 m[256]; u16 z[256]; } rrDpf;\n'),
+    ('Components/Denise/Denise.h',
+     '    void translateDPF(Pixel from, Pixel to, PFState &state);\n',
+     '    void translateDPF(Pixel from, Pixel to, PFState &state);\n'
+     '    void rrBuildDpf(PFState &state, u64 key);   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Denise/Denise.cpp',
+     'void\nDenise::translateDPF(Pixel from, Pixel to, PFState &state)\n{\n    if (state.prio) {\n'
+     '        translateDPF <true> (from, to, state);\n    } else {\n        translateDPF <false> (from, to, state);\n    }\n}\n',
+     'void\nDenise::translateDPF(Pixel from, Pixel to, PFState &state)\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the loop of translateDPF<prio> run once per state on the 256 bytes\n'
+     '    // (rrBuildDpf), then looked up. The key holds everything that loop reads besides the byte.\n'
+     '    const u64 key = (u64)state.prio << 48 | (u64)state.zpf1 << 32 | (u64)state.zpf2 << 16 | (u64)state.colxor << 8 |\n'
+     '                    (u64)(u8)colorOffset(pf2of());\n'
+     '    if (!rrDpf.valid || rrDpf.key != key) rrBuildDpf(state, key);\n'
+     '    for (Pixel i = from; i < to; i++) {\n'
+     '        const u8 s = dBuffer[i];\n'
+     '        mBuffer[i] = rrDpf.m[s];\n'
+     '        zBuffer[i] = rrDpf.z[s];\n'
+     '    }\n'
+     '}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): vAmiga\'s own loop on the bytes 0 to 255, the buffers it uses kept as they were.\n'
+     'void\nDenise::rrBuildDpf(PFState &state, u64 key)\n{\n'
+     '    u8 d[256], m[256];\n'
+     '    u16 z[256];\n'
+     '    std::memcpy(d, dBuffer, sizeof d);\n'
+     '    std::memcpy(m, mBuffer, sizeof m);\n'
+     '    std::memcpy(z, zBuffer, sizeof z);\n'
+     '    for (isize i = 0; i < 256; i++) dBuffer[i] = (u8)i;\n'
+     '    if (state.prio) {\n        translateDPF <true> (0, 256, state);\n    } else {\n        translateDPF <false> (0, 256, state);\n    }\n'
+     '    std::memcpy(rrDpf.m, mBuffer, sizeof rrDpf.m);\n'
+     '    std::memcpy(rrDpf.z, zBuffer, sizeof rrDpf.z);\n'
+     '    std::memcpy(dBuffer, d, sizeof d);\n'
+     '    std::memcpy(mBuffer, m, sizeof m);\n'
+     '    std::memcpy(zBuffer, z, sizeof z);\n'
+     '    rrDpf.key = key;\n'
+     '    rrDpf.valid = true;\n'
+     '}\n'),
+    # The palette pass: eight entries at a time where none of them is border.
+    ('Components/Denise/PixelEngine.cpp',
+     '    for (Pixel i = from; i < to; i++)\n        dst[i] = u32(bbuf[i] == BORDER_NONE ? palette[mbuf[i]] : borderPalette[bbuf[i]]);\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): eight entries at a time where none is border (BORDER_NONE is 0).\n'
+     '    static_assert(BORDER_NONE == 0);\n'
+     '    Pixel i = from;\n'
+     '    for (; i + 8 <= to; i += 8) {\n'
+     '        u64 border;\n'
+     '        std::memcpy(&border, bbuf + i, 8);\n'
+     '        if (border == 0) {\n'
+     '            for (isize k = 0; k < 8; k++) dst[i + k] = u32(palette[mbuf[i + k]]);\n'
+     '        } else {\n'
+     '            for (isize k = 0; k < 8; k++) dst[i + k] = u32(bbuf[i + k] == BORDER_NONE ? palette[mbuf[i + k]] : borderPalette[bbuf[i + k]]);\n'
+     '        }\n'
+     '    }\n'
+     '    for (; i < to; i++)\n        dst[i] = u32(bbuf[i] == BORDER_NONE ? palette[mbuf[i]] : borderPalette[bbuf[i]]);\n'),
+    # Agnus::execute, called by Moira::sync at every colour clock: defined in the header so that it can be inlined.
+    ('Components/Agnus/Agnus.h',
+     '    // Executes Agnus for a single cycle\n    void execute();\n\n    // Executes Agnus for a certain amount of cycles\n    void execute(DMACycle cycles);\n',
+     '    // Executes Agnus for a single cycle\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): defined here, the same statements as in Agnus.cpp before, so that\n'
+     '    // Moira::sync can inline them.\n'
+     '    void execute() {\n'
+     '        clock += DMA_CYCLES(1);\n'
+     '        pos.h += 1;\n'
+     '        if (nextTrigger <= clock) executeUntil(clock);\n'
+     '    }\n\n'
+     '    // Executes Agnus for a certain amount of cycles\n'
+     '    void execute(DMACycle cycles) { for (DMACycle i = 0; i < cycles; i++) execute(); }\n'),
+    ('Components/Agnus/Agnus.cpp',
+     'void\nAgnus::execute()\n{\n    // Advance the internal clock and the horizontal counter\n    clock += DMA_CYCLES(1);\n    pos.h += 1;\n\n'
+     '    // Process pending events\n    if (nextTrigger <= clock) executeUntil(clock);\n}\n\nvoid\nAgnus::execute(DMACycle cycles)\n{\n'
+     '    for (DMACycle i = 0; i < cycles; i++) execute();\n}\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file): Agnus::execute() and execute(DMACycle) are defined in Agnus.h.\n'),
 ]
 
 # What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.

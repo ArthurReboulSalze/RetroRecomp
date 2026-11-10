@@ -37,6 +37,7 @@ NULL_SPRITE = 0xA000      # an empty sprite (two zero words)
 BITMAP = 0x10000          # six planes of 0x8000 bytes
 SCRATCH = 0x40000         # blits beside the display, random data read back
 SCRATCH_END = 0x7F000
+UNTOUCHED = 0x7F800       # never written by a scenario: where the injected RAM fault goes
 UNMAPPED = 0x200000       # no fast RAM in this machine: an open bus
 SLOW = 0xC00000           # slow RAM, on Agnus's bus
 
@@ -251,7 +252,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
 
     body = a.here
     reads = 0
-    fault_address = plane(0) + width * 60 + 8
+    fault_address = UNTOUCHED     # a flipped bit there stays: nothing of the program, the Copper or the Blitter writes it
     for _ in range(actions):
         kind = r.random()
         d = reads % 6
@@ -420,6 +421,7 @@ def main() -> int:
     parser.add_argument('--frames', type=int, default=FRAMES)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--workspace', type=Path, default=ROOT, help='where .deps and .build live')
+    parser.add_argument('--against', type=Path, help="a checks program built before a change (side A): each scenario's record from it must equal this build's")
     arguments = parser.parse_args()
     from retrorecomp import amiga_vamiga, paths
     paths.ROOT = amiga_vamiga.ROOT = arguments.workspace.resolve()
@@ -435,7 +437,7 @@ def main() -> int:
         path = runs / f'scenario-{seed}.bin'
         scenario.write(path)
         first = play(program, path, runs / f'{seed}-a.rec')
-        play(program, path, runs / f'{seed}-b.rec')
+        play(arguments.against or program, path, runs / f'{seed}-b.rec')
         a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
         instructions += first['instructions']
         if compare(a, b) is not None:
@@ -457,9 +459,10 @@ def main() -> int:
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
-    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, every replay equal, '
-          f'{seen} of {controls} injected faults seen at or after their instruction. Today both runs are vAmiga\'s own paths: this shows the records are '
-          'deterministic and that a difference is seen, not that anything matches the hardware.')
+    other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
+             'every replay in a second process equal')
+    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, {other}, '
+          f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     return 0
 
 

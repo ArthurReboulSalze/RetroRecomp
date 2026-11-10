@@ -114,6 +114,19 @@ else()
     endif()
 endif()
 
+# Link-time optimisation (ThinLTO) of the Core, the session and the player, clang only (llvm-mingw on Windows). Off: it is kept
+# only if a quiet-PC timing shows a gain of 3 % or more (docs/AMIGA.md). It changes no instruction's meaning, so a conversion's
+# reference and its game, built with the same flag, still compare as today.
+option(RR_AMIGA_THINLTO "ThinLTO of the Core, the session and the player (clang)" OFF)
+if(RR_AMIGA_THINLTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    foreach(RR_LTO_TARGET VACore rvlib utlib rr_amiga_session amiga_player)
+        if(TARGET ${RR_LTO_TARGET})
+            target_compile_options(${RR_LTO_TARGET} PRIVATE -flto=thin)
+        endif()
+    endforeach()
+    target_link_options(amiga_player PRIVATE -flto=thin)
+endif()
+
 if(RR_AMIGA_TOOLS)
     add_executable(amiga_moira_map moira_map.cpp)
     target_link_libraries(amiga_moira_map PRIVATE VACore)
