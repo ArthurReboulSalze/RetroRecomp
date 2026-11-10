@@ -14,7 +14,7 @@ from zipfile import ZipFile
 from retrorecomp.dropfiles import enable_file_drop, local_drop_paths
 from retrorecomp.gui import Application
 from retrorecomp.i18n import tr
-from tools.gui_patching import patch_gui
+from tools.gui_patching import keep_window_data_in, patch_gui
 
 
 class DropQueueTests(unittest.TestCase):
@@ -47,6 +47,7 @@ class WindowsDropTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name).resolve() / 'ROMs été avec espaces'
         self.folder.mkdir()
+        keep_window_data_in(self, self.folder.parent / 'datas')    # beside the dropped folder, never the real Export/datas
         self.root = tk.Tk()
         self.root.withdraw()
         with patch_gui('load_preferences', return_value={}), \

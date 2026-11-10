@@ -267,7 +267,9 @@ class CompiledGamesTests(TestCase):
             args[7].write_bytes(self.exe.read_bytes())
             with lock:active-=1
             return {'status':'success','report':str(path),'executable':str(args[7])}
+        # The player's account notes live in the real Export/datas: never note this authored game there.
         with patch_gui('identify',return_value=item), \
+             patch('retrorecomp.online.note_conversion',return_value=False), \
              patch('retrorecomp.batch._convert_in_budget',side_effect=convert) as compiler:
             owner.begin_reconvert([(game,source),(second,source)])
             while True:

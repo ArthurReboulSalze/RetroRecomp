@@ -665,12 +665,13 @@ class PackButton(unittest.TestCase):
         import tkinter as tk
         from unittest import mock
         from retrorecomp.gui import Application
-        from tools.gui_patching import patch_gui
+        from tools.gui_patching import keep_window_data_in, patch_gui
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         folder = Path(self.temp.name).resolve()
         self.root = tk.Tk()
         self.root.withdraw()
+        keep_window_data_in(self, folder / 'datas')    # never the player's real Export/datas
         with patch_gui('load_preferences', return_value={}), patch_gui('preferred_games_root', return_value=(folder / 'exports', False)):
             self.app = Application(self.root)
         self.addCleanup(self.close_window)
