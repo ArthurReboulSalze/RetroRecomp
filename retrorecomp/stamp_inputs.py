@@ -198,6 +198,8 @@ NOT_INPUTS = (
     'native/amiga_machine/amiga_vector_checks.cpp',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
+    # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
+    'native/amiga_machine/amiga_display_checks.cpp',
     # tools/atarist_vector_selftest.py (the ST's cycle-exact 68000 against an independent corpus): built against the adapted Hatari for a
     # check, never into a game (the folder's CMakeLists.txt does not build it).
     'native/atarist_machine/atarist_vector_checks.c',

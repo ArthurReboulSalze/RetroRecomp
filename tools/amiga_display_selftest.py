@@ -1,0 +1,467 @@
+"""Agnus and Denise recorded, scenario by scenario (no ROM image, no Kickstart, no disk; needs a compiler and a first build of vAmiga's Core).
+
+    python -B tools/amiga_display_selftest.py [--scenarios N] [--frames N] [--seed N]
+
+Each scenario is authored here: a boot ROM of a few instructions, a 68000 program in chip RAM, bitmaps, sprites and a Copper list. The
+program sets up a display (lores or hires, one to six planes, dual playfield, HAM, scroll, priorities, sprites, collisions) and then
+hammers it: display register writes, chip RAM writes into the displayed bitmap, reads of VHPOSR, VPOSR, CLXDAT, DMACONR and of unmapped
+memory, blits into the bitmap and beside it, delays and waits for a line. `native/amiga_machine/amiga_display_checks.cpp` runs it on the
+machine an export uses and records every instruction (Agnus's clock and beam position, the 68000's registers) and every frame (the
+snapshots of Agnus, Denise, Paula, the CIAs and the CPU, chip and slow RAM, the sound, CLXDAT, every texture row).
+
+Today both runs are vAmiga's own paths: the check is that a scenario replays the same in a second process, and that an injected fault
+(a bit of chip RAM, one colour clock) is seen and placed. The fast paths of Agnus and Denise will be compared with vAmiga's paths through
+the same records. This shows that two runs agree, not that either matches the hardware.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import struct
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+SCENARIOS = 12
+FRAMES = 4
+CHIP_KB = 512
+PROGRAM = 0x1000          # the 68000 program
+COPPER = 0x8000           # the Copper list
+SPRITES = 0x9000          # eight sprites, 0x200 bytes each
+NULL_SPRITE = 0xA000      # an empty sprite (two zero words)
+BITMAP = 0x10000          # six planes of 0x8000 bytes
+SCRATCH = 0x40000         # blits beside the display, random data read back
+SCRATCH_END = 0x7F000
+UNMAPPED = 0x200000       # no fast RAM in this machine: an open bus
+SLOW = 0xC00000           # slow RAM, on Agnus's bus
+
+# Custom registers (offsets from $DFF000).
+DMACONR, VPOSR, VHPOSR, JOY0DAT, CLXDAT = 0x002, 0x004, 0x006, 0x00A, 0x00E
+BLTCON0, BLTCON1, BLTAFWM, BLTALWM, BLTCPT, BLTBPT, BLTAPT, BLTDPT, BLTSIZE = 0x040, 0x042, 0x044, 0x046, 0x048, 0x04C, 0x050, 0x054, 0x058
+BLTCMOD, BLTBMOD, BLTAMOD, BLTDMOD = 0x060, 0x062, 0x064, 0x066
+COP1LC, COPJMP1, DIWSTRT, DIWSTOP, DDFSTRT, DDFSTOP, DMACON, CLXCON, INTENA, INTREQ = 0x080, 0x088, 0x08E, 0x090, 0x092, 0x094, 0x096, 0x098, 0x09A, 0x09C
+BPLPT, SPRPT = 0x0E0, 0x120
+BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x180
+
+
+class Assembler:
+    """The few 68000 forms the scenarios need, big endian words."""
+
+    def __init__(self, origin: int):
+        self.origin = origin
+        self.words: list[int] = []
+
+    @property
+    def here(self) -> int:
+        return self.origin + 2 * len(self.words)
+
+    def w(self, *words: int) -> None:
+        for word in words:
+            self.words.append(word & 0xFFFF)
+
+    def l(self, value: int) -> None:
+        self.w(value >> 16, value)
+
+    def move_w_imm_abs(self, value: int, address: int) -> None:
+        self.w(0x33FC, value)
+        self.l(address)
+
+    def move_l_imm_abs(self, value: int, address: int) -> None:
+        self.w(0x23FC)
+        self.l(value)
+        self.l(address)
+
+    def move_w_abs_d(self, address: int, d: int) -> None:
+        self.w(0x3039 | d << 9)
+        self.l(address)
+
+    def move_l_abs_d(self, address: int, d: int) -> None:
+        self.w(0x2039 | d << 9)
+        self.l(address)
+
+    def move_w_d_abs(self, d: int, address: int) -> None:
+        self.w(0x33C0 | d)
+        self.l(address)
+
+    def moveq(self, value: int, d: int) -> None:
+        self.w(0x7000 | d << 9 | value & 0xFF)
+
+    def dbra(self, d: int, target: int) -> None:
+        self.w(0x51C8 | d)
+        self.w(target - self.here)
+
+    def bra_w(self, target: int) -> None:
+        self.w(0x6000)
+        self.w(target - self.here)
+
+    def jmp_abs(self, address: int) -> None:
+        self.w(0x4EF9)
+        self.l(address)
+
+    def lea_abs_a7(self, address: int) -> None:
+        self.w(0x4FF9)
+        self.l(address)
+
+    def wait_blitter(self) -> None:
+        """btst #6,$dff002 ; bne.s back (DMACONR's BBUSY, bit 14)."""
+        top = self.here
+        self.w(0x0839, 0x0006)
+        self.l(0xDFF000 + DMACONR)
+        self.w(0x6600 | ((top - (self.here + 2)) & 0xFF))
+
+    def wait_line(self, line: int) -> None:
+        """move.w $dff006,d6 ; lsr.w #8,d6 ; cmpi.w #line,d6 ; bcs.s back: until VHPOSR's line byte reaches `line`."""
+        top = self.here
+        self.move_w_abs_d(0xDFF000 + VHPOSR, 6)
+        self.w(0xE04E, 0x0C46, line & 0xFF)
+        self.w(0x6500 | ((top - (self.here + 2)) & 0xFF))
+
+    def data(self) -> bytes:
+        return b''.join(struct.pack('>H', word) for word in self.words)
+
+
+def boot_rom() -> bytes:
+    """A 512 KiB ROM of our own: the session's quieting sequence (amiga_session.cpp boot_rom), then a jump into the scenario's program."""
+    code = Assembler(0xF800D2)
+    code.w(0x46FC, 0x2700)                                  # move.w #$2700,sr
+    for value, address in ((0x03, 0xBFE201), (0x02, 0xBFE001)):  # CIA-A: OVL and LED out, OVL off (chip RAM at 0)
+        code.w(0x13FC, value)
+        code.l(address)
+    for register in (INTENA, DMACON, INTREQ):
+        code.move_w_imm_abs(0x7FFF, 0xDFF000 + register)
+    for value, address in ((0xF8, 0xBFD000), (0xFF, 0xBFD100), (0xC0, 0xBFD200), (0xFF, 0xBFD300)):
+        code.w(0x13FC, value)
+        code.l(address)
+    code.lea_abs_a7(0x0007FFF0 if CHIP_KB >= 512 else 0x3FFF0)
+    code.jmp_abs(PROGRAM)
+    rom = bytearray(512 * 1024)
+    rom[0:8] = struct.pack('>4H', 0x1114, 0x4EF9, 0x00F8, 0x00D2)
+    body = code.data()
+    rom[0xD2:0xD2 + len(body)] = body
+    return bytes(rom)
+
+
+@dataclass
+class Scenario:
+    seed: int
+    ntsc: bool
+    frames: int
+    regions: list = field(default_factory=list)     # (address, bytes)
+    fault_address: int = 0
+    summary: dict = field(default_factory=dict)
+
+    def write(self, path: Path) -> None:
+        rom = boot_rom()
+        out = bytearray(b'RRDS')
+        out += struct.pack('<6I', 1, 1 if self.ntsc else 0, CHIP_KB, self.frames, self.fault_address, len(rom))
+        out += rom
+        out += struct.pack('<I', len(self.regions))
+        for address, data in self.regions:
+            out += struct.pack('<2I', address, len(data))
+            out += data
+        path.write_bytes(bytes(out))
+
+
+def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
+    """A random but plausible display and a random program that works on it. Everything stays inside the scenario's own memory."""
+    r = random.Random(seed)
+    ntsc = r.random() < 0.25
+    hires = r.random() < 0.3
+    planes = r.randint(1, 4 if hires else 6)
+    dual = planes >= 2 and r.random() < 0.25
+    ham = not hires and planes == 6 and not dual and r.random() < 0.4
+    bplcon0 = planes << 12 | (0x8000 if hires else 0) | (0x0400 if dual else 0) | (0x0800 if ham else 0) | 0x0200
+    width = 80 if hires else 40
+    stop_line = 0x2C if not ntsc else 0xF4          # PAL stops at line 300 ($12C), NTSC at 244
+    diwstrt = (0x2C + r.choice((0, 0, 0, 4, -6))) << 8 | (0x81 + r.choice((0, 0, 8, -8, 16)))
+    diwstop = (stop_line + r.choice((0, 0, -8, 8))) << 8 & 0xFF00 | (0xC1 + r.choice((0, 0, -8, 8)))
+    ddf = r.choice(((0x3C, 0xD4), (0x38, 0xD0), (0x30, 0xD0), (0x38, 0xC8))) if hires else r.choice(((0x38, 0xD0), (0x38, 0xD0), (0x30, 0xD0), (0x28, 0xD8), (0x40, 0xC8)))
+    modulo = lambda: r.choice((0, 0, 0, 2, -2, -width, 8, 40))
+    colours = [r.randrange(0x1000) for _ in range(32)]
+    plane = lambda n: BITMAP + n * 0x8000
+
+    # Chip RAM: bitmaps of noise with runs of zero (so some lines are plain), random scratch, sprites, the Copper list.
+    regions = []
+    for n in range(6):
+        bitmap = bytearray(r.randbytes(0x8000))
+        for _ in range(12):
+            start = r.randrange(0x8000)
+            end = min(0x8000, start + r.randrange(40, 2000))
+            bitmap[start:end] = bytes(end - start)
+        regions.append((plane(n), bytes(bitmap)))
+    regions.append((SCRATCH, r.randbytes(SCRATCH_END - SCRATCH)))
+    sprites = bytearray(8 * 0x200)
+    live = [n for n in range(8) if r.random() < 0.5]
+    for n in live:
+        vstart = r.randrange(0x30, 0xF0)
+        height = r.randrange(4, 40)
+        hstart = r.randrange(0x40, 0xD8)
+        vstop = vstart + height
+        ctl = (vstop & 0xFF) << 8 | (0x80 if n % 2 and r.random() < 0.3 else 0) | (vstart >> 8 & 1) << 2 | (vstop >> 8 & 1) << 1 | (hstart & 1)
+        words = [(vstart & 0xFF) << 8 | hstart >> 1 & 0xFF, ctl] + [r.randrange(0x10000) for _ in range(2 * height)] + [0, 0]
+        sprites[n * 0x200:n * 0x200 + 2 * len(words)] = struct.pack(f'>{len(words)}H', *words)
+    regions.append((SPRITES, bytes(sprites)))
+    regions.append((NULL_SPRITE, bytes(4)))
+
+    copper = []
+    line = 0x20
+    safe = [COLOR + 2 * n for n in range(32)] + [BPLCON1] * 6 + [BPLCON2, BPL1MOD, BPL2MOD] + [BPLPT + 2 + 4 * n for n in range(planes)]
+    while line < 0xF0:
+        line += r.randrange(1, 24)
+        if line >= 0xF0:
+            break
+        copper += [(line << 8 | (r.randrange(0x20, 0xE0) & 0xFE) | 1), 0xFFFE]
+        for _ in range(r.randrange(1, 5)):
+            register = r.choice(safe)
+            if BPLPT <= register < BPLPT + 0x20:
+                value = (plane((register - BPLPT) // 4) + r.randrange(0, 0x6000)) & 0xFFFE
+            elif register == BPLCON1:
+                value = r.randrange(0x100)
+            elif register == BPLCON2:
+                value = r.randrange(0x80)
+            elif register in (BPL1MOD, BPL2MOD):
+                value = modulo() & 0xFFFF
+            else:
+                value = r.randrange(0x1000)
+            copper += [register, value]
+    copper += [0xFFFF, 0xFFFE]
+    regions.append((COPPER, struct.pack(f'>{len(copper)}H', *copper)))
+
+    a = Assembler(PROGRAM)
+    custom = lambda register: 0xDFF000 + register
+    a.move_w_imm_abs(0x7FFF, custom(DMACON))
+    for register, value in ((BPLCON0, bplcon0), (BPLCON1, r.randrange(0x100)), (BPLCON2, r.randrange(0x80)), (BPL1MOD, modulo()), (BPL2MOD, modulo()),
+                            (DIWSTRT, diwstrt), (DIWSTOP, diwstop), (DDFSTRT, ddf[0]), (DDFSTOP, ddf[1]), (CLXCON, r.randrange(0x10000))):
+        a.move_w_imm_abs(value, custom(register))
+    for n in range(6):
+        a.move_l_imm_abs(plane(n), custom(BPLPT + 4 * n))
+    for n in range(8):
+        a.move_l_imm_abs(SPRITES + n * 0x200 if n in live else NULL_SPRITE, custom(SPRPT + 4 * n))
+    for n, colour in enumerate(colours):
+        a.move_w_imm_abs(colour, custom(COLOR + 2 * n))
+    a.move_l_imm_abs(COPPER, custom(COP1LC))
+    a.move_w_imm_abs(0, custom(COPJMP1))
+    blitter_on = r.random() < 0.8
+    a.move_w_imm_abs(0x8000 | 0x0200 | 0x0100 | 0x0080 | 0x0020 | (0x0040 if blitter_on else 0), custom(DMACON))
+
+    body = a.here
+    reads = 0
+    fault_address = plane(0) + width * 60 + 8
+    for _ in range(actions):
+        kind = r.random()
+        d = reads % 6
+        if kind < 0.28:
+            register = r.choice([BPLCON1, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR + 2 * r.randrange(32), DDFSTRT, DDFSTOP, DIWSTRT, DIWSTOP, BPLCON0, CLXCON, DMACON])
+            if register == BPLCON0:
+                value = bplcon0 ^ r.choice((0x0400 if planes >= 2 else 0, 0x8000 if planes <= 4 else 0, 0x1000 if planes in (2, 4) else 0, 0))
+            elif register == DMACON:
+                bit = r.choice((0x0100, 0x0020, 0x0080))
+                a.move_w_imm_abs(bit, custom(DMACON))            # off for a moment, then on again
+                a.moveq(r.randrange(1, 40), 7)
+                loop = a.here
+                a.dbra(7, loop)
+                value = 0x8000 | bit
+            elif register in (DDFSTRT, DDFSTOP):
+                value = (ddf[0] if register == DDFSTRT else ddf[1]) + r.choice((0, 0, 4, -4, 8, -8))
+            elif register in (DIWSTRT, DIWSTOP):
+                value = (diwstrt if register == DIWSTRT else diwstop) + r.choice((0, 0, 1, -1, 0x0100, -0x0100))
+            elif register in (BPL1MOD, BPL2MOD):
+                value = modulo()
+            elif register == BPLCON1:
+                value = r.randrange(0x100)
+            elif register == BPLCON2:
+                value = r.randrange(0x80)
+            elif register == CLXCON:
+                value = r.randrange(0x10000)
+            else:
+                value = r.randrange(0x1000)
+            a.move_w_imm_abs(value & 0xFFFF, custom(register))
+        elif kind < 0.48:
+            target = plane(r.randrange(planes)) + (r.randrange(0, 0x7F00) & ~1)
+            if r.random() < 0.5:
+                a.move_w_imm_abs(r.randrange(0x10000), target)
+            else:
+                a.move_l_imm_abs(r.getrandbits(32), target)
+        elif kind < 0.63:
+            a.move_w_abs_d(custom(r.choice((VHPOSR, VHPOSR, VPOSR, CLXDAT, DMACONR, JOY0DAT))), d)
+            reads += 1
+        elif kind < 0.71:
+            a.move_w_abs_d(r.choice((plane(r.randrange(6)), SCRATCH)) + (r.randrange(0, 0x7F00) & ~1), d)
+            reads += 1
+        elif kind < 0.74:
+            a.move_w_abs_d(UNMAPPED + (r.randrange(0, 0x1000) & ~1), d)
+            reads += 1
+        elif kind < 0.76:
+            address = SLOW + (r.randrange(0, 0x10000) & ~1)
+            a.move_w_imm_abs(r.randrange(0x10000), address)
+            a.move_w_abs_d(address, d)
+            reads += 1
+        elif kind < 0.84 and blitter_on:
+            a.wait_blitter()
+            into_display = r.random() < 0.3
+            destination = (plane(r.randrange(planes)) if into_display else SCRATCH + 0x10000) + (r.randrange(0, 0x4000) & ~1)
+            minterm = r.choice((0xF0, 0xCC, 0xCA, 0xAA, 0x0F, 0xFA))
+            use = r.choice((0x9, 0xD, 0xF, 0x5, 0xB))
+            a.move_w_imm_abs(use << 8 | minterm | r.randrange(16) << 12, custom(BLTCON0))
+            a.move_w_imm_abs(r.choice((0, 0, 0x0002 if r.random() < 0.2 else 0)) | r.randrange(16) << 12, custom(BLTCON1))
+            a.move_w_imm_abs(0xFFFF, custom(BLTAFWM))
+            a.move_w_imm_abs(r.randrange(0x10000), custom(BLTALWM))
+            for register in (BLTAPT, BLTBPT, BLTCPT):
+                a.move_l_imm_abs(SCRATCH + (r.randrange(0, 0x8000) & ~1), custom(register))
+            a.move_l_imm_abs(destination, custom(BLTDPT))
+            for register in (BLTAMOD, BLTBMOD, BLTCMOD, BLTDMOD):
+                a.move_w_imm_abs(r.choice((0, 2, 8, 38)), custom(register))
+            a.move_w_imm_abs(r.randrange(2, 24) << 6 | r.randrange(1, 12), custom(BLTSIZE))
+        elif kind < 0.94:
+            a.moveq(r.randrange(1, 120), 7)
+            loop = a.here
+            a.dbra(7, loop)
+        else:
+            a.wait_line(r.randrange(0x10, 0xF8))
+    a.bra_w(body)
+    program = a.data()
+    if PROGRAM + len(program) > COPPER:
+        raise ValueError('The scenario program is too long.')
+    regions.insert(0, (PROGRAM, program))
+    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on,
+               'ddf': [hex(ddf[0]), hex(ddf[1])], 'program_bytes': len(program), 'copper_words': len(copper)}
+    return Scenario(seed, ntsc, frames, regions, fault_address, summary)
+
+
+# Records: "RRDR", version, frames, rows; per frame 12 u64 (instructions so far, Agnus, Denise, Paula, CIA-A, CIA-B, CPU, chip RAM,
+# slow RAM, sound, CLXDAT, Agnus's clock) and one u64 per texture row; then the instruction count and one u64 per instruction.
+FRAME_FIELDS = ('instructions', 'agnus', 'denise', 'paula', 'cia_a', 'cia_b', 'cpu', 'chip', 'slow', 'sound', 'clxdat', 'clock')
+
+
+def read_record(path: Path) -> dict:
+    data = path.read_bytes()
+    if data[:4] != b'RRDR':
+        raise ValueError(f'{path} is not a record.')
+    version, frames, rows = struct.unpack_from('<3I', data, 4)
+    if version != 1:
+        raise ValueError(f'{path}: record version {version}.')
+    at = 16
+    out = []
+    for _ in range(frames):
+        fields = dict(zip(FRAME_FIELDS, struct.unpack_from('<12Q', data, at)))
+        at += 96
+        fields['rows'] = list(struct.unpack_from(f'<{rows}Q', data, at))
+        at += 8 * rows
+        out.append(fields)
+    (count,) = struct.unpack_from('<Q', data, at)
+    steps = list(struct.unpack_from(f'<{count}Q', data, at + 8))
+    return {'frames': out, 'steps': steps}
+
+
+def compare(a: dict, b: dict) -> dict | None:
+    """The first difference between two records, or None: the instruction first, then the frame's parts and rows."""
+    for index, (x, y) in enumerate(zip(a['steps'], b['steps'])):
+        if x != y:
+            frame = next((n for n, f in enumerate(a['frames']) if f['instructions'] > index), len(a['frames']))
+            return {'at': 'instruction', 'index': index, 'frame': frame}
+    if len(a['steps']) != len(b['steps']):
+        return {'at': 'instruction', 'index': min(len(a['steps']), len(b['steps'])), 'frame': None}
+    for n, (x, y) in enumerate(zip(a['frames'], b['frames'])):
+        parts = [name for name in FRAME_FIELDS if x[name] != y[name]]
+        rows = [i for i, (p, q) in enumerate(zip(x['rows'], y['rows'])) if p != q]
+        if parts or rows:
+            return {'at': 'frame', 'frame': n, 'parts': parts, 'rows': rows[:20], 'row_count': len(rows)}
+    if len(a['frames']) != len(b['frames']):
+        return {'at': 'frame', 'frame': min(len(a['frames']), len(b['frames'])), 'parts': ['frame count'], 'rows': [], 'row_count': 0}
+    return None
+
+
+def build(work: Path, core: Path) -> Path:
+    from retrorecomp.core import run, toolchain
+    from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
+    machine = (ROOT / 'native' / 'amiga_machine').as_posix()
+    source = work / 'cmake'
+    source.mkdir(parents=True, exist_ok=True)
+    (source / 'CMakeLists.txt').write_text(f"""cmake_minimum_required(VERSION 3.20)
+project(RetroAmigaDisplay LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+add_subdirectory("{core.as_posix()}" vacore)
+foreach(RR_TARGET VACore rvlib utlib)
+    if(TARGET ${{RR_TARGET}})
+        set_property(TARGET ${{RR_TARGET}} PROPERTY INTERFACE_COMPILE_OPTIONS "")
+    endif()
+endforeach()
+add_executable(amiga_display_checks "{machine}/amiga_display_checks.cpp")
+target_link_libraries(amiga_display_checks PRIVATE VACore)
+if(WIN32)
+    target_link_libraries(amiga_display_checks PRIVATE ws2_32)
+endif()
+""", encoding='utf-8', newline='\n')
+    folder = work / 'build'
+    cmake, generator = toolchain()
+    run([cmake, '-S', source, '-B', folder, '-G', generator, *cmake_target_args(), '-DCMAKE_BUILD_TYPE=Release'], log=work / 'build.log', cwd=work)
+    run([cmake, '--build', folder, '--parallel', build_jobs(), '--target', 'amiga_display_checks'], log=work / 'build.log', timeout=7200, cwd=work)
+    return build_executable(folder, 'amiga_display_checks')
+
+
+def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+    result = subprocess.run([str(program), str(scenario), str(record), *extra], capture_output=True, text=True, timeout=1800, creationflags=flags)
+    if result.returncode:
+        raise RuntimeError(f'{scenario.name}: exit {result.returncode}: {result.stderr[-1500:]}')
+    return json.loads(next(line for line in result.stdout.splitlines() if line.startswith('{')))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--scenarios', type=int, default=SCENARIOS)
+    parser.add_argument('--frames', type=int, default=FRAMES)
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--workspace', type=Path, default=ROOT, help='where .deps and .build live')
+    arguments = parser.parse_args()
+    from retrorecomp import amiga_vamiga, paths
+    paths.ROOT = amiga_vamiga.ROOT = arguments.workspace.resolve()
+    work = paths.ROOT / '.build' / 'amiga-display'
+    core = amiga_vamiga.adapt(amiga_vamiga.source(), work / 'vamiga')
+    program = build(work, core)
+    runs = work / 'runs'
+    runs.mkdir(parents=True, exist_ok=True)
+    failures, seen, placed, instructions = [], 0, 0, 0
+    for n in range(arguments.scenarios):
+        seed = arguments.seed * 1000 + n
+        scenario = generate(seed, arguments.frames)
+        path = runs / f'scenario-{seed}.bin'
+        scenario.write(path)
+        first = play(program, path, runs / f'{seed}-a.rec')
+        play(program, path, runs / f'{seed}-b.rec')
+        a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
+        instructions += first['instructions']
+        if compare(a, b) is not None:
+            failures.append({'seed': seed, 'replay': compare(a, b)})
+            continue
+        # Positive controls: a bit of displayed chip RAM, and one colour clock, from the middle of the second frame.
+        middle = a['frames'][0]['instructions'] + (a['frames'][1]['instructions'] - a['frames'][0]['instructions']) // 2
+        for kind in ('ram', 'clock'):
+            play(program, path, runs / f'{seed}-{kind}.rec', '--fault', kind, str(middle))
+            found = compare(a, read_record(runs / f'{seed}-{kind}.rec'))
+            seen += found is not None
+            placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
+            if found is None:
+                failures.append({'seed': seed, 'fault': kind, 'missed': True})
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions']}), flush=True)
+    controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
+    print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions, 'replays_differ': sum(1 for f in failures if 'replay' in f),
+                      'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'failures': failures[:10]}))
+    if failures or seen != controls or placed != controls:
+        print('Display self-test FAILED.')
+        return 1
+    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, every replay equal, '
+          f'{seen} of {controls} injected faults seen at or after their instruction. Today both runs are vAmiga\'s own paths: this shows the records are '
+          'deterministic and that a difference is seen, not that anything matches the hardware.')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
