@@ -85,14 +85,36 @@ Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/a
 function, fewer operations. Denise's draw routines take a shift register's slices from a table and write the line buffer four or two entries at a time; when both parities are armed
 at the same offset one pass writes what the two passes wrote. The dual-playfield translation runs vAmiga's own loop once on the 256 possible bytes for a playfield state and then
 looks each pixel up. The palette pass takes eight entries at a time where none is border. `Agnus::execute`, called at every colour clock, is defined in its header so it can be
-inlined. Agnus and Denise stay emulated; nothing here is specialised from a game. A ThinLTO switch (`RR_AMIGA_THINLTO`, clang) is added, off; it is kept only if a quiet-PC timing
-shows 3 % or more.
+inlined. Agnus and Denise stay emulated; nothing here is specialised from a game. ThinLTO of the Core, the session and the player (`RR_AMIGA_THINLTO`, clang only; llvm-mingw on
+Windows) is on: a quiet-PC timing on 10 November 2026 (Lotus 2's native game, 2,400 frames of a racing route, one core, two interleaved runs per build) gave 2.571 ms of
+machine time per frame before this step, 2.245 ms with it (-12.7 %) and 1.992 ms with it and ThinLTO (-11.2 % more), past the 3 % bar Arthur set; the two ThinLTO runs differed by
+7 %, so the exact figure waits for a second pass. This is the cost of a frame on one PC, not a latency.
 Proof: `tools/amiga_display_selftest.py --against` the build made before the change: 40 scenarios of 4 frames (1,301,275 instructions) and the 12 of the default run, every
 instruction's record and every frame's record equal; each of the four new paths broken on purpose in its own build is seen (in 3 to 6 scenarios of 6). Lotus 2's native game and the
 reference player, built before and after (and after with ThinLTO), give the same trace on every one of 3,600 frames of a racing route (picture, sound, RAM, registers). The first-read
-conversions and the timing are not done yet. **What it brings:** not measured; an estimate from shares of a loaded PC is 12-17 % of the machine part of a frame (21-25 % on a dual-playfield
-game). **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga
+conversions are not done yet. **What it brings:** the timing above, on one game; an earlier estimate from shares of a loaded PC was 12-17 % (21-25 % on a dual-playfield game). **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga
 builds; the dual-playfield table is derived and rebuilt after a load.
+
+## Commodore Amiga: a line's bitplane slots taken in a batch (after 1.7.2, Agnus/Denise step 2)
+
+Agnus no longer schedules an event for every bitplane slot of a line whose plan allows it. At the start of such a line its bitplane DMA slots are marked taken on the bus, as
+vAmiga's own events mark them before anyone else in their colour clock, and they run later in their own order, each at the beam position of its slot, as soon as something could
+see them: a custom register access by the CPU or the Copper, a chip RAM write (CPU, Blitter, disk DMA, the host's patches) into a fetch still to come, a read of the open bus,
+the start of a register-change event (HSYNC and EOL among them), and vAmiga's own bitplane event. The data bus keeps the colour clock of its last value, so that a fetch run late
+never covers a later one. The guard, decided per line: no AGA, never line 0 (where a host frame ends), every bitplane DMA slot between $18 and $E1, no super-hires fetch, each
+plane's modulo on its last fetch, every fetch in chip RAM; a new plan in the middle of the line (DDF, BPLCON0, DMACON, the vertical window) or a pointer moved out of chip RAM gives
+the rest of the line back to vAmiga's events. Through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`, MPL-2.0 edits). Agnus stays emulated: the same work, at fewer
+scheduled instants; nothing is specialised from a game. The lines and words batched, on events and given back are counted in Agnus (the display self-test prints them; the
+conversion report does not show them yet).
+Proof: `tools/amiga_display_selftest.py` now runs each scenario batched and with `--per-slot` (every line on vAmiga's events) in the same build: 12 scenarios of 4 frames (420,350
+instructions; 9,755 lines batched, 488 given back midway, 5,069 on events), every instruction's record and every frame's record equal. `--against` the frozen build of step 0:
+40 scenarios of 4 frames (1,297,343 instructions; 32,161 lines batched, 1,940 given back, 16,119 on events), all equal. The scenario program gained reads of write-only registers
+(they write the last bus value into them), BPL1DAT writes and pointer writes. A first version missed one case, found by the self-test on 9 NTSC scenarios out of 52: on an NTSC
+long line vAmiga runs the bitplane event of position 227, which came before slots still pending; that event now runs them first. Each barrier broken on purpose in its own build is seen against `--per-slot` on 8 other scenarios: the
+register-event barrier 8 of 8, the give-back of the marks 8 of 8, the custom read barrier 7, the custom write barrier 6, the bus clock 6, the bitplane-event barrier 2 (the NTSC
+ones), the chip RAM write barrier only 1 of 8 (a random write seldom lands ahead of the beam in the same line: that barrier is the least exercised). Lotus 2's trace and the first-read
+conversions are not done yet. **What it brings:** not measured. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds; the batch state is derived, never saved (line 0, where a state is taken, never has one).
 
 ## Exports of 1.7.1 in 1.7.2
 

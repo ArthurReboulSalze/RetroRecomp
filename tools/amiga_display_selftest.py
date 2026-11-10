@@ -9,9 +9,10 @@ memory, blits into the bitmap and beside it, delays and waits for a line. `nativ
 machine an export uses and records every instruction (Agnus's clock and beam position, the 68000's registers) and every frame (the
 snapshots of Agnus, Denise, Paula, the CIAs and the CPU, chip and slow RAM, the sound, CLXDAT, every texture row).
 
-Today both runs are vAmiga's own paths: the check is that a scenario replays the same in a second process, and that an injected fault
-(a bit of chip RAM, one colour clock) is seen and placed. The fast paths of Agnus and Denise will be compared with vAmiga's paths through
-the same records. This shows that two runs agree, not that either matches the hardware.
+Without `--against`, each scenario runs twice in this build: once with the bitplane slots of a line taken in a batch (Agnus step 2),
+once with every line on vAmiga's events (`--per-slot`); the records must be equal, and the lines batched are counted. With
+`--against EXE` the second run is a checks program built before a change (side A). Either way an injected fault (a bit of chip RAM, one
+colour clock) must be seen and placed. This shows that two runs agree, not that either matches the hardware.
 """
 from __future__ import annotations
 
@@ -47,7 +48,7 @@ BLTCON0, BLTCON1, BLTAFWM, BLTALWM, BLTCPT, BLTBPT, BLTAPT, BLTDPT, BLTSIZE = 0x
 BLTCMOD, BLTBMOD, BLTAMOD, BLTDMOD = 0x060, 0x062, 0x064, 0x066
 COP1LC, COPJMP1, DIWSTRT, DIWSTOP, DDFSTRT, DDFSTOP, DMACON, CLXCON, INTENA, INTREQ = 0x080, 0x088, 0x08E, 0x090, 0x092, 0x094, 0x096, 0x098, 0x09A, 0x09C
 BPLPT, SPRPT = 0x0E0, 0x120
-BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x180
+BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, BPL1DAT, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x110, 0x180
 
 
 class Assembler:
@@ -318,6 +319,15 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
             for register in (BLTAMOD, BLTBMOD, BLTCMOD, BLTDMOD):
                 a.move_w_imm_abs(r.choice((0, 2, 8, 38)), custom(register))
             a.move_w_imm_abs(r.randrange(2, 24) << 6 | r.randrange(1, 12), custom(BLTSIZE))
+        elif kind < 0.865:
+            # A read of a write-only register: the chip writes the last value of the data bus into it (often a bitplane word).
+            a.move_w_abs_d(custom(r.choice((BPL1MOD, BPL2MOD, BPLCON1, COLOR + 2 * r.randrange(32)))), d)
+            reads += 1
+        elif kind < 0.88:
+            a.move_w_imm_abs(r.randrange(0x10000), custom(BPL1DAT))
+        elif kind < 0.895:
+            n = r.randrange(planes)
+            a.move_l_imm_abs(plane(n) + (r.randrange(0, 0x6000) & ~1), custom(BPLPT + 4 * n))
         elif kind < 0.94:
             a.moveq(r.randrange(1, 120), 7)
             loop = a.here
@@ -431,13 +441,15 @@ def main() -> int:
     runs = work / 'runs'
     runs.mkdir(parents=True, exist_ok=True)
     failures, seen, placed, instructions = [], 0, 0, 0
+    lines = [0, 0, 0]
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
         path = runs / f'scenario-{seed}.bin'
         scenario.write(path)
         first = play(program, path, runs / f'{seed}-a.rec')
-        play(arguments.against or program, path, runs / f'{seed}-b.rec')
+        play(arguments.against or program, path, runs / f'{seed}-b.rec', *(() if arguments.against else ('--per-slot',)))
+        lines = [n + m for n, m in zip(lines, first.get('lines', (0, 0, 0)))]
         a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
         instructions += first['instructions']
         if compare(a, b) is not None:
@@ -452,16 +464,18 @@ def main() -> int:
             placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
             if found is None:
                 failures.append({'seed': seed, 'fault': kind, 'missed': True})
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions']}), flush=True)
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines')}), flush=True)
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
-    print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions, 'replays_differ': sum(1 for f in failures if 'replay' in f),
+    print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
+                      'lines_batched_events_left': lines, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
     other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
-             'every replay in a second process equal')
-    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, {other}, '
+             "every record equal to the one of the same build with every line on vAmiga's events")
+    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
+          f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     return 0
 

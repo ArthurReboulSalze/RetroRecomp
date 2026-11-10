@@ -394,6 +394,233 @@ REPLACEMENTS = [
      '    // Process pending events\n    if (nextTrigger <= clock) executeUntil(clock);\n}\n\nvoid\nAgnus::execute(DMACycle cycles)\n{\n'
      '    for (DMACycle i = 0; i < cycles; i++) execute();\n}\n',
      '// Retro-Recomp modification (MPL-2.0, like this file): Agnus::execute() and execute(DMACycle) are defined in Agnus.h.\n'),
+] + [
+    # Agnus and Denise, step 2: the bitplane slots of a line taken in a batch. At the start of a line whose plan passes the guard,
+    # its bitplane DMA slots are marked taken in busOwner (as vAmiga's own events mark them, before anyone else in their colour
+    # clock) and are not scheduled. They run in their own order, at the beam position of their slot, whenever something could
+    # observe them: a custom register access, a chip RAM write into a pending fetch, a read of the floating bus, the start of a
+    # register-change event (HSYNC and EOL among them). A new plan for the line (computeBplEventTable) or a fetch leaving chip
+    # RAM gives the rest of the line back to vAmiga's events. Line 0, where a host frame ends, always runs on vAmiga's events.
+    # The data bus keeps the clock of its last write, so that a fetch run late never covers a later value.
+    ('Components/Memory/Memory.h',
+     '    // The last value on the data bus\n    u16 dataBus;\n',
+     '    // The last value on the data bus\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): with the colour clock of its last write (`clock` points to Agnus\'s).\n'
+     '    // A bitplane fetch of a batched line runs with `deferred` set to its own clock and leaves the bus to a later write.\n'
+     '    struct RrDataBus {\n'
+     '        static constexpr i64 NEVER = -0x7FFFFFFFFFFFFFFFLL - 1;\n'
+     '        static inline const i64 noClock = 0;\n'
+     '        u16 v = 0;\n'
+     '        i64 at = NEVER;\n'
+     '        i64 deferred = NEVER;\n'
+     '        const i64 *clock = &noClock;\n'
+     '        RrDataBus &operator=(u16 value) {\n'
+     '            if (deferred != NEVER) {\n'
+     '                if (deferred <= at) return *this;\n'
+     '                v = value;\n'
+     '                at = deferred;\n'
+     '                return *this;\n'
+     '            }\n'
+     '            v = value;\n'
+     '            at = *clock;\n'
+     '            return *this;\n'
+     '        }\n'
+     '        RrDataBus &operator=(const RrDataBus &other) { v = other.v; at = other.at; return *this; }\n'
+     '        operator u16() const { return v; }\n'
+     '    };\n'
+     '    RrDataBus dataBus;\n'),
+    ('Components/Memory/Memory.h',
+     '        << agnusMemSrc\n        << dataBus;\n',
+     '        << agnusMemSrc\n        << dataBus.v;\n\n'
+     '        // Retro-Recomp modification (MPL-2.0, like this file): a saved or loaded bus has no write still to come.\n'
+     '        dataBus.at = RrDataBus::NEVER;\n'),
+    ('Components/Memory/Memory.cpp', 'hex(dataBus)', 'hex(dataBus.v)'),
+    ('Components/Memory/Memory.cpp',
+     'Memory::Memory(Amiga& ref) : SubComponent(ref)\n{\n',
+     'Memory::Memory(Amiga& ref) : SubComponent(ref)\n{\n'
+     '    dataBus.clock = &agnus.clock;   // Retro-Recomp modification (MPL-2.0, like this file)\n\n'),
+    ('Components/Memory/Memory.cpp',
+     '    assert((addr & agnus.ptrMask) == addr);\n    dataBus = READ_CHIP_16(addr);\n    return dataBus;\n',
+     '    assert((addr & agnus.ptrMask) == addr);\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the word read, whether or not it stays on the bus.\n'
+     '    const u16 rrValue = READ_CHIP_16(addr);\n'
+     '    dataBus = rrValue;\n'
+     '    return rrValue;\n'),
+] + [
+    # Chip RAM writes: the pending fetches of the write's address run first. Every writer: the CPU (8, 16, 32 bits), Agnus's DMA
+    # (Blitter and disk) and the host's patch.
+    ('Components/Memory/Memory.cpp', old,
+     old.replace(write, '    agnus.rrBplWrite(addr);   // Retro-Recomp modification (MPL-2.0, like this file)\n' + write))
+    for old, write in (('    agnus.busData[agnus.pos.h] = dataBus;\n\n    WRITE_CHIP_8(addr, value);\n', '    WRITE_CHIP_8(addr, value);\n'),
+                       ('    agnus.busData[agnus.pos.h] = dataBus;\n\n    WRITE_CHIP_16(addr, value);\n', '    WRITE_CHIP_16(addr, value);\n'),
+                       ('    WRITE_CHIP_32(addr, value);\n', '    WRITE_CHIP_32(addr, value);\n'),
+                       ('    dataBus = value;\n    WRITE_CHIP_16(addr, value);\n', '    WRITE_CHIP_16(addr, value);\n'),
+                       ('    ASSERT_CHIP_ADDR(addr);\n    WRITE_CHIP_8(addr, value);\n', '    WRITE_CHIP_8(addr, value);\n'))
+] + [
+    # Custom register accesses and the readers of the floating bus: the pending slots up to this colour clock run first.
+    ('Components/Memory/Memory.cpp', head,
+     head + '    agnus.rrBplSync();   // Retro-Recomp modification (MPL-2.0, like this file)\n')
+    for head in ('Memory::peekCustom16(u32 addr)\n{\n', 'Memory::pokeCustom16(u32 addr, u16 value)\n{\n', 'Memory::peekRTC8(u32 addr) const\n{\n',
+                 'Memory::peek8 <Accessor::CPU, MemSrc::NONE> (u32 addr)\n{\n', 'Memory::peek16 <Accessor::CPU, MemSrc::NONE> (u32 addr)\n{\n')
+] + [
+    ('Components/Agnus/Agnus.h',
+     '    u16 busData[HPOS_CNT] = { };\n',
+     '    u16 busData[HPOS_CNT] = { };\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the bitplane slots of a line taken in a batch (AgnusEvents.cpp,\n'
+     '    // rrBplLineStart). Derived state of the current line, never part of a snapshot: line 0 is never batched.\n'
+     '    static inline bool rrBplBatching = true;   // false: every line on vAmiga\'s events\n'
+     '    bool rrLazy = false;                        // a batched line still has slots to run\n'
+     '    isize rrNext = 0;                           // table position of the next slot to run\n'
+     '    u8 rrRemain[8] = { };                       // fetches still to run per plane\n'
+     '    u32 rrLo = 0, rrHi = 0;                     // chip RAM offsets those fetches read (a superset)\n'
+     '    u32 rrChipMask = 0;\n'
+     '    u64 rrLines[3] = { };                       // lines batched, lines on vAmiga\'s events, batched lines given back midway\n'
+     '    u64 rrWords[2] = { };                       // bitplane words fetched in a batch, on vAmiga\'s events\n'
+     '    void rrBplLineStart();\n'
+     '    void rrBplCatchUp(isize to);\n'
+     '    bool rrBplRangeOk();\n'
+     '    void rrBplMaterialise(bool reschedule);\n'
+     '    void rrBplDo(EventID id);\n'
+     '    void rrBplSync() { if (rrLazy && rrNext <= pos.h) rrBplCatchUp(pos.h); }\n'
+     '    void rrBplWrite(u32 addr) {\n'
+     '        if (rrLazy) {\n'
+     '            const u32 offset = addr & rrChipMask;\n'
+     '            if (offset < rrHi && offset + 4 > rrLo) rrBplCatchUp(pos.h);\n'
+     '        }\n'
+     '    }\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Schedule the first BPL and DAS events\n    scheduleFirstBplEvent();\n    scheduleFirstDasEvent();\n',
+     '    // Schedule the first BPL and DAS events\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the line\'s bitplane slots in a batch when its plan allows it.\n'
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    diskController.scheduleFirstDiskEvent();\n    scheduleFirstBplEvent();\n',
+     '    diskController.scheduleFirstDiskEvent();\n'
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    scheduleFirstBplEvent();\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     'Agnus::serviceREGEvent(Cycle until)\n{\n',
+     'Agnus::serviceREGEvent(Cycle until)\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the batched slots before this colour clock run first (a register\n'
+     '    // change, HSYNC and EOL come before the bitplane slot of their own clock).\n'
+     '    if (rrLazy && rrNext < pos.h) rrBplCatchUp(pos.h - 1);\n\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    if (syncEvent & EVFL::PROBE) { logicAnalyzer.recordSignals(); }\n\n    scheduleNextREGEvent();\n}\n',
+     '    if (syncEvent & EVFL::PROBE) { logicAnalyzer.recordSignals(); }\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): a pointer change may move the pending fetches out of chip RAM.\n'
+     '    if (rrLazy && !rrBplRangeOk()) rrBplMaterialise(true);\n\n'
+     '    scheduleNextREGEvent();\n}\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     'void\nAgnus::serviceBPLEvent(EventID id)\n{\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file): the work of a bitplane slot (vAmiga\'s serviceBPLEvent without its last\n'
+     '// line), for its event and for the batch.\n'
+     'void\nAgnus::rrBplDo(EventID id)\n{\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    // Schedule next event\n    scheduleNextBplEvent();\n}\n',
+     '}\n\n'
+     'void\nAgnus::serviceBPLEvent(EventID id)\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): a batched line\'s earlier slots run first (the event at the end of\n'
+     '    // the line, which vAmiga runs on NTSC long lines, comes after them).\n'
+     '    if (rrLazy && rrNext < pos.h) rrBplCatchUp(pos.h - 1);\n'
+     '    if (isize(id) >> 2) rrWords[1]++;\n'
+     '    rrBplDo(id);\n\n'
+     '    // Schedule next event\n    scheduleNextBplEvent();\n}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): a line\'s bitplane slots in a batch (Agnus.h). The guard: no AGA, not\n'
+     '// line 0, every bitplane DMA slot in $18-$E1 (away from the refresh slots), no super-hires fetch, each plane\'s modulo on its\n'
+     '// last fetch, every fetch of the line in chip RAM. Else the line runs on vAmiga\'s events, as before.\n'
+     'void\nAgnus::rrBplLineStart()\n{\n'
+     '    rrLazy = false;\n'
+     '    const isize first = sequencer.bplEvent[0] ? 0 : sequencer.nextBplEvent[0];\n'
+     '    u8 count[8] = { };\n'
+     '    bool closed[8] = { };\n'
+     '    bool fits = rrBplBatching && !isAGA() && pos.v != 0;\n'
+     '    for (isize h = first; fits && h < HPOS_MAX; h = sequencer.nextBplEvent[h]) {\n'
+     '        const isize k = isize(sequencer.bplEvent[h]) >> 2;\n'
+     '        if (k == 0) continue;\n'
+     '        const isize plane = ((k - 1) & 15) >> 1;\n'
+     '        if (h < 0x18 || h > 0xE1 || ((k - 1) >> 4) == 2 || closed[plane]) { fits = false; break; }\n'
+     '        if ((k - 1) & 1) closed[plane] = true;\n'
+     '        count[plane]++;\n'
+     '    }\n'
+     '    if (fits) {\n'
+     '        for (isize p = 0; p < 8; p++) rrRemain[p] = count[p];\n'
+     '        rrChipMask = mem.chipMask;\n'
+     '        fits = rrBplRangeOk();\n'
+     '    }\n'
+     '    if (!fits) {\n'
+     '        rrLines[1]++;\n'
+     '        scheduleFirstBplEvent();\n'
+     '        return;\n'
+     '    }\n'
+     '    for (isize h = first; h < HPOS_MAX; h = sequencer.nextBplEvent[h]) {\n'
+     '        const isize k = isize(sequencer.bplEvent[h]) >> 2;\n'
+     '        if (k) busOwner[h] = BusOwner(BUS_BPL1 + (((k - 1) & 15) >> 1));\n'
+     '    }\n'
+     '    rrNext = first;\n'
+     '    rrLazy = first < HPOS_MAX;\n'
+     '    rrLines[0]++;\n'
+     '    // The slot holds what vAmiga\'s chain of events leaves in it at the end of the line.\n'
+     '    scheduleRel<SLOT_BPL>(DMA_CYCLES(HPOS_MAX - pos.h), sequencer.bplEvent[HPOS_MAX]);\n'
+     '}\n\n'
+     '// The pending slots up to table position `to`, in order, each at the beam position and with the bus clock of its own slot.\n'
+     'void\nAgnus::rrBplCatchUp(isize to)\n{\n'
+     '    const isize now = pos.h;\n'
+     '    const Cycle real = clock;\n'
+     '    while (rrNext <= to && rrNext < HPOS_MAX) {\n'
+     '        const isize at = rrNext;\n'
+     '        const EventID event = sequencer.bplEvent[at];\n'
+     '        const isize k = isize(event) >> 2;\n'
+     '        pos.h = at;\n'
+     '        mem.dataBus.deferred = real - DMA_CYCLES(now - at);\n'
+     '        rrBplDo(event);\n'
+     '        if (k) {\n'
+     '            rrRemain[((k - 1) & 15) >> 1]--;\n'
+     '            rrWords[0]++;\n'
+     '        }\n'
+     '        rrNext = sequencer.nextBplEvent[at];\n'
+     '    }\n'
+     '    mem.dataBus.deferred = Memory::RrDataBus::NEVER;\n'
+     '    pos.h = now;\n'
+     '    if (rrNext >= HPOS_MAX) rrLazy = false;\n'
+     '}\n\n'
+     '// Whether the fetches still to run all read chip RAM; sets the offsets they cover (all of chip RAM when they wrap).\n'
+     'bool\nAgnus::rrBplRangeOk()\n{\n'
+     '    u32 lo = 0xFFFFFFFF, hi = 0;\n'
+     '    bool whole = false;\n'
+     '    for (isize p = 0; p < 8; p++) {\n'
+     '        if (!rrRemain[p]) continue;\n'
+     '        const u32 start = bplpt[p] & ptrMask;\n'
+     '        const u32 size = 2 * u32(rrRemain[p]);\n'
+     '        if (start + size - 1 > ptrMask) return false;\n'
+     '        for (u32 b = start >> 16; b <= (start + size - 1) >> 16; b++) {\n'
+     '            if (mem.agnusMemSrc[b] != MemSrc::CHIP) return false;\n'
+     '        }\n'
+     '        const u32 from = start & rrChipMask;\n'
+     '        if (u64(from) + size > u64(rrChipMask) + 1) whole = true;\n'
+     '        lo = std::min(lo, from);\n'
+     '        hi = std::max(hi, from + size);\n'
+     '    }\n'
+     '    rrLo = whole ? 0 : lo;\n'
+     '    rrHi = whole ? 0xFFFFFFFF : hi;\n'
+     '    return true;\n'
+     '}\n\n'
+     '// The rest of a batched line back to vAmiga\'s events. The slots that ran stay; the marks of the others are removed. The\n'
+     '// caller ran the slots its own colour clock has already seen. computeBplEventTable schedules the slot itself.\n'
+     'void\nAgnus::rrBplMaterialise(bool reschedule)\n{\n'
+     '    if (!rrLazy) return;\n'
+     '    for (isize h = rrNext; h < HPOS_MAX; h = sequencer.nextBplEvent[h]) {\n'
+     '        if (isize(sequencer.bplEvent[h]) >> 2) busOwner[h] = BusOwner::NONE;\n'
+     '    }\n'
+     '    rrLazy = false;\n'
+     '    rrLines[2]++;\n'
+     '    if (reschedule) scheduleBplEventForCycle(pos.h);\n'
+     '}\n'),
+    ('Components/Agnus/Sequencer/SequencerBpl.cpp',
+     'Sequencer::computeBplEventTable(const SigRecorder &sr)\n{\n    // AGA takes the ECS path\n',
+     'Sequencer::computeBplEventTable(const SigRecorder &sr)\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the table is about to change: a batched line goes back to events.\n'
+     '    agnus.rrBplMaterialise(false);\n\n'
+     '    // AGA takes the ECS path\n'),
 ]
 
 # What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.

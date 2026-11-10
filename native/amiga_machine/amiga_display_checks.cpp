@@ -11,7 +11,9 @@
 //   * at every frame's end: the snapshot bytes of Agnus, Denise, Paula, both CIAs and the CPU, all of chip and slow RAM, the frame's
 //     sound, CLXDAT, and every row of vAmiga's texture.
 // A fault can be injected (`--fault ram|clock INDEX`): the comparison of the tool must see it. Text lines of the instructions around a
-// difference come with `--trace FROM COUNT`. The records show that two runs agree with each other, not that either matches the hardware.
+// difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events (Agnus step 2 off); the
+// summary line counts the lines batched, on events and given back midway. The records show that two runs agree with each other, not
+// that either matches the hardware.
 #include "vaconfig.h"
 #include "Emulator.h"
 #include "Amiga.h"
@@ -44,6 +46,8 @@ struct RrDisplayChecks {
     int fault_kind = 0;                          // 1: a bit of chip RAM flipped, 2: one extra colour clock
     uint64_t trace_from = ~0ull, trace_count = 0;
     uint32_t fault_address = 0;
+    uint64_t dump_frame = ~0ull;
+    const char *dump_path = nullptr;
 
     static inline RrDisplayChecks *self = nullptr;
 
@@ -102,7 +106,7 @@ static uint32_t le32(const std::vector<uint8_t> &b, size_t at) {
 int main(int argc, char **argv) {
     using namespace vamiga;
     if (argc < 3) {
-        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT]\n");
+        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot]\n");
         return 2;
     }
     static RrDisplayChecks c;
@@ -116,6 +120,12 @@ int main(int argc, char **argv) {
             c.trace_from = strtoull(argv[i + 1], nullptr, 10);
             c.trace_count = strtoull(argv[i + 2], nullptr, 10);
             i += 2;
+        } else if (!strcmp(argv[i], "--dump") && i + 2 < argc) {
+            c.dump_frame = strtoull(argv[i + 1], nullptr, 10);
+            c.dump_path = argv[i + 2];
+            i += 2;
+        } else if (!strcmp(argv[i], "--per-slot")) {
+            Agnus::rrBplBatching = false;
         } else {
             fprintf(stderr, "Unknown argument %s\n", argv[i]);
             return 2;
@@ -202,13 +212,22 @@ int main(int argc, char **argv) {
                 const uint64_t h = fnv(BASIS, px + (size_t)y * Tex::width, (size_t)Tex::width * sizeof(uint32_t));
                 fwrite(&h, 8, 1, record);
             }
+            if (frame == c.dump_frame && c.dump_path) {
+                if (FILE *d = fopen(c.dump_path, "wb")) {
+                    fwrite(px, sizeof(uint32_t), (size_t)Tex::width * rows, d);
+                    fclose(d);
+                }
+            }
         }
         const uint64_t total = c.steps.size();
         fwrite(&total, 8, 1, record);
         fwrite(c.steps.data(), 8, c.steps.size(), record);
         if (fclose(record)) { record = nullptr; throw std::runtime_error("Cannot write the record."); }
         record = nullptr;
-        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d}\n", frames, (unsigned long long)total, c.fault_kind);
+        const Agnus &agnus = amiga.agnus;
+        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu]}\n", frames, (unsigned long long)total,
+               c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1], (unsigned long long)agnus.rrLines[2],
+               (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1]);
     } catch (std::exception &e) {
         if (record) fclose(record);
         fprintf(stderr, "The scenario failed: %s\n", e.what());
