@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation (the last six experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation (the last five experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -113,7 +113,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.1.** The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure (ScummVM) is supported; the Amiga and the Game Boy Advance run more of their code natively. Every export of 1.7.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.2.** The PC Engine / TurboGrafx-16 is supported. On the Amiga, the code you reach while playing becomes native at the next conversion, and the Amiga and the Atari ST run more of their 68000 code natively. Exports of the PC Engine, the Amiga, the Atari ST and the PlayStation are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

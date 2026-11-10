@@ -7,7 +7,7 @@ rebuilt from the paths already learned, without replaying the exploration
 routes. Anything that can change which code a game runs, how it is translated
 or how it is validated still triggers a full conversion.
 
-This page keeps the rules, the current release, the one before it and the sections of 1.6.8. The detail of releases 1.6.9, 1.6.7 and 1.6.6 is in
+This page keeps the rules, the current release and the one before it, and still the sections of 1.7.0 and 1.6.8. The detail of releases 1.6.9, 1.6.7 and 1.6.6 is in
 [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md), and that of 1.6.5 and before in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md) (the same text,
 the same anchors).
 
@@ -79,6 +79,76 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.1 in 1.7.2
+
+1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
+section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
+computed on `main` on 10 November 2026.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Sony PlayStation: two discs at once no longer fetch Beetle PSX together](#sony-playstation-two-discs-at-once-no-longer-fetch-beetle-psx-together-172) | the PlayStation only (`920cf82497a6` to `4a3b197254a5`) | none | no key moves: the PlayStation key hashes the Beetle adaptation and the session files, which do not change |
+| [PC Engine / TurboGrafx-16: the larger capture format, shared paths, the walk repair, and the exit from the experimental status](#pc-engine--turbografx-16-the-larger-capture-format-shared-paths-the-walk-repair-and-the-exit-from-the-experimental-status-172) | the PC Engine only (each section gives its step) | none | the PC Engine key moves (the bridge and the engine revision change) |
+| [PC Engine / TurboGrafx-16: a Backup RAM beside the game](#pc-engine--turbografx-16-a-backup-ram-beside-the-game-172) | the PC Engine only (each section gives its step) | none | the PC Engine key moves (the bridge and the engine revision change) |
+| [Atari ST: Hatari's timer D patch on, and the native code compiled better](#atari-st-hataris-timer-d-patch-on-and-the-native-code-compiled-better-172) | the Atari ST only | none | the Atari ST key moves, as between any two Atari ST builds |
+| [Atari ST: a write after a seek without verify finds its sector](#atari-st-a-write-after-a-seek-without-verify-finds-its-sector-172) | the Atari ST only | none | the Atari ST key moves, as between any two Atari ST builds |
+| [Atari ST: Hatari's code specialised per opcode, and chained](#atari-st-hataris-code-specialised-per-opcode-and-chained-172) | the Atari ST only | its host stamp, through its notice (`licenses/hatari.md`) | the Atari ST key moves, as between any two Atari ST builds |
+| [PC Engine / TurboGrafx-16: the play route answers the game](#pc-engine--turbografx-16-the-play-route-answers-the-game-172) | the PC Engine only (each section gives its step) | none | the PC Engine key moves (the bridge and the engine revision change) |
+| [Commodore Amiga: the icon's DATA ToolType names the data folder](#commodore-amiga-the-icons-data-tooltype-names-the-data-folder-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a file the game saves reaches the disk whole or not at all](#commodore-amiga-a-file-the-game-saves-reaches-the-disk-whole-or-not-at-all-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a conversion that fails with remembered data is tried again without it](#commodore-amiga-a-conversion-that-fails-with-remembered-data-is-tried-again-without-it-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the report and the F2 menu say less than they did](#commodore-amiga-the-report-and-the-f2-menu-say-less-than-they-did-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the keyboard's power-up handshake is over when a slave starts](#commodore-amiga-the-keyboards-power-up-handshake-is-over-when-a-slave-starts-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the player's own record](#commodore-amiga-the-players-own-record-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the keyboard reaches a game that never enables its interrupt; F1-F4 on the long route](#commodore-amiga-the-keyboard-reaches-a-game-that-never-enables-its-interrupt-f1-f4-on-the-long-route-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a long route at the extended level](#commodore-amiga-a-long-route-at-the-extended-level-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the Blitter's copy blits, specialised routines by shape (recompilation stage 6)](#commodore-amiga-the-blitters-copy-blits-specialised-routines-by-shape-172-recompilation-stage-6) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a sweep beyond the routes (recompilation stage 4)](#commodore-amiga-a-sweep-beyond-the-routes-172-recompilation-stage-4) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: 68000 forms translated to C (recompilation stage 3)](#commodore-amiga-68000-forms-translated-to-c-172-recompilation-stage-3) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the instructions' lengths come from Moira, and no recompiler is needed](#commodore-amiga-the-instructions-lengths-come-from-moira-and-no-recompiler-is-needed-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: Moira's code specialised per opcode, and chained (recompilation stage 2)](#commodore-amiga-moiras-code-specialised-per-opcode-and-chained-172-recompilation-stage-2) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a debugging recorder off, the resload traps without breakpoints (recompilation stage 1)](#commodore-amiga-a-debugging-recorder-off-the-resload-traps-without-breakpoints-172-recompilation-stage-1) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the guard compares what the CPU has latched](#commodore-amiga-the-guard-compares-what-the-cpu-has-latched-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: Kickstart words a slave patched run native too](#commodore-amiga-kickstart-words-a-slave-patched-run-native-too-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: an archive with an intro or editor slave beside the game](#commodore-amiga-an-archive-with-an-intro-or-editor-slave-beside-the-game-172) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| Computers: full guest typing gives F1 to the guest, and the help page names Ctrl+Alt+K ([CONTROLS.md](CONTROLS.md); no section of this page) | none | the host stamps of the X68000, the Amiga and the Atari ST (the shared computer adapter and their own) | no key moves |
+| Atari ST: states that continue with their sound, disk writes kept beside the state, long routes, the panel ([ATARI_ST.md](ATARI_ST.md); no section of this page) | the Atari ST only | none | the Atari ST key moves |
+| Tests: the window and reconvert tests no longer write the player's real `Export/datas` (no section of this page) | none | none | none |
+
+Taken together (`compilation_inputs.role_stamps` of the seventeen profiles, the tree of `v1.7.1` against `main`, Windows, Python 3.14): **the game stamps of the PC Engine,
+the Amiga, the Atari ST and the PlayStation move**, **the host stamps of the X68000, the Amiga and the Atari ST move**, and **no build stamp moves**. Every other machine is
+unchanged.
+
+| Machine | Game stamp (v1.7.1, now) | Host stamp (v1.7.1, now) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `63c93fcb0264` (same) | `62a7e9f65d83` (same) | `fe2d99b3cd5e` (same) |
+| Game Gear | `70eafce5937a` (same) | `fa5e7fa22b05` (same) | `f5671c38cf26` (same) |
+| Game Boy | `b218f94d2c75` (same) | `2a0942586a4a` (same) | `819a054ad881` (same) |
+| NES | `af5a3a096738` (same) | `39c36bfa861a` (same) | `8e0941f93b43` (same) |
+| Mega Drive | `ed3a49ab59a8` (same) | `8f4324fbcb85` (same) | `9615ff2e96c8` (same) |
+| Super Nintendo | `064bd8544d76` (same) | `d35383911455` (same) | `3f0a58ad3c7c` (same) |
+| Neo Geo | `b45ca489a2c9` (same) | `f1fde4b7a652` (same) | `110349f043bd` (same) |
+| X68000 | `107b51de2145` (same) | `55ac9db11502`, `be9dae27aacf` | `5903c0449429` (same) |
+| CPS-1 | `28dd85714948` (same) | `0220746ac9ad` (same) | `2782cd370f91` (same) |
+| CPS-2 | `cb7b5d304275` (same) | `7889559074ad` (same) | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `ebcbc2a403cd`, `aa7913b68d39` | `3da7363bd893` (same) | `66d912662e5c` (same) |
+| Game Boy Advance | `1658c523234f` (same) | `7b18d021f143` (same) | `6b70933a9b0a` (same) |
+| Amiga | `ba01a0a7e76e`, `6854eee76d0e` | `b264a452712e`, `8ca835ce1027` | `92ca8a0c142c` (same) |
+| Atari ST | `fa09328f914f`, `e6f3506a6be7` | `f8a69516f53e`, `3b7c6f50488a` | `54b75964897d` (same) |
+| Nintendo 64 | `ec87144eb331` (same) | `3c4f6ccca458` (same) | `4f6fedf926c7` (same) |
+| Adventure (ScummVM) | `42dfc172e91c` (same) | `82088d749a09` (same) | `05417bbcea96` (same) |
+| Sony PlayStation | `920cf82497a6`, `4a3b197254a5` | `5dbdb5df79ca` (same) | `b6c9cf73b176` (same) |
+
+(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.1 of the PC Engine, the Amiga, the Atari ST and the PlayStation is
+converted again, from its qualified paths, once, when the player updates**, and the window offers it; it is not a quick host-only upgrade. **An X68000 export is upgraded**: its
+host stamp alone moves, so it is rebuilt from its paths with no rediscovery. The exports of the other machines are not touched.
+
+**Quick states.** The **PC Engine key moves** (it hashes the engine revision and the bridge files `pce_machine.cpp`, `pce_machine.h` and `pce_main.c`, which change), and the
+**Amiga and Atari ST keys move** (each follows its machine's build, which changes): a quick state of 1.7.1 of those three machines is refused cleanly (no compatibility key is
+carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The **PlayStation key does not move**: its game stamp moves for the setup gate, but the key hashes the
+Beetle adaptation and the session files, which do not change, so a PlayStation state of 1.7.1 loads in the rebuilt export. The X68000 key hashes none of the files that changed (the
+change is in the host adapter). The other machines are not rebuilt. **Cartridge saves** are kept on every machine, and the PC Engine's new Backup RAM file starts formatted.
+
 ## Sony PlayStation: two discs at once no longer fetch Beetle PSX together (1.7.2)
 
 The pinned Beetle PSX checkout in `.deps` is shared by every disc, but only the game's own work folder was locked. Two discs converted at once on a fresh `.deps` could both clone it. Fetching it now goes through the shared setup gate, as the other machines' setups do. Nothing changes in the machine or in a game.
@@ -132,155 +202,6 @@ Atari ST's game stamp, and its host stamp through its notice (`licenses/hatari.m
 The first panel pressed Run at fixed frames, and on 7 of 18 cards the play route then stayed on a menu, a story, a sound test or a password screen while every check passed. The conversion now tries 1, 2, 3, 4 and 6 Run presses, walks with the directions only for 900 frames (so a password screen is not typed into), keeps the variant whose walk showed the most pictures that the same frames without input never show, and presses Run twice now and then to leave stories and prompts (`pce_conversion.start_candidates`, `reach`, `choose_start`). Quick states are checked with 13 damaged states (all refused and left as they were) and a missing one (refused, creates nothing). The line printed when a game is ready says "no interpreter on the routes played" instead of "native code only", and the profile's scope note says a converted game is built for two players.
 
 **What moves:** only the PC Engine's game stamp (`pce_conversion.py` and `systems/pc_engine.py` are inputs of it): game `750e062dca69` (it was `ebcbc2a403cd` on main); its host and build stamps and every other console's stamps do not. A PC Engine export of an earlier version is rebuilt when it is upgraded: the routes it was checked on change, the game does not. Tools only, no stamp: `tools/pce_mame_compare.py` (the delivered game against MAME 0.289, a private oracle), `tools/pce_route_captures.py` (pictures along each route) and the native vector tier widened on request (`--per-opcode 250`). Evidence: [PC_ENGINE.md](PC_ENGINE.md#the-extended-panel-9-november-2026).
-
-## Exports of 1.7.0 in 1.7.1
-
-1.7.1 is the release after 1.7.0 (published on 7 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
-section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
-computed on `main` on 8 November 2026.
-
-| Change | Game stamps that move | Host and build stamps | Quick states |
-| --- | --- | --- | --- |
-| [Adventure games (ScummVM): the options page, the keys and the supported status](#adventure-games-scummvm-the-options-page-the-keys-and-the-supported-status-171) | the Adventure (ScummVM) game stamp, and nothing else in that section | the Adventure (ScummVM) build stamp (`97d9ad0da628` to `fd819f80e824`) | no key moves; the saves are ScummVM's own, in `datas/` |
-| [Host kit and resources: two small shared changes](#host-kit-and-resources-two-small-shared-changes-171) | **every machine's game stamp** (already moving in 1.7.1, so no conversion on top) | **every machine's host stamp** (already moving in 1.7.1); no build stamp | no key moves (the Mega Drive, Super Nintendo and CPS keys hash none of these files) |
-| [Sony PlayStation opens as an experimental machine](#sony-playstation-opens-as-an-experimental-machine-171) | a new machine: the PlayStation stamps are new | its own | its key is new |
-| [Atari ST opens as an experimental machine](ATARI_ST.md) (no section of this page; the facts are on the machine page) | a new machine: the Atari ST stamps are new | its own | its key is new |
-| [Nintendo 64 opens as an experimental machine](NINTENDO_64.md) (no section of this page; the facts are on the machine page) | a new machine: the Nintendo 64 stamps are new | its own | its key is new |
-| [Game Boy Advance: guarded native RAM code](GAME_BOY_ADVANCE.md#code-the-cartridge-does-not-hold-guarded-native-ram-code-7-november-2026) (no section of this page) | the Game Boy Advance | none stated | not stated |
-| [Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock](#commodore-amiga-examine-no-longer-overwrites-the-memory-behind-a-slaves-fileinfoblock-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: a route the game ends itself](#commodore-amiga-a-route-the-game-ends-itself-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad](#commodore-amiga-the-icons-custom1-to-5-names-with-accents-a-larger-expmem-and-basemem-a-registered-whdload-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image](#commodore-amiga-the-kickstarts-code-runs-as-guarded-native-steps-written-from-the-players-own-image-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: CIA-B enters the slave as the system leaves it](#commodore-amiga-cia-b-enters-the-slave-as-the-system-leaves-it-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: the chipset's collision detection is on](#commodore-amiga-the-chipsets-collision-detection-is-on-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: the window says so when the whole run is interpreted](#commodore-amiga-the-window-says-so-when-the-whole-run-is-interpreted-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-| [Commodore Amiga: a quick state continues the sound sample for sample](#commodore-amiga-a-quick-state-continues-the-sound-sample-for-sample-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
-
-Taken together (`compilation_inputs.role_stamps` of the seventeen profiles, the tree of `v1.7.0` against `main`): **the game stamp and the host stamp of all fourteen earlier profiles move**
-(the thirteen machines of 1.7.0 and Adventure (ScummVM)), and **no build stamp moves except the Adventure (ScummVM) one**. The Atari ST, the Nintendo 64 and the PlayStation are new, with
-stamps of their own. The sections above that say "no other console's stamp moves" were computed before the three machines joined the registry and the notices; the sum is larger than
-any of them.
-
-| Machine | Game stamp (v1.7.0, now) | Host stamp (v1.7.0, now) | Build stamp |
-| --- | --- | --- | --- |
-| Master System | `ffb447e12968`, `63c93fcb0264` | `4c698ce40729`, `62a7e9f65d83` | `fe2d99b3cd5e` (same) |
-| Game Gear | `9f3d2cd547bb`, `70eafce5937a` | `9e302b729213`, `fa5e7fa22b05` | `f5671c38cf26` (same) |
-| Game Boy | `1c847126de1d`, `b218f94d2c75` | `d03f39763f54`, `2a0942586a4a` | `819a054ad881` (same) |
-| NES | `88240b6d2e3b`, `af5a3a096738` | `a91c8c6c0d28`, `39c36bfa861a` | `8e0941f93b43` (same) |
-| Mega Drive | `3c62c2e5c7a3`, `ed3a49ab59a8` | `b45d74b5e78f`, `8f4324fbcb85` | `9615ff2e96c8` (same) |
-| Super Nintendo | `0bc2b194ed99`, `064bd8544d76` | `ebe78ef356a1`, `d35383911455` | `3f0a58ad3c7c` (same) |
-| Neo Geo | `328279cbfc1c`, `b45ca489a2c9` | `098ae12034e1`, `f1fde4b7a652` | `110349f043bd` (same) |
-| X68000 | `d42bb1882a76`, `107b51de2145` | `4cc410c21d5a`, `55ac9db11502` | `5903c0449429` (same) |
-| CPS-1 | `b2ef983bc3fd`, `28dd85714948` | `ff2e8295501f`, `0220746ac9ad` | `2782cd370f91` (same) |
-| CPS-2 | `71a11548e45d`, `cb7b5d304275` | `7f31bbdfb091`, `7889559074ad` | `81a51ad49349` (same) |
-| PC Engine / TurboGrafx-16 | `78f5641c38ec`, `ebcbc2a403cd` | `bdcc346995e1`, `3da7363bd893` | `66d912662e5c` (same) |
-| Game Boy Advance | `05e06c23687a`, `1658c523234f` | `f94b7ff7c92f`, `7b18d021f143` | `6b70933a9b0a` (same) |
-| Amiga | `ff35e3b8af69`, `ba01a0a7e76e` | `136af9f804ed`, `b264a452712e` | `92ca8a0c142c` (same) |
-| Atari ST | new, `fa09328f914f` | new, `f8a69516f53e` | new, `54b75964897d` |
-| Nintendo 64 | new, `ec87144eb331` | new, `3c4f6ccca458` | new, `4f6fedf926c7` |
-| Adventure (ScummVM) | `be8047b230ac`, `42dfc172e91c` | `4a96d24af08d`, `82088d749a09` | `97d9ad0da628`, `05417bbcea96` |
-| Sony PlayStation | new, `920cf82497a6` | new, `5dbdb5df79ca` | new, `b6c9cf73b176` |
-
-(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.0, on every machine, is converted again, from its qualified paths, once, when the
-player updates**, and the window offers it; it is not a quick host-only upgrade.
-
-**Quick states.** The **Mega Drive and Super Nintendo keys move** (`native/runtime_catalog.inc` and `native/runtime_feedback.h`, which those two keys hash, changed): a quick state of 1.7.0 of
-those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The **Amiga's key moves** with its sound-carrying state (an
-earlier Amiga state is refused). The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the X68000 hash none of the files that changed, so their states of 1.7.0 load; the
-Master System, Game Gear and Game Boy have no such key. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
-
-## Adventure games (ScummVM): the options page, the keys and the supported status (1.7.1)
-
-"Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md)) leaves the experimental status on the owner's decision of 7 November 2026: `retrorecomp/systems/scummvm.py` says `supported`, the
-interface note and the documents follow in the eight languages, and the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here) because the qualification matrix
-(gates G1 to G16, risk cases, shared paths) is made for recompiled machines; `tests/test_machine_registry.py` asks of an emulated supported category a Linux witness and that page,
-instead. The same release carries the options page and the keys of the game (the ScummVM patch `0002-retrorecomp-options-page.patch`, [SCUMMVM.md](SCUMMVM.md)).
-
-**What moves.** `compilation_inputs.role_stamps` of the fourteen machines on the tree before the status (`fa196008`) and on this one: **only the Adventure (ScummVM) game stamp**,
-`4e3367b550d2` before, `0369d5533936` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
-released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80e824` (`scummvm_build.py` finds `.deps` from a packaged exe); the host stamps and the build stamps of every other machine do not move, and no other game stamp moves.
-
-**The ScummVM pack and the CMake fix** move those two stamps again, and only those: game `aa2b67d2bcd4` to `8af339f2af21` (`systems/scummvm.py`, `scummvm_export.py`), build `fd819f80e824` to `de9fefa86a8b` (`scummvm_build.py`). The button itself is interface code (`gui_options.py`, `i18n.py`), which no stamp hashes. A runtime that is already current is not rebuilt; a stale one starts from a new build folder the first time, because folders made before this version carry no record of how they were configured.
-
-**The menu colours** (`0003-retrorecomp-theme-colours.patch`, `_pack_theme` in `scummvm_build.py`) move the same two stamps once more, and only those: game `8af339f2af21` to `42dfc172e91c`, build `de9fefa86a8b` to `05417bbcea96`. The patch digest is part of every runtime's identity, so each engine family's runtime is rebuilt by its next conversion.
-
-**Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
-none moves, a game's saves are ScummVM's own, in `datas/`.
-
-## Host kit and resources: two small shared changes (1.7.1)
-
-**What moves.** The game and host stamps of every machine, compared entry by entry before and after. They move in 1.7.1 anyway, so no export is converted again because of this alone. No build stamp moves. The quick-state keys of the Mega Drive, the Super Nintendo and the CPS boards hash none of these files.
-
-**What changes.** Off Windows, `resources.embed_resources` no longer rewrites its three generated files with the same bytes, so a second preparation of a game relinks nothing; the Game Boy Advance's local workaround is gone. On Windows it does nothing, as before. `rrhk_action_pressed` and `rrhk_action_held` give an adapter the actions it handles itself, as the player bound them: the PlayStation's Analog button and the Nintendo 64's Stick actions use them, and neither adapter includes `hostkit_internal.h` any more. The rules are those the adapters had. `RrhkMachine.native_caption` names the window title's words while nothing is interpreted: the PlayStation, the Nintendo 64, the Atari ST and the Amiga say "Native CPU, emulated hardware", every other machine still "Native code".
-
-**Checked.** The unit test of the embedding (on Windows, through `write_embedding`) and the kit's capabilities self-test with a virtual controller. **Not checked yet:** a game of either machine played or converted with these calls, and the embedding on Linux; both belong to the release checks.
-
-## Sony PlayStation opens as an experimental machine (1.7.1)
-
-The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to players as an **experimental** machine. No export of
-it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none. The machine is Beetle
-PSX, pinned and fetched on the first conversion, with anchored changes listed in `psx_beetle.REPLACEMENTS`; the game executable
-is GPL-2.0 as a whole. Its files are game inputs of `psx` alone: no other console's stamp moves for them.
-
-## Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock (1.7.1)
-
-Installs that load their files through the slave's own operating-system emulation (the `Examine` flag: 1,180 of the 2,967
-Amiga 500 installs of the maintainer's library that the profile reads, 1,040 of them with a Kickstart) stopped at boot with
-"not enough memory" (AmigaDOS 103). The cause, found by tracing exec: the emulation calls `resload_Examine` with a
-FileInfoBlock that has only 240 bytes before the next free chunk; the layer cleared and wrote all 260 bytes of a
-FileInfoBlock, zeroing that chunk's header, so exec's fast-memory list held one chunk of size 0 and every later
-allocation failed. `Examine` and `ExNext` now write only the fields they have values for (the name up to its NUL, the
-sizes, the date, an empty comment) and leave the rest of the buffer alone. Another World (FR) and 4D Sports Boxing, the
-two cases Arthur met, run; so do Maniac Mansion, Monkey Island 2 and Beneath a Steel Sky (the first two and the last
-stopped before the change). **What moves:** the Amiga's game stamp (`native/amiga_whdload/rr_resload.c`); no other console.
-
-## Commodore Amiga: a route the game ends itself (1.7.1)
-
-A scripted route may make a game quit through its own menu (`resload_Abort` with `TDREASON_OK`): 4D Sports Boxing does so at
-frame 1,702 of the exploration route. Such a reference run is accepted when it lasted at least 1,000 frames; every later run of
-that route (native passes, the compressed copy, the quick-state continuation) must end the same way, and its trace and resload
-log, the final call included, must equal the reference's. The report marks the route `ended_by_game` with the frames it ran.
-Any other stop still fails the conversion. **What moves:** the Amiga's game stamp (`amiga_conversion.py`, the session and the
-player); no other console.
-
-## Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad (1.7.1)
-
-Four changes to what a slave may ask of the layer, found by running 24 installs of the library headless with the player's
-Kickstart 1.3. **CUSTOM1 to CUSTOM5** are read from the install's own icon (`<slave>.info`, its ToolTypes, as WHDLoad does; a
-ToolType in parentheses is off) and answered to `resload_Control`; there is no per-game setting in the window. 432 of the 2,967
-installs carry one (413 CUSTOM1); Might & Magic 3 (DE) needs CUSTOM1=2 to start. **Names**: a guest name is ISO-8859-1 and the
-install's file name UTF-8; they are converted both ways (23 archives have accents), so a slave finds a file it names with an
-accent. **Memory**: an ExpMem that does not fit the 1.5 MiB of slow RAM (88 installs of the library did not fit) is given to a
-Zorro II fast RAM board configured at `$200000` (up to 8 MiB), with the slave area staying in slow RAM; a BaseMem above 1 MiB
-gets 2 MiB of chip RAM (3 installs). 72 of the 88 now fit (59 of them with Kickstart 1.x); the other 16 need a 512 KiB
-Kickstart (a later step). **Registered**: 198 slaves of the library name
-the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer for non-zero (zero makes them stop with
-`TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
-WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
-picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
-Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit as written in
-1.7.1, corrected in 1.7.2:** this note blamed a 68020 for three installs that stop at boot; the real WHDLoad boots them on a 68000 (see
-the 1.7.2 entry on the keyboard's handshake).
-**What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
-console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image (1.7.1)
-
-An install that runs with the player's Kickstart spent most of its instructions in the Kickstart (81 to 98 % in Might & Magic 3,
-Civilization and Skidmarks), all on the counted interpreter. The player now observes the Kickstart's instructions by **address
-only**; the conversion keeps those addresses in the private memory of that image (`converter-kickstart-addresses.txt`, numbers,
-never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
-player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
-counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
-nothing derived from the image is shared, and the observation file and the library hold addresses only (**changed in 1.7.2:** the run's own
-observation of the Kickstart keeps the words as they stood, a slave's patches included, in the conversion's private work folder only; the library
-still keeps the addresses alone). **Measure** (Civilization,
-the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
-quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
-native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
-reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
-(`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: the icon's DATA ToolType names the data folder (1.7.2)
 
@@ -438,6 +359,155 @@ Kickstart instructions interpreted on the main route become 19 of 4.42 million; 
 An archive with several slaves was refused. The slave named as the install's own folder is now the game, the others staying aside (`Superfrog/Superfrog.slave` beside
 `SuperfrogIntro.slave`): 17 of the 25 such archives of the maintainer's library. A collection where no single slave is so named stays refused, never guessed.
 **What moves:** the Amiga's game stamp; an install that was refused converts; nothing else changes.
+
+## Exports of 1.7.0 in 1.7.1
+
+1.7.1 is the release after 1.7.0 (published on 7 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
+section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
+computed on `main` on 8 November 2026.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Adventure games (ScummVM): the options page, the keys and the supported status](#adventure-games-scummvm-the-options-page-the-keys-and-the-supported-status-171) | the Adventure (ScummVM) game stamp, and nothing else in that section | the Adventure (ScummVM) build stamp (`97d9ad0da628` to `fd819f80e824`) | no key moves; the saves are ScummVM's own, in `datas/` |
+| [Host kit and resources: two small shared changes](#host-kit-and-resources-two-small-shared-changes-171) | **every machine's game stamp** (already moving in 1.7.1, so no conversion on top) | **every machine's host stamp** (already moving in 1.7.1); no build stamp | no key moves (the Mega Drive, Super Nintendo and CPS keys hash none of these files) |
+| [Sony PlayStation opens as an experimental machine](#sony-playstation-opens-as-an-experimental-machine-171) | a new machine: the PlayStation stamps are new | its own | its key is new |
+| [Atari ST opens as an experimental machine](ATARI_ST.md) (no section of this page; the facts are on the machine page) | a new machine: the Atari ST stamps are new | its own | its key is new |
+| [Nintendo 64 opens as an experimental machine](NINTENDO_64.md) (no section of this page; the facts are on the machine page) | a new machine: the Nintendo 64 stamps are new | its own | its key is new |
+| [Game Boy Advance: guarded native RAM code](GAME_BOY_ADVANCE.md#code-the-cartridge-does-not-hold-guarded-native-ram-code-7-november-2026) (no section of this page) | the Game Boy Advance | none stated | not stated |
+| [Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock](#commodore-amiga-examine-no-longer-overwrites-the-memory-behind-a-slaves-fileinfoblock-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: a route the game ends itself](#commodore-amiga-a-route-the-game-ends-itself-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad](#commodore-amiga-the-icons-custom1-to-5-names-with-accents-a-larger-expmem-and-basemem-a-registered-whdload-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image](#commodore-amiga-the-kickstarts-code-runs-as-guarded-native-steps-written-from-the-players-own-image-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: CIA-B enters the slave as the system leaves it](#commodore-amiga-cia-b-enters-the-slave-as-the-system-leaves-it-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the chipset's collision detection is on](#commodore-amiga-the-chipsets-collision-detection-is-on-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: the window says so when the whole run is interpreted](#commodore-amiga-the-window-says-so-when-the-whole-run-is-interpreted-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+| [Commodore Amiga: a quick state continues the sound sample for sample](#commodore-amiga-a-quick-state-continues-the-sound-sample-for-sample-171) | the Amiga only (each section says so) | none | the Amiga's key moves where the section says so (a state of an earlier Amiga build is refused cleanly) |
+
+Taken together (`compilation_inputs.role_stamps` of the seventeen profiles, the tree of `v1.7.0` against `main`): **the game stamp and the host stamp of all fourteen earlier profiles move**
+(the thirteen machines of 1.7.0 and Adventure (ScummVM)), and **no build stamp moves except the Adventure (ScummVM) one**. The Atari ST, the Nintendo 64 and the PlayStation are new, with
+stamps of their own. The sections above that say "no other console's stamp moves" were computed before the three machines joined the registry and the notices; the sum is larger than
+any of them.
+
+| Machine | Game stamp (v1.7.0, now) | Host stamp (v1.7.0, now) | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `ffb447e12968`, `63c93fcb0264` | `4c698ce40729`, `62a7e9f65d83` | `fe2d99b3cd5e` (same) |
+| Game Gear | `9f3d2cd547bb`, `70eafce5937a` | `9e302b729213`, `fa5e7fa22b05` | `f5671c38cf26` (same) |
+| Game Boy | `1c847126de1d`, `b218f94d2c75` | `d03f39763f54`, `2a0942586a4a` | `819a054ad881` (same) |
+| NES | `88240b6d2e3b`, `af5a3a096738` | `a91c8c6c0d28`, `39c36bfa861a` | `8e0941f93b43` (same) |
+| Mega Drive | `3c62c2e5c7a3`, `ed3a49ab59a8` | `b45d74b5e78f`, `8f4324fbcb85` | `9615ff2e96c8` (same) |
+| Super Nintendo | `0bc2b194ed99`, `064bd8544d76` | `ebe78ef356a1`, `d35383911455` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `328279cbfc1c`, `b45ca489a2c9` | `098ae12034e1`, `f1fde4b7a652` | `110349f043bd` (same) |
+| X68000 | `d42bb1882a76`, `107b51de2145` | `4cc410c21d5a`, `55ac9db11502` | `5903c0449429` (same) |
+| CPS-1 | `b2ef983bc3fd`, `28dd85714948` | `ff2e8295501f`, `0220746ac9ad` | `2782cd370f91` (same) |
+| CPS-2 | `71a11548e45d`, `cb7b5d304275` | `7f31bbdfb091`, `7889559074ad` | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `78f5641c38ec`, `ebcbc2a403cd` | `bdcc346995e1`, `3da7363bd893` | `66d912662e5c` (same) |
+| Game Boy Advance | `05e06c23687a`, `1658c523234f` | `f94b7ff7c92f`, `7b18d021f143` | `6b70933a9b0a` (same) |
+| Amiga | `ff35e3b8af69`, `ba01a0a7e76e` | `136af9f804ed`, `b264a452712e` | `92ca8a0c142c` (same) |
+| Atari ST | new, `fa09328f914f` | new, `f8a69516f53e` | new, `54b75964897d` |
+| Nintendo 64 | new, `ec87144eb331` | new, `3c4f6ccca458` | new, `4f6fedf926c7` |
+| Adventure (ScummVM) | `be8047b230ac`, `42dfc172e91c` | `4a96d24af08d`, `82088d749a09` | `97d9ad0da628`, `05417bbcea96` |
+| Sony PlayStation | new, `920cf82497a6` | new, `5dbdb5df79ca` | new, `b6c9cf73b176` |
+
+(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.0, on every machine, is converted again, from its qualified paths, once, when the
+player updates**, and the window offers it; it is not a quick host-only upgrade.
+
+**Quick states.** The **Mega Drive and Super Nintendo keys move** (`native/runtime_catalog.inc` and `native/runtime_feedback.h`, which those two keys hash, changed): a quick state of 1.7.0 of
+those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The **Amiga's key moves** with its sound-carrying state (an
+earlier Amiga state is refused). The keys of the NES, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the X68000 hash none of the files that changed, so their states of 1.7.0 load; the
+Master System, Game Gear and Game Boy have no such key. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
+
+## Adventure games (ScummVM): the options page, the keys and the supported status (1.7.1)
+
+"Adventure (ScummVM)" ([SCUMMVM.md](SCUMMVM.md)) leaves the experimental status on the owner's decision of 7 November 2026: `retrorecomp/systems/scummvm.py` says `supported`, the
+interface note and the documents follow in the eight languages, and the criteria are written in [SCUMMVM.md](SCUMMVM.md#what-supported-means-here) because the qualification matrix
+(gates G1 to G16, risk cases, shared paths) is made for recompiled machines; `tests/test_machine_registry.py` asks of an emulated supported category a Linux witness and that page,
+instead. The same release carries the options page and the keys of the game (the ScummVM patch `0002-retrorecomp-options-page.patch`, [SCUMMVM.md](SCUMMVM.md)).
+
+**What moves.** `compilation_inputs.role_stamps` of the fourteen machines on the tree before the status (`fa196008`) and on this one: **only the Adventure (ScummVM) game stamp**,
+`4e3367b550d2` before, `0369d5533936` after (the profile is a game input of that machine only; the options-page patch was already counted in `4e3367b550d2`, which replaced the
+released `be8047b230ac`). Its build stamp moves too, `97d9ad0da628` to `fd819f80e824` (`scummvm_build.py` finds `.deps` from a packaged exe); the host stamps and the build stamps of every other machine do not move, and no other game stamp moves.
+
+**The ScummVM pack and the CMake fix** move those two stamps again, and only those: game `aa2b67d2bcd4` to `8af339f2af21` (`systems/scummvm.py`, `scummvm_export.py`), build `fd819f80e824` to `de9fefa86a8b` (`scummvm_build.py`). The button itself is interface code (`gui_options.py`, `i18n.py`), which no stamp hashes. A runtime that is already current is not rebuilt; a stale one starts from a new build folder the first time, because folders made before this version carry no record of how they were configured.
+
+**The menu colours** (`0003-retrorecomp-theme-colours.patch`, `_pack_theme` in `scummvm_build.py`) move the same two stamps once more, and only those: game `8af339f2af21` to `42dfc172e91c`, build `de9fefa86a8b` to `05417bbcea96`. The patch digest is part of every runtime's identity, so each engine family's runtime is rebuilt by its next conversion.
+
+**Exports.** An adventure executable of 1.7.0 is converted again when its game stamp is checked (it has the old options and no Ctrl+F1 to Ctrl+F4); no other export is. **Quick states** and **cartridge saves**:
+none moves, a game's saves are ScummVM's own, in `datas/`.
+
+## Host kit and resources: two small shared changes (1.7.1)
+
+**What moves.** The game and host stamps of every machine, compared entry by entry before and after. They move in 1.7.1 anyway, so no export is converted again because of this alone. No build stamp moves. The quick-state keys of the Mega Drive, the Super Nintendo and the CPS boards hash none of these files.
+
+**What changes.** Off Windows, `resources.embed_resources` no longer rewrites its three generated files with the same bytes, so a second preparation of a game relinks nothing; the Game Boy Advance's local workaround is gone. On Windows it does nothing, as before. `rrhk_action_pressed` and `rrhk_action_held` give an adapter the actions it handles itself, as the player bound them: the PlayStation's Analog button and the Nintendo 64's Stick actions use them, and neither adapter includes `hostkit_internal.h` any more. The rules are those the adapters had. `RrhkMachine.native_caption` names the window title's words while nothing is interpreted: the PlayStation, the Nintendo 64, the Atari ST and the Amiga say "Native CPU, emulated hardware", every other machine still "Native code".
+
+**Checked.** The unit test of the embedding (on Windows, through `write_embedding`) and the kit's capabilities self-test with a virtual controller. **Not checked yet:** a game of either machine played or converted with these calls, and the embedding on Linux; both belong to the release checks.
+
+## Sony PlayStation opens as an experimental machine (1.7.1)
+
+The Sony PlayStation (profile `psx`, [PLAYSTATION.md](PLAYSTATION.md)) opens to players as an **experimental** machine. No export of
+it exists before this release, so nothing is upgraded. It takes no path from the shared base and gives none. The machine is Beetle
+PSX, pinned and fetched on the first conversion, with anchored changes listed in `psx_beetle.REPLACEMENTS`; the game executable
+is GPL-2.0 as a whole. Its files are game inputs of `psx` alone: no other console's stamp moves for them.
+
+## Commodore Amiga: Examine no longer overwrites the memory behind a slave's FileInfoBlock (1.7.1)
+
+Installs that load their files through the slave's own operating-system emulation (the `Examine` flag: 1,180 of the 2,967
+Amiga 500 installs of the maintainer's library that the profile reads, 1,040 of them with a Kickstart) stopped at boot with
+"not enough memory" (AmigaDOS 103). The cause, found by tracing exec: the emulation calls `resload_Examine` with a
+FileInfoBlock that has only 240 bytes before the next free chunk; the layer cleared and wrote all 260 bytes of a
+FileInfoBlock, zeroing that chunk's header, so exec's fast-memory list held one chunk of size 0 and every later
+allocation failed. `Examine` and `ExNext` now write only the fields they have values for (the name up to its NUL, the
+sizes, the date, an empty comment) and leave the rest of the buffer alone. Another World (FR) and 4D Sports Boxing, the
+two cases Arthur met, run; so do Maniac Mansion, Monkey Island 2 and Beneath a Steel Sky (the first two and the last
+stopped before the change). **What moves:** the Amiga's game stamp (`native/amiga_whdload/rr_resload.c`); no other console.
+
+## Commodore Amiga: a route the game ends itself (1.7.1)
+
+A scripted route may make a game quit through its own menu (`resload_Abort` with `TDREASON_OK`): 4D Sports Boxing does so at
+frame 1,702 of the exploration route. Such a reference run is accepted when it lasted at least 1,000 frames; every later run of
+that route (native passes, the compressed copy, the quick-state continuation) must end the same way, and its trace and resload
+log, the final call included, must equal the reference's. The report marks the route `ended_by_game` with the frames it ran.
+Any other stop still fails the conversion. **What moves:** the Amiga's game stamp (`amiga_conversion.py`, the session and the
+player); no other console.
+
+## Commodore Amiga: the icon's CUSTOM1 to 5, names with accents, a larger ExpMem and BaseMem, a registered WHDLoad (1.7.1)
+
+Four changes to what a slave may ask of the layer, found by running 24 installs of the library headless with the player's
+Kickstart 1.3. **CUSTOM1 to CUSTOM5** are read from the install's own icon (`<slave>.info`, its ToolTypes, as WHDLoad does; a
+ToolType in parentheses is off) and answered to `resload_Control`; there is no per-game setting in the window. 432 of the 2,967
+installs carry one (413 CUSTOM1); Might & Magic 3 (DE) needs CUSTOM1=2 to start. **Names**: a guest name is ISO-8859-1 and the
+install's file name UTF-8; they are converted both ways (23 archives have accents), so a slave finds a file it names with an
+accent. **Memory**: an ExpMem that does not fit the 1.5 MiB of slow RAM (88 installs of the library did not fit) is given to a
+Zorro II fast RAM board configured at `$200000` (up to 8 MiB), with the slave area staying in slow RAM; a BaseMem above 1 MiB
+gets 2 MiB of chip RAM (3 installs). 72 of the 88 now fit (59 of them with Kickstart 1.x); the other 16 need a 512 KiB
+Kickstart (a later step). **Registered**: 198 slaves of the library name
+the undocumented `resload_Control` tag `WHDLTAG_Private3` and test its answer for non-zero (zero makes them stop with
+`TDREASON_MUSTREG`, "WHDLoad must be registered", or skip patches); it is answered 1, a value of ours, not one read from
+WHDLoad. Civilization, which stopped with that reason, runs. **Measure:** headless, interpreted, 1,500 frames, each with a
+picture: Settlers, Conquests of the Longbow, Civilization, Ambermoon, Kings Quest 5, UFO Enemy Unknown, Zeewolf, Skidmarks,
+Cyber Games (native code, CPU fidelity, hardware fidelity and gameplay are not measured by this run). **Known limit as written in
+1.7.1, corrected in 1.7.2:** this note blamed a 68020 for three installs that stop at boot; the real WHDLoad boots them on a 68000 (see
+the 1.7.2 entry on the keyboard's handshake).
+**What moves:** the Amiga's game stamp (`amiga_session.cpp`, `rr_resload.c`, `amiga_player.c`, `amiga_conversion.py`); no other
+console. **Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the Kickstart's code runs as guarded native steps, written from the player's own image (1.7.1)
+
+An install that runs with the player's Kickstart spent most of its instructions in the Kickstart (81 to 98 % in Might & Magic 3,
+Civilization and Skidmarks), all on the counted interpreter. The player now observes the Kickstart's instructions by **address
+only**; the conversion keeps those addresses in the private memory of that image (`converter-kickstart-addresses.txt`, numbers,
+never a byte, one folder per image identity) and, when it writes the guarded steps, reads the words of each instruction from the
+player's own image in memory. The steps keep the live-word guard of every step, so a Kickstart word a slave patched falls back to the
+counted interpreter. The generated source and the game built from it exist only in that player's private work folder and export;
+nothing derived from the image is shared, and the observation file and the library hold addresses only (**changed in 1.7.2:** the run's own
+observation of the Kickstart keeps the words as they stood, a slave's patches included, in the conversion's private work folder only; the library
+still keeps the addresses alone). **Measure** (Civilization,
+the real converter, two routes of 3,600 frames, validated against the fresh interpreted reference, the compressed copy and the
+quick state): the interpreted share fell from 97.7 % to 0.34 % (14,988 Kickstart instructions still interpreted, 4.30 million
+native on the main route). This is the native-code measure only; CPU fidelity is the frame-by-frame equality with the interpreted
+reference on those scripts, and hardware fidelity, gameplay and latency are not measured. **What moves:** the Amiga's game stamp
+(`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`); no other console, and no shared 68000 file or path format is touched.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: CIA-B enters the slave as the system leaves it (1.7.1)
 
