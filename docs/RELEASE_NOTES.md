@@ -64,7 +64,11 @@
 - **Known failures.** The Linux start crash of a compressed game is UPX 5.3.0's own,
   [upx/upx#18967](https://github.com/upx/upx/issues/18967) ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
 
-**Speed.** [mesure de coût par image 1.7.2 contre 1.7.1 à venir]
+**Speed.** Measured on a quiet PC against 1.7.1, one pinned core, three runs of 1,200 frames:
+Lotus 2 (Amiga) 0.80 and Bomb Jack (Atari ST) 0.86 of their 1.7.1 time per frame, with Mega Man X2
+(Super Nintendo, code unchanged) at 1.00 as the witness ([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)).
+These are host costs per frame, not latency. Windows only; the PC Engine has no speed figure
+comparing it with a release.
 
 These are one machine leaving the experimental status and native-code coverage on two
 experimental machines, each on the evidence above; none of them is a measure of hardware
