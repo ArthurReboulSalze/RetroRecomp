@@ -423,7 +423,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 9. Known limits
 
-- Only the routes played are compared; the rest of a game may run interpreted, and the report counts it.
+- Native code covers what the conversion's own routes ran (about one minute of play and five minutes of pseudo-random walk), not the whole game; code past that runs through the interpreter, counted and shown in the game. The routes are thinnest on Boxyboy (after Start it waits on a screen the walk does not confirm), Military Madness, Space Harrier and Santatlantean (their long walks stall on a prompt or a loop). Only the routes played are compared, and the report counts what runs interpreted.
 - A card that needs more than 65,536 distinct instruction identities (Street Fighter II' CE) takes the engine's larger capture format: it is
   native on its routes, but its game is large (25.4 MB packed, about 120 MB unpacked) and its conversion long (about 34 minutes on its own).
   Past 1,048,576 identities, what does not fit is left out, counted and interpreted; the conversion does not fail.
@@ -431,6 +431,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
   runs, never from the ROM alone.
 - Speed is measured on two cards only, against the 1.7.1 pin ([above](#5-what-was-measured)), and the vectors have three known differences on the interpreter (the oracle is an emulator).
 - A PC Engine game keeps no player's record yet: the F12 line of its help page says the record is off, and the code a player reaches past the routes stays interpreted at the next conversion.
+- The conversion report's `runtime_feedback.recording_default` reads `true` for the PC Engine, but no PC Engine game records anything: its F12 line says the record is off and stays off. 1.7.3 corrects the field together with the record itself.
 - The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a pause the walk left on, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
 - The Backup RAM is a model of ours (its bank is in the RAM hash, equal on Linux on the panel's routes): plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
@@ -443,8 +444,8 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 10. Next stages
 
-1. The player's own record (kind 20, F12), so the code a player reaches becomes native at the next conversion, as on the Amiga.
-2. A play route that answers a screen confirmed with I (Boxyboy after Start).
+1. In 1.7.3, the player's own record (kind 20), with F12 made real: what a player runs on the interpreter is kept at the game's exit and given to the next conversion as declared roots, as on the Amiga; the report's `recording_default` is corrected in the same change.
+2. In 1.7.3, a start variant of the play route with I after Run, for a screen confirmed with I (Boxyboy after Start). Both change every card's game, so the panel is converted again, on Windows and on the Debian 13 PC, at that time.
 3. SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
