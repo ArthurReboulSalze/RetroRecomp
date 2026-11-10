@@ -1,7 +1,7 @@
 # Upgrading exports: history of releases 1.6.9, 1.6.7 and 1.6.6
 
 The per-release detail of releases 1.6.9, 1.6.7 and 1.6.6, moved from [UPGRADES.md](UPGRADES.md) so that each page stays readable (the text and the
-anchors of every section are unchanged). The current release, the one before it, the sections of 1.6.8, the rules and the classification of host and
+anchors of every section are unchanged). The current release, the one before it, the sections of 1.7.0 and 1.6.8, the rules and the classification of host and
 game inputs stay in [UPGRADES.md](UPGRADES.md); the sections of 1.6.5 and before are in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md).
 
 ## Exports of 1.6.8 in 1.6.9

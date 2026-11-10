@@ -1,3 +1,100 @@
+# RetroRecomp v1.7.2 — The PC Engine / TurboGrafx-16 is supported; the Amiga learns from the player's own play and the Atari ST's native code is specialised per opcode
+
+- **PC Engine / TurboGrafx-16: supported.** The owner decided on 10 November 2026 that the
+  machine is no longer experimental, after playing the fifteen exports of the release tree
+  ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)).
+  - **The engine pin** `6bb848e8` brings a larger capture format: a card that needs more than
+    65,536 instruction identities now gets up to 1,048,576 (past that, left out and counted).
+    Street Fighter II' Champion Edition runs 0 interpreted instructions on its three routes,
+    where it ran 19.3 %, 33.5 % and 74.7 % interpreted.
+  - **Shared paths:** a conversion that receives paths gives them to the engine as declared
+    roots, never as captures (numbers only, in the experimental tier of the shared base). Where
+    the play walk left a game paused, one more Run press is kept if the game answers.
+  - **Backup RAM beside the game:** a game keeps the 2 KiB of the backup unit in
+    `datas/saves/<game>-<card>.rrsram`; with no file it starts formatted, and a damaged file is
+    set aside and never blocks the game. Boxyboy now starts and saves.
+  - **The panel:** fifteen cards, each at 0 interpreted instructions on the routes it was
+    converted with, every route equal to its reference, on Windows and on a Debian 13 PC.
+  - **The limits, said plainly.** Native code covers what the conversion's own routes ran,
+    not the whole game: code past them runs on the interpreter, counted and shown in the game.
+    The routes are thinnest on Boxyboy, Military Madness, Space Harrier and Santatlantean. A
+    PC Engine game keeps no player's record yet, and the report's
+    `runtime_feedback.recording_default` wrongly reads `true`; both are corrected in 1.7.3.
+    Frame cost, on a quiet PC against games built with the 1.7.1 pin (no published 1.7.1
+    PC Engine export exists): 1.09x on Blazing Lazers and 1.04x on Street Fighter II' CE, whose
+    start goes from 0.21 to 1.40 s (its 25 MB game unpacks to about 120 MB); the new pin's bus
+    observer is ruled out, and the cause is not found. A large card converts slowly: Street
+    Fighter II' CE took about 48 minutes on the owner's PC.
+- **Commodore Amiga (experimental).**
+  - **Your own play becomes native.** An exported game records the 68000 code it ran on the
+    interpreter in RAM (F12 switches the record off), and the next conversion beside it makes
+    that code native behind the same guard. It is counted apart in the report, never shared and
+    never put in the library; proved on Windows and on a Debian 13 PC with scripted keys.
+  - **Recompilation stages 1 to 4 and 6.** A debugging recorder off and the resload traps
+    without breakpoints; Moira's 68000 code specialised per opcode and chained, with the latched
+    opcode as the guard; the forms of 50 handlers translated to C (99.0 to 99.9 % of the
+    instructions executed on two routes of four games); a sweep beyond the routes, counted apart when
+    it runs; and the Blitter's copy blits through routines specialised by shape. The Copper stays
+    emulated, as do Agnus, Denise, Paula and the CIAs. Every frame of the four panel games equals
+    the fresh interpreted reference, and the processor vectors equal Moira's handlers: that is
+    equality with Moira, not with the hardware.
+  - **Routes and keys.** A long route of 18,000 frames at the extended level; a key now reaches a
+    game that never enables its keyboard interrupt (Pinball Dreams), and F1 to F4 pick its tables.
+  - **Installs.** The icon's `DATA` ToolType names the data folder (Drakkhen boots); a save
+    reaches the disk whole or not at all; an archive with an intro or editor slave beside the game
+    converts; Twylyte and California Games boot.
+  - Saves (G7), route depth (G9), the panel (G12) and the honesty audit (G15) moved forward.
+- **Atari ST (experimental).**
+  - **Hatari's timer D patch is on**, on the owner's decision: TOS starts that timer far
+    slower, so a game that uses it as TOS left it sees another rhythm. No fidelity is claimed for
+    it, and Hatari names three games that need it off; none of the panel games relies on it.
+  - **Hatari's code specialised per opcode, and chained.** The native code is now faster than
+    the interpreter on four of the five games estimated (on a loaded PC, not a timing), and every
+    frame of the forty panel routes equals the fresh reference.
+  - **Saves and states:** a write after a seek without verify finds its sector (The Lurking
+    Horror saves on EmuTOS), and quick states continue with their sound.
+  - The panel is witnessed on a Debian 13 PC (G13); Atari ST paths are not shared for now, on the
+    owner's decision (G16 not applicable).
+- **Computers.** Full guest typing (Ctrl+Alt+K) now gives F1 to the computer too, and the help
+  page names Ctrl+Alt+K and what it does to F1 to F10.
+- **Sony PlayStation and PC Engine.** Fetching the engine goes through the
+  shared setup gate, so two games converted at once on a fresh `.deps` no longer fetch it
+  together.
+- **Tests** no longer write the player's real `Export/datas`.
+- **Known failures.** The Linux start crash of a compressed game is UPX 5.3.0's own,
+  [upx/upx#18967](https://github.com/upx/upx/issues/18967) ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+
+**Speed.** [mesure de coût par image 1.7.2 contre 1.7.1 à venir]
+
+These are one machine leaving the experimental status and native-code coverage on two
+experimental machines, each on the evidence above; none of them is a measure of hardware
+fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.2 moves the game stamps of the PC Engine, the Amiga, the
+Atari ST and the PlayStation, so **their exports of 1.7.1 are converted again** from their
+qualified paths, once, and the window offers it when you update. An X68000 export is upgraded
+without rediscovery (its host stamp alone moves); the other machines' exports are not touched.
+The PC Engine, Amiga and Atari ST quick-state keys move, so a quick state of 1.7.1 is refused
+cleanly on those three machines, with a message (nothing is lost but the state); PlayStation
+states still load. Cartridge saves are kept; a save the new export cannot use is set aside and
+never crashes or blocks the game. The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-171-in-172).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.7.1 — The Atari ST, the Nintendo 64 and the PlayStation open as experimental machines; Adventure games (ScummVM) are supported; the Amiga and the Game Boy Advance run more of their code natively
 
 - **Atari ST (experimental).** An Atari ST, STF or Mega ST floppy game (one disk image in
