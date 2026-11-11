@@ -182,7 +182,7 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Paula stays emulated, 
 - The reference player gives the same trace as before on Rick Dangerous, Lemmings and Civilization (main routes, 3,600 frames each).
 - On those four games the disk events left on the scheduler go from 1,269 to 21 per frame.
 
-**What it brings:** not measured yet (timing waits for a quiet-PC pass with the other pieces of checkpoint 3).
+**What it brings:** timed together with the idle sprite slots below (one quiet-PC pass for all of checkpoint 3).
 
 **Hot path:** this is one.
 
@@ -218,7 +218,17 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Agnus stays emulated, 
     restart are equal too.
   - 0 instructions interpreted, but Civilization's 19, which are all the Kickstart's, as in 1.7.2.
 
-**What it brings:** not measured yet (one quiet-PC pass for checkpoint 3).
+**What it brings** (checkpoint 3 as a whole, idle disk and idle sprite slots together): the machine's time per frame, measured
+in one quiet-PC pass on 11 Nov 2026 (Windows, one core, native game, 3 rounds of 2,400 frames, median of the rounds):
+
+| Game | Before Agnus/Denise step 1 | Steps 1-3 (1.7.3) | Plus checkpoint 3 | Against steps 1-3 |
+|---|--:|--:|--:|--:|
+| Lotus 2 | 2.529 ms | 1.748 ms | 1.516 ms | -13.3 % |
+| Rick Dangerous | 2.157 ms | 1.368 ms | 1.355 ms | about -1 % (inside the spread) |
+
+- Lotus 2 gains in each round (-12.2 %, -13.8 %, -13.3 %); the rounds spread by 1.5 % at most.
+- Rick Dangerous has no sprite event to leave out, and its gain is smaller than the spread of its rounds (up to 4.9 %).
+- This is machine time only. It says nothing about physical latency.
 
 **Hot path:** this is one.
 
