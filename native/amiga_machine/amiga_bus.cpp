@@ -18,6 +18,15 @@
 //       to $37, without the sprite-area test (the reference's behaviour).
 //   R6  The bitplane plan is read from the reference's own plan at the line's start, and again from the clock of any change of it
 //       inside the line; the part of the line before the change is history.
+//   R8  Our own bitplane plan (checkpoint 1b), for a steady line: no plan change in it or in the line before, lores or hires,
+//       DDFSTRT before DDFSTOP, no more planes than the resolution fetches (6 lores, 4 hires). Fetching runs when the vertical window
+//       is open and BPLEN and DMAEN are set at the line's start; it starts at DDFSTRT, not before $18 (ECS hardware start). The
+//       fetch units are 8 colour clocks from the even clock at or before the start; inside a unit the planes are fetched at
+//       positions 1:4 2:6 3:2 5:3 6:5 7:1 (lores) or 0:4 1:2 2:3 3:1 4:4 5:2 6:3 7:1 (hires) (HRM, DMA time slot allocation).
+//   R9  The fetch stops at DDFSTOP or at $D8, whichever comes first (ECS hardware stop): the unit starting at the first unit
+//       boundary at or after that clock is the last one, and its fetches add the modulo (lores: all; hires: its second half).
+//   R10 The vertical window: off on the line that equals the stop line and on the frame's last line, on on the line that equals
+//       the start line (comparators at the line's start); its state before the first line seen is taken from the reference once.
 //   R7  The CPU waits while its colour clock is owned, one clock at a time; the reference charges no finer alignment (Agnus.cpp,
 //       executeUntilBusIsFree). A wait is predictable from the table alone when no Copper, Blitter or register-change event can run
 //       inside it and it meets no conditional slot and no line end.
@@ -66,6 +75,9 @@ struct State {
     bool lastJoint = false;
     uint64_t jointClocks = 0, freeClocks = 0, freeSyncsA = 0, freeSyncsB = 0, freeSyncsC = 0, regFixed = 0;
     uint64_t sec[SLOT_TER - SLOT_SEC + 1] = { };
+    // Checkpoint 1b: our own plan of a steady line against the reference's plan at the line's start.
+    bool bpv = false, bpvSeeded = false, previousChanged = true, carryIn = true, latch = false, latchKnown = false;
+    uint64_t ddfCovered = 0, ddfEqual = 0, ddfWrong = 0, ddfNotCovered[6] = { };   // changed, resolution, planes, order, carried in, window edge
     uint64_t frames = 0, lines = 0, linesChanged = 0, linesCompared = 0;
     uint64_t taken = 0, takenWrong = 0, maybeUsed = 0, maybeUnused = 0, maybeWrong = 0, freeWrong = 0, dasTable = 0;
     uint64_t owners[int(BusOwner::COUNT)] = { };
@@ -79,7 +91,7 @@ struct State {
     long long predicted = 0;
     uint64_t syncs[SYNCS] = { };
     uint64_t crossings[4] = { }, copEvents = 0, bltEvents = 0, regEvents = 0, dasEvents = 0;
-    Cycle horizon = 0;
+    Cycle horizon = 0, horizonAt = 0;
     bool recompute = false;                     // the horizon is taken again at the next hook
     bool syncing = false;                       // a CPU access to a custom register or a CIA is under way: the horizon after it
     bool device = false;                        // the Copper or the Blitter ran since the horizon was taken
@@ -145,6 +157,7 @@ void horizonFrom(Agnus &a) {
     const isize at = a.pos.h <= 0x12 ? 0x12 : a.pos.h <= 0x66 ? 0x66 : a.pos.hCnt();   // a point of this very clock is still to come
     const Cycle fixed = a.clock + DMA_CYCLES(at - a.pos.h);
     s.horizon = fixed < h ? fixed : h;
+    s.horizonAt = a.clock;
     s.recompute = false;
     s.device = s.reg = s.das = false;
 }
@@ -172,6 +185,8 @@ void dump() {
 }
 
 }
+
+int ownPlan(Agnus &a, uint8_t *k);
 
 int RrBus::fault = 0;
 uint64_t RrBus::step = 0;
@@ -232,6 +247,96 @@ void RrBus::lineStart(Agnus &a) {
     }
     readPlan(a, 0);
     s.lines++;
+    // Checkpoint 1b: our own plan of the line against the reference's, both from the line's start state.
+    uint8_t mine[LINE];
+    const int reason = ownPlan(a, mine);
+    if (reason) s.ddfNotCovered[reason - 1]++;
+    else {
+        s.ddfCovered++;
+        bool equal = true;
+        for (isize h = 0; h < LINE && h < HPOS_CNT; h++) {
+            const int theirs = int(a.sequencer.bplEvent[h]) >> 2;
+            if (theirs != mine[h]) {
+                if (equal) note(8, h, mine[h], theirs);
+                if (equal && getenv("RR_BUS_DDF_DEBUG") && s.ddfWrong < 6) {
+                    fprintf(stderr, "ddf v=%ld strt=%x stop=%x con0=%04x dmacon=%04x bpv=%d lol=%d count=%ld vstrt=%ld vstop=%ld\n", (long)a.pos.v,
+                            a.sequencer.ddfstrt, a.sequencer.ddfstop, a.bplcon0Initial, a.dmaconInitial, s.bpv, a.pos.lol, (long)s.line.count,
+                            (long)a.sequencer.vstrt, (long)a.sequencer.vstop);
+                    fprintf(stderr, "  mine:");
+                    for (isize x = 0; x < HPOS_CNT; x++) if (mine[x]) fprintf(stderr, " %lx:%d", (long)x, mine[x]);
+                    fprintf(stderr, "\n  theirs:");
+                    for (isize x = 0; x < HPOS_CNT; x++) if (int(a.sequencer.bplEvent[x]) >> 2) fprintf(stderr, " %lx:%d", (long)x, int(a.sequencer.bplEvent[x]) >> 2);
+                    fprintf(stderr, "\n");
+                }
+                equal = false;
+            }
+        }
+        (equal ? s.ddfEqual : s.ddfWrong)++;
+    }
+}
+
+// R8-R10: our own bitplane plan of a steady line, k = the reference's event code >> 2 (0: no fetch). Returns the reason it does not
+// cover the line (0: covered).
+int ownPlan(Agnus &a, uint8_t *k) {
+    for (isize h = 0; h < LINE; h++) k[h] = 0;
+    const isize v = a.pos.v;
+    const bool before = s.bpv;
+    if (!s.bpvSeeded) { s.bpv = a.sequencer.ddfInitial.bpv; s.bpvSeeded = true; }
+    else if (v == a.sequencer.vstop || v == (a.isPAL() ? 312 : 262)) s.bpv = false;
+    else if (v == a.sequencer.vstrt) s.bpv = true;
+    const bool edge = before != s.bpv;
+    // R9b: the start latch (set when the beam reaches DDFSTRT, cleared when it reaches DDFSTOP; a position past the line's last
+    // colour clock is never reached; the reference processes up to $E4) carries into the next line, whose fetch then starts at $18.
+    const bool latched = s.latch, latchKnown = s.latchKnown;
+    {
+        const isize strt = a.sequencer.ddfstrt, stop = a.sequencer.ddfstop, end = 0xE5;   // the reference processes positions up to $E4
+        const bool sets = strt < end, clears = stop < end;
+        if (sets && clears) s.latch = strt > stop;
+        else if (sets) s.latch = true;
+        else if (clears) s.latch = false;
+        if (sets || clears) s.latchKnown = true;
+    }
+    // A line after one this plan did not cover, or whose last unit ran past its end, may start with the fetch state the line before
+    // left (the start latch of a window opened after its stop, a unit cut by the line's end): not covered yet. The line's own end
+    // state is still computed from its registers, so coverage resumes on the line after.
+    const bool carried = s.carryIn;
+    const auto plan = [&]() -> int {
+        s.carryIn = true;
+        const u16 con0 = a.bplcon0Initial;
+        if (con0 & 0x0040) return 2;                               // super-hires
+        const bool hires = con0 & 0x8000;
+        const isize planes = (con0 >> 12) & 7;
+        if (planes > (hires ? 4 : 6)) return 3;
+        const isize strt = a.sequencer.ddfstrt, stop = a.sequencer.ddfstop;
+        if (strt >= stop) return 4;
+        const bool run = s.bpv && (a.dmaconInitial & DMAEN) && (a.dmaconInitial & BPLEN);
+        if (!run || planes == 0) { s.carryIn = false; return 0; }
+        static const int8_t LORES[8] = {0, 4, 6, 2, 0, 3, 5, 1}, HIRES[8] = {4, 2, 3, 1, 4, 2, 3, 1};
+        const isize start = (latched || strt < 0x18) ? 0x18 : strt;
+        const isize request = stop < 0xD8 ? stop : 0xD8;
+        if (request < start) return 4;
+        const isize first = start & ~isize(1);
+        isize last = first;
+        while (last < request) last += 8;                          // the first unit boundary at or after the stop request
+        if (RrBus::fault == 9) last -= 8;
+        s.carryIn = last + 8 > s.line.count;
+        for (isize unit = first; unit <= last; unit += 8) {
+            for (isize c = 0; c < 8; c++) {
+                const isize h = unit + c;
+                if (h < start || h >= LINE) continue;
+                const int plane = hires ? HIRES[c] : LORES[c];
+                if (!plane || plane > planes) continue;
+                const bool mod = unit == last && (!hires || c >= 4);
+                k[h] = uint8_t(1 + (hires ? 16 : 0) + 2 * (plane - 1) + (mod ? 1 : 0));
+            }
+        }
+        return 0;
+    };
+    const int reason = plan();
+    if (s.previousChanged) return 1;
+    if (carried || !latchKnown) return 5;
+    if (edge) return 6;
+    return reason;
 }
 
 void RrBus::dasChanged(Agnus &a) {
@@ -296,6 +401,8 @@ void RrBus::lineEnd(Agnus &a) {
         }
         s.spriteLines += sprite;
     }
+    s.previousChanged = s.line.changed || !s.line.valid;
+    if (s.previousChanged) s.latchKnown = false;      // a change inside the line may have moved the start latch
     s.line.valid = false;
     if (a.pos.v == 0) {          // the beam has moved on: the line that ended was the frame's last
         s.frames++;
@@ -382,7 +489,7 @@ void RrBus::events(Agnus &a, long long cycle) {
         // A change scheduled by a DMA slot run in the block (a sprite fetch writes SPRxPOS and SPRxCTL) is the catch-up's own.
         if (a.trigger[SLOT_REG] < s.horizon) {
             s.crossings[s.device ? 0 : s.das ? 2 : 3]++;
-            if (!s.device && !s.das) note(6, a.pos.h, -2, int(SLOT_REG));
+            if (!s.device && !s.das) note(7, a.pos.h, int(SLOT_REG), int(AS_DMA_CYCLES(a.trigger[SLOT_REG] - s.horizonAt)));
         }
         // HSYNC at $12 and the line's end are the line's fixed points (counted there); other changes are syncs of their own.
         if (a.pos.h == 0x12 || a.pos.h >= a.pos.hCnt()) s.regFixed++;
@@ -401,7 +508,13 @@ void RrBus::events(Agnus &a, long long cycle) {
             // the Blitter (stepped with the CPU in the model) or by something else (a DMA device caught up late would miss it).
             if (a.trigger[slot] < s.horizon) {
                 s.crossings[s.device ? 0 : s.reg ? 1 : s.das ? 2 : 3]++;
-                if (!s.device) note(6, a.pos.h, s.reg ? 1 : s.das ? 2 : 3, int(slot));
+                if (!s.device && (s.reg || s.das)) note(6, a.pos.h, s.reg ? 1 : 2, int(slot));
+                if (!s.device && !s.reg && !s.das) {
+                    // Unexplained: which slot (a secondary one by its own number), and how long after the horizon was taken.
+                    long which = slot;
+                    if (slot == SLOT_SEC) for (long k = SLOT_CH0; k <= SLOT_TER; k++) if (cycle >= a.trigger[k]) { which = k; break; }
+                    note(7, a.pos.h, int(which), int(AS_DMA_CYCLES(a.trigger[slot] - s.horizonAt)));
+                }
             }
             s.syncs[slot == SLOT_SEC ? SYNC_SEC_EVENT : SYNC_CIA_EVENT]++;
             if (!now) s.freeSyncsA++;
@@ -423,7 +536,7 @@ void RrBus::events(Agnus &a, long long cycle) {
 }
 
 uint64_t RrBus::mismatches() {
-    return s.takenWrong + s.maybeWrong + s.freeWrong + s.dasTable + s.waitWrong;
+    return s.takenWrong + s.maybeWrong + s.freeWrong + s.dasTable + s.waitWrong + s.ddfWrong;
 }
 
 size_t RrBus::json(char *out, size_t size) {
@@ -455,7 +568,10 @@ size_t RrBus::json(char *out, size_t size) {
         (unsigned long long)s.regFixed);
     static const char *const SEC_NAMES[] = {"sec", "ch0", "ch1", "ch2", "ch3", "dsk", "vbl", "irq", "ipl", "kbd", "txd", "rxd", "pot", "tertiary"};
     for (long k = 1; k <= SLOT_TER - SLOT_SEC; k++) put(k > 1 ? ",\"%s\":%llu" : "\"%s\":%llu", SEC_NAMES[k], (unsigned long long)s.sec[k]);
-    put("}}");
+    put("},\"own_plan\":{\"covered\":%llu,\"equal\":%llu,\"different\":%llu,\"not_covered\":{\"changed\":%llu,\"super_hires\":%llu,\"planes\":%llu,\"window_order\":%llu,\"carried_in\":%llu,\"window_edge\":%llu}}}",
+        (unsigned long long)s.ddfCovered, (unsigned long long)s.ddfEqual, (unsigned long long)s.ddfWrong, (unsigned long long)s.ddfNotCovered[0],
+        (unsigned long long)s.ddfNotCovered[1], (unsigned long long)s.ddfNotCovered[2], (unsigned long long)s.ddfNotCovered[3],
+        (unsigned long long)s.ddfNotCovered[4], (unsigned long long)s.ddfNotCovered[5]);
 #undef put
     return n < size ? n : size - 1;
 }

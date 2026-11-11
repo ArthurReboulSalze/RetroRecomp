@@ -300,6 +300,8 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
                 value = 0x8000 | bit
             elif register in (DDFSTRT, DDFSTOP):
                 value = (ddf[0] if register == DDFSTRT else ddf[1]) + r.choice((0, 0, 4, -4, 8, -8))
+                if r.random() < 0.25:                          # anywhere: before the hardware start, past the hardware stop, odd
+                    value = r.randrange(0x08, 0xF0) & (0xFF if r.random() < 0.2 else 0xFE)
             elif register in (DIWSTRT, DIWSTOP):
                 value = (diwstrt if register == DIWSTRT else diwstop) + r.choice((0, 0, 1, -1, 0x0100, -0x0100))
             elif register in (BPL1MOD, BPL2MOD):
@@ -477,7 +479,7 @@ def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
 # Faults planted in stage 7's bus model (amiga_bus.cpp, `--shadow-fault N`): each must make the model disagree with vAmiga somewhere.
 SHADOW_FAULTS = {1: 'refresh at $E2 on a long line', 2: 'audio slots two clocks late', 3: 'bitplane slots given to the wrong plane',
                  4: 'a change of plan inside the line ignored', 5: 'sprite slots outside the sprite area', 6: 'a conditional slot taken for free',
-                 7: 'a static wait one clock long'}
+                 7: 'a static wait one clock long', 9: 'our own bitplane plan one fetch unit short'}
 
 
 def add_bus(total: dict, bus: dict) -> None:

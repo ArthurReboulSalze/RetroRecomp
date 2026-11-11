@@ -762,6 +762,10 @@ REPLACEMENTS = [
      'class Agnus : public SubComponent {\n',
      'class Agnus : public SubComponent {\n\n'
      '    friend struct RrBus;   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow reads Agnus\n'),
+    ('Components/Agnus/Sequencer/Sequencer.h',
+     'class Sequencer final : public SubComponent\n{\n',
+     'class Sequencer final : public SubComponent\n{\n'
+     '    friend struct RrBus;   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow reads the DDF registers\n\n'),
     ('Components/Agnus/Agnus.cpp',
      '    // Clear the bus usage table\n',
      '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the line\'s owners against the model\'s table\n'
