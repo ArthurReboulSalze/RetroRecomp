@@ -12,7 +12,8 @@
 //     sound, CLXDAT, and every row of vAmiga's texture.
 // A fault can be injected (`--fault ram|clock INDEX`): the comparison of the tool must see it. Text lines of the instructions around a
 // difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events and every line pass on
-// vAmiga's own (Agnus step 2 and Denise step 3 off); the summary line counts the lines batched, on events and given back midway, and
+// vAmiga's own, and every disk event on vAmiga's scheduler (Agnus step 2, Denise step 3 and stage 7's idle-disk catch-up off;
+// `--disk-fault 1` loses one held-back disk event, which the comparison must see); the summary line counts the lines batched, on events and given back midway, and
 // the visible lines passed in one loop and on vAmiga's pass. The records show that two runs agree with each other, not
 // that either matches the hardware.
 //
@@ -133,6 +134,12 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
+            DiskController::rrLazyOn = false;
+        } else if (!strcmp(argv[i], "--disk-off")) {
+            DiskController::rrLazyOn = false;
+        } else if (!strcmp(argv[i], "--disk-fault") && i + 1 < argc) {
+            DiskController::rrFault = atoi(argv[i + 1]);
+            i += 1;
 #ifdef RR_AMIGA_SHADOW
         } else if (!strcmp(argv[i], "--shadow-fault") && i + 1 < argc) {
             RrBus::fault = atoi(argv[i + 1]);
@@ -221,6 +228,11 @@ int main(int argc, char **argv) {
             row[9] = fnv(BASIS, sound.data(), (size_t)got * 2 * sizeof(float));
             row[10] = amiga.denise.spypeekCLXDAT();
             row[11] = (uint64_t)amiga.agnus.clock;
+            if (getenv("RR_DISK_DEBUG")) {
+                char text[512];
+                amiga.paula.diskController.rrDebug(text, sizeof text);
+                fprintf(stderr, "frame %u clock %lld %s\n", frame, (long long)amiga.agnus.clock, text);
+            }
 #ifdef RR_AMIGA_SHADOW
             row[12] = RrBus::takeOwners();       // every line's bus owners (who took each colour clock), hashed
 #endif
@@ -249,6 +261,9 @@ int main(int argc, char **argv) {
                (unsigned long long)total, c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1],
                (unsigned long long)agnus.rrLines[2], (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
                (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
+        const u64 *disk = amiga.paula.diskController.rrCounts;
+        printf(",\"disk\":[%llu,%llu,%llu,%llu]", (unsigned long long)disk[0], (unsigned long long)disk[1], (unsigned long long)disk[2],
+               (unsigned long long)disk[3]);
 #ifdef RR_AMIGA_SHADOW
         {
             static char bus[8192];

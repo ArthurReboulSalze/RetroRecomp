@@ -76,7 +76,8 @@ struct State {
     uint64_t jointClocks = 0, freeClocks = 0, freeSyncsA = 0, freeSyncsB = 0, freeSyncsC = 0, regFixed = 0;
     uint64_t sec[SLOT_TER - SLOT_SEC + 1] = { };
     // Checkpoint 1b: our own plan of a steady line against the reference's plan at the line's start.
-    bool bpv = false, bpvSeeded = false, previousChanged = true, carryIn = true, latch = false, latchKnown = false;
+    bool bpv = false, bpvSeeded = false, previousChanged = true, carryIn = true, latch = false, latchKnown = false, bpvKnown = false;
+    isize lastVstrt = -1, lastVstop = -1;
     uint64_t ddfCovered = 0, ddfEqual = 0, ddfWrong = 0, ddfNotCovered[6] = { };   // changed, resolution, planes, order, carried in, window edge
     uint64_t frames = 0, lines = 0, linesChanged = 0, linesCompared = 0;
     uint64_t taken = 0, takenWrong = 0, maybeUsed = 0, maybeUnused = 0, maybeWrong = 0, freeWrong = 0, dasTable = 0;
@@ -90,7 +91,9 @@ struct State {
     Path pending = SLOW_LINE;
     long long predicted = 0;
     uint64_t syncs[SYNCS] = { };
-    uint64_t crossings[4] = { }, copEvents = 0, bltEvents = 0, regEvents = 0, dasEvents = 0;
+    uint64_t crossings[4] = { }, copEvents = 0, bltEvents = 0, regEvents = 0, dasEvents = 0, bplEvents = 0;
+    uint64_t dasKind[7] = { };                  // refresh, disk, audio, sprite, sprite DMA update, CIA-B tick, line end
+    uint64_t slotUse[3][2] = { };               // disk, audio, sprite conditional slots: used, unused
     Cycle horizon = 0, horizonAt = 0;
     bool recompute = false;                     // the horizon is taken again at the next hook
     bool syncing = false;                       // a CPU access to a custom register or a CIA is under way: the horizon after it
@@ -281,9 +284,16 @@ int ownPlan(Agnus &a, uint8_t *k) {
     for (isize h = 0; h < LINE; h++) k[h] = 0;
     const isize v = a.pos.v;
     const bool before = s.bpv;
-    if (!s.bpvSeeded) { s.bpv = a.sequencer.ddfInitial.bpv; s.bpvSeeded = true; }
-    else if (v == a.sequencer.vstop || v == (a.isPAL() ? 312 : 262)) s.bpv = false;
-    else if (v == a.sequencer.vstrt) s.bpv = true;
+    // After a change inside a line (a DIW write may close or open the window at once) the window is unknown until a comparator
+    // matches again.
+    if (a.sequencer.vstrt != s.lastVstrt || a.sequencer.vstop != s.lastVstop) {
+        if (s.bpvSeeded) s.bpvKnown = false;                       // a DIW write: the window may have changed at once
+        s.lastVstrt = a.sequencer.vstrt;
+        s.lastVstop = a.sequencer.vstop;
+    }
+    if (!s.bpvSeeded) { s.bpv = a.sequencer.ddfInitial.bpv; s.bpvSeeded = s.bpvKnown = true; }
+    else if (v == a.sequencer.vstop || v == (a.isPAL() ? 312 : 262)) { s.bpv = false; s.bpvKnown = true; }
+    else if (v == a.sequencer.vstrt) { s.bpv = true; s.bpvKnown = true; }
     const bool edge = before != s.bpv;
     // R9b: the start latch (set when the beam reaches DDFSTRT, cleared when it reaches DDFSTOP; a position past the line's last
     // colour clock is never reached; the reference processes up to $E4) carries into the next line, whose fetch then starts at $18.
@@ -333,8 +343,13 @@ int ownPlan(Agnus &a, uint8_t *k) {
         return 0;
     };
     const int reason = plan();
+    if (getenv("RR_BUS_DDF_TRACE")) fprintf(stderr, "line %ld reason %d carried %d latchKnown %d latch %d bpv %d/%d changed %d carryOut %d\n", (long)v, reason,
+                                            carried, latchKnown, latched, s.bpv, s.bpvKnown, s.previousChanged, s.carryIn);
+    // A line whose start latch or window is not known passes an unknown state on (its units may be aligned otherwise). A tail
+    // carried in from the line before ends before $18 and does not change the line's own units.
+    if (s.previousChanged || !latchKnown || !s.bpvKnown) s.carryIn = true;
     if (s.previousChanged) return 1;
-    if (carried || !latchKnown) return 5;
+    if (carried || !latchKnown || !s.bpvKnown) return 5;
     if (edge) return 6;
     return reason;
 }
@@ -391,6 +406,9 @@ void RrBus::lineEnd(Agnus &a) {
                 s.taken++;
                 if (actual != line.owner[h]) { s.takenWrong++; note(1, h, line.owner[h], actual); }
             } else if (kind == MAYBE) {
+                const int o = line.owner[h];
+                const int cls = o == int(BusOwner::DISK) ? 0 : (o >= int(BusOwner::AUD0) && o <= int(BusOwner::AUD3)) ? 1 : 2;
+                s.slotUse[cls][actual == o ? 0 : 1]++;
                 if (actual == line.owner[h]) s.maybeUsed++;
                 else if (isDma(actual)) { s.maybeWrong++; note(2, h, line.owner[h], actual); }
                 else s.maybeUnused++;
@@ -499,7 +517,14 @@ void RrBus::events(Agnus &a, long long cycle) {
         }
         sync = true;
     }
-    if (a.isDue<SLOT_DAS>(cycle)) { s.dasEvents++; s.das = true; }
+    if (a.isDue<SLOT_DAS>(cycle)) {
+        s.dasEvents++;
+        s.das = true;
+        const EventID e = a.id[SLOT_DAS];
+        s.dasKind[e == DAS_REFRESH ? 0 : (e >= DAS_D0 && e <= DAS_D0 + 2) ? 1 : (e >= DAS_A0 && e <= DAS_A0 + 3) ? 2 :
+                  (e >= DAS_S0_1 && e <= DAS_S7_2) ? 3 : e == DAS_SDMA ? 4 : e == DAS_TICK ? 5 : 6]++;
+    }
+    if (a.isDue<SLOT_BPL>(cycle)) s.bplEvents++;
     if (a.isDue<SLOT_COP>(cycle)) { s.copEvents++; s.device = true; }
     if (a.isDue<SLOT_BLT>(cycle)) { s.bltEvents++; s.device = true; }
     for (EventSlot slot : {SLOT_CIAA, SLOT_CIAB, SLOT_SEC}) {
@@ -563,9 +588,15 @@ size_t RrBus::json(char *out, size_t size) {
         const Mismatch &m = s.first[i];
         put(i ? ",[%llu,%ld,%ld,%d,%d,%d]" : "[%llu,%ld,%ld,%d,%d,%d]", (unsigned long long)m.frame, (long)m.v, (long)m.h, m.kind, m.predicted, m.actual);
     }
-    put("],\"time\":{\"joint_clocks\":%llu,\"free_clocks\":%llu,\"free_syncs_all_secondary\":%llu,\"free_syncs_paula_caught_up\":%llu,\"free_syncs_cpu_visible\":%llu,\"register_fixed\":%llu},\"secondary\":{",
+    put("],\"time\":{\"joint_clocks\":%llu,\"free_clocks\":%llu,\"free_syncs_all_secondary\":%llu,\"free_syncs_paula_caught_up\":%llu,\"free_syncs_cpu_visible\":%llu,\"register_fixed\":%llu}",
         (unsigned long long)s.jointClocks, (unsigned long long)s.freeClocks, (unsigned long long)s.freeSyncsA, (unsigned long long)s.freeSyncsB, (unsigned long long)s.freeSyncsC,
         (unsigned long long)s.regFixed);
+    put(",\"das\":{\"refresh\":%llu,\"disk\":%llu,\"audio\":%llu,\"sprite\":%llu,\"sprite_update\":%llu,\"tick\":%llu,\"line_end\":%llu,\"bpl_events\":%llu,"
+        "\"disk_slots\":[%llu,%llu],\"audio_slots\":[%llu,%llu],\"sprite_slots\":[%llu,%llu]},\"secondary\":{",
+        (unsigned long long)s.dasKind[0], (unsigned long long)s.dasKind[1], (unsigned long long)s.dasKind[2], (unsigned long long)s.dasKind[3],
+        (unsigned long long)s.dasKind[4], (unsigned long long)s.dasKind[5], (unsigned long long)s.dasKind[6], (unsigned long long)s.bplEvents,
+        (unsigned long long)s.slotUse[0][0], (unsigned long long)s.slotUse[0][1], (unsigned long long)s.slotUse[1][0], (unsigned long long)s.slotUse[1][1],
+        (unsigned long long)s.slotUse[2][0], (unsigned long long)s.slotUse[2][1]);
     static const char *const SEC_NAMES[] = {"sec", "ch0", "ch1", "ch2", "ch3", "dsk", "vbl", "irq", "ipl", "kbd", "txd", "rxd", "pot", "tertiary"};
     for (long k = 1; k <= SLOT_TER - SLOT_SEC; k++) put(k > 1 ? ",\"%s\":%llu" : "\"%s\":%llu", SEC_NAMES[k], (unsigned long long)s.sec[k]);
     put("},\"own_plan\":{\"covered\":%llu,\"equal\":%llu,\"different\":%llu,\"not_covered\":{\"changed\":%llu,\"super_hires\":%llu,\"planes\":%llu,\"window_order\":%llu,\"carried_in\":%llu,\"window_edge\":%llu}}}",

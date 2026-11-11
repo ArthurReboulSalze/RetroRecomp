@@ -57,6 +57,8 @@ COP1LC, COPJMP1, DIWSTRT, DIWSTOP, DDFSTRT, DDFSTOP, DMACON, CLXCON, INTENA, INT
 CIAB_TODLO, CIAB_TODMID, CIAB_TODHI, CIAB_ICR, CIAB_CRB = 0xBFD800, 0xBFD900, 0xBFDA00, 0xBFDD00, 0xBFDF00
 CIAA_ICR = 0xBFED01
 BPLPT, SPRPT = 0x0E0, 0x120
+DSKBYTR, DSKLEN, DSKSYNC = 0x01A, 0x024, 0x07E
+CIAB_PRB = 0xBFD100
 BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, BPL1DAT, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x110, 0x180
 
 
@@ -375,6 +377,20 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
             a.move_w_imm_abs(r.randrange(0x10000), SPRITES + n * 0x200 + 4 + (r.randrange(0, 0x40) & ~1))
         elif kind < 0.945 and colour_words:
             a.move_w_imm_abs(r.randrange(0x1000), r.choice(colour_words))   # the Copper's list rewritten while it runs
+        elif kind < 0.96:
+            # The disk controller, idle or not (stage 7 holds its idle events back): DSKBYTR read, DSKSYNC (zero now and then), the
+            # drive select and motor lines of CIA-B, DSKLEN with DMA off.
+            what = r.random()
+            if what < 0.4:
+                a.move_w_abs_d(custom(DSKBYTR), d)
+                reads += 1
+            elif what < 0.6:
+                a.move_w_imm_abs(r.choice((0x4489, 0x4489, 0x4489, r.randrange(1, 0x10000), 0)), custom(DSKSYNC))
+            elif what < 0.85:
+                a.w(0x13FC, r.choice((0xFF, 0xFF, 0xF7, 0x77, 0x7F)))      # move.b #v,CIA-B PRB: none, df0, df0 with motor
+                a.l(CIAB_PRB)
+            else:
+                a.move_w_imm_abs(0, custom(DSKLEN))
         else:
             a.wait_line(r.randrange(0x10, 0xF8))
     a.bra_w(body)
@@ -516,6 +532,7 @@ def main() -> int:
     quiet = [0, 0]
     bus_total: dict = {}
     scenario_files = []
+    disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
@@ -546,7 +563,16 @@ def main() -> int:
             placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
             if found is None:
                 failures.append({'seed': seed, 'fault': kind, 'missed': True})
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet')}), flush=True)
+        # Stage 7's idle-disk catch-up: one held-back event lost must change the records (where events were held back at all).
+        if first.get('disk', [0])[0]:
+            disk_controls += 1
+            play(program, path, runs / f'{seed}-disk.rec', '--disk-fault', '1')
+            if compare(a, read_record(runs / f'{seed}-disk.rec')) is None:
+                failures.append({'seed': seed, 'disk_fault': 1, 'missed': True})
+            else:
+                disk_seen += 1
+        disk = [n + m for n, m in zip(disk, first.get('disk', (0, 0, 0, 0)))]
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
     # Planted faults of the model: each must be seen on at least one scenario.
     model_faults = {}
@@ -562,6 +588,7 @@ def main() -> int:
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
+                      'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
                       'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
@@ -571,6 +598,8 @@ def main() -> int:
     print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
+    print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
+          f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
     if bus_total:
         table = bus_total.get('table', {})
         print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "

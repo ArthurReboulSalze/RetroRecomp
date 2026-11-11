@@ -142,6 +142,54 @@ to 1.710 ms per frame (-5.5 %; rounds within 0.7 %); steps 1 to 3 with ThinLTO t
 path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds;
 the table is derived, never saved.
 
+## Commodore Amiga: the idle disk controller's events caught up (after 1.7.3, stage 7 checkpoint 3a)
+
+**What changes.** vAmiga's disk controller has an event about every 56 colour clocks, whether or not a floppy is in use. In a WHDLoad
+install that is 1,269 events per frame on every game, between 4 and 21 % of all the machine's events.
+
+**The guard.** The controller is idle when:
+- no drive is selected;
+- its DMA is off;
+- DSKSYNC is not zero;
+- its shift register already holds zero.
+
+An idle controller's event only shifts zeros in, writes a zero byte into its FIFO and advances the rotation delay: it cannot raise an
+interrupt or touch memory.
+
+**How the events are held back.**
+- The events after one are taken off the scheduler, up to 64 of them, and never past the host frame's end (the first instruction after
+  line 0's HSYNC), so no event is held back where states are taken.
+- One event is scheduled at the time of the last of them. The others run in order when it comes, or when something could see the
+  controller first: its registers (DSKLEN, DSKDAT, DSKBYTR, DSKSYNC), the CIA-B port that selects a drive and its motor.
+- Their times are those vAmiga's own arithmetic gives: each event runs on the first colour clock at or after its trigger, and the next
+  is scheduled from there.
+- A barrier inside Agnus's events (a Copper or delayed write) runs the events strictly before its colour clock. A CPU access runs those
+  of its own clock too, as vAmiga's order is.
+
+This is done through vAmiga's adaptation (MPL-2.0 edits). Paula stays emulated, and nothing is specialised from a game.
+
+**Proof.**
+- The display self-test now compares each scenario with every disk event on vAmiga's scheduler (`--per-slot` turns the catch-up
+  off). Its programs also read DSKBYTR, write DSKSYNC (zero now and then) and DSKLEN, and select drive 0 and its motor through CIA-B.
+- 52 scenarios of 4 frames: 167,806 disk events held back in 2,725 batches (420 of them run at a barrier), every instruction's and
+  every frame's record equal (Paula's and Agnus's snapshots included).
+- One held-back event lost on purpose is seen in 52 of 52 scenarios.
+- Two first versions were caught by these records:
+  - one added the delay to the trigger instead of to the colour clock the event runs on;
+  - one let a batch run past the host frame's end.
+- Lotus 2's native game and the reference player built with this change give the same trace as the build before step 1 on every one
+  of 3,600 frames of a racing route.
+- The reference player gives the same trace as before on Rick Dangerous, Lemmings and Civilization (main routes, 3,600 frames each).
+- On those four games the disk events left on the scheduler go from 1,269 to 21 per frame.
+
+**What it brings:** not measured yet (timing waits for a quiet-PC pass with the other pieces of checkpoint 3).
+
+**Hot path:** this is one.
+
+**What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds; nothing is held back between frames.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
