@@ -88,7 +88,8 @@ looks each pixel up. The palette pass takes eight entries at a time where none i
 inlined. Agnus and Denise stay emulated; nothing here is specialised from a game. ThinLTO of the Core, the session and the player (`RR_AMIGA_THINLTO`, clang only; llvm-mingw on
 Windows) is on: a quiet-PC timing on 10 November 2026 (Lotus 2's native game, 2,400 frames of a racing route, one core, two interleaved runs per build) gave 2.571 ms of
 machine time per frame before this step, 2.245 ms with it (-12.7 %) and 1.992 ms with it and ThinLTO (-11.2 % more), past the 3 % bar Arthur set; the two ThinLTO runs differed by
-7 %, so the exact figure waits for a second pass. This is the cost of a frame on one PC, not a latency.
+7 %. A second quiet pass on 11 November (four interleaved rounds, the rounds of each build within 3 %): 2.493 ms before, 2.158 ms with this step (-13.4 %), 1.887 ms with ThinLTO
+(-12.6 % more); the 7 % did not come back. This is the cost of a frame on one PC, not a latency.
 Proof: `tools/amiga_display_selftest.py --against` the build made before the change: 40 scenarios of 4 frames (1,301,275 instructions) and the 12 of the default run, every
 instruction's record and every frame's record equal; each of the four new paths broken on purpose in its own build is seen (in 3 to 6 scenarios of 6). Lotus 2's native game and the
 reference player, built before and after (and after with ThinLTO), give the same trace on every one of 3,600 frames of a racing route (picture, sound, RAM, registers). The first-read
@@ -115,7 +116,8 @@ register-event barrier 8 of 8, the give-back of the marks 8 of 8, the custom rea
 ones), the chip RAM write barrier only 1 of 8 (a random write seldom lands ahead of the beam in the same line: that barrier is the least exercised). Lotus 2's native game and
 the reference player built with this step (and ThinLTO) give the same trace as the build before step 1 on every one of 3,600 frames of a racing route. First-read conversions
 with the real command line (11 November 2026): Lotus 2, Pinball Dreams (NTSC) and Shadow of the Beast, two routes of 3,600 frames each, every frame equal to the fresh
-reference, 0 instructions interpreted. **What it brings:** not measured. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other
+reference, 0 instructions interpreted. **What it brings:** on a quiet PC, 11 November 2026, one core, Lotus 2's racing route of 2,400 frames, four interleaved rounds, the
+machine time per frame goes from 1.887 ms (step 1 with ThinLTO) to 1.809 ms (-4.1 %; rounds within 2.1 %), past the 3 % bar; one game, not a latency. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds; the batch state is derived, never saved (line 0, where a state is taken, never has one).
 
 ## Commodore Amiga: a quiet line's pass in one loop (after 1.7.2, Agnus/Denise step 3)
@@ -135,7 +137,8 @@ the same pictures: `translate` writes its end-of-line entry into the change hist
 rule broken on purpose in its own build is seen against `--per-slot` on 8 other scenarios: a wrong table entry 6 of 8, a colour change skipped 7, the border ignored in a block 6,
 the collision check skipped 8, the sprite guard off 2, the BPLCON-change guard off 6, the history entry not written 1. Lotus 2's native game and the reference player built with steps 2 and 3 give the same trace as the
 build before step 1 on every one of 3,600 frames of a racing route; on that route 1,123,512 lines were batched and 3,601 ran on events (line 0 of each frame, none given back),
-and 1,029,889 visible lines were passed in one loop against 3,601 on vAmiga's pass (the last visible line of each frame). **What it brings:** not measured. **Hot
+and 1,029,889 visible lines were passed in one loop against 3,601 on vAmiga's pass (the last visible line of each frame). **What it brings:** on the same quiet pass, 1.809
+to 1.710 ms per frame (-5.5 %; rounds within 0.7 %); steps 1 to 3 with ThinLTO together, 2.493 to 1.710 ms (-31.4 %) on Lotus 2's route, one PC, not a latency. **Hot
 path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds;
 the table is derived, never saved.
 
