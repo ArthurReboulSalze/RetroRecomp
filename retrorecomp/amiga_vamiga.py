@@ -843,6 +843,78 @@ REPLACEMENTS = [
      '    nextTrigger = next;\n}\n',
      '    nextTrigger = next;\n'
      '    rrInEvents = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n}\n'),
+    # Stage 7, checkpoint 3b (controls the machine): the idle sprites' slots skipped. A sprite's DMA cycle does nothing on a line
+    # where its DMA is off and that is not its stop line; both are known at the line's start (the DMA state is updated at $E1 of the
+    # line before). Such a sprite's two slot events are left out of the line's schedule. A write to its SPRxPOS or SPRxCTL (always
+    # applied by a register-change event, before the slot events of its colour clock) puts it back for the rest of the line. Line 0,
+    # where the host frame ends, keeps every event.
+    ('Components/Agnus/Agnus.h',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n'
+     '    u8 rrSprIdle = 0;                           // stage 7: sprites whose slot events this line leaves out (derived)\n'
+     '    static inline bool rrSprSkip = true;        // false: every sprite slot event on the schedule\n'
+     '    static inline int rrSprFault = 0;           // a planted fault (1: an armed sprite taken for idle), for the self-test\n'
+     '    u64 rrSprSkipped = 0;                       // sprite slot events left out\n'
+     '    void rrSprLineStart();\n'
+     '    void rrSprWake(isize x);\n'
+     '    isize rrSkipIdle(isize h);\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n',
+     '    rrBplLineStart();\n'
+     '    rrSprLineStart();   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    scheduleFirstDasEvent();\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    rrSprIdle = 0;\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    u8 dmacycle = sequencer.nextDasEvent[0];\n    assert(dmacycle != 0);\n'
+     '    scheduleRel<SLOT_DAS>(DMA_CYCLES(dmacycle), sequencer.dasEvent[dmacycle]);\n',
+     '    u8 dmacycle = sequencer.nextDasEvent[0];\n    assert(dmacycle != 0);\n'
+     '    dmacycle = u8(rrSkipIdle(dmacycle));   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    scheduleRel<SLOT_DAS>(DMA_CYCLES(dmacycle), sequencer.dasEvent[dmacycle]);\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    u8 next = sequencer.nextDasEvent[hpos];\n    assert(next >= 0 && next < HPOS_CNT);\n',
+     '    u8 next = sequencer.nextDasEvent[hpos];\n    assert(next >= 0 && next < HPOS_CNT);\n'
+     '    next = u8(rrSkipIdle(next));   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    if (sequencer.dasEvent[hpos] != EVENT_NONE) {\n'
+     '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
+     '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): an idle sprite\'s event is passed over.\n'
+     '    if (sequencer.dasEvent[hpos] != EVENT_NONE && rrSkipIdle(hpos) == hpos) {\n'
+     '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
+     '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): the idle sprites of the line (Agnus.h). Not on line 0, not on AGA.\n'
+     'void\nAgnus::rrSprLineStart()\n{\n'
+     '    rrSprIdle = 0;\n'
+     '    if (!rrSprSkip || pos.v == 0 || isAGA()) return;\n'
+     '    for (isize n = 0; n < 8; n++) {\n'
+     '        if ((!sprDmaEnabled[n] || rrSprFault == 1) && pos.v != sprVStop[n]) rrSprIdle |= u8(1 << n);\n'
+     '    }\n'
+     '}\n\n'
+     '// The first event at or after slot h that is not an idle sprite\'s.\n'
+     'isize\nAgnus::rrSkipIdle(isize h)\n{\n'
+     '    while (rrSprIdle) {\n'
+     '        const EventID e = sequencer.dasEvent[h];\n'
+     '        if (e < DAS_S0_1 || e > DAS_S7_2 || !(rrSprIdle & (1 << ((e - DAS_S0_1) >> 1)))) break;\n'
+     '        rrSprSkipped++;\n'
+     '        h = sequencer.nextDasEvent[h];\n'
+     '    }\n'
+     '    return h;\n'
+     '}\n\n'
+     '// A write to the sprite\'s position or control (in a register-change event, before the slot events of this clock): its slots\n'
+     '// are back for the rest of the line.\n'
+     'void\nAgnus::rrSprWake(isize x)\n{\n'
+     '    if (!(rrSprIdle & (1 << x))) return;\n'
+     '    rrSprIdle &= u8(~(1 << x));\n'
+     '    scheduleDasEventForCycle(pos.h);\n'
+     '}\n'),
+] + [
+    ('Components/Agnus/AgnusRegs.cpp', head,
+     head + '    rrSprWake(x);   // Retro-Recomp modification (MPL-2.0, like this file)\n\n')
+    for head in ('Agnus::setSPRxPOS(u16 value)\n{\n', 'Agnus::setSPRxCTL(u16 value)\n{\n')
+] + [
     ('Components/Agnus/Agnus.cpp',
      'Agnus::vsyncHandler()\n{\n',
      'Agnus::vsyncHandler()\n{\n'

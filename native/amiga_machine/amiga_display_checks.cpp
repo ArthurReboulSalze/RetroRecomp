@@ -135,6 +135,12 @@ int main(int argc, char **argv) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
             DiskController::rrLazyOn = false;
+            Agnus::rrSprSkip = false;
+        } else if (!strcmp(argv[i], "--spr-off")) {
+            Agnus::rrSprSkip = false;
+        } else if (!strcmp(argv[i], "--spr-fault") && i + 1 < argc) {
+            Agnus::rrSprFault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--disk-off")) {
             DiskController::rrLazyOn = false;
         } else if (!strcmp(argv[i], "--disk-fault") && i + 1 < argc) {
@@ -262,8 +268,8 @@ int main(int argc, char **argv) {
                (unsigned long long)agnus.rrLines[2], (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
                (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
         const u64 *disk = amiga.paula.diskController.rrCounts;
-        printf(",\"disk\":[%llu,%llu,%llu,%llu]", (unsigned long long)disk[0], (unsigned long long)disk[1], (unsigned long long)disk[2],
-               (unsigned long long)disk[3]);
+        printf(",\"disk\":[%llu,%llu,%llu,%llu],\"sprite_slots_left_out\":%llu", (unsigned long long)disk[0], (unsigned long long)disk[1],
+               (unsigned long long)disk[2], (unsigned long long)disk[3], (unsigned long long)agnus.rrSprSkipped);
 #ifdef RR_AMIGA_SHADOW
         {
             static char bus[8192];

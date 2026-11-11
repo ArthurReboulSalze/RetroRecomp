@@ -533,6 +533,7 @@ def main() -> int:
     bus_total: dict = {}
     scenario_files = []
     disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
+    sprite_left_out, sprite_controls, sprite_seen = 0, 0, 0
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
@@ -572,6 +573,15 @@ def main() -> int:
             else:
                 disk_seen += 1
         disk = [n + m for n, m in zip(disk, first.get('disk', (0, 0, 0, 0)))]
+        sprite_left_out += first.get('sprite_slots_left_out', 0)
+        # Stage 7's idle sprites: an armed sprite taken for idle must change the records (where a sprite is shown at all).
+        if scenario.summary.get('sprites'):
+            sprite_controls += 1
+            play(program, path, runs / f'{seed}-sprite.rec', '--spr-fault', '1')
+            if compare(a, read_record(runs / f'{seed}-sprite.rec')) is None:
+                failures.append({'seed': seed, 'sprite_fault': 1, 'missed': True})
+            else:
+                sprite_seen += 1
         print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
     # Planted faults of the model: each must be seen on at least one scenario.
@@ -598,6 +608,7 @@ def main() -> int:
     print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
+    print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
     print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
           f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
     if bus_total:

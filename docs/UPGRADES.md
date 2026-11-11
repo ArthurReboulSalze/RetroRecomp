@@ -190,6 +190,42 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Paula stays emulated, 
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds; nothing is held back between frames.
 
+## Commodore Amiga: the idle sprites' slots left out of their lines (after 1.7.3, stage 7 checkpoint 3b)
+
+**What changes.** With sprite DMA on, Agnus has two slot events per sprite on every line (16 per line), even when no sprite is shown.
+On Lotus 2 that is 4,563 events per frame with 16 fetches. On Civilization it is 4,321 events with 73 fetches, a third of all its
+events.
+
+**The rule.** A sprite's cycle does nothing on a line where its DMA is off and that is not its stop line. Both are known at the line's
+start, since the sprite's DMA state is updated at $E1 of the line before.
+- Such a sprite's two events are left out of the line's schedule.
+- A write to its SPRxPOS or SPRxCTL puts it back for the rest of the line. vAmiga always applies such a write by a register-change
+  event, before the slot events of its colour clock.
+- Line 0, where the host frame ends, keeps every event, and so does AGA.
+
+This is done through vAmiga's adaptation (MPL-2.0 edits). Agnus stays emulated, and nothing is specialised from a game.
+
+**Proof.**
+- The display self-test compares each scenario with every sprite slot on the schedule (`--per-slot`, or `--spr-off` alone).
+- 52 scenarios of 4 frames: 892,752 sprite slot events left out, every instruction's and every frame's record equal.
+- An armed sprite taken for idle on purpose is seen in 51 of 51 scenarios that show sprites.
+- Lotus 2's native game and the reference player built with checkpoints 3a and 3b give the same trace as the build before step 1 on
+  every one of 3,600 frames of a racing route.
+- The reference player gives the same trace on Rick Dangerous, Lemmings and Civilization (main routes, 3,600 frames each).
+- First-read conversions with the real command line, checkpoints 3a and 3b together (11 November 2026): Lotus 2, Rick Dangerous,
+  Lemmings and Civilization (with the player's Kickstart 1.3).
+  - Two routes of 3,600 frames each, every frame equal to the fresh reference; the compressed copy, the resload log and the quick-state
+    restart are equal too.
+  - 0 instructions interpreted, but Civilization's 19, which are all the Kickstart's, as in 1.7.2.
+
+**What it brings:** not measured yet (one quiet-PC pass for checkpoint 3).
+
+**Hot path:** this is one.
+
+**What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
+
+**Quick states:** the Amiga's key moves; the line's set of idle sprites is derived, never saved (line 0 has none).
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
