@@ -355,6 +355,17 @@ def blitter_counts(report: dict) -> dict:
             'left_midway': (report.get('blitter') or {}).get('left_midway', 0), 'shapes': shapes}
 
 
+def display_counts(report: dict) -> dict:
+    """Agnus's and Denise's counters of a run; both stay emulated. A batched line ran its bitplane slots behind barriers instead of one event each; a line given
+    back went on vAmiga's events from a change of its plan on. A line passed in one loop wrote its texture row without the separate translate pass."""
+    counts = report.get('agnus_denise') or {}
+    lines = list(counts.get('bitplane_lines', (0, 0, 0)))
+    words = list(counts.get('bitplane_words', (0, 0)))
+    passes = list(counts.get('line_pass', (0, 0)))
+    return {'bitplane_lines_batched': lines[0], 'bitplane_lines_on_events': lines[1], 'bitplane_lines_given_back': lines[2],
+            'bitplane_words_batched': words[0], 'bitplane_words_on_events': words[1], 'visible_lines_one_pass': passes[0], 'visible_lines_general_pass': passes[1]}
+
+
 def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=(), windows: list = ()) -> dict:
     """The native code of these observations, of what a sweep reaches from them over these images of memory, of the Blitter shapes these reports saw and of the windows of a player's own record (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
@@ -702,7 +713,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'native_translated': results[name].get('translated', 0),
                          'native_moira_specialised': native - results[name].get('translated', 0), 'native_swept': results[name].get('swept', 0),
                          'native_learned': results[name].get('learned', 0), 'native_walked': results[name].get('walked', 0),
-                         'blitter': blitter_counts(results[name]),
+                         'blitter': blitter_counts(results[name]), 'agnus_denise': display_counts(results[name]),
                          'interpreted_opcodes': interpreted,
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          **({'kickstart_interpreted': (results[name].get('kickstart') or {}).get('interpreted', 0),
@@ -750,8 +761,13 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                  'details': {'routines_are': ("vAmiga's Blitter microprogram compiled per shape (BLTCON0 and BLTCON1 without the shift fields), one step per bus slot, in the slots the reference uses: "
                                               "specialised routines, not a translated program"),
                              'shapes_with_a_routine': generation['blitter_shapes'], 'counts': 'final_checks.blitter, by shape, native and interpreted'}},
-                {'id': 'agnus_copper', 'kind': 'video_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga', 'copper': 'not compiled (docs/AMIGA.md)'}},
-                {'id': 'denise', 'kind': 'video_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga'}},
+                {'id': 'agnus_copper', 'kind': 'video_unit', 'mode': 'emulated',
+                 'details': {'by': 'vAmiga', 'copper': 'not compiled (docs/AMIGA.md)',
+                             'bitplane_slots': ("a line's bitplane slots run in a batch behind barriers when its plan allows it, else one event each: the same work at fewer "
+                                                "scheduled instants (final_checks.agnus_denise)")}},
+                {'id': 'denise', 'kind': 'video_unit', 'mode': 'emulated',
+                 'details': {'by': 'vAmiga', 'line_pass': ('a quiet line (no sprite, no BPLCON change, no HAM, no super-hires) writes its row in one loop, '
+                                                           'else vAmiga\'s line pass (final_checks.agnus_denise)')}},
                 {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga'}}],
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},

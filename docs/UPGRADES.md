@@ -104,17 +104,40 @@ the start of a register-change event (HSYNC and EOL among them), and vAmiga's ow
 never covers a later one. The guard, decided per line: no AGA, never line 0 (where a host frame ends), every bitplane DMA slot between $18 and $E1, no super-hires fetch, each
 plane's modulo on its last fetch, every fetch in chip RAM; a new plan in the middle of the line (DDF, BPLCON0, DMACON, the vertical window) or a pointer moved out of chip RAM gives
 the rest of the line back to vAmiga's events. Through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`, MPL-2.0 edits). Agnus stays emulated: the same work, at fewer
-scheduled instants; nothing is specialised from a game. The lines and words batched, on events and given back are counted in Agnus (the display self-test prints them; the
-conversion report does not show them yet).
+scheduled instants; nothing is specialised from a game. The lines and words batched, on events and given back are counted per route in the conversion report
+(`final_checks.agnus_denise`, with the device notes under `hardware_devices`).
 Proof: `tools/amiga_display_selftest.py` now runs each scenario batched and with `--per-slot` (every line on vAmiga's events) in the same build: 12 scenarios of 4 frames (420,350
 instructions; 9,755 lines batched, 488 given back midway, 5,069 on events), every instruction's record and every frame's record equal. `--against` the frozen build of step 0:
 40 scenarios of 4 frames (1,297,343 instructions; 32,161 lines batched, 1,940 given back, 16,119 on events), all equal. The scenario program gained reads of write-only registers
 (they write the last bus value into them), BPL1DAT writes and pointer writes. A first version missed one case, found by the self-test on 9 NTSC scenarios out of 52: on an NTSC
 long line vAmiga runs the bitplane event of position 227, which came before slots still pending; that event now runs them first. Each barrier broken on purpose in its own build is seen against `--per-slot` on 8 other scenarios: the
 register-event barrier 8 of 8, the give-back of the marks 8 of 8, the custom read barrier 7, the custom write barrier 6, the bus clock 6, the bitplane-event barrier 2 (the NTSC
-ones), the chip RAM write barrier only 1 of 8 (a random write seldom lands ahead of the beam in the same line: that barrier is the least exercised). Lotus 2's trace and the first-read
-conversions are not done yet. **What it brings:** not measured. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
-**Quick states:** the Amiga's key moves, as between any two Amiga builds; the batch state is derived, never saved (line 0, where a state is taken, never has one).
+ones), the chip RAM write barrier only 1 of 8 (a random write seldom lands ahead of the beam in the same line: that barrier is the least exercised). Lotus 2's native game and
+the reference player built with this step (and ThinLTO) give the same trace as the build before step 1 on every one of 3,600 frames of a racing route. First-read conversions
+with the real command line (11 November 2026): Lotus 2, Pinball Dreams (NTSC) and Shadow of the Beast, two routes of 3,600 frames each, every frame equal to the fresh
+reference, 0 instructions interpreted. **What it brings:** not measured. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other
+console. **Quick states:** the Amiga's key moves, as between any two Amiga builds; the batch state is derived, never saved (line 0, where a state is taken, never has one).
+
+## Commodore Amiga: a quiet line's pass in one loop (after 1.7.2, Agnus/Denise step 3)
+
+At the end of every visible line Denise translates its line buffer into colour indices (`translate`), draws the sprites, checks playfield collisions and turns the indices
+into the texture row (`colorize`). On a quiet line the colour index of each buffer byte depends only on that byte and on the line's start state, so `translate`'s own loop is run
+once on the 256 possible bytes for that state (kept in a table, rebuilt when the state changes) and the row is written in one pass: index through the table, then the palette
+or the border colour, eight entries at a time where none is border. Colour changes inside the line are applied between chunks, as `colorize` applies them; the collision check
+runs as before. Quiet means: no sprite armed or recorded in the line, no BPLCON0, BPLCON2 or BPLCON4 change in it, no HAM, no super-hires, no border sprites, no hidden bitplanes
+or X-ray layers, not AGA, and the next line visible (vAmiga's VBLANK branch reads the buffers `translate` leaves, so the last visible line takes vAmiga's pass). Every other line
+takes vAmiga's line pass. Through vAmiga's adaptation (MPL-2.0 edits). Denise stays emulated; the plan's draw list and per-game routine keys were not needed for this first
+form, so nothing is specialised from a game: it is a hand optimisation of the same work, with a guard. Counted per route in `final_checks.agnus_denise` (visible lines in one
+pass, on vAmiga's pass).
+Proof: the display self-test with steps 2 and 3 against `--per-slot` (both off) on the 12 default scenarios (12,176 visible lines in one pass, 1,460 on vAmiga's pass) and
+`--against` the frozen build of step 0 on 40 more (37,896 and 6,560), every instruction's and every frame's record equal. A first version differed on Denise's snapshot only, with
+the same pictures: `translate` writes its end-of-line entry into the change history before clearing it, and those entries are saved; the one-pass line now does the same. Each
+rule broken on purpose in its own build is seen against `--per-slot` on 8 other scenarios: a wrong table entry 6 of 8, a colour change skipped 7, the border ignored in a block 6,
+the collision check skipped 8, the sprite guard off 2, the BPLCON-change guard off 6, the history entry not written 1. Lotus 2's native game and the reference player built with steps 2 and 3 give the same trace as the
+build before step 1 on every one of 3,600 frames of a racing route; on that route 1,123,512 lines were batched and 3,601 ran on events (line 0 of each frame, none given back),
+and 1,029,889 visible lines were passed in one loop against 3,601 on vAmiga's pass (the last visible line of each frame). **What it brings:** not measured. **Hot
+path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds;
+the table is derived, never saved.
 
 ## Exports of 1.7.1 in 1.7.2
 

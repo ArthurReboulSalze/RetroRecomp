@@ -10,7 +10,8 @@ machine an export uses and records every instruction (Agnus's clock and beam pos
 snapshots of Agnus, Denise, Paula, the CIAs and the CPU, chip and slow RAM, the sound, CLXDAT, every texture row).
 
 Without `--against`, each scenario runs twice in this build: once with the bitplane slots of a line taken in a batch (Agnus step 2),
-once with every line on vAmiga's events (`--per-slot`); the records must be equal, and the lines batched are counted. With
+once with every line on vAmiga's events and line pass (`--per-slot`, steps 2 and 3 off); the records must be equal, and the
+lines batched and passed in one loop (Denise step 3) are counted. With
 `--against EXE` the second run is a checks program built before a change (side A). Either way an injected fault (a bit of chip RAM, one
 colour clock) must be seen and placed. This shows that two runs agree, not that either matches the hardware.
 """
@@ -442,6 +443,7 @@ def main() -> int:
     runs.mkdir(parents=True, exist_ok=True)
     failures, seen, placed, instructions = [], 0, 0, 0
     lines = [0, 0, 0]
+    quiet = [0, 0]
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
@@ -450,6 +452,7 @@ def main() -> int:
         first = play(program, path, runs / f'{seed}-a.rec')
         play(arguments.against or program, path, runs / f'{seed}-b.rec', *(() if arguments.against else ('--per-slot',)))
         lines = [n + m for n, m in zip(lines, first.get('lines', (0, 0, 0)))]
+        quiet = [n + m for n, m in zip(quiet, first.get('quiet', (0, 0)))]
         a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
         instructions += first['instructions']
         if compare(a, b) is not None:
@@ -464,18 +467,18 @@ def main() -> int:
             placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
             if found is None:
                 failures.append({'seed': seed, 'fault': kind, 'missed': True})
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines')}), flush=True)
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet')}), flush=True)
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
-                      'lines_batched_events_left': lines, 'replays_differ': sum(1 for f in failures if 'replay' in f),
+                      'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
     other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
-             "every record equal to the one of the same build with every line on vAmiga's events")
+             "every record equal to the one of the same build with every line on vAmiga's events and line pass")
     print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
-          f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {other}, '
+          f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     return 0
 

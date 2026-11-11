@@ -615,6 +615,133 @@ REPLACEMENTS = [
      '    rrLines[2]++;\n'
      '    if (reschedule) scheduleBplEventForCycle(pos.h);\n'
      '}\n'),
+] + [
+    # Agnus and Denise, step 3: a quiet line's pass in one loop. On a line with no sprite, no BPLCON change, no HAM and no
+    # super-hires, the colour index of every line-buffer byte is a pure function of the byte and of the line's start state
+    # (translate's own loop gives it on the 256 bytes, kept in a table), so the texture row is written in one pass instead of
+    # translate, then colorize. Colour changes inside the line are applied between chunks as colorize applies them. Other lines,
+    # and the last visible line (the VBLANK branch after it reads the buffers translate leaves), take vAmiga's line pass.
+    ('Components/Denise/Denise.h',
+     '    struct { bool valid = false; u64 key = 0; u8 m[256]; u16 z[256]; } rrDpf;\n',
+     '    struct { bool valid = false; u64 key = 0; u8 m[256]; u16 z[256]; } rrDpf;\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): a quiet line\'s pass in one loop (Denise.cpp, rrQuietLine). rrMap is\n'
+     '    // translate\'s colour index of each dBuffer byte for the line\'s start state; derived, never part of a snapshot.\n'
+     '    struct { bool valid = false; u64 key = 0; u8 m[256]; } rrMap;\n'
+     '    static inline bool rrQuiet = true;           // false: every line on vAmiga\'s line pass\n'
+     '    u64 rrQuietLines[2] = { };                   // visible lines in one pass, on vAmiga\'s pass\n'
+     '    bool rrQuietLine(isize vpos);\n'
+     '    void rrQuietPass();\n'),
+    ('Components/Denise/Denise.h',
+     '    void rrBuildDpf(PFState &state, u64 key);   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     '    void rrBuildDpf(PFState &state, u64 key);   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    void rrBuildMap(PFState &state, bool dual, u64 key);   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Denise/Denise.cpp',
+     '        // Translate bitplane data to color register indices\n        translate();\n\n        // Draw sprites\n        drawSprites();\n\n'
+     '        // Perform playfield-playfield collision check (if enabled)\n        if (config.clxPlfPlf) checkP2PCollisions();\n\n'
+     '        // Synthesize RGBA values and write the result into the frame buffer\n        pixelEngine.colorize(vpos);\n',
+     '        // Retro-Recomp modification (MPL-2.0, like this file): a quiet line in one pass (rrQuietLine), else vAmiga\'s pass.\n'
+     '        if (rrQuietLine(vpos)) {\n'
+     '            rrQuietPass();\n'
+     '            if (config.clxPlfPlf) checkP2PCollisions();\n'
+     '            pixelEngine.rrColorize(vpos, dBuffer, rrMap.m);\n'
+     '            rrQuietLines[0]++;\n'
+     '        } else {\n'
+     '        rrQuietLines[1]++;\n\n'
+     '        // Translate bitplane data to color register indices\n        translate();\n\n        // Draw sprites\n        drawSprites();\n\n'
+     '        // Perform playfield-playfield collision check (if enabled)\n        if (config.clxPlfPlf) checkP2PCollisions();\n\n'
+     '        // Synthesize RGBA values and write the result into the frame buffer\n        pixelEngine.colorize(vpos);\n'
+     '        }\n'),
+    ('Components/Denise/Denise.cpp',
+     'void\nDenise::translateSPF(Pixel from, Pixel to, PFState &state)\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file): the guard of a quiet line. Nothing of translate, drawSprites and the\n'
+     '// first part of colorize may depend on more than each byte and the line\'s start state: no sprite armed or recorded in the line,\n'
+     '// no BPLCON change (conChanges), no BPLCON0 or BPLCON2 change for the pixel engine, no HAM, no super-hires, no border sprites,\n'
+     '// no hidden bitplanes or X-ray layers, not AGA, and the next line visible (the VBLANK branch reads the buffers translate leaves).\n'
+     'bool\nDenise::rrQuietLine(isize vpos)\n{\n'
+     '    if (!rrQuiet || isAGA() || wasArmed || config.hiddenBitplanes || borderSprites()) return false;\n'
+     '    if (!conChanges.isEmpty()) return false;\n'
+     '    for (isize p = 0; p < 4; p++) if (!sprChanges[p].isEmpty()) return false;\n'
+     '    if (agnus.xray.getConfig().mode == XRayMode::XRAY_LAYERS) return false;\n'
+     '    if (hamMode(initialBplcon0) || pixelEngine.shresModeEcs() || pixelEngine.hamMode6() || pixelEngine.hamMode8()) return false;\n'
+     '    if (vpos + 1 > VPOS_MAX || agnus.inVBlankArea(vpos + 1)) return false;\n'
+     '    for (isize i = 0, end = pixelEngine.colChanges.end(); i < end; i++) {\n'
+     '        const Reg reg = pixelEngine.colChanges.elements[i].reg;\n'
+     '        if (reg == Reg::BPLCON0 || reg == Reg::BPLCON2) return false;\n'
+     '    }\n'
+     '    return true;\n'
+     '}\n\n'
+     '// The line\'s start state as translate takes it; the table of colour indices is rebuilt when that state changes.\n'
+     'void\nDenise::rrQuietPass()\n{\n'
+     '    PFState state;\n'
+     '    state.zpf1 = zPF1(initialBplcon2);\n'
+     '    state.zpf2 = zPF2(initialBplcon2);\n'
+     '    state.prio = pf2pri(initialBplcon2);\n'
+     '    state.ham = hamMode(initialBplcon0);\n'
+     '    state.colxor = bplam(initialBplcon4);\n'
+     '    const bool dual = dbplf(initialBplcon0);\n'
+     '    const u64 key = (u64)dual << 56 | (u64)state.prio << 48 | (u64)state.zpf1 << 32 | (u64)state.zpf2 << 16 | (u64)state.colxor << 8 |\n'
+     '                    (u64)(dual ? (u8)colorOffset(pf2of()) : 0);\n'
+     '    if (!rrMap.valid || rrMap.key != key) rrBuildMap(state, dual, key);\n'
+     '    // What translate leaves in its (empty) change history: its end-of-line entry, written and cleared (the entries are saved).\n'
+     '    conChanges.insert(BUF_CNT, RegChange { .reg = Reg(0), .value = 0 });\n'
+     '    conChanges.clear();\n'
+     '}\n\n'
+     '// translate\'s own loops on the bytes 0 to 255, the buffers they use kept as they were.\n'
+     'void\nDenise::rrBuildMap(PFState &state, bool dual, u64 key)\n{\n'
+     '    u8 d[256], m[256];\n'
+     '    u16 z[256];\n'
+     '    std::memcpy(d, dBuffer, sizeof d);\n'
+     '    std::memcpy(m, mBuffer, sizeof m);\n'
+     '    std::memcpy(z, zBuffer, sizeof z);\n'
+     '    for (isize i = 0; i < 256; i++) dBuffer[i] = (u8)i;\n'
+     '    if (dual) translateDPF(0, 256, state); else translateSPF(0, 256, state);\n'
+     '    std::memcpy(rrMap.m, mBuffer, sizeof rrMap.m);\n'
+     '    std::memcpy(dBuffer, d, sizeof d);\n'
+     '    std::memcpy(mBuffer, m, sizeof m);\n'
+     '    std::memcpy(zBuffer, z, sizeof z);\n'
+     '    rrMap.key = key;\n'
+     '    rrMap.valid = true;\n'
+     '}\n\n'
+     'void\nDenise::translateSPF(Pixel from, Pixel to, PFState &state)\n'),
+    ('Components/Denise/PixelEngine.h',
+     '    void colorize(isize line);\n',
+     '    void colorize(isize line);\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): colorize of a quiet line, the colour index of each pixel read through\n'
+     '    // the line\'s table from the line buffer (Denise.cpp, rrQuietLine).\n'
+     '    void rrColorize(isize line, const u8 *dbuf, const u8 *map);\n'),
+    ('Components/Denise/PixelEngine.cpp',
+     'void\nPixelEngine::colorize(u32 *dst, Pixel from, Pixel to)\n',
+     '// Retro-Recomp modification (MPL-2.0, like this file): colorize(line) of a quiet line. No sprite pixel exists on such a line, so\n'
+     '// removing the border over sprites has nothing to do; the chunks between colour changes and the HBLANK wipe are colorize\'s.\n'
+     'void\nPixelEngine::rrColorize(isize line, const u8 *dbuf, const u8 *map)\n{\n'
+     '    auto *dst = (u32 *)workingPtr(line);\n'
+     '    auto *bbuf = denise.bBuffer;\n'
+     '    Pixel pixel = 0;\n'
+     '    colChanges.insert(Denise::PIXEL_CNT, RegChange { .reg = Reg(0), .value = 0 } );\n'
+     '    for (isize c = 0, end = colChanges.end(); c < end; c++) {\n'
+     '        const Pixel to = (Pixel)colChanges.keys[c];\n'
+     '        Pixel i = pixel;\n'
+     '        for (; i + 8 <= to; i += 8) {\n'
+     '            u64 border;\n'
+     '            std::memcpy(&border, bbuf + i, 8);\n'
+     '            if (border == 0) {\n'
+     '                for (isize k = 0; k < 8; k++) dst[i + k] = u32(palette[map[dbuf[i + k]]]);\n'
+     '            } else {\n'
+     '                for (isize k = 0; k < 8; k++) dst[i + k] = u32(bbuf[i + k] == BORDER_NONE ? palette[map[dbuf[i + k]]] : borderPalette[bbuf[i + k]]);\n'
+     '            }\n'
+     '        }\n'
+     '        for (; i < to; i++) dst[i] = u32(bbuf[i] == BORDER_NONE ? palette[map[dbuf[i]]] : borderPalette[bbuf[i]]);\n'
+     '        pixel = to;\n'
+     '        applyRegisterChange(colChanges.elements[c]);\n'
+     '    }\n'
+     '    colChanges.clear();\n'
+     '    auto start = agnus.pos.pixel(HBLANK_MIN);\n'
+     '    auto stop  = agnus.pos.pixel(HBLANK_MAX);\n'
+     '    auto hbcol = Texture::hblank;\n'
+     '    for (pixel = start; pixel <= stop; pixel++) dst[pixel] = u32(hbcol);\n'
+     '}\n\n'
+     'void\nPixelEngine::colorize(u32 *dst, Pixel from, Pixel to)\n'),
+] + [
     ('Components/Agnus/Sequencer/SequencerBpl.cpp',
      'Sequencer::computeBplEventTable(const SigRecorder &sr)\n{\n    // AGA takes the ECS path\n',
      'Sequencer::computeBplEventTable(const SigRecorder &sr)\n{\n'

@@ -11,8 +11,9 @@
 //   * at every frame's end: the snapshot bytes of Agnus, Denise, Paula, both CIAs and the CPU, all of chip and slow RAM, the frame's
 //     sound, CLXDAT, and every row of vAmiga's texture.
 // A fault can be injected (`--fault ram|clock INDEX`): the comparison of the tool must see it. Text lines of the instructions around a
-// difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events (Agnus step 2 off); the
-// summary line counts the lines batched, on events and given back midway. The records show that two runs agree with each other, not
+// difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events and every line pass on
+// vAmiga's own (Agnus step 2 and Denise step 3 off); the summary line counts the lines batched, on events and given back midway, and
+// the visible lines passed in one loop and on vAmiga's pass. The records show that two runs agree with each other, not
 // that either matches the hardware.
 #include "vaconfig.h"
 #include "Emulator.h"
@@ -126,6 +127,7 @@ int main(int argc, char **argv) {
             i += 2;
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
+            Denise::rrQuiet = false;
         } else {
             fprintf(stderr, "Unknown argument %s\n", argv[i]);
             return 2;
@@ -225,9 +227,11 @@ int main(int argc, char **argv) {
         if (fclose(record)) { record = nullptr; throw std::runtime_error("Cannot write the record."); }
         record = nullptr;
         const Agnus &agnus = amiga.agnus;
-        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu]}\n", frames, (unsigned long long)total,
-               c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1], (unsigned long long)agnus.rrLines[2],
-               (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1]);
+        const Denise &denise = amiga.denise;
+        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu],\"quiet\":[%llu,%llu]}\n", frames,
+               (unsigned long long)total, c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1],
+               (unsigned long long)agnus.rrLines[2], (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
+               (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
     } catch (std::exception &e) {
         if (record) fclose(record);
         fprintf(stderr, "The scenario failed: %s\n", e.what());

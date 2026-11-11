@@ -338,6 +338,8 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       }
       fputs("\"blitter\":", r);
       rr_amiga_write_blitter(session, r);
+      fputs(",\"agnus_denise\":", r);
+      rr_amiga_write_display(session, r);
       fputc(',', r);
       fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"learned\":%llu,\"walked\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
