@@ -28,6 +28,14 @@ foreach(RR_VAMIGA_TARGET VACore rvlib utlib)
     endif()
 endforeach()
 
+# Stage 7's bus model in shadow (amiga_bus.h): private checks of a reference player only, never a game. Off by default.
+option(RR_AMIGA_SHADOW "Stage 7's bus model in shadow (private checks, never an export)" OFF)
+if(RR_AMIGA_SHADOW)
+    target_compile_definitions(VACore PUBLIC RR_AMIGA_SHADOW=1)
+    target_include_directories(VACore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_sources(VACore PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/amiga_bus.cpp")
+endif()
+
 get_filename_component(RR_COMMON_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(RR_WHDLOAD "${RR_COMMON_NATIVE}/amiga_whdload")
 

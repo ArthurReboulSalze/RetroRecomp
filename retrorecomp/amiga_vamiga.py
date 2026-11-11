@@ -748,6 +748,96 @@ REPLACEMENTS = [
      '    // Retro-Recomp modification (MPL-2.0, like this file): the table is about to change: a batched line goes back to events.\n'
      '    agnus.rrBplMaterialise(false);\n\n'
      '    // AGA takes the ECS path\n'),
+] + [
+    # Stage 7, in shadow: the hooks of our bus and DMA model (native/amiga_machine/amiga_bus.h, MIT). Compiled only with
+    # RR_AMIGA_SHADOW (the display self-test, private reference players); without it every hook is preprocessed away and the Core
+    # is the same code as before. The model computes beside vAmiga and changes nothing.
+    ('Components/Agnus/Agnus.h',
+     '#include "utl/wrappers.h"\n',
+     '#include "utl/wrappers.h"\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow\n'
+     '#include "amiga_bus.h"\n'
+     '#endif\n'),
+    ('Components/Agnus/Agnus.h',
+     'class Agnus : public SubComponent {\n',
+     'class Agnus : public SubComponent {\n\n'
+     '    friend struct RrBus;   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow reads Agnus\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Clear the bus usage table\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the line\'s owners against the model\'s table\n'
+     '    RrBus::lineEnd(*this);\n'
+     '#endif\n\n'
+     '    // Clear the bus usage table\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model\'s table of the line\n'
+     '    RrBus::lineStart(*this);\n'
+     '#endif\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '#ifdef RR_AMIGA_SHADOW\n    RrBus::reset(*this);\n#endif\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Check if the bus is blocked\n    if (busOwner[pos.h] != BusOwner::NONE) {\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model\'s prediction of this wait\n'
+     '    RrBus::busWaitStart(*this);\n'
+     '    long long rrDelay = 0;\n'
+     '#endif\n\n'
+     '    // Check if the bus is blocked\n    if (busOwner[pos.h] != BusOwner::NONE) {\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '        cpu.addWaitStates(DMA_CYCLES(delay));\n    }\n\n    // Assign bus to the CPU\n',
+     '        cpu.addWaitStates(DMA_CYCLES(delay));\n'
+     '#ifdef RR_AMIGA_SHADOW\n        rrDelay = delay;\n#endif\n'
+     '    }\n\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    RrBus::busWaitEnd(*this, rrDelay);\n'
+     '#endif\n\n'
+     '    // Assign bus to the CPU\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Sync with the E clock driving the CIA\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    RrBus::ciaWait(*this);\n'
+     '#endif\n\n'
+     '    // Sync with the E clock driving the CIA\n'),
+    ('Components/Agnus/Agnus.cpp',
+     'Agnus::executeUntil(Cycle cycle) {\n',
+     'Agnus::executeUntil(Cycle cycle) {\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the events the model would meet\n'
+     '    RrBus::events(*this, (long long)cycle);\n'
+     '#endif\n'),
+    ('Components/Agnus/AgnusRegs.cpp',
+     '        // Rectify the currently scheduled DAS event\n        scheduleDasEventForCycle(pos.h);\n',
+     '        // Rectify the currently scheduled DAS event\n        scheduleDasEventForCycle(pos.h);\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model reads the line\'s new DAS slots\n'
+     '        RrBus::dasChanged(*this);\n'
+     '#endif\n'),
+    ('Components/Agnus/Sequencer/SequencerBpl.cpp',
+     '    agnus.isOCS() ? computeBplEventTable<false>(sr) : computeBplEventTable<true>(sr);\n',
+     '    agnus.isOCS() ? computeBplEventTable<false>(sr) : computeBplEventTable<true>(sr);\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model reads the new plan\n'
+     '    RrBus::planChanged(agnus);\n'
+     '#endif\n'),
+] + [
+    # The CPU's bus accesses as the model sees them (class of the address; custom and CIA accesses are its synchronisations).
+    ('Components/CPU/CPU.cpp', head,
+     head + '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     f'    RrBus::cpuAccess(agnus, addr, {write});\n#endif\n')
+    for head, write in (('Moira::read8(u32 addr) const\n{\n', 0), ('Moira::read16(u32 addr) const\n{\n', 0), ('Moira::read32(u32 addr) const\n{\n', 0),
+                        ('Moira::write8(u32 addr, u8 val) const\n{\n', 1), ('Moira::write16(u32 addr, u16 val) const\n{\n', 1),
+                        ('Moira::write32(u32 addr, u32 val) const\n{\n', 1))
+] + [
+    # And after it: a custom register or CIA access is complete, what it scheduled is known.
+    ('Components/CPU/CPU.cpp', f'    return mem.peek{size}<Accessor::CPU>(addr);\n',
+     f'#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     f'    const auto rrValue = mem.peek{size}<Accessor::CPU>(addr);\n    RrBus::cpuDone(agnus);\n    return rrValue;\n'
+     f'#else\n    return mem.peek{size}<Accessor::CPU>(addr);\n#endif\n')
+    for size in (8, 16, 32)
+] + [
+    ('Components/CPU/CPU.cpp', f'    mem.poke{size} <Accessor::CPU> (addr, val);\n',
+     f'    mem.poke{size} <Accessor::CPU> (addr, val);\n'
+     f'#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n    RrBus::cpuDone(agnus);\n#endif\n')
+    for size in (8, 16, 32)
 ]
 
 # What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.

@@ -15,6 +15,11 @@
 // vAmiga's own (Agnus step 2 and Denise step 3 off); the summary line counts the lines batched, on events and given back midway, and
 // the visible lines passed in one loop and on vAmiga's pass. The records show that two runs agree with each other, not
 // that either matches the hardware.
+//
+// Built with RR_AMIGA_SHADOW (the self-test always does), stage 7's bus model runs in shadow (amiga_bus.h): each frame's record also
+// holds a hash of every line's bus owners, the summary line carries the model's comparison with vAmiga (`bus`, `bus_mismatches`),
+// `--shadow-fault N` plants a fault in the model (the comparison must see it) and `--access-trace FROM COUNT` prints the CPU's bus
+// waits of those instructions with the path the model would take.
 #include "vaconfig.h"
 #include "Emulator.h"
 #include "Amiga.h"
@@ -128,6 +133,15 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
+#ifdef RR_AMIGA_SHADOW
+        } else if (!strcmp(argv[i], "--shadow-fault") && i + 1 < argc) {
+            RrBus::fault = atoi(argv[i + 1]);
+            i += 1;
+        } else if (!strcmp(argv[i], "--access-trace") && i + 2 < argc) {
+            RrBus::traceFrom = strtoull(argv[i + 1], nullptr, 10);
+            RrBus::traceCount = strtoull(argv[i + 2], nullptr, 10);
+            i += 2;
+#endif
         } else {
             fprintf(stderr, "Unknown argument %s\n", argv[i]);
             return 2;
@@ -183,7 +197,7 @@ int main(int argc, char **argv) {
         if (!record) throw std::runtime_error("Cannot write the record.");
         const uint32_t rows = (uint32_t)Tex::height;
         fwrite("RRDR", 1, 4, record);
-        const uint32_t head[3] = {1, frames, rows};
+        const uint32_t head[3] = {2, frames, rows};
         fwrite(head, 4, 3, record);
         std::vector<float> sound;
         for (uint32_t frame = 0; frame < frames; frame++) {
@@ -194,7 +208,7 @@ int main(int argc, char **argv) {
             const isize count = stream.count();
             sound.assign((size_t)count * 2, 0.0f);
             const isize got = count ? amiga.audioPort.copyInterleaved(sound.data(), count) : 0;
-            uint64_t row[12] = {};
+            uint64_t row[13] = {};
             row[0] = (uint64_t)c.steps.size();
             row[1] = c.save_hash(amiga.agnus);
             row[2] = c.save_hash(amiga.denise);
@@ -207,7 +221,10 @@ int main(int argc, char **argv) {
             row[9] = fnv(BASIS, sound.data(), (size_t)got * 2 * sizeof(float));
             row[10] = amiga.denise.spypeekCLXDAT();
             row[11] = (uint64_t)amiga.agnus.clock;
-            fwrite(row, 8, 12, record);
+#ifdef RR_AMIGA_SHADOW
+            row[12] = RrBus::takeOwners();       // every line's bus owners (who took each colour clock), hashed
+#endif
+            fwrite(row, 8, 13, record);
             const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
             const uint32_t *px = (const uint32_t *)tex.pixels.ptr;
             for (uint32_t y = 0; y < rows; y++) {
@@ -228,10 +245,18 @@ int main(int argc, char **argv) {
         record = nullptr;
         const Agnus &agnus = amiga.agnus;
         const Denise &denise = amiga.denise;
-        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu],\"quiet\":[%llu,%llu]}\n", frames,
+        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu],\"quiet\":[%llu,%llu]", frames,
                (unsigned long long)total, c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1],
                (unsigned long long)agnus.rrLines[2], (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
                (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
+#ifdef RR_AMIGA_SHADOW
+        {
+            static char bus[8192];
+            RrBus::json(bus, sizeof bus);
+            printf(",\"bus_mismatches\":%llu,\"bus\":%s", (unsigned long long)RrBus::mismatches(), bus);
+        }
+#endif
+        printf("}\n");
     } catch (std::exception &e) {
         if (record) fclose(record);
         fprintf(stderr, "The scenario failed: %s\n", e.what());
