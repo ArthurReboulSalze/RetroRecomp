@@ -721,6 +721,7 @@
     "scummvm_pack_ready": "Das ScummVM-Paket ist bereits vorhanden: Es gibt nichts herunterzuladen.",
     "scummvm_download_failed": "Die Dateien von ScummVM konnten nicht heruntergeladen werden. Prüfe die Internetverbindung und versuche es erneut. Details: {log}",
     "scummvm_build_failed": "ScummVM konnte auf diesem Computer nicht kompiliert werden, daher wurde nichts konvertiert. Versuche es erneut; die Details stehen in {log}",
+    "step_timed_out": "Ein Konvertierungsschritt wurde an seinem Zeitlimit ({limit}) angehalten: {step}. Der Computer ist vielleicht langsam oder ausgelastet (ein Virenscanner prüft den Build-Ordner, ein anderes schweres Programm läuft). Versuche es erneut; wenn er wieder anhält, sende diese Meldung mit dem Konvertierungsprotokoll.",
     "scummvm_detect_offline": "Die Ordnererkennung von ScummVM konnte nicht heruntergeladen werden, daher wurde dieser Ordner nicht durchsucht. Prüfe die Internetverbindung und füge den Ordner erneut hinzu.",
     "scummvm_detect_failed": "Die Ordnererkennung von ScummVM konnte nicht vorbereitet werden (ihre Kompilierung ist fehlgeschlagen); dieser Ordner wurde nicht durchsucht. Das Protokoll liegt im Ordner .deps von Retro-Recomp: scummvm-build/detect.log.",
     "tip_scummvm_choice": "0: Ein Ordner, der zu mehreren Ausgaben passt, wird abgelehnt und die Ausgaben werden aufgelistet. 1 bis 9: Diese Ausgabe der Liste wird verwendet."

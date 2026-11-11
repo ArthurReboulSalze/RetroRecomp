@@ -438,6 +438,8 @@ STRINGS = {
         "Les fichiers de ScummVM n'ont pas pu être téléchargés. Vérifie la connexion à Internet, puis réessaie. Détails : {log}"),
     'scummvm_build_failed': ("ScummVM could not be built on this computer, so nothing was converted. Try again; the details are in {log}",
         "ScummVM n'a pas pu être compilé sur cet ordinateur : rien n'a été converti. Réessaie ; les détails sont dans {log}"),
+    'step_timed_out': ("A conversion step was stopped at its time limit ({limit}): {step}. The computer may be slow or busy (an antivirus scanning the build folder, another heavy program). Try again; if it stops again, send this message with the conversion log.",
+        "Une étape de la conversion a été arrêtée à sa limite de temps ({limit}) : {step}. L'ordinateur est peut-être lent ou occupé (un antivirus qui analyse le dossier de compilation, un autre programme lourd). Réessaie ; si elle s'arrête encore, envoie ce message avec le journal de la conversion."),
     'scummvm_detect_offline': ("ScummVM's folder detection could not be downloaded, so this folder was not searched. Check the internet connection, then add the folder again.",
         "La détection des dossiers ScummVM n'a pas pu être téléchargée : ce dossier n'a pas été exploré. Vérifie la connexion à Internet, puis ajoute à nouveau le dossier."),
     'tip_scummvm_choice': ("0: a folder that matches several editions is refused and the editions are listed. 1 to 9: that edition of the list is used.", "0 : un dossier qui correspond à plusieurs éditions est refusé et les éditions sont listées. 1 à 9 : cette édition de la liste est utilisée."),
@@ -855,9 +857,45 @@ LOG_PATTERNS = [
 # Sentences a conversion raises in English, since a build module knows no language: the window shows them in the player's own,
 # with what comes before them on the line (the title of the game).
 LOG_SENTENCES = ('scummvm_download_failed', 'scummvm_build_failed')
+# What Python says when a step of the conversion goes past its time limit (subprocess.TimeoutExpired): the whole command line
+# and the limit in seconds. The window says it in the player's language, with the step named by its program and first
+# arguments (which carry the compiler jobs, `--parallel N`). Read here, at display time, so no game stamp moves for it.
+STEP_TIMEOUT = re.compile(r"Command '(.*)' timed out after ([0-9.]+) seconds")
+_STEP_ARGUMENTS = 8
+
+
+def _step_name(command: str) -> str:
+    try:
+        import ast
+        parts = ast.literal_eval(command)
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        parts = [re.sub(r'\\(.)', r'\1', part) for part in re.findall(r"'((?:[^'\\]|\\.)*)'", command)]
+    if isinstance(parts, str) or not isinstance(parts, (list, tuple)) or not parts:
+        return command[:160]
+    words = [re.split(r'[\\/]', str(part).rstrip('\\/'))[-1] if re.search(r'[\\/]', str(part)) else str(part) for part in parts]
+    words[0] = re.sub(r'\.exe$', '', words[0], flags=re.IGNORECASE)
+    shown = words[:1 + _STEP_ARGUMENTS]
+    return ' '.join(shown + (['…'] if len(words) > len(shown) else []))
+
+
+def _limit_text(seconds: str) -> str:
+    value = float(seconds)
+    return f'{value / 60:g} min' if value >= 60 and value % 60 == 0 else f'{value:g} s'
+
+
+def step_timeout_text(text: str, language: str = 'en') -> str | None:
+    """The time-limit message of a conversion step in the player's language, or None when the text is not one."""
+    found = STEP_TIMEOUT.search(text)
+    if not found:
+        return None
+    message = tr('step_timed_out', language, step=_step_name(found.group(1)), limit=_limit_text(found.group(2)))
+    return text[:found.start()] + message + text[found.end():]
 
 
 def log_text(text: str, language: str = 'en') -> str:
+    timed_out = step_timeout_text(text, language)
+    if timed_out is not None:
+        return timed_out
     for key in LOG_SENTENCES:
         start, _, end = STRINGS[key][0].partition('{log}')
         before, found, rest = text.partition(start)

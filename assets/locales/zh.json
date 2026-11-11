@@ -721,6 +721,7 @@
     "scummvm_pack_ready": "ScummVM 包已存在：无需下载。",
     "scummvm_download_failed": "无法下载 ScummVM 的文件。请检查网络连接，然后重试。详情：{log}",
     "scummvm_build_failed": "无法在这台电脑上构建 ScummVM，因此未转换任何内容。请重试；详情见 {log}",
+    "step_timed_out": "转换的一个步骤在超过时间限制（{limit}）后被停止：{step}。这台电脑可能较慢或负载较高（安全软件正在扫描编译文件夹，或有其他大型程序在运行）。请重试；如果再次停止，请发送此消息和转换记录。",
     "scummvm_detect_offline": "无法下载 ScummVM 的文件夹检测，因此未搜索此文件夹。请检查网络连接，然后重新添加该文件夹。",
     "scummvm_detect_failed": "无法准备 ScummVM 的文件夹检测（其构建失败），因此没有搜索此文件夹。构建记录位于 Retro-Recomp 的 .deps 文件夹中：scummvm-build/detect.log。",
     "tip_scummvm_choice": "0：与多个版本匹配的文件夹会被拒绝，并列出这些版本。1 到 9：使用列表中的该版本。"

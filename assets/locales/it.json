@@ -721,6 +721,7 @@
     "scummvm_pack_ready": "Il pacchetto ScummVM è già presente: niente da scaricare.",
     "scummvm_download_failed": "Non è stato possibile scaricare i file di ScummVM. Controlla la connessione a Internet, poi riprova. Dettagli: {log}",
     "scummvm_build_failed": "Non è stato possibile compilare ScummVM su questo computer, quindi non è stato convertito nulla. Riprova; i dettagli sono in {log}",
+    "step_timed_out": "Una fase della conversione è stata interrotta al suo limite di tempo ({limit}): {step}. Il computer potrebbe essere lento o occupato (un antivirus che analizza la cartella di compilazione, un altro programma pesante). Riprova; se si ferma di nuovo, invia questo messaggio con il registro della conversione.",
     "scummvm_detect_offline": "Non è stato possibile scaricare il rilevamento delle cartelle di ScummVM, quindi questa cartella non è stata esplorata. Controlla la connessione a Internet, poi aggiungi di nuovo la cartella.",
     "scummvm_detect_failed": "Non è stato possibile preparare il rilevamento delle cartelle di ScummVM (la compilazione è fallita), quindi questa cartella non è stata esaminata. Il registro è nella cartella .deps di Retro-Recomp: scummvm-build/detect.log.",
     "tip_scummvm_choice": "0: una cartella che corrisponde a più edizioni viene rifiutata e le edizioni sono elencate. Da 1 a 9: viene usata quell'edizione dell'elenco."

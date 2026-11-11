@@ -88,6 +88,25 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(log_text('demo : 100.0 % natif, 0.0 % interprété.'), 'demo: 100.0% native, 0.0% interpreted.')
         self.assertEqual(log_text('Vérification du mode strict…', 'fr'), 'Vérification du mode strict…')
 
+    def test_a_step_timeout_names_the_step_and_its_limit_in_every_language(self):
+        import subprocess
+        from retrorecomp.languages import LANGUAGES
+        build = subprocess.TimeoutExpired([r'C:\llvm-mingw\bin\cmake.exe', '--build', r'D:\Retro\build\kirby-12ab',
+                                           '--parallel', '8', '--target', 'game'], 1800)
+        for code in LANGUAGES:
+            with self.subTest(language=code):
+                text = log_text("Kirby's Adventure : " + str(build), code)
+                self.assertTrue(text.startswith("Kirby's Adventure : "))
+                self.assertIn('cmake --build kirby-12ab --parallel 8 --target game', text)
+                self.assertIn('30 min', text)
+                self.assertNotIn('timed out after', text)
+                self.assertNotIn('C:\\', text)
+        self.assertIn('stopped at its time limit (60 min): make all.', log_text(str(subprocess.TimeoutExpired('make all', 3600))))
+        self.assertIn('(0.2 s): python -c', log_text(str(subprocess.TimeoutExpired(['python', '-c', 'pass'], 0.2))))
+        long = subprocess.TimeoutExpired(['tool'] + [str(n) for n in range(20)], 600)
+        self.assertIn('tool 0 1 2 3 4 5 6 7 …', log_text(str(long)))
+        self.assertEqual(log_text('Commande interrompue (3).'), 'Commande interrompue (3).')
+
     def test_shared_ini_language_update_preserves_keyboard_and_filter(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name) / 'jeux partagés'; data = root / 'datas'; data.mkdir(parents=True)

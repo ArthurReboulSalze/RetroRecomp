@@ -721,6 +721,7 @@
     "scummvm_pack_ready": "El paquete de ScummVM ya está aquí: no hay nada que descargar.",
     "scummvm_download_failed": "No se han podido descargar los archivos de ScummVM. Comprueba la conexión a Internet e inténtalo de nuevo. Detalles: {log}",
     "scummvm_build_failed": "No se ha podido compilar ScummVM en este ordenador, así que no se ha convertido nada. Inténtalo de nuevo; los detalles están en {log}",
+    "step_timed_out": "Un paso de la conversión se detuvo en su límite de tiempo ({limit}): {step}. Puede que el ordenador sea lento o esté ocupado (un antivirus analizando la carpeta de compilación, otro programa pesado). Inténtalo de nuevo; si vuelve a detenerse, envía este mensaje con el registro de la conversión.",
     "scummvm_detect_offline": "No se ha podido descargar la detección de carpetas de ScummVM, así que esta carpeta no se ha explorado. Comprueba la conexión a Internet y vuelve a añadir la carpeta.",
     "scummvm_detect_failed": "No se pudo preparar la detección de carpetas de ScummVM (falló su compilación), así que no se buscó en esta carpeta. El registro está en la carpeta .deps de Retro-Recomp: scummvm-build/detect.log.",
     "tip_scummvm_choice": "0: una carpeta que coincide con varias ediciones se rechaza y se listan las ediciones. 1 a 9: se usa esa edición de la lista."
