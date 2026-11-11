@@ -99,6 +99,9 @@ uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s);
 /* The Blitter's counters as JSON: blits that changed shape under a routine, then by shape [BLTCON0, BLTCON1 (without the shift fields), has a routine,
  * native blits, native words, interpreted blits, interpreted words or line steps]. Native is a specialised routine, interpreted is vAmiga's microprogram. */
 void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *out);
+/* Agnus's and Denise's counters as JSON (both stay emulated): bitplane_lines [batched, on vAmiga's events, batched then given back midway],
+ * bitplane_words [batched, on events], line_pass [visible lines passed in one loop, on vAmiga's line pass]. */
+void rr_amiga_write_display(const RrAmigaSession *s, FILE *out);
 long rr_amiga_resload_calls(const RrAmigaSession *s);
 int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path);
 
