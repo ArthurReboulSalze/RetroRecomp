@@ -269,9 +269,24 @@ RAM access by any device, for little more than this.
   - Two routes each, every frame equal to the fresh reference, and the native validation passed.
   - 0 instructions interpreted, but Civilization's 19, which are all the Kickstart's, as in 1.7.2. 0 blits interpreted.
 
-**What it brings:** not measured yet; it needs a quiet-PC pass.
+**What it brings:** nothing; it costs time. Measured in one quiet-PC pass on 12 Nov 2026 (Windows, one core, native game, 3
+rounds of 2,400 frames, median of the rounds):
 
-**Hot path:** this is one.
+| Game | Before Agnus/Denise step 1 | Steps 1-3 (1.7.3) | Checkpoint 3 | Plus checkpoint 4 | Against checkpoint 3 |
+|---|--:|--:|--:|--:|--:|
+| Lotus 2 | 2.522 ms | 1.719 ms | 1.534 ms | 1.577 ms | +2.8 % |
+| Rick Dangerous | 2.116 ms | 1.404 ms | 1.361 ms | 1.403 ms | +3.1 % |
+
+- Checkpoint 4 is slower in every round, on both games: Lotus 2 +1.1 %, +1.8 %, +3.1 %; Rick Dangerous +1.0 %, +2.7 %, +3.3 %.
+- The cost is about the same on both games (about 0.04 ms per frame), although Rick Dangerous has 337 Blitter events per frame
+  and Lotus 2 has 19,811. Serving the Blitter's event alone therefore saves next to nothing. The cost is spread over every colour
+  clock: the bound kept by every schedule, and a larger inlined `execute()`.
+- The builds ran in a fixed order in each round, checkpoint 4 always last. An effect of that place cannot be ruled out, but
+  nothing in the pass points to a gain.
+- This is machine time only. It says nothing about physical latency.
+
+**Hot path:** this is one, and it is slower. It does not ship as it stands: it is to be reverted, or kept off, on the lead's
+decision.
 
 **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
 
