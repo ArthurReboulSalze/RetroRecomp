@@ -534,6 +534,7 @@ def main() -> int:
     scenario_files = []
     disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
     sprite_left_out, sprite_controls, sprite_seen = 0, 0, 0
+    blitter_alone, blitter_controls, blitter_seen = 0, 0, 0
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
@@ -574,6 +575,16 @@ def main() -> int:
                 disk_seen += 1
         disk = [n + m for n, m in zip(disk, first.get('disk', (0, 0, 0, 0)))]
         sprite_left_out += first.get('sprite_slots_left_out', 0)
+        blitter_alone += first.get('blitter_alone', 0)
+        # Stage 7's Blitter lane: a slot due with the Blitter's served a colour clock late must change the records (where a blit
+        # ran beside another event).
+        if first.get('blitter_alone', 0):
+            blitter_controls += 1
+            play(program, path, runs / f'{seed}-blitter.rec', '--blt-fault', '1')
+            if compare(a, read_record(runs / f'{seed}-blitter.rec')) is None:
+                failures.append({'seed': seed, 'blitter_fault': 1, 'missed': True})
+            else:
+                blitter_seen += 1
         # Stage 7's idle sprites: an armed sprite taken for idle must change the records (where a sprite is shown at all).
         if scenario.summary.get('sprites'):
             sprite_controls += 1
@@ -608,6 +619,8 @@ def main() -> int:
     print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
+    print(f"Stage 7's Blitter lane: {blitter_alone} Blitter events served alone on their colour clock, every record equal to the run "
+          f"with every event through vAmiga's loop; a slot due with the Blitter's served a clock late seen in {blitter_seen} of {blitter_controls} scenarios.")
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
     print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
           f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")

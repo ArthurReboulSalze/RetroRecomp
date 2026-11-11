@@ -136,6 +136,12 @@ int main(int argc, char **argv) {
             Denise::rrQuiet = false;
             DiskController::rrLazyOn = false;
             Agnus::rrSprSkip = false;
+            Agnus::rrBltLane = false;
+        } else if (!strcmp(argv[i], "--blt-off")) {
+            Agnus::rrBltLane = false;
+        } else if (!strcmp(argv[i], "--blt-fault") && i + 1 < argc) {
+            Agnus::rrBltFault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--spr-off")) {
             Agnus::rrSprSkip = false;
         } else if (!strcmp(argv[i], "--spr-fault") && i + 1 < argc) {
@@ -270,6 +276,7 @@ int main(int argc, char **argv) {
         const u64 *disk = amiga.paula.diskController.rrCounts;
         printf(",\"disk\":[%llu,%llu,%llu,%llu],\"sprite_slots_left_out\":%llu", (unsigned long long)disk[0], (unsigned long long)disk[1],
                (unsigned long long)disk[2], (unsigned long long)disk[3], (unsigned long long)agnus.rrSprSkipped);
+        printf(",\"blitter_alone\":%llu", (unsigned long long)agnus.rrBltAlone);
 #ifdef RR_AMIGA_SHADOW
         {
             static char bus[8192];

@@ -1072,6 +1072,80 @@ REPLACEMENTS = [
      f'    mem.poke{size} <Accessor::CPU> (addr, val);\n'
      f'#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n    RrBus::cpuDone(agnus);\n#endif\n')
     for size in (8, 16, 32)
+] + [
+    # Stage 7, checkpoint 4 (controls the machine): the Blitter's event alone on its colour clock. While a blit runs, its slot
+    # stays due at every colour clock, so each one went through the whole event loop. Agnus now keeps a lower bound of every
+    # other slot's trigger (rrNextOther: taken exactly at the end of the event loop, lowered by every schedule of another slot, set
+    # to zero when the triggers are copied or loaded). When the clock is below it, nothing but the Blitter can be due: its event
+    # is served directly, in the same place of the colour clock (it is the last primary slot) and with the same flags set, then
+    # the next trigger is taken from that bound and the Blitter's own. Same events, same order: only the loop is skipped.
+    ('Components/Agnus/Agnus.h',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n'
+     '    Cycle rrNextOther = 0;                      // stage 7: at most the earliest trigger of the slots but the Blitter\'s\n'
+     '    static inline bool rrBltLane = true;        // false: the Blitter\'s events through the whole event loop\n'
+     '    static inline int rrBltFault = 0;           // a planted fault (1: a slot due with the Blitter\'s served a clock late)\n'
+     '    u64 rrBltAlone = 0;                         // Blitter events served alone\n'
+     '    void rrBlitterOnly();\n'),
+    ('Components/Agnus/Agnus.h',
+     '        this->id[s] = id;\n        \n        if (cycle < nextTrigger) nextTrigger = cycle;\n',
+     '        this->id[s] = id;\n        \n        if (cycle < nextTrigger) nextTrigger = cycle;\n'
+     '        if constexpr (s != SLOT_BLT) { if (cycle < rrNextOther) rrNextOther = cycle; }   // Retro-Recomp modification (MPL-2.0)\n'),
+    ('Components/Agnus/Agnus.h',
+     '        trigger[s] = cycle;\n        if (cycle < nextTrigger) nextTrigger = cycle;\n',
+     '        trigger[s] = cycle;\n        if (cycle < nextTrigger) nextTrigger = cycle;\n'
+     '        if constexpr (s != SLOT_BLT) { if (cycle < rrNextOther) rrNextOther = cycle; }   // Retro-Recomp modification (MPL-2.0)\n'),
+    ('Components/Agnus/Agnus.h',
+     '    void serialize(T& worker)\n    {\n        worker\n\n        << trigger\n',
+     '    void serialize(T& worker)\n    {\n'
+     '        rrNextOther = 0;   // Retro-Recomp modification (MPL-2.0, like this file): the triggers may be loaded\n'
+     '        worker\n\n        << trigger\n'),
+    ('Components/Agnus/Agnus.h',
+     '        if (nextTrigger <= clock) executeUntil(clock);\n    }\n',
+     '        if (nextTrigger <= clock) {\n'
+     '            // Stage 7 checkpoint 4: below the other slots\' bound, only the Blitter\'s event can be due.\n'
+     '            if (rrNextOther > clock && rrBltLane) rrBlitterOnly(); else executeUntil(clock);\n'
+     '        }\n    }\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    CLONE(nextTrigger)\n',
+     '    CLONE(nextTrigger)\n'
+     '    rrNextOther = 0;   // Retro-Recomp modification (MPL-2.0, like this file): the triggers were copied\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    Cycle next = trigger[0];\n    for (isize i = 1; i <= SLOT_SEC; i++) {\n        if (trigger[i] < next) next = trigger[i];\n    }\n'
+     '    nextTrigger = next;\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the slots but the Blitter\'s, then the Blitter\'s.\n'
+     '    Cycle next = trigger[0];\n    for (isize i = 1; i <= SLOT_SEC; i++) {\n'
+     '        if (i != SLOT_BLT && trigger[i] < next) next = trigger[i];\n    }\n'
+     '    rrNextOther = next;\n'
+     '    if (trigger[SLOT_BLT] < next) next = trigger[SLOT_BLT];\n'
+     '    nextTrigger = next;\n'),
+    ('Components/Agnus/Agnus.cpp',
+     'Agnus::executeUntil(Cycle cycle) {\n    rrInEvents = true;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     'Agnus::executeUntil(Cycle cycle) {\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the self-test\'s planted fault only.\n'
+     '    if (rrBltFault == 1 && rrBltLane && rrNextOther == cycle && trigger[SLOT_BLT] <= cycle) { rrBlitterOnly(); return; }\n'
+     '    rrInEvents = true;   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrInEvents = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n}\n',
+     '    rrInEvents = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file), stage 7 checkpoint 4: the event loop of a colour clock on which no slot\n'
+     '// but the Blitter\'s can be due (Agnus.h). The Blitter\'s slot is the last primary one, so serving it alone is what the loop\n'
+     '// does. Schedules made by the Blitter lower rrNextOther themselves when they are another slot\'s.\n'
+     'void\nAgnus::rrBlitterOnly()\n{\n'
+     '    rrInEvents = true;\n'
+     '#ifdef RR_AMIGA_SHADOW\n    RrBus::events(*this, (long long)clock);\n#endif\n'
+     '    nextTrigger = rrNextOther;\n'
+     '    if (trigger[SLOT_BLT] <= clock) {\n'
+     '        rrBltAlone++;\n'
+     '        blitter.serviceEvent(id[SLOT_BLT]);\n'
+     '    }\n'
+     '    if (rrNextOther < nextTrigger) nextTrigger = rrNextOther;\n'
+     '    if (trigger[SLOT_BLT] < nextTrigger) nextTrigger = trigger[SLOT_BLT];\n'
+     '    rrInEvents = false;\n'
+     '}\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n    rrSprIdle = 0;\n',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n    rrSprIdle = 0;\n    rrNextOther = 0;\n'),
 ]
 
 # What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.
