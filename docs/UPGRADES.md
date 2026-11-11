@@ -236,62 +236,6 @@ in one quiet-PC pass on 11 Nov 2026 (Windows, one core, native game, 3 rounds of
 
 **Quick states:** the Amiga's key moves; the line's set of idle sprites is derived, never saved (line 0 has none).
 
-## Commodore Amiga: the Blitter's event served alone on its colour clock (after 1.7.3, stage 7 checkpoint 4)
-
-**What changes.** While a blit runs, the Blitter's event stays due on every colour clock. Each clock therefore went through
-Agnus's whole event loop: every primary slot was tested, then the next trigger was taken again from all of them. Lotus 2 has
-19,811 Blitter events per frame on its racing route (3,600 frames of the reference player). Lemmings has 8,046.
-
-**The rule.**
-- Agnus keeps a lower bound of every other slot's trigger. The event loop takes it exactly at its end, and every schedule of
-  another slot lowers it. It is set to zero whenever the triggers are copied or loaded.
-- On a colour clock below that bound, only the Blitter's event can be due, so it is served directly. The Blitter's slot is the
-  last primary one, so this is the same event in the same place of the colour clock, with the same flags set. The next trigger
-  is then taken from the bound and the Blitter's own trigger.
-- On every other clock the whole loop runs, as before.
-- Between 93.5 % and 94.1 % of the Blitter's events are alone on their clock on the four games of the first wave.
-
-This is done through vAmiga's adaptation (MPL-2.0 edits). The Blitter and Agnus stay emulated, and nothing is specialised from a
-game. The plan's fuller form, the Blitter run late and caught up at barriers, was not built: it would need a barrier on every chip
-RAM access by any device, for little more than this.
-
-**Proof.**
-- The display self-test compares each scenario with every event through vAmiga's loop (`--per-slot`, or `--blt-off` alone).
-- 52 scenarios of 4 frames: 896,710 Blitter events served alone, every instruction's and every frame's record equal.
-- A planted fault serves an event due on the Blitter's clock one colour clock late. It is seen in 42 of 42 scenarios with blits.
-- Stage 7's bus model in shadow still finds 0 differences in the scenarios and on the first wave's reference runs (3,600 frames
-  each), with the lane in control.
-- Lotus 2's native game and the reference player give the same trace as the build before step 1 on every one of 3,600 frames of a
-  racing route. The reference player gives the same trace on Rick Dangerous, Lemmings and Civilization (main routes, 3,600
-  frames each).
-- First-read conversions with the real command line (11 November 2026): Lotus 2, Rick Dangerous, Lemmings and Civilization (with
-  the player's Kickstart 1.3).
-  - Two routes each, every frame equal to the fresh reference, and the native validation passed.
-  - 0 instructions interpreted, but Civilization's 19, which are all the Kickstart's, as in 1.7.2. 0 blits interpreted.
-
-**What it brings:** nothing; it costs time. Measured in one quiet-PC pass on 12 Nov 2026 (Windows, one core, native game, 3
-rounds of 2,400 frames, median of the rounds):
-
-| Game | Before Agnus/Denise step 1 | Steps 1-3 (1.7.3) | Checkpoint 3 | Plus checkpoint 4 | Against checkpoint 3 |
-|---|--:|--:|--:|--:|--:|
-| Lotus 2 | 2.522 ms | 1.719 ms | 1.534 ms | 1.577 ms | +2.8 % |
-| Rick Dangerous | 2.116 ms | 1.404 ms | 1.361 ms | 1.403 ms | +3.1 % |
-
-- Checkpoint 4 is slower in every round, on both games: Lotus 2 +1.1 %, +1.8 %, +3.1 %; Rick Dangerous +1.0 %, +2.7 %, +3.3 %.
-- The cost is about the same on both games (about 0.04 ms per frame), although Rick Dangerous has 337 Blitter events per frame
-  and Lotus 2 has 19,811. Serving the Blitter's event alone therefore saves next to nothing. The cost is spread over every colour
-  clock: the bound kept by every schedule, and a larger inlined `execute()`.
-- The builds ran in a fixed order in each round, checkpoint 4 always last. An effect of that place cannot be ruled out, but
-  nothing in the pass points to a gain.
-- This is machine time only. It says nothing about physical latency.
-
-**Hot path:** this is one, and it is slower. It does not ship as it stands: it is to be reverted, or kept off, on the lead's
-decision.
-
-**What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
-
-**Quick states:** the Amiga's key moves; the bound is derived, never saved, and starts at zero after a load.
-
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

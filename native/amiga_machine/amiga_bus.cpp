@@ -94,10 +94,6 @@ struct State {
     uint64_t crossings[4] = { }, copEvents = 0, bltEvents = 0, regEvents = 0, dasEvents = 0, bplEvents = 0;
     uint64_t dasKind[7] = { };                  // refresh, disk, audio, sprite, sprite DMA update, CIA-B tick, line end
     uint64_t slotUse[3][2] = { };               // disk, audio, sprite conditional slots: used, unused
-    // Checkpoint 4 census: Blitter events alone on their colour clock, on a slot taken before them, and what each slot of a
-    // Blitter event ended with (the Blitter, nobody, a DMA slot, the Copper, the CPU).
-    uint64_t bltAlone = 0, bltPreTaken = 0, bltEnd[5] = { };
-    uint8_t bltDue[LINE] = { };
     Cycle horizon = 0, horizonAt = 0;
     bool recompute = false;                     // the horizon is taken again at the next hook
     bool syncing = false;                       // a CPU access to a custom register or a CIA is under way: the horizon after it
@@ -395,12 +391,6 @@ void RrBus::lineEnd(Agnus &a) {
     uint64_t hash = frameOwners;
     for (isize h = 0; h < HPOS_CNT; h++) { hash ^= uint8_t(a.busOwner[h]); hash *= 1099511628211ull; }
     frameOwners = hash;
-    for (isize h = 0; h < LINE && h < HPOS_CNT; h++) {
-        if (!s.bltDue[h]) continue;
-        s.bltDue[h] = 0;
-        const BusOwner o = a.busOwner[h];
-        s.bltEnd[o == BusOwner::BLITTER ? 0 : o == BusOwner::NONE ? 1 : o == BusOwner::COPPER ? 3 : o == BusOwner::CPU ? 4 : 2]++;
-    }
     s.syncs[SYNC_LINE_POINTS] += 3;
     if (!joint(a)) { s.freeSyncsA += 3; s.freeSyncsB += 3; }
     if (s.line.valid) {
@@ -536,16 +526,7 @@ void RrBus::events(Agnus &a, long long cycle) {
     }
     if (a.isDue<SLOT_BPL>(cycle)) s.bplEvents++;
     if (a.isDue<SLOT_COP>(cycle)) { s.copEvents++; s.device = true; }
-    if (a.isDue<SLOT_BLT>(cycle)) {
-        s.bltEvents++;
-        s.device = true;
-        if (!a.isDue<SLOT_REG>(cycle) && !a.isDue<SLOT_CIAA>(cycle) && !a.isDue<SLOT_CIAB>(cycle) && !a.isDue<SLOT_BPL>(cycle) &&
-            !a.isDue<SLOT_DAS>(cycle) && !a.isDue<SLOT_COP>(cycle) && !a.isDue<SLOT_SEC>(cycle)) s.bltAlone++;
-        if (a.pos.h >= 0 && a.pos.h < LINE) {
-            s.bltDue[a.pos.h] = 1;
-            if (a.busOwner[a.pos.h] != BusOwner::NONE) s.bltPreTaken++;
-        }
-    }
+    if (a.isDue<SLOT_BLT>(cycle)) { s.bltEvents++; s.device = true; }
     for (EventSlot slot : {SLOT_CIAA, SLOT_CIAB, SLOT_SEC}) {
         if (cycle >= a.trigger[slot]) {
             // An event earlier than the horizon taken at the last synchronisation was scheduled inside the block: by the Copper or
@@ -600,10 +581,8 @@ size_t RrBus::json(char *out, size_t size) {
     for (int i = 0; i < PATHS; i++) put(i ? ",\"%s\":[%llu,%llu]" : "\"%s\":[%llu,%llu]", PATH_NAMES[i], (unsigned long long)s.path[i], (unsigned long long)s.pathDelay[i]);
     put("},\"wait_wrong\":%llu,\"syncs\":{", (unsigned long long)s.waitWrong);
     for (int i = 0; i < SYNCS; i++) put(i ? ",\"%s\":%llu" : "\"%s\":%llu", SYNC_NAMES[i], (unsigned long long)s.syncs[i]);
-    put("},\"crossings\":{\"after_copper_or_blitter\":%llu,\"after_register_change\":%llu,\"after_das_slot\":%llu,\"other\":%llu},\"events\":{\"copper\":%llu,\"blitter\":%llu,\"register\":%llu},\"blitter\":{\"alone\":%llu,\"slot_taken_before\":%llu,\"ended\":[%llu,%llu,%llu,%llu,%llu]},\"colour_clocks\":%lld,\"fault\":%d,\"first\":[",
+    put("},\"crossings\":{\"after_copper_or_blitter\":%llu,\"after_register_change\":%llu,\"after_das_slot\":%llu,\"other\":%llu},\"events\":{\"copper\":%llu,\"blitter\":%llu,\"register\":%llu},\"colour_clocks\":%lld,\"fault\":%d,\"first\":[",
         (unsigned long long)s.crossings[0], (unsigned long long)s.crossings[1], (unsigned long long)s.crossings[2], (unsigned long long)s.crossings[3], (unsigned long long)s.copEvents, (unsigned long long)s.bltEvents, (unsigned long long)s.regEvents,
-        (unsigned long long)s.bltAlone, (unsigned long long)s.bltPreTaken, (unsigned long long)s.bltEnd[0], (unsigned long long)s.bltEnd[1],
-        (unsigned long long)s.bltEnd[2], (unsigned long long)s.bltEnd[3], (unsigned long long)s.bltEnd[4],
         (long long)AS_DMA_CYCLES(s.clocks), fault);
     for (int i = 0; i < s.firstCount; i++) {
         const Mismatch &m = s.first[i];
