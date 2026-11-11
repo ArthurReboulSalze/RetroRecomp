@@ -51,12 +51,21 @@ struct Line {
     isize v = 0, count = 227;
     uint8_t kind[LINE] = { };
     int8_t owner[LINE] = { };                    // the BusOwner of a certain or conditional slot
+    uint8_t baseKind[LINE] = { };                // the refresh and disk, audio, sprite layer, under the bitplane plan
+    int8_t baseOwner[LINE] = { };
 };
 
 struct Mismatch { uint64_t frame; isize v, h; int predicted, actual, kind; };
 
 struct State {
     Line line;
+    // Time and blocks: colour clocks while the Copper or the Blitter is running (the model steps them with the CPU) and the free
+    // ones; the synchronisations met in free time, (a) every secondary event stopping the CPU, (b) Paula's audio, disk, pot and
+    // serial events caught up instead (their interrupts still stop it through IRQ and IPL).
+    Cycle lastClock = 0;
+    bool lastJoint = false;
+    uint64_t jointClocks = 0, freeClocks = 0, freeSyncsA = 0, freeSyncsB = 0, freeSyncsC = 0, regFixed = 0;
+    uint64_t sec[SLOT_TER - SLOT_SEC + 1] = { };
     uint64_t frames = 0, lines = 0, linesChanged = 0, linesCompared = 0;
     uint64_t taken = 0, takenWrong = 0, maybeUsed = 0, maybeUnused = 0, maybeWrong = 0, freeWrong = 0, dasTable = 0;
     uint64_t owners[int(BusOwner::COUNT)] = { };
@@ -97,17 +106,18 @@ void set(isize h, Kind kind, BusOwner owner) {
     s.line.owner[h] = int8_t(owner);
 }
 
+void setBase(isize h, Kind kind, BusOwner owner) {
+    if (h < 0 || h >= LINE) return;
+    s.line.baseKind[h] = kind;
+    s.line.baseOwner[h] = int8_t(owner);
+}
+
 // The bitplane part of the plan, from clock `from` on (R5, R6).
 void readPlan(Agnus &a, isize from) {
-    for (isize h = from; h < LINE && h < HPOS_CNT; h++) {
-        if (s.line.kind[h] == TAKEN && s.line.owner[h] >= int8_t(BusOwner::BPL1) && s.line.owner[h] <= int8_t(BusOwner::BPL8)) {
-            s.line.kind[h] = FREE;
-            s.line.owner[h] = 0;
-        }
-    }
-    // A refresh slot a fetch had covered is the refresh's again until the new plan covers it (R2, R5).
-    for (isize h : {isize(0x03), isize(0x05), isize(s.line.count == 228 && RrBus::fault != 1 ? 0xE3 : 0xE2)}) {
-        if (h >= from && s.line.kind[h] == FREE) set(h, TAKEN, BusOwner::REFRESH);
+    // From `from` on: the refresh and DAS layer, then the bitplane plan over it (R5).
+    for (isize h = from; h < LINE; h++) {
+        s.line.kind[h] = s.line.baseKind[h];
+        s.line.owner[h] = s.line.baseOwner[h];
     }
     for (isize h = from; h < s.line.count && h < HPOS_CNT; h++) {
         const isize k = isize(a.sequencer.bplEvent[h]) >> 2;
@@ -118,6 +128,11 @@ void readPlan(Agnus &a, isize from) {
         if (RrBus::fault == 3) plane ^= 1;
         set(h, TAKEN, BusOwner(isize(BusOwner::BPL1) + plane));
     }
+}
+
+bool joint(Agnus &a) {
+    const Cycle soon = a.clock + DMA_CYCLES(4);
+    return a.trigger[SLOT_COP] <= soon || a.trigger[SLOT_BLT] <= soon;
 }
 
 void horizonFrom(Agnus &a) {
@@ -173,6 +188,8 @@ void RrBus::lineStart(Agnus &a) {
         s.started = true;
         s.out = getenv("RR_BUS_SHADOW_OUT");
         s.frameClock = a.clock;
+        s.lastClock = a.clock;
+        s.jointClocks = s.freeClocks = 0;
         if (const char *f = getenv("RR_BUS_SHADOW_FAULT")) fault = atoi(f);
     }
     Line &line = s.line;
@@ -181,10 +198,10 @@ void RrBus::lineStart(Agnus &a) {
     line.v = a.pos.v;
     line.count = a.pos.hCnt();
     // R2
-    set(0x01, TAKEN, BusOwner::REFRESH);
-    set(0x03, TAKEN, BusOwner::REFRESH);
-    set(0x05, TAKEN, BusOwner::REFRESH);
-    set((a.pos.lol && fault != 1) ? 0xE3 : 0xE2, TAKEN, BusOwner::REFRESH);
+    setBase(0x01, TAKEN, BusOwner::REFRESH);
+    setBase(0x03, TAKEN, BusOwner::REFRESH);
+    setBase(0x05, TAKEN, BusOwner::REFRESH);
+    setBase((a.pos.lol && fault != 1) ? 0xE3 : 0xE2, TAKEN, BusOwner::REFRESH);
     // R3, R4
     u16 das = 0;
     if (a.dmacon & DMAEN) {
@@ -192,12 +209,12 @@ void RrBus::lineStart(Agnus &a) {
         const isize first = a.isPAL() ? 25 : 19;
         if (fault != 5 && (a.pos.v < first || a.pos.v >= a.pos.vMax())) das &= 0x1F;
     }
-    if (das & 0x10) for (isize h : {0x07, 0x09, 0x0B}) set(h, MAYBE, BusOwner::DISK);
-    for (isize n = 0; n < 4; n++) set(0x0D + 2 * n + (fault == 2 ? 2 : 0), MAYBE, BusOwner(isize(BusOwner::AUD0) + n));
+    if (das & 0x10) for (isize h : {0x07, 0x09, 0x0B}) setBase(h, MAYBE, BusOwner::DISK);
+    for (isize n = 0; n < 4; n++) setBase(0x0D + 2 * n + (fault == 2 ? 2 : 0), MAYBE, BusOwner(isize(BusOwner::AUD0) + n));
     if (das & 0x20) {
         for (isize n = 0; n < 8; n++) {
-            set(0x15 + 4 * n, MAYBE, BusOwner(isize(BusOwner::SPRITE0) + n));
-            set(0x17 + 4 * n, MAYBE, BusOwner(isize(BusOwner::SPRITE0) + n));
+            setBase(0x15 + 4 * n, MAYBE, BusOwner(isize(BusOwner::SPRITE0) + n));
+            setBase(0x17 + 4 * n, MAYBE, BusOwner(isize(BusOwner::SPRITE0) + n));
         }
     }
     // The same slots as the reference's own table of the line (the classes of its DAS events).
@@ -207,10 +224,10 @@ void RrBus::lineStart(Agnus &a) {
         if (e >= DAS_D0 && e <= DAS_D0 + 2) expect = int(BusOwner::DISK);
         else if (e >= DAS_A0 && e <= DAS_A0 + 3) expect = int(BusOwner::AUD0) + int(e - DAS_A0);
         else if (e >= DAS_S0_1 && e <= DAS_S7_2) expect = int(BusOwner::SPRITE0) + int(e - DAS_S0_1) / 2;
-        const bool mine = line.kind[h] == MAYBE;
-        if ((expect >= 0) != mine || (mine && line.owner[h] != expect)) {
+        const bool mine = line.baseKind[h] == MAYBE;
+        if ((expect >= 0) != mine || (mine && line.baseOwner[h] != expect)) {
             s.dasTable++;
-            note(4, h, mine ? line.owner[h] : -1, expect);
+            note(4, h, mine ? line.baseOwner[h] : -1, expect);
         }
     }
     readPlan(a, 0);
@@ -218,20 +235,20 @@ void RrBus::lineStart(Agnus &a) {
 }
 
 void RrBus::dasChanged(Agnus &a) {
-    if (!s.line.valid || fault == 4) return;
+    // Only a change of this line: at its end the beam has moved on before the next line's table is built.
+    if (!s.line.valid || a.pos.v != s.line.v || fault == 4) return;
     if (!s.line.changed) s.linesChanged++;
     s.line.changed = true;
     const u16 das = (a.dmacon & DMAEN) ? (a.dmacon & 0x3F) : 0;
-    for (isize h = a.pos.h + 2; h < 0x38 && h < LINE; h++) {
-        if (s.line.kind[h] == MAYBE && (s.line.owner[h] == int8_t(BusOwner::DISK) ||
-            (s.line.owner[h] >= int8_t(BusOwner::SPRITE0) && s.line.owner[h] <= int8_t(BusOwner::SPRITE7)))) {
-            s.line.kind[h] = FREE;
-            s.line.owner[h] = 0;
+    const isize from = a.pos.h + 2;
+    for (isize h = from; h < 0x38 && h < LINE; h++) {
+        const int8_t o = s.line.baseOwner[h];
+        if (s.line.baseKind[h] == MAYBE && (o == int8_t(BusOwner::DISK) || (o >= int8_t(BusOwner::SPRITE0) && o <= int8_t(BusOwner::SPRITE7)))) {
+            s.line.baseKind[h] = FREE;
+            s.line.baseOwner[h] = 0;
         }
     }
-    auto maybe = [&](isize h, BusOwner owner) {
-        if (h >= a.pos.h + 2 && h < LINE && s.line.kind[h] == FREE) set(h, MAYBE, owner);
-    };
+    auto maybe = [&](isize h, BusOwner owner) { if (h >= from) setBase(h, MAYBE, owner); };
     if (das & 0x10) for (isize h : {0x07, 0x09, 0x0B}) maybe(h, BusOwner::DISK);
     if (das & 0x20) {
         for (isize n = 0; n < 8; n++) {
@@ -239,10 +256,12 @@ void RrBus::dasChanged(Agnus &a) {
             maybe(0x17 + 4 * n, BusOwner(isize(BusOwner::SPRITE0) + n));
         }
     }
+    if (from < LINE) readPlan(a, from);
 }
 
 void RrBus::planChanged(Agnus &a) {
-    if (!s.line.valid || a.pos.h == 0 || fault == 4) return;
+    // Only a change of this line (a change applied at its colour clock 0, after the line's start, included).
+    if (!s.line.valid || a.pos.v != s.line.v || fault == 4) return;
     if (!s.line.changed) s.linesChanged++;
     s.line.changed = true;
     readPlan(a, a.pos.h);
@@ -253,6 +272,7 @@ void RrBus::lineEnd(Agnus &a) {
     for (isize h = 0; h < HPOS_CNT; h++) { hash ^= uint8_t(a.busOwner[h]); hash *= 1099511628211ull; }
     frameOwners = hash;
     s.syncs[SYNC_LINE_POINTS] += 3;
+    if (!joint(a)) { s.freeSyncsA += 3; s.freeSyncsB += 3; }
     if (s.line.valid) {
         Line &line = s.line;
         s.linesCompared++;
@@ -300,6 +320,7 @@ void RrBus::cpuAccess(Agnus &a, uint32_t addr, int) {
     s.access[k]++;
     // A custom register or CIA access is a synchronisation of the model: what it schedules is known after it (cpuDone).
     if (k == ACC_CUSTOM) s.syncs[SYNC_CUSTOM]++;
+    if ((k == ACC_CUSTOM || k == ACC_CIA) && !joint(a)) { s.freeSyncsA++; s.freeSyncsB++; s.freeSyncsC++; }
     if (k == ACC_CUSTOM || k == ACC_CIA) s.syncing = true;
 }
 
@@ -350,6 +371,10 @@ void RrBus::busWaitEnd(Agnus &a, long long delay) {
 
 void RrBus::events(Agnus &a, long long cycle) {
     if (s.recompute) horizonFrom(a);
+    const bool now = joint(a);
+    (s.lastJoint ? s.jointClocks : s.freeClocks) += (uint64_t)AS_DMA_CYCLES(cycle - s.lastClock);
+    s.lastClock = cycle;
+    s.lastJoint = now;
     bool sync = false;
     if (a.isDue<SLOT_REG>(cycle)) {
         s.regEvents++;
@@ -359,7 +384,12 @@ void RrBus::events(Agnus &a, long long cycle) {
             s.crossings[s.device ? 0 : s.das ? 2 : 3]++;
             if (!s.device && !s.das) note(6, a.pos.h, -2, int(SLOT_REG));
         }
-        s.syncs[SYNC_REG_EVENT]++;
+        // HSYNC at $12 and the line's end are the line's fixed points (counted there); other changes are syncs of their own.
+        if (a.pos.h == 0x12 || a.pos.h >= a.pos.hCnt()) s.regFixed++;
+        else {
+            s.syncs[SYNC_REG_EVENT]++;
+            if (!now) { s.freeSyncsA++; s.freeSyncsB++; s.freeSyncsC++; }
+        }
         sync = true;
     }
     if (a.isDue<SLOT_DAS>(cycle)) { s.dasEvents++; s.das = true; }
@@ -374,6 +404,17 @@ void RrBus::events(Agnus &a, long long cycle) {
                 if (!s.device) note(6, a.pos.h, s.reg ? 1 : s.das ? 2 : 3, int(slot));
             }
             s.syncs[slot == SLOT_SEC ? SYNC_SEC_EVENT : SYNC_CIA_EVENT]++;
+            if (!now) s.freeSyncsA++;
+            if (slot == SLOT_SEC) {
+                bool cpuVisible = false;
+                for (long k = SLOT_CH0; k <= SLOT_TER; k++) {
+                    if (cycle >= a.trigger[k]) {
+                        s.sec[k - SLOT_SEC]++;
+                        if (!(k >= SLOT_CH0 && k <= SLOT_DSK) && k != SLOT_POT && k != SLOT_TXD && k != SLOT_RXD) cpuVisible = true;
+                    }
+                }
+                if (cpuVisible && !now) { s.freeSyncsB++; s.freeSyncsC++; }
+            } else if (!now) s.freeSyncsB++;
             sync = true;
         }
     }
@@ -409,7 +450,12 @@ size_t RrBus::json(char *out, size_t size) {
         const Mismatch &m = s.first[i];
         put(i ? ",[%llu,%ld,%ld,%d,%d,%d]" : "[%llu,%ld,%ld,%d,%d,%d]", (unsigned long long)m.frame, (long)m.v, (long)m.h, m.kind, m.predicted, m.actual);
     }
-    put("]}");
+    put("],\"time\":{\"joint_clocks\":%llu,\"free_clocks\":%llu,\"free_syncs_all_secondary\":%llu,\"free_syncs_paula_caught_up\":%llu,\"free_syncs_cpu_visible\":%llu,\"register_fixed\":%llu},\"secondary\":{",
+        (unsigned long long)s.jointClocks, (unsigned long long)s.freeClocks, (unsigned long long)s.freeSyncsA, (unsigned long long)s.freeSyncsB, (unsigned long long)s.freeSyncsC,
+        (unsigned long long)s.regFixed);
+    static const char *const SEC_NAMES[] = {"sec", "ch0", "ch1", "ch2", "ch3", "dsk", "vbl", "irq", "ipl", "kbd", "txd", "rxd", "pot", "tertiary"};
+    for (long k = 1; k <= SLOT_TER - SLOT_SEC; k++) put(k > 1 ? ",\"%s\":%llu" : "\"%s\":%llu", SEC_NAMES[k], (unsigned long long)s.sec[k]);
+    put("}}");
 #undef put
     return n < size ? n : size - 1;
 }
