@@ -94,8 +94,12 @@ class Z80ChainTests(unittest.TestCase):
             self.assertEqual((Path(plain) / 'runtime_reference.h').read_bytes(), (Path(counted) / 'runtime_reference.h').read_bytes())
         self.assertNotIn('z80_m1_fetches', off)
         # The count is the only difference: no cycle addition of the CPU is edited.
-        self.assertEqual(on.replace('unsigned long z80_m1_fetches;\n', '').replace('\n  ++z80_m1_fetches;', ''), off)
-        self.assertEqual(on.count('z80_m1_fetches'), 2)
+        # The count is taken back with R where the CPU calls inc_r twice for one M1 cycle (DD/FD before a plain opcode, the
+        # interrupt acknowledge).
+        self.assertEqual(on.replace('unsigned long z80_m1_fetches;\n', '').replace('\n  ++z80_m1_fetches;', '')
+                         .replace(' --z80_m1_fetches;', ''), off)
+        self.assertEqual(on.count('z80_m1_fetches'), 4)
+        self.assertEqual(on.count('z->r = (z->r & 0x80) | ((z->r - 1) & 0x7f); --z80_m1_fetches;'), 2)
 
     def test_a_mapped_machine_reads_its_region_map_and_samples_the_interrupt_where_it_says(self):
         text = z80_chain.runtime_source(MAPPED, RUNTIME)

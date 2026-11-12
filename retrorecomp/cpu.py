@@ -56,9 +56,6 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> Non
     (game / 'runtime_reference.h').write_text(header, encoding='utf-8')
     source = (original / 'z80.c').read_text(encoding='utf-8')
     source = replace(source, '#include "z80.h"', '#include "runtime_reference.h"')
-    if m1_counter:
-        source = replace(source, 'static inline void inc_r(z80* const z) {',
-                         'unsigned long z80_m1_fetches;\nstatic inline void inc_r(z80* const z) {\n  ++z80_m1_fetches;')
     # BIT (HL) is a read-only bus operation. Rewriting the same byte is not
     # harmless at Sega mapper registers (FFFC-FFFF), even when RAM is unchanged.
     # Zilog UM008011-0816, BIT b,(HL), page 245.
@@ -169,4 +166,14 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> Non
   process_interrupts(z);
 }
 ''' + source[end:]
+    if m1_counter:
+        source = replace(source, 'static inline void inc_r(z80* const z) {',
+                         'unsigned long z80_m1_fetches;\nstatic inline void inc_r(z80* const z) {\n  ++z80_m1_fetches;')
+        # Two paths call inc_r twice for one M1 cycle and take R back by hand: a DD/FD prefix before an opcode that does not use
+        # IX/IY (exec_opcode_ddfd's default), and the interrupt acknowledge running its RST. The count is taken back with R, so
+        # "DD 00" counts 2 M1 cycles, as on the chip (found on an MSX's Aleste, DD x7 then RET).
+        take_back = 'z->r = (z->r & 0x80) | ((z->r - 1) & 0x7f);'
+        if source.count(take_back) != 2:
+            raise RuntimeError('reference CPU: the two R take-backs were not found where the M1 count expects them')
+        source = source.replace(take_back, take_back + ' --z80_m1_fetches;')
     (game / 'runtime_reference.c').write_text(source, encoding='utf-8')
