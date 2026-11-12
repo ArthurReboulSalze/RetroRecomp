@@ -901,6 +901,11 @@ INPUTS = _resolve({
         'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
+    # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
+    # the PC Engine and the MSX family call it.
+    ('pce', 'msx', 'msx2'): (
+        'retrorecomp.route_start',
+    ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
     # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
     ('psx',): (
