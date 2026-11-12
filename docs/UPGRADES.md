@@ -236,6 +236,22 @@ in one quiet-PC pass on 11 Nov 2026 (Windows, one core, native game, 3 rounds of
 
 **Quick states:** the Amiga's key moves; the line's set of idle sprites is derived, never saved (line 0 has none).
 
+## Commodore Amiga: checkpoint 3's counters in the conversion report (after 1.7.3, stage 7)
+
+**What changes.** Each route's `final_checks.agnus_denise` now also counts what checkpoint 3 did:
+- `disk_idle_batches`, `disk_idle_batches_at_event`, `disk_idle_batches_at_barrier` and `disk_events_held_back`, for the idle disk
+  controller;
+- `sprite_slot_events_left_out`, for the idle sprites.
+
+The `hardware_devices` details of `agnus_copper` and `paula` say what these are. Agnus and Paula stay emulated. A report of an earlier
+build reads 0 for each of them.
+
+**Hot path:** no. The counters existed already; the session only writes them at the end of a run.
+
+**What moves:** the Amiga's game stamp (the session and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

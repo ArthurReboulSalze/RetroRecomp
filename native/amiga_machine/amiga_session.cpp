@@ -785,10 +785,14 @@ extern "C" void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *o) {
 extern "C" void rr_amiga_write_display(const RrAmigaSession *s, FILE *o) {
     const auto &agnus = s->amiga->agnus;
     const auto &denise = s->amiga->denise;
-    fprintf(o, "{\"bitplane_lines\":[%llu,%llu,%llu],\"bitplane_words\":[%llu,%llu],\"line_pass\":[%llu,%llu]}",
+    const u64 *disk = s->amiga->paula.diskController.rrCounts;
+    fprintf(o, "{\"bitplane_lines\":[%llu,%llu,%llu],\"bitplane_words\":[%llu,%llu],\"line_pass\":[%llu,%llu],\"disk_idle\":[%llu,%llu,%llu,%llu],"
+               "\"sprite_slots_left_out\":%llu}",
             (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1], (unsigned long long)agnus.rrLines[2],
             (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
-            (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
+            (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1],
+            (unsigned long long)disk[0], (unsigned long long)disk[1], (unsigned long long)disk[2], (unsigned long long)disk[3],
+            (unsigned long long)agnus.rrSprSkipped);
 }
 extern "C" long rr_amiga_resload_calls(const RrAmigaSession *s) { return s->calls; }
 extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) {

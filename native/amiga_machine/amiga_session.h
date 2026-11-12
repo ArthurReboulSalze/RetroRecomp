@@ -100,7 +100,8 @@ uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s);
  * native blits, native words, interpreted blits, interpreted words or line steps]. Native is a specialised routine, interpreted is vAmiga's microprogram. */
 void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *out);
 /* Agnus's and Denise's counters as JSON (both stay emulated): bitplane_lines [batched, on vAmiga's events, batched then given back midway],
- * bitplane_words [batched, on events], line_pass [visible lines passed in one loop, on vAmiga's line pass]. */
+ * bitplane_words [batched, on events], line_pass [visible lines passed in one loop, on vAmiga's line pass], disk_idle [idle disk controller's
+ * catch-ups, run at their event, run at a barrier, disk events held back] and sprite_slots_left_out (idle sprite slot events). */
 void rr_amiga_write_display(const RrAmigaSession *s, FILE *out);
 long rr_amiga_resload_calls(const RrAmigaSession *s);
 int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path);
