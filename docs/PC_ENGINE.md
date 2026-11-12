@@ -321,7 +321,7 @@ F12 line of the help page read OFF and did nothing, and the report's `runtime_fe
 address, the eight bank registers and its bytes (9 to 15 bytes; `native/pce_machine.cpp`). Code in work RAM, in the Backup RAM or behind an I/O bank is not on
 the card and is not noted. One note for each address under each set of the eight registers, so a routine called with two different data banks is noted twice
 (the engine's identity is the full set). The file is written at a normal exit, beside the game (`datas/fallbacks/pce-<identity>.rrfb`), in the shared format: at most 4,096
-notes a game, the rest counted in the file (`limit_reached`). A headless run records nothing unless `RETRO_RECOMP_FEEDBACK=1`. The Street Fighter II board does not
+notes a game, a full file flagged in its header (`limit_reached`). A headless run records nothing unless `RETRO_RECOMP_FEEDBACK=1`. The Street Fighter II board does not
 record (its mapper changes what a physical bank holds): its F12 line stays OFF and its report says `recording_default: false`. The file stays on the player's PC: nothing of
 the PC Engine's record is shared (the machine shares paths, not fallback hints).
 
@@ -340,7 +340,7 @@ the one noted last gave 142 notes: the engine does not walk, so that rule was wr
 
 **What this does not say.** One card, one walk, scripted keys, not a person's play. The path was compared with the reference on that walk, not on the conversion's routes: the
 conversion's own routes validate only what they run, and the 844 were not on them. A real window was not run for this path (the exit write was proved headless with the same code;
-the Amiga's hidden-window check was not repeated here). The record holds at most 4,096 notes a game and counts the rest; a game with more unseen code than that needs more than one round. Hot path: when the recorder is on (the default in a window) each step of the loop copies the program counter and the eight registers and compares one counter; when it
+the Amiga's hidden-window check was not repeated here). The record holds at most 4,096 notes a game and flags a full file; a game with more unseen code than that needs more than one round. Hot path: when the recorder is on (the default in a window) each step of the loop copies the program counter and the eight registers and compares one counter; when it
 is off, two predictable branches. Not timed.
 
 ### The start with I after Run (12 November 2026)

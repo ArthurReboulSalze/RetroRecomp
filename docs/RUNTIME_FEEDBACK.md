@@ -51,8 +51,17 @@ session's unflushed observations.
 ## Size and storage
 
 The binary format has a 96-byte header and 32 bytes per distinct observation.
-There are at most **4,096 observations per exact game identity**, across all
-sessions: **131,168 bytes (128.094 KiB)** per file. Examples:
+Each machine's profile (`feedback_limit`) sets the most observations kept **per
+exact game identity**, across all sessions:
+
+| Machine | Most observations | Largest file | Recorder memory |
+| --- | ---: | ---: | ---: |
+| Mega Drive | 65,536 | 2,097,248 bytes (2 MiB) | 2.6 MiB |
+| Every other machine | 4,096 | 131,168 bytes (128.094 KiB) | 152 KiB |
+| Adventure (ScummVM) | none | none | none |
+
+A Mega Drive game can meet far more unknown ROM entries in one walk than 4,096
+(13,871 in one measured walk of a large game). Examples:
 
 | Distinct observations | File size |
 | --- | ---: |
@@ -61,16 +70,48 @@ sessions: **131,168 bytes (128.094 KiB)** per file. Examples:
 | 100 | 3,296 bytes |
 | 1,000 | 32,096 bytes |
 | 4,096 | 131,168 bytes |
+| 9,000 (Mega Drive only) | 288,096 bytes |
+| 65,536 (Mega Drive only) | 2,097,248 bytes |
+
+The file has two versions with the same layout. **Version 1** holds up to 4,096
+observations and is byte for byte what release 1.7.2 wrote. **Version 2** holds
+4,097 to 65,536 and is written only above 4,096, so today by the Mega Drive only
+(a version 2 file with 4,096 or fewer observations is invalid: each count has one
+form). Readers (the game's recorder and the converter) accept both versions up to
+65,536; the machine's bound applies to what a writer keeps. A 1.7.2 game or
+converter does not read a version 2 file: it refuses it (the file stays valid for
+newer readers), and a 1.7.2 game that exits beside one writes its own session over
+it. The converter's private copy, taken at each conversion or collection scan,
+survives.
 
 The same PC/CPU/guard bytes are stored only once. Reset and F9 do not erase the
 session buffer, and no player save-state payload includes that host buffer.
 Repeated sessions do not grow the file beyond the limit. At saturation, newer
-session candidates take priority; the header reports truncation.
+session candidates take priority (this session's observations first, then the
+old file's in file order; the tail of the old file is cut).
 
-The recorder reserves 144 KiB of host data, with no allocation, file access or
-locking on the instruction capture path. Shutdown alone reads/merges the old
-file, takes a bounded Windows mutex and atomically replaces it. Separate games
-and CPU architectures cannot overwrite one another's observations.
+When a record is full, the header's `dropped` number says that something was left
+out. On the Mega Drive it is also a **count of the distinct observations refused
+at one merge, at least** (the maximum over merges): a small bit filter counts each
+refused observation once, so the figure is a lower bound, about 5 % short at
+100,000. The conversion log and the report (`refused_records`, with `limit`) show
+it for the Mega Drive; for the other machines the log says only that more were
+refused and the report gives `null`. On a version 1 file the number is a flag
+only (a 1.7.2 game counted calls, not observations), so a machine whose bound is
+above 4,096 reads it as zero.
+
+The recorder reserves its tables as static host data (152 KiB at 4,096; 2.6 MiB
+on the Mega Drive), with no allocation, file access or locking on the instruction
+capture path. Shutdown alone reads/merges the old file (a working copy of at most
+2 MiB and 64 KiB, allocated then), takes a bounded Windows mutex (or an exclusive
+file lock) and atomically replaces it. If that working memory cannot be obtained,
+nothing is written and the old file stays. A truncated, corrupt or foreign file
+is ignored and replaced by the session. Separate games and CPU architectures
+cannot overwrite one another's observations.
+
+Sharing keeps its own bound: a game shares at most 4,096 observations that have a
+position in its ROM (the newest first); the others stay local and are never lost.
+They become shared library paths once a conversion validates them.
 
 ## Next generation
 
@@ -86,7 +127,7 @@ an EXE moved alone starts a new file beside itself on its next fallback session.
 
 The converter retains imported files
 in its private `datas/library` namespace, isolated by console and full identity.
-The game file and private converter copy each have the size limit above.
+The game file and private converter copy each have the size limit above (per machine).
 Renaming an executable does not change its embedded identity. Neo Geo includes
 the prepared cartridge and selected BIOS in its key.
 
@@ -133,13 +174,17 @@ not a qualification and must never bypass the reference gates.
 
 - `tools/runtime_feedback_selftest.py`: real Windows native collector; no files
   before exit, no empty folders, Unicode/renamed paths, deduplication, concurrent
-  shutdowns, saturation and bounded size.
+  shutdowns, saturation and bounded size. A second build staged as the Mega Drive
+  (record kind 5, `RR_CHECK_KIND`) checks version 2, the 65,536 bound, the refused
+  count, an old version 1 file with a large call count, two simultaneous exits
+  and a truncated or damaged file.
 - `tools/gameplay_feedback_selftest.py`: authored ROMs; a first EXE falls back,
   the standalone EXE writes on exit, and a second generation with a fresh
   converter bank uses only that feedback and passes its reference comparisons.
 - `tests/test_feedback.py`: all nine console namespaces, identity/corruption
   rejection, each compiler's candidate reader, bulk import without ROMs,
-  source deletion/path changes and newest-first bounded merging.
+  source deletion/path changes, newest-first bounded merging, the version 1 bytes
+  pinned against release 1.7.2, the per-machine bound and the refused count.
 
 Headless conversion probes do not emit feedback by default. The developer-only
 environment setting `RETRO_RECOMP_FEEDBACK=1` enables the same collector for

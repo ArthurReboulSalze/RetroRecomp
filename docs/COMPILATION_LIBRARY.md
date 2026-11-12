@@ -860,7 +860,7 @@ No BIOS, cartridge, save, capture, audio or raw feedback file is included.
 All seven generated-game profiles now collect bounded fallback candidates in
 memory and save them only at normal shutdown. The converter imports the exact
 game's file on regeneration, then runs its existing fresh validation gates.
-Each game-side file is capped at 131,168 bytes; no fallback creates no file.
+Each game-side file is capped at 131,168 bytes (2,097,248 on the Mega Drive since 1.7.3, see [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)); no fallback creates no file.
 F12 toggles recording, enabled by default. Each console's Options page also
 offers a recovery folder and an **Import fallback hints** button: it retains
 an independent private copy without compiling or loading a ROM. Imported
@@ -2608,3 +2608,10 @@ Stage 4 adds private shared-host/state receipts under
 independent of coverage observations. A player's `.rrstate`, framebuffer, raw
 audio and INI file are never compilation knowledge and must not enter the bank.
 The existing 1,027-record snapshot is unchanged; no Neo Geo promotion occurs.
+
+## Mega Drive: anchored static roots and the learned entries (1.7.3)
+
+The anchored static discovery of the Mega Drive (`retrorecomp/megadrive_static.py`, [UPGRADES.md](UPGRADES.md)) finds code that observed execution used to be the only way to reach, so
+fewer interpreted entries are observed and the library and the shared base receive fewer `rom_entries` rows for the same play. **Learned entries are never dropped because the static
+rule also finds them**: the rule only adds decode roots at conversion time, and nothing it finds is written to the library, the base or a record. A path therefore still depends on the
+converter revision that found it, as before. The player's own record of a Mega Drive game holds up to 65,536 notes since 1.7.3 ([RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)).

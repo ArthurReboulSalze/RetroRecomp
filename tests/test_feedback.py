@@ -230,5 +230,182 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(z80,[{'address':0xf800,'bytes':'3e017600'}])
         self.assertFalse(feedback.records('ng',neogeo_knowledge.key('a'*64,'c'*64)))
 
+    # Version 1 up to 4,096 records; version 2 up to 65,536 where the profile's bound allows (Mega Drive).
+
+    def test_version_1_bytes_are_those_of_release_1_7_2(self):
+        sms = feedback.encode([feedback.Observation(1,n,0,b'\x76') for n in range(100)],'sms','a'*64)
+        self.assertEqual((len(sms),hashlib.sha256(sms).hexdigest()),
+                         (3296,'2cc5a387257a33af0aa55e78c05de5972dddfaed7e3a168757055b3f1c1aec59'))
+        md = feedback.encode([feedback.Observation(5,0x200+2*n,0x200+2*n,bytes([n&255,n>>8,1,2,3,4,5,6]))
+                              for n in range(4096)],'md','a'*64)
+        self.assertEqual((len(md),hashlib.sha256(md).hexdigest()),
+                         (131168,'b4cb8a0d8dbfcf0f5bc232ff4fc4038bd06ba7e239733759d06034bdf5ef367e'))
+        self.assertEqual((version_of(sms),version_of(md)),(1,1))
+
+    def test_mega_drive_keeps_65536_records_in_version_2(self):
+        rows = [md_row(n) for n in range(70000)]
+        data = feedback.encode(rows,'md',self.identity)
+        self.assertEqual((len(data),version_of(data)),(2097248,2))
+        self.assertEqual(len(data),feedback.FORMAT_MAX_BYTES)
+        self.assertEqual(feedback.decode(data,'md',self.identity),(rows[:65536],4464))
+        data = feedback.encode(rows[:9000],'md',self.identity)
+        self.assertEqual((len(data),version_of(data)),(288096,2))
+        self.assertEqual(feedback.decode(data,'md',self.identity),(rows[:9000],0))
+        self.assertEqual(feedback.limit('md'),65536)
+        self.assertEqual(feedback.max_bytes('md'),feedback.FORMAT_MAX_BYTES)
+
+    def test_version_and_count_have_one_canonical_form(self):
+        feedback.decode(raw_file(1,4096),'md',self.identity)
+        feedback.decode(raw_file(2,4097),'md',self.identity)
+        feedback.decode(raw_file(2,65536),'md',self.identity)
+        for invalid in (raw_file(2,10), raw_file(2,4096), raw_file(1,5000), raw_file(1,65536),
+                        raw_file(2,65537), raw_file(3,10), raw_file(0,10)):
+            with self.assertRaises(ValueError):feedback.decode(invalid,'md',self.identity)
+
+    def test_a_version_2_file_is_longer_than_max_bytes_and_carries_version_2(self):
+        data = feedback.encode([md_row(n) for n in range(5000)],'md',self.identity)
+        # The two conditions the 1.7.2 decode tests (a 1.7.2 reader is not run here): the length and the version number.
+        self.assertGreater(len(data),feedback.MAX_BYTES)
+        self.assertEqual(version_of(data),2)
+
+    def test_every_other_machine_keeps_4096_records_in_version_1(self):
+        self.assertEqual({system for system,bound in feedback.LIMITS.items() if bound != 4096},{'md'})
+        for system,kinds in feedback.KINDS.items():
+            if system == 'md' or not kinds:
+                continue
+            rows = [feedback.Observation(min(kinds),n,0,b'\x76') for n in range(9000)]
+            data = feedback.encode(rows,system,self.identity)
+            self.assertEqual((len(data),version_of(data)),(131168,1),system)
+            self.assertEqual(feedback.decode(data,system,self.identity)[1],4904,system)
+            self.assertEqual(feedback.max_bytes(system),131168,system)
+
+    def test_old_version_1_file_loads_and_its_call_count_is_not_a_refused_count(self):
+        path = self.root/'games/datas/fallbacks'/f'md-{self.identity}.rrfb'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(feedback.encode([md_row(n) for n in range(4096)],'md',self.identity,3000000))
+        self.assertEqual(feedback.decode(path.read_bytes(),'md',self.identity)[1],3000000)
+        report = feedback.ingest('md',self.identity,self.root/'games')
+        self.assertEqual((report['unique_candidates'],report['limit_reached'],report['refused_records']),(4096,False,0))
+        self.assertEqual(version_of(feedback.private_file('md',self.identity).read_bytes()),1)
+        # The same file for a machine whose bound is 4,096: the number is only a flag, as before.
+        sms = self.root/'games/datas/fallbacks'/f'sms-{self.identity}.rrfb'
+        sms.write_bytes(feedback.encode([feedback.Observation(1,n,0,b'\x76') for n in range(4096)],'sms',self.identity,3000000))
+        report = feedback.ingest('sms',self.identity,self.root/'games')
+        self.assertEqual((report['limit_reached'],report['refused_records']),(True,None))
+        # A newer file of other rows: the record grows past 4,096 and becomes version 2.
+        path.write_bytes(feedback.encode([md_row(n) for n in range(10000,15000)],'md',self.identity))
+        report = feedback.ingest('md',self.identity,self.root/'games')
+        self.assertEqual((report['unique_candidates'],report['limit_reached'],report['refused_records']),(9096,False,0))
+        private = feedback.private_file('md',self.identity).read_bytes()
+        self.assertEqual((version_of(private),len(private)),(2,feedback.HEADER.size+9096*feedback.RECORD.size))
+
+    def test_ingest_counts_the_distinct_records_the_full_record_refused(self):
+        full = self.root/'games/datas/fallbacks'/f'md-{self.identity}.rrfb'
+        other = self.root/'games/sub/datas/fallbacks'/full.name
+        with patch.dict(feedback.LIMITS,{'md':8192}):
+            full.parent.mkdir(parents=True)
+            other.parent.mkdir(parents=True)
+            full.write_bytes(feedback.encode([md_row(n) for n in range(8192)],'md',self.identity))
+            other.write_bytes(feedback.encode([md_row(n) for n in range(8192,9192)],'md',self.identity))
+            os.utime(full,ns=(2000000000,2000000000))
+            os.utime(other,ns=(1000000000,1000000000))
+            messages = []
+            report = feedback.ingest('md',self.identity,self.root/'games/sub',emit=messages.append)
+            self.assertEqual((report['unique_candidates'],report['limit'],report['limit_reached'],
+                              report['refused_records']),(8192,8192,True,1000))
+            self.assertEqual(report['max_bytes_per_game'],feedback.HEADER.size+8192*feedback.RECORD.size)
+            self.assertEqual(set(feedback.records('md',self.identity)),{md_row(n) for n in range(8192)})
+            self.assertEqual(len(messages),1)
+            self.assertTrue(messages[0].endswith('; at least 1000 more were refused: the record is full at 8192.'),messages)
+
+    def test_a_version_2_header_number_is_reported_as_it_is(self):
+        path = self.root/'games/datas/fallbacks'/f'md-{self.identity}.rrfb'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(feedback.encode([md_row(n) for n in range(5000)],'md',self.identity,777))
+        messages = []
+        report = feedback.ingest('md',self.identity,self.root/'games',emit=messages.append)
+        self.assertEqual((report['unique_candidates'],report['limit_reached'],report['refused_records']),(5000,True,777))
+        # 5,000 rows are far from the bound of 65,536: the line says what was refused, never "full".
+        self.assertTrue(messages[0].endswith('; at least 777 more were refused.'),messages)
+        self.assertNotIn('full at',messages[0])
+
+    def test_the_real_bound_at_65536(self):
+        path = self.root/'games/datas/fallbacks'/f'md-{self.identity}.rrfb'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(feedback.encode([md_row(n) for n in range(70000)],'md',self.identity))
+        messages = []
+        report = feedback.ingest('md',self.identity,self.root/'games',emit=messages.append)
+        self.assertEqual((report['unique_candidates'],report['limit'],report['refused_records'],report['bytes']),
+                         (65536,65536,4464,2097248))
+        self.assertIn('at least 4464 more were refused',messages[0])
+        self.assertEqual(len(feedback.records('md',self.identity)),65536)
+
+    def test_a_full_record_of_a_4096_machine_logs_a_flag_only(self):
+        path = self.root/'games/datas/fallbacks'/f'sms-{self.identity}.rrfb'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(feedback.encode([feedback.Observation(1,n,0,b'\x76') for n in range(5000)],'sms',self.identity))
+        messages = []
+        report = feedback.ingest('sms',self.identity,self.root/'games',emit=messages.append)
+        self.assertEqual((report['limit'],report['limit_reached'],report['refused_records']),(4096,True,None))
+        self.assertTrue(messages[0].endswith('; more were refused: the record is full at 4096.'),messages)
+
+    def test_fingerprints_of_up_to_4096_rows_are_those_of_release_1_7_2(self):
+        self.save('sms',[feedback.Observation(1,n,0,b'\x76') for n in range(100)])
+        report = feedback.ingest('sms',self.identity,self.root/'games')
+        self.assertEqual(report['fingerprint'],'2cc5a387257a33af0aa55e78c05de5972dddfaed7e3a168757055b3f1c1aec59')
+        self.assertEqual((report['limit'],report['refused_records'],report['max_bytes_per_game']),(4096,None,131168))
+        self.save('md',[feedback.Observation(5,0x200+2*n,0x200+2*n,bytes([n&255,n>>8,1,2,3,4,5,6])) for n in range(4096)])
+        report = feedback.ingest('md',self.identity,self.root/'games')
+        self.assertEqual(report['fingerprint'],'b4cb8a0d8dbfcf0f5bc232ff4fc4038bd06ba7e239733759d06034bdf5ef367e')
+        self.assertEqual((report['limit'],report['refused_records'],report['max_bytes_per_game'],report['limit_reached']),
+                         (65536,0,2097248,False))
+
+    def test_bulk_import_counts_the_left_out_records_for_the_mega_drive_only(self):
+        with patch.dict(feedback.LIMITS,{'md':8192}):
+            first = self.save('md',[md_row(n) for n in range(8192)])
+            newer = self.root/'games/renamed/datas/fallbacks'/first.name
+            newer.parent.mkdir(parents=True)
+            newer.write_bytes(feedback.encode([md_row(n) for n in range(8192,9192)],'md',self.identity))
+            os.utime(first,ns=(1000000000,1000000000))
+            os.utime(newer,ns=(2000000000,2000000000))
+            report = feedback.import_saved_feedback('md',{'feedback_paths':{'md':str(self.root/'games')}})
+            self.assertEqual((report['observations'],report['refused_records']),(8192,1000))
+        self.save('sms',[feedback.Observation(1,0x100,0,b'\x76')])
+        report = feedback.import_saved_feedback('sms',{'feedback_paths':{'sms':str(self.root/'games')}})
+        self.assertIsNone(report['refused_records'])
+
+    def test_stage_writes_the_bound_only_above_4096(self):
+        for system,expected in (('md','#define RR_FEEDBACK_LIMIT 65536u\n'),('sms',''),('snes','')):
+            project = self.root/('project '+system)
+            project.mkdir()
+            feedback.stage(project,system,self.identity,cmake=False)
+            self.assertEqual((project/'runtime_feedback_config.h').read_text(encoding='ascii'),
+                             f'#define RR_FEEDBACK_SYSTEM "{system}"\n#define RR_FEEDBACK_IDENTITY "{self.identity}"\n'+expected)
+
+    def test_the_c_default_is_4096_and_no_converter_module_names_the_macro(self):
+        root = Path(__file__).resolve().parents[1]
+        text = (root/'native/runtime_feedback.c').read_text(encoding='utf-8')
+        self.assertIn('#ifndef RR_FEEDBACK_LIMIT\n#define RR_FEEDBACK_LIMIT 4096u',text)
+        for path in sorted((root/'retrorecomp').glob('*.py')):
+            if path.name != 'feedback.py':
+                self.assertNotIn('RR_FEEDBACK_LIMIT',path.read_text(encoding='utf-8'),path.name)
+
+
+def md_row(n):
+    """An authored Mega Drive row: numbers and four bytes, nothing from a ROM."""
+    return feedback.Observation(5, 0x200 + 2*n, 0, n.to_bytes(4, 'little') + b'abcd')
+
+
+def raw_file(version, count, system='md', identity='a'*64, dropped=0):
+    """A hand-built file with a valid digest, to test what a reader accepts."""
+    rows = b''.join(feedback.RECORD.pack(5, 8, 0, 0x200 + 2*n, 0, (n.to_bytes(4, 'little') + b'abcd').ljust(16, b'\0'), 0)
+                    for n in range(count))
+    return feedback.HEADER.pack(b'RRFB001\0', version, count, dropped, system.encode().ljust(8, b'\0'),
+                                identity.encode(), feedback.checksum(rows)) + rows
+
+
+def version_of(data):
+    return struct.unpack_from('<I', data, 8)[0]
+
 
 if __name__=='__main__':unittest.main()

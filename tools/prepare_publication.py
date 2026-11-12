@@ -436,6 +436,7 @@ retrorecomp/megadrive_z80_timing.py tests/fixtures/z80_phases.json docs/MEGADRIV
 native/md_z80_checks.c tools/megadrive_z80_selftest.py tests/test_megadrive_z80.py
 native/md_z80_resume_checks.c tools/megadrive_z80_resume_selftest.py tools/megadrive_interrupt_selftest.py
 retrorecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
+retrorecomp/megadrive_static.py tests/test_megadrive_static.py
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
   tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tools/snes_sa1_selftest.py tools/snes_saves_check.py tools/snes_exhirom_selftest.py tools/snes_cross_os.py tools/snes_route_captures.py tests/test_snes_cross_os.py tools/snes_game_saves_check.py retrorecomp/snes_evidence.py tests/test_snes_evidence.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md retrorecomp/random_routes.py tests/test_random_routes.py retrorecomp/scan_levels.py tests/test_scan_levels.py

@@ -15,11 +15,31 @@
 #include <wchar.h>
 #include <limits.h>
 
-#define LIMIT 4096u
+/* The bound of one game's record: RR_FEEDBACK_LIMIT, written into the config
+ * header only above 4096 (retrorecomp/feedback.py stage); the hand-written
+ * headers need no line and keep 4096. The file is version 1 up to 4096 records
+ * and version 2 above, up to FORMAT_LIMIT; the layout is the same. */
+#ifndef RR_FEEDBACK_LIMIT
+#define RR_FEEDBACK_LIMIT 4096u
+#endif
+#if RR_FEEDBACK_LIMIT<4096u || RR_FEEDBACK_LIMIT>65536u || (RR_FEEDBACK_LIMIT&(RR_FEEDBACK_LIMIT-1u))
+#error "RR_FEEDBACK_LIMIT: a power of two from 4096 to 65536"
+#endif
+#define LIMIT RR_FEEDBACK_LIMIT
+#define V1_LIMIT 4096u
+#define FORMAT_LIMIT 65536u
 #define HEADER 96u
 #define RECORD 32u
+#if LIMIT>V1_LIMIT
+typedef uint32_t slot_t;      /* the count reaches 65536: it does not fit 16 bits */
+#else
+typedef uint16_t slot_t;
+#endif
 static uint8_t records[LIMIT][RECORD];
-static uint16_t slots[LIMIT*2];
+static slot_t slots[LIMIT*2];
+/* LIMIT*16 bits: the records refused once the record is full, so that one
+ * refused again counts once. A lower bound (two records may share a bit). */
+static uint8_t refused_seen[LIMIT*2];
 static unsigned count, dropped;
 static int enabled, initial_enabled, started, finished, active;
 
@@ -35,13 +55,21 @@ static uint32_t hash(const uint8_t *b, size_t z) {
     return h;
 }
 static int add(const uint8_t *r) {
-    unsigned slot=hash(r,RECORD)&(LIMIT*2-1);
+    uint32_t h=hash(r,RECORD);
+    unsigned slot=h&(LIMIT*2-1);
     while(slots[slot]) {
         if(!memcmp(records[slots[slot]-1],r,RECORD))return 0;
         slot=(slot+1)&(LIMIT*2-1);
     }
-    if(count==LIMIT) { if(dropped<UINT_MAX)++dropped;return 0; }
-    memcpy(records[count],r,RECORD);slots[slot]=(uint16_t)++count;return 1;
+    if(count==LIMIT) {
+        unsigned bit=(h>>8)&(LIMIT*16u-1u);
+        if(!(refused_seen[bit>>3]&(1u<<(bit&7u)))) {
+            refused_seen[bit>>3]=(uint8_t)(refused_seen[bit>>3]|(1u<<(bit&7u)));
+            if(dropped<UINT_MAX)++dropped;
+        }
+        return 0;
+    }
+    memcpy(records[count],r,RECORD);slots[slot]=(slot_t)++count;return 1;
 }
 int rr_feedback_enabled(void) { return enabled; }
 int rr_feedback_toggle(void) { if(active && !finished)enabled=!enabled;return enabled; }
@@ -103,18 +131,29 @@ static void flush(void) {
 #endif
     /* Incoming session first: even a saturated previous file can receive new
      * useful hints. Never let accumulated sessions exceed LIMIT records. */
-    unsigned incoming=count;int changed=1;
+    unsigned incoming=count;int changed=1,keep_old=0;
     FILE *file=rr_fopen(path,L"rb");
     if(file) {
-        uint8_t header[HEADER];
-        if(fread(header,1,HEADER,file)==HEADER && !memcmp(header,"RRFB001\0",8) &&
-           get32(header+8)==1 && get32(header+12)<=LIMIT &&
+        uint8_t header[HEADER]={0};
+        uint32_t version=0,old_count=0;
+        if(fread(header,1,HEADER,file)==HEADER) {version=get32(header+8);old_count=get32(header+12);}
+        /* Exactly two shapes: version 1 up to V1_LIMIT records, version 2 above
+         * it up to FORMAT_LIMIT. Anything else is ignored and replaced. */
+        if(!memcmp(header,"RRFB001\0",8) &&
+           ((version==1 && old_count<=V1_LIMIT) ||
+            (version==2 && old_count>V1_LIMIT && old_count<=FORMAT_LIMIT)) &&
            !memcmp(header+20,RR_FEEDBACK_SYSTEM,sizeof(RR_FEEDBACK_SYSTEM)) &&
            !memcmp(header+28,RR_FEEDBACK_IDENTITY,64)) {
-            unsigned old_count=get32(header+12);size_t size=old_count*RECORD;
+            size_t size=(size_t)old_count*RECORD;
             uint8_t *old=(uint8_t*)malloc(size?size:1);
-            if(old && fread(old,1,size,file)==size && fgetc(file)==EOF && hash(old,size)==get32(header+92)) {
-                unsigned newly_added=0,matched=0;uint8_t matched_rows[LIMIT]={0};
+            uint8_t *matched_rows=(uint8_t*)calloc(incoming?incoming:1,1);
+            /* The `dropped` of a version 1 file may be a call count written by a
+             * 1.7.2 game: where the bound is above V1_LIMIT it is read as zero. */
+            uint32_t old_dropped=(version==1 && LIMIT>V1_LIMIT)?0:get32(header+16);
+            if(!old || !matched_rows) {
+                keep_old=1; /* no memory: write nothing and leave the old file */
+            } else if(fread(old,1,size,file)==size && fgetc(file)==EOF && hash(old,size)==get32(header+92)) {
+                unsigned newly_added=0,matched=0;
                 for(unsigned i=0;i<old_count;++i) {
                     const uint8_t *r=old+i*RECORD;
                     unsigned slot=hash(r,RECORD)&(LIMIT*2-1);
@@ -129,15 +168,15 @@ static void flush(void) {
                 }
                 for(unsigned i=0;i<old_count;++i) newly_added+=(unsigned)add(old+i*RECORD);
                 /* Do not rewrite an identical deduplicated set each session. */
-                changed=(matched!=incoming) || incoming+newly_added!=old_count || dropped>get32(header+16);
-                if(get32(header+16)>dropped)dropped=get32(header+16);
+                changed=(matched!=incoming) || incoming+newly_added!=old_count || dropped>old_dropped;
+                if(old_dropped>dropped)dropped=old_dropped;
             }
-            free(old);
+            free(old);free(matched_rows);
         }
         fclose(file);
     }
-    if(changed) {
-        uint8_t header[HEADER]={0};memcpy(header,"RRFB001\0",8);put32(header+8,1);
+    if(changed && !keep_old) {
+        uint8_t header[HEADER]={0};memcpy(header,"RRFB001\0",8);put32(header+8,count>V1_LIMIT?2u:1u);
         put32(header+12,count);put32(header+16,dropped);
         memcpy(header+20,RR_FEEDBACK_SYSTEM,sizeof(RR_FEEDBACK_SYSTEM));
         memcpy(header+28,RR_FEEDBACK_IDENTITY,64);put32(header+92,hash(&records[0][0],count*RECORD));

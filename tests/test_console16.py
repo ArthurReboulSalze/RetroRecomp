@@ -334,7 +334,7 @@ class Console16Tests(unittest.TestCase):
         return executable.parents[2 if os.name == 'nt' else 1] / 'checks'
 
     def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced',
-                        scan_level=None):
+                        scan_level=None, passes=3, persistent=False):
         """Exercise real conversion scheduling/gates with authored probe results."""
         project = self.root / 'project'
         executable = project / 'build/Release/game.exe'
@@ -381,7 +381,7 @@ class Console16Tests(unittest.TestCase):
             # frames. An authored branch at 20,366 verifies that the ordinary
             # advanced scan discovers it and validates it before learning.
             reached = scenario != 'demo' or frames >= 20366
-            fallback = int(learn_new and reached and scenario == learned_scenario and pass_number == 1)
+            fallback = int(learn_new and reached and scenario == learned_scenario and (pass_number == 1 or persistent))
             data = dict.fromkeys(fields, 1)
             data.update(scenario=scenario, frames=frames, native_entries=0 if reference else 100 - fallback,
                 interpreted_opcodes=100 if reference else fallback,
@@ -412,12 +412,12 @@ class Console16Tests(unittest.TestCase):
             if fail_reference:
                 with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
                     convert16(source, system_id='md', output=self.root / 'reports',
-                              frames=30, passes=3, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
+                              frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
                 self.assertNotIn('learn', events)
                 self.assertFalse((self.root / 'reports/conversion-report.json').exists())
                 return events, None
             convert16(source, system_id='md', output=self.root / 'reports',
-                      frames=30, passes=3, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
+                      frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
         self.assert_written_in_schema_2(report)
         return events, report
@@ -432,6 +432,31 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual(document['system']['status'], report['status'])
         self.assertEqual(read_report(legacy_view(report))['cpus'], document['cpus'])
         self.assertEqual(fallback_summary(report)['audio_cpu'], report['audio_cpu'])
+
+    def test_a_last_pass_that_still_ran_recorded_interpreter_code_gets_one_more_pass(self):
+        """A quick check asks for one pass; the code its routes still ran on the interpreter is learned by one more (1.7.3)."""
+        events, report = self.scan_conversion(advanced=False, learned_scenario='play', passes=1)
+        self.assertEqual(events.count('build'), 2)
+        self.assertEqual([row['pass'] for row in report['passes']], [1, 2])
+        self.assertTrue(report['residual_learning_pass'])
+        # The second pass ran with what the first learned: nothing interpreted is left to report.
+        self.assertTrue(any(check['interpreted_opcodes'] for check in report['passes'][0]['checks']))
+        self.assertFalse(any(check['interpreted_opcodes'] for check in report['passes'][1]['checks']))
+
+    def test_the_extra_pass_is_taken_once_even_when_the_interpreter_is_still_used(self):
+        events, report = self.scan_conversion(advanced=False, learned_scenario='play', passes=2, persistent=True)
+        self.assertEqual(events.count('build'), 3)
+        self.assertTrue(report['residual_learning_pass'])
+
+    def test_no_extra_pass_when_the_last_pass_ran_no_interpreted_opcode(self):
+        events, report = self.scan_conversion(advanced=False, learn_new=False, passes=1)
+        self.assertEqual(events.count('build'), 1)
+        self.assertNotIn('residual_learning_pass', report)
+
+    def test_passes_the_settings_allow_are_not_extended_when_the_first_learned_everything(self):
+        events, report = self.scan_conversion(advanced=False, learned_scenario='play', passes=3)
+        self.assertEqual(events.count('build'), 2)
+        self.assertNotIn('residual_learning_pass', report)
 
     def test_advanced_md_scan_validates_new_paths_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True)

@@ -155,6 +155,9 @@ class SystemProfile(ABC):
     linux: str = 'witnessed'
     # Runtime-feedback record kinds (feedback.py) this console may write.
     feedback_kinds: frozenset = frozenset()
+    # Most distinct records one game's record keeps (feedback.py): a power of
+    # two from 4,096 to 65,536. Above 4,096 the file is version 2 (RUNTIME_FEEDBACK.md).
+    feedback_limit: int = 4096
     # (extension, most bytes) of the cartridges this machine reads from a ZIP (systems.archived_rom_limits).
     archived_rom_limits: tuple[tuple[str, int], ...] = ()
     default_frames: int = 3600

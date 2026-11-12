@@ -235,11 +235,19 @@ def _observation_key(row) -> tuple:
 def shareable_observations(system: str, identity: str, rom) -> tuple[list, int]:
     """This player's raw observations as ROM-free numbers: the bytes become
     their position in the player's own ROM. Code found only in RAM (built by
-    the game, not copied from its ROM) has no such position and stays local."""
+    the game, not copied from its ROM) has no such position and stays local.
+    A record can hold more rows than one game may share (OBSERVATION_LIMIT): the
+    rows are taken in the record's order, newest first, and the walk stops at
+    that many rows that have a ROM position. The rest stay local, silently."""
     from .feedback import records
     data = bytes(rom.data)
-    rows, ram_only = [], 0
+    rows, ram_only, examined = [], 0, 0
     for row in records(system, identity):
+        # Each row costs one search of the ROM: a record of 65,536 rows made of work-RAM code must not cost 16 times a full
+        # record of 4,096, so the walk also stops after twice the sharing limit of rows looked at.
+        if len(rows) >= OBSERVATION_LIMIT or examined >= 2 * OBSERVATION_LIMIT:
+            break
+        examined += 1
         offset = data.find(row.data)
         if offset < 0:
             ram_only += 1

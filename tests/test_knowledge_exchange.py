@@ -322,6 +322,35 @@ class RawObservationTests(unittest.TestCase):
         self.assertNotIn(self.in_rom.data.hex(), text)
         self.assertNotIn(str(self.root).replace('\\', '/'), text.replace('\\\\', '/'))
 
+    def test_a_record_of_20000_rows_shares_at_most_the_limit_and_the_document_imports(self):
+        from retrorecomp.feedback import Observation, encode, private_file, records
+        from retrorecomp.knowledge import OBSERVATION_LIMIT
+        data = bytes(self.rom.data)
+        # 20,000 rows with a ROM position (3 bytes apart, 8 bytes each), newest first, then the two of setUp.
+        local = [Observation(5, 0x200 + 2 * n, 0, data[3 * n:3 * n + 8]) for n in range(20000)]
+        private_file('md', self.rom.sha256).write_bytes(encode(local + [self.ram_only], 'md', self.rom.sha256))
+        rows, ram_only = knowledge_exchange.shareable_observations('md', self.rom.sha256, self.rom)
+        self.assertEqual((len(rows), ram_only), (OBSERVATION_LIMIT, 0))
+        self.assertEqual(rows, sorted(rows))
+        self.assertEqual({row[1] for row in rows}, {0x200 + 2 * n for n in range(OBSERVATION_LIMIT)}, 'the newest rows first')
+        summary = self.export()
+        self.assertEqual(summary['observation_count'], OBSERVATION_LIMIT)
+        shared = self.root / 'mine.rrknowledge'
+        private_file('md', self.rom.sha256).unlink()        # another player, same cartridge
+        self.assertEqual(knowledge_exchange.preview_import(shared)['discoveries'], OBSERVATION_LIMIT)
+        self.assertEqual(knowledge_exchange.import_knowledge(shared)['new'], 1)
+        self.assertEqual(len(records('md', self.rom.sha256, 5, self.rom)), OBSERVATION_LIMIT)
+
+    def test_a_record_of_work_ram_rows_costs_a_bounded_number_of_searches_of_the_rom(self):
+        from retrorecomp.feedback import Observation, encode, private_file
+        from retrorecomp.knowledge import OBSERVATION_LIMIT
+        # 10,000 work-RAM rows that are nowhere in the ROM come first: each would cost a full search, so the walk
+        # gives up after twice the sharing limit of rows looked at, and the ROM rows behind them stay local.
+        ram = [Observation(6, 0xff0000 + n, 0, b'\xde\xad\xbe\xef' + n.to_bytes(2, 'big')) for n in range(10000)]
+        private_file('md', self.rom.sha256).write_bytes(encode(ram + [self.in_rom], 'md', self.rom.sha256))
+        rows, ram_only = knowledge_exchange.shareable_observations('md', self.rom.sha256, self.rom)
+        self.assertEqual((rows, ram_only), ([], 2 * OBSERVATION_LIMIT))
+
     def test_imported_observations_rebuild_from_the_players_rom(self):
         from retrorecomp.feedback import records, private_file
         self.export()

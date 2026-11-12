@@ -212,9 +212,24 @@ observations, not a compatibility score of the catalogue.
 - **Fallback**: interpreter fallback is a counted limit, never hidden: work-RAM code not yet observed, changed Z80
   opcodes and prefix chains beyond the four-byte guard window can still use it. At most 4 uploaded 8 KiB Z80 driver
   images and 32,768 Z80 variants are stored per ROM in the converter's library, and 2,048 work-RAM instruction variants
-  in the library and in the exported game's recording (the lowest addresses are kept); generated games write no learning
-  files. Since 1.7.3 what is past one of these limits is counted, logged and written to the conversion report
+  in the library and in the exported game's recording (the lowest addresses are kept). The player's own record (F12, `datas/fallbacks`)
+  holds up to 65,536 notes since 1.7.3 (4,096 before; what is refused is counted, [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)), and a last pass that still ran the
+  interpreter is followed by one more learning pass. Since 1.7.3 what is past one of these limits is counted, logged and written to the conversion report
   (`learning_limits`, [UPGRADES.md](UPGRADES.md)): the largest known games use 62 % of the RAM limit and 72 % of the Z80 limit.
+- **Discovery**: the decoder follows what the vectors, the engine pass and the learned entries reach, never an indirect jump.
+  An anchored static rule (`retrorecomp/megadrive_static.py`, 1.7.3) adds decode roots from code that is already reached: the
+  jump tables and long-pointer tables a reached dispatcher consumes (`MOVEA.L` or `LEA` plus `JMP`/`JSR`, offset words, `JMP (d8,PC,Xn)`
+  rows) and the ROM operands of reached `LEA`/`PEA`/`MOVE.L #` (rules a1c, a2, a3, b1, b2, c0, c1; two optional rules, c2 and a1u, are coded and off). Tables are read from their address, at
+  most 256 entries, and a candidate is kept only when its whole stream decodes to legal instructions that agree with the
+  reached code (twelve rounds, a ceiling of about 32,768 added instructions). The roots go to the step
+  generator only: never to `game.toml`, the learned entries, the library or the shared base. A wrong root cannot run, because
+  the generated lookup answers for an exact even ROM address with the decode of the bytes at that address. The conversion log
+  and the report (`static_discovery`) count the roots, the refusals by reason (`illegal_decode`, `illegal_opcode`, `zero_word`,
+  `suspect_opcode`, `target_out`, `overlap`, `too_short`, `cap`), the tables cut and the instructions added; banked cartridges above 4 MiB
+  are skipped and counted. This is a code-coverage aid counted apart from CPU fidelity, hardware fidelity and gameplay validation.
+  Its ceiling: a dispatcher inside code that is only entered through data (object lists), and computed jumps into unrolled loops,
+  have no reached anchor, so they stay with the learned entries and the counted interpreter. Banked cartridges within 4 MiB
+  and every other cartridge take the rule unchanged.
 - **Guns**: Justifier has no gameplay-validated cartridge; Menacer horizontal conversion is an estimate by scanline;
   PAL gun cartridges are not covered by the NTSC tests.
 - **Validation**: full playthroughs, the full catalogue, electrical pin precision and physical latency are not claimed.
