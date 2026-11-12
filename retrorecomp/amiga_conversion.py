@@ -378,9 +378,11 @@ def generate(project: Path, samples: list, table: Path, images: list = (), rom_i
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
     learned, walked = amiga_codegen.walk_records(windows, observed=observed)
-    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images),
-                                      shapes=amiga_codegen.blit_shapes(reports), learned=learned, walked=walked)
-    return {**steps, 'opcode_table_sha256': file_sha256(table)}
+    cut: dict = {}
+    swept = amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images, cut=cut)
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=swept, shapes=amiga_codegen.blit_shapes(reports), learned=learned,
+                                      walked=walked)
+    return {**steps, 'opcode_table_sha256': file_sha256(table), 'sweep_cut': cut}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
@@ -756,6 +758,12 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
                              'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
                              'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)',
+                             'sweep_limit': (generation.get('sweep_cut') or {}).get('limit'),
+                             'sweep_limit_reached': bool((generation.get('sweep_cut') or {}).get('reached')),
+                             'sweep_left_out': {key: (generation.get('sweep_cut') or {}).get(key, 0) for key in ('walk_places_left', 'page_addresses_left')},
+                             'sweep_left_out_means': ('what the bound on the sweep left out: places a branch walk had queued and not reached, and even addresses of '
+                                                      'pages where code ran that were not tried; candidates, not instructions. What they hold, if it ever runs, runs '
+                                                      'on the counted interpreter'),
                              'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
                              'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it (final_checks.native_learned counts those that ran)",
                              'walked_means': "reached by walking the window a player's session noted: it may never have run there, and no route proves it (final_checks.native_walked counts those that ran)"},

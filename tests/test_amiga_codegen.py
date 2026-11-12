@@ -194,6 +194,14 @@ class AmigaCodegenTest(unittest.TestCase):
         memory = self.image(0x1000, 0x4e71, 0x303c, 0x1234, 0x4e71, 0x4e71, 0x4e71)
         self.assertEqual(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed)[0], (0x1002, '303c1234'))
         self.assertEqual(len(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, limit=2)), 2)
+        # The bound is never silent: what it left out is counted (the walk had queued $1008; the page's other addresses were not tried).
+        cut: dict = {}
+        amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, limit=2, cut=cut)
+        self.assertEqual((cut['limit'], cut['instructions'], cut['reached']), (2, 2, True))
+        self.assertGreater(cut['walk_places_left'] + cut['page_addresses_left'], 0)
+        free: dict = {}
+        amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, cut=free)
+        self.assertEqual((free['reached'], free['walk_places_left'], free['page_addresses_left']), (False, 0, 0))
 
     def test_a_sweep_leaves_a_window_no_code_can_be_in(self):
         self.sweep_table()

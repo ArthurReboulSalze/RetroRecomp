@@ -309,6 +309,24 @@ build reads 0 for each of them.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: what the sweep's bound leaves out is counted (after 1.7.3)
+
+**What changes.** The sweep beyond the routes stops at 150,000 instructions per conversion (`SWEEP_LIMIT`). Until now it stopped
+there silently: Cyber Games reached it exactly. The bound stays where it is, but `native_forms` now reports what it left out:
+- `sweep_limit` and `sweep_limit_reached`;
+- `sweep_left_out.walk_places_left`: the places a branch walk had queued and not reached;
+- `sweep_left_out.page_addresses_left`: the even addresses of the 4 KiB pages where code ran that were not tried.
+
+The same figures are in `native_validation.generation.sweep_cut`. They count candidates, not instructions: most of those addresses
+hold no code. Whatever they hold, if it ever runs, runs on the interpreter and is counted there, as before. The generated code is
+unchanged: the same instructions are swept, in the same order.
+
+**Hot path:** no. This is conversion time only.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

@@ -175,12 +175,14 @@ def _word(image: tuple, address: int) -> int | None:
     return data[at] << 8 | data[at + 1] if 0 <= at and at + 1 < len(data) else None
 
 
-def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit: int = SWEEP_LIMIT) -> list:
+def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit: int = SWEEP_LIMIT, cut: dict | None = None) -> list:
     """(pc, words in hex) of the instructions reached from the observed ones over images of memory, each a list of (start address, bytes) regions, and not observed themselves.
     Only where an image still holds the observed opcode does the walk start from it, following branches and what falls through them. Then, in RAM images, every even address of a
-    4 KiB page where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs. Bounded."""
+    4 KiB page where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs. Bounded:
+    `cut`, when given, receives what the bound left out (sweep_cut), never silently."""
     seen = {(pc, int(text[:4], 16)) for pc, text in samples}
     found: dict[tuple[int, int], str] = {}
+    left_walk = left_fill = 0
     by_address = sorted(set(samples))
     pages = sorted({pc >> SWEEP_PAGE_BITS for pc, _ in by_address})
     for regions, fill in [(image, True) for image in images] + [(image, False) for image in rom_images]:
@@ -225,12 +227,23 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
             words = add(pc)
             if words is not None:
                 follow(pc, words)
+        if len(found) >= limit:
+            left_walk += len({pc for pc in queue[position:] if pc not in visited})
         if fill:
-            for page in pages:
-                for pc in range(page << SWEEP_PAGE_BITS, (page + 1) << SWEEP_PAGE_BITS, 2):
+            for number, page in enumerate(pages):
+                end = (page + 1) << SWEEP_PAGE_BITS
+                for pc in range(page << SWEEP_PAGE_BITS, end, 2):
                     if len(found) >= limit:
+                        left_fill += (end - pc) // 2 + sum(1 << (SWEEP_PAGE_BITS - 1) for _ in pages[number + 1:])
                         break
                     add(pc)
+                else:
+                    continue
+                break
+    if cut is not None:
+        # What the bound left out, per image: the places a branch walk had queued and not reached (each could lead further), and the
+        # even addresses of observed pages not tried. Candidates, not instructions: most addresses hold no code.
+        cut.update(limit=limit, instructions=len(found), reached=len(found) >= limit, walk_places_left=left_walk, page_addresses_left=left_fill)
     return sorted((pc, text) for (pc, _), text in found.items())
 
 
