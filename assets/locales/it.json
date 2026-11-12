@@ -625,6 +625,7 @@
     "send_after_batch": "Invia le mie nuove scoperte dopo i lotti (al massimo ogni 15 minuti)",
     "tip_send_after_batch": "Dopo un lotto, invia in background ciò che la base comune non ha ancora ricevuto da te: solo numeri, mai il contenuto di una ROM. Gli invii partono al massimo ogni 15 minuti; uno ancora in attesa parte alla chiusura della finestra o all'avvio successivo. Se non riesce, riprova dopo il lotto successivo.",
     "shared_received": "Base comune: percorsi di altri giocatori per {games} di questi giochi ({records} contributi, {observations} osservazioni). Ogni conversione li ricontrolla.",
+    "knowledge_left_out": "Non tutto ciò che è stato ricevuto è stato tenuto: {lost} righe oltre un limite della tua base locale, {invalid} righe rifiutate perché non valide. Le conversioni verificano sempre tutto ciò che usano rispetto alla referenza.",
     "shared_nothing": "Base comune: niente di nuovo per questi giochi.",
     "shared_unavailable": "Base comune: {error} Le conversioni proseguono con i percorsi già presenti.",
     "shared_base_received": "Base comune n. {version}: {games} giochi ricevuti.",

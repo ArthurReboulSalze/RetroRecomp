@@ -625,6 +625,7 @@
     "send_after_batch": "批量转换后发送我的新发现（最多每 15 分钟一次）",
     "tip_send_after_batch": "每批转换后，在后台发送共享库尚未从你这里收到的内容：仅为数字，绝不包含 ROM 内容。最多每 15 分钟发送一次；仍在等待的发送会在关闭窗口时或下次启动时发出。如果失败，会在下一批之后重试。",
     "shared_received": "共享库：已收到其他玩家为其中 {games} 款游戏找到的路径（{records} 份提交，{observations} 条观测）。每次转换都会重新检查。",
+    "knowledge_left_out": "接收的数据未全部保留：{lost} 行超出本地数据库的限制，{invalid} 行因无效被拒绝。转换仍会将使用的所有内容与参考进行比较。",
     "shared_nothing": "共享库：这些游戏没有新内容。",
     "shared_unavailable": "共享库：{error} 转换将使用本地已有的路径继续。",
     "shared_base_received": "共享库第 {version} 版：已收到 {games} 个游戏。",

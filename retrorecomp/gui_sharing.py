@@ -162,6 +162,8 @@ class SharingMixin:
         elif summary and summary['roms']:
             self.messages.put(('log', self.tr('shared_received', games=summary['roms'], records=summary['records'],
                                               observations=summary['observations'])))
+        if error is None and summary:
+            self.log_left_out(summary.get('dropped'))
         elif summary and summary['asked'] and not quiet:
             self.messages.put(('log', self.tr('shared_nothing')))
         return outcome['paths']
@@ -506,7 +508,22 @@ class SharingMixin:
         else:
             text = self.tr('knowledge_import_done', games=summary['new'] + summary['enriched'],
                            new=summary['new'], enriched=summary['enriched'], unchanged=summary['unchanged'])
+            self.knowledge_report(text)
+            self.log_left_out(summary.get('dropped'))
+            return
         self.knowledge_report(text)
+
+    # What an import left out (knowledge_exchange.DROPPED_KEYS): the valid rows a limit of the local base could not keep and the
+    # rows refused as invalid are said in one line; duplicates, already known, are not news and are not said.
+    LOST_KEYS = ('record_rows_over_limit', 'records_over_bounds', 'observations_over_limit', 'games_over_limit')
+    INVALID_KEYS = ('record_rows_invalid', 'records_invalid', 'observations_invalid')
+
+    def log_left_out(self, dropped):
+        dropped = dropped if isinstance(dropped, dict) else {}
+        lost = sum(int(dropped.get(key) or 0) for key in self.LOST_KEYS)
+        invalid = sum(int(dropped.get(key) or 0) for key in self.INVALID_KEYS)
+        if lost or invalid:
+            self.messages.put(('log', self.tr('knowledge_left_out', lost=lost, invalid=invalid)))
 
     def knowledge_report(self, text):
         self.messages.put(('log', text))

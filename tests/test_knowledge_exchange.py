@@ -553,3 +553,38 @@ class DroppedCountTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LeftOutLineTests(unittest.TestCase):
+    """The window says what an import or a sync left out, in one line (gui_sharing.SharingMixin.log_left_out)."""
+
+    def make(self):
+        import queue
+        from retrorecomp.gui_sharing import SharingMixin
+        from retrorecomp.i18n import tr
+        window = SharingMixin.__new__(SharingMixin)
+        window.messages = queue.Queue()
+        window.tr = lambda key, **values: tr(key, 'en', **values)
+        return window
+
+    def test_every_dropped_counter_is_said_or_deliberately_quiet(self):
+        from retrorecomp.gui_sharing import SharingMixin
+        from retrorecomp.knowledge_exchange import DROPPED_KEYS
+        said = set(SharingMixin.LOST_KEYS) | set(SharingMixin.INVALID_KEYS)
+        self.assertEqual(said | {'observations_duplicate'}, set(DROPPED_KEYS))
+
+    def test_losses_and_refusals_are_said_and_duplicates_are_not(self):
+        from retrorecomp.knowledge_exchange import new_dropped
+        window = self.make()
+        dropped = new_dropped()
+        dropped['observations_duplicate'] = 40
+        window.log_left_out(dropped)
+        self.assertTrue(window.messages.empty())
+        dropped.update(records_over_bounds=2, observations_over_limit=5, records_invalid=1, observation_rows_unknown=9)
+        window.log_left_out(dropped)
+        kind, text = window.messages.get_nowait()
+        self.assertEqual(kind, 'log')
+        self.assertIn('7 rows past a limit', text)
+        self.assertIn('1 rows refused as invalid', text)
+        window.log_left_out(None)
+        self.assertTrue(window.messages.empty())

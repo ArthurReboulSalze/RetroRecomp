@@ -625,6 +625,7 @@
     "send_after_batch": "Neue Entdeckungen nach den Durchgängen senden (höchstens alle 15 Minuten)",
     "tip_send_after_batch": "Nach einem Durchgang im Hintergrund senden, was die gemeinsame Basis noch nicht von dir erhalten hat: nur Zahlen, nie ROM-Inhalte. Gesendet wird höchstens alle 15 Minuten; ein noch wartender Versand geht beim Schließen des Fensters oder beim nächsten Start. Schlägt es fehl, wird es nach dem nächsten Durchgang erneut versucht.",
     "shared_received": "Gemeinsame Basis: Pfade anderer Spieler für {games} dieser Spiele ({records} Beiträge, {observations} Beobachtungen). Jede Konvertierung prüft sie erneut.",
+    "knowledge_left_out": "Nicht alles Empfangene wurde behalten: {lost} Zeilen über einer Grenze deiner lokalen Datenbank, {invalid} Zeilen als ungültig abgelehnt. Die Konvertierungen prüfen weiterhin alles, was sie verwenden, gegen die Referenz.",
     "shared_nothing": "Gemeinsame Basis: nichts Neues für diese Spiele.",
     "shared_unavailable": "Gemeinsame Basis: {error} Die Konvertierungen laufen mit den vorhandenen Pfaden weiter.",
     "shared_base_received": "Gemeinsame Basis Nr. {version}: {games} Spiele erhalten.",
