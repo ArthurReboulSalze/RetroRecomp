@@ -423,6 +423,26 @@ the native entries (Civilization), and the cap cut 71 % of Cyber Games at the ex
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the main route presses 1 and 2, and answers Monkey Island 2's protection (after 1.7.3)
+
+**What changes.**
+- **Every game.** The generic main route also taps the keys 1 (frame 400) and 2 (frame 1300), never when one of them is the slave's
+  quit key. Civilization's first screen, "1) Mouse + Keyboard / 2) Keyboard", waited for one of them, so its routes stayed silent.
+- **Monkey Island 2 only.** The game is recognised by its install's SHA-256 (`ROUTE_ANSWERS`, numbers about the install). Its main
+  route first answers the "lame-o" copy protection: Return, any recipe digits, Return, then a box clicked with the mouse. The
+  generic route follows from frame 3100. The route is at least 7,000 frames long, because the first sound comes at about frame 6,000.
+
+Arthur decided this on 12 Nov, after playing the games himself; the study is `SILENT-ROUTES-20261112.md`. Another World's answer
+waits for the green-screen investigation. A route is a scripted input, not gameplay validation. The native code it finds is still
+proved against the interpreted reference, as on every route.
+
+**Hot path:** no. This is conversion time only. Monkey Island 2's conversion runs a longer main route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes of every Amiga game change, so their
+observed code and their native counts can change too. The recheck of the delivered games is recorded below when it is done.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
