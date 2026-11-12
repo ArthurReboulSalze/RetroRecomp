@@ -464,6 +464,31 @@ observed code and their native counts can change too.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Amiga, Atari ST and Sharp X68000: the click that captures the mouse stays the host's (after 1.7.3)
+
+**What changes.** On the disk computers a left click in the window captures the mouse. Until now that click also reached the guest:
+the event went on, and the next frames read the button still held. The machine saw a left click the player never meant for it.
+- **The new rule.** The capturing click is consumed. The guest's left button stays up until that click is released, and every later
+  click is the guest's, as before.
+- **Unchanged.** A mouse game captures at start without a click, and Ctrl+Alt+M captures without one either.
+- **Why.** On Another World's protection screen that stray click locked the game: the lead's decision of 12 Nov, the same rule on
+  every computer machine.
+
+**Proof.** `tests/amiga_menu_harness.c` gains seven checks of the click, with SDL's dummy driver and no window shown:
+- the capturing click is consumed and captures the mouse;
+- the guest's left button stays up while that click is held, and after it is released;
+- a click on the captured mouse is the guest's, press and release.
+
+The same harness on the code before the change fails three of them. The Atari ST, X68000 and host kit unit tests pass. The one
+X68000 failure needs the main checkout's `.deps` and is unrelated.
+
+**Hot path:** no. One test per frame on a flag.
+
+**What moves:** the host stamp of the Amiga, the Atari ST and the X68000 (`native/hostkit/adapters/rrhk_computer.inc`, host role,
+`shares:hostkit_computer`). No game stamp moves. Exports already made keep the old behaviour until they are rebuilt.
+
+**Quick states:** not affected (host side).
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
