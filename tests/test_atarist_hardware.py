@@ -164,6 +164,26 @@ class AnalysisTests(unittest.TestCase):
         self.assertFalse(check.close(2_000_000, check.PSG_HZ, check.PSG_HZ * 0.0002))
 
 
+class TimerDDetectorProgramsTests(unittest.TestCase):
+    """The authored programs of the timer D detector's check (mfp-timer-d-signs): they assemble, the code a RAM case copies fits the 64 bytes
+    the program copies, and the cases cover each sign, the ROM, a masked interrupt and a game's own order."""
+    def test_every_case_assembles_and_a_ram_stub_fits_its_copy(self):
+        names = set()
+        for name, where, code, expected in check.DETECTOR_CASES:
+            with self.subTest(name):
+                self.assertEqual(len(check.detector_program(where, code)), check.TOS_BYTES)
+                self.assertEqual(len(expected), 4)
+                if where == 'ram':
+                    self.assertLessEqual(len(asm.Assembler(0x3000).assemble(chr(10).join(code) + chr(10) + 'rts')), 64)
+            names.add(name)
+        self.assertTrue({'rom', 'tddr-read', 'tcdcr-read', 'start-before-data', 'enable-only', 'enable-masked', 'own-setup'} <= names)
+        for letter in range(4):          # each sign is expected at least once, and each case that expects one expects only it
+            self.assertTrue(any(expected[letter] for _, _, _, expected in check.DETECTOR_CASES))
+        self.assertEqual(check.DETECTOR_CASES[0][3], (0, 0, 0, 0))
+        self.assertTrue(set(check.DETECTOR_EXACT) <= names)
+        self.assertIn('mfp-timer-d-signs', check.CHECKS)
+
+
 class FilesTests(unittest.TestCase):
     def test_the_files_are_lf_and_carry_no_firmware_or_game_bytes(self):
         for name in ('tools/atarist_hardware_asm.py', 'tools/atarist_hardware_check.py', 'native/atarist_machine/atarist_hardware_checks.c',

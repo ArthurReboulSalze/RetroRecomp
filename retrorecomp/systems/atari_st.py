@@ -32,7 +32,12 @@ class AtariStProfile(SystemProfile):
     # one the machine boots EmuTOS. The option itself is not part of the request signature (signature=False); the identity of the
     # TOS used is (request_identity).
     firmware = ('tos',)
-    option_keys = (OptionKey('atarist_tos', signature=False, kind='path', label='atarist_tos_label'),)
+    # The MFP's timer D (docs/ATARI_ST.md, known limits): `auto` runs Hatari's patch of the TOS's own start of the timer and drops it for a
+    # game the references show using the timer as the TOS left it; `patched` and `exact` force it. It changes the machine, so it is
+    # part of the request signature.
+    option_keys = (OptionKey('atarist_tos', signature=False, kind='path', label='atarist_tos_label'),
+                   OptionKey('atarist_timer_d', kind='choice', label='atarist_timer_d_label', hint='tip_atarist_timer_d',
+                             choices=('auto', 'patched', 'exact'), default='auto'))
     quick_state_family = 'atarist'
     capabilities = Capabilities(mouse=True, keyboard=True, disks=True)
     linux = 'witnessed'
@@ -82,6 +87,7 @@ class AtariStProfile(SystemProfile):
         except (OSError, ValueError):
             tos = None
         settings['atarist_tos'] = tos.sha256 if tos is not None else 'emutos-' + atarist_emutos.VERSION
+        settings['atarist_timer_d'] = options.get('atarist_timer_d') or 'auto'
 
     def read_rom(self, path: Path):
         from ..atarist import read_input

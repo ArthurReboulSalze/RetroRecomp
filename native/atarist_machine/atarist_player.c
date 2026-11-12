@@ -335,6 +335,19 @@ static bool write_capture(const char *path) {
 
 static bool bare_frames;
 
+/* The report's timer D signs (A, B, C, D of atarist_session.h): {"A":{"count":N,"frame":F,"pc":P}, ...}. */
+static void timer_d_signs_json(const RrStSession *s, char *out, size_t size) {
+   RrStTimerDSign sign[4];
+   size_t used = 0;
+   unsigned k;
+   rr_st_timer_d_signs(s, sign);
+   used += (size_t)snprintf(out, size, "{");
+   for (k = 0; k < 4 && used < size; k++)
+      used += (size_t)snprintf(out + used, size - used, "%s\"%c\":{\"count\":%llu,\"frame\":%llu,\"pc\":%u}", k ? "," : "", "ABCD"[k],
+                               (unsigned long long)sign[k].count, (unsigned long long)sign[k].frame, (unsigned)sign[k].pc);
+   if (used < size) snprintf(out + used, size - used, "}");
+}
+
 static int run_headless(const char *trace_path, const char *report_path, const char *capture_path, const char *observe_path,
                         unsigned save_at, bool load_start, bool probe) {
    FILE *trace = trace_path ? open_utf8(trace_path, L"wb") : NULL;
@@ -396,17 +409,19 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       size_t k = 0;
       const char *c;
       int w, h, stride;
+      char signs_json[512];
+      timer_d_signs_json(session, signs_json, sizeof signs_json);
       for (c = error; *c && k + 2 < sizeof escaped; c++) { if (*c == '"' || *c == '\\') escaped[k++] = '\\'; escaped[k++] = (char)((unsigned char)*c < 32 ? ' ' : *c); }
       escaped[k] = 0;
       if (!r) { fail("Cannot write the report"); return 1; }
       rr_st_picture(session, &w, &h, &stride);
       fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"native_learned\":%llu,\"native_walked\":%llu,\"native_swept\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
-                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"disk_writes\":%u}\n",
+                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"timer_d_signs\":%s,\"disk_writes\":%u}\n",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session), (unsigned long long)rr_st_learned_count(session), (unsigned long long)rr_st_walked_count(session), (unsigned long long)rr_st_swept_count(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
-              rr_st_desktop_started(session) ? "true" : "false", rr_st_timer_d_patched(session) ? "true" : "false", rr_st_writes_count(session));
+              rr_st_desktop_started(session) ? "true" : "false", rr_st_timer_d_patched(session) ? "true" : "false", signs_json, rr_st_writes_count(session));
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
@@ -441,6 +456,7 @@ static bool embedded_game(RrStGame *game, RrStDisk *disks) {
    game->machine = RR_ST_MACHINE;
    game->memory_kb = RR_ST_MEMORY_KB;
    game->autostart = RR_ST_AUTOSTART[0] ? RR_ST_AUTOSTART : NULL;
+   game->timer_d_exact = RR_ST_TIMER_D_EXACT;   /* the conversion's choice for this game, no argument changes it */
    return true;
 }
 
@@ -486,7 +502,7 @@ int main(int argc, char **argv) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
               "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
               "an exported game that boots EmuTOS: --write-sources DIR (writes EmuTOS's source archive there)\n"
-              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG\na headless run keeps what the game writes to its disks only with --disk-writes FILE");
+              "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG --timer-d patched|exact\na headless run keeps what the game writes to its disks only with --disk-writes FILE");
          return 0;
       } else if (i + 1 < argc) {
          const char *v = argv[++i];
@@ -506,6 +522,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--machine")) game.machine = v;
          else if (!strcmp(a, "--memory")) game.memory_kb = (unsigned)strtoul(v, NULL, 10);
          else if (!strcmp(a, "--autostart")) game.autostart = v;
+         else if (!strcmp(a, "--timer-d")) { if (!strcmp(v, "exact")) game.timer_d_exact = 1; else if (!strcmp(v, "patched")) game.timer_d_exact = 0; else { fail("--timer-d is patched or exact"); return 1; } }
          else if (!strcmp(a, "--disk-writes")) snprintf(writes_path, sizeof writes_path, "%s", v);
          else if (!strcmp(a, "--state-slot")) slot = v;
          else if (!strcmp(a, "--ram-dump-at")) dump_at = (unsigned)strtoul(v, NULL, 10);

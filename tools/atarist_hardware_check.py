@@ -21,7 +21,7 @@ What this is: hardware-fidelity evidence that the named behaviours agree with th
 machine is reproduced, a measure of native code, gameplay or physical latency. Timing is in guest cycles and in samples; nothing
 here reads a host clock.
 
-Behaviours: video (frame and line structure at 50 and 60 Hz), mfp-prescalers, mfp-timer-b, mfp-timer-d, picture, ym2149, ikbd, wd1772.
+Behaviours: video (frame and line structure at 50 and 60 Hz), mfp-prescalers, mfp-timer-b, mfp-timer-d, mfp-timer-d-signs (the detector of the games that use timer D as TOS left it), picture, ym2149, ikbd, wd1772.
 """
 from __future__ import annotations
 
@@ -222,7 +222,7 @@ class Result:
 
 
 def run_program(driver, name: str, image: bytes, frames: int, *, disk: bytes | None = None, events: list[str] | None = None,
-                done: int | None = None, dump: int = 0x40000, timeout: int = 120) -> Result:
+                done: int | None = None, dump: int = 0x40000, timeout: int = 120, extra: tuple = ()) -> Result:
     if isinstance(driver, Mame):
         return driver.run(name, image, frames, disk, timeout)
     folder = WORK / 'runs'
@@ -238,6 +238,7 @@ def run_program(driver, name: str, image: bytes, frames: int, *, disk: bytes | N
         command += ['--events', str(folder / f'{name}.events')]
     if done is not None:
         command += ['--done', str(done)]
+    command += [str(value) for value in extra]
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
     try:
         completed = subprocess.run(command, cwd=folder, capture_output=True, text=True, timeout=timeout, env=environment)
@@ -567,6 +568,80 @@ def check_mfp_timer_d(driver: Path) -> list[dict]:
         measured = result.long(0x2018) - result.long(0x2014)
         out.append(finding(f'mfp-timer-d-{label}', f'Timer D /50, data 64, started from {"RAM, as a game" if from_ram else "the ROM, as TOS"}: interrupts in {frames - 2} frames', 'mc68901 + st-crystal',
                            round(expected, 1), measured, 'agree' if close(measured, expected, 2) else 'differ'))
+    return out
+
+
+# The detector of the games that use timer D as the TOS left it (retrorecomp/atarist_hatari.py, docs/ATARI_ST.md): authored accesses to the MFP's
+# registers, made by code in RAM (as a game) or in the ROM (as TOS); the counts A, B, C and D the session reports are what the definition says.
+DETECTOR_CASES = (       # (name, where, instructions, expected (A, B, C, D))
+    ('rom', 'rom', ('move.b $fffa25,d0', 'move.b $fffa1d,d0', 'move.b #64,$fffa25', 'move.b #4,$fffa1d', 'move.b #$10,$fffa09', 'move.b #$10,$fffa15'), (0, 0, 0, 0)),
+    ('tddr-read', 'ram', ('move.b $fffa25,d0',), (1, 0, 0, 0)),
+    ('tcdcr-read', 'ram', ('move.b $fffa1d,d0',), (0, 0, 0, 1)),
+    ('start-before-data', 'ram', ('move.b #4,$fffa1d',), (0, 0, 1, 0)),
+    ('enable-only', 'ram', ('move.b #$10,$fffa09', 'move.b #$10,$fffa15'), (0, 1, 0, 0)),
+    ('enable-masked', 'ram', ('move.b #$10,$fffa09',), (0, 0, 0, 0)),
+    ('own-setup', 'ram', ('move.b #64,$fffa25', 'move.b #4,$fffa1d', 'move.b #$10,$fffa09', 'move.b #$10,$fffa15'), (0, 0, 0, 0)),
+)
+DETECTOR_EXACT = ('rom', 'tddr-read', 'enable-only', 'own-setup')        # the cases repeated with the patch off
+
+
+def detector_program(where: str, code: tuple) -> bytes:
+    """Timer D's registers cleared, then `code` run from RAM (copied to $3000, as a game's) or from the ROM (as TOS's), then DONE."""
+    call = ("""
+        lea     setup,a0
+        lea     $3000,a1
+        move.w  #63,d0
+copy:   move.b  (a0)+,(a1)+
+        dbra    d0,copy
+        jsr     $3000
+""" if where == 'ram' else """
+        jsr     setup
+""")
+    body = '\n        '.join(code)
+    return assemble(PROLOGUE + f"""
+        clr.b   $fffa07
+        clr.b   $fffa13
+        clr.b   $fffa09
+        clr.b   $fffa15
+        clr.b   $fffa1d
+{call}
+        move.l  #{DONE},$2000
+        bra.s   *
+setup:  {body}
+        rts
+setup_end:
+""" + TRAP)
+
+
+def check_mfp_timer_d_signs(driver: Path) -> list[dict]:
+    """The detector counts, from RAM, a read of TDDR (A), timer D's interrupt left enabled and unmasked without a write of TDDR or a start (B), TCDCR started before
+    any write of TDDR (C) and a read of TCDCR (D); it counts nothing for the same accesses made from the ROM, for a masked interrupt, or for the order a game that sets
+    the timer up itself uses; the counts are the same with the patch off (`--timer-d exact`); and with the patch off, timer D started from the TOS's addresses runs at the
+    data sheet's rate (the patch is what slows it)."""
+    out = []
+    for name, where, code, expected in DETECTOR_CASES:
+        for mode in ('patched', 'exact'):
+            if mode == 'exact' and name not in DETECTOR_EXACT:
+                continue
+            label = f'timerd-signs-{name}-{mode}'
+            result = run_program(driver, label, detector_program(where, code), 6, done=0x2000, extra=('--timer-d', mode))
+            if result.long(0x2000) != DONE or result.word(0x3FF0):
+                raise HarnessError(f'{label}: the program did not finish (done {result.long(0x2000):08x}, trap {result.word(0x3FF0):04x})')
+            seen = result.info['timer_d_signs']
+            measured = tuple(seen[letter][0] for letter in 'ABCD')
+            first = ', '.join(f'{letter} at frame {seen[letter][1]}, pc ${seen[letter][2]:06x}' for letter in 'ABCD' if seen[letter][0])
+            out.append(finding(f'mfp-timer-d-signs-{name}' + ('' if mode == 'patched' else '-exact'),
+                               f'Timer D signs A B C D for {" ; ".join(code)}, made from {"the ROM, as TOS" if where == "rom" else "RAM, as a game"} (patch {"on" if mode == "patched" else "off"})',
+                               'the detector\'s definition (docs/ATARI_ST.md)', list(expected), list(measured),
+                               'agree' if measured == expected and bool(result.info['timer_d_patch']) == (mode == 'patched') else 'differ', first))
+    frames = 41
+    expected_rate = (frames - 2) * FRAME_CYCLES_50 * MFP_HZ / CPU_HZ / (PRESCALERS[TIMER_D_CODE] * TIMER_D_DATA)
+    result = run_program(driver, 'timerd-tos-exact', timer_d_program(False, frames), frames + 40, done=0x2000, extra=('--timer-d', 'exact'))
+    if result.long(0x2000) != DONE or result.word(0x3FF0):
+        raise HarnessError('timerd-tos-exact: the program did not finish')
+    measured = result.long(0x2018) - result.long(0x2014)
+    out.append(finding('mfp-timer-d-tos-exact', f'Timer D /50, data 64, started from the ROM, as TOS, with the patch off: interrupts in {frames - 2} frames', 'mc68901 + st-crystal',
+                       round(expected_rate, 1), measured, 'agree' if close(measured, expected_rate, 2) else 'differ'))
     return out
 
 
@@ -1113,7 +1188,7 @@ def check_ikbd(driver: Path) -> list[dict]:
 
 
 # ------------------------------------------------------------------------------------------------------------------ the tool
-CHECKS = {'video': check_video, 'mfp-prescalers': check_mfp_prescalers, 'mfp-timer-b': check_mfp_timer_b, 'mfp-timer-d': check_mfp_timer_d, 'picture': check_picture,
+CHECKS = {'video': check_video, 'mfp-prescalers': check_mfp_prescalers, 'mfp-timer-b': check_mfp_timer_b, 'mfp-timer-d': check_mfp_timer_d, 'mfp-timer-d-signs': check_mfp_timer_d_signs, 'picture': check_picture,
           'ym2149': check_ym2149, 'ikbd': check_ikbd, 'wd1772': check_wd1772}
 
 

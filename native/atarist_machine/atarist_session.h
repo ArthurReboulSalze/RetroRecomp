@@ -34,6 +34,9 @@ typedef struct RrStGame {
     /* The program the desktop starts once GEM is up ("A:\\NAME.PRG"), through the TOS's own autostart line (#Z) of a
      * desktop file Hatari serves in memory (its inffile.c; TOS 1.04 and EmuTOS); NULL: none. */
     const char *autostart;
+    /* The MFP's timer D: 0 runs Hatari's patch of it (the TOS's own start of the timer is slowed down), 1 the machine as it is
+     * (docs/ATARI_ST.md, known limits). A game's mode is chosen by the conversion and fixed in the exported game. */
+    int timer_d_exact;
 } RrStGame;
 
 typedef struct RrStSession RrStSession;
@@ -71,6 +74,12 @@ void rr_st_set_recorder(RrStSession *s, void (*note)(uint32_t pc, const uint8_t 
 int rr_st_desktop_started(const RrStSession *s);
 /* Whether Hatari's timer D patch is on in this machine, as Hatari has it set. */
 int rr_st_timer_d_patched(const RrStSession *s);
+/* The signs that code outside the TOS depends on timer D as the TOS leaves it (observation only, in either mode): the count, the
+ * session's frame (1 is the first) and the pc of the first of each. A: a read of TDDR. B: timer D's interrupt left enabled and
+ * unmasked without the code ever writing TDDR or starting the timer. C: TCDCR written with timer D's bits not zero before any write
+ * of TDDR. D: a read of TCDCR (counted, never a sign alone). */
+typedef struct RrStTimerDSign { uint64_t count, frame; uint32_t pc; } RrStTimerDSign;
+void rr_st_timer_d_signs(const RrStSession *s, RrStTimerDSign signs[4]);
 void rr_st_set_observe(RrStSession *s, int enabled);
 /* The instruction length of every opcode in 16-bit words (the 68000 decoder's table, 65,536 bytes): what an observation keeps. */
 void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]);

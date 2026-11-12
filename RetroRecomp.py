@@ -23,6 +23,7 @@ _PATH_HELP = {
     'qsound_rom': 'Capcom CPS-1.5 and CPS-2 (QSound sets): your own DSP ROM, dl-1425.bin or the qsound.zip that holds it; otherwise use the path saved in Options.',
     'amiga_kickstart': 'Commodore Amiga: your own Kickstart, one image or a folder of images (needed only by the installs that ask for one); otherwise use the path saved in Options.',
     'atarist_tos': 'Atari ST: your own TOS 1.00 to 1.04, one image or a folder of images (otherwise EmuTOS 1.4); otherwise use the path saved in Options.',
+    'atarist_timer_d': 'Atari ST: timer D, auto (the Hatari patch of it, dropped for a game that shows signs of using the timer as the TOS left it), patched or exact.',
     'x68_ipl': 'X68000: your own IPL ROM.',
     'x68_cgrom': 'X68000: your own font ROM (CGROM).',
     'x68_ram': 'X68000 RAM in MiB.',
