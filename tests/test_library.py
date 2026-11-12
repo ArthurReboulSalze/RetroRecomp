@@ -142,6 +142,17 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(read_code_patterns(migrated.code_journal, limit=None), current | {bytes.fromhex('C3360000')})
         self.assertEqual(len(migrated.code_patterns()), 4096)
 
+    def test_the_windows_left_out_by_the_limit_are_counted(self):
+        self.memory.directory.mkdir(parents=True)
+        self.assertEqual(self.memory.pattern_overflow(), 0)
+        current = {value.to_bytes(4, 'big') for value in range(4096)}
+        self.memory.code_journal.write_text(''.join(value.hex()+'\n' for value in sorted(current)), encoding='ascii')
+        self.assertEqual(self.memory.pattern_overflow(), 0)                      # exactly at the limit: nothing left out
+        with self.memory.code_journal.open('a', encoding='ascii') as file:
+            file.write('C3360000\nC3299B00\n')
+        self.assertEqual(len(self.memory.code_patterns()), 4096)
+        self.assertEqual(self.memory.pattern_overflow(), 2)
+
     def test_recipe_integrity_engine_scope_and_generation_history(self):
         report = {"created_utc": "test", "version": "0.3.0", "engine_revision": "engine1", "executable": "game.exe",
                   "final_checks": [], "strict_checks": [], "learning": {}, "reference_vdp_trace_match": False}

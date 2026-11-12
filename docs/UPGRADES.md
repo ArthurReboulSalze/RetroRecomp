@@ -194,6 +194,16 @@ The report grows by four numbers per probe.
   `ram_variants_dropped`, `ram_variants_dropped_exact`); in the conversion report the differences are those keys, `learning_limits` and the new fields of
   `passes`, and the packed size ratio (0.3488 against 0.3487, a different binary). Every generated step, every picture, sound, CPU, RAM, VDP and Z80 hash is equal.
 
+## Master System and Game Gear: the cap on compiled RAM windows is counted (1.7.3)
+
+The banked engine compiles at most 4,096 RAM windows per ROM (`library.PATTERN_LIMIT`; the generator reads the same file). `GameMemory.code_patterns()` cuts at that limit, so the
+report's `compiled_windows` and `pending_windows`, both taken from it, could never show that a window was left out. The report now says it: `learning.native_profiles` gains
+`window_limit` (4,096) and `windows_over_limit`, the number of distinct windows the ROM's journal, the candidates of its own feedback and the shared hints hold beyond the limit
+(0 when none was left out; the journal itself keeps them). Nothing is compiled differently and no game changes: the largest known ROM holds 0 of them in the shared base, so the cap is a
+bound today and now a visible one. Reports, not games.
+
+**What moves.** `retrorecomp.core` and `retrorecomp.library` are inputs of every console: the game stamp of all nine consoles then moves with this change like with any edit of `core.py`
+(the generated game is the same); the host stamps and the quick-state keys do not move. An export made before carries no `windows_over_limit` (it reads as absent, not as 0).
 
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
