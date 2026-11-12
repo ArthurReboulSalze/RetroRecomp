@@ -70,20 +70,42 @@ def require_main_route_moving(scenario: str, liveness: dict, directory: Path) ->
             f'Previous export preserved; see {directory}.'))
 
 
+DRIVER_IMAGE_LIMIT = 4    # `megadrive_z80.learn_variants` compiles the first four driver images of each run
+
+
+def z80_limits(rom, checks: list) -> dict:
+    """What the Z80 limits cut, read after the conversion's last learning (so from the library as it stands): the library's size against
+    `megadrive_z80.LIMIT` (`library_full` when it is at it, so that whatever was not already in it was cut), how many of the variants
+    this conversion's runs observed are not in it (`observed_dropped`), and the driver images past the first four of a run, whose
+    positions are not compiled (`images_dropped`). The positions of the images that were compiled are not counted one by one."""
+    from . import megadrive_z80 as z80
+    library = {(item['address'], item['bytes']) for item in z80.read_variants(rom)}
+    observed = [item for check in checks for item in check.get('z80_variants', [])]
+    seen = {(pc, raw) for pc, _, raw in z80.normalize(observed)}
+    kept, cut = set(), set()
+    for check in checks:
+        images = check.get('z80_driver_images', [])
+        valid = lambda raw: isinstance(raw, str) and len(raw) == 16384 and all(c in '0123456789abcdefABCDEF' for c in raw)
+        kept.update(raw for raw in images[:DRIVER_IMAGE_LIMIT] if valid(raw))
+        cut.update(raw for raw in images[DRIVER_IMAGE_LIMIT:] if valid(raw))
+    return {'limit': z80.LIMIT, 'library': len(library), 'library_full': len(library) >= z80.LIMIT,
+            'observed_dropped': len(seen - library), 'image_limit': DRIVER_IMAGE_LIMIT, 'images_dropped': len(cut - kept)}
+
+
 def learning_limits(rom, checks: list) -> dict:
     """What the limits of the learned code cut, for the report (never silent): the work-RAM instruction variants (the library and the
-    exported game each keep `megadrive.RAM_VARIANT_LIMIT`) and the Z80 opcode variants and driver images (`megadrive_z80`). What is
+    exported game each keep `megadrive.RAM_VARIANT_LIMIT`) and the Z80 opcode variants and driver images (`z80_limits`). What is
     past a limit is not recorded, so no later pass compiles it: it stays on the counted interpreter, which the run counts as
     `ram_fallback_opcodes` and `audio_interpreted_opcodes`. `library_*` numbers are of the library after this conversion's runs;
     `native_*` are the largest of the runs' own counts (the exported game's recording table)."""
-    from . import megadrive, megadrive_z80
+    from . import megadrive
     ram = megadrive.ram_variant_overflow(rom, checks)
-    z80 = megadrive_z80.variant_overflow(rom, checks)
+    z80 = z80_limits(rom, checks)
     ram.update({'native_observations_dropped': max([check.get('ram_observation_overflows') or 0 for check in checks] or [0]),
                 'native_variants_dropped': max([check.get('ram_variants_dropped') or 0 for check in checks] or [0]),
                 'native_variants_dropped_exact': all(check.get('ram_variants_dropped_exact', True) for check in checks)})
     z80.update({'native_variants_dropped': max([check.get('z80_dropped_variants') or 0 for check in checks] or [0])})
-    cut = bool(ram['dropped'] or ram['native_observations_dropped'] or z80['dropped'] or z80['images_dropped'] or
+    cut = bool(ram['dropped'] or ram['native_observations_dropped'] or z80['observed_dropped'] or z80['images_dropped'] or
                z80['native_variants_dropped'])
     return {'ram_variants': ram, 'z80_variants': z80, 'anything_cut': cut,
             'claim': 'what is past a limit is not recorded and stays on the counted interpreter'}

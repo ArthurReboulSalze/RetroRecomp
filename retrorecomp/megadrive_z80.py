@@ -18,8 +18,7 @@ from .library import atomic_json, entry_lock, library_root
 from .knowledge import ram_variants as shared_ram_variants
 from .megadrive_z80_timing import adapt as adapt_timing
 
-LIMIT = 32768           # distinct opcode variants the library keeps and the exported game records
-DRIVER_IMAGE_LIMIT = 4   # driver images of one run whose 8,192 positions are all compiled
+LIMIT = 32768
 
 
 def opcode_key(raw: bytes) -> tuple[int, bytes] | None:
@@ -65,8 +64,8 @@ def memory_file(rom):
     return library_root('md') / rom.sha256 / 'z80-native-entries.json'
 
 
-def _library_items(rom, imported):
-    """The raw variants the library holds for this ROM (its own record, the shared record, the player's observations)."""
+def read_variants(rom, *, imported=True):
+    """Without `imported`: no hints from other players (see megadrive.read_entries)."""
     from .console16 import REPOSITORIES
     if imported:
         shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1], field='z80_refs')
@@ -82,61 +81,32 @@ def _library_items(rom, imported):
             record = {}
     except (OSError, ValueError, TypeError, AttributeError):
         record = {}
-    return [item for item in record.get('variants', []) + shared if valid_variant(item)]
+    items = [item for item in record.get('variants', []) + shared if valid_variant(item)]
+    return [{'address': pc, 'bytes': raw} for pc, _, raw in normalize(items)]
 
 
-def read_variants(rom, *, imported=True):
-    """Without `imported`: no hints from other players (see megadrive.read_entries)."""
-    return [{'address': pc, 'bytes': raw} for pc, _, raw in normalize(_library_items(rom, imported))]
-
-
-def normalize_all(items):
-    """Every distinct variant, in order, before the limit."""
+def normalize(items):
     result = set()
     for item in items:
         if valid_variant(item):
             mask, raw = opcode_key(bytes.fromhex(item['bytes']))
             pc = item['address'] & 0x1fff if item['address'] < 0x4000 else item['address']
             result.add((pc, mask, raw.hex()))
-    return sorted(result)
-
-
-def normalize(items):
-    # The lowest addresses are kept once the limit is reached; variant_overflow says how many were cut.
-    return normalize_all(items)[:LIMIT]
-
-
-def _observed(checks):
-    """The variants the runs observed, with the positions of their driver images (the first DRIVER_IMAGE_LIMIT of each run), and the
-    number of distinct images that were past that limit and not compiled."""
-    found = [item for check in checks for item in check.get('z80_variants', [])]
-    kept, cut = [], set()
-    for check in checks:
-        images = check.get('z80_driver_images', [])
-        valid = lambda raw: isinstance(raw, str) and re.fullmatch('[0-9a-fA-F]{16384}', raw)
-        kept.extend(raw for raw in images[:DRIVER_IMAGE_LIMIT] if valid(raw))
-        cut.update(raw for raw in images[DRIVER_IMAGE_LIMIT:] if valid(raw))
-    for raw in kept:
-        image = bytes.fromhex(raw)
-        window = image + image[:3]
-        found.extend({'address': pc, 'bytes': window[pc:pc + 4].hex()} for pc in range(8192))
-    return found, len(cut - set(kept))
-
-
-def variant_overflow(rom, checks=()):
-    """What the limits cut: `known` distinct opcode variants (the library and the given runs) against LIMIT, `dropped` of them
-    beyond it, and the driver images past DRIVER_IMAGE_LIMIT (`images_dropped`). What is cut stays on the counted interpreter."""
-    found, images_dropped = _observed(checks)
-    known = len(normalize_all(_library_items(rom, True) + found))
-    return {'limit': LIMIT, 'known': known, 'dropped': max(0, known - LIMIT),
-            'image_limit': DRIVER_IMAGE_LIMIT, 'images_dropped': images_dropped}
+    return sorted(result)[:LIMIT]
 
 
 def learn_variants(rom, checks):
+    found = [item for check in checks for item in check.get('z80_variants', [])]
     # Compile every position in the uploaded driver images, including paths
     # the play probe has not taken. Guards still check the live opcode; RAM
     # operands and both RAM mirrors retain their real bus behavior.
-    found, _ = _observed(checks)
+    for check in checks:
+        for raw in check.get('z80_driver_images', [])[:4]:
+            if not isinstance(raw, str) or not re.fullmatch('[0-9a-fA-F]{16384}', raw):
+                continue
+            image = bytes.fromhex(raw)
+            window = image + image[:3]
+            found.extend({'address': pc, 'bytes': window[pc:pc + 4].hex()} for pc in range(8192))
     if not found:
         return 0
     path = memory_file(rom)

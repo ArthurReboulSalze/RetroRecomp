@@ -939,8 +939,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             ram, z80 = limits['ram_variants'], limits['z80_variants']
             emit(f"Learned-code limits reached: {ram['known']} distinct RAM instruction variants known for a limit of {ram['limit']} "
                  f"({ram['dropped']} past it in the library; the game's last run could not record {ram['native_variants_dropped']} more); "
-                 f"{z80['known']} Z80 opcode variants for a limit of {z80['limit']} ({z80['dropped']} past it, "
-                 f"{z80['images_dropped']} driver images past the {z80['image_limit']} compiled). "
+                 f"the library holds {z80['library']} Z80 opcode variants for a limit of {z80['limit']} ({z80['observed_dropped']} variants the "
+                 f"runs observed did not fit, {z80['images_dropped']} driver images past the {z80['image_limit']} compiled). "
                  'Whatever is past a limit stays on the counted interpreter.')
     else:
         from .snes_spc import learn as learn_spc

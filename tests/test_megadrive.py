@@ -434,30 +434,32 @@ class LearnedCodeLimitsAreCountedTests(unittest.TestCase):
         with patch.object(megadrive, '_ram_variant_pairs', lambda rom, imported: pairs[:limit]):
             self.assertEqual(megadrive.ram_variant_overflow(rom)['dropped'], 0)
 
-    def test_the_z80_library_counts_variants_and_driver_images_past_their_limits(self):
-        from retrorecomp import megadrive_z80
+    def test_the_z80_limits_count_what_the_runs_observed_and_the_library_did_not_keep(self):
+        from retrorecomp import megadrive_evidence, megadrive_z80
         rom = SimpleNamespace(data=b'', sha256='0' * 64)
-        # 40,960 distinct positions (8,192 below $4000 once mirrored, 32,768 from $8000), all the same opcode.
-        items = [{'address': pc, 'bytes': '00000000'} for pc in (*range(0x2000), *range(0x8000, 0x10000))]
+        held = [{'address': pc, 'bytes': '00000000'} for pc in range(0x8000, 0x8000 + 100)]
+        observed = [{'address': pc, 'bytes': '00000000'} for pc in range(0x8000, 0x8000 + 130)]      # 30 more than the library holds
         images = [f'{n:02x}' * 8192 for n in range(1, 7)]
-        with patch.object(megadrive_z80, '_library_items', lambda rom, imported: items):
-            self.assertEqual(len(megadrive_z80.read_variants(rom)), megadrive_z80.LIMIT)
-            report = megadrive_z80.variant_overflow(rom, [{'z80_driver_images': images}])
+        with patch.object(megadrive_z80, 'read_variants', lambda rom, **kw: held):
+            report = megadrive_evidence.z80_limits(rom, [{'z80_variants': observed, 'z80_driver_images': images}])
         self.assertEqual((report['limit'], report['image_limit']), (32768, 4))
-        self.assertEqual(report['images_dropped'], 2)
-        self.assertEqual(report['dropped'], report['known'] - 32768)
-        self.assertGreater(report['dropped'], 8000)
-        with patch.object(megadrive_z80, '_library_items', lambda rom, imported: items[:100]):
-            small = megadrive_z80.variant_overflow(rom, [])
-        self.assertEqual((small['dropped'], small['images_dropped']), (0, 0))
+        self.assertEqual((report['library'], report['library_full']), (100, False))
+        self.assertEqual((report['observed_dropped'], report['images_dropped']), (30, 2))
+        full = [{'address': pc, 'bytes': '00000000'} for pc in (*range(0x2000), *range(0x8000, 0x10000))][:megadrive_z80.LIMIT]
+        with patch.object(megadrive_z80, 'read_variants', lambda rom, **kw: full):
+            self.assertTrue(megadrive_evidence.z80_limits(rom, [])['library_full'])
 
-    def test_the_driver_images_learned_are_the_first_four_of_each_run(self):
-        from retrorecomp import megadrive_z80
+    def test_the_driver_images_past_the_first_four_of_each_run_are_the_ones_counted(self):
+        from retrorecomp import megadrive_evidence, megadrive_z80
+        rom = SimpleNamespace(data=b'', sha256='0' * 64)
         images = [f'{n:02x}' * 8192 for n in range(1, 7)]
-        found, cut = megadrive_z80._observed([{'z80_driver_images': images}])
-        self.assertEqual((len(found), cut), (4 * 8192, 2))
-        found, cut = megadrive_z80._observed([{'z80_driver_images': images[:4]}, {'z80_driver_images': images[:4]}])
-        self.assertEqual(cut, 0)
+        with patch.object(megadrive_z80, 'read_variants', lambda rom, **kw: []):
+            self.assertEqual(megadrive_evidence.z80_limits(rom, [{'z80_driver_images': images}])['images_dropped'], 2)
+            twice = [{'z80_driver_images': images[:4]}, {'z80_driver_images': images[:4]}]
+            self.assertEqual(megadrive_evidence.z80_limits(rom, twice)['images_dropped'], 0)
+            # an image kept by one run is not counted as dropped because another run listed it fifth
+            mixed = [{'z80_driver_images': images[:4]}, {'z80_driver_images': [images[5]] * 4 + [images[0]]}]
+            self.assertEqual(megadrive_evidence.z80_limits(rom, mixed)['images_dropped'], 0)
 
     def test_the_report_block_says_what_was_cut_and_what_the_game_could_not_record(self):
         from retrorecomp import megadrive_evidence
@@ -466,14 +468,14 @@ class LearnedCodeLimitsAreCountedTests(unittest.TestCase):
                    'z80_dropped_variants': 0},
                   {'ram_variants': [], 'ram_observation_overflows': 9, 'ram_variants_dropped': 4, 'ram_variants_dropped_exact': False,
                    'z80_dropped_variants': 3}]
-        with patch.object(megadrive, '_ram_variant_pairs', lambda rom, imported: []),              patch('retrorecomp.megadrive_z80._library_items', lambda rom, imported: []):
+        with patch.object(megadrive, '_ram_variant_pairs', lambda rom, imported: []),              patch('retrorecomp.megadrive_z80.read_variants', lambda rom, **kw: []):
             block = megadrive_evidence.learning_limits(rom, checks)
         self.assertEqual(block['ram_variants']['native_observations_dropped'], 9)
         self.assertEqual(block['ram_variants']['native_variants_dropped'], 5)
         self.assertFalse(block['ram_variants']['native_variants_dropped_exact'])     # a table that saturated says so
         self.assertEqual(block['z80_variants']['native_variants_dropped'], 3)
         self.assertTrue(block['anything_cut'])
-        with patch.object(megadrive, '_ram_variant_pairs', lambda rom, imported: []),              patch('retrorecomp.megadrive_z80._library_items', lambda rom, imported: []):
+        with patch.object(megadrive, '_ram_variant_pairs', lambda rom, imported: []),              patch('retrorecomp.megadrive_z80.read_variants', lambda rom, **kw: []):
             quiet = megadrive_evidence.learning_limits(rom, [{'ram_variants': []}])
         self.assertFalse(quiet['anything_cut'])
 

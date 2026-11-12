@@ -79,6 +79,70 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Mega Drive: the limits of the learned code are counted, never silent (1.7.3)
+
+The Mega Drive keeps three tables of code it learned from the runs: the work-RAM instructions (2,048 distinct variants, in the exported
+game's recording table and in the library), the Z80 opcode variants (32,768) and the driver images whose 8,192 positions are all compiled
+(4 per run). What did not fit was dropped without a trace: an instruction past the limit is not recorded, so no later pass compiles it, and it
+stays on the counted interpreter, but nothing said why. It is now counted and reported at every place that cuts:
+
+| Where it is cut | What counts it |
+|---|---|
+| the exported game's recording of work-RAM variants (`native/md_backend.c`, 2,048) | `ram_observation_overflows` (observations of a variant that no longer fit), `ram_variants_dropped` (distinct ones, from a table of 4,096; `ram_variants_dropped_exact` is false if that table saturated, and then the distinct count is a lower bound) and `ram_variant_limit`, in the report of each probe (so in each `final_checks` row and in each row of `passes`) and in the conversion log (the line the Super Nintendo already had, now for the Mega Drive too) |
+| the library of work-RAM variants (`megadrive.py`: the lowest addresses are kept, as before) | `megadrive.ram_variant_overflow`: distinct variants known against the limit, and how many are past it |
+| the Z80 variants the game could not record (`z80_dropped_variants`, already in the probe report) | now also in the conversion log, like the RAM line |
+| the library of Z80 variants and the driver images (`megadrive_z80.py`: 32,768 variants, 4 images per run) | `megadrive_evidence.z80_limits`, read after the last learning: the library's size against the limit (`library_full` when it is at it), how many variants the runs observed are not in it (`observed_dropped`), and the driver images past the first four of a run (`images_dropped`); `megadrive_z80.py` itself is not edited (it is a pinned CPS-1 generator source) |
+
+One block ties them together, `learning_limits` in the conversion report (`megadrive_evidence.learning_limits`): the limits, what is known, what is
+past each, the game's own counts, `anything_cut`, and the claim that what is past a limit is not recorded and stays on the counted interpreter. When
+anything was cut, the conversion log says so in one line. **What is dropped is the same as before:** the variants that are kept are the same, so no
+generated code changes; the selection (lowest addresses first) is left as it was, and a "keep the newest" rule is not part of this change. The instructions
+past a limit are already counted as interpreted fallback (`ram_fallback_opcodes`, `audio_interpreted_opcodes`, and `main_interpreted_opcodes` in the batch
+result); what is new is the cause. The common report v2 (`report_schema.py`, the lead's) does not read `learning_limits` yet.
+
+**Figures.** The 27 October snapshot gave the largest known records: 1,261 work-RAM variants (62 % of 2,048; the cartridge is not among the owner's
+exports) and 23,436 Z80 variants (72 % of 32,768, Altered Beast). Read by this change's conversions (quick check, scratch library, shared paths on):
+Altered Beast (USA) 34 RAM variants of 2,048 and **23,437 Z80 variants in the library, for a limit of 32,768 (71.5 %)**; Gunstar Heroes (USA) 389 of 2,048 (19 %) and 15,903 Z80 variants
+(48.5 %); both with nothing cut, 0 interpreted on both routes, native equal to the reference. A limit **is** reached by an authored cartridge
+(`tools/megadrive_variant_cap_selftest.py`: a loop writes 3,000 `MOVEQ` words to work RAM and calls them): 3,001 distinct RAM instructions against 2,048,
+the game records 2,048 and reports 953 observations and 953 distinct variants dropped, the library holds exactly 2,048, native equals the reference; the same
+cartridge converted whole (`batch`): pass 1 interprets 3,001 main CPU opcodes and says 953 were past the limit, pass 2 runs 2,048 natively and 953 stay
+interpreted and counted on both routes, `learning_limits` says 3,001 known for 2,048 (953 past the limit), and the compressed copy matches the reference.
+A control with 1,000 words reports 0 everywhere.
+
+**Is a bigger limit cheap?** In the game, yes: the RAM table is `M68KInstr ram_variants[2048]`, 60 bytes each (123 kB; 8,192 would be 491 kB), and each
+variant is one more guarded body to compile; the Z80 table indexes with 16 bits, so 32,768 could rise to 65,535 at about 128 kB more. In the shared record,
+no: the field caps `('ram_refs', 2048)` and `('z80_refs', 32768)` of `path_profiles.LEGACY_FIELDS` (and the site's checks of the same table) decide what a record
+may hold, so a bigger local limit would only be lost when shared. Raising them is a format revision, not a Mega Drive change. With 62 % and 72 % of the
+limits used by the largest known games, and four driver images alone able to fill the Z80 limit (4 x 8,192 positions), the counters are what decides: raise a
+limit when one of them shows a game that reaches it.
+
+**What moves.** Game stamps: the Mega Drive (`md_backend.c`, `megadrive.py`, `megadrive_evidence.py`, `console16.py`), and the CPS-1, the CPS-2, the Super Nintendo, the
+Neo Geo and the PC Engine through `console16.py` alone (their behaviour does not change: the line the Super Nintendo had is now written for both, and the
+new block is the Mega Drive's alone). `megadrive_z80.py` is **not** edited (the CPS-1 pins it, `tests/cps1_generator_pins.json`; the Z80 counters read it from
+outside), so no CPS-1 generator pin or `GENERATOR_REVISION` is involved. Host and build stamps of every
+console: unchanged (stamp baseline, `tools/std_baseline.py`, before and after). **The quick-state key of the Mega Drive moves** (`md_backend.c` is one of the
+native files `RR16_STATE_ABI` hashes: `d76e8413…` becomes `3b585e00…`): Mega Drive quick states written by a 1.7.2 game are refused cleanly by a 1.7.3
+game (the N-1 rule of this page, no compat key); cartridge saves are not affected, and the state layout is not touched. The keys of the Super Nintendo, the
+CPS-1 and the Neo Geo do not move (same digests). The four 68000 generator files that the CPS-1 and the X68000 pin (`m68000.py`, `m68000_state_rules.py`,
+`megadrive_rules.py`, `neogeo_codegen.py`) are not touched. New file and its role: `tools/megadrive_variant_cap_selftest.py` (no stamp; in `PUBLIC_FILES`).
+
+**Cost.** None on the hot path: the new code runs only when a RAM instruction does not fit, which is the slow path that already scans 2,048 entries.
+The report grows by four numbers per probe.
+
+**Checked.**
+
+- unit tests: `LearnedCodeLimitsAreCountedTests` (the library counts, the Z80 library and its images count, the driver images learned are the first four of
+  each run, the report block and its exactness flag), the console, report-writer, stamp and Mega Drive suites;
+- `megadrive_variant_cap_selftest`: below and past the limit, native equal to the reference (figures above);
+- the authored cartridge converted whole, and Altered Beast and Gunstar Heroes converted from a scratch library (figures above);
+- A/B (`tools/ab_conversion.py`, `e4ec565b` against this branch, Gunstar Heroes (USA), standard scan, empty library on both sides): both convert, 504 files
+  compared, and **only nine differ**: `md_backend.c` (the change), `generation-identity.json` (the stamps), `hardware-profile.profdata` (the compiler's profile of the
+  rebuilt binary) and the six probe result files, whose only differences are the four new keys (`ram_observation_overflows`, `ram_variant_limit`,
+  `ram_variants_dropped`, `ram_variants_dropped_exact`); in the conversion report the differences are those keys, `learning_limits` and the new fields of
+  `passes`, and the packed size ratio (0.3488 against 0.3487, a different binary). Every generated step, every picture, sound, CPU, RAM, VDP and Z80 hash is equal.
+
+
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each
