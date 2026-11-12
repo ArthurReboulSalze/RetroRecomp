@@ -19,6 +19,8 @@ HUCARD_BOUNDS = (0x2000, 0x280000)
 
 class PcEngineProfile(SystemProfile):
     id = 'pce'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/pcenginerecomp.md',)
     name = 'PC Engine / TurboGrafx-16'
     extensions = ('.pce',)
     # HuCards: up to the 2.5 MiB Street Fighter II board, plus a copier header.

@@ -22,6 +22,8 @@ APERTURES = ((0, 0x200000, 0x200000), (0x200000, 0xa00000, 0xa00000), (0xc00000,
 
 class AmigaProfile(SystemProfile):
     id = 'amiga'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/vamiga.md',)
     name = 'Commodore Amiga'
     extensions = ('.lha',)
     export_folder = 'Amiga'

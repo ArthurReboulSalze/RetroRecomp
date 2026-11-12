@@ -23,6 +23,8 @@ _EWRAM = (0x02000000, 0x02040000)
 
 class GameBoyAdvanceProfile(SystemProfile):
     id = 'gba'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/gbarecomp.md',)
     name = 'Game Boy Advance'
     extensions = ('.gba',)
     # A cartridge is at most 32 MiB; a ZIP may hold one (the shared reader of cartridges in ZIPs reads this table).

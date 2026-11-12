@@ -12,6 +12,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, InputLayout, LibraryLayout, Pa
 
 class GameGearProfile(SystemProfile):
     id = "gg"
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
     name = "Game Gear"
     extensions = (".gg",)
     archived_rom_limits = (('.gg', 4 * 1024 * 1024 + 512),)

@@ -65,7 +65,7 @@ shipped; you supply your own IPL and font ROM.
 
 | Component | Terms | Included notice |
 | --- | --- | --- |
-| smsggrecomp | No public license declared at the pinned revision; project owner reports explicit noncommercial permission with attribution | Limits above |
+| smsggrecomp | No public license declared at the pinned revision; project owner reports explicit noncommercial permission with attribution | Limits above; [notice embedded in games](licenses/smsggrecomp.md) |
 | z80-recomp-core | PolyForm Noncommercial 1.0.0 and author clarification | [Full text](licenses/z80-recomp-core.md) |
 | superzazu/z80 reference interpreter | MIT; copyright Nicolas Allemand | [Full text](licenses/superzazu-z80.md) |
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |
@@ -96,7 +96,8 @@ shipped; you supply your own IPL and font ROM.
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.
-Generated games contain parts of that toolchain and the user's ROM. They are
+Generated games contain parts of that toolchain and the user's ROM; each one embeds the notices of the components
+compiled into it (not this complete list). They are
 not automatically covered by the root MIT license and are not distributed here.
 
 ## Packaged Windows converter
@@ -150,7 +151,7 @@ The Linux converter also embeds the installed packages' complete notices in
 Game menus embed the printable ASCII subsets of X.Org's Misc Fixed 10x20 and
 6x10 bitmaps, both released into the public domain ("Share and enjoy.").
 The original notices, sources and checksums are retained in
-`native/font10x20.h` and `native/font6x10.h`.
+`native/font10x20.h` and `native/font6x10.h`; games embed [this notice](licenses/misc-fixed.md).
 Sources: https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/10x20.bdf/
 and https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/6x10.bdf/
 

@@ -935,12 +935,13 @@ def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: st
             buffer = BytesIO()
             image.convert('RGBA').save(buffer, format='BMP')
             icon_data = buffer.getvalue()
-    legal = '\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in
-        ('THIRD_PARTY_NOTICES.md', 'licenses/SDL2.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md', 'licenses/xbr.md', 'licenses/Noto.md'))
+    from .notices import notice_text
+    # As bytes (UTF-8, signed, NUL-terminated): the text is longer than the string literal some compilers accept.
+    legal = ','.join(str(n - 256 if n > 127 else n) for n in notice_text(rom.system_id).encode('utf-8') + b'\0')
     (game / 'embedded_icon.h').write_text('#include <stddef.h>\nextern const unsigned char rr_icon_data[];\nextern const size_t rr_icon_size;\nextern const char rr_game_legal[];\n', encoding='ascii')
     (game / 'embedded_icon.c').write_text('#include "embedded_icon.h"\nconst unsigned char rr_icon_data[]={' +
         ','.join(str(n) for n in icon_data or b'\0') + '};\nconst size_t rr_icon_size=' + str(len(icon_data)) +
-        ';\nconst char rr_game_legal[]=' + json.dumps(legal, ensure_ascii=True) + ';\n', encoding='ascii')
+        ';\nconst char rr_game_legal[]={' + legal + '};\n', encoding='ascii')
     clocks = (engine / "runner/include/sms_clocks.h").read_text(encoding="utf-8")
     clocks = replace_once(clocks, "#define SMS_VBLANK_LINE       192", "#define SMS_VBLANK_LINE       193")
     clocks = clocks.replace("the frame (VBlank) interrupt latches at the start of line 192.",

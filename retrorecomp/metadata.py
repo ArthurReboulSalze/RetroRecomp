@@ -108,12 +108,6 @@ def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: 
     version += [0] * (4 - len(version))
     numbers = ','.join(str(p) for p in version)
     lines = ['#pragma code_page(65001)', '#include <winver.h>']
-    if system_id in ('sms', 'gg'):
-        # Other hosts already include this notice in their component resource.
-        from .paths import ASSETS
-        (game / 'filter_legal.txt').write_bytes((ASSETS / 'licenses/xbr.md').read_bytes() + b'\n\n' + (ASSETS / 'licenses/Noto.md').read_bytes()
-                                                + b'\n\n' + (ASSETS / 'licenses/llvm-mingw.md').read_bytes())
-        lines.append('104 RCDATA "filter_legal.txt"')
     if icon: lines.append('101 ICON "game.ico"')
     if _embeds_manifest():
         lines += manifest_resource()

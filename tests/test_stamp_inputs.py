@@ -72,7 +72,8 @@ class ManifestTests(unittest.TestCase):
         unlisted = [name for name in modules
                     if name not in listed and name.rsplit('.', 1)[-1] not in stamp_inputs.INTERFACE_MODULES]
         self.assertEqual(unlisted, [], 'add each module to INPUTS or to INTERFACE_MODULES in retrorecomp/stamp_inputs.py')
-        self.assertIn('THIRD_PARTY_NOTICES.md', listed)
+        # The complete public list is embedded in no game: each game embeds its own components' notices (test_game_notices.py).
+        self.assertNotIn('THIRD_PARTY_NOTICES.md', listed)
         for name in listed:
             if not name.startswith('retrorecomp.'):
                 self.assertIn(name, tracked, name + ' is listed but not tracked')

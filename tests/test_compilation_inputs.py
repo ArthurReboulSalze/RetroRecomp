@@ -209,7 +209,7 @@ class InputRoleTests(unittest.TestCase):
                   'native/hostkit/shell/rrhk_ring.c', 'native/hostkit/adapters/rrhk_nes.c',  # NES
                   'retrorecomp.hostkit',
                   'native/hostkit/adapters/rrhk_x68k.inc',                         # X68000
-                  'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'retrorecomp.metadata')
+                  'licenses/SDL2.md', 'retrorecomp.notices', 'retrorecomp.metadata')
         for name in shells:
             with self.subTest(name=name):
                 self.assertEqual(inputs.role(name), 'host')

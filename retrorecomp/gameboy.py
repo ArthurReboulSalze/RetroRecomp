@@ -362,16 +362,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     metadata = write_game_metadata(project, title, executable_name(title),
                                    light_phaser=False, icon=artwork["embedded"],
                                    standard="dmg", system_id="gb")
-    notice = "Game Boy executable: retained component license notices.\n\n"
-    for component, filename in (("RetroRecomp", "LICENSE"),
-                                ("gb-recompiled", "licenses/gb-recompiled.md"),
-                                ("Dear ImGui", "licenses/dear-imgui.md"),
-                                ("xBR", "licenses/xbr.md"),
-                                ("Noto fonts", "licenses/Noto.md"),
-                                ("SDL2", "licenses/SDL2.md"),
-                                ("Portable compiler runtime", "licenses/llvm-mingw.md")):
-        notice += f"## {component}\n\n" + (ASSETS / filename).read_text(encoding="utf-8") + "\n\n"
-    (project / "game_legal.md").write_text(notice, encoding="utf-8")
+    from .notices import notice_text
+    (project / "game_legal.md").write_text(notice_text("gb"), encoding="utf-8")
     (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
     from .resources import embed_resources
     embed_resources(project, {102:project/'game_legal.md',104:project/'game_identity.bin'})

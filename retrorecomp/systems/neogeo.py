@@ -6,6 +6,10 @@ from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, R
 
 class NeoGeoProfile(SystemProfile):
     id = 'ng'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/geolith.md', 'licenses/lithogen.md', 'licenses/musashi.md')
+    # Only a game that uses it embeds it.
+    optional_notice_files = ('licenses/segagenesisrecomp.md',)
     name = 'Neo Geo'
     extensions = ('.neo',)
     export_folder = 'Neo Geo'

@@ -21,8 +21,6 @@ GAME_FILES = ('platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console
               'runtime_catalog.inc', 'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h',
               'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h')
 MACHINE_FILES = ('psx_main.c', 'psx_session.c', 'psx_session.h', 'psx_observe.c')
-NOTICE_FILES = ('licenses/beetle-psx.md', 'LICENSE', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md',
-                'licenses/UPX.md', 'licenses/llvm-mingw.md')
 STATE_SYSTEM = 6      # the quick-state header's machine number (1 MD, 2 SNES, 3 Neo Geo, 4 CPS-1, 5 PC Engine)
 FPS = {'ntsc': 59.826, 'pal': 49.761}     # Beetle's frame rates (core_timing_fps), NTSC and PAL
 
@@ -116,8 +114,8 @@ def prepare_game(project: Path, tree: Path, *, title: str, game_sha256: str, vid
     for name in MACHINE_FILES:
         _write(project / name, (ASSETS / 'native' / 'psx_machine' / name).read_text(encoding='utf-8'))
     hostkit.stage(project, 'psx')
-    notices = [(ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES if (ASSETS / name).is_file()]
-    _write(project / 'notices.txt', '\n\n'.join(notices))
+    from .notices import notice_text
+    _write(project / 'notices.txt', notice_text('psx'))
     resources = {203: project / 'notices.txt', 205: project / 'export-identity.bin'}
     rc = ['#pragma code_page(65001)', '203 RCDATA "notices.txt"', '205 RCDATA "export-identity.bin"']
     bios_file = project / 'bios.bin'

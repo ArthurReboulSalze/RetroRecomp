@@ -10,6 +10,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class GameBoyProfile(SystemProfile):
     id = "gb"
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/gb-recompiled.md', 'licenses/dear-imgui.md')
     name = "Game Boy"
     extensions = (".gb",)
     archived_rom_limits = (('.gb', 8 * 1024 * 1024),)

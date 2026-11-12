@@ -59,7 +59,8 @@ that converts a real game needs the player's own ROM, outside the repository.
   `retrorecomp/stamp_inputs.py`; stamps hash those explicit lists, never what
   is on disk. A new file under `native/`, `assets/`, `profiles/` or
   `licenses/`, or a new converter module, is added there (with its owners, or
-  declared out of the stamps) when it is created, or
+  declared out of the stamps) when it is created (a licence page a game embeds is
+  declared on its machine's profile instead, `notice_files`: `retrorecomp/notices.py`), or
   `tests/test_stamp_inputs.py` fails. Editing a host or game file moves the
   stamps of the consoles that own it and affects existing exports: say so in
   the change notes ([UPGRADES.md](UPGRADES.md)).

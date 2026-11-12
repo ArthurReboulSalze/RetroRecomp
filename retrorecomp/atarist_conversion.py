@@ -40,8 +40,6 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 PLAYER = 'RetroRecomp-AtariST'
 # The notices every exported ST game carries (resource 203, as on the other machines): Retro-Recomp's licence, Hatari (GPL-2.0)
 # with the GPL text and where its corresponding source is, the libretro API header, SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/hatari.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
-                'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 SOURCES_RESOURCE = 297     # EmuTOS's complete source archive, in a game that boots EmuTOS
 TOS_RESOURCE = 298
@@ -234,8 +232,12 @@ def extract_game(source, tos_data: bytes, folder: Path) -> list[Path]:
     return disks
 
 
+EMUTOS_NOTICE = ('licenses/emutos.md',)
+
+
 def notice_files(emutos: bool) -> tuple[str, ...]:
-    return NOTICE_FILES + (('licenses/emutos.md',) if emutos else ())
+    from . import notices
+    return (notices.OWN_LICENCE, *notices.notice_files('atarist', EMUTOS_NOTICE if emutos else ()))
 
 
 FEEDBACK_KIND = 24       # The Atari ST's kind in native/runtime_feedback.h and its profile's feedback_kinds.
@@ -287,8 +289,8 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
     (project / 'export-marker.bin').write_bytes(marker)
     resources[MARKER_RESOURCE] = project / 'export-marker.bin'
     notices = project / 'notices.txt'
-    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in notice_files(sources is not None)),
-                       encoding='utf-8')
+    from .notices import notice_text
+    notices.write_text(notice_text('atarist', optional=EMUTOS_NOTICE if sources is not None else ()), encoding='utf-8')
     resources[NOTICE_RESOURCE] = notices
     shutil.copyfile(tos, project / 'tos.bin')
     resources[TOS_RESOURCE] = project / 'tos.bin'

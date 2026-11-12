@@ -126,6 +126,11 @@ class Capabilities:
 
 STATUSES = ('experimental', 'supported')
 
+# The notices of the player shell every game on the common host is built with (retrorecomp/notices.py): SDL2, the xBR filter,
+# the menu fonts, the portable compiler's runtime and the packer. A machine adds its own components on its profile
+# (`notice_files`); a program that is not built on the shell (Adventure) sets `shell_notices` to False and lists everything.
+SHELL_NOTICE_FILES = ('licenses/SDL2.md', 'licenses/xbr.md', 'licenses/misc-fixed.md', 'licenses/llvm-mingw.md', 'licenses/UPX.md')
+
 
 class SystemProfile(ABC):
     """One console, described by data first (every attribute below has a
@@ -197,6 +202,20 @@ class SystemProfile(ABC):
     # The shared groups of source files (stamp_inputs.py, keys ``shares:<name>``) this machine's game is built from:
     # a machine that reuses the Mega Drive code generator names it here instead of editing a list of consoles.
     stamp_groups: tuple[str, ...] = ()
+    # The notices of the third-party components compiled into this machine's games, as paths below the bundle root
+    # (retrorecomp/notices.py builds the embedded text from them). Each file is a stamp input of the machines that declare
+    # it and of no other (stamp_inputs.py reads these lists), so a machine's notice moves no other machine's stamp.
+    notice_files: tuple[str, ...] = ()
+    # Notices only some of the machine's games embed (the Atari ST: EmuTOS, when the game boots it).
+    optional_notice_files: tuple[str, ...] = ()
+    # False for a program that is not built on the common player shell: it then names every notice itself.
+    shell_notices: bool = True
+
+    @property
+    def declared_notice_files(self) -> tuple[str, ...]:
+        """Every notice file a game of this machine may embed: its own, the optional ones, then the shell's."""
+        names = (*self.notice_files, *self.optional_notice_files, *(SHELL_NOTICE_FILES if self.shell_notices else ()))
+        return tuple(dict.fromkeys(names))
 
     @property
     def options_tab(self) -> str:

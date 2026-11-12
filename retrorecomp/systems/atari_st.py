@@ -20,6 +20,10 @@ APERTURES = ((0, 0x400000, 0x400000), (0xFA0000, 0xFC0000, 0xFC0000), (0xFC0000,
 
 class AtariStProfile(SystemProfile):
     id = 'atarist'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/hatari.md',)
+    # Only a game that uses it embeds it.
+    optional_notice_files = ('licenses/emutos.md',)
     name = 'Atari ST'
     extensions = ('.ipf', '.stx', '.msa', '.st', '.zip')
     export_folder = 'Atari ST'
