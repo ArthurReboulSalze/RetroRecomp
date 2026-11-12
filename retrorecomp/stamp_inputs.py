@@ -902,7 +902,6 @@ INPUTS = _resolve({
         'native/video_checks.c',
         'native/video_mode4.inc',
         'profiles/example.sms.toml',
-        'retrorecomp.cpu',
         'retrorecomp.sega_evidence',
         'retrorecomp.systems.game_gear',
         'retrorecomp.systems.master_system',
@@ -957,6 +956,13 @@ INPUTS = _resolve({
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
+    ),
+    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System and the Game Gear now): what a machine declares
+    # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
+    # The emitter and the step loop it parametrises (native/banked_*) are under ALL above.
+    'shares:z80_main': (
+        'retrorecomp.cpu',
+        'retrorecomp.z80_chain',
     ),
     'family:rr16': (
         'native/console16_main.c',

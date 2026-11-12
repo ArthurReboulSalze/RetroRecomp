@@ -5,6 +5,21 @@
  * the host C call stack, so arbitrary computed transfers and paging are safe. */
 #include <inttypes.h>
 
+/* The machine this generator is built for. Its values come from the machine's profile (retrorecomp/z80_chain.py writes
+ * BANKED_MACHINE above this file): nothing below names a mapper or an address of its own. */
+typedef struct {
+    unsigned mapped;        /* 0: keyed by bank registers (the four fields below); 1: keyed by the machine's region map */
+    unsigned slot_bits;     /* log2 of the size of one switchable slot (one region of the map) */
+    unsigned slots;         /* registers: slots from address 0, one bank register each, the bank key of game_banked_step */
+    unsigned fixed_bytes;   /* registers: start of slot 0 that never pages (0: none) */
+    unsigned ram_from;      /* registers: first PC that only runs through the byte guards */
+    unsigned sources;       /* map: how many sources (cartridge, firmware...) a region can show */
+    unsigned bank_values;   /* values of a bank register */
+    int m1_wait;            /* wait states per M1 cycle, added to the Z80's own T-states */
+    const char *scope;      /* support_scope of the coverage report */
+} BankedMachine;
+static const BankedMachine banked_machine = BANKED_MACHINE;
+
 typedef struct { uint64_t key; uint32_t id; } BankedHash;
 typedef struct {
     BankedHash *hash;
@@ -136,10 +151,12 @@ static bool banked_sets_flags(const Z80Insn *in) {
 static void banked_body(FILE *o, const Z80Insn *in, uint32_t id) {
     fprintf(o, "void game_banked_op_%u(void) { /* %s */\n    Z80State *s = &g_z80;\n", id, in->text);
     if (in->illegal) {
-        fprintf(o, "    s->pc++; s->r = (s->r & 0x80) | ((s->r + 1) & 0x7F); s->cyc += 4;\n}\n");
+        fprintf(o, "    s->pc++; s->r = (s->r & 0x80) | ((s->r + 1) & 0x7F); s->cyc += %d;\n}\n", 4 + banked_machine.m1_wait);
         return;
     }
-    fprintf(o, "    s->r = (uint8_t)((s->r & 0x80) | ((s->r + %d) & 0x7F));\n", in->prefix == Z80_PFX_NONE ? 1 : 2);
+    /* M1 cycles of the instruction: one, or two behind a prefix. R counts them, and so do the machine's wait states. */
+    int m1 = in->prefix == Z80_PFX_NONE ? 1 : 2;
+    fprintf(o, "    s->r = (uint8_t)((s->r & 0x80) | ((s->r + %d) & 0x7F));\n", m1);
     fprintf(o, "    s->pc = (uint16_t)(s->pc + %u);\n", in->length);
     banked_wz(o, in);
     if (in->prefix == Z80_PFX_DD || in->prefix == Z80_PFX_FD)
@@ -147,7 +164,7 @@ static void banked_body(FILE *o, const Z80Insn *in, uint32_t id) {
     if (flat_is_repeat_block(in)) {
         const char *more = (in->opcode & 3) == 0 ? "z80_bc(s) != 0" :
             (in->opcode & 3) == 1 ? "z80_bc(s) != 0 && !(s->f & Z80_FLAG_Z)" : "s->b != 0";
-        fprintf(o, "    s->cyc += 16;\n");
+        fprintf(o, "    s->cyc += %d;\n", 16 + m1 * banked_machine.m1_wait);
         emit_block_body(o, in->opcode, "    ");
         fprintf(o, "    if (%s) { s->cyc += 5; s->pc = (uint16_t)(s->pc - 2);", more);
         fprintf(o, " s->wz = (uint16_t)(s->pc + 1); s->f = (s->f & ~0x28) | ((s->pc >> 8) & 0x28);");
@@ -161,7 +178,7 @@ static void banked_body(FILE *o, const Z80Insn *in, uint32_t id) {
             " if (!z80_parity8(b & 7)) s->f ^= Z80_FLAG_P;");
         fprintf(o, " }\n");
     } else {
-        fprintf(o, "    s->cyc += %d;\n", cyc_base(in));
+        fprintf(o, "    s->cyc += %d;\n", cyc_base(in) + m1 * banked_machine.m1_wait);
         if (in->is_halt) fprintf(o, "    s->halted = true;\n");
         else if (in->cf != Z80_CF_NONE) banked_cf(o, in);
         else if (in->prefix == Z80_PFX_CB && (in->opcode >> 6) == 1 && (in->opcode & 7) == 6) {
@@ -182,99 +199,98 @@ static void banked_array(FILE *o, const char *name, const uint32_t *ids, size_t 
     fprintf(o, "\n};\n");
 }
 
-void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *dir) {
-    CG_MKDIR(dir);
-    /* Mapper register values are bytes. For partial final banks, use the exact
-     * modulo-ROM mapping of the bus, not ceil(size/16K) as a mirror period. */
-    size_t x = rom->size, y = 0x4000;
+/* The bank key of game_banked_step on a machine keyed by registers: one register value per slot. */
+static void banked_key(FILE *o) {
+    for (unsigned slot = 0; slot < banked_machine.slots; ++slot) fprintf(o, "%suint8_t b%u", slot ? ", " : "", slot);
+}
+
+/* The prototype of game_banked_step, without its end: the bank registers, or the machine's region map. */
+static void banked_step_signature(FILE *o) {
+    fprintf(o, "int game_banked_step(");
+    if (banked_machine.mapped) fprintf(o, "const BankedRegion *map");
+    else banked_key(o);
+    fprintf(o, ")");
+}
+
+/* How many banks of one slot a source of `size` bytes shows before it repeats. Mapper register values are bytes. For
+ * partial final banks, use the exact modulo-ROM mapping of the bus, not ceil(size/slot) as a mirror period. */
+static size_t banked_period(size_t size, size_t slot_size) {
+    size_t x = size, y = slot_size;
     while (y) { size_t t = x % y; x = y; y = t; }
-    size_t period = rom->size / x;
-    if (period > 256) { fprintf(stderr, "[banked] ROM bank period exceeds Sega mapper\n"); exit(1); }
-    size_t seam_n = 3 * period * period, fixed_n = 3 * period;
+    size_t period = size / x;
+    if (period > banked_machine.bank_values) { fprintf(stderr, "[banked] ROM bank period exceeds the mapper's bank registers\n"); exit(1); }
+    return period;
+}
+
+static size_t banked_pool_open(BankedOps *pool, size_t entries) {
     size_t hash_size = 1024;
-    while (hash_size < 2 * (rom->size + seam_n + fixed_n)) hash_size *= 2;
-    BankedOps pool = {0}; pool.mask = hash_size - 1;
-    pool.hash = (BankedHash*)calloc(hash_size, sizeof(*pool.hash));
-    uint32_t *ids = (uint32_t*)malloc(rom->size * sizeof(*ids));
-    uint32_t *seams = (uint32_t*)malloc(seam_n * sizeof(*seams));
-    uint32_t *fixed = (uint32_t*)malloc(fixed_n * sizeof(*fixed));
-    if (!pool.hash || !ids || !seams || !fixed) exit(1);
-    size_t covered = 0;
-    for (size_t a = 0; a < rom->size; ++a) {
-        uint8_t bytes[4];
-        for (unsigned i = 0; i < 4; ++i) bytes[i] = rom->data[(a+i) % rom->size];
-        ids[a] = banked_intern(&pool, bytes); if (ids[a]) ++covered;
-    }
-    for (size_t a = 0; a < 3; ++a) {
-        for (size_t b = 0; b < period; ++b) {
-            uint8_t bytes[4];
-            for (unsigned i = 0; i < 4; ++i) {
-                size_t pc = 0x3FD + a + i;
-                bytes[i] = rom->data[(pc < 0x400 ? pc : b*0x4000 + pc) % rom->size];
-            }
-            fixed[a*period+b] = banked_intern(&pool, bytes);
-            for (size_t c = 0; c < period; ++c) {
-                for (unsigned i = 0; i < 4; ++i) {
-                    size_t off = 0x3FFD + a + i;
-                    size_t phys = off < 0x4000 ? b*0x4000 + off : c*0x4000 + off - 0x4000;
-                    bytes[i] = rom->data[phys % rom->size];
-                }
-                seams[(a*period+b)*period+c] = banked_intern(&pool, bytes);
-            }
-        }
-    }
-    /* Conversion-time observations contain data, never generated code. Decode
-     * here and intern a byte-specific native body with the current compiler.
-     * Execution is permitted only after comparing every instruction byte. */
+    while (hash_size < 2 * entries) hash_size *= 2;
+    memset(pool, 0, sizeof *pool); pool->mask = hash_size - 1;
+    pool->hash = (BankedHash*)calloc(hash_size, sizeof(*pool->hash));
+    if (!pool->hash) exit(1);
+    return hash_size;
+}
+
+/* Conversion-time observations contain data, never generated code. Decode
+ * here and intern a byte-specific native body with the current compiler.
+ * Execution is permitted only after comparing every instruction byte. */
+static void banked_learn(BankedOps *pool, const char *dir, size_t *profile_windows, size_t *profile_unsupported) {
     char learned_path[600];
     snprintf(learned_path, sizeof learned_path, "%s/../native.patterns", dir);
     FILE *learned = fopen(learned_path, "r");
-    size_t profile_windows = 0, profile_unsupported = 0;
-    uint32_t rom_bodies = pool.count;
+    *profile_windows = *profile_unsupported = 0;
     if (learned) {
         char line[80], extra; unsigned b[4];
-        while (profile_windows < 4096 && fgets(line, sizeof line, learned)) {
+        while (*profile_windows < 4096 && fgets(line, sizeof line, learned)) {
             if (sscanf(line, "%2x%2x%2x%2x %c", &b[0], &b[1], &b[2], &b[3], &extra) != 4) continue;
             uint8_t bytes[4] = {(uint8_t)b[0], (uint8_t)b[1], (uint8_t)b[2], (uint8_t)b[3]};
-            ++profile_windows;
-            if (!banked_intern(&pool, bytes)) ++profile_unsupported;
+            ++*profile_windows;
+            if (!banked_intern(pool, bytes)) ++*profile_unsupported;
         }
         fclose(learned);
     }
+}
+
+/* game_layout.c, game_banked.h and the native bodies. */
+static void banked_write_bodies(const BankedOps *pool, const GameConfig *cfg, const char *dir) {
     char path[600];
     snprintf(path, sizeof path, "%s/game_layout.c", dir);
     write_layout(path, "game", cfg);
     snprintf(path, sizeof path, "%s/game_banked.h", dir);
     FILE *h = fopen(path, "w"); if (!h) exit(1);
-    fprintf(h, "#pragma once\n#include <stddef.h>\n#include \"sms_runtime.h\"\n#include \"z80_ops.h\"\nint game_banked_step(uint8_t b0, uint8_t b1, uint8_t b2);\nint game_banked_guarded_step(void);\n");
-    for (uint32_t id = 1; id <= pool.count; ++id) fprintf(h, "void game_banked_op_%u(void);\n", id);
+    fprintf(h, "#pragma once\n#include <stddef.h>\n#include \"sms_runtime.h\"\n#include \"z80_ops.h\"\n");
+    if (banked_machine.mapped) fprintf(h,
+        "/* What one region of the address space shows now: the source (in the order the machine declares them), the bank\n"
+        " * of that source in units of one region, or RAM. The machine's bus keeps the map; the step only reads it. */\n"
+        "typedef struct { uint8_t source, bank, ram; } BankedRegion;\n");
+    banked_step_signature(h);
+    fprintf(h, ";\nint game_banked_guarded_step(void);\n");
+    for (uint32_t id = 1; id <= pool->count; ++id) fprintf(h, "void game_banked_op_%u(void);\n", id);
     fclose(h);
     /* Small translation units keep MSVC memory and optimization time bounded. */
-    for (uint32_t first = 1, chunk = 0; first <= pool.count; first += 256, ++chunk) {
+    for (uint32_t first = 1, chunk = 0; first <= pool->count; first += 256, ++chunk) {
         snprintf(path, sizeof path, "%s/game_banked_ops_%04u.c", dir, chunk);
         FILE *o = fopen(path, "w"); if (!o) exit(1);
         fprintf(o, "/* Generated byte-specific native bodies; no opcode decoding. */\n#include \"game_banked.h\"\n");
-        for (uint32_t id = first; id <= pool.count && id < first+256; ++id) banked_body(o, &pool.ops[id], id);
+        for (uint32_t id = first; id <= pool->count && id < first+256; ++id) banked_body(o, &pool->ops[id], id);
         fclose(o);
     }
-    snprintf(path, sizeof path, "%s/game_banked_index.c", dir);
-    FILE *o = fopen(path, "w"); if (!o) exit(1);
-    fprintf(o, "/* Generated ROM positions and mapper seam variants. */\n#include \"game_banked.h\"\n");
-    banked_array(o, "positions", ids, rom->size);
-    banked_array(o, "seams", seams, seam_n);
-    banked_array(o, "fixed_seams", fixed, fixed_n);
+}
+
+/* The tables every step uses and the guarded step; returns the number of guarded encodings. */
+static size_t banked_write_tables(FILE *o, const BankedOps *pool, size_t hash_size) {
     fprintf(o, "static void (*const bodies[])(void) = {0,\n");
-    for (uint32_t id = 1; id <= pool.count; ++id) fprintf(o, "game_banked_op_%u,\n", id);
+    for (uint32_t id = 1; id <= pool->count; ++id) fprintf(o, "game_banked_op_%u,\n", id);
     fprintf(o, "};\nstatic const uint8_t lengths[] = {0,\n");
-    for (uint32_t id = 1; id <= pool.count; ++id) fprintf(o, "%u,", pool.ops[id].length);
+    for (uint32_t id = 1; id <= pool->count; ++id) fprintf(o, "%u,", pool->ops[id].length);
     fprintf(o, "\n};\n");
     fprintf(o, "static const uint8_t fragments[] = {0,\n");
-    for (uint32_t id = 1; id <= pool.count; ++id) fprintf(o, "%u,", pool.ops[id].illegal ? 1 : 0);
+    for (uint32_t id = 1; id <= pool->count; ++id) fprintf(o, "%u,", pool->ops[id].illegal ? 1 : 0);
     fprintf(o, "\n};\n");
-    BankedHash *guards = (BankedHash*)malloc(pool.count * sizeof(*guards));
+    BankedHash *guards = (BankedHash*)malloc(pool->count * sizeof(*guards));
     if (!guards) exit(1);
     size_t guard_n = 0;
-    for (size_t i = 0; i < hash_size; ++i) if (pool.hash[i].id) guards[guard_n++] = pool.hash[i];
+    for (size_t i = 0; i < hash_size; ++i) if (pool->hash[i].id) guards[guard_n++] = pool->hash[i];
     qsort(guards, guard_n, sizeof(*guards), banked_key_order);
     fprintf(o, "static const uint64_t guard_keys[%zu] = {\n", guard_n);
     for (size_t i = 0; i < guard_n; ++i) fprintf(o, "UINT64_C(0x%llX),%s", (unsigned long long)guards[i].key, (i & 7) == 7 ? "\n" : "");
@@ -295,20 +311,17 @@ void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *d
         "    }\n"
         "    return 0;\n}\n", guard_n, guard_n);
     free(guards);
-    fprintf(o, "int game_banked_step(uint8_t b0, uint8_t b1, uint8_t b2) {\n"
-        "    uint16_t pc = g_z80.pc; if (pc >= 0xC000) return game_banked_guarded_step();\n"
-        "    uint32_t b[3] = { b0 %% %zu, b1 %% %zu, b2 %% %zu };\n"
-        "    uint32_t slot = pc >> 14, off = pc & 0x3FFF, id;\n"
-        "    if (pc >= 0x3FD && pc < 0x400) id = fixed_seams[(pc-0x3FD)*%zu+b[0]];\n"
-        "    else if (off >= 0x3FFD && slot < 2) id = seams[((off-0x3FFD)*%zu+b[slot])*%zu+b[slot+1]];\n"
-        "    else id = positions[((pc < 0x400 ? 0 : b[slot]*0x4000)+off) %% %zu];\n"
-        "    if (!id || (slot == 2 && off + lengths[id] + fragments[id] > 0x4000)) return game_banked_guarded_step();\n"
-        "    bodies[id](); return fragments[id] ? 3 : 1;\n}\n", period, period, period, period, period, period, rom->size);
-    fclose(o);
+    return guard_n;
+}
+
+static void banked_write_coverage(const char *dir, size_t positions, size_t covered, size_t period, const BankedOps *pool,
+                                  size_t seam_n, size_t fixed_n, size_t guard_n, size_t profile_windows,
+                                  size_t profile_unsupported, uint32_t rom_bodies) {
+    char path[600];
     snprintf(path, sizeof path, "%s/banked-coverage.json", dir);
-    o = fopen(path, "w"); if (!o) exit(1);
+    FILE *o = fopen(path, "w"); if (!o) exit(1);
     fprintf(o, "{\n  \"backend\": \"banked-aot-v3\",\n  \"support_status\": \"supported\",\n"
-        "  \"support_scope\": \"master-system-sega-mapper\",\n"
+        "  \"support_scope\": \"%s\",\n"
         "  \"native_redundant_prefixes\": true,\n  \"runtime_prefix_recursion\": false,\n"
         "  \"rom_positions\": %zu,\n"
         "  \"compiled_positions\": %zu,\n  \"unsupported_positions\": %zu,\n"
@@ -318,9 +331,166 @@ void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *d
         "  \"guarded_native_encodings\": %zu,\n  \"profile_windows_loaded\": %zu,\n"
         "  \"profile_unsupported_windows\": %zu,\n  \"profile_added_native_bodies\": %u,\n"
         "  \"native_runtime_opcode_decoder\": false,\n  \"reference_fallback_available\": true\n}\n",
-        rom->size, covered, rom->size-covered, period, pool.count, seam_n, fixed_n,
-        guard_n, profile_windows, profile_unsupported, pool.count-rom_bodies);
+        banked_machine.scope, positions, covered, positions-covered, period, pool->count, seam_n, fixed_n,
+        guard_n, profile_windows, profile_unsupported, pool->count-rom_bodies);
     fclose(o);
-    printf("[banked] %zu/%zu ROM positions, %u native bodies, %zu bank seam variants\n", covered, rom->size, pool.count, seam_n+fixed_n);
-    free(pool.hash); free(pool.ops); free(ids); free(seams); free(fixed);
+    printf("[banked] %zu/%zu ROM positions, %u native bodies, %zu bank seam variants\n", covered, positions, pool->count, seam_n+fixed_n);
+}
+
+/* A machine keyed by a region map (BankedMachine.mapped): every region of the address space shows a bank of one of several
+ * sources, or RAM, and the map changes at run time. A position is keyed by (source, bank, offset). An instruction that
+ * starts in the last three bytes of a region, and any instruction in RAM, runs through the byte guards: the guards hold
+ * the encodings of every pair of banks that can meet at an edge, so the bytes of the next region are compared, not assumed.
+ * Source 0 is the cartridge of game.toml; the others are the files named, one per line, in `banked.sources` beside it. */
+typedef struct { uint8_t *data; size_t size, period; uint32_t *ids; } BankedSource;
+
+static void banked_emit_mapped(const SmsRom *rom, const GameConfig *cfg, const char *dir) {
+    const BankedMachine *machine = &banked_machine;
+    const size_t slot_size = (size_t)1 << machine->slot_bits, slot_tail = slot_size - 3;
+    BankedSource sources[16];
+    char path[600], line[600];
+    if (machine->sources < 1 || machine->sources > 16) { fprintf(stderr, "[banked] 1 to 16 sources\n"); exit(1); }
+    sources[0].data = rom->data; sources[0].size = rom->size;
+    snprintf(path, sizeof path, "%s/../banked.sources", dir);
+    FILE *list = machine->sources > 1 ? fopen(path, "r") : NULL;
+    for (unsigned s = 1; s < machine->sources; ++s) {
+        if (!list || !fgets(line, sizeof line, list)) { fprintf(stderr, "[banked] banked.sources names fewer sources than the machine\n"); exit(1); }
+        line[strcspn(line, "\r\n")] = 0;
+        FILE *f = fopen(line, "rb");
+        long size = 0;
+        if (!f || fseek(f, 0, SEEK_END) || (size = ftell(f)) <= 0 || fseek(f, 0, SEEK_SET)) { fprintf(stderr, "[banked] unreadable source %u\n", s); exit(1); }
+        sources[s].size = (size_t)size; sources[s].data = (uint8_t*)malloc(sources[s].size);
+        if (!sources[s].data || fread(sources[s].data, 1, sources[s].size, f) != sources[s].size) exit(1);
+        fclose(f);
+    }
+    if (list) fclose(list);
+    size_t positions = 0, pairs = 0, periods = 0, covered = 0, seam_n = 0;
+    for (unsigned s = 0; s < machine->sources; ++s) {
+        sources[s].period = banked_period(sources[s].size, slot_size);
+        positions += sources[s].size; periods += sources[s].period;
+    }
+    pairs = 3 * periods * periods;
+    BankedOps pool;
+    size_t hash_size = banked_pool_open(&pool, positions + pairs);
+    for (unsigned s = 0; s < machine->sources; ++s) {
+        BankedSource *source = &sources[s];
+        source->ids = (uint32_t*)malloc(source->size * sizeof(*source->ids));
+        if (!source->ids) exit(1);
+        for (size_t a = 0; a < source->size; ++a) {
+            uint8_t bytes[4];
+            for (unsigned i = 0; i < 4; ++i) bytes[i] = source->data[(a+i) % source->size];
+            source->ids[a] = banked_intern(&pool, bytes); if (source->ids[a]) ++covered;
+        }
+    }
+    /* Every (source, bank) that can precede every (source, bank) at an edge: guarded encodings only, no table. */
+    for (unsigned s = 0; s < machine->sources; ++s) for (size_t b = 0; b < sources[s].period; ++b)
+        for (unsigned t = 0; t < machine->sources; ++t) for (size_t c = 0; c < sources[t].period; ++c)
+            for (size_t a = 0; a < 3; ++a) {
+                uint8_t bytes[4];
+                for (unsigned i = 0; i < 4; ++i) {
+                    size_t off = slot_tail + a + i;
+                    bytes[i] = off < slot_size ? sources[s].data[(b*slot_size + off) % sources[s].size]
+                                               : sources[t].data[(c*slot_size + off - slot_size) % sources[t].size];
+                }
+                banked_intern(&pool, bytes); ++seam_n;
+            }
+    size_t profile_windows, profile_unsupported;
+    uint32_t rom_bodies = pool.count;
+    banked_learn(&pool, dir, &profile_windows, &profile_unsupported);
+    banked_write_bodies(&pool, cfg, dir);
+    snprintf(path, sizeof path, "%s/game_banked_index.c", dir);
+    FILE *o = fopen(path, "w"); if (!o) exit(1);
+    fprintf(o, "/* Generated positions of every source; region edges and RAM run through the byte guards. */\n#include \"game_banked.h\"\n");
+    for (unsigned s = 0; s < machine->sources; ++s) {
+        char name[32];
+        snprintf(name, sizeof name, "positions_%u", s);
+        banked_array(o, name, sources[s].ids, sources[s].size);
+    }
+    size_t guard_n = banked_write_tables(o, &pool, hash_size);
+    banked_step_signature(o);
+    fprintf(o, " {\n    uint16_t pc = g_z80.pc; const BankedRegion *region = &map[pc >> %u];\n"
+        "    uint32_t off = pc & 0x%zX, id;\n"
+        "    if (region->ram || off >= 0x%zX) return game_banked_guarded_step();\n"
+        "    switch (region->source) {\n", machine->slot_bits, slot_size - 1, slot_tail);
+    for (unsigned s = 0; s < machine->sources; ++s)
+        fprintf(o, "    case %u: id = positions_%u[((uint32_t)region->bank*0x%zX+off) %% %zu]; break;\n", s, s, slot_size, sources[s].size);
+    fprintf(o, "    default: return game_banked_guarded_step();\n    }\n"
+        "    if (!id) return game_banked_guarded_step();\n"
+        "    bodies[id](); return fragments[id] ? 3 : 1;\n}\n");
+    fclose(o);
+    banked_write_coverage(dir, positions, covered, periods, &pool, seam_n, 0, guard_n, profile_windows, profile_unsupported, rom_bodies);
+    free(pool.hash); free(pool.ops);
+    for (unsigned s = 0; s < machine->sources; ++s) { free(sources[s].ids); if (s) free(sources[s].data); }
+}
+
+void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *dir) {
+    CG_MKDIR(dir);
+    const BankedMachine *machine = &banked_machine;
+    if (machine->mapped) { banked_emit_mapped(rom, cfg, dir); return; }
+    /* The last three bytes of a slot (and of the fixed start) begin instructions that end in the next region. */
+    const size_t slot_size = (size_t)1 << machine->slot_bits, slot_tail = slot_size - 3;
+    const size_t fixed = machine->fixed_bytes, fixed_tail = fixed ? fixed - 3 : 0;
+    size_t period = banked_period(rom->size, slot_size);
+    size_t seam_n = 3 * period * period, fixed_n = fixed ? 3 * period : 0;
+    BankedOps pool;
+    size_t hash_size = banked_pool_open(&pool, rom->size + seam_n + fixed_n);
+    uint32_t *ids = (uint32_t*)malloc(rom->size * sizeof(*ids));
+    uint32_t *seams = (uint32_t*)malloc(seam_n * sizeof(*seams));
+    uint32_t *fixed_ids = (uint32_t*)malloc((fixed_n ? fixed_n : 1) * sizeof(*fixed_ids));
+    if (!ids || !seams || !fixed_ids) exit(1);
+    size_t covered = 0;
+    for (size_t a = 0; a < rom->size; ++a) {
+        uint8_t bytes[4];
+        for (unsigned i = 0; i < 4; ++i) bytes[i] = rom->data[(a+i) % rom->size];
+        ids[a] = banked_intern(&pool, bytes); if (ids[a]) ++covered;
+    }
+    for (size_t a = 0; a < 3; ++a) {
+        for (size_t b = 0; b < period; ++b) {
+            uint8_t bytes[4];
+            for (unsigned i = 0; fixed && i < 4; ++i) {
+                size_t pc = fixed_tail + a + i;
+                bytes[i] = rom->data[(pc < fixed ? pc : b*slot_size + pc) % rom->size];
+            }
+            if (fixed) fixed_ids[a*period+b] = banked_intern(&pool, bytes);
+            for (size_t c = 0; c < period; ++c) {
+                for (unsigned i = 0; i < 4; ++i) {
+                    size_t off = slot_tail + a + i;
+                    size_t phys = off < slot_size ? b*slot_size + off : c*slot_size + off - slot_size;
+                    bytes[i] = rom->data[phys % rom->size];
+                }
+                seams[(a*period+b)*period+c] = banked_intern(&pool, bytes);
+            }
+        }
+    }
+    size_t profile_windows, profile_unsupported;
+    uint32_t rom_bodies = pool.count;
+    banked_learn(&pool, dir, &profile_windows, &profile_unsupported);
+    banked_write_bodies(&pool, cfg, dir);
+    char path[600];
+    snprintf(path, sizeof path, "%s/game_banked_index.c", dir);
+    FILE *o = fopen(path, "w"); if (!o) exit(1);
+    fprintf(o, "/* Generated ROM positions and mapper seam variants. */\n#include \"game_banked.h\"\n");
+    banked_array(o, "positions", ids, rom->size);
+    banked_array(o, "seams", seams, seam_n);
+    if (fixed) banked_array(o, "fixed_seams", fixed_ids, fixed_n);
+    size_t guard_n = banked_write_tables(o, &pool, hash_size);
+    /* The step: RAM goes to the guards; an instruction that starts in the last bytes of the fixed start or of a slot is a
+     * seam variant keyed by the two banks it reads; any other position is keyed by the bank of its slot. */
+    const unsigned last = machine->slots - 1;
+    banked_step_signature(o);
+    fprintf(o, " {\n    uint16_t pc = g_z80.pc; if (pc >= 0x%X) return game_banked_guarded_step();\n", machine->ram_from);
+    fprintf(o, "    uint32_t b[%u] = { ", machine->slots);
+    for (unsigned slot = 0; slot <= last; ++slot) fprintf(o, "%sb%u %% %zu", slot ? ", " : "", slot, period);
+    fprintf(o, " };\n    uint32_t slot = pc >> %u, off = pc & 0x%zX, id;\n    if (", machine->slot_bits, slot_size - 1);
+    if (fixed) fprintf(o, "pc >= 0x%zX && pc < 0x%zX) id = fixed_seams[(pc-0x%zX)*%zu+b[0]];\n    else if (",
+        fixed_tail, fixed, fixed_tail, period);
+    fprintf(o, "off >= 0x%zX && slot < %u) id = seams[((off-0x%zX)*%zu+b[slot])*%zu+b[slot+1]];\n",
+        slot_tail, last, slot_tail, period, period);
+    if (fixed) fprintf(o, "    else id = positions[((pc < 0x%zX ? 0 : b[slot]*0x%zX)+off) %% %zu];\n", fixed, slot_size, rom->size);
+    else fprintf(o, "    else id = positions[(b[slot]*0x%zX+off) %% %zu];\n", slot_size, rom->size);
+    fprintf(o, "    if (!id || (slot == %u && off + lengths[id] + fragments[id] > 0x%zX)) return game_banked_guarded_step();\n"
+        "    bodies[id](); return fragments[id] ? 3 : 1;\n}\n", last, slot_size);
+    fclose(o);
+    banked_write_coverage(dir, rom->size, covered, period, &pool, seam_n, fixed_n, guard_n, profile_windows, profile_unsupported, rom_bodies);
+    free(pool.hash); free(pool.ops); free(ids); free(seams); free(fixed_ids);
 }

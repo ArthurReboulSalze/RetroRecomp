@@ -62,7 +62,9 @@ Our adapters, all MIT:
 - **Master System and Game Gear:** `retrorecomp/core.py` (`patched_generator_source`, `prepare_functions_irq`,
   `prepare_reference_irq`), `retrorecomp/cpu.py` (corrected local copies of the shared headers and of the reference CPU),
   and the native files `native/banked_emitter.inc` (appended to the pinned generator), `banked_runtime.inc`,
-  `banked_dispatch.c`.
+  `banked_dispatch.c`. What the banked engine knows of the machine (the slots and the bank key, the fixed first KiB, the
+  RAM cut, wait states per M1 cycle, where /INT is sampled) is one description, `Z80Machine` in `retrorecomp/z80_chain.py`,
+  named by the two profiles (`SEGA_MAPPER`); a second machine with a Z80 main CPU declares its own and reuses the two files.
 - **Mega Drive:** `retrorecomp/megadrive_z80.py` (emitter, guarded variants, reference adapter),
   `retrorecomp/megadrive_z80_timing.py` (machine-cycle placement), `native/md_z80_native.h`, `md_z80_runtime.c`,
   `md_z80_bus.inc`.

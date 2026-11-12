@@ -40,11 +40,15 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
     (game / 'z80_ops.h').write_text(ops, encoding='utf-8')
 
 
-def prepare_reference(game: Path, engine: Path) -> None:
+def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> None:
     """Correct the pinned fallback/oracle in a generated copy.
 
     This CPU is checked against the same independent vectors as the emitter.
     Keep the separate implementation: it is never used to execute native code.
+
+    `m1_counter` (a machine with wait states on M1 cycles, `z80_chain.Z80Machine.counts_m1`) adds a count of the M1
+    cycles, `z80_m1_fetches`, where the CPU increments R; its cycle counts stay the Z80's own, and whoever runs it adds
+    the wait states from the count. Off, the copy is what it always was.
     """
     original = engine / 'runner/external/superzazu'
     header = (original / 'z80.h').read_text(encoding='utf-8')
@@ -52,6 +56,9 @@ def prepare_reference(game: Path, engine: Path) -> None:
     (game / 'runtime_reference.h').write_text(header, encoding='utf-8')
     source = (original / 'z80.c').read_text(encoding='utf-8')
     source = replace(source, '#include "z80.h"', '#include "runtime_reference.h"')
+    if m1_counter:
+        source = replace(source, 'static inline void inc_r(z80* const z) {',
+                         'unsigned long z80_m1_fetches;\nstatic inline void inc_r(z80* const z) {\n  ++z80_m1_fetches;')
     # BIT (HL) is a read-only bus operation. Rewriting the same byte is not
     # harmless at Sega mapper registers (FFFC-FFFF), even when RAM is unchanged.
     # Zilog UM008011-0816, BIT b,(HL), page 245.

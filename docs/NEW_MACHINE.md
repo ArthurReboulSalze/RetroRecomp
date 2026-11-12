@@ -174,7 +174,7 @@ fidelity, gameplay and latency stay five objects. Gate: G2.
 only edit; an unlisted file is ignored, a listed missing one is an error, and `tests/test_stamp_inputs.py` fails for a tracked
 file nobody listed). Its profile module, its host adapter, the 68000 / 16-bit-host / host-kit families and the shell every
 console links come from the profile. The shared groups it reuses (`megadrive_codegen`, `neogeo_codegen`, `conversion_gates`,
-`megadrive_z80`, `neogeo_build`, `neogeo_native`, `md_prefetch`, `guns16`) are named in `stamp_groups`; a new file several
+`megadrive_z80`, `neogeo_build`, `neogeo_native`, `md_prefetch`, `guns16`, `z80_main`) are named in `stamp_groups`; a new file several
 machines will share is a new `shares:<group>` key. `HOST_NATIVE` and `NOT_INPUTS` only for a file that is host-side or in no
 stamp. Roles: host (player shell), build (toolchain), game (everything else, the safe default). Text types are listed in
 `TEXT_SUFFIXES`.
@@ -218,7 +218,7 @@ states, saves, packed replay, languages, headless routes) plus its own.
 | CPU | Machines today | Reuse | New for a machine on this CPU |
 |---|---|---|---|
 | 68000 | Mega Drive, Neo Geo, X68000, CPS-1 | `m68000.py`, `megadrive_codegen.py`, `neogeo_codegen.py`, `native/m68000_backend.*`, path profile `m68k` shapes `insn`/`span`, SingleStepTests vectors | memory map, bus, path map name (`m68k/<id>`), sources |
-| Z80 | Master System, Game Gear, Mega Drive sound, Neo Geo sound, CPS-1 sound | `cpu.py`/`core.py`, `megadrive_z80.py`, `neogeo_z80.py`, `cps1_z80`, path profiles `z80/*`, SingleStepTests vectors | bus and ports, path map |
+| Z80 | Master System, Game Gear, Mega Drive sound, Neo Geo sound, CPS-1 sound | `cpu.py`/`core.py`, `megadrive_z80.py`, `neogeo_z80.py`, `cps1_z80`, path profiles `z80/*`, SingleStepTests vectors; for a main-CPU Z80, the banked chain through `z80_chain.py` (group `z80_main`): the machine declares a `Z80Machine` (slots and bank key, RAM cut, M1 wait states) | bus and ports, path map, its `Z80Machine` |
 | 6502 | NES | `nes_codegen.py`, `nes_runtime.py`, path profile `mos6502` | a 65C02/HuC6280 variant (PC Engine): new opcodes and banking, new CPU entry |
 | SM83 | Game Boy | `gameboy_*.py`, path profile `sm83` | none for another SM83 machine |
 | 65816 and SPC700 | Super Nintendo | `snes_codegen.py`, `snes_spc.py`, path profiles `w65c816`, `spc700` | cartridge devices as `DEVICES` entries |

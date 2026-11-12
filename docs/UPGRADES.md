@@ -79,6 +79,44 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System, Game Gear: the Z80 chain made ready for a second Z80 machine (1.7.3)
+
+**What changes.** The banked Z80 engine carried the Sega mapper as constants: the bank key `b0, b1, b2`, three 16 KiB slots, a first
+KiB that never pages, code from RAM at `pc >= $C000`, the plain Z80 cycle table and /INT sampled at the start of a step. They are now
+one description per machine, `Z80Machine` in the new `retrorecomp/z80_chain.py`, which the profiles of the Master System and the Game
+Gear name (`z80_machine = SEGA_MAPPER`). The emitter (`native/banked_emitter.inc`) reads it and names no mapper or address of its
+own; the step loop (`native/banked_runtime.inc`) is unchanged, and `z80_chain.runtime_source` renders its machine-dependent lines.
+The description also has what a second machine will need and no machine uses yet: wait states per M1 cycle, /INT read at the end of
+the instruction, and a second way to key the code, by a region map over several sources with RAM in any region (`Z80RegionMap`).
+A machine also names the folders of its own build of the translator (`generator_tag`; `core.dependencies` and
+`core.compiler_signature` take the machine), and `cpu.prepare_reference` can make the reference CPU count its M1 cycles
+(`m1_counter`), from which the counted fallback adds the wait states. For the Sega mapper the tag is empty and the count is off:
+the same folders, the same signature, the same reference CPU. No machine is added.
+
+**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. Proof, three conversions
+with the real command line (portable toolchain, Windows), once from main `f12dc2df` and once from this change, in two separate
+checkouts with a library of their own:
+- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
+  `--backend functions`).
+- The 146 files the translator generates and the 77 other sources and inputs of the three projects (the patched glue, the Z80 headers,
+  the reference CPU, the configuration) are equal byte for byte; the three build logs differ by the checkout path and the times.
+- The three delivered executables are equal byte for byte, and so are the unpacked ones.
+- The 29 run records are equal but for wall-clock times and the checkout path (frames, VDP traces, RAM, final CPU state, native and
+  interpreted counts).
+
+`tests/test_z80_chain.py` pins that the step loop rendered for the Sega mapper is the file itself, and what another machine renders.
+The region-map form was run once in an authored harness (two sources, a map that changes, RAM in a low region, an instruction across
+a region edge, one wait state per M1): 23 checks. It is not a qualification of any machine, and it says nothing of CPU fidelity,
+hardware fidelity, gameplay or latency.
+
+**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
+
+**What moves:** the game stamps of the Master System and the Game Gear (their profiles, the new module, the group `shares:z80_main`
+that now holds `retrorecomp/cpu.py`). `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console,
+so **every console's game stamp moves** (it moves in 1.7.3 anyway, see the next section). Host and build stamps do not move.
+
+**Quick states:** unchanged.
+
 ## Every console: a step still writing goes past its time limit (after 1.7.2)
 
 A player's small PC needed more than 30 minutes to compile Kirby's Adventure, and the conversion stopped at the step's fixed limit

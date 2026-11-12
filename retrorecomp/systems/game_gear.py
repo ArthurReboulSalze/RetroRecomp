@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import Cpu, SystemProfile
+from ..z80_chain import SEGA_MAPPER
 from .master_system import refine_by_header
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
@@ -31,7 +32,9 @@ class GameGearProfile(SystemProfile):
     input_layout = InputLayout(("a", "b"), (), None, 240, script_format="sega")
     shared_knowledge = SharedKnowledge("stable", site_builder=True)
     host_adapter = "adapters/rrhk_sms.c"
-    stamp_groups = ('conversion_gates',)   # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py)
+    # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py); the banked Z80 chain (retrorecomp/z80_chain.py, cpu.py)
+    stamp_groups = ('conversion_gates', 'z80_main')
+    z80_machine = SEGA_MAPPER   # the same mapper and Z80 timing as the Master System
 
     def refine_match(self, path: Path, data: bytes | None):
         return refine_by_header(self, path, data)

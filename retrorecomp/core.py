@@ -29,7 +29,8 @@ from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
-from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
+from .systems import MASTER_SYSTEM, archive_rom, find_profile, profile_for_path
+from .z80_chain import banked_emitter, banked_runtime
 from .platforms import (build_executable, cmake_target_args, build_jobs, target_id, claim_cache, sdl_install, sdl_library,
                         sdl_install_current, sdl_install_key, sdl_compiler_flags, SDL_INSTALL_MARKER)
 from .toolchain import active as active_toolchain, suffix, describe as toolchain_description
@@ -493,7 +494,10 @@ def follow_pin(checkout: Path, url: str, revision: str, log: Path, emit: Callabl
 
 
 @serialized_setup
-def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path, str]:
+def dependencies(emit: Callable[[str], None] = print, machine=None) -> tuple[Path, Path, Path, str]:
+    """The pinned engine, the Z80 -> C translator of one machine of the banked chain (`z80_chain.Z80Machine`; the Sega mapper
+    unless another is given: each machine builds its own, in its own folders) and the static SDL2."""
+    machine = machine or MASTER_SYSTEM.z80_machine
     cmake, generator = toolchain()
     dep = ROOT / ".deps"
     dep.mkdir(exist_ok=True)
@@ -509,12 +513,12 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
     # The runner mirrors oversized Sega bank register values onto physical ROM.
     # Upstream discovery rejected those same values, producing empty routines in
     # Alex Kidd (which writes 0x82..0x87 to an eight-bank cartridge).
-    source = dep / "recompiler-src"
+    source = dep / machine.generator_source
     parser_source = (engine / "recompiler/src/rom_parser.c").read_text(encoding="utf-8")
     parser_source = replace_once(parser_source,
         "size_t off = (size_t)bank * SMS_BANK_SIZE + slot_off;",
         "size_t off = ((size_t)bank * SMS_BANK_SIZE + slot_off) % rom->size;")
-    generator_source = patched_generator_source((engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8"))
+    generator_source = patched_generator_source((engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8"), machine)
     main_source = (engine / "recompiler/src/main_sms.c").read_text(encoding="utf-8")
     main_source = replace_once(main_source, '    bool flat_step = false;', '''    bool flat_step = false;
     bool banked_step = false;''')
@@ -537,7 +541,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         (source / "src/code_generator.c").write_text(generator_source, encoding="utf-8")
         (source / "src/main_sms.c").write_text(main_source, encoding="utf-8")
         marker.write_text(expected)
-    recomp_build = dep / ('recompiler-build' + suffix())
+    recomp_build = dep / (machine.generator_build + suffix())
     recomp = build_executable(recomp_build, 'SmsRecomp')
     compiled_marker = recomp_build / "compiled.sha256"
     if patch_changed or not recomp.exists() or not compiled_marker.exists() or compiled_marker.read_text() != expected:
@@ -571,8 +575,9 @@ def replace_once(source: str, old: str, new: str) -> str:
         f"L'interface du moteur a changé ; adaptation nécessaire : {old[:90]!r}"))
 
 
-def patched_generator_source(generator_source: str) -> str:
-    """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
+def patched_generator_source(generator_source: str, machine=None) -> str:
+    """The pinned Z80 generator with our patches applied (the text the unit test checks), for one machine of the banked Z80
+    chain (`z80_chain.Z80Machine`; the Sega mapper of the Master System and the Game Gear unless another is given)."""
     generator_source = replace_once(generator_source,
         '    fprintf(o,"        do {\\n");',
         '''    /* A repeating block instruction has no pre-tick of its own (its iterations tick after their effect): without a sync before
@@ -768,7 +773,7 @@ def patched_generator_source(generator_source: str) -> str:
         fprintf(o,"        { uint16_t _hsp = s->sp; g_dbg_pc = (uint16_t)(g_dbg_pc + %u); sms_halt(); if ((int16_t)(s->sp - _hsp) > 0) return; }\\n", (unsigned)in->length);
         return;
     }''')
-    generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
+    generator_source += "\n" + banked_emitter(machine or MASTER_SYSTEM.z80_machine, ASSETS)
     return generator_source
 
 
@@ -967,7 +972,7 @@ uint64_t smsrecomp_interpreter_cycles(void);\n'''
         out.write(f'const int sms_light_phaser_hcounter_offset = {phaser.hcounter_offset if phaser else 20};\n')
         out.write(f'const int sms_light_phaser_trigger_p2 = {int(bool(phaser and phaser.trigger_on_p2))};\n')
     prepare_cpu_headers(game, engine)
-    prepare_reference(game, engine)
+    prepare_reference(game, engine, m1_counter=find_profile(rom.system_id).z80_machine.counts_m1)
     glue = (engine / "runner/glue.c").read_text(encoding="utf-8")
     glue = '#include "video_frame.h"\n#include "lightphaser.h"\n#include "embedded_rom.h"\n' + glue
     glue = replace_once(glue, '#include "include/sms_clocks.h"', '#include "sms_clocks.h"')
@@ -1171,7 +1176,7 @@ static void smsrecomp_state_service(void);
     # The debug harness references the function-form dispatcher; it is not
     # active in this backend, whose production loop always uses the guest PC.
     glue += "\n" + (ASSETS / "native/gamestate.inc").read_text(encoding="utf-8")
-    glue += "\n" + (ASSETS / "native/banked_runtime.inc").read_text(encoding="utf-8")
+    glue += "\n" + banked_runtime(find_profile(rom.system_id).z80_machine, ASSETS)
     # A reset exits through the runtime's existing longjmp, discarding all
     # generated C continuations. Also reset every execution/callback state that
     # upstream initialized only once per process, before entering reset again.
@@ -1396,16 +1401,17 @@ def import_previous(rom: Rom, destination: Path, memory: GameMemory) -> int:
     return added
 
 
-def compiler_signature(game: Path) -> str:
+def compiler_signature(game: Path, machine=None) -> str:
     from .compilation_inputs import input_bytes, state_native_files
+    generator = ROOT / ".deps" / (machine or MASTER_SYSTEM.z80_machine).generator_source / "src"
     digest = hashlib.sha256()
     # Master System and Game Gear own the same native files: the listed ones (retrorecomp/stamp_inputs.py),
     # not whatever sits in native/.
     for source in [game / "runtime_glue.c", game / "runtime_main.c", game / "runtime_video.c", game / "runtime_audio.c", game / "sms_clocks.h", game / "game.toml",
                    game / "embedded_rom.c", game / "embedded_rom.h",
                    game / "runtime_reference.c", game / "runtime_reference.h", game / "sms_runtime.h", game / "z80_ops.h",
-                   *sorted((game / "generated").glob("*.c")), ROOT / ".deps/recompiler-src/src/rom_parser.c",
-                   ROOT / ".deps/recompiler-src/src/code_generator.c", ROOT / ".deps/recompiler-src/src/main_sms.c",
+                   *sorted((game / "generated").glob("*.c")), generator / "rom_parser.c",
+                   generator / "code_generator.c", generator / "main_sms.c",
                    game / "game_resources.rc", game / "game.ico",
                    *state_native_files("sms")]:
         if source.is_file():

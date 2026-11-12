@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from . import Capabilities, Cpu, SystemProfile, find_profile
+from ..z80_chain import SEGA_MAPPER
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
 
@@ -50,7 +51,10 @@ class MasterSystemProfile(SystemProfile):
     converter_publishes = True
     options_tab = "options_master_system"
     host_adapter = "adapters/rrhk_sms.c"
-    stamp_groups = ('conversion_gates',)   # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py)
+    # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py); the banked Z80 chain (retrorecomp/z80_chain.py, cpu.py)
+    stamp_groups = ('conversion_gates', 'z80_main')
+    # What the banked Z80 chain reads instead of constants: the Sega mapper's slots, its RAM cut and its cycle table.
+    z80_machine = SEGA_MAPPER
     # The Z80 map of the Master System and the Game Gear is declared once, here (the Game Gear lists the section).
     path_spec = PathSpec(order=0, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
                          required_sources=("rom",),
