@@ -10,6 +10,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class NesProfile(SystemProfile):
     id = "nes"
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/nesrecomp.md', 'licenses/emu2413.md')
     name = "Nintendo NES"
     extensions = (".nes",)
     archived_rom_limits = (('.nes', 128 * 1024 * 1024 + 528),)

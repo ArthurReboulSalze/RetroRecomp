@@ -125,7 +125,9 @@ HOST_MODULES = frozenset((
     # Mega Drive sound delivery.
     'gameboy_host', 'megadrive_audio',
     # The host kit's file list and its copy into a game project.
-    'hostkit'))
+    'hostkit',
+    # The notice text embedded in a game, built from the lists of its machine's profile.
+    'notices'))
 HOST_NATIVE = frozenset((
     # Paths below native/. Shared menu core, identical on every machine.
     'retro_menu.c', 'retro_menu.h', 'game_options.h', 'game_options_checks.c',
@@ -153,7 +155,9 @@ HOST_NATIVE = frozenset((
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
     'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
-HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
+# No file outside the prefixes below is a host input any more: THIRD_PARTY_NOTICES.md, the complete public list of the converter
+# distribution, is embedded in no game since 1.7.3 (each game embeds the notices of its own components, notices.py).
+HOST_FILES = frozenset()
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
 
@@ -182,6 +186,12 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     'licenses/upx-5.3.0-src.tar.xz',
+    # Notices of the converter's own distribution (its Python runtime, its interface fonts, its Linux desktop parts) and of
+    # development test vectors: no game embeds them, so they move no game's stamp. A notice a game embeds is declared on
+    # its machine's profile instead (`notice_files`), and is then a host input of that machine only.
+    'licenses/Linux-desktop.md', 'licenses/Noto.md', 'licenses/OpenSSL.md', 'licenses/Pillow.md', 'licenses/PyInstaller-hooks.md',
+    'licenses/PyInstaller.md', 'licenses/Python.md', 'licenses/Tcl-Tk.md', 'licenses/zlib-ng.md', 'licenses/zlib.md',
+    'licenses/SingleStepTests-z80.md', 'licenses/SingleStepTests-m68000.md',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
     'licenses/SingleStepTests-sm83.md', 'licenses/SingleStepTests-huc6280.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
@@ -236,7 +246,8 @@ SHARED_GROUPS = set()
 
 def _resolve(entries: dict) -> dict:
     """The manifest with every key an owner tuple. Groups with the same owners are merged, and what the profiles
-    state alone is added: each machine's host-kit adapter file and (unless listed) its profile module."""
+    state alone is added: each machine's host-kit adapter file, (unless listed) its profile module, and the notice files its
+    games embed (`SystemProfile.declared_notice_files`: a notice is owned by the machines that declare it, and by no other)."""
     resolved: dict = {}
 
     def add(owners, names):
@@ -257,13 +268,16 @@ def _resolve(entries: dict) -> dict:
     listed = {name for names in resolved.values() for name in names}
     adapters: dict = {}
     modules: dict = {}
+    notices: dict = {}
     for profile in ALL_PROFILES:
         if profile.host_adapter:
             adapters.setdefault('native/hostkit/' + profile.host_adapter, []).append(profile.id)
         module = type(profile).__module__
         if module.startswith('retrorecomp.') and module not in listed:
             modules.setdefault(module, []).append(profile.id)
-    for name, owners in (*adapters.items(), *modules.items()):
+        for name in profile.declared_notice_files:
+            notices.setdefault(name, []).append(profile.id)
+    for name, owners in (*adapters.items(), *modules.items(), *notices.items()):
         if name not in listed:
             add(tuple(owners), (name,))
     return resolved
@@ -271,8 +285,8 @@ def _resolve(entries: dict) -> dict:
 
 
 INPUTS = _resolve({
+    # (No licence file is listed below: the notices a game embeds come from the profiles, see _resolve.)
     ALL: (
-        'THIRD_PARTY_NOTICES.md',
         'assets/Retro-Recomp-icon-128.png',
         'assets/Retro-Recomp-icon-16.png',
         'assets/Retro-Recomp-icon-20.png',
@@ -284,35 +298,6 @@ INPUTS = _resolve({
         'assets/Retro-Recomp-icon-64.png',
         'assets/Retro-Recomp.ico',
         'assets/tag-shooting.png',
-        'licenses/Linux-desktop.md',
-        'licenses/Noto.md',
-        'licenses/OpenSSL.md',
-        'licenses/Pillow.md',
-        'licenses/PyInstaller-hooks.md',
-        'licenses/PyInstaller.md',
-        'licenses/Python.md',
-        'licenses/SDL2.md',
-        'licenses/SingleStepTests-m68000.md',
-        'licenses/SingleStepTests-z80.md',
-        'licenses/Tcl-Tk.md',
-        'licenses/UPX.md',
-        'licenses/dear-imgui.md',
-        'licenses/emu2413.md',
-        'licenses/fmgen.md',
-        'licenses/gb-recompiled.md',
-        'licenses/geolith.md',
-        'licenses/lithogen.md',
-        'licenses/llvm-mingw.md',
-        'licenses/musashi.md',
-        'licenses/nesrecomp.md',
-        'licenses/segagenesisrecomp.md',
-        'licenses/snesrecomp.md',
-        'licenses/superzazu-z80.md',
-        'licenses/x68000-machine.md',
-        'licenses/xbr.md',
-        'licenses/z80-recomp-core.md',
-        'licenses/zlib-ng.md',
-        'licenses/zlib.md',
         'native/CMakeLists.txt',
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
@@ -413,6 +398,7 @@ INPUTS = _resolve({
         'retrorecomp.languages',
         'retrorecomp.library',
         'retrorecomp.metadata',
+        'retrorecomp.notices',
         'retrorecomp.packing',
         'retrorecomp.path_profiles',
         'retrorecomp.paths',
@@ -645,7 +631,6 @@ INPUTS = _resolve({
     # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
     # is listed here, not under every console (that would move every host stamp).
     ('amiga',): (
-        'licenses/vamiga.md',
         'native/amiga_machine/CMakeLists.txt',
         'native/amiga_machine/amiga_player.c',
         'native/amiga_machine/amiga_savefile.h',
@@ -671,8 +656,6 @@ INPUTS = _resolve({
     # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE
     # above). The profile module comes from the profile; the computer adapter and the gates it shares come from stamp_groups.
     ('atarist',): (
-        'licenses/emutos.md',
-        'licenses/hatari.md',
         'native/atarist_machine/CMakeLists.txt',
         'native/atarist_machine/atarist_player.c',
         'native/atarist_machine/atarist_session.c',
@@ -691,7 +674,6 @@ INPUTS = _resolve({
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
     ('n64',): (
-        'licenses/mupen64plus-next.md',
         'native/hostkit/adapters/rrhk_n64.inc',
         'native/n64_machine/CMakeLists.txt',
         'native/n64_machine/glue/GLideN64_libretro.h',
@@ -802,7 +784,6 @@ INPUTS = _resolve({
         'tools/x68000_state_hardware.py',
     ),
     ('gba',): (
-        'licenses/gbarecomp.md',
         'native/gba_driver.h',
         'native/gba_machine.cpp',
         'native/gba_machine.h',
@@ -822,8 +803,6 @@ INPUTS = _resolve({
     # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
     ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
-        'licenses/cps1-machine.md',
-        'licenses/cps1-ymfm.md',
         'native/cps1_cps2_board.inc',
         'native/cps1_eeprom.c',
         'native/cps1_eeprom.h',
@@ -870,8 +849,6 @@ INPUTS = _resolve({
     # Adventure (ScummVM): the GPL patch of the runtime and its notices are the game side of its exes (the runtime is the
     # machine, like native/x68000_machine); scummvm_build decides the runtime (build role, BUILD_MODULES).
     ('scummvm',): (
-        'licenses/freetype.md',
-        'licenses/scummvm.md',
         'native/scummvm/LICENSE',
         'native/scummvm/README.md',
         'native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch',
@@ -880,7 +857,6 @@ INPUTS = _resolve({
         'retrorecomp.scummvm_export',
     ),
     ('pce',): (
-        'licenses/pcenginerecomp.md',
         'native/pce_backup.c',
         'native/pce_backup.h',
         'native/pce_machine.cpp',
@@ -894,7 +870,6 @@ INPUTS = _resolve({
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
     # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
     ('psx',): (
-        'licenses/beetle-psx.md',
         'native/psx_machine/CMakeLists.txt',
         'native/psx_machine/psx_main.c',
         'native/psx_machine/psx_observe.c',

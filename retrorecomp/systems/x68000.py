@@ -6,6 +6,8 @@ from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, 
 
 class X68000Profile(SystemProfile):
     id = 'x68'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/x68000-machine.md', 'licenses/fmgen.md', 'licenses/musashi.md', 'licenses/segagenesisrecomp.md')
     name = 'Sharp X68000'
     extensions = ('.dim', '.xdf', '.m3u', '.d88', '.88d', '.hdm', '.2hd', '.dup')
     export_folder = 'Sharp X68000'

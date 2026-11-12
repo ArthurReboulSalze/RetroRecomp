@@ -450,11 +450,11 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
     if content is not None:
         from . import __version__
         if bios is None: raise ValueError('Neo Geo needs an explicitly selected BIOS archive.')
-        notices = []
-        for file in (geo / 'LICENSE', geo / 'src/m68k/readme.txt',
-                     geo / 'deps/speex/COPYING', litho / 'LICENSE',
-                     ASSETS / 'LICENSE', ASSETS / 'licenses/SDL2.md', ASSETS / 'licenses/xbr.md', ASSETS / 'licenses/Noto.md', ASSETS / 'licenses/UPX.md', ASSETS / 'licenses/llvm-mingw.md'):
-            if file.is_file(): notices.append(file.read_text(encoding='utf-8'))
+        # The declared files (notices.py) hold Geolith's, lithogen's and Musashi's terms and, for the native route, those of
+        # the reused MC68000 semantics (GenesisRecomp and m68k-recomp-core). The rest is only in the pinned sources.
+        from .notices import notice_text
+        extra = [(file.parent.name + '/' + file.name, file.read_text(encoding='utf-8'))
+                 for file in (geo / 'src/m68k/readme.txt', geo / 'deps/speex/COPYING') if file.is_file()]
         # Component headers carry additional complete notices retained here.
         for file in (geo / 'src/z80/z80.c', geo / 'src/ymfm/ymfm_opn.c',
                      geo / 'deps/miniz/miniz.c', geo / 'deps/speex/resample.c',
@@ -465,16 +465,11 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
                 marker = 'This software is available as a choice of the following licenses.'
                 position = text.rfind(marker)
                 if position < 0: raise ValueError('Pinned dr_flac licence footer changed.')
-                notices.append(text[position:])
+                extra.append((file.name, text[position:]))
             else:
-                notices.append(text.split('*/', 1)[0] + '*/')
-        write_changed(project / 'notices.txt', '\n\n'.join(notices))
-        if native:
-            # Reused qualified MC68000 semantics retain their upstream notices.
-            # Use the same complete notice files as the Mega Drive export.
-            for notice in (ROOT/'.deps/segagenesisrecomp/LICENSE',ROOT/'.deps/segagenesisrecomp/external/m68k-recomp-core/LICENSE'):
-                if notice.is_file():notices.append(notice.read_text(encoding='utf-8'))
-            write_changed(project/'notices.txt','\n\n'.join(notices))
+                extra.append((file.name, text.split('*/', 1)[0] + '*/'))
+        write_changed(project / 'notices.txt', notice_text(
+            'ng', optional=('licenses/segagenesisrecomp.md',) if native else (), extra=extra))
         raw_content = content.read_bytes()
         packed_content = project / 'cartridge.pack'
         pack_receipt = project/'cartridge-pack.json'

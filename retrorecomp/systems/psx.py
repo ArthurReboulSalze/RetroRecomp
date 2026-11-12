@@ -25,6 +25,8 @@ RAW_EXTENSIONS = ('.bin',)
 
 class PlayStationProfile(SystemProfile):
     id = 'psx'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/beetle-psx.md',)
     name = 'Sony PlayStation'
     extensions = DISC_EXTENSIONS
     export_folder = 'PlayStation'

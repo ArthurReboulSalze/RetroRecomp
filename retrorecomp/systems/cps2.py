@@ -11,6 +11,8 @@ from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, R
 
 class Cps2Profile(SystemProfile):
     id = 'cps2'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 'licenses/musashi.md', 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md')
     name = 'Capcom CPS-2'
     extensions = ('.zip',)
     export_folder = 'CPS-2'

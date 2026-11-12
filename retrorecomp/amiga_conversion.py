@@ -39,8 +39,6 @@ from .toolchain import describe as toolchain_description, suffix as toolchain_su
 PLAYER = 'RetroRecomp-Amiga'
 # The notices every exported Amiga game carries (resource 203, as on the other machines): the vAmiga Core (MPL-2.0 per file) and
 # Moira (MIT), SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/vamiga.md', 'licenses/SDL2.md', 'licenses/xbr.md',
-                'licenses/Noto.md', 'licenses/UPX.md', 'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 # The player's Kickstart in the player's own export (decision D1, 6 November 2026): 1.x images (256 KiB) only, for now.
 KICKSTART_RESOURCE = 298
@@ -239,7 +237,8 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
     branding.write_bytes(marker)
     resources[299] = branding
     notices = project / 'notices.txt'
-    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES), encoding='utf-8')
+    from .notices import notice_text
+    notices.write_text(notice_text('amiga'), encoding='utf-8')
     resources[NOTICE_RESOURCE] = notices
     if kickstart is not None:
         resources[KICKSTART_RESOURCE] = kickstart

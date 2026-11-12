@@ -26,9 +26,6 @@ SUPPORT = ('platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu
            'console16_video.h', 'runtime_feedback.h', 'runtime_feedback.c', 'runtime_feedback_sdl.h',
            'gba_machine.h', 'gba_machine.cpp')
 ROM_RESOURCE, BIOS_RESOURCE, NOTICES_RESOURCE, IDENTITY_RESOURCE = 201, 202, 203, 205
-NOTICE_FILES = (('RetroRecomp', 'LICENSE'), ('gbarecomp', 'licenses/gbarecomp.md'), ('SDL2', 'licenses/SDL2.md'),
-                ('xBR', 'licenses/xbr.md'), ('Noto fonts', 'licenses/Noto.md'),
-                ('Portable compiler runtime', 'licenses/llvm-mingw.md'))
 
 CMAKE = '''cmake_minimum_required(VERSION 3.20)
 project(gba_game C CXX)
@@ -88,13 +85,11 @@ def prepare(player: Path, stage: Path, game: Path, bios_code: Path, rom_file: Pa
                                               '#define RR_GBA_ROM_RESOURCE %d\n#define RR_GBA_BIOS_RESOURCE %d\n'
                                               % (json.dumps(title), json.dumps(name), sha1, ROM_RESOURCE, BIOS_RESOURCE)).encode('utf-8'))
     write_if_changed(player / 'runtime_feedback_config.h', f'#define RR_FEEDBACK_SYSTEM "gba"\n#define RR_FEEDBACK_IDENTITY "{sha256}"\n'.encode('ascii'))
-    notices = []
-    for label, file in NOTICE_FILES:
-        notices.append(f'## {label}\n\n' + (ASSETS / file).read_text(encoding='utf-8'))
+    from .notices import notice_text
+    # The submodule's own licence file at the pin, beside the page that quotes it (licenses/gbarecomp.md).
     arm_core = stage / 'external/arm-recomp-core/LICENSE'
-    if arm_core.is_file():
-        notices.append('## arm-recomp-core\n\n' + arm_core.read_text(encoding='utf-8'))
-    write_if_changed(player / 'notices.txt', '\n\n'.join(notices).encode('utf-8'))
+    extra = [('arm-recomp-core', arm_core.read_text(encoding='utf-8'))] if arm_core.is_file() else []
+    write_if_changed(player / 'notices.txt', notice_text('gba', extra=extra).encode('utf-8'))
     write_if_changed(player / 'export-identity.bin', b'[Retro-Recomp]\0' + sha256.encode('ascii') + b'\0')
     from .metadata import write_game_metadata
     metadata = player / 'game_resources.rc'

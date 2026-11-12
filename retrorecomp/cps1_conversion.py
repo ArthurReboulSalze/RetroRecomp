@@ -158,6 +158,26 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
 
+def write_notices(project: Path, family: str) -> None:
+    """The game's notices (resource 203), from the shared builder (notices.py): the files the profile declares, then what only
+    the pinned Geolith sources carry. Written over the text `cps1_build.prepare_game` leaves, before the build reads the file.
+    That older assembly (`cps1_build.NOTICE_FILES`) stays in place because `cps1_build.py` is a pinned generator source
+    (`cps1_knowledge.GENERATOR_REVISION`): a notice is no reason to make the qualified CPS paths wait again. It is to be deleted
+    with the next generator revision. The resource script does not track the files it names, so it is touched when the text
+    it must carry is new for this project."""
+    from .conversion_common import write_if_changed
+    from .cps1_build import sources
+    from .notices import notice_text
+    geolith, _ = sources()
+    extra = [('m68k/readme.txt', (geolith / 'src/m68k/readme.txt').read_text(encoding='utf-8'))]
+    extra += [(file.name, file.read_text(encoding='utf-8').split('*/', 1)[0] + '*/')
+              for file in (geolith / 'src/z80/z80.c', geolith / 'deps/miniz/miniz.c')]
+    data = notice_text(family, extra=extra).replace('\n', os.linesep).encode('utf-8')
+    (project / 'notices.txt').write_bytes(data)
+    if write_if_changed(project / 'notices.sha256', hashlib.sha256(data).hexdigest().encode('ascii')) and (project / 'content.rc').is_file():
+        (project / 'content.rc').touch()
+
+
 def audio_model(dsp_rom: bytes | None) -> dict:
     """The sound of the board. On a QSound board the DSP16 is not run: a high-level model of it stands in, written from the disassembled
     program (MAME's qsoundhle.cpp), so the DSP16 is not executed (`executed: false`, and no figure that could be mistaken for a zero count
@@ -290,6 +310,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             with stages.phase('code_generation'):
                 prepared = prepare_game(project, game_set, game, title=title, observations=observations,
                                         presentation=presentation, hints=shared_hints, dsp_rom=dsp_rom)
+                write_notices(project, getattr(game_set, 'system_id', family))
             with stages.phase('compile'):
                 executable = build_game(project)
             timings[f'translate_and_build_{attempt + 1}'] = round(time.perf_counter() - phase, 3)

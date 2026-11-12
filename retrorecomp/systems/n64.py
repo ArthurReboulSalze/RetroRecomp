@@ -21,6 +21,8 @@ APERTURES = ((0x80000000, 0x80800000),)
 
 class Nintendo64Profile(SystemProfile):
     id = 'n64'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/mupen64plus-next.md',)
     name = 'Nintendo 64'
     extensions = ('.z64', '.v64', '.n64')
     export_folder = 'Nintendo 64'

@@ -473,15 +473,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun, mapper=rom.mapper)
         metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
             icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
-        notice = 'NES executable: component license notices.\n\n'
-        for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
-                                  ('NESRecomp', engine / 'LICENSE'),
-                                  ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
-                                  ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
-                                  ('SDL2', ASSETS / 'licenses/SDL2.md'),
-                                  ('Portable compiler runtime', ASSETS / 'licenses/llvm-mingw.md')]:
-            notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
-        (project / 'game_legal.md').write_text(notice, encoding='utf-8')
+        from .notices import notice_text
+        (project / 'game_legal.md').write_text(notice_text('nes'), encoding='utf-8')
         (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
         with (project / 'game_resources.rc').open('a', encoding='utf-8') as resource:
             resource.write('102 RCDATA "game_legal.md"\n103 RCDATA "rom.nes"\n'

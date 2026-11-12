@@ -106,8 +106,8 @@ to `path_profiles.SHARED_SYSTEMS`, and change every prose sentence (`status_lint
 
 1. *Exports.* The game stamp hashes the machine's own modules and native files by bytecode: a change in the machine's engine
    moves only its stamp, so the old exports are reconverted or rediscovered, and nothing is claimed upgradable. Do not
-   add `LEGACY_GAME_STAMPS` entries for an experimental machine; list its own files under its own owner group and its licences
-   there too (`licenses/cps1-*.md`). A shared module (`m68000.py`, the kit) moves every machine that owns it.
+   add `LEGACY_GAME_STAMPS` entries for an experimental machine; list its own files under its own owner group; its licence
+   pages are declared on its profile (`notice_files`), which makes them its own host inputs. A shared module (`m68000.py`, the kit) moves every machine that owns it.
 2. *Stamps.* The manifest (`stamp_inputs.INPUTS`) is explicit: an unlisted file is ignored, a listed missing one is an error, so
    a work-in-progress file never moves a stamp by accident, and `tests/test_stamp_inputs.py` fails for a tracked file nobody
    listed.
@@ -170,7 +170,7 @@ writer's marker key and `final_checks` rows. Add the shape to `report_schema._SH
 must equal the profile, the registry test checks). Nothing is derived from another measure: native code, CPU fidelity, hardware
 fidelity, gameplay and latency stay five objects. Gate: G2.
 
-**8. Fingerprints.** `stamp_inputs.INPUTS`: one group for the machine's own modules, native files, licences and data (the
+**8. Fingerprints.** `stamp_inputs.INPUTS`: one group for the machine's own modules, native files and data (its licence pages come from its profile's `notice_files`; the
 only edit; an unlisted file is ignored, a listed missing one is an error, and `tests/test_stamp_inputs.py` fails for a tracked
 file nobody listed). Its profile module, its host adapter, the 68000 / 16-bit-host / host-kit families and the shell every
 console links come from the profile. The shared groups it reuses (`megadrive_codegen`, `neogeo_codegen`, `conversion_gates`,
@@ -205,8 +205,10 @@ UPGRADES (kit row), CONTROLS, ROADMAP, QUALIFICATION (a column of the matrix in 
 "Console | Page" table), the machine's own page. Prose that counts consoles ("nine") is
 hand-written in about ten places.
 
-**14. Licences and credits.** `licenses/<engine>.md` listed under the machine's own owner group (a licence listed for all consoles moves every
-host stamp; `THIRD_PARTY_NOTICES.md` does), the permissive engine preferred (MIT/BSD, as `ymfm` for CPS-1), the credits "Made by Retro-Recomp" line
+**14. Licences and credits.** `licenses/<engine>.md` for every component compiled into its games, declared on the profile
+(`notice_files`; `optional_notice_files` for a part only some games use): `retrorecomp/notices.py` builds each game's embedded text
+from that list and the stamps take the file's owners from it, so the notice moves no other machine's stamp. A row in
+`THIRD_PARTY_NOTICES.md` (the public list, an input of no game) and the upstream's notice in `tests/test_game_notices.py`. The permissive engine preferred (MIT/BSD, as `ymfm` for CPS-1), the credits "Made by Retro-Recomp" line
 in eight languages only for a major piece of our own work (STANDARDS rule 13). Rule 10: shared code is MIT.
 
 **15. Checks to run.** `python -B -m unittest discover -s tests -q` (about 6 minutes, 1,786 tests),

@@ -41,8 +41,6 @@ PLAYER = 'RetroRecomp-N64'
 # The notices every exported N64 game carries (resource 203, as on the other machines): Retro-Recomp's licence, Mupen64Plus-Next
 # and its parts (GPL-2.0-or-later core, MIT ParaLLEl, LGPL-3.0-or-later Lightning, the GPL-3.0 text and where the corresponding
 # source is), SDL and the host kit's parts.
-NOTICE_FILES = ('LICENSE', 'licenses/mupen64plus-next.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md',
-                'licenses/llvm-mingw.md')
 NOTICE_RESOURCE = 203
 ROM_RESOURCE = 298
 MARKER_RESOURCE = 299
@@ -238,7 +236,8 @@ def reference_build(base: Path, tree: Path, core: Path, stamp: str, emit) -> Pat
 
 
 def notice_files() -> tuple[str, ...]:
-    return NOTICE_FILES
+    from . import notices
+    return (notices.OWN_LICENCE, *notices.notice_files('n64'))
 
 
 def payload(project: Path, source, title: str, native: bool) -> dict:
@@ -252,7 +251,8 @@ def payload(project: Path, source, title: str, native: bool) -> dict:
     (project / 'export-marker.bin').write_bytes(marker)
     resources[MARKER_RESOURCE] = project / 'export-marker.bin'
     notices = project / 'notices.txt'
-    notices.write_text('\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in notice_files()), encoding='utf-8')
+    from .notices import notice_text
+    notices.write_text(notice_text('n64'), encoding='utf-8')
     resources[NOTICE_RESOURCE] = notices
     (project / 'cartridge.bin').write_bytes(source.data())
     resources[ROM_RESOURCE] = project / 'cartridge.bin'

@@ -120,8 +120,6 @@ GAME_FILES = ('pce_main.c', 'pce_machine.cpp', 'pce_machine.h', 'pce_backup.c', 
               'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
               'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
               'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h')
-NOTICE_FILES = ('LICENSE', 'licenses/pcenginerecomp.md', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md',
-                'licenses/UPX.md', 'licenses/llvm-mingw.md')
 STATE_SYSTEM = 5      # the quick-state header's machine number (1 Mega Drive, 2 Super Nintendo, 3 Neo Geo, 4 CPS-1)
 
 
@@ -208,8 +206,8 @@ def prepare_game(project: Path, card, *, title: str, module: Path | None = None,
     for name in GAME_FILES:
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
     hostkit.stage(project, 'pce')
-    notices = [(ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES if (ASSETS / name).is_file()]
-    _write(project / 'notices.txt', '\n\n'.join(notices))
+    from .notices import notice_text
+    _write(project / 'notices.txt', notice_text('pce'))
     rom = project / 'hucard.pce'
     from .pce_rom import file_bytes
     data = file_bytes(card.path)

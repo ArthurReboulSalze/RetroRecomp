@@ -303,13 +303,10 @@ def _first_icon_group(exe: Path):
 # --- licence pack and cover ---------------------------------------------------------------------------------------------
 
 def legal_notice() -> str:
-    """The licence pack stored in every exe (pack member '.rr/legal.md'): the written offer, the GPL text, FreeType, SDL2."""
-    from .paths import ASSETS
-    parts = [('Licences of this executable', ASSETS / 'licenses' / 'scummvm.md'),
-             ('GNU General Public License', ASSETS / 'native' / 'scummvm' / 'LICENSE'),
-             ('FreeType', ASSETS / 'licenses' / 'freetype.md'),
-             ('SDL2', ASSETS / 'licenses' / 'SDL2.md')]
-    return '\n\n'.join(f'# {title}\n\n' + path.read_text(encoding='utf-8') for title, path in parts)
+    """The licence pack stored in every exe (pack member '.rr/legal.md'): the written offer, the GPL text, FreeType, SDL2 and
+    the compiler's runtime, as the profile declares them (notices.py)."""
+    from .notices import notice_text
+    return notice_text('scummvm')
 
 
 def folder_cover(title: str, game_folder: Path, *, online: bool = True, emit=print) -> Path:

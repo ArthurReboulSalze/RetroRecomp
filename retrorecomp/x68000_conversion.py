@@ -204,6 +204,9 @@ def payload(project, source, manifest, title, artwork, mouse_game=False):
     # moving an EXE without its report does not lose collection ownership.
     marker=b'[Retro-Recomp]\0'+source.sha256.encode()+b'\0'
     branding=project/'export-marker.bin';branding.write_bytes(marker);resources[299]=branding
+    # The notices of the components compiled into the game (notices.py), resource 203 as on the other machines.
+    from .notices import notice_text
+    notices=project/'notices.txt';notices.write_text(notice_text('x68'),encoding='utf-8');resources[203]=notices
     def add(name, content, writable=False):
         identifier=300+len(files);path=project/('blob-%03d.bin'%identifier)
         path.write_bytes(content);resources[identifier]=path

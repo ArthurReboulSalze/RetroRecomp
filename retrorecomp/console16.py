@@ -496,30 +496,23 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
 
 
 def _notice(engine: Path, system_id: str) -> str:
-    components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'), ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
-                  ('UPX', ASSETS / 'licenses/UPX.md'), ('Portable compiler runtime', ASSETS / 'licenses/llvm-mingw.md')]
+    """The game's notices (notices.py): the declared files, then what only the pinned engine carries."""
+    from .notices import notice_text
+    read = lambda path: path.read_text(encoding='utf-8')
     if system_id == 'md':
-        components += [('GenesisRecomp', engine / 'LICENSE.md'),
-                       ('GenesisRecomp recompiler', engine / 'LICENSE-recompiler'),
-                       ('Third-party attribution', engine / 'THIRD-PARTY-LICENSES.md'),
-                       ('m68k-recomp-core', engine / 'external/m68k-recomp-core/LICENSE')]
-        components += [(name, engine / 'runner/external' / name / filename)
-                       for name, filename in [('ymfm', 'LICENSE'), ('superzazu', 'LICENSE'),
-                                              ('clowncommon', 'LICENCE.txt'), ('minicoro', 'LICENSE')]]
+        # licenses/segagenesisrecomp.md holds the engine's, the recompiler's and m68k-recomp-core's terms.
+        extra = [(name, read(engine / 'runner/external' / name / filename))
+                 for name, filename in [('ymfm', 'LICENSE'), ('superzazu', 'LICENSE'),
+                                        ('clowncommon', 'LICENCE.txt'), ('minicoro', 'LICENSE')]]
         # Retain the assembly's separate MIT notice as well.
-        header = (engine / 'runner/external/minicoro/minicoro.h').read_text(encoding='utf-8')
+        header = read(engine / 'runner/external/minicoro/minicoro.h')
         first = header.index('Copyright (C) 2004-2016 Mike Pall.')
-        assembly_notice = header[first:header.index('*/', first)]
+        extra.append(('minicoro assembly', header[first:header.index('*/', first)]))
     else:
-        components += [('SNESRecomp', engine / 'LICENSE'),
-                       ('SNES third-party attribution', engine / 'THIRD_PARTY_ATTRIBUTION.md')]
-        components += [('Color-science core ' + name, engine / 'third_party/psxrecomp_color_lut' / name)
-                       for name in ('LICENSE-MIT.txt', 'LICENSE-APACHE-2.0.txt',
-                                    'LICENSE-POLYFORM-NONCOMMERCIAL-1.0.0.txt')]
-        assembly_notice = ''
-    return ('RetroRecomp 16-bit test executable. Component licences remain separate.\n\n' +
-            '\n\n'.join(f'## {name}\n\n{source.read_text(encoding="utf-8")}' for name, source in components) +
-            '\n\n' + assembly_notice)
+        extra = [('SNES third-party attribution (engine copy at the pin)', read(engine / 'THIRD_PARTY_ATTRIBUTION.md'))]
+        extra += [('Color-science core ' + name, read(engine / 'third_party/psxrecomp_color_lut' / name))
+                  for name in ('LICENSE-MIT.txt', 'LICENSE-APACHE-2.0.txt', 'LICENSE-POLYFORM-NONCOMMERCIAL-1.0.0.txt')]
+    return notice_text(system_id, extra=extra)
 
 
 def _md_scan_script(directory: Path, frames: int, *, six_buttons=False, gun_menu=None) -> Path:

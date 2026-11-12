@@ -39,6 +39,8 @@ def refine_by_header(profile: SystemProfile, path: Path, data: bytes | None) -> 
 
 class MasterSystemProfile(SystemProfile):
     id = "sms"
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
     name = "Master System"
     extensions = (".sms",)
     archived_rom_limits = (('.sms', 4 * 1024 * 1024 + 512),)

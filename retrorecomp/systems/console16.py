@@ -7,6 +7,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class MegaDriveProfile(SystemProfile):
     id = 'md'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/segagenesisrecomp.md',)
     name = 'Mega Drive'
     extensions = ('.md', '.gen')
     archived_rom_limits = (('.md', 8 * 1024 * 1024), ('.gen', 8 * 1024 * 1024))
@@ -65,6 +67,8 @@ class MegaDriveProfile(SystemProfile):
 
 class SnesProfile(SystemProfile):
     id = 'snes'
+    # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
+    notice_files = ('licenses/snesrecomp.md',)
     name = 'Super Nintendo'
     # .fig is the Pro Fighter copier's extension: a 512-byte copier header before the image, like .smc.
     extensions = ('.sfc', '.smc', '.fig')

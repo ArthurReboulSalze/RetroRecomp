@@ -166,6 +166,47 @@ so **every console's game stamp moves** (it moves in 1.7.3 anyway, see the next 
 
 **Quick states:** unchanged.
 
+## Every console: each game embeds the notices of its own components (1.7.3)
+
+Until 1.7.2 the complete public list, `THIRD_PARTY_NOTICES.md`, was a host input of every console (and was embedded as it stood in
+the Master System and Game Gear games), and most licence pages were listed for all consoles. One machine's new row therefore moved
+the host stamp of every other machine. From 1.7.3:
+
+- **A game embeds the notices of the components compiled into it, and no other.** The text is built in one place
+  (`retrorecomp/notices.py`) from the lists its machine's profile declares: `notice_files` (the machine's engines and chips),
+  `optional_notice_files` (only the games that use the part: EmuTOS on the Atari ST, the reused 68000 semantics on the Neo Geo's
+  native route) and the player shell's `SHELL_NOTICE_FILES` (SDL2, the xBR filter, the menu fonts, the portable compiler's runtime,
+  UPX). Retro-Recomp's own licence is always there. What only the pinned engine carries (a vendored library's licence file, a source
+  header) is still read from the engine at its pin and added after the declared files (Mega Drive, Super Nintendo, Neo Geo, CPS-1,
+  CPS-2). A declared file that is missing stops the conversion: a notice is never dropped silently. The CPS family's text is
+  written by `cps1_conversion.write_notices` over the one `cps1_build.py` still prepares: that file is a pinned generator source, and a
+  notice is no reason to raise `GENERATOR_REVISION` and make the qualified CPS paths wait again; its old list goes with the next revision.
+- **Each notice file is a host input of the machines that embed it only.** `stamp_inputs.py` lists no licence file any more: it reads
+  the same profile lists, so the owners of a notice are exactly the machines that declare it. `THIRD_PARTY_NOTICES.md` stays the
+  complete public list of the converter distribution and is an input of no game. The notices of the converter's own runtime (Python,
+  Tcl/Tk, Pillow, PyInstaller, OpenSSL, zlib, the Linux desktop parts, the Noto interface fonts) and of the development test vectors
+  are declared out of the stamps (`NOT_INPUTS`).
+- **The third-party content of each machine is complete, and in several cases better than before.** Nothing a game compiles lost its
+  notice. Added: the X68000 games, which embedded no notice at all, now carry theirs as resource 203 (machine runtime, FMGEN, Musashi,
+  the reused 68000 semantics); the Neo Geo's native route now carries GenesisRecomp's own terms (it looked for a file the pinned engine
+  does not have, and silently carried only the decoder's); the Master System, Game Gear, Game Boy, NES and Game Boy Advance games
+  carry UPX's notice like the others; every machine names the menu fonts (X.Org Misc Fixed, public domain;
+  `licenses/misc-fixed.md`); the adventure executables carry the compiler runtime's notice. `licenses/smsggrecomp.md` is new: the
+  permission and its limits, as the public list words them. Removed: the Noto font notice (no game holds a Noto glyph, see
+  [LANGUAGES.md](LANGUAGES.md)), and, in the Master System and Game Gear games, the public list itself with its rows about the other
+  machines and the converter; their second notice resource (104, `filter_legal.txt`) is folded into the one text, which
+  `--credits` prints. The NES, the Neo Geo and the CPS family read their engines' own terms from the licence pages (the same texts as
+  the pinned files) instead of the checkout.
+
+**Hot path:** no. **Proof:** `tests/test_game_notices.py` (every profile's text holds each declared file; the declared lists cover
+`MACHINE_UPSTREAMS`; a notice's owners are its embedders; a new machine's notice changes no other machine's inputs or stamps;
+editing one machine's notice moves that machine's host stamp alone), `tests/test_stamp_inputs.py`.
+
+**What moves:** **the host stamp of every console, once** (the new host module, the notice files each machine now owns, the public
+list leaving the inputs). The modules that write the notices are game-side, so the game stamps move too (every game stamp moves in
+1.7.3 anyway). **From now on a new machine's notice moves only its own stamps**: it declares its files on its profile and adds a row
+to the public list, which no game reads. **Quick states:** unchanged.
+
 ## Every console: a conversion with its own library reads no player's record of the player's exports (1.7.3)
 
 A conversion given its own library (`RETRO_RECOMP_LIBRARY_DIR`: a test, a campaign) still read the player's own records
@@ -2025,7 +2066,7 @@ The same categories apply to every machine:
 | On-screen text and fonts | `runtime_catalog.inc`, `runtime_i18n.h`, `font6x10.h`, `font10x20.h` |
 | Presentation | `scale2x.h`, `scanlines.h`, `scanline_sdl.h`, `xbr_filter.h`, `xbr_sdl.h`, `display_settings.h`, `icon.c/.h` |
 | Sound output after the emulated mixer | `audio_filter.h`, `audio_cushion.h`, `audio_output.inc`, `hostkit/shell/rrhk_ring.c`, `md_audio_loop.inc`, `md_audio_resample.inc`, `megadrive_audio.py` |
-| Artwork, metadata, publishing | `artwork.py`, `cover_*.py`, `metadata.py`, `languages.py`, `publishing.py`, `windows.py`, `licenses/*.md`, `THIRD_PARTY_NOTICES.md`, application icons |
+| Artwork, metadata, publishing | `artwork.py`, `cover_*.py`, `metadata.py`, `languages.py`, `publishing.py`, `windows.py`, `notices.py`, the `licenses/*.md` a machine's profile declares, application icons |
 | Checks of the above | `game_options_checks.c`, `language_checks.c`, `xbr_checks.c`, `display_settings_checks.c`, `icon_checks.c`, `audio_checks.c`, `nes_audio_checks.c` |
 
 Each machine family has one shell for its window, menus and input:
@@ -2089,7 +2130,8 @@ pins on a synthetic input.
   every new converter module, is added to `INPUTS` with its owners (or to
   `NOT_INPUTS` / `INTERFACE_MODULES` when no game depends on it). The
   completeness test names what is missing. Its role (host, build or game) comes
-  from the tables below.
+  from the tables below. A licence page a game embeds is not listed there: the machine's profile declares it
+  (`notice_files`) and that makes it a host input of that machine only.
 - A new menu, text, filter or shell file: add it to `HOST_NATIVE` or
   `HOST_MODULES`, and to the tables above, only if no headless discovery or
   validation run uses it.
