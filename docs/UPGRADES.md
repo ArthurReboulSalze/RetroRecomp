@@ -166,6 +166,14 @@ so **every console's game stamp moves** (it moves in 1.7.3 anyway, see the next 
 
 **Quick states:** unchanged.
 
+## Every console: a conversion with its own library reads no player's record of the player's exports (1.7.3)
+
+A conversion given its own library (`RETRO_RECOMP_LIBRARY_DIR`: a test, a campaign) still read the player's own records
+(`datas/fallbacks/*.rrfb`) beside the player's exports and in the folders the Options name, so a test's counts could depend on what the
+player had played. It now reads only the records beside its own output, as its path banks were already set aside
+(`feedback._isolated`). A player's normal conversion is unchanged. Proof: `tests/test_feedback.py`. **Hot path:** no. **What moves:**
+`retrorecomp/feedback.py` is a game-stamp input of every console (every game stamp moves in 1.7.3 anyway). **Quick states:** unchanged.
+
 ## Every console: a step still writing goes past its time limit (after 1.7.2)
 
 A player's small PC needed more than 30 minutes to compile Kirby's Adventure, and the conversion stopped at the step's fixed limit

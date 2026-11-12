@@ -295,6 +295,13 @@ def import_saved_feedback(system: str, preferences: dict, *, emit=lambda message
             'fresh_validation_required': True}
 
 
+def _isolated() -> bool:
+    """A conversion with its own library (RETRO_RECOMP_LIBRARY_DIR: a test, a campaign) reads no player's record beside the
+    player's exports or in the folders the Options name, only beside its own output: what it learns stays its own, as for
+    the path banks (knowledge.disabled)."""
+    return bool(os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR'))
+
+
 def ingest(system: str, identity: str, output: Path | None, *, emit=lambda message: None) -> dict:
     """Import beside the selected exports and retain locally across regenerations.
 
@@ -303,7 +310,8 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
     """
     from .paths import load_preferences, feedback_search_paths
     preferences = load_preferences()
-    locations = _export_locations(system, preferences)
+    isolated = _isolated()
+    locations = [] if isolated else _export_locations(system, preferences)
     if output is not None:
         selected = Path(output).resolve()
         locations += [selected, *selected.parents]
@@ -321,7 +329,7 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
             dropped = max(dropped, len(found)-LIMIT)
             for row in sorted(found, key=lambda row: (-found[row], row))[LIMIT:]:
                 del found[row]
-    extra = feedback_search_paths(preferences).get(system)
+    extra = None if isolated else feedback_search_paths(preferences).get(system)
     for directory in set(locations):
         path = directory / 'datas/fallbacks' / f'{system}-{identity}.rrfb'
         rows, overflow = _read(path, system, identity)

@@ -63,8 +63,11 @@ class FeedbackTests(unittest.TestCase):
         before={p:p.stat().st_mtime_ns for p in (self.root/'moved').rglob('*')}
         settings={'feedback_paths':{'sms':str(self.root/'moved')}}
         with patch('retrorecomp.paths.load_preferences',return_value=settings):
-            self.assertEqual(feedback.ingest('sms',self.identity,self.root/'new output')['unique_candidates'],1)
-            self.assertEqual(feedback.ingest('gg',self.identity,self.root/'new output')['unique_candidates'],0)
+            # A conversion with its own library (this test's) reads no folder of the player's.
+            self.assertEqual(feedback.ingest('sms',self.identity,self.root/'new output')['unique_candidates'],0)
+            with patch('retrorecomp.feedback._isolated',return_value=False):
+                self.assertEqual(feedback.ingest('sms',self.identity,self.root/'new output')['unique_candidates'],1)
+                self.assertEqual(feedback.ingest('gg',self.identity,self.root/'new output')['unique_candidates'],0)
         self.assertEqual(before,{p:p.stat().st_mtime_ns for p in (self.root/'moved').rglob('*')})
 
     def test_feedback_search_preferences_support_relative_paths_and_ignore_invalid_fields(self):
