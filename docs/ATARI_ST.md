@@ -75,6 +75,15 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    and walks each into instructions (`retrorecomp/m68k_record_walk.py`, shared with the Amiga): the first ran there ("learned"), the others a walk through the window finds
    ("walked", which may never have run). They become native code with the same guard, counted apart (`player_record` and `final_checks.native_learned`/`native_walked` in the
    report). The routes prove the game as before; they cannot prove these instructions, since what a route runs is observed and counts as observed.
+8. **The sweep beyond the routes** (since 1.7.3). Code a game loads or unpacks after the conversion's routes end is not in any observation. At its end each fresh reference run
+   leaves an image of the RAM at its last frame (`--ram-dump-at`, read by the conversion and deleted: the game's bytes are never kept), and the sweep walks it, with the TOS ROM, from
+   the instructions the routes ran (`retrorecomp/m68k_record_walk.py`, shared; the Atari ST's `atarist_codegen.sweep`): from an observed instruction that the image still holds as it
+   was observed (a stale one starts nothing) it follows branches, DBcc, JSR and JMP with an absolute or PC-relative address, and what falls through, up to an opcode Hatari's table sends to
+   its exception handlers, an address outside the machine's apertures, or the cap of 60,000 instructions added (a capped sweep says so in the report and in a message). What it reaches
+   becomes native code with the same guard as the others, counted apart (`sweep` in the report, `final_checks.native_swept`): it was only reached from observed code, so no route proves it,
+   and on the routes the count is 0 by construction. A block that the game rewrites before it jumps in is the guard's case: another opcode there and the routine never runs (the interpreter does),
+   the same opcode with another extension word runs the routine, which reads the new word on the bus (`tools/atarist_sweep_guard_check.py`, three variants on an authored program, native and
+   interpreted traces byte-identical). A page fill (every even address of a page where code ran) is written and tested but left off: it costs more than it gives.
 
 ## 3. The five measures
 
@@ -145,6 +154,12 @@ fresh interpreted reference and the compressed copy; a state continues on every 
 from 6.91 % native to 100.00 % at the next conversion (3,912 windows read, 3,669 learned and 2,814 walked instructions; in the window 11,993,335 learned and 668,026 walked executions), and Indiana
 Jones from 569 interpreted instructions in its window to 0. Recording changed nothing in the run (traces equal with and without it), and beyond the routes the reconverted game's trace equals the
 interpreted run of the same build on 5,400 and 4,700 frames. A session covers what it played, nothing more.
+**The sweep reaches code no route ran, with no session needed** (1.7.3, Standard level from an empty library, TOS 1.04 for Turrican II and EmuTOS for Bomb Jack, the delivered game on the play script, 12 November 2026):
+Turrican II's window of play (frames 3,800 to 5,200) goes from 6.91 % of its instructions native to 73.00 % (9,928,216 of 13,601,146, of which 8,988,431 swept; the interpreter ran 3,672,930); 26,801 instructions
+were swept (10,870 roots of which 2,222 stale, 31,706 reached, not capped), 32,419 native instructions in 2,726 forms against 5,618 in 1,618. Bomb Jack's window (frames 3,000 to 4,500) was already 99.9998 %
+native (17 interpreted of 10,353,857) and the sweep takes those 17 (6,550 swept, 17,330 native instructions against 10,780). The native and the interpreted (`--reference-cpu`) traces of every frame are
+byte-identical on 5,200 and 4,500 frames, with and without the sweep. The routes' own counts do not change (`native_swept` is 0 on them). The cost is compile time and size: see `docs/UPGRADES.md`. The rest of
+Turrican II's window is what a static walk does not reach (calls and jumps through registers and tables, code unpacked later than the routes' end); a player's own record closes it, and a page fill (off), measured once on Turrican II, reaches 91.48 % (59,190 swept instructions, an exe of 42.6 MB against 29.3, packed 6.8 against 5.3, one cold compile of 88 s on a shared PC, trace equal), at a cost that grows faster than what it gives.
 
 IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool, not shipped) and
 against the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in the repository). Two defects

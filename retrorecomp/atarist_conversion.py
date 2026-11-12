@@ -230,6 +230,7 @@ def notice_files(emutos: bool) -> tuple[str, ...]:
 
 FEEDBACK_KIND = 24       # The Atari ST's kind in native/runtime_feedback.h and its profile's feedback_kinds.
 TOS_BASE = 0xFC0000      # where a 192 KiB TOS (1.00 to 1.04, EmuTOS's 192 KiB image) sits
+MEMORY_IMAGE = 'memory.bin'   # the RAM a reference run leaves at its last frame, for the sweep
 
 
 def tos_tag(tos: Path) -> str:
@@ -360,8 +361,22 @@ def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path
     return table
 
 
-def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None) -> dict:
-    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers), and of the windows of a player's own record."""
+def sweep_images(folders: list, tos: Path) -> list:
+    """The images of memory the sweep walks, one per route in the routes' order: the RAM the reference run left at its last frame (`memory.bin`, deleted once read: it is the game's and
+    the player's bytes, never kept) and the TOS ROM, as (start address, bytes) regions. A run that wrote no image leaves none."""
+    rom = tos.read_bytes()
+    images = []
+    for folder in folders:
+        dump = Path(folder) / MEMORY_IMAGE
+        if dump.is_file():
+            images.append([(0, dump.read_bytes()), (TOS_BASE, rom)])
+            dump.unlink()
+    return images
+
+
+def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None, images: list = ()) -> dict:
+    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers), of the windows of a player's own record, and of what a
+    sweep over the images of memory at the routes' end reaches from them."""
     from . import atarist_codegen, m68k_observed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('atarist').observed_code
@@ -373,9 +388,10 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path, wind
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
     usable = atarist_codegen.native_samples(samples)
     learned, walked = atarist_codegen.walk_records(windows, observed=observed, lengths=lengths.read_bytes()) if windows and lengths else ([], [])
-    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked)
+    swept, sweep_info = atarist_codegen.sweep(usable + learned, images, observed=observed, lengths=lengths.read_bytes(), known=walked) if images and lengths else ([], {})
+    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked, swept=swept)
     return {'samples': len(samples), 'with_handler': len(usable), 'instructions': steps['instructions'], 'native_instructions': steps['native_instructions'],
-            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'],
+            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'], 'swept_instructions': steps['swept_instructions'], 'sweep': sweep_info,
             'forms': steps['forms'], 'pcs': steps['pcs'], 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -521,12 +537,13 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             autostart, autostart_reason = None, f'TOS {tos.version_text()} has no autostart line (TOS 1.04 and EmuTOS have one)'
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
+                dump = ['--ram-dump-at', frames_, '--ram-dump', checks / f'reference-{name}' / MEMORY_IMAGE]
                 expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                        tos=media / 'tos.img', observe=True, lengths=lengths, autostart=autostart)
+                                        tos=media / 'tos.img', observe=True, lengths=lengths, autostart=autostart, extra=dump)
                 if autostart and not expected[name].get('desktop_started'):
                     autostart, autostart_reason = None, 'the boot never reached the desktop (the disk starts by itself)'
                     expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                            tos=media / 'tos.img', observe=True, lengths=lengths)
+                                            tos=media / 'tos.img', observe=True, lengths=lengths, extra=dump)
         if autostart:
             emit(f'Atari ST: the boot reaches the desktop; the desktop starts {autostart}.')
         samples = set()
@@ -548,6 +565,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         windows, record_counts = record_windows(records('atarist', source.sha256, FEEDBACK_KIND), media / 'tos.img', get_profile('atarist').observed_code)
         if windows:
             emit(f'Atari ST: {len(windows)} windows of the player\'s own record are used.')
+        # The routes' end: images of memory for the sweep (read now, the files deleted: nothing of the game's memory is kept).
+        images = sweep_images([checks / f'reference-{name}' for name, _, _ in routes], media / 'tos.img')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -561,8 +580,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes or 3), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths)
-            emit(f'Atari ST: {generation["native_instructions"]} instructions in {generation["forms"]} native forms ({generation["learned_instructions"] + generation["walked_instructions"]} from the player record); compiling the game.')
+                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths, images=images)
+            emit(f'Atari ST: {generation["native_instructions"]} instructions in {generation["forms"]} native forms ({generation["learned_instructions"] + generation["walked_instructions"]} from the player record, '
+                 f'{generation["swept_instructions"]} swept); compiling the game.')
+            if generation['sweep'].get('capped'):
+                emit(f'Atari ST: the sweep stopped at its limit of {generation["sweep"]["limit"]} instructions ({generation["sweep"]["left_at_cap"]} places left unvisited).')
             with timings.phase('compile'):
                 candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['native_instructions'] else None,
                                         payload=payload_dir, stamp=stamp)
@@ -631,7 +653,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted, 'chain_entries': results[name].get('chain_entries'),
-                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'),
+                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'), 'native_swept': results[name].get('native_swept'),
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
@@ -676,7 +698,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                               'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it; on the routes the count is 0 by construction, as what a route runs is observed",
                               'walked_means': 'found by walking a 16-byte window a session noted: it may never have run there, and no route proves it (final_checks.native_walked is 0 on the routes by construction)',
                               'private': True, 'shared': False},
-            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area), and those of the player record counted apart, as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
+            'sweep': {**generation['sweep'], 'swept_instructions': generation['swept_instructions'], 'page_fill': False,
+                      'swept_means': 'reached by a sweep over images of memory taken at the end of the routes, not seen running: the same guard on the latched opcode; on the routes the count is 0 by '
+                                     'construction, as what a route runs is observed (final_checks.native_swept)',
+                      'private': True, 'shared': False},
+            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area), those of the player record and those a sweep over the memory at the end of the routes reaches, the last two counted apart, as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
                                'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,

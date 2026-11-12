@@ -28,7 +28,7 @@ from .core import run
 from .m68000 import mnemonic_names
 from .megadrive_codegen import write_changed
 
-FORMAT = 3
+FORMAT = 4
 PARTS = 16
 _MAP: dict[int, str] = {}
 _MAP_SHA256 = ''
@@ -102,7 +102,7 @@ SEMANTICS = """#pragma once
 #include "m68000.h"
 #include "cycInt.h"
 #include "mfp.h"
-extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
 static inline __attribute__((always_inline)) int rr_st_quiet(void) {
     /* An interrupt level below the CPU's mask is the usual state of an ST (HBL pending): `do_specialties` then does nothing, as `time_for_interrupt` answers 0. */
     return !(regs.spcflags | regs.loop_mode | regs.memory_waitstate_cycles | MFP_UpdateNeeded) && regs.ipl[0] <= regs.intmask && regs.ipl[0] != 7 && regs.ce020extracycles < 16 &&
@@ -160,7 +160,7 @@ extern void exception2_fetch(uae_u32 opcode, int offset, int pcoffset) __attribu
 # has. A blitter at work (its own functions behind the pointers) and any other bank type go through Hatari's functions.
 BUS = """#include "step_semantics.h"
 #include "blitter.h"
-uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total;
+uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
 extern uae_u32 extra_cycle;
 static inline void cycles_add(int cycles) {
     currcycle += cycles + extra_cycle;
@@ -298,6 +298,21 @@ def walk_records(records: list, *, observed, lengths: bytes) -> tuple[list, list
     return walk_windows(records, observed=observed, words=lambda opcode: max(1, lengths[opcode]), stops=lambda opcode: _MAP.get(opcode, '-') == '-', whole=True)
 
 
+SWEEP_LIMIT = 60000       # the most instructions a sweep over images may add (more is compile time and size for code that may never run); a capped sweep says so in the report
+
+
+def sweep(samples: list, images: list, *, observed, lengths: bytes, known=(), fill: bool = False, limit: int = SWEEP_LIMIT, ram_size: int = 0x100000) -> tuple[list, dict]:
+    """(found, info): the instructions reached from the observed ones (`samples`: observed and learned ones) over images of memory taken at the routes' end, each a list of
+    (start address, bytes) regions, and not themselves in `samples` or `known` (the walked ones). Lengths from the decoder's table (`lengths`, 65,536 word counts); a path ends at an
+    opcode Hatari's table sends to its exception handlers. The walk is retrorecomp/m68k_record_walk.py (shared); `fill` (page fill) is off in every conversion: a measured option.
+    Nothing here says the swept ones ran."""
+    from .m68k_record_walk import falls_through, static_target, sweep_images
+    if len(lengths) != 65536:
+        raise ValueError('Atari ST: the 68000 instruction length table is invalid.')
+    return sweep_images(samples, images, observed=observed, words=lambda opcode: max(1, lengths[opcode]), stops=lambda opcode: _MAP.get(opcode, '-') == '-',
+                        target=static_target, falls=falls_through, fill=fill, limit=limit, known=known, fill_below=ram_size)
+
+
 def _symbol(prefix: str, pc: int, opcode: int) -> str:
     return f'{prefix}at_{pc:06x}_{opcode:04x}'
 
@@ -306,10 +321,10 @@ def _form_symbol(prefix: str, opcode: int) -> str:
     return f'{prefix}form_{opcode:04x}'
 
 
-# Where an instruction of the native code comes from: the conversion's own runs, a player's own record (it ran there on the interpreter), or a walk through a recorded window (it may never
-# have run there). The last two are counted apart; no route proves them.
-OBSERVED, LEARNED, WALKED = 'observed', 'learned', 'walked'
-_ORIGIN_COUNT = {OBSERVED: '', LEARNED: ' rr_st_learned_total++;', WALKED: ' rr_st_walked_total++;'}
+# Where an instruction of the native code comes from: the conversion's own runs, a player's own record (it ran there on the interpreter), a walk through a recorded window (it may never
+# have run there), or a sweep over images of memory taken at the routes' end (it was only reached from observed code). The last three are counted apart; no route proves them.
+OBSERVED, LEARNED, WALKED, SWEPT = 'observed', 'learned', 'walked', 'swept'
+_ORIGIN_COUNT = {OBSERVED: '', LEARNED: ' rr_st_learned_total++;', WALKED: ' rr_st_walked_total++;', SWEPT: ' rr_st_swept_total++;'}
 
 
 def _instruction(prefix: str, pc: int, opcode: int, following: list, origin: str = OBSERVED) -> str:
@@ -330,17 +345,18 @@ def write_forms(project: Path, opcodes, *, observed) -> None:
     write_changed(steps / f'bus{observed.source_extension}', BUS)
 
 
-def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, learned: list = (), walked: list = ()) -> dict:
+def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, learned: list = (), walked: list = (), swept: list = ()) -> dict:
     """Decode the observed instructions, then write the forms (`steps/partNN.c`), the instructions in address order (`steps/chainNN.c`) and the index that finds one from a pc and an
     opcode (`steps/index.c`)."""
     prefix = observed.prefix
     decoded = []
     seen = {(pc, int(words[:4], 16)) for pc, words in samples}
     from_record = {(pc, int(words[:4], 16)) for pc, words in learned}
-    everything = sorted(set(samples) | set(learned) | set(walked))
+    from_walk = {(pc, int(words[:4], 16)) for pc, words in walked}
+    everything = sorted(set(samples) | set(learned) | set(walked) | set(swept))
 
     def origin(key):
-        return OBSERVED if key in seen else LEARNED if key in from_record else WALKED
+        return OBSERVED if key in seen else LEARNED if key in from_record else WALKED if key in from_walk else SWEPT
     if everything:
         listing = project / 'snapshots.txt'
         listing.write_text(''.join(f'{pc:06x} {words}\n' for pc, words in everything), encoding='ascii')
@@ -411,7 +427,8 @@ def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, le
 """)
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
     return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len({opcode for _, opcode in instructions}), 'pcs': len(groups),
-            'learned_instructions': sum(origin(key) == LEARNED for key in instructions), 'walked_instructions': sum(origin(key) == WALKED for key in instructions)}
+            'learned_instructions': sum(origin(key) == LEARNED for key in instructions), 'walked_instructions': sum(origin(key) == WALKED for key in instructions),
+            'swept_instructions': sum(origin(key) == SWEPT for key in instructions)}
 
 
 STEPS_HEAD = '#include "step_semantics.h"\n'

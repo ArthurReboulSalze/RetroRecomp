@@ -215,6 +215,20 @@ Measured on one scripted session each: Turrican II's window of play past its rou
 equals the interpreted one. **What moves:** the Atari ST's game stamp and the Amiga's game stamp (the shared walk; no Amiga output changes); no host stamp, not the X68000's. **Quick states:** the Atari ST's
 key moves, as between any two Atari ST builds. **Hot path:** nothing on native code; on an interpreted instruction, one test, and a 16-byte read and a record when a new window starts.
 
+## Atari ST: a sweep over the memory at the end of the routes (1.7.3)
+
+A conversion now walks an image of the RAM taken at the last frame of each fresh reference run, with the TOS ROM, from the instructions the routes ran, and compiles what it reaches as native code with the same
+guard on the latched opcode (`retrorecomp/m68k_record_walk.py`, shared; `atarist_codegen.sweep`): branches, DBcc, JSR and JMP with an absolute or PC-relative address, and what falls through, from an
+observed instruction the image still holds as observed, up to 60,000 instructions added (a capped sweep says so). They are counted apart (`sweep` and `final_checks.native_swept` in the report; the player's
+headless report has `native_swept`); no route proves them, and on the routes the count is 0 by construction. The image is read by the conversion and deleted, never copied to the library or to the export; a page
+fill (every even address of a page where code ran) is written and tested but off (measured once on Turrican II: 91.48 % native, 59,190 swept, 42.6 MB, trace equal). Measured on Windows, Standard level from an empty library, the delivered game on a play script of 5,200 (Turrican II, TOS 1.04) and
+4,500 frames (Bomb Jack, EmuTOS): Turrican II's window of play from 6.91 % native to 73.00 %, Bomb Jack's 17 interpreted instructions to 0; native and interpreted traces of every frame byte-identical. Cost, on a PC shared with other sessions (so the times are indicative), a cold build of the same game's native code without and with the sweep, in turn: Turrican II 24-33 s and 19.6 MB against 61-81 s and 29.3 MB (packed 4.6 against 5.3 MB), Bomb Jack 38 s and 22.5 MB
+against 49 s and 25.3 MB (packed 5.6 against 6.0 MB). `tools/atarist_sweep_guard_check.py` shows the guard on an authored program that rewrites a swept block before it runs it (another opcode: the routine never
+runs, the interpreter does; the same opcode with another extension word: the routine runs and reads the new word). **What moves:** the Atari ST's game stamp, and the Amiga's game stamp as well, because
+`retrorecomp/m68k_record_walk.py` (the walk shared by the two machines, which gained the sweep) is owned by both: no Amiga output changes, the Amiga's own sweep (`amiga_codegen.sweep`) is not touched. No
+host stamp, not the X68000's. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. **Hot path:** nothing on native code (a swept instruction counts into one more counter); the exe is larger and
+a conversion compiles longer in proportion to what is swept.
+
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each
