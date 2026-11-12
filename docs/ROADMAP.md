@@ -32,6 +32,7 @@ fallback stays counted and shown wherever it is used.
 | MSX | experimental, in development (not in a release yet) | the panel and its qualification, MSX2, disks, FM-PAC and SRAM, the Linux witness |
 | MSX2 | experimental, in development (not in a release yet) | stage 7 (the V9938 command engine, timing approximated) is done; next stage 8, the panel on Windows, then its qualification, disks, FM-PAC, MSX2+, the Linux witness |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
+| MSX (MSX1, then MSX2) | in development, not in a release | experimental in the next release: MSX1 cartridges first |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
 [QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.
@@ -172,6 +173,15 @@ Linux witness. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
 
 Supported since 1.7.1 as a category of its own, emulated and 0 % native by design ([SCUMMVM.md](SCUMMVM.md)). Next: Ogg Vorbis, FLAC and MP3 decoders
 (games that need CD audio rips or compressed speech), and the witness on Linux of more engine families.
+
+## In development
+
+### MSX (MSX1, then MSX2)
+
+Not in 1.7.3. Planned to open as an experimental machine in the next release, the MSX1 first and cartridges only, with the MSX2
+after it. A cartridge runs on C-BIOS, a free BIOS, by default, or on the player's own MSX BIOS (never shipped). Disks come later;
+tapes are not planned. Nothing is claimed yet of its native code, CPU fidelity, hardware fidelity, gameplay or latency: each is
+measured and stated apart once the machine opens, with the interpreter fallback counted as on every machine.
 
 ## Planned after that
 
