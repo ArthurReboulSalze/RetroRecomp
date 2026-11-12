@@ -13,6 +13,30 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Counters on the reference runs' silent caps — 12 November 2026
+
+For 1.7.3, from the silent-drop list of the lessons study (Neo Geo lines 3 and 4).
+
+- **What was silent.** The reference runs keep 4,096 variants of work-RAM 68000 code and 4,096 of Z80 code (`native/neogeo_reference.c`).
+  A Z80 note past the cap vanished with no counter; the 68000 side set `m68k_ram_observations_truncated`, which the executable wrote and
+  no Python read.
+- **Now.** Two counters (`m68k_ram_variants_dropped`, `z80_variants_dropped`, notes dropped, a variant met again counts again) and
+  `variant_cap` are written by the executable (cap = the macro `RR_NG_VARIANT_CAP`); `neogeo_conversion.discovery_limits` reads every
+  route's reference report and writes `native_discovery` in the conversion report (maximum over the routes, never a sum), and the log says
+  when code was dropped. `neogeo_codegen.py` and `neogeo_build.py` are not edited: the stamps of the CPS-1, CPS-2 and X68000 and the Neo Geo
+  quick-state key do not move; only the Neo Geo game stamp does.
+- **Real cap, two games** (scratch library, Windows, one conversion at a time): NAM-1975 and Matrimelee convert with 0 interpreted
+  instructions on the 68000 and the Z80 on all six routes, the counters read 0, `observed_code_dropped` false; Matrimelee has up to 565
+  work-RAM 68000 variants (AES attract 533, long attract 565), NAM-1975 none, one Z80 variant per route at most.
+- **Lowered cap, to see the counters move** (a temporary build with `RR_NG_VARIANT_CAP` 64, not kept). Matrimelee: the flag is true
+  on the three routes that reach the BIOS routine, `m68k_ram_variants_dropped` 994,440 at most, the log announces it, the delivered
+  executable still matches the reference on every route and counts its interpreter fallback (982,628 and 984,013 instructions on the
+  68000), so the conversion is marked experimental, as every conversion with fallback is. With the cap at 0 on NAM-1975 the Z80 counter
+  read 20,770 to 37,710 notes per route (the notes of one variant seen again and again, hence "notes").
+- **Open, not chased.** That same cap-0 NAM-1975 build crashed in the ordinary-save check (`--persistent-memory`, 13,800 frames of the
+  card-save route; 0xC0000005 on Windows) though its plain routes passed. A cap of 0 drops every Z80 variant, which no game comes near; the
+  crash was seen once and the executable was not kept, so whether it is the Z80 fallback with persistence, or the artificial cap, is not known.
+
 ## The corrected Musashi, shared with the CPS-1 and the X68000 — 3 November 2026
 
 The reference CPU of a conversion (and the interpreter that runs what the native code does not cover) is Geolith's copy of Musashi, which

@@ -303,8 +303,9 @@ static int report(void) {
         for(unsigned w=0;w<v->count;++w)fprintf(f,"%04x",v->words[w]);
         fprintf(f,"\"}");
     }
-    fprintf(f,"],\"m68k_ram_observations_truncated\":%s,\"z80_variants\":[",
-        rr_ng_ram_observations_truncated?"true":"false");
+    fprintf(f,"],\"variant_cap\":%u,\"m68k_ram_observations_truncated\":%s,\"m68k_ram_variants_dropped\":%llu,\"z80_variants_dropped\":%llu,\"z80_variants\":[",
+        (unsigned)RR_NG_VARIANT_CAP,rr_ng_ram_observations_truncated?"true":"false",(unsigned long long)rr_ng_ram_variants_dropped,
+        (unsigned long long)rr_ng_z80_variants_dropped);
     for(unsigned n=0;n<rr_ng_z80_variant_count;++n) {
         const RrNgZ80Variant *v=&rr_ng_z80_variants[n];
         fprintf(f,"%s{\"address\":%u,\"bytes\":\"%02x%02x%02x%02x\"}",n?",":"",v->pc,v->bytes[0],v->bytes[1],v->bytes[2],v->bytes[3]);

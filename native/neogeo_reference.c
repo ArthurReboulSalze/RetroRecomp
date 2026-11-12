@@ -33,6 +33,7 @@ uint64_t rr_ng_native_z80,rr_ng_m1_instructions,rr_ng_sm1_instructions;
 uint8_t rr_ng_z80_fallback_pc[65536];
 RrNgZ80Variant rr_ng_z80_variants[4096];
 unsigned rr_ng_z80_variant_count;
+uint64_t rr_ng_z80_variants_dropped;
 void rr_ng_z80_note_fallback(uint16_t pc) {
     if(rr_ng_force_z80_reference)return;
     extern int rr_ng_z80_code_byte(uint16_t,uint8_t*);
@@ -42,9 +43,9 @@ void rr_ng_z80_note_fallback(uint16_t pc) {
     if(!rr_ng_observations)return;
     for(unsigned n=0;n<rr_ng_z80_variant_count;++n)
         if(rr_ng_z80_variants[n].pc==pc && !memcmp(rr_ng_z80_variants[n].bytes,bytes,4))return;
-    if(rr_ng_z80_variant_count<4096) {
+    if(rr_ng_z80_variant_count<RR_NG_VARIANT_CAP) {
         RrNgZ80Variant *v=&rr_ng_z80_variants[rr_ng_z80_variant_count++];v->pc=pc;memcpy(v->bytes,bytes,4);
-    }
+    } else ++rr_ng_z80_variants_dropped;
 }
 int rr_ng_force_z80_reference;
 uint64_t rr_ng_bios_instructions, rr_ng_cart_instructions, rr_ng_ram_instructions;
@@ -52,6 +53,7 @@ uint8_t rr_ng_reached_pc[0x800000];
 uint8_t rr_ng_reached_p[0x800000],rr_ng_reached_bios[0x10000];
 RrNgRamVariant rr_ng_ram_variants[4096];
 unsigned rr_ng_ram_variant_count,rr_ng_ram_observations_truncated;
+uint64_t rr_ng_ram_variants_dropped;
 static uint16_t ram_variant_slots[8192];
 static void observe_ram(uint32_t pc,const RrM68000CodeLocation *loc) {
     extern int rr_ng_code_word(uint32_t,uint16_t*);
@@ -70,12 +72,12 @@ static void observe_ram(uint32_t pc,const RrM68000CodeLocation *loc) {
             if(old->offset==value.offset && old->count==value.count &&
                !memcmp(old->words,value.words,value.count*2))return;
         } else {
-            if(rr_ng_ram_variant_count>=4096)break;
+            if(rr_ng_ram_variant_count>=RR_NG_VARIANT_CAP)break;
             rr_ng_ram_variants[rr_ng_ram_variant_count]=value;
             ram_variant_slots[slot]=(uint16_t)++rr_ng_ram_variant_count;return;
         }
     }
-    rr_ng_ram_observations_truncated=1;
+    rr_ng_ram_observations_truncated=1;++rr_ng_ram_variants_dropped;
 }
 int rr_ng_test_clock_enabled;
 int64_t rr_ng_test_clock;
