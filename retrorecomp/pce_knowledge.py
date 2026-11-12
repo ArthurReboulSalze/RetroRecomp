@@ -313,13 +313,64 @@ def reached(received, observations) -> dict:
     return {'received_rows': len(received), 'executed_on_routes': hits, 'not_executed': len(received) - hits}
 
 
-def shared_rows(identity: str, rom: bytes, *, qualified=None, imported=None, library=None) -> tuple[list, dict]:
-    """(rows, info): the guidance of the shared and library records for this card, expanded from its ROM. Three sources, counted apart: the qualified bank (used
-    only for the engine that qualified it), the player's own library record, and the imported bank (other players' paths). The rows are never added to what the
-    conversion keeps. `info` says what each gave and what was ignored and why."""
+# --- The player's own record --------------------------------------------------------------------------------
+
+FEEDBACK_KIND = 20      # RR_FB_PCE in native/runtime_feedback.h and `feedback_kinds` of the profile
+# The length of an instruction by its opcode: the table of the engine's own capture (code_capture.hpp, MIT), also in native/pce_machine.cpp.
+INSTRUCTION_LENGTHS = bytes((
+    2,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,2,2,2,2,2,1,3,1,1,3,3,3,3,3,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,1,2,2,2,2,1,3,1,1,3,3,3,3,
+    1,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,2,1,2,2,2,1,3,1,1,1,3,3,3,1,2,1,1,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,2,2,2,2,1,3,1,1,3,3,3,3,
+    2,2,1,3,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,4,2,2,2,2,1,3,1,1,3,3,3,3,2,2,2,3,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,4,2,2,2,2,1,3,1,1,3,3,3,3,
+    2,2,1,7,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,1,2,2,2,1,3,1,1,1,3,3,3,2,2,1,7,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,1,2,2,2,1,3,1,1,1,3,3,3))
+
+
+def player_rows(observations, rom: bytes) -> tuple[list, dict]:
+    """(rows, info): the instructions the interpreter ran in this player's own games, as `{'pc', 'mpr', 'data', 'rom_offsets'}` rows read back from his own ROM.
+    A note is the eight bank registers and the bytes of one instruction (`native/pce_machine.cpp`): it is kept only when the card holds those exact bytes at
+    those places, so a note of another ROM, of code that is not on the card or of a damaged file never reaches the engine. The bytes come from the ROM, not
+    from the note. `info` counts what was kept and what was left out and why."""
+    banks = bank_map(len(rom))
+    out, info = {}, {'notes': 0, 'ignored': {}}
+
+    def ignore(reason: str) -> None:
+        info['ignored'][reason] = info['ignored'].get(reason, 0) + 1
+    for row in observations:
+        if row.kind != FEEDBACK_KIND:
+            continue
+        info['notes'] += 1
+        code = bytes(row.data[8:])
+        if not 9 <= len(row.data) <= 15 or row.address > 0xFFFF or row.auxiliary or INSTRUCTION_LENGTHS[code[0]] != len(code):
+            ignore('malformed note')
+            continue
+        mpr = list(row.data[:8])
+        offsets = rom_offsets(banks, row.address, mpr, len(code))
+        if offsets is None:
+            ignore('not on the card')
+        elif bytes(rom[at] for at in offsets) != code:
+            ignore('the card holds other bytes there')
+        else:
+            out[(tuple(mpr), row.address, code)] = {'pc': row.address, 'mpr': mpr, 'data': list(code), 'rom_offsets': offsets}
+    info['kept'] = len(out)
+    return list(out.values()), info
+
+
+def shared_rows(identity: str, rom: bytes, *, qualified=None, imported=None, library=None, player=None) -> tuple[list, dict]:
+    """(rows, info): the guidance of the shared and library records for this card, expanded from its ROM. Four sources, counted apart: the qualified bank (used
+    only for the engine that qualified it), the player's own library record, the imported bank (other players' paths) and the player's own record of what
+    the interpreter ran in his games (`player`: the observations of kind 20, `player_rows`). The rows are never added to what the conversion keeps. `info`
+    says what each gave and what was ignored and why."""
     rows_out, seen = [], set()
-    info = {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}}
+    info = {'qualified': 0, 'library': 0, 'imported': 0, 'player': 0, 'ignored': {}}
     current = engine()
+    if player:
+        # First: what the interpreter really ran in this player's games is the one source that is not a guess, and the engine's bound keeps the first rows.
+        expanded, noted = player_rows(player, rom)
+        info['player'] = len(expanded)
+        if noted['ignored']:
+            info['ignored']['player'] = dict(noted['ignored'])
+        for row in expanded:
+            seen.add(identity_of(row))
+            rows_out.append(row)
     for name, record in (('qualified', qualified), ('library', library), ('imported', imported)):
         if not record:
             continue

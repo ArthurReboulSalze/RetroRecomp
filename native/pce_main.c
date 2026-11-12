@@ -1,7 +1,8 @@
 /* PC Engine game: the HuCard on the pinned pcenginerecomp runtime (pce_machine.cpp), native code from the
  * game's emitted module with every interpreted instruction counted. Windowed play goes through the host kit
  * (adapters/rrhk_pce.c); the converter's checks run the same executable headless. No user data or diagnostics
- * are written unless explicitly asked for on the command line.
+ * are written unless explicitly asked for on the command line, except, in a window, the player's own record
+ * (native/runtime_feedback.c, F12 switches it off): numbers about what the interpreter ran, for the next conversion.
  * Original RetroRecomp code: MIT; the engine keeps its own MIT terms (licenses/pcenginerecomp.md). */
 #define WIN32_LEAN_AND_MEAN
 #include "platform_io.h"
@@ -20,6 +21,7 @@
 #include "pce_machine.h"
 #include "pce_backup.h"
 #include "runtime_i18n.h"
+#include "runtime_feedback.h"
 
 int rr_pce_sdl_main(const char *title, int scale);
 void rrhk_notice(const char *text, Uint64 milliseconds);
@@ -282,6 +284,12 @@ static int report(void)
     return fclose(f) == 0 && okay;
 }
 
+/* What the interpreter ran, as the host's recorder keeps it (kind 20). */
+static void record_instruction(uint32_t pc, const uint8_t *bytes, unsigned size)
+{
+    rr_feedback_note(RR_FB_PCE, pc, 0, bytes, size);
+}
+
 static int execute(int argc, char **argv)
 {
     for (int i = 1; i < argc; i++) {
@@ -316,6 +324,12 @@ static int execute(int argc, char **argv)
         return 3;
     }
     pce_machine_policy(reference ? PCE_POLICY_REFERENCE : native_only ? PCE_POLICY_NATIVE_ONLY : PCE_POLICY_HYBRID);
+    /* The player's own record: in a window by default (F12 switches it), in a headless run only with RETRO_RECOMP_FEEDBACK=1. Standard boards only:
+     * the Street Fighter II board never records, so its F12 line stays off and the report says so. */
+    if (RR_PCE_BOARD != PCE_BOARD_SF2) {
+        rr_feedback_start(!headless);
+        if (!reference && !native_only) pce_machine_set_recorder(record_instruction, rr_feedback_enabled);
+    }
     /* The player's save: beside the game in a window. A headless run touches no file unless --backup names one. */
     static wchar_t backup_file[32768];
     if (backup_path) {

@@ -21,6 +21,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -54,6 +55,41 @@ unsigned picture_width, picture_height;
 std::uint64_t last_sequence, frames, cropped_frames;
 std::vector<std::int16_t> audio;
 std::uint64_t capture_first_drop_frame;
+
+// The player's own record (kind 20 of native/runtime_feedback.c): each instruction of the card that the interpreter ran, so that the next conversion can
+// declare it as a root. The engine's roots are single instructions, never walked, so every one is noted, once for each pc and set of the eight bank
+// registers (the identity the emitted code guards on). Off unless the host registers a note function; the host's recorder bounds the file.
+void (*record_note)(std::uint32_t, const std::uint8_t *, unsigned);
+int (*record_active)(void);
+std::unordered_set<std::string> recorded;
+constexpr std::size_t kRecordedLimit = 16384;
+// The length of an instruction by its opcode, the table of the engine's own capture (code_capture.hpp, MIT), for the 256 opcodes of the HuC6280.
+constexpr std::array<std::uint8_t, 256> kLengths{2,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,2,2,2,2,2,1,3,1,1,3,3,3,3,3,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,1,2,2,2,2,1,3,1,1,3,3,3,3,1,2,1,2,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,2,1,2,2,2,1,3,1,1,1,3,3,3,1,2,1,1,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,2,2,2,2,1,3,1,1,3,3,3,3,2,2,1,3,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,4,2,2,2,2,1,3,1,1,3,3,3,3,2,2,2,3,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,4,2,2,2,2,1,3,1,1,3,3,3,3,2,2,1,7,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,1,2,2,2,1,3,1,1,1,3,3,3,2,2,1,7,2,2,2,2,1,2,1,1,3,3,3,3,2,2,2,7,1,2,2,2,1,3,1,1,1,3,3,3};
+
+// One instruction the interpreter ran from `pc` under `mpr` (the state before the step). A card's bank only: code in work RAM, in the Backup RAM or
+// behind an I/O bank is not on the card and does not travel. The note is the eight bank registers and the instruction's bytes (at most 15 bytes).
+void note_interpreted(const pce::Bus &bus, std::uint16_t pc, const std::array<std::uint8_t, 8> &mpr) {
+    const std::uint32_t physical = (std::uint32_t(mpr[pc >> 13]) << 13) | (pc & 0x1FFFu);
+    if ((physical >> 13) >= 0x80) return;
+    char key[10];
+    key[0] = char(pc & 0xFF);
+    key[1] = char(pc >> 8);
+    std::memcpy(key + 2, mpr.data(), 8);
+    if (recorded.size() >= kRecordedLimit || !recorded.emplace(key, sizeof key).second) return;
+    const auto opcode = bus.peek(physical);
+    if (!opcode) return;
+    std::uint8_t note[16];
+    std::copy(mpr.begin(), mpr.end(), note);
+    const unsigned length = kLengths[*opcode];
+    note[8] = *opcode;
+    for (unsigned i = 1; i < length; ++i) {
+        const std::uint16_t logical = static_cast<std::uint16_t>(pc + i);
+        const auto byte = bus.peek((std::uint32_t(mpr[logical >> 13]) << 13) | (logical & 0x1FFFu));
+        if (!byte) return;
+        note[8 + i] = *byte;
+    }
+    record_note(pc, note, 8 + length);
+}
 
 // The engine's capture reports its totals as JSON text only: read one named number from it.
 std::uint64_t summary_number(const std::string &json, const char *key) {
@@ -179,6 +215,12 @@ int pce_machine_reset(char *error, size_t error_size) {
     });
 }
 
+void pce_machine_set_recorder(void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size), int (*active)(void)) {
+    record_note = note;
+    record_active = active;
+    recorded.clear();
+}
+
 void pce_machine_policy(int value) {
     policy = value == PCE_POLICY_REFERENCE ? pce::ExecutionPolicy::interpreter_only
            : value == PCE_POLICY_NATIVE_ONLY ? pce::ExecutionPolicy::native_only : pce::ExecutionPolicy::hybrid;
@@ -195,11 +237,24 @@ int pce_machine_run_frame(char *error, size_t error_size) {
         auto &cpu = machine->cpu;
         for (unsigned slot = 0; slot < PCE_PADS; ++slot) bus.joypad.set_pressed(slot, pads[slot]);
         const std::uint64_t deadline = cpu.ticks + 8 * kFrameTicks;
+        // The player's record: the hybrid policy on a standard board, while the host's recorder is on (F12), outside a code capture.
+        const bool recording = record_note && !capture && policy == pce::ExecutionPolicy::hybrid &&
+                               recipe.profile == pce::HuCardProfile::base && record_active && record_active();
         while (bus.vdc.video.sequence() == last_sequence) {
             if (cpu.ticks >= deadline) throw pce::Fault("no picture was published within eight frames");
             std::optional<pce::CodeCapture::Pending> pending;
             if (capture) pending = capture->before(bus, cpu);
+            std::uint16_t before_pc = 0;
+            std::array<std::uint8_t, 8> before_mpr;
+            std::uint64_t before_interpreted = 0;
+            if (recording) {
+                before_pc = cpu.pc;
+                before_mpr = cpu.mpr;
+                before_interpreted = cpu.interpreter_steps;
+            }
             const auto status = pce::step(bus, cpu, deadline, policy);
+            if (recording && cpu.interpreter_steps != before_interpreted)
+                note_interpreted(bus, before_pc, before_mpr);
             if (capture) capture->after(*pending, cpu);
             if (status == pce::Exit::miss || status == pce::Exit::unsupported) {
                 char text[160];
