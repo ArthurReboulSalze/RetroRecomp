@@ -119,12 +119,27 @@ def validation_failures(rows: list, runs: dict) -> list[str]:
     return failures
 
 
-def convert(path: Path, *, output: Path | None = None, title: str | None = None, passes: int = 3, frames: int = 3600,
-            scan_level: str | None = None, gba_bios=None, emit=print, player: bool = True, cover: Path | None = None,
-            boxart_dir: Path | None = None, online_cover: bool = True, use_cover: bool = True, **options) -> Path:
+def convert(path: Path, **arguments) -> Path:
+    """Convert one cartridge (see `_convert`). Rows received from other players (the shared base, an import) are hints: a conversion that fails with some of them
+    (the generator refuses a root, or the generated code differs from the engine's interpreter) is converted once more without them, here, because the batch's
+    own retry only sets the imported bank aside and a qualified row would fail the cartridge on every conversion."""
+    state: dict = {}
+    try:
+        return _convert(path, _state=state, **arguments)
+    except ConversionError as error:
+        if not state.get('received_rows'):
+            raise
+        arguments.get('emit', print)(f"Game Boy Advance: the conversion failed with {state['received_rows']} received rows; converting again without them.")
+        return _convert(path, _state={}, use_shared=False, set_aside=str(error)[:300], **arguments)
+
+
+def _convert(path: Path, *, output: Path | None = None, title: str | None = None, passes: int = 3, frames: int = 3600,
+             scan_level: str | None = None, gba_bios=None, emit=print, player: bool = True, cover: Path | None = None,
+             boxart_dir: Path | None = None, online_cover: bool = True, use_cover: bool = True, use_shared: bool = True,
+             set_aside: str = '', _state: dict | None = None, **options) -> Path:
     """Convert one cartridge with the pinned engine. With `output` the player is built and returned (the report goes
     to `output`, the batch publishes the executable: compaction, the games folder); `player=False`, or no `output`, returns the headless probe host (the report goes to the project)."""
-    from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_patches, path_profiles, timings
+    from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_knowledge, gba_patches, knowledge, path_profiles, timings
     from .conversion_common import check_run_budget, resolve_scan_level, write_if_changed
     from .core import slug, toolchain
     from .gba import bios_status, read_bytes
@@ -166,6 +181,21 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         pass
     imported = observations.size()
     emit(f'Game Boy Advance library: {imported} observed entries from earlier runs.')
+    # Paths other players found (the shared base, an import) are built with the player's own, kept apart from them: they are used as hints, counted as
+    # pending, never written to the player's paths and never part of the record this conversion shares (a row is the sender's until a conversion that
+    # received it reaches it, which the engine's miss reports cannot show yet).
+    received, received_info = gba_knowledge.shared_rows(
+        rom.sha256, len(data), qualified=knowledge.qualified_game('gba', rom.sha256) if use_shared else None,
+        imported=knowledge.imported_game('gba', rom.sha256) if use_shared else None, own=observations)
+    if set_aside:
+        received_info['set_aside_after_a_failure'] = set_aside
+    if _state is not None:
+        _state['received_rows'] = received.size()
+    if received.size() or received_info['ignored'] or received_info['already_known']:
+        emit(f"Game Boy Advance: {received_info['used_roots']} roots and {received_info['used_ram_copies']} RAM copies received from shared paths "
+             f"({received_info['qualified_by_the_base']} qualified by the base, {received_info['pending']} pending"
+             + (f", {received_info['left_out_by_the_cap']['roots']} roots left out by the cap" if received_info['left_out_by_the_cap']['roots'] else '')
+             + '); this conversion checks them and qualifies none.')
     scripts = project / 'scripts'
     scenarios = [('boot', min(frames, BOOT_FRAMES), 'boot'), ('generic', frames, 'generic')]
     paths = {}
@@ -176,9 +206,12 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
     reasons = collections.Counter()
     ram_code, ram_entries, image = analysis.RamCode(), [], data          # code the cartridge does not hold: memory of this conversion only
     capped, config_stats = set(), {}                                      # the caps that refused something: counted in the report, never silent
+    learned_total, built_learned = analysis.Observations(), analysis.Observations()   # what this conversion's passes learned, and what the last pass built of it
     total = passes + SETTLING_PASSES
     for number in range(1, total + 1):
         timings.begin_pass(number)
+        built_learned = analysis.Observations(set(learned_total.roots), set(learned_total.spans))
+        in_build = analysis.Observations(observations.roots | received.roots, observations.spans | received.spans)
         emit(f'Game Boy Advance pass {number}' + (f'/{passes}' if number <= passes else ' (settling)') + ': generating and compiling native ARM and Thumb code…')
         image, ram_entries, ram_ranges = analysis.generator_image(data, ram_code)
         generator_rom = rom_file
@@ -186,7 +219,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             generator_rom = project / 'rom+ram.bin'
             write_if_changed(generator_rom, image)
         write_if_changed(project / 'game.toml', analysis.config_text(
-            title, hashlib.sha1(image).hexdigest(), len(image), observations, ram_entries, ram_ranges, config_stats).encode('utf-8'))
+            title, hashlib.sha1(image).hexdigest(), len(image), in_build, ram_entries, ram_ranges, config_stats).encode('utf-8'))
         with timings.phase('code_generation'):
             generated = build.generate_game(recompile, generator_rom, project / 'game.toml', project / 'generated', emit)
         emit(f"Game Boy Advance: {generated['functions']} functions in {generated['shards']} shards.")
@@ -221,7 +254,9 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             emit(f"Game Boy Advance {name}: {outcome.coverage.get('coverage', 'no coverage report')}, "
                  f"{interpreted} interpreted instructions, {outcome.coverage.get('distinct_misses')} distinct addresses"
                  + (f'; stopped: {outcome.aborted}' if outcome.aborted else '.'))
-        new = observations.merge(learned) + fresh
+        new = len(learned.roots - in_build.roots) + len(learned.spans - in_build.spans) + fresh
+        observations.merge(learned)
+        learned_total.merge(learned)
         if all(row['interpreted_opcodes'] == 0 and not row['aborted'] for row in rows):
             emit('Game Boy Advance: no interpreted instruction on the tested scenarios.')
             break
@@ -252,8 +287,15 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                   'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                   'scenarios': [{'scenario': row['scenario'], 'frames': row['frames'], 'match': row['reference_match']}
                                 for row in rows]}
+    # Only what this conversion's own runs reached, built by the last pass, is a candidate for the record it shares (the check above has passed).
+    record, promotion = gba_knowledge.promote(rom.sha256, data, built_learned, previous=gba_knowledge.library_record(rom.sha256),
+                                              private={'ram_code_addresses': len(ram_code.variants), 'unresolved_misses': len(unresolved),
+                                                       'versions_refused_by_the_converter': ram_code.refused})
+    proof = gba_knowledge.reached(received, learned_total)
     coverage = {'imported_entries': imported, 'observed_entries': observations.size(),
                 'rom_roots': len(observations.roots), 'ram_routines': len(observations.spans),
+                'built_rom_roots': len(observations.roots | received.roots), 'built_ram_routines': len(observations.spans | received.spans),
+                'shared_paths': gba_knowledge.shared_paths_report(received_info, proof),
                 'unresolved_misses': len(unresolved), 'unresolved_reasons': dict(sorted(reasons.items())), 'generated': generated,
                 'ram_code': {'addresses': len(ram_code.variants), 'versions': ram_code.size(), 'entries': len(ram_entries), 'parameter_words': len(ram_ranges),
                              'caps': {'versions_refused_by_the_converter': ram_code.refused, 'addresses_capped_in_the_probe': len(capped),
@@ -276,12 +318,20 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                               'executable': exported.name if exported else build.HOST_NAME,
                               'build_executable': str(exported) if exported else str(host),
                               'build_directory': str(project), 'artwork': artwork,
+                              'knowledge': gba_knowledge.knowledge_block(record, promotion, {**received_info, **proof}),
                               'conversion_wall_seconds': round(time.perf_counter() - started, 6),
                               'player': ('host kit: window, controls, menus, sound at 32768 Hz mono, quick state, battery save'
                                          if exported else 'none: the probe host has no window and no sound')})
     destination = (output.resolve() if output else project) / 'conversion-report.json'
     destination.parent.mkdir(parents=True, exist_ok=True)
     write_report(destination, report)
+    # The record this conversion shares: made once everything above has passed (an error before this line leaves the library's record as it was).
+    summary = library_root('gba') / rom.sha256 / 'compilation.json'
+    summary.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(summary, {'schema': 1, 'title': title, 'system': 'gba', 'game': rom.sha256, 'rom_sha256': rom.sha256, 'private_development_only': True,
+                          'fresh_reference_passed': True, 'record': record, 'cores': gba_knowledge.engine(),
+                          'record_source': "the misses of this conversion's own runs, built and checked against the engine's interpreter",
+                          'record_counts': promotion})
     emit('Game Boy Advance run checked on tested scenarios; gameplay and hardware fidelity remain unverified.')
     return exported or host
 

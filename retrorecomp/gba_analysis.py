@@ -395,18 +395,10 @@ def config_text(name: str, sha1: str, size: int, observations: Observations, ram
 
 
 def record(sha256: str, size: int, core: str, observations: Observations) -> dict:
-    """The schema 3 record of a cartridge's paths (validated: a number that does not fit its bounds is a bug here)."""
-    paths = {}
-    if observations.roots:
-        paths['entries'] = [{'shape': 'phys', 'src': 'rom',
-                             'table': path_profiles.encode_table([[entry] for entry in sorted(observations.roots)], 1)}]
-    if observations.spans:
-        paths['spans'] = [{'shape': 'span', 'src': 'rom',
-                           'table': path_profiles.encode_table(sorted(list(row) for row in observations.spans), 3)}]
-    value = {'schema': path_profiles.SCHEMA, 'game': 'gba:' + sha256,
-             'identity': {'system': 'gba', 'sources': {'rom': {'bytes': size, 'sha256': sha256}}, 'layout': {}},
-             'cpus': {SECTION[0]: {'map': SECTION[1], 'core': core, 'paths': paths}}, 'devices': {}}
-    return path_profiles.validate_game(value)
+    """The schema 3 record of a cartridge's paths (validated: a number that does not fit its bounds is a bug here). The one writer of this record is
+    `gba_knowledge.build_record`, which the shared record of the cartridge uses too."""
+    from .gba_knowledge import build_record
+    return build_record(sha256, size, core, observations.roots, observations.spans)
 
 
 def observations_of(document: dict) -> Observations:

@@ -798,6 +798,7 @@ INPUTS = _resolve({
         'retrorecomp.gba_build',
         'retrorecomp.gba_conversion',
         'retrorecomp.gba_engine',
+        'retrorecomp.gba_knowledge',
         'retrorecomp.gba_patches',
         'retrorecomp.gba_player',
     ),

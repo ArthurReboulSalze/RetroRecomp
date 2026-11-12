@@ -22,6 +22,7 @@ retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
 retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
 retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
+retrorecomp/gba_knowledge.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py tools/gba_fresh_process.py tests/test_gba_fresh_process.py tools/gba_routes/advance_wars_field_training.keys tools/gba_routes/metroid_fusion_new_game.keys tools/gba_routes/sonic_advance_2_save_show.keys tools/gba_routes/sonic_advance_2_save_write.keys tools/gba_routes/wario_land_4_entry_passage.keys
 tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c

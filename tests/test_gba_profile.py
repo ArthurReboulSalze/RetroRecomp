@@ -163,7 +163,8 @@ class SharedPiecesTests(unittest.TestCase):
                   'devices': {}}
         self.assertIs(path_profiles.validate_game(record), record)
         self.assertEqual(path_profiles.SYSTEM_SECTIONS['gba'], (('arm7tdmi', 'gba'),))
-        self.assertNotIn('gba', path_profiles.SHARED_SYSTEMS)
+        self.assertIn('gba', path_profiles.SHARED_SYSTEMS)          # the experimental tier of the base (retrorecomp/gba_knowledge.py)
+        self.assertIn('gba', path_profiles.EXPERIMENTAL_SHARED)
         # A routine copied somewhere that is not IWRAM or EWRAM is refused.
         record['cpus']['arm7tdmi']['paths']['spans'][0]['table'] = path_profiles.encode_table([[0x04000000, 0x400, 0x40]], 3)
         with self.assertRaises(ValueError):
