@@ -302,35 +302,23 @@ def damaged_states(state: bytes) -> dict[str, bytes]:
 
 def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
     """F8 at a frame, F9 in a fresh process: the continued timeline must match; every damaged state is refused (exit 4)
-    and left as it was; loading a missing state is refused and creates nothing."""
+    and left as it was; loading a missing state is refused and creates nothing (conversion_gates.check_quick_states)."""
     from .conversion_common import spawn
-    from .conversion_gates import continuation_difference, require
+    from .conversion_gates import check_quick_states
     at = max(60, frames - STATE_SETTLE - 60)
     state = folder / 'quick.rrstate'
-    run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
-    run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
-    rows = expected.read_text(encoding='ascii').splitlines()[1:]
-    resumed = (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:]
-    require(continuation_difference(rows, resumed, at, STATE_SETTLE) is None,
-            lambda: ConversionError('PC Engine F9 continuation differs from its saved timeline; existing export preserved.'))
+
+    def continued():
+        run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
+        run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
+        return (expected.read_text(encoding='ascii').splitlines()[1:],
+                (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
+
     def refused(path: Path) -> bool:
         return spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(path)],
                      cwd=folder, timeout=120, capture_output=True).returncode == 4
-    original = state.read_bytes()
-    damaged = damaged_states(original)
-    for label, data in damaged.items():
-        invalid = folder / f'invalid-{label}.rrstate'
-        invalid.write_bytes(data)
-        require(refused(invalid), lambda: ConversionError(f'PC Engine accepted a damaged quick state ({label}).'))
-        require(invalid.read_bytes() == data,
-                lambda: ConversionError(f'PC Engine rewrote a quick state it refused ({label}).'))
-    missing = folder / 'missing.rrstate'
-    missing.unlink(missing_ok=True)
-    require(refused(missing), lambda: ConversionError('PC Engine accepted a missing quick state.'))
-    require(not missing.exists(), lambda: ConversionError('Loading a missing quick state created a file.'))
-    return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
-            'truncated_state_rejected': True, 'damaged_states_refused': sorted(damaged),
-            'missing_state_creates_nothing': True, 'state_bytes': len(original)}
+    return check_quick_states(folder, state, machine='PC Engine', route=name, at=at, settle=STATE_SETTLE,
+                              continued=continued, refused=refused, damaged=damaged_states, error=ConversionError)
 
 
 # ------------------------------------------------------------------ the Backup RAM file (native/pce_backup.c)
