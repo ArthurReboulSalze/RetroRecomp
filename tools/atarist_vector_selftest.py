@@ -162,13 +162,15 @@ def selection(name: str, flat: bool) -> tuple[list[dict], dict]:
 
 # ------------------------------------------------------------------------------------------------------------------ build
 def ensure_hatari() -> tuple[Path, Path]:
-    """The adapted Hatari tree and its build with `libretro-hatari.a` (built when missing: the adaptation of the pinned checkout)."""
+    """The adapted Hatari tree and its build with `libretro-hatari.a` (built when missing or when its adaptation is out of date: the adaptation of the pinned checkout)."""
     from retrorecomp import atarist_hatari
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_jobs, cmake_target_args
     tree, build = HATARI / 'hatari', HATARI / 'build'
     library = build / 'src' / 'libretro-hatari.a'
-    if not (tree / 'src' / 'retro' / 'main_retro.c').exists() or not library.exists() or not (build / 'src' / 'cpu' / 'cputbl.h').exists():
+    ready = HATARI / 'ready.json'
+    current = ready.exists() and json.loads(ready.read_text(encoding='utf-8')).get('adaptation') == atarist_hatari.adaptation_digest()   # the core is keyed by the adaptation
+    if not current or not (tree / 'src' / 'retro' / 'main_retro.c').exists() or not library.exists() or not (build / 'src' / 'cpu' / 'cputbl.h').exists():
         tree = atarist_hatari.adapt(atarist_hatari.source(), HATARI)
         build.mkdir(parents=True, exist_ok=True)
         cmake, generator = toolchain()
