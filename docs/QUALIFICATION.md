@@ -243,6 +243,22 @@ The page of each console, which the README links its line to (a console of the m
   were also run under Xvfb with the key script of the Windows runs: the picture at frame 1,800 and the sound counts equal the Windows ones (a scripted run, which the owner
   accepted as the G13 witness; nobody heard the sound).
 
+- Game Boy Advance (12 November 2026, tree of `spec/gba-173`, Windows only; **no letter of the matrix is moved by this entry, and G15 stays as it is**).
+  What is new: a conversion that differs from the interpreter, or whose native run errored, fails (`validation_failures`); the bridge proposes its callees, so a first
+  conversion from an empty library reaches 0 interpreted instructions in 2 to 5 passes on Advance Wars, Golden Sun, The Minish Cap and Pokémon Emerald, native equal to
+  the engine's interpreter on both scenarios of each ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-verdict-is-enforced-and-a-first-conversion-converges-faster-12-november-2026-173));
+  Thumb `STMIA`/`PUSH` with an empty list store the value of the hardware (vectors of the class 138 to 76 and 4 to 2; the loads remain, G10 stays `P`); the caps of the RAM code are counted
+  in the report. **Proposals for the owner to decide, with the evidence (letters are his):**
+  G6 *States* stays `P`: a state saved in one process and loaded by a *new* process gives the same picture on Metroid Fusion (two routes, a control that differs, 0 interpreted
+  instructions); not shown by a check of ours: a damaged state refused and a missing state creating nothing, and only one cartridge. G7 *Saves* stays `P`: Sonic Advance 2 writes
+  its 64 KB Flash save in one process and a second process shows the saved game (the file is identical after; a run with no save asks for the language); EEPROM and SRAM
+  were not exercised this way, and only one cartridge. G9 *Route depth* `?` to `P`: four scripted routes reach play with 0 interpreted instructions at 10,000 to 30,000 frames
+  (Advance Wars to Nell's lesson on the first Field Training map, Wario Land 4 to Entry Passage in play, Metroid Fusion to Samus under control after the opening story, the Sonic Advance 2 pair);
+  they are the first minutes, not a level, a boss or an owner's perimeter. G16 *Shared hints* `-` to `P` **when the release switches sharing on**: the record is numeric (offsets and
+  lengths of one exact cartridge, no bytes), rows a conversion receives are rechecked by its own run and are never saved nor shared, and a failed conversion with received rows
+  is converted again without them (tests; a forced-mismatch proof; `tools/gba_bogus_rows_audit.py` on the Minish Cap with 2,000, 150 and 20 invented rows: the generator hangs on wrong roots, the converter stops it after 300 s and converts again without them, native equal to the interpreter, no bogus row in the player's paths or the promoted record; 230 in-area roots accepted by the generator also pass); no path is qualified yet, the site's limits are not deployed
+  and nothing was shared, the CPS-1, X68000 and PC Engine precedent. Not done: the Debian witness of this tree, the quiet-PC cost of a frame, a conversion of any other cartridge.
+
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
   remain). G11 and G13 stay `P` with fresher evidence (1 November).

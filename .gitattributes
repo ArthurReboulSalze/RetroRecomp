@@ -31,3 +31,4 @@ native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch -text
 native/scummvm/patches/0002-retrorecomp-options-page.patch -text
 native/scummvm/patches/0003-retrorecomp-theme-colours.patch -text
 native/scummvm/LICENSE -text
+*.keys text eol=lf

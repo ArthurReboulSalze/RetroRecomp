@@ -403,6 +403,22 @@ no native file of the session or the player changes, so the format of a state is
 **Seen:** Bomb Jack (EmuTOS) shows no sign and stays patched; The Seven Gates of Jambala reads TDDR (A, frame 779, pc `$0106F8`) and runs exact, 4 interpreted instructions on a route; both validate on every route and on the packed copy. An `exact` game costs about 1.3 to 1.8 times the host cycles of the same game patched (the 9 November estimates, not a timing).
 **Hot path:** no change for a game that stays patched; the detector is three comparisons on a register access of the MFP, none per instruction. A game that runs exact runs a heavier machine, as before 1.7.2.
 **What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the session, the player, the conversion, the Hatari adaptation and the profile are in it), the Hatari adaptation digest (`e89a52b7e31d` to `1bb961c240a8`: the machine core is built again once), and the request signature of every Atari ST export, which now holds the option; the host and build stamps and every other console's stamps do not move. An Atari ST export of an earlier version is rebuilt when it is upgraded, and a game that now shows a sign is reconverted on the exact machine. Quick states: the Atari ST's key moves, as between any two Atari ST builds. Tool: `tools/atarist_hardware_check.py` measures the detector (51 measurements, 49 agree, the same 2 recorded differences).
+## Game Boy Advance: the first conversion converges faster, a conversion that differs from the interpreter fails, shared paths (after 1.7.2, 1.7.3)
+
+The Game Boy Advance's engine patches (`retrorecomp/gba_patches.py`, 47 patches in 1.7.2, 52 now, `ENGINE_REV` unchanged, pin `c1a5fda3`) and converter, and its player's test
+switch. **What changes for a player:** (1) the interpreter's bridge proposes the callees of a routine it interprets, so a *first* conversion from an empty library reaches
+0 interpreted instructions in fewer passes (Golden Sun 7 passes with 3.86 million interpreted in generic before, 5 asked-and-settling passes and 0 now; Advance Wars 2,
+The Minish Cap 3, Pokémon Emerald 2; [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-verdict-is-enforced-and-a-first-conversion-converges-faster-12-november-2026-173)); (2) a conversion
+whose generated code differs from the engine's interpreter, or whose native run errored, now **fails** where it could pass, and a generator that does not end (it can loop on a wrong root; 300 s with received rows, 900 s otherwise) is stopped and the conversion made again without the received rows; (3) a Thumb `STMIA`/`PUSH` with an empty register list stores
+the program counter plus six as the hardware does (interpreter and generated code); (4) the report counts the caps of the RAM code (`native_coverage.ram_code.caps`); (5) the machine can
+share its paths in the experimental tier (`gba_knowledge.py`, a schema 3 record with an empty layout; not on until the site's limits for `gba` are deployed with the release); (6) the player reads
+the test switch `RETRORECOMP_GBA_STATE` (a hidden player only).
+**What moves:** the Game Boy Advance **game** stamp (`1658c523234f` in 1.7.2, `375fdcf55fc3` in this tree: the engine patches, the conversion code and the player source are game inputs). The host stamp
+(`7b18d021f143`) and the build stamp (`6b70933a9b0a`) of the Game Boy Advance do not move, and **no other console's** stamp moves (the three stamps of the seventeen profiles were compared with the
+merge base `a5379530`: only that one differs). `resources.py` is untouched. **Existing Game Boy Advance exports:** the game stamp moves, so an export of 1.7.2 is converted in full at its next conversion, from the player's own paths
+(a game input changed; the machine is experimental and its exports are private to the player; no frozen legacy stamp is kept for it). **Quick states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused after the new build, by
+the rule of [UPGRADES](#the-rule-the-previous-release-only). **Hot path:** none. The generated code differs from before only where the new roots add functions and where the Thumb empty-list store is
+generated (two vectors of the self-test); the interpreter's replay is the proof, not a timing; `tools/gba_frame_cost.py` has not made its quiet-PC pass.
 
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 

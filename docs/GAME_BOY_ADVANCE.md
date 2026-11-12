@@ -276,6 +276,83 @@ with the full library. So every pass peels one layer (a routine reached only onc
 nothing; what is not found when the passes stop is interpreted, counted, and kept (the paths are saved before the long replay), so a second conversion of the same
 cartridge continues from there. The figure of the table above (32 thousand) is that of a converted-again cartridge; the page does not promise it for a first conversion.
 
+## The verdict is enforced, and a first conversion converges faster (12 November 2026, 1.7.3)
+
+**A conversion that differs from the interpreter fails.** `validation_failures` (`gba_conversion.py`) reads the native runs against the engine's own
+interpreter, and `convert` raises `ConversionError` when a native run errored, when a scenario was not replayed, or when the picture, the guest cycle count,
+the memory hash or the CPU hash differ. Before, a native run that errored did not count as a difference and a mismatch did not stop the conversion. Proved on an
+authored cartridge with a forced mismatch (`induced.py` of the maintainer's scratch folder): the conversion is refused, no report and no game are written. A batch
+that fails with received rows converts the cartridge once more without them (see *Paths*).
+
+**The bridge proposes its callees.** When the engine reaches a routine with no generated function it interprets it *with its whole call subtree*, and until now the
+callees of that subtree became visible one layer per pass: each pass found the next layer of calls and the conversion needed as many passes. A patch of the
+probe host (`rr_bridge_callee`, in `gba_patches.py`, 52 patches in all) records, while the bridge interprets, every `BL`/`BLX` target and every computed
+non-return jump (`BX`, `MOV PC`, `LDR PC`) as a miss with count 0 ("bridged x0"); the next pass has them as roots. It does not propose a return (a transfer that
+closes a call the bridge opened, an exception return, the stop address), only exact work-RAM windows, one target once, and it saves the proposals once every 32
+new targets and at the end. Native equals the engine's interpreter on every scenario of every cartridge below; a proposed address the generator cannot use is
+refused as before and the conversion fails visibly. It is the recorder, not the generated code, that changed: the paths the first pass learns are numbers about the
+cartridge, like all others.
+
+Measured on 12 November 2026 on a Windows PC, four cartridges from an **empty** library (a scratch one), three passes asked, `--jobs 1`, the PC being used for
+other work (the times are not a benchmark):
+
+| Cartridge | Interpreted, pass 1 (boot / generic) | Passes to 0 / 0 | Total time |
+|---|---|---|---|
+| Advance Wars (USA, Rev 1) | 2,044,548 / 60,656,952 | 2 | 49 min |
+| Golden Sun | 2,581,873 / 72,238,564 | 5 (3 asked, 2 settling) | 22 min |
+| The Minish Cap | 1,636,808 / 19,684,139 | 3 | 18 min |
+| Pokémon Emerald | 106,192 / 3,782,142 | 2 | 41 min |
+
+Most of the time is the long replay of the scenarios with the interpreter alone (Advance Wars, 45 minutes of the 49), not the passes. Golden Sun from an empty library
+took seven passes and ended with 3.86 million interpreted instructions in generic before the patch; with the first version of the patch it took four passes (19.6 minutes) and 0;
+the version with the guards above takes five, one more settling pass, and reaches the same 0 / 0. Not measured: a Linux conversion with the patch (asked of the Debian slot), cartridges outside these four.
+
+## Thumb blocks with an empty register list, and the loads left (12 November 2026)
+
+ARM7TDMI stores the program counter plus six (not plus four) when a Thumb `STMIA` or `PUSH` has an empty register list, and transfers sixteen words
+(the register base moves by 0x40). Two engine patches (`interpreter.cpp` and `arm_codegen.cpp`) give the interpreter and the generated code that stored value.
+`tools/gba_vector_selftest.py` on the SingleStepTests/ARM7TDMI vectors (a model's behaviour, not hardware): the `thumb_empty_list` class falls from 138 to 76 of the
+interpreter's vectors and from 4 to 2 of the generated code's (two stores of the class are now agreed; the overall agreement is 93.96 % and 91.08 % as before,
+the class was a few vectors out of 2.25 million). What is left in the class is the **loads** (`LDMIA`/`POP` with an empty list), a hardware behaviour the engine does not model; the
+class is narrowed to them, a store that still fails would be counted as `other`, and `other` is 0. The patch moves the Game Boy Advance game stamp with the others.
+
+## The silent caps are counted (12 November 2026)
+
+Four limits of the guarded RAM code were silent: the report now counts them in `native_coverage.ram_code.caps`:
+`versions_refused_by_the_converter` (the converter keeps at most 256 versions of an address), `addresses_capped_in_the_probe` (the probe's own bound; it writes
+`CAPPED address n` into the miss-bytes file the converter reads), `versions_without_a_mirror` (a version that cannot be named at a work-RAM mirror) and
+`image_over_the_cartridge_window` (the RAM code that does not fit the 32 MiB bus window and stays interpreted). A figure above zero is a reason a routine is
+interpreted, shown beside the instruction counts; it is not a defect by itself.
+
+## The fresh process: states, saves and route depth (12 November 2026)
+
+The checks were made in one process. `tools/gba_fresh_process.py` (`state`, `save` and `keys` subcommands; 34 tests that need no ROM) runs the **delivered**
+executable in separate processes and compares what comes out. The player has a test switch for it, `RETRORECOMP_GBA_STATE=save@N,load@K=N`, read by
+`native/gba_machine.cpp` (saves the quick state at guest frame N, or loads it at frame K, in a hidden player; the switch is the one thing that moves the Game Boy
+Advance game stamp in this item, together with the engine patches).
+
+* **G6, states.** Metroid Fusion: a state saved at frame 1500 of a run, then a *new* process started from the cartridge and loaded at frame 2: 200 frames later the
+  picture's SHA-256 is the first process's (a control run that does not load differs). The second route (no key, saved at frame 600, loaded at frame 5, 300 frames
+  later) is equal too. Both players ran with 0 interpreted instructions. The state file is 586,348 bytes.
+* **G7, saves.** Sonic Advance 2 (a 64 KB Flash chip): process A, from no save, picks the language and enters a name (`sonic_advance_2_save_write.keys`) and the
+  cartridge writes the file (8,140 bytes differ from the erased fill, 29 distinct values: not trivial); process B, with that file and no key, shows the saved game
+  (Sega logo, title) where a control with no save asks for the language; the file is identical after process B. One cartridge, one chip family; EEPROM and SRAM
+  were not exercised this way.
+* **G9, route depth.** Four scripted routes in `tools/gba_routes/`, run on the delivered players at several lengths and in several processes, 0 interpreted
+  instructions on every run (`FULLY_STATIC`, no miss): Advance Wars from the title to Nell's lesson on the first Field Training map (about frame 5,000, 10,000
+  frames run), Wario Land 4 from the title to Entry Passage with Wario in play (about frame 4,200, 10,000 frames), Metroid Fusion from the title through the long
+  opening story to Samus under control in the Navigation Room (about frame 24,000, 30,000 frames run) and the Sonic Advance 2 pair above. They are what the player
+  sees in the first minutes of play, not a level or a boss. No bug was found by these runs.
+
+All of this is native code coverage and a comparison of one executable with itself in another process. It says nothing about gameplay validation or hardware fidelity.
+
+## The cost of a frame (12 November 2026)
+
+`tools/gba_frame_cost.py` (12 tests, no ROM) measures the host time of the same frames of a cartridge in the probe host, native and with the interpreter alone,
+interleaved A/B, the best of N, with a banner that asks for a quiet PC. It states **host time**; it is not a latency, not a cost on the player's machine and not a
+comparison with a real console. Its plumbing was exercised on a normal PC on 12 November 2026 (2.3 ms a frame on a busy machine, which is not a figure); the quiet-PC pass is not
+done and no figure is claimed here.
+
 ## Independent evidence (stage 5)
 
 Two tools are in the repository, both outside the converter's path and run on demand; the test material is downloaded by the
@@ -334,9 +411,41 @@ A path is a number about a cartridge, never bytes of it. The machine's schema 3 
 `arm7tdmi` on `gba`. The function roots are `phys` entries, a cartridge offset whose lowest bit says Thumb (an ARM root is word
 aligned, so the bit is free); the routines copied into IWRAM (`0x03000000` to `0x03008000`) or EWRAM (`0x02000000` to
 `0x02040000`) are `span` rows (RAM address, cartridge offset, length). Both shapes already exist in the schema, so adding the
-machine moves no other console's stamp. The jump-table and dispatch-target shapes come with the conversion. The machine does not
-share its paths until its engine is stable (it is outside the shared base). Paths a conversion learns stay in the player's own library;
+machine moves no other console's stamp. The jump-table and dispatch-target shapes come with the conversion. Paths a conversion learns stay in the player's own library;
 bytes derived from the cartridge never go there.
+
+### Sharing the paths, stage A (12 November 2026, 1.7.3; experimental tier, not yet deployed)
+
+The machine can send and receive its paths in the experimental tier of the base (`retrorecomp/gba_knowledge.py`, `SharedKnowledge('experimental', withdrawable=True,
+quick_check_from_shared=False, module='gba_knowledge')`), on the pattern of the PC Engine: a schema 3 record with an **empty layout**, so `path_profiles.py`, which
+every console's game stamp hashes, is not edited and only the Game Boy Advance game stamp moves.
+
+* **What travels.** The ROM roots (`phys`, offset and Thumb bit) and the RAM copies (`span`: RAM address and Thumb bit, cartridge offset, length) of one exact cartridge
+  (`gba:<SHA-256 of the cartridge>`), numbers only. An ARM root and an ARM copy are word aligned in the cartridge and in RAM; a received record holds at most
+  262,144 roots and 4,096 copies (`PATH_CAPS`), and at most 8 versions of one RAM address.
+* **What never travels.** The bytes of a RAM routine, their versions and argument words, anything derived from the BIOS. A record is made only from rows **this**
+  conversion's own runs executed, after both scenarios were equal to the engine's interpreter. A row it received and did not itself reach is not in the record it makes:
+  `qualified_by_this_converter` is always 0 and no received row is saved in the player's library.
+* **How a received row is used.** As a hint: a *pending* root (not yet qualified) is given to the generator as a declared root, in a deterministic order of a hash of
+  the cartridge and the offset (not the lowest offsets, so low-offset junk cannot crowd out the rest), at most 16,384 per cartridge; what the cap leaves out is counted
+  (`left_out_by_the_cap`). A row is *qualified* only when a window of a conversion executed it, and the key of a record is the engine pin and our revision of its use
+  (`cores` = SHA-1 of `gba:<PATH_REVISION>:<ENGINE_REV>:<ARM_CORE_REV>`), not our game stamp; a test pins the recompiler-side patches and the probe's recorders so that a
+  patch a path could notice raises the revision by hand.
+* **When it fails.** If the conversion with received rows fails (the generator refuses a root, or the generated code differs from the interpreter), `convert` converts the
+  cartridge once more without them and says so in the report (`set_aside_after_a_failure`). The report's `shared_paths` block counts received, used, left out and qualified.
+* **Audit.** `tools/gba_bogus_rows_audit.py` invents 2,000 valid-but-meaningless roots and RAM copies and converts a cartridge with them as the imported bank of a
+  scratch library; it requires `bogus_rows_in_players_paths` and `bogus_rows_in_promoted_record` to be 0 and the conversion to pass. Result on the Minish Cap (12 November 2026, scratch
+  library, nothing shared): with 2,000 bogus roots and 2,000 bogus RAM copies, then with 150 roots and 20 roots, **the generator of the pinned recompiler did not end** (see
+  the next bullet), the conversion was stopped, converted again without the received rows, and passed with native equal to the interpreter on both scenarios, 0 interpreted
+  instructions and the same 16,335 functions as the clean conversion; no bogus row reached the player's paths or the record the conversion promotes (both counters 0).
+  With `--max-root-offset 0x1D0000` (230 roots inside the code area of the cartridge, plus 2,000 RAM copies) the generator accepted every row: 68,500 functions instead of
+  16,335, pass 3 with 0 interpreted instructions, native equal to the interpreter on both scenarios, `received_rows_used` 2,230, 0 qualified, both counters 0.
+* **A finding about the pinned generator.** `gba_recompile.exe` can loop forever on a wrong ARM or Thumb root inside cartridge data (one root of the Minish Cap was enough;
+  20 random roots hung it in 3 of 4 seeds; 2,000 random RAM copies alone are fine, 45 s). A poisoned record could therefore make a conversion hang. The converter now stops
+  the generator after 300 seconds when rows were received (900 seconds otherwise), turns that into a conversion error, and the conversion is converted again without **all**
+  received rows (qualified ones too: a row that hangs the generator is not a hint worth keeping). It is for the maintainer to report upstream.
+* **Not done.** The site's limits for the `gba` machine are not regenerated or deployed, no record was uploaded, and the Linux witness is not run: sharing is code and tests
+  in the tree, switched on only with the release and the maintainer's seeding. The local carry-over of paths at a pin bump is for later.
 
 ## What exists today
 
@@ -348,6 +457,8 @@ bytes derived from the cartridge never go there.
 | The player: the project of the executable, its resources, the kit | `retrorecomp/gba_player.py`, `native/gba_machine.cpp`, `native/gba_machine.h`, `native/gba_driver.h`, `native/hostkit/adapters/rrhk_gba.c` |
 | Checkout of the pinned engine and the staged, patched copy | `retrorecomp/gba_engine.py`, `retrorecomp/gba_patches.py` |
 | Misses to roots and RAM routines, the engine's configuration | `retrorecomp/gba_analysis.py` |
+| Shared paths (the record, the limits, the received rows' use) | `retrorecomp/gba_knowledge.py`, `tests/test_gba_knowledge.py`, `tools/gba_bogus_rows_audit.py` |
+| Fresh-process checks, route scripts, cost of a frame | `tools/gba_fresh_process.py`, `tools/gba_routes/`, `tools/gba_frame_cost.py` |
 | Recompiler, BIOS and game generation, the headless probe host, the key scripts | `retrorecomp/gba_build.py` |
 | Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py`, `tests/test_gba_player.py` |
 

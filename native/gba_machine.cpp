@@ -56,6 +56,31 @@ bool g_selftest = false;
 int g_selftest_phase = 0;
 uint64_t g_state_hash = 0;
 
+// RETRORECOMP_GBA_STATE (a test of the player, like the switches above) presses F8 and F9 at chosen frames: `save@N` writes the
+// quick state at the end of frame N; `load@K=N` loads it at the end of frame K and counts from N afterwards (the frame the state
+// was saved at), so that a key script goes on where the saving process left it. Steps are separated by commas. Used by
+// tools/gba_fresh_process.py to load a state in a process that never ran the frames the state holds.
+struct StateStep {
+    bool load;
+    uint64_t at, resume;
+    bool done;
+};
+std::vector<StateStep> g_state_steps;
+
+void parse_state_switch() {
+    const char* text = getenv("RETRORECOMP_GBA_STATE");
+    while (text && *text) {
+        char* end = nullptr;
+        const bool load = strncmp(text, "load@", 5) == 0;
+        if (!load && strncmp(text, "save@", 5) != 0) break;
+        StateStep step = {load, strtoull(text + 5, &end, 10), 0, false};
+        if (load && end && *end == '=') step.resume = strtoull(end + 1, &end, 10);
+        else if (load) step.resume = step.at;
+        g_state_steps.push_back(step);
+        text = end && *end == ',' ? end + 1 : nullptr;
+    }
+}
+
 void load_script() {
     const char* path = getenv("RETRORECOMP_GBA_INPUT");
     FILE* file = path ? fopen(path, "r") : nullptr;
@@ -205,6 +230,7 @@ uint64_t picture_hash() {
 extern "C" {
 
 static void run_selftest(void);
+static void run_state_switch(void);
 
 bool rrgba_frame(uint16_t pressed) {
     if (!g_api || g_restart) return false;
@@ -218,6 +244,7 @@ bool rrgba_frame(uint16_t pressed) {
     take_picture();
     take_sound();
     if (g_selftest) run_selftest();
+    if (!g_state_steps.empty()) run_state_switch();
     if (++g_since_flush >= kFlushFrames) {
         g_since_flush = 0;
         flush_battery();
@@ -270,6 +297,19 @@ bool rrgba_state_file(const wchar_t* path, bool load) {
     return g_api->save_state(bytes, error) && write_atomically(path, bytes);
 }
 
+static void run_state_switch(void) {
+    for (StateStep& step : g_state_steps) {
+        if (step.done || step.at != g_frame_index) continue;
+        step.done = true;
+        wchar_t path[2048];
+        const bool ok = rrgba_state_path(path, 2048) && rrgba_state_file(path, step.load);
+        fprintf(stderr, "[state] %s at frame %llu %s\n", step.load ? "load" : "save", static_cast<unsigned long long>(step.at),
+                ok ? "ok" : "FAILED");
+        if (ok && step.load) g_frame_index = step.resume;
+        break;   // a load moves the frame count: the next step is looked at on the next frame
+    }
+}
+
 // RETRORECOMP_GBA_SELFTEST=1 (a test of the player, like the switches above): the quick state is saved at frame 200, the machine
 // runs to frame 260 and its picture is hashed, the state is loaded, the same 60 frames run again, and the two pictures must be
 // the same. The result is one line on stderr.
@@ -315,6 +355,7 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_embedded_bios = {static_cast<const uint8_t*>(bios), bios_size};
     gbarecomp::g_rr_driver = driver;
     load_script();
+    parse_state_switch();
     g_selftest = getenv("RETRORECOMP_GBA_SELFTEST") != nullptr;
     // Every check (a scripted run, the self-test, the kit's frame limit) starts the cartridge's clock from a fixed time and moves it
     // with the guest's cycles, so two runs of the same script see the same seconds; a person playing keeps the host's clock.

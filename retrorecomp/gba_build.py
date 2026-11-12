@@ -67,6 +67,7 @@ class Run:
     cpu_hash: str = ''               # the CPU registers there
     ewram: bytes | None = None       # the 256 KB of work RAM at the end of the run (code a game copies there is matched with its source)
     samples: tuple = ()              # (address, 1,024 live bytes) found at the first miss of a RAM address, and again when they changed
+    capped: tuple = ()               # (address, versions kept) of the RAM addresses whose further versions the probe's cap refused
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
@@ -108,11 +109,20 @@ def generate_bios(recompile: Path, stage: Path, bios_path: Path, out: Path, emit
     return out
 
 
-def generate_game(recompile: Path, rom_path: Path, config: Path, out: Path, emit: Callable[[str], None]) -> dict:
-    """The cartridge's generated shards, sharded, from the engine's analysis plus our observations."""
+GENERATION_TIMEOUT = 900                # seconds; a generation takes one to a few seconds in practice
+RECEIVED_GENERATION_TIMEOUT = 300       # with rows received from other players: a wrong root can make the generator loop (see GAME_BOY_ADVANCE.md)
+
+
+def generate_game(recompile: Path, rom_path: Path, config: Path, out: Path, emit: Callable[[str], None],
+                  timeout: int = GENERATION_TIMEOUT) -> dict:
+    """The cartridge's generated shards, sharded, from the engine's analysis plus our observations. A generator that does not end within `timeout`
+    seconds is stopped and reported as a conversion error (so that the caller can convert again without the rows it received), never as a raw timeout."""
     out.mkdir(parents=True, exist_ok=True)
-    result = run([recompile, '--rom', rom_path, '--config', config, '--entry', '0x08000000',
-                  '--codegen-shards', str(SHARD_COUNT), '--out', out], log=out.with_suffix('.log'), timeout=900)
+    try:
+        result = run([recompile, '--rom', rom_path, '--config', config, '--entry', '0x08000000',
+                      '--codegen-shards', str(SHARD_COUNT), '--out', out], log=out.with_suffix('.log'), timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        raise ConversionError(f'The generator did not end within {timeout} seconds (a root it was given makes it loop); it was stopped.') from error
     found = re.search(r'discovered (\d+) functions \(arm=(\d+) thumb=(\d+)', result)
     return {'functions': int(found[1]) if found else None, 'arm': int(found[2]) if found else None,
             'thumb': int(found[3]) if found else None,
@@ -159,6 +169,23 @@ def input_script(frames: int, kind: str) -> str:
             events.append((frame, value))
             previous = value
     return '# frame,keyinput_active_low\n' + ''.join(f'{frame},0x{value:04x}\n' for frame, value in events)
+
+
+def _capped(path: Path) -> tuple:
+    """The `CAPPED address versions` lines of the probe's miss-bytes file: the addresses whose versions the probe's cap refused."""
+    found = []
+    try:
+        lines = path.read_text(encoding='ascii', errors='replace').splitlines()
+    except OSError:
+        return ()
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 3 and parts[0] == 'CAPPED':
+            try:
+                found.append((int(parts[1], 16), int(parts[2])))
+            except ValueError:
+                continue
+    return tuple(found)
 
 
 def _samples(path: Path) -> tuple:
@@ -220,4 +247,4 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
                int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '',
-               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file))
+               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file))

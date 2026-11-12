@@ -1,0 +1,4 @@
+# Sonic Advance 2 (USA): no key at all, 1500 frames (gate G7, second process of tools/gba_fresh_process.py save).
+# With the save of sonic_advance_2_save_write.keys the game goes to the Sega logo and the title; with no save it asks SELECT A LANGUAGE.
+# frame,keyinput_active_low (the value holds until the next line)
+0,0x03ff

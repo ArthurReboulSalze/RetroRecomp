@@ -60,8 +60,10 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(tool.classify(self.record(0x08EE2A14, False, ('R14', 'fiq6'))), tool.BLOCK_USER_WRITEBACK)     # STMIA Rn!, {..}^
         self.assertEqual(tool.classify(self.record(0x08CE2A14, False, ('R14', 'fiq6'))), tool.OTHER)                   # same without write-back
         self.assertEqual(tool.classify(self.record(0x08EE8A14, False, ('R15',))), tool.R15_OPERAND)                   # PC in the list comes first
-        for opcode in (0xC300, 0xCB00, 0xB400, 0xBC00):                                                              # empty Thumb register list
+        for opcode in (0xC800, 0xCB00, 0xBC00):                                                                      # empty Thumb register list, a load
             self.assertEqual(tool.classify(self.record(opcode, True, ('R15',))), tool.THUMB_EMPTY_LIST)
+        for opcode in (0xC300, 0xC000, 0xB400):                                                                      # an empty-list store: fixed, a failure is unexplained
+            self.assertEqual(tool.classify(self.record(opcode, True, ('TRANS',))), tool.OTHER)
         self.assertEqual(tool.classify(self.record(0xC301, True, ('R15',))), tool.OTHER)                              # a list that is not empty
         self.assertEqual(tool.classify(self.record(0xB500, True, ('R15',))), tool.OTHER)                              # PUSH {LR} is not empty
 

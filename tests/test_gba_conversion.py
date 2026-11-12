@@ -23,6 +23,10 @@ def pseudo_random(length: int, seed: int) -> bytes:
     return bytes(out)
 
 
+def seen_bytes(count, seed):
+    return pseudo_random(count, seed)
+
+
 class AnalysisTests(unittest.TestCase):
     def test_a_miss_proposal_is_read(self):
         text = ('# header\n[[extra_func]]\naddr = 0x030015D8\nmode = "arm"\n'
@@ -202,6 +206,27 @@ class AnalysisTests(unittest.TestCase):
         entry = analysis.RamEntry(0x03002000, False, analysis.ROM_BASE + 0x500000)
         self.assertIn('addr = 0x03012000', analysis.config_text('Authored', 'ab' * 20, 0x600000, analysis.Observations(spans=spans), [entry]))
 
+    def test_the_caps_are_counted_not_silent(self):
+        ram_code = analysis.RamCode()
+        miss = analysis.Miss(0x02008030, True)
+        samples = tuple((0x02008030, seen_bytes(0x100, 1000 + index)) for index in range(analysis.MAX_VARIANTS + 5))
+        self.assertEqual(ram_code.take(miss, samples), analysis.MAX_VARIANTS)
+        self.assertEqual(ram_code.refused, 5)                                   # versions beyond the cap are counted
+        entry = analysis.RamEntry(0x03002000, False, analysis.ROM_BASE + 0x500000)
+        stats = {}
+        analysis.config_text('Authored', 'ab' * 20, 0x600000, analysis.Observations(spans={(0x03002000, number * 0x100, 0x40) for number in range(600)}),
+                             [entry], (), stats)
+        self.assertEqual(stats, {'versions_without_mirror': 1})                 # 600 cartridge versions fill the 512 mirrors of the IWRAM
+        big = analysis.RamCode(variants={(0x02008030, 0): [seen_bytes(0x400, 1)]})
+        self.assertEqual(analysis.generator_image(bytes(analysis.IMAGE_MAX - 0x100), big)[1], [])
+        self.assertTrue(big.image_overflow)
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / 'miss-bytes.txt'
+        path.write_text('03000828 ' + '00' * 8 + chr(10) + 'CAPPED 03000828 256' + chr(10) + 'CAPPED zz 1' + chr(10), encoding='ascii')
+        self.assertEqual(build._capped(path), ((0x03000828, 256),))
+        self.assertEqual(len(build._samples(path)), 1)                          # the CAPPED line is not a sample
+
     def test_merging_counts_what_is_new(self):
         known = analysis.Observations(roots={1, 2})
         self.assertEqual(known.merge(analysis.Observations(roots={2, 3}, spans={(0x03000000, 0, 4)})), 2)
@@ -338,6 +363,23 @@ class ConversionTests(unittest.TestCase):
         self.assertIsNone(gba_conversion._matches(make('a', 5), None))
         self.assertIsNone(gba_conversion._matches(make('a', 5, 3), make('a', 5)))
         self.assertIsNone(gba_conversion._matches(make('', None), make('', None, 1)))
+
+    def test_a_conversion_whose_native_run_failed_or_differs_is_refused(self):
+        make = lambda code=0, aborted='': build.Run('s', 10, code, '', {}, '', None, aborted, 'sha', 1, 'm', 'c')
+        row = lambda name, match: {'scenario': name, 'reference_match': match}
+        good = {'boot': make(), 'generic': make()}
+        self.assertEqual(gba_conversion.validation_failures([row('boot', True), row('generic', True)], good), [])
+        failures = gba_conversion.validation_failures([row('boot', True), row('generic', False)], good)
+        self.assertEqual(len(failures), 1)
+        self.assertIn('generic', failures[0])
+        self.assertIn('different states', failures[0])
+        broken = {'boot': make(3, 'bridge stopped'), 'generic': make()}                       # an errored native run used to be left out of the verdict
+        failures = gba_conversion.validation_failures([row('boot', None), row('generic', True)], broken)
+        self.assertEqual(len(failures), 1)
+        self.assertIn('exit code 3', failures[0])
+        self.assertIn('bridge stopped', failures[0])
+        failures = gba_conversion.validation_failures([row('boot', None), row('generic', None)], good)
+        self.assertEqual(len(failures), 2)                                                      # nothing compared is not a pass either
 
     def test_a_report_with_measured_rows_goes_through_the_common_builder(self):
         with tempfile.TemporaryDirectory() as folder:

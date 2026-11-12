@@ -22,8 +22,9 @@ retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
 retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
 retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
+retrorecomp/gba_knowledge.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
-tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py
+tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py tools/gba_fresh_process.py tests/test_gba_fresh_process.py tools/gba_routes/advance_wars_field_training.keys tools/gba_routes/metroid_fusion_new_game.keys tools/gba_routes/sonic_advance_2_save_show.keys tools/gba_routes/sonic_advance_2_save_write.keys tools/gba_routes/wario_land_4_entry_passage.keys
 tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
@@ -211,7 +212,7 @@ retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sour
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
 retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/delivery_evidence.py retrorecomp/sega_evidence.py retrorecomp/cpu.py retrorecomp/z80_chain.py tests/test_z80_chain.py retrorecomp/gui.py retrorecomp/branding.py
-tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_packed_fallback.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py tools/startup_cost.py tests/test_startup_cost.py tests/test_sdl_install.py tests/test_dependency_pins.py
+tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_packed_fallback.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py tools/startup_cost.py tests/test_startup_cost.py tools/gba_frame_cost.py tests/test_gba_frame_cost.py tests/test_sdl_install.py tests/test_dependency_pins.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py

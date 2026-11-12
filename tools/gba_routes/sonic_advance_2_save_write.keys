@@ -1,0 +1,13 @@
+# Sonic Advance 2 (USA): language screen to the cartridge save (gate G7), made for tools/gba_fresh_process.py save.
+# Frame 450 A (English), frame 700 A (enters one character on REG. NAME), frame 760 Start (END), frame 900 A (confirms):
+# the game writes its 64 KB Flash save by about frame 1000. Run it for 1500 frames.
+# frame,keyinput_active_low (the value holds until the next line)
+0,0x03ff
+450,0x03fe
+454,0x03ff
+700,0x03fe
+704,0x03ff
+760,0x03f7
+764,0x03ff
+900,0x03fe
+904,0x03ff
