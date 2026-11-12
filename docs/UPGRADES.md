@@ -393,8 +393,9 @@ exit beside the game). The next conversion reads the notes back against the play
 recording and one conversion, and equals its fresh reference on all 18,000 frames ([PC_ENGINE.md](PC_ENGINE.md#the-players-own-record-12-november-2026)). The Street Fighter II board does not record. If the engine refuses the roots, the conversion goes on without them.
 **What the owner saw in 1.7.2 is answered after he plays:** code past the routes stays interpreted, counted and shown, until his own record has been converted.
 
-**The start with I.** The conversion also tries one, two and three Run presses each followed by a tap of I, and keeps the best variant by the same rule. On four cards it helped one (Legend of Hero Tonma),
-and not Boxyboy, whose start waits on a second Run.
+**The start with I.** The conversion also tries one, two and three Run presses each followed by a tap of I, and keeps the best variant by the same rule. On the fifteen cards of the panel it was kept on two
+(Military Madness, a real gain; Splatterhouse, a tie settled by one picture), and it does not help Boxyboy, whose start waits on a second Run. The panel of the new tree: 15 of 15 at 0 interpreted and 0 guard misses on every route,
+on Windows.
 
 **What moves:** only the PC Engine's game stamp (`native/pce_machine.cpp`, `native/pce_machine.h`, `native/pce_main.c`, `pce_conversion.py`, `pce_knowledge.py`); every game stamp moves in 1.7.3 anyway. A PC Engine
 export of 1.7.2 is rebuilt when it is upgraded, and its quick states are refused cleanly, as after any change of the bridge. **Hot path (declared):** the game's step loop copies the program counter and the

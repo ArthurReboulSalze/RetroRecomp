@@ -347,7 +347,7 @@ is off, two predictable branches. Not timed.
 
 The conversion tries three more start variants on its play route: one, two or three Run presses, each followed 60 frames later by a tap of I (`confirm_candidates`; the report's
 `route_start.variants` names them `1+I`, `2+I`, `3+I` and `route_start.confirm` says `I` when one is kept). The choice is the same rule as before (alive to the end, then the most pictures the
-walk reached that no input never showed). Tried on the delivered games, on four cards the plain variants reached least (reach: pictures of the walk that the no-input run never shows):
+walk reached that no input never showed). First tried by script on the delivered games, with a seed of its own, on four cards the plain variants reached least (reach: pictures of the walk that the no-input run never shows):
 
 | Card | Best plain variant | Best with I | |
 |---|---|---|---|
@@ -356,9 +356,18 @@ walk reached that no input never showed). Tried on the delivered games, on four 
 | Neutopia II | 1 press: 533 | 1 press + I: 533 | the same |
 | Boxyboy | 6 presses: 156 | none: every variant with I equals its plain one | no effect |
 
-So the variant helps one of four, and **it is not what Boxyboy needs**. Boxyboy ignores I at its title; its Run starts it, then a screen reads CHALLENGE AMERICA! and waits for a second Run once PUSH RUN
+That try was with another seed than the cards' own: **on the panel below, with each card's own seed, the variant was kept on two cards of fifteen**: Military Madness (1 press + I reaches 206, against 178 for 2 plain presses) and Splatterhouse (1 press + I, 869 against 868: a tie in practice that the rule settles by one picture); Hero Tonma kept its 6 presses (591; 2 presses + I reaches 459). So the variant helps a little, and **it is not what Boxyboy needs**. Boxyboy ignores I at its title; its Run starts it, then a screen reads CHALLENGE AMERICA! and waits for a second Run once PUSH RUN
 appears (about frame 1,200); a third Run at frame 1,100 changed nothing, and a script that waits on that screen ran 547 instructions interpreted on the delivered game (a screen the routes pass through
 quickly, not a menu answered by I). What a player's own waits run is what the record is for.
+
+### The panel of the 1.7.3 tree (12 November 2026)
+
+The fifteen cards of the release-tree panel again, from the branch `spec/pce-174` (head `27868231`), at the extended level, four conversions at once, an empty scratch library, no base, no cover, Windows and llvm-mingw
+(the Debian witness was not repeated: nothing in the Linux paths changed). **All fifteen passed every check: 0 interpreted instructions and 0 guard misses on every route (attract, play, long) of every card**, the
+packed replay and the states included, as in the panel of the release tree. Two starts changed: Military Madness and Splatterhouse now start with one Run press and a tap of I (above). The instructions emitted are
+those of the earlier panel on twelve cards to the instruction; Military Madness 27,530 → 27,578 and Splatterhouse 49,072 → 47,693 follow their new route; Street Fighter II' CE 734,635 as before. Its report says
+`recording_default: false` ("not available on this board") and the fourteen others say true. The conversion took 134 minutes for the batch (Street Fighter II' CE 76 minutes with three others beside it, the others 19 to 42 minutes):
+four at once and other work on the PC, so not a speed measure. No game was played for this panel by a person; the owner's play of 10 November was of the games of the release tree, not of these.
 
 ### The engine fetch from a clean state (12 November 2026)
 
