@@ -1384,7 +1384,8 @@ def sync_shared(rom_keys) -> dict:
         summary['records'] += accepted.get('records', 0)
         summary['observations'] += accepted.get('observations', 0)
     _save_shared_state(current, state)
-    summary.update(new=outcome['new'], enriched=outcome['enriched'])
+    # `dropped`: what the import left out, counted (knowledge_exchange.DROPPED_KEYS); no line says it yet.
+    summary.update(new=outcome['new'], enriched=outcome['enriched'], dropped=outcome.get('dropped', {}))
     return summary
 
 
