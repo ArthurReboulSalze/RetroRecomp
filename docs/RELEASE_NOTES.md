@@ -57,8 +57,20 @@
   shared paths, the converter window says in one line, in your language, how many valid rows a
   limit of your local base could not keep and how many rows were refused as invalid. Rows you
   already had stay quiet.
-- **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
-  pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
+- **PC Engine / TurboGrafx-16.**
+  - **The player's own record**, promised in the 1.7.2 notes. A game now records, in a window,
+    the code of the card that ran on the interpreter (F12 switches it), and the next conversion
+    makes it native, read back against your own ROM; the record stays on your PC. The report's
+    `recording_default` was true in 1.7.2 while no game recorded; it is now true because they do,
+    and false on the Street Fighter II board, which does not record. On one scripted walk of
+    Blazing Lazers (18,000 frames), 733,921 interpreted instructions became 0 after one recording
+    and one conversion, equal to the fresh reference on every frame. One card and one walk, not a
+    person's play.
+  - **A start with I after Run.** The conversion also tries the start presses followed by a tap
+    of I and keeps the best variant: Military Madness now reaches further into its game.
+  - **The panel of this release:** the fifteen cards run 0 interpreted instructions and 0 guard
+    misses on every route, on Windows. A checkout with no `.deps` fetched the engine at its pin by
+    itself and converted Blazing Lazers.
 - **Atari ST (experimental).**
   - **What ran on the interpreter becomes native at the next conversion.** An exported game keeps
     the player's own record (F12) of the code that ran on the interpreter, and the conversion
@@ -81,15 +93,17 @@
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the
-converter's own build steps are inputs of each), so **every export of 1.7.2, on every machine,
-is converted again once** when you update, at the quick level, from its learned paths, and the
-window offers it; the shared paths of the base are kept. No host or build stamp moves. The
-Amiga, Atari ST, Nintendo 64 and Mega Drive quick-state keys move, so a quick state of 1.7.2 is
-refused cleanly on those four machines, with a message (nothing is lost but the state); the other
-machines' states still load. Cartridge saves are kept; a save the new export cannot use is set
-aside and never crashes or blocks the game. [à venir : ce que les branches restantes
-changent.] The details are in [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
+**Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the converter's
+own build steps are inputs of each), so **every export of 1.7.2, on every machine, is converted
+again once** when you update, at the quick level, from its learned paths, and the window offers
+it; the shared paths of the base are kept. No host or build stamp moves. The Amiga, Atari ST,
+Nintendo 64, Mega Drive, Super Nintendo and PC Engine quick-state keys move, so a quick state of
+1.7.2 is refused cleanly on those six machines, with a message (nothing is lost but the state);
+the other machines' states still load. Cartridge saves are kept; a save the new export cannot
+use is set aside and never crashes or blocks the game. The Mega Drive, Super Nintendo and PC
+Engine now write their saves through one shared file of code, with the same bytes on disk as
+before. [à venir : ce que les branches restantes changent.] The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows
