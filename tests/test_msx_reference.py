@@ -132,7 +132,7 @@ class PinTests(unittest.TestCase):
 class StampTests(unittest.TestCase):
     def test_the_skeleton_is_a_check_and_moves_no_stamp(self):
         for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_video.c', 'msx_psg.c',
-                     'msx_hardware_checks.c'):
+                     'msx_hardware_checks.c', 'msx_cart.c'):
             path = 'native/msx_machine/' + name
             self.assertTrue((ROOT / path).is_file(), path)
             self.assertTrue(path.startswith(stamp_inputs.NOT_INPUTS), path)

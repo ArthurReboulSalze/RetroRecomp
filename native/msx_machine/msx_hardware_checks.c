@@ -266,13 +266,13 @@ static void sound_checks(void)
     n = listen(1.0);
     unsigned jumps = 0;                         /* a restart may fall across two samples: compare two apart */
     for (unsigned i = 2; i < n; ++i)
-        if (samples[i] - samples[i - 2] > 3000) { ++jumps; i += 2; }
+        if (samples[i] - samples[i - 2] > 2000) { ++jumps; i += 2; }
     check_range("envelope shape 8, period 70: ramps restarting in one second (99.88)", jumps, 98, 101);
     psg(13, 0x0D);                              /* shape 13: rise once, then hold at the top */
     listen(0.05);
     n = listen(0.2);
     rising_crossings(n, &lo, &hi);
-    check("envelope shape 13: holds at level 15 (32,767 / 3 x 21,000 / 37,000 x 4/5)", (long)lo, 4958);
+    check("envelope shape 13: holds at level 15 (32,767 / 3 x 21,000 / 58,000 x 4/5)", (long)lo, 3163);
     check("envelope shape 13: no change after the ramp", (long)(hi - lo), 0);
     psg(13, 0x00);                              /* a write restarts: shape 0 falls once and holds at 0 */
     listen(0.05);
@@ -284,9 +284,9 @@ static void sound_checks(void)
     n = listen(0.5);
     rising_crossings(n, &lo, &hi);
     jumps = 0;
-    for (unsigned i = 2; i < n; ++i) jumps += abs(samples[i] - samples[i - 2]) > 3000;
+    for (unsigned i = 2; i < n; ++i) jumps += abs(samples[i] - samples[i - 2]) > 2000;
     check("envelope shape 10: a triangle, no jump", jumps, 0);
-    check("envelope shape 10: spans levels 0 to 15", (long)(hi - lo), 4958);
+    check("envelope shape 10: spans levels 0 to 15", (long)(hi - lo), 3163);
 
     /* Noise on channel A, period 31: the register shifts 1,789,772.5 / (16 x 31) = 3,608 times a second; a new bit
      * differs from the last on half the shifts and rises on a quarter: about 902 rising edges a second. */
@@ -302,13 +302,147 @@ static void sound_checks(void)
     listen(0.01);                               /* the sample that holds the edge is a mix */
     n = listen(0.1);
     rising_crossings(n, &lo, &hi);
-    check("key click: output level with bit 7 set (32,767 x 16,000 / 37,000 x 4/5)", (long)lo, 32767L * 16000 / 37000 * 4 / 5);
+    check("key click: output level with bit 7 set (32,767 x 16,000 / 58,000 x 4/5)", (long)lo, 32767L * 16000 / 58000 * 4 / 5);
+}
+
+/* Cartridges: a synthetic image whose every 8 KB block ends with the byte C0h + block number; the cartridge in slot 1,
+ * selected in all four pages (A8h = 55h). */
+static uint8_t image[0x80000];
+
+static void cartridge(MsxMapper mapper, uint32_t size, uint16_t base, int mirrored)
+{
+    memset(image, 0xFF, sizeof image);
+    for (uint32_t b = 0; b < size / 0x2000; ++b)
+        image[b * 0x2000 + 0x1FFF] = (uint8_t)(0xC0 + b);
+    msx_init(&m, MSX_LINES_NTSC);
+    MsxDevice d = { MSX_DEV_ROM, image, size, base, NULL };
+    d.mapper = mapper;
+    d.mirrored = (uint8_t)mirrored;
+    msx_set_device(&m, 1, 0, d);
+    msx_out(&m, 0xA8, 0x55);
+}
+
+static long marker(uint16_t region_base) { return msx_read(&m, (uint16_t)(region_base + 0x1FFF)); }
+
+static void cartridge_checks(void)
+{
+    cartridge(MSX_MAPPER_PLAIN, 0x4000, 0x4000, 1);           /* 16 KB at 4000h, mirrored over the slot */
+    check("plain 16 KB mirrored: 4000h is block 0", marker(0x4000), 0xC0);
+    check("plain 16 KB mirrored: 0000h repeats block 0", marker(0x0000), 0xC0);
+    check("plain 16 KB mirrored: A000h repeats block 1", marker(0xA000), 0xC1);
+    cartridge(MSX_MAPPER_PLAIN, 0x4000, 0x4000, 0);
+    check("plain 16 KB not mirrored: 8000h is empty (FFh)", marker(0x8000), 0xFF);
+    cartridge(MSX_MAPPER_PLAIN, 0xC000, 0x0000, 1);           /* 48 KB from 0000h */
+    check("plain 48 KB at 0000h: A000h is block 5", marker(0xA000), 0xC5);
+
+    cartridge(MSX_MAPPER_KONAMI, 0x20000, 0, 0);              /* 128 KB: 16 blocks */
+    check("Konami reset: 4000h-BFFFh are blocks 0-3 (A000h)", marker(0xA000), 0xC3);
+    msx_write(&m, 0x6123, 5); msx_write(&m, 0x8000, 9); msx_write(&m, 0xBFFF, 15);
+    check("Konami: any write in 6000h-7FFFh selects 6000h", marker(0x6000), 0xC5);
+    check("Konami: 8000h", marker(0x8000), 0xC9);
+    check("Konami: A000h, written at BFFFh", marker(0xA000), 0xCF);
+    check("Konami: 6000h mirrored at 2000h", marker(0x2000), 0xC5);
+    check("Konami: A000h mirrored at E000h", marker(0xE000), 0xCF);
+    msx_write(&m, 0x5000, 7);
+    check("Konami: 4000h-5FFFh stays block 0", marker(0x4000), 0xC0);
+    msx_write(&m, 0x6000, 20);
+    check("Konami: block 20 of 16 (mask 31) reads FFh", marker(0x6000), 0xFF);
+    msx_write(&m, 0x6000, 36);
+    check("Konami: block 36 wraps to 4 (mask 31 applied, then 4 < 16)", marker(0x6000), 0xC4);
+
+    cartridge(MSX_MAPPER_KONAMI_SCC, 0x20000, 0, 0);
+    msx_write(&m, 0x5000, 1); msx_write(&m, 0x7000, 5); msx_write(&m, 0x9000, 9); msx_write(&m, 0xB000, 15);
+    check("Konami SCC: 5000h selects 4000h", marker(0x4000), 0xC1);
+    check("Konami SCC: 7000h selects 6000h", marker(0x6000), 0xC5);
+    check("Konami SCC: B000h selects A000h", marker(0xA000), 0xCF);
+    check("Konami SCC: 4000h mirrored at C000h", marker(0xC000), 0xC1);
+    check("Konami SCC: 8000h mirrored at 0000h", marker(0x0000), 0xC9);
+    msx_write(&m, 0x6000, 3);
+    check("Konami SCC: 6000h is no register", marker(0x6000), 0xC5);
+    image[9 * 0x2000 + 0x1800] = 0x77;
+    msx_write(&m, 0x9800, 0x12);
+    check("Konami SCC: SCC off, 9800h reads the ROM (block 9)", msx_read(&m, 0x9800), 0x77);
+    msx_write(&m, 0x9000, 0x3F);
+    check("Konami SCC: 3Fh at 9000h also selects block 63 & 15 = 15 for 8000h", m.slot[1][0].block[4], 15);
+    image[15 * 0x2000] = 0x5A;
+    check("Konami SCC: 8000h-97FFh still read the ROM block", msx_read(&m, 0x8000), 0x5A);
+    msx_write(&m, 0x9800, 0x12); msx_write(&m, 0x987F, 0x34);
+    check("SCC: wave byte reads back", msx_read(&m, 0x9800), 0x12);
+    check("SCC: 60h-7Fh is channel 4's (and 5's) wave", msx_read(&m, 0x987F), 0x34);
+    check("SCC: the frequency block reads FFh", msx_read(&m, 0x9880), 0xFF);
+    image[15 * 0x2000 + 0x1800] = 0x66;
+    msx_write(&m, 0x9000, 0x3F);
+    check("SCC still on after 3Fh again: 9800h is the SCC", msx_read(&m, 0x9800), 0x12);
+    msx_write(&m, 0x9000, 0x05);
+    check("SCC off: 9800h reads the ROM again, now block 5", msx_read(&m, 0x9800), image[5 * 0x2000 + 0x1800]);
+    check("SCC off: 9FFFh is block 5's marker", marker(0x8000), 0xC5);
+
+    cartridge(MSX_MAPPER_ASCII8, 0x20000, 0, 0);
+    check("ASCII 8: reset maps block 0 everywhere (A000h)", marker(0xA000), 0xC0);
+    check("ASCII 8: page 0 empty", marker(0x0000), 0xFF);
+    msx_write(&m, 0x6000, 1); msx_write(&m, 0x6FFF, 5); msx_write(&m, 0x7000, 9); msx_write(&m, 0x7800, 15);
+    check("ASCII 8: 6000h selects 4000h", marker(0x4000), 0xC1);
+    check("ASCII 8: 6800h-6FFFh selects 6000h", marker(0x6000), 0xC5);
+    check("ASCII 8: 7000h selects 8000h", marker(0x8000), 0xC9);
+    check("ASCII 8: 7800h selects A000h", marker(0xA000), 0xCF);
+    check("ASCII 8: page 3 empty", marker(0xE000), 0xFF);
+    msx_write(&m, 0x7000, 17);
+    check("ASCII 8: block 17 of 16 wraps to 1", marker(0x8000), 0xC1);
+    msx_write(&m, 0x7FFF, 3);
+    check("ASCII 8: 7FFFh is the A000h register too", marker(0xA000), 0xC3);
+    msx_out(&m, 0xA8, 0x51);                      /* page 1 to slot 0: the write does not reach the cartridge */
+    msx_write(&m, 0x6000, 7);
+    msx_out(&m, 0xA8, 0x55);
+    check("ASCII 8: a register write reaches the mapper only through its slot", marker(0x4000), 0xC1);
+
+    cartridge(MSX_MAPPER_ASCII16, 0x22000, 0, 0);             /* 136 KB: bank 8 is block 16 and the padding */
+    msx_write(&m, 0x7000, 8);
+    check("ASCII 16, 136 KB: bank 8's first half is block 16 (8000h)", marker(0x8000), 0xD0);
+    check("ASCII 16, 136 KB: its second half is padding, FFh (A000h)", marker(0xA000), 0xFF);
+
+    cartridge(MSX_MAPPER_PLAIN, 0xC000, 0x4000, 0);           /* 48 KB at 4000h, not mirrored */
+    check("plain 48 KB at 4000h: E000h is block 5", marker(0xE000), 0xC5);
+    check("plain 48 KB at 4000h: 2000h is empty", marker(0x2000), 0xFF);
+
+    cartridge(MSX_MAPPER_ASCII16, 0x20000, 0, 0);
+    msx_write(&m, 0x6000, 2); msx_write(&m, 0x77FF, 3);
+    check("ASCII 16: 6000h selects page 1, bank 2 = blocks 4-5 (6000h)", marker(0x6000), 0xC5);
+    check("ASCII 16: 77FFh selects page 2, bank 3 = blocks 6-7 (8000h)", marker(0x8000), 0xC6);
+    msx_write(&m, 0x6800, 7);
+    check("ASCII 16: 6800h is no register", marker(0x4000), 0xC4);
+    check("ASCII 16: page 0 empty", marker(0x0000), 0xFF);
+}
+
+static void scc_checks(void)
+{
+    /* Through the registers of a Konami SCC cartridge; channel 1's wave starts 100, -100, 100. */
+    cartridge(MSX_MAPPER_KONAMI_SCC, 0x20000, 0, 0);
+    msx_write(&m, 0x9000, 0x3F);
+    MsxScc *s = &m.slot[1][0].scc;
+    msx_write(&m, 0x9800, 100); msx_write(&m, 0x9801, 0x9C); msx_write(&m, 0x9802, 100);
+    msx_write(&m, 0x9880, 8); msx_write(&m, 0x9881, 0); msx_write(&m, 0x988F, 0x01);
+    check("SCC: a period write latches sample 0 at volume 15 (100 x 15 >> 4)", msx_scc_step(s, 0), 93);
+    check("SCC: period 8 does not move", msx_scc_step(s, 1000), 93);
+    msx_write(&m, 0x9880, 9);
+    check("SCC: period 9, 9 cycles: no step yet", msx_scc_step(s, 9), 93);
+    check("SCC: the 10th cycle steps (sample 1: -100 x 15 >> 4 = -94, floor)", msx_scc_step(s, 1), -94);
+    msx_write(&m, 0x988A, 8);
+    check("SCC: a new volume waits for the next step", msx_scc_step(s, 0), -94);
+    check("SCC: and is taken at it (sample 2 at volume 8: 100 x 8 >> 4)", msx_scc_step(s, 10), 50);
+    msx_write(&m, 0x988A, 4); msx_write(&m, 0x9881, 0);
+    check("SCC: a period write takes the pending volume (100 x 4 >> 4)", msx_scc_step(s, 0), 25);
+    msx_write(&m, 0x9802, 0);
+    check("SCC: a wave write at the playing sample waits for the next step", msx_scc_step(s, 0), 25);
+    msx_write(&m, 0x9860, 64); msx_write(&m, 0x9886, 0); msx_write(&m, 0x9888, 0); msx_write(&m, 0x988F, 0x18);
+    check("SCC: channels 4 and 5 share one wave (2 x 64 x 15 >> 4)", msx_scc_step(s, 0), 120);
 }
 
 int main(void)
 {
     video_checks();
     sound_checks();
+    cartridge_checks();
+    scc_checks();
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

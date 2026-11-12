@@ -3,8 +3,8 @@
  * MIT, Retro-Recomp. Written from the MSX standard as documented (MSX2 Technical Handbook, TMS9918A data
  * manual); openMSX was read to understand behaviour, nothing was copied from it.
  *
- * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c. No
- * cartridge mapper and no V9938 yet. A CPU (the reference interpreter, later the native bodies) calls msx_read /
+ * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c, the
+ * cartridges (plain, Konami, Konami SCC with its sound chip, ASCII 8 KB and 16 KB) in msx_cart.c. No V9938 yet. A CPU (the reference interpreter, later the native bodies) calls msx_read /
  * msx_write / msx_in / msx_out and advances time with msx_advance. */
 #ifndef RR_MSX_MACHINE_H
 #define RR_MSX_MACHINE_H
@@ -21,21 +21,51 @@ enum { MSX_KEY_ROWS = 11 };
 
 typedef enum { MSX_DEV_NONE = 0, MSX_DEV_ROM, MSX_DEV_RAM } MsxDeviceKind;
 
-/* What one (primary, secondary) slot holds: a ROM image seen from `base` for `size` bytes (unmapped bytes read
- * FFh), or RAM over the whole 64 KB. */
+/* The cartridge mappers of the first scope. A plain ROM has no register: it sits at `base`, and with `mirrored` its
+ * 8 KB blocks repeat over the other regions of the slot. */
+typedef enum {
+    MSX_MAPPER_PLAIN = 0,
+    MSX_MAPPER_KONAMI,         /* 8 KB banks; 4000h-5FFFh fixed to block 0; any write in 6000h-BFFFh selects its region */
+    MSX_MAPPER_KONAMI_SCC,     /* 8 KB banks; writes at 5000h, 7000h, 9000h, B000h (+ 7FFh); the SCC at 9800h */
+    MSX_MAPPER_ASCII8,         /* 8 KB banks; writes at 6000h, 6800h, 7000h, 7800h (+ 7FFh) for 4000h-BFFFh */
+    MSX_MAPPER_ASCII16,        /* 16 KB banks; writes at 6000h-67FFh (page 1) and 7000h-77FFh (page 2) */
+    MSX_MAPPER_COUNT
+} MsxMapper;
+
+/* The Konami SCC (K051649): five channels of 32 signed 8-bit samples, channels 4 and 5 sharing one waveform. */
+typedef struct {
+    int8_t wave[4][32];
+    uint16_t period[5];
+    uint8_t volume[5];         /* as written; the channel takes it at its next sample (volume_now) */
+    uint8_t volume_now[5];
+    uint8_t enable;            /* bits 0-4 */
+    uint16_t count[5];
+    uint8_t pos[5];
+    int16_t out[5];            /* the channel's latched output: sample x volume >> 4, set when it steps or restarts */
+} MsxScc;
+
+/* What one (primary, secondary) slot holds: a ROM image (plain or with a mapper) or RAM over the whole 64 KB. */
 typedef struct {
     MsxDeviceKind kind;
     const uint8_t *rom;
     uint32_t size;
-    uint16_t base;
+    uint16_t base;         /* plain ROMs: where the image starts */
+    /* `size` is rounded up to whole 8 KB blocks (16 KB for ASCII 16): the caller's buffer must hold that padding,
+     * filled with FFh as an empty socket reads. */
     uint8_t *ram;          /* 64 KB, for MSX_DEV_RAM */
+    MsxMapper mapper;
+    uint8_t mirrored;      /* plain ROMs: repeat over the slot */
+    int16_t block[8];      /* the 8 KB block of the image seen in each region, -1 for none (kept by the machine) */
+    uint8_t scc_on;        /* Konami SCC: the SCC answers at 9800h-9FFFh */
+    MsxScc scc;
 } MsxDevice;
 
 /* One 8 KB region of the Z80 address space as currently selected: what reads see, where writes go. */
 typedef struct {
-    const uint8_t *read;   /* NULL: reads give FFh */
-    uint8_t *write;        /* NULL: writes are dropped (a mapper hook later) */
+    const uint8_t *read;   /* NULL: reads give FFh, or go to the device when `device` is set */
+    uint8_t *write;        /* NULL: writes are dropped, or go to the device's mapper when `device` is set */
     uint8_t primary, secondary;
+    uint8_t device;        /* 1 when a mapper or a sound chip of the slot answers in this region */
 } MsxRegion;
 
 enum { MSX_WIDTH = 256, MSX_HEIGHT = 192 };
@@ -86,6 +116,9 @@ typedef struct {
     MsxRegion region[8];
     MsxVdp vdp;
     MsxPsgSynth synth;
+    MsxDevice *scc[4];      /* the cartridges with a Konami SCC, mixed into the sound (pointers into slot[][]: a copy
+                             * of the machine must rebuild them, see msx_set_device) */
+    int scc_count;
     unsigned lines_per_frame;
     unsigned line;
     uint64_t cycles;       /* machine cycles, M1 wait states included */
@@ -128,6 +161,10 @@ void msx_vdp_check_line(MsxMachine *m, int line);
 void msx_psg_reset(MsxMachine *m);
 void msx_psg_catch_up(MsxMachine *m);
 void msx_psg_write(MsxMachine *m, uint8_t reg, uint8_t value);
+void msx_cart_reset(MsxDevice *d);
+int msx_cart_write(MsxDevice *d, uint16_t address, uint8_t value);   /* 1 when the layout changed */
+uint8_t msx_cart_read(const MsxDevice *d, uint16_t address);
+int msx_scc_step(MsxScc *s, unsigned cycles);                       /* advance; returns the summed output */
 
 #ifdef __cplusplus
 }

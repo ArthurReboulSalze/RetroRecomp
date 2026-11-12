@@ -13,7 +13,8 @@
  * interpreter's own acceptance, exported by the same generated copy). An instruction that reads the VDP status
  * therefore drops the line before it can be accepted, as on the machine.
  *
- * Usage: msx_reference --main main.rom [--logo logo.rom] [--cart cart.rom [--cart-base 4000]] [--layout basic|expanded]
+ * Usage: msx_reference --main main.rom [--logo logo.rom] [--cart cart.rom [--mapper plain|konami|konami-scc|ascii8|ascii16]
+ *                      [--cart-base 4000] [--mirrored]] [--layout basic|expanded]
  *                      [--frames N] [--pal] [--until-halt] [--watch ADDR]... [--vram FILE] [--trace N]
  *                      [--frame FILE] [--audio FILE] [--event FRAME:key:ROW:BIT:DOWN | FRAME:joy:PORT:HEX]...
  * --frame writes the last picture (192 lines x 256 colour indices, then the 192 border colours), --audio the sound as
@@ -68,12 +69,15 @@ int main(int argc, char **argv)
     const char *layout = "basic";
     unsigned long frames = 120, cart_base = 0x4000, trace = 0;
     unsigned watch[32];
-    int watches = 0, pal = 0, until_halt = 0;
+    int watches = 0, pal = 0, until_halt = 0, mirrored = 0;
+    MsxMapper mapper = MSX_MAPPER_PLAIN;
+    static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (!strcmp(a, "--pal")) { pal = 1; continue; }
         if (!strcmp(a, "--until-halt")) { until_halt = 1; continue; }
+        if (!strcmp(a, "--mirrored")) { mirrored = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
@@ -81,6 +85,12 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--layout")) layout = v;
+        else if (!strcmp(a, "--mapper")) {
+            int found = -1;
+            for (int k = 0; k < MSX_MAPPER_COUNT; ++k) if (!strcmp(v, mapper_names[k])) found = k;
+            if (found < 0) { fprintf(stderr, "unknown mapper %s\n", v); return 2; }
+            mapper = (MsxMapper)found;
+        }
         else if (!strcmp(a, "--frames")) frames = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--vram")) vram_out = v;
         else if (!strcmp(a, "--trace")) trace = strtoul(v, NULL, 10);
@@ -112,10 +122,14 @@ int main(int argc, char **argv)
     } else if (!strcmp(layout, "basic")) {        /* RAM in slot 3 (the C-BIOS MSX1 layout) */
         msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else { fprintf(stderr, "unknown layout %s\n", layout); return 2; }
-    static uint8_t cart[0xC000];
+    static uint8_t cart[0x200000];
     if (cart_rom) {
-        long n = load(cart_rom, cart, (long)sizeof cart);
-        msx_set_device(&machine, 1, 0, (MsxDevice){ MSX_DEV_ROM, cart, (uint32_t)((n + 0x1FFF) & ~0x1FFF), (uint16_t)cart_base, NULL });
+        memset(cart, 0xFF, sizeof cart);              /* the padding up to a whole bank reads as an empty socket */
+        long n = load(cart_rom, cart, (long)sizeof cart - 0x4000);
+        MsxDevice device = { MSX_DEV_ROM, cart, (uint32_t)n, (uint16_t)cart_base, NULL };
+        device.mapper = mapper;
+        device.mirrored = (uint8_t)mirrored;
+        msx_set_device(&machine, 1, 0, device);
     }
 
     z80 z;

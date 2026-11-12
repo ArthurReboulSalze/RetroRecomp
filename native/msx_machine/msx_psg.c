@@ -11,7 +11,9 @@
  * The sixteen output levels are the measured, normalised AY-3-8910 levels published with ayumi (MIT, Peter Sovietov).
  *
  * Mixing: the three channels at equal weight and the key click (PPI port C bit 7) in the ratio of openMSX's C-BIOS
- * machine files (PSG 21000, click 16000). That ratio is a stated choice, not a measurement of an MSX: not validated.
+ * machine files (PSG 21000, click 16000), and a Konami SCC cartridge's five channels at the PSG's weight (its full
+ * scale equal to the PSG's). The mix is the same whether or not an SCC is plugged in, so the PSG keeps its level.
+ * These ratios are stated choices, not measurements of an MSX: not validated.
  * Output: box-filtered to MSX_AUDIO_RATE. */
 #include "msx_machine.h"
 
@@ -21,7 +23,7 @@
 static const int level_scale[16] = { 0, 327, 473, 690, 1006, 1492, 2113, 3518, 4148, 6717, 9575, 12217, 16139, 20818,
                                      26397, 32767 };
 
-enum { TICK = 16, PSG_WEIGHT = 21000, CLICK_WEIGHT = 16000 };
+enum { TICK = 16, PSG_WEIGHT = 21000, CLICK_WEIGHT = 16000, SCC_WEIGHT = 21000 };
 #define SAMPLE_STEP ((uint64_t)MSX_CPU_CLOCK * 65536u / MSX_AUDIO_RATE)
 
 void msx_psg_reset(MsxMachine *m)
@@ -91,7 +93,13 @@ static int one_tick(MsxMachine *m, unsigned tick)
         sum += level_scale[level];
     }
     int click = (m->port_c & 0x80) ? 32767 : 0;
-    return (int)(((int64_t)sum / 3 * PSG_WEIGHT + (int64_t)click * CLICK_WEIGHT) / (PSG_WEIGHT + CLICK_WEIGHT));
+    int scc = 0;
+    for (int i = 0; i < m->scc_count; ++i)
+        scc += msx_scc_step(&m->scc[i]->scc, TICK);
+    if (m->scc_count)
+        scc = scc * 32767 / 600 / m->scc_count; /* five channels at full volume = full scale */
+    return (int)(((int64_t)sum / 3 * PSG_WEIGHT + (int64_t)click * CLICK_WEIGHT + (int64_t)scc * SCC_WEIGHT)
+                 / (PSG_WEIGHT + CLICK_WEIGHT + SCC_WEIGHT));
 }
 
 void msx_psg_catch_up(MsxMachine *m)

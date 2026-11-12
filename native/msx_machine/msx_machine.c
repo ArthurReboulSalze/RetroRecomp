@@ -16,11 +16,16 @@ static void rebuild_regions(MsxMachine *m)
         r->secondary = (uint8_t)s;
         r->read = NULL;
         r->write = NULL;
+        r->device = 0;
         if (d->kind == MSX_DEV_RAM && d->ram) {
             r->read = d->ram + start;
             r->write = d->ram + start;
-        } else if (d->kind == MSX_DEV_ROM && d->rom && start >= d->base && start + 0x2000u <= (uint32_t)d->base + d->size) {
-            r->read = d->rom + (start - d->base);
+        } else if (d->kind == MSX_DEV_ROM && d->rom) {
+            if (d->block[i] >= 0)
+                r->read = d->rom + (uint32_t)d->block[i] * 0x2000u;
+            r->device = d->mapper != MSX_MAPPER_PLAIN;          /* writes reach the mapper */
+            if (d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4)
+                r->read = NULL;                                 /* 9800h-9FFFh answer from the SCC */
         }
     }
 }
@@ -34,7 +39,18 @@ void msx_init(MsxMachine *m, unsigned lines_per_frame)
 
 void msx_set_device(MsxMachine *m, int primary, int secondary, MsxDevice device)
 {
-    m->slot[primary & 3][secondary & 3] = device;
+    MsxDevice *d = &m->slot[primary & 3][secondary & 3];
+    *d = device;
+    if (d->kind == MSX_DEV_ROM) {
+        uint32_t unit = d->mapper == MSX_MAPPER_ASCII16 ? 0x4000u : 0x2000u;
+        d->size = (d->size + unit - 1) & ~(unit - 1);   /* whole banks: the caller's buffer holds the FFh padding */
+        msx_cart_reset(d);
+    }
+    m->scc_count = 0;
+    for (int p = 0; p < 4; ++p)
+        for (int s = 0; s < 4; ++s)
+            if (m->slot[p][s].kind == MSX_DEV_ROM && m->slot[p][s].mapper == MSX_MAPPER_KONAMI_SCC && m->scc_count < 4)
+                m->scc[m->scc_count++] = &m->slot[p][s];
     rebuild_regions(m);
 }
 
@@ -59,6 +75,10 @@ void msx_reset(MsxMachine *m)
     m->next_line = MSX_CYCLES_PER_LINE;
     m->frames = 0;
     msx_psg_reset(m);
+    for (int p = 0; p < 4; ++p)
+        for (int s = 0; s < 4; ++s)
+            if (m->slot[p][s].kind == MSX_DEV_ROM)
+                msx_cart_reset(&m->slot[p][s]);
     rebuild_regions(m);
 }
 
@@ -92,6 +112,8 @@ uint8_t msx_read(MsxMachine *m, uint16_t address)
     const MsxRegion *r = &m->region[address >> 13];
     if (r->read)
         return r->read[address & 0x1FFF];
+    if (r->device)
+        return msx_cart_read(&m->slot[r->primary][r->secondary], address);
     ++m->unmapped_reads;
     return 0xFF;
 }
@@ -104,7 +126,9 @@ uint8_t msx_peek(const MsxMachine *m, uint16_t address)
             return (uint8_t)~m->secondary[p];
     }
     const MsxRegion *r = &m->region[address >> 13];
-    return r->read ? r->read[address & 0x1FFF] : 0xFF;
+    if (r->read)
+        return r->read[address & 0x1FFF];
+    return r->device ? msx_cart_read(&m->slot[r->primary][r->secondary], address) : 0xFF;
 }
 
 void msx_write(MsxMachine *m, uint16_t address, uint8_t value)
@@ -118,10 +142,15 @@ void msx_write(MsxMachine *m, uint16_t address, uint8_t value)
         }
     }
     MsxRegion *r = &m->region[address >> 13];
-    if (r->write)
+    if (r->write) {
         r->write[address & 0x1FFF] = value;
-    else
+    } else if (r->device) {
+        msx_psg_catch_up(m);                      /* an SCC register write sounds from now on */
+        if (msx_cart_write(&m->slot[r->primary][r->secondary], address, value))
+            rebuild_regions(m);
+    } else {
         ++m->dropped_writes;
+    }
 }
 
 uint8_t msx_slot_of(const MsxMachine *m, uint16_t address)

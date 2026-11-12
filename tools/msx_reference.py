@@ -147,7 +147,59 @@ def cartridge_sound() -> bytes:
 
 def cartridge_32k() -> bytes:
     """32 KB at 4000h-BFFFh: INIT selects its own slot in page 2 the standard way, then copies 8000h and BFFFh."""
-    init = bytes([
+    init = PAGE2 + bytes([
+        0x3A, 0x00, 0x80, 0x32, 0x00, 0xE0,   # ld a,(8000h); ld (E000h),a
+        0x3A, 0xFF, 0xBF, 0x32, 0x03, 0xE0,   # ld a,(BFFFh); ld (E003h),a
+    ])
+    assert INIT + 0x1F == 0x402F and init[0x1F] == 0x79
+    image = bytearray(_cartridge(0x8000, init))
+    image[0x4000] = 0xA5
+    image[0x7FFF] = 0x3C
+    return bytes(image)
+
+
+def _ld_write(address: int, value: int) -> bytes:
+    """LD A,value; LD (address),A"""
+    return bytes([0x3E, value, 0x32, address & 0xFF, address >> 8])
+
+
+def _ld_copy(source: int, target: int) -> bytes:
+    """LD A,(source); LD (target),A"""
+    return bytes([0x3A, source & 0xFF, source >> 8, 0x32, target & 0xFF, target >> 8])
+
+
+# Authored 128 KB mapper cartridges: every 8 KB block ends with C0h + its number. INIT selects page 2 (PAGE2), switches
+# banks through the mapper's registers and copies four block markers to E020h-E023h; the Konami SCC one then plays
+# channel 1 (a square wave of 16 x 7Fh and 16 x 80h, period 126: 3,579,545 / (32 x 127) = 880.79 Hz) at volume 15.
+MAPPER_CARTRIDGES = {
+    'konami': (_ld_write(0x6000, 5) + _ld_write(0x8000, 9) + _ld_write(0xA000, 15) + _ld_write(0x5000, 7)
+               + _ld_copy(0x7FFF, 0xE020) + _ld_copy(0x9FFF, 0xE021) + _ld_copy(0xBFFF, 0xE022) + _ld_copy(0x5FFF, 0xE023),
+               (0xC5, 0xC9, 0xCF, 0xC0)),
+    'konami-scc': (_ld_write(0x7000, 5) + _ld_write(0x9000, 9) + _ld_write(0xB000, 15)
+                   + _ld_copy(0x7FFF, 0xE020) + _ld_copy(0x9FFF, 0xE021) + _ld_copy(0xBFFF, 0xE022)
+                   + _ld_write(0x9000, 0x3F)
+                   + bytes([0x21, 0x00, 0x98, 0x06, 0x10, 0x36, 0x7F, 0x23, 0x10, 0xFB,    # 16 x 7Fh at 9800h
+                            0x06, 0x10, 0x36, 0x80, 0x23, 0x10, 0xFB])                    # 16 x 80h
+                   + _ld_write(0x9880, 126) + _ld_write(0x9881, 0) + _ld_write(0x988A, 15) + _ld_write(0x988F, 1)
+                   + _ld_copy(0x9800, 0xE023),
+                   (0xC5, 0xC9, 0xCF, 0x7F)),
+    'ascii8': (_ld_write(0x6800, 5) + _ld_write(0x7000, 9) + _ld_write(0x7800, 15) + _ld_write(0x6000, 0)
+               + _ld_copy(0x7FFF, 0xE020) + _ld_copy(0x9FFF, 0xE021) + _ld_copy(0xBFFF, 0xE022) + _ld_copy(0x5FFF, 0xE023),
+               (0xC5, 0xC9, 0xCF, 0xC0)),
+    'ascii16': (_ld_write(0x6000, 0) + _ld_write(0x77FF, 3)
+                + _ld_copy(0x5FFF, 0xE020) + _ld_copy(0x7FFF, 0xE021) + _ld_copy(0x9FFF, 0xE022) + _ld_copy(0xBFFF, 0xE023),
+                (0xC0, 0xC1, 0xC6, 0xC7)),
+}
+
+
+def cartridge_mapper(kind: str) -> bytes:
+    image = bytearray(_cartridge(0x20000, PAGE2 + MAPPER_CARTRIDGES[kind][0]))
+    for block in range(16):
+        image[block * 0x2000 + 0x1FFF] = 0xC0 + block
+    return bytes(image)
+
+
+PAGE2 = bytes([
         0xCD, 0x38, 0x01,        # call RSLREG
         0x0F, 0x0F, 0xE6, 0x03,  # rrca; rrca; and 3      -> primary slot of page 1
         0x4F, 0x06, 0x00,        # ld c,a; ld b,0
@@ -160,14 +212,9 @@ def cartridge_32k() -> bytes:
         0xB1, 0x4F,              # or c; ld c,a
         0x79, 0x26, 0x80,        # 402Fh: ld a,c; ld h,80h
         0xCD, 0x24, 0x00,        # call ENASLT
-        0x3A, 0x00, 0x80, 0x32, 0x00, 0xE0,   # ld a,(8000h); ld (E000h),a
-        0x3A, 0xFF, 0xBF, 0x32, 0x03, 0xE0,   # ld a,(BFFFh); ld (E003h),a
-    ])
-    assert INIT + 0x1F == 0x402F and init[0x1F] == 0x79
-    image = bytearray(_cartridge(0x8000, init))
-    image[0x4000] = 0xA5
-    image[0x7FFF] = 0x3C
-    return bytes(image)
+])
+"""INIT's start in the 32 KB and mapper cartridges: select the cartridge's own slot in page 2 (RSLREG, EXPTBL, SLTTBL,
+ENASLT), the standard way. Its JP P target is absolute: it must start at INIT (4010h)."""
 
 
 def instrument(path: Path) -> None:
@@ -226,7 +273,7 @@ def build() -> Path:
 project(MsxReference C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-set(machine "{native}/msx_machine.c" "{native}/msx_video.c" "{native}/msx_psg.c")
+set(machine "{native}/msx_machine.c" "{native}/msx_video.c" "{native}/msx_psg.c" "{native}/msx_cart.c")
 add_executable(msx_reference "{native}/msx_reference_main.c" ${{machine}} runtime_reference.c)
 target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}")
 add_executable(msx_hardware_checks "{native}/msx_hardware_checks.c" ${{machine}})
@@ -292,6 +339,19 @@ def png(frame: Path, target: Path) -> None:
         return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', zlib.crc32(kind + body) & 0xFFFFFFFF)
     target.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
                        + chunk(b'IDAT', zlib.compress(b''.join(rows))) + chunk(b'IEND', b''))
+
+
+# 7Fh x 15 >> 4 = 119 and 80h x 15 >> 4 = -120, scaled x 32,767 / 600 (6,498 and -6,553), mixed x 21,000 / 58,000
+# (2,352 and -2,372), x 4/5 (1,881 and -1,897), C integer division.
+SCC_SQUARE_SWING = 1881 + 1897
+
+
+def tone_range(audio: Path, seconds: float = 1.0) -> tuple[int, int]:
+    import array
+    samples = array.array('h')
+    samples.frombytes(audio.read_bytes())
+    tail = samples[-int(44100 * seconds):]
+    return min(tail), max(tail)
 
 
 def tone_frequency(audio: Path, seconds: float = 1.0) -> float:
@@ -425,6 +485,37 @@ def main() -> int:
     frequency = tone_frequency(audio)
     check('sound', 439 <= frequency <= 442,
           f'tone A set through WRTPSG: {frequency:.0f} Hz over the last second (1,789,772.5 / (16 x 254) = 440.39)')
+
+    # Stage 4: the mappers, the SCC and the mapper guess, on authored cartridges booted by C-BIOS.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import msx_rom
+    for name, image in (('authored16', cartridge_16k()), ('authored32', cartridge_32k())):
+        g = msx_rom.guess(image)
+        print(f'guess {name}')
+        check(f'guess {name}', (g.mapper, g.base) == ('plain', 0x4000), f'{g.mapper} at {g.base:04X}h ({g.reason})')
+    markers = [w for a in (0xE020, 0xE021, 0xE022, 0xE023) for w in ('--watch', f'{a:04X}')]
+    for kind, (_, expected_markers) in MAPPER_CARTRIDGES.items():
+        image = cartridge_mapper(kind)
+        path = carts / f'mapper-{kind}.rom'
+        path.write_bytes(image)
+        g = msx_rom.guess(image)
+        print(f'mapper {kind}')
+        check(kind, g.mapper == kind, f'guessed {g.mapper} ({g.reason}; votes {dict(g.votes)})')
+        audio = WORK / f'mapper-{kind}.raw'
+        report = run(exe, *bios, '--cart', str(path), *g.arguments(), '--frames', frames, *markers, '--audio', str(audio))
+        got = tuple(report['watch'][f'{a:04X}'] for a in (0xE020, 0xE021, 0xE022, 0xE023))
+        check(kind, got == expected_markers,
+              'banks read back ' + ' '.join(f'{v:02X}h' for v in got) + ' (expected '
+              + ' '.join(f'{v:02X}h' for v in expected_markers) + ')')
+        check(kind, report['halted'] and report['pc_slot'] & 3 == 1, f"the program halts in its slot ({report['pc_slot']:02X}h)")
+        if kind == 'konami-scc':
+            frequency = tone_frequency(audio)
+            check(kind, 880 <= frequency <= 882,
+                  f'SCC channel 1, period 126: {frequency:.0f} Hz over the last second (3,579,545 / (32 x 127) = 880.79;'
+                  ' without the +1 it would be 887.8)')
+            low, high = tone_range(audio)
+            check(kind, high - low == SCC_SQUARE_SWING,
+                  f'SCC square 7Fh / 80h at volume 15: swing {high - low} (119 and -120 through the mix: {SCC_SQUARE_SWING})')
     if args.json:
         args.json.write_text(json.dumps({'cbios': VERSION, 'frames': n, 'runs': runs, 'failures': failures}, indent=1),
                              encoding='utf-8')
