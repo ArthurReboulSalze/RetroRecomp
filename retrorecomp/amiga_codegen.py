@@ -235,26 +235,10 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
 
 
 def walk_records(records: list, *, observed) -> tuple[list, list]:
-    """From a player's record, windows of (pc, bytes), the (pc, words in hex) of the instructions each first ran there and of those a walk through the rest of the window finds. A walk goes on past a jump, because
-    the recorder relies on it for what follows in the window; it stops at what cannot be an instruction. A guess that is not code is only a routine that never runs. Nothing here says the walked ones ran."""
-    started: dict[tuple[int, int], str] = {}
-    walked: dict[tuple[int, int], str] = {}
-    for pc, data in records:
-        at = 0
-        while at + 2 <= len(data):
-            opcode = data[at] << 8 | data[at + 1]
-            if _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
-                break
-            text = data[at:at + 2 * _WORDS[opcode]].hex()
-            text = text[:len(text) // 4 * 4]
-            try:
-                observed.check_sample(pc + at, text)
-            except ValueError:
-                break
-            (started if at == 0 else walked).setdefault((pc + at, opcode), text)
-            at += 2 * _WORDS[opcode]
-    return (sorted((pc, text) for (pc, _), text in started.items()),
-            sorted((key[0], text) for key, text in walked.items() if key not in started))
+    """From a player's record, windows of (pc, bytes), the (pc, words in hex) of the instructions each first ran there and of those a walk through the rest of the window finds
+    (retrorecomp/m68k_record_walk.py, shared with the Atari ST), by Moira's lengths; it stops at Moira's illegal, line A and line F handlers. Nothing here says the walked ones ran."""
+    from .m68k_record_walk import walk_windows
+    return walk_windows(records, observed=observed, words=lambda opcode: _WORDS[opcode], stops=lambda opcode: _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'))
 
 
 def blit_shapes(reports, limit: int = BLIT_SHAPE_LIMIT) -> list:

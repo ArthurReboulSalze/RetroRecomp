@@ -34,6 +34,9 @@ typedef struct RrStGame {
     /* The program the desktop starts once GEM is up ("A:\\NAME.PRG"), through the TOS's own autostart line (#Z) of a
      * desktop file Hatari serves in memory (its inffile.c; TOS 1.04 and EmuTOS); NULL: none. */
     const char *autostart;
+    /* The MFP's timer D: 0 runs Hatari's patch of it (the TOS's own start of the timer is slowed down), 1 the machine as it is
+     * (docs/ATARI_ST.md, known limits). A game's mode is chosen by the conversion and fixed in the exported game. */
+    int timer_d_exact;
 } RrStGame;
 
 typedef struct RrStSession RrStSession;
@@ -60,10 +63,23 @@ uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
 /* How many times the 68000 loop entered native code: the native count over this is the mean length of a chain. */
 uint64_t rr_st_chain_entries(const RrStSession *s);
+/* Of the native instructions, those a player's own record brought: learned (they ran there on the interpreter) and walked (found by walking a recorded window). */
+uint64_t rr_st_learned_count(const RrStSession *s);
+uint64_t rr_st_walked_count(const RrStSession *s);
+/* Of the native instructions, those a sweep over images of memory taken at the end of the conversion's routes reached. */
+uint64_t rr_st_swept_count(const RrStSession *s);
+/* The player's own record: note(pc, 16 bytes, 16) at each instruction that runs on the interpreter and is not in the window told just before. NULL: none. */
+void rr_st_set_recorder(RrStSession *s, void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size));
 /* 1 once the TOS opened the desktop file that carries the autostart line: the boot reached the desktop. */
 int rr_st_desktop_started(const RrStSession *s);
 /* Whether Hatari's timer D patch is on in this machine, as Hatari has it set. */
 int rr_st_timer_d_patched(const RrStSession *s);
+/* The signs that code outside the TOS depends on timer D as the TOS leaves it (observation only, in either mode): the count, the
+ * session's frame (1 is the first) and the pc of the first of each. A: a read of TDDR. B: timer D's interrupt left enabled and
+ * unmasked without the code ever writing TDDR or starting the timer. C: TCDCR written with timer D's bits not zero before any write
+ * of TDDR. D: a read of TCDCR (counted, never a sign alone). */
+typedef struct RrStTimerDSign { uint64_t count, frame; uint32_t pc; } RrStTimerDSign;
+void rr_st_timer_d_signs(const RrStSession *s, RrStTimerDSign signs[4]);
 void rr_st_set_observe(RrStSession *s, int enabled);
 /* The instruction length of every opcode in 16-bit words (the 68000 decoder's table, 65,536 bytes): what an observation keeps. */
 void rr_st_set_opcode_lengths(RrStSession *s, const uint8_t words[65536]);

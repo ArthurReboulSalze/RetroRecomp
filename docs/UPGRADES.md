@@ -205,6 +205,63 @@ bound today and now a visible one. Reports, not games.
 **What moves.** `retrorecomp.core` and `retrorecomp.library` are inputs of every console: the game stamp of all nine consoles then moves with this change like with any edit of `core.py`
 (the generated game is the same); the host stamps and the quick-state keys do not move. An export made before carries no `windows_over_limit` (it reads as absent, not as 0).
 
+## Atari ST: the player's own record (1.7.3)
+
+An exported Atari ST game now keeps the player's own record (F12, on by default, in `datas/fallbacks` beside the game): windows of 16 bytes at instructions that ran on the interpreter, with the TOS they
+ran on. The next conversion of that game reads it and makes native code of those instructions and of what a walk through each window finds, counted apart (`native_learned`, `native_walked`,
+`player_record` in the report); no route proves them, the guard on the latched opcode is the same, and a window of another TOS or whose ROM bytes changed is not used. The record is private and never
+shared. The walk is shared with the Amiga (`retrorecomp/m68k_record_walk.py`): the Amiga's `walk_records` now calls it, with identical results on three real records of players (Lotus 2 among them).
+Measured on one scripted session each: Turrican II's window of play past its routes from 6.91 % native to 100.00 %, Indiana Jones from 569 interpreted instructions to 0; beyond the routes the native trace
+equals the interpreted one. **What moves:** the Atari ST's game stamp and the Amiga's game stamp (the shared walk; no Amiga output changes); no host stamp, not the X68000's. **Quick states:** the Atari ST's
+key moves, as between any two Atari ST builds. **Hot path:** nothing on native code; on an interpreted instruction, one test, and a 16-byte read and a record when a new window starts.
+
+## Atari ST: a sweep over the memory at the end of the routes (1.7.3)
+
+A conversion now walks an image of the RAM taken at the last frame of each fresh reference run, with the TOS ROM, from the instructions the routes ran, and compiles what it reaches as native code with the same
+guard on the latched opcode (`retrorecomp/m68k_record_walk.py`, shared; `atarist_codegen.sweep`): branches, DBcc, JSR and JMP with an absolute or PC-relative address, and what falls through, from an
+observed instruction the image still holds as observed, up to 60,000 instructions added (a capped sweep says so). They are counted apart (`sweep` and `final_checks.native_swept` in the report; the player's
+headless report has `native_swept`); no route proves them, and on the routes the count is 0 by construction. The image is read by the conversion and deleted, never copied to the library or to the export; a page
+fill (every even address of a page where code ran) is written and tested but off (measured once on Turrican II: 91.48 % native, 59,190 swept, 42.6 MB, trace equal). Measured on Windows, Standard level from an empty library, the delivered game on a play script of 5,200 (Turrican II, TOS 1.04) and
+4,500 frames (Bomb Jack, EmuTOS): Turrican II's window of play from 6.91 % native to 73.00 %, Bomb Jack's 17 interpreted instructions to 0; native and interpreted traces of every frame byte-identical. Cost, on a PC shared with other sessions (so the times are indicative), a cold build of the same game's native code without and with the sweep, in turn: Turrican II 24-33 s and 19.6 MB against 61-81 s and 29.3 MB (packed 4.6 against 5.3 MB), Bomb Jack 38 s and 22.5 MB
+against 49 s and 25.3 MB (packed 5.6 against 6.0 MB). `tools/atarist_sweep_guard_check.py` shows the guard on an authored program that rewrites a swept block before it runs it (another opcode: the routine never
+runs, the interpreter does; the same opcode with another extension word: the routine runs and reads the new word). **What moves:** the Atari ST's game stamp, and the Amiga's game stamp as well, because
+`retrorecomp/m68k_record_walk.py` (the walk shared by the two machines, which gained the sweep) is owned by both: no Amiga output changes, the Amiga's own sweep (`amiga_codegen.sweep`) is not touched. No
+host stamp, not the X68000's. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. **Hot path:** nothing on native code (a swept instruction counts into one more counter); the exe is larger and
+a conversion compiles longer in proportion to what is swept.
+
+## Atari ST: the disks in the order their names mean, and a program chosen among several (1.7.3)
+
+**What changes.** Two rules of the conversion, both read from names and from the root directory of disk 1, nothing run:
+- **Disk order.** A ZIP's disks were taken in the alphabetical order of their member names, which put the wrong disk first when the boot disk is not the first by name
+  (Battle Chess: the "Animation Disk" before the "StartUp Disk"; The Chessmaster 2000: "(Games Disk)" before the disk without a label; Mean 18: the "Famous Courses" disks before the
+  "Program Disk"). `retrorecomp/atarist_disk.py` now puts them in disk order: the disk without a label and the boot disks (Boot, StartUp, Program, Main, Loader) first, then the numbered
+  ones by number or letter (Disk 1, Disk A, Side B, Reel 2, Volume II; Disk 10 follows Disk 9), then the disks that only have a name; a name without brackets is read from its end
+  (`game2.st`, `game_b.st`). Of the 79 multi-disk ZIPs of the library tried (names only), exactly those three change order.
+- **Several programs on disk 1.** When disk 1 has no `AUTO` folder, the desktop autostart took the only program of the root and nothing otherwise. It now also takes, among several, the
+  one program whose name is a word of the game's title (`CRICKET.PRG` for Championship Cricket), or else the only one that is not a utility by a short list of names (setup,
+  config, format, read, view, help, backup, copy, unpack...). Two programs that fit, or none, leave the choice to the player, who opens the program at the desktop; `desktop_autostart` in the
+  report gives the program, the `candidates` of the root, the `rule` (`only-program`, `title-word`, `only-non-utility`) and the `reason`. A lone program is started as before.
+
+**Library.** Of the 18 ZIPs that stopped on the desktop in the census of 12 November 2026, six now start their program (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical,
+Outcast, Rody et Mastico III) and twelve are left to the player (Backgammon Royale, Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary have several programs no rule picks; Battle
+Probe, Kick Off 2 - Winning Tactics, Leader Board, Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board have no program at their root). The decision of the other 257 ZIPs is the one it was.
+
+**Proof** (Windows, EmuTOS 1.4, Standard level, 3,600 frames on two routes, headless; every route of the native game and of its packed copy equals the fresh reference, and the saved state
+continues the run): The Chessmaster 2000 (disk order, then `CMASTER.PRG`) reaches its title, which shows an alert from the game ("Lost my BIG pieces!"); Battle Chess (`CHESS.TOS`, the
+StartUp disk first) reaches a screen of its own, a prompt that looks like its manual protection; Championship Cricket (`CRICKET.PRG`) reaches a match; Outcast (`OUTCAST_.PRG`) reaches
+its title; Mercenary (two programs that both fit) stops on the EmuTOS desktop and the report says why. These are first screens on the tested routes, not played games.
+
+**Hot path:** no. **What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the conversion modules `atarist.py`, `atarist_disk.py` and `atarist_conversion.py`); its host stamp and its
+build stamp do not, and no other machine moves. A game of this machine converted before is reconverted in full on its next conversion; an export keeps playing as it did. **Quick states:**
+no native file of the session or the player changes, so the format of a state is the one of before.
+
+## Atari ST: Hatari's timer D patch chosen per game (1.7.3)
+
+**What changes.** Since 1.7.2 every Atari ST game ran Hatari's patch of the MFP's timer D, which slows down TOS's own start of that timer and changes what a game that uses the timer as TOS left it sees. Now the patch is chosen per game. The new option **Atari ST: timer D** (`atarist_timer_d`, `--atarist-timer-d`, in the request signature) is `auto` by default, `patched` or `exact`. On `auto` the fresh references run with the patch, and a detector in the adapted Hatari counts, from outside the TOS's addresses, a read of TDDR (A), timer D's interrupt left enabled and unmasked without a write of TDDR or a start (B) and TCDCR started before any write of TDDR (C); reads of TCDCR (D) are counted and never decide. A sign on any route makes the references run again with the patch off, and the game is built and validated on that machine. The reference, the native game and its packed copy always run the same mode: each run's report says which, and the conversion refuses a run of another mode (it refused any run without the patch before). `machine.timer_d` in the report says the mode, the choice, the reason (the sign, the frame, the pc, the route) and every sign by route. The detector sees the code the routes reach and nothing else, and the TOS's own code is not looked at ([ATARI_ST.md](ATARI_ST.md#5-known-limits)).
+**Seen:** Bomb Jack (EmuTOS) shows no sign and stays patched; The Seven Gates of Jambala reads TDDR (A, frame 779, pc `$0106F8`) and runs exact, 4 interpreted instructions on a route; both validate on every route and on the packed copy. An `exact` game costs about 1.3 to 1.8 times the host cycles of the same game patched (the 9 November estimates, not a timing).
+**Hot path:** no change for a game that stays patched; the detector is three comparisons on a register access of the MFP, none per instruction. A game that runs exact runs a heavier machine, as before 1.7.2.
+**What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the session, the player, the conversion, the Hatari adaptation and the profile are in it), the Hatari adaptation digest (`e89a52b7e31d` to `1bb961c240a8`: the machine core is built again once), and the request signature of every Atari ST export, which now holds the option; the host and build stamps and every other console's stamps do not move. An Atari ST export of an earlier version is rebuilt when it is upgraded, and a game that now shows a sign is reconverted on the exact machine. Quick states: the Atari ST's key moves, as between any two Atari ST builds. Tool: `tools/atarist_hardware_check.py` measures the detector (51 measurements, 49 agree, the same 2 recorded differences).
+
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each

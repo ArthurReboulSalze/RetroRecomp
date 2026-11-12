@@ -30,6 +30,36 @@ FORMAT = 1
 # tests, tools, the Python UI, icons) is left out, and so are their `add_subdirectory` lines.
 COPIED = ('CMakeLists.txt', 'cmake', 'src', 'gpl.txt', 'readme.txt')
 
+# The detector of the games that depend on the MFP's timer D as TOS leaves it (docs/ATARI_ST.md, known limits). Observation only: it
+# changes nothing of the machine. "Outside the TOS" is Hatari's own test of its timer D option (the pc is not in the TOS image).
+# A: the code reads TDDR; B: it leaves timer D's interrupt enabled and unmasked (IERB and IMRB bit 4, after a write of either)
+# without ever having written TDDR or started timer D itself; C: it writes TCDCR with timer D's bits not zero before any write of
+# TDDR; D: it reads TCDCR (counted, never a sign alone). The first frame and pc of each are kept.
+TIMER_D_DETECTOR = (
+    '\n/* Retro-Recomp modification (GPL-2.0, like this file): the signs that code outside the TOS depends on timer D as the TOS\n'
+    ' * left it (retrorecomp/atarist_hatari.py). Observation only: nothing here changes the machine. */\n'
+    'enum { RR_TD_TDDR_READ , RR_TD_TCDCR_READ , RR_TD_TDDR_WRITE , RR_TD_TCDCR_WRITE , RR_TD_ENABLE_WRITE };\n'
+    'unsigned long long rr_timer_d_frame;\t\t\t/* the session\'s frame, set before it runs */\n'
+    'unsigned long long rr_timer_d_sign_count[4] , rr_timer_d_sign_frame[4];\t/* A, B, C, D */\n'
+    'uint32_t rr_timer_d_sign_pc[4];\n'
+    'static int rr_td_wrote_tddr , rr_td_started_d;\n\n'
+    'static void rr_timer_d_sign ( int sign , uint32_t pc )\n{\n'
+    '\tif ( rr_timer_d_sign_count[sign]++ == 0 )\n\t{\n\t\trr_timer_d_sign_frame[sign] = rr_timer_d_frame;\n'
+    '\t\trr_timer_d_sign_pc[sign] = pc;\n\t}\n}\n\n'
+    'static void rr_timer_d_note ( int kind , int value )\n{\n'
+    '\tuint32_t pc = M68000_GetPC();\n\n'
+    '\tif ( IoAccessCurrentAddress >= 0xfffa80 || ( pc >= TosAddress && pc <= TosAddress + TosSize ) )\n\t\treturn;\n'
+    '\tswitch ( kind )\n\t{\n'
+    '\t case RR_TD_TDDR_READ:\trr_timer_d_sign ( 0 , pc );\tbreak;\n'
+    '\t case RR_TD_TCDCR_READ:\trr_timer_d_sign ( 3 , pc );\tbreak;\n'
+    '\t case RR_TD_TDDR_WRITE:\trr_td_wrote_tddr = 1;\tbreak;\n'
+    '\t case RR_TD_TCDCR_WRITE:\n'
+    '\t\tif ( value & 0x07 )\n\t\t{\n\t\t\tif ( !rr_td_wrote_tddr && !rr_td_started_d )\n\t\t\t\trr_timer_d_sign ( 2 , pc );\n'
+    '\t\t\trr_td_started_d = 1;\n\t\t}\n\t\tbreak;\n'
+    '\t case RR_TD_ENABLE_WRITE:\n'
+    '\t\tif ( ( pMFP_Main->IERB & pMFP_Main->IMRB & 0x10 ) && !rr_td_wrote_tddr && !rr_td_started_d )\n\t\t\trr_timer_d_sign ( 1 , pc );\n'
+    '\t\tbreak;\n\t}\n}\n')
+
 REPLACEMENTS = [
     # Retro-Recomp modifications (GPL-2.0, like this file): only the sources are built; the documentation, tests, Python UI and
     # shared icons are not copied.
@@ -301,6 +331,24 @@ REPLACEMENTS = [
     ('src/inffile.c',
      '\t\tLog_Printf(LOG_DEBUG, "Virtual INF file \'%s\' matched.\\n", filename);\n',
      '\t\tLog_Printf(LOG_DEBUG, "Virtual INF file \'%s\' matched.\\n", filename);\n\t\trr_inf_opened = 1;\n'),
+    # The detector above, called from the MFP's register handlers (each old text is the line the call goes before or after).
+    ('src/mfp.c', '#define\tPATCH_TIMER_TDDR_FAKE\t\t0x64\t\t/* TDDR value to slow down timer D */\n',
+     '#define\tPATCH_TIMER_TDDR_FAKE\t\t0x64\t\t/* TDDR value to slow down timer D */\n' + TIMER_D_DETECTOR),
+    ('src/mfp.c', '\t/* Special case for the main MFP when bPatchTimerD is used */\n',
+     '\trr_timer_d_note ( RR_TD_TDDR_READ , 0 );\t/* Retro-Recomp modification */\n'
+     '\t/* Special case for the main MFP when bPatchTimerD is used */\n'),
+    ('src/mfp.c', '\tIoMem[IoAccessCurrentAddress] = pMFP->TCDCR;\n',
+     '\trr_timer_d_note ( RR_TD_TCDCR_READ , 0 );\t/* Retro-Recomp modification */\n\tIoMem[IoAccessCurrentAddress] = pMFP->TCDCR;\n'),
+    ('src/mfp.c', '\tpMFP->IERB = IoMem[IoAccessCurrentAddress];\n\tpMFP->IPRB &= pMFP->IERB;\n',
+     '\tpMFP->IERB = IoMem[IoAccessCurrentAddress];\n\trr_timer_d_note ( RR_TD_ENABLE_WRITE , 0 );\t/* Retro-Recomp modification */\n'
+     '\tpMFP->IPRB &= pMFP->IERB;\n'),
+    ('src/mfp.c', '\tpMFP->IMRB = IoMem[IoAccessCurrentAddress];\n',
+     '\tpMFP->IMRB = IoMem[IoAccessCurrentAddress];\n\trr_timer_d_note ( RR_TD_ENABLE_WRITE , 0 );\t/* Retro-Recomp modification */\n'),
+    ('src/mfp.c', '\tnew_tcdcr = IoMem[IoAccessCurrentAddress];\n\told_tcdcr = pMFP->TCDCR;\n',
+     '\tnew_tcdcr = IoMem[IoAccessCurrentAddress];\n\trr_timer_d_note ( RR_TD_TCDCR_WRITE , new_tcdcr );\t/* Retro-Recomp modification */\n'
+     '\told_tcdcr = pMFP->TCDCR;\n'),
+    ('src/mfp.c', '\t/* Patch Timer D for better performance ? */\n',
+     '\trr_timer_d_note ( RR_TD_TDDR_WRITE , 0 );\t/* Retro-Recomp modification */\n\t/* Patch Timer D for better performance ? */\n'),
     ('src/CMakeLists.txt',
      'add_library(retro-hatari MODULE\n',
      '# Retro-Recomp modification (GPL-2.0, like this file): the core is linked into the player.\n'

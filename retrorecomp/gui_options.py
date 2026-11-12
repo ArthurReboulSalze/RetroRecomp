@@ -335,10 +335,21 @@ class OptionsMixin:
                       wraplength=880).pack(anchor='w', pady=(12, 0))
 
     def build_choice_row(self, page, key):
-        """One of a few values (the X68000's RAM size): a label and a read-only list."""
+        """One of a few values (the X68000's RAM size): a label and a read-only list. A value with a string `<name>_choice_<value>` is shown in
+        the interface's language; the option keeps the value itself."""
         ttk.Label(page, text=self.option_text(key.label or key.name)).pack(anchor='w', pady=(12, 4))
-        control = ttk.Combobox(page, textvariable=getattr(self, key.name), values=key.choices, width=8,
-                               state='readonly')
+        variable = getattr(self, key.name)
+        names = {value: self.tr(f'{key.name}_choice_{value}') if f'{key.name}_choice_{value}' in STRINGS else str(value) for value in key.choices}
+        if all(name == str(value) for value, name in names.items()):
+            control = ttk.Combobox(page, textvariable=variable, values=key.choices, width=8, state='readonly')
+        else:
+            values = {name: value for value, name in names.items()}
+            shown = tk.StringVar(value=names.get(variable.get(), str(variable.get())))
+            control = ttk.Combobox(page, textvariable=shown, values=list(values), width=max(8, max(len(name) for name in values) + 2),
+                                   state='readonly')
+            control.bind('<<ComboboxSelected>>', lambda _event: variable.set(values[shown.get()]))
+            variable.trace_add('write', lambda *_: shown.set(names.get(variable.get(), str(variable.get()))))
+            self.option_choice_views = getattr(self, 'option_choice_views', []) + [shown]
         control.pack(anchor='w')
         self.option_controls.append((control, 'readonly'))
 

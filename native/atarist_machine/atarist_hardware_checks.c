@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     const char *tos_path = NULL, *disk_path = NULL, *out = NULL, *events_path = NULL, *machine = "st";
     unsigned frames = 60, tail = 2, dump = 0x40000, ram_kb = 4096, n;
     uint32_t done_address = 0;
-    int have_done = 0, i;
+    int have_done = 0, timer_d_exact = 0, i;
     uint32_t tos_size = 0, disk_size = 0;
     uint8_t *tos, *disk = NULL;
     RrStDisk disk_entry;
@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = (unsigned)strtoul(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--ram-kb") && i + 1 < argc) ram_kb = (unsigned)strtoul(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--machine") && i + 1 < argc) machine = argv[++i];
+        else if (!strcmp(argv[i], "--timer-d") && i + 1 < argc) timer_d_exact = !strcmp(argv[++i], "exact");
         else if (!strcmp(argv[i], "--done") && i + 1 < argc) { done_address = (uint32_t)strtoul(argv[++i], NULL, 0); have_done = 1; }
         else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 2; }
     }
@@ -130,7 +131,7 @@ int main(int argc, char **argv) {
     disk_entry.name = "check.st"; disk_entry.data = disk; disk_entry.size = disk_size;
     memset(&game, 0, sizeof game);
     game.disks = &disk_entry; game.disk_count = 1; game.tos = tos; game.tos_size = tos_size;
-    game.machine = machine; game.memory_kb = ram_kb; game.log = log_line;
+    game.machine = machine; game.memory_kb = ram_kb; game.log = log_line; game.timer_d_exact = timer_d_exact;
     session = rr_st_open(&game, error, sizeof error);
     if (!session) { fprintf(stderr, "the session did not open: %s\n", error); return 2; }
 
@@ -190,6 +191,13 @@ int main(int argc, char **argv) {
     for (n = 0; n < ran; ++n) printf("%s%llu", n ? "," : "", (unsigned long long)clock_deltas[n]);
     printf("],\"audio_counts\":[");
     for (n = 0; n < ran; ++n) printf("%s%u", n ? "," : "", audio_counts[n]);
-    printf("]}\n");
+    {
+        RrStTimerDSign sign[4];
+        rr_st_timer_d_signs(session, sign);
+        printf("],\"timer_d_patch\":%d,\"timer_d_signs\":{", rr_st_timer_d_patched(session));
+        for (n = 0; n < 4; ++n)
+            printf("%s\"%c\":[%llu,%llu,%u]", n ? "," : "", "ABCD"[n], (unsigned long long)sign[n].count, (unsigned long long)sign[n].frame, (unsigned)sign[n].pc);
+        printf("}}\n");
+    }
     return 0;
 }

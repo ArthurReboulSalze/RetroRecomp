@@ -63,6 +63,11 @@ struct RrStSession {
     char memory_option[16];
     uint64_t interpreted, chain_entries;
     int observe, native_enabled;
+    /* The player's own record (rr_st_set_recorder): the last window of 16 bytes told, at an instruction that ran on the interpreter. */
+    void (*recorder)(uint32_t pc, const uint8_t *bytes, unsigned size);
+    uint32_t window, window_last;
+    uint8_t window_bytes[16];
+    int window_set;
     struct Observation *observed;
     size_t observed_count, observed_capacity;
     char error[256];
@@ -399,15 +404,15 @@ static struct retro_vfs_interface vfs = {
 /* ----------------------------------------------------------------------------------------- the machine's fixed settings */
 /* Hatari's core options as the conversion runs the machine: a plain ST at 8 MHz with its cycle-exact 68000, the real TOS
  * (not patched for a faster boot), Hatari's floppy timing model (fast loading off), the borders shown (overscan tricks stay visible),
- * no blitter. One option departs from the machine on purpose: `hatari_timerd`. TOS starts the MFP's timer D with its interrupt off, one event every couple of instructions; with the
+ * no blitter. One option departs from the machine, and is chosen per game: `hatari_timerd`. TOS starts the MFP's timer D with its interrupt off, one event every couple of instructions; with the
  * option, Hatari starts it far slower when TOS is the one starting it, and a game that uses the timer as TOS left it sees another rhythm (docs/ATARI_ST.md, known limits). The
- * reference, the native game and the player all run this table, and each report says what Hatari has set (rr_st_timer_d_patched). */
+ * conversion picks the mode from the signs the references show (RrStGame.timer_d_exact); the reference, the native game and the player run the same one, and each report says what Hatari has set (rr_st_timer_d_patched). */
 static const char *option_value(const char *key) {
     /* Every option Hatari's frontend reads (src/retro/options.c), so none falls back to a default chosen elsewhere. Booleans are
      * "enabled" or "disabled". Port 0 is the mouse port (the mouse, and the second player's joystick, as on the machine: a
      * two-player game reads it), port 1 the first player's joystick port; the second fire button is not turned into "up". */
     static const char *const fixed[][2] = {
-        {"hatari_dsp_type", "none"}, {"hatari_blitter", "disabled"}, {"hatari_fastboot", "disabled"}, {"hatari_timerd", "enabled"},
+        {"hatari_dsp_type", "none"}, {"hatari_blitter", "disabled"}, {"hatari_fastboot", "disabled"},
         {"hatari_cpu_level", "0"}, {"hatari_cpu_clock", "8"}, {"hatari_cpu_compatible", "enabled"},
         {"hatari_cpu_cycle_exact", "enabled"}, {"hatari_cpu_addr24", "enabled"}, {"hatari_cpu_data_cache", "disabled"},
         {"hatari_fpu_type", "none"}, {"hatari_fpu_softfloat", "disabled"}, {"hatari_mmu", "disabled"},
@@ -421,6 +426,7 @@ static const char *option_value(const char *key) {
     size_t n;
     if (!strcmp(key, "hatari_machinetype")) return current->game.machine ? current->game.machine : "st";
     if (!strcmp(key, "hatari_memory_size")) return current->memory_option;
+    if (!strcmp(key, "hatari_timerd")) return current->game.timer_d_exact ? "disabled" : "enabled";
     for (n = 0; n < sizeof fixed / sizeof fixed[0]; n++) if (!strcmp(key, fixed[n][0])) return fixed[n][1];
     return NULL;
 }
@@ -566,6 +572,14 @@ static int disk_extension_ok(const char *name) {
 int rr_st_desktop_started(const RrStSession *s) { (void)s; return rr_inf_opened; }
 int rr_st_timer_d_patched(const RrStSession *s) { (void)s; return ConfigureParams.System.bPatchTimerD ? 1 : 0; }
 
+extern unsigned long long rr_timer_d_frame, rr_timer_d_sign_count[4], rr_timer_d_sign_frame[4];   /* the adapted mfp.c */
+extern uint32_t rr_timer_d_sign_pc[4];
+void rr_st_timer_d_signs(const RrStSession *s, RrStTimerDSign signs[4]) {
+    unsigned n;
+    (void)s;
+    for (n = 0; n < 4; n++) { signs[n].count = rr_timer_d_sign_count[n]; signs[n].frame = rr_timer_d_sign_frame[n]; signs[n].pc = rr_timer_d_sign_pc[n]; }
+}
+
 RrStSession *rr_st_open(const RrStGame *game, char *error, size_t error_size) {
     static char playlist[RR_ST_MAX_DISKS * 64];
     struct retro_game_info info;
@@ -683,8 +697,29 @@ static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes, uns
  * goes on to the instructions it knows come next while nothing is due in the loop; it counts itself. A handler is right for its opcode at any address, with any extension words. */
 typedef void (*RrStCode)(void);
 RrStCode rr_st_lookup(uint32_t pc, uint32_t opcode);
-extern uint64_t rr_st_native_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
 #endif
+
+/* The player's own record (kind 24 of native/runtime_feedback.c): 16 bytes at an instruction that ran on the interpreter, from RAM or the TOS ROM, which the next conversion walks into
+ * instructions. An instruction that follows the one before in the window told just now needs no record of its own, as long as the window still holds its opcode and all of it. Line A and line F
+ * opcodes never become native code (Hatari's table sends them to its exception handlers), so they are not told. */
+static void record_window(RrStSession *s, uint32_t pc, uint32_t opcode) {
+    uint8_t bytes[16];
+    if ((opcode >> 12) == 0xa || (opcode >> 12) == 0xf) return;
+    /* Kept only while the instruction fits whole in the window (at most 10 bytes from pc - window <= 6): the walk leaves out a cut one. */
+    if (s->window_set && pc > s->window_last && pc - s->window_last <= 10 && pc - s->window <= 6 &&
+        (uint32_t)(s->window_bytes[pc - s->window] << 8 | s->window_bytes[pc - s->window + 1]) == opcode) {
+        s->window_last = pc;
+        return;
+    }
+    if (pc + 16 <= STRamEnd) memcpy(bytes, STRam + pc, 16);
+    else if (pc >= 0xe00000 && pc + 16 <= 0x1000000 && ROMmemory) memcpy(bytes, RomMem + pc, 16);
+    else return;
+    memcpy(s->window_bytes, bytes, 16);
+    s->window = s->window_last = pc;
+    s->window_set = 1;
+    s->recorder(pc, bytes, 16);
+}
 
 static bool step_hook(uint32_t pc, uint32_t opcode) {
     if (!current) return false;
@@ -700,8 +735,14 @@ static bool step_hook(uint32_t pc, uint32_t opcode) {
         if (run) { current->chain_entries++; run(); return true; }
     }
 #endif
+    if (current->recorder) record_window(current, pc & 0xffffff, opcode & 0xffff);
     current->interpreted++;
     return false;
+}
+
+void rr_st_set_recorder(RrStSession *s, void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size)) {
+    s->recorder = note;
+    s->window_set = 0;
 }
 
 int rr_st_set_native(RrStSession *s, int enabled) {
@@ -739,6 +780,33 @@ uint64_t rr_st_native_count(const RrStSession *s) {
     (void)s;
 #ifdef RR_ST_NATIVE
     return rr_st_native_total;
+#else
+    return 0;
+#endif
+}
+
+/* Of the native instructions, those a player's own record brought (learned: they ran there on the interpreter; walked: found by walking a recorded window). */
+uint64_t rr_st_learned_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_learned_total;
+#else
+    return 0;
+#endif
+}
+uint64_t rr_st_walked_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_walked_total;
+#else
+    return 0;
+#endif
+}
+/* Of the native instructions, those a sweep over images of memory reached (not seen running by the conversion, not in a record). */
+uint64_t rr_st_swept_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_swept_total;
 #else
     return 0;
 #endif
@@ -785,6 +853,7 @@ unsigned rr_st_disk_index(const RrStSession *s) { return s->disk_index; }
 int rr_st_frame(RrStSession *s) {
     if (s->error[0]) return -1;
     s->audio_frames = s->audio_read = 0;
+    rr_timer_d_frame = s->frames + 1;
     retro_run();
     s->frames++;
     s->writes_quiet++;

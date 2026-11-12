@@ -92,6 +92,43 @@ class CodegenTests(unittest.TestCase):
         self.assertNotIn('m68k_decoder', index)   # no text of the recompiler's decoder in a game
         self.assertNotIn('m68k_decoder', chain)
 
+    def test_the_origin_of_an_instruction_decides_its_counter_and_a_sweep_is_the_last_to_claim_one(self):
+        (self.folder / 'map.txt').write_text(opcode_map({0x0000: 0, 0x4e75: 2}), encoding='ascii')
+        atarist_codegen.load_opcode_map(self.folder / 'map.txt', self.folder / 'cpustbl.c')
+        observed = get_profile('atarist').observed_code
+        decoded = [{'addr': pc, 'words': [0x4e75], 'word_count': 1, 'has_target': False, 'target_addr': 0, 'byte_length': 2} for pc in (0x1000, 0x1002, 0x1004, 0x1006)]
+
+        def decode(command, log=None):
+            Path(command[2]).write_text(json.dumps(decoded), encoding='utf-8')
+        with mock.patch.object(atarist_codegen, 'run', decode):
+            steps = atarist_codegen.write_steps(self.folder, [(0x1000, '4e75')], observed=observed, decode_tool=Path('decode'), learned=[(0x1000, '4e75'), (0x1002, '4e75')],
+                                                walked=[(0x1002, '4e75'), (0x1004, '4e75')], swept=[(0x1004, '4e75'), (0x1006, '4e75')])
+        self.assertEqual((steps['learned_instructions'], steps['walked_instructions'], steps['swept_instructions']), (1, 1, 1))
+        chain = ''.join(path.read_text(encoding='utf-8') for path in sorted((self.folder / 'steps').glob('chain*.c')))
+        body = lambda pc: chain[chain.index(f'void rr_st_at_{pc:06x}_4e75(void) {{'):].split('}', 1)[0]
+        self.assertNotIn('_total++;', body(0x1000).replace('rr_st_native_total++;', ''))   # a route ran it: that is what it counts as
+        self.assertIn('rr_st_learned_total++;', body(0x1002))
+        self.assertIn('rr_st_walked_total++;', body(0x1004))
+        self.assertIn('rr_st_swept_total++;', body(0x1006))
+        self.assertIn('rr_st_swept_total', atarist_codegen.SEMANTICS)
+        self.assertIn('uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;', atarist_codegen.BUS)
+
+    def test_the_st_sweep_uses_the_decoder_lengths_stops_at_opcodes_without_a_handler_and_refuses_a_bad_table(self):
+        saved = atarist_codegen._MAP
+        self.addCleanup(setattr, atarist_codegen, '_MAP', saved)
+        atarist_codegen._MAP = {op: ('-' if op >> 12 in (0xa, 0xf) else 'op_handler') for op in range(65536)}
+        lengths = bytearray([1]) * 65536
+        lengths[0x203c] = 3
+        observed = get_profile('atarist').observed_code
+        ram = bytearray(0x4000)
+        for at, text in ((0x1000, '4e71'), (0x1002, '203c00000001'), (0x1008, '4e75'), (0x100a, 'a000'), (0x100c, '4e71')):
+            ram[at:at + len(text) // 2] = bytes.fromhex(text)
+        found, info = atarist_codegen.sweep([(0x1000, '4e71')], [[(0, bytes(ram))]], observed=observed, lengths=bytes(lengths))
+        self.assertEqual(found, [(0x1002, '203c00000001'), (0x1008, '4e75')])      # ends at the RTS: the line A word after it is never reached
+        self.assertEqual((info['roots'], info['limit'], info['capped']), (1, atarist_codegen.SWEEP_LIMIT, False))
+        with self.assertRaises(ValueError):
+            atarist_codegen.sweep([], [], observed=observed, lengths=b'x')
+
 
 if __name__ == '__main__':
     unittest.main()

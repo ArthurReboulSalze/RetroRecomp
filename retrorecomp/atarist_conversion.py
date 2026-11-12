@@ -52,6 +52,16 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
                    'distinct_ram_states': 'distinct_ram_states', 'distinct_program_counters': 'distinct_program_counters'}
 MACHINE = 'st'
 MEMORY_KB = 1024
+# The MFP's timer D (docs/ATARI_ST.md, known limits): Hatari's patch of the TOS's own start of the timer is chosen per game. On `auto`
+# the fresh references run with it and run again without it when code outside the TOS shows a sign of using the timer as the TOS
+# left it (the detector of the adapted Hatari: signs A, B and C; D is counted and never chooses).
+TIMER_D_MODES = ('patched', 'exact')
+TIMER_D_CHOICES = ('auto',) + TIMER_D_MODES
+TIMER_D_SIGNS = {'A': 'a read of the timer D data register (TDDR)',
+                 'B': "timer D's interrupt left enabled and unmasked while the code never wrote TDDR or started the timer",
+                 'C': 'timer D started by a write of TCDCR before any write of TDDR',
+                 'D': 'a read of TCDCR (counted, never a sign alone)'}
+TIMER_D_DECIDING_SIGNS = ('A', 'B', 'C')
 # libretro key codes the routes press (Hatari maps them to ST scan codes).
 KEY_SPACE, KEY_RETURN, KEY_F1 = 32, 13, 282
 
@@ -228,8 +238,45 @@ def notice_files(emutos: bool) -> tuple[str, ...]:
     return NOTICE_FILES + (('licenses/emutos.md',) if emutos else ())
 
 
+FEEDBACK_KIND = 24       # The Atari ST's kind in native/runtime_feedback.h and its profile's feedback_kinds.
+TOS_BASE = 0xFC0000      # where a 192 KiB TOS (1.00 to 1.04, EmuTOS's 192 KiB image) sits
+MEMORY_IMAGE = 'memory.bin'   # the RAM a reference run leaves at its last frame, for the sweep
+
+
+def tos_tag(tos: Path) -> str:
+    """The TOS a record was made on: the first 32 bits of the image's SHA-256, in hexadecimal (a record of another TOS is not used: the memory differs)."""
+    return file_sha256(tos)[:8]
+
+
+def record_windows(rows, tos: Path, observed) -> tuple[list, dict]:
+    """The windows of a player's own record that this conversion may use: made on this TOS, inside the machine's apertures, and, from the TOS ROM, still the bytes of this image.
+    RAM windows cannot be checked against a source (loaded or unpacked code): the guard on the latched opcode decides at run time, so a stale one is a routine that never runs."""
+    tag = int(tos_tag(tos), 16)
+    image = tos.read_bytes()
+    kept, counts = [], {'records_read': len(rows), 'kept': 0, 'dropped_other_tos': 0, 'dropped_outside_apertures': 0, 'dropped_rom_mismatch': 0}
+    for row in rows:
+        pc, data = row.address & 0xffffff, bytes(row.data)
+        if row.auxiliary != tag:
+            counts['dropped_other_tos'] += 1
+            continue
+        try:
+            observed.check_sample(pc, data[:2].hex())
+        except ValueError:
+            counts['dropped_outside_apertures'] += 1
+            continue
+        if pc >= TOS_BASE and image[pc - TOS_BASE:pc - TOS_BASE + len(data)] != data:
+            counts['dropped_rom_mismatch'] += 1
+            continue
+        if 0xFA0000 <= pc < TOS_BASE:      # the cartridge area: no cartridge in this machine
+            counts['dropped_outside_apertures'] += 1
+            continue
+        kept.append((pc, data))
+    counts['kept'] = len(kept)
+    return kept, counts
+
+
 def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None,
-            autostart: str | None = None) -> dict:
+            autostart: str | None = None, timer_d: str = 'patched') -> dict:
     """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata; with
     EmuTOS, its complete source archive too (`sources`), which the game writes out with --write-sources."""
     from .metadata import write_game_metadata
@@ -263,12 +310,15 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
               f'#define RR_ST_SOURCES_RESOURCE {SOURCES_RESOURCE if sources is not None else 0}',
               '#define RR_ST_SOURCES_NAME ' + json.dumps(sources.name if sources is not None else ''),
               '#define RR_ST_MACHINE ' + json.dumps(MACHINE), f'#define RR_ST_MEMORY_KB {MEMORY_KB}',
-              '#define RR_ST_AUTOSTART ' + json.dumps(autostart or ''),
+              '#define RR_ST_AUTOSTART ' + json.dumps(autostart or ''), f'#define RR_ST_TIMER_D_EXACT {int(timer_d == "exact")}',
+              f'#define RR_ST_TOS_TAG 0x{tos_tag(tos)}u',
               'typedef struct {const char *name;unsigned resource;} RrStPayloadDisk;',
               'static const RrStPayloadDisk rr_st_disks[]={', *rows, '{0,0}};',
               f'#define RR_ST_DISK_COUNT {len(rows)}u',
               'static const volatile unsigned char rr_st_export_marker[]={' + ','.join(str(c) for c in marker) + '};', '#endif']
     (project / 'atarist_payload.h').write_text('\n'.join(header) + '\n', encoding='utf-8')
+    # The player's own record (native/runtime_feedback.c): which game it belongs to.
+    (project / 'runtime_feedback_config.h').write_text(f'#define RR_FEEDBACK_SYSTEM "atarist"\n#define RR_FEEDBACK_IDENTITY "{source.sha256}"\n', encoding='ascii')
     if not (project / 'game.ico').is_file():
         shutil.copy2(ASSETS / 'assets/Retro-Recomp.ico', project / 'game.ico')
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=True, standard='native',
@@ -312,17 +362,31 @@ def decoder_lengths(project: Path) -> tuple[Path, Path]:
     return decode, lengths
 
 
-def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path:
+def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path, timer_d: str = 'patched') -> Path:
     """The opcode -> handler table of Hatari's cycle-exact 68000, written by the reference player after one frame."""
     folder.mkdir(parents=True, exist_ok=True)
     table = folder / 'opcode-map.txt'
     events = write_events(folder / 'none.txt', [])
-    replay(player, folder, 2, events, disks=disks, tos=tos, extra=['--reference-cpu', '--opcode-map', table])
+    replay(player, folder, 2, events, disks=disks, tos=tos, extra=['--reference-cpu', '--opcode-map', table], timer_d=timer_d)
     return table
 
 
-def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> dict:
-    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers)."""
+def sweep_images(folders: list, tos: Path) -> list:
+    """The images of memory the sweep walks, one per route in the routes' order: the RAM the reference run left at its last frame (`memory.bin`, deleted once read: it is the game's and
+    the player's bytes, never kept) and the TOS ROM, as (start address, bytes) regions. A run that wrote no image leaves none."""
+    rom = tos.read_bytes()
+    images = []
+    for folder in folders:
+        dump = Path(folder) / MEMORY_IMAGE
+        if dump.is_file():
+            images.append([(0, dump.read_bytes()), (TOS_BASE, rom)])
+            dump.unlink()
+    return images
+
+
+def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None, images: list = ()) -> dict:
+    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers), of the windows of a player's own record, and of what a
+    sweep over the images of memory at the routes' end reaches from them."""
     from . import atarist_codegen, m68k_observed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('atarist').observed_code
@@ -333,14 +397,19 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> d
     bodies = observed.load_bodies(engine)
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
     usable = atarist_codegen.native_samples(samples)
-    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode)
+    learned, walked = atarist_codegen.walk_records(windows, observed=observed, lengths=lengths.read_bytes()) if windows and lengths else ([], [])
+    swept, sweep_info = atarist_codegen.sweep(usable + learned, images, observed=observed, lengths=lengths.read_bytes(), known=walked) if images and lengths else ([], {})
+    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked, swept=swept)
     return {'samples': len(samples), 'with_handler': len(usable), 'instructions': steps['instructions'], 'native_instructions': steps['native_instructions'],
+            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'], 'swept_instructions': steps['swept_instructions'], 'sweep': sweep_info,
             'forms': steps['forms'], 'pcs': steps['pcs'], 'opcode_table_sha256': file_sha256(table)}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
 def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list[Path] | None = None, tos: Path | None = None,
-           observe: bool = False, lengths: Path | None = None, autostart: str | None = None, extra=()) -> dict:
+           observe: bool = False, lengths: Path | None = None, autostart: str | None = None, extra=(), timer_d: str = 'patched') -> dict:
+    """One headless run. `timer_d` is the machine's mode this run must have: the reference player is told it, a game's own binary has
+    it fixed by its payload, and the run's report must say it."""
     folder.mkdir(parents=True, exist_ok=True)
     args = [str(binary), '--headless', '--frames', str(frames), '--report', str(folder / 'result.json'),
             '--trace', str(folder / 'trace.tsv'), '--input-events', str(events), '--capture', str(folder / 'frame.ppm')]
@@ -350,6 +419,7 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
             args += ['--disk', str(disk)]
         if autostart:
             args += ['--autostart', autostart]
+        args += ['--timer-d', timer_d]
     if observe:
         args += ['--observations', str(folder / 'observations.txt')]
         if lengths is not None:
@@ -361,13 +431,55 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
         raise ConversionError('Atari ST replay failed: ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
     # The reference, the native game and its packed copy are one machine: the comparison cannot see an option that all of them share, so each says what Hatari has set.
-    if report.get('timer_d_patch') is not True:
-        raise ConversionError("Atari ST: a run without Hatari's timer D patch; the reference and the game must run the same machine.")
+    if report.get('timer_d_patch') is not (timer_d == 'patched'):
+        raise ConversionError(f"Atari ST: a run whose timer D is not {timer_d}; the reference and the game must run the same machine.")
     if report.get('stopped'):
         raise ConversionError(f'Atari ST: the machine stopped at frame {report.get("frames")}: {report.get("error")}')
     if report.get('frames') != frames:
         raise ConversionError('Atari ST validation returned an incomplete run.')
     return report
+
+
+def timer_d_signs(reports: dict) -> dict:
+    """The detector's signs of each route's run report: {route: {letter: {count, frame, pc}}}, the pc as a hexadecimal string."""
+    out = {}
+    for route, report in reports.items():
+        seen = report.get('timer_d_signs') or {}
+        out[route] = {letter: {'count': int(seen.get(letter, {}).get('count', 0)), 'frame': int(seen.get(letter, {}).get('frame', 0)),
+                               'pc': '0x%06x' % int(seen.get(letter, {}).get('pc', 0))} for letter in TIMER_D_SIGNS}
+    return out
+
+
+def timer_d_decision(choice: str, signs: dict) -> tuple[str, str]:
+    """The machine's mode for a game, and why: `patched` and `exact` as asked; `auto` is `exact` when a deciding sign (A, B or C) was
+    seen on any route of the references that ran with the patch (the earliest one is named), else `patched`."""
+    if choice in TIMER_D_MODES:
+        return choice, 'chosen in Options'
+    seen = sorted(((entry['frame'], route, letter, entry) for route, letters in signs.items() for letter in TIMER_D_DECIDING_SIGNS
+                   for entry in (letters[letter],) if entry['count']), key=lambda item: (item[0], item[1], item[2]))
+    if not seen:
+        return 'patched', ('no sign that code outside the TOS uses timer D as the TOS left it, on the routes that ran (code they never reach is not looked at)')
+    frame, route, letter, entry = seen[0]
+    return 'exact', f'sign {letter} ({TIMER_D_SIGNS[letter]}), first at frame {frame}, pc {entry["pc"]}, route {route}'
+
+
+TIMER_D_LIMITS = {
+    'patched': ('when TOS starts the MFP timer D, Hatari starts it far slower than TOS asks (its interrupt is off). A game that uses this timer as TOS left it '
+                'sees another rhythm; a game that sets the timer itself is not touched. The frame comparison cannot see this: the reference has the patch too. '
+                'The detector looked at the routes that ran only: code they never reach is not looked at.'),
+    'exact': ('timer D runs as TOS starts it, at a very high rate with its interrupt off, which costs the host one event every couple of instructions: '
+              'the game runs slower on the host than with the patch (1.3 to 1.8 times the host cycles of a main route on the panel, docs/ATARI_ST.md). The detector looked at the '
+              'routes that ran only: code they never reach is not looked at.'),
+}
+
+
+def timer_d_report(choice: str, mode: str, reason: str, first_mode: str, signs: dict, final_signs: dict | None) -> dict:
+    """`machine.timer_d` of the report: the mode the reference, the native game and its compressed copy ran, why, and the detector's
+    signs by route (measured on the first references; when they ran again, on the final machine too)."""
+    return {'hatari_option': 'hatari_timerd', 'mode': mode, 'patched': mode == 'patched', 'choice': choice, 'reason': reason,
+            'signs': {'measured_on': first_mode, 'routes': signs, 'meaning': TIMER_D_SIGNS, 'deciding': list(TIMER_D_DECIDING_SIGNS)},
+            **({'signs_on_final_machine': final_signs} if final_signs is not None else {}),
+            'runs_with_it': 'the reference, the native game and its packed copy', 'limit': TIMER_D_LIMITS[mode]}
 
 
 def trace_rows(path: Path):
@@ -440,6 +552,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     title = title or source.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
         raise ConversionError('Invalid Atari ST game title.')
+    choice = unused.get('atarist_timer_d') or 'auto'
+    if choice not in TIMER_D_CHOICES:
+        raise ConversionError(f'Atari ST: timer D is {", ".join(TIMER_D_CHOICES)}, not {choice}.')
     stamp = sdk_stamp()
     base = ROOT / '.build/atarist' / (('win' + toolchain_suffix()) if os.name == 'nt' else 'linux') / stamp[:12]
     base.mkdir(parents=True, exist_ok=True)
@@ -473,19 +588,41 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         # A boot that reaches the GEM desktop waits there for its program: the desktop starts the only program of disk 1 by the
         # TOS's own autostart line (atarist_disk). Kept only when the main reference run shows that the boot reached the desktop;
         # otherwise the references run again without it, so a disk that starts by itself runs exactly as without the feature.
-        from .atarist_disk import autostart_program
-        autostart, autostart_reason = autostart_program(disks[0].read_bytes(), disks[0].suffix)
+        from .atarist_disk import autostart_decision
+        desktop = autostart_decision(disks[0].read_bytes(), disks[0].suffix, title)
+        autostart, autostart_reason = desktop['program'], desktop['reason']
         candidate_program = autostart
         if autostart and tos.player_supplied and tos.version < 0x0104:
             autostart, autostart_reason = None, f'TOS {tos.version_text()} has no autostart line (TOS 1.04 and EmuTOS have one)'
-        with timings.phase('reference_runs'):
+        start_autostart, start_reason = autostart, autostart_reason
+
+        def reference_runs(mode):
+            """Every route's fresh reference on the machine in `mode`; the autostart is dropped (and the run redone) on a route whose boot never reached the desktop."""
+            program, reason, results = start_autostart, start_reason, {}
             for name, frames_, _ in routes:
-                expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                        tos=media / 'tos.img', observe=True, lengths=lengths, autostart=autostart)
-                if autostart and not expected[name].get('desktop_started'):
-                    autostart, autostart_reason = None, 'the boot never reached the desktop (the disk starts by itself)'
-                    expected[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
-                                            tos=media / 'tos.img', observe=True, lengths=lengths)
+                dump = ['--ram-dump-at', frames_, '--ram-dump', checks / f'reference-{name}' / MEMORY_IMAGE]
+                results[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
+                                       tos=media / 'tos.img', observe=True, lengths=lengths, autostart=program, timer_d=mode, extra=dump)
+                if program and not results[name].get('desktop_started'):
+                    program, reason = None, 'the boot never reached the desktop (the disk starts by itself)'
+                    results[name] = replay(reference_player, checks / f'reference-{name}', frames_, scripts[name], disks=disks,
+                                           tos=media / 'tos.img', observe=True, lengths=lengths, timer_d=mode, extra=dump)
+            return results, program, reason
+        # The machine's timer D (docs/ATARI_ST.md): the references first run with Hatari's patch (or without it when it was asked
+        # for); on `auto` they run again without it when code outside the TOS shows a sign of using the timer as the TOS left it.
+        first_mode = 'exact' if choice == 'exact' else 'patched'
+        with timings.phase('reference_runs'):
+            expected, autostart, autostart_reason = reference_runs(first_mode)
+            signs = timer_d_signs(expected)
+            timer_d, timer_d_reason = timer_d_decision(choice, signs)
+            final_signs = None
+            if timer_d != first_mode:
+                emit(f'Atari ST: timer D runs as the machine has it, without the Hatari patch of it: {timer_d_reason}; the references run again.')
+                for name, _, _ in routes:
+                    shutil.move(checks / f'reference-{name}', checks / f'reference-patched-{name}')
+                    (checks / f'reference-patched-{name}' / MEMORY_IMAGE).unlink(missing_ok=True)   # the game's memory is never kept
+                expected, autostart, autostart_reason = reference_runs(timer_d)
+                final_signs = timer_d_signs(expected)
         if autostart:
             emit(f'Atari ST: the boot reaches the desktop; the desktop starts {autostart}.')
         samples = set()
@@ -499,7 +636,16 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                 samples |= set(read_observations(remembered))
             except (OSError, ValueError):
                 emit('Atari ST: the remembered observations are unreadable; this conversion uses its own only.')
-        table = opcode_map(reference_player, checks / 'opcode-map', disks, media / 'tos.img')
+        table = opcode_map(reference_player, checks / 'opcode-map', disks, media / 'tos.img', timer_d=timer_d)
+        # The player's own record: windows of what a real session ran on the interpreter, private to this player, never shared. They carry the same guard and count apart; the routes
+        # below prove the game as usual.
+        from .feedback import ingest, records
+        feedback = ingest('atarist', source.sha256, output, emit=emit)
+        windows, record_counts = record_windows(records('atarist', source.sha256, FEEDBACK_KIND), media / 'tos.img', get_profile('atarist').observed_code)
+        if windows:
+            emit(f'Atari ST: {len(windows)} windows of the player\'s own record are used.')
+        # The routes' end: images of memory for the sweep (read now, the files deleted: nothing of the game's memory is kept).
+        images = sweep_images([checks / f'reference-{name}' for name, _, _ in routes], media / 'tos.img')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -507,16 +653,19 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         artwork = prepare_icon(payload_dir, source.path, title, payload_dir, explicit=Path(cover) if cover else None, online=online_cover,
                                enabled=use_cover, system_id='atarist', cache_directory=boxart_cache_directory('atarist'), emit=emit)
         metadata = payload(payload_dir, source, disks, media / 'tos.img', title, mouse_game,
-                           sources=None if tos.player_supplied else tos.source, autostart=autostart)
+                           sources=None if tos.player_supplied else tos.source, autostart=autostart, timer_d=timer_d)
         candidate = generation = None
         results = {}
         for attempt in range(max(1, min(int(passes or 3), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table, hatari_build)
-            emit(f'Atari ST: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
+                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths, images=images)
+            emit(f'Atari ST: {generation["native_instructions"]} instructions in {generation["forms"]} native forms ({generation["learned_instructions"] + generation["walked_instructions"]} from the player record, '
+                 f'{generation["swept_instructions"]} swept); compiling the game.')
+            if generation['sweep'].get('capped'):
+                emit(f'Atari ST: the sweep stopped at its limit of {generation["sweep"]["limit"]} instructions ({generation["sweep"]["left_at_cap"]} places left unvisited).')
             with timings.phase('compile'):
-                candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['instructions'] else None,
+                candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['native_instructions'] else None,
                                         payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
@@ -527,7 +676,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     folder.mkdir(parents=True, exist_ok=True)
                     exported = folder / candidate.name
                     shutil.copy2(candidate, exported)
-                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True, lengths=lengths)
+                    results[name] = replay(exported, folder, frames_, scripts[name], observe=True, lengths=lengths, timer_d=timer_d)
                     require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                       lambda: ConversionError(f'Atari ST {name}: the native game and the fresh reference diverged; existing export preserved.'))
                     more |= set(read_observations(folder / 'observations.txt'))
@@ -556,7 +705,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             shutil.copy2(packed, target)
             if os.name != 'nt':
                 target.chmod(0o755)
-            return replay(target, folder, frames_, scripts[name], extra=extra)
+            return replay(target, folder, frames_, scripts[name], extra=extra, timer_d=timer_d)
         with timings.phase('packed_replays'):
             packed_results = replay_packed(delivered, packed_runs, replay_copy,
                                            same=lambda run_, result: same_trace(run_[1] / 'trace.tsv', run_[2] / 'trace.tsv'),
@@ -575,7 +724,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
+            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'], timer_d=timer_d)
         resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
@@ -583,6 +732,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted, 'chain_entries': results[name].get('chain_entries'),
+                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'), 'native_swept': results[name].get('native_swept'),
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
@@ -601,9 +751,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'machine': {'model': 'Atari ST (STF), 68000 at 8 MHz, 1 MiB', 'reference': 'Hatari (GPL-2.0) at its pinned revision, adapted at '
                         'build time, its cycle-exact 68000 mode and its floppy timing model (fast loading off), borders shown; accuracy against hardware '
                         'is not measured here',
-                        'timer_d': {'hatari_option': 'hatari_timerd', 'patched': True, 'runs_with_it': 'the reference, the native game and its packed copy',
-                                    'limit': 'when TOS starts the MFP timer D, Hatari starts it far slower than TOS asks (its interrupt is off). A game that uses this timer as TOS left it '
-                                             'sees another rhythm; a game that sets the timer itself is not touched. The frame comparison cannot see this: the reference has the patch too.'},
+                        'timer_d': timer_d_report(choice, timer_d, timer_d_reason, first_mode, signs, final_signs),
                         'tos': {'used': tos.label(), 'version': tos.version_text(), 'country': tos.country,
                                 'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': tos.player_supplied, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
@@ -614,7 +762,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                 'native': 'its instructions seen running become native code like the RAM code; positions in the '
                                           'TOS are not kept in any shared path'}},
             'tos_note': hint,
-            'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'reason': autostart_reason,
+            'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'candidates': desktop['candidates'],
+                                  'rule': desktop['rule'], 'reason': autostart_reason,
                                   'mechanism': 'the TOS\'s own autostart line (#Z) in a desktop file Hatari serves in memory; the disk '
                                                'image is not changed' if autostart else None},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,
@@ -622,7 +771,16 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area) as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
+            'runtime_learning': True, 'runtime_feedback': feedback,
+            'player_record': {**record_counts, 'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
+                              'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it; on the routes the count is 0 by construction, as what a route runs is observed",
+                              'walked_means': 'found by walking a 16-byte window a session noted: it may never have run there, and no route proves it (final_checks.native_walked is 0 on the routes by construction)',
+                              'private': True, 'shared': False},
+            'sweep': {**generation['sweep'], 'swept_instructions': generation['swept_instructions'], 'page_fill': False,
+                      'swept_means': 'reached by a sweep over images of memory taken at the end of the routes, not seen running: the same guard on the latched opcode; on the routes the count is 0 by '
+                                     'construction, as what a route runs is observed (final_checks.native_swept)',
+                      'private': True, 'shared': False},
+            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area), those of the player record and those a sweep over the memory at the end of the routes reaches, the last two counted apart, as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
                                'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
