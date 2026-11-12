@@ -86,10 +86,10 @@
     host time than the same game patched (an estimate, not a timing).
 - [à venir : Game Boy Advance, à décider]
 - [à venir : l'étude de capture commune aux machines]
-- **Coming next: the MSX.** It is not in 1.7.3. The MSX1, then the MSX2, is planned to open as
-  an experimental machine in the next release, cartridges first, on C-BIOS (a free BIOS) or your
-  own MSX BIOS; disks later, no tapes. Nothing is claimed yet of its native code, its fidelity,
-  its gameplay or its latency.
+- **Coming next: the MSX.** It is not in 1.7.3. The MSX1 and the MSX2 are planned to open
+  together as an experimental machine in the next release, cartridges first, on C-BIOS (a free
+  BIOS) or your own MSX BIOS; disks later, no tapes. Nothing is claimed yet of its native code,
+  its fidelity, its gameplay or its latency.
 
 **Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
 
