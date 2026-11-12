@@ -70,9 +70,10 @@ EXPLANATIONS = {
     BLOCK_USER_WRITEBACK: 'ARM LDM or STM with the S bit (the user-bank form) and write-back: architecturally unpredictable, and only seen in a '
                           'banked mode (FIQ, IRQ, supervisor, abort, undefined), where the suite models one choice of the base register and of '
                           'the registers written back. Found by decoding the 247 + 7 failures that were unexplained on 6 November 2026: all of them.',
-    THUMB_EMPTY_LIST: 'Thumb LDMIA, STMIA, PUSH or POP with an empty register list. On the ARM7TDMI the transfer is R15 and the base moves by '
-                      '0x40, which the suite models and the interpreter and the generated code of the engine do not (the 88 + 50 + 4 failures of 6 '
-                      'November 2026: all of them). A hardware quirk, not seen in the games of the panel.',
+    THUMB_EMPTY_LIST: 'Thumb LDMIA or POP with an empty register list (a load of R15 only). The model keeps bit 0 of the loaded word in R15, which it '
+                      'does not do for a non-empty POP {PC} (it clears it in all 6,360 vectors where the word is odd); the engine clears it, as '
+                      'for every other load of the PC, and dispatching on an odd PC would not be safe. The stores of an empty list (STMIA, PUSH: the '
+                      'value stored is the instruction address + 6) agreed after the patch of 12 November 2026: a failing store is now unexplained.',
     OTHER: 'Everything else: not explained. A change here is the signal; the baseline guards it.',
 }
 CARRY_BIT = 0x20000000
@@ -123,7 +124,7 @@ def classify(record: dict) -> str:
         return R15_OPERAND
     if not thumb and opcode >> 25 & 7 == 4 and opcode & (1 << 22) and opcode & (1 << 21):
         return BLOCK_USER_WRITEBACK
-    if thumb and opcode & 0xFF == 0 and (opcode & 0xF000 == 0xC000 or opcode in (0xB400, 0xBC00)):
+    if thumb and opcode & 0xFF == 0 and (opcode & 0xF800 == 0xC800 or opcode == 0xBC00):          # LDMIA Rb!,{} and POP {}: loads only
         return THUMB_EMPTY_LIST
     return OTHER
 

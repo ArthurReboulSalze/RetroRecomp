@@ -67,6 +67,7 @@ class Run:
     cpu_hash: str = ''               # the CPU registers there
     ewram: bytes | None = None       # the 256 KB of work RAM at the end of the run (code a game copies there is matched with its source)
     samples: tuple = ()              # (address, 1,024 live bytes) found at the first miss of a RAM address, and again when they changed
+    capped: tuple = ()               # (address, versions kept) of the RAM addresses whose further versions the probe's cap refused
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
@@ -161,6 +162,23 @@ def input_script(frames: int, kind: str) -> str:
     return '# frame,keyinput_active_low\n' + ''.join(f'{frame},0x{value:04x}\n' for frame, value in events)
 
 
+def _capped(path: Path) -> tuple:
+    """The `CAPPED address versions` lines of the probe's miss-bytes file: the addresses whose versions the probe's cap refused."""
+    found = []
+    try:
+        lines = path.read_text(encoding='ascii', errors='replace').splitlines()
+    except OSError:
+        return ()
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 3 and parts[0] == 'CAPPED':
+            try:
+                found.append((int(parts[1], 16), int(parts[2])))
+            except ValueError:
+                continue
+    return tuple(found)
+
+
 def _samples(path: Path) -> tuple:
     """The (address, bytes) lines of the probe's miss-bytes file."""
     found = []
@@ -220,4 +238,4 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
                int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '',
-               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file))
+               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file))

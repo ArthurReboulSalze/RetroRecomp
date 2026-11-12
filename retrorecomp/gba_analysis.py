@@ -181,6 +181,8 @@ class RamCode:
     """Code found in work RAM that the cartridge does not hold, for the conversion in progress: {(address, thumb flag): [bytes, ...]}, one
     entry per version of the bytes the game had there. Memory only: never written to the library (see the head of this module)."""
     variants: dict = field(default_factory=dict)
+    refused: int = 0            # versions MAX_VARIANTS did not keep (the cap is never silent: the report counts them)
+    image_overflow: bool = False  # the image the generator would read does not fit the cartridge window: no RAM code was built
 
     def size(self) -> int:
         return sum(len(items) for items in self.variants.values())
@@ -196,10 +198,13 @@ class RamCode:
         known = self.variants.setdefault(key, [])
         added = 0
         for where, live in samples:
-            if where != key[0] or len(live) < 8 or len(known) >= MAX_VARIANTS:
+            if where != key[0] or len(live) < 8:
                 continue
             head = live[:MATCH_WINDOWS[0]]
             if head.count(0) == len(head) or len(set(head)) < 4 or live in known:
+                continue
+            if len(known) >= MAX_VARIANTS:
+                self.refused += 1
                 continue
             known.append(live)
             added += 1
@@ -290,7 +295,8 @@ def generator_image(rom: bytes, ram_code: RamCode) -> tuple[bytes, list[RamEntry
                 source = start
             entries.append(RamEntry(address, bool(flag), ROM_BASE + source))
             ranges += [(ROM_BASE + source + offset, ROM_BASE + source + offset + 4) for offset in words if offset + 4 <= len(live)]
-    if len(image) > IMAGE_MAX:
+    ram_code.image_overflow = len(image) > IMAGE_MAX
+    if ram_code.image_overflow:
         return rom, [], []
     return bytes(image), entries, sorted(set(ranges))
 
@@ -356,7 +362,7 @@ def _versions(spans) -> tuple[list[tuple[int, int, int]], dict]:
     return rows, counts
 
 
-def config_text(name: str, sha1: str, size: int, observations: Observations, ram_entries=(), data_ranges=()) -> str:
+def config_text(name: str, sha1: str, size: int, observations: Observations, ram_entries=(), data_ranges=(), stats: dict | None = None) -> str:
     """The engine's per-binary TOML: the identity of the image the generator reads (the cartridge, followed by the RAM code bytes
     when there are some), our roots, our code copies and our RAM entries. The finder keeps discovering what it can; nothing here
     removes code."""
@@ -380,6 +386,8 @@ def config_text(name: str, sha1: str, size: int, observations: Observations, ram
         versions[key] = number + 1
         address = mirror_address(entry.address, number)
         if address is None:
+            if stats is not None:
+                stats['versions_without_mirror'] = stats.get('versions_without_mirror', 0) + 1
             continue
         lines += ['[[extra_func]]', f'addr = 0x{address:08X}', f'source_addr = 0x{entry.source:08X}',
                   f'mode = "{"thumb" if entry.thumb else "arm"}"', 'note = "RAM code seen by Retro-Recomp"', '']

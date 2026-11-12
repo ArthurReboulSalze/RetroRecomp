@@ -175,6 +175,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
     rows, runs, history, generated, unresolved, host = [], {}, [], {}, [], None
     reasons = collections.Counter()
     ram_code, ram_entries, image = analysis.RamCode(), [], data          # code the cartridge does not hold: memory of this conversion only
+    capped, config_stats = set(), {}                                      # the caps that refused something: counted in the report, never silent
     total = passes + SETTLING_PASSES
     for number in range(1, total + 1):
         timings.begin_pass(number)
@@ -185,7 +186,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
             generator_rom = project / 'rom+ram.bin'
             write_if_changed(generator_rom, image)
         write_if_changed(project / 'game.toml', analysis.config_text(
-            title, hashlib.sha1(image).hexdigest(), len(image), observations, ram_entries, ram_ranges).encode('utf-8'))
+            title, hashlib.sha1(image).hexdigest(), len(image), observations, ram_entries, ram_ranges, config_stats).encode('utf-8'))
         with timings.phase('code_generation'):
             generated = build.generate_game(recompile, generator_rom, project / 'game.toml', project / 'generated', emit)
         emit(f"Game Boy Advance: {generated['functions']} functions in {generated['shards']} shards.")
@@ -197,6 +198,7 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         for name, count, _ in scenarios:
             outcome = build.run_scenario(host, rom_file, sha1, bios, project / 'runs', name, count, paths[name])
             runs[name] = outcome
+            capped.update(address for address, _kept in outcome.capped)
             found, left = analysis.observations_from_misses(analysis.parse_misses(outcome.misses), data, outcome.iwram, outcome.ewram, outcome.samples)
             learned.merge(found)
             unresolved += left
@@ -254,6 +256,9 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
                 'rom_roots': len(observations.roots), 'ram_routines': len(observations.spans),
                 'unresolved_misses': len(unresolved), 'unresolved_reasons': dict(sorted(reasons.items())), 'generated': generated,
                 'ram_code': {'addresses': len(ram_code.variants), 'versions': ram_code.size(), 'entries': len(ram_entries), 'parameter_words': len(ram_ranges),
+                             'caps': {'versions_refused_by_the_converter': ram_code.refused, 'addresses_capped_in_the_probe': len(capped),
+                                      'versions_without_a_mirror': config_stats.get('versions_without_mirror', 0),
+                                      'image_over_the_cartridge_window': ram_code.image_overflow},
                              'image_bytes_added': len(image) - len(data),
                              'note': 'bytes the game had in work RAM that the cartridge does not hold; derived from it, kept in memory for the '
                                      'conversion and in the generated code (a guard compares the live bytes before every entry), never in the paths library'},
