@@ -13,6 +13,12 @@ extern uint8_t rr_ng_z80_fallback_pc[65536];
 typedef struct {uint16_t pc;uint8_t bytes[4];} RrNgZ80Variant;
 extern RrNgZ80Variant rr_ng_z80_variants[4096];
 extern unsigned rr_ng_z80_variant_count;
+/* Variants of observed code kept per kind (the arrays below hold at most 4,096; a proof build may lower it). */
+#ifndef RR_NG_VARIANT_CAP
+#define RR_NG_VARIANT_CAP 4096
+#endif
+/* Notes whose variant did not fit the variants kept (a variant met again counts again): code the generator never sees. */
+extern uint64_t rr_ng_z80_variants_dropped;
 void rr_ng_z80_note_fallback(uint16_t);
 uint64_t rr_ng_z80_state_hash(void);
 extern uint64_t rr_ng_bios_instructions, rr_ng_cart_instructions, rr_ng_ram_instructions;
@@ -21,6 +27,8 @@ extern uint8_t rr_ng_reached_p[0x800000],rr_ng_reached_bios[0x10000];
 typedef struct {uint16_t offset,words[8];uint8_t count;} RrNgRamVariant;
 extern RrNgRamVariant rr_ng_ram_variants[4096];
 extern unsigned rr_ng_ram_variant_count,rr_ng_ram_observations_truncated;
+/* Observations of work-RAM code that did not fit the 4,096 kept (the same variant met again counts again). */
+extern uint64_t rr_ng_ram_variants_dropped;
 size_t rr_ng_board_extra_save(uint8_t*,size_t);
 bool rr_ng_board_extra_valid(const uint8_t*,size_t);
 bool rr_ng_board_extra_restore(const uint8_t*,size_t);

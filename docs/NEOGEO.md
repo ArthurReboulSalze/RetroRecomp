@@ -313,6 +313,10 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   experimental at cartridge level. A pointer with a flagged high byte keeps its full
   PC (the reference CPU does too, so `BSR` pushes `0x8004e806` on Gowcaizer); this is
   reference agreement, not proof of real 68000 behaviour, and CPS-1 shares the pattern.
+- **Observed code the reference runs could not keep** is counted. The reference runs keep at most 4,096 variants of work-RAM 68000
+  code and 4,096 of Z80 code; the conversion report's `native_discovery` gives the cap, what was dropped past it (notes, not distinct
+  variants), and `observed_code_dropped`, and the log says so. Nothing in the panel reaches the cap (at most 565 68000 variants, on
+  Matrimelee); dropped code is not translated and runs through the counted interpreter if a run reaches it.
 - **Deferred: the second megabyte of 2 MiB cartridges.** A program ROM of at most 2 MiB has a constant window at `0x200000`, which the static
   sweep does not cover (only the first megabyte is swept). Sweeping it would remove the interpreter use of Twinkle Star Sprites (0.4 %), at about
   +15 to +35 % of the conversion time on the 18 exports of that size; decided against for now, with the event that brings it back in

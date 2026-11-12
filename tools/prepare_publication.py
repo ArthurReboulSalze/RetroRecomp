@@ -326,7 +326,7 @@ tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_c
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
-native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_musashi_fixes.py
+native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_neogeo_discovery_limits.py tests/test_musashi_fixes.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
 tests/fixtures/m68k-groups/deviations-musashi-machines.json tools/x68000_owner_trial.py tools/vector_deviations.py tests/test_x68000_owner_trial.py tests/test_vector_groups_deviations.py
 tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c

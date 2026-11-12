@@ -29,6 +29,47 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
                    'last_audible_frame': 'last_audible_frame'}
 
 
+# What the reference run of a route keeps of the code it observes outside the fixed ROM: at most this many variants of work-RAM
+# 68000 code and of Z80 code (`RR_NG_VARIANT_CAP` in `native/neogeo_reference.h`, written in the report as `variant_cap`). A note
+# beyond it is counted, not kept.
+VARIANT_CAP = 4096
+
+
+def discovery_limits(project: Path, emit=print) -> dict:
+    """The code the reference runs observed and could not keep, from `native-discovery/<route>-reference.json`.
+
+    `m68k_ram_variants_dropped` and `z80_variants_dropped` count the observations of work-RAM 68000 code and of Z80 code
+    that did not fit `VARIANT_CAP` (the same variant met again counts again), so they are not numbers of distinct variants.
+    The figures are a maximum over the routes, never a sum, like the other fallback figures. Code that was dropped is not
+    translated: if a run reaches it, the counted interpreter fallback runs it. A report that lacks a key (a reference
+    executable older than this field) reads None, never 0."""
+    routes, found, cap = {}, {}, VARIANT_CAP
+    for path in sorted((project / 'native-discovery').glob('*-reference.json')):
+        report = json.loads(path.read_text(encoding='utf-8'))
+        routes[path.name[:-len('-reference.json')]] = row = {
+            'm68k_ram_variants': len(report.get('m68k_ram_variants', ())),
+            'm68k_ram_observations_truncated': report.get('m68k_ram_observations_truncated'),
+            'm68k_ram_variants_dropped': report.get('m68k_ram_variants_dropped'),
+            'z80_variants': len(report.get('z80_variants', ())),
+            'z80_variants_dropped': report.get('z80_variants_dropped')}
+        cap = report.get('variant_cap', cap)
+        for key in ('m68k_ram_variants_dropped', 'z80_variants_dropped'):
+            if row[key] is not None:
+                found[key] = max(found.get(key, 0), row[key])
+    flags = [row['m68k_ram_observations_truncated'] for row in routes.values() if row['m68k_ram_observations_truncated'] is not None]
+    truncated = any(flags) if flags else None
+    dropped = any(found.values()) or bool(truncated)
+    if dropped:
+        emit('Neo Geo: the reference runs dropped observed code (work-RAM 68000 observations: '
+             f'{found.get("m68k_ram_variants_dropped", 0)}, Z80 variants: {found.get("z80_variants_dropped", 0)}, limit '
+             f'{cap} each); a run that reaches it uses the counted interpreter fallback.')
+    return {'variant_cap': cap, 'routes': routes,
+            'm68k_ram_observations_truncated': truncated,
+            'm68k_ram_variants_dropped': found.get('m68k_ram_variants_dropped'),
+            'z80_variants_dropped': found.get('z80_variants_dropped'),
+            'observed_code_dropped': dropped}
+
+
 def trace_rows(trace: Path):
     """The per-frame rows of a route's trace (frame, cpu, hardware, z80, image, pcm, samples) for `delivery_evidence`.
 
@@ -280,6 +321,7 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
             'compatibility':'exact cartridge regions, selected BIOS, MVS Europe and runtime ABI','validation':states},
         'ordinary_saves':{'supported':True,'scope':'game-scoped MVS NVRAM and writable memory card',
             'path':'datas/saves/NeoGeo-<exact-cart-and-BIOS-key>.rrsave','validation':ordinary},
+        'native_discovery':discovery_limits(project,emit),
         'knowledge':{**memory,'use':used,
                      **({'imported_hints_rejected':_rejected} if _rejected else {})},
         'artwork':json.loads((project/'artwork.json').read_text(encoding='utf-8')),

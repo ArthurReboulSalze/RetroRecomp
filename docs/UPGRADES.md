@@ -309,6 +309,29 @@ build reads 0 for each of them.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Neo Geo: the code the reference runs could not keep is counted and reported (after 1.7.3)
+
+**What changes.** The reference runs of a Neo Geo conversion keep at most 4,096 variants of work-RAM 68000 code and 4,096 variants of
+Z80 code (`RR_NG_VARIANT_CAP`, `native/neogeo_reference.h`). Past that, a note was dropped without a trace: the Z80 side had no counter,
+and the 68000 side wrote a flag (`m68k_ram_observations_truncated`) that nothing read. Now:
+- the executable's reference report writes `variant_cap`, `m68k_ram_variants_dropped` and `z80_variants_dropped` beside the flag;
+- the conversion report has a `native_discovery` record: the cap, the same figures per route, their maximum over the routes (never a sum),
+  the flag read from every route, and `observed_code_dropped`;
+- when something was dropped, the conversion says so in its log. Dropped code is not translated: a run that reaches it uses the counted
+  interpreter fallback, shown as before in `final_checks` and in the game.
+
+A dropped count is a number of notes, not of distinct variants: a variant met again counts again. No game of the panel reaches the cap
+(the most observed 68000 variants are 565, on Matrimelee, and 1 Z80 variant on every set read), so the counters read 0.
+
+**What it does not change.** The code generated for the game: the counters sit after the point where a variant is kept or dropped, and
+the generators are untouched. A report of an earlier build has no `native_discovery`.
+
+**Hot path:** no. The counter is a store on the path that already drops a note, at conversion time only (the reference runs).
+
+**What moves:** the Neo Geo game stamp (`native/neogeo_main.c`, `neogeo_reference.c`, `neogeo_reference.h` and `retrorecomp/neogeo_conversion.py`
+are Neo Geo files); the CPS-1, CPS-2 and X68000 stamps and the two generator pins do not (`neogeo_codegen.py` is not edited), nor does the
+Neo Geo quick-state key (it hashes `neogeo_build`, `neogeo_codegen` and `neogeo_z80`, none edited).
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
