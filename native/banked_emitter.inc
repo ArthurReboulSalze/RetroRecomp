@@ -261,8 +261,11 @@ static void banked_write_bodies(const BankedOps *pool, const GameConfig *cfg, co
     fprintf(h, "#pragma once\n#include <stddef.h>\n#include \"sms_runtime.h\"\n#include \"z80_ops.h\"\n");
     if (banked_machine.mapped) fprintf(h,
         "/* What one region of the address space shows now: the source (in the order the machine declares them), the bank\n"
-        " * of that source in units of one region, or RAM. The machine's bus keeps the map; the step only reads it. */\n"
-        "typedef struct { uint8_t source, bank, ram; } BankedRegion;\n");
+        " * of that source in units of one region, or RAM. The machine's bus keeps the map; the step only reads it.\n"
+        " * guard_from, guard_to: offsets in the region, guard_to excluded, of one window where something else than the\n"
+        " * source answers (a device in front of the ROM); an instruction that reads a byte of it runs through the byte\n"
+        " * guards, the rest of the region stays keyed. No window: both 0. */\n"
+        "typedef struct { uint8_t source, bank, ram; uint16_t guard_from, guard_to; } BankedRegion;\n");
     banked_step_signature(h);
     fprintf(h, ";\nint game_banked_guarded_step(void);\n");
     for (uint32_t id = 1; id <= pool->count; ++id) fprintf(h, "void game_banked_op_%u(void);\n", id);
@@ -339,29 +342,48 @@ static void banked_write_coverage(const char *dir, size_t positions, size_t cove
 
 /* A machine keyed by a region map (BankedMachine.mapped): every region of the address space shows a bank of one of several
  * sources, or RAM, and the map changes at run time. A position is keyed by (source, bank, offset). An instruction that
- * starts in the last three bytes of a region, and any instruction in RAM, runs through the byte guards: the guards hold
- * the encodings of every pair of banks that can meet at an edge, so the bytes of the next region are compared, not assumed.
- * Source 0 is the cartridge of game.toml; the others are the files named, one per line, in `banked.sources` beside it. */
+ * starts in the last three bytes of a region, any instruction in RAM and any instruction that reads a byte of a region's
+ * guarded window run through the byte guards: the guards hold the encodings of every pair of banks that can meet at an
+ * edge, so the bytes of the next region are compared, not assumed.
+ * Source 0 is the cartridge of game.toml; the others are the files named, one per line, in `banked.sources` beside it.
+ * The machine has its own front end (cg_emit_banked_mapped, called by the generator's entry point before the cartridge
+ * parser of the pinned generator): every source is read whole, nothing is stripped and no header is looked for. */
 typedef struct { uint8_t *data; size_t size, period; uint32_t *ids; } BankedSource;
 
-static void banked_emit_mapped(const SmsRom *rom, const GameConfig *cfg, const char *dir) {
+/* One source as the machine shows it: the file as it is, padded with FFh (an open bus) to whole regions, so that the
+ * bank arithmetic of the step and the machine's own mirror of a short image agree. */
+static void banked_read_source(BankedSource *source, unsigned index, const char *path, size_t slot_size) {
+    FILE *f = fopen(path, "rb");
+    long size = 0;
+    if (!f || fseek(f, 0, SEEK_END) || (size = ftell(f)) <= 0 || fseek(f, 0, SEEK_SET)) {
+        fprintf(stderr, "[banked] unreadable source %u: %s\n", index, path); exit(1);
+    }
+    source->size = ((size_t)size + slot_size - 1) / slot_size * slot_size;
+    source->data = (uint8_t*)malloc(source->size);
+    if (!source->data || fread(source->data, 1, (size_t)size, f) != (size_t)size) {
+        fprintf(stderr, "[banked] unreadable source %u: %s\n", index, path); exit(1);
+    }
+    memset(source->data + size, 0xFF, source->size - (size_t)size);
+    fclose(f);
+    printf("[banked] source %u: %ld bytes read, %zu translated (%zu regions of %zu bytes)\n",
+        index, size, source->size, source->size / slot_size, slot_size);
+}
+
+int cg_emit_banked_mapped(const char *rom_path, const GameConfig *cfg, const char *dir) {
     const BankedMachine *machine = &banked_machine;
+    if (!machine->mapped) { fprintf(stderr, "[banked] this generator is built for a machine keyed by bank registers\n"); return 1; }
+    CG_MKDIR(dir);
     const size_t slot_size = (size_t)1 << machine->slot_bits, slot_tail = slot_size - 3;
     BankedSource sources[16];
     char path[600], line[600];
     if (machine->sources < 1 || machine->sources > 16) { fprintf(stderr, "[banked] 1 to 16 sources\n"); exit(1); }
-    sources[0].data = rom->data; sources[0].size = rom->size;
+    banked_read_source(&sources[0], 0, rom_path, slot_size);
     snprintf(path, sizeof path, "%s/../banked.sources", dir);
     FILE *list = machine->sources > 1 ? fopen(path, "r") : NULL;
     for (unsigned s = 1; s < machine->sources; ++s) {
         if (!list || !fgets(line, sizeof line, list)) { fprintf(stderr, "[banked] banked.sources names fewer sources than the machine\n"); exit(1); }
         line[strcspn(line, "\r\n")] = 0;
-        FILE *f = fopen(line, "rb");
-        long size = 0;
-        if (!f || fseek(f, 0, SEEK_END) || (size = ftell(f)) <= 0 || fseek(f, 0, SEEK_SET)) { fprintf(stderr, "[banked] unreadable source %u\n", s); exit(1); }
-        sources[s].size = (size_t)size; sources[s].data = (uint8_t*)malloc(sources[s].size);
-        if (!sources[s].data || fread(sources[s].data, 1, sources[s].size, f) != sources[s].size) exit(1);
-        fclose(f);
+        banked_read_source(&sources[s], s, line, slot_size);
     }
     if (list) fclose(list);
     size_t positions = 0, pairs = 0, periods = 0, covered = 0, seam_n = 0;
@@ -410,7 +432,7 @@ static void banked_emit_mapped(const SmsRom *rom, const GameConfig *cfg, const c
     banked_step_signature(o);
     fprintf(o, " {\n    uint16_t pc = g_z80.pc; const BankedRegion *region = &map[pc >> %u];\n"
         "    uint32_t off = pc & 0x%zX, id;\n"
-        "    if (region->ram || off >= 0x%zX) return game_banked_guarded_step();\n"
+        "    if (region->ram || off >= 0x%zX || (off < region->guard_to && off + 3 >= region->guard_from)) return game_banked_guarded_step();\n"
         "    switch (region->source) {\n", machine->slot_bits, slot_size - 1, slot_tail);
     for (unsigned s = 0; s < machine->sources; ++s)
         fprintf(o, "    case %u: id = positions_%u[((uint32_t)region->bank*0x%zX+off) %% %zu]; break;\n", s, s, slot_size, sources[s].size);
@@ -420,13 +442,16 @@ static void banked_emit_mapped(const SmsRom *rom, const GameConfig *cfg, const c
     fclose(o);
     banked_write_coverage(dir, positions, covered, periods, &pool, seam_n, 0, guard_n, profile_windows, profile_unsupported, rom_bodies);
     free(pool.hash); free(pool.ops);
-    for (unsigned s = 0; s < machine->sources; ++s) { free(sources[s].ids); if (s) free(sources[s].data); }
+    for (unsigned s = 0; s < machine->sources; ++s) { free(sources[s].ids); free(sources[s].data); }
+    return 0;
 }
 
 void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *dir) {
     CG_MKDIR(dir);
     const BankedMachine *machine = &banked_machine;
-    if (machine->mapped) { banked_emit_mapped(rom, cfg, dir); return; }
+    if (machine->mapped) {   /* never through the cartridge parser that filled `rom` */
+        fprintf(stderr, "[banked] a machine keyed by a region map is translated by cg_emit_banked_mapped\n"); exit(1);
+    }
     /* The last three bytes of a slot (and of the fixed start) begin instructions that end in the next region. */
     const size_t slot_size = (size_t)1 << machine->slot_bits, slot_tail = slot_size - 3;
     const size_t fixed = machine->fixed_bytes, fixed_tail = fixed ? fixed - 3 : 0;
