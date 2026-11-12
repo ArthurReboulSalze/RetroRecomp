@@ -321,6 +321,9 @@ The same figures are in `native_validation.generation.sweep_cut`. They count can
 hold no code. Whatever they hold, if it ever runs, runs on the interpreter and is counted there, as before. The generated code is
 unchanged: the same instructions are swept, in the same order.
 
+**Proof.** Cyber Games at the standard scan level, by the real command line: 51,690 swept instructions, the bound not reached, and
+every route equal to the conversion of main a5379530.
+
 **Hot path:** no. This is conversion time only.
 
 **What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
@@ -340,6 +343,7 @@ mixed border, and chunks inside the display window, are unchanged.
 **Proofs.**
 - The display self-test passes: 52 scenarios, every texture row equal to vAmiga's own colorize (`--per-slot`).
 - A planted fault (`--colour-fault 1`: the one-colour chunk one bit off) is seen in 52 of 52 scenarios.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
 
 **Hot path:** yes, the per-line colorize: one comparison more per chunk that has a border, four stores instead of eight on one-colour
 chunks. Measured in the quiet-PC pass at the end of the colour steps.
@@ -353,7 +357,12 @@ chunks. Measured in the quiet-PC pass at the end of the colour steps.
 **What changes.** The session sets vAmiga's texture format to ARGB (`Opt::HOST_TEX_FORMAT`), so the palette is packed in the host's
 order once. Until now the option was never set, and the session swapped red and blue in every pixel of every frame. The copy of
 the picture now moves one 32-bit value per hires pixel and sets the alpha byte. The picture handed to the host is meant to be the
-same bytes as before. The proof is the picture hashes of every route against the conversions of main a5379530.
+same bytes as before. A Fable review of 12 Nov found it safe: until now the format was ABGR, because the option was never set and
+`HostConfig` is value-initialised, so the old swap gave 0xAARRGGBB; every texel outside the palettes that reaches the copied area
+reads the same in both orders.
+
+**Proofs.**
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
 
 **Why.** On a normal PC, the copy with its swap was 6.0 % of a Lotus 2 frame and 8.9 % of a Rick Dangerous frame
 (`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
@@ -381,6 +390,8 @@ lookups instead of eight. A chunk whose pairs differ keeps one lookup per entry,
   - `--colour-fault 2`, a cell's second entry one bit off: 60 of 60 scenarios;
   - `--colour-fault 3`, cells taken without the pair check: exactly the 8 super-hires scenarios.
 - 234,044 chunks were refused, and 0 cells were written from a Texel with two different halves (the census under `RR_AMIGA_SHADOW`).
+- A second Fable read of the committed code found it safe.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
 
 **Hot path:** yes, the per-line colorize: one 8-byte load and three operations more per chunk inside the window, four lookups less
 when the pairs match. Measured in the quiet-PC pass at the end of the colour steps.
