@@ -118,6 +118,8 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
     from .msx_rom import read_cartridge
     from .report_schema import write_report
     from .toolchain import describe as toolchain_description
+    from .delivery_evidence import (LIVENESS_KEYS, deliver_packed, liveness_summary, replay_packed, report_fields,
+                                    require_moving_picture, same_trace)
     started = time.perf_counter()
     if profile is not None:
         raise ConversionError('MSX cartridges are read from their content; TOML cartridge profiles do not apply.')
@@ -178,9 +180,12 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                 guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
                 (work / 'native.patterns').unlink(missing_ok=True)      # learned under the other mapper
         cartridge = msx_build.padded(cart.data, guess.mapper)
-        route = [*bios_args, *guess.arguments(), '--frames', str(max(300, min(int(frames or FRAMES), 6000))),
-                 *(w for a in WATCH for w in ('--watch', f'{a:04X}')), *(w for e in START_EVENTS for w in ('--event', e)),
-                 *standard_args]
+        # The route's options (the same for the check, the reference and the game's headless replay) and the machine's
+        # (the check's and the reference's only: the game knows its own cartridge, BIOS and standard).
+        route_options = ['--frames', str(max(300, min(int(frames or FRAMES), 6000))),
+                         *(w for a in WATCH for w in ('--watch', f'{a:04X}')),
+                         *(w for e in START_EVENTS for w in ('--event', e))]
+        route = [*bios_args, *guess.arguments(), *standard_args, *route_options]
         emit(f'{"MSX2" if msx2 else "MSX"}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
              f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS.')
         phase = time.perf_counter()
@@ -192,13 +197,19 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         phase = time.perf_counter()
         emit('MSX: comparing the native run with the reference interpreter, field by field and frame by frame.')
         reference_exe = check.with_name(check.name.replace('msx_check', 'msx_reference'))
-        native = msx_build.run(check, route, cartridge)
-        reference = msx_build.run(reference_exe, route, cartridge)
+        rows_native, rows_reference = work / 'rows-native.csv', work / 'rows-reference.csv'
+        native = msx_build.run(check, [*route, '--rows', str(rows_native)], cartridge)
+        reference = msx_build.run(reference_exe, [*route, '--rows', str(rows_reference)], cartridge)
         timings['reference_comparison'] = round(time.perf_counter() - phase, 3)
         differing = msx_build.differences(native, reference)
+        if rows_native.read_bytes() != rows_reference.read_bytes():
+            differing['frame_rows'] = ('native', 'reference')
         if differing:
             names = ', '.join(sorted(differing))
             raise ConversionError(f'MSX: the native run differs from the reference ({names}); nothing was built.')
+        liveness = liveness_summary(msx_build.frame_rows(rows_reference))
+        require_moving_picture(liveness, lambda: ConversionError(
+            f'MSX: {title}: the picture never changes on the route played; nothing was built.'))
         phase = time.perf_counter()
         emit('MSX: building the game.')
         prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model,
@@ -208,6 +219,24 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         except Exception as error:  # noqa: BLE001 - the build's own log names the cause
             raise ConversionError(f'MSX: the game could not be built ({error}).') from None
         timings['game_build'] = round(time.perf_counter() - phase, 3)
+        # The delivered file (G5): the compressed copy the player receives, replayed headless on the route and compared
+        # with the fresh reference (report and every frame's row); delivery_evidence falls back to the build if UPX fails.
+        phase = time.perf_counter()
+        delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'MSX2' if msx2 else 'MSX', emit)
+        rows_packed, report_packed = work / 'rows-packed.csv', work / 'report-packed.json'
+
+        def replay(_route):
+            return msx_build.run_game(delivered.path, [*route_options, '--rows', str(rows_packed)], report_packed)
+
+        def same(_route, result):
+            return not msx_build.differences(result, reference) and same_trace(rows_packed, rows_reference)
+
+        try:
+            replay_packed(delivered, ['boot-and-start'], replay, same=same, mismatch=lambda _route: ConversionError(
+                'MSX: the delivered (compressed) game differs from the reference on the route; nothing was published.'))
+        except msx_build.MsxBuildError as error:
+            raise ConversionError(f'MSX: {error}') from None
+        timings['packed_replay'] = round(time.perf_counter() - phase, 3)
     executed = native['native_steps'] + native['fallback_steps']
     native_coverage = native['fallback_steps'] == 0
     row = {'name': 'boot-and-start', 'frames': native['frames'], 'native_steps': native['native_steps'],
@@ -217,7 +246,8 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
            'reference_match': True, 'compared_fields': list(msx_build.COMPARED),
            'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
            'image_hash': native['frame_fnv'], 'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'],
-           'interrupts': native['interrupts'], 'events': list(START_EVENTS)}
+           'interrupts': native['interrupts'], 'events': list(START_EVENTS),
+           'frame_rows_equal': True, 'liveness': report_fields(liveness, {key: key for key in LIVENESS_KEYS})}
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
         'system': _system(model), 'rom': {'sha256': cart.sha256, 'bytes': cart.size, 'file': Path(path).name},
         'converted': True,
@@ -244,8 +274,8 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                                                                 'interpreter (corrected SuperZazu, MSX wait states)',
                               'cpu_agreement': True, 'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False,
-                              # The game is built from the same bodies and machine as the checked program, but not run here.
-                              'delivered_executable_run': False},
+                              'sound_heard': bool(liveness['audible_frames']), **delivered.validation_fields()},
+        **delivered.report_fields(), 'delivered_file': delivered.kind,
         'native_coverage': native_coverage,
         'video_model': {'chip': 'V9938 (our own C, line by line; commands: all twelve, timing approximated)' if msx2 else
                                 'TMS9918A (our own C, line by line)',
@@ -257,8 +287,6 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         'counter_unit': 'cycles', 'physical_latency_measured': False, 'latency_ms': None,
         'hardware_accuracy_validated': False, 'full_game_validated': False,
         'game_states': {'supported': False, 'reason': 'not yet on the MSX'},
-        'packed_delivery': {'replayed': False, 'reason': 'the checks ran on the build executable; the packed copy that publication '
-                                                         'writes (see packing) is not replayed against the reference on the MSX yet'},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
         'build_directory': str(work), 'scan_level': scan_level,

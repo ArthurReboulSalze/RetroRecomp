@@ -229,6 +229,28 @@ def run(exe: Path, args: list[str], image: bytes | None = None, timeout: int = 1
     return json.loads(result.stdout)
 
 
+def run_game(game: Path, options: list[str], report: Path, timeout: int = 1800) -> dict:
+    """The game's headless replay (`--headless`, from its own resources): its report, read from `report` (the game is linked
+    for the Windows subsystem, so its standard output is not relied on)."""
+    report.unlink(missing_ok=True)
+    result = subprocess.run([str(game), '--headless', *options, '--report', str(report)], capture_output=True,
+                            timeout=timeout, creationflags=_flags())
+    if result.returncode or not report.is_file():
+        raise MsxBuildError(f'{game.name} --headless failed (exit {result.returncode}): '
+                            f'{result.stderr.decode(errors="replace").strip()[-300:]}')
+    return json.loads(report.read_text(encoding='utf-8'))
+
+
+def frame_rows(path: Path) -> list:
+    """The rows of a --rows file as delivery_evidence.FrameRow (frame, picture, sound, audible, ram, pc)."""
+    from .delivery_evidence import FrameRow
+    rows = []
+    for line in path.read_text(encoding='utf-8').splitlines()[1:]:
+        frame, cpu, ram, picture, sound, samples, audible, pc = line.split(',')
+        rows.append(FrameRow(int(frame), picture, sound=sound, audible=audible == '1', ram=ram, pc=pc))
+    return rows
+
+
 def differences(native: dict, reference: dict) -> dict:
     """The compared fields that differ (a field missing on either side differs)."""
     return {key: (native.get(key), reference.get(key)) for key in COMPARED
