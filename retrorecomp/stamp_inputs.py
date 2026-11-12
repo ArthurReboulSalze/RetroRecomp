@@ -378,6 +378,7 @@ INPUTS = _resolve({
         'native/scanline_sdl.h',
         'native/scanlines.h',
         'native/sms_sprite_probe.c',
+        'native/state_envelope.h',
         'native/state_io.h',
         'native/stereo_fir.h',
         'native/video_frame.h',

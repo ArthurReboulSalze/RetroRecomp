@@ -2,11 +2,12 @@
  * pointers, OS handles, C stacks, host options or learning data are saved. */
 #include "gamestate.h"
 #include "state_io.h"
+#include "state_envelope.h"
 #include <errno.h>
 #include "platform_io.h"
 #define RR_STATE_SCHEMA 1u
 #define RR_STATE_MACHINE (g_is_gg ? 3u : (SMS_LINES_PER_FRAME == 313 ? 2u : 1u))
-#define RR_STATE_HEADER 88u
+#define RR_STATE_HEADER RR_STATE_ENVELOPE_HEADER
 #define RR_STATE_CAPACITY (1024u * 1024u)
 
 void smsrecomp_set_state_callback(void (*callback)(int, int)) { smsrecomp_state_callback = callback; }
@@ -63,29 +64,21 @@ static void smsrecomp_machine_state(RetroStateIO *io) {
     }
 }
 
-static uint32_t smsrecomp_state_crc(const uint8_t *bytes, size_t size) {
-    uint32_t crc = UINT32_MAX;
-    for (size_t i = 0; i < size; ++i) {
-        crc ^= bytes[i];
-        for (int bit = 0; bit < 8; ++bit) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1)));
-    }
-    return ~crc;
+/* The envelope is shared (state_envelope.h): the Master System's magic, schema, model and cartridge identity. */
+static uint32_t smsrecomp_state_crc(const uint8_t *bytes, size_t size) { return rr_state_crc(bytes, size); }
+static RetroStateEnvelope smsrecomp_state_envelope(void) {
+    RetroStateEnvelope e = {"RRSTATE\0", RR_STATE_SCHEMA, RR_STATE_MACHINE, sms_rom_sha256, smsrecomp_machine_state};
+    return e;
 }
 static int smsrecomp_state_save(void) {
     uint8_t *data = (uint8_t *)malloc(RR_STATE_CAPACITY);
     if (!data) return RR_STATE_IO_ERROR;
-    RetroStateIO body = {data + RR_STATE_HEADER, RR_STATE_CAPACITY - RR_STATE_HEADER, 0, RR_STATE_WRITE, true};
-    smsrecomp_machine_state(&body);
-    if (!body.ok) { free(data); return RR_STATE_INVALID; }
-    memcpy(data, "RRSTATE\0", 8);
-    RetroStateIO header = {data, RR_STATE_HEADER, 8, RR_STATE_WRITE, true};
-    rr_state_word(&header, RR_STATE_SCHEMA, 4, UINT32_MAX); rr_state_word(&header, RR_STATE_MACHINE, 4, UINT32_MAX);
-    rr_state_bytes(&header, (void *)sms_rom_sha256, 64);
-    rr_state_word(&header, body.pos, 4, UINT32_MAX);
-    rr_state_word(&header, smsrecomp_state_crc(body.data, body.pos), 4, UINT32_MAX);
+    RetroStateEnvelope envelope = smsrecomp_state_envelope();
+    size_t size = 0;
+    if (rr_state_envelope_write(&envelope, data, RR_STATE_CAPACITY, &size) != RR_STATE_OK) { free(data); return RR_STATE_INVALID; }
     wchar_t temporary[80]; swprintf(temporary, 80, L"-quicksave-%lu.state.tmp", rr_process_id());
     FILE *f = retro_game_file(temporary, L"wb");
-    bool ok = f && fwrite(data, RR_STATE_HEADER + body.pos, 1, f) == 1;
+    bool ok = f && fwrite(data, size, 1, f) == 1;
     if (ok) ok = rr_flush_file(f);
     if (f && fclose(f) != 0) ok = false;
     free(data);
@@ -101,22 +94,9 @@ static int smsrecomp_state_load(void) {
     size_t size = fread(data, 1, RR_STATE_CAPACITY, f);
     int extra = fgetc(f); bool read_ok = !ferror(f); fclose(f);
     int result = RR_STATE_INVALID;
-    if (read_ok && size >= RR_STATE_HEADER && extra == EOF && !memcmp(data, "RRSTATE\0", 8)) {
-        RetroStateIO header = {data, RR_STATE_HEADER, 8, RR_STATE_CHECK, true};
-        uint32_t schema = (uint32_t)rr_state_word(&header, 0, 4, UINT32_MAX);
-        uint32_t machine = (uint32_t)rr_state_word(&header, 0, 4, UINT32_MAX);
-        bool identity = !memcmp(data + header.pos, sms_rom_sha256, 64); header.pos += 64;
-        size_t length = (size_t)rr_state_word(&header, 0, 4, UINT32_MAX);
-        uint32_t crc = (uint32_t)rr_state_word(&header, 0, 4, UINT32_MAX);
-        if (schema != RR_STATE_SCHEMA || machine != RR_STATE_MACHINE || !identity) result = RR_STATE_INCOMPATIBLE;
-        else if (header.ok && length == size - RR_STATE_HEADER && crc == smsrecomp_state_crc(data + RR_STATE_HEADER, length)) {
-            RetroStateIO body = {data + RR_STATE_HEADER, length, 0, RR_STATE_CHECK, true};
-            smsrecomp_machine_state(&body);
-            if (body.ok && body.pos == length) {
-                body.pos = 0; body.mode = RR_STATE_APPLY; smsrecomp_machine_state(&body);
-                result = RR_STATE_OK;
-            }
-        }
+    if (read_ok && extra == EOF) {
+        RetroStateEnvelope envelope = smsrecomp_state_envelope();
+        result = rr_state_envelope_read(&envelope, data, size);
     }
     free(data); return result;
 }
