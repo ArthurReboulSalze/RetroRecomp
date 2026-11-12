@@ -126,7 +126,30 @@
   - **Hatari's timer D patch is chosen per game**: Options → "Atari ST: timer D", auto, patched or
     exact. On auto, The Seven Gates of Jambala runs without the patch; an exact game costs more
     host time than the same game patched (an estimate, not a timing).
-- [à venir : Game Boy Advance, à décider]
+- **Game Boy Advance (experimental).**
+  - **A first conversion reaches native code in fewer passes.** While the conversion's own runs
+    interpret a routine, they now also note the routines it calls, so the next pass compiles them
+    too instead of finding them one layer of calls at a time. From an empty library, Golden Sun
+    took seven passes and still left 3.86 million instructions on the interpreter; it now takes
+    five and leaves 0. Advance Wars and Pokémon Emerald reach 0 in two passes, The Minish Cap in
+    three, with native code equal to the engine's interpreter on both scenarios of each.
+  - **A conversion that differs from the interpreter fails.** A native run that errored, or whose
+    picture, cycle count or memory differs from the engine's interpreter, now stops the
+    conversion instead of passing.
+  - **A Thumb store with an empty register list** writes the value the ARM7TDMI writes, in the
+    interpreter and in the generated code; the loads of that kind are still not modelled. The
+    limits of the code a game builds in RAM are counted in the report, never silent.
+  - **Checked in a new process.** A quick state saved by one run and loaded by a new one gives the
+    same picture (Metroid Fusion); a Flash save written by one run is read by the next (Sonic
+    Advance 2); four scripted routes reach play with 0 interpreted instructions (Advance Wars,
+    Wario Land 4, Metroid Fusion, Sonic Advance 2). The first minutes of each, not a level, and
+    one cartridge each for states and saves.
+  - **Shared paths, in the experimental tier.** The machine shares its paths as numbers about one
+    exact cartridge, never its bytes. A row received from another player is a hint your own
+    conversion checks again, and it is never saved or passed on; a conversion that fails with
+    received rows, or whose code generator does not end on one, is made again without them.
+  - The machine time of a frame has its own tool now; its quiet-PC pass is not done, so no figure
+    is given.
 - [à venir : l'étude de capture commune aux machines]
 - **Coming next: the MSX.** It is not in 1.7.3. The MSX1 and the MSX2 are planned to open
   together as an experimental machine in the next release, cartridges first, on C-BIOS (a free
@@ -146,12 +169,13 @@ it; the shared paths of the base are kept. No build stamp moves; the host stamps
 Atari ST and X68000 move with the capture click, which adds nothing to that. The Amiga, Atari ST,
 Nintendo 64, Mega Drive, Super Nintendo and PC Engine quick-state keys move, so a quick state of
 1.7.2 is refused cleanly on those six machines, with a message (nothing is lost but the state);
-the other machines' states still load. Cartridge saves are kept; a save the new export cannot
+the states of the other machines with a key still load. Cartridge saves are kept; a save the new export cannot
 use is set aside and never crashes or blocks the game. The Mega Drive, Super Nintendo and PC
 Engine now write their saves through one shared file of code, with the same bytes on disk as
 before. A Mega Drive game of 1.7.2 that exits beside a record of more than 4,096 notes does not
-read it and writes its own session over it; the converter keeps its own copy. [à venir : ce que
-les branches restantes changent.] The details are in
+read it and writes its own session over it; the converter keeps its own copy. A Game Boy Advance
+quick state is the engine's own file, with no key of ours: one made by a game converted before may
+be refused. [à venir : ce que les branches restantes changent.] The details are in
 [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
