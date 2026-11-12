@@ -8,6 +8,24 @@ from .library import atomic_json, entry_lock, library_root
 from .knowledge import ram_variants as shared_ram_variants,record_for
 
 RAM_VARIANT_LIMIT = 16384
+# How many rows each read or merge of the RAM-code tables found before the limit cut them (the lowest addresses are kept, the rest is
+# left out), per ROM and per kind. Kept so that the conversion's report can say how many rows were left out and how near the limit a
+# cartridge is; the last read of a kind wins (a later pass reads more than an earlier one).
+_ROWS: dict[tuple[str, str], int] = {}
+
+
+def _capped(rom, kind: str, rows: list) -> list:
+    """The first RAM_VARIANT_LIMIT of the sorted `rows`; the number there were is kept under (ROM, kind)."""
+    _ROWS[(rom.sha256, kind)] = len(rows)
+    return rows[:RAM_VARIANT_LIMIT]
+
+
+def row_counts(rom) -> dict:
+    """{kind: {'limit', 'rows', 'dropped'}} of the reads and merges made so far for this ROM: `ram_variants` and `ram_opcodes` (what the
+    generated code guards), their `_own` forms (this player's library and gameplay rows only, what the shared base is built from) and
+    `library_merge` (what a conversion writes back into the library). `dropped` is the rows left out by the limit."""
+    return {kind: {'limit': RAM_VARIANT_LIMIT, 'rows': rows, 'dropped': max(0, rows - RAM_VARIANT_LIMIT)}
+            for (sha, kind), rows in sorted(_ROWS.items()) if sha == rom.sha256}
 PROFILES = {
     # Super Mario World has no entry since 1.4.1: like any cartridge without one,
     # it gets the generic analysis (no Rust, no foreign function list).
@@ -293,8 +311,9 @@ def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
     except (OSError, ValueError, TypeError, AttributeError):
         record = {}
     items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item, rom)]
-    return [{'address': addr, 'bytes': raw} for addr, raw in
-            sorted({(item['address'], item['bytes'].lower()) for item in items})[:RAM_VARIANT_LIMIT]]
+    rows = _capped(rom, 'ram_variants' if imported else 'ram_variants_own',
+                   sorted({(item['address'], item['bytes'].lower()) for item in items}))
+    return [{'address': addr, 'bytes': raw} for addr, raw in rows]
 
 
 def read_ram_opcodes(rom, *, imported: bool = True) -> list[tuple[int,int]]:
@@ -303,7 +322,7 @@ def read_ram_opcodes(rom, *, imported: bool = True) -> list[tuple[int,int]]:
     record = record_for('snes',rom,knowledge_engine(rom)) if imported else bundled_record(rom)
     for pc,offset in record.get('ram_opcode_refs',[]):
         if valid_ram_address(pc,rom) and 0<=offset<len(rom.data):sites.add((pc,rom.data[offset]))
-    return sorted(sites)[:RAM_VARIANT_LIMIT]
+    return _capped(rom, 'ram_opcodes' if imported else 'ram_opcodes_own', sorted(sites))
 
 
 def learn_ram_variants(rom, checks) -> int:
@@ -317,7 +336,7 @@ def learn_ram_variants(rom, checks) -> int:
         # them; what counts as new (another pass) still includes them.
         known = {(item['address'], item['bytes'].lower()) for item in read_ram_variants(rom)}
         previous = {(item['address'], item['bytes'].lower()) for item in read_ram_variants(rom, imported=False)}
-        merged = set(sorted(previous | additions)[:RAM_VARIANT_LIMIT])
+        merged = set(_capped(rom, 'library_merge', sorted(previous | additions)))
         if previous != merged:
             atomic_json(path, {'schema': 1, 'rom_sha256': rom.sha256, 'ram_variants':
                 [{'address': address, 'bytes': raw} for address, raw in sorted(merged)]})

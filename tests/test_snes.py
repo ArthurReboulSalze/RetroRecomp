@@ -392,6 +392,25 @@ class SnesMemoryTests(unittest.TestCase):
         self.assertEqual(len(supernintendo.read_ram_variants(self.rom)), 2)
         self.assertTrue(all(v['bytes'].islower() for v in supernintendo.read_ram_variants(self.rom)))
 
+    def test_the_rows_the_limit_leaves_out_are_counted_per_read_and_merge(self):
+        # Past the limit the lowest addresses are kept and the rest is left out, as before; since 1.7.3 how many were left out is kept
+        # (`row_counts`) for the report instead of nothing.
+        rows = [{'address': 0x7e0100 + 4 * n, 'bytes': 'a93412ea'} for n in range(5)]
+        with patch.object(supernintendo, 'RAM_VARIANT_LIMIT', 3):
+            supernintendo.learn_ram_variants(self.rom, [{'ram_variants': rows}])
+            kept = supernintendo.read_ram_variants(self.rom)
+            self.assertEqual([row['address'] for row in kept], [0x7e0100, 0x7e0104, 0x7e0108])
+            counts = supernintendo.row_counts(self.rom)
+            self.assertEqual(counts['library_merge'], {'limit': 3, 'rows': 5, 'dropped': 2})
+            self.assertEqual(counts['ram_variants'], {'limit': 3, 'rows': 3, 'dropped': 0})   # the library file holds the three kept
+            self.assertEqual(supernintendo._capped(self.rom, 'ram_opcodes', [1, 2, 3, 4]), [1, 2, 3])
+            self.assertEqual(supernintendo.row_counts(self.rom)['ram_opcodes'], {'limit': 3, 'rows': 4, 'dropped': 1})
+        # Another ROM's counts are not this one's, and a cartridge under the limit leaves nothing out.
+        other = SimpleNamespace(sha256='1' * 64)
+        self.assertEqual(supernintendo.row_counts(other), {})
+        supernintendo.read_ram_variants(self.rom)
+        self.assertEqual(supernintendo.row_counts(self.rom)['ram_variants']['dropped'], 0)
+
     def test_different_rom_identity_rejected(self):
         supernintendo.learn_ram_variants(self.rom, [{'ram_variants': [{'address': 0x7e0100, 'bytes': 'a93412ea'}]}])
         path = supernintendo.memory_file(self.rom)

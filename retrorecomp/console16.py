@@ -889,10 +889,10 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                 emit(f"{check['cartridge_chip'].upper()}: {check['coprocessor_instructions']} counted interpreted device instructions.")
             if system_id=='snes' and check.get('ram_observation_overflows'):
                 # The run met more distinct RAM instructions than a cartridge can keep (the limit is
-                # not raised silently): the ones past it are not learned and stay on the counted path.
+                # not raised silently): the ones past it are not recorded, and run from their live opcode.
                 emit(f"{name} {check['scenario']}: {check['ram_observation_overflows']} RAM code observations "
                      f"were past the {supernintendo.RAM_VARIANT_LIMIT}-variant limit and were not recorded; "
-                     'those instructions stay on the counted interpreter.')
+                     'those instructions are compiled from their live opcode and counted as compiled, not observed.')
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
@@ -930,6 +930,12 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         from .snes_spc import learn as learn_spc
         learn_spc(rom, checks)
     emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
+    if system_id == 'snes':
+        left_out = {kind: counts['dropped'] for kind, counts in supernintendo.row_counts(rom).items() if counts['dropped']}
+        if left_out:
+            emit(f"{name}: RAM code rows past the {supernintendo.RAM_VARIANT_LIMIT}-row limit were left out "
+                 f"({', '.join(f'{kind}: {count}' for kind, count in left_out.items())}); the lowest addresses are kept. "
+                 'Code run from the rows left out is compiled from its live opcode and counted as compiled, not observed.')
     delivered = None
     if system_id in ('md', 'snes'):
         # The file the player receives is a compressed copy of this build: replay it on every route against the fresh
@@ -1002,6 +1008,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             max(1, check['native_entries'] + check.get('main_interpreted_opcodes', check['interpreted_opcodes'])), 6)
             for check in checks],
         **({'cartridge_device': device} if system_id == 'snes' and (device := device_entry(checks)) else {}),
+        # How near the RAM-code tables of this cartridge are to their limit, and how many rows the limit left out.
+        **({'library_rows': supernintendo.row_counts(rom)} if system_id == 'snes' else {}),
         # What the Super Nintendo's conversion does not claim (gate G15): read back by the common `honesty` block.
         **({'qualification_scope': {
             'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
