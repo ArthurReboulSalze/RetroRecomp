@@ -228,6 +228,42 @@ def notice_files(emutos: bool) -> tuple[str, ...]:
     return NOTICE_FILES + (('licenses/emutos.md',) if emutos else ())
 
 
+FEEDBACK_KIND = 24       # The Atari ST's kind in native/runtime_feedback.h and its profile's feedback_kinds.
+TOS_BASE = 0xFC0000      # where a 192 KiB TOS (1.00 to 1.04, EmuTOS's 192 KiB image) sits
+
+
+def tos_tag(tos: Path) -> str:
+    """The TOS a record was made on: the first 32 bits of the image's SHA-256, in hexadecimal (a record of another TOS is not used: the memory differs)."""
+    return file_sha256(tos)[:8]
+
+
+def record_windows(rows, tos: Path, observed) -> tuple[list, dict]:
+    """The windows of a player's own record that this conversion may use: made on this TOS, inside the machine's apertures, and, from the TOS ROM, still the bytes of this image.
+    RAM windows cannot be checked against a source (loaded or unpacked code): the guard on the latched opcode decides at run time, so a stale one is a routine that never runs."""
+    tag = int(tos_tag(tos), 16)
+    image = tos.read_bytes()
+    kept, counts = [], {'records_read': len(rows), 'kept': 0, 'dropped_other_tos': 0, 'dropped_outside_apertures': 0, 'dropped_rom_mismatch': 0}
+    for row in rows:
+        pc, data = row.address & 0xffffff, bytes(row.data)
+        if row.auxiliary != tag:
+            counts['dropped_other_tos'] += 1
+            continue
+        try:
+            observed.check_sample(pc, data[:2].hex())
+        except ValueError:
+            counts['dropped_outside_apertures'] += 1
+            continue
+        if pc >= TOS_BASE and image[pc - TOS_BASE:pc - TOS_BASE + len(data)] != data:
+            counts['dropped_rom_mismatch'] += 1
+            continue
+        if 0xFA0000 <= pc < TOS_BASE:      # the cartridge area: no cartridge in this machine
+            counts['dropped_outside_apertures'] += 1
+            continue
+        kept.append((pc, data))
+    counts['kept'] = len(kept)
+    return kept, counts
+
+
 def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None,
             autostart: str | None = None) -> dict:
     """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata; with
@@ -264,11 +300,14 @@ def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mou
               '#define RR_ST_SOURCES_NAME ' + json.dumps(sources.name if sources is not None else ''),
               '#define RR_ST_MACHINE ' + json.dumps(MACHINE), f'#define RR_ST_MEMORY_KB {MEMORY_KB}',
               '#define RR_ST_AUTOSTART ' + json.dumps(autostart or ''),
+              f'#define RR_ST_TOS_TAG 0x{tos_tag(tos)}u',
               'typedef struct {const char *name;unsigned resource;} RrStPayloadDisk;',
               'static const RrStPayloadDisk rr_st_disks[]={', *rows, '{0,0}};',
               f'#define RR_ST_DISK_COUNT {len(rows)}u',
               'static const volatile unsigned char rr_st_export_marker[]={' + ','.join(str(c) for c in marker) + '};', '#endif']
     (project / 'atarist_payload.h').write_text('\n'.join(header) + '\n', encoding='utf-8')
+    # The player's own record (native/runtime_feedback.c): which game it belongs to.
+    (project / 'runtime_feedback_config.h').write_text(f'#define RR_FEEDBACK_SYSTEM "atarist"\n#define RR_FEEDBACK_IDENTITY "{source.sha256}"\n', encoding='ascii')
     if not (project / 'game.ico').is_file():
         shutil.copy2(ASSETS / 'assets/Retro-Recomp.ico', project / 'game.ico')
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=True, standard='native',
@@ -321,8 +360,8 @@ def opcode_map(player: Path, folder: Path, disks: list[Path], tos: Path) -> Path
     return table
 
 
-def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> dict:
-    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers)."""
+def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None) -> dict:
+    """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers), and of the windows of a player's own record."""
     from . import atarist_codegen, m68k_observed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('atarist').observed_code
@@ -333,8 +372,10 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path) -> d
     bodies = observed.load_bodies(engine)
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
     usable = atarist_codegen.native_samples(samples)
-    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode)
+    learned, walked = atarist_codegen.walk_records(windows, observed=observed, lengths=lengths.read_bytes()) if windows and lengths else ([], [])
+    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked)
     return {'samples': len(samples), 'with_handler': len(usable), 'instructions': steps['instructions'], 'native_instructions': steps['native_instructions'],
+            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'],
             'forms': steps['forms'], 'pcs': steps['pcs'], 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -500,6 +541,13 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             except (OSError, ValueError):
                 emit('Atari ST: the remembered observations are unreadable; this conversion uses its own only.')
         table = opcode_map(reference_player, checks / 'opcode-map', disks, media / 'tos.img')
+        # The player's own record: windows of what a real session ran on the interpreter, private to this player, never shared. They carry the same guard and count apart; the routes
+        # below prove the game as usual.
+        from .feedback import ingest, records
+        feedback = ingest('atarist', source.sha256, output, emit=emit)
+        windows, record_counts = record_windows(records('atarist', source.sha256, FEEDBACK_KIND), media / 'tos.img', get_profile('atarist').observed_code)
+        if windows:
+            emit(f'Atari ST: {len(windows)} windows of the player\'s own record are used.')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -513,10 +561,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes or 3), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table, hatari_build)
-            emit(f'Atari ST: {generation["instructions"]} observed instructions in {generation["forms"]} native forms; compiling the game.')
+                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths)
+            emit(f'Atari ST: {generation["native_instructions"]} instructions in {generation["forms"]} native forms ({generation["learned_instructions"] + generation["walked_instructions"]} from the player record); compiling the game.')
             with timings.phase('compile'):
-                candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['instructions'] else None,
+                candidate = cmake_build(work / 'build', tree, hatari_build, generated=project if generation['native_instructions'] else None,
                                         payload=payload_dir, stamp=stamp)
             run_dir = checks / f'native-{attempt + 1}'
             results = {}
@@ -583,6 +631,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted, 'chain_entries': results[name].get('chain_entries'),
+                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'),
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
@@ -622,7 +671,12 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                   'scope': 'fresh same-machine reference (interpreted 68000): picture, sound, RAM and CPU registers of every frame, '
                                            'on bounded joystick, mouse and keyboard scripts',
                                   'generation': generation, 'fresh_observed_instructions': fresh_samples},
-            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area) as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
+            'runtime_learning': True, 'runtime_feedback': feedback,
+            'player_record': {**record_counts, 'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
+                              'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it; on the routes the count is 0 by construction, as what a route runs is observed",
+                              'walked_means': 'found by walking a 16-byte window a session noted: it may never have run there, and no route proves it (final_checks.native_walked is 0 on the routes by construction)',
+                              'private': True, 'shared': False},
+            'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area), and those of the player record counted apart, as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
                                'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,

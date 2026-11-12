@@ -78,6 +78,8 @@ target_compile_definitions(atarist_player PRIVATE RR_RECOMP_VERSION="${RR_RECOMP
 if(RR_ST_PAYLOAD_DIR)
     target_include_directories(atarist_player PRIVATE "${RR_ST_PAYLOAD_DIR}")
     target_compile_definitions(atarist_player PRIVATE RR_ST_LINKED)
+    # The player's own record (F12), written beside the game; runtime_feedback_config.h comes with the payload.
+    target_sources(atarist_player PRIVATE "${RR_COMMON_NATIVE}/runtime_feedback.c")
     if(WIN32)
         # No console window for the game; the headless validation entry stays.
         target_link_options(atarist_player PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)

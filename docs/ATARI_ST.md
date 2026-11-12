@@ -69,6 +69,12 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    decoder of m68k-recomp-core tells the length and the target of an observed instruction, during the conversion only. A pass that still meets interpreted instructions adds them and builds again. An observation keeps each instruction's
    own words by the decoder's length table (`--opcode-lengths`): Hatari's table gives the length of its handlers' fetches, which
    is shorter for some instructions (JMP (d8,PC,Xn)), and an instruction observed without its extension word cannot be decoded.
+7. **The player's own record** (since 1.7.3). An exported game notes what its 68000 runs on the interpreter while the player plays: a window of 16 bytes at such an
+   instruction, from RAM or the TOS ROM, with the TOS it ran on (feedback kind 24, `native/runtime_feedback.c`; F12 turns it off, at most 4,096 windows per game, kept in
+   `datas/fallbacks` beside the game, private, never shared). The next conversion of that game reads it, keeps the windows of the same TOS whose ROM bytes still match,
+   and walks each into instructions (`retrorecomp/m68k_record_walk.py`, shared with the Amiga): the first ran there ("learned"), the others a walk through the window finds
+   ("walked", which may never have run). They become native code with the same guard, counted apart (`player_record` and `final_checks.native_learned`/`native_walked` in the
+   report). The routes prove the game as before; they cannot prove these instructions, since what a route runs is observed and counts as observed.
 
 ## 3. The five measures
 
@@ -135,6 +141,10 @@ fresh interpreted reference and the compressed copy; a state continues on every 
 
 **Which library these figures come from.** A conversion keeps the instructions it saw in the player's library and starts from them next time, so what is native beyond a route depends on it. The tables of 6 and 7 November and the qualification runs before 9 November had earlier conversions of the same game and TOS in their library (the converter's own working copy, never a player's). The Standard pass of 9 November started from an empty one: on Linux for every game, and with the same counts on Windows. A route's own counts barely depend on it, as a conversion adds what a route misses until none is left.
 **Beyond its routes, it decides.** Turrican II converted once at the Standard level from an empty library ran 7 % of its instructions natively in a window of play past its routes (frames 3,800 to 5,200); with the conversions of the days before in its library, 99.99 %. A player's first conversion is the first case: the rest is interpreted, counted, and equal on the routes.
+**A player's own record closes it on what was played** (1.7.3, measured on one scripted session each, `RETRO_RECOMP_FEEDBACK=1` on the delivered game): Turrican II's window of play went
+from 6.91 % native to 100.00 % at the next conversion (3,912 windows read, 3,669 learned and 2,814 walked instructions; in the window 11,993,335 learned and 668,026 walked executions), and Indiana
+Jones from 569 interpreted instructions in its window to 0. Recording changed nothing in the run (traces equal with and without it), and beyond the routes the reconverted game's trace equals the
+interpreted run of the same build on 5,400 and 4,700 frames. A session covers what it played, nothing more.
 
 IPF reading. Hatari's built-in IPF reader is checked against an independent reader of the same files (a development tool, not shipped) and
 against the SPS decoder library (capsimg, built privately for this comparison only, never in an export, never in the repository). Two defects

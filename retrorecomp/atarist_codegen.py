@@ -28,7 +28,7 @@ from .core import run
 from .m68000 import mnemonic_names
 from .megadrive_codegen import write_changed
 
-FORMAT = 2
+FORMAT = 3
 PARTS = 16
 _MAP: dict[int, str] = {}
 _MAP_SHA256 = ''
@@ -102,7 +102,7 @@ SEMANTICS = """#pragma once
 #include "m68000.h"
 #include "cycInt.h"
 #include "mfp.h"
-extern uint64_t rr_st_native_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total;
 static inline __attribute__((always_inline)) int rr_st_quiet(void) {
     /* An interrupt level below the CPU's mask is the usual state of an ST (HBL pending): `do_specialties` then does nothing, as `time_for_interrupt` answers 0. */
     return !(regs.spcflags | regs.loop_mode | regs.memory_waitstate_cycles | MFP_UpdateNeeded) && regs.ipl[0] <= regs.intmask && regs.ipl[0] != 7 && regs.ce020extracycles < 16 &&
@@ -160,7 +160,7 @@ extern void exception2_fetch(uae_u32 opcode, int offset, int pcoffset) __attribu
 # has. A blitter at work (its own functions behind the pointers) and any other bank type go through Hatari's functions.
 BUS = """#include "step_semantics.h"
 #include "blitter.h"
-uint64_t rr_st_native_total;
+uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total;
 extern uae_u32 extra_cycle;
 static inline void cycles_add(int cycles) {
     currcycle += cycles + extra_cycle;
@@ -288,6 +288,16 @@ def native_samples(samples: list) -> list:
     return [(pc, words) for pc, words in samples if _MAP.get(int(words[:4], 16), '-') != '-']
 
 
+def walk_records(records: list, *, observed, lengths: bytes) -> tuple[list, list]:
+    """From a player's record, windows of (pc, bytes), the instructions each first ran there and those a walk through the rest of the window finds (retrorecomp/m68k_record_walk.py,
+    shared with the Amiga): lengths from the decoder's table (`lengths`, 65,536 word counts), stopping at an opcode Hatari's table sends to its exception handlers and at an
+    instruction the window cuts. Nothing here says the walked ones ran."""
+    from .m68k_record_walk import walk_windows
+    if len(lengths) != 65536:
+        raise ValueError('Atari ST: the 68000 instruction length table is invalid.')
+    return walk_windows(records, observed=observed, words=lambda opcode: max(1, lengths[opcode]), stops=lambda opcode: _MAP.get(opcode, '-') == '-', whole=True)
+
+
 def _symbol(prefix: str, pc: int, opcode: int) -> str:
     return f'{prefix}at_{pc:06x}_{opcode:04x}'
 
@@ -296,10 +306,16 @@ def _form_symbol(prefix: str, opcode: int) -> str:
     return f'{prefix}form_{opcode:04x}'
 
 
-def _instruction(prefix: str, pc: int, opcode: int, following: list) -> str:
+# Where an instruction of the native code comes from: the conversion's own runs, a player's own record (it ran there on the interpreter), or a walk through a recorded window (it may never
+# have run there). The last two are counted apart; no route proves them.
+OBSERVED, LEARNED, WALKED = 'observed', 'learned', 'walked'
+_ORIGIN_COUNT = {OBSERVED: '', LEARNED: ' rr_st_learned_total++;', WALKED: ' rr_st_walked_total++;'}
+
+
+def _instruction(prefix: str, pc: int, opcode: int, following: list, origin: str = OBSERVED) -> str:
     chain = ''.join(f'    if (rr_st_next(0x{next_pc:x}, 0x{other:04x})) RR_ST_NEXT {_symbol(prefix, next_pc, other)}();\n' for next_pc, other in following)
     next_part = f'    if (!rr_st_quiet()) return;\n{chain}' if chain else ''
-    return f'void {_symbol(prefix, pc, opcode)}(void) {{\n    {_form_symbol(prefix, opcode)}();\n    rr_st_native_total++;\n{next_part}}}\n'
+    return f'void {_symbol(prefix, pc, opcode)}(void) {{\n    {_form_symbol(prefix, opcode)}();\n    rr_st_native_total++;{_ORIGIN_COUNT[origin]}\n{next_part}}}\n'
 
 
 def write_forms(project: Path, opcodes, *, observed) -> None:
@@ -314,14 +330,20 @@ def write_forms(project: Path, opcodes, *, observed) -> None:
     write_changed(steps / f'bus{observed.source_extension}', BUS)
 
 
-def write_steps(project: Path, samples: list, *, observed, decode_tool: Path) -> dict:
+def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, learned: list = (), walked: list = ()) -> dict:
     """Decode the observed instructions, then write the forms (`steps/partNN.c`), the instructions in address order (`steps/chainNN.c`) and the index that finds one from a pc and an
     opcode (`steps/index.c`)."""
     prefix = observed.prefix
     decoded = []
-    if samples:
+    seen = {(pc, int(words[:4], 16)) for pc, words in samples}
+    from_record = {(pc, int(words[:4], 16)) for pc, words in learned}
+    everything = sorted(set(samples) | set(learned) | set(walked))
+
+    def origin(key):
+        return OBSERVED if key in seen else LEARNED if key in from_record else WALKED
+    if everything:
         listing = project / 'snapshots.txt'
-        listing.write_text(''.join(f'{pc:06x} {words}\n' for pc, words in sorted(set(samples))), encoding='ascii')
+        listing.write_text(''.join(f'{pc:06x} {words}\n' for pc, words in everything), encoding='ascii')
         run([decode_tool, listing, project / 'decoded.json'], log=project / 'decode.log')
         decoded = json.loads((project / 'decoded.json').read_text(encoding='utf-8'))
     words = {(ins['addr'], tuple(ins['words'][:ins['word_count']])) for ins in decoded}
@@ -353,7 +375,7 @@ def write_steps(project: Path, samples: list, *, observed, decode_tool: Path) ->
             if opcode not in forms_declared:
                 text.append(f'void {_form_symbol(prefix, opcode)}(void);\n')
                 forms_declared.add(opcode)
-            text.append(_instruction(prefix, pc, opcode, chain))
+            text.append(_instruction(prefix, pc, opcode, chain, origin((pc, opcode))))
         write_changed(steps / f'chain{n:02}{observed.source_extension}', observed.steps_head + ''.join(text))
     groups = []
     for index, (pc, _) in enumerate(instructions):
@@ -388,7 +410,8 @@ def write_steps(project: Path, samples: list, *, observed, decode_tool: Path) ->
 }
 """)
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
-    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len({opcode for _, opcode in instructions}), 'pcs': len(groups)}
+    return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len({opcode for _, opcode in instructions}), 'pcs': len(groups),
+            'learned_instructions': sum(origin(key) == LEARNED for key in instructions), 'walked_instructions': sum(origin(key) == WALKED for key in instructions)}
 
 
 STEPS_HEAD = '#include "step_semantics.h"\n'

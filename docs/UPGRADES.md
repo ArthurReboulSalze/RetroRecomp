@@ -205,6 +205,16 @@ bound today and now a visible one. Reports, not games.
 **What moves.** `retrorecomp.core` and `retrorecomp.library` are inputs of every console: the game stamp of all nine consoles then moves with this change like with any edit of `core.py`
 (the generated game is the same); the host stamps and the quick-state keys do not move. An export made before carries no `windows_over_limit` (it reads as absent, not as 0).
 
+## Atari ST: the player's own record (1.7.3)
+
+An exported Atari ST game now keeps the player's own record (F12, on by default, in `datas/fallbacks` beside the game): windows of 16 bytes at instructions that ran on the interpreter, with the TOS they
+ran on. The next conversion of that game reads it and makes native code of those instructions and of what a walk through each window finds, counted apart (`native_learned`, `native_walked`,
+`player_record` in the report); no route proves them, the guard on the latched opcode is the same, and a window of another TOS or whose ROM bytes changed is not used. The record is private and never
+shared. The walk is shared with the Amiga (`retrorecomp/m68k_record_walk.py`): the Amiga's `walk_records` now calls it, with identical results on three real records of players (Lotus 2 among them).
+Measured on one scripted session each: Turrican II's window of play past its routes from 6.91 % native to 100.00 %, Indiana Jones from 569 interpreted instructions to 0; beyond the routes the native trace
+equals the interpreted one. **What moves:** the Atari ST's game stamp and the Amiga's game stamp (the shared walk; no Amiga output changes); no host stamp, not the X68000's. **Quick states:** the Atari ST's
+key moves, as between any two Atari ST builds. **Hot path:** nothing on native code; on an interpreted instruction, one test, and a 16-byte read and a record when a new window starts.
+
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each

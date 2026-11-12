@@ -63,6 +63,11 @@ struct RrStSession {
     char memory_option[16];
     uint64_t interpreted, chain_entries;
     int observe, native_enabled;
+    /* The player's own record (rr_st_set_recorder): the last window of 16 bytes told, at an instruction that ran on the interpreter. */
+    void (*recorder)(uint32_t pc, const uint8_t *bytes, unsigned size);
+    uint32_t window, window_last;
+    uint8_t window_bytes[16];
+    int window_set;
     struct Observation *observed;
     size_t observed_count, observed_capacity;
     char error[256];
@@ -683,8 +688,29 @@ static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes, uns
  * goes on to the instructions it knows come next while nothing is due in the loop; it counts itself. A handler is right for its opcode at any address, with any extension words. */
 typedef void (*RrStCode)(void);
 RrStCode rr_st_lookup(uint32_t pc, uint32_t opcode);
-extern uint64_t rr_st_native_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total;
 #endif
+
+/* The player's own record (kind 24 of native/runtime_feedback.c): 16 bytes at an instruction that ran on the interpreter, from RAM or the TOS ROM, which the next conversion walks into
+ * instructions. An instruction that follows the one before in the window told just now needs no record of its own, as long as the window still holds its opcode and all of it. Line A and line F
+ * opcodes never become native code (Hatari's table sends them to its exception handlers), so they are not told. */
+static void record_window(RrStSession *s, uint32_t pc, uint32_t opcode) {
+    uint8_t bytes[16];
+    if ((opcode >> 12) == 0xa || (opcode >> 12) == 0xf) return;
+    /* Kept only while the instruction fits whole in the window (at most 10 bytes from pc - window <= 6): the walk leaves out a cut one. */
+    if (s->window_set && pc > s->window_last && pc - s->window_last <= 10 && pc - s->window <= 6 &&
+        (uint32_t)(s->window_bytes[pc - s->window] << 8 | s->window_bytes[pc - s->window + 1]) == opcode) {
+        s->window_last = pc;
+        return;
+    }
+    if (pc + 16 <= STRamEnd) memcpy(bytes, STRam + pc, 16);
+    else if (pc >= 0xe00000 && pc + 16 <= 0x1000000 && ROMmemory) memcpy(bytes, RomMem + pc, 16);
+    else return;
+    memcpy(s->window_bytes, bytes, 16);
+    s->window = s->window_last = pc;
+    s->window_set = 1;
+    s->recorder(pc, bytes, 16);
+}
 
 static bool step_hook(uint32_t pc, uint32_t opcode) {
     if (!current) return false;
@@ -700,8 +726,14 @@ static bool step_hook(uint32_t pc, uint32_t opcode) {
         if (run) { current->chain_entries++; run(); return true; }
     }
 #endif
+    if (current->recorder) record_window(current, pc & 0xffffff, opcode & 0xffff);
     current->interpreted++;
     return false;
+}
+
+void rr_st_set_recorder(RrStSession *s, void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size)) {
+    s->recorder = note;
+    s->window_set = 0;
 }
 
 int rr_st_set_native(RrStSession *s, int enabled) {
@@ -739,6 +771,24 @@ uint64_t rr_st_native_count(const RrStSession *s) {
     (void)s;
 #ifdef RR_ST_NATIVE
     return rr_st_native_total;
+#else
+    return 0;
+#endif
+}
+
+/* Of the native instructions, those a player's own record brought (learned: they ran there on the interpreter; walked: found by walking a recorded window). */
+uint64_t rr_st_learned_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_learned_total;
+#else
+    return 0;
+#endif
+}
+uint64_t rr_st_walked_count(const RrStSession *s) {
+    (void)s;
+#ifdef RR_ST_NATIVE
+    return rr_st_walked_total;
 #else
     return 0;
 #endif

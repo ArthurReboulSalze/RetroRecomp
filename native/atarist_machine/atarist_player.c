@@ -52,13 +52,20 @@ static void fail(const char *message) {
 
 static void log_line(const char *line) { fputs(line, stderr); }
 
-/* The kit's calls into the fallback-hint feedback: this experimental player records none. */
+#ifdef RR_ST_LINKED
+#include "runtime_feedback.h"
+/* An exported game keeps the player's own record (native/runtime_feedback.c, F12): what ran on the interpreter, for the next conversion of this game. The TOS's tag keeps a record
+ * apart from a conversion on another TOS, whose memory differs. */
+static void record_note(uint32_t pc, const uint8_t *bytes, unsigned size) { rr_feedback_note(RR_FB_ATARIST, pc, RR_ST_TOS_TAG, bytes, size); }
+#else
+/* The kit's calls into the player's record: a development player records none. */
 void rr_feedback_start(int gameplay) { (void)gameplay; }
 int rr_feedback_enabled(void) { return 0; }
 int rr_feedback_toggle(void) { return 0; }
 const char *rr_feedback_label(void) { return "Fallback hints unavailable"; }
 int rr_feedback_pending(void) { return 0; }
 void rr_feedback_finish(void) {}
+#endif
 #if !defined(_WIN32) && !defined(RR_ST_LINKED)
 const void *rr_resource(unsigned id, size_t *size) { (void)id; *size = 0; return NULL; }
 #endif
@@ -393,10 +400,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       escaped[k] = 0;
       if (!r) { fail("Cannot write the report"); return 1; }
       rr_st_picture(session, &w, &h, &stride);
-      fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
+      fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"native_learned\":%llu,\"native_walked\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
                  "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"disk_writes\":%u}\n",
-              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session),
+              n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session), (unsigned long long)rr_st_learned_count(session), (unsigned long long)rr_st_walked_count(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
               rr_st_desktop_started(session) ? "true" : "false", rr_st_timer_d_patched(session) ? "true" : "false", rr_st_writes_count(session));
@@ -552,6 +559,10 @@ int main(int argc, char **argv) {
    /* A build with native steps runs them unless the run is the interpreted reference (--reference-cpu); a build without them
     * runs every instruction on Hatari's interpreter. */
    if (!reference_cpu) rr_st_set_native(session, 1);
+#ifdef RR_ST_LINKED
+   rr_feedback_start(!headless);    /* Headless, only with RETRO_RECOMP_FEEDBACK=1: the conversion's own runs record nothing. */
+   if (!reference_cpu && (!headless || rr_feedback_enabled())) rr_st_set_recorder(session, record_note);
+#endif
    writes_load();
    if (headless) {
       result = run_headless(trace_path, report_path, capture_path, observe_path, save_at, load_start, probe);
@@ -563,8 +574,14 @@ int main(int argc, char **argv) {
 #endif
       writes_tick(true);
       player_store_exit();
+#ifdef RR_ST_LINKED
+      rr_feedback_finish();
+#endif
       if (restart_requested) restart_self();
    }
+#ifdef RR_ST_LINKED
+   rr_feedback_finish();     /* The exit below runs no exit handler. */
+#endif
    fflush(stdout); fflush(stderr);
    /* Hatari's globals are torn down with the process. */
    _Exit(failed ? 1 : result);

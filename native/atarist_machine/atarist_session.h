@@ -60,6 +60,11 @@ uint64_t rr_st_interpreted_count(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
 /* How many times the 68000 loop entered native code: the native count over this is the mean length of a chain. */
 uint64_t rr_st_chain_entries(const RrStSession *s);
+/* Of the native instructions, those a player's own record brought: learned (they ran there on the interpreter) and walked (found by walking a recorded window). */
+uint64_t rr_st_learned_count(const RrStSession *s);
+uint64_t rr_st_walked_count(const RrStSession *s);
+/* The player's own record: note(pc, 16 bytes, 16) at each instruction that runs on the interpreter and is not in the window told just before. NULL: none. */
+void rr_st_set_recorder(RrStSession *s, void (*note)(uint32_t pc, const uint8_t *bytes, unsigned size));
 /* 1 once the TOS opened the desktop file that carries the autostart line: the boot reached the desktop. */
 int rr_st_desktop_started(const RrStSession *s);
 /* Whether Hatari's timer D patch is on in this machine, as Hatari has it set. */
