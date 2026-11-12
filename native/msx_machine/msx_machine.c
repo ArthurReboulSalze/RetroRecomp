@@ -145,6 +145,8 @@ void msx_write(MsxMachine *m, uint16_t address, uint8_t value)
     if (r->write) {
         r->write[address & 0x1FFF] = value;
     } else if (r->device) {
+        if (m->cart_write_hook)
+            m->cart_write_hook(m->hook_user, address, value);
         msx_psg_catch_up(m);                      /* an SCC register write sounds from now on */
         if (msx_cart_write(&m->slot[r->primary][r->secondary], address, value))
             rebuild_regions(m);

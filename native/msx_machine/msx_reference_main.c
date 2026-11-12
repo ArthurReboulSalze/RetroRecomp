@@ -27,6 +27,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 extern unsigned long msx_m1_fetches;          /* counted by the generated interpreter copy */
 void msx_reference_accept(z80 *const z);      /* the interpreter's interrupt acceptance */
@@ -35,18 +39,31 @@ static MsxMachine machine;
 static uint8_t ram[65536];
 static uint8_t slot0[0xC000];
 
+static void trace_cart_write(void *user, uint16_t address, uint8_t value)
+{
+    const MsxMachine *mm = (const MsxMachine *)user;
+    if (address < 0x9800 || address >= 0xA000)          /* bank registers, not SCC sound registers */
+        fprintf(stderr, "frame %llu line %u: cartridge write %04X <- %02X\n", (unsigned long long)mm->frames, mm->line,
+                address, value);
+}
+
 static uint8_t bus_read(void *user, uint16_t address) { return msx_read((MsxMachine *)user, address); }
 static void bus_write(void *user, uint16_t address, uint8_t value) { msx_write((MsxMachine *)user, address, value); }
 static uint8_t bus_in(z80 *z, uint8_t port) { return msx_in((MsxMachine *)z->userdata, port); }
 static void bus_out(z80 *z, uint8_t port, uint8_t value) { msx_out((MsxMachine *)z->userdata, port, value); }
 
+/* "-" reads standard input: a player's ROM taken from its archive in memory reaches the runner with no file copy. */
 static long load(const char *path, uint8_t *into, long limit)
 {
-    FILE *f = fopen(path, "rb");
+    int piped = !strcmp(path, "-");
+#ifdef _WIN32
+    if (piped) _setmode(_fileno(stdin), _O_BINARY);
+#endif
+    FILE *f = piped ? stdin : fopen(path, "rb");
     if (!f) { fprintf(stderr, "cannot open %s\n", path); exit(2); }
     long n = (long)fread(into, 1, (size_t)limit, f);
     int more = fgetc(f) != EOF;
-    fclose(f);
+    if (!piped) fclose(f);
     if (more) { fprintf(stderr, "%s is larger than %ld bytes\n", path, limit); exit(2); }
     return n;
 }
@@ -69,7 +86,7 @@ int main(int argc, char **argv)
     const char *layout = "basic";
     unsigned long frames = 120, cart_base = 0x4000, trace = 0;
     unsigned watch[32];
-    int watches = 0, pal = 0, until_halt = 0, mirrored = 0;
+    int watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
@@ -78,6 +95,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--pal")) { pal = 1; continue; }
         if (!strcmp(a, "--until-halt")) { until_halt = 1; continue; }
         if (!strcmp(a, "--mirrored")) { mirrored = 1; continue; }
+        if (!strcmp(a, "--trace-mapper")) { trace_mapper = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
@@ -110,6 +128,7 @@ int main(int argc, char **argv)
     if (!main_rom) { fprintf(stderr, "--main is required\n"); return 2; }
 
     msx_init(&machine, pal ? MSX_LINES_PAL : MSX_LINES_NTSC);
+    if (trace_mapper) { machine.cart_write_hook = trace_cart_write; machine.hook_user = &machine; }
     memset(slot0, 0xFF, sizeof slot0);
     load(main_rom, slot0, 0x8000);
     if (logo_rom) load(logo_rom, slot0 + 0x8000, 0x4000);

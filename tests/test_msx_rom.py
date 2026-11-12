@@ -91,3 +91,25 @@ class MapperTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FirstReadTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / 'tools'))
+        spec = importlib.util.spec_from_file_location('msx_first_read', ROOT / 'tools' / 'msx_first_read.py')
+        self.tool = importlib.util.module_from_spec(spec)
+        sys.modules['msx_first_read'] = self.tool
+        spec.loader.exec_module(self.tool)
+
+    def test_a_zip_member_is_read_into_memory(self):
+        import tempfile
+        import zipfile
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / 'game.zip'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                bundle.writestr('game.rom', image(0x4000))
+                bundle.writestr('readme.txt', 'not a cartridge')
+            self.assertEqual(self.tool.read_rom(archive), image(0x4000))
+
+    def test_output_folders_are_named_from_the_file_names(self):
+        self.assertEqual(self.tool.slug('msx1/Road Fighter (Japan).zip'), 'road-fighter-japan')

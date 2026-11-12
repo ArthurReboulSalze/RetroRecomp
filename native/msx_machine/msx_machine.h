@@ -116,6 +116,8 @@ typedef struct {
     MsxRegion region[8];
     MsxVdp vdp;
     MsxPsgSynth synth;
+    void (*cart_write_hook)(void *user, uint16_t address, uint8_t value);   /* optional trace of writes to a cartridge */
+    void *hook_user;
     MsxDevice *scc[4];      /* the cartridges with a Konami SCC, mixed into the sound (pointers into slot[][]: a copy
                              * of the machine must rebuild them, see msx_set_device) */
     int scc_count;
