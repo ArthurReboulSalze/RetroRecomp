@@ -447,6 +447,28 @@ the generators are untouched. A report of an earlier build has no `native_discov
 **What moves:** the Neo Geo game stamp (`native/neogeo_main.c`, `neogeo_reference.c`, `neogeo_reference.h` and `retrorecomp/neogeo_conversion.py`
 are Neo Geo files); the CPS-1, CPS-2 and X68000 stamps and the two generator pins do not (`neogeo_codegen.py` is not edited), nor does the
 Neo Geo quick-state key (it hashes `neogeo_build`, `neogeo_codegen` and `neogeo_z80`, none edited).
+## Super Nintendo: the rows the RAM-code limit leaves out are counted (after 1.7.2, 1.7.3 item of the silent caps)
+
+The three places of `supernintendo.py` that cut the RAM-code tables at `RAM_VARIANT_LIMIT` (16,384 rows) left no trace: the merged read of the
+guarded RAM variants, the merged read of the RAM opcode guards, and the merge a conversion writes back into the library (`native-ram.json`). Each keeps the
+lowest addresses and drops the rest, as before; what is new is that the number of rows there were is kept (`supernintendo.row_counts(rom)`, per kind: `ram_variants`,
+`ram_opcodes`, their `_own` forms and `library_merge`). The conversion report of a Super Nintendo game carries it as `library_rows` (`{kind: {limit, rows,
+dropped}}`), and the conversion log says so when a kind left rows out. The line printed when a run met more distinct RAM instructions than the native table keeps
+(`ram_observation_overflows`) no longer says those instructions stay on the counted interpreter: since 1.6.7 they run from their live opcode, compiled and counted as
+compiled and not observed. **What a game does is unchanged**: nothing that is read, kept or generated differs (counters only).
+
+How near the limit is: two conversions at the standard level from an empty library (Dirt Racer, Star Fox 2 (USA), the two cartridges the shared base holds the most
+RAM-code rows for) read 7,827 and 8,517 rows (48 % and 52 % of the limit, 0 left out); native equal to the reference on both routes, the compressed copy equal to it, 0
+interpreted opcodes of the 65816 and the SPC700. The shared record of the base is nearer: Dirt Racer 13,354 rows of `ram_opcode_refs` of 16,384 (82 %), Godzilla - Kaijuu
+Daikessen 12,330, the two Star Fox 2 11,974 and 11,469, of 314 records (four above 8,192). *Raising the limit:* the local limit is two constants (`RAM_VARIANT_LIMIT` and
+`RR_SN_RAM_VARIANT_LIMIT` of `native/snes_native_steps.h`, a power of two for the hash of `snes_backend.c`; 32,768 would add 192 KiB of static arrays to the game, and moves
+the Super Nintendo's quick-state key), but it is not the limit that binds: what travels is bounded by the field caps of `path_profiles.LEGACY_FIELDS` (`ram_refs` and
+`ram_opcode_refs`, 16,384 rows each), which the exchange validates and from which the site's limits are generated (`tools/build_web_limits.py`); a record over a cap is refused
+by a converter that does not know the new one and by the site until its limits are deployed. So a raise is a format and site decision, not a one-line change; none is made here.
+
+Stamps (`compilation_inputs.role_stamps`, the tree of `e4ec565b` against this one): the game stamps of the Super Nintendo move, and of the Mega Drive, the Neo Geo, the CPS-1, the
+CPS-2, the PC Engine and the PlayStation with it (`console16.py` is a game input of those machines: it holds the report key and the log line; `supernintendo.py` is the
+Super Nintendo's); no host and no build stamp moves, and the quick-state key does not (no native file and no pinned revision changes).
 
 ## Exports of 1.7.1 in 1.7.2
 
