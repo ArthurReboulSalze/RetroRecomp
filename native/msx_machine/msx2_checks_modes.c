@@ -311,6 +311,34 @@ static void text2_checks(void)
     check("t2 columns: half-pixel 17 is backdrop", px(17, 0), pw(10));
 }
 
+/* The G6/G7 interleave (stage 7): the chip holds VRAM in two banks; Graphic 6 and 7 reach logical address L at
+ * (L >> 1) | ((L & 1) << 16), every other mode at L. Bytes written in Graphic 4 at 0000h-0003h (12h 34h 56h 78h) are, in
+ * Graphic 6, the logical bytes 0000h (12h), 0002h (34h), 0004h (56h), 0006h (78h); the odd logical bytes come from the
+ * second bank (00h here). A byte written in Graphic 6 at logical 0001h lands in the second bank: Graphic 4 reads it at
+ * 10000h. */
+static uint8_t vpeek(uint32_t address)
+{
+    reg(14, (uint8_t)(address >> 14));
+    msx_out(&m, 0x99, (uint8_t)(address & 0xFF));
+    msx_out(&m, 0x99, (uint8_t)((address >> 8) & 0x3F));      /* read setup: the next read of 98h gives this byte */
+    return msx_in(&m, 0x98);
+}
+
+static void interleave_checks(void)
+{
+    fresh(0x06, 0x40, 0x1F, 0x00);                           /* Graphic 4 */
+    for (int i = 0; i < 4; ++i) vpoke((uint32_t)i, (uint8_t)(0x12 + 0x22 * i));
+    reg(0, 0x0A);                                            /* Graphic 6 */
+    check("g6-interleave logical 0000h", vpeek(0x0000), 0x12);
+    check("g6-interleave logical 0001h (second bank)", vpeek(0x0001), 0x00);
+    check("g6-interleave logical 0002h", vpeek(0x0002), 0x34);
+    check("g6-interleave logical 0006h", vpeek(0x0006), 0x78);
+    vpoke(0x0001, 0x9A);
+    reg(0, 0x06);                                            /* back to Graphic 4 */
+    check("g4 reads the G6 odd byte at 10000h", vpeek(0x10000), 0x9A);
+    check("g4 byte 0001h unchanged", vpeek(0x0001), 0x34);
+}
+
 int main(void)
 {
     legacy_checks();
@@ -319,6 +347,7 @@ int main(void)
     scroll_checks();
     page_checks();
     text2_checks();
+    interleave_checks();
     printf("%s: %d failure(s)\n", failures ? "FAILED" : "PASSED", failures);
     return failures ? 1 : 0;
 }

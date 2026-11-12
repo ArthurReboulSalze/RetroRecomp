@@ -24,7 +24,7 @@ that BIOS and code translated from it, as on the other machines that take your o
 ## 2. How the conversion works
 
 1. **Reading the input.** `retrorecomp/msx_rom.py` reads the cartridge (or the ZIP holding one) and takes its SHA-256 as the identity of the game. It
-   guesses the mapper from the cartridge's own bytes. `retrorecomp/msx_cbios.py` fetches C-BIOS 0.29a from its official release on first use and checks
+   guesses the mapper from the cartridge's own bytes; for an MSX2 mapper cartridge, when that guess is not enough, short probe runs of the reference under each mapper settle it (the share of the program's cartridge writes that land on that mapper's registers, among runs that do not fall into empty memory; Aleste was guessed Konami SCC and is ASCII 16). `retrorecomp/msx_cbios.py` fetches C-BIOS 0.29a from its official release on first use and checks
    its SHA-256 against the pin. A BIOS of your own (a 32 KiB main ROM) is checked by its content and its SHA-256 is the identity of the firmware, in the
    request, instead of the pin of C-BIOS.
 2. **Native code.** The cartridge and the BIOS are translated ahead of time to C by the shared banked Z80 chain, the one the Master System and the Game
@@ -94,32 +94,34 @@ and nothing here asks for it.
 
 Experimental profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
 keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is in development, not in a release yet, and
-**the V9938 command engine is not there yet (stage 7)**.
+**the V9938 command engine exists since stage 7, with its timing approximated**.
 
 **Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you
 choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine: the V9938 drawn line by line (all screen modes, sprite mode 2, the
-palette, scrolling, the line interrupt, the display pages), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
+palette, scrolling, the line interrupt, the display pages; VRAM is held as the chip holds it, in two banks, so Graphic 6 and 7 reach their logical addresses interleaved), the V9938 command engine (all twelve commands, HMMC, YMMM, HMMM, HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, and STOP, with the logical operations, in the bitmap modes G4 to G7 only; V9938 commands: all twelve, timing approximated), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
 RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
 
 **Firmware:** C-BIOS 0.29a MSX2 images (main ROM, logo and sub-ROM), fetched and pinned like the MSX1's, or your own MSX2 BIOS pair: the main ROM
 (`msx2_bios`) and its 16 KiB sub-ROM (`msx2_subrom`, the file beginning "CD"), chosen in Options > MSX2 and never shipped. The same rules as for the MSX1:
 the input is never changed, and a game converted with your own BIOS holds it and code translated from it.
 
-**Not yet:** the V9938 command engine (stage 7: C-BIOS's MSX2 logo stays empty, and games that draw with commands show wrong pictures), disks,
+**Timing approximated** means an average cost per byte or dot in three classes (display off or outside the picture; picture with sprites off; with sprites on) plus a line-end cost; the chip's access slots and the slots the CPU takes are not modelled. C-BIOS's MSX2 logo, drawn by an HMMC, now appears.
+
+**Not yet:** disks,
 cassettes, FM-PAC, MSX2+, the turbo R, quick states (F8/F9), a Linux witness.
 
-**Not modelled in the V9938:** the timing of access through port 98h, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
-switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM. Where hardware reports disagree on sprite mode 2's rules,
+**Not modelled in the V9938:** the access-slot timing of port 98h and of the command engine, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
+switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM, and a flags-only sprite pass after the picture. The audio of an MSX2 game under heavy load is an open point, to check on a quiet PC. Where hardware reports disagree on sprite mode 2's rules,
 the profile follows openMSX's reading; that is a choice, not a proof.
 
 **The five measures for the MSX2**, kept separate:
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning | No game, no panel, no release-level run |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; the four MSX2 panel games convert with native code equal to our reference interpreter and 0 interpreted instructions on the route played | No release-level run, no panel qualification |
 | CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
-| Hardware fidelity | Nothing is claimed. 317 hand-worked checks of the V9938 and the MSX2 board pass: they check our model against our own reading of the documents | The V9938 and the RP5C01 against an independent reference; everything in the list above |
-| Gameplay validation | None: no MSX2 game is validated | Everything |
+| Hardware fidelity | Nothing is claimed as exact. 682 hand-worked checks of the V9938, the engine and the MSX2 board pass (development checks, not a qualification): they check our model against our own reading of the documents. Against openMSX (a private comparison emulator, never shipped) the 128 KiB VRAM, the 47 VDP registers and the palette are equal at chosen still frames for the C-BIOS logo, two authored cartridges, Metal Gear, Space Manbow, Aleste and Hydlide 3; at other frames the differences are timing (a command still running, a palette fade step, a sprite double-buffer phase) | Other frames; command timing; the RP5C01; everything in the list above |
+| Gameplay validation | None: no game has been played through | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
 
 Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial,

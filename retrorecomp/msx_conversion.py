@@ -5,7 +5,7 @@ The steps: read the cartridge and guess its mapper (msx_rom.py); choose the BIOS
 main ROM on the MSX1, the main ROM and its 16 KiB sub-ROM on the MSX2; or C-BIOS 0.29a, pinned); generate the bodies of both and learn the code run from RAM (msx_build.learn, at most three passes) on a
 route that boots, waits, presses SPACE and the trigger; run the native program and the reference on the same route and refuse
 the conversion when any compared field differs (CPU, RAM, VRAM, picture of every frame, sound, PSG, banks); build the game
-with the host kit; write the report (schema 2). The MSX2 adds the V9938 (without its command engine yet: stage 7), the
+with the host kit; write the report (schema 2). The MSX2 adds the V9938 (with its command engine, timing approximated), the
 memory mapper and the clock (msx_setup_msx2). Not yet: compressed delivery and its replay, quick states, shared paths. The
 five measures stay apart: native code and CPU agreement with the reference are measured on the route played;
 hardware fidelity, gameplay and latency are not.
@@ -142,6 +142,31 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         bios_image = msx_cbios.image(standard, emit, model='msx2' if msx2 else 'msx1')
         bios_source = {'kind': 'c-bios', 'version': msx_cbios.VERSION, 'sha256': hashlib.sha256(bios_image).hexdigest()}
     bios_main, bios_logo, bios_sub = bios_image[:0x8000], bios_image[0x8000:0xC000], bios_image[0xC000:]
+    probe = None
+    if guess.mapper != 'plain':
+        # A mapper cartridge: the static guess reads LD (nn),A stores only; a short reference run under each mapper settles
+        # what the program really drives (Aleste reaches its registers through computed addresses).
+        probe_work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
+        probe_args = ['--main', str(probe_work / 'bios_main.rom')]
+        with entry_lock(probe_work, timeout=1800):
+            probe_work.mkdir(parents=True, exist_ok=True)
+            (probe_work / 'bios_main.rom').write_bytes(bios_main)
+            if bios_logo:
+                (probe_work / 'bios_logo.rom').write_bytes(bios_logo)
+                probe_args += ['--logo', str(probe_work / 'bios_logo.rom')]
+            if msx2:
+                (probe_work / 'bios_sub.rom').write_bytes(bios_sub)
+                probe_args += ['--sub', str(probe_work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
+            try:
+                reference_probe = msx_build.build_reference(probe_work, emit)
+                found, details = msx_build.probe_mapper(reference_probe, cart.data, probe_args)
+            except msx_build.MsxBuildError as error:
+                raise ConversionError(f'MSX: {error}') from None
+        probe = {'chosen': found, 'static_guess': guess.mapper, 'runs': details, 'frames': msx_build.PROBE_FRAMES}
+        if found is not None and found != guess.mapper:
+            emit(f'MSX: the probe runs say {found}, not {guess.mapper} (the static guess).')
+            from dataclasses import replace
+            guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
     cartridge = msx_build.padded(cart.data, guess.mapper)
     # One work folder per cartridge and BIOS: the bodies, the learned patterns and the game are those of this pair.
     work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
@@ -205,11 +230,16 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         'msx_checks': {'machine': 'MSX2' if msx2 else 'MSX1', 'mapper': guess.mapper, 'mapper_reason': guess.reason,
                        'mapper_candidates': list(guess.candidates), 'cartridge_base': f'{guess.base:04X}',
                        'mirrored': guess.mirrored, 'bios': bios_source, 'standard': standard,
+                       'mapper_probe': probe,
                        'learning_passes_fallback_steps': passes,
                        'learned_patterns': len((work / 'native.patterns').read_text(encoding='utf-8').split())
                        if (work / 'native.patterns').is_file() else 0,
                        **({'mapper_ram_kib': mapper_kib, 'rtc': 'RP5C01 started on Saturday 2000-01-01 12:00:00, machine time only',
                            'v9938_commands_started': (native.get('v9938') or {}).get('cmd_writes', 0),
+                           'v9938_commands_by_kind': dict(zip(('stop', 'stop1', 'stop2', 'stop3', 'point', 'pset', 'srch', 'line', 'lmmv',
+                                                               'lmmm', 'lmcm', 'lmmc', 'hmmv', 'hmmm', 'ymmm', 'hmmc'),
+                                                              ((native.get('v9938') or {}).get('engine') or [0] * 24)[8:24])),
+                           'v9938_command_timing': 'approximated: an average cost per byte or dot in three classes, no access slots',
                            'lines_per_frame': (native.get('v9938') or {}).get('lines_per_frame'),
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': [row],
@@ -220,7 +250,7 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                               # The game is built from the same bodies and machine as the checked program, but not run here.
                               'delivered_executable_run': False},
         'native_coverage': native_coverage,
-        'video_model': {'chip': 'V9938 (our own C, line by line; command engine: not yet)' if msx2 else
+        'video_model': {'chip': 'V9938 (our own C, line by line; commands: all twelve, timing approximated)' if msx2 else
                                 'TMS9918A (our own C, line by line)',
                         'standard': 'decided by your own MSX2 BIOS (R#9)' if msx2 and own is not None else standard,
                         'display_aspect': '4:3'},

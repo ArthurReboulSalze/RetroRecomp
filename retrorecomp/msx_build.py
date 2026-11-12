@@ -155,7 +155,9 @@ def stage_sources(work: Path) -> None:
            (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_computer.inc').read_bytes())
 
 
-def project_cmake(version: str, game: bool) -> str:
+def project_cmake(version: str, game: bool, bodies: bool = True) -> str:
+    """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; with
+    `game` the player too (it needs the bodies)."""
     from . import hostkit
     machine = ' '.join(MACHINE_SOURCES)
     lines = [
@@ -164,13 +166,18 @@ def project_cmake(version: str, game: bool) -> str:
         'set(CMAKE_C_STANDARD 11)',
         'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
         'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
-        'file(GLOB bodies "generated/game_banked_ops_*.c")',
-        'add_library(msx_bodies OBJECT generated/game_banked_index.c ${bodies})',
-        'target_include_directories(msx_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        'target_compile_definitions(msx_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
-        f'add_executable(msx_check msx_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:msx_bodies>)',
         f'add_executable(msx_reference msx_reference_main.c {machine} runtime_reference.c)',
-        'foreach(target msx_check msx_reference)',
+    ]
+    if bodies or game:
+        lines += [
+            'file(GLOB bodies "generated/game_banked_ops_*.c")',
+            'add_library(msx_bodies OBJECT generated/game_banked_index.c ${bodies})',
+            'target_include_directories(msx_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
+            'target_compile_definitions(msx_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
+            f'add_executable(msx_check msx_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:msx_bodies>)',
+        ]
+    lines += [
+        f'foreach(target msx_reference{" msx_check" if bodies or game else ""})',
         '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
         '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
         '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
@@ -203,7 +210,8 @@ def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = pr
     from . import __version__, core
     from .platforms import build_executable, sdl_install
     game = 'game' in targets
-    _write(work / 'CMakeLists.txt', project_cmake(__version__, game).encode('utf-8'))
+    bodies = game or 'msx_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
+    _write(work / 'CMakeLists.txt', project_cmake(__version__, game, bodies).encode('utf-8'))
     cmake, generator_kind = core.toolchain()
     log = work / 'build.log'
     extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if game else []
@@ -228,6 +236,57 @@ def differences(native: dict, reference: dict) -> dict:
     """The compared fields that differ (a field missing on either side differs)."""
     return {key: (native.get(key), reference.get(key)) for key in COMPARED
             if key not in native or key not in reference or native[key] != reference[key]}
+
+
+def build_reference(work: Path, emit: Callable[[str], None] = print) -> Path:
+    """The reference runner alone, before any body is generated (the mapper probe runs it)."""
+    from .cpu import prepare_reference
+    from .systems.msx import MSX_MACHINE
+    _, engine = generator(emit)
+    work.mkdir(parents=True, exist_ok=True)
+    prepare_reference(work, engine, m1_counter=MSX_MACHINE.counts_m1)
+    instrument_reference(work / 'runtime_reference.c')
+    stage_sources(work)
+    return build(work, ('msx_reference',), emit)['msx_reference']
+
+
+# The mapper probe. Where the static guess (msx_rom.guess) is not settled, a short run of the reference under each mapper
+# shows which one the program really drives: the share of its cartridge writes that land on that mapper's registers
+# (the C-BIOS slot probes at BFxxh and the secondary-slot area FFxxh left out), among the mappers whose run does not fall
+# into empty memory (a wrong mapper sends the program to an empty slot: reads of unmapped memory explode).
+PROBE_FRAMES = 300
+PROBE_WINDOWS = {'ascii16': ((0x6000, 0x6800), (0x7000, 0x7800)), 'ascii8': ((0x6000, 0x8000),),
+                 'konami-scc': ((0x5000, 0x5800), (0x7000, 0x7800), (0x9000, 0x9800), (0xB000, 0xB800)),
+                 'konami': ((0x6000, 0x6800), (0x8000, 0x8800), (0xA000, 0xA800))}
+PROBE_LOST = 5000              # unmapped reads in the probe beyond which the run is taken as lost
+
+
+def probe_mapper(reference: Path, data: bytes, bios_args: list[str]) -> tuple[str | None, dict]:
+    """The mapper the program drives, from a probe run under each candidate; (None, details) when no run is credible."""
+    details = {}
+    for mapper, windows in PROBE_WINDOWS.items():
+        image = padded(data, mapper)
+        result = subprocess.run([str(reference), *bios_args, '--mapper', mapper, '--frames', str(PROBE_FRAMES),
+                                 '--trace-mapper', '--cart', '-'], input=image, capture_output=True, timeout=600,
+                                creationflags=_flags())
+        if result.returncode:
+            details[mapper] = {'failed': result.returncode}
+            continue
+        writes = []
+        for line in result.stderr.decode(errors='replace').splitlines():
+            if 'cartridge write ' in line:
+                address = int(line.split('cartridge write ')[1][:4], 16)
+                if not (0xBF00 <= address <= 0xBFFF or address >= 0xFF00):
+                    writes.append(address)
+        inside = sum(any(low <= a < high for low, high in windows) for a in writes)
+        unmapped = json.loads(result.stdout)['unmapped_reads']
+        details[mapper] = {'register_writes': inside, 'other_writes': len(writes) - inside, 'unmapped_reads': unmapped}
+    credible = [m for m, d in details.items() if 'failed' not in d and d['unmapped_reads'] <= PROBE_LOST and d['register_writes']]
+    if not credible:
+        return None, details
+    share = lambda m: details[m]['register_writes'] / (details[m]['register_writes'] + details[m]['other_writes'])
+    best = max(credible, key=lambda m: (share(m), details[m]['register_writes']))
+    return best, details
 
 
 def learn(work: Path, cartridge: bytes, bios: bytes, args: list[str], emit: Callable[[str], None] = print, *,

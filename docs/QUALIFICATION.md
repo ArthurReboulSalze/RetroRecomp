@@ -203,9 +203,8 @@ The page of each console, which the README links its line to (a console of the m
   experimental and `tools/status_lint.py` agrees; no owner decision. Every other gate is `?`: the checks below were run during development and are not a
   qualification (no panel, no packed replay, no states, no owner acceptance). Measured so far: native code equal to the reference Z80 interpreter on 14
   authored cases on both boards (39 compared fields: the 37 of the MSX1 plus the V9938 state and the memory mapper), 0 interpreted instructions after
-  learning, and 317 hand-worked checks of the V9938 and the MSX2 board (native code and CPU fidelity against our own reference only). Not measured: hardware
-  fidelity of the V9938 against an independent reference, gameplay (no MSX2 game is validated), physical latency, a Linux witness. Not yet implemented: the
-  V9938 command engine (C-BIOS's MSX2 logo stays empty and games that draw with commands show wrong pictures), disks, cassettes, FM-PAC, MSX2+. G16 `-`: the
+  learning, and 682 hand-worked checks of the V9938, its command engine and the MSX2 board (native code and CPU fidelity against our own reference only); the four MSX2 panel games convert with native code equal to the reference and 0 interpreted instructions on the route played; against openMSX (private, never shipped) the VRAM, the 47 VDP registers and the palette are equal at chosen still frames, and differ at other frames by timing. Not measured: hardware
+  fidelity of the V9938 against an independent reference, gameplay (no MSX2 game is validated), physical latency, a Linux witness. V9938 commands: all twelve, timing approximated (access slots not modelled). Not yet implemented: disks, cassettes, FM-PAC, MSX2+. G16 `-`: the
   MSX2 shares no paths and is not in `SHARED_SYSTEMS`. Scope and the five measures: [MSX.md](MSX.md#8-the-msx2-msx2).
 
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and

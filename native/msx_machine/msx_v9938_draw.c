@@ -77,6 +77,8 @@ typedef struct {
 static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
 {
     MsxV9938 *v = m->v9938;
+    int planar = msx_v9938_interleaved(v->reg);  /* in G6/G7 the sprite tables are read through the interleave too */
+#define SPRITE_VRAM(a) (v->vram[msx_v9938_physical((a), planar)])
     int tp = (v->reg[8] & 0x20) != 0;
     int big = (v->reg[1] >> 1) & 1, mag = v->reg[1] & 1;
     int size = big ? 16 : 8, shown = size << mag;
@@ -86,7 +88,7 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
     int count = 0, ninth = -1, sprite = 0;
     for (; sprite < 32; ++sprite) {
         uint32_t a = base + 0x200 + (uint32_t)sprite * 4;
-        uint8_t y = v->vram[a & mask];
+        uint8_t y = SPRITE_VRAM(a & mask);
         if (y == 216)
             break;
         int row = (sline - 1 - y) & 0xFF;
@@ -99,17 +101,18 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
         }
         Sprite2 *s = &visible[count++];
         int r = row >> mag;
-        uint8_t pattern = v->vram[(a + 2) & mask];
+        uint8_t pattern = SPRITE_VRAM((a + 2) & mask);
         if (big) {
             pattern &= 0xFC;
-            s->bits = (uint16_t)(v->vram[(patterns + pattern * 8u + (uint32_t)r) & mask] << 8
-                                 | v->vram[(patterns + pattern * 8u + 16u + (uint32_t)r) & mask]);
+            s->bits = (uint16_t)(SPRITE_VRAM((patterns + pattern * 8u + (uint32_t)r) & mask) << 8
+                                 | SPRITE_VRAM((patterns + pattern * 8u + 16u + (uint32_t)r) & mask));
         } else {
-            s->bits = (uint16_t)(v->vram[(patterns + pattern * 8u + (uint32_t)r) & mask] << 8);
+            s->bits = (uint16_t)(SPRITE_VRAM((patterns + pattern * 8u + (uint32_t)r) & mask) << 8);
         }
-        s->attr = v->vram[(base + (uint32_t)sprite * 16 + (uint32_t)r) & mask];
-        s->x = v->vram[(a + 1) & mask] - ((s->attr & 0x80) ? 32 : 0);
+        s->attr = SPRITE_VRAM((base + (uint32_t)sprite * 16 + (uint32_t)r) & mask);
+        s->x = SPRITE_VRAM((a + 1) & mask) - ((s->attr & 0x80) ? 32 : 0);
     }
+#undef SPRITE_VRAM
     if (ninth >= 0 && !(v->status0 & 0xC0))
         v->status0 = (uint8_t)(0x40 | (v->status0 & 0x20) | ninth);
     if (!(v->status0 & 0x40))
@@ -293,19 +296,20 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
         }
         break;
     }
-    case MODE_G6: {                                /* 512 x 4 bits: two half-pixels a byte */
-        const uint8_t *row = &v->vram[((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8)];
+    case MODE_G6: {                                /* 512 x 4 bits: two half-pixels a byte, through the interleave */
+        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
         for (int h = 0; h < MSX2_WIDTH; ++h) {
-            uint8_t s = layer[h >> 1];
-            uint8_t c = (s & 0x10) ? (s & 0x0F) : ((h & 1) ? row[h >> 1] & 0x0F : row[h >> 1] >> 4);
+            uint8_t s = layer[h >> 1], byte = v->vram[msx_v9938_physical(row + (uint32_t)(h >> 1), 1)];
+            uint8_t c = (s & 0x10) ? (s & 0x0F) : ((h & 1) ? byte & 0x0F : byte >> 4);
             out[h] = c ? v->palette[c] : zero;
         }
         break;
     }
-    case MODE_G7: {                                /* 256 x 8 bits, GGGRRRBB; no transparency */
-        const uint8_t *row = &v->vram[((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8)];
+    case MODE_G7: {                                /* 256 x 8 bits, GGGRRRBB, through the interleave; no transparency */
+        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
         for (int x = 0; x < MSX_WIDTH; ++x) {
-            uint16_t colour = (layer[x] & 0x10) ? g7_sprite_colours[layer[x] & 0x0F] : g7_colour(row[x]);
+            uint16_t colour = (layer[x] & 0x10) ? g7_sprite_colours[layer[x] & 0x0F]
+                                                : g7_colour(v->vram[msx_v9938_physical(row + (uint32_t)x, 1)]);
             out[2 * x] = out[2 * x + 1] = colour;
         }
         break;

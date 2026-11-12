@@ -133,6 +133,7 @@ def main() -> int:
         cases[f'mapper-{kind}'] = msx_reference.cartridge_mapper(kind)
     if args.model == 'msx2':
         cases['msx2-screen'] = msx_reference.cartridge_msx2_screen()
+        cases['msx2-commands'] = msx_reference.cartridge_msx2_commands()
     players = set()
     if args.game:
         import msx_first_read

@@ -127,6 +127,51 @@ def cartridge_msx2_screen() -> bytes:
     return bytes(image)
 
 
+def _status(register: int) -> bytes:
+    """LD A,register; OUT (99h),A; LD A,8Fh; OUT (99h),A (R#15); IN A,(99h): status register into A."""
+    return bytes([0x3E, register, 0xD3, 0x99, 0x3E, 0x8F, 0xD3, 0x99, 0xDB, 0x99])
+
+
+def _command(sx, sy, dx, dy, nx, ny, colour, argument, command) -> bytes:
+    """R#32-R#46 through port 9Bh (R#17 = 32, auto-increment), then a wait while S#2 CE is set."""
+    values = (sx & 0xFF, sx >> 8, sy & 0xFF, sy >> 8, dx & 0xFF, dx >> 8, dy & 0xFF, dy >> 8, nx & 0xFF, nx >> 8,
+              ny & 0xFF, ny >> 8, colour, argument, command)
+    code = _vdp_reg(17, 32) + b''.join(bytes([0x3E, v, 0xD3, 0x9B]) for v in values)
+    wait = _status(2) + bytes([0x1F, 0x38])                              # RRA: CE into carry; JR C,wait
+    return code + wait + bytes([(-(len(wait) + 1)) & 0xFF])
+
+
+def cartridge_msx2_commands() -> bytes:
+    """MSX2 (stage 7), 16 KB: INIT disables interrupts, sets Graphic 4 with the display on and sprites off, waits a few
+    lines (the engine takes its screen at a line boundary), then draws with commands, each waited on through S#2 CE:
+    HMMV fill of page 0 (11h), LMMV with XOR (colour 5 on 1: 4), LINE (colour Fh), LMMM copy, HMMM to page 1, YMMM,
+    PSET; POINT's colour (S#7) into E020h; SRCH for colour Fh on line 50: S#2 into E021h, S#8/S#9 into E022h/E023h; the
+    marker A5h into E030h; then halts for good."""
+    code = bytearray([0xF3])                                             # DI
+    for register, value in ((1, 0x00), (0, 0x06), (8, 0x0A), (9, 0x80), (2, 0x1F), (7, 0x00), (1, 0x40)):
+        code += _vdp_reg(register, value)
+    code += bytes([0x06, 0x00, 0x10, 0xFE])                              # LD B,0; DJNZ $: 3,328 cycles, beyond a line
+    code += _command(0, 0, 0, 0, 256, 212, 0x11, 0, 0xC0)               # HMMV
+    code += _command(0, 0, 10, 10, 50, 30, 0x05, 0, 0x83)               # LMMV XOR
+    code += _command(0, 0, 0, 0, 200, 100, 0x0F, 0, 0x70)               # LINE, X long
+    code += _command(10, 10, 100, 120, 50, 30, 0, 0, 0x90)              # LMMM
+    code += _command(0, 0, 0, 256, 256, 64, 0, 0, 0xD0)                 # HMMM to page 1
+    code += _command(0, 20, 64, 300, 0, 10, 0, 0, 0xE0)                 # YMMM
+    code += _command(0, 0, 255, 211, 0, 0, 0x03, 0, 0x50)               # PSET
+    code += _command(12, 12, 0, 0, 0, 0, 0, 0, 0x40)                    # POINT
+    code += _status(7) + bytes([0x32, 0x20, 0xE0])                       # S#7 -> E020h
+    code += _command(0, 50, 0, 0, 0, 0, 0x0F, 0, 0x60)                  # SRCH, EQ clear
+    code += _status(2) + bytes([0x32, 0x21, 0xE0])
+    code += _status(8) + bytes([0x32, 0x22, 0xE0])
+    code += _status(9) + bytes([0x32, 0x23, 0xE0])
+    code += _vdp_reg(15, 0)
+    code += bytes([0x3E, 0xA5, 0x32, 0x30, 0xE0, 0x76, 0x18, 0xFD])      # marker; HALT for good
+    image = bytearray([0xFF]) * 0x4000
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    image[0x10:0x10 + len(code)] = code
+    return bytes(image)
+
+
 def cartridge_polling() -> bytes:
     """16 KB: INIT enables interrupts and polls the VDP status forever (EI; loop: IN A,(99h); JR loop)."""
     image = bytearray(b'\xFF' * 0x4000)
@@ -311,9 +356,10 @@ endforeach()
 
 
 # The fixture programs built with the reference: the TMS9918A, AY-3-8910 and key click (stage 3), then the MSX2's V9938
-# registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6). Each prints "ok"/"FAIL" lines with
+# registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6); the command engine (stage 7). Each prints "ok"/"FAIL" lines with
 # the hand-worked value next to the one found, and exits 1 on any failure.
-CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board')
+CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board',
+                  'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line')
 
 
 def hardware_checks() -> list[str]:

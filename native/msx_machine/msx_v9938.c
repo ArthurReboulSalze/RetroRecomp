@@ -2,7 +2,7 @@
  *
  * Written from the V9938 Technical Data Book and the MSX2 Technical Handbook; openMSX (VDP.cc, VDP.hh) was read to
  * settle behaviour the books leave open, nothing was copied from it. The picture is drawn in msx_v9938_draw.c, the
- * command engine is stage 7 (msx_v9938_cmd.c: registers latched, the engine idle).
+ * command engine runs in msx_v9938_cmd.c (synced before every event that can see it or change what it sees).
  *
  * Time: two events per line of 228 machine cycles. The line boundary (the start of the left border) moves the line
  * counter, raises F at the first line after the picture and wraps the frame; the draw point, MSX2_DRAW_AT cycles later
@@ -49,9 +49,10 @@ void msx_v9938_reset(MsxMachine *m)
     m->vblank_line = 192;
 }
 
+/* The physical cell the CPU port reaches: the logical address (R#14, the pointer) through the current mode's layout. */
 static uint32_t vram_address(const MsxV9938 *v)
 {
-    return ((uint32_t)(v->reg[14] & 7) << 14) | v->pointer;
+    return msx_v9938_physical(((uint32_t)(v->reg[14] & 7) << 14) | v->pointer, msx_v9938_interleaved(v->reg));
 }
 
 /* After an access: the pointer counts in 16 KB; in the modes of the V9938 (M4 or M5 set) its carry moves R#14. */
@@ -154,6 +155,8 @@ static void write_register(MsxMachine *m, unsigned index, uint8_t value)
     if (index >= 24)
         return;                                /* R#24-R#31 and R#47-R#63 do not exist */
     value &= reg_masks[index];
+    if (index == 0 || index == 1 || index == 8 || index == 9)
+        msx_v9938_cmd_sync(m, m->cycles);      /* the engine's screen and cost class come from these */
     uint8_t old = v->reg[index];
     v->reg[index] = value;
     switch (index) {
@@ -274,6 +277,8 @@ static void fold_trace(MsxMachine *m)
     p = (const uint8_t *)v->border;
     for (size_t i = 0; i < sizeof v->border; ++i) h = (h ^ p[i]) * 16777619u;
     for (int i = 0; i < 24; ++i) h = (h ^ v->reg[i]) * 16777619u;
+    for (int i = 32; i < 47; ++i) h = (h ^ v->reg[i]) * 16777619u;
+    h = (h ^ v->cmd.status) * 16777619u;
     p = (const uint8_t *)v->palette;
     for (size_t i = 0; i < sizeof v->palette; ++i) h = (h ^ p[i]) * 16777619u;
     m->frame_trace = (h ^ v->status0) * 16777619u;
@@ -321,8 +326,11 @@ void msx_v9938_advance(MsxMachine *m)
         } else {
             if (m->cycles < m->next_line)
                 break;
+            uint64_t at = m->next_line;
             m->next_line += MSX_CYCLES_PER_LINE;
+            msx_v9938_cmd_sync(m, at);         /* the engine reaches the boundary with the line's cost class */
             line_boundary(m);
+            msx_v9938_cmd_line(m);
         }
     }
 }
@@ -333,8 +341,10 @@ void msx_v9938_print(const MsxMachine *m, FILE *out)
     fprintf(out, "{\"reg\": [");
     for (int i = 0; i < 24; ++i) fprintf(out, "%s%u", i ? ", " : "", v->reg[i]);
     fprintf(out, "], \"cmd\": [");
-    for (int i = 0; i < 15; ++i) fprintf(out, "%s%u", i ? ", " : "", v->cmd.reg[i]);
-    fprintf(out, "], \"status\": [%u, %u, %u], \"pointer\": %u, \"palette\": [", v->status0, v->status1, v->status2,
+    for (int i = 0; i < 15; ++i) fprintf(out, "%s%u", i ? ", " : "", v->reg[32 + i]);
+    fprintf(out, "], \"engine\": ");
+    msx_v9938_cmd_print(m, out);
+    fprintf(out, ", \"status\": [%u, %u, %u], \"pointer\": %u, \"palette\": [", v->status0, v->status1, v->status2,
             v->pointer);
     for (int i = 0; i < 16; ++i) fprintf(out, "%s%u", i ? ", " : "", v->palette[i]);
     fprintf(out, "], \"collision\": [%u, %u], \"blink\": [%u, %u], \"lines\": %u, \"lines_per_frame\": %u, "

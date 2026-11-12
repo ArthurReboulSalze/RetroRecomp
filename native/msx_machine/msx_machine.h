@@ -86,21 +86,39 @@ typedef struct {
     uint8_t border[MSX_HEIGHT];
 } MsxVdp;
 
-/* The V9938 (MSX2; msx_v9938.c, msx_v9938_draw.c). The command engine is stage 7: msx_v9938_cmd.c latches its
- * registers and reports an idle engine. */
+/* The V9938 (MSX2; msx_v9938.c, msx_v9938_draw.c) and its command engine (msx_v9938_cmd.c). */
 enum { MSX_VIDEO_TMS9918A = 0, MSX_VIDEO_V9938 = 1 };
 enum { MSX2_WIDTH = 512, MSX2_LINES = 212, MSX2_VRAM = 0x20000, MSX2_DRAW_AT = 180 };
 
 typedef struct {
-    uint8_t reg[15];                   /* R#32-R#46 as written */
-    uint8_t colour;                    /* S#7 */
-    uint16_t border_x;                 /* S#8, S#9 */
-    uint64_t done_at;                  /* stage 7: the machine cycle the running command ends */
-    uint64_t writes;                   /* writes to R#46 (commands started), reported */
+    uint16_t sx, sy, dx, dy, nx, ny;   /* R#32-R#43, live (9, 10, 9, 10, 10, 10 bits) */
+    uint8_t col, arg, cmd;             /* R#44 (also S#7), R#45, R#46 (0 when no command runs) */
+    uint8_t status;                    /* S#2's TR 80h, BD 10h, CE 01h */
+    uint8_t transfer;                  /* HMMC/LMMC: a byte given by R#44 not yet used; LMCM: the first dot still to fetch */
+    uint8_t mode;                      /* the engine's screen (0 G4, 1 G5, 2 G6, 3 G7, FFh none), latched at line boundaries */
+    uint16_t asx, adx, anx;            /* working source X (S#8/S#9), destination X, units left in the line */
+    uint64_t next;                     /* the VDP tick (6 per machine cycle) of the next unit while CE is set */
+    uint64_t writes;                   /* writes to R#46 */
+    uint64_t started[16];              /* commands started, by R#46's high nibble */
 } MsxV9938Cmd;
 
+/* VRAM is kept as the chip holds it: two banks, so Graphic 6 and 7 see their logical addresses interleaved (even bytes
+ * in the first 64 KB, odd bytes in the second), while every other mode sees them in order (data book, VRAM access in
+ * G6/G7). A game that writes in one family of modes and shows or copies in the other sees what the chip shows. */
+static inline uint32_t msx_v9938_physical(uint32_t logical, int interleaved)
+{
+    logical &= 0x1FFFF;
+    return interleaved ? (logical >> 1) | ((logical & 1) << 16) : logical;
+}
+/* Graphic 6 (mode 14h) and Graphic 7 (1Ch) from R#0 and R#1. */
+static inline int msx_v9938_interleaved(const uint8_t *reg)
+{
+    int mode = ((reg[0] & 0x0E) << 1) | ((reg[1] >> 2) & 2) | ((reg[1] >> 4) & 1);
+    return mode == 0x14 || mode == 0x1C;
+}
+
 typedef struct {
-    uint8_t vram[MSX2_VRAM];           /* index (R#14 << 14) | pointer */
+    uint8_t vram[MSX2_VRAM];           /* physical: see msx_v9938_physical */
     uint8_t reg[48];                   /* R#0-R#23 masked; R#32-R#46 mirror cmd.reg */
     uint8_t status0, status1, status2; /* S#0; S#1 FH latch; S#2 EO in bit 1 */
     uint16_t pointer;                  /* 14 bits */
@@ -270,6 +288,8 @@ uint8_t msx_v9938_cmd_read_colour(MsxMachine *m);
 uint16_t msx_v9938_cmd_border_x(MsxMachine *m, int clear);
 void msx_v9938_cmd_sync(MsxMachine *m, uint64_t cycle);
 void msx_v9938_cmd_reset(MsxMachine *m);
+void msx_v9938_cmd_line(MsxMachine *m);                             /* a line boundary: the engine's screen is latched */
+void msx_v9938_cmd_print(const MsxMachine *m, FILE *out);
 void msx_vdp_draw_line(MsxMachine *m, int line);
 void msx_vdp_check_line(MsxMachine *m, int line);
 void msx_psg_reset(MsxMachine *m);

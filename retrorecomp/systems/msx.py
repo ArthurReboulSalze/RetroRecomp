@@ -7,7 +7,7 @@ region map of eight 8 KiB regions, the cartridge then the BIOS as sources, one w
 each instruction. Code run from RAM is learned and translated with byte guards; what is left runs on the reference interpreter,
 counted. The TMS9918A, the AY-3-8910, the PPI, the slots and the mappers are our own C (native/msx_machine).
 
-The MSX2 (`msx2`) is the same chain and the same cartridges on the MSX2 board: the V9938 (without its command engine yet), the
+The MSX2 (`msx2`) is the same chain and the same cartridges on the MSX2 board: the V9938 (with its command engine, timing approximated), the
 memory mapper and the RP5C01 (native/msx_machine/msx_v9938*.c, msx_msx2.c), booted by C-BIOS 0.29a's MSX2 images or by the
 player's own MSX2 main ROM and sub-ROM. Its BIOS source is one 64 KiB image (main ROM, logo page, sub-ROM), so the region map
 and the generator are the MSX1's. A cartridge's bytes do not say MSX1 or MSX2: a .mx2 is the MSX2's, a .rom (or a ZIP holding
@@ -110,7 +110,7 @@ class Msx2Profile(MsxProfile):
     archived_rom_limits = (('.mx2', 0x200000),)
     export_folder = 'MSX2'
     scope_note = ('MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2 '
-                  'BIOS; the V9938 without its command engine yet; no disks or cassettes')
+                  'BIOS; the V9938 with all twelve commands, timing approximated; no disks or cassettes')
     # The player's own MSX2 BIOS is two files (the main ROM and its sub-ROM), optional together; the mapper RAM's size is
     # part of the request (the machine differs).
     firmware = ('bios', 'subrom')
