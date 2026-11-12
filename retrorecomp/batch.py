@@ -483,8 +483,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        from .languages import LANGUAGES
-        report.update(ui_languages=list(LANGUAGES),language_switch_key='F7',
+        from .languages import GAME_LANGUAGES
+        report.update(ui_languages=list(GAME_LANGUAGES),language_switch_key='F7',
                       language_scope='Retro-Recomp host menus; cartridge text unchanged')
         if inherited:
             report['upgrade'] = upgrade_record(inherited)

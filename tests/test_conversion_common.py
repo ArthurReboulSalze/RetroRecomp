@@ -151,7 +151,8 @@ class FakeRun:
         self.calls.append({'args': command, 'cwd': kwargs.get('cwd'), 'timeout': kwargs.get('timeout'),
                            'stdout': kwargs.get('stdout'), 'stderr': kwargs.get('stderr'),
                            'creationflags': flags(kwargs.get('creationflags', 0)),
-                           'other': sorted(set(kwargs) - {'cwd', 'timeout', 'stdout', 'stderr', 'creationflags'}),
+                           # `progress` (core.run's steps may go past their limit while writing, 1.7.3) came after the recording.
+                           'other': sorted(set(kwargs) - {'cwd', 'timeout', 'stdout', 'stderr', 'creationflags', 'progress'}),
                            'executable_existed': Path(command[0]).is_file()})
         if '--hash-out' in command:
             Path(command[command.index('--hash-out') + 1]).write_text('0\n' * 30, encoding='ascii')

@@ -103,6 +103,10 @@ class LanguageTests(unittest.TestCase):
                 self.assertNotIn('C:\\', text)
         self.assertIn('stopped at its time limit (60 min): make all.', log_text(str(subprocess.TimeoutExpired('make all', 3600))))
         self.assertIn('(0.2 s): python -c', log_text(str(subprocess.TimeoutExpired(['python', '-c', 'pass'], 0.2))))
+        # A step let run past its limit stops at a time that is rarely whole minutes (core.run_process).
+        self.assertIn('(30 min): make', log_text(str(subprocess.TimeoutExpired('make', 1805))))
+        self.assertIn('(91 min): make', log_text(str(subprocess.TimeoutExpired('make', 5430))))
+        self.assertIn('(90 s): make', log_text(str(subprocess.TimeoutExpired('make', 90))))
         long = subprocess.TimeoutExpired(['tool'] + [str(n) for n in range(20)], 600)
         self.assertIn('tool 0 1 2 3 4 5 6 7 …', log_text(str(long)))
         self.assertEqual(log_text('Commande interrompue (3).'), 'Commande interrompue (3).')

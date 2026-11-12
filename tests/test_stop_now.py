@@ -58,6 +58,38 @@ class RunProcessTests(unittest.TestCase):
             core.run_process([sys.executable, '-c', 'import time; time.sleep(5)'], capture_output=True, timeout=0.2)
         self.assertFalse(core._PROCESSES)
 
+    def test_a_step_still_writing_goes_past_its_limit_and_a_silent_one_stops_at_it(self):
+        # Writes a line every 0.2 s for 1.2 s: past a 0.5 s limit, but never silent for 0.5 s.
+        writer = 'import sys, time\nfor n in range(6):\n    print(n, flush=True); time.sleep(0.2)\nprint("done")'
+        completed = core.run_process([sys.executable, '-c', writer], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     encoding='utf-8', errors='replace', timeout=0.5, progress=True)
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stdout.split(), ['0', '1', '2', '3', '4', '5', 'done'])
+        self.assertIsNone(completed.stderr)
+        # Writes once, then hangs: stopped about one limit after its last line, with what it wrote.
+        hanging = 'import time\nprint("start", flush=True)\ntime.sleep(30)'
+        begun = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            core.run_process([sys.executable, '-c', hanging], capture_output=True, timeout=0.5, progress=True)
+        self.assertLess(time.monotonic() - begun, 20)
+        self.assertIn(b'start', caught.exception.output)
+        # Writes forever: stopped at the ceiling, PROGRESS_LIMIT_FACTOR times the limit.
+        chatty = 'import time\nwhile True:\n    print("x", flush=True); time.sleep(0.05)'
+        begun = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            core.run_process([sys.executable, '-c', chatty], capture_output=True, timeout=0.5, progress=True)
+        took = time.monotonic() - begun
+        self.assertGreaterEqual(took, 0.5 * core.PROGRESS_LIMIT_FACTOR - 0.1)
+        self.assertLess(took, 0.5 * core.PROGRESS_LIMIT_FACTOR + 20)
+        self.assertGreaterEqual(caught.exception.timeout, 2)
+        self.assertFalse(core._PROCESSES)
+
+    def test_text_output_is_decoded_like_subprocess_run(self):
+        script = 'import sys\nsys.stdout.buffer.write("é\\r\\nb\\rc\\n".encode("utf-8"))\nsys.stderr.buffer.write(b"e")'
+        completed = core.run_process([sys.executable, '-c', script], capture_output=True, encoding='utf-8', timeout=30, progress=True)
+        expected = subprocess.run([sys.executable, '-c', script], capture_output=True, encoding='utf-8', timeout=30)
+        self.assertEqual((completed.stdout, completed.stderr), (expected.stdout, expected.stderr))
+
 
 class BatchStopTests(unittest.TestCase):
     EXT = '.exe' if os.name == 'nt' else ''

@@ -880,7 +880,8 @@ def _step_name(command: str) -> str:
 
 def _limit_text(seconds: str) -> str:
     value = float(seconds)
-    return f'{value / 60:g} min' if value >= 60 and value % 60 == 0 else f'{value:g} s'
+    # A step still writing is let run past its limit (core.run_process), so the time it stopped at is rarely whole minutes.
+    return f'{int(value / 60 + 0.5)} min' if value >= 120 else f'{value:g} s'
 
 
 def step_timeout_text(text: str, language: str = 'en') -> str | None:

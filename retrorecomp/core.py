@@ -12,7 +12,7 @@ import unicodedata
 import zlib
 import time
 from functools import wraps
-from threading import Event, Lock, RLock
+from threading import Event, Lock, RLock, Thread
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,6 +24,7 @@ from .conversion_common import (check_run_budget, convert_single, pinned_checkou
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
 from . import __version__, hostkit, timings
 from .i18n import log_text
+from .languages import GAME_LANGUAGES
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
@@ -55,7 +56,8 @@ def serialized_setup(function):
         with _SHARED_SETUP_LOCK:
             if _SHARED_SETUP_DEPTH:
                 return function(*args, **kwargs)
-            with entry_lock(ROOT / '.deps/shared-setup', timeout=1800):
+            # A setup step (the SDL build) may run past its limit while it is still writing (run_process), so its waiters wait as long.
+            with entry_lock(ROOT / '.deps/shared-setup', timeout=SDL_STEP_TIMEOUT * PROGRESS_LIMIT_FACTOR):
                 _SHARED_SETUP_DEPTH += 1
                 try:
                     return function(*args, **kwargs)
@@ -102,12 +104,105 @@ def stop_processes() -> int:
     return len(running)
 
 
-def run_process(args, *, timeout=None, capture_output=False, input=None, **kwargs) -> subprocess.CompletedProcess:
-    """subprocess.run for the conversion path, interruptible by Stop."""
+# A step that is still writing (a compiler prints a line per finished file) is not stopped at its time limit: it goes on while
+# its last line is younger than the limit, up to this many times the limit. A slow computer then finishes a long build that a
+# fixed limit would have cut (a player's small PC needed more than 30 minutes for Kirby's Adventure); a step that hangs writes
+# nothing and is stopped at the limit as before.
+PROGRESS_LIMIT_FACTOR = 4
+
+
+def _drain(descriptor: int, chunks: list, seen: list) -> None:
+    """Read a pipe to its end, noting when the last bytes came, then close it.
+
+    The descriptor is the reader's own duplicate: when the step is killed while a grandchild (the compiler under a killed build
+    tool) still holds the pipe, Popen closes its end and its number may be given to another file, but this one stays ours."""
+    try:
+        while True:
+            try:
+                data = os.read(descriptor, 65536)
+            except OSError:
+                break
+            if not data:
+                break
+            chunks.append(data)
+            seen[0] = time.monotonic()
+    finally:
+        os.close(descriptor)
+
+
+def _run_with_progress(args, timeout, kwargs) -> subprocess.CompletedProcess:
+    """run_process for piped output in bytes or with a named encoding, when a limit is set (see PROGRESS_LIMIT_FACTOR)."""
+    encoding, errors = kwargs.pop('encoding', None), kwargs.pop('errors', None) or 'strict'
+    text = encoding is not None
+    kwargs.pop('text', None)
+    kwargs.pop('universal_newlines', None)
+    with subprocess.Popen(args, **kwargs) as process:
+        with _PROCESSES_LOCK:
+            _PROCESSES.add(process)
+        try:
+            started = time.monotonic()
+            seen = [started]
+            pipes = [(stream, []) for stream in (process.stdout, process.stderr) if stream is not None]
+            readers = [Thread(target=_drain, args=(os.dup(stream.fileno()), chunks, seen), daemon=True)
+                       for stream, chunks in pipes]
+            for reader in readers:
+                reader.start()
+            ceiling = started + timeout * PROGRESS_LIMIT_FACTOR
+            while True:
+                now = time.monotonic()
+                if now >= started + timeout:
+                    if now - seen[0] >= timeout or now >= ceiling:
+                        break
+                    wait = min(seen[0] + timeout, ceiling) - now
+                else:
+                    wait = started + timeout - now
+                try:
+                    process.wait(timeout=max(0.01, min(wait, 1.0)))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            expired = process.poll() is None
+            if expired:
+                process.kill()
+                process.wait()
+            elapsed = time.monotonic() - started
+            killed = expired or _STOP.is_set()
+            for reader in readers:
+                # After a kill, a grandchild may keep the pipe open: the output it still writes is not waited for long. (On
+                # Windows, closing the pipe at the end of `with` still waits for that grandchild, as communicate() did.)
+                reader.join(timeout=5 if killed else None)
+        finally:
+            with _PROCESSES_LOCK:
+                _PROCESSES.discard(process)
+    outputs = []
+    for _stream, chunks in pipes:
+        data = b''.join(chunks)
+        outputs.append(data.decode(encoding, errors).replace('\r\n', '\n').replace('\r', '\n') if text else data)
+    out = outputs[0] if process.stdout is not None else None
+    err = outputs[-1] if process.stderr is not None else None
+    if expired:
+        if _STOP.is_set():
+            raise StopRequested('Arrêt demandé.')
+        # The limit it was stopped at: the step's own, or the time it was let run because it was still writing.
+        raise subprocess.TimeoutExpired(args, timeout if elapsed < timeout + 1 else round(elapsed), output=out, stderr=err)
+    if _STOP.is_set():
+        raise StopRequested('Arrêt demandé.')
+    return subprocess.CompletedProcess(args, process.returncode, out, err)
+
+
+def run_process(args, *, timeout=None, capture_output=False, input=None, progress=False, **kwargs) -> subprocess.CompletedProcess:
+    """subprocess.run for the conversion path, interruptible by Stop.
+
+    With `progress` (the build and generation steps of `run`), a step still writing goes past its limit (see above). Replays and
+    probes keep their fixed limit: a game that loops printing warnings must not run four times longer."""
     if _STOP.is_set():
         raise StopRequested('Arrêt demandé.')
     if capture_output:
         kwargs['stdout'] = kwargs['stderr'] = subprocess.PIPE
+    piped = subprocess.PIPE in (kwargs.get('stdout'), kwargs.get('stderr'))
+    plain = not (kwargs.get('text') or kwargs.get('universal_newlines') or kwargs.get('errors')) or kwargs.get('encoding')
+    if progress and timeout is not None and input is None and piped and plain and kwargs.get('stdin') != subprocess.PIPE:
+        return _run_with_progress(args, timeout, kwargs)
     with subprocess.Popen(args, **kwargs) as process:
         with _PROCESSES_LOCK:
             _PROCESSES.add(process)
@@ -276,7 +371,7 @@ def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
     command = [str(arg) for arg in args]
     from .toolchain import reset_incompatible_cache
     reset_incompatible_cache(command, cwd)
-    result = run_process(command, cwd=cwd, stdout=subprocess.PIPE,
+    result = run_process(command, cwd=cwd, stdout=subprocess.PIPE, progress=True,
         stderr=subprocess.STDOUT, encoding="utf-8", errors="replace", timeout=timeout,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     if log:
@@ -1687,7 +1782,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
                 "toggle": "F5" if system.id == "sms" else None,
                 "confirmed_reversing_list_stabilization": system.id == "sms",
                 "guest_status_uses_original_limit": True}},
-        "ui_languages": ["en", "fr", "it", "es", "de", "zh", "ja", "ru"], "default_language": "en",
+        "ui_languages": list(GAME_LANGUAGES), "default_language": "en",
         "artwork": artwork,
         "windows_metadata": windows_metadata,
         "game_tags": list(game_tags(rom.crc32, rom.path.name)) if system.id == "sms" else [],

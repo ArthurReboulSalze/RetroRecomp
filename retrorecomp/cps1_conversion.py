@@ -421,6 +421,6 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                              else 'catalogue defaults during validation; adjustable in play (F2)'),
             'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'{label}: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
+    emit(f'{label}: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     # Publishing compacts this same build again (UPX is deterministic).
     return executable

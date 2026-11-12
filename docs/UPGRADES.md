@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Every console: a step still writing goes past its time limit (after 1.7.2)
+
+A player's small PC needed more than 30 minutes to compile Kirby's Adventure, and the conversion stopped at the step's fixed limit
+while the compiler was still finishing files. The build and generation steps (`core.run`: CMake, the compilers, the recompilers) now
+go past their limit while they are still writing (a compiler prints a line per finished file), as long as their last line is younger
+than the limit, up to four times the limit (`PROGRESS_LIMIT_FACTOR`). A step that writes nothing for a whole limit is stopped as
+before, and Stop still kills it at once. Replays and probes keep their fixed limit. The shared setup lock (the SDL build) waits as long.
+A step stopped this way is named with the time it ran, in minutes. The game report lists the five languages a generated game ships
+(`ui_languages`; it listed the converter's eight), and the CPS-1 and CPS-2 print "no interpreter on the routes played" when a set is
+ready without a fallback, as the PC Engine does. Proof: `tests/test_stop_now.py` (a writing step past its limit, a silent one stopped at
+it, an endless writer stopped at the ceiling, text decoded as `subprocess.run` does). **Hot path:** no, nothing in a game changes.
+**What moves:** `retrorecomp/core.py` and `batch.py` are game-stamp inputs of every console, so **every console's game stamp moves**:
+an export of 1.7.2 is converted again at the upgrade (the quick upgrade above, from its learned paths). The shared paths of the base are kept (they are qualified by the
+recompiler's revision, not by this stamp). **Quick states:** unchanged.
+
 ## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each
