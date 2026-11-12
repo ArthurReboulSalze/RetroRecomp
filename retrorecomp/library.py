@@ -251,6 +251,14 @@ class GameMemory:
         shared = {self.rom.data[offset:offset+4] for (offset,) in self.bundled.get('pattern_refs', [])}
         return local | set(sorted(shared - local)[:max(0, PATTERN_LIMIT - len(local))])
 
+    def pattern_overflow(self) -> int:
+        """How many distinct RAM windows this ROM has beyond `PATTERN_LIMIT`: they are not compiled, and `code_patterns` (so every
+        count of compiled or pending windows) is already cut at the limit, so only this number shows that something was left out."""
+        from .feedback import sega_candidates
+        shared = {self.rom.data[offset:offset+4] for (offset,) in self.bundled.get('pattern_refs', [])}
+        everything = read_code_patterns(self.code_journal, limit=None) | sega_candidates(self.rom)[1] | shared
+        return max(0, len(everything) - len(self.code_patterns()))
+
     def import_code_patterns(self, path: Path) -> int:
         incoming = read_code_patterns(path)
         with entry_lock(self.directory):

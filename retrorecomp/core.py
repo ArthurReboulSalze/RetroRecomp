@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
-from .library import GameMemory, entry_lock, library_root, read_observations, write_manifest, write_code_patterns
+from .library import (GameMemory, PATTERN_LIMIT, entry_lock, library_root, read_observations, write_manifest,
+                      write_code_patterns)
 from .report_schema import write_report
 from .conversion_common import (check_run_budget, convert_single, pinned_checkout, prepare_game_icon, probe_environment,
                                 replace_counted, resolve_scan_level, spawn)
@@ -1722,6 +1723,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
                          "reused_windows": memory_before["native_pattern_windows"],
                          "compiled_windows": len(compiled_patterns),
                          "pending_windows": len(memory.code_patterns() - compiled_patterns),
+                         # The limit on compiled RAM windows and how many were left out by it (library.PATTERN_LIMIT); 0 means none.
+                         "window_limit": PATTERN_LIMIT, "windows_over_limit": memory.pattern_overflow(),
                          "zero_fallback_on_tested_scenarios": all(c.get("interpreter_cycles") == 0 for c in final_checks)} if banked else None,
                      "recipe_reused": not profile and bool(memory.recipe(ENGINE_REV)),
                      "scope": "Byte-verified ROM entries; banked RAM encodings are precompiled with exact live-byte guards"}}
