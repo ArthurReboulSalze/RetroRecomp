@@ -8,7 +8,8 @@
     counted interpreter for the rest. The TMS9918A, the V9938 and its command engine (its
     timing approximated), the AY-3-8910, the Konami SCC, the slots and mappers, and the MSX2's
     memory mapper and clock are Retro-Recomp's own code, not an emulator core. Quick states with
-    F8 and F9. Windows only for now: Linux has no witness yet.
+    F8 and F9. Linux: one MSX1 and one MSX2 game converted headless on a Debian 13 PC, with the
+    same results as on Windows; no windowed play there yet.
   - **Firmware.** C-BIOS 0.29a, a free BIOS, fetched on first use and pinned, or your own MSX BIOS
     (for the MSX2, its main ROM and sub-ROM), chosen in Options and never shipped. C-BIOS has no
     MSX-BASIC, no disk and no cassette, and Salamander's stage stays black under it: choose your
@@ -18,8 +19,8 @@
     cartridges (Metal Gear, Space Manbow, Aleste, Hydlide 3) end at 0 interpreted instructions on
     every route, equal to our own reference Z80 interpreter frame by frame and on the delivered
     file. That is agreement with our reference, not with a real MSX.
-  - **Not yet:** disks, cassettes, FM-PAC, cartridge SRAM, MSX2+ and the turbo R, Linux. Nothing
-    is claimed of hardware fidelity, complete gameplay or latency.
+  - **Not yet:** disks, cassettes, FM-PAC, cartridge SRAM, MSX2+ and the turbo R, windowed play on
+    Linux. Nothing is claimed of hardware fidelity, complete gameplay or latency.
 - **Commodore Amiga (experimental).**
   - **Agnus and Denise do the same work in fewer steps.** Denise's line work is done by table
     and by word, a line's bitplane slots are taken in a batch, a quiet line is drawn in one loop,
