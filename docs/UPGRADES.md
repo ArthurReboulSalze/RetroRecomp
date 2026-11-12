@@ -364,6 +364,31 @@ same bytes as before. The proof is the picture hashes of every route against the
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: one lookup per hires pixel inside the display window (after 1.7.3, colour step A)
+
+**What changes.** In step 3's colorize of a quiet line, an 8-entry chunk inside the display window first checks that its four pairs
+of entries (2k and 2k + 1) hold the same colour index. If they do, it writes one 64-bit Texel (the colour twice) per pair: four
+lookups instead of eight. A chunk whose pairs differ keeps one lookup per entry, and is counted (`rrCellsRefused`).
+- **Why pairs differ.** In lores and hires a pixel always fills two or four entries from an even position. Super-hires does not.
+  This machine has an ECS Agnus and an OCS Denise, so Agnus can draw super-hires on a line Denise's guard still calls quiet. A
+  resolution change at the line's start, or a quick state loaded in mid-line, can also leave pairs unequal.
+- **Review.** Fable reviewed the design on 12 Nov and found the super-hires case; the pair check is its recommendation.
+
+**Proofs.**
+- The display self-test: the 52 scenarios, plus 8 new ones with BPLCON0's SHRES bit. The 52 old scenarios are generated as before.
+- Every texture row of all 60 scenarios is equal to vAmiga's own colorize.
+- Planted faults, each seen:
+  - `--colour-fault 2`, a cell's second entry one bit off: 60 of 60 scenarios;
+  - `--colour-fault 3`, cells taken without the pair check: exactly the 8 super-hires scenarios.
+- 234,044 chunks were refused, and 0 cells were written from a Texel with two different halves (the census under `RR_AMIGA_SHADOW`).
+
+**Hot path:** yes, the per-line colorize: one 8-byte load and three operations more per chunk inside the window, four lookups less
+when the pairs match. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
