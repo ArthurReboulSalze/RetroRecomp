@@ -24,8 +24,10 @@
 
 static MsxMachine machine;
 static uint8_t ram[65536];
-static uint8_t slot0[0xC000];
+static uint8_t slot0[0x10000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h */
 static uint8_t cart[0x200000];
+static MsxV9938 v9938;                      /* the MSX2's VDP (msx_setup_msx2) */
+static uint8_t mapper_ram[4u << 20];        /* the MSX2's mapper RAM: up to 256 segments of 16 KB */
 
 /* ---- the names the shared step loop and the generated bodies use ---- */
 Z80State g_z80;
@@ -133,7 +135,7 @@ static const BankedRegion *smsrecomp_region_map(void)
             int scc = d->kind == MSX_DEV_ROM && d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4;
             int rom = d->kind == MSX_DEV_ROM && (r->read || scc) && d->block[i] >= 0 && d->source != MSX_SOURCE_NONE;
             region_map[i].source = rom ? d->source : 0;
-            region_map[i].bank = rom ? (uint8_t)d->block[i] : 0;
+            region_map[i].bank = rom ? (uint8_t)(d->bank_base + d->block[i]) : 0;
             region_map[i].ram = (uint8_t)!rom;
             region_map[i].guard_from = rom && scc ? 0x1800 : 0;
             region_map[i].guard_to = rom && scc ? 0x2000 : 0;

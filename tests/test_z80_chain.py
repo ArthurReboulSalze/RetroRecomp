@@ -35,7 +35,7 @@ class Z80ChainTests(unittest.TestCase):
     def test_the_master_system_and_the_game_gear_name_the_sega_mapper(self):
         for system in ('sms', 'gg'):
             self.assertIs(find_profile(system).z80_machine, SEGA_MAPPER)
-        self.assertEqual(stamp_inputs.sharing('z80_main'), ('sms', 'gg', 'msx'))
+        self.assertEqual(stamp_inputs.sharing('z80_main'), ('sms', 'gg', 'msx', 'msx2'))
         regions = SEGA_MAPPER.regions
         self.assertEqual((regions.slot_bits, regions.slots, regions.fixed_bytes, regions.ram_from, regions.bank_values,
                           SEGA_MAPPER.m1_wait, SEGA_MAPPER.irq_sample, SEGA_MAPPER.mapped),

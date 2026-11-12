@@ -37,7 +37,9 @@ void msx_reference_accept(z80 *const z);      /* the interpreter's interrupt acc
 
 static MsxMachine machine;
 static uint8_t ram[65536];
-static uint8_t slot0[0xC000];
+static uint8_t slot0[0x10000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h */
+static MsxV9938 v9938;
+static uint8_t mapper_ram[4u << 20];
 
 static void trace_cart_write(void *user, uint16_t address, uint8_t value)
 {
@@ -83,8 +85,8 @@ int main(int argc, char **argv)
     const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL, *audio_out = NULL;
     static Event events[64];
     int event_count = 0;
-    const char *layout = "basic";
-    unsigned long frames = 120, cart_base = 0x4000, trace = 0;
+    const char *layout = "basic", *sub_rom = NULL;
+    unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256;
     unsigned watch[32];
     int watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
@@ -100,6 +102,8 @@ int main(int argc, char **argv)
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
         else if (!strcmp(a, "--logo")) logo_rom = v;
+        else if (!strcmp(a, "--sub")) sub_rom = v;
+        else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--layout")) layout = v;
@@ -133,15 +137,22 @@ int main(int argc, char **argv)
     memset(slot0, 0xFF, sizeof slot0);
     load(main_rom, slot0, 0x8000);
     if (logo_rom) load(logo_rom, slot0 + 0x8000, 0x4000);
-    msx_set_device(&machine, 0, 0, (MsxDevice){ MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL });
     /* RAM content at power-on is not defined; a fixed pattern keeps runs reproducible. */
     memset(ram, 0, sizeof ram);
+    if (sub_rom) {                                /* MSX2: the sub-ROM ends the BIOS source; the board of msx_setup_msx2 */
+        uint32_t segments = (uint32_t)(mapper_kib / 16);
+        if (segments < 4 || segments > 256 || (segments & (segments - 1))) { fprintf(stderr, "bad --mapper-kib\n"); return 2; }
+        load(sub_rom, slot0 + 0xC000, 0x4000);
+        msx_setup_msx2(&machine, slot0, mapper_ram, segments, &v9938);
+    } else {
+    msx_set_device(&machine, 0, 0, (MsxDevice){ MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL });
     if (!strcmp(layout, "expanded")) {            /* slot 3 expanded, RAM in 3-2 (the C-BIOS MSX2 layout) */
         msx_set_expanded(&machine, 3, 1);
         msx_set_device(&machine, 3, 2, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else if (!strcmp(layout, "basic")) {        /* RAM in slot 3 (the C-BIOS MSX1 layout) */
         msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else { fprintf(stderr, "unknown layout %s\n", layout); return 2; }
+    }
     static uint8_t cart[0x200000];
     if (cart_rom) {
         memset(cart, 0xFF, sizeof cart);              /* the padding up to a whole bank reads as an empty socket */
@@ -210,21 +221,21 @@ int main(int argc, char **argv)
         samples += n;
         if (audio) { fwrite(chunk, sizeof *chunk, n, audio); fclose(audio); }
     }
-    uint32_t frame_hash = fnv_add(fnv(&machine.vdp.frame[0][0], sizeof machine.vdp.frame), machine.vdp.border,
-                                  sizeof machine.vdp.border);
+    uint32_t frame_hash = msx_frame_hash(&machine);
     if (frame_out) {
         FILE *f = fopen(frame_out, "wb");
-        if (!f || fwrite(machine.vdp.frame, 1, sizeof machine.vdp.frame, f) != sizeof machine.vdp.frame
-            || fwrite(machine.vdp.border, 1, sizeof machine.vdp.border, f) != sizeof machine.vdp.border) return 3;
+        if (!f || !msx_dump_frame(&machine, f)) return 3;
         fclose(f);
     }
     if (vram_out) {
         FILE *f = fopen(vram_out, "wb");
-        if (!f || fwrite(machine.vdp.vram, 1, sizeof machine.vdp.vram, f) != sizeof machine.vdp.vram) return 3;
+        if (!f || !msx_dump_vram(&machine, f)) return 3;
         fclose(f);
     }
     unsigned nonzero = 0;
-    for (size_t i = 0; i < sizeof machine.vdp.vram; ++i) nonzero += machine.vdp.vram[i] != 0;
+    const uint8_t *vram_bytes = machine.video == MSX_VIDEO_V9938 ? v9938.vram : machine.vdp.vram;
+    size_t vram_size = machine.video == MSX_VIDEO_V9938 ? sizeof v9938.vram : sizeof machine.vdp.vram;
+    for (size_t i = 0; i < vram_size; ++i) nonzero += vram_bytes[i] != 0;
     printf("{\"frames\": %llu, \"cycles\": %llu, \"z80_cycles\": %lu, \"m1_waits\": %llu, \"steps\": %llu, "
            "\"interrupts\": %llu, \"pc\": %u, \"pc_slot\": %u, \"sp\": %u, \"iff1\": %d, \"halted\": %d, "
            "\"primary\": %u, \"secondary\": [%u, %u, %u, %u], \"unmapped_reads\": %llu, \"dropped_writes\": %llu, "
@@ -237,11 +248,11 @@ int main(int argc, char **argv)
            machine.secondary[3], (unsigned long long)machine.unmapped_reads, (unsigned long long)machine.dropped_writes,
            machine.vdp.reg[0], machine.vdp.reg[1], machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4],
            machine.vdp.reg[5], machine.vdp.reg[6], machine.vdp.reg[7], machine.vdp.status,
-           fnv(machine.vdp.vram, sizeof machine.vdp.vram), nonzero, frame_hash, (unsigned long long)samples, audio_hash,
+           msx_vram_hash(&machine), nonzero, frame_hash, (unsigned long long)samples, audio_hash,
            (unsigned long long)machine.synth.dropped,
            (unsigned)(z.a << 8 | (z.sf << 7 | z.zf << 6 | z.yf << 5 | z.hf << 4 | z.xf << 3 | z.pf << 2 | z.nf << 1 | z.cf)),
            (unsigned)(z.b << 8 | z.c), (unsigned)(z.d << 8 | z.e), (unsigned)(z.h << 8 | z.l), z.ix, z.iy,
-           fnv(ram, sizeof ram));
+           msx_ram_hash(&machine, ram));
     printf("\"af2\": %u, \"bc2\": %u, \"de2\": %u, \"hl2\": %u, \"i\": %u, \"r\": %u, \"im\": %u, \"iff2\": %d, \"wz\": %u, ",
            (unsigned)(z.a_ << 8 | z.f_), (unsigned)(z.b_ << 8 | z.c_), (unsigned)(z.d_ << 8 | z.e_),
            (unsigned)(z.h_ << 8 | z.l_), z.i, z.r, z.interrupt_mode, z.iff2, z.mem_ptr);

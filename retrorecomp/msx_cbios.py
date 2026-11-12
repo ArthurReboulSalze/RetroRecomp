@@ -23,6 +23,11 @@ MEMBERS = {
     'cbios_main_msx1.rom': (32768, '921d35edf143f1fde8e53570f92f85e05854610d6a5ea76cce881f2f9040cd9c'),
     'cbios_main_msx1_eu.rom': (32768, 'ad114c0d8d1c8eae408fb6876a16ddadd8e336699c53eb04661bda8ebbc4aeab'),
     'cbios_logo_msx1.rom': (16384, '8ad88a4653e26bdbd4c38329fe0a115846e9aa0866b0ac1fe1dd2c260c9932b3'),
+    # The MSX2 (stage 6, 12 Nov 2026): main ROMs, the logo ROM and the sub-ROM.
+    'cbios_main_msx2.rom': (32768, '8767fca1a1ca5928496bb6185a0e951c66d68f65361305134a25f7912085766b'),
+    'cbios_main_msx2_eu.rom': (32768, '625a740ba093e2987acc6c995825724feaba6200b2ecc845820cd8bd5447515a'),
+    'cbios_logo_msx2.rom': (16384, 'a6ecf0bee1d1aeae4a2df4ace1d711b8c5883cbed50f7d6c8c524f6b19f03ef4'),
+    'cbios_sub.rom': (16384, '95db258195d1dea673b3826a8ef3d4b747f87f93587ae66e137acd2e39c3c0f1'),
 }
 LIMIT = 4 * 1024 * 1024
 
@@ -85,9 +90,13 @@ def _fetch_locked(folder: Path, emit) -> None:
             partial.replace(target)
 
 
-def image(standard: str = 'ntsc', emit=print) -> bytes:
-    """The 48 KiB slot-0 image the MSX1 machine boots: the main ROM (international 60 Hz, or European 50 Hz) and the logo ROM."""
+def image(standard: str = 'ntsc', emit=print, model: str = 'msx1') -> bytes:
+    """The BIOS source the machine boots. MSX1: 48 KiB, the main ROM (international 60 Hz, or European 50 Hz) and the logo
+    ROM. MSX2: 64 KiB, the MSX2 main ROM, its logo ROM and the sub-ROM (msx_setup_msx2's layout)."""
     folder = fetch(emit)
+    if model == 'msx2':
+        main = 'cbios_main_msx2_eu.rom' if standard == 'pal' else 'cbios_main_msx2.rom'
+        return b''.join((folder / name).read_bytes() for name in (main, 'cbios_logo_msx2.rom', 'cbios_sub.rom'))
     main = 'cbios_main_msx1_eu.rom' if standard == 'pal' else 'cbios_main_msx1.rom'
     return (folder / main).read_bytes() + (folder / 'cbios_logo_msx1.rom').read_bytes()
 

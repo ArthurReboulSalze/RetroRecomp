@@ -6,7 +6,7 @@
  * with msx_host_open and calls msx_host_frame at the end of each guest frame (RrhkMachine.driven, as the Master System). What
  * the computers share (the guest keyboard with Ctrl+Alt+K and its chords, the function keys, the second help page, the window
  * preferences) comes from rrhk_computer.inc, unchanged; what is the MSX's stays here: joystick 1 and 2 through the PSG, the
- * keyboard matrix, the TMS9918A picture with its border, the sound (PSG, key click, SCC) through the shared stereo ring of
+ * keyboard matrix, the TMS9918A or V9938 picture with its border (the machine says which chip it has), the sound (PSG, key click, SCC) through the shared stereo ring of
  * native/audio_output.inc. No quick states yet (F8/F9 say so). Guest state is never filtered. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
@@ -124,15 +124,41 @@ static void m_inputs(MsxMachine *m) {
    msx_joystick(m, 1, joy2);
 }
 
-/* ---- the picture: the TMS9918A's 256 x 192 with eight border pixels around it ---- */
-enum { M_VIEW_W = MSX_WIDTH + 16, M_VIEW_H = MSX_HEIGHT + 16 };
-static uint32_t m_view[M_VIEW_H * M_VIEW_W];
+/* ---- the picture: the TMS9918A's 256 x 192 with eight border pixels around it; the V9938's 512 half-pixels x 212 lines
+ * with 16 half-pixels and 8 lines of border (a 256-pixel mode doubled, a 192-line picture centred, R#18 moving the picture
+ * inside the border). The view size is the chip's, fixed for the whole game. ---- */
+enum { M_VIEW_W = MSX_WIDTH + 16, M_VIEW_H = MSX_HEIGHT + 16, M_VIEW2_W = MSX2_WIDTH + 32, M_VIEW2_H = MSX2_LINES + 16 };
+static uint32_t m_view[M_VIEW2_H * M_VIEW2_W];
+static bool m_v9938;                        /* set by msx_host_open from the machine */
+static int m_view_w = M_VIEW_W, m_view_h = M_VIEW_H;
 /* The TMS9918A's sixteen colours (a commonly published approximation of its analogue output; not measured on a set). */
 static const uint32_t m_palette[16] = {
    0xFF000000, 0xFF000000, 0xFF21C842, 0xFF5EDC78, 0xFF5455ED, 0xFF7D76FC, 0xFFD4524D, 0xFF42EBF5,
    0xFFFC5554, 0xFFFF7978, 0xFFD4C154, 0xFFE6CE80, 0xFF21B03B, 0xFFC95BBA, 0xFFCCCCCC, 0xFFFFFFFF};
 
+/* A V9938 colour (0GGG0RRR0BBB) as ARGB: each three-bit component scaled to 0-255. */
+static uint32_t m_rgb9(uint16_t c) {
+   unsigned g = (c >> 8) & 7, r = (c >> 4) & 7, b = c & 7;
+   return 0xFF000000u | (r * 255 / 7) << 16 | (g * 255 / 7) << 8 | (b * 255 / 7);
+}
+
+static void m_picture2(const MsxMachine *m) {
+   const MsxV9938 *v = m->v9938;
+   int lines = v->lines_latched, top = 8 + (MSX2_LINES - lines) / 2 + v->adjust_v, left = 16 + 2 * v->adjust_h;
+   for (int y = 0; y < M_VIEW2_H; y++) {
+      int line = y - top;
+      int edge_line = line < 0 ? 0 : line >= lines ? lines - 1 : line;
+      uint32_t edge_even = m_rgb9(v->border[edge_line][0]), edge_odd = m_rgb9(v->border[edge_line][1]);
+      uint32_t *out = m_view + y * M_VIEW2_W;
+      for (int x = 0; x < M_VIEW2_W; x++) out[x] = (x & 1) ? edge_odd : edge_even;
+      if (line >= 0 && line < lines)
+         for (int x = 0; x < MSX2_WIDTH; x++)
+            if (left + x >= 0 && left + x < M_VIEW2_W) out[left + x] = m_rgb9(v->frame[line][x]);
+   }
+}
+
 static void m_picture(const MsxMachine *m) {
+   if (m_v9938) { m_picture2(m); return; }
    for (int y = 0; y < M_VIEW_H; y++) {
       int line = y - 8;
       uint32_t edge = m_palette[m->vdp.border[line < 0 ? 0 : line >= MSX_HEIGHT ? MSX_HEIGHT - 1 : line] & 15];
@@ -179,10 +205,11 @@ static void m_pause(bool paused) {
  * shell keeps running. */
 static void m_reset(void) { mh.reset = true; }
 static const uint32_t *m_pixels(void) { return m_view; }
-static int m_width(void) { return M_VIEW_W; }
-static int m_height(void) { return M_VIEW_H; }
-/* The TMS9918A's pixel clock (5.37 MHz, as the PC Engine's lowest) gives pixels 8/7 as wide as tall on a 4:3 set. */
-static int m_display_width(void) { return (M_VIEW_W * 8 + 3) / 7; }
+static int m_width(void) { return m_view_w; }
+static int m_height(void) { return m_view_h; }
+/* The TMS9918A's pixel clock (5.37 MHz, as the PC Engine's lowest) gives pixels 8/7 as wide as tall on a 4:3 set; the
+ * V9938's half-pixels are half as wide. */
+static int m_display_width(void) { return m_v9938 ? (m_view_w * 4 + 3) / 7 : (m_view_w * 8 + 3) / 7; }
 static size_t m_no_audio(int16_t *pcm, size_t capacity) { (void)pcm; (void)capacity; return 0; }
 static uint64_t m_zero(void) { return 0; }
 static uint64_t m_interpreted(void) { return banked_fallback_steps; }
@@ -206,7 +233,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.table_players = 2; machine.players = m_players;
       machine.actions = m_actions; machine.action_count = M_ACTIONS;
       machine.up = M_UP; machine.down = M_DOWN; machine.left = M_LEFT; machine.right = M_RIGHT; machine.start = M_START;
-      machine.max_width = M_VIEW_W; machine.max_height = M_VIEW_H;
+      machine.max_width = m_view_w; machine.max_height = m_view_h;
       machine.frame_seconds = (double)MSX_CYCLES_PER_LINE * MSX_LINES_NTSC / MSX_CPU_CLOCK;
       machine.own_audio = true; machine.driven = true; machine.state_deferred = false;
       machine.video_section = L"MSX"; machine.autofire_section = L"MSX"; machine.indexed_bindings = true; machine.bindings_clearable = true;
@@ -229,10 +256,14 @@ const RrhkMachine *rrhk_adapter(void) {
 }
 
 /* ---- what the game calls ---- */
-static bool msx_host_open(const char *title, int scale, bool pal) {
+static bool msx_host_open(const char *title, int scale, const MsxMachine *m) {
+   m_v9938 = m->video == MSX_VIDEO_V9938;
+   if (m_v9938) { m_view_w = M_VIEW2_W; m_view_h = M_VIEW2_H; }
    RrhkMachine *machine = (RrhkMachine *)rrhk_adapter();
-   if (pal) machine->frame_seconds = (double)MSX_CYCLES_PER_LINE * MSX_LINES_PAL / MSX_CPU_CLOCK;
-   width = M_VIEW_W; height = M_VIEW_H;
+   /* The pace of the frames: the board's lines. An MSX2's software may switch 50/60 Hz later (R#9): the kit keeps this
+    * pace until it can follow (lead request L3). */
+   machine->frame_seconds = (double)MSX_CYCLES_PER_LINE * m->lines_per_frame / MSX_CPU_CLOCK;
+   width = (unsigned)m_view_w; height = (unsigned)m_view_h;
    ca.windowed = true;
    if (!rrhk_open(machine, title, scale)) return false;
    rrhk_autofire_reset();

@@ -105,10 +105,21 @@ def main() -> int:
     parser.add_argument('--json', type=Path)
     parser.add_argument('--library', type=Path, help="the player's ROM folder, read in place (with --game)")
     parser.add_argument('--game', action='append', help='a cartridge of the library, e.g. "msx1/Road Fighter (Japan).zip"')
+    parser.add_argument('--model', choices=('msx1', 'msx2'), default='msx1',
+                        help='msx2: the MSX2 board (V9938, mapper RAM, RTC, C-BIOS MSX2 with its sub-ROM)')
     args = parser.parse_args()
     roms = msx_reference.cbios()
-    bios_image = (roms / 'cbios_main_msx1.rom').read_bytes() + (roms / 'cbios_logo_msx1.rom').read_bytes()
-    bios = ['--main', str(roms / 'cbios_main_msx1.rom'), '--logo', str(roms / 'cbios_logo_msx1.rom')]
+    if args.model == 'msx2':
+        from retrorecomp import msx_cbios
+        bios_image = msx_cbios.image('ntsc', lambda text: None, 'msx2')
+        bios = ['--main', str(roms / 'cbios_main_msx2.rom'), '--logo', str(roms / 'cbios_logo_msx2.rom'),
+                '--sub', str(roms / 'cbios_sub.rom')]
+    else:
+        bios_image = (roms / 'cbios_main_msx1.rom').read_bytes() + (roms / 'cbios_logo_msx1.rom').read_bytes()
+        bios = ['--main', str(roms / 'cbios_main_msx1.rom'), '--logo', str(roms / 'cbios_logo_msx1.rom')]
+    global WORK
+    if args.model == 'msx2':
+        WORK = WORK.with_name('msx2-native')
     frames = ['--frames', str(args.frames)]
     watch = [w for a in (0xE000, 0xE001, 0xE002, 0xE003, 0xFC9E, 0xFC9F) for w in ('--watch', f'{a:04X}')]
     cases = {'no-cartridge': None, 'authored16': msx_reference.cartridge_16k(), 'authored32': msx_reference.cartridge_32k(),

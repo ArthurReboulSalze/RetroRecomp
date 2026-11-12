@@ -179,6 +179,24 @@ def looks_like_cartridge(image: bytes) -> bool:
     return _pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))
 
 
+def has_header(image: bytes) -> bool:
+    """What the BIOS itself reads of a cartridge already known to be the MSX's (a .mx1/.mx2, a file chosen as MSX or found in
+    an MSX folder): 8 KiB to 2 MiB, whole kilobytes, "AB" at the start (or at 4000h) and an INIT or TEXT pointer below
+    C000h. Some games put text in the other header fields (Hydlide 3 spells its name over them), which the strict sniff of
+    looks_like_cartridge refuses."""
+    size = len(image)
+    if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
+        return False
+    for offset in (0, 0x4000):
+        if offset + 16 > size or image[offset:offset + 2] != b'AB':
+            continue
+        init = int.from_bytes(image[offset + 2:offset + 4], 'little')
+        text = int.from_bytes(image[offset + 8:offset + 10], 'little')
+        if 0 < init < 0xC000 or (not init and 0 < text < 0xC000):
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class Cartridge:
     """A cartridge as the converter reads it: its bytes (from a file or from a ZIP member), their SHA-256 and the guess."""
@@ -193,16 +211,16 @@ class Cartridge:
 
 
 def read_cartridge(path) -> Cartridge:
-    """The cartridge at `path` (.rom, .mx1, or a ZIP holding one), refused with a sentence when it is none."""
+    """The cartridge at `path` (.rom, .mx1, .mx2, or a ZIP holding one), refused with a sentence when it is none."""
     import hashlib
     import zipfile
     from pathlib import Path
     path = Path(path)
     if path.suffix.lower() == '.zip':
         with zipfile.ZipFile(path) as bundle:
-            names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1'))]
+            names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1', '.mx2'))]
             if len(names) != 1:
-                raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom or .mx1).')
+                raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom, .mx1 or .mx2).')
             if bundle.getinfo(names[0]).file_size > MAX_CARTRIDGE:
                 raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
             data = bundle.read(names[0])
@@ -210,6 +228,6 @@ def read_cartridge(path) -> Cartridge:
         if path.stat().st_size > MAX_CARTRIDGE:
             raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
         data = path.read_bytes()
-    if not looks_like_cartridge(data):
+    if not has_header(data):
         raise ValueError(f'{path.name}: no MSX cartridge header ("AB" and its routine pointers).')
     return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data))

@@ -21,6 +21,10 @@ static void rebuild_regions(MsxMachine *m)
         if (d->kind == MSX_DEV_RAM && d->ram) {
             r->read = d->ram + start;
             r->write = d->ram + start;
+        } else if (d->kind == MSX_DEV_MAPPER_RAM && m->mapper.ram) {
+            uint8_t *base = m->mapper.ram + (uint32_t)m->mapper.reg[page] * 0x4000u + ((uint32_t)(i & 1) << 13);
+            r->read = base;
+            r->write = base;
         } else if (d->kind == MSX_DEV_ROM && d->rom) {
             if (d->block[i] >= 0)
                 r->read = d->rom + (uint32_t)d->block[i] * 0x2000u;
@@ -74,7 +78,14 @@ void msx_reset(MsxMachine *m)
     m->line = 0;
     m->cycles = 0;
     m->next_line = MSX_CYCLES_PER_LINE;
+    m->next_draw = MSX2_DRAW_AT;
+    m->vblank_line = MSX_VBLANK_LINE;
     m->frames = 0;
+    memset(m->mapper.reg, 0, sizeof m->mapper.reg);
+    if (m->has_rtc)
+        msx_rtc_reset(&m->rtc);
+    if (m->video == MSX_VIDEO_V9938)
+        msx_v9938_reset(m);
     msx_psg_reset(m);
     for (int p = 0; p < 4; ++p)
         for (int s = 0; s < 4; ++s)
@@ -98,7 +109,109 @@ void msx_print_state(const MsxMachine *m, FILE *out)
             fprintf(out, ", %u, %u, %u, %u]", d->scc_on, d->scc.enable, d->scc.period[0], d->scc.volume[0]);
             first = 0;
         }
-    fprintf(out, "], \"frame_trace\": %u, ", m->frame_trace);
+    fprintf(out, "], \"frame_trace\": %u, \"mapper\": ", m->frame_trace);
+    if (m->mapper.segments)
+        fprintf(out, "[%u, %u, %u, %u, %u], ", m->mapper.segments, m->mapper.reg[0], m->mapper.reg[1], m->mapper.reg[2],
+                m->mapper.reg[3]);
+    else
+        fprintf(out, "null, ");
+    fprintf(out, "\"v9938\": ");
+    if (m->video == MSX_VIDEO_V9938)
+        msx_v9938_print(m, out);
+    else
+        fprintf(out, "null");
+    fprintf(out, ", ");
+}
+
+void msx_set_mapper(MsxMachine *m, int primary, int secondary, uint8_t *ram, uint32_t segments)
+{
+    m->mapper.ram = ram;
+    m->mapper.segments = segments;
+    memset(m->mapper.reg, 0, sizeof m->mapper.reg);
+    MsxDevice d;
+    memset(&d, 0, sizeof d);
+    d.kind = MSX_DEV_MAPPER_RAM;
+    d.source = MSX_SOURCE_NONE;
+    msx_set_device(m, primary, secondary, d);
+}
+
+void msx_set_rtc(MsxMachine *m)
+{
+    m->has_rtc = 1;
+    msx_rtc_reset(&m->rtc);
+}
+
+void msx_set_v9938(MsxMachine *m, MsxV9938 *v9938)
+{
+    m->video = MSX_VIDEO_V9938;
+    m->v9938 = v9938;
+    memset(v9938, 0, sizeof *v9938);
+    msx_v9938_reset(m);
+}
+
+static uint32_t fnv_add(uint32_t h, const void *data, size_t size)
+{
+    const uint8_t *p = (const uint8_t *)data;
+    for (size_t i = 0; i < size; ++i) h = (h ^ p[i]) * 16777619u;
+    return h;
+}
+
+uint32_t msx_vram_hash(const MsxMachine *m)
+{
+    if (m->video == MSX_VIDEO_V9938)
+        return fnv_add(2166136261u, m->v9938->vram, sizeof m->v9938->vram);
+    return fnv_add(2166136261u, m->vdp.vram, sizeof m->vdp.vram);
+}
+
+uint32_t msx_ram_hash(const MsxMachine *m, const uint8_t *ram64)
+{
+    if (m->mapper.segments)
+        return fnv_add(2166136261u, m->mapper.ram, (size_t)m->mapper.segments * 0x4000u);
+    return fnv_add(2166136261u, ram64, 65536);
+}
+
+int msx_dump_frame(const MsxMachine *m, FILE *out)
+{
+    if (m->video == MSX_VIDEO_V9938)
+        return fwrite(m->v9938->frame, 1, sizeof m->v9938->frame, out) == sizeof m->v9938->frame
+            && fwrite(m->v9938->border, 1, sizeof m->v9938->border, out) == sizeof m->v9938->border;
+    return fwrite(m->vdp.frame, 1, sizeof m->vdp.frame, out) == sizeof m->vdp.frame
+        && fwrite(m->vdp.border, 1, sizeof m->vdp.border, out) == sizeof m->vdp.border;
+}
+
+int msx_dump_vram(const MsxMachine *m, FILE *out)
+{
+    if (m->video == MSX_VIDEO_V9938)
+        return fwrite(m->v9938->vram, 1, sizeof m->v9938->vram, out) == sizeof m->v9938->vram;
+    return fwrite(m->vdp.vram, 1, sizeof m->vdp.vram, out) == sizeof m->vdp.vram;
+}
+
+void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938)
+{
+    MsxDevice main;
+    memset(&main, 0, sizeof main);
+    main.kind = MSX_DEV_ROM;
+    main.rom = bios;
+    main.size = 0xC000;
+    main.source = 1;
+    msx_set_device(m, 0, 0, main);
+    msx_set_expanded(m, 3, 1);
+    MsxDevice sub = main;
+    sub.rom = bios + 0xC000;
+    sub.size = 0x4000;
+    sub.bank_base = 6;
+    msx_set_device(m, 3, 0, sub);
+    msx_set_mapper(m, 3, 2, mapper_ram, segments);
+    msx_set_rtc(m);
+    msx_set_v9938(m, v9938);
+}
+
+uint32_t msx_frame_hash(const MsxMachine *m)
+{
+    if (m->video == MSX_VIDEO_V9938)
+        return fnv_add(fnv_add(2166136261u, m->v9938->frame, sizeof m->v9938->frame), m->v9938->border,
+                       sizeof m->v9938->border);
+    return fnv_add(fnv_add(2166136261u, m->vdp.frame, sizeof m->vdp.frame), m->vdp.border, sizeof m->vdp.border);
 }
 
 void msx_key(MsxMachine *m, int row, int bit, int down)
@@ -238,6 +351,12 @@ static const uint8_t psg_masks[16] = { 0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0x1F,
 
 uint8_t msx_in(MsxMachine *m, uint8_t port)
 {
+    if (m->video == MSX_VIDEO_V9938 && port >= 0x98 && port <= 0x9B)
+        return msx_v9938_in(m, port);
+    if (port >= 0xFC && m->mapper.segments)
+        return msx_mapper_in(m, port);
+    if ((port == 0xB4 || port == 0xB5) && m->has_rtc)
+        return msx_rtc_in(m, port);
     switch (port) {
     case 0x98: return vdp_read_data(&m->vdp);
     case 0x99: return vdp_read_status(&m->vdp);
@@ -259,6 +378,19 @@ uint8_t msx_in(MsxMachine *m, uint8_t port)
 
 void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
 {
+    if (m->video == MSX_VIDEO_V9938 && port >= 0x98 && port <= 0x9B) {
+        msx_v9938_out(m, port, value);
+        return;
+    }
+    if (port >= 0xFC && m->mapper.segments) {
+        msx_mapper_out(m, port, value);
+        rebuild_regions(m);
+        return;
+    }
+    if ((port == 0xB4 || port == 0xB5) && m->has_rtc) {
+        msx_rtc_out(m, port, value);
+        return;
+    }
     switch (port) {
     case 0x98: vdp_write_data(&m->vdp, value); break;
     case 0x99: vdp_write_control(&m->vdp, value); break;
@@ -279,12 +411,19 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
 
 int msx_irq(const MsxMachine *m)
 {
+    if (m->video == MSX_VIDEO_V9938)
+        return msx_v9938_irq(m);
     return (m->vdp.status & 0x80) && (m->vdp.reg[1] & 0x20);
 }
 
 void msx_advance(MsxMachine *m, uint64_t cycles)
 {
     m->cycles += cycles;
+    if (m->video == MSX_VIDEO_V9938) {
+        msx_v9938_advance(m);
+        msx_psg_catch_up(m);
+        return;
+    }
     while (m->cycles >= m->next_line) {
         m->next_line += MSX_CYCLES_PER_LINE;
         if (m->line < MSX_HEIGHT)            /* the line that just ended is drawn with the state it ended with */

@@ -32,6 +32,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from retrorecomp.msx_build import MACHINE_SOURCES  # noqa: E402
 from retrorecomp.msx_cbios import ARCHIVE, MEMBERS, URL, VERSION  # noqa: E402  (the pin lives in the converter)
 JIFFY = 0xFC9E
 WORK = ROOT / '.build' / 'msx-reference'
@@ -238,12 +239,12 @@ def build() -> Path:
 project(MsxReference C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-set(machine "{native}/msx_machine.c" "{native}/msx_video.c" "{native}/msx_psg.c" "{native}/msx_cart.c")
+set(machine {' '.join(f'"{native}/{name}"' for name in MACHINE_SOURCES)})
 add_executable(msx_reference "{native}/msx_reference_main.c" ${{machine}} runtime_reference.c)
 target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}")
-add_executable(msx_hardware_checks "{native}/msx_hardware_checks.c" ${{machine}})
-target_include_directories(msx_hardware_checks PRIVATE "{native}")
-foreach(target msx_reference msx_hardware_checks)
+{"".join(f'add_executable({name} "{native}/{name}.c" ${{machine}})' + chr(10)
+         + f'target_include_directories({name} PRIVATE "{native}")' + chr(10) for name in CHECK_PROGRAMS)}
+foreach(target msx_reference {' '.join(CHECK_PROGRAMS)})
   target_compile_definitions(${{target}} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(NOT WIN32)
     target_link_libraries(${{target}} PRIVATE m)
@@ -263,18 +264,28 @@ endforeach()
     return build_executable(WORK / 'build', 'msx_reference')
 
 
+# The fixture programs built with the reference: the TMS9918A, AY-3-8910 and key click (stage 3), then the MSX2's V9938
+# registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6). Each prints "ok"/"FAIL" lines with
+# the hand-worked value next to the one found, and exits 1 on any failure.
+CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board')
+
+
 def hardware_checks() -> list[str]:
-    """Run the TMS9918A / AY-3-8910 fixtures (built with the reference); returns the failed lines."""
+    """Run every fixture program (built with the reference); returns the failed lines."""
     from retrorecomp.platforms import build_executable
-    exe = build_executable(WORK / 'build', 'msx_hardware_checks')
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-    result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=300, creationflags=flags)
-    print('hardware fixtures')
-    for line in result.stdout.splitlines()[:-1]:
-        print('  ' + line)
-    failed = [line for line in result.stdout.splitlines() if line.startswith('FAIL ')]
-    if result.returncode and not failed:
-        failed = [f'msx_hardware_checks exited {result.returncode}: {result.stderr.strip()}']
+    failed = []
+    for name in CHECK_PROGRAMS:
+        exe = build_executable(WORK / 'build', name)
+        result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=300, creationflags=flags)
+        print(f'hardware fixtures: {name}')
+        lines = [line for line in result.stdout.splitlines() if line.startswith(('ok', 'FAIL'))]
+        for line in lines:
+            print('  ' + line)
+        bad = [line for line in lines if line.startswith('FAIL')]
+        if result.returncode and not bad:
+            bad = [f'{name} exited {result.returncode}: {result.stderr.strip()}']
+        failed.extend(bad)
     return failed
 
 

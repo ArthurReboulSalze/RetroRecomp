@@ -234,7 +234,9 @@ NOT_INPUTS = (
     # Beetle's cpu.c for a check, never into a game.
     'native/psx_vector_checks/',
     # The MSX hardware checks (authored programs against the documented TMS9918A, PSG, PPI and mappers, run by tools/msx_reference.py): a check only.
-    'native/msx_machine/msx_hardware_checks.c')
+    'native/msx_machine/msx_hardware_checks.c',
+    # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
+    'native/msx_machine/msx2_checks_')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -677,18 +679,23 @@ INPUTS = _resolve({
     # native and reference runners the conversion builds to learn and compare, C-BIOS's notice and the host-kit adapter (host
     # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from
     # stamp_groups.
-    ('msx',): (
+    # The MSX2 (stage 6) is the same machine with the V9938, the memory mapper and the clock: both profiles own every file.
+    ('msx', 'msx2'): (
         'licenses/cbios.md',
         'native/hostkit/adapters/rrhk_msx.inc',
         'native/msx_machine/msx_cart.c',
         'native/msx_machine/msx_glue.inc',
         'native/msx_machine/msx_machine.c',
         'native/msx_machine/msx_machine.h',
+        'native/msx_machine/msx_msx2.c',
         'native/msx_machine/msx_native_main.c',
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
         'native/msx_machine/msx_tiles.inc',
+        'native/msx_machine/msx_v9938.c',
+        'native/msx_machine/msx_v9938_cmd.c',
+        'native/msx_machine/msx_v9938_draw.c',
         'native/msx_machine/msx_video.c',
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
@@ -975,7 +982,7 @@ INPUTS = _resolve({
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
     ),
-    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear and the MSX): what a machine declares
+    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).

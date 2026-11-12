@@ -23,11 +23,12 @@ from typing import Callable
 
 # The fields a native run must give exactly as the reference does: the CPU (main and shadow registers, I, R, IM, IFF, WZ),
 # time and interrupts, RAM, VRAM, the picture of the last frame and a running hash of every frame, the sound, the PSG, the
-# slots and the cartridge banks, and the watched bytes.
+# slots and the cartridge banks, the watched bytes; on the MSX2 the V9938 (registers, command registers, status, pointer,
+# palette, collision, blink, lines) and the memory mapper (null on both sides for an MSX1).
 COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2',
             'i', 'r', 'im', 'iff1', 'iff2', 'wz', 'halted', 'primary', 'secondary', 'vdp_regs', 'vdp_status', 'vram_fnv',
             'ram_fnv', 'frame_fnv', 'frame_trace', 'audio_samples', 'audio_fnv', 'psg', 'psg_latch', 'port_c', 'blocks',
-            'watch')
+            'watch', 'mapper', 'v9938')
 GAME_TOML = '''# MSX: the cartridge is source 0 of the region map; the BIOS is named in banked.sources.
 [game]
 output_prefix = "game"
@@ -41,8 +42,12 @@ extra = []
 blacklist = []
 '''
 # The machine and the glue, from native/msx_machine; the host kit's companions, from native/.
-MACHINE_FILES = ('msx_machine.c', 'msx_machine.h', 'msx_video.c', 'msx_tiles.inc', 'msx_psg.c', 'msx_cart.c', 'msx_glue.inc',
-                 'msx_native_main.c', 'msx_reference_main.c', 'msx_player.c')
+# The machine's C sources (both VDPs, the sound, the cartridges, the MSX2 board), compiled into every program; the files
+# they include; the mains and the glue.
+MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
+                   'msx_v9938_cmd.c', 'msx_msx2.c')
+MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_native_main.c',
+                 'msx_reference_main.c', 'msx_player.c')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
@@ -137,7 +142,7 @@ def stage_sources(work: Path) -> None:
 
 def project_cmake(version: str, game: bool) -> str:
     from . import hostkit
-    machine = 'msx_machine.c msx_video.c msx_psg.c msx_cart.c'
+    machine = ' '.join(MACHINE_SOURCES)
     lines = [
         'cmake_minimum_required(VERSION 3.20)',
         'project(RetroMsx LANGUAGES C)',

@@ -4,7 +4,8 @@
  * manual); openMSX was read to understand behaviour, nothing was copied from it.
  *
  * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c, the
- * cartridges (plain, Konami, Konami SCC with its sound chip, ASCII 8 KB and 16 KB) in msx_cart.c. No V9938 yet. A CPU (the reference interpreter, later the native bodies) calls msx_read /
+ * cartridges (plain, Konami, Konami SCC with its sound chip, ASCII 8 KB and 16 KB) in msx_cart.c. The MSX2's V9938 in
+ * msx_v9938*.c, its memory mapper and clock in msx_msx2.c. A CPU (the reference interpreter, later the native bodies) calls msx_read /
  * msx_write / msx_in / msx_out and advances time with msx_advance. */
 #ifndef RR_MSX_MACHINE_H
 #define RR_MSX_MACHINE_H
@@ -19,7 +20,7 @@ extern "C" {
 enum { MSX_CYCLES_PER_LINE = 228, MSX_LINES_NTSC = 262, MSX_LINES_PAL = 313, MSX_VBLANK_LINE = 192 };
 enum { MSX_KEY_ROWS = 11 };
 
-typedef enum { MSX_DEV_NONE = 0, MSX_DEV_ROM, MSX_DEV_RAM } MsxDeviceKind;
+typedef enum { MSX_DEV_NONE = 0, MSX_DEV_ROM, MSX_DEV_RAM, MSX_DEV_MAPPER_RAM } MsxDeviceKind;
 enum { MSX_SOURCE_NONE = 0xFF };
 
 /* The cartridge mappers of the first scope. A plain ROM has no register: it sits at `base`, and with `mirrored` its
@@ -59,6 +60,7 @@ typedef struct {
     int16_t block[8];      /* the 8 KB block of the image seen in each region, -1 for none (kept by the machine) */
     uint8_t scc_on;        /* Konami SCC: the SCC answers at 9800h-9FFFh */
     uint8_t source;        /* native code: which translated source the image is (0 cartridge, 1 BIOS), MSX_SOURCE_NONE if none */
+    uint8_t bank_base;     /* native code: the 8 KB bank of the source where this image starts (the MSX2 sub-ROM: 6) */
     MsxScc scc;
 } MsxDevice;
 
@@ -83,6 +85,52 @@ typedef struct {
     uint8_t frame[MSX_HEIGHT][MSX_WIDTH];
     uint8_t border[MSX_HEIGHT];
 } MsxVdp;
+
+/* The V9938 (MSX2; msx_v9938.c, msx_v9938_draw.c). The command engine is stage 7: msx_v9938_cmd.c latches its
+ * registers and reports an idle engine. */
+enum { MSX_VIDEO_TMS9918A = 0, MSX_VIDEO_V9938 = 1 };
+enum { MSX2_WIDTH = 512, MSX2_LINES = 212, MSX2_VRAM = 0x20000, MSX2_DRAW_AT = 180 };
+
+typedef struct {
+    uint8_t reg[15];                   /* R#32-R#46 as written */
+    uint8_t colour;                    /* S#7 */
+    uint16_t border_x;                 /* S#8, S#9 */
+    uint64_t done_at;                  /* stage 7: the machine cycle the running command ends */
+    uint64_t writes;                   /* writes to R#46 (commands started), reported */
+} MsxV9938Cmd;
+
+typedef struct {
+    uint8_t vram[MSX2_VRAM];           /* index (R#14 << 14) | pointer */
+    uint8_t reg[48];                   /* R#0-R#23 masked; R#32-R#46 mirror cmd.reg */
+    uint8_t status0, status1, status2; /* S#0; S#1 FH latch; S#2 EO in bit 1 */
+    uint16_t pointer;                  /* 14 bits */
+    uint8_t latch, first, readahead;   /* port 99h latch and its first byte; the data buffer of port 98h */
+    uint8_t pal_latch, pal_first;      /* port 9Ah two-byte latch */
+    uint16_t palette[16];              /* 0GGG0RRR0BBB */
+    uint16_t collision_x, collision_y; /* S#3-S#6 */
+    uint8_t blink_on, blink_count;     /* R#13 */
+    uint8_t lines_latched;             /* 192 or 212, taken at frame start */
+    int8_t adjust_h, adjust_v;         /* R#18 at frame start */
+    /* The picture: 9-bit colours, palette applied when the line was drawn; 256-pixel modes doubled. The border colour of
+     * each line (even and odd half-pixels: Graphic 5 pairs). */
+    uint16_t frame[MSX2_LINES][MSX2_WIDTH];
+    uint16_t border[MSX2_LINES][2];
+    uint8_t line_mode[MSX2_LINES];
+    MsxV9938Cmd cmd;
+} MsxV9938;
+
+/* The MSX2 memory mapper (ports FCh-FFh): RAM in 16 KB segments, one register per page. */
+typedef struct {
+    uint8_t *ram;
+    uint32_t segments;                 /* a power of two, 4 to 256 */
+    uint8_t reg[4];
+} MsxMapperRam;
+
+/* The RP5C01 clock (ports B4h/B5h): four blocks of 13 nibbles, the mode register; it runs on machine time only. */
+typedef struct {
+    uint8_t latch, mode, test, nibble[4][13];
+    uint64_t counted;                  /* machine cycles already turned into seconds */
+} MsxRtc;
 
 enum { MSX_AUDIO_RATE = 44100, MSX_AUDIO_BUFFER = 8192, MSX_CPU_CLOCK = 3579545 };
 
@@ -128,9 +176,17 @@ typedef struct {
                              * of the machine must rebuild them, see msx_set_device) */
     int scc_count;
     unsigned lines_per_frame;
+    unsigned vblank_line;  /* the line whose start raises the frame flag: 192 (TMS9918A) or 192/212 (V9938, R#9) */
     unsigned line;
     uint64_t cycles;       /* machine cycles, M1 wait states included */
     uint64_t next_line;
+    uint64_t next_draw;    /* V9938: the draw point of the current line (MSX2_DRAW_AT cycles after its start) */
+    uint8_t video;         /* MSX_VIDEO_TMS9918A or MSX_VIDEO_V9938 */
+    uint8_t standard_pal;  /* the board's standard (the TMS9918A's lines; the V9938 starts there, then follows R#9) */
+    MsxV9938 *v9938;       /* the MSX2's VDP, storage owned by the caller (msx_set_v9938) */
+    MsxMapperRam mapper;   /* MSX2: segments 0 when absent */
+    MsxRtc rtc;
+    uint8_t has_rtc;
     uint64_t frames;
     uint64_t unmapped_reads, dropped_writes;
 } MsxMachine;
@@ -168,7 +224,47 @@ unsigned msx_audio_take(MsxMachine *m, int16_t *out, unsigned max);
 #include <stdio.h>
 void msx_print_state(const MsxMachine *m, FILE *out);
 
+/* MSX2: the V9938 (its storage given by the caller, zeroed and reset here), the memory mapper (RAM of `segments` x 16 KB
+ * given by the caller, placed in slot primary-secondary) and the RP5C01 clock. Call after msx_init. */
+void msx_set_v9938(MsxMachine *m, MsxV9938 *v9938);
+void msx_set_mapper(MsxMachine *m, int primary, int secondary, uint8_t *ram, uint32_t segments);
+void msx_set_rtc(MsxMachine *m);
+
+/* The MSX2 board as C-BIOS lays it out (used for C-BIOS and for the player's own BIOS): slot 0 holds the main ROM and the
+ * logo page (bytes 0000h-BFFFh of `bios`), slot 3 is expanded with the sub-ROM in 3-0 (bytes C000h-FFFFh of `bios`) and
+ * the mapper RAM in 3-2; the RP5C01 and the V9938. `bios` is the 64 KB BIOS source (native code: source 1, the sub-ROM
+ * from its bank 6). The cartridge goes in slot 1 as on the MSX1. Call after msx_init. */
+void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
+
+/* The picture, VRAM and RAM hashes the runners report (FNV-1a), for either machine (`ram64` is the MSX1's RAM; the
+ * MSX2's is the mapper's), and the raw picture and VRAM for tools. */
+uint32_t msx_vram_hash(const MsxMachine *m);
+uint32_t msx_frame_hash(const MsxMachine *m);
+uint32_t msx_ram_hash(const MsxMachine *m, const uint8_t *ram64);
+int msx_dump_frame(const MsxMachine *m, FILE *out);
+int msx_dump_vram(const MsxMachine *m, FILE *out);
+
 /* Internal pieces shared by the machine's files. */
+void msx_v9938_reset(MsxMachine *m);
+uint8_t msx_v9938_in(MsxMachine *m, uint8_t port);
+void msx_v9938_out(MsxMachine *m, uint8_t port, uint8_t value);
+int msx_v9938_irq(const MsxMachine *m);
+void msx_v9938_advance(MsxMachine *m);
+void msx_v9938_draw_line(MsxMachine *m, int line);
+void msx_v9938_sprites(MsxMachine *m, int line, uint16_t *pixels);
+void msx_v9938_print(const MsxMachine *m, FILE *out);
+uint8_t msx_mapper_in(const MsxMachine *m, uint8_t port);
+void msx_mapper_out(MsxMachine *m, uint8_t port, uint8_t value);
+uint8_t msx_rtc_in(MsxMachine *m, uint8_t port);
+void msx_rtc_out(MsxMachine *m, uint8_t port, uint8_t value);
+void msx_rtc_reset(MsxRtc *r);
+/* Stage 7 hooks: the command engine (a latch-only stub in stage 6). */
+void msx_v9938_cmd_write(MsxMachine *m, int index, uint8_t value);
+uint8_t msx_v9938_cmd_status(MsxMachine *m);
+uint8_t msx_v9938_cmd_read_colour(MsxMachine *m);
+uint16_t msx_v9938_cmd_border_x(MsxMachine *m, int clear);
+void msx_v9938_cmd_sync(MsxMachine *m, uint64_t cycle);
+void msx_v9938_cmd_reset(MsxMachine *m);
 void msx_vdp_draw_line(MsxMachine *m, int line);
 void msx_vdp_check_line(MsxMachine *m, int line);
 void msx_psg_reset(MsxMachine *m);

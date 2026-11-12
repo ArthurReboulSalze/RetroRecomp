@@ -14,10 +14,10 @@ enum {
     RR_FB_NG_ROM=10, RR_FB_NG_RAM=11, RR_FB_NG_Z80=12, RR_FB_X68000=13,
     RR_FB_CPS1_ROM=14, RR_FB_CPS1_RAM=15, RR_FB_CPS1_Z80=16,
     RR_FB_CPS2_ROM=17, RR_FB_CPS2_RAM=18, RR_FB_CPS2_Z80=19, RR_FB_PCE=20, RR_FB_GBA=21, RR_FB_AMIGA=22, RR_FB_PSX=23,
-    RR_FB_ATARIST=24, RR_FB_N64=25, RR_FB_MSX=26,
+    RR_FB_ATARIST=24, RR_FB_N64=25, RR_FB_MSX=26, RR_FB_MSX2=27,
     /* The largest kind a profile may declare (feedback_kinds); a larger one is refused as garbage.
      * tests/test_system_profiles.py checks it covers every profile. */
-    RR_FB_MAX_KIND=26
+    RR_FB_MAX_KIND=27
 };
 void rr_feedback_start(int gameplay);
 int rr_feedback_enabled(void);

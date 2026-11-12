@@ -26,8 +26,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 
 | Upstream | Consoles | Pin | Full revision | Pinned in |
 |---|---|---|---|---|
-| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
-| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
+| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx, msx2 | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
+| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx, msx2 | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
 | [arcanite24/gb-recompiled](https://github.com/arcanite24/gb-recompiled) | gb | `9150f87` | `9150f87d82fa98abcb6ea22329170463f9702eb8` | `gameboy.ENGINE_REV` |
 | [mstan/nesrecomp](https://github.com/mstan/nesrecomp) | nes | `1b0c621` | `1b0c621a927db17afa9723bf456a89ad15809907` | `nes.ENGINE_REV` |
 | [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, cps2, x68, atarist | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
@@ -48,7 +48,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx) | n64 | `15bada8` | `15bada85906593376e8fd697f1b0b3af3a20f512` | `n64_core.CORE_REV` |
 | [emutos/emutos](https://github.com/emutos/emutos) | atarist | `978e375` (tag `VERSION_1_4`, release 1.4) | `978e37569bff95841e42675d11fcc6799aad8483` | `atarist_emutos.RELEASE_REV` |
 | [libretro/beetle-psx-libretro](https://github.com/libretro/beetle-psx-libretro) | psx | `71ee81e` | `71ee81e77acd49296ecf4a683f5a61568ba80bf9` | `psx_beetle.BEETLE_REV` |
-| [cbios/cbios](https://sourceforge.net/projects/cbios/) (SourceForge) | msx | `0.29a` (release 0.29a) | `0.29a` | `msx_cbios.VERSION` (also the archive's SHA-256 in `msx_cbios.ARCHIVE`) |
+| [cbios/cbios](https://sourceforge.net/projects/cbios/) (SourceForge) | msx, msx2 | `0.29a` (release 0.29a) | `0.29a` | `msx_cbios.VERSION` (also the archive's SHA-256 in `msx_cbios.ARCHIVE`) |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | all | `5d24957` (release 2.32.10) | `5d249570393f7a37e037abf22cd6012a4cc56a71` | `core.SDL_REV` |
 | [mstorsjo/llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | all (Windows build) | `20261006` | `20261006` | `toolchain.LLVM_MINGW_VERSION` |
 | [Kitware/CMake](https://github.com/Kitware/CMake) | all (Windows build) | `4.4.4` | `4.4.4` | `toolchain.CMAKE_VERSION` |

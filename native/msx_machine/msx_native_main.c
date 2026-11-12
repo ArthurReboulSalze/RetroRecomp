@@ -71,15 +71,14 @@ static void finish(void)
         for (int i = 0; f && i < learned_count; ++i) fprintf(f, "%08X\n", (unsigned)learned[i]);
         if (f) fclose(f);
     }
-    uint32_t frame_hash = fnv_add(fnv_add(2166136261u, &machine.vdp.frame[0][0], sizeof machine.vdp.frame),
-                                  machine.vdp.border, sizeof machine.vdp.border);
+    uint32_t frame_hash = msx_frame_hash(&machine);
     if (frame_out) {
         FILE *f = fopen(frame_out, "wb");
-        if (f) { fwrite(machine.vdp.frame, 1, sizeof machine.vdp.frame, f); fwrite(machine.vdp.border, 1, sizeof machine.vdp.border, f); fclose(f); }
+        if (f) { msx_dump_frame(&machine, f); fclose(f); }
     }
     if (vram_out) {
         FILE *f = fopen(vram_out, "wb");
-        if (f) { fwrite(machine.vdp.vram, 1, sizeof machine.vdp.vram, f); fclose(f); }
+        if (f) { msx_dump_vram(&machine, f); fclose(f); }
     }
     printf("{\"engine\": \"native\", \"frames\": %llu, \"cycles\": %llu, \"interrupts\": %llu, "
            "\"pc\": %u, \"pc_slot\": %u, \"sp\": %u, \"af\": %u, \"bc\": %u, \"de\": %u, \"hl\": %u, \"ix\": %u, \"iy\": %u, "
@@ -93,8 +92,7 @@ static void finish(void)
            z80_hl(&g_z80), g_z80.ix, g_z80.iy, g_z80.iff1, g_z80.halted, machine.primary, machine.secondary[0],
            machine.secondary[1], machine.secondary[2], machine.secondary[3], machine.vdp.reg[0], machine.vdp.reg[1],
            machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4], machine.vdp.reg[5], machine.vdp.reg[6],
-           machine.vdp.reg[7], machine.vdp.status, fnv_add(2166136261u, machine.vdp.vram, sizeof machine.vdp.vram),
-           fnv_add(2166136261u, ram, sizeof ram), frame_hash, (unsigned long long)samples, audio_hash,
+           machine.vdp.reg[7], machine.vdp.status, msx_vram_hash(&machine), msx_ram_hash(&machine, ram), frame_hash, (unsigned long long)samples, audio_hash,
            (unsigned long long)banked_native_steps, (unsigned long long)banked_halt_steps,
            (unsigned long long)banked_fallback_steps, (unsigned long long)banked_guarded_steps,
            (unsigned long long)g_hybrid_cyc);
@@ -129,7 +127,8 @@ static long load(const char *path, uint8_t *into, long limit)
 
 int main(int argc, char **argv)
 {
-    const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *layout = "basic";
+    const char *main_rom = NULL, *logo_rom = NULL, *sub_rom = NULL, *cart_rom = NULL, *layout = "basic";
+    unsigned long mapper_kib = 256;
     unsigned long cart_base = 0x4000;
     int pal = 0, mirrored = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
@@ -142,6 +141,8 @@ int main(int argc, char **argv)
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
         else if (!strcmp(a, "--logo")) logo_rom = v;
+        else if (!strcmp(a, "--sub")) sub_rom = v;
+        else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--layout")) layout = v;
@@ -171,16 +172,23 @@ int main(int argc, char **argv)
     memset(slot0, 0xFF, sizeof slot0);
     load(main_rom, slot0, 0x8000);
     if (logo_rom) load(logo_rom, slot0 + 0x8000, 0x4000);
+    memset(ram, 0, sizeof ram);
+    if (sub_rom) {                               /* MSX2: the sub-ROM ends the BIOS source; the board of msx_setup_msx2 */
+        uint32_t segments = (uint32_t)(mapper_kib / 16);
+        if (segments < 4 || segments > 256 || (segments & (segments - 1))) { fprintf(stderr, "bad --mapper-kib\n"); return 2; }
+        load(sub_rom, slot0 + 0xC000, 0x4000);
+        msx_setup_msx2(&machine, slot0, mapper_ram, segments, &v9938);
+    } else {
     MsxDevice bios = { MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL };
     bios.source = 1;                             /* the BIOS is the second translated source (banked.sources) */
     msx_set_device(&machine, 0, 0, bios);
-    memset(ram, 0, sizeof ram);
     if (!strcmp(layout, "expanded")) {
         msx_set_expanded(&machine, 3, 1);
         msx_set_device(&machine, 3, 2, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else if (!strcmp(layout, "basic")) {
         msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else { fprintf(stderr, "unknown layout %s\n", layout); return 2; }
+    }
     if (cart_rom) {
         memset(cart, 0xFF, sizeof cart);
         long n = load(cart_rom, cart, (long)sizeof cart);

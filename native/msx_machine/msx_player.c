@@ -25,9 +25,10 @@ static char player_config[1024] = "player.cfg";
 #include "hostkit/adapters/rrhk_msx.inc"
 
 static volatile int frame_ended;
-/* The picture is whole and the VDP raises its frame flag at line 192: the frame is handed over there, so the inputs taken
- * back reach the game's own vertical-blank interrupt that follows (not one frame later). */
-static void line_hook(void) { if (machine.line == MSX_VBLANK_LINE) frame_ended = 1; }
+/* The picture is whole and the VDP raises its frame flag at the first line after the picture (192, or 212 on a V9938 set
+ * so): the frame is handed over there, so the inputs taken back reach the game's own vertical-blank interrupt that follows
+ * (not one frame later). */
+static void line_hook(void) { if (machine.line == machine.vblank_line) frame_ended = 1; }
 
 static void power_on(void)
 {
@@ -78,17 +79,22 @@ static int run(void)
 {
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
-    if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0) {
+    if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0
+        || (RR_MSX_MODEL == 2 && bios_size != 0x10000)) {
         fprintf(stderr, "[msx] the game's cartridge or BIOS resource is missing\n");
         return 3;
     }
     msx_init(&machine, RR_MSX_PAL ? MSX_LINES_PAL : MSX_LINES_NTSC);
     memset(slot0, 0xFF, sizeof slot0);
     memcpy(slot0, bios_image, bios_size);
-    MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
-    bios.source = 1;
-    msx_set_device(&machine, 0, 0, bios);
-    msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
+    if (RR_MSX_MODEL == 2) {                      /* the MSX2 board: main, logo page and sub-ROM in one BIOS source */
+        msx_setup_msx2(&machine, slot0, mapper_ram, RR_MSX_MAPPER_SEGMENTS, &v9938);
+    } else {
+        MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
+        bios.source = 1;
+        msx_set_device(&machine, 0, 0, bios);
+        msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
+    }
     memset(cart, 0xFF, sizeof cart);
     memcpy(cart, cartridge, cart_size);
     MsxDevice device = { MSX_DEV_ROM, cart, (uint32_t)cart_size, RR_MSX_CART_BASE, NULL };
@@ -98,7 +104,7 @@ static int run(void)
     msx_set_device(&machine, 1, 0, device);
     machine.line_hook = line_hook;
     prepare_data_folder();
-    if (!msx_host_open(RR_MSX_TITLE, 3, RR_MSX_PAL)) return 4;
+    if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL == 2 ? 2 : 3, &machine)) return 4;
     power_on();
     smsrecomp_banked_run();                       /* returns through exit() when the player quits */
     return 0;
