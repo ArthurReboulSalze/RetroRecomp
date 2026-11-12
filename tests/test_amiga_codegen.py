@@ -179,14 +179,14 @@ class AmigaCodegenTest(unittest.TestCase):
         # $1000: a return, so nothing falls through it; a subroutine further in the page, and another in the next page.
         memory = [(0x1000, b'\x4e\x75' + b'\x00\x00' * 7 + b'\x70\x01'), (0x2000, b'\x70\x01')]
         self.assertEqual(amiga_codegen.sweep([(0x1000, '4e75')], [memory], observed=observed), [(0x1010, '7001')])
-        self.assertEqual(amiga_codegen.sweep([(0x1000, '4e75')], [], observed=observed, rom_images=[memory]), [])
 
     def test_a_sweep_starts_only_where_the_image_still_holds_what_was_observed(self):
         self.sweep_table()
         observed = get_profile('amiga').observed_code
-        # The code of $1000 was replaced: its branch names nothing any more; in a ROM image nothing else is added.
-        memory = self.image(0x1000, 0x7001, 0x4e71)
-        self.assertEqual(amiga_codegen.sweep([(0x1000, '6604')], [], observed=observed, rom_images=[memory]), [])
+        # The code of $1000 (BRA to $2000) was replaced: the walk does not follow a branch the image no longer holds; the page fill
+        # takes what is there now, and $2000, in another page, stays out.
+        memory = [(0x1000, b'\x70\x01\x4e\x75'), (0x2000, b'\x70\x02')]
+        self.assertEqual(amiga_codegen.sweep([(0x1000, '60000ffe')], [memory], observed=observed), [(0x1000, '7001'), (0x1002, '4e75')])
 
     def test_a_sweep_keeps_the_words_of_an_instruction_and_is_bounded(self):
         self.sweep_table()
@@ -194,6 +194,30 @@ class AmigaCodegenTest(unittest.TestCase):
         memory = self.image(0x1000, 0x4e71, 0x303c, 0x1234, 0x4e71, 0x4e71, 0x4e71)
         self.assertEqual(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed)[0], (0x1002, '303c1234'))
         self.assertEqual(len(amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, limit=2)), 2)
+        # The bound is never silent: what it left out is counted, per image and phase.
+        cut: dict = {}
+        amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, limit=2, cut=cut)
+        self.assertEqual((cut['limit'], cut['instructions'], cut['reached']), (2, 2, True))
+        self.assertEqual(cut['left_out'], cut['reachable'] - 2)
+        self.assertGreater(cut['left_out'], 0)
+        free: dict = {}
+        amiga_codegen.sweep([(0x1000, '4e71')], [memory], observed=observed, cut=free)
+        self.assertEqual((free['reached'], free['left_out'], free['instructions']), (False, 0, free['reachable']))
+
+    def test_the_bound_is_shared_so_one_image_cannot_take_it_all(self):
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        # Image 1 has a long run of code to walk; image 2 holds other code in the same page. With a bound of 4, the first image's walk
+        # used to take all 4; now each bucket that wants some gets its share.
+        first = self.image(0x1000, 0x4e71, *([0x4e71] * 12))
+        second = [(0x1000, b'\x4e\x71' + b'\x70\x01' * 12)]
+        cut: dict = {}
+        kept = amiga_codegen.sweep([(0x1000, '4e71')], [first, second], observed=observed, limit=4, cut=cut)
+        self.assertEqual(len(kept), 4)
+        self.assertTrue(any(text == '7001' for _, text in kept))
+        self.assertEqual(sum(share for *_, share in cut['buckets']), 4)
+        # Under the bound nothing changes: everything reachable, in the order found.
+        self.assertEqual(len(amiga_codegen.sweep([(0x1000, '4e71')], [first, second], observed=observed)), cut['reachable'])
 
     def test_a_sweep_leaves_a_window_no_code_can_be_in(self):
         self.sweep_table()

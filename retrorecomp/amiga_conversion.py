@@ -85,10 +85,29 @@ def main_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int
     if 1040 < frames:
         events.append((1000, 1040, 'mouse', 0, 3))
         events.append((1000, 1040, 'mouse', 1, 2))
-    for start, key in ((500, 0x40), (800, 0x44), (1700, 0x40)):
+    # Space, Return, and the keys 1 and 2 a menu of choices waits for (Civilization: "1) Mouse + Keyboard  2) Keyboard"; Arthur, 12 Nov).
+    for start, key in ((400, 0x01), (500, 0x40), (800, 0x44), (1300, 0x02), (1700, 0x40)):
         if key != key_exit and start + 6 < frames:
             events.append((start, start + 6, 'key', key, 1))
     return sorted(events)
+
+
+# Installs whose main route must first answer a screen no generic script passes, by the install's SHA-256 (numbers about an install,
+# never its bytes): the frames the route needs at least, the answer, and the frame from which the generic main route follows it.
+# Monkey Island 2 (its "lame-o" copy protection takes any recipe digits, then a box clicked with the mouse; Arthur, 12 Nov).
+ROUTE_ANSWERS = {
+    'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596': {
+        'frames': 7000, 'then': 3100,
+        'events': ([(1900, 1906, 'key', 0x44, 1)] + [(2200 + 50 * n, 2206 + 50 * n, 'key', code, 1) for n, code in enumerate((1, 2, 3, 4))]
+                   + [(2450, 2456, 'key', 0x44, 1), (2800, 2814, 'mouse', 0, 3), (2850, 2872, 'mouse', 1, 6), (3000, 3006, 'mouse', 2, 1)])},
+}
+
+
+def answered_route(answer: dict, frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
+    """The main route of an install that must answer a screen first: the answer, then the generic main route from `then` on."""
+    then = answer['then']
+    return sorted(list(answer['events']) + [(begin + then, end + then, kind, code, value)
+                                            for begin, end, kind, code, value in main_route(frames - then, key_exit)])
 
 
 def explore_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
@@ -370,7 +389,7 @@ def display_counts(report: dict) -> dict:
             'sprite_slot_events_left_out': counts.get('sprite_slots_left_out', 0)}
 
 
-def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=(), windows: list = ()) -> dict:
+def generate(project: Path, samples: list, table: Path, images: list = (), reports=(), windows: list = ()) -> dict:
     """The native code of these observations, of what a sweep reaches from them over these images of memory, of the Blitter shapes these reports saw and of the windows of a player's own record (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
     observed = get_profile('amiga').observed_code
@@ -378,9 +397,11 @@ def generate(project: Path, samples: list, table: Path, images: list = (), rom_i
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
     learned, walked = amiga_codegen.walk_records(windows, observed=observed)
-    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images),
-                                      shapes=amiga_codegen.blit_shapes(reports), learned=learned, walked=walked)
-    return {**steps, 'opcode_table_sha256': file_sha256(table)}
+    cut: dict = {}
+    swept = amiga_codegen.sweep(samples, images, observed=observed, cut=cut)
+    steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=swept, shapes=amiga_codegen.blit_shapes(reports), learned=learned,
+                                      walked=walked)
+    return {**steps, 'opcode_table_sha256': file_sha256(table), 'sweep_cut': cut}
 
 
 # ---------------------------------------------------------------------------------------------------------- replays
@@ -574,14 +595,19 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             place_kickstart(work / 'install', kick)
         slave: amiga_whdload.Slave = extracted['install'].slave
         count = max(1000, min(int(frames or 3000), 36000))
-        routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
+        answer = ROUTE_ANSWERS.get(source.sha256) if qualification_events is None else None
+        if answer:
+            main_frames = max(count, answer['frames'])
+            routes = [('main', main_frames, answered_route(answer, main_frames, slave.key_exit))]
+        else:
+            routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
         if level != 'quick':
             routes.append(('explore', count, explore_route(count, slave.key_exit)))
         from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
         for index in range(LONG_ROUTES.get(level, 0)):
             routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES, long_route(source.sha256, index, LONG_ROUTE_FRAMES, slave.key_exit)))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
-        emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {count} frames, interpreted 68000).')
+        emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {", ".join(str(f) for _, f, _ in routes)} frames, interpreted 68000).')
         expected = {}
         with timings.phase('reference_runs'):
             for name, frames_, _ in routes:
@@ -634,8 +660,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
                 images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
-                rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images, expected.values(), windows)
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, expected.values(), windows)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
@@ -756,6 +781,14 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'native_forms': {'forms': generation['forms'], 'translated_forms': generation['translated_forms'], 'instructions': generation['native_instructions'],
                              'translated_instructions': generation['translated_instructions'], 'swept_instructions': generation['swept_instructions'],
                              'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)',
+                             'sweep_limit': (generation.get('sweep_cut') or {}).get('limit'),
+                             'sweep_limit_reached': bool((generation.get('sweep_cut') or {}).get('reached')),
+                             'sweep_reachable': (generation.get('sweep_cut') or {}).get('reachable'),
+                             'sweep_left_out': (generation.get('sweep_cut') or {}).get('left_out', 0),
+                             'sweep_buckets': (generation.get('sweep_cut') or {}).get('buckets', []),
+                             'sweep_left_out_means': ('instructions the sweep reached and the bound left out (the bound is shared equally between each '
+                                                      "image's branch walk and page fill: sweep_buckets gives image, phase, reached, kept); if one ever "
+                                                      'runs, it runs on the counted interpreter'),
                              'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
                              'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it (final_checks.native_learned counts those that ran)",
                              'walked_means': "reached by walking the window a player's session noted: it may never have run there, and no route proves it (final_checks.native_walked counts those that ran)"},

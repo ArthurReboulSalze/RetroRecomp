@@ -1,7 +1,13 @@
 /* Original Retro-Recomp, MIT. The Amiga's own part of the player menus on the host kit: the keyboard row of the F2 options
- * ("Keyboard (Ctrl+Alt+K): game controls / computer only", from rrhk_computer.inc) and the Ctrl+Alt+K chord. The player is
- * compiled with stubs for the machine session (no vAmiga needed): only the adapter and the kit run. */
+ * ("Keyboard (Ctrl+Alt+K): game controls / computer only", from rrhk_computer.inc) and the Ctrl+Alt+K chord; and the click that
+ * captures the mouse, which is the host's and never the guest's left button (rrhk_computer.inc). The player is compiled with stubs
+ * for the machine session (no vAmiga needed): only the adapter and the kit run, with SDL's dummy video driver (no window shown).
+ * SDL_PushEvent does not move SDL's own button state, so the button state the player reads each frame is the harness's. */
 #include <SDL.h>
+static Uint32 harness_buttons;
+static int harness_left = -1;
+static Uint32 harness_relative_state(int *x, int *y) { if (x) *x = 0; if (y) *y = 0; return harness_buttons; }
+#define SDL_GetRelativeMouseState harness_relative_state
 #define main rr_unused_player_main
 #include "../native/amiga_machine/amiga_player.c"
 #include "hostkit/hostkit_internal.h"
@@ -10,7 +16,7 @@
 /* The session is not part of this check. */
 RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, size_t error_size) { (void)game; (void)error; (void)error_size; return NULL; }
 void rr_amiga_joystick(RrAmigaSession *s, unsigned bits) { (void)s; (void)bits; }
-void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right) { (void)s; (void)dx; (void)dy; (void)left; (void)right; }
+void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right) { (void)s; (void)dx; (void)dy; (void)right; harness_left = left; }
 void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) { (void)s; (void)held; }
 int rr_amiga_frame(RrAmigaSession *s) { (void)s; return -1; }
 const char *rr_amiga_error(const RrAmigaSession *s) { (void)s; return "stub"; }
@@ -67,6 +73,30 @@ int main(int argc, char **argv) {
    player_load(NULL);
    check(guest_keyboard, "the game's own player.cfg gives the keyboard back to the computer");
    remove(player_config);
+
+   /* The click that captures the mouse is the host's: consumed, the mouse captured, and the guest's left button stays up while that
+    * click is held; the next press is the guest's. */
+   {
+      SDL_Event click;
+      guest_keyboard = false; mouse_game = false; mouse_grab = false; input_focus = true; ui->menu = 0; ui->paused = 0;
+      memset(&click, 0, sizeof click); click.type = SDL_MOUSEBUTTONDOWN; click.button.button = SDL_BUTTON_LEFT;
+      harness_buttons = SDL_BUTTON_LMASK;
+      check(machine->event(&click, &harness_running) && mouse_grab, "the click that captures the mouse is consumed by the host");
+      a_inputs();
+      check(harness_left == 0, "while the capturing click is held, the guest's left button is up");
+      a_inputs();
+      check(harness_left == 0, "still up on the next frame while it is held");
+      harness_buttons = 0;
+      a_inputs();
+      check(harness_left == 0, "released: up");
+      harness_buttons = SDL_BUTTON_LMASK;
+      check(!machine->event(&click, &harness_running), "a click on a captured mouse is not the host's");
+      a_inputs();
+      check(harness_left == 1, "the next press is the guest's left button");
+      harness_buttons = 0;
+      a_inputs();
+      check(harness_left == 0, "and its release too");
+   }
    printf("%u checks, %u failures\n", checks, failures);
    SDL_Quit();
    return failures ? 1 : 0;

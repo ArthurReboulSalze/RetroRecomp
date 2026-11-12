@@ -685,6 +685,185 @@ The cartridge's save file beside the game was written three times: `native/md_ba
 **Proof.** `tools/cart_save_selftest.py` builds each machine's own entry points with `native/cart_save_checks.c` over a stand-in memory, with the portable toolchain (llvm-mingw), and runs them in a scratch folder: a fresh save and its pacing, a reload, nineteen kinds of file (empty, short header, short or long payload, another magic, version, size, ROM, identity word or hash, a changed byte, bytes no field covers), a folder where the file should be, a file where the folder should be, read-only files, the ninety-nine names taken, and the cases where saving is off. The program checks the written file against its own writer of the format and prints every result, notice, memory hash and byte left on disk. With `--against 683f22ea` (the sources of 1.7.2) it builds those too and requires the same log: 289 lines for the Mega Drive, 306 for the Super Nintendo, 326 for the PC Engine, equal line by line, so the bytes on disk are equal before and after. A change of the pacing by one millisecond in the new file is caught by the same comparison. The other self-tests of these saves (`megadrive_sram_selftest.py` and the Mega Drive and Super Nintendo cartridge checks) read the new file list.
 
 **Hot path:** no (the file is looked at twice a second, outside the frame). **What moves:** the Mega Drive, Super Nintendo and PC Engine game stamps (`native/cart_save.c`, `native/cart_save.h`, the three machines' files, `console16.py`, `pce_build.py`): md `ed3a49ab59a8` to `fe76d6ca02f8`, snes `064bd8544d76` to `9926f19eb43f`, pce `aa7913b68d39` to `bcb4ccd25784`. Because `retrorecomp/console16.py` is a module of the whole 16-bit family, the game stamps of the Neo Geo, the CPS-1, the CPS-2 and the PlayStation move with it (`b45ca489a2c9` to `7ac8db94e287`, `28dd85714948` to `8a2840f6e587`, `cb7b5d304275` to `dff3d26878f1`, `4a3b197254a5` to `8b76809837b2`) although what their games run does not change; their host and build stamps do not move, and neither do any other console's. **Quick states:** unchanged: no state holds the save file and no layout moves. The Mega Drive and Super Nintendo quick-state keys hash their listed native files, so their values move with this change: a quick state of 1.7.2 of those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state, and cartridge saves are kept. The PC Engine key does not hash these files.
+## Commodore Amiga: what the sweep's bound leaves out is counted (after 1.7.3)
+
+**What changes.** The sweep beyond the routes stops at 150,000 instructions per conversion (`SWEEP_LIMIT`). Until now it stopped
+there silently: Cyber Games reached it exactly. The bound stays where it is, but `native_forms` now reports what it left out:
+- `sweep_limit` and `sweep_limit_reached`;
+- `sweep_left_out.walk_places_left`: the places a branch walk had queued and not reached;
+- `sweep_left_out.page_addresses_left`: the even addresses of the 4 KiB pages where code ran that were not tried.
+
+The same figures are in `native_validation.generation.sweep_cut`. They count candidates, not instructions: most of those addresses
+hold no code. Whatever they hold, if it ever runs, runs on the interpreter and is counted there, as before. The generated code is
+unchanged: the same instructions are swept, in the same order.
+
+**Proof.** Cyber Games at the standard scan level, by the real command line: 51,690 swept instructions, the bound not reached, and
+every route equal to the conversion of main a5379530. At the extended level (a third route of 18,000 frames), the case where 1.7.1
+reached the bound: 150,000 swept, `sweep_limit_reached` true, 74,308 walk places and 860,160 page addresses left out, and all three
+routes equal to the reference, 0 interpreted outside the Kickstart.
+
+**Hot path:** no. This is conversion time only.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a border of one colour written four Texels at a time (after 1.7.3, colour step B)
+
+**What changes.** In step 3's colorize of a quiet line (`PixelEngine::rrColorize`), an 8-entry chunk whose border bytes are all
+the same non-zero value is now written as four 64-bit Texels of that border colour. Before, each entry chose between the border
+and the bitplane colour. A Texel holds its colour twice (`TEXEL`), so the texture row is the same byte for byte. Chunks with a
+mixed border, and chunks inside the display window, are unchanged.
+
+**Why.** On a normal PC, the border chunks were 7.5 % of a Lotus 2 frame and 8.4 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Proofs.**
+- The display self-test passes: 52 scenarios, every texture row equal to vAmiga's own colorize (`--per-slot`).
+- A planted fault (`--colour-fault 1`: the one-colour chunk one bit off) is seen in 52 of 52 scenarios.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Hot path:** yes, the per-line colorize: one comparison more per chunk that has a border, four stores instead of eight on one-colour
+chunks. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the texture in the host's order, the picture copied without a swap (after 1.7.3, colour step D)
+
+**What changes.** The session sets vAmiga's texture format to ARGB (`Opt::HOST_TEX_FORMAT`), so the palette is packed in the host's
+order once. Until now the option was never set, and the session swapped red and blue in every pixel of every frame. The copy of
+the picture now moves one 32-bit value per hires pixel and sets the alpha byte. The picture handed to the host is meant to be the
+same bytes as before. A Fable review of 12 Nov found it safe: until now the format was ABGR, because the option was never set and
+`HostConfig` is value-initialised, so the old swap gave 0xAARRGGBB; every texel outside the palettes that reaches the copied area
+reads the same in both orders.
+
+**Proofs.**
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Why.** On a normal PC, the copy with its swap was 6.0 % of a Lotus 2 frame and 8.9 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Hot path:** yes, the end of each frame: the per-pixel swap is gone.
+
+**What moves:** the Amiga's game stamp (the session); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: one lookup per hires pixel inside the display window (after 1.7.3, colour step A)
+
+**What changes.** In step 3's colorize of a quiet line, an 8-entry chunk inside the display window first checks that its four pairs
+of entries (2k and 2k + 1) hold the same colour index. If they do, it writes one 64-bit Texel (the colour twice) per pair: four
+lookups instead of eight. A chunk whose pairs differ keeps one lookup per entry, and is counted (`rrCellsRefused`).
+- **Why pairs differ.** In lores and hires a pixel always fills two or four entries from an even position. Super-hires does not.
+  This machine has an ECS Agnus and an OCS Denise, so Agnus can draw super-hires on a line Denise's guard still calls quiet. A
+  resolution change at the line's start, or a quick state loaded in mid-line, can also leave pairs unequal.
+- **Review.** Fable reviewed the design on 12 Nov and found the super-hires case; the pair check is its recommendation.
+
+**Proofs.**
+- The display self-test: the 52 scenarios, plus 8 new ones with BPLCON0's SHRES bit. The 52 old scenarios are generated as before.
+- Every texture row of all 60 scenarios is equal to vAmiga's own colorize.
+- Planted faults, each seen:
+  - `--colour-fault 2`, a cell's second entry one bit off: 60 of 60 scenarios;
+  - `--colour-fault 3`, cells taken without the pair check: exactly the 8 super-hires scenarios.
+- 234,044 chunks were refused, and 0 cells were written from a Texel with two different halves (the census under `RR_AMIGA_SHADOW`).
+- A second Fable read of the committed code found it safe.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Hot path:** yes, the per-line colorize: one 8-byte load and three operations more per chunk inside the window, four lookups less
+when the pairs match. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the sweep's bound shared between images and phases, the Kickstart part removed (after 1.7.3)
+
+**What changes.** The sweep first finds everything it can reach, up to 8 times the bound. When that is more than the bound
+(150,000 instructions), the bound is now shared equally between each memory image's branch walk and its page fill (water-filling,
+in order). Until now the first image's walk could take it all, and on Cyber Games at the extended level the page fill and the
+other images never ran.
+- **Under the bound nothing changes.** The same instructions are kept, in the same order, so a game below it gets the same code.
+- **The Kickstart sweep is removed.** The Amiga's code apertures end at $DC0000, so it never added an instruction.
+- **The report is exact now.** `native_forms` gives `sweep_reachable`, `sweep_left_out` (instructions, no longer candidate
+  addresses) and `sweep_buckets` (image, phase, reached, kept). This replaces the counters added a few commits earlier, which were
+  never released.
+
+Arthur decided this on 12 Nov, from the measure in `SWEEP-MEASURE-20261112.md`. On an unseen route the sweep served up to 82 % of
+the native entries (Civilization), and the cap cut 71 % of Cyber Games at the extended level.
+
+**Proofs.** By the real command line, scratch library:
+- **Cyber Games at the extended level.**
+  - The sweep reaches 515,013 instructions; 150,000 are kept and 365,013 left out, counted. Before this change it also kept 150,000,
+    but the first image's walk took them all.
+  - The buckets now share them: image 0's walk 46,021 of 335,632, its fill 46,020 of 112,638, image 2's fill 46,020 of 54,804, and
+    the small buckets whole.
+  - Every field of the three routes is the same as before the change, hashes included, with 0 interpreted outside the Kickstart.
+  - On an unseen route of 18,000 frames (headless, one run), interpreted instructions fall from 790,198 to 96,625, with the same
+    trace.
+- **Civilization at the standard level, under the bound.** The swept instructions, native forms, route fields and hashes are the
+  same as main a5379530's. On the unseen route its native entries, swept entries and trace are the same as in the earlier measure.
+
+**Hot path:** no. This is conversion time only. The generated code changes only for a game whose reachable code is above the bound.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the main route presses 1 and 2, and answers Monkey Island 2's protection (after 1.7.3)
+
+**What changes.**
+- **Every game.** The generic main route also taps the keys 1 (frame 400) and 2 (frame 1300), never when one of them is the slave's
+  quit key. Civilization's first screen, "1) Mouse + Keyboard / 2) Keyboard", waited for one of them, so its routes stayed silent.
+- **Monkey Island 2 only.** The game is recognised by its install's SHA-256 (`ROUTE_ANSWERS`, numbers about the install). Its main
+  route first answers the "lame-o" copy protection: Return, any recipe digits, Return, then a box clicked with the mouse. The
+  generic route follows from frame 3100. The route is at least 7,000 frames long, because the first sound comes at about frame 6,000.
+
+Arthur decided this on 12 Nov, after playing the games himself; the study is `SILENT-ROUTES-20261112.md`. Another World's answer
+waits for the green-screen investigation. A route is a scripted input, not gameplay validation. The native code it finds is still
+proved against the interpreted reference, as on every route.
+
+**Hot path:** no. This is conversion time only. Monkey Island 2's conversion runs a longer main route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes of every Amiga game change, so their
+observed code and their native counts can change too.
+
+**Recheck.** On 12 Nov the 12 delivered games other than Another World were converted by the real command line, scratch library.
+- **All 12 pass.** Native validation passed, both routes equal the reference and the compressed copy, the quick-state restart is
+  equal, 0 interpreted outside the Kickstart, and the Kickstart installs keep their 19 counted opcodes.
+- **Explore routes:** unchanged, all five hashes equal on all 12.
+- **Main routes:** they changed on 10 games, as expected. On Pinball Dreams and Shadow of the Beast every hash is the same.
+- **Civilization:** its main route is audible now (2,491 frames) and runs 36.8 M native entries instead of 4.4 M.
+- **Monkey Island 2:** its main route of 7,000 frames is audible (272 frames) and runs 79.3 M native entries instead of 41.0 M.
+- **Not investigated:** Pinball Dreams' main route has 48 more native entries with the same trace.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Amiga, Atari ST and Sharp X68000: the click that captures the mouse stays the host's (after 1.7.3)
+
+**What changes.** On the disk computers a left click in the window captures the mouse. Until now that click also reached the guest:
+the event went on, and the next frames read the button still held. The machine saw a left click the player never meant for it.
+- **The new rule.** The capturing click is consumed. The guest's left button stays up until that click is released, and every later
+  click is the guest's, as before.
+- **Unchanged.** A mouse game captures at start without a click, and Ctrl+Alt+M captures without one either.
+- **Why.** On Another World's protection screen that stray click locked the game: the lead's decision of 12 Nov, the same rule on
+  every computer machine.
+
+**Proof.** `tests/amiga_menu_harness.c` gains seven checks of the click, with SDL's dummy driver and no window shown:
+- the capturing click is consumed and captures the mouse;
+- the guest's left button stays up while that click is held, and after it is released;
+- a click on the captured mouse is the guest's, press and release.
+
+The same harness on the code before the change fails three of them. The Atari ST, X68000 and host kit unit tests pass. The one
+X68000 failure needs the main checkout's `.deps` and is unrelated.
+
+**Hot path:** no. One test per frame on a flag.
+
+**What moves:** the host stamp of the Amiga, the Atari ST and the X68000 (`native/hostkit/adapters/rrhk_computer.inc`, host role,
+`shares:hostkit_computer`). No game stamp moves. Exports already made keep the old behaviour until they are rebuilt.
+
+**Quick states:** not affected (host side).
 
 ## Exports of 1.7.1 in 1.7.2
 

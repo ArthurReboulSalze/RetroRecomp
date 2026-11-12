@@ -23,6 +23,7 @@ static struct {
    uint16_t pad[2];               /* the kit's pad word of each player for this frame */
    int help_page, escape_held;
    bool started, relative;
+   bool capture_click;            /* the click that captured the mouse is the host's: the guest's left button stays up until it is released */
 } ca;
 
 /* The F2 options row that hands the whole keyboard to the computer, as Ctrl+Alt+K does: a pseudo-key past every scancode,
@@ -90,6 +91,10 @@ static void player_poll(void) {
    keys = SDL_GetKeyboardState(NULL);
    mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
    if (!mouse_grab || !input_focus) { mouse_dx = mouse_dy = 0; mouse_buttons = 0; }
+   if (ca.capture_click) {
+      if (mouse_buttons & SDL_BUTTON_LMASK) mouse_buttons &= ~SDL_BUTTON_LMASK;
+      else ca.capture_click = false;
+   }
 }
 
 /* The picture keeps the aspect ratio of the machine. In the window and in Pixel mode it is the largest whole multiple of the
@@ -228,9 +233,13 @@ static bool x_event(const SDL_Event *e, bool *running) {
       mouse_grab = false; player_notice(rrhk_tr("Mouse released", "Souris liberee")); return true;
    }
    if (e->type == SDL_MOUSEBUTTONUP && e->button.button == SDL_BUTTON_MIDDLE) return true;
-   /* A click on an unknown computer game captures its mouse; menus and an unfocused window never do. */
+   /* A click on an unknown computer game captures its mouse; menus and an unfocused window never do. That click is the host's: it never
+    * reaches the guest (the guest's left button stays up until it is released), on every computer machine (lead, 12 November 2026:
+    * Another World's protection screen locked on it). */
    if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && input_focus && !player_blocked() && !mouse_grab) {
       mouse_grab = true; player_notice(RRC_MOUSE_CAPTURED);
+      ca.capture_click = true;
+      return true;
    }
    /* Full computer typing reserves the ordinary keys for the guest. Guide and explicit Ctrl+Alt shortcuts remain. */
    if (guest_keyboard && !ui->menu && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) &&

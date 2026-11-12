@@ -188,7 +188,7 @@ class Scenario:
         path.write_bytes(bytes(out))
 
 
-def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
+def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = False) -> Scenario:
     """A random but plausible display and a random program that works on it. Everything stays inside the scenario's own memory."""
     r = random.Random(seed)
     ntsc = r.random() < 0.25
@@ -196,7 +196,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     planes = r.randint(1, 4 if hires else 6)
     dual = planes >= 2 and r.random() < 0.25
     ham = not hires and planes == 6 and not dual and r.random() < 0.4
-    bplcon0 = planes << 12 | (0x8000 if hires else 0) | (0x0400 if dual else 0) | (0x0800 if ham else 0) | 0x0200
+    bplcon0 = planes << 12 | (0x8000 if hires else 0) | (0x0400 if dual else 0) | (0x0800 if ham else 0) | 0x0200 | (0x0040 if shres else 0)
     width = 80 if hires else 40
     stop_line = 0x2C if not ntsc else 0xF4          # PAL stops at line 300 ($12C), NTSC at 244
     diwstrt = (0x2C + r.choice((0, 0, 0, 4, -6))) << 8 | (0x81 + r.choice((0, 0, 8, -8, 16)))
@@ -300,7 +300,8 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
         if kind < 0.28:
             register = r.choice([BPLCON1, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR + 2 * r.randrange(32), DDFSTRT, DDFSTOP, DIWSTRT, DIWSTOP, BPLCON0, CLXCON, DMACON])
             if register == BPLCON0:
-                value = bplcon0 ^ r.choice((0x0400 if planes >= 2 else 0, 0x8000 if planes <= 4 else 0, 0x1000 if planes in (2, 4) else 0, 0))
+                value = bplcon0 ^ r.choice((0x0400 if planes >= 2 else 0, 0x8000 if planes <= 4 else 0, 0x1000 if planes in (2, 4) else 0, 0,
+                                            *((0x0040, 0x0040) if shres else ())))
             elif register == DMACON:
                 bit = r.choice((0x0100, 0x0020, 0x0080))
                 a.move_w_imm_abs(bit, custom(DMACON))            # off for a moment, then on again
@@ -406,7 +407,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     if PROGRAM + len(program) > COPPER:
         raise ValueError('The scenario program is too long.')
     regions.insert(0, (PROGRAM, program))
-    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on, 'interrupts': interrupts,
+    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, **({'shres': True} if shres else {}), 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on, 'interrupts': interrupts,
                'ddf': [hex(ddf[0]), hex(ddf[1])], 'program_bytes': len(program), 'copper_words': len(copper)}
     return Scenario(seed, ntsc, frames, regions, fault_address, summary)
 
@@ -526,6 +527,12 @@ def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
     return json.loads(next(line for line in result.stdout.splitlines() if line.startswith('{')))
 
 
+# Faults planted in the colour step (PixelEngine::rrColorize, `--colour-fault N`): each must change a record on some scenario.
+COLOUR_FAULTS = {1: 'a border chunk of one colour written one bit off', 2: "a hires cell's second entry written one bit off",
+                 3: 'hires cells taken without the pair check (must be seen on the super-hires scenarios)'}
+SHRES_SCENARIOS = 8   # extra scenarios with BPLCON0's SHRES bit, seeds 9000 + n (ECS Agnus, OCS Denise: super-hires draws on quiet lines)
+
+
 # Faults planted in stage 7's bus model (amiga_bus.cpp, `--shadow-fault N`): each must make the model disagree with vAmiga somewhere.
 SHADOW_FAULTS = {1: 'refresh at $E2 on a long line', 2: 'audio slots two clocks late', 3: 'bitplane slots given to the wrong plane',
                  4: 'a change of plan inside the line ignored', 5: 'sprite slots outside the sprite area', 6: 'a conditional slot taken for free',
@@ -551,6 +558,7 @@ def main() -> int:
     parser.add_argument('--scenarios', type=int, default=SCENARIOS)
     parser.add_argument('--frames', type=int, default=FRAMES)
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--shres', type=int, default=SHRES_SCENARIOS, help='extra super-hires scenarios')
     parser.add_argument('--workspace', type=Path, default=ROOT, help='where .deps and .build live')
     parser.add_argument('--against', type=Path, help="a checks program built before a change (side A): each scenario's record from it must equal this build's")
     arguments = parser.parse_args()
@@ -568,9 +576,10 @@ def main() -> int:
     scenario_files = []
     disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
     sprite_left_out, sprite_controls, sprite_seen = 0, 0, 0
-    for n in range(arguments.scenarios):
-        seed = arguments.seed * 1000 + n
-        scenario = generate(seed, arguments.frames)
+    cells_refused, cells_broken = 0, 0
+    for n in range(arguments.scenarios + arguments.shres):
+        seed = arguments.seed * 1000 + n if n < arguments.scenarios else 9000 + n - arguments.scenarios
+        scenario = generate(seed, arguments.frames, shres=n >= arguments.scenarios)
         path = runs / f'scenario-{seed}.bin'
         scenario.write(path)
         first = play(program, path, runs / f'{seed}-a.rec')
@@ -582,6 +591,10 @@ def main() -> int:
                 failures.append({'seed': seed, 'bus': run_name, 'mismatches': result['bus_mismatches'], 'first': result['bus'].get('first', [])[:6]})
         if 'bus' in first:
             add_bus(bus_total, first['bus'])
+        cells_refused += first.get('cells_refused', 0)
+        cells_broken += first.get('cells_broken', 0)
+        if first.get('cells_broken'):
+            failures.append({'seed': seed, 'cells_broken': first['cells_broken']})
         lines = [n + m for n, m in zip(lines, first.get('lines', (0, 0, 0)))]
         quiet = [n + m for n, m in zip(quiet, first.get('quiet', (0, 0)))]
         a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
@@ -616,7 +629,8 @@ def main() -> int:
                 failures.append({'seed': seed, 'sprite_fault': 1, 'missed': True})
             else:
                 sprite_seen += 1
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk'),
+                          'cells_refused': first.get('cells_refused')}), flush=True)
     # Frames cut short at their end, with a quick state taken on one of them and loaded back two frames later: equal to the run with
     # every disk event and sprite slot on vAmiga's scheduler; leaving out the run before the snapshot, or the clearing after the load,
     # must be seen; and held-back events must have been run at a frame's end at all (else the scenario proves nothing).
@@ -636,7 +650,7 @@ def main() -> int:
             frame_end[kind] = row
             if not (row['equal'] and row['fault_1_seen'] and row['fault_2_seen'] and (row['disk'] or [0, 0, 0])[2]):
                 failures.append({'frame_end': kind, **row})
-    controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
+    controls = 2 * (arguments.scenarios + arguments.shres - sum(1 for f in failures if 'replay' in f))
     # Planted faults of the model: each must be seen on at least one scenario.
     model_faults = {}
     if bus_total:
@@ -648,9 +662,21 @@ def main() -> int:
                     model_faults[kind] += 1
             if not model_faults[kind]:
                 failures.append({'model_fault': kind, 'what': what, 'missed': True})
+    # Planted faults of the colour step: each must change the record of at least one scenario (the run without it is `a`).
+    colour_faults = {}
+    for kind, what in COLOUR_FAULTS.items():
+        colour_faults[kind] = 0
+        for path in scenario_files:
+            seed = path.stem.split('-')[1]
+            play(program, path, runs / f'colour-fault-{kind}.rec', '--colour-fault', str(kind))
+            if compare(read_record(runs / f'{seed}-a.rec'), read_record(runs / f'colour-fault-{kind}.rec')) is not None:
+                colour_faults[kind] += 1
+        if not colour_faults[kind] and not (kind == 3 and not arguments.shres):   # fault 3 shows only on super-hires scenarios
+            failures.append({'colour_fault': kind, 'what': what, 'missed': True})
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
+                      'colour_faults_seen_in_scenarios': colour_faults, 'cells_refused': cells_refused, 'cells_broken': cells_broken,
                       'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
                       'frame_end': frame_end, 'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
@@ -658,12 +684,15 @@ def main() -> int:
         return 1
     other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
              "every record equal to the one of the same build with every line on vAmiga's events and line pass")
-    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
+    print(f'Display self-test passed: {arguments.scenarios} scenarios and {arguments.shres} super-hires ones of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
     print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
           f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
+    print(f"The colour step: {len(colour_faults)} planted fault(s) each seen (in "
+          f"{', '.join(f'{n} of {len(scenario_files)}' for n in colour_faults.values())} scenarios), against vAmiga's own colorize; "
+          f"{cells_refused} chunks inside the window refused as hires cells (pairs differ), {cells_broken} cells from a Texel with two halves.")
     for kind, row in frame_end.items():
         print(f"Frames cut short at their end ({kind}), a quick state taken and loaded back: every record equal to the run with every event on "
               f"vAmiga's scheduler, {row['disk'][2]} runs of held-back disk events at a barrier; leaving out the run before the snapshot "
@@ -673,7 +702,7 @@ def main() -> int:
         print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "
               f"0 differences in the table and in {sum(v[0] for k, v in bus_total.get('waits', {}).items() if k in ('fast', 'static'))} predicted CPU waits; "
               f"{len(model_faults)} planted faults of the model each seen (in {min(model_faults.values()) if model_faults else 0} to "
-              f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios} scenarios). Equal to vAmiga, not to the hardware.")
+              f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios + arguments.shres} scenarios). Equal to vAmiga, not to the hardware.")
     return 0
 
 

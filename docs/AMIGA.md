@@ -70,6 +70,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`). Beyond what ran, a sweep over the memory each
    route left adds what branches lead to and the rest of the 4 KiB pages where code ran, with the same guard; a swept instruction counts apart when it runs
    (`final_checks.native_swept`), and no route proves those that did not run. Code that is not in memory when a route ends, not loaded yet or already overwritten, cannot be swept.
+   The sweep stops at 150,000 instructions per conversion. When more is reachable, the bound is shared equally between each memory image's branch walk and page fill, so one
+   image cannot take it all, and the report counts what it left out (`native_forms.sweep_limit_reached`, `sweep_left_out`, `sweep_buckets`). The Kickstart is not swept: the code apertures end below its ROM.
    The Blitter's copy blits have a specialised routine per shape (BLTCON0 and BLTCON1 without the shift fields; at most 64 per game, the most words first): vAmiga's microprogram at its accuracy level 2,
    compiled for that shape from vAmiga's own text at build time (`amiga_vamiga.blitter_shape_header`), one step per bus slot, in the slots the reference uses, reading shifts, pointers, masks and modulos live. It is not a
    translated program: nothing is known of what a game blits, only how. A routine checks its shape at every slot, and a game that changes BLTCON during a blit goes on in vAmiga's table. Line blits and other
@@ -151,6 +153,20 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
 - (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
   is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
+- (1.7.3) Another World (the French WHDLoad install): on its code-wheel protection screen, the C key, a left click or the second
+  button of port 1 locks the game on a dark green screen until it is restarted.
+  - **The install's part.** The slave turns those three inputs into a shortcut to the access-code screen ("CODE D'ACCES"). That
+    screen's bytecode checks four variables only a passed protection sets, and stops every thread when they are missing. The
+    interpreted reference and the native build end with the same memory; our resload layer, the Kickstart side and vAmiga play no
+    part.
+  - **Our part, fixed after 1.7.3.** The click that captures the mouse in the window used to reach the game as a left click, so a
+    player who clicked into the window locked it without meaning to. That click is now the host's (UPGRADES). On a hidden desktop,
+    through the windowed player, an exe with the fix passes the protection after a capture click and a joystick answer, and the
+    delivered exe built before it locks.
+  - **What still locks it.** A deliberate click, or C, on the wheel: answer that screen with the joystick. After the protection, C or
+    a click opens the access-code screen normally.
+  - **Routes.** None answers this screen, so the conversion's routes stay on it (12 November 2026, `AW-GREEN-20261112.md` and
+    `AW-E2E-20261112.md`, private).
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

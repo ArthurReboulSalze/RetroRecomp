@@ -159,3 +159,20 @@ class RememberedDataTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RouteScriptTests(unittest.TestCase):
+    def test_the_main_route_presses_1_and_2_for_a_menu_of_choices_but_never_the_quit_key(self):
+        keys = [(begin, code) for begin, _, kind, code, _ in conversion.main_route(3600, 0x59) if kind == 'key']
+        self.assertIn((400, 0x01), keys)
+        self.assertIn((1300, 0x02), keys)
+        self.assertNotIn(0x02, [code for _, _, kind, code, _ in conversion.main_route(3600, 0x02) if kind == 'key'])
+
+    def test_an_install_with_an_answer_answers_first_then_plays_the_generic_route_after_it(self):
+        answer = conversion.ROUTE_ANSWERS['f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596']
+        route = conversion.answered_route(answer, 7000, 0x59)
+        self.assertEqual(route[:1], [(1900, 1906, 'key', 0x44, 1)])
+        self.assertTrue(set(answer['events']) <= set(route))
+        later = [event for event in route if event not in answer['events']]
+        self.assertTrue(later and min(begin for begin, *_ in later) >= answer['then'])
+        self.assertTrue(max(end for _, end, *_ in route) <= 7000)

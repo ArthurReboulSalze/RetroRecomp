@@ -157,6 +157,9 @@ int main(int argc, char **argv) {
             i += 1;
         } else if (!strcmp(argv[i], "--disk-off")) {
             DiskController::rrLazyOn = false;
+        } else if (!strcmp(argv[i], "--colour-fault") && i + 1 < argc) {
+            PixelEngine::rrColourFault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--disk-fault") && i + 1 < argc) {
             DiskController::rrFault = atoi(argv[i + 1]);
             i += 1;
@@ -291,11 +294,13 @@ int main(int argc, char **argv) {
         const u64 *disk = amiga.paula.diskController.rrCounts;
         printf(",\"disk\":[%llu,%llu,%llu,%llu],\"sprite_slots_left_out\":%llu", (unsigned long long)disk[0], (unsigned long long)disk[1],
                (unsigned long long)disk[2], (unsigned long long)disk[3], (unsigned long long)agnus.rrSprSkipped);
+        printf(",\"cells_refused\":%llu", (unsigned long long)PixelEngine::rrCellsRefused);
 #ifdef RR_AMIGA_SHADOW
         {
             static char bus[8192];
             RrBus::json(bus, sizeof bus);
             printf(",\"bus_mismatches\":%llu,\"bus\":%s", (unsigned long long)RrBus::mismatches(), bus);
+            printf(",\"cells_broken\":%llu", (unsigned long long)PixelEngine::rrCellsBroken);
         }
 #endif
         printf("}\n");
