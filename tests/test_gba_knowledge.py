@@ -58,7 +58,7 @@ class RecordTests(unittest.TestCase):
                 return False
             if rules['sources']['hashed'] and not all('sha256' in source for source in sources.values()):
                 return False
-            if value['game'] != gk.SYSTEM + ':' + sources[rules['game']['source']]['sha256']:
+            if value['game'] != gk.SYSTEM + ':' + sources[rules['sources']['game']]['sha256']:
                 return False
             for cpu, section in value['cpus'].items():
                 for kind, blocks in section['paths'].items():
@@ -67,7 +67,7 @@ class RecordTests(unittest.TestCase):
                         if block['src'] != rule['src']:
                             return False
                         for row in path_profiles.decode_table(block['table'], 1 if block['shape'] == 'phys' else 3, 1 << 20):
-                            for index in rule.get('even_align_columns', [0]):
+                            for index in ((0, 1) if block['shape'] == 'span' else (0,)):
                                 if not (row[0] & 1 or row[index] % rule['even_align'] == 0):
                                     return False
             return True
