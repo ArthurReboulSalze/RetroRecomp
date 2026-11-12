@@ -29,6 +29,8 @@ def main():
         '#define RR16_STATE_NAME "Authored SRAM"\n#define RR16_STATE_ROM "' + 'ab'*32 + '"\n', encoding='ascii')
     shutil.copy2(ROOT / 'native/md_battery.h', project / 'md_battery.h')
     shutil.copy2(ROOT / 'native/md_battery.c', project / 'md_battery.c')
+    shutil.copy2(ROOT / 'native/cart_save.h', project / 'cart_save.h')
+    shutil.copy2(ROOT / 'native/cart_save.c', project / 'cart_save.c')
     stubs = (ROOT/'native/md_sram_checks.c').read_text().split('static GenesisBus bus;')[0]
     (project/'baseline.c').write_text(stubs + '''int main(int argc,char **argv) {
     GenesisBus bus; gbus_init(&bus,NULL);
@@ -46,7 +48,7 @@ def main():
 project(RetroMdSramChecks C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_executable(checks "{ROOT.as_posix()}/native/md_sram_checks.c" runtime/video/genesis_bus.c md_battery.c)
+add_executable(checks "{ROOT.as_posix()}/native/md_sram_checks.c" runtime/video/genesis_bus.c md_battery.c cart_save.c)
 target_link_options(checks PRIVATE "$<$<AND:$<C_COMPILER_ID:Clang>,$<PLATFORM_ID:Windows>>:-municode>")
 target_include_directories(checks PRIVATE . runtime "{ROOT.as_posix()}/native")
 target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
