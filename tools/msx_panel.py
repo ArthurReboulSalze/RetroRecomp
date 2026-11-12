@@ -27,13 +27,13 @@ ROOT = Path(__file__).resolve().parents[1]
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
 
 
-def batch(run: Path, system: str, level: str, jobs: int, options: list[str], roms: list[Path]) -> int:
+def batch(run: Path, system: str, level: str, jobs: int, options: list[str], roms: list[Path], covers: bool = False) -> int:
     env = dict(os.environ, RETRO_RECOMP_LIBRARY_DIR=str(run / 'library'), RETRO_RECOMP_TOOLCHAIN='llvm',
                SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', PYINSTALLER_SUPPRESS_SPLASH_SCREEN='1')
     (run / 'library').mkdir(parents=True, exist_ok=True)
     command = [sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'batch', *map(str, roms), '--system', system,
-               '--output', str(run / 'Games'), '--jobs', str(jobs), '--scan-level', level, '--keep-build', '--no-cover',
-               '--no-online-cover', '--no-shared-base', *options]
+               '--output', str(run / 'Games'), '--jobs', str(jobs), '--scan-level', level, '--keep-build',
+               *([] if covers else ['--no-cover', '--no-online-cover']), '--no-shared-base', *options]
     with (run / f'batch-{system}.log').open('a', encoding='utf-8') as log:
         process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
         try:
@@ -96,10 +96,11 @@ def main() -> int:
     parser.add_argument('--jobs', type=int, default=3)
     parser.add_argument('--run', type=Path, default=ROOT / '.build' / 'msx-panel' / date.today().isoformat())
     parser.add_argument('--batch-option', action='append', default=[], help='one more batch option, e.g. --video-standard=pal')
+    parser.add_argument('--covers', action='store_true', help="find covers as a player's conversion does (the panel has none)")
     args = parser.parse_args()
     run = args.run.resolve()
     run.mkdir(parents=True, exist_ok=True)
-    code = batch(run, args.system, args.level, max(1, min(args.jobs, 4)), args.batch_option, args.roms)
+    code = batch(run, args.system, args.level, max(1, min(args.jobs, 4)), args.batch_option, args.roms, args.covers)
     print(f'{args.group}: batch exit {code}')
     records = [record(path) for path in reports(run)]
     for entry in records:
