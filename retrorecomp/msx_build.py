@@ -41,7 +41,7 @@ extra = []
 blacklist = []
 '''
 # The machine and the glue, from native/msx_machine; the host kit's companions, from native/.
-MACHINE_FILES = ('msx_machine.c', 'msx_machine.h', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_glue.inc',
+MACHINE_FILES = ('msx_machine.c', 'msx_machine.h', 'msx_video.c', 'msx_tiles.inc', 'msx_psg.c', 'msx_cart.c', 'msx_glue.inc',
                  'msx_native_main.c', 'msx_reference_main.c', 'msx_player.c')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',

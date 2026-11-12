@@ -1,7 +1,8 @@
 /* TMS9918A picture, one line at a time (MSX1). MIT, Retro-Recomp.
  *
  * Written from the TMS9918A data manual (Texas Instruments) and Sean Young's notes on its undocumented behaviour;
- * openMSX was read to settle the sprite rules (SpriteChecker.cc), nothing was copied from it.
+ * openMSX was read to settle the sprite rules (SpriteChecker.cc), nothing was copied from it. The line functions are
+ * shared with the V9938 (msx_tiles.inc); this file gives them the TMS9918A's table addresses.
  *
  * Modes: Graphic 1, Graphic 2 with the table masks of R#3 and R#4 (on the TMS99xx R#3's low five bits also mask the
  * pattern address bits 6-10), Text 1 (40 x 6-pixel columns from x = 6 on the MSX1 VDP), Multicolor. The undocumented mode-bit mixes are drawn as the first documented mode their bits select (not
@@ -15,76 +16,34 @@
 
 #include <string.h>
 
-typedef struct {
-    int x;
-    uint16_t bits;      /* pattern row, 16 bits, left pixel in bit 15, before magnification */
-    uint8_t colour;
-} LineSprite;
+#include "msx_tiles.inc"
 
-static int sprite_row_bits(const MsxVdp *v, uint8_t pattern, int row, int big, uint16_t *bits)
+/* The TMS9918A's table addresses as the shared line functions take them. */
+static void tms_params(const MsxVdp *v, MsxTileParams *t)
 {
-    uint16_t base = (uint16_t)((v->reg[6] & 7) << 11);
-    if (big) {
-        pattern &= 0xFC;
-        uint8_t left = v->vram[(base + pattern * 8 + row) & 0x3FFF];
-        uint8_t right = v->vram[(base + pattern * 8 + 16 + row) & 0x3FFF];
-        *bits = (uint16_t)(left << 8 | right);
-    } else {
-        *bits = (uint16_t)(v->vram[(base + pattern * 8 + row) & 0x3FFF] << 8);
-    }
-    return 0;
+    memset(t, 0, sizeof *t);
+    t->vram = v->vram;
+    t->mask = 0x3FFF;
+    t->names = (uint32_t)(v->reg[2] & 0x0F) << 10;
+    t->patterns = (uint32_t)(v->reg[4] & 7) << 11;
+    t->colours = (uint32_t)v->reg[3] << 6;
+    /* Graphic 2: R#3's low five bits also mask the pattern address bits 6-10 on the TMS99xx. */
+    t->pattern_or = (v->reg[4] & 4u) << 11;
+    t->pattern_and = ((v->reg[4] & 3u) << 11) | ((v->reg[3] & 0x1Fu) << 6) | 0x3Fu;
+    t->colour_or = (v->reg[3] & 0x80u) << 6;
+    t->colour_and = ((v->reg[3] & 0x7Fu) << 6) | 0x3Fu;
+    t->text_left = 6;
+    t->sprite_attributes = (uint32_t)(v->reg[5] & 0x7F) << 7;
+    t->sprite_patterns = (uint32_t)(v->reg[6] & 7) << 11;
+    t->sprite_size = v->reg[1] & 3;
+    t->colour0_collides = 1;                 /* colour-0 sprites never show but collide */
 }
 
-/* Evaluate the sprites of one line: the status flags always, the pixels when `pixels` is given (line 192 is
- * evaluated for the flags only, before the frame flag rises, as the VDP checks a line one line ahead). */
-static void draw_sprites(MsxVdp *v, int line, uint8_t *pixels)
+static int tms_mode(const MsxVdp *v)
 {
-    int big = (v->reg[1] >> 1) & 1, mag = v->reg[1] & 1;
-    int size = big ? 16 : 8, shown = size << mag;
-    uint16_t table = (uint16_t)((v->reg[5] & 0x7F) << 7);
-    LineSprite visible[4];
-    int count = 0, fifth = -1, sprite = 0;
-    for (; sprite < 32; ++sprite) {
-        const uint8_t *a = &v->vram[(table + sprite * 4) & 0x3FFF];
-        if (a[0] == 208)
-            break;
-        int row = (line - 1 - a[0]) & 0xFF;
-        if (row >= shown)
-            continue;
-        if (count == 4) {                    /* a fifth sprite on this line: not drawn; the scan goes on to Y = 208 */
-            if (fifth < 0)
-                fifth = sprite;
-            continue;
-        }
-        LineSprite *s = &visible[count++];
-        sprite_row_bits(v, a[2], row >> mag, big, &s->bits);
-        s->x = a[1] - ((a[3] & 0x80) ? 32 : 0);
-        s->colour = a[3] & 15;
-    }
-    if (fifth >= 0 && !(v->status & 0xC0))
-        v->status = (uint8_t)(0x40 | (v->status & 0x20) | fifth);
-    if (!(v->status & 0x40))
-        v->status = (uint8_t)((v->status & 0xE0) | (sprite < 31 ? sprite : 31));
-    if (count == 0)
-        return;
-    uint8_t hit[MSX_WIDTH], painted[MSX_WIDTH];
-    memset(hit, 0, sizeof hit);
-    memset(painted, 0, sizeof painted);
-    for (int i = 0; i < count; ++i) {
-        const LineSprite *s = &visible[i];
-        for (int p = 0; p < shown; ++p) {
-            int x = s->x + p;
-            if (x < 0 || x >= MSX_WIDTH || !(s->bits & (0x8000u >> (p >> mag))))
-                continue;
-            if (hit[x])
-                v->status |= 0x20;           /* two sprite pixels meet: collision, whatever their colours */
-            hit[x] = 1;
-            if (pixels && s->colour && !painted[x]) {  /* the lower-numbered visible pixel stays in front; colour 0 is clear */
-                pixels[x] = s->colour;
-                painted[x] = 1;
-            }
-        }
-    }
+    if (v->reg[1] & 0x10) return MSX_TILE_T1;
+    if (v->reg[1] & 0x08) return MSX_TILE_MC;
+    return (v->reg[0] & 0x02) ? MSX_TILE_G2 : MSX_TILE_G1;
 }
 
 void msx_vdp_draw_line(MsxMachine *m, int line)
@@ -97,54 +56,23 @@ void msx_vdp_draw_line(MsxMachine *m, int line)
         memset(pixels, backdrop, MSX_WIDTH);
         return;
     }
-    int text = (v->reg[1] >> 4) & 1, multicolour = (v->reg[1] >> 3) & 1, graphic2 = (v->reg[0] >> 1) & 1;
-    uint16_t names = (uint16_t)((v->reg[2] & 0x0F) << 10);
-    int y = line, cell = y >> 3, fine = y & 7;
-    if (text) {
-        uint16_t patterns = (uint16_t)((v->reg[4] & 7) << 11);
-        uint8_t fg = v->reg[7] >> 4, bg = backdrop;
-        memset(pixels, backdrop, MSX_WIDTH);
-        for (int column = 0; column < 40; ++column) {
-            uint8_t name = v->vram[(names + cell * 40 + column) & 0x3FFF];
-            uint8_t bits = v->vram[(patterns + name * 8 + fine) & 0x3FFF];
-            for (int p = 0; p < 6; ++p) {
-                uint8_t c = (bits & (0x80 >> p)) ? fg : bg;
-                pixels[6 + column * 6 + p] = c ? c : backdrop;
-            }
-        }
-        return;                              /* no sprites in text mode */
-    }
-    for (int column = 0; column < 32; ++column) {
-        uint8_t name = v->vram[(names + cell * 32 + column) & 0x3FFF];
-        uint8_t bits, colours;
-        if (multicolour) {
-            uint16_t patterns = (uint16_t)((v->reg[4] & 7) << 11);
-            uint8_t block = v->vram[(patterns + name * 8 + (cell & 3) * 2 + (fine >> 2)) & 0x3FFF];
-            bits = 0xF0;
-            colours = block;
-        } else if (graphic2) {
-            unsigned index = (unsigned)((cell >> 3) << 8 | name);
-            unsigned pattern = ((v->reg[4] & 4u) << 11)
-                             | ((index << 3) & (((v->reg[4] & 3u) << 11) | ((v->reg[3] & 0x1Fu) << 6) | 0x3Fu)) | (unsigned)fine;
-            unsigned colour = ((v->reg[3] & 0x80u) << 6) | ((index << 3) & (((v->reg[3] & 0x7Fu) << 6) | 0x3Fu)) | (unsigned)fine;
-            bits = v->vram[pattern & 0x3FFF];
-            colours = v->vram[colour & 0x3FFF];
-        } else {
-            uint16_t patterns = (uint16_t)((v->reg[4] & 7) << 11);
-            bits = v->vram[(patterns + name * 8 + fine) & 0x3FFF];
-            colours = v->vram[((v->reg[3] << 6) + (name >> 3)) & 0x3FFF];
-        }
-        for (int p = 0; p < 8; ++p) {
-            uint8_t c = (bits & (0x80 >> p)) ? colours >> 4 : colours & 15;
-            pixels[column * 8 + p] = c ? c : backdrop;
-        }
-    }
-    draw_sprites(v, line, pixels);
+    MsxTileParams t;
+    tms_params(v, &t);
+    int mode = tms_mode(v);
+    msx_tiles_line(&t, mode, line, v->reg[7] >> 4, backdrop, pixels);
+    if (mode != MSX_TILE_T1)                 /* no sprites in text mode */
+        msx_sprites1_line(&t, line, &v->status, pixels);
+    for (int x = 0; x < MSX_WIDTH; ++x)      /* colour 0 shows the backdrop */
+        if (!pixels[x])
+            pixels[x] = backdrop;
 }
 
 void msx_vdp_check_line(MsxMachine *m, int line)
 {
     MsxVdp *v = &m->vdp;
-    if ((v->reg[1] & 0x40) && !(v->reg[1] & 0x10))
-        draw_sprites(v, line, NULL);
+    if ((v->reg[1] & 0x40) && !(v->reg[1] & 0x10)) {
+        MsxTileParams t;
+        tms_params(v, &t);
+        msx_sprites1_line(&t, line, &v->status, NULL);
+    }
 }

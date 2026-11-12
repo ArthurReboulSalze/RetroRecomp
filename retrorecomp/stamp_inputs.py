@@ -688,6 +688,7 @@ INPUTS = _resolve({
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_video.c',
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
