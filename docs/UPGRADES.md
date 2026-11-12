@@ -148,7 +148,7 @@ components (the click that captures the mouse moves the Amiga, Atari ST and X680
 | CPS-1 | `28dd85714948`, `5bad58285e1e` | `0220746ac9ad`, `1744a86d265c` | `2782cd370f91` (same) |
 | CPS-2 | `cb7b5d304275`, `3d06a5ebcc85` | `7889559074ad`, `5f073fe7a9ca` | `81a51ad49349` (same) |
 | PC Engine / TurboGrafx-16 | `aa7913b68d39`, `dc4e67408d8f` | `3da7363bd893`, `20772c959102` | `66d912662e5c` (same) |
-| Game Boy Advance | `1658c523234f`, `ef6f51ae60c8` | `7b18d021f143`, `287e639d641a` | `6b70933a9b0a` (same) |
+| Game Boy Advance | `1658c523234f`, `20b869ddcba2` | `7b18d021f143`, `287e639d641a` | `6b70933a9b0a` (same) |
 | Amiga | `6854eee76d0e`, `f069a288af8a` | `8ca835ce1027`, `7d590498bb06` | `92ca8a0c142c` (same) |
 | Atari ST | `e6f3506a6be7`, `6c70ccd1ff7c` | `3b7c6f50488a`, `c1f3ab554861` | `54b75964897d` (same) |
 | Nintendo 64 | `ec87144eb331`, `77b096906adf` | `3c4f6ccca458`, `93684dc83103` | `4f6fedf926c7` (same) |
@@ -259,7 +259,7 @@ whose generated code differs from the engine's interpreter, or whose native run 
 the program counter plus six as the hardware does (interpreter and generated code); (4) the report counts the caps of the RAM code (`native_coverage.ram_code.caps`); (5) the machine can
 share its paths in the experimental tier (`gba_knowledge.py`, a schema 3 record with an empty layout; not on until the site's limits for `gba` are deployed with the release); (6) the player reads
 the test switch `RETRORECOMP_GBA_STATE` (a hidden player only).
-**What moves:** the Game Boy Advance **game** stamp (`1658c523234f` in 1.7.2, `375fdcf55fc3` on the branch, `d89f30a66855` to `9ddd7055d88c` for this merge on main `3c593926`: the engine patches, the conversion code and the player source are game inputs). The host stamp
+**What moves:** the Game Boy Advance **game** stamp (`1658c523234f` in 1.7.2, `375fdcf55fc3` on the branch, `d89f30a66855` to `9ddd7055d88c` for this merge on main `3c593926`, then `ef6f51ae60c8` to `20b869ddcba2` when the module states its record rules for the site (`RECORD_RULES`, release 1.7.3 not yet published): the engine patches, the conversion code and the player source are game inputs). The host stamp
 (`7b18d021f143`) and the build stamp (`6b70933a9b0a`) of the Game Boy Advance do not move, and **no other console's** stamp moves (the three stamps of the seventeen profiles were compared with the
 merge base `a5379530`: only that one differs). `resources.py` is untouched. **Existing Game Boy Advance exports:** the game stamp moves, so an export of 1.7.2 is converted in full at its next conversion, from the player's own paths
 (a game input changed; the machine is experimental and its exports are private to the player; no frozen legacy stamp is kept for it). **Quick states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused after the new build, by
