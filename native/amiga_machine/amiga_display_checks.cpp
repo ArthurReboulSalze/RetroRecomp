@@ -14,8 +14,11 @@
 // difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events and every line pass on
 // vAmiga's own, and every disk event on vAmiga's scheduler (Agnus step 2, Denise step 3 and stage 7's idle-disk catch-up off;
 // `--disk-fault 1` loses one held-back disk event, which the comparison must see); the summary line counts the lines batched, on events and given back midway, and
-// the visible lines passed in one loop and on vAmiga's pass. The records show that two runs agree with each other, not
-// that either matches the hardware.
+// the visible lines passed in one loop and on vAmiga's pass. `--state SAVE LOAD` takes a quick state at the end of frame SAVE and
+// loads it back at the end of frame LOAD, as the session does (Agnus::rrBeforeSave before, rrAfterLoad after); the frames from LOAD on
+// replay from SAVE's end. `--state-fault 1` leaves out the run of the held-back disk events before a snapshot and before each frame's
+// record, `--state-fault 2` the clearing after the load: the comparison must see either. The records show that two runs agree with
+// each other, not that either matches the hardware.
 //
 // Built with RR_AMIGA_SHADOW (the self-test always does), stage 7's bus model runs in shadow (amiga_bus.h): each frame's record also
 // holds a hash of every line's bus owners, the summary line carries the model's comparison with vAmiga (`bus`, `bus_mismatches`),
@@ -30,6 +33,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -55,6 +59,9 @@ struct RrDisplayChecks {
     uint32_t fault_address = 0;
     uint64_t dump_frame = ~0ull;
     const char *dump_path = nullptr;
+    uint64_t state_save = ~0ull, state_load = ~0ull;
+    int state_fault = 0;                         // 1: no run of the held-back disk events before a snapshot, 2: no clearing after a load
+    std::unique_ptr<Snapshot> snap;
 
     static inline RrDisplayChecks *self = nullptr;
 
@@ -113,7 +120,7 @@ static uint32_t le32(const std::vector<uint8_t> &b, size_t at) {
 int main(int argc, char **argv) {
     using namespace vamiga;
     if (argc < 3) {
-        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot]\n");
+        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot] [--state SAVE LOAD [--state-fault 1|2]]\n");
         return 2;
     }
     static RrDisplayChecks c;
@@ -131,6 +138,13 @@ int main(int argc, char **argv) {
             c.dump_frame = strtoull(argv[i + 1], nullptr, 10);
             c.dump_path = argv[i + 2];
             i += 2;
+        } else if (!strcmp(argv[i], "--state") && i + 2 < argc) {
+            c.state_save = strtoull(argv[i + 1], nullptr, 10);
+            c.state_load = strtoull(argv[i + 2], nullptr, 10);
+            i += 2;
+        } else if (!strcmp(argv[i], "--state-fault") && i + 1 < argc) {
+            c.state_fault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
@@ -217,6 +231,13 @@ int main(int argc, char **argv) {
             amiga.computeFrame();
             Message m; std::exception_ptr e;
             while (amiga.msgQueue.get(m, e)) {}
+            // A quick state as the session takes and loads one; the record is a snapshot's bytes too, so the same run comes first.
+            if (frame == c.state_load && c.snap) {
+                amiga.loadSnapshot(*c.snap);
+                if (c.state_fault != 2) amiga.agnus.rrAfterLoad();
+            }
+            if (c.state_fault != 1) amiga.agnus.rrBeforeSave();
+            if (frame == c.state_save) c.snap = amiga.takeSnapshot(utl::Compressor::NONE);
             auto &stream = amiga.audioPort.stream;
             const isize count = stream.count();
             sound.assign((size_t)count * 2, 0.0f);

@@ -8,8 +8,8 @@
 //       slots). Each is conditional: the device decides at the slot (the disk's state, Paula's request, the sprite's state).
 //   R4  Which of them exist on a line is fixed at the line's start from DMACON: DMAEN and the device's own enable bit; sprite slots
 //       only from line 25 (PAL) or 19 (NTSC) to the frame's last line (the reference's sprite DMA area). The four audio slots exist on
-//       every line whatever DMACON says: a channel's request decides (the reference: "audio DMA is possible even in lines where the
-//       DMACON bits are false").
+//       every line whatever DMACON says: a channel's request decides (the reference keeps them in its table of every line, its
+//       enable bits set or not).
 //   R5  A bitplane fetch owns its slot whatever else wanted it (a sprite slot under an early fetch is the bitplane's; so are the
 //       refresh slots $03, $05 and $E2/$E3, which the reference marks all at $01), except $01 itself, recorded as refresh (the
 //       reference runs the refresh after the fetch of that colour clock). The plan's entry past the line's last colour clock runs

@@ -810,7 +810,9 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
     try {
         // vAmiga saves an ordinary machine: the WOM over ExpMem is lifted around the snapshot (its reader reallocates
         // ROM and WOM buffers by the sizes it was configured with, which an alias is not), then set again. The image and
-        // what was patched into it are in slow RAM, which the snapshot keeps.
+        // what was patched into it are in slow RAM, which the snapshot keeps. Stage 7's held-back disk events that are due
+        // run first: a snapshot keeps none of them (Agnus::rrBeforeSave).
+        s->amiga->agnus.rrBeforeSave();
         kick_window(false);
         std::unique_ptr<Snapshot> snap;
         try { snap = s->amiga->takeSnapshot(utl::Compressor::NONE); } catch (...) { kick_window(true); throw; }
@@ -858,6 +860,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     kick_window(false);
     try {
         s->amiga->loadSnapshot(Snapshot(data.data(), (isize)data.size()));
+        s->amiga->agnus.rrAfterLoad();   // stage 7's derived state of the timeline left goes
     } catch (std::exception &) {
         kick_window(true);
         return 3;

@@ -142,6 +142,22 @@ to 1.710 ms per frame (-5.5 %; rounds within 0.7 %); steps 1 to 3 with ThinLTO t
 path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds;
 the table is derived, never saved.
 
+## Commodore Amiga: stage 7's bus model in shadow, never in an export (after 1.7.3, stage 7 checkpoints 0-2)
+
+**What changes.** A bus and DMA model of our own (`native/amiga_machine/amiga_bus.*`, MIT) can be computed beside vAmiga, line by
+line, to compare its slots and its CPU waits with vAmiga's. Its hooks in vAmiga's adaptation (MPL-2.0 edits) sit under
+`#ifdef RR_AMIGA_SHADOW`.
+- The CMake option `RR_AMIGA_SHADOW` is OFF by default. An export is never built with it.
+- Only the display self-test and private reference players turn it on.
+- Without it, every hook is removed by the preprocessor, so an export compiles the same code as before.
+
+**Hot path:** no, in an export: the hooks are not compiled.
+
+**What moves:** the text of the hooks is part of vAmiga's adaptation, so its digest moves, and with it the Amiga's game stamp. No
+other console moves.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: the idle disk controller's events caught up (after 1.7.3, stage 7 checkpoint 3a)
 
 **What changes.** vAmiga's disk controller has an event about every 56 colour clocks, whether or not a floppy is in use. In a WHDLoad
@@ -158,7 +174,8 @@ interrupt or touch memory.
 
 **How the events are held back.**
 - The events after one are taken off the scheduler, up to 64 of them, and never past the host frame's end (the first instruction after
-  line 0's HSYNC), so no event is held back where states are taken.
+  line 0's HSYNC) as it is known when they are taken. A frame cut short later can still end with some held back; the events that are
+  due run before any quick state is taken (see "quick states on a frame cut short" below).
 - One event is scheduled at the time of the last of them. The others run in order when it comes, or when something could see the
   controller first: its registers (DSKLEN, DSKDAT, DSKBYTR, DSKSYNC), the CIA-B port that selects a drive and its motor.
 - Their times are those vAmiga's own arithmetic gives: each event runs on the first colour clock at or after its trigger, and the next
@@ -188,7 +205,8 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Paula stays emulated, 
 
 **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
 
-**Quick states:** the Amiga's key moves, as between any two Amiga builds; nothing is held back between frames.
+**Quick states:** the Amiga's key moves, as between any two Amiga builds. The held-back events that are due run before a state is
+taken.
 
 ## Commodore Amiga: the idle sprites' slots left out of their lines (after 1.7.3, stage 7 checkpoint 3b)
 
@@ -207,7 +225,8 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Agnus stays emulated, 
 
 **Proof.**
 - The display self-test compares each scenario with every sprite slot on the schedule (`--per-slot`, or `--spr-off` alone).
-- 52 scenarios of 4 frames: 892,752 sprite slot events left out, every instruction's and every frame's record equal.
+- 52 scenarios of 4 frames: 892,295 sprite slot events left out, every instruction's and every frame's record equal. (An earlier
+  count, 892,752, counted some twice; see "quick states on a frame cut short" below.)
 - An armed sprite taken for idle on purpose is seen in 51 of 51 scenarios that show sprites.
 - Lotus 2's native game and the reference player built with checkpoints 3a and 3b give the same trace as the build before step 1 on
   every one of 3,600 frames of a racing route.
@@ -235,6 +254,44 @@ in one quiet-PC pass on 11 Nov 2026 (Windows, one core, native game, 3 rounds of
 **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console.
 
 **Quick states:** the Amiga's key moves; the line's set of idle sprites is derived, never saved (line 0 has none).
+
+## Commodore Amiga: quick states on a frame cut short, and the idle sprites counted once (after 1.7.3, stage 7)
+
+**What changes.**
+- **Before a quick state is taken,** the idle disk controller's held-back events that are due now run, and the next one is scheduled.
+  A batch is bounded by the frame's end as known when it starts. A frame cut short after that can end with events held back: VPOSW
+  clearing LOF, or BEAMCON0 switching from PAL to NTSC. A snapshot keeps none of those events.
+- **After a quick state is loaded,** stage 7's derived state of the timeline that was left goes: the disk controller's held-back
+  events, the line's idle sprites, and the mark of Agnus's event loop.
+- **The count of idle sprite slot events** counts each slot once, when its line ends. A mid-line DMACON change or a sprite woken
+  inside its line used to count some slots twice. This changes the report's counter only, not the machine.
+
+This is done through vAmiga's adaptation (MPL-2.0 edits) and the session. Agnus and Paula stay emulated.
+
+**Proof.**
+- The display self-test runs two new scenarios: every frame starts long and PAL and is cut short near its end, through VPOSW in one
+  and BEAMCON0 in the other. A quick state is taken at the end of frame 1 and loaded back at the end of frame 3.
+  - Every record is equal to the run with every event on vAmiga's scheduler. Held-back events were run at a frame's end 5 times in
+    each scenario.
+  - Leaving out the run before the snapshot, or the clearing after the load, is seen in both scenarios.
+- The 52 random scenarios are unchanged: every record is equal, with no frame ending with events held back.
+- Stage 7's model in shadow on wave 1 (Lotus 2, Rick Dangerous, Lemmings and Civilization, 3,600 frames each, the reference player):
+  0 differences, and every figure is the same as before this change.
+- Lotus 2 converted by the real command line: two routes of 3,600 frames, each frame equal to the fresh reference, with 0
+  instructions interpreted. The compressed copy and the quick-state restart are equal too.
+
+**Hot path:** no. The run before a state is taken and the clearing after a load happen only at a quick state; the count of a line's
+idle sprite slots happens once per line.
+
+**What moves:** vAmiga's adaptation, the session, and so the Amiga's game stamp. No other console moves.
+
+**Quick states:** the Amiga's key moves. A state of an earlier build is refused, as between any two Amiga builds.
+
+## Commodore Amiga: the Blitter served alone on its colour clock, tried and reverted (stage 7 checkpoint 4)
+
+Not in any build. Checkpoint 4 served the Blitter's event alone when no other slot could be due on its colour clock. Its checks were
+equal to vAmiga's. On a quiet PC (12 Nov 2026), it timed 2 to 3 % slower than checkpoint 3 on Lotus 2 and on Rick Dangerous, so it was
+reverted. Nothing of it remains, and no stamp moved.
 
 ## Commodore Amiga: checkpoint 3's counters in the conversion report (after 1.7.3, stage 7)
 

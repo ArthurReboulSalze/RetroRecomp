@@ -835,10 +835,12 @@ REPLACEMENTS = [
      '    bool rrInEvents = false;                    // stage 7: inside executeUntil (derived, never saved)\n'
      '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n'
      '    void rrBplSync() { if (rrLazy && rrNext <= pos.h) rrBplCatchUp(pos.h); }\n'),
+    # No scope guard on rrInEvents: nothing the events run throws (vAmiga's StateChangeException is thrown by Amiga's run loop,
+    # outside executeUntil; an option set from a register is a valid one), and a quick state's load clears it (rrAfterLoad).
     ('Components/Agnus/Agnus.cpp',
      'Agnus::executeUntil(Cycle cycle) {\n',
      'Agnus::executeUntil(Cycle cycle) {\n'
-     '    rrInEvents = true;   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+     '    rrInEvents = true;   // Retro-Recomp modification (MPL-2.0, like this file); no throw before it is cleared\n'),
     ('Components/Agnus/Agnus.cpp',
      '    nextTrigger = next;\n}\n',
      '    nextTrigger = next;\n'
@@ -854,7 +856,10 @@ REPLACEMENTS = [
      '    u8 rrSprIdle = 0;                           // stage 7: sprites whose slot events this line leaves out (derived)\n'
      '    static inline bool rrSprSkip = true;        // false: every sprite slot event on the schedule\n'
      '    static inline int rrSprFault = 0;           // a planted fault (1: an armed sprite taken for idle), for the self-test\n'
-     '    u64 rrSprSkipped = 0;                       // sprite slot events left out\n'
+     '    u64 rrSprSkipped = 0;                       // sprite slot events left out (lines ended)\n'
+     '    u16 rrSprLeftMask = 0;                      // the line\'s sprite slots (S0_1 .. S7_2) its schedule passes over\n'
+     '    void rrBeforeSave();\n'
+     '    void rrAfterLoad();\n'
      '    void rrSprLineStart();\n'
      '    void rrSprWake(isize x);\n'
      '    isize rrSkipIdle(isize h);\n'),
@@ -866,7 +871,8 @@ REPLACEMENTS = [
     ('Components/Agnus/Agnus.cpp',
      '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
      '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
-     '    rrSprIdle = 0;\n'),
+     '    rrSprIdle = 0;\n'
+     '    rrSprLeftMask = 0;\n'),
     ('Components/Agnus/AgnusEvents.cpp',
      '    u8 dmacycle = sequencer.nextDasEvent[0];\n    assert(dmacycle != 0);\n'
      '    scheduleRel<SLOT_DAS>(DMA_CYCLES(dmacycle), sequencer.dasEvent[dmacycle]);\n',
@@ -881,12 +887,17 @@ REPLACEMENTS = [
      '    if (sequencer.dasEvent[hpos] != EVENT_NONE) {\n'
      '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
      '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n',
-     '    // Retro-Recomp modification (MPL-2.0, like this file): an idle sprite\'s event is passed over.\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): an idle sprite\'s event is passed over. The sprite slots from hpos on\n'
+     '    // are decided again (slot k of the mask is at $15 + 2k).\n'
+     '    if (hpos <= 0x15) rrSprLeftMask = 0;\n'
+     '    else if (hpos < 0x35) rrSprLeftMask &= u16((1 << ((hpos - 0x15 + 1) >> 1)) - 1);\n'
      '    if (sequencer.dasEvent[hpos] != EVENT_NONE && rrSkipIdle(hpos) == hpos) {\n'
      '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
      '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n\n'
      '// Retro-Recomp modification (MPL-2.0, like this file): the idle sprites of the line (Agnus.h). Not on line 0, not on AGA.\n'
      'void\nAgnus::rrSprLineStart()\n{\n'
+     '    for (u16 m = rrSprLeftMask; m; m &= u16(m - 1)) rrSprSkipped++;   // the line that ended: each slot passed over, once\n'
+     '    rrSprLeftMask = 0;\n'
      '    rrSprIdle = 0;\n'
      '    if (!rrSprSkip || pos.v == 0 || isAGA()) return;\n'
      '    for (isize n = 0; n < 8; n++) {\n'
@@ -898,7 +909,7 @@ REPLACEMENTS = [
      '    while (rrSprIdle) {\n'
      '        const EventID e = sequencer.dasEvent[h];\n'
      '        if (e < DAS_S0_1 || e > DAS_S7_2 || !(rrSprIdle & (1 << ((e - DAS_S0_1) >> 1)))) break;\n'
-     '        rrSprSkipped++;\n'
+     '        rrSprLeftMask |= u16(1 << (e - DAS_S0_1));\n'
      '        h = sequencer.nextDasEvent[h];\n'
      '    }\n'
      '    return h;\n'
@@ -909,6 +920,19 @@ REPLACEMENTS = [
      '    if (!(rrSprIdle & (1 << x))) return;\n'
      '    rrSprIdle &= u8(~(1 << x));\n'
      '    scheduleDasEventForCycle(pos.h);\n'
+     '}\n\n'
+     '// Before a snapshot (a quick state): the held-back disk events that are due run, the next one is scheduled. A frame cut short\n'
+     '// after a batch started (VPOSW clearing LOF, BEAMCON0 from PAL to NTSC) can end with some, and a snapshot keeps none of them.\n'
+     'void\nAgnus::rrBeforeSave()\n{\n'
+     '    paula.diskController.rrBarrier();\n'
+     '}\n\n'
+     '// After a snapshot is loaded: stage 7\'s derived state belongs to the timeline left, and goes. The loaded schedule has every\n'
+     '// event it needs (an idle sprite\'s slot that comes back only does nothing).\n'
+     'void\nAgnus::rrAfterLoad()\n{\n'
+     '    rrSprIdle = 0;\n'
+     '    rrSprLeftMask = 0;\n'
+     '    rrInEvents = false;\n'
+     '    paula.diskController.rrForget();\n'
      '}\n'),
 ] + [
     ('Components/Agnus/AgnusRegs.cpp', head,
@@ -933,6 +957,7 @@ REPLACEMENTS = [
      '    static inline int rrFault = 0;              // a planted fault (1: one held-back event lost), for the self-test\n'
      '    u64 rrCounts[4] = { };                      // batches, batches run at their event, batches run at a barrier, events held back\n'
      '    void rrBarrier();\n'
+     '    void rrForget() { rrLazy = false; rrLeft = 0; }   // after a snapshot\'s load (Agnus::rrAfterLoad)\n'
      '    void rrDebug(char *out, isize size) const;\n'
      'private:\n'
      '    bool rrLazy = false;\n'

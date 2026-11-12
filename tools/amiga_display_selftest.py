@@ -58,6 +58,7 @@ CIAB_TODLO, CIAB_TODMID, CIAB_TODHI, CIAB_ICR, CIAB_CRB = 0xBFD800, 0xBFD900, 0x
 CIAA_ICR = 0xBFED01
 BPLPT, SPRPT = 0x0E0, 0x120
 DSKBYTR, DSKLEN, DSKSYNC = 0x01A, 0x024, 0x07E
+VPOSW, BEAMCON0 = 0x02A, 0x1DC
 CIAB_PRB = 0xBFD100
 BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, BPL1DAT, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x110, 0x180
 
@@ -133,6 +134,13 @@ class Assembler:
         self.move_w_abs_d(0xDFF000 + VHPOSR, 6)
         self.w(0xE04E, 0x0C46, line & 0xFF)
         self.w(0x6500 | ((top - (self.here + 2)) & 0xFF))
+
+    def wait_v8(self, set_: bool) -> None:
+        """btst #0,$dff005 ; beq.s back (or bne.s): until VPOSR's V8 is set (or clear)."""
+        top = self.here
+        self.w(0x0839, 0x0000)
+        self.l(0xDFF000 + VPOSR + 1)
+        self.w((0x6700 if set_ else 0x6600) | ((top - (self.here + 2)) & 0xFF))
 
     def data(self) -> bytes:
         return b''.join(struct.pack('>H', word) for word in self.words)
@@ -403,6 +411,32 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     return Scenario(seed, ntsc, frames, regions, fault_address, summary)
 
 
+# Frames cut short at their end, where the session takes quick states (stage 7, checkpoint 3): the idle disk controller holds its
+# events back up to a bound of the frame's end read when a batch starts. Each frame starts long and PAL; near its end the program
+# clears LOF through VPOSW (one line less) or switches BEAMCON0 to NTSC (the frame ends at line 262), after a batch has started.
+FRAME_END_KINDS = {'lof': (VPOSW, 0x8000, 0x0001, 0x36), 'ntsc': (BEAMCON0, 0x0020, 0x0000, 0x05)}
+FRAME_END_FRAMES, FRAME_END_STATE = 6, ('1', '3')   # a quick state taken at the end of frame 1, loaded back at the end of frame 3
+
+
+def frame_end_scenario(kind: str) -> Scenario:
+    """An idle disk controller, sprite DMA with empty sprites, and every frame cut short near its end (FRAME_END_KINDS)."""
+    register, first, last, line = FRAME_END_KINDS[kind]
+    a = Assembler(PROGRAM)
+    a.move_w_imm_abs(0x8220, 0xDFF000 + DMACON)                # DMAEN and SPREN: the idle sprites' slots are left out too
+    for n in range(8):
+        a.move_l_imm_abs(NULL_SPRITE, 0xDFF000 + SPRPT + 4 * n)
+    top = a.here
+    a.wait_v8(False)
+    a.wait_line(0x20)
+    a.move_w_imm_abs(first, 0xDFF000 + register)               # a long PAL frame again
+    a.wait_v8(True)
+    a.wait_line(line)                                           # line $136 (PAL, LOF) or $105 (then NTSC)
+    a.move_w_imm_abs(last, 0xDFF000 + register)
+    a.bra_w(top)
+    regions = [(PROGRAM, a.data()), (NULL_SPRITE, bytes(4))]
+    return Scenario(0, False, FRAME_END_FRAMES, regions, UNTOUCHED, {'frame_end': kind})
+
+
 # Records: "RRDR", version, frames, rows; per frame 12 u64 (instructions so far, Agnus, Denise, Paula, CIA-A, CIA-B, CPU, chip RAM,
 # slow RAM, sound, CLXDAT, Agnus's clock) and one u64 per texture row; then the instruction count and one u64 per instruction.
 FRAME_FIELDS = ('instructions', 'agnus', 'denise', 'paula', 'cia_a', 'cia_b', 'cpu', 'chip', 'slow', 'sound', 'clxdat', 'clock')
@@ -583,6 +617,25 @@ def main() -> int:
             else:
                 sprite_seen += 1
         print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
+    # Frames cut short at their end, with a quick state taken on one of them and loaded back two frames later: equal to the run with
+    # every disk event and sprite slot on vAmiga's scheduler; leaving out the run before the snapshot, or the clearing after the load,
+    # must be seen; and held-back events must have been run at a frame's end at all (else the scenario proves nothing).
+    frame_end = {}
+    if not arguments.against:
+        for kind in FRAME_END_KINDS:
+            path = runs / f'frame-end-{kind}.bin'
+            frame_end_scenario(kind).write(path)
+            first = play(program, path, runs / f'frame-end-{kind}-a.rec', '--state', *FRAME_END_STATE)
+            play(program, path, runs / f'frame-end-{kind}-b.rec', '--per-slot', '--state', *FRAME_END_STATE)
+            a = read_record(runs / f'frame-end-{kind}-a.rec')
+            row = {'equal': compare(a, read_record(runs / f'frame-end-{kind}-b.rec')) is None, 'disk': first.get('disk'),
+                   'sprite_slots_left_out': first.get('sprite_slots_left_out')}
+            for fault in (1, 2):
+                play(program, path, runs / f'frame-end-{kind}-f{fault}.rec', '--state', *FRAME_END_STATE, '--state-fault', str(fault))
+                row[f'fault_{fault}_seen'] = compare(a, read_record(runs / f'frame-end-{kind}-f{fault}.rec')) is not None
+            frame_end[kind] = row
+            if not (row['equal'] and row['fault_1_seen'] and row['fault_2_seen'] and (row['disk'] or [0, 0, 0])[2]):
+                failures.append({'frame_end': kind, **row})
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
     # Planted faults of the model: each must be seen on at least one scenario.
     model_faults = {}
@@ -599,7 +652,7 @@ def main() -> int:
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
                       'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
-                      'bus': bus_total, 'failures': failures[:10]}))
+                      'frame_end': frame_end, 'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
@@ -611,6 +664,10 @@ def main() -> int:
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
     print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
           f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
+    for kind, row in frame_end.items():
+        print(f"Frames cut short at their end ({kind}), a quick state taken and loaded back: every record equal to the run with every event on "
+              f"vAmiga's scheduler, {row['disk'][2]} runs of held-back disk events at a barrier; leaving out the run before the snapshot "
+              f"and the clearing after the load both seen.")
     if bus_total:
         table = bus_total.get('table', {})
         print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "
