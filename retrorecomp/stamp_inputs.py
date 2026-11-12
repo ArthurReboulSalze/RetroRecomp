@@ -233,9 +233,8 @@ NOT_INPUTS = (
     # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
     # Beetle's cpu.c for a check, never into a game.
     'native/psx_vector_checks/',
-    # The MSX machine skeleton (stage 1, before the MSX has a profile): built with the reference interpreter by
-    # tools/msx_reference.py for a check, never into a game. Its files join an ('msx',) group when the profile exists.
-    'native/msx_machine/')
+    # The MSX hardware checks (authored programs against the documented TMS9918A, PSG, PPI and mappers, run by tools/msx_reference.py): a check only.
+    'native/msx_machine/msx_hardware_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -673,6 +672,28 @@ INPUTS = _resolve({
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',
     ),
+    # The MSX (experimental from 1.7.4): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),
+    # the machine (TMS9918A, AY-3-8910, PPI, slots, mappers, SCC: our own C), the glue of the banked Z80 chain, the player, the
+    # native and reference runners the conversion builds to learn and compare, C-BIOS's notice and the host-kit adapter (host
+    # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from
+    # stamp_groups.
+    ('msx',): (
+        'licenses/cbios.md',
+        'native/hostkit/adapters/rrhk_msx.inc',
+        'native/msx_machine/msx_cart.c',
+        'native/msx_machine/msx_glue.inc',
+        'native/msx_machine/msx_machine.c',
+        'native/msx_machine/msx_machine.h',
+        'native/msx_machine/msx_native_main.c',
+        'native/msx_machine/msx_player.c',
+        'native/msx_machine/msx_psg.c',
+        'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_video.c',
+        'retrorecomp.msx_build',
+        'retrorecomp.msx_cbios',
+        'retrorecomp.msx_conversion',
+        'retrorecomp.msx_rom',
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
@@ -953,7 +974,7 @@ INPUTS = _resolve({
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
     ),
-    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System and the Game Gear now): what a machine declares
+    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear and the MSX): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).

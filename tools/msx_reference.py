@@ -23,27 +23,16 @@ and members; it is BSD-2-Clause (doc/cbios.txt). A development check only: nothi
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
-import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-VERSION = '0.29a'
-URL = 'https://downloads.sourceforge.net/project/cbios/cbios/0.29/cbios-0.29a.zip'
-ARCHIVE = ('cbios-0.29a.zip', 269374, 'c585a2f4a10b397e460a95043d59ac79cf4442fbb45a6e14a1e27ef9febaed73')
-# Members of the archive this check uses (size, SHA-256), recorded at the first fetch on 12 Nov 2026.
-MEMBERS = {
-    'cbios_main_msx1.rom': (32768, '921d35edf143f1fde8e53570f92f85e05854610d6a5ea76cce881f2f9040cd9c'),
-    'cbios_main_msx1_eu.rom': (32768, 'ad114c0d8d1c8eae408fb6876a16ddadd8e336699c53eb04661bda8ebbc4aeab'),
-    'cbios_logo_msx1.rom': (16384, '8ad88a4653e26bdbd4c38329fe0a115846e9aa0866b0ac1fe1dd2c260c9932b3'),
-}
-LIMIT = 4 * 1024 * 1024
+from retrorecomp.msx_cbios import ARCHIVE, MEMBERS, URL, VERSION  # noqa: E402  (the pin lives in the converter)
 JIFFY = 0xFC9E
 WORK = ROOT / '.build' / 'msx-reference'
 # FNV-1a of the 16 KB VRAM after 300 frames with no cartridge (C-BIOS 0.29a MSX1, 60 Hz): rendered and inspected on
@@ -56,31 +45,10 @@ NO_CARTRIDGE_FRAME_300 = 0x6F9CD703
 MSX_CLOCK = 3579545
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def cbios() -> Path:
-    """The folder holding the pinned C-BIOS images, fetched and checked on first use."""
-    folder = ROOT / '.deps' / f'cbios-{VERSION}'
-    archive = folder / ARCHIVE[0]
-    if not (archive.is_file() and archive.stat().st_size == ARCHIVE[1] and _sha256(archive) == ARCHIVE[2]):
-        from retrorecomp.updater import _download_verified
-        folder.mkdir(parents=True, exist_ok=True)
-        partial = archive.with_name(archive.name + '.part')
-        print(f'MSX: fetching C-BIOS {VERSION} from its official release (SourceForge).', flush=True)
-        _download_verified(URL, partial, ARCHIVE[1], ARCHIVE[2], LIMIT, f'{ARCHIVE[0]}: not the pinned archive.')
-        partial.replace(archive)
-    with zipfile.ZipFile(archive) as bundle:
-        for name, (size, digest) in MEMBERS.items():
-            target = folder / name
-            if target.is_file() and target.stat().st_size == size and _sha256(target) == digest:
-                continue
-            data = bundle.read(f'cbios-{VERSION}/roms/{name}')
-            if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
-                raise ValueError(f'{name}: not the pinned C-BIOS image.')
-            target.write_bytes(data)
-    return folder
+    """The folder holding the pinned C-BIOS images (retrorecomp/msx_cbios.py: fetched and checked on first use)."""
+    from retrorecomp import msx_cbios
+    return msx_cbios.fetch(lambda text: print(text, flush=True))
 
 
 # Authored cartridges (no game): an "AB" header whose INIT installs a handler on H.TIMI (FD9Fh) that counts frames.
@@ -485,7 +453,7 @@ def main() -> int:
 
     # Stage 4: the mappers, the SCC and the mapper guess, on authored cartridges booted by C-BIOS.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import msx_rom
+    from retrorecomp import msx_rom
     for name, image in (('authored16', cartridge_16k()), ('authored32', cartridge_32k())):
         g = msx_rom.guess(image)
         print(f'guess {name}')

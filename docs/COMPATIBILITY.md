@@ -235,6 +235,16 @@ playable game whose R3000A code, as far as its routes saw it run, is guarded nat
 is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
 pad) and its checks are on [its page](PLAYSTATION.md).
 
+The **MSX** profile is experimental, in development and not in a release yet ([status](MSX.md)): it converts MSX1 cartridges (`.rom`, `.mx1`, or a ZIP
+holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within
+[its documented scope](MSX.md). It has no list of compatible games. The cartridge and the BIOS are translated ahead of time by the shared banked Z80 chain,
+code run from RAM is learned and translated, and what is left runs on a reference Z80 interpreter and is counted. Native code, CPU fidelity, hardware
+fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on development checks, three plain games
+(Road Fighter, Knightmare, Antarctic Adventure) and authored cartridges end at 0 interpreted instructions after one learning pass and equal the reference
+interpreter on 37 state fields after 300 to 1,200 frames; that is not a qualification, no game is validated as played, and hardware fidelity and latency are
+not claimed. Under C-BIOS, Salamander (Japan) stays black ([known failures](MSX.md#5-known-c-bios-failures)); your own MSX BIOS plays it. MSX2, disks, cassettes,
+FM-PAC, SRAM and the rarer mappers are not converted yet.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

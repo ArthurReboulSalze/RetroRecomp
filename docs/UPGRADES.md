@@ -2077,6 +2077,7 @@ Each machine family has one shell for its window, menus and input:
 | Game Boy | the host kit, staged in the project's runtime: the shell, `hostkit/adapters/rrhk_gb.inc` (included by the patched `platform_sdl.cpp`) and `gameboy_host.py` | `game_main.c`, `gameboy_runtime.py` |
 | Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
 | Sharp X68000 | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_x68k.inc`, included by the frontend | `x68000_reference/reference_host.c` (frame loop, reports, states, disks) and the SDK |
+| MSX (experimental, in development) | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_msx.inc`, included by the player (`native/msx_machine/msx_player.c`) | `native/msx_machine/msx_native_main.c` (frame loop, reports) and `msx_reference_main.c` (the reference interpreter's host) |
 
 Files that are used both by the shell and by headless checks stay game-side:
 `platform_io.c/.h` (quick-state files), `embedded_resources.h`, the

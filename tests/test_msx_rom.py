@@ -1,4 +1,4 @@
-"""The MSX mapper guess (tools/msx_rom.py) on synthetic images: no ROM."""
+"""The MSX mapper guess (retrorecomp/msx_rom.py) on synthetic images: no ROM."""
 import importlib.util
 from pathlib import Path
 import sys
@@ -8,11 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def module():
-    spec = importlib.util.spec_from_file_location('msx_rom', ROOT / 'tools' / 'msx_rom.py')
-    loaded = importlib.util.module_from_spec(spec)
-    sys.modules['msx_rom'] = loaded
-    spec.loader.exec_module(loaded)
-    return loaded
+    from retrorecomp import msx_rom
+    return msx_rom
 
 
 def header(init=0x4010, statement=0, device=0, text=0) -> bytes:

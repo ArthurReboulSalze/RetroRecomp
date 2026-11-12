@@ -24,7 +24,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import msx_reference  # noqa: E402
-import msx_rom  # noqa: E402
+from retrorecomp import msx_rom  # noqa: E402
 
 PANEL = ('msx1/Road Fighter (Japan).zip', 'msx1/Knightmare - Majou Densetsu (Japan).zip',
          'msx1/Nemesis (Japan, Europe).zip', 'msx1/Salamander (Japan).zip')

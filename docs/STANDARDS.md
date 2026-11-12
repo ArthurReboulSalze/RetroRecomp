@@ -1,8 +1,8 @@
 # Standards for adding to Retro-Recomp
 
-Retro-Recomp converts games for sixteen machines (Master System, Game Gear, Game
+Retro-Recomp converts games for seventeen machines (Master System, Game Gear, Game
 Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2 and, as
-experimental machines, the PC Engine / TurboGrafx-16, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64 and the Sony PlayStation),
+experimental machines, the PC Engine / TurboGrafx-16, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64, the Sony PlayStation and the MSX),
 and runs adventure games through ScummVM as a category of its own; more are planned. This page states the rules every change follows and the
 shape the code is converging to, so that a new machine costs a profile, a CPU
 core and a host adapter, not a copy of everything. The inventory behind it

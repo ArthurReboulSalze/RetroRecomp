@@ -145,7 +145,7 @@ int main(int argc, char **argv)
     static uint8_t cart[0x200000];
     if (cart_rom) {
         memset(cart, 0xFF, sizeof cart);              /* the padding up to a whole bank reads as an empty socket */
-        long n = load(cart_rom, cart, (long)sizeof cart - 0x4000);
+        long n = load(cart_rom, cart, (long)sizeof cart);
         MsxDevice device = { MSX_DEV_ROM, cart, (uint32_t)n, (uint16_t)cart_base, NULL };
         device.mapper = mapper;
         device.mirrored = (uint8_t)mirrored;

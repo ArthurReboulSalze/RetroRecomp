@@ -71,6 +71,7 @@ class Upstream:
     watch: tuple = ()        # files that matter when the whole repository is too large to follow
     parent: object = None    # a submodule: the Upstream whose tree records it
     shared_by: tuple = ()    # COMMON entries: the machines that use it ('*' for all)
+    home: str = ''           # a project that is not on GitHub: its page (tools/check_upstreams.py then leaves it to a hand check)
 
     @property
     def is_version(self) -> bool:
@@ -78,7 +79,7 @@ class Upstream:
 
     @property
     def url(self) -> str:
-        return f'https://github.com/{self.repo}'
+        return self.home or f'https://github.com/{self.repo}'
 
 
 def _py(file: str, name: str) -> Pin:
@@ -208,6 +209,11 @@ MUPEN64PLUS_NEXT = Upstream(
     'the parts listed in retrorecomp/n64_core.py (COPIED) copied into a build folder and adapted there (each replacement must find '
     'its pinned text exactly once); eleven unmarked files replaced by our MIT glue (native/n64_machine/glue)',
     _py('retrorecomp/n64_core.py', 'CORE_REV'), checkout='mupen64plus-libretro-nx')
+CBIOS = Upstream(
+    'C-BIOS', 'cbios/cbios', 'master', 'MSX BIOS booted by a game when the player gives no MSX BIOS of their own (SourceForge project)',
+    'BSD-2-Clause', 'the MSX1 main and logo ROMs of the official release archive cbios-0.29a.zip (SourceForge), checked by size and '
+    'SHA-256; embedded in a game that boots them, with their notice (licenses/cbios.md)',
+    _py('retrorecomp/msx_cbios.py', 'VERSION'), tag='v{}', home='https://sourceforge.net/projects/cbios/')
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -298,6 +304,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'n64': (MUPEN64PLUS_NEXT,),
     'scummvm': (SCUMMVM, FREETYPE),
     'psx': (BEETLE_PSX,),
+    # The MSX runs on the banked Z80 chain of the Master System (smsggrecomp's generator on the MSX's own region map) and boots C-BIOS.
+    'msx': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

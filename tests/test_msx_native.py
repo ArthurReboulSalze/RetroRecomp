@@ -1,4 +1,4 @@
-"""The MSX on the banked Z80 chain (tools/msx_native.py): the machine it declares and the step loop rendered for it.
+"""The MSX on the banked Z80 chain (systems/msx.py, retrorecomp/msx_build.py, tools/msx_native.py): the machine it declares and the step loop rendered for it.
 No ROM, no compiler: the native runs themselves are checked by the tool against the reference."""
 import importlib.util
 from pathlib import Path
@@ -70,7 +70,7 @@ class MachineTests(unittest.TestCase):
         self.assertEqual(self.tool.cartridge_ei_ex()[0x10:0x15], bytes([0xFB, 0xDD, 0xE3, 0x18, 0xFB]))
 
     def test_the_glue_defines_what_the_loop_needs(self):
-        glue = (ROOT / 'native' / 'msx_machine' / 'msx_native_main.c').read_text(encoding='utf-8')
+        glue = (ROOT / 'native' / 'msx_machine' / 'msx_glue.inc').read_text(encoding='utf-8')
         for name in ('smsrecomp_region_map', 'smsrecomp_region_generation', 'state_to_hz', 'state_from_hz',
                      'hyb_read', 'advance_vdp', 'vdp_irq_asserted', 'sms_dispatch_miss', 'smsrecomp_feedback_at',
                      'smsrecomp_learning_enabled', 'smsrecomp_observe_code', 'smsrecomp_state_service',

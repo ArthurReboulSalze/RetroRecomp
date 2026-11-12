@@ -369,7 +369,7 @@ class ProfileContractTests(unittest.TestCase):
         # A game folder (Adventure (ScummVM)) is claimed first; a file is never that machine's.
         self.assertEqual([p.id for p in registry.path_stage()], ['scummvm', 'x68', 'cps1', 'cps2', 'ng', 'atarist', 'amiga', 'n64', 'gba', 'psx'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
-        self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb'])
+        self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb', 'msx'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
         # The developer-only machines (X68000, Amiga) come after the listed ones, when this installation carries their files.

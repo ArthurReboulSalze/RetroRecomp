@@ -130,12 +130,14 @@ class PinTests(unittest.TestCase):
 
 
 class StampTests(unittest.TestCase):
-    def test_the_skeleton_is_a_check_and_moves_no_stamp(self):
-        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_video.c', 'msx_psg.c',
-                     'msx_hardware_checks.c', 'msx_cart.c', 'msx_native_main.c'):
+    def test_the_machine_is_the_msx_game_files_and_the_hardware_checks_move_no_stamp(self):
+        msx = stamp_inputs.INPUTS[('msx',)]
+        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c',
+                     'msx_native_main.c', 'msx_glue.inc', 'msx_player.c'):
             path = 'native/msx_machine/' + name
             self.assertTrue((ROOT / path).is_file(), path)
-            self.assertTrue(path.startswith(stamp_inputs.NOT_INPUTS), path)
+            self.assertIn(path, msx)
+        self.assertIn('native/msx_machine/msx_hardware_checks.c', stamp_inputs.NOT_INPUTS)
 
 
 if __name__ == '__main__':

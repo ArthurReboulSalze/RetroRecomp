@@ -1,7 +1,7 @@
-"""MSX cartridge images: which mapper, and where a plain image sits. MIT, Retro-Recomp.
+"""MSX cartridge images: which mapper, and where a plain image sits; reading a cartridge. MIT, Retro-Recomp.
 
 An MSX cartridge has no header that names its mapper. This guess is our own, written from the mappers' documented
-register addresses (stage 4 of the MSX plan; it moves into the converter with the MSX profile):
+register addresses:
 
 - **Up to 32 KB: plain; 48 and 64 KB: plain unless at least two writes go to mapper registers (below).** A plain image
   sits where its "AB" header's routine pointers point: every non-zero pointer (INIT,
@@ -150,3 +150,66 @@ def guess(image: bytes) -> Guess:
         return Guess(None, votes=table, reason=f'{size // 1024} KB and no write to a mapper register')
     return Guess(ranked[0], votes=table, candidates=ranked,
                  reason=f'{size // 1024} KB, register writes {writes}, SCC referred to: {"yes" if scc else "no"}')
+
+
+# ---- recognising and reading a cartridge ----
+
+MAX_CARTRIDGE = 0x200000      # 2 MiB: the largest MegaROM the first scope reads
+
+
+def _pointers_fit(image: bytes, offset: int) -> bool:
+    """A credible "AB" header at `offset`: at least one routine pointer (INIT, STATEMENT, DEVICE, TEXT), every one either
+    zero or inside the cartridge window its page allows (0000h-BFFFh), and the six reserved bytes after them zero or FFh."""
+    if image[offset:offset + 2] != b'AB':
+        return False
+    pointers = [int.from_bytes(image[offset + 2 + 2 * i:offset + 4 + 2 * i], 'little') for i in range(4)]
+    if not any(pointers) or any(p >= 0xC000 for p in pointers):
+        return False
+    reserved = image[offset + 10:offset + 16]
+    return reserved in (bytes(6), b'\xFF' * 6)
+
+
+def looks_like_cartridge(image: bytes) -> bool:
+    """The bytes of a .rom are an MSX cartridge: 8 KiB to 2 MiB, whole kilobytes, and an "AB" header at the start (or at
+    4000h of an image whose first page belongs to the game). Asked after the other machines' sniffers, which recognise
+    their own headers first."""
+    size = len(image)
+    if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
+        return False
+    return _pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))
+
+
+@dataclass(frozen=True)
+class Cartridge:
+    """A cartridge as the converter reads it: its bytes (from a file or from a ZIP member), their SHA-256 and the guess."""
+    path: object
+    data: bytes
+    sha256: str
+    guess: Guess
+
+    @property
+    def size(self) -> int:
+        return len(self.data)
+
+
+def read_cartridge(path) -> Cartridge:
+    """The cartridge at `path` (.rom, .mx1, or a ZIP holding one), refused with a sentence when it is none."""
+    import hashlib
+    import zipfile
+    from pathlib import Path
+    path = Path(path)
+    if path.suffix.lower() == '.zip':
+        with zipfile.ZipFile(path) as bundle:
+            names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1'))]
+            if len(names) != 1:
+                raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom or .mx1).')
+            if bundle.getinfo(names[0]).file_size > MAX_CARTRIDGE:
+                raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
+            data = bundle.read(names[0])
+    else:
+        if path.stat().st_size > MAX_CARTRIDGE:
+            raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
+        data = path.read_bytes()
+    if not looks_like_cartridge(data):
+        raise ValueError(f'{path.name}: no MSX cartridge header ("AB" and its routine pointers).')
+    return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data))

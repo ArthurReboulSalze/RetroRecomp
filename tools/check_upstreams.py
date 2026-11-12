@@ -140,6 +140,8 @@ def check(item, row: dict) -> dict:
             _submodule_pin(item, row)
         if not row['pin']:
             raise ApiError(f'pin not readable from {row["where"]}')
+        if item.home:
+            raise ApiError(f'not on GitHub: compare the pin with {item.home} by hand')
         (_row_version if item.is_version else _row_commit)(item, row)
     except (ApiError, KeyError, TypeError, ValueError) as error:
         row['error'] = str(error) or error.__class__.__name__

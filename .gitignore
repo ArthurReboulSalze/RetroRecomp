@@ -117,6 +117,7 @@ docs/*
 !docs/ATARI_ST_TRANSLATION.md
 !docs/NINTENDO_64.md
 !docs/PLAYSTATION.md
+!docs/MSX.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md
