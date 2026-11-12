@@ -70,6 +70,25 @@ def require_main_route_moving(scenario: str, liveness: dict, directory: Path) ->
             f'Previous export preserved; see {directory}.'))
 
 
+def learning_limits(rom, checks: list) -> dict:
+    """What the limits of the learned code cut, for the report (never silent): the work-RAM instruction variants (the library and the
+    exported game each keep `megadrive.RAM_VARIANT_LIMIT`) and the Z80 opcode variants and driver images (`megadrive_z80`). What is
+    past a limit is not recorded, so no later pass compiles it: it stays on the counted interpreter, which the run counts as
+    `ram_fallback_opcodes` and `audio_interpreted_opcodes`. `library_*` numbers are of the library after this conversion's runs;
+    `native_*` are the largest of the runs' own counts (the exported game's recording table)."""
+    from . import megadrive, megadrive_z80
+    ram = megadrive.ram_variant_overflow(rom, checks)
+    z80 = megadrive_z80.variant_overflow(rom, checks)
+    ram.update({'native_observations_dropped': max([check.get('ram_observation_overflows') or 0 for check in checks] or [0]),
+                'native_variants_dropped': max([check.get('ram_variants_dropped') or 0 for check in checks] or [0]),
+                'native_variants_dropped_exact': all(check.get('ram_variants_dropped_exact', True) for check in checks)})
+    z80.update({'native_variants_dropped': max([check.get('z80_dropped_variants') or 0 for check in checks] or [0])})
+    cut = bool(ram['dropped'] or ram['native_observations_dropped'] or z80['dropped'] or z80['images_dropped'] or
+               z80['native_variants_dropped'])
+    return {'ram_variants': ram, 'z80_variants': z80, 'anything_cut': cut,
+            'claim': 'what is past a limit is not recorded and stays on the counted interpreter'}
+
+
 def replay_delivered(executable: Path, packed: Path, directory: Path, checks: list, references: dict,
                      replay: Callable[[Path, Path, dict], dict], differences: Callable[[dict, dict], list],
                      emit: Callable[[str], None]):

@@ -887,16 +887,23 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                  f"{check['audio_interpreted_opcodes']} interpreted {'Z80' if system_id == 'md' else 'SPC700'} opcodes.")
             if system_id=='snes' and check.get('coprocessor_instructions'):
                 emit(f"{check['cartridge_chip'].upper()}: {check['coprocessor_instructions']} counted interpreted device instructions.")
-            if system_id=='snes' and check.get('ram_observation_overflows'):
+            if check.get('ram_observation_overflows'):
                 # The run met more distinct RAM instructions than a cartridge can keep (the limit is
                 # not raised silently): the ones past it are not learned and stay on the counted path.
+                limit = supernintendo.RAM_VARIANT_LIMIT if system_id == 'snes' else megadrive.RAM_VARIANT_LIMIT
                 emit(f"{name} {check['scenario']}: {check['ram_observation_overflows']} RAM code observations "
-                     f"were past the {supernintendo.RAM_VARIANT_LIMIT}-variant limit and were not recorded; "
+                     f"were past the {limit}-variant limit and were not recorded; "
                      'those instructions stay on the counted interpreter.')
+            if system_id == 'md' and check.get('z80_dropped_variants'):
+                from .megadrive_z80 import LIMIT as Z80_LIMIT
+                emit(f"{name} {check['scenario']}: {check['z80_dropped_variants']} Z80 opcode variants were past the "
+                     f"{Z80_LIMIT}-variant limit and were not recorded; those instructions stay on the counted Z80 interpreter.")
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
-             'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles')} for check in checks]})
+             'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles',
+             *(('ram_observation_overflows', 'ram_variants_dropped', 'z80_dropped_variants') if system_id == 'md' else ()))}
+            for check in checks]})
         if system_id == 'snes':
             # A stuck game is refused before the (long) reference replays.
             supernintendo.validate_device_liveness(checks)
@@ -926,6 +933,15 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     if system_id == 'md':
         from .megadrive_z80 import learn_variants
         learn_variants(rom, checks)
+        from .megadrive_evidence import learning_limits
+        limits = learning_limits(rom, checks)
+        if limits['anything_cut']:
+            ram, z80 = limits['ram_variants'], limits['z80_variants']
+            emit(f"Learned-code limits reached: {ram['known']} distinct RAM instruction variants known for a limit of {ram['limit']} "
+                 f"({ram['dropped']} past it in the library; the game's last run could not record {ram['native_variants_dropped']} more); "
+                 f"{z80['known']} Z80 opcode variants for a limit of {z80['limit']} ({z80['dropped']} past it, "
+                 f"{z80['images_dropped']} driver images past the {z80['image_limit']} compiled). "
+                 'Whatever is past a limit stays on the counted interpreter.')
     else:
         from .snes_spc import learn as learn_spc
         learn_spc(rom, checks)
@@ -964,6 +980,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
         **(delivered.report_fields() if delivered else {}),
+        # Where the learned code reached a limit (the library's and the game's own recording tables), counted and never silent.
+        **({'learning_limits': limits} if system_id == 'md' else {}),
         'advanced_scan': {'enabled': advanced, 'level': level,
                           'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
                                                 + menu_confirm_frames + long_frames),
