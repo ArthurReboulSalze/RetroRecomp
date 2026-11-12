@@ -691,6 +691,40 @@ build reads 0 for each of them.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## MSX and MSX2: the shared pieces the two new profiles use (after 1.7.3)
+
+**What changes.** The MSX and the MSX2 open as experimental profiles; nothing of an existing export changes behaviour. What they
+share with other machines was lifted out of those machines instead of copied a third time (STANDARDS rule 1), with identical
+results, and two shared tables grow:
+- **The quick-state envelope** (`native/state_envelope.h`, new): the Master System's 88-byte header, CRC and check-then-apply,
+  lifted from `native/gamestate.inc`, which now calls it. The bytes of a Master System or Game Gear quick state are unchanged:
+  Alex Kidd in Miracle World, quick states saved by an export built before and after, are equal byte for byte, and the Sega
+  quick-state harness passes 6/6 on both.
+- **The fresh-process quick-state check** (`conversion_gates.check_quick_states`), lifted from `pce_conversion.check_states`, which
+  now calls it with the same texts and the same record.
+- **The start chosen on the reference** (`retrorecomp/route_start.py`, new): `choose_start`, `liveness_score`, `divergence`,
+  `reach` and `stuck_stretch`, lifted from `pce_conversion.py`, whose functions keep their names as callers. Alien Crush
+  (Japan), standard level: the chosen start, every variant's numbers, the route scripts and `game_states` are equal before and
+  after the three lifts.
+- **The feedback kinds** (`native/runtime_feedback.h`): `RR_FB_MSX` 26 and `RR_FB_MSX2` 27, and `RR_FB_MAX_KIND` 27.
+
+**Hot path:** no. The Master System's generated glue calls the same envelope code through one more function; the PC Engine's
+changes are in its Python conversion only.
+
+**What moves:**
+- `native/gamestate.inc` and `native/state_envelope.h` are game-stamp inputs of every console (`ALL`): **every console's game
+  stamp moves**.
+- `native/runtime_feedback.h` is a game-stamp input of every console: **every console's game stamp moves** (the same release).
+- `retrorecomp/conversion_gates.py` moves the game stamps of the machines of `shares:conversion_gates` (the Master System, Game
+  Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1, CPS-2, PC Engine, Amiga, Atari ST, Nintendo 64, PlayStation, and
+  now the MSX and MSX2).
+- `retrorecomp/pce_conversion.py` moves the PC Engine's game stamp; `retrorecomp/route_start.py` is a new game input of the PC
+  Engine, the MSX and the MSX2.
+- The host stamps (the C-BIOS notice in the notices) are listed with the lead's change that makes the notices per machine.
+
+**Quick states:** unchanged for every existing machine (the Master System's and Game Gear's bytes are equal; the PC Engine's
+format is not touched). The MSX and MSX2 states are new (layout `msx-state-2`).
+
 ## Neo Geo: the code the reference runs could not keep is counted and reported (after 1.7.3)
 
 **What changes.** The reference runs of a Neo Geo conversion keep at most 4,096 variants of work-RAM 68000 code and 4,096 variants of

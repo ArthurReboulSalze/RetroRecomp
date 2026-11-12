@@ -675,7 +675,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',
     ),
-    # The MSX (experimental from 1.7.4): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),
+    # The MSX (experimental from 1.7.3): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),
     # the machine (TMS9918A, AY-3-8910, PPI, slots, mappers, SCC: our own C), the glue of the banked Z80 chain, the player, the
     # native and reference runners the conversion builds to learn and compare, C-BIOS's notice and the host-kit adapter (host
     # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from

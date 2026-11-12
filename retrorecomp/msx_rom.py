@@ -169,14 +169,43 @@ def _pointers_fit(image: bytes, offset: int) -> bool:
     return reserved in (bytes(6), b'\xFF' * 6)
 
 
+def system_rom(image: bytes) -> str | None:
+    """What kind of MSX system ROM an "AB"-headed image is, or None for a cartridge to play. A player's BIOS folder holds
+    them beside the main ROMs, and their header is a cartridge's:
+    - the MSX-MUSIC and FM-PAC ROMs: their signature at +18h ("APRLOPLL", "PAC2OPLL", the MSX-MUSIC standard's);
+    - the disk, IDE and DOS2 kernels: a STATEMENT routine (their CALL commands) that is not a jump opcode, and a table of
+      5 to 8 jumps from +10h (DSKIO, DSKCHG, GETDPB, CHOICE, DSKFMT...);
+    - a pure BASIC extension (Kanji BASIC, MSX-MUSIC BASIC): no INIT, a STATEMENT routine and nothing at +10h-+1Fh.
+    Measured on 12 November 2026 on a player's BIOS folder (23 of 36 such ROMs) and two MSX game libraries (0 of 522
+    cartridges caught: games whose header bytes are code have C3h, JP, where STATEMENT sits, or longer jump tables).
+    Firmware, word processors, RS-232C and other language extensions stay listed: no header pattern tells them apart."""
+    for offset in (0, 0x4000):
+        if offset + 0x20 > len(image) or image[offset:offset + 2] != b'AB':
+            continue
+        init = int.from_bytes(image[offset + 2:offset + 4], 'little')
+        statement = int.from_bytes(image[offset + 4:offset + 6], 'little')
+        if image[offset + 0x18:offset + 0x20] in (b'APRLOPLL', b'PAC2OPLL'):
+            return 'MSX-MUSIC or FM-PAC ROM'
+        jumps = 0
+        while jumps < 9 and image[offset + 0x10 + 3 * jumps] == 0xC3:
+            jumps += 1
+        if statement and (statement & 0xFF) != 0xC3 and 5 <= jumps <= 8:
+            return 'disk or DOS kernel ROM'
+        if statement and not init and not any(image[offset + 0x10:offset + 0x20]):
+            return 'BASIC extension ROM'
+    return None
+
+
 def looks_like_cartridge(image: bytes) -> bool:
     """The bytes of a .rom are an MSX cartridge: 8 KiB to 2 MiB, whole kilobytes, and an "AB" header at the start (or at
-    4000h of an image whose first page belongs to the game). Asked after the other machines' sniffers, which recognise
-    their own headers first."""
+    4000h of an image whose first page belongs to the game), and not a system ROM (system_rom). Asked after the other
+    machines' sniffers, which recognise their own headers first."""
     size = len(image)
     if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
         return False
-    return _pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))
+    if not (_pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))):
+        return False
+    return system_rom(image) is None
 
 
 def has_header(image: bytes) -> bool:
@@ -218,18 +247,21 @@ def read_cartridge(path) -> Cartridge:
     from pathlib import Path
     path = Path(path)
     if path.suffix.lower() == '.zip':
+        import zlib
+        # A ZIP that cannot be read whole is refused with a sentence, as systems.archive_rom refuses it: a damaged one
+        # (BadZipFile: a bad CRC too), an encrypted member (RuntimeError), a compression Python does not read
+        # (NotImplementedError, a RuntimeError), a broken deflate stream (zlib.error) or a cut file (EOFError).
         try:
-            bundle = zipfile.ZipFile(path)
-        except zipfile.BadZipFile:
-            raise ValueError(f'{path.name}: not a readable ZIP.') from None
-        with bundle:
-            names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1', '.mx2'))]
-            if len(names) != 1:
-                raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom, .mx1 or .mx2).')
-            if bundle.getinfo(names[0]).file_size > MAX_CARTRIDGE:
-                raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
-            data = bundle.read(names[0])
-            member = names[0]
+            with zipfile.ZipFile(path) as bundle:
+                names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1', '.mx2'))]
+                if len(names) != 1:
+                    raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom, .mx1 or .mx2).')
+                if bundle.getinfo(names[0]).file_size > MAX_CARTRIDGE:
+                    raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
+                data = bundle.read(names[0])
+                member = names[0]
+        except (zipfile.BadZipFile, RuntimeError, zlib.error, EOFError) as error:
+            raise ValueError(f'{path.name}: not a readable ZIP ({error}).') from None
     else:
         if path.stat().st_size > MAX_CARTRIDGE:
             raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')

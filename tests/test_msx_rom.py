@@ -148,6 +148,59 @@ class Msx2IdentificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'not a readable ZIP'):
             read_cartridge(broken)
 
+    def test_an_unreadable_member_is_a_sentence_and_no_profile_claims_it(self):
+        """An encrypted member (RuntimeError), a compression Python does not read (NotImplementedError) and a bad CRC
+        (BadZipFile on read) are refused as a damaged ZIP is: a ValueError, never an exception out of identification."""
+        import zipfile
+        from retrorecomp.msx_rom import read_cartridge
+        from retrorecomp.systems import get_profile
+        payload = image(0x4000)
+        plain = self.folder / 'plain.zip'
+        with zipfile.ZipFile(plain, 'w', zipfile.ZIP_STORED) as bundle:
+            bundle.writestr('game.rom', payload)
+        data = plain.read_bytes()
+        central = data.rfind(b'PK\x01\x02')
+
+        def variant(name, change):
+            raw = bytearray(data)
+            change(raw)
+            path = self.folder / name
+            path.write_bytes(bytes(raw))
+            return path
+        encrypted = variant('encrypted.zip', lambda raw: raw.__setitem__(central + 8, raw[central + 8] | 1))
+        unsupported = variant('unsupported.zip', lambda raw: raw.__setitem__(slice(central + 10, central + 12), b'\x63\x00'))
+        start = data.find(payload[:16])
+        bad_crc = variant('badcrc.zip', lambda raw: raw.__setitem__(start + 100, raw[start + 100] ^ 0xFF))
+        for path in (encrypted, unsupported, bad_crc):
+            with self.subTest(path.name):
+                with self.assertRaisesRegex(ValueError, 'not a readable ZIP'):
+                    read_cartridge(path)
+                self.assertIsNone(get_profile('msx2').identify_path(path, '.zip', None))
+
+    def test_system_roms_of_a_bios_folder_are_not_games(self):
+        """Authored headers in the three shapes of system_rom, and the game shapes it must leave alone."""
+        from retrorecomp.msx_rom import looks_like_cartridge, system_rom
+
+        def header(init, statement, at10=b'', at18=b''):
+            data = bytearray(0x4000)
+            data[0:10] = b'AB' + init.to_bytes(2, 'little') + statement.to_bytes(2, 'little') + bytes(4)
+            data[0x10:0x10 + len(at10)] = at10
+            data[0x18:0x18 + len(at18)] = at18
+            return bytes(data)
+        music = header(0, 0x5000, at18=b'APRLOPLL')
+        fmpac = header(0, 0x4082, at18=b'PAC2OPLL')
+        disk = header(0x576F, 0x6576, at10=b'\xC3\x95\x74' * 7)
+        basic = header(0, 0x41AB)
+        for image in (music, fmpac, disk, basic):
+            self.assertIsNotNone(system_rom(image))
+            self.assertFalse(looks_like_cartridge(image))
+        games = (header(0x4010, 0), header(0, 0x8010, at10=b'\xFD\x1A\xBE\x20'),       # INIT only; a STATEMENT-only game
+                 header(0x404F, 0x57C3, at10=b'\xC3\x00\x40' * 21),                   # header bytes that are code (JP)
+                 header(0x402E, 0x434F, at10=b'\xC3\x00\x40' * 10))                   # a longer jump table
+        for image in games:
+            self.assertIsNone(system_rom(image))
+            self.assertTrue(looks_like_cartridge(image))
+
     def test_text_over_the_header_fields_is_still_a_cartridge(self):
         from retrorecomp.msx_rom import has_header, looks_like_cartridge
         data = bytearray(image(0x8000))

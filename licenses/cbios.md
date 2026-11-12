@@ -4,8 +4,10 @@ An MSX game exported by Retro-Recomp boots [C-BIOS](https://cbios.sourceforge.ne
 own ([MSX.md](../docs/MSX.md)). C-BIOS is a free replacement for the MSX BIOS, under the 2-clause BSD licence below. Nothing of
 C-BIOS is stored in Retro-Recomp's repository or installer.
 
-* **Version.** C-BIOS 0.29a: the MSX1 main ROM (`cbios_main_msx1.rom`, international 60 Hz, or `cbios_main_msx1_eu.rom`, 50 Hz)
-  and the logo ROM (`cbios_logo_msx1.rom`) of the official release file `cbios-0.29a.zip`, unchanged.
+* **Version.** C-BIOS 0.29a, from the official release file `cbios-0.29a.zip`, unchanged. An MSX game embeds the MSX1 main ROM
+  (`cbios_main_msx1.rom`, international 60 Hz, or `cbios_main_msx1_eu.rom`, 50 Hz) and the MSX1 logo ROM
+  (`cbios_logo_msx1.rom`); an MSX2 game the MSX2 main ROM (`cbios_main_msx2.rom`, 60 Hz, or `cbios_main_msx2_eu.rom`, 50 Hz),
+  the MSX2 logo ROM (`cbios_logo_msx2.rom`) and the MSX2 sub-ROM (`cbios_sub.rom`).
 * **Where it comes from.** The converter fetches `cbios-0.29a.zip` from the C-BIOS project on SourceForge
   (<https://sourceforge.net/projects/cbios/files/cbios/0.29/>) the first time a conversion needs it, and checks the pinned size
   and SHA-256 of the archive (`c585a2f4a10b397e460a95043d59ac79cf4442fbb45a6e14a1e27ef9febaed73`) and of each image on every use
@@ -22,7 +24,7 @@ Copyright (c) 2004-2006,2008-2011 Albert Beevendorp.  All rights reserved.
 Copyright (c) 2004-2005 Patrick van Arkel.  All rights reserved.
 Copyright (c) 2004,2010-2011 Manuel Bilderbeek.  All rights reserved.
 Copyright (c) 2004-2006 Joost Yervante Damad.  All rights reserved.
-Copyright (c) 2004-2006 Jussi PitkÃ¤nen.  All rights reserved.
+Copyright (c) 2004-2006 Jussi Pitkänen.  All rights reserved.
 Copyright (c) 2004-2007 Eric Boon.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
