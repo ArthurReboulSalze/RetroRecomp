@@ -294,6 +294,7 @@ void msx_vdp_draw_line(MsxMachine *m, int line);
 void msx_vdp_check_line(MsxMachine *m, int line);
 void msx_psg_reset(MsxMachine *m);
 void msx_psg_catch_up(MsxMachine *m);
+void msx_psg_catch_up_to(MsxMachine *m, uint64_t cycle);
 void msx_psg_write(MsxMachine *m, uint8_t reg, uint8_t value);
 void msx_cart_reset(MsxDevice *d);
 int msx_cart_write(MsxDevice *d, uint16_t address, uint8_t value);   /* 1 when the layout changed */

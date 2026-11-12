@@ -104,11 +104,19 @@ static int one_tick(MsxMachine *m, unsigned tick)
 
 void msx_psg_catch_up(MsxMachine *m)
 {
+    msx_psg_catch_up_to(m, m->cycles);
+}
+
+/* The sound up to `cycle` (at most the machine's time): the stream is the same whatever the steps it is produced in. */
+void msx_psg_catch_up_to(MsxMachine *m, uint64_t cycle)
+{
     MsxPsgSynth *s = &m->synth;
-    if (m->cycles <= s->time)
+    if (cycle > m->cycles)
+        cycle = m->cycles;
+    if (cycle <= s->time)
         return;
     uint64_t now = s->time - s->tick_rest;                   /* the end of the last tick */
-    while (now + TICK <= m->cycles) {
+    while (now + TICK <= cycle) {
         now += TICK;
         int value = one_tick(m, ++s->ticks);
         s->acc += value;
@@ -125,8 +133,8 @@ void msx_psg_catch_up(MsxMachine *m)
                 ++s->dropped;
         }
     }
-    s->tick_rest = (unsigned)(m->cycles - now);
-    s->time = m->cycles;
+    s->tick_rest = (unsigned)(cycle - now);
+    s->time = cycle;
 }
 
 void msx_psg_write(MsxMachine *m, uint8_t reg, uint8_t value)

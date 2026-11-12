@@ -19,8 +19,13 @@ static void finish(void);
 /* The run stops at the frame limit once an instruction and the interrupt it may accept are complete, as the reference
  * does. */
 static unsigned long long trace_from, trace_to;   /* tools: the instructions that start in a window of machine cycles */
+static uint32_t native_cpu_hash(void);
+static void msx_route_row(uint32_t cpu, uint16_t pc);
+static int route_frame_due;
 static void msx_main_service(void)
 {
+    if (route_frame_due)
+        msx_route_row(native_cpu_hash(), g_z80.pc);
     if (trace_to && g_z80.cyc >= trace_from && g_z80.cyc < trace_to)
         fprintf(stderr, "T %llu %04X\n", (unsigned long long)g_z80.cyc, g_z80.pc);
     if (machine.frames >= frames_wanted)
@@ -28,47 +33,27 @@ static void msx_main_service(void)
 }
 
 /* ---- options, report ---- */
-static const char *frame_out, *audio_out, *vram_out;
+static const char *frame_out, *vram_out;
 static unsigned watch[32];
 static int watches;
-typedef struct { unsigned long frame; int joy, a, b, c; } Event;
-static Event events[64];
-static int event_count, next_event;
-static FILE *audio;
-static uint32_t audio_hash = 2166136261u;
-static uint64_t samples;
-static int16_t chunk[MSX_AUDIO_BUFFER];
 
-static uint32_t fnv_add(uint32_t h, const uint8_t *data, size_t size)
-{
-    for (size_t i = 0; i < size; ++i) h = (h ^ data[i]) * 16777619u;
-    return h;
-}
+#include "msx_route.inc"
 
-static void drain_audio(void)
+/* The registers in the rows' order (msx_route_cpu_hash): AF BC DE HL IX IY SP PC, AF' BC' DE' HL', IR, IM|IFF1|IFF2|halted,
+ * WZ, 0. */
+static uint32_t native_cpu_hash(void)
 {
-    unsigned n = msx_audio_take(&machine, chunk, MSX_AUDIO_BUFFER);
-    audio_hash = fnv_add(audio_hash, (const uint8_t *)chunk, n * sizeof *chunk);
-    samples += n;
-    if (audio) fwrite(chunk, sizeof *chunk, n, audio);
-}
-
-/* Called from the step loop's time path: apply input events, collect sound. */
-static void frame_service(void)
-{
-    for (; next_event < event_count && events[next_event].frame <= machine.frames; ++next_event) {
-        const Event *e = &events[next_event];
-        if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
-        else msx_key(&machine, e->a, e->b, e->c);
-    }
-    if (machine.synth.out_count >= MSX_AUDIO_BUFFER / 2)
-        drain_audio();
+    const uint16_t regs[16] = {
+        z80_af(&g_z80), z80_bc(&g_z80), z80_de(&g_z80), z80_hl(&g_z80), g_z80.ix, g_z80.iy, g_z80.sp, g_z80.pc,
+        (uint16_t)(g_z80.a_ << 8 | g_z80.f_), (uint16_t)(g_z80.b_ << 8 | g_z80.c_), (uint16_t)(g_z80.d_ << 8 | g_z80.e_),
+        (uint16_t)(g_z80.h_ << 8 | g_z80.l_), (uint16_t)(g_z80.i << 8 | g_z80.r),
+        (uint16_t)(g_z80.im | (g_z80.iff1 ? 4 : 0) | (g_z80.iff2 ? 8 : 0) | (g_z80.halted ? 16 : 0)), g_z80.wz, 0 };
+    return msx_route_cpu_hash(regs);
 }
 
 static void finish(void)
 {
-    drain_audio();
-    if (audio) fclose(audio);
+    msx_route_finish();
     if (learn_out) {
         FILE *f = fopen(learn_out, "w");
         for (int i = 0; f && i < learned_count; ++i) fprintf(f, "%08X\n", (unsigned)learned[i]);
@@ -95,7 +80,7 @@ static void finish(void)
            z80_hl(&g_z80), g_z80.ix, g_z80.iy, g_z80.iff1, g_z80.halted, machine.primary, machine.secondary[0],
            machine.secondary[1], machine.secondary[2], machine.secondary[3], machine.vdp.reg[0], machine.vdp.reg[1],
            machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4], machine.vdp.reg[5], machine.vdp.reg[6],
-           machine.vdp.reg[7], machine.vdp.status, msx_vram_hash(&machine), msx_ram_hash(&machine, ram), frame_hash, (unsigned long long)samples, audio_hash,
+           machine.vdp.reg[7], machine.vdp.status, msx_vram_hash(&machine), msx_ram_hash(&machine, ram), frame_hash, (unsigned long long)route_samples, route_audio_hash,
            (unsigned long long)banked_native_steps, (unsigned long long)banked_halt_steps,
            (unsigned long long)banked_fallback_steps, (unsigned long long)banked_guarded_steps,
            (unsigned long long)g_hybrid_cyc);
@@ -133,7 +118,7 @@ int main(int argc, char **argv)
     const char *main_rom = NULL, *logo_rom = NULL, *sub_rom = NULL, *cart_rom = NULL, *layout = "basic";
     unsigned long mapper_kib = 256;
     unsigned long cart_base = 0x4000;
-    int pal = 0, mirrored = 0;
+    int pal = 0, mirrored = 0, route_result;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
@@ -151,7 +136,6 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--layout")) layout = v;
         else if (!strcmp(a, "--frames")) frames_wanted = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--frame")) frame_out = v;
-        else if (!strcmp(a, "--audio")) audio_out = v;
         else if (!strcmp(a, "--vram")) vram_out = v;
         else if (!strcmp(a, "--learn")) learn_out = v;
         else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
@@ -161,13 +145,8 @@ int main(int argc, char **argv)
             for (int k = 0; k < MSX_MAPPER_COUNT; ++k) if (!strcmp(v, mapper_names[k])) found = k;
             if (found < 0) { fprintf(stderr, "unknown mapper %s\n", v); return 2; }
             mapper = (MsxMapper)found;
-        } else if (!strcmp(a, "--event") && event_count < 64) {
-            Event *e = &events[event_count];
-            unsigned long f; int r, b, d; unsigned port, bits;
-            if (sscanf(v, "%lu:key:%d:%d:%d", &f, &r, &b, &d) == 4) *e = (Event){ f, 0, r, b, d };
-            else if (sscanf(v, "%lu:joy:%u:%x", &f, &port, &bits) == 3) *e = (Event){ f, 1, (int)port, (int)bits, 0 };
-            else { fprintf(stderr, "bad event %s\n", v); return 2; }
-            ++event_count;
+        } else if ((route_result = msx_route_option(a, v)) != 0) {
+            if (route_result < 0) { fprintf(stderr, "bad value for %s\n", a); return 2; }
         } else { fprintf(stderr, "unknown option %s\n", a); return 2; }
     }
     if (!main_rom) { fprintf(stderr, "--main is required\n"); return 2; }
@@ -202,8 +181,7 @@ int main(int argc, char **argv)
         device.source = 0;                       /* the cartridge is the first translated source (game.toml) */
         msx_set_device(&machine, 1, 0, device);
     }
-    if (audio_out && !(audio = fopen(audio_out, "wb"))) { fprintf(stderr, "cannot write %s\n", audio_out); return 3; }
-    machine.line_hook = frame_service;
+    machine.line_hook = msx_route_line;
     memset(&g_z80, 0, sizeof g_z80);
     g_next_line_cyc = msx_next_event(&machine);
     smsrecomp_banked_run();                      /* returns through finish() at the frame limit */

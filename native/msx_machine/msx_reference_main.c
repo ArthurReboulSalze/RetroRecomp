@@ -86,15 +86,27 @@ static uint32_t fnv_add(uint32_t h, const uint8_t *data, size_t size)
 
 static uint32_t fnv(const uint8_t *data, size_t size) { return fnv_add(2166136261u, data, size); }
 
-typedef struct { unsigned long frame; int joy, a, b, c; } Event;
+#include "msx_route.inc"
+
+/* The registers in the rows' order (msx_route_cpu_hash), as the native check gives them. */
+static uint32_t reference_cpu_hash(const z80 *z)
+{
+    uint8_t f = (uint8_t)(z->sf << 7 | z->zf << 6 | z->yf << 5 | z->hf << 4 | z->xf << 3 | z->pf << 2 | z->nf << 1 | z->cf);
+    const uint16_t regs[16] = {
+        (uint16_t)(z->a << 8 | f), (uint16_t)(z->b << 8 | z->c), (uint16_t)(z->d << 8 | z->e), (uint16_t)(z->h << 8 | z->l),
+        z->ix, z->iy, z->sp, z->pc,
+        (uint16_t)(z->a_ << 8 | z->f_), (uint16_t)(z->b_ << 8 | z->c_), (uint16_t)(z->d_ << 8 | z->e_),
+        (uint16_t)(z->h_ << 8 | z->l_), (uint16_t)(z->i << 8 | z->r),
+        (uint16_t)(z->interrupt_mode | (z->iff1 ? 4 : 0) | (z->iff2 ? 8 : 0) | (z->halted ? 16 : 0)), z->mem_ptr, 0 };
+    return msx_route_cpu_hash(regs);
+}
 
 int main(int argc, char **argv)
 {
-    const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL, *audio_out = NULL;
+    const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL;
     const char *page3_out = NULL;
     unsigned long long trace_from = 0, trace_to = 0;   /* tools: the instructions that start in a window of machine cycles */                /* tools: the 16 KB the CPU sees at C000h-FFFFh, for oracle comparisons */
-    static Event events[64];
-    int event_count = 0;
+    int route_result;
     const char *layout = "basic", *sub_rom = NULL;
     unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256;
     unsigned watch[32];
@@ -130,14 +142,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--trace")) trace = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
         else if (!strcmp(a, "--frame")) frame_out = v;
-        else if (!strcmp(a, "--audio")) audio_out = v;
-        else if (!strcmp(a, "--event") && event_count < 64) {
-            Event *e = &events[event_count];
-            unsigned long f; int r, b, d; unsigned port, bits;
-            if (sscanf(v, "%lu:key:%d:%d:%d", &f, &r, &b, &d) == 4) *e = (Event){ f, 0, r, b, d };
-            else if (sscanf(v, "%lu:joy:%u:%x", &f, &port, &bits) == 3) *e = (Event){ f, 1, (int)port, (int)bits, 0 };
-            else { fprintf(stderr, "bad event %s\n", v); return 2; }
-            ++event_count;
+        else if ((route_result = msx_route_option(a, v)) != 0) {
+            if (route_result < 0) { fprintf(stderr, "bad value for %s\n", a); return 2; }
         }
         else if (!strcmp(a, "--watch") && watches < 32) watch[watches++] = (unsigned)strtoul(v, NULL, 16) & 0xFFFF;
         else { fprintf(stderr, "unknown option %s\n", a); return 2; }
@@ -185,24 +191,9 @@ int main(int argc, char **argv)
     z.port_out = bus_out;
     z.userdata = &machine;
 
-    uint64_t waits = 0, steps = 0, accepted = 0, samples = 0;
-    uint32_t audio_hash = 2166136261u;
-    FILE *audio = audio_out ? fopen(audio_out, "wb") : NULL;
-    if (audio_out && !audio) { fprintf(stderr, "cannot write %s\n", audio_out); return 3; }
-    static int16_t chunk[MSX_AUDIO_BUFFER];
-    int next_event = 0;
+    uint64_t waits = 0, steps = 0, accepted = 0;
+    machine.line_hook = msx_route_line;
     while (machine.frames < frames) {
-        for (; next_event < event_count && events[next_event].frame <= machine.frames; ++next_event) {
-            const Event *e = &events[next_event];
-            if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
-            else msx_key(&machine, e->a, e->b, e->c);
-        }
-        if (machine.synth.out_count >= MSX_AUDIO_BUFFER / 2) {
-            unsigned n = msx_audio_take(&machine, chunk, MSX_AUDIO_BUFFER);
-            audio_hash = fnv_add(audio_hash, (const uint8_t *)chunk, n * sizeof *chunk);
-            samples += n;
-            if (audio) fwrite(chunk, sizeof *chunk, n, audio);
-        }
         if (trace_to && machine.cycles >= trace_from && machine.cycles < trace_to)   /* --trace-cycles: one line per instruction */
             fprintf(stderr, "T %llu %04X %02X%02X%02X%02X %02X%02X\n", (unsigned long long)machine.cycles, z.pc,
                     msx_peek(&machine, z.pc), msx_peek(&machine, (uint16_t)(z.pc + 1)), msx_peek(&machine, (uint16_t)(z.pc + 2)),
@@ -231,14 +222,11 @@ int main(int argc, char **argv)
             }
             z.int_pending = 0;
         }
+        if (route_frame_due)                     /* the service point: the instruction and its interrupt are complete */
+            msx_route_row(reference_cpu_hash(&z), z.pc);
     }
 
-    {
-        unsigned n = msx_audio_take(&machine, chunk, MSX_AUDIO_BUFFER);
-        audio_hash = fnv_add(audio_hash, (const uint8_t *)chunk, n * sizeof *chunk);
-        samples += n;
-        if (audio) { fwrite(chunk, sizeof *chunk, n, audio); fclose(audio); }
-    }
+    msx_route_finish();
     uint32_t frame_hash = msx_frame_hash(&machine);
     if (frame_out) {
         FILE *f = fopen(frame_out, "wb");
@@ -272,7 +260,7 @@ int main(int argc, char **argv)
            machine.secondary[3], (unsigned long long)machine.unmapped_reads, (unsigned long long)machine.dropped_writes,
            machine.vdp.reg[0], machine.vdp.reg[1], machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4],
            machine.vdp.reg[5], machine.vdp.reg[6], machine.vdp.reg[7], machine.vdp.status,
-           msx_vram_hash(&machine), nonzero, frame_hash, (unsigned long long)samples, audio_hash,
+           msx_vram_hash(&machine), nonzero, frame_hash, (unsigned long long)route_samples, route_audio_hash,
            (unsigned long long)machine.synth.dropped,
            (unsigned)(z.a << 8 | (z.sf << 7 | z.zf << 6 | z.yf << 5 | z.hf << 4 | z.xf << 3 | z.pf << 2 | z.nf << 1 | z.cf)),
            (unsigned)(z.b << 8 | z.c), (unsigned)(z.d << 8 | z.e), (unsigned)(z.h << 8 | z.l), z.ix, z.iy,
