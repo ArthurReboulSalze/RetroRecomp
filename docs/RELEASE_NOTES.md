@@ -26,7 +26,29 @@
   - **Quick states on a frame cut short** (VPOSW or BEAMCON0) run the held-back disk events
     before the state is taken, and a load clears what was derived from the timeline it left.
     The conversion report counts what the idle disk and sprite slots did.
-  - [à venir : les 13 jeux Amiga relivrés, la conversion des couleurs]
+  - **Colours in fewer steps.** Three more hand optimisations of vAmiga's display work: a
+    border of one colour is written four entries at a time, a chunk inside the display window
+    takes one colour lookup per pair of entries when the pair holds one pixel (a super-hires line
+    keeps one lookup per entry), and the picture is packed in the host's colour order once instead
+    of swapping red and blue in every pixel of every frame. Denise stays emulated. The display
+    self-test's 60 scenarios equal vAmiga's own work row for row, each fault planted on purpose is
+    seen, and Lotus 2, Rick Dangerous, Lemmings and Civilization give the same routes as before,
+    hash for hash. [à venir : le coût par image avec ces étapes, passe sur PC calme]
+  - **The sweep shares its bound.** The sweep past the routes keeps at most 150,000 instructions.
+    When it reaches more, the bound is now shared between each memory image and phase instead of
+    the first one taking it all, and the report counts what is left out; under the bound nothing
+    changes. On Cyber Games at the extended level, an unseen route of 18,000 frames goes from
+    790,198 to 96,625 interpreted instructions.
+  - **Routes that press 1 and 2, and Monkey Island 2's protection.** The main route of every game
+    now taps 1 and 2, which Civilization's first screen waits for, and Monkey Island 2's route
+    answers its copy protection: both main routes now reach the game's sound. The twelve delivered
+    games other than Another World were converted again: all pass, with 0 instructions
+    interpreted outside the Kickstart. A route is a script, not a validation of gameplay.
+- **Amiga, Atari ST and X68000: the click that captures the mouse stays the window's.** A left
+  click in the window captures the mouse; it also reached the game as a left click the player
+  never meant. It is now consumed, and every later click is the game's, as before. On Another
+  World this stray click locked the protection screen; a deliberate click or C there still does,
+  so answer that screen with the joystick ([AMIGA.md](AMIGA.md)).
 - **The converter window, on every machine: a step that runs out of time.** A conversion step
   that reaches its time limit is now named in the converter window in your language (eight
   languages): which step stopped, the limit, the likely causes and what to send, instead of
@@ -57,6 +79,26 @@
   shared paths, the converter window says in one line, in your language, how many valid rows a
   limit of your local base could not keep and how many rows were refused as invalid. Rows you
   already had stay quiet.
+- **Mega Drive: more of the code met past the routes becomes native.**
+  - **A larger record.** The record a game keeps of the code that ran on the interpreter (F12)
+    now holds 65,536 notes on the Mega Drive instead of 4,096; Ultimate Mortal Kombat 3 met
+    13,871 unknown entries in one session and filled the old one. The other machines keep 4,096
+    notes, and a record of 4,096 notes or fewer is the same file as in 1.7.2.
+  - **Code found from the tables it already reached.** The conversion reads the pointer and jump
+    tables of code it has already reached and adds their targets, never a scan of the ROM; a
+    target runs as native code only when the CPU really gets there, and every refusal is counted
+    in the report. On Ultimate Mortal Kombat 3's first conversion, a scripted walk of 36,000
+    frames with a seed no conversion used ran 2.40 % of its instructions on the interpreter
+    before, and 0.31 % and 0.28 % on two walks now. After two recorded walks and one more
+    conversion, the recorded walk runs 0 interpreted and a new seed 0.30 %. The price is a larger
+    game and a longer code generation (up to 3.2 times the native instructions on a first
+    conversion).
+  - **One more learning pass when the last one still used the interpreter** (Mega Drive and Super
+    Nintendo): it learns what that pass recorded and generates the code again, once at most. On
+    Sonic The Hedgehog 2 from shared paths, the sound CPU's 8,604 interpreted opcodes on its
+    routes became 0.
+  - Scripted walks, not a person's play; the machine time of the larger record is not measured
+    yet.
 - **PC Engine / TurboGrafx-16.**
   - **The player's own record**, promised in the 1.7.2 notes. A game now records, in a window,
     the code of the card that ran on the interpreter (F12 switches it), and the next conversion
@@ -100,13 +142,16 @@ and shown per CPU and per device wherever it is used.
 **Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the converter's
 own build steps are inputs of each), so **every export of 1.7.2, on every machine, is converted
 again once** when you update, at the quick level, from its learned paths, and the window offers
-it; the shared paths of the base are kept. No host or build stamp moves. The Amiga, Atari ST,
+it; the shared paths of the base are kept. No build stamp moves; the host stamps of the Amiga,
+Atari ST and X68000 move with the capture click, which adds nothing to that. The Amiga, Atari ST,
 Nintendo 64, Mega Drive, Super Nintendo and PC Engine quick-state keys move, so a quick state of
 1.7.2 is refused cleanly on those six machines, with a message (nothing is lost but the state);
 the other machines' states still load. Cartridge saves are kept; a save the new export cannot
 use is set aside and never crashes or blocks the game. The Mega Drive, Super Nintendo and PC
 Engine now write their saves through one shared file of code, with the same bytes on disk as
-before. [à venir : ce que les branches restantes changent.] The details are in
+before. A Mega Drive game of 1.7.2 that exits beside a record of more than 4,096 notes does not
+read it and writes its own session over it; the converter keeps its own copy. [à venir : ce que
+les branches restantes changent.] The details are in
 [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
