@@ -42,8 +42,9 @@
   interpreter on the routes played", as the PC Engine does.
 - **Master System and Game Gear: preparation for a future machine.** The banked Z80 chain now
   reads its memory map from one description per machine instead of the Sega mapper's constants,
-  ready for a second Z80 machine. No machine is added and nothing changes for players: the
-  converted Master System and Game Gear games are the same bytes.
+  ready for a second Z80 machine. No machine is added and nothing changes for players: on the
+  three games compared (two Sonic The Hedgehog, Alex Kidd in Miracle World), the generated code
+  and the delivered executables are the same bytes as before.
 - **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
   pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
 - [à venir : Game Boy Advance et Atari ST, à décider]
