@@ -109,11 +109,20 @@ def generate_bios(recompile: Path, stage: Path, bios_path: Path, out: Path, emit
     return out
 
 
-def generate_game(recompile: Path, rom_path: Path, config: Path, out: Path, emit: Callable[[str], None]) -> dict:
-    """The cartridge's generated shards, sharded, from the engine's analysis plus our observations."""
+GENERATION_TIMEOUT = 900                # seconds; a generation takes one to a few seconds in practice
+RECEIVED_GENERATION_TIMEOUT = 300       # with rows received from other players: a wrong root can make the generator loop (see GAME_BOY_ADVANCE.md)
+
+
+def generate_game(recompile: Path, rom_path: Path, config: Path, out: Path, emit: Callable[[str], None],
+                  timeout: int = GENERATION_TIMEOUT) -> dict:
+    """The cartridge's generated shards, sharded, from the engine's analysis plus our observations. A generator that does not end within `timeout`
+    seconds is stopped and reported as a conversion error (so that the caller can convert again without the rows it received), never as a raw timeout."""
     out.mkdir(parents=True, exist_ok=True)
-    result = run([recompile, '--rom', rom_path, '--config', config, '--entry', '0x08000000',
-                  '--codegen-shards', str(SHARD_COUNT), '--out', out], log=out.with_suffix('.log'), timeout=900)
+    try:
+        result = run([recompile, '--rom', rom_path, '--config', config, '--entry', '0x08000000',
+                      '--codegen-shards', str(SHARD_COUNT), '--out', out], log=out.with_suffix('.log'), timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        raise ConversionError(f'The generator did not end within {timeout} seconds (a root it was given makes it loop); it was stopped.') from error
     found = re.search(r'discovered (\d+) functions \(arm=(\d+) thumb=(\d+)', result)
     return {'functions': int(found[1]) if found else None, 'arm': int(found[2]) if found else None,
             'thumb': int(found[3]) if found else None,

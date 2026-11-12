@@ -221,7 +221,8 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
         write_if_changed(project / 'game.toml', analysis.config_text(
             title, hashlib.sha1(image).hexdigest(), len(image), in_build, ram_entries, ram_ranges, config_stats).encode('utf-8'))
         with timings.phase('code_generation'):
-            generated = build.generate_game(recompile, generator_rom, project / 'game.toml', project / 'generated', emit)
+            generated = build.generate_game(recompile, generator_rom, project / 'game.toml', project / 'generated', emit,
+                                            timeout=build.RECEIVED_GENERATION_TIMEOUT if received.size() else build.GENERATION_TIMEOUT)
         emit(f"Game Boy Advance: {generated['functions']} functions in {generated['shards']} shards.")
         build.host_project(project, stage_root, project / 'generated', bios_code)
         host = build.build_host(project, cmake, generator, emit)

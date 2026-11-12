@@ -24,6 +24,11 @@ What it reports (JSON in the scratch folder, summary on the screen):
   * `shared_paths`: the converter's own counters (received, used, left out by the cap, qualified by this converter: always 0);
   * `bogus_rows_in_players_paths` and `bogus_rows_in_promoted_record`: invented rows found in the scratch library's `paths.json` and in the record the
     conversion would share. Both MUST be 0: received rows are never saved nor shared.
+A random ARM or Thumb root in the data of a cartridge often makes the pinned generator loop (a root the generator is given and never ends on); the converter then stops it
+after 300 seconds and converts again without the received rows (`shared_paths.set_aside_after_a_failure`), which the audit reports as `passed` with `received_rows_used: 0`.
+`--max-root-offset 0x1D0000` keeps only the invented roots below that cartridge offset (the first ones, which on The Minish Cap the generator accepted: 233 sorted roots
+checked one chunk at a time), so that the run shows the other path, rows built into the generated code and the comparison with the interpreter. Without it the run shows
+that a hostile record is survived; with it, that accepted rows change nothing.
 It says nothing about CPU fidelity, hardware fidelity, gameplay validation or physical latency. No window is opened; the long builds run as the
 converter runs them (the toolchain's own processes, waited for with timeouts). Run it when no other conversion of the cartridge is running and no timing
 is being taken.
@@ -45,6 +50,7 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp import gba_analysis, gba_knowledge  # noqa: E402
 
 DEFAULT_COUNT = 2000
+ROOT_LIMIT = None                # set by --max-root-offset: only the invented roots below this cartridge offset are kept (see the docstring)
 _ENV = ('RETRO_RECOMP_LIBRARY_DIR', 'SMSRECOMP_LIBRARY_DIR', 'RETRO_RECOMP_BUNDLED_KNOWLEDGE')
 
 
@@ -72,6 +78,8 @@ def bogus_rows(size: int, seed: int, count: int = DEFAULT_COUNT) -> tuple[list, 
         row = (address | rng.randrange(2), offset, length)
         if gba_knowledge.span_valid(row, size):
             spans.add(row)
+    if ROOT_LIMIT is not None:
+        roots = {value for value in roots if (value & ~1) < ROOT_LIMIT}
     return sorted(roots), sorted(spans)
 
 
@@ -195,7 +203,10 @@ def main(argv=None) -> int:
     parser.add_argument('--passes', type=int, default=3)
     parser.add_argument('--frames', type=int, default=3600)
     parser.add_argument('--clean-report', type=Path)
+    parser.add_argument('--max-root-offset', type=lambda text: int(text, 0), default=None)
     args = parser.parse_args(argv)
+    global ROOT_LIMIT
+    ROOT_LIMIT = args.max_root_offset
     if args.command == 'plan':
         rom = resolve_source(args.source).read_bytes()
         roots, spans = bogus_rows(len(rom), args.seed, args.count)

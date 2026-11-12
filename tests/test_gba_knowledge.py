@@ -265,6 +265,18 @@ class ReceivedRowsTests(unittest.TestCase):
         self.assertFalse(gk.span_valid((0x03000100, 0x1002, 0x40), len(ROM)))           # ARM, not word aligned in the cartridge
         self.assertTrue(gk.span_valid((0x03000103, 0x1002, 0x40), len(ROM)))            # Thumb: the halfword is enough
 
+    def test_a_generator_that_loops_on_a_received_root_is_stopped_and_the_conversion_is_tried_again_without_the_rows(self):
+        import subprocess
+        from unittest import mock
+        from retrorecomp import gba_build
+        from retrorecomp.core import ConversionError
+        timed_out = subprocess.TimeoutExpired(['gba_recompile'], 300)
+        with mock.patch.object(gba_build, 'run', side_effect=timed_out):
+            with self.assertRaises(ConversionError) as caught:
+                gba_build.generate_game(Path('gba_recompile'), Path('rom'), Path('game.toml'), Path(tempfile.mkdtemp()), lambda text: None, timeout=300)
+        self.assertIn('300 seconds', str(caught.exception))                                 # an error the conversion's retry catches, never a raw timeout
+        self.assertLess(gba_build.RECEIVED_GENERATION_TIMEOUT, gba_build.GENERATION_TIMEOUT)
+
     def test_a_conversion_that_fails_with_received_rows_is_converted_again_without_them(self):
         from unittest import mock
         from retrorecomp import gba_conversion
@@ -402,7 +414,7 @@ class ConversionWiringTests(unittest.TestCase):
             item.start()
             self.addCleanup(item.stop)
 
-    def generate(self, recompile, rom_path, config, out, emit):
+    def generate(self, recompile, rom_path, config, out, emit, timeout=None):
         self.configs.append(Path(config).read_text(encoding='utf-8'))
         return {'functions': 10 + len(self.configs), 'arm': 5, 'thumb': 5, 'shards': 1}
 
