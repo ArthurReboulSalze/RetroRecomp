@@ -1,6 +1,6 @@
 # MSX
 
-Experimental profiles (`msx`, and `msx2` for the MSX2, described in section 8), in development: they are not in a release yet. The `msx` profile converts an MSX1 cartridge into a standalone Windows
+Experimental profiles (`msx`, and `msx2` for the MSX2, described in section 8), experimental since 1.7.3. The `msx` profile converts an MSX1 cartridge into a standalone Windows
 executable whose Z80 code, as far as the conversion saw it run, is translated ahead of time to C, with a counted interpreter for the rest.
 The cartridge boots on C-BIOS 0.29a or on the player's own MSX BIOS. Nothing here says that a game plays completely, that the hardware is
 reproduced faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each, and
@@ -103,7 +103,7 @@ and nothing here asks for it.
 ## 8. The MSX2 (`msx2`)
 
 Experimental profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
-keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is in development, not in a release yet, and
+keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is experimental since 1.7.3, and
 **the V9938 command engine exists since stage 7, with its timing approximated**.
 
 **Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you

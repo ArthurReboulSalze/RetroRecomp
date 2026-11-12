@@ -235,7 +235,7 @@ playable game whose R3000A code, as far as its routes saw it run, is guarded nat
 is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
 pad) and its checks are on [its page](PLAYSTATION.md).
 
-The **MSX** profile is experimental, in development and not in a release yet ([status](MSX.md)): it converts MSX1 cartridges (`.rom`, `.mx1`, or a ZIP
+The **MSX** profile is experimental since 1.7.3 ([status](MSX.md)): it converts MSX1 cartridges (`.rom`, `.mx1`, or a ZIP
 holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within
 [its documented scope](MSX.md). It has no list of compatible games. The cartridge and the BIOS are translated ahead of time by the shared banked Z80 chain,
 code run from RAM is learned and translated, and what is left runs on a reference Z80 interpreter and is counted. Native code, CPU fidelity, hardware
@@ -245,7 +245,7 @@ interpreter on 37 state fields after 300 to 1,200 frames; that is not a qualific
 not claimed. Under C-BIOS, Salamander (Japan) stays black ([known failures](MSX.md#5-known-c-bios-failures)); your own MSX BIOS plays it. Disks, cassettes,
 FM-PAC, SRAM and the rarer mappers are not converted yet.
 
-The **MSX2** profile (`msx2`) is experimental too, in development and not in a release yet ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
+The **MSX2** profile (`msx2`) is experimental since 1.7.3 too ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
 (`.mx2`, or a `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
 with the V9938 drawn by line and a memory mapper. The V9938 command engine runs all twelve commands with their timing approximated (the chip's access slots are not modelled), in the bitmap modes only. On 14 authored
 cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games reach 0 interpreted instructions on the route played, no game has been played through (gameplay validation: none), and hardware fidelity and

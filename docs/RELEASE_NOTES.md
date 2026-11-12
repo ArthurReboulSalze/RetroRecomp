@@ -1,5 +1,25 @@
-# RetroRecomp v1.7.3 — The Amiga's chips do the same work in less machine time; a step that runs out of time is named in your language [titre à compléter]
+# RetroRecomp v1.7.3 — The MSX and the MSX2 open as experimental machines; the Amiga's chips do the same work in less machine time [titre à compléter]
 
+- **MSX and MSX2 (experimental, new).** Two profiles of one family: `msx` for MSX1 cartridges,
+  `msx2` for MSX2 ones ([MSX.md](MSX.md)).
+  - **What is converted.** MSX1 and MSX2 cartridges (a `.rom`, `.mx1`, `.mx2` or a ZIP holding
+    one): plain cartridges and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers. The
+    Z80 code is translated ahead of time by the shared Z80 chain of Sega's 8-bit machines, with a
+    counted interpreter for the rest. The TMS9918A, the V9938 and its command engine (its
+    timing approximated), the AY-3-8910, the Konami SCC, the slots and mappers, and the MSX2's
+    memory mapper and clock are Retro-Recomp's own code, not an emulator core. Quick states with
+    F8 and F9. Windows only for now: Linux has no witness yet.
+  - **Firmware.** C-BIOS 0.29a, a free BIOS, fetched on first use and pinned, or your own MSX BIOS
+    (for the MSX2, its main ROM and sub-ROM), chosen in Options and never shipped. C-BIOS has no
+    MSX-BASIC, no disk and no cassette, and Salamander's stage stays black under it: choose your
+    own BIOS for that game.
+  - **Measured on the Windows panel of 12 November 2026** (extended level): six MSX1 cartridges
+    (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II) and four MSX2
+    cartridges (Metal Gear, Space Manbow, Aleste, Hydlide 3) end at 0 interpreted instructions on
+    every route, equal to our own reference Z80 interpreter frame by frame and on the delivered
+    file. That is agreement with our reference, not with a real MSX.
+  - **Not yet:** disks, cassettes, FM-PAC, cartridge SRAM, MSX2+ and the turbo R, Linux. Nothing
+    is claimed of hardware fidelity, complete gameplay or latency.
 - **Commodore Amiga (experimental).**
   - **Agnus and Denise do the same work in fewer steps.** Denise's line work is done by table
     and by word, a line's bitplane slots are taken in a batch, a quiet line is drawn in one loop,
@@ -151,10 +171,12 @@
   - The machine time of a frame has its own tool now; its quiet-PC pass is not done, so no figure
     is given.
 - [à venir : l'étude de capture commune aux machines]
-- **Coming next: the MSX.** It is not in 1.7.3. The MSX1 and the MSX2 are planned to open
-  together as an experimental machine in the next release, cartridges first, on C-BIOS (a free
-  BIOS) or your own MSX BIOS; disks later, no tapes. Nothing is claimed yet of its native code,
-  its fidelity, its gameplay or its latency.
+- **Every machine: a game carries the notices of its own components.** Each converted game now
+  embeds the licence notices of what is compiled into it, and no other machine's. This filled real
+  gaps: X68000 games carried no notice at all and now carry theirs, the Neo Geo's native route
+  carries GenesisRecomp's terms, and every game names its menu fonts. The Noto notice is gone
+  from games, which hold no Noto glyph. A new machine's notice no longer touches the other
+  machines' exports.
 
 **Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
 
@@ -165,17 +187,18 @@ and shown per CPU and per device wherever it is used.
 **Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the converter's
 own build steps are inputs of each), so **every export of 1.7.2, on every machine, is converted
 again once** when you update, at the quick level, from its learned paths, and the window offers
-it; the shared paths of the base are kept. No build stamp moves; the host stamps of the Amiga,
-Atari ST and X68000 move with the capture click, which adds nothing to that. The Amiga, Atari ST,
-Nintendo 64, Mega Drive, Super Nintendo and PC Engine quick-state keys move, so a quick state of
-1.7.2 is refused cleanly on those six machines, with a message (nothing is lost but the state);
+it; the shared paths of the base are kept. The host stamp of every machine moves too, once, with
+the notices each game now embeds; that adds nothing to the conversion. No build stamp moves. The
+Amiga, Atari ST, Nintendo 64, Mega Drive, Super Nintendo, PC Engine and Neo Geo quick-state keys
+move, so a quick state of 1.7.2 is refused cleanly on those seven machines, with a message
+(nothing is lost but the state);
 the states of the other machines with a key still load. Cartridge saves are kept; a save the new export cannot
 use is set aside and never crashes or blocks the game. The Mega Drive, Super Nintendo and PC
 Engine now write their saves through one shared file of code, with the same bytes on disk as
 before. A Mega Drive game of 1.7.2 that exits beside a record of more than 4,096 notes does not
 read it and writes its own session over it; the converter keeps its own copy. A Game Boy Advance
 quick state is the engine's own file, with no key of ours: one made by a game converted before may
-be refused. [à venir : ce que les branches restantes changent.] The details are in
+be refused. The MSX and the MSX2 are new: no export of theirs exists before 1.7.3. The details are in
 [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
 
 **Windows security warning.** RetroRecomp is not signed with a paid

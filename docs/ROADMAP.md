@@ -29,10 +29,9 @@ fallback stays counted and shown wherever it is used.
 | Atari ST | experimental (since 1.7.1) | the cause of Kick Off 2's stop on its protected tracks, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
-| MSX | experimental, in development (not in a release yet) | the panel and its qualification, MSX2, disks, FM-PAC and SRAM, the Linux witness |
-| MSX2 | experimental, in development (not in a release yet) | stage 7 (the V9938 command engine, timing approximated) is done; next stage 8, the panel on Windows, then its qualification, disks, FM-PAC, MSX2+, the Linux witness |
+| MSX | experimental (since 1.7.3) | its qualification, more cartridges, the owner's play, disks, FM-PAC and cartridge SRAM, the Linux witness |
+| MSX2 | experimental (since 1.7.3) | its qualification, the command engine's timing, more cartridges, the owner's play, disks, FM-PAC, MSX2+, the Linux witness |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
-| MSX (MSX1 and MSX2) | in development, not in a release | experimental in the next release: MSX1 and MSX2 together, cartridges only |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
 [QUALIFICATION.md](QUALIFICATION.md#progress-through-the-qualification-list): both are generated from the same matrix, so this table does not repeat the figures.
@@ -159,29 +158,20 @@ the owner's play of the panel discs, more discs, the Linux witness beyond one di
 
 ### MSX
 
-In development as an experimental profile ([MSX.md](MSX.md)): MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16) booted by C-BIOS or the player's own
-BIOS, native Z80 code from the shared banked chain. Next: a panel of games and its qualification, the owner's play, the Linux witness, quick states. MSX2+ and the turbo R,
-disks, cassettes, FM-PAC and the SRAM mappers are out of scope today.
+Experimental since 1.7.3 ([MSX.md](MSX.md)): MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16) booted by C-BIOS, a free BIOS, or the player's own
+BIOS (never shipped), native Z80 code from the shared banked chain. Next: the qualification of the panel, more cartridges, the owner's play, the Linux witness. MSX2+ and
+the turbo R, disks, cassettes, FM-PAC and the SRAM mappers are out of scope today.
 
 ### MSX2
 
-In development as a second experimental profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, a memory mapper and the
-RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. The V9938 command engine (stage 7) is done, timing approximated. Next: stage 8, the panel on Windows, then its qualification, the owner's play, the
-Linux witness. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
+Experimental since 1.7.3, the second profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, with its command
+engine (its timing approximated), a memory mapper and the RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. Next: the qualification of the panel, the
+command engine's timing, the owner's play, the Linux witness. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
 
 ### Adventure games (ScummVM)
 
 Supported since 1.7.1 as a category of its own, emulated and 0 % native by design ([SCUMMVM.md](SCUMMVM.md)). Next: Ogg Vorbis, FLAC and MP3 decoders
 (games that need CD audio rips or compressed speech), and the witness on Linux of more engine families.
-
-## In development
-
-### MSX (MSX1 and MSX2)
-
-Not in 1.7.3. The MSX1 and the MSX2 are planned to open together as an experimental machine in the next release, cartridges only.
-A cartridge runs on C-BIOS, a free BIOS, by default, or on the player's own MSX BIOS (never shipped). Disks come later;
-tapes are not planned. Nothing is claimed yet of its native code, CPU fidelity, hardware fidelity, gameplay or latency: each is
-measured and stated apart once the machine opens, with the interpreter fallback counted as on every machine.
 
 ## Planned after that
 
