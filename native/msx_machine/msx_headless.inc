@@ -2,13 +2,15 @@
  * Retro-Recomp. Included by the native check (msx_native_main.c) and by the game (msx_player.c, `--headless`), so the
  * delivered file replays a route exactly as the check does and prints the same report.
  *
- * Options (headless_option): --frames N --frame FILE --vram FILE --watch ADDR --report FILE --trace-cycles A:B and the
+ * Options (headless_option): --frames N --frame FILE --vram FILE --watch ADDR --report FILE --trace-cycles A:B, --pictures DIR
+ * with --picture-every N (the raw picture of every Nth frame, frame-NNNNNN.bin, as --frame writes it), and the
  * route's (--event, --script, --rows, --audio). The report is the JSON the conversion compares (msx_build.COMPARED); it
  * goes to --report FILE, or to the standard output when none is given (the game is linked for the Windows subsystem, so
  * its standard output is not relied on). */
 
 static unsigned long frames_wanted = 120;
-static const char *frame_out, *vram_out, *report_out;
+static const char *frame_out, *vram_out, *report_out, *pictures_dir;
+static unsigned long picture_every;
 static unsigned watch[32];
 static int watches;
 static unsigned long long trace_from, trace_to;   /* tools: the instructions that start in a window of machine cycles */
@@ -34,6 +36,8 @@ static int headless_option(const char *a, const char *v)
     else if (!strcmp(a, "--frame")) frame_out = v;
     else if (!strcmp(a, "--vram")) vram_out = v;
     else if (!strcmp(a, "--report")) report_out = v;
+    else if (!strcmp(a, "--pictures")) pictures_dir = v;
+    else if (!strcmp(a, "--picture-every")) { picture_every = strtoul(v, NULL, 10); if (!picture_every) return -1; }
     else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
     else if (!strcmp(a, "--watch")) { if (watches < 32) watch[watches++] = (unsigned)strtoul(v, NULL, 16) & 0xFFFF; }
     else return msx_route_option(a, v);
@@ -95,8 +99,15 @@ static void headless_finish(void)
  * after its frame flag): the due row, the instruction trace, the frame limit. */
 static void headless_service(void)
 {
-    if (route_frame_due)
+    if (route_frame_due) {
+        if (pictures_dir && picture_every && machine.frames % picture_every == 0) {
+            char path[1200];
+            snprintf(path, sizeof path, "%s/frame-%06lu.bin", pictures_dir, (unsigned long)machine.frames);
+            FILE *f = fopen(path, "wb");
+            if (f) { msx_dump_frame(&machine, f); fclose(f); }
+        }
         msx_route_row(native_cpu_hash(), g_z80.pc);
+    }
     if (trace_to && g_z80.cyc >= trace_from && g_z80.cyc < trace_to)
         fprintf(stderr, "T %llu %04X\n", (unsigned long long)g_z80.cyc, g_z80.pc);
     if (machine.frames >= frames_wanted)

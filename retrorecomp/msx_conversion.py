@@ -3,10 +3,11 @@ the reference interpreter, built into a game.
 
 The steps: read the cartridge and guess its mapper (msx_rom.py); choose the BIOS (the player's own MSX BIOS, checked: a 32 KiB
 main ROM on the MSX1, the main ROM and its 16 KiB sub-ROM on the MSX2; or C-BIOS 0.29a, pinned); generate the bodies of both and learn the code run from RAM (msx_build.learn, at most three passes) on a
-route that boots, waits, presses SPACE and the trigger; run the native program and the reference on the same route and refuse
-the conversion when any compared field differs (CPU, RAM, VRAM, picture of every frame, sound, PSG, banks); build the game
-with the host kit; write the report (schema 2). The MSX2 adds the V9938 (with its command engine, timing approximated), the
-memory mapper and the clock (msx_setup_msx2). Not yet: compressed delivery and its replay, quick states, shared paths. The
+the routes of the scan level (msx_routes: attract, play from a start chosen on the reference, long routes); run the native
+program and the reference on every route and refuse the conversion when any compared field differs (CPU, RAM, VRAM, picture
+of every frame, sound, PSG, banks, every frame's row); build the game with the host kit; replay the delivered (compressed)
+file on every route; check quick states in a fresh process; write the report (schema 2). The MSX2 adds the V9938 (with its
+command engine, timing approximated), the memory mapper and the clock (msx_setup_msx2). Not yet: shared paths. The
 five measures stay apart: native code and CPU agreement with the reference are measured on the route played;
 hardware fidelity, gameplay and latency are not.
 """
@@ -21,8 +22,10 @@ import time
 BIOS_SIZE = 0x8000
 SUBROM_SIZE = 0x4000
 MAPPER_KIB = (128, 256, 512)
-FRAMES = 1200
-START_EVENTS = ('600:key:8:0:1', '610:key:8:0:0', '660:joy:0:2F', '670:joy:0:3F')
+FRAMES = 3600                    # the batch's default route length (the profile's default_frames)
+LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame',
+                                        'audible_frames', 'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
+                                        'distinct_program_counters')}
 WATCH = (0xFC9E, 0xFC9F)
 
 
@@ -109,7 +112,7 @@ def _basic_only(data: bytes) -> bool:
     return False
 
 
-def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES, scan_level=None,
+def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
             msx2_ram=256, **unused) -> Path:
     from . import __version__, msx_build, msx_cbios
@@ -118,7 +121,9 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
     from .msx_rom import read_cartridge
     from .report_schema import write_report
     from .toolchain import describe as toolchain_description
-    from .delivery_evidence import (LIVENESS_KEYS, deliver_packed, liveness_summary, replay_packed, report_fields,
+    from . import msx_routes, route_start
+    from .conversion_common import check_run_budget, resolve_scan_level
+    from .delivery_evidence import (deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
                                     require_moving_picture, same_trace)
     started = time.perf_counter()
     if profile is not None:
@@ -160,7 +165,7 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
     # One work folder per cartridge and BIOS: the probe, the bodies, the learned patterns and the game are those of this pair.
     work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
     timings = {}
-    probe = None
+    probe = reference_probe = None
     standard_args = ['--pal'] if standard == 'pal' else []
     with entry_lock(work, timeout=1800):
         work.mkdir(parents=True, exist_ok=True)
@@ -180,36 +185,97 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                 guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
                 (work / 'native.patterns').unlink(missing_ok=True)      # learned under the other mapper
         cartridge = msx_build.padded(cart.data, guess.mapper)
-        # The route's options (the same for the check, the reference and the game's headless replay) and the machine's
-        # (the check's and the reference's only: the game knows its own cartridge, BIOS and standard).
-        route_options = ['--frames', str(max(300, min(int(frames or FRAMES), 6000))),
-                         *(w for a in WATCH for w in ('--watch', f'{a:04X}')),
-                         *(w for e in START_EVENTS for w in ('--event', e))]
-        route = [*bios_args, *guess.arguments(), *standard_args, *route_options]
+        level = resolve_scan_level(scan_level)
+        frames, passes = int(frames or FRAMES), int(passes or 3)
+        check_run_budget(passes, frames, 'MSX: a conversion runs 1 to 10 learning passes on routes of 1 to 10,000 frames.')
+        machine_args = [*bios_args, *guess.arguments(), *standard_args]
+        watch = [w for a in WATCH for w in ('--watch', f'{a:04X}')]
+        folder = work / 'routes'
+        folder.mkdir(parents=True, exist_ok=True)
+        reference_exe = reference_probe or msx_build.build_reference(work, emit)
+
+        def options(name: str, count: int, text: str) -> list[str]:
+            """A route's options for every program (the check, the reference, the game): its length, its script."""
+            script = folder / f'{name}.inputs'
+            if not script.is_file() or script.read_text(encoding='ascii') != text:
+                script.write_text(text, encoding='ascii', newline='\n')
+            return ['--frames', str(count), *watch, '--script', str(script)]
+
+        def reference_rows(name: str, count: int, text: str) -> tuple[dict, Path]:
+            rows = folder / f'{name}-reference.csv'
+            return msx_build.run(reference_exe, [*machine_args, *options(name, count, text), '--rows', str(rows)], cartridge), rows
+
+        # The start (route_start, as the PC Engine): each variant played on the reference against the route without input.
+        phase = time.perf_counter()
+        play_frames = max(frames, msx_routes.PLAY_FRAMES)
+        seed = msx_routes.route_seed(cart.sha256, 'play')
+        variants = msx_routes.candidates(play_frames)
+        emit(f'MSX: choosing how the play route starts ({len(variants)} variants on the reference).')
+        try:
+            played = replay_routes([('baseline', None), *((f'start-{msx_routes.variant_name(v)}', v) for v in variants)],
+                                   lambda row: reference_rows(row[0], play_frames, '' if row[1] is None else
+                                                              msx_routes.script(msx_routes.events(play_frames, seed, row[1]))),
+                                   workers=4)
+        except msx_build.MsxBuildError as error:
+            raise ConversionError(f'MSX: {error}') from None
+
+        def pictures(rows: Path) -> dict:
+            return {row.frame: row.picture for row in msx_build.frame_rows(rows)}
+        baseline = pictures(played[0][1])
+        results = {}
+        for variant, (_result, rows) in zip(variants, played[1:]):
+            mine = pictures(rows)
+            results[variant] = {'liveness': report_fields(liveness_summary(msx_build.frame_rows(rows)), LIVENESS_FIELDS),
+                                'divergence': route_start.divergence(mine, baseline),
+                                'reach': route_start.reach(mine, baseline, msx_routes.walk_start(msx_routes.presses_of(variant)),
+                                                           msx_routes.QUIET_WALK)}
+        chosen = route_start.choose_start(results, play_frames, msx_routes.variant_order)
+        start_record = {'presses': msx_routes.presses_of(chosen), 'confirm': chosen[1] if isinstance(chosen, tuple) else None,
+                        'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input showed, '
+                                'then most frames the input changed, then the fewest presses',
+                        'variants': {msx_routes.variant_name(v): r for v, r in results.items()}}
+        emit(f'MSX: the play route starts with {msx_routes.variant_name(chosen)} press(es) of fire'
+             f'{" and RETURN" if isinstance(chosen, tuple) else ""}.')
+        routes = msx_routes.routes(cart.sha256, frames=frames, level=level, variant=chosen)
+        timings['start_choice'] = round(time.perf_counter() - phase, 3)
+
         emit(f'{"MSX2" if msx2 else "MSX"}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
-             f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS.')
+             f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS, learning on '
+             f'{len(routes)} route(s) ({", ".join(name for name, _, _ in routes)}).')
         phase = time.perf_counter()
         try:
-            check, passes = msx_build.learn(work, cartridge, bios_image, route, emit)
+            check, pass_counts = msx_build.learn(work, cartridge, bios_image,
+                                                 [[*machine_args, *options(*route)] for route in routes], emit,
+                                                 passes=passes, workers=2)
         except msx_build.MsxBuildError as error:
             raise ConversionError(f'MSX: {error}') from None
         timings['translation_and_learning'] = round(time.perf_counter() - phase, 3)
         phase = time.perf_counter()
-        emit('MSX: comparing the native run with the reference interpreter, field by field and frame by frame.')
-        reference_exe = check.with_name(check.name.replace('msx_check', 'msx_reference'))
-        rows_native, rows_reference = work / 'rows-native.csv', work / 'rows-reference.csv'
-        native = msx_build.run(check, [*route, '--rows', str(rows_native)], cartridge)
-        reference = msx_build.run(reference_exe, [*route, '--rows', str(rows_reference)], cartridge)
+        emit('MSX: comparing the native runs with the reference interpreter, field by field and frame by frame.')
+
+        def compare(route):
+            name = route[0]
+            rows_native = folder / f'{name}-native.csv'
+            native = msx_build.run(check, [*machine_args, *options(*route), '--rows', str(rows_native)], cartridge)
+            reference, rows_reference = reference_rows(*route)
+            differing = msx_build.differences(native, reference)
+            if rows_native.read_bytes() != rows_reference.read_bytes():
+                differing['frame_rows'] = ('native', 'reference')
+            return native, reference, rows_reference, differing
+        try:
+            compared = dict(zip((route[0] for route in routes), replay_routes(routes, compare, workers=2)))
+        except msx_build.MsxBuildError as error:
+            raise ConversionError(f'MSX: {error}') from None
         timings['reference_comparison'] = round(time.perf_counter() - phase, 3)
-        differing = msx_build.differences(native, reference)
-        if rows_native.read_bytes() != rows_reference.read_bytes():
-            differing['frame_rows'] = ('native', 'reference')
-        if differing:
-            names = ', '.join(sorted(differing))
-            raise ConversionError(f'MSX: the native run differs from the reference ({names}); nothing was built.')
-        liveness = liveness_summary(msx_build.frame_rows(rows_reference))
-        require_moving_picture(liveness, lambda: ConversionError(
-            f'MSX: {title}: the picture never changes on the route played; nothing was built.'))
+        for name, (_native, _reference, _rows, differing) in compared.items():
+            if differing:
+                raise ConversionError(f'MSX: on the {name} route the native run differs from the reference '
+                                      f'({", ".join(sorted(differing))}); nothing was built.')
+        liveness = {name: liveness_summary(msx_build.frame_rows(rows)) for name, (_, _, rows, _) in compared.items()}
+        for name, record in liveness.items():
+            if name != 'attract':
+                require_moving_picture(record, lambda name=name: ConversionError(
+                    f'MSX: {title}: the picture never changes on the {name} route; nothing was built.'))
         phase = time.perf_counter()
         emit('MSX: building the game.')
         prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model,
@@ -219,35 +285,54 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
         except Exception as error:  # noqa: BLE001 - the build's own log names the cause
             raise ConversionError(f'MSX: the game could not be built ({error}).') from None
         timings['game_build'] = round(time.perf_counter() - phase, 3)
-        # The delivered file (G5): the compressed copy the player receives, replayed headless on the route and compared
+        # The delivered file (G5): the compressed copy the player receives, replayed headless on every route and compared
         # with the fresh reference (report and every frame's row); delivery_evidence falls back to the build if UPX fails.
         phase = time.perf_counter()
         delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'MSX2' if msx2 else 'MSX', emit)
-        rows_packed, report_packed = work / 'rows-packed.csv', work / 'report-packed.json'
 
-        def replay(_route):
-            return msx_build.run_game(delivered.path, [*route_options, '--rows', str(rows_packed)], report_packed)
+        def replay(route):
+            name = route[0]
+            return msx_build.run_game(delivered.path, [*options(*route), '--rows', str(folder / f'{name}-packed.csv')],
+                                      folder / f'{name}-packed.json')
 
-        def same(_route, result):
-            return not msx_build.differences(result, reference) and same_trace(rows_packed, rows_reference)
+        def same(route, result):
+            name = route[0]
+            return (not msx_build.differences(result, compared[name][1])
+                    and same_trace(folder / f'{name}-packed.csv', compared[name][2]))
 
         try:
-            replay_packed(delivered, ['boot-and-start'], replay, same=same, mismatch=lambda _route: ConversionError(
-                'MSX: the delivered (compressed) game differs from the reference on the route; nothing was published.'))
+            replay_packed(delivered, routes, replay, same=same, workers=3, mismatch=lambda route: ConversionError(
+                f'MSX: the delivered (compressed) game differs from the reference on the {route[0]} route; nothing was published.'))
         except msx_build.MsxBuildError as error:
             raise ConversionError(f'MSX: {error}') from None
         timings['packed_replay'] = round(time.perf_counter() - phase, 3)
-    executed = native['native_steps'] + native['fallback_steps']
-    native_coverage = native['fallback_steps'] == 0
-    row = {'name': 'boot-and-start', 'frames': native['frames'], 'native_steps': native['native_steps'],
-           'halt_steps': native['halt_steps'], 'interpreted_steps': native['fallback_steps'],
-           'interpreted_cycles': native['fallback_cycles'], 'guarded_steps': native['guarded_steps'],
-           'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
-           'reference_match': True, 'compared_fields': list(msx_build.COMPARED),
-           'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
-           'image_hash': native['frame_fnv'], 'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'],
-           'interrupts': native['interrupts'], 'events': list(START_EVENTS),
-           'frame_rows_equal': True, 'liveness': report_fields(liveness, {key: key for key in LIVENESS_KEYS})}
+        # Quick states (G6) on the delivered file: saved near the play route's end, continued by a fresh process.
+        phase = time.perf_counter()
+        emit('MSX: checking quick states in a fresh process.')
+        play = next(route for route in routes if route[0] == 'play')
+        try:
+            states = check_states(delivered.path, work / 'states', 'play', play[1], options(*play)[2:],
+                                  folder / 'play-packed.csv')
+        except msx_build.MsxBuildError as error:
+            raise ConversionError(f'MSX: {error}') from None
+        timings['quick_states'] = round(time.perf_counter() - phase, 3)
+    final_checks = []
+    for name, count, text in routes:
+        native = compared[name][0]
+        executed = native['native_steps'] + native['fallback_steps']
+        final_checks.append({
+            'name': name, 'frames': native['frames'], 'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest(),
+            'script_events': len(text.splitlines()), 'native_steps': native['native_steps'],
+            'halt_steps': native['halt_steps'], 'interpreted_steps': native['fallback_steps'],
+            'interpreted_cycles': native['fallback_cycles'], 'guarded_steps': native['guarded_steps'],
+            'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
+            'reference_match': True, 'compared_fields': list(msx_build.COMPARED),
+            'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
+            'image_hash': native['frame_fnv'], 'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'],
+            'interrupts': native['interrupts'], 'frame_rows_equal': True, 'packed_rows_equal': True,
+            'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
+    native = compared['play'][0]
+    native_coverage = all(row['interpreted_steps'] == 0 for row in final_checks)
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
         'system': _system(model), 'rom': {'sha256': cart.sha256, 'bytes': cart.size, 'file': Path(path).name},
         'converted': True,
@@ -258,7 +343,7 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                        'mapper_candidates': list(guess.candidates), 'cartridge_base': f'{guess.base:04X}',
                        'mirrored': guess.mirrored, 'bios': bios_source, 'standard': standard,
                        'mapper_probe': probe,
-                       'learning_passes_fallback_steps': passes,
+                       'learning_passes_fallback_steps': pass_counts,
                        'learned_patterns': len((work / 'native.patterns').read_text(encoding='utf-8').split())
                        if (work / 'native.patterns').is_file() else 0,
                        **({'mapper_ram_kib': mapper_kib, 'rtc': 'RP5C01 started on Saturday 2000-01-01 12:00:00, machine time only',
@@ -269,12 +354,14 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                            'v9938_command_timing': 'approximated: an average cost per byte or dot in three classes, no access slots',
                            'lines_per_frame': (native.get('v9938') or {}).get('lines_per_frame'),
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
-        'final_checks': [row],
+        'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
+        'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
         'native_validation': {'passed': True, 'reference_kind': 'the same machine with every instruction on the reference '
                                                                 'interpreter (corrected SuperZazu, MSX wait states)',
                               'cpu_agreement': True, 'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False,
-                              'sound_heard': bool(liveness['audible_frames']), **delivered.validation_fields()},
+                              'sound_heard': any(record['audible_frames'] for record in liveness.values()),
+                              **delivered.validation_fields()},
         **delivered.report_fields(), 'delivered_file': delivered.kind,
         'native_coverage': native_coverage,
         'video_model': {'chip': 'V9938 (our own C, line by line; commands: all twelve, timing approximated)' if msx2 else
@@ -286,16 +373,70 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                         'rate': 44100, 'channels': 1},
         'counter_unit': 'cycles', 'physical_latency_measured': False, 'latency_ms': None,
         'hardware_accuracy_validated': False, 'full_game_validated': False,
-        'game_states': {'supported': False, 'reason': 'not yet on the MSX'},
+        'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',
+                        'schema': 'RRMSX2-STATE-1' if msx2 else 'RRMSX-STATE-1',
+                        'compatibility': 'the exact cartridge, BIOS, options and build',
+                        'fresh_process_verified': True, 'validation': states},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
-        'build_directory': str(work), 'scan_level': scan_level,
+        'build_directory': str(work),
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'qualification_scope': {'controls': 'joystick 1 and 2, the keyboard; the route presses SPACE and trigger A',
+        'qualification_scope': {'controls': 'joystick 1 and the keyboard as the default mapping drives them: directions on '
+                                            'the joystick and the cursor keys, fire on trigger A and SPACE, RETURN, 1 and 2',
                                 'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'MSX: {title} ready ({"no interpreter on the route played" if native_coverage else "interpreter fallback reported"}).')
+    emit(f'MSX: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable
+
+
+STATE_LAYOUT = 'msx-state-1'     # raised whenever msx_state.c or msx_state_file.inc writes another body
+STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
+
+
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of a quick state (state_envelope.h: magic 0, schema 8, machine 12, identity 16, length 80, CRC 84;
+    then the build binding 88 and the payload), by what is wrong with them: the game must refuse every one (exit 4)."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:40], 'one-byte-short': state[:-1], 'body-cut': state[:len(state) // 2],
+            'magic': flipped(0), 'schema': flipped(8), 'machine': flipped(12), 'identity': flipped(16), 'length': flipped(80),
+            'crc': flipped(84), 'binding': flipped(88), 'payload': flipped(len(state) - 1),
+            'not-a-state': b'not a state.' * 4096}
+
+
+def check_states(game: Path, folder: Path, name: str, frames: int, route_rest: list[str], expected: Path) -> dict:
+    """F8 at a frame of the route, F9 in a fresh process (conversion_gates.check_quick_states, as the PC Engine): the loaded
+    process continues the uninterrupted trace `expected` for STATE_SETTLE frames; damaged states are refused and left as they
+    were; a missing state is refused and creates nothing. `route_rest`: the route's options without its frame count."""
+    from . import msx_build
+    from .conversion_gates import check_quick_states
+    folder.mkdir(parents=True, exist_ok=True)
+    at = max(60, frames - STATE_SETTLE - 60)
+    state = folder / 'quick.rrstate'
+    state.unlink(missing_ok=True)
+
+    def continued():
+        msx_build.run_game(game, ['--frames', str(at + 1), *route_rest, '--rows', str(folder / 'save.csv'),
+                                  '--save-state', str(state), '--save-at', str(at)], folder / 'save.json')
+        msx_build.run_game(game, ['--frames', str(at + STATE_SETTLE), *route_rest, '--rows', str(folder / 'load.csv'),
+                                  '--load-state', str(state)], folder / 'load.json')
+        return (expected.read_text(encoding='ascii').splitlines()[1:],
+                (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
+
+    def refused(path: Path) -> bool:
+        return msx_build.game_exit_code(game, ['--frames', '1', '--load-state', str(path)]) == 4
+    return check_quick_states(folder, state, machine='MSX', route=name, at=at, settle=STATE_SETTLE, continued=continued,
+                              refused=refused, damaged=damaged_states, error=ConversionError)
+
+
+def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int) -> bytes:
+    """The quick state's build binding (RR_MSX_STATE_ABI, 32 bytes): a state of another layout, BIOS, mapper, cartridge base,
+    mirror, standard, model or RAM size is refused as incompatible."""
+    text = '\n'.join([STATE_LAYOUT, hashlib.sha256(bios).hexdigest(), guess.mapper, f'{guess.base:04X}',
+                      str(int(guess.mirrored)), standard, model, str(mapper_kib)])
+    return hashlib.sha256(text.encode('ascii')).digest()
 
 
 def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard: str, bios: bytes, emit=print, *,
@@ -331,5 +472,7 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
         f'#define RR_MSX_MAPPER {mappers[guess.mapper]}\n'
         f'#define RR_MSX_CART_BASE 0x{guess.base:04X}\n#define RR_MSX_MIRRORED {int(guess.mirrored)}\n'
         f'#define RR_MSX_PAL {int(standard == "pal")}\n#define RR_MSX_MODEL {2 if model == "msx2" else 1}\n'
-        f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n', encoding='utf-8', newline='\n')
+        f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n'
+        f'#define RR_MSX_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in state_binding(bios, guess, standard, model, mapper_kib))}}}\n',
+        encoding='utf-8', newline='\n')
     return {'artwork': artwork, 'windows_metadata': metadata}

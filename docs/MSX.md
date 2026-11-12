@@ -13,7 +13,7 @@ for the MSX most of them are not known yet.
 | MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | MSX2+ and the turbo R (the MSX2 is the `msx2` profile, section 8) |
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers | The other mappers (the rare ones), FM-PAC, cartridge SRAM and the saves that depend on it |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
-| The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound | Quick states (F8/F9) |
+| The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound; quick states (F8/F9) | The FM-PAC's sound |
 | Windows | Linux (the profile says `pending`: no witness) |
 
 C-BIOS runs cartridges only: it has no MSX-BASIC, so a BASIC cartridge is refused under C-BIOS, and it has no disk and no cassette. A game that needs
@@ -33,8 +33,15 @@ that BIOS and code translated from it, as on the other machines that take your o
    translation does not cover runs on a reference Z80 interpreter and is counted.
 3. **The machine.** The TMS9918A video, the AY-3-8910 sound, the Konami SCC sound, the PPI (keyboard and slot select), the slots and the mappers are
    Retro-Recomp's own C (`native/msx_machine/`, MIT). No emulator core is inside the executable: this is not a machine that runs on an emulator core.
-4. **Comparison.** Native code is compared with the reference Z80 interpreter on the same machine, on a route that boots, waits and presses SPACE and the trigger: 37 state fields at its last frame and a running hash of every frame's picture. A conversion whose native run differs is refused. An external emulator (openMSX) is used
-   privately for comparisons during development and is never shipped.
+4. **Routes.** A conversion plays the routes of its scan level, as the PC Engine does: `attract` (no input), `play` and, at the extended and thorough
+   levels, one or two long routes of 18,000 frames. A route presses what a player's default mapping presses (a direction on joystick 1 and the cursor
+   key together, fire on trigger A and SPACE together, RETURN, 1 and 2). How `play` starts is chosen on the reference interpreter for each
+   cartridge: fire pressed 1, 2, 3, 4 or 6 times, or 1 to 3 times each followed by RETURN; the variant kept stays alive to its end and reaches the most
+   pictures of its own, then a walk seeded by the cartridge. The report records the choice and every variant's numbers.
+5. **Comparison.** Native code is compared with the reference Z80 interpreter on the same machine, on every route: the state fields at its last frame
+   and one row per frame (CPU, RAM, picture, sound). A conversion whose native run differs is refused. The delivered (compressed) game is then replayed
+   on every route and must give the same rows. An external emulator (openMSX) is used privately for comparisons during development and is never
+   shipped.
 
 ## 3. The five measures
 
@@ -63,7 +70,10 @@ The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2-exp
 | Select (right Shift, pad Back) | The MSX F1 key |
 | Ctrl+Alt+K | Hands the whole keyboard to the MSX; F1 to F5 then go to the MSX, and the help is at Ctrl+F1 |
 
-The quick states (F8/F9) are not available on the MSX yet. The F2 pages, autofire and the speed and sound controls are the common ones of the host kit.
+F8 saves a quick state and F9 loads it, at the end of a frame, in the game's folder beside its settings (`datas/games/msx-<identity>`, or `msx2-<identity>`
+on the MSX2). A state is refused, and the game goes on untouched, when anything differs: the cartridge, the BIOS, the options or the build. Each conversion
+checks it on the delivered file: a state saved near the end of the route is loaded by a fresh process, which must continue the same frames for 600 frames,
+and damaged or missing states must be refused and left as they were. The F2 pages, autofire and the speed and sound controls are the common ones of the host kit.
 
 ## 5. Known C-BIOS failures
 
@@ -108,7 +118,7 @@ the input is never changed, and a game converted with your own BIOS holds it and
 **Timing approximated** means an average cost per byte or dot in three classes (display off or outside the picture; picture with sprites off; with sprites on) plus a line-end cost; the chip's access slots and the slots the CPU takes are not modelled. C-BIOS's MSX2 logo, drawn by an HMMC, now appears.
 
 **Not yet:** disks,
-cassettes, FM-PAC, MSX2+, the turbo R, quick states (F8/F9), a Linux witness.
+cassettes, FM-PAC, MSX2+, the turbo R, a Linux witness.
 
 **Not modelled in the V9938:** the access-slot timing of port 98h and of the command engine, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
 switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM, and a flags-only sprite pass after the picture. The audio of an MSX2 game under heavy load is an open point, to check on a quiet PC. Where hardware reports disagree on sprite mode 2's rules,

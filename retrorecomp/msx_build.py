@@ -45,14 +45,15 @@ blacklist = []
 # The machine's C sources (both VDPs, the sound, the cartridges, the MSX2 board), compiled into every program; the files
 # they include; the mains and the glue.
 MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
-                   'msx_v9938_cmd.c', 'msx_msx2.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_native_main.c',
+                   'msx_v9938_cmd.c', 'msx_msx2.c', 'msx_state.c')
+MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_state_file.inc',
+                 'msx_native_main.c',
                  'msx_reference_main.c', 'msx_player.c')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
-             'runtime_feedback.c', 'runtime_feedback_sdl.h')
+             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
 BUILD_TIMEOUT = 2 * 3600
 
 
@@ -241,6 +242,12 @@ def run_game(game: Path, options: list[str], report: Path, timeout: int = 1800) 
     return json.loads(report.read_text(encoding='utf-8'))
 
 
+def game_exit_code(game: Path, options: list[str], timeout: int = 120) -> int:
+    """The exit code of a headless run of the game (a refused quick state ends it with 4)."""
+    return subprocess.run([str(game), '--headless', *options], capture_output=True, timeout=timeout,
+                          creationflags=_flags()).returncode
+
+
 def frame_rows(path: Path) -> list:
     """The rows of a --rows file as delivery_evidence.FrameRow (frame, picture, sound, audible, ram, pc)."""
     from .delivery_evidence import FrameRow
@@ -323,25 +330,33 @@ def probe_mapper(reference: Path, data: bytes, bios_args: list[str], static: str
     return choose_mapper(details, static), details
 
 
-def learn(work: Path, cartridge: bytes, bios: bytes, args: list[str], emit: Callable[[str], None] = print, *,
-          passes: int = 3, keep_rom: bool = True, insert: bool = True) -> tuple[Path, list[int]]:
+def learn(work: Path, cartridge: bytes, bios: bytes, args: list, emit: Callable[[str], None] = print, *,
+          passes: int = 3, keep_rom: bool = True, insert: bool = True, workers: int = 1) -> tuple[Path, list[int]]:
     """Generate, build the headless check and run it with learning, at most `passes` times: it stops when nothing fell back
-    or nothing new was seen. Returns the check program and the fallback steps of each pass. `insert` False runs the machine
-    with an empty cartridge slot (the bodies are still generated from `cartridge`)."""
+    or nothing new was seen. `args` is one run's options, or a list of them (every route of a conversion: each pass runs
+    every route, `workers` at once, and unites what they learned). Returns the check program and the fallback steps of
+    each pass (summed over the routes). `insert` False runs the machine with an empty cartridge slot (the bodies are still
+    generated from `cartridge`)."""
+    from .delivery_evidence import replay_routes
+    runs = args if args and isinstance(args[0], (list, tuple)) else [args]
     patterns = work / 'native.patterns'
     counts = []
     for _ in range(passes):
         generate(work, cartridge, bios, emit, keep_rom=keep_rom)
         stage_sources(work)
         check = build(work, ('msx_check', 'msx_reference'), emit)['msx_check']
-        learned = work / 'learned.txt'
-        learned.unlink(missing_ok=True)
-        trial = run(check, [*args, '--learn', str(learned)], cartridge if insert else None)
-        counts.append(trial['fallback_steps'])
-        if not trial['fallback_steps'] or not learned.is_file():
+
+        def trial(index):
+            learned = work / f'learned-{index}.txt'
+            learned.unlink(missing_ok=True)
+            result = run(check, [*runs[index], '--learn', str(learned)], cartridge if insert else None)
+            return result['fallback_steps'], set(learned.read_text(encoding='utf-8').split()) if learned.is_file() else set()
+        trials = replay_routes(range(len(runs)), trial, workers=workers)
+        counts.append(sum(steps for steps, _ in trials))
+        seen = set().union(*(found for _, found in trials))
+        if not counts[-1] or not seen:
             break
         known = set(patterns.read_text(encoding='utf-8').split()) if patterns.is_file() else set()
-        seen = set(learned.read_text(encoding='utf-8').split())
         if seen <= known:
             break
         patterns.write_text(''.join(f'{line}\n' for line in sorted(known | seen)), encoding='utf-8', newline='\n')

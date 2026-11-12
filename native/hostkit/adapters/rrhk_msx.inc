@@ -7,7 +7,8 @@
  * the computers share (the guest keyboard with Ctrl+Alt+K and its chords, the function keys, the second help page, the window
  * preferences) comes from rrhk_computer.inc, unchanged; what is the MSX's stays here: joystick 1 and 2 through the PSG, the
  * keyboard matrix, the TMS9918A or V9938 picture with its border (the machine says which chip it has), the sound (PSG, key click, SCC) through the shared stereo ring of
- * native/audio_output.inc. No quick states yet (F8/F9 say so). Guest state is never filtered. */
+ * native/audio_output.inc. Quick states (F8/F9) are the game's (msx_state_file.inc), saved and loaded at once: the kit calls
+ * them from the frame's end, which is already the game's service point. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -215,7 +216,8 @@ static uint64_t m_zero(void) { return 0; }
 static uint64_t m_interpreted(void) { return banked_fallback_steps; }
 static uint64_t m_input_frame(void) { return mh.frame; }
 static bool m_state_ready(void) { return true; }
-static bool m_state_file(const wchar_t *path, bool load) { (void)path; (void)load; return false; }
+static bool m_state_file(const wchar_t *path, bool load) { return msx_game_state_file(path, load); }
+static bool m_state_path(wchar_t *path, size_t capacity) { return msx_game_state_path(path, capacity); }
 
 static void m_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
@@ -238,14 +240,13 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.own_audio = true; machine.driven = true; machine.state_deferred = false;
       machine.video_section = L"MSX"; machine.autofire_section = L"MSX"; machine.indexed_bindings = true; machine.bindings_clearable = true;
       machine.machine_fkeys = 5;
-      machine.save_failed_en = "Quick states are not available yet on the MSX";
-      machine.save_failed_fr = "Pas encore de sauvegarde rapide sur MSX";
       machine.reset = m_reset; machine.run_frame = m_run_frame; machine.pause = m_pause;
       machine.pixels = m_pixels; machine.visible_width = m_width; machine.visible_height = m_height; machine.raster_height = m_height;
       machine.display_width = m_display_width;
       machine.audio = m_no_audio; machine.interpreted = m_interpreted; machine.audio_interpreted = m_zero;
       machine.audio_reopen = host_audio_reopen; machine.audio_device_id = host_audio_device_id;
-      machine.state_ready = m_state_ready; machine.state_file = m_state_file; machine.input_frame = m_input_frame;
+      machine.state_ready = m_state_ready; machine.state_file = m_state_file; machine.state_path = m_state_path;
+      machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;
       machine.frame_start = x_frame_start; machine.finished = x_finished;

@@ -58,7 +58,7 @@ class MsxProfile(SystemProfile):
     linux = 'pending'
     # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: the player records nothing for path sharing yet.
     feedback_kinds = frozenset({26})
-    stamp_groups = ('z80_main', 'hostkit_computer')
+    stamp_groups = ('z80_main', 'hostkit_computer', 'conversion_gates')  # the gates: packed replay, liveness, quick states
     z80_machine = MSX_MACHINE
     path_spec = PathSpec(order=16, sections=(('z80', 'msx'),),
                          source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', BIOS_BOUNDS)),

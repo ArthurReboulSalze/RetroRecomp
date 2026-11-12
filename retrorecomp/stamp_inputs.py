@@ -695,6 +695,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_reference_main.c',
         'native/msx_machine/msx_headless.inc',
         'native/msx_machine/msx_route.inc',
+        'native/msx_machine/msx_state.c',
+        'native/msx_machine/msx_state_file.inc',
         'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_v9938.c',
         'native/msx_machine/msx_v9938_cmd.c',
@@ -704,6 +706,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
         'retrorecomp.msx_rom',
+        'retrorecomp.msx_routes',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and

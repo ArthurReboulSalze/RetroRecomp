@@ -101,14 +101,21 @@ static void route_take_audio(void)
     }
 }
 
-/* The machine's line hook: due events; at the frame's boundary, the frame's sound cut there and its row made due. */
-static void msx_route_line(void)
+/* The events whose frame the frame counter has reached, in order (a loaded state calls it at once: the keys and the
+ * joysticks are host input, not part of a state, and the script sets them again). */
+static void msx_route_events(void)
 {
     for (; route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames; ++route_next_event) {
         const MsxRouteEvent *e = &route_events[route_next_event];
         if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
         else msx_key(&machine, e->a, e->b, e->c);
     }
+}
+
+/* The machine's line hook: due events; at the frame's boundary, the frame's sound cut there and its row made due. */
+static void msx_route_line(void)
+{
+    msx_route_events();
     if (machine.line == 0 && machine.frames) {
         msx_psg_catch_up_to(&machine, machine.next_line - MSX_CYCLES_PER_LINE);
         route_take_audio();

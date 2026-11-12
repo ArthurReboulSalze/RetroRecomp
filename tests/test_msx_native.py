@@ -86,5 +86,86 @@ class MachineTests(unittest.TestCase):
             self.assertIn(name, glue)
 
 
+class RouteTests(unittest.TestCase):
+    """msx_routes: the PC Engine's route names and lengths, the default mapping's inputs, a walk that starts quiet."""
+    IDENTITY = '0123abcd' * 8
+
+    def test_the_levels_play_the_pc_engines_routes(self):
+        from retrorecomp import msx_routes
+        names = {level: [(name, frames) for name, frames, _ in msx_routes.routes(self.IDENTITY, frames=3600, level=level)]
+                 for level in ('quick', 'standard', 'extended', 'thorough')}
+        self.assertEqual(names['quick'], [('play', 3600)])
+        self.assertEqual(names['standard'], [('attract', 3600), ('play', 3600)])
+        self.assertEqual(names['extended'], [('attract', 3600), ('play', 3600), ('long-1', 18000)])
+        self.assertEqual(names['thorough'][-1], ('long-2', 18000))
+        self.assertEqual(msx_routes.routes(self.IDENTITY, frames=600, level='standard')[1][1], msx_routes.PLAY_FRAMES)
+        self.assertEqual(msx_routes.routes(self.IDENTITY, frames=3600, level='standard')[0][2], '')
+
+    def test_a_script_is_what_the_route_include_reads_in_frame_order(self):
+        import re
+        from retrorecomp import msx_routes
+        text = msx_routes.routes(self.IDENTITY, frames=3600, level='extended', variant=(2, 'RETURN'))[2][2]
+        frames = []
+        for line in text.splitlines():
+            match = re.fullmatch(r'(\d+) key (\d) (\d) ([01])|(\d+) joy 0 ([0-3][0-9A-F])', line)
+            self.assertIsNotNone(match, line)
+            frames.append(int(match.group(1) or match.group(5)))
+        self.assertEqual(frames, sorted(frames))
+        self.assertLess(frames[-1], 18000)
+        self.assertEqual(text, msx_routes.routes(self.IDENTITY, frames=3600, level='extended', variant=(2, 'RETURN'))[2][2])
+
+    def test_the_start_presses_fire_then_return_and_the_walk_starts_with_directions_only(self):
+        from retrorecomp import msx_routes
+        events = msx_routes.events(3600, msx_routes.route_seed(self.IDENTITY, 'play'), (2, 'RETURN'))
+        self.assertEqual(events[:6], [('key', 480, 8, 0, 1), ('joy', 480, 0, 0x2F), ('key', 486, 8, 0, 0), ('joy', 486, 0, 0x3F),
+                                      ('key', 540, 7, 7, 1), ('key', 546, 7, 7, 0)])
+        start = msx_routes.walk_start(2)
+        quiet = [event for event in events if start <= event[1] < start + msx_routes.QUIET_WALK]
+        self.assertTrue(quiet)
+        for event in quiet:
+            if event[0] == 'joy':
+                self.assertEqual(event[3] & 0x10, 0x10, event)      # trigger A stays up
+            else:
+                self.assertEqual(event[2], 8, event)                 # only the cursor keys
+                self.assertNotEqual(event[3], 0, event)              # never SPACE
+        self.assertEqual(msx_routes.candidates(3600), [1, 2, 3, 4, 6, (1, 'RETURN'), (2, 'RETURN'), (3, 'RETURN')])
+        self.assertEqual(sorted(msx_routes.candidates(3600), key=msx_routes.variant_order)[:2], [1, (1, 'RETURN')])
+
+
+class QuickStateTests(unittest.TestCase):
+    """The MSX's quick states: the shared envelope, the build binding, the damaged copies the conversion feeds the game."""
+
+    def test_the_state_file_uses_the_shared_envelope_with_the_msx_magic(self):
+        text = (ROOT / 'native/msx_machine/msx_state_file.inc').read_text(encoding='utf-8')
+        self.assertIn('#include "state_envelope.h"', text)
+        self.assertIn('"RRMSXST\\0"', text)
+        self.assertNotIn('0xEDB88320', text)          # the CRC is the envelope's, not a copy
+
+    def test_the_binding_changes_with_everything_a_state_depends_on(self):
+        from types import SimpleNamespace
+        from retrorecomp.msx_conversion import state_binding
+        guess = SimpleNamespace(mapper='konami', base=0x4000, mirrored=False)
+        base = state_binding(b'bios', guess, 'ntsc', 'msx1', 0)
+        self.assertEqual(len(base), 32)
+        others = [state_binding(b'other', guess, 'ntsc', 'msx1', 0),
+                  state_binding(b'bios', SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False), 'ntsc', 'msx1', 0),
+                  state_binding(b'bios', SimpleNamespace(mapper='konami', base=0x8000, mirrored=False), 'ntsc', 'msx1', 0),
+                  state_binding(b'bios', SimpleNamespace(mapper='konami', base=0x4000, mirrored=True), 'ntsc', 'msx1', 0),
+                  state_binding(b'bios', guess, 'pal', 'msx1', 0), state_binding(b'bios', guess, 'ntsc', 'msx2', 0),
+                  state_binding(b'bios', guess, 'ntsc', 'msx2', 512)]
+        self.assertEqual(len({base, *others}), len(others) + 1)
+
+    def test_every_field_of_the_header_and_the_binding_is_damaged_once(self):
+        from retrorecomp.msx_conversion import damaged_states
+        state = bytes(range(256)) * 4
+        damaged = damaged_states(state)
+        for label, offset in (('magic', 0), ('schema', 8), ('machine', 12), ('identity', 16), ('length', 80), ('crc', 84),
+                              ('binding', 88), ('payload', len(state) - 1)):
+            changed = [i for i, (a, b) in enumerate(zip(state, damaged[label])) if a != b]
+            self.assertEqual(changed, [offset], label)
+        self.assertEqual(damaged['empty'], b'')
+        self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
+
+
 if __name__ == '__main__':
     unittest.main()

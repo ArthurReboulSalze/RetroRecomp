@@ -26,6 +26,13 @@ static Uint32 mouse_buttons;
 static unsigned width, height;
 static double aspect_ratio = 4.0 / 3.0;
 static char player_config[1024] = "player.cfg";
+static char state_file_utf8[1100] = "quick.rrstate";
+
+#include "msx_state_file.inc"
+
+/* Quick states for the host kit's F8/F9 (defined below, after the frame hand-over they reset). */
+static bool msx_game_state_file(const wchar_t *path, bool load);
+static bool msx_game_state_path(wchar_t *path, size_t capacity);
 
 #include "hostkit/adapters/rrhk_msx.inc"
 #include "msx_headless.inc"
@@ -44,6 +51,18 @@ static void line_hook(void)
         handed_this_frame = 1;
         frame_ended = 1;
     }
+}
+
+/* F8/F9 in play, at the service point (the kit calls this from the frame's end): after a load, the frame's hand-over
+ * follows the loaded line, as line_hook would have left it. */
+static bool msx_game_state_file(const wchar_t *path, bool load)
+{
+    if (!load)
+        return msx_state_save(path) == RR_STATE_OK;
+    if (msx_state_load(path) != RR_STATE_OK)
+        return false;
+    handed_this_frame = machine.line >= machine.vblank_line;
+    return true;
 }
 
 static void power_on(void)
@@ -68,13 +87,42 @@ static void headless_line(void)
         frame_ended = 1;
 }
 
+/* Headless states (the conversion's fresh-process check): --save-state FILE with --save-at N saves at the service of
+ * frame N, after its row; --load-state FILE loads at the first service of the run (the one instruction run before it is
+ * overwritten whole), then the script's events up to the loaded frame apply at once. A refused state ends the process with
+ * exit 4, leaving the file as it was; a state that cannot be written, with exit 3. */
+static wchar_t state_save_file[32768], state_load_file[32768];
+static unsigned long state_save_at;
+static int state_save_due, state_load_due;
+
+static int headless_state_option(const char *a, const char *v)
+{
+    if (!strcmp(a, "--save-state")) { if (!rr_from_utf8(v, state_save_file, 32768)) return -1; state_save_due = 1; }
+    else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
+    else if (!strcmp(a, "--load-state")) { if (!rr_from_utf8(v, state_load_file, 32768)) return -1; state_load_due = 1; }
+    else return 0;
+    return 1;
+}
+
 static void msx_main_service(void)
 {
     if (!frame_ended)
         return;
     frame_ended = 0;
     if (headless) {
+        if (state_load_due) {
+            state_load_due = 0;
+            if (msx_state_load(state_load_file) != RR_STATE_OK)
+                exit(4);
+            msx_route_events();
+            return;
+        }
         headless_service();                    /* the row, the frame limit (it ends the process there) */
+        if (state_save_due && machine.frames >= state_save_at) {
+            state_save_due = 0;
+            if (msx_state_save(state_save_file) != RR_STATE_OK)
+                exit(3);
+        }
         return;
     }
     switch (msx_host_frame(&machine)) {
@@ -91,7 +139,8 @@ static void prepare_data_folder(void)
     static char folder[1024];
     char *base = SDL_GetBasePath();
     size_t start = base ? strlen(base) : 0;
-    int n = snprintf(folder, sizeof folder, "%sdatas/games/msx-%.12s", base ? base : "", RR_MSX_IDENTITY);
+    int n = snprintf(folder, sizeof folder, "%sdatas/games/%s-%.12s", base ? base : "", RR_MSX_MODEL == 2 ? "msx2" : "msx",
+                     RR_MSX_IDENTITY);
     SDL_free(base);
     if (n <= 0 || n >= (int)sizeof folder) return;              /* keep player.cfg in the working folder */
     for (size_t i = start; ; i++) {
@@ -105,6 +154,13 @@ static void prepare_data_folder(void)
         }
     }
     snprintf(player_config, sizeof player_config, "%s/player.cfg", folder);
+    snprintf(state_file_utf8, sizeof state_file_utf8, "%s/quick.rrstate", folder);
+}
+
+/* The quick state's file beside player.cfg (the kit asks when it opens the window). */
+static bool msx_game_state_path(wchar_t *path, size_t capacity)
+{
+    return rr_from_utf8(state_file_utf8, path, capacity) != 0;
 }
 
 /* The machine from the game's own resources: the cartridge (103) and the BIOS source (104), as msx_game.h describes them. */
@@ -151,15 +207,18 @@ static int run(void)
     return 0;
 }
 
-/* `--headless`: exit codes 0 done, 2 a bad option, 3 a missing resource or an unwritable file. */
+/* `--headless`: exit codes 0 done, 2 a bad option, 3 a missing resource or an unwritable file, 4 a refused state. */
 static int run_headless(int argc, char **argv)
 {
     for (int i = 2; i < argc; ++i) {
         const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (!v) return 2;
         ++i;
-        if (headless_option(a, v) <= 0) return 2;
+        int known = headless_state_option(a, v);
+        if (!known) known = headless_option(a, v);
+        if (known <= 0) return 2;
     }
+    if (state_save_due && state_save_at >= frames_wanted) return 2;   /* the save would never happen */
     int status = setup_machine();
     if (status)
         return status;
@@ -167,6 +226,7 @@ static int run_headless(int argc, char **argv)
     machine.trace_frames = 1;                  /* the per-frame running hash the comparison reads */
     machine.line_hook = headless_line;
     power_on();
+    frame_ended = state_load_due;              /* a load waits for the first service, not for the first frame */
     smsrecomp_banked_run();                    /* returns through headless_finish() at the frame limit */
     return 0;
 }

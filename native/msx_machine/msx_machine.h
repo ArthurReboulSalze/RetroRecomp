@@ -260,6 +260,10 @@ void msx_set_rtc(MsxMachine *m);
  * from its bank 6). The cartridge goes in slot 1 as on the MSX1. Call after msx_init. */
 void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 
+/* Quick states: the region table and the SCC list rebuilt from the registers and the blocks after a state is applied
+ * (msx_state.c, msx_refresh_layout). */
+void msx_rebuild_layout(MsxMachine *m);
+
 /* The picture, VRAM and RAM hashes the runners report (FNV-1a), for either machine (`ram64` is the MSX1's RAM; the
  * MSX2's is the mapper's), and the raw picture and VRAM for tools. */
 uint32_t msx_vram_hash(const MsxMachine *m);

@@ -35,6 +35,18 @@ static void rebuild_regions(MsxMachine *m)
     }
 }
 
+/* After a quick state is applied: what is derived from the saved registers and blocks and never saved (the region table,
+ * the list of SCC cartridges the sound mixes) is rebuilt (msx_state.c). */
+void msx_rebuild_layout(MsxMachine *m)
+{
+    m->scc_count = 0;
+    for (int p = 0; p < 4; ++p)
+        for (int s = 0; s < 4; ++s)
+            if (m->slot[p][s].kind == MSX_DEV_ROM && m->slot[p][s].mapper == MSX_MAPPER_KONAMI_SCC && m->scc_count < 4)
+                m->scc[m->scc_count++] = &m->slot[p][s];
+    rebuild_regions(m);
+}
+
 void msx_init(MsxMachine *m, unsigned lines_per_frame)
 {
     memset(m, 0, sizeof *m);

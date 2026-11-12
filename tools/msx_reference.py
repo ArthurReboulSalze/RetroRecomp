@@ -326,15 +326,16 @@ def build() -> Path:
     prepare_reference(WORK, engine, m1_counter=True)
     instrument(WORK / 'runtime_reference.c')
     native = (ROOT / 'native' / 'msx_machine').as_posix()
+    shared = (ROOT / 'native').as_posix()          # state_io.h, beside the other machines' shared headers
     (WORK / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
 project(MsxReference C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 set(machine {' '.join(f'"{native}/{name}"' for name in MACHINE_SOURCES)})
 add_executable(msx_reference "{native}/msx_reference_main.c" ${{machine}} runtime_reference.c)
-target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}")
+target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}" "{shared}")
 {"".join(f'add_executable({name} "{native}/{name}.c" ${{machine}})' + chr(10)
-         + f'target_include_directories({name} PRIVATE "{native}")' + chr(10) for name in CHECK_PROGRAMS)}
+         + f'target_include_directories({name} PRIVATE "{native}" "{shared}")' + chr(10) for name in CHECK_PROGRAMS)}
 foreach(target msx_reference {' '.join(CHECK_PROGRAMS)})
   target_compile_definitions(${{target}} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(NOT WIN32)
@@ -356,10 +357,11 @@ endforeach()
 
 
 # The fixture programs built with the reference: the TMS9918A, AY-3-8910 and key click (stage 3), then the MSX2's V9938
-# registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6); the command engine (stage 7). Each prints "ok"/"FAIL" lines with
+# registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6); the command engine (stage 7); the
+# quick-state serializer (stage 8). Each prints "ok"/"FAIL" lines with
 # the hand-worked value next to the one found, and exits 1 on any failure.
 CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board',
-                  'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line')
+                  'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line', 'msx2_checks_state')
 
 
 def hardware_checks() -> list[str]:
