@@ -18,10 +18,11 @@ from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
 # The MSX on the banked Z80 chain: eight 8 KiB regions, each showing a bank of the cartridge (source 0) or of the BIOS
 # (source 1, the 48 KiB of slot 0) or RAM; one wait state per M1 cycle; /INT read once the machine has caught up with the
-# instruction; its own generator folders.
+# instruction; the start of each step and the reference CPU's state copies from the chain; its own generator folders.
 MSX_MACHINE = Z80Machine('msx', Z80RegionMap(region_bits=13, sources=('cartridge', 'bios'), bank_values=256,
                                              scope='msx-cartridge-region-map'),
-                         m1_wait=1, irq_sample='instruction_end', generator_tag='-msx')
+                         m1_wait=1, irq_sample='instruction_end', generator_tag='-msx', step_begin=True,
+                         reference_state=True)
 
 # 8 KiB to 2 MiB cartridges; the BIOS of slot 0: a 32 KiB main ROM, with C-BIOS's 16 KiB logo ROM.
 CARTRIDGE_BOUNDS = (0x2000, 0x200000)

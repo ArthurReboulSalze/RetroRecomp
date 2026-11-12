@@ -60,9 +60,10 @@ def _flags() -> int:
 
 
 def padded(image: bytes, mapper: str | None) -> bytes:
-    """The cartridge as the machine sees it: whole banks (16 KiB for ASCII 16, else 8 KiB), padded with FFh."""
-    unit = 0x4000 if mapper == 'ascii16' else 0x2000
-    return image + b'\xFF' * (-len(image) % unit)
+    """The cartridge as the machine sees it: whole banks (16 KiB for ASCII 16, whose banks span two regions, else 8 KiB),
+    padded with FFh by the region map itself; the same image feeds the generator, the checked runs and the game."""
+    from .systems.msx import MSX_MACHINE
+    return MSX_MACHINE.regions.image(image, 2 if mapper == 'ascii16' else 1)
 
 
 def generator(emit: Callable[[str], None] = print) -> tuple[Path, Path]:

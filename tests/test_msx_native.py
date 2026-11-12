@@ -47,6 +47,14 @@ class MachineTests(unittest.TestCase):
         self.assertIn('g_z80.cyc += 5; banked_halt_steps++', loop)               # a HALT cycle with its wait
         self.assertIn('pending_irq = vdp_irq_asserted();\n        banked_after_step(pending_irq);', loop)
         self.assertNotIn('g_bank[', loop)
+        # L1b: the start-of-step call, the state copies shipped with the loop, no hardware advance inside a prefix chain.
+        self.assertIn('        SMS_PC(g_z80.pc);\n        smsrecomp_step_begin(prefix_pending);\n', loop)
+        self.assertIn('static void state_to_hz(void)', loop)
+        self.assertIn('static void state_from_hz(void)', loop)
+        self.assertIn('                prefix_pending = 1;\n                continue;\n', loop)
+        glue = (ROOT / 'native' / 'msx_machine' / 'msx_glue.inc').read_text(encoding='utf-8')
+        for gone in ('#undef SMS_PC', 'fragments_at_step', 'static void state_to_hz'):
+            self.assertNotIn(gone, glue)
 
     def test_the_generator_gets_the_image_the_machine_sees(self):
         image = bytes(range(256)) * 48                                         # 12 KB, plain
@@ -71,7 +79,7 @@ class MachineTests(unittest.TestCase):
 
     def test_the_glue_defines_what_the_loop_needs(self):
         glue = (ROOT / 'native' / 'msx_machine' / 'msx_glue.inc').read_text(encoding='utf-8')
-        for name in ('smsrecomp_region_map', 'smsrecomp_region_generation', 'state_to_hz', 'state_from_hz',
+        for name in ('smsrecomp_region_map', 'smsrecomp_region_generation', 'smsrecomp_step_begin',
                      'hyb_read', 'advance_vdp', 'vdp_irq_asserted', 'sms_dispatch_miss', 'smsrecomp_feedback_at',
                      'smsrecomp_learning_enabled', 'smsrecomp_observe_code', 'smsrecomp_state_service',
                      '#include "msx_banked_loop.inc"'):

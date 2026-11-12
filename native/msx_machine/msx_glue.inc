@@ -45,13 +45,10 @@ uint16_t g_dbg_pc, g_enter_ring[SMS_ENTER_RING_SIZE];
 uint32_t g_enter_pos;
 int g_diff_active;
 void sms_diff_enter(uint16_t addr) { (void)addr; }
-/* The step loop marks each step's start with SMS_PC. An instruction's I/O happens at its start; a chain of redundant
- * DD/FD prefixes is one instruction for the reference (it discards them inside one step), so inside a chain the start
- * stays the chain's (prefix_pending is the step loop's own flag, in scope where SMS_PC expands). */
-static uint64_t fragments_at_step;          /* banked_prefix_fragments when the current step began */
-#undef SMS_PC
-#define SMS_PC(pc) (g_dbg_pc = (uint16_t)(pc), prefix_pending ? (void)0 : (void)(step_start = g_z80.cyc), \
-                    fragments_at_step = banked_prefix_fragments)
+/* The step loop calls this at the start of every step (Z80Machine.step_begin). An instruction's I/O happens at its
+ * start; a chain of redundant DD/FD prefixes is one instruction for the reference (it discards them inside one step),
+ * so inside a chain the start stays the chain's. */
+static inline void smsrecomp_step_begin(int prefix_pending) { if (!prefix_pending) step_start = g_z80.cyc; }
 
 extern unsigned long z80_m1_fetches;        /* the reference CPU's M1 count (cpu.prepare_reference, m1_counter) */
 
@@ -66,7 +63,13 @@ static void machine_to(uint64_t cycle)
     g_next_line_cyc = machine.next_line;
 }
 
-static void advance_vdp(uint64_t cycle);    /* after the step loop: it reads the loop's prefix counter */
+/* The machine catches up at the end of an instruction (the loop never calls this inside a prefix chain). */
+static void advance_vdp(uint64_t cycle)
+{
+    smsrecomp_total_cycles += cycle > smsrecomp_measured_guest_cycles ? cycle - smsrecomp_measured_guest_cycles : 0;
+    smsrecomp_measured_guest_cycles = cycle;
+    machine_to(cycle);
+}
 
 static int vdp_irq_asserted(void) { return msx_irq(&machine); }
 
@@ -87,36 +90,6 @@ static uint8_t hyb_read(void *user, uint16_t address) { (void)user; return sms_r
 static void hyb_write(void *user, uint16_t address, uint8_t value) { (void)user; sms_write8(address, value); }
 static uint8_t hyb_in(z80 *z, uint8_t port) { (void)z; return sms_io_in(port); }
 static void hyb_out(z80 *z, uint8_t port, uint8_t value) { (void)z; sms_io_out(port, value); }
-
-static void state_to_hz(void)
-{
-    g_hz.a = g_z80.a; g_hz.b = g_z80.b; g_hz.c = g_z80.c; g_hz.d = g_z80.d; g_hz.e = g_z80.e; g_hz.h = g_z80.h;
-    g_hz.l = g_z80.l;
-    uint8_t f = g_z80.f;
-    g_hz.sf = f >> 7 & 1; g_hz.zf = f >> 6 & 1; g_hz.yf = f >> 5 & 1; g_hz.hf = f >> 4 & 1;
-    g_hz.xf = f >> 3 & 1; g_hz.pf = f >> 2 & 1; g_hz.nf = f >> 1 & 1; g_hz.cf = f & 1;
-    g_hz.a_ = g_z80.a_; g_hz.b_ = g_z80.b_; g_hz.c_ = g_z80.c_; g_hz.d_ = g_z80.d_; g_hz.e_ = g_z80.e_;
-    g_hz.h_ = g_z80.h_; g_hz.l_ = g_z80.l_; g_hz.f_ = g_z80.f_;
-    g_hz.ix = g_z80.ix; g_hz.iy = g_z80.iy; g_hz.sp = g_z80.sp; g_hz.mem_ptr = g_z80.wz;
-    g_hz.i = g_z80.i; g_hz.r = g_z80.r; g_hz.iff1 = g_z80.iff1; g_hz.iff2 = g_z80.iff2;
-    g_hz.interrupt_mode = g_z80.im; g_hz.halted = g_z80.halted;
-    g_hz.int_pending = 0; g_hz.nmi_pending = 0; g_hz.iff_delay = g_z80.ei_block;
-    g_hz.q = g_z80.q; g_hz.p = g_z80.p;
-}
-
-static void state_from_hz(void)
-{
-    g_z80.a = g_hz.a; g_z80.b = g_hz.b; g_z80.c = g_hz.c; g_z80.d = g_hz.d; g_z80.e = g_hz.e; g_z80.h = g_hz.h;
-    g_z80.l = g_hz.l;
-    g_z80.f = (uint8_t)(g_hz.sf << 7 | g_hz.zf << 6 | g_hz.yf << 5 | g_hz.hf << 4 | g_hz.xf << 3 | g_hz.pf << 2
-                        | g_hz.nf << 1 | g_hz.cf);
-    g_z80.a_ = g_hz.a_; g_z80.b_ = g_hz.b_; g_z80.c_ = g_hz.c_; g_z80.d_ = g_hz.d_; g_z80.e_ = g_hz.e_;
-    g_z80.h_ = g_hz.h_; g_z80.l_ = g_hz.l_; g_z80.f_ = g_hz.f_;
-    g_z80.ix = g_hz.ix; g_z80.iy = g_hz.iy; g_z80.sp = g_hz.sp; g_z80.wz = g_hz.mem_ptr;
-    g_z80.i = g_hz.i; g_z80.r = g_hz.r; g_z80.iff1 = g_hz.iff1; g_z80.iff2 = g_hz.iff2;
-    g_z80.im = g_hz.interrupt_mode; g_z80.halted = g_hz.halted; g_z80.ei_block = g_hz.iff_delay ? 1 : 0;
-    g_z80.q = g_hz.q; g_z80.p = g_hz.p;
-}
 
 /* Fallback accounting: where the interpreter ran (first addresses, for the report). */
 static uint16_t fallback_at[16];
@@ -156,10 +129,14 @@ static const BankedRegion *smsrecomp_region_map(void)
         for (int i = 0; i < 8; ++i) {
             const MsxRegion *r = &machine.region[i];
             const MsxDevice *d = &machine.slot[r->primary][r->secondary];
-            int rom = d->kind == MSX_DEV_ROM && r->read && d->block[i] >= 0 && d->source != MSX_SOURCE_NONE;
+            /* The Konami SCC answers at 9800h-9FFFh in front of the ROM, which still shows at 8000h-97FFh. */
+            int scc = d->kind == MSX_DEV_ROM && d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4;
+            int rom = d->kind == MSX_DEV_ROM && (r->read || scc) && d->block[i] >= 0 && d->source != MSX_SOURCE_NONE;
             region_map[i].source = rom ? d->source : 0;
             region_map[i].bank = rom ? (uint8_t)d->block[i] : 0;
             region_map[i].ram = (uint8_t)!rom;
+            region_map[i].guard_from = rom && scc ? 0x1800 : 0;
+            region_map[i].guard_to = rom && scc ? 0x2000 : 0;
         }
         map_built = machine.generation;
         smsrecomp_region_generation = machine.generation;
@@ -168,17 +145,6 @@ static const BankedRegion *smsrecomp_region_map(void)
 }
 
 #include "msx_banked_loop.inc"
-
-/* The machine catches up at the end of an instruction, never in the middle of a prefix chain (the reference runs the
- * whole chain as one step). */
-static void advance_vdp(uint64_t cycle)
-{
-    if (banked_prefix_fragments != fragments_at_step)
-        return;                              /* this step was a redundant prefix: the chain goes on */
-    smsrecomp_total_cycles += cycle > smsrecomp_measured_guest_cycles ? cycle - smsrecomp_measured_guest_cycles : 0;
-    smsrecomp_measured_guest_cycles = cycle;
-    machine_to(cycle);
-}
 
 /* Called by the loop once an instruction and the interrupt it may accept are complete. */
 static void smsrecomp_state_service(void)

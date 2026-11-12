@@ -58,6 +58,23 @@ def cartridge_ei_ex() -> bytes:
     return _loop_cartridge(bytes([0xFB, 0xDD, 0xE3, 0x18, 0xFB]))
 
 
+def cartridge_scc_window() -> bytes:
+    """A Konami SCC cartridge whose code runs at 8000h-97FFh while the SCC answers at 9800h-9FFFh, and calls two
+    instructions it wrote into the SCC's wave memory (INC A; RET at 9800h): the guarded sub-window of the region."""
+    init = (msx_reference.PAGE2 + msx_reference._ld_write(0x7000, 5) + msx_reference._ld_write(0xB000, 15)
+            + msx_reference._ld_write(0x9000, 0x3F)                               # the SCC on: 8000h-9FFFh shows block 15
+            + msx_reference._ld_write(0x9800, 0x3C) + msx_reference._ld_write(0x9801, 0xC9)
+            + bytes([0xC3, 0x00, 0x80]))                                          # JP 8000h
+    image = bytearray(msx_reference._cartridge(0x20000, init))
+    for block in range(16):
+        image[block * 0x2000 + 0x1FFF] = 0xC0 + block
+    image[15 * 0x2000:15 * 0x2000 + 11] = bytes([0x3A, 0x00, 0xE0,               # 8000h: LD A,(E000h)
+                                                 0xCD, 0x00, 0x98,               #        CALL 9800h
+                                                 0x32, 0x00, 0xE0,               #        LD (E000h),A
+                                                 0x18, 0xF5])                    #        JR 8000h
+    return bytes(image)
+
+
 def padded(image: bytes) -> bytes:
     """The cartridge as the machine sees it (msx_build.padded on the guessed mapper)."""
     return msx_build.padded(image, msx_rom.guess(image).mapper)
@@ -97,7 +114,10 @@ def main() -> int:
     cases = {'no-cartridge': None, 'authored16': msx_reference.cartridge_16k(), 'authored32': msx_reference.cartridge_32k(),
              'polling': msx_reference.cartridge_polling(), 'sound': msx_reference.cartridge_sound(),
              'odd-size-12k': msx_reference.cartridge_16k()[:0x3000], 'prefix-io': cartridge_prefix_io(),
-             'ei-ex': cartridge_ei_ex()}
+             'ei-ex': cartridge_ei_ex(),
+             # A size 512 bytes above 16 KB (a Sega parser would strip such a file), and the SCC window.
+             'odd-size-16k-512': msx_reference.cartridge_16k() + bytes([0x00, 0xC9] * 256),
+             'scc-window': cartridge_scc_window()}
     for kind in msx_reference.MAPPER_CARTRIDGES:
         cases[f'mapper-{kind}'] = msx_reference.cartridge_mapper(kind)
     players = set()
@@ -119,6 +139,7 @@ def main() -> int:
         result = compare(name, image, [*bios, *extra, *frames, *watch, *start], bios_image, name not in players)
         results[name] = result
         n = result['native']
+        print(f"  guarded native steps {n['guarded_steps']}")
         print(f"  passes (fallback steps) {n['passes']}; native {n['native_steps']} + halt {n['halt_steps']} steps, fallback {n['fallback_steps']} steps "
               f"({n['fallback_cycles']} cycles) at {n['fallback_at']}; translated share of executed instructions {result['native_share']:.4%}")
         if result['differences']:
