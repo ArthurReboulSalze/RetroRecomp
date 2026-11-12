@@ -52,6 +52,34 @@ CACHE_NAME = 'discoveries-cache.json.gz'
 # Games per console in a knowledge payload (validate_payload's bound).
 CONSOLE_LIMIT = 4096
 
+# What an import leaves out is counted, never dropped silently. `import_fetched`,
+# `import_knowledge` and `_import_document` return these counters under 'dropped'
+# (all keys always present). Two kinds:
+#   loss of valid data (a bound was hit; nothing wrong with the rows themselves):
+#     record_rows_over_limit   valid rows of a record's field beyond the field's bound
+#     records_over_bounds      a valid record not merged because the union would exceed a bound
+#     observations_over_limit  valid observations beyond OBSERVATION_LIMIT for a game
+#     games_over_limit         a game with unknown hints not added: the console already holds CONSOLE_LIMIT games
+#   legitimate filtering (the data is refused, as it must be):
+#     record_rows_invalid      a malformed or incoherent row of a record, left out alone
+#     records_invalid          a received record that fails the checks as a whole
+#     observations_invalid     a malformed observation row
+#     observations_duplicate   an observation already received for the game (same kind, address, auxiliary, length)
+DROPPED_KEYS = ('record_rows_over_limit', 'records_over_bounds', 'observations_over_limit', 'games_over_limit',
+                'record_rows_invalid', 'records_invalid', 'observations_invalid', 'observations_duplicate')
+
+
+def new_dropped() -> dict:
+    """A fresh counter of what an import leaves out (see DROPPED_KEYS)."""
+    return dict.fromkeys(DROPPED_KEYS, 0)
+
+
+def add_dropped(total: dict, other: dict | None) -> dict:
+    """`total` plus the counts of `other`, in place."""
+    for name in DROPPED_KEYS:
+        total[name] = total.get(name, 0) + (other or {}).get(name, 0)
+    return total
+
 
 def schema3_only() -> tuple:
     """The shared machines whose records are schema 3 documents only (CPS-1): in the exchange and the base a
@@ -779,9 +807,13 @@ def _valid_record(system: str, identity: str, record) -> dict | None:
         return None
 
 
-def _salvaged_record(system: str, identity: str, record) -> dict | None:
+def _salvaged_record(system: str, identity: str, record, dropped: dict | None = None) -> dict | None:
     """A received record without its rows that fail the checks: one malformed
-    or incoherent row is left out alone, never the record's other paths."""
+    or incoherent row is left out alone, never the record's other paths.
+    With `dropped` (see DROPPED_KEYS), the rows left out are counted in it, but
+    only when a record comes back: a rejected record is the caller's to count.
+    The Neo Geo and the schema 3 machines salvage in their own modules and
+    count nothing here."""
     if schema3_module(system) is not None:
         return _valid_record(system, identity, record)
     if system == 'ng':
@@ -793,14 +825,20 @@ def _salvaged_record(system: str, identity: str, record) -> dict | None:
     base = {name: record[name] for name in ('engine', 'rom_bytes') if name in record}
     if _valid_record(system, identity, base) is None:
         return None
-    salvaged = dict(base)
+    salvaged, lost = dict(base), new_dropped()
     for name, (_, limit) in FIELDS[system].items():
         rows = record.get(name)
         if isinstance(rows, list):
             kept = [row for row in rows if _valid_record(system, identity, {**base, name: [row]}) is not None]
+            # A row failing its checks is filtering; a valid row past the field's bound is a loss.
+            lost['record_rows_invalid'] += len(rows) - len(kept)
+            lost['record_rows_over_limit'] += max(0, len(kept) - limit)
             if kept:
                 salvaged[name] = kept[:limit]
-    return _valid_record(system, identity, salvaged)
+    result = _valid_record(system, identity, salvaged)
+    if result is not None and dropped is not None:
+        add_dropped(dropped, lost)
+    return result
 
 
 def salvaged_record(system: str, identity: str, record) -> dict | None:
@@ -814,8 +852,10 @@ def import_fetched(roms: dict) -> dict:
     imported banks, exactly like an imported file. Each record and row is
     checked like a shared file's; an invalid row is skipped, not its record,
     and an invalid record not the ROM.
-    `accepted` counts, per ROM, the valid records and distinct rows received."""
-    consoles, observations, accepted = {}, {}, {}
+    `accepted` counts, per ROM, the valid records and distinct rows received;
+    `dropped` counts, for the whole call, what was left out (DROPPED_KEYS):
+    the valid rows lost to a bound and the invalid or duplicate rows refused."""
+    consoles, observations, accepted, dropped = {}, {}, {}, new_dropped()
     for key, value in roms.items():
         system, _, identity = key.partition(':') if isinstance(key, str) else ('', '', '')
         if system not in SYSTEMS or len(identity) != 64 or set(identity) - set('0123456789abcdef') \
@@ -823,23 +863,38 @@ def import_fetched(roms: dict) -> dict:
             continue
         record, count = None, 0
         for raw in value.get('records') if isinstance(value.get('records'), list) else ():
-            candidate = _salvaged_record(system, identity, raw)
+            candidate = _salvaged_record(system, identity, raw, dropped)
             if candidate is None:
+                dropped['records_invalid'] += 1   # filtering: a record that fails the checks as a whole
                 continue
             count += 1
             merged = _merge(system, identity, record, candidate) if record else candidate
             if system == 'snes' and merged is not candidate:
                 compact_snes(merged)
             # Merging never pushes a record past the bank's own limits.
-            record = merged if merged is candidate else _valid_record(system, identity, merged) or record
+            if merged is candidate:
+                record = merged
+            else:
+                fitting = _valid_record(system, identity, merged) if merged is not None else None
+                if fitting is None:
+                    dropped['records_over_bounds'] += 1   # loss: the candidate's valid paths are not kept
+                else:
+                    record = fitting
         rows, seen = [], set()
+        # Neo Geo and the schema 3 machines share no raw observations: whatever arrives for them is
+        # not part of the exchange by design, so it is not counted as lost.
         for row in (value.get('observations') if isinstance(value.get('observations'), list)
                     and system != 'ng' and system not in path_profiles.SCHEMA3_ONLY else ()):
             try:
                 clean = valid_observation_rows(system, [row])[0]
             except (ValueError, TypeError, KeyError):
+                dropped['observations_invalid'] += 1   # filtering: a malformed row
                 continue
-            if _observation_key(clean) not in seen and len(rows) < OBSERVATION_LIMIT:
+            if _observation_key(clean) in seen:
+                dropped['observations_duplicate'] += 1   # filtering: the same observation twice
+            elif len(rows) >= OBSERVATION_LIMIT:
+                dropped['observations_over_limit'] += 1   # loss: a valid row past the bank's bound
+            else:
                 seen.add(_observation_key(clean))
                 rows.append(clean)
         if record:
@@ -851,7 +906,7 @@ def import_fetched(roms: dict) -> dict:
                                  'titles': {}, 'converter': ''})
                if consoles or observations else {'games': 0, 'consoles': {}, 'converter': '',
                                                   'new': 0, 'enriched': 0, 'unchanged': 0})
-    return {**outcome, 'accepted': accepted}
+    return {**outcome, 'accepted': accepted, 'dropped': add_dropped(dropped, outcome.get('dropped'))}
 
 
 # --- The shared base's game entries (online.sync_base) ------------------------
@@ -987,6 +1042,8 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
         return None
     parts, seen = [], set()
     # Every source the entry names, whether its part is well-formed or not.
+    # Parts and qualified elements past BASE_PARTS_LIMIT are not read: a bound of the entry's format
+    # (a malformed or oversized entry), counted nowhere.
     sources = sorted({part['source'] for part in value['parts'][:BASE_PARTS_LIMIT]
                       if isinstance(part, dict) and type(part.get('source')) is int and part['source'] >= 0})
     for part in value['parts'][:BASE_PARTS_LIMIT]:
@@ -1471,7 +1528,7 @@ def _import_document(document: dict) -> dict:
     """The additive merge behind `import_knowledge` and `import_fetched`."""
     target = imported_path()
     bank, observed = _imported_bank(), _observation_bank()
-    outcome = {}
+    outcome, dropped = {}, new_dropped()
     for system, records in document['knowledge']['consoles'].items():
         games = bank.setdefault(system, {})
         for identity, record in records.items():
@@ -1479,8 +1536,11 @@ def _import_document(document: dict) -> dict:
             existed = bool(known) or bool(observed.get(system, {}).get(identity))
             # The bank keeps the bundled catalogue's bound of games per console.
             full = not known and len(games) >= CONSOLE_LIMIT
-            if full or not unknown_hints(system, record, _bundled(system, identity), known):
-                outcome.setdefault((system, identity), 'unchanged')
+            unknown = unknown_hints(system, record, _bundled(system, identity), known)
+            if full or not unknown:
+                if full and unknown:
+                    dropped['games_over_limit'] += 1   # loss: a game with new hints the bank has no room for
+                outcome.setdefault((system, identity), 'unchanged')   # nothing new here: filtering
                 continue
             if known:
                 merged = _merge(system, identity, known, record)
@@ -1489,6 +1549,7 @@ def _import_document(document: dict) -> dict:
                 record = _valid_record(system, identity, merged)
                 if record is None:
                     # The union would exceed a field's bound: keep what is there.
+                    dropped['records_over_bounds'] += 1
                     outcome.setdefault((system, identity), 'unchanged')
                     continue
             games[identity] = record
@@ -1501,6 +1562,8 @@ def _import_document(document: dict) -> dict:
             if not added:
                 outcome.setdefault((system, identity), 'unchanged')
                 continue
+            # The bank keeps OBSERVATION_LIMIT rows per game: the valid rows past it are a loss, counted.
+            dropped['observations_over_limit'] += max(0, len(current) + len(added) - OBSERVATION_LIMIT)
             observed[system][identity] = valid_observation_rows(system, (current + added)[:OBSERVATION_LIMIT])
             if outcome.get((system, identity)) not in ('new', 'enriched'):
                 outcome[(system, identity)] = 'enriched' if existed else 'new'
@@ -1527,7 +1590,7 @@ def _import_document(document: dict) -> dict:
     for system, _ in outcome:
         consoles[system] = consoles.get(system, 0) + 1
     return {'games': len(outcome), 'consoles': dict(sorted(consoles.items())),
-            'converter': document.get('converter', ''), **counts}
+            'converter': document.get('converter', ''), **counts, 'dropped': dropped}
 
 
 def report_game_key(report) -> tuple[str | None, bool]:

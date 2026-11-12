@@ -409,5 +409,147 @@ class DiscoveryPathTests(unittest.TestCase):
         self.assertEqual(game['hints'], sorted(game['hints']))
 
 
+ROM_ID = 'a' * 64
+
+
+def big(first, count):
+    """A valid Mega Drive record with `count` distinct entries from `first` (an even address)."""
+    return {'engine': ENGINE, 'rom_bytes': 0x400000, 'rom_entries': [[first + 2 * n] for n in range(count)]}
+
+
+def watch_row(address, offset=0):
+    return [6, 0xff0000 + address, 0, 4, offset]
+
+
+def document(records=None, observations=None):
+    return {'knowledge': {'schema': 1, 'consoles': {'md': records} if records else {}},
+            'observations': {'md': observations} if observations else {}, 'titles': {}, 'converter': ''}
+
+
+class DroppedCountTests(unittest.TestCase):
+    """What an import leaves out is counted, never dropped silently: the valid rows lost to a bound
+    apart from the invalid or duplicate rows refused. No ROM, no network: an in-memory exchange."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.bank = self.root / 'datas/knowledge/imported.json.gz'
+        self.patches = [patch('retrorecomp.knowledge.imported_path', return_value=self.bank),
+                        patch('retrorecomp.knowledge_exchange.imported_path', return_value=self.bank),
+                        patch('retrorecomp.library.library_root', side_effect=lambda system: self.root / 'library' / system),
+                        patch('retrorecomp.knowledge_exchange._bundled', return_value={}),
+                        patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE})]
+        for item in self.patches:
+            item.start()
+
+    def tearDown(self):
+        for item in self.patches:
+            item.stop()
+        knowledge._imported_bank.cache_clear()
+        knowledge._observation_bank.cache_clear()
+        self.temp.cleanup()
+
+    def counted(self, outcome, **expected):
+        """`outcome['dropped']` holds every key, zero but for `expected`."""
+        self.assertEqual(set(outcome['dropped']), set(knowledge_exchange.DROPPED_KEYS))
+        self.assertEqual(outcome['dropped'], {**knowledge_exchange.new_dropped(), **expected})
+
+    def fetched(self, records=(), observations=(), system='md', identity=ROM_ID):
+        return knowledge_exchange.import_fetched(
+            {f'{system}:{identity}': {'records': list(records), 'observations': list(observations)}})
+
+    def test_a_clean_fetch_counts_nothing(self):
+        outcome = self.fetched([md([0x200, 0x300])], [watch_row(1), watch_row(2)])
+        self.assertEqual(outcome['accepted'][f'md:{ROM_ID}'], {'records': 1, 'observations': 2})
+        self.counted(outcome)
+
+    def test_rows_past_a_fields_bound_are_counted_when_a_record_is_salvaged(self):
+        # The record fails as a whole (one malformed row), so its good rows are salvaged one by one;
+        # the field's bound is lowered to 5 so the test needs no 65,000 rows.
+        record = {**big(0x200, 8), 'rom_entries': [*big(0x200, 8)['rom_entries'], ['not a row']]}
+        with patch('retrorecomp.knowledge_exchange.FIELDS', {'md': {'rom_entries': (1, 5)}}):
+            outcome = self.fetched([record])
+        self.assertEqual(outcome['accepted'][f'md:{ROM_ID}']['records'], 1)
+        self.counted(outcome, record_rows_over_limit=3, record_rows_invalid=1)
+        self.assertEqual(len(knowledge.read(self.bank)['consoles']['md'][ROM_ID]['rom_entries']), 5)
+
+    def test_rows_dropped_from_a_rejected_record_are_not_counted_twice(self):
+        outcome = self.fetched([{'engine': 5, 'rom_bytes': 0x10000, 'rom_entries': [[0x200]]}, 'a record', None])
+        self.assertEqual(outcome['accepted'][f'md:{ROM_ID}']['records'], 0)
+        self.counted(outcome, records_invalid=3)
+
+    def test_a_record_that_cannot_join_the_union_is_counted(self):
+        # Each record is valid alone; together they exceed the 65,536 entries a field may hold.
+        outcome = self.fetched([big(0x200, 40000), big(0x200 + 2 * 50000, 40000)])
+        self.assertEqual(outcome['accepted'][f'md:{ROM_ID}']['records'], 2)
+        self.counted(outcome, records_over_bounds=1)
+        self.assertEqual(len(knowledge.read(self.bank)['consoles']['md'][ROM_ID]['rom_entries']), 40000)
+
+    def test_observations_invalid_duplicate_and_over_the_limit_are_counted(self):
+        limit = knowledge_exchange.OBSERVATION_LIMIT
+        rows = [watch_row(n) for n in range(limit + 3)]
+        rows += [watch_row(0, offset=9), watch_row(1, offset=9)]   # the same observation, another ROM offset
+        rows += [[999, 1, 0, 4, 0], 'a row', [6, 1, 0, 99, 0]]      # unknown kind, not a list, too long
+        outcome = self.fetched(observations=rows)
+        self.assertEqual(outcome['accepted'][f'md:{ROM_ID}']['observations'], limit)
+        self.counted(outcome, observations_over_limit=3, observations_duplicate=2, observations_invalid=3)
+
+    def test_observations_of_machines_that_share_none_are_not_a_loss(self):
+        outcome = self.fetched(observations=[watch_row(1)], system='ng', identity='b' * 64)
+        self.counted(outcome)
+
+    def test_the_bank_bound_on_games_is_counted(self):
+        records = {'1' * 64: md([0x200]), '2' * 64: md([0x300]), '3' * 64: md([0x300])}
+        with patch('retrorecomp.knowledge_exchange.CONSOLE_LIMIT', 1):
+            outcome = knowledge_exchange._import_document(document(records))
+        self.assertEqual((outcome['new'], outcome['unchanged']), (1, 2))
+        self.counted(outcome, games_over_limit=2)
+
+    def test_a_full_bank_is_not_a_loss_when_the_game_brings_nothing_new(self):
+        with patch('retrorecomp.knowledge_exchange.CONSOLE_LIMIT', 1):
+            knowledge_exchange._import_document(document({'1' * 64: md([0x200])}))
+            bundled = {'engine': ENGINE, 'rom_bytes': 0x10000, 'rom_entries': [[0x300]]}
+            with patch('retrorecomp.knowledge_exchange._bundled', return_value=bundled):
+                outcome = knowledge_exchange._import_document(document({'2' * 64: md([0x300])}))
+        self.assertEqual(outcome['unchanged'], 1)
+        self.counted(outcome)
+
+    def test_a_union_over_a_fields_bound_is_counted_and_the_bank_keeps_what_it_had(self):
+        self.counted(knowledge_exchange._import_document(document({ROM_ID: big(0x200, 40000)})))
+        outcome = knowledge_exchange._import_document(document({ROM_ID: big(0x200 + 2 * 50000, 40000)}))
+        self.assertEqual(outcome['unchanged'], 1)
+        self.counted(outcome, records_over_bounds=1)
+        self.assertEqual(len(knowledge.read(self.bank)['consoles']['md'][ROM_ID]['rom_entries']), 40000)
+
+    def test_observations_past_the_banks_bound_for_a_game_are_counted(self):
+        limit = knowledge_exchange.OBSERVATION_LIMIT
+        first = [watch_row(n) for n in range(limit - 100)]
+        self.counted(knowledge_exchange._import_document(document(observations={ROM_ID: first})))
+        more = [watch_row(n) for n in range(limit - 100, limit + 50)]
+        outcome = knowledge_exchange._import_document(document(observations={ROM_ID: more}))
+        self.assertEqual(outcome['enriched'], 1)
+        self.counted(outcome, observations_over_limit=50)
+        self.assertEqual(len(knowledge.read_observations(knowledge.imported_observations_path())['md'][ROM_ID]), limit)
+
+    def test_the_document_stage_drops_join_the_fetched_ones(self):
+        limit = knowledge_exchange.OBSERVATION_LIMIT
+        self.fetched(observations=[watch_row(n) for n in range(limit - 10)])
+        # Second call: 40 rows already in the bank (not new, so not lost), 40 new ones of which 10 fit,
+        # one malformed row. The call's own bound keeps all 80; the bank's bound cuts the 30 beyond it.
+        outcome = self.fetched(observations=[watch_row(n) for n in range(limit - 50, limit + 30)] + ['a row'])
+        self.counted(outcome, observations_invalid=1, observations_over_limit=30)
+
+    def test_the_sync_summary_carries_the_counts(self):
+        from retrorecomp import online
+        answer = {'roms': {f'md:{ROM_ID}': {'cursor': 1, 'level': 'standard', 'records': [],
+                                            'observations': [watch_row(1), 'a row']}}}
+        with patch.object(online, 'account', return_value={'service': 'x', 'email': 'a'}), \
+                patch.object(online, 'fetch_knowledge', return_value=answer), \
+                patch.object(online, '_shared_state', return_value={}), \
+                patch.object(online, '_save_shared_state'):
+            summary = online.sync_shared([f'md:{ROM_ID}'])
+        self.assertEqual((summary['observations'], summary['dropped']['observations_invalid']), (1, 1))
+
+
 if __name__ == '__main__':
     unittest.main()
