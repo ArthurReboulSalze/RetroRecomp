@@ -153,6 +153,14 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
 - (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
   is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
+- (1.7.3) Another World (the French WHDLoad install): on its code-wheel protection screen, the C key, a left click or the second
+  button of port 1 locks the game on a dark green screen until it is restarted. The slave turns the three into a shortcut to the
+  access-code screen ("CODE D'ACCES"). That screen's bytecode checks four variables only a passed protection sets, and stops every
+  thread when they are missing. This is the install's own behaviour: the interpreted reference and the native build end with the same
+  memory, and our resload layer, the Kickstart side and vAmiga play no part. Answer that screen with the joystick only (the second
+  submission is accepted); after the protection, C or a click opens the access-code screen normally. A click that captures the mouse
+  in the window counts as a left click. No route answers this screen, so the conversion's routes stay on it (12 November 2026,
+  `AW-GREEN-20261112.md`, private).
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
