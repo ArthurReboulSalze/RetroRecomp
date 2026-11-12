@@ -370,7 +370,7 @@ def display_counts(report: dict) -> dict:
             'sprite_slot_events_left_out': counts.get('sprite_slots_left_out', 0)}
 
 
-def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=(), windows: list = ()) -> dict:
+def generate(project: Path, samples: list, table: Path, images: list = (), reports=(), windows: list = ()) -> dict:
     """The native code of these observations, of what a sweep reaches from them over these images of memory, of the Blitter shapes these reports saw and of the windows of a player's own record (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
     observed = get_profile('amiga').observed_code
@@ -379,7 +379,7 @@ def generate(project: Path, samples: list, table: Path, images: list = (), rom_i
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
     learned, walked = amiga_codegen.walk_records(windows, observed=observed)
     cut: dict = {}
-    swept = amiga_codegen.sweep(samples, images, observed=observed, rom_images=rom_images, cut=cut)
+    swept = amiga_codegen.sweep(samples, images, observed=observed, cut=cut)
     steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=swept, shapes=amiga_codegen.blit_shapes(reports), learned=learned,
                                       walked=walked)
     return {**steps, 'opcode_table_sha256': file_sha256(table), 'sweep_cut': cut}
@@ -636,8 +636,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
                 images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
-                rom_images = [[(0x1000000 - len(kick_image), kick_image)]] if kick is not None else []
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, rom_images, expected.values(), windows)
+                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, expected.values(), windows)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
@@ -760,10 +759,12 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                              'swept_means': 'reached by a sweep over images of memory, not seen running on a route: the same guard, no route proves them (final_checks.native_swept counts those that ran)',
                              'sweep_limit': (generation.get('sweep_cut') or {}).get('limit'),
                              'sweep_limit_reached': bool((generation.get('sweep_cut') or {}).get('reached')),
-                             'sweep_left_out': {key: (generation.get('sweep_cut') or {}).get(key, 0) for key in ('walk_places_left', 'page_addresses_left')},
-                             'sweep_left_out_means': ('what the bound on the sweep left out: places a branch walk had queued and not reached, and even addresses of '
-                                                      'pages where code ran that were not tried; candidates, not instructions. What they hold, if it ever runs, runs '
-                                                      'on the counted interpreter'),
+                             'sweep_reachable': (generation.get('sweep_cut') or {}).get('reachable'),
+                             'sweep_left_out': (generation.get('sweep_cut') or {}).get('left_out', 0),
+                             'sweep_buckets': (generation.get('sweep_cut') or {}).get('buckets', []),
+                             'sweep_left_out_means': ('instructions the sweep reached and the bound left out (the bound is shared equally between each '
+                                                      "image's branch walk and page fill: sweep_buckets gives image, phase, reached, kept); if one ever "
+                                                      'runs, it runs on the counted interpreter'),
                              'learned_instructions': generation['learned_instructions'], 'walked_instructions': generation['walked_instructions'],
                              'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it (final_checks.native_learned counts those that ran)",
                              'walked_means': "reached by walking the window a player's session noted: it may never have run there, and no route proves it (final_checks.native_walked counts those that ran)"},

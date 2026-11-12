@@ -40,6 +40,8 @@ CORE = 'C68000'
 PARTS = 16
 # How far a sweep goes, instructions per conversion: a bound on the build, not on what is right.
 SWEEP_LIMIT = 150000
+# How far a sweep looks before the bound is shared: everything reachable up to this many times the bound (the share is fair inside it).
+EXPLORE_FACTOR = 8
 SWEEP_PAGE_BITS = 12
 # Blitter shapes compiled per conversion, the most words first; the others stay in vAmiga's microprogram, counted.
 BLIT_SHAPE_LIMIT = 64
@@ -175,22 +177,24 @@ def _word(image: tuple, address: int) -> int | None:
     return data[at] << 8 | data[at + 1] if 0 <= at and at + 1 < len(data) else None
 
 
-def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit: int = SWEEP_LIMIT, cut: dict | None = None) -> list:
+def sweep(samples: list, images: list, *, observed, limit: int = SWEEP_LIMIT, cut: dict | None = None) -> list:
     """(pc, words in hex) of the instructions reached from the observed ones over images of memory, each a list of (start address, bytes) regions, and not observed themselves.
-    Only where an image still holds the observed opcode does the walk start from it, following branches and what falls through them. Then, in RAM images, every even address of a
-    4 KiB page where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs. Bounded:
-    `cut`, when given, receives what the bound left out (sweep_cut), never silently."""
+    Only where an image still holds the observed opcode does the walk start from it, following branches and what falls through them. Then every even address of a 4 KiB page
+    where code was observed that holds a legal opcode: a subroutine called through a pointer is reached by nothing else, and a guess that is not code never runs.
+    Bounded: each image's walk and fill is a bucket, and when everything reachable is more than `limit` the buckets share it equally (water-filling, in order), so no
+    bucket starves the others. Under the bound nothing is cut, in the order found. `cut`, when given, receives what the bound left out, never silently."""
     seen = {(pc, int(text[:4], 16)) for pc, text in samples}
     found: dict[tuple[int, int], str] = {}
-    left_walk = left_fill = 0
+    buckets: list[list[tuple[int, int]]] = []
+    explore = EXPLORE_FACTOR * limit
     by_address = sorted(set(samples))
     pages = sorted({pc >> SWEEP_PAGE_BITS for pc, _ in by_address})
-    for regions, fill in [(image, True) for image in images] + [(image, False) for image in rom_images]:
+    for regions in images:
         def read(address):
             return next((value for value in (_word(region, address) for region in regions) if value is not None), None)
 
-        def add(pc):
-            """The words of a legal instruction at this address, recorded unless observed."""
+        def add(pc, bucket):
+            """The words of a legal instruction at this address, recorded in this bucket unless observed or already found."""
             opcode = read(pc)
             if opcode is None or _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
                 return None
@@ -202,8 +206,9 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
                 observed.check_sample(pc, text)
             except ValueError:
                 return None
-            if (pc, opcode) not in seen:
-                found.setdefault((pc, opcode), text)
+            if (pc, opcode) not in seen and (pc, opcode) not in found:
+                found[(pc, opcode)] = text
+                bucket.append((pc, opcode))
             return words
         visited: set[int] = set()
         queue: list[int] = []
@@ -214,37 +219,51 @@ def sweep(samples: list, images: list, *, observed, rom_images: list = (), limit
             if _MAP[words[0]][0] not in _NO_FALL_THROUGH:
                 places.append((pc + 2 * _WORDS[words[0]]) & 0xffffff)
             queue.extend(place for place in places if not place & 1)
+        walk: list[tuple[int, int]] = []
         for pc, text in by_address:
             if read(pc) == int(text[:4], 16):
                 follow(pc, [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)])
         position = 0
-        while position < len(queue) and len(found) < limit:
+        while position < len(queue) and len(found) < explore:
             pc = queue[position]
             position += 1
             if pc in visited:
                 continue
             visited.add(pc)
-            words = add(pc)
+            words = add(pc, walk)
             if words is not None:
                 follow(pc, words)
-        if len(found) >= limit:
-            left_walk += len({pc for pc in queue[position:] if pc not in visited})
-        if fill:
-            for number, page in enumerate(pages):
-                end = (page + 1) << SWEEP_PAGE_BITS
-                for pc in range(page << SWEEP_PAGE_BITS, end, 2):
-                    if len(found) >= limit:
-                        left_fill += (end - pc) // 2 + sum(1 << (SWEEP_PAGE_BITS - 1) for _ in pages[number + 1:])
-                        break
-                    add(pc)
-                else:
-                    continue
-                break
+        fill: list[tuple[int, int]] = []
+        for page in pages:
+            for pc in range(page << SWEEP_PAGE_BITS, (page + 1) << SWEEP_PAGE_BITS, 2):
+                if len(found) >= explore:
+                    break
+                add(pc, fill)
+        buckets += [walk, fill]
+    reachable = sum(len(bucket) for bucket in buckets)
+    shares = [len(bucket) for bucket in buckets]
+    if reachable > limit:
+        # Water-filling: an equal share of what is left to every bucket that still wants more, until the bound is spent; the
+        # remainder of a division goes to the first buckets, so the result never depends on anything but the order of the images.
+        shares = [0] * len(buckets)
+        left = limit
+        wanting = [n for n, bucket in enumerate(buckets) if bucket]
+        while left and wanting:
+            each = max(1, left // len(wanting))
+            for n in list(wanting):
+                give = min(each, len(buckets[n]) - shares[n], left)
+                shares[n] += give
+                left -= give
+                if shares[n] == len(buckets[n]):
+                    wanting.remove(n)
+                if not left:
+                    break
+    kept = [key for bucket, share in zip(buckets, shares) for key in bucket[:share]]
     if cut is not None:
-        # What the bound left out, per image: the places a branch walk had queued and not reached (each could lead further), and the
-        # even addresses of observed pages not tried. Candidates, not instructions: most addresses hold no code.
-        cut.update(limit=limit, instructions=len(found), reached=len(found) >= limit, walk_places_left=left_walk, page_addresses_left=left_fill)
-    return sorted((pc, text) for (pc, _), text in found.items())
+        cut.update(limit=limit, reachable=reachable, explored_fully=len(found) < explore, instructions=len(kept), reached=reachable > limit,
+                   left_out=reachable - len(kept),
+                   buckets=[[n // 2, ('walk', 'fill')[n % 2], len(bucket), share] for n, (bucket, share) in enumerate(zip(buckets, shares))])
+    return sorted((pc, found[(pc, opcode)]) for pc, opcode in kept)
 
 
 def walk_records(records: list, *, observed) -> tuple[list, list]:

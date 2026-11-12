@@ -402,6 +402,27 @@ when the pairs match. Measured in the quiet-PC pass at the end of the colour ste
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the sweep's bound shared between images and phases, the Kickstart part removed (after 1.7.3)
+
+**What changes.** The sweep first finds everything it can reach, up to 8 times the bound. When that is more than the bound
+(150,000 instructions), the bound is now shared equally between each memory image's branch walk and its page fill (water-filling,
+in order). Until now the first image's walk could take it all, and on Cyber Games at the extended level the page fill and the
+other images never ran.
+- **Under the bound nothing changes.** The same instructions are kept, in the same order, so a game below it gets the same code.
+- **The Kickstart sweep is removed.** The Amiga's code apertures end at $DC0000, so it never added an instruction.
+- **The report is exact now.** `native_forms` gives `sweep_reachable`, `sweep_left_out` (instructions, no longer candidate
+  addresses) and `sweep_buckets` (image, phase, reached, kept). This replaces the counters added a few commits earlier, which were
+  never released.
+
+Arthur decided this on 12 Nov, from the measure in `SWEEP-MEASURE-20261112.md`. On an unseen route the sweep served up to 82 % of
+the native entries (Civilization), and the cap cut 71 % of Cyber Games at the extended level.
+
+**Hot path:** no. This is conversion time only. The generated code changes only for a game whose reachable code is above the bound.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

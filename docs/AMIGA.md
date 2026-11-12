@@ -70,7 +70,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    opcode goes back to the counted interpreter, and any other rewritten word needs no tracking (`retrorecomp/amiga_codegen.py`). Beyond what ran, a sweep over the memory each
    route left adds what branches lead to and the rest of the 4 KiB pages where code ran, with the same guard; a swept instruction counts apart when it runs
    (`final_checks.native_swept`), and no route proves those that did not run. Code that is not in memory when a route ends, not loaded yet or already overwritten, cannot be swept.
-   The sweep stops at 150,000 instructions per conversion; when it does, the report says so and counts what it left out (`native_forms.sweep_limit_reached`, `sweep_left_out`).
+   The sweep stops at 150,000 instructions per conversion. When more is reachable, the bound is shared equally between each memory image's branch walk and page fill, so one
+   image cannot take it all, and the report counts what it left out (`native_forms.sweep_limit_reached`, `sweep_left_out`, `sweep_buckets`). The Kickstart is not swept: the code apertures end below its ROM.
    The Blitter's copy blits have a specialised routine per shape (BLTCON0 and BLTCON1 without the shift fields; at most 64 per game, the most words first): vAmiga's microprogram at its accuracy level 2,
    compiled for that shape from vAmiga's own text at build time (`amiga_vamiga.blitter_shape_header`), one step per bus slot, in the slots the reference uses, reading shifts, pointers, masks and modulos live. It is not a
    translated program: nothing is known of what a game blits, only how. A routine checks its shape at every slot, and a game that changes BLTCON during a blit goes on in vAmiga's table. Line blits and other
