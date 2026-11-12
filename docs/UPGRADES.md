@@ -153,8 +153,8 @@ components (the click that captures the mouse moves the Amiga, Atari ST and X680
 | Nintendo 64 | `ec87144eb331`, `77b096906adf` | `3c4f6ccca458`, `93684dc83103` | `4f6fedf926c7` (same) |
 | Adventure (ScummVM) | `42dfc172e91c`, `7e79677b16a3` | `82088d749a09`, `2e274a46f2af` | `05417bbcea96` (same) |
 | Sony PlayStation | `4a3b197254a5`, `c6a915039614` | `5dbdb5df79ca`, `34ac75fcabae` | `b6c9cf73b176` (same) |
-| MSX | `6a9f2486a049` (new) | `7f3fdbbcf3d1` (new) | `3e7de8099a99` (new) |
-| MSX2 | `e8b4a1cc911d` (new) | `e75758647762` (new) | `d2329c8c61ad` (new) |
+| MSX | `4c95a78c7f37` (new) | `7f3fdbbcf3d1` (new) | `3e7de8099a99` (new) |
+| MSX2 | `811fca669347` (new) | `e75758647762` (new) | `d2329c8c61ad` (new) |
 
 (First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.2, on every machine, is converted again once at the
 upgrade**, at the quick level, from its learned paths, and the window offers it. The shared paths of the base are kept: they are qualified by the recompiler's revision, not by
