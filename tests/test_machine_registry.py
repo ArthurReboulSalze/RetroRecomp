@@ -329,6 +329,15 @@ class RegistryTests(unittest.TestCase):
         self.assertLessEqual(set(hostkit.ADAPTERS), ids)
 
 
+class CommandLineHelpTests(unittest.TestCase):
+    def test_a_firmware_path_flag_has_its_own_help_not_the_raw_label_key(self):
+        import RetroRecomp
+        from retrorecomp.paths import console_options
+        for profile, key in console_options('path'):
+            with self.subTest(option=key.name):
+                self.assertIn(key.name, RetroRecomp._PATH_HELP, f'--{key.name.replace("_", "-")} has no help text of its own: --help would show the label key {key.label!r}')
+
+
 class FrozenAvailabilityTests(unittest.TestCase):
     """A frozen converter keeps its Python modules inside the executable: a machine that asks for a .py file to say it is
     available refuses every game once packaged, and only a release check sees it (the Amiga in 1.7.0, the PlayStation in 1.7.1)."""
