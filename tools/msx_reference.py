@@ -1,0 +1,305 @@
+"""MSX stage 1: the machine skeleton boots C-BIOS on the reference Z80 interpreter, headless.
+
+Builds `native/msx_machine` with the corrected reference interpreter (`retrorecomp.cpu.prepare_reference`, the same
+fallback and oracle as the Master System; its pinned source is never edited) and runs C-BIOS 0.29a with no cartridge
+and with two authored cartridges (small programs written here, no game). It checks that:
+
+- C-BIOS boots to its logo: the display is on and VRAM holds the logo after the boot;
+- C-BIOS scans the slots, finds the cartridge header and calls INIT through its interslot routines;
+- a 32 KB cartridge selects its own slot in page 2 with RSLREG / EXPTBL / SLTTBL / ENASLT (the BIOS's RAM helpers at F380h);
+- the interrupt path runs: VDP frame flag -> 0038h in the BIOS -> the H.TIMI hook in RAM -> the cartridge's handler,
+  once per frame, as JIFFY counts;
+- the same holds with slot 3 expanded (RAM in 3-2, the secondary-slot register at FFFFh);
+- the MSX's M1 wait state is counted, and a 50 Hz machine (C-BIOS EU) runs 313 lines per frame.
+
+C-BIOS is fetched on first use from its official release archive (SourceForge) and pinned by size and SHA-256, archive
+and members; it is BSD-2-Clause (doc/cbios.txt). A development check only: nothing here is built into a game.
+
+    python -B tools/msx_reference.py [--frames 300] [--json PATH]
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+VERSION = '0.29a'
+URL = 'https://downloads.sourceforge.net/project/cbios/cbios/0.29/cbios-0.29a.zip'
+ARCHIVE = ('cbios-0.29a.zip', 269374, 'c585a2f4a10b397e460a95043d59ac79cf4442fbb45a6e14a1e27ef9febaed73')
+# Members of the archive this check uses (size, SHA-256), recorded at the first fetch on 12 Nov 2026.
+MEMBERS = {
+    'cbios_main_msx1.rom': (32768, '921d35edf143f1fde8e53570f92f85e05854610d6a5ea76cce881f2f9040cd9c'),
+    'cbios_main_msx1_eu.rom': (32768, 'ad114c0d8d1c8eae408fb6876a16ddadd8e336699c53eb04661bda8ebbc4aeab'),
+    'cbios_logo_msx1.rom': (16384, '8ad88a4653e26bdbd4c38329fe0a115846e9aa0866b0ac1fe1dd2c260c9932b3'),
+}
+LIMIT = 4 * 1024 * 1024
+JIFFY = 0xFC9E
+WORK = ROOT / '.build' / 'msx-reference'
+# FNV-1a of the 16 KB VRAM after 300 frames with no cartridge (C-BIOS 0.29a MSX1, 60 Hz): rendered and inspected on
+# 12 Nov 2026 (the 'No cartridge found' text screen in Graphic 1).
+NO_CARTRIDGE_VRAM_300 = 821520027
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def cbios() -> Path:
+    """The folder holding the pinned C-BIOS images, fetched and checked on first use."""
+    folder = ROOT / '.deps' / f'cbios-{VERSION}'
+    archive = folder / ARCHIVE[0]
+    if not (archive.is_file() and archive.stat().st_size == ARCHIVE[1] and _sha256(archive) == ARCHIVE[2]):
+        from retrorecomp.updater import _download_verified
+        folder.mkdir(parents=True, exist_ok=True)
+        partial = archive.with_name(archive.name + '.part')
+        print(f'MSX: fetching C-BIOS {VERSION} from its official release (SourceForge).', flush=True)
+        _download_verified(URL, partial, ARCHIVE[1], ARCHIVE[2], LIMIT, f'{ARCHIVE[0]}: not the pinned archive.')
+        partial.replace(archive)
+    with zipfile.ZipFile(archive) as bundle:
+        for name, (size, digest) in MEMBERS.items():
+            target = folder / name
+            if target.is_file() and target.stat().st_size == size and _sha256(target) == digest:
+                continue
+            data = bundle.read(f'cbios-{VERSION}/roms/{name}')
+            if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
+                raise ValueError(f'{name}: not the pinned C-BIOS image.')
+            target.write_bytes(data)
+    return folder
+
+
+# Authored cartridges (no game): an "AB" header whose INIT installs a handler on H.TIMI (FD9Fh) that counts frames.
+INIT = 0x4010
+
+
+def _tail(at: int) -> bytes:
+    """Counter at E001h = 0, JP handler on H.TIMI, EI, HALT loop; the handler follows."""
+    handler = at + 22
+    code = bytes([0x21, 0x00, 0x00, 0x22, 0x01, 0xE0, 0xF3, 0x3E, 0xC3, 0x32, 0x9F, 0xFD,
+                  0x21, handler & 0xFF, handler >> 8, 0x22, 0xA0, 0xFD, 0xFB, 0x76, 0x18, 0xFD])
+    assert len(code) == 22
+    return code + bytes([0x2A, 0x01, 0xE0, 0x23, 0x22, 0x01, 0xE0, 0xC9])
+
+
+def _cartridge(size: int, init: bytes) -> bytes:
+    image = bytearray(b'\xFF' * size)
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    body = init + _tail(INIT + len(init))
+    image[0x10:0x10 + len(body)] = body
+    return bytes(image)
+
+
+def cartridge_16k() -> bytes:
+    """16 KB at 4000h: INIT writes 5Ah at E000h."""
+    return _cartridge(0x4000, bytes([0x3E, 0x5A, 0x32, 0x00, 0xE0]))
+
+
+def cartridge_polling() -> bytes:
+    """16 KB: INIT enables interrupts and polls the VDP status forever (EI; loop: IN A,(99h); JR loop)."""
+    image = bytearray(b'\xFF' * 0x4000)
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    image[0x10:0x15] = bytes([0xFB, 0xDB, 0x99, 0x18, 0xFC])
+    return bytes(image)
+
+
+def cartridge_32k() -> bytes:
+    """32 KB at 4000h-BFFFh: INIT selects its own slot in page 2 the standard way, then copies 8000h and BFFFh."""
+    init = bytes([
+        0xCD, 0x38, 0x01,        # call RSLREG
+        0x0F, 0x0F, 0xE6, 0x03,  # rrca; rrca; and 3      -> primary slot of page 1
+        0x4F, 0x06, 0x00,        # ld c,a; ld b,0
+        0x21, 0xC1, 0xFC,        # ld hl,EXPTBL
+        0x09, 0x7E,              # add hl,bc; ld a,(hl)
+        0xE6, 0x80, 0xB1, 0x4F,  # and 80h; or c; ld c,a
+        0xF2, 0x2F, 0x40,        # jp p,402Fh            (not expanded)
+        0x23, 0x23, 0x23, 0x23,  # inc hl x4             -> SLTTBL
+        0x7E, 0xE6, 0x0C,        # ld a,(hl); and 0Ch    -> secondary slot of page 1
+        0xB1, 0x4F,              # or c; ld c,a
+        0x79, 0x26, 0x80,        # 402Fh: ld a,c; ld h,80h
+        0xCD, 0x24, 0x00,        # call ENASLT
+        0x3A, 0x00, 0x80, 0x32, 0x00, 0xE0,   # ld a,(8000h); ld (E000h),a
+        0x3A, 0xFF, 0xBF, 0x32, 0x03, 0xE0,   # ld a,(BFFFh); ld (E003h),a
+    ])
+    assert INIT + 0x1F == 0x402F and init[0x1F] == 0x79
+    image = bytearray(_cartridge(0x8000, init))
+    image[0x4000] = 0xA5
+    image[0x7FFF] = 0x3C
+    return bytes(image)
+
+
+def instrument(path: Path) -> None:
+    """Two MSX additions to the generated interpreter copy (behaviour unchanged): a count of M1 cycles at the R-register
+    increment, and the interpreter's own interrupt acceptance exported, so the runner reads /INT after each instruction."""
+    from retrorecomp.cpu import replace
+    source = path.read_text(encoding='utf-8')
+    source = replace(source, 'static inline void inc_r(z80* const z) {',
+                     'unsigned long msx_m1_fetches;\nstatic inline void inc_r(z80* const z) {\n  ++msx_m1_fetches;')
+    if 'static inline void process_interrupts(z80* const z)' not in source:
+        raise ValueError('Pinned CPU source changed: process_interrupts')
+    source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
+    path.write_text(source, encoding='utf-8', newline='\n')
+
+
+# Authored timing program for the M1 wait state, run bare (no BIOS) until HALT. Each entry: bytes, MSX cycles from
+# openMSX's table (cpu/Z80.hh, WAIT_CYCLES = 1), standard Z80 cycles. LDIR copies three bytes: two repeats and a last.
+M1_PROGRAM = (
+    (bytes([0xF3]), 5, 4),                          # DI
+    (bytes([0x3E, 0xC0]), 8, 7),                    # LD A,C0h
+    (bytes([0xD3, 0xA8]), 12, 11),                  # OUT (A8h),A        page 3 -> slot 3 (RAM)
+    (bytes([0x00]), 5, 4),                          # NOP
+    (bytes([0x3A, 0x00, 0x00]), 14, 13),            # LD A,(0000h)
+    (bytes([0xCB, 0x47]), 10, 8),                   # BIT 0,A
+    (bytes([0xED, 0x44]), 10, 8),                   # NEG
+    (bytes([0xDD, 0x21, 0x00, 0xC0]), 16, 14),      # LD IX,C000h
+    (bytes([0xDD, 0x7E, 0x00]), 21, 19),            # LD A,(IX+0)
+    (bytes([0xDD, 0xCB, 0x00, 0xC6]), 25, 23),      # SET 0,(IX+0)       DD CB: two M1, the fourth byte is not one
+    (bytes([0x21, 0x00, 0x00]), 11, 10),            # LD HL,0000h
+    (bytes([0x11, 0x00, 0xC1]), 11, 10),            # LD DE,C100h
+    (bytes([0x01, 0x03, 0x00]), 11, 10),            # LD BC,3
+    (bytes([0xED, 0xB0]), 23 + 23 + 18, 21 + 21 + 16),  # LDIR
+    (bytes([0x31, 0x00, 0xD0]), 11, 10),            # LD SP,D000h
+    (bytes([0xE3]), 20, 19),                        # EX (SP),HL
+    (bytes([0xDB, 0xA8]), 12, 11),                  # IN A,(A8h)
+    (bytes([0xED, 0x4F]), 11, 9),                   # LD R,A
+    (bytes([0xDD, 0xED, 0x4F]), 16, 13),            # DD, LD R,A         a discarded prefix is one more M1
+    (bytes([0x76]), 5, 4),                          # HALT
+)
+
+
+def m1_program() -> bytes:
+    return b''.join(code for code, _, _ in M1_PROGRAM)
+
+
+def build() -> Path:
+    from retrorecomp import toolchain
+    from retrorecomp.cpu import prepare_reference
+    from retrorecomp.platforms import build_executable, cmake_target_args
+    WORK.mkdir(parents=True, exist_ok=True)
+    engine = ROOT / '.deps' / 'smsggrecomp'
+    prepare_reference(WORK, engine)
+    instrument(WORK / 'runtime_reference.c')
+    native = (ROOT / 'native' / 'msx_machine').as_posix()
+    (WORK / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
+project(MsxReference C)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+add_executable(msx_reference "{native}/msx_reference_main.c" "{native}/msx_machine.c" runtime_reference.c)
+target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}")
+target_compile_definitions(msx_reference PRIVATE _CRT_SECURE_NO_WARNINGS)
+''', encoding='utf-8', newline='\n')
+    selection = toolchain.select()
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+    log = WORK / 'build.log'
+    with log.open('w', encoding='utf-8') as out:
+        for step in ([str(selection.cmake), '-S', str(WORK), '-B', str(WORK / 'build'), '-G', selection.generator,
+                      '-DCMAKE_BUILD_TYPE=Release', *cmake_target_args()],
+                     [str(selection.cmake), '--build', str(WORK / 'build'), '--config', 'Release']):
+            result = subprocess.run(step, stdout=out, stderr=subprocess.STDOUT, timeout=600, creationflags=flags)
+            if result.returncode:
+                raise SystemExit(f'build failed, see {log}')
+    return build_executable(WORK / 'build', 'msx_reference')
+
+
+def run(exe: Path, *args: str) -> dict:
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+    result = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=300, creationflags=flags)
+    if result.returncode:
+        raise SystemExit(f'{exe.name} {" ".join(args)} failed: {result.stderr.strip()}')
+    return json.loads(result.stdout)
+
+
+def word(report: dict, address: int) -> int:
+    return report['watch'][f'{address:04X}'] | report['watch'][f'{address + 1:04X}'] << 8
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--frames', type=int, default=300)
+    parser.add_argument('--json', type=Path)
+    args = parser.parse_args()
+    roms = cbios()
+    exe = build()
+    carts = WORK / 'carts'
+    carts.mkdir(exist_ok=True)
+    (carts / 'authored16.rom').write_bytes(cartridge_16k())
+    (carts / 'authored32.rom').write_bytes(cartridge_32k())
+    (carts / 'polling.rom').write_bytes(cartridge_polling())
+    frames = str(args.frames)
+    bios = ['--main', str(roms / 'cbios_main_msx1.rom'), '--logo', str(roms / 'cbios_logo_msx1.rom')]
+    watch = [w for a in (0xE000, 0xE001, 0xE002, 0xE003, JIFFY, JIFFY + 1) for w in ('--watch', f'{a:04X}')]
+    runs = {
+        'no-cartridge': run(exe, *bios, '--frames', frames, '--vram', str(WORK / 'vram-logo.bin'), *watch),
+        'authored16': run(exe, *bios, '--cart', str(carts / 'authored16.rom'), '--frames', frames, *watch),
+        'authored16-expanded': run(exe, *bios, '--cart', str(carts / 'authored16.rom'), '--layout', 'expanded',
+                                   '--frames', frames, *watch),
+        'authored32': run(exe, *bios, '--cart', str(carts / 'authored32.rom'), '--frames', frames, *watch),
+        'authored32-expanded': run(exe, *bios, '--cart', str(carts / 'authored32.rom'), '--layout', 'expanded',
+                                   '--frames', frames, *watch),
+        'authored16-pal': run(exe, '--main', str(roms / 'cbios_main_msx1_eu.rom'), '--logo',
+                              str(roms / 'cbios_logo_msx1.rom'), '--pal', '--cart', str(carts / 'authored16.rom'),
+                              '--frames', frames, *watch),
+        'polling': run(exe, *bios, '--cart', str(carts / 'polling.rom'), '--frames', frames, *watch),
+    }
+    (carts / 'm1.rom').write_bytes(m1_program())
+    m1 = run(exe, '--main', str(carts / 'm1.rom'), '--until-halt', '--frames', '1')
+    failures = []
+
+    def check(name: str, condition: bool, detail: str) -> None:
+        print(f'  {"ok  " if condition else "FAIL"} {name}: {detail}')
+        if not condition:
+            failures.append(f'{name}: {detail}')
+
+    n = args.frames
+    print('m1-table')
+    want = sum(msx for _, msx, _ in M1_PROGRAM), sum(z80 for _, _, z80 in M1_PROGRAM)
+    check('m1-table', m1['halted'] and m1['z80_cycles'] == want[1] and m1['cycles'] == want[0]
+          and m1['m1_waits'] == want[0] - want[1],
+          f"{m1['cycles']} MSX cycles = {m1['z80_cycles']} Z80 T-states + {m1['m1_waits']} M1 waits "
+          f"(openMSX's table: {want[0]} = {want[1]} + {want[0] - want[1]})")
+    for name, report in runs.items():
+        print(name)
+        lines = 313 if name.endswith('-pal') else 262
+        frame = lines * 228
+        check(name, report['frames'] == n and n * frame <= report['cycles'] < n * frame + 64,
+              f"{report['frames']} frames, {report['cycles']} cycles ({lines} lines of 228)")
+        ratio = report['m1_waits'] / max(1, report['z80_cycles'])
+        check(name, 0.05 < ratio < 0.35, f"M1 wait states {report['m1_waits']} = {ratio:.1%} of the Z80 T-states")
+        check(name, report['vdp_regs'][1] & 0x60 == 0x60, f"VDP R#1 = {report['vdp_regs'][1]:02X}h (display and frame interrupt on)")
+        jiffy = word(report, JIFFY)
+        check(name, jiffy == report['interrupts'] and report['interrupts'] >= n - 12,
+              f"{report['interrupts']} interrupts accepted, JIFFY = {jiffy}")
+        if name == 'no-cartridge':
+            check(name, report['pc_slot'] & 3 == 0 and report['vram_nonzero'] > 1000,
+                  f"PC {report['pc']:04X}h in slot {report['pc_slot']:02X}h, {report['vram_nonzero']} VRAM bytes set (logo)")
+            if n == 300:
+                check(name, report['vram_fnv'] == NO_CARTRIDGE_VRAM_300,
+                      f"VRAM after 300 frames {report['vram_fnv']:08X}h (pinned {NO_CARTRIDGE_VRAM_300:08X}h: the 'No cartridge found' screen)")
+            continue
+        if name == 'polling':
+            check(name, report['pc_slot'] & 3 == 1, f"the cartridge polls the VDP status in slot {report['pc_slot']:02X}h")
+            continue
+        counter = word(report, 0xE001)
+        check(name, report['watch']['E000'] == (0x5A if '16' in name else 0xA5),
+              f"INIT reached (E000h = {report['watch']['E000']:02X}h)")
+        if '32' in name:
+            check(name, report['watch']['E003'] == 0x3C, f"page 2 selected by ENASLT (BFFFh read {report['watch']['E003']:02X}h)")
+        check(name, report['halted'] and report['pc_slot'] & 3 == 1 and counter > n // 2 and abs(jiffy - counter) < n // 2,
+              f"H.TIMI handler ran {counter} times (JIFFY {jiffy}), CPU halted in slot {report['pc_slot']:02X}h")
+        if 'expanded' in name:
+            check(name, report['secondary'][3] & 0xC0 == 0x80, f"slot 3 secondary register = {report['secondary'][3]:02X}h (page 3 in 3-2)")
+    if args.json:
+        args.json.write_text(json.dumps({'cbios': VERSION, 'frames': n, 'runs': runs, 'failures': failures}, indent=1),
+                             encoding='utf-8')
+    print('MSX reference stage 1:', 'PASS' if not failures else f'{len(failures)} failure(s)')
+    return 1 if failures else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

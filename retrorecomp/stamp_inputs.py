@@ -232,7 +232,10 @@ NOT_INPUTS = (
     'native/gba_vector_checks/',
     # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
     # Beetle's cpu.c for a check, never into a game.
-    'native/psx_vector_checks/')
+    'native/psx_vector_checks/',
+    # The MSX machine skeleton (stage 1, before the MSX has a profile): built with the reference interpreter by
+    # tools/msx_reference.py for a check, never into a game. Its files join an ('msx',) group when the profile exists.
+    'native/msx_machine/')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:

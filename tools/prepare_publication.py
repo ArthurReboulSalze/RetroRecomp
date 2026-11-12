@@ -100,6 +100,7 @@ native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py test
 native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
+native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
