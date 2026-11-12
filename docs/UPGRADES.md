@@ -451,7 +451,16 @@ proved against the interpreted reference, as on every route.
 **Hot path:** no. This is conversion time only. Monkey Island 2's conversion runs a longer main route.
 
 **What moves:** the Amiga's game stamp (the conversion module); no other console. The routes of every Amiga game change, so their
-observed code and their native counts can change too. The recheck of the delivered games is recorded below when it is done.
+observed code and their native counts can change too.
+
+**Recheck.** On 12 Nov the 12 delivered games other than Another World were converted by the real command line, scratch library.
+- **All 12 pass.** Native validation passed, both routes equal the reference and the compressed copy, the quick-state restart is
+  equal, 0 interpreted outside the Kickstart, and the Kickstart installs keep their 19 counted opcodes.
+- **Explore routes:** unchanged, all five hashes equal on all 12.
+- **Main routes:** they changed on 10 games, as expected. On Pinball Dreams and Shadow of the Beast every hash is the same.
+- **Civilization:** its main route is audible now (2,491 frames) and runs 36.8 M native entries instead of 4.4 M.
+- **Monkey Island 2:** its main route of 7,000 frames is audible (272 frames) and runs 79.3 M native entries instead of 41.0 M.
+- **Not investigated:** Pinball Dreams' main route has 48 more native entries with the same trace.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
