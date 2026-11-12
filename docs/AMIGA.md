@@ -154,13 +154,19 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 - (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
   is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
 - (1.7.3) Another World (the French WHDLoad install): on its code-wheel protection screen, the C key, a left click or the second
-  button of port 1 locks the game on a dark green screen until it is restarted. The slave turns the three into a shortcut to the
-  access-code screen ("CODE D'ACCES"). That screen's bytecode checks four variables only a passed protection sets, and stops every
-  thread when they are missing. This is the install's own behaviour: the interpreted reference and the native build end with the same
-  memory, and our resload layer, the Kickstart side and vAmiga play no part. Answer that screen with the joystick only (the second
-  submission is accepted); after the protection, C or a click opens the access-code screen normally. A click that captures the mouse
-  in the window counts as a left click. No route answers this screen, so the conversion's routes stay on it (12 November 2026,
-  `AW-GREEN-20261112.md`, private).
+  button of port 1 locks the game on a dark green screen until it is restarted.
+  - **The install's part.** The slave turns those three inputs into a shortcut to the access-code screen ("CODE D'ACCES"). That
+    screen's bytecode checks four variables only a passed protection sets, and stops every thread when they are missing. The
+    interpreted reference and the native build end with the same memory; our resload layer, the Kickstart side and vAmiga play no
+    part.
+  - **Our part, fixed after 1.7.3.** The click that captures the mouse in the window used to reach the game as a left click, so a
+    player who clicked into the window locked it without meaning to. That click is now the host's (UPGRADES). On a hidden desktop,
+    through the windowed player, an exe with the fix passes the protection after a capture click and a joystick answer, and the
+    delivered exe built before it locks.
+  - **What still locks it.** A deliberate click, or C, on the wheel: answer that screen with the joystick. After the protection, C or
+    a click opens the access-code screen normally.
+  - **Routes.** None answers this screen, so the conversion's routes stay on it (12 November 2026, `AW-GREEN-20261112.md` and
+    `AW-E2E-20261112.md`, private).
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
