@@ -34,14 +34,25 @@ static void vaddr(uint32_t a)
     msx_out(&m, 0x99, (uint8_t)(0x40 | ((a >> 8) & 0x3F)));
 }
 
+/* A mode written through R#0/R#1 reaches the VRAM port's layout (the G6/G7 interleave) at the next line boundary, as the
+ * engine's screen does (openMSX: the display mode changes at the next line): the helpers below let that line pass first. */
+static void mode_settled(void)
+{
+    int live = msx_v9938_interleaved(vdp.reg), latched = vdp.cmd.mode == 2 || vdp.cmd.mode == 3;
+    if (live != latched)
+        msx_advance(&m, m.next_line - m.cycles);
+}
+
 static void fill(uint32_t a, uint8_t value, int n)
 {
+    mode_settled();
     vaddr(a);
     for (int i = 0; i < n; ++i) msx_out(&m, 0x98, value);
 }
 
 static void poke(uint32_t a, const uint8_t *bytes, int n)
 {
+    mode_settled();
     vaddr(a);
     for (int i = 0; i < n; ++i) msx_out(&m, 0x98, bytes[i]);
 }

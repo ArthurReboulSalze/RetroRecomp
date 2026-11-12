@@ -198,8 +198,8 @@ static int unit(MsxV9938 *v, int *minor_step)
     unsigned tx = left ? 1024 - step : step;
     *minor_step = 0;
     switch (n) {
-    case C_POINT:
-        c->col = dot_read(v, mode, c->sx, c->sy, mxs);
+    case C_POINT:                              /* absent expansion RAM reads FFh, not masked to a dot */
+        c->col = mxs ? 0xFF : dot_read(v, mode, c->sx, c->sy, 0);
         finish(v);
         return 0;
     case C_PSET:
@@ -207,7 +207,7 @@ static int unit(MsxV9938 *v, int *minor_step)
         finish(v);
         return 0;
     case C_SRCH: {
-        uint8_t p = dot_read(v, mode, c->asx, c->sy, mxs);
+        uint8_t p = mxs ? 0xFF : dot_read(v, mode, c->asx, c->sy, 0);   /* FFh never equals a masked colour */
         int equal = p == (c->col & mask);
         if ((c->arg & ARG_EQ) ? !equal : equal) {
             c->status |= BD;
@@ -265,7 +265,7 @@ static int unit(MsxV9938 *v, int *minor_step)
         break;
     }
     case C_LMCM:
-        c->col = dot_read(v, mode, c->asx, c->sy, mxs);
+        c->col = mxs ? 0xFF : dot_read(v, mode, c->asx, c->sy, 0);
         c->status |= TR;
         break;
     case C_HMMV: case C_HMMC:
@@ -431,6 +431,7 @@ uint8_t msx_v9938_cmd_read_colour(MsxMachine *m)
     uint8_t value = c->col;
     if (!c->cmd) {
         c->status &= (uint8_t)~TR;
+        c->transfer = 1;
     } else if (command(c) == C_LMCM && !c->transfer) {
         int minor;
         unit(v, &minor);                       /* the dot just taken makes room for the next one */

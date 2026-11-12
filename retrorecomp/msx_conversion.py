@@ -70,6 +70,20 @@ def own_bios2(main, sub) -> tuple[bytes, str] | None:
     return image, hashlib.sha256(image).hexdigest()
 
 
+def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int) -> list[str]:
+    """The BIOS source written beside the work (main ROM, logo page when there is one, MSX2 sub-ROM) and the runners'
+    options for it."""
+    (work / 'bios_main.rom').write_bytes(bios_image[:0x8000])
+    args = ['--main', str(work / 'bios_main.rom')]
+    if len(bios_image) > 0x8000:
+        (work / 'bios_logo.rom').write_bytes(bios_image[0x8000:0xC000])
+        args += ['--logo', str(work / 'bios_logo.rom')]
+    if msx2:
+        (work / 'bios_sub.rom').write_bytes(bios_image[0xC000:])
+        args += ['--sub', str(work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
+    return args
+
+
 def _c_string(text: str) -> str:
     """A C string literal of `text` as UTF-8 bytes (octal escapes for everything outside printable ASCII)."""
     out = []
@@ -141,49 +155,32 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
     else:
         bios_image = msx_cbios.image(standard, emit, model='msx2' if msx2 else 'msx1')
         bios_source = {'kind': 'c-bios', 'version': msx_cbios.VERSION, 'sha256': hashlib.sha256(bios_image).hexdigest()}
-    bios_main, bios_logo, bios_sub = bios_image[:0x8000], bios_image[0x8000:0xC000], bios_image[0xC000:]
-    probe = None
-    if guess.mapper != 'plain':
-        # A mapper cartridge: the static guess reads LD (nn),A stores only; a short reference run under each mapper settles
-        # what the program really drives (Aleste reaches its registers through computed addresses).
-        probe_work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
-        probe_args = ['--main', str(probe_work / 'bios_main.rom')]
-        with entry_lock(probe_work, timeout=1800):
-            probe_work.mkdir(parents=True, exist_ok=True)
-            (probe_work / 'bios_main.rom').write_bytes(bios_main)
-            if bios_logo:
-                (probe_work / 'bios_logo.rom').write_bytes(bios_logo)
-                probe_args += ['--logo', str(probe_work / 'bios_logo.rom')]
-            if msx2:
-                (probe_work / 'bios_sub.rom').write_bytes(bios_sub)
-                probe_args += ['--sub', str(probe_work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
-            try:
-                reference_probe = msx_build.build_reference(probe_work, emit)
-                found, details = msx_build.probe_mapper(reference_probe, cart.data, probe_args)
-            except msx_build.MsxBuildError as error:
-                raise ConversionError(f'MSX: {error}') from None
-        probe = {'chosen': found, 'static_guess': guess.mapper, 'runs': details, 'frames': msx_build.PROBE_FRAMES}
-        if found is not None and found != guess.mapper:
-            emit(f'MSX: the probe runs say {found}, not {guess.mapper} (the static guess).')
-            from dataclasses import replace
-            guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
-    cartridge = msx_build.padded(cart.data, guess.mapper)
-    # One work folder per cartridge and BIOS: the bodies, the learned patterns and the game are those of this pair.
+    # One work folder per cartridge and BIOS: the probe, the bodies, the learned patterns and the game are those of this pair.
     work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
     timings = {}
+    probe = None
+    standard_args = ['--pal'] if standard == 'pal' else []
     with entry_lock(work, timeout=1800):
         work.mkdir(parents=True, exist_ok=True)
-        (work / 'bios_main.rom').write_bytes(bios_main)
-        bios_args = ['--main', str(work / 'bios_main.rom')]
-        if bios_logo:
-            (work / 'bios_logo.rom').write_bytes(bios_logo)
-            bios_args += ['--logo', str(work / 'bios_logo.rom')]
-        if msx2:
-            (work / 'bios_sub.rom').write_bytes(bios_sub)
-            bios_args += ['--sub', str(work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
+        bios_args = _bios_files(work, bios_image, msx2, mapper_kib)
+        if guess.mapper != 'plain':
+            # A mapper cartridge: the static guess reads LD (nn),A stores only; short reference runs under each mapper
+            # settle what the program really drives (msx_build.probe_mapper).
+            try:
+                reference_probe = msx_build.build_reference(work, emit)
+                found, details = msx_build.probe_mapper(reference_probe, cart.data, [*bios_args, *standard_args], guess.mapper)
+            except msx_build.MsxBuildError as error:
+                raise ConversionError(f'MSX: {error}') from None
+            probe = {'chosen': found, 'static_guess': guess.mapper, 'runs': details, 'frames': msx_build.PROBE_FRAMES}
+            if found is not None and found != guess.mapper:
+                emit(f'MSX: the probe runs say {found}, not {guess.mapper} (the static guess).')
+                from dataclasses import replace
+                guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
+                (work / 'native.patterns').unlink(missing_ok=True)      # learned under the other mapper
+        cartridge = msx_build.padded(cart.data, guess.mapper)
         route = [*bios_args, *guess.arguments(), '--frames', str(max(300, min(int(frames or FRAMES), 6000))),
                  *(w for a in WATCH for w in ('--watch', f'{a:04X}')), *(w for e in START_EVENTS for w in ('--event', e)),
-                 *(['--pal'] if standard == 'pal' else [])]
+                 *standard_args]
         emit(f'{"MSX2" if msx2 else "MSX"}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
              f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS.')
         phase = time.perf_counter()

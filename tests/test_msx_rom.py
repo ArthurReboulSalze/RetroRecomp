@@ -154,3 +154,28 @@ class Msx2IdentificationTests(unittest.TestCase):
         data[4:16] = b'HYDLIDE3MSX2'                   # what Hydlide 3 writes over STATEMENT, DEVICE, TEXT and the reserved bytes
         self.assertTrue(has_header(bytes(data)))
         self.assertFalse(looks_like_cartridge(bytes(data)))   # the strict sniff of a loose .rom stays strict
+
+
+class MapperProbeChoiceTests(unittest.TestCase):
+    """msx_build.choose_mapper: the probe's choice from the counted writes of a run under each mapper (no ROM)."""
+
+    def choose(self, static, **runs):
+        from retrorecomp.msx_build import choose_mapper
+        details = {m.replace('_', '-'): dict(zip(('register_writes', 'other_writes', 'unmapped_reads'), v)) for m, v in runs.items()}
+        return choose_mapper(details, static)
+
+    def test_a_run_lost_in_empty_memory_is_not_credible(self):
+        # Aleste: guessed Konami SCC, whose run falls into an empty slot; ASCII 16's writes all land on its registers.
+        self.assertEqual(self.choose('konami-scc', konami_scc=(70, 0, 469343), ascii16=(157, 0, 206), ascii8=(175, 28, 222),
+                                     konami=(1431, 24915, 206)), 'ascii16')
+
+    def test_an_equal_share_keeps_the_static_guess_then_the_narrowest_set(self):
+        # ASCII 16's registers lie inside ASCII 8's: the same writes give both a full share.
+        self.assertEqual(self.choose('ascii8', ascii16=(50, 0, 10), ascii8=(900, 0, 10)), 'ascii8')
+        self.assertEqual(self.choose('konami', ascii16=(50, 0, 10), ascii8=(900, 0, 10)), 'ascii16')
+
+    def test_the_raw_count_never_decides(self):
+        self.assertEqual(self.choose(None, ascii16=(10, 0, 10), ascii8=(5000, 0, 10)), 'ascii16')
+
+    def test_no_credible_run_gives_no_choice(self):
+        self.assertIsNone(self.choose('konami', konami=(0, 30, 10), ascii8=(5, 0, 900000)))

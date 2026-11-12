@@ -82,28 +82,25 @@ def generator(emit: Callable[[str], None] = print) -> tuple[Path, Path]:
 
 
 # The interpreter runs a DD/FD prefix before an opcode that does not use the index register by executing that opcode
-# again as unprefixed, and takes back the second R increment; the M1 count (cpu.prepare_reference, m1_counter: one wait
-# state per M1 cycle on the MSX) must be taken back with it, or "DD C9" costs three wait states instead of two.
+# again as unprefixed, and takes back the second R increment; the M1 count (one wait state per M1 cycle on the MSX) must
+# be taken back with it, or "DD C9" costs three wait states instead of two. cpu.prepare_reference(m1_counter=True) does it
+# (shared, since main b9f0d38f); this module only checks that it did.
 DDFD_R_BACK = '    // R should not be incremented twice:\n    z->r = (z->r & 0x80) | ((z->r - 1) & 0x7f);'
 
 
 def instrument_reference(path: Path) -> None:
-    """The MSX's corrections to its copy of the reference interpreter: its own interrupt acceptance exported (behaviour
-    unchanged; the reference runner reads /INT after each instruction, as the native loop does), and the M1 count taken
-    back where the interpreter takes R back (DDFD_R_BACK)."""
+    """The MSX's addition to its copy of the reference interpreter: its own interrupt acceptance exported (behaviour
+    unchanged; the reference runner reads /INT after each instruction, as the native loop does). Refuses a copy whose M1
+    count is not taken back after the DD/FD fallback (DDFD_R_BACK)."""
     source = path.read_text(encoding='utf-8')
     if 'static inline void process_interrupts(z80* const z)' not in source:
         raise MsxBuildError('Pinned CPU source changed: process_interrupts')
-    if source.count(DDFD_R_BACK) != 1 or 'unsigned long z80_m1_fetches;' not in source:
-        raise MsxBuildError('Pinned CPU source changed: the DD/FD fallback or the M1 count')
-    changed = False
-    if '--z80_m1_fetches;' not in source:
-        source = source.replace(DDFD_R_BACK, DDFD_R_BACK + '\n    --z80_m1_fetches;   /* nor the M1 count (msx_build.DDFD_R_BACK) */')
-        changed = True
+    at = source.find(DDFD_R_BACK)
+    if at < 0 or '--z80_m1_fetches;' not in source[at + len(DDFD_R_BACK):at + len(DDFD_R_BACK) + 40]:
+        raise MsxBuildError('The reference CPU copy does not take the M1 count back after the DD/FD fallback '
+                            '(cpu.prepare_reference with m1_counter).')
     if 'msx_reference_accept' not in source:
         source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
-        changed = True
-    if changed:
         path.write_text(source, encoding='utf-8', newline='\n')
 
 
@@ -250,43 +247,58 @@ def build_reference(work: Path, emit: Callable[[str], None] = print) -> Path:
     return build(work, ('msx_reference',), emit)['msx_reference']
 
 
-# The mapper probe. Where the static guess (msx_rom.guess) is not settled, a short run of the reference under each mapper
-# shows which one the program really drives: the share of its cartridge writes that land on that mapper's registers
-# (the C-BIOS slot probes at BFxxh and the secondary-slot area FFxxh left out), among the mappers whose run does not fall
-# into empty memory (a wrong mapper sends the program to an empty slot: reads of unmapped memory explode).
+# The mapper probe. For a mapper cartridge, a short run of the reference under each mapper shows which one the program
+# really drives (the static guess reads LD (nn),A stores only; Aleste reaches its registers through computed addresses).
+# The runner counts the program's cartridge writes per 2 KB window (--count-cart-writes); a run is credible when it does not
+# fall into empty memory (a wrong mapper sends the program to an empty slot: reads of unmapped memory explode).
 PROBE_FRAMES = 300
-PROBE_WINDOWS = {'ascii16': ((0x6000, 0x6800), (0x7000, 0x7800)), 'ascii8': ((0x6000, 0x8000),),
-                 'konami-scc': ((0x5000, 0x5800), (0x7000, 0x7800), (0x9000, 0x9800), (0xB000, 0xB800)),
-                 'konami': ((0x6000, 0x6800), (0x8000, 0x8800), (0xA000, 0xA800))}
-PROBE_LOST = 5000              # unmapped reads in the probe beyond which the run is taken as lost
+PROBE_WINDOWS = {                              # the 2 KB windows (address >> 11) holding each mapper's registers
+    'ascii16': (12, 14),                       # 6000h-67FFh, 7000h-77FFh
+    'ascii8': (12, 13, 14, 15),                # 6000h-7FFFh
+    'konami-scc': (10, 14, 18, 22),            # 5000h, 7000h, 9000h, B000h
+    'konami': (12, 16, 20),                    # 6000h, 8000h, A000h
+}
+PROBE_IGNORED = (23, 31)                       # B800h-BFFFh (C-BIOS's slot probes at BFxxh), F800h-FFFFh (FFFFh)
+PROBE_LOST = 5000                              # unmapped reads in the probe beyond which a run is taken as lost
 
 
-def probe_mapper(reference: Path, data: bytes, bios_args: list[str]) -> tuple[str | None, dict]:
+def choose_mapper(details: dict, static: str | None) -> str | None:
+    """The probe's choice: among credible runs, the highest share of writes on the mapper's own registers; on an equal share
+    the static guess, then the narrowest register set (ASCII 16's windows lie inside ASCII 8's). A pure function of the
+    counts, so the choice never depends on timing."""
+    def share(m):
+        d = details[m]
+        return d['register_writes'] / (d['register_writes'] + d['other_writes'])
+    credible = [m for m, d in details.items()
+                if 'failed' not in d and d['unmapped_reads'] <= PROBE_LOST and d['register_writes']]
+    if not credible:
+        return None
+    best = max(share(m) for m in credible)
+    tied = [m for m in credible if share(m) == best]
+    if static in tied:
+        return static
+    return min(tied, key=lambda m: (len(PROBE_WINDOWS[m]), list(PROBE_WINDOWS).index(m)))
+
+
+def probe_mapper(reference: Path, data: bytes, bios_args: list[str], static: str | None) -> tuple[str | None, dict]:
     """The mapper the program drives, from a probe run under each candidate; (None, details) when no run is credible."""
     details = {}
     for mapper, windows in PROBE_WINDOWS.items():
-        image = padded(data, mapper)
-        result = subprocess.run([str(reference), *bios_args, '--mapper', mapper, '--frames', str(PROBE_FRAMES),
-                                 '--trace-mapper', '--cart', '-'], input=image, capture_output=True, timeout=600,
-                                creationflags=_flags())
-        if result.returncode:
-            details[mapper] = {'failed': result.returncode}
+        try:
+            result = subprocess.run([str(reference), *bios_args, '--mapper', mapper, '--frames', str(PROBE_FRAMES),
+                                     '--count-cart-writes', '--cart', '-'], input=padded(data, mapper),
+                                    capture_output=True, timeout=600, creationflags=_flags())
+            if result.returncode:
+                raise ValueError(f'exit {result.returncode}')
+            report = json.loads(result.stdout)
+        except (subprocess.TimeoutExpired, ValueError, OSError) as error:
+            details[mapper] = {'failed': str(error)[:200]}
             continue
-        writes = []
-        for line in result.stderr.decode(errors='replace').splitlines():
-            if 'cartridge write ' in line:
-                address = int(line.split('cartridge write ')[1][:4], 16)
-                if not (0xBF00 <= address <= 0xBFFF or address >= 0xFF00):
-                    writes.append(address)
-        inside = sum(any(low <= a < high for low, high in windows) for a in writes)
-        unmapped = json.loads(result.stdout)['unmapped_reads']
-        details[mapper] = {'register_writes': inside, 'other_writes': len(writes) - inside, 'unmapped_reads': unmapped}
-    credible = [m for m, d in details.items() if 'failed' not in d and d['unmapped_reads'] <= PROBE_LOST and d['register_writes']]
-    if not credible:
-        return None, details
-    share = lambda m: details[m]['register_writes'] / (details[m]['register_writes'] + details[m]['other_writes'])
-    best = max(credible, key=lambda m: (share(m), details[m]['register_writes']))
-    return best, details
+        counts = report['cart_writes']
+        inside = sum(counts[w] for w in windows)
+        other = sum(n for w, n in enumerate(counts) if w not in windows and w not in PROBE_IGNORED)
+        details[mapper] = {'register_writes': inside, 'other_writes': other, 'unmapped_reads': report['unmapped_reads']}
+    return choose_mapper(details, static), details
 
 
 def learn(work: Path, cartridge: bytes, bios: bytes, args: list[str], emit: Callable[[str], None] = print, *,

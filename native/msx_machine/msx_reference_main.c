@@ -41,6 +41,14 @@ static uint8_t slot0[0x10000];             /* the BIOS source: main, logo page; 
 static MsxV9938 v9938;
 static uint8_t mapper_ram[4u << 20];
 
+/* --count-cart-writes: the cartridge writes per 2 KB window, for the conversion's mapper probe (msx_build.probe_mapper). */
+static uint64_t cart_writes[32];
+static void count_cart_write(void *user, uint16_t address, uint8_t value)
+{
+    (void)user; (void)value;
+    ++cart_writes[address >> 11];
+}
+
 static void trace_cart_write(void *user, uint16_t address, uint8_t value)
 {
     const MsxMachine *mm = (const MsxMachine *)user;
@@ -90,7 +98,7 @@ int main(int argc, char **argv)
     const char *layout = "basic", *sub_rom = NULL;
     unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256;
     unsigned watch[32];
-    int watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0;
+    int watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0, count_writes = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
@@ -100,6 +108,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--until-halt")) { until_halt = 1; continue; }
         if (!strcmp(a, "--mirrored")) { mirrored = 1; continue; }
         if (!strcmp(a, "--trace-mapper")) { trace_mapper = 1; continue; }
+        if (!strcmp(a, "--count-cart-writes")) { count_writes = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
@@ -138,6 +147,7 @@ int main(int argc, char **argv)
     msx_init(&machine, pal ? MSX_LINES_PAL : MSX_LINES_NTSC);
     machine.trace_frames = 1;                    /* comparisons: the per-frame running hash */
     if (trace_mapper) { machine.cart_write_hook = trace_cart_write; machine.hook_user = &machine; }
+    else if (count_writes) { machine.cart_write_hook = count_cart_write; machine.hook_user = &machine; }
     memset(slot0, 0xFF, sizeof slot0);
     load(main_rom, slot0, 0x8000);
     if (logo_rom) load(logo_rom, slot0 + 0x8000, 0x4000);
@@ -270,6 +280,9 @@ int main(int argc, char **argv)
     printf("\"af2\": %u, \"bc2\": %u, \"de2\": %u, \"hl2\": %u, \"i\": %u, \"r\": %u, \"im\": %u, \"iff2\": %d, \"wz\": %u, ",
            (unsigned)(z.a_ << 8 | z.f_), (unsigned)(z.b_ << 8 | z.c_), (unsigned)(z.d_ << 8 | z.e_),
            (unsigned)(z.h_ << 8 | z.l_), z.i, z.r, z.interrupt_mode, z.iff2, z.mem_ptr);
+    printf("\"cart_writes\": [");
+    for (int i = 0; i < 32; ++i) printf("%s%llu", i ? ", " : "", (unsigned long long)cart_writes[i]);
+    printf("], ");
     msx_print_state(&machine, stdout);
     printf("\"watch\": {");
     for (int i = 0; i < watches; ++i)

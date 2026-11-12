@@ -49,10 +49,12 @@ void msx_v9938_reset(MsxMachine *m)
     m->vblank_line = 192;
 }
 
-/* The physical cell the CPU port reaches: the logical address (R#14, the pointer) through the current mode's layout. */
+/* The physical cell the CPU port reaches: the logical address (R#14, the pointer) through the layout of the screen latched
+ * at the last line boundary (the engine's too): a switch between G4/G5 and G6/G7 takes effect at the next line. */
 static uint32_t vram_address(const MsxV9938 *v)
 {
-    return msx_v9938_physical(((uint32_t)(v->reg[14] & 7) << 14) | v->pointer, msx_v9938_interleaved(v->reg));
+    int interleaved = v->cmd.mode == 2 || v->cmd.mode == 3;
+    return msx_v9938_physical(((uint32_t)(v->reg[14] & 7) << 14) | v->pointer, interleaved);
 }
 
 /* After an access: the pointer counts in 16 KB; in the modes of the V9938 (M4 or M5 set) its carry moves R#14. */

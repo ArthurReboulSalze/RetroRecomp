@@ -23,8 +23,18 @@ static void check(const char *name, long got, long want)
 
 static void reg(int r, uint8_t v) { msx_out(&m, 0x99, v); msx_out(&m, 0x99, (uint8_t)(0x80 | r)); }
 
+/* A mode written through R#0/R#1 reaches the VRAM port's layout (the G6/G7 interleave) at the next line boundary, as the
+ * engine's screen does (openMSX: the display mode changes at the next line): the helpers below let that line pass first. */
+static void mode_settled(void)
+{
+    int live = msx_v9938_interleaved(vdp.reg), latched = vdp.cmd.mode == 2 || vdp.cmd.mode == 3;
+    if (live != latched)
+        msx_advance(&m, m.next_line - m.cycles);
+}
+
 static void vpoke(uint32_t address, uint8_t value)
 {
+    mode_settled();
     reg(14, (uint8_t)(address >> 14));
     msx_out(&m, 0x99, (uint8_t)(address & 0xFF));
     msx_out(&m, 0x99, (uint8_t)(0x40 | ((address >> 8) & 0x3F)));
@@ -318,6 +328,7 @@ static void text2_checks(void)
  * 10000h. */
 static uint8_t vpeek(uint32_t address)
 {
+    mode_settled();
     reg(14, (uint8_t)(address >> 14));
     msx_out(&m, 0x99, (uint8_t)(address & 0xFF));
     msx_out(&m, 0x99, (uint8_t)((address >> 8) & 0x3F));      /* read setup: the next read of 98h gives this byte */
