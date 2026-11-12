@@ -45,6 +45,14 @@
   ready for a second Z80 machine. No machine is added and nothing changes for players: on the
   three games compared (two Sonic The Hedgehog, Alex Kidd in Miracle World), the generated code
   and the delivered executables are the same bytes as before.
+- **Code left out by a limit is now counted, wherever a limit applied.** The tables of learned
+  code have limits: the Mega Drive's work-RAM and Z80 variants, the Neo Geo's reference runs, the
+  Super Nintendo's RAM-code rows, the Master System and Game Gear's compiled RAM windows. What
+  went past a limit was left out without a trace; it is now counted in the conversion report and
+  named in the conversion log. What is kept and generated does not change, and code left out
+  still runs on the interpreter fallback, counted as before. No game read for this release
+  reaches a limit; an authored Mega Drive cartridge does, and is counted. An import of shared
+  paths also counts the rows its limits leave out (not shown in the window yet).
 - **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
   pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
 - [à venir : Game Boy Advance et Atari ST, à décider]
@@ -60,8 +68,8 @@ and shown per CPU and per device wherever it is used.
 converter's own build steps are inputs of each), so **every export of 1.7.2, on every machine,
 is converted again once** when you update, at the quick level, from its learned paths, and the
 window offers it; the shared paths of the base are kept. No host or build stamp moves. The
-Amiga, Atari ST and Nintendo 64 quick-state keys move, so a quick state of 1.7.2 is refused
-cleanly on those three machines, with a message (nothing is lost but the state); the other
+Amiga, Atari ST, Nintendo 64 and Mega Drive quick-state keys move, so a quick state of 1.7.2 is
+refused cleanly on those four machines, with a message (nothing is lost but the state); the other
 machines' states still load. Cartridge saves are kept; a save the new export cannot use is set
 aside and never crashes or blocks the game. [à venir : ce que les branches restantes
 changent.] The details are in [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
