@@ -1,8 +1,11 @@
-"""MSX stage 1: the machine skeleton boots C-BIOS on the reference Z80 interpreter, headless.
+"""MSX1 on the reference Z80 interpreter, headless: C-BIOS boots, the picture, the sound and the inputs (stages 1 and 3).
 
 Builds `native/msx_machine` with the corrected reference interpreter (`retrorecomp.cpu.prepare_reference`, the same
 fallback and oracle as the Master System; its pinned source is never edited) and runs C-BIOS 0.29a with no cartridge
-and with two authored cartridges (small programs written here, no game). It checks that:
+and with authored cartridges (small programs written here, no game). Stage 3 adds the TMS9918A and AY-3-8910 fixtures
+(native/msx_machine/msx_hardware_checks.c), the C-BIOS logo and text screen as drawn by our renderer (pinned after
+inspection), the keyboard and joystick read through the BIOS (SNSMAT, GTSTCK, GTTRIG) and a tone set through WRTPSG
+measured in the recorded sound. Stage 1 checks that:
 
 - C-BIOS boots to its logo: the display is on and VRAM holds the logo after the boot;
 - C-BIOS scans the slots, finds the cartridge header and calls INIT through its interslot routines;
@@ -46,6 +49,11 @@ WORK = ROOT / '.build' / 'msx-reference'
 # FNV-1a of the 16 KB VRAM after 300 frames with no cartridge (C-BIOS 0.29a MSX1, 60 Hz): rendered and inspected on
 # 12 Nov 2026 (the 'No cartridge found' text screen in Graphic 1).
 NO_CARTRIDGE_VRAM_300 = 821520027
+# FNV-1a of the drawn picture (192 x 256 colour indices, then the 192 border colours): the C-BIOS logo after 120 frames
+# and the 'No cartridge found' text screen after 300, rendered as PNG and inspected before they were pinned.
+LOGO_FRAME_120 = 0x3198C337
+NO_CARTRIDGE_FRAME_300 = 0x6F9CD703
+MSX_CLOCK = 3579545
 
 
 def _sha256(path: Path) -> str:
@@ -106,6 +114,34 @@ def cartridge_polling() -> bytes:
     image = bytearray(b'\xFF' * 0x4000)
     image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
     image[0x10:0x15] = bytes([0xFB, 0xDB, 0x99, 0x18, 0xFC])
+    return bytes(image)
+
+
+def cartridge_input() -> bytes:
+    """16 KB: every frame (EI; HALT) reads keyboard row 8 with SNSMAT, joystick 1 with GTSTCK and its trigger A with
+    GTTRIG, through the BIOS, into E010h, E011h and E012h."""
+    image = bytearray(b'\xFF' * 0x4000)
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    code = bytes([0xFB, 0x76,                      # 4010h: EI; 4011h: loop: HALT
+                  0x3E, 0x08, 0xCD, 0x41, 0x01,    # LD A,8; CALL SNSMAT
+                  0x32, 0x10, 0xE0,                # LD (E010h),A
+                  0x3E, 0x01, 0xCD, 0xD5, 0x00,    # LD A,1; CALL GTSTCK
+                  0x32, 0x11, 0xE0,                # LD (E011h),A
+                  0x3E, 0x01, 0xCD, 0xD8, 0x00,    # LD A,1; CALL GTTRIG
+                  0x32, 0x12, 0xE0,                # LD (E012h),A
+                  0x18, 0xE5])                     # 402Ah: JR loop (402Ch - 27 = 4011h)
+    assert 0x10 + len(code) == 0x2C and 0x2C - 27 == 0x11
+    image[0x10:0x10 + len(code)] = code
+    return bytes(image)
+
+
+def cartridge_sound() -> bytes:
+    """16 KB: sets tone A to period 254 at full volume through the BIOS's WRTPSG, then idles (EI; HALT)."""
+    image = bytearray(b'\xFF' * 0x4000)
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    code = b''.join(bytes([0x3E, r, 0x1E, v, 0xCD, 0x93, 0x00]) for r, v in ((0, 254), (1, 0), (7, 0xBE), (8, 15)))
+    code += bytes([0xFB, 0x76, 0x18, 0xFD])        # EI; HALT; JR -3
+    image[0x10:0x10 + len(code)] = code
     return bytes(image)
 
 
@@ -190,9 +226,17 @@ def build() -> Path:
 project(MsxReference C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-add_executable(msx_reference "{native}/msx_reference_main.c" "{native}/msx_machine.c" runtime_reference.c)
+set(machine "{native}/msx_machine.c" "{native}/msx_video.c" "{native}/msx_psg.c")
+add_executable(msx_reference "{native}/msx_reference_main.c" ${{machine}} runtime_reference.c)
 target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}")
-target_compile_definitions(msx_reference PRIVATE _CRT_SECURE_NO_WARNINGS)
+add_executable(msx_hardware_checks "{native}/msx_hardware_checks.c" ${{machine}})
+target_include_directories(msx_hardware_checks PRIVATE "{native}")
+foreach(target msx_reference msx_hardware_checks)
+  target_compile_definitions(${{target}} PRIVATE _CRT_SECURE_NO_WARNINGS)
+  if(NOT WIN32)
+    target_link_libraries(${{target}} PRIVATE m)
+  endif()
+endforeach()
 ''', encoding='utf-8', newline='\n')
     selection = toolchain.select()
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
@@ -205,6 +249,60 @@ target_compile_definitions(msx_reference PRIVATE _CRT_SECURE_NO_WARNINGS)
             if result.returncode:
                 raise SystemExit(f'build failed, see {log}')
     return build_executable(WORK / 'build', 'msx_reference')
+
+
+def hardware_checks() -> list[str]:
+    """Run the TMS9918A / AY-3-8910 fixtures (built with the reference); returns the failed lines."""
+    from retrorecomp.platforms import build_executable
+    exe = build_executable(WORK / 'build', 'msx_hardware_checks')
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+    result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=300, creationflags=flags)
+    print('hardware fixtures')
+    for line in result.stdout.splitlines()[:-1]:
+        print('  ' + line)
+    failed = [line for line in result.stdout.splitlines() if line.startswith('FAIL ')]
+    if result.returncode and not failed:
+        failed = [f'msx_hardware_checks exited {result.returncode}: {result.stderr.strip()}']
+    return failed
+
+
+# The TMS9918A palette as RGB, for looking at a picture only (the machine gives colour indices).
+PALETTE = ((0, 0, 0), (0, 0, 0), (33, 200, 66), (94, 220, 120), (84, 85, 237), (125, 118, 252), (212, 82, 77),
+           (66, 235, 245), (252, 85, 84), (255, 121, 120), (212, 193, 84), (230, 206, 128), (33, 176, 59),
+           (201, 91, 186), (204, 204, 204), (255, 255, 255))
+
+
+def png(frame: Path, target: Path) -> None:
+    """A frame dump (192 x 256 indices, then 192 border colours) as a PNG with an 8-pixel border, to look at."""
+    import struct
+    import zlib
+    data = frame.read_bytes()
+    pixels, border = data[:192 * 256], data[192 * 256:]
+    width, height = 272, 208
+    rows = []
+    for y in range(height):
+        line = y - 8
+        edge = PALETTE[border[min(max(line, 0), 191)]]
+        row = [edge] * width
+        if 0 <= line < 192:
+            row[8:264] = [PALETTE[i] for i in pixels[line * 256:(line + 1) * 256]]
+        rows.append(b'\0' + bytes(c for rgb in row for c in rgb))
+
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return struct.pack('>I', len(body)) + kind + body + struct.pack('>I', zlib.crc32(kind + body) & 0xFFFFFFFF)
+    target.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+                       + chunk(b'IDAT', zlib.compress(b''.join(rows))) + chunk(b'IEND', b''))
+
+
+def tone_frequency(audio: Path, seconds: float = 1.0) -> float:
+    """Rising crossings of the mean over the last `seconds` of a raw 16-bit mono recording at 44,100 Hz."""
+    import array
+    samples = array.array('h')
+    samples.frombytes(audio.read_bytes())
+    tail = samples[-int(44100 * seconds):]
+    mean = sum(tail) / len(tail)
+    crossings = sum(1 for a, b in zip(tail, tail[1:]) if a < mean <= b)
+    return crossings / seconds
 
 
 def run(exe: Path, *args: str) -> dict:
@@ -294,10 +392,43 @@ def main() -> int:
               f"H.TIMI handler ran {counter} times (JIFFY {jiffy}), CPU halted in slot {report['pc_slot']:02X}h")
         if 'expanded' in name:
             check(name, report['secondary'][3] & 0xC0 == 0x80, f"slot 3 secondary register = {report['secondary'][3]:02X}h (page 3 in 3-2)")
+    # Stage 3: the picture, the sound and the inputs.
+    failures.extend(hardware_checks())
+    (carts / 'input.rom').write_bytes(cartridge_input())
+    (carts / 'sound.rom').write_bytes(cartridge_sound())
+    pictures = {}
+    for name, count, pin in (('logo', '120', LOGO_FRAME_120), ('no-cartridge-text', '300', NO_CARTRIDGE_FRAME_300)):
+        dump = WORK / f'frame-{name}.bin'
+        pictures[name] = run(exe, *bios, '--frames', count, '--frame', str(dump))
+        png(dump, WORK / f'frame-{name}.png')
+        print(name)
+        got = pictures[name]['frame_fnv']
+        check(name, pin is None or got == pin,
+              f"picture {got:08X}h after {count} frames ({'pinned' if pin else 'not pinned yet'}; see {dump.stem}.png)")
+    keys = [w for a in (0xE010, 0xE011, 0xE012) for w in ('--watch', f'{a:04X}')]
+    idle = run(exe, *bios, '--cart', str(carts / 'input.rom'), '--frames', frames, *keys)
+    press = n - 50
+    pressed = run(exe, *bios, '--cart', str(carts / 'input.rom'), '--frames', frames, *keys,
+                  '--event', f'{press}:key:8:0:1', '--event', f'{press}:joy:0:2E')
+    print('input')
+    values = lambda r: (r['watch']['E010'], r['watch']['E011'], r['watch']['E012'])
+    check('input', values(idle) == (0xFF, 0, 0),
+          'nothing pressed: SNSMAT(8) = {:02X}h, GTSTCK(1) = {}, GTTRIG(1) = {:02X}h'.format(*values(idle)))
+    check('input', values(pressed) == (0xFE, 1, 0xFF),
+          'SPACE, joystick 1 up and trigger A: SNSMAT(8) = {:02X}h, GTSTCK(1) = {}, GTTRIG(1) = {:02X}h'.format(*values(pressed)))
+    audio = WORK / 'sound.raw'
+    sound = run(exe, *bios, '--cart', str(carts / 'sound.rom'), '--frames', frames, '--audio', str(audio))
+    print('sound')
+    expected = n * 262 * 228 / MSX_CLOCK * 44100
+    check('sound', abs(sound['audio_samples'] - expected) < 2 and sound['audio_dropped'] == 0,
+          f"{sound['audio_samples']} samples at 44,100 Hz for {n} frames ({expected:.0f} expected), none dropped")
+    frequency = tone_frequency(audio)
+    check('sound', 439 <= frequency <= 442,
+          f'tone A set through WRTPSG: {frequency:.0f} Hz over the last second (1,789,772.5 / (16 x 254) = 440.39)')
     if args.json:
         args.json.write_text(json.dumps({'cbios': VERSION, 'frames': n, 'runs': runs, 'failures': failures}, indent=1),
                              encoding='utf-8')
-    print('MSX reference stage 1:', 'PASS' if not failures else f'{len(failures)} failure(s)')
+    print('MSX reference:', 'PASS' if not failures else f'{len(failures)} failure(s)')
     return 1 if failures else 0
 
 

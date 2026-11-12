@@ -63,6 +63,37 @@ class AuthoredCartridgeTests(unittest.TestCase):
         self.assertEqual(0x13 + 2 + (0xFC - 256), 0x11)                              # the JR lands on the IN
 
 
+    def test_the_input_cartridge_reads_through_the_bios_every_frame(self):
+        image = self.tool.cartridge_input()
+        self.assertEqual(image[0:4], b'AB\x10\x40')
+        code = image[0x10:0x2C]
+        for call in (bytes([0xCD, 0x41, 0x01]), bytes([0xCD, 0xD5, 0x00]), bytes([0xCD, 0xD8, 0x00])):
+            self.assertIn(call, code)                                      # SNSMAT, GTSTCK, GTTRIG
+        self.assertEqual(code[-2:], bytes([0x18, 0xE5]))
+        self.assertEqual(0x2C + (0xE5 - 256), 0x11)                         # the JR lands on the HALT
+        self.assertEqual(image[0x11], 0x76)
+
+    def test_the_sound_cartridge_sets_tone_a_through_wrtpsg(self):
+        image = self.tool.cartridge_sound()
+        for register, value in ((0, 254), (1, 0), (7, 0xBE), (8, 15)):
+            self.assertIn(bytes([0x3E, register, 0x1E, value, 0xCD, 0x93, 0x00]), image[0x10:0x40])
+
+
+class PictureTests(unittest.TestCase):
+    def test_a_frame_dump_becomes_a_bordered_png(self):
+        import tempfile
+        module = tool()
+        with tempfile.TemporaryDirectory() as folder:
+            dump = Path(folder) / 'frame.bin'
+            dump.write_bytes(bytes([15]) * (192 * 256) + bytes([4]) * 192)
+            target = Path(folder) / 'frame.png'
+            module.png(dump, target)
+            data = target.read_bytes()
+            self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
+            self.assertEqual(int.from_bytes(data[16:20], 'big'), 272)
+            self.assertEqual(int.from_bytes(data[20:24], 'big'), 208)
+
+
 class M1ProgramTests(unittest.TestCase):
     """The authored timing program: each MSX cost is the standard cost plus one per M1 fetch (openMSX's table)."""
 
@@ -100,7 +131,8 @@ class PinTests(unittest.TestCase):
 
 class StampTests(unittest.TestCase):
     def test_the_skeleton_is_a_check_and_moves_no_stamp(self):
-        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c'):
+        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_video.c', 'msx_psg.c',
+                     'msx_hardware_checks.c'):
             path = 'native/msx_machine/' + name
             self.assertTrue((ROOT / path).is_file(), path)
             self.assertTrue(path.startswith(stamp_inputs.NOT_INPUTS), path)

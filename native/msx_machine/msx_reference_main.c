@@ -15,6 +15,10 @@
  *
  * Usage: msx_reference --main main.rom [--logo logo.rom] [--cart cart.rom [--cart-base 4000]] [--layout basic|expanded]
  *                      [--frames N] [--pal] [--until-halt] [--watch ADDR]... [--vram FILE] [--trace N]
+ *                      [--frame FILE] [--audio FILE] [--event FRAME:key:ROW:BIT:DOWN | FRAME:joy:PORT:HEX]...
+ * --frame writes the last picture (192 lines x 256 colour indices, then the 192 border colours), --audio the sound as
+ * raw 16-bit mono samples at 44,100 Hz; an event applies at the start of its frame (keys of the matrix, a joystick
+ * port's active-low bits).
  * With --until-halt the run stops after the first instruction that halts the CPU (authored timing checks). */
 #include "msx_machine.h"
 #include "runtime_reference.h"
@@ -46,16 +50,21 @@ static long load(const char *path, uint8_t *into, long limit)
     return n;
 }
 
-static uint32_t fnv(const uint8_t *data, size_t size)
+static uint32_t fnv_add(uint32_t h, const uint8_t *data, size_t size)
 {
-    uint32_t h = 2166136261u;
     for (size_t i = 0; i < size; ++i) h = (h ^ data[i]) * 16777619u;
     return h;
 }
 
+static uint32_t fnv(const uint8_t *data, size_t size) { return fnv_add(2166136261u, data, size); }
+
+typedef struct { unsigned long frame; int joy, a, b, c; } Event;
+
 int main(int argc, char **argv)
 {
-    const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL;
+    const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL, *audio_out = NULL;
+    static Event events[64];
+    int event_count = 0;
     const char *layout = "basic";
     unsigned long frames = 120, cart_base = 0x4000, trace = 0;
     unsigned watch[32];
@@ -75,6 +84,16 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--frames")) frames = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--vram")) vram_out = v;
         else if (!strcmp(a, "--trace")) trace = strtoul(v, NULL, 10);
+        else if (!strcmp(a, "--frame")) frame_out = v;
+        else if (!strcmp(a, "--audio")) audio_out = v;
+        else if (!strcmp(a, "--event") && event_count < 64) {
+            Event *e = &events[event_count];
+            unsigned long f; int r, b, d; unsigned port, bits;
+            if (sscanf(v, "%lu:key:%d:%d:%d", &f, &r, &b, &d) == 4) *e = (Event){ f, 0, r, b, d };
+            else if (sscanf(v, "%lu:joy:%u:%x", &f, &port, &bits) == 3) *e = (Event){ f, 1, (int)port, (int)bits, 0 };
+            else { fprintf(stderr, "bad event %s\n", v); return 2; }
+            ++event_count;
+        }
         else if (!strcmp(a, "--watch") && watches < 32) watch[watches++] = (unsigned)strtoul(v, NULL, 16) & 0xFFFF;
         else { fprintf(stderr, "unknown option %s\n", a); return 2; }
     }
@@ -107,8 +126,24 @@ int main(int argc, char **argv)
     z.port_out = bus_out;
     z.userdata = &machine;
 
-    uint64_t waits = 0, steps = 0, accepted = 0;
+    uint64_t waits = 0, steps = 0, accepted = 0, samples = 0;
+    uint32_t audio_hash = 2166136261u;
+    FILE *audio = audio_out ? fopen(audio_out, "wb") : NULL;
+    if (audio_out && !audio) { fprintf(stderr, "cannot write %s\n", audio_out); return 3; }
+    static int16_t chunk[MSX_AUDIO_BUFFER];
+    int next_event = 0;
     while (machine.frames < frames) {
+        for (; next_event < event_count && events[next_event].frame <= machine.frames; ++next_event) {
+            const Event *e = &events[next_event];
+            if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
+            else msx_key(&machine, e->a, e->b, e->c);
+        }
+        if (machine.synth.out_count >= MSX_AUDIO_BUFFER / 2) {
+            unsigned n = msx_audio_take(&machine, chunk, MSX_AUDIO_BUFFER);
+            audio_hash = fnv_add(audio_hash, (const uint8_t *)chunk, n * sizeof *chunk);
+            samples += n;
+            if (audio) fwrite(chunk, sizeof *chunk, n, audio);
+        }
         if (trace && steps < trace)
             fprintf(stderr, "%06llu pc=%04X slot=%02X a=%02X sp=%04X\n", (unsigned long long)steps, z.pc,
                     msx_slot_of(&machine, z.pc), z.a, z.sp);
@@ -135,6 +170,20 @@ int main(int argc, char **argv)
         }
     }
 
+    {
+        unsigned n = msx_audio_take(&machine, chunk, MSX_AUDIO_BUFFER);
+        audio_hash = fnv_add(audio_hash, (const uint8_t *)chunk, n * sizeof *chunk);
+        samples += n;
+        if (audio) { fwrite(chunk, sizeof *chunk, n, audio); fclose(audio); }
+    }
+    uint32_t frame_hash = fnv_add(fnv(&machine.vdp.frame[0][0], sizeof machine.vdp.frame), machine.vdp.border,
+                                  sizeof machine.vdp.border);
+    if (frame_out) {
+        FILE *f = fopen(frame_out, "wb");
+        if (!f || fwrite(machine.vdp.frame, 1, sizeof machine.vdp.frame, f) != sizeof machine.vdp.frame
+            || fwrite(machine.vdp.border, 1, sizeof machine.vdp.border, f) != sizeof machine.vdp.border) return 3;
+        fclose(f);
+    }
     if (vram_out) {
         FILE *f = fopen(vram_out, "wb");
         if (!f || fwrite(machine.vdp.vram, 1, sizeof machine.vdp.vram, f) != sizeof machine.vdp.vram) return 3;
@@ -146,6 +195,7 @@ int main(int argc, char **argv)
            "\"interrupts\": %llu, \"pc\": %u, \"pc_slot\": %u, \"sp\": %u, \"iff1\": %d, \"halted\": %d, "
            "\"primary\": %u, \"secondary\": [%u, %u, %u, %u], \"unmapped_reads\": %llu, \"dropped_writes\": %llu, "
            "\"vdp_regs\": [%u, %u, %u, %u, %u, %u, %u, %u], \"vdp_status\": %u, \"vram_fnv\": %u, \"vram_nonzero\": %u, "
+           "\"frame_fnv\": %u, \"audio_samples\": %llu, \"audio_fnv\": %u, \"audio_dropped\": %llu, "
            "\"watch\": {",
            (unsigned long long)machine.frames, (unsigned long long)machine.cycles, z.cyc, (unsigned long long)waits,
            (unsigned long long)steps, (unsigned long long)accepted, z.pc, msx_slot_of(&machine, z.pc), z.sp, z.iff1,
@@ -153,7 +203,8 @@ int main(int argc, char **argv)
            machine.secondary[3], (unsigned long long)machine.unmapped_reads, (unsigned long long)machine.dropped_writes,
            machine.vdp.reg[0], machine.vdp.reg[1], machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4],
            machine.vdp.reg[5], machine.vdp.reg[6], machine.vdp.reg[7], machine.vdp.status,
-           fnv(machine.vdp.vram, sizeof machine.vdp.vram), nonzero);
+           fnv(machine.vdp.vram, sizeof machine.vdp.vram), nonzero, frame_hash, (unsigned long long)samples, audio_hash,
+           (unsigned long long)machine.synth.dropped);
     for (int i = 0; i < watches; ++i)
         printf("%s\"%04X\": %u", i ? ", " : "", watch[i], msx_peek(&machine, (uint16_t)watch[i]));
     printf("}}\n");

@@ -3,8 +3,9 @@
  * MIT, Retro-Recomp. Written from the MSX standard as documented (MSX2 Technical Handbook, TMS9918A data
  * manual); openMSX was read to understand behaviour, nothing was copied from it.
  *
- * Stage 1 skeleton: no picture, no sound, no cartridge mapper. A CPU (the reference interpreter, later the
- * native bodies) calls msx_read / msx_write / msx_in / msx_out and advances time with msx_advance. */
+ * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c. No
+ * cartridge mapper and no V9938 yet. A CPU (the reference interpreter, later the native bodies) calls msx_read /
+ * msx_write / msx_in / msx_out and advances time with msx_advance. */
 #ifndef RR_MSX_MACHINE_H
 #define RR_MSX_MACHINE_H
 
@@ -37,13 +38,40 @@ typedef struct {
     uint8_t primary, secondary;
 } MsxRegion;
 
+enum { MSX_WIDTH = 256, MSX_HEIGHT = 192 };
+
 typedef struct {
     uint8_t vram[16384];
     uint8_t reg[8];
     uint8_t status;
     uint16_t address;
     uint8_t latch, first, readahead;
+    /* The picture, one line at a time: colour indices 0-15 (colour 0 already replaced by the backdrop), and the
+     * border colour of each line (R#7 low nibble when the line was drawn). Text mode draws 240 pixels from x = 6. */
+    uint8_t frame[MSX_HEIGHT][MSX_WIDTH];
+    uint8_t border[MSX_HEIGHT];
 } MsxVdp;
+
+enum { MSX_AUDIO_RATE = 44100, MSX_AUDIO_BUFFER = 8192, MSX_CPU_CLOCK = 3579545 };
+
+/* The AY-3-8910 as a sound generator (msx_psg.c); its registers are MsxMachine.psg. */
+typedef struct {
+    uint64_t time;                 /* CPU cycle the generator has reached */
+    unsigned tick_rest;            /* CPU cycles left over below one tick (16 CPU cycles) */
+    uint32_t ticks;                /* ticks run so far (noise and envelope run on every second one) */
+    uint16_t tone_count[3];
+    uint8_t tone_out[3];
+    uint16_t noise_count;
+    uint32_t lfsr;
+    uint16_t env_count;
+    uint8_t env_step, env_up, env_holding;
+    uint64_t next_sample;          /* in CPU cycles x 65536 */
+    int32_t acc;
+    uint32_t acc_ticks;
+    int16_t out[MSX_AUDIO_BUFFER];
+    unsigned out_count;            /* samples waiting; the caller takes them with msx_audio_take */
+    uint64_t dropped;              /* samples lost because the caller did not take them */
+} MsxPsgSynth;
 
 typedef struct {
     MsxDevice slot[4][4];
@@ -57,6 +85,7 @@ typedef struct {
     uint8_t key_layout;    /* the value of PSG R14 bit 6 itself: 00h ("50on" layout, the default) or 40h (JIS) */
     MsxRegion region[8];
     MsxVdp vdp;
+    MsxPsgSynth synth;
     unsigned lines_per_frame;
     unsigned line;
     uint64_t cycles;       /* machine cycles, M1 wait states included */
@@ -84,6 +113,21 @@ void msx_advance(MsxMachine *m, uint64_t cycles);
 
 /* The slot (as the BIOS writes it: bit 7 expanded, bits 0-1 primary, 2-3 secondary) behind an address. */
 uint8_t msx_slot_of(const MsxMachine *m, uint16_t address);
+
+/* Input: one key of the 11 x 8 matrix (row 0-10, bit 0-7), and a joystick port (0 or 1) as active-low bits
+ * (0 up, 1 down, 2 left, 3 right, 4 trigger A, 5 trigger B). */
+void msx_key(MsxMachine *m, int row, int bit, int down);
+void msx_joystick(MsxMachine *m, int port, uint8_t active_low);
+
+/* Sound: mono 16-bit samples at MSX_AUDIO_RATE, PSG and key click mixed. Takes up to `max` samples. */
+unsigned msx_audio_take(MsxMachine *m, int16_t *out, unsigned max);
+
+/* Internal pieces shared by the machine's files. */
+void msx_vdp_draw_line(MsxMachine *m, int line);
+void msx_vdp_check_line(MsxMachine *m, int line);
+void msx_psg_reset(MsxMachine *m);
+void msx_psg_catch_up(MsxMachine *m);
+void msx_psg_write(MsxMachine *m, uint8_t reg, uint8_t value);
 
 #ifdef __cplusplus
 }

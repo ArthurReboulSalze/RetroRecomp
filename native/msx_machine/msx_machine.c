@@ -58,7 +58,21 @@ void msx_reset(MsxMachine *m)
     m->cycles = 0;
     m->next_line = MSX_CYCLES_PER_LINE;
     m->frames = 0;
+    msx_psg_reset(m);
     rebuild_regions(m);
+}
+
+void msx_key(MsxMachine *m, int row, int bit, int down)
+{
+    if (row < 0 || row >= MSX_KEY_ROWS || bit < 0 || bit > 7)
+        return;
+    uint8_t mask = (uint8_t)(1u << bit);
+    m->keys[row] = (uint8_t)(down ? (m->keys[row] & ~mask) : (m->keys[row] | mask));
+}
+
+void msx_joystick(MsxMachine *m, int port, uint8_t active_low)
+{
+    m->joystick[port & 1] = (uint8_t)(active_low & 0x3F);
 }
 
 /* FFFFh is the secondary-slot register of the primary slot selected in page 3, when that slot is expanded. */
@@ -199,10 +213,11 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
     case 0x98: vdp_write_data(&m->vdp, value); break;
     case 0x99: vdp_write_control(&m->vdp, value); break;
     case 0xA0: m->psg_latch = value; break;
-    case 0xA1: if (m->psg_latch < 16) m->psg[m->psg_latch] = (uint8_t)(value & psg_masks[m->psg_latch]); break;
+    case 0xA1: if (m->psg_latch < 16) msx_psg_write(m, m->psg_latch, (uint8_t)(value & psg_masks[m->psg_latch])); break;
     case 0xA8: m->primary = value; rebuild_regions(m); break;
-    case 0xAA: m->port_c = value; break;
+    case 0xAA: msx_psg_catch_up(m); m->port_c = value; break;   /* bit 7 is the key click: sound up to now first */
     case 0xAB:
+        msx_psg_catch_up(m);
         if (!(value & 0x80)) {     /* bit set/reset on port C */
             uint8_t bit = (uint8_t)(1u << ((value >> 1) & 7));
             m->port_c = (uint8_t)((value & 1) ? (m->port_c | bit) : (m->port_c & ~bit));
@@ -222,6 +237,10 @@ void msx_advance(MsxMachine *m, uint64_t cycles)
     m->cycles += cycles;
     while (m->cycles >= m->next_line) {
         m->next_line += MSX_CYCLES_PER_LINE;
+        if (m->line < MSX_HEIGHT)            /* the line that just ended is drawn with the state it ended with */
+            msx_vdp_draw_line(m, (int)m->line);
+        if (m->line == MSX_HEIGHT - 1)       /* sprites of line 192: flags only, before the frame flag */
+            msx_vdp_check_line(m, MSX_HEIGHT);
         if (++m->line == MSX_VBLANK_LINE)
             m->vdp.status |= 0x80;
         if (m->line == m->lines_per_frame) {
@@ -229,4 +248,5 @@ void msx_advance(MsxMachine *m, uint64_t cycles)
             ++m->frames;
         }
     }
+    msx_psg_catch_up(m);
 }
