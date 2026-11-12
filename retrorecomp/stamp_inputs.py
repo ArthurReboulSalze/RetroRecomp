@@ -549,6 +549,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_read',
         'retrorecomp.megadrive_runtime',
         'retrorecomp.megadrive_sram',
+        'retrorecomp.megadrive_static',
         'retrorecomp.megadrive_video',
         'retrorecomp.megadrive_z80_timing',
     ),

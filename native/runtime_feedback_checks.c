@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/* The record kind the harness notes: 1 for the Master System build, 5 (Mega Drive ROM) when staged as md. */
+#ifndef RR_CHECK_KIND
+#define RR_CHECK_KIND 1
+#endif
 int main(int argc,char **argv) {
     rr_feedback_start(argc<2 || strcmp(argv[1],"disabled"));
     unsigned n=argc>2?(unsigned)atoi(argv[2]):1;
@@ -10,8 +14,8 @@ int main(int argc,char **argv) {
     if(argc>1 && !strcmp(argv[1],"toggle-on"))rr_feedback_toggle();
     if(argc<2 || strcmp(argv[1],"none"))for(unsigned i=0;i<n;++i) {
         uint8_t bytes[4]={0x3e,0xa5,0x76,0};
-        rr_feedback_note(1,base+i,0,bytes,4);
-        rr_feedback_note(1,base+i,0,bytes,4);
+        rr_feedback_note(RR_CHECK_KIND,base+i,0,bytes,4);
+        rr_feedback_note(RR_CHECK_KIND,base+i,0,bytes,4);
     }
     if(argc>1 && !strcmp(argv[1],"hold-off"))rr_feedback_toggle();
     puts("buffered");fflush(stdout);

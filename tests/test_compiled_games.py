@@ -170,6 +170,21 @@ class CompiledGamesTests(TestCase):
         refresh(game)
         self.assertEqual(game.status,'covered')
 
+    def test_a_mega_drive_record_above_4096_rows_is_neither_refused_nor_rewritten(self):
+        from retrorecomp.feedback import private_file, _load
+        game = Game(str(self.exe),'md',self.identity,'Big record')
+        folder = self.console/'datas/fallbacks'
+        folder.mkdir(parents=True)
+        rows = [Observation(5,0x200+2*n,0,n.to_bytes(4,'little')+b'abcd') for n in range(20000)]
+        (folder/f'md-{self.identity}.rrfb').write_bytes(encode(rows,'md',self.identity))
+        refresh(game)
+        self.assertEqual((game.hints,game.feedback_error),(20000,False))
+        saved = private_file('md',self.identity)
+        self.assertEqual(_load(saved,'md',self.identity),(rows,0))
+        stamp = saved.stat().st_mtime_ns
+        refresh(game)
+        self.assertEqual((game.hints,saved.stat().st_mtime_ns),(20000,stamp))
+
     def test_bad_feedback_and_modified_executables_are_not_reported_as_clean(self):
         game = game_from_report(self.report)
         folder = self.console/'datas/fallbacks'

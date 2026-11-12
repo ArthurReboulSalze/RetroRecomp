@@ -15,14 +15,30 @@ import tempfile
 from .paths import ASSETS
 from .systems import ALL_PROFILES, system_ids
 
-LIMIT = 4096
 HEADER = struct.Struct('<8sIII8s64sI')
 RECORD = struct.Struct('<BBHII16sI')
+# Version 1: at most LIMIT records. Version 2: more than LIMIT, up to FORMAT_LIMIT
+# (one canonical form per count). The layout is the same; only a system whose
+# profile bound (feedback_limit) is above LIMIT ever writes version 2.
+LIMIT = 4096
 MAX_BYTES = HEADER.size + LIMIT * RECORD.size
+FORMAT_LIMIT = 65536
+FORMAT_MAX_BYTES = HEADER.size + FORMAT_LIMIT * RECORD.size
 # Both come from the profiles (feedback_kinds): sms 1, gg 1, gb 2, nes 3-4,
 # md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16, cps2 17-19, pce 20, gba 21.
 SYSTEMS = set(system_ids())
 KINDS = {profile.id: set(profile.feedback_kinds) for profile in ALL_PROFILES}
+# What a writer keeps, per machine (feedback_limit); readers accept up to FORMAT_LIMIT.
+LIMITS = {profile.id: profile.feedback_limit for profile in ALL_PROFILES}
+
+
+def limit(system: str) -> int:
+    """The most distinct records one game of `system` keeps."""
+    return LIMITS[system]
+
+
+def max_bytes(system: str) -> int:
+    return HEADER.size + limit(system) * RECORD.size
 
 
 @dataclass(frozen=True, order=True)
@@ -47,10 +63,11 @@ def _identity(system: str, identity: str) -> None:
 
 def decode(data: bytes, system: str, identity: str) -> tuple[list[Observation], int]:
     _identity(system, identity)
-    if len(data) < HEADER.size or len(data) > MAX_BYTES:
+    if len(data) < HEADER.size or len(data) > FORMAT_MAX_BYTES:
         raise ValueError('Invalid runtime feedback length.')
     magic, version, count, dropped, console, key, digest = HEADER.unpack_from(data)
-    if (magic != b'RRFB001\0' or version != 1 or count > LIMIT or
+    if (magic != b'RRFB001\0' or
+            not (version == 1 and count <= LIMIT or version == 2 and LIMIT < count <= FORMAT_LIMIT) or
             len(data) != HEADER.size + count * RECORD.size or
             console != system.encode().ljust(8, b'\0') or key != identity.encode() or
             checksum(data[HEADER.size:]) != digest):
@@ -72,11 +89,12 @@ def encode(rows: list[Observation], system: str, identity: str, dropped: int = 0
     # Caller orders newest candidates first. Sorting here would silently lose
     # new high-address observations once a prior file is already saturated.
     all_unique = list(dict.fromkeys(rows))
-    dropped = max(dropped, len(all_unique) - LIMIT)
-    unique = all_unique[:LIMIT]
+    bound = limit(system)
+    dropped = max(dropped, len(all_unique) - bound)
+    unique = all_unique[:bound]
     raw = b''.join(RECORD.pack(row.kind, len(row.data), 0, row.address,
                               row.auxiliary, row.data.ljust(16, b'\0'), 0) for row in unique)
-    data = HEADER.pack(b'RRFB001\0', 1, len(unique), min(dropped, 0xffffffff),
+    data = HEADER.pack(b'RRFB001\0', 2 if len(unique) > LIMIT else 1, len(unique), min(dropped, 0xffffffff),
                        system.encode().ljust(8, b'\0'), identity.encode(), checksum(raw)) + raw
     decode(data, system, identity)
     return data
@@ -84,8 +102,13 @@ def encode(rows: list[Observation], system: str, identity: str, dropped: int = 0
 
 def _load(path: Path, system: str, identity: str) -> tuple[list[Observation], int]:
     with path.open('rb') as stream:
-        data = stream.read(MAX_BYTES + 1)
-    return decode(data, system, identity)
+        data = stream.read(FORMAT_MAX_BYTES + 1)
+    rows, dropped = decode(data, system, identity)
+    # A version 1 file may come from a 1.7.2 game, whose `dropped` counted calls,
+    # not records: where the bound is above LIMIT it is read as zero.
+    if len(rows) <= LIMIT and limit(system) > LIMIT:
+        dropped = 0
+    return rows, dropped
 
 
 def _read(path: Path, system: str, identity: str) -> tuple[list[Observation], int]:
@@ -262,11 +285,12 @@ def import_saved_feedback(system: str, preferences: dict, *, emit=lambda message
                 files.setdefault(identity, {})[path] = path.stat().st_mtime_ns
             except OSError:
                 pass
-    games, updated, invalid, accepted = {}, set(), 0, 0
+    games, updated, invalid, accepted, refused = {}, set(), 0, 0, 0
+    bound = limit(system)
     # Stream one bounded file at a time, merge once per game. Importing older
     # and newer saturated copies must not repeatedly evict/reinsert records.
     for identity, sources in files.items():
-        candidates, dropped = {}, 0
+        candidates, left_out, dropped = {}, set(), 0
         for path in sorted(sources, key=lambda path: sources[path], reverse=True):
             try:
                 rows, overflow = _load(path, system, identity)
@@ -279,19 +303,23 @@ def import_saved_feedback(system: str, preferences: dict, *, emit=lambda message
             for row in rows:
                 if row in candidates:
                     continue
-                if len(candidates) < LIMIT:
+                if len(candidates) < bound:
                     candidates[row] = None
                 else:
-                    dropped = max(dropped, 1)
+                    left_out.add(row)
+        dropped = max(dropped, len(left_out))
         if not candidates:
             continue
-        retained, _overflow, changed = _retain(system, identity, list(candidates), dropped)
+        retained, overflow, changed = _retain(system, identity, list(candidates), dropped)
         games[identity] = len(retained)
+        refused += overflow
         if changed:
             updated.add(identity)
     return {'files': accepted, 'games': len(games), 'updated_games': len(updated),
             'observations': sum(games.values()), 'invalid_files': invalid,
             'bytes': sum(HEADER.size + RECORD.size*count for count in games.values()),
+            # The Mega Drive only (D2): a lower bound of the distinct records left out; null elsewhere.
+            'refused_records': refused if bound > LIMIT else None,
             'fresh_validation_required': True}
 
 
@@ -317,6 +345,7 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
         locations += [selected, *selected.parents]
     found: dict[Observation, int] = {}
     dropped = 0
+    bound = limit(system)
     def accept(path, rows):
         nonlocal dropped
         try:
@@ -325,9 +354,9 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
             stamp = 0
         for row in rows:
             found[row] = max(stamp, found.get(row, 0))
-        if len(found) > LIMIT:
-            dropped = max(dropped, len(found)-LIMIT)
-            for row in sorted(found, key=lambda row: (-found[row], row))[LIMIT:]:
+        if len(found) > bound:
+            dropped = max(dropped, len(found)-bound)
+            for row in sorted(found, key=lambda row: (-found[row], row))[bound:]:
                 del found[row]
     extra = None if isolated else feedback_search_paths(preferences).get(system)
     for directory in set(locations):
@@ -343,14 +372,30 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
     rows, overflow, _changed = _retain(system, identity,
         sorted(found, key=lambda row: (-found[row], row)), dropped)
     if rows:
-        emit(f'Gameplay feedback: {len(rows)} unique fallback candidates ({HEADER.size + RECORD.size * len(rows)} bytes); fresh validation required.')
+        line = f'Gameplay feedback: {len(rows)} unique fallback candidates ({HEADER.size + RECORD.size * len(rows)} bytes); fresh validation required'
+        if not overflow:
+            line += '.'
+        elif len(rows) == bound:
+            if bound > LIMIT:
+                line += f'; at least {overflow} more were refused: the record is full at {bound}.'
+            else:
+                line += f'; more were refused: the record is full at {bound}.'
+        elif bound > LIMIT:
+            # A header number from a file whose record is not full (a game wrote it): say what it counts, not "full".
+            line += f'; at least {overflow} more were refused.'
+        else:
+            line += '; more were refused.'
+        emit(line)
     import hashlib
     fingerprint = hashlib.sha256(encode(sorted(rows), system, identity)).hexdigest()
     return {'schema': 1, 'identity': identity, 'fingerprint': fingerprint,
             'unique_candidates': len(rows), 'limit_reached': bool(overflow),
+            'limit': bound,
+            # The Mega Drive only (D2): a lower bound of the distinct records refused; null elsewhere.
+            'refused_records': overflow if bound > LIMIT else None,
             'toggle_key': 'F12', 'recording_default': True,
             'bytes': HEADER.size + RECORD.size * len(rows) if rows else 0,
-            'max_bytes_per_game': MAX_BYTES, 'saved_at': 'normal_process_exit',
+            'max_bytes_per_game': max_bytes(system), 'saved_at': 'normal_process_exit',
             'fresh_validation_required': True}
 
 
@@ -364,6 +409,9 @@ def stage(project: Path, system: str, identity: str, *, target: str = 'game', cm
             destination.write_bytes(data)
     config = (f'#define RR_FEEDBACK_SYSTEM "{system}"\n'
               f'#define RR_FEEDBACK_IDENTITY "{identity}"\n')
+    if limit(system) != LIMIT:
+        # Written only above the C default (4,096): every other machine's header is unchanged.
+        config += f'#define RR_FEEDBACK_LIMIT {limit(system)}u\n'
     destination = project / 'runtime_feedback_config.h'
     if not destination.is_file() or destination.read_text(encoding='ascii') != config:
         destination.write_text(config, encoding='ascii')

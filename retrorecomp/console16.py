@@ -410,6 +410,16 @@ endif()
         file.write(CMAKE)
 
 
+STATIC_DISCOVERY = 'static-discovery.json'     # the counters of the last pass, beside the project's other analysis files
+
+
+def _read_static_discovery(project: Path):
+    try:
+        return json.loads((project / STATIC_DISCOVERY).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+
+
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None, standard_override=None):
     rom = conversion_rom(path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
@@ -444,13 +454,22 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     if system_id == 'md':
         import re
         from .megadrive_codegen import generate_steps
+        from .megadrive_static import static_roots
         static_pcs = {int(value, 16) for value in re.findall(r'\{0x([0-9A-Fa-f]+)u,',
             (project / f'generated/{md_profile["prefix"]}_cycles.c').read_text(encoding='utf-8'))}
+        seeds = static_pcs | entries | set(megadrive.vectors(rom)['roots'])
+        ram_variants = megadrive.read_ram_variants(rom)
         with timings.phase('code_generation'):
-            analysis = generate_steps(engine, project, rom, static_pcs | entries | set(megadrive.vectors(rom)['roots']),
-                                      megadrive.read_ram_variants(rom))
+            # Anchored static discovery (retrorecomp/megadrive_static.py): extra decode roots found from the reached code. They
+            # go to the step generator only, never to game.toml, the learned entries or the library.
+            (project / STATIC_DISCOVERY).unlink(missing_ok=True)      # a failed pass leaves no counters of an earlier one
+            roots, discovery = static_roots(engine, project, rom, seeds, ram_variants)
+            analysis = generate_steps(engine, project, rom, seeds | roots, ram_variants)
+        atomic_json(project / STATIC_DISCOVERY, discovery)
         emit(f'{analysis["translated_instructions"]} native instructions, '
              f'{analysis["guarded_ram_variants"]} guarded RAM variants; exact PC/stack control flow.')
+        from .megadrive_static import summary_line
+        emit(summary_line(discovery))
     with timings.phase('code_generation'):
         _write_build(project, engine, system_id, title, rom)
     if system_id == 'md':
@@ -846,7 +865,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                                   f'Previous export preserved; see {checks_dir}.')
         return comparisons
 
-    for attempt in range(passes):
+    attempt, passes_allowed, residual_pass = 0, passes, False
+    while attempt < passes_allowed:
         timings.begin_pass(attempt + 1)
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources,
                                standard_override=standard)
@@ -918,7 +938,13 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             supernintendo.validate_activity(cartridge_profile, checks)
         if not any(check.get('rom_entries') or check.get('ram_variants') or check.get('z80_variants') or check.get('z80_driver_images')
                    or check.get('spc_variants') or check.get('spc_driver_images')
-                   for check in checks) or attempt + 1 == passes:
+                   for check in checks):
+            break
+        # The last pass the settings allow still ran counted interpreter code that it recorded: one more pass learns it, once
+        # (a quick check from shared paths asks for one pass, and its final line must not keep opcodes the routes just recorded).
+        residual = sum(check.get('main_interpreted_opcodes', check['interpreted_opcodes']) + check['audio_interpreted_opcodes']
+                       for check in checks)
+        if attempt + 1 == passes_allowed and (residual_pass or not residual):
             break
         added = learn(rom, checks)
         if system_id == 'md':
@@ -930,7 +956,14 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         if not added:
             break
         observations = '68000 ROM/RAM entries and Z80 opcode variants' if system_id == 'md' else '65816 RAM and SPC700 opcode variants'
-        emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
+        if attempt + 1 == passes_allowed:
+            passes_allowed += 1
+            residual_pass = True
+            emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned from {residual} interpreted opcodes the last pass still ran; '
+                 'one more pass regenerates the native code from them.')
+        else:
+            emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
+        attempt += 1
     timings.end_passes()
     if not reference_before_learning:
         comparisons = compare(checks, checks_dir / 'reference', {})
@@ -993,6 +1026,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         **(delivered.report_fields() if delivered else {}),
         # Where the learned code reached a limit (the library's and the game's own recording tables), counted and never silent.
         **({'learning_limits': limits} if system_id == 'md' else {}),
+        # What the anchored static discovery added to the native code before any play route (a counted aid to the code
+        # measure: not CPU or hardware fidelity, not gameplay validation). Absent when no pass wrote its counters.
+        **({'static_discovery': discovery} if system_id == 'md' and (discovery := _read_static_discovery(checks_dir.parent)) else {}),
+        # Present only when the last pass the settings allow still ran recorded interpreter code and one more pass was taken for it.
+        **({'residual_learning_pass': True} if residual_pass else {}),
         'advanced_scan': {'enabled': advanced, 'level': level,
                           'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
                                                 + menu_confirm_frames + long_frames),

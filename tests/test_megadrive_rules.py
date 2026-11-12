@@ -139,7 +139,8 @@ class DecoderToolIsolationTests(unittest.TestCase):
         users = {}
         for path in (ROOT / 'retrorecomp').glob('*.py'):
             users[path.name] = len(re.findall(r'decoder_tool\([^)]*md_rules', path.read_text(encoding='utf-8')))
-        self.assertEqual({name for name, n in users.items() if n}, {'megadrive_codegen.py'})
+        # megadrive_static.py is the second Mega Drive-only module that asks (the static discovery of 1.7.3).
+        self.assertEqual({name for name, n in users.items() if n}, {'megadrive_codegen.py', 'megadrive_static.py'})
         for name in ('neogeo_codegen.py', 'cps1_codegen.py'):
             self.assertEqual(users[name], 0)
         self.assertNotIn('md_rules', (ROOT / 'tools/x68000_native.py').read_text(encoding='utf-8'))

@@ -311,7 +311,7 @@ def refresh(game, preferences=None, *, verify_binary=False):
 
 
 def _refresh(game, preferences=None, *, verify_binary=False):
-    from .feedback import _load, private_file, encode, _retain
+    from .feedback import _load, private_file, encode, _retain, limit
     from .freshness import feedback, digest
     path = Path(game.executable)
     try:
@@ -374,7 +374,7 @@ def _refresh(game, preferences=None, *, verify_binary=False):
                 rows, overflow = _load(file, game.system, identity)
                 stamp = file.stat().st_mtime_ns
                 for row in rows:records[row] = max(stamp,records.get(row,0))
-                dropped = max(dropped,overflow,len(records)-4096)
+                dropped = max(dropped,overflow,len(records)-limit(game.system))
             except (OSError, ValueError):
                 game.feedback_error = True
         if records:

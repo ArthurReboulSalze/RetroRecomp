@@ -188,6 +188,91 @@ it, an endless writer stopped at the ceiling, text decoded as `subprocess.run` d
 **What moves:** `retrorecomp/core.py` and `batch.py` are game-stamp inputs of every console, so **every console's game stamp moves**:
 an export of 1.7.2 is converted again at the upgrade (the quick upgrade above, from its learned paths). The shared paths of the base are kept (they are qualified by the
 recompiler's revision, not by this stamp). **Quick states:** unchanged.
+## Mega Drive: a larger player's record, anchored static discovery, and a learning pass when the last one still ran the interpreter (1.7.3)
+
+Three changes that act on what a Mega Drive player meets **past the conversion's routes**. Measures are kept apart: everything below is native code (and what the
+interpreter still ran); none of it says anything about CPU fidelity, hardware fidelity, gameplay or latency. A walk is 36,000 frames of pseudo-random pad input with a
+seed no conversion uses, run on the delivered game: a script, not a person playing.
+
+### 1. The player's record: a bound per machine, the Mega Drive at 65,536 notes
+
+The record an exported game writes (`datas/fallbacks/<system>-<sha256>.rrfb`, F12) held at most 4,096 notes for every machine, so one play session handed the next
+conversion at most 4,096 roots. Ultimate Mortal Kombat 3 (not in the shared base) met 13,871 distinct unknown ROM entries in one walk and filled the file (131,168 bytes).
+`retrorecomp/systems` now has `feedback_limit` per profile (default 4,096; **only the Mega Drive** sets 65,536), `native/runtime_feedback.c` takes it from
+`RR_FEEDBACK_LIMIT` in the generated config header, and `retrorecomp/feedback.py` reads and writes the same two shapes. Designed and reviewed by a Fable agent
+(`md-record-cap-design.md`).
+
+- **Format:** the 96-byte header and the 32-byte records are unchanged. A file of 4,096 records or fewer is **version 1, byte for byte what 1.7.2 wrote** (two sha256 pins in
+  `tests/test_feedback.py`); a file of 4,097 to 65,536 records is **version 2** (at most 2,097,248 bytes). An old file of any machine loads as before.
+- **What is refused is counted:** the header's `dropped` now counts **distinct** refused records (a lower bound, from a small bit filter; before, the game added 1 per refused
+  call). The conversion log says "at least M more were refused: the record is full at 65536" for the Mega Drive; the report key `runtime_feedback` gains `limit` and
+  `refused_records` (null for a 4,096 machine) and `max_bytes_per_game` per machine. A 1.7.2 file's raw call count is read as 0 where the bound is above 4,096.
+- **Every machine, what changes:** the recorder reserves 152 KiB (was 144 KiB) for a 4,096 machine and **2.6 MiB for the Mega Drive**; a full file of a 4,096 machine now ends
+  its log line with "more were refused: the record is full at 4096" (true, and it stays on at every conversion of a game whose file is full); `dropped` counts distinct
+  records instead of calls (every reader only tests it against zero); if the recorder cannot allocate its merge buffers at exit it writes nothing and keeps the old file
+  (before, it overwrote it with the session alone). Machines: Master System, Game Gear, Game Boy, NES, Super Nintendo, Neo Geo, X68000, CPS-1, CPS-2, PC Engine, Game Boy
+  Advance, Amiga, Atari ST, Nintendo 64, PlayStation: bound 4,096, files unchanged. Adventure (ScummVM): no record.
+- **Sharing:** the shared bank keeps 4,096 observations per game (`OBSERVATION_LIMIT`, unchanged; sharing declared roots is a later decision). `shareable_observations` now
+  stops at 4,096 rows that have a ROM position and looks at most 8,192 rows (each costs a search of the ROM), so a 65,536-row record still exports a file that imports.
+- **Older builds:** a 1.7.2 game exiting beside a version 2 file does not read it and **overwrites it with its own session** (no crash, the file stays valid; the converter's
+  private copy survives); a 1.7.2 converter refuses a file above 131,168 bytes (ignored, "unreadable" in the collection). Both are the previous-release rule, not a break.
+- **Proof (UMK3, scratch library, the default level):** the delivered game, after two walks, wrote **6,556 notes, version 2, 209,888 bytes, 0 refused** (the 1.7.2 bound
+  would have cut at 4,096). The conversion beside that file read 6,556 candidates, compiled 43,491 native instructions, 0 interpreted opcodes on its routes, native equal to
+  the reference and the compressed copy equal to it. Same walks on the result: the recorded seed **0 interpreted opcodes**; a seed never recorded **0.30 %** (1.26 M opcodes,
+  860 distinct unknown entries). For comparison, with the old bound one round gave 0.55 % and 0.54 % on the same game (4,096 notes, 9-10 k entries left).
+- **Not done / not measured:** the recorder's hot path on the Mega Drive grows its tables from 144 KiB to 2.6 MiB (a note is one hash, one slot, one 32-byte compare per
+  interpreted ROM instruction): **frame cost not measured** (needs a quiet PC and Arthur's go); the Linux (flock) run of the self-test and the one-off run of the 1.7.2
+  `runtime_feedback.c` beside a version 2 file were not done.
+
+### 2. Anchored static discovery of 68000 code (Mega Drive)
+
+Code reached only through a pointer table or a computed jump was found by observed execution only. `retrorecomp/megadrive_static.py` (new, Mega Drive only) reads the tables
+**that already reached code indexes** and adds their targets as roots, never a scan of the ROM: seven rules (`MOVEA.L (d8,PC,Xn)` / `LEA` / `ADDI.L` + an indexed `JMP`/`JSR` through
+long pointers; offset-word tables of Sega and Treasure code; PC-indexed rows of `BRA`/`JMP`; long ROM operands of reached `LEA`/`PEA`/`MOVEA.L #`/`MOVE.L #`), a table read bounded at 256
+entries, at most 12 rounds, and a ceiling of about 32,768 added instructions. Every target passes a legality test (the decoder's own, plus refusal of `MN_ILLEGAL` and
+`MN_OTHER`, a $0000 word, an odd or out-of-ROM target, overlap with reached code, and a stream too short); each refusal has one counted reason and `targets = accepted + refused`
+per rule. Two optional rules (c2, a1u) are coded and **off**. Designed and reviewed by a Fable agent (`md-static-design.md`); the prototype and its measures are in `.build/p174-static`.
+
+- **A wrong guess never runs as native code:** ROM is immutable, so the body for an address is the decode of the bytes at that address and runs only when the CPU's PC is really
+  there; a root on data is dead code (size and build time only). Odd addresses and RAM are excluded; a banked cartridge above 4 MiB skips the rules and is counted. The roots go to
+  `generate_steps` only, never into `game.toml`, never into the library, the shared base or the record.
+- **Counted:** the report key `static_discovery` (per rule: targets, accepted, refused by reason; `roots_accepted`, `roots_refused`, `extra_instructions`, `rounds_exhausted`, `skipped`)
+  and one conversion-log line ("Static discovery: N roots from reached code (+M instructions), K candidates refused (X at the cap)").
+- **Figures** (instructions, native code only): Ultimate Mortal Kombat 3, first conversion at the default level: the static start went from **8,443 to 26,966** native
+  instructions (773 roots, +18,523, 516 refused, the round limit reached); the first routes' interpreted main-CPU opcodes fell from **3,237,163 and 3,399,555 to 296,670 and 385,852**
+  (demo, play, 3,600 frames each); after the first learning pass 17,135 became 32,267 native instructions and the routes ran **0 interpreted**, native equal to the reference. The
+  walk of 36,000 frames (not a conversion route): **2.40 % to 0.31 % and 0.28 %** interpreted (two walks; 13,871 unknown entries became 5,628 and 6,151). Gunstar Heroes (paths from the
+  base, quick check): 453 roots, **+7,438** instructions on 27,509 (34,947), 838 refused, 0 interpreted, native equal to the reference. Sonic 2: 157 roots, +2,777 on 33,879 (36,656), 549 refused.
+- **Cost:** more native code. In instruction counts, a first conversion grows 1.1 to 3.2 times (Sonic 2 1.1, Gunstar 1.7, UMK3 3.2 in the prototype) and a played one 1.07 to 1.5. The
+  decoder runs about twice per round: UMK3's `code generation` phase read 40.6 s against 1.6 s before the change, and 33.0 s after the decoder tool was built once instead of at every
+  run (a PC in use, up to two conversions at once: not a benchmark, only the order of magnitude). What is left beyond the anchored rule is dispatchers entered only through object data and computed jumps into unrolled loops:
+  no static rule finds them (Gunstar 343 and UMK3 471 routine heads in the prototype).
+
+### 3. A learning pass when the last pass still ran the interpreter (Mega Drive and Super Nintendo)
+
+A quick check from shared paths (the base holds them) asks for one pass, so the code its routes had just recorded on the interpreter stayed on it in the delivered game: Sonic 2's final
+line read "Sound CPU: 8,604 interpreted Z80 opcodes", and a walk of 36,000 frames ran 286,260 (28 variants). Now, when the last pass the settings allow still ran interpreted opcodes **and**
+recorded something learnable, **one** more pass learns it and regenerates the code (`console16.convert16`; the log says so, the report carries `residual_learning_pass: true`;
+never more than one, never when the last pass ran none, never when nothing new was learned).
+
+- **Proof (Sonic 2, quick check, scratch library):** pass 1/1 ran 8,604 and 8,346 Z80 opcodes interpreted (demo, play), learned 37 variants, and the second pass ran **0 and 0** (100 % native
+  on the sound CPU); native equal to the reference, the compressed copy equal to it; one more pass in the conversion (127 s against 70 s in that run, a busy PC: not a benchmark).
+- **Which machines:** the Mega Drive and the **Super Nintendo** (they share `convert16`): the behaviour changes only under those conditions; Donkey Kong Country (standard level, three
+  passes) ended its first pass at 0 and took no extra pass. The Neo Geo, CPS-1, CPS-2, PC Engine, X68000, Amiga and Atari ST use only helpers of `console16.py` (`dependencies16`,
+  `REPOSITORIES`) and their own conversion loops: **behaviour unchanged**, only their game stamps move with the file.
+
+### Checked, and what moves
+
+- Unit tests: the record format, profiles, compiled games, sharing, stamps (`tests/test_feedback.py`, `test_system_profiles.py`, `test_compiled_games.py`,
+  `test_knowledge_exchange.py`), `tests/test_megadrive_static.py` (authored bytes only, one test with the real decoder), the pass loop (`tests/test_console16.py`); the native recorder's self-test
+  (`tools/runtime_feedback_selftest.py`, portable toolchain: both a 4,096 and a 65,536 build, old files, a damaged file, two exits at once).
+- **Stamps** (`tools/std_baseline.py`, tree `751866b8` against this one): the **game stamp of every machine moves** (`native/runtime_feedback.c`, `retrorecomp/feedback.py` and the profiles are
+  inputs of all), with the Mega Drive's own (`megadrive_static.py`, `console16.py`); **no host and no build stamp** moves. The **quick-state key** of the Mega Drive, the Super Nintendo and the
+  Master System / Game Gear build signature move (they hash the listed native files, which now include `runtime_feedback.c`); the Mega Drive and Super Nintendo keys had already moved in 1.7.3
+  (the cartridge-save file), so a 1.7.2 quick state is refused cleanly as before. The four pinned 68000 generator files and `megadrive_codegen.py`, `megadrive_z80.py` are untouched.
+  New files and their role: `retrorecomp/megadrive_static.py` (game, md), `tests/test_megadrive_static.py`.
+- Existing exports are affected: every game's next conversion is a full one in the sense of this page (its game stamp moved).
+
 ## Mega Drive: the limits of the learned code are counted, never silent (1.7.3)
 
 The Mega Drive keeps three tables of code it learned from the runs: the work-RAM instructions (2,048 distinct variants, in the exported

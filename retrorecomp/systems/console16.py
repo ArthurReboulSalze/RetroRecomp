@@ -16,6 +16,7 @@ class MegaDriveProfile(SystemProfile):
     quick_state_family = 'rr16'
     capabilities = Capabilities(guns=('menacer', 'justifier'), battery=True)
     feedback_kinds = frozenset({5, 6, 7})
+    feedback_limit = 65536
     fallback_display = 'opcodes'
     default_frames = 3600
     quick_frames = 1200

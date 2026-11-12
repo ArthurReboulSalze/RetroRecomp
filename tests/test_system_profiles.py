@@ -91,6 +91,17 @@ class RegistryTests(unittest.TestCase):
         bound = int(re.search(r'RR_FB_MAX_KIND=(\d+)', header).group(1))
         self.assertLessEqual(max(seen), bound)
 
+    def test_feedback_limit_is_a_power_of_two_and_only_the_mega_drive_raises_it(self):
+        # native/runtime_feedback.c takes the bound from runtime_feedback_config.h (feedback.stage writes it only above
+        # 4,096) and falls back to 4,096 for the five hand-written headers: a second machine above 4,096 needs a test here.
+        for profile in ALL_PROFILES:
+            with self.subTest(profile.id):
+                bound = profile.feedback_limit
+                self.assertTrue(4096 <= bound <= feedback.FORMAT_LIMIT and bound & (bound - 1) == 0, bound)
+                self.assertEqual(feedback.limit(profile.id), bound)
+        self.assertEqual({profile.id for profile in ALL_PROFILES if profile.feedback_limit != 4096}, {'md'})
+        self.assertEqual(feedback.limit('md'), 65536)
+
     def test_metadata_reads_the_profile_name_and_standards(self):
         for profile in ALL_PROFILES:
             both = 'ntsc' in profile.video_modes and 'pal' in profile.video_modes
