@@ -112,7 +112,8 @@ def _basic_only(data: bytes) -> bool:
     return False
 
 
-def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
+def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None,
+            msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
             msx2_ram=256, **unused) -> Path:
     from . import __version__, msx_build, msx_cbios
@@ -278,8 +279,10 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                     f'MSX: {title}: the picture never changes on the {name} route; nothing was built.'))
         phase = time.perf_counter()
         emit('MSX: building the game.')
+        presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
+                        'online_cover': online_cover, 'boxart_dir': boxart_dir}
         prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model,
-                                mapper_kib=mapper_kib)
+                                mapper_kib=mapper_kib, presentation=presentation)
         try:
             executable = msx_build.build(work, ('game',), emit)['game']
         except Exception as error:  # noqa: BLE001 - the build's own log names the cause
@@ -440,9 +443,11 @@ def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int
 
 
 def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard: str, bios: bytes, emit=print, *,
-                 model: str = 'msx1', mapper_kib: int = 0) -> dict:
+                 model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None) -> dict:
     """The game's resources beside the project: the cartridge as the checked runs saw it (103, padded to whole banks), the BIOS
-    (104), the notices (203), the identity (205), the Windows metadata and icon, and msx_game.h."""
+    (104), the notices (203), the identity (205), the Windows metadata and icon, and msx_game.h. `presentation` (the
+    player's cover options: rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, found as on the
+    other machines (artwork.prepare_icon: an explicit file, the BoxArt folder, then the online catalogues of the profile)."""
     from .core import ASSETS, executable_name
     from .metadata import write_game_metadata
     from .resources import embed_resources
@@ -456,10 +461,19 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
     _write_bytes(work / 'runtime_feedback_config.h',
                  f'#define RR_FEEDBACK_SYSTEM "{_system(model)['id']}"\n#define RR_FEEDBACK_IDENTITY "{cart.sha256}"\n'.encode('ascii'))
     _write_bytes(work / 'export-identity.bin', b'[Retro-Recomp]\0' + cart.sha256.encode('ascii') + b'\0')
+    system_id = _system(model)['id']
     artwork = {'embedded': False, 'source': 'disabled'}
+    if presentation is not None:
+        from .artwork import prepare_icon
+        from .core import ROOT
+        from .paths import boxart_cache_directory
+        artwork = prepare_icon(work, presentation['rom_path'], title, presentation.get('boxart_dir') or ROOT / 'BoxArt',
+                               explicit=presentation.get('cover'), online=presentation.get('online_cover', True),
+                               enabled=presentation.get('use_cover', True), cache_directory=boxart_cache_directory(system_id),
+                               system_id=system_id, emit=emit)
     (work / 'artwork.json').write_text(json.dumps(artwork, indent=2), encoding='utf-8')
-    metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=False,
-                                   standard=standard, system_id=_system(model)['id'])
+    metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=bool(artwork['embedded']),
+                                   standard=standard, system_id=system_id)
     (work / 'content.rc').write_text('#pragma code_page(65001)\n103 RCDATA "cartridge.rom"\n104 RCDATA "slot0.rom"\n'
                                      '203 RCDATA "notices.txt"\n205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n',
                                      encoding='utf-8', newline='\n')

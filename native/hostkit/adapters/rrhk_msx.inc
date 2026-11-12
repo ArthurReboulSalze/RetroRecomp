@@ -264,7 +264,10 @@ static bool msx_host_open(const char *title, int scale, const MsxMachine *m) {
    /* The pace of the frames: the board's lines. An MSX2's software may switch 50/60 Hz later (R#9): the kit keeps this
     * pace until it can follow (lead request L3). */
    machine->frame_seconds = (double)MSX_CYCLES_PER_LINE * m->lines_per_frame / MSX_CPU_CLOCK;
-   width = (unsigned)m_view_w; height = (unsigned)m_view_h;
+   /* The window's whole-pixel scale (rrhk_computer.inc x_game_rect) counts the TMS9918A's pixels, as the Amiga counts lores
+    * pixels: the V9938's store holds two half-pixels per pixel, so its picture is 272 pixels wide like the MSX1's, not 544
+    * (a 544 x 228 picture at 1:1 opened flat and wide). */
+   width = (unsigned)(m_v9938 ? m_view_w / 2 : m_view_w); height = (unsigned)m_view_h;
    ca.windowed = true;
    if (!rrhk_open(machine, title, scale)) return false;
    rrhk_autofire_reset();
