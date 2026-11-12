@@ -102,6 +102,7 @@ computed on `main` on 12 November 2026 (`6bdc7863`).
 | [Every console: a conversion with its own library reads no player's record of the player's exports](#every-console-a-conversion-with-its-own-library-reads-no-players-record-of-the-players-exports-173) | **every machine's game stamp** (`feedback.py`); no game changes | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
 | The Z80 chain: the reference CPU's M1 count is taken back with R where it calls `inc_r` twice for one M1 cycle, for machines with M1 wait states (no section of this page; commit `b9f0d38f`; off for the Master System and the Game Gear) | the Master System and the Game Gear (`retrorecomp/cpu.py`); their output does not change | none | none (they have no key) |
 | [Amiga, Atari ST, Nintendo 64, CPS-2, PlayStation, MSX: the build project is removed after publication](#amiga-atari-st-nintendo-64-cps-2-playstation-msx-the-build-project-is-removed-after-publication-173) | none (interface code) | none | none |
+| [MSX, MSX2, Atari ST: a free firmware download refused by a mirror is tried three times](#msx-msx2-atari-st-a-free-firmware-download-refused-by-a-mirror-is-tried-three-times-173) | the MSX, the MSX2 and the Atari ST (`msx_cbios.py`, `atarist_emutos.py`); no game changes | none | none |
 | [Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three](#mega-drive-super-nintendo-pc-engine-one-cartridge-save-file-for-the-three-173) | the Mega Drive, the Super Nintendo and the PC Engine, and the Neo Geo, the CPS-1, the CPS-2 and the PlayStation through `console16.py` (their games do not change) | none | **the Mega Drive and Super Nintendo keys move** (they hash the listed native files); the others do not |
 | [PC Engine / TurboGrafx-16: the player's own record, and a start with I after Run](#pc-engine--turbografx-16-the-players-own-record-and-a-start-with-i-after-run-173) | the PC Engine only | none | **the PC Engine key moves** (the bridge files change) |
 | [Master System, Game Gear: the Z80 chain's second-machine seams completed](#master-system-game-gear-the-z80-chains-second-machine-seams-completed-173) | **every machine's game stamp** (`core.py`, `native/banked_emitter.inc`); the Master System and Game Gear output is byte-identical | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
@@ -149,12 +150,12 @@ components (the click that captures the mouse moves the Amiga, Atari ST and X680
 | PC Engine / TurboGrafx-16 | `aa7913b68d39`, `dc4e67408d8f` | `3da7363bd893`, `20772c959102` | `66d912662e5c` (same) |
 | Game Boy Advance | `1658c523234f`, `ef6f51ae60c8` | `7b18d021f143`, `287e639d641a` | `6b70933a9b0a` (same) |
 | Amiga | `6854eee76d0e`, `f069a288af8a` | `8ca835ce1027`, `7d590498bb06` | `92ca8a0c142c` (same) |
-| Atari ST | `e6f3506a6be7`, `dc2c17398e06` | `3b7c6f50488a`, `c1f3ab554861` | `54b75964897d` (same) |
+| Atari ST | `e6f3506a6be7`, `6c70ccd1ff7c` | `3b7c6f50488a`, `c1f3ab554861` | `54b75964897d` (same) |
 | Nintendo 64 | `ec87144eb331`, `77b096906adf` | `3c4f6ccca458`, `93684dc83103` | `4f6fedf926c7` (same) |
 | Adventure (ScummVM) | `42dfc172e91c`, `7e79677b16a3` | `82088d749a09`, `2e274a46f2af` | `05417bbcea96` (same) |
 | Sony PlayStation | `4a3b197254a5`, `c6a915039614` | `5dbdb5df79ca`, `34ac75fcabae` | `b6c9cf73b176` (same) |
-| MSX | `4c95a78c7f37` (new) | `7f3fdbbcf3d1` (new) | `3e7de8099a99` (new) |
-| MSX2 | `811fca669347` (new) | `e75758647762` (new) | `d2329c8c61ad` (new) |
+| MSX | `5ad96cd2add4` (new) | `7f3fdbbcf3d1` (new) | `3e7de8099a99` (new) |
+| MSX2 | `cbb66977125c` (new) | `e75758647762` (new) | `d2329c8c61ad` (new) |
 
 (First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.2, on every machine, is converted again once at the
 upgrade**, at the quick level, from its learned paths, and the window offers it. The shared paths of the base are kept: they are qualified by the recompiler's revision, not by
@@ -552,6 +553,10 @@ the same game's projects under an older engine; the shared bases (engine referen
 builds) never match. Projects left by earlier versions appear in Disk space. A test fails when a registered machine has no
 rule. Proof: `tests/test_build_cleanup.py`. **Hot path:** no. **What moves:** nothing: `build_cleanup` is interface code,
 which no stamp hashes.
+
+## MSX, MSX2, Atari ST: a free firmware download refused by a mirror is tried three times (1.7.3)
+
+C-BIOS (MSX, MSX2) and EmuTOS (Atari ST) are fetched from SourceForge on first use, which sends each request to a mirror; a mirror may refuse it. Each fetch tried once more after a refusal, and the release check of 1.7.3 still saw both tries of an MSX2 conversion refused while another conversion fetched the same file (a rerun alone passed). The two fetches now share `updater.download_pinned`: up to three tries on a refused or broken connection, 3 then 6 seconds apart; a file of the wrong size or hash is never fetched again, and the sentence the player reads when every try fails is unchanged. Proof: `tests/test_updater.py`, `tests/test_atarist_profile.py`. **Hot path:** no. **What moves:** the **game** stamps of the MSX, the MSX2 and the Atari ST (they move in 1.7.3 anyway); host and build stamps and quick-state keys do not.
 
 ## Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three (1.7.3)
 

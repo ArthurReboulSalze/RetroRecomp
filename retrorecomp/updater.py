@@ -248,6 +248,22 @@ def _download_verified(url: str, destination: Path, size: int, digest: str, limi
         raise ValueError(mismatch)
 
 
+def download_pinned(url: str, destination: Path, size: int, digest: str, limit: int, mismatch: str, *,
+                    attempts: int = 3, wait: float = 3) -> None:
+    """A pinned file from a project's download site (C-BIOS, EmuTOS). SourceForge sends each request to a mirror and a
+    mirror may refuse it, which is not the player's network: a refused or broken connection is tried again, up to
+    `attempts` times, waiting a little longer each time. A wrong size or hash is never retried."""
+    import time
+    for attempt in range(attempts):
+        try:
+            _download_verified(url, destination, size, digest, limit, mismatch)
+            return
+        except UpdateConnectionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(wait * (attempt + 1))
+
+
 def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
     """Download only after a click; stage on the install volume without touching games."""
     executable = executable.resolve()

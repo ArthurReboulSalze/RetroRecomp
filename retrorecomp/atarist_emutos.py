@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
-import time
 import zipfile
 
 VERSION = '1.4'
@@ -50,7 +49,7 @@ def _checked(path: Path, size: int, digest: str) -> bool:
 
 
 def _fetch(name: str, size: int, digest: str, emit) -> Path:
-    from .updater import UpdateConnectionError, _download_verified
+    from .updater import download_pinned
     target = directory() / name
     if _checked(target, size, digest):
         return target
@@ -59,11 +58,7 @@ def _fetch(name: str, size: int, digest: str, emit) -> Path:
     emit(f'Atari ST: fetching {name} (EmuTOS {VERSION}, {size // 1024} KiB) from the EmuTOS project.')
     try:
         mismatch = f'{name}: the downloaded file is not the pinned one.'
-        try:
-            _download_verified(_SITE + name, partial, size, digest, LIMIT, mismatch)
-        except UpdateConnectionError:   # SourceForge sends each request to a mirror: one that refuses is not the player's network
-            time.sleep(RETRY_SECONDS)
-            _download_verified(_SITE + name, partial, size, digest, LIMIT, mismatch)
+        download_pinned(_SITE + name, partial, size, digest, LIMIT, mismatch, wait=RETRY_SECONDS)
         partial.replace(target)
     except Exception as exc:  # noqa: BLE001 - every failure is the same sentence for the player
         partial.unlink(missing_ok=True)

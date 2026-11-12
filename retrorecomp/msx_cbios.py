@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-import time
 import zipfile
 
 VERSION = '0.29a'
@@ -61,17 +60,13 @@ def fetch(emit=print) -> Path:
 def _fetch_locked(folder: Path, emit) -> None:
     archive = folder / ARCHIVE[0]
     if not _checked(archive, ARCHIVE[1], ARCHIVE[2]):
-        from .updater import UpdateConnectionError, _download_verified
+        from .updater import download_pinned
         folder.mkdir(parents=True, exist_ok=True)
         partial = archive.with_name(archive.name + '.part')
         emit(f'MSX: fetching C-BIOS {VERSION} ({ARCHIVE[1] // 1024} KiB) from the C-BIOS project.')
         try:
             mismatch = f'{ARCHIVE[0]}: the downloaded file is not the pinned one.'
-            try:
-                _download_verified(URL, partial, ARCHIVE[1], ARCHIVE[2], LIMIT, mismatch)
-            except UpdateConnectionError:   # SourceForge sends each request to a mirror: one that refuses is not the player's network
-                time.sleep(RETRY_SECONDS)
-                _download_verified(URL, partial, ARCHIVE[1], ARCHIVE[2], LIMIT, mismatch)
+            download_pinned(URL, partial, ARCHIVE[1], ARCHIVE[2], LIMIT, mismatch, wait=RETRY_SECONDS)
             partial.replace(archive)
         except Exception as exc:  # noqa: BLE001 - every failure is the same sentence for the player
             partial.unlink(missing_ok=True)

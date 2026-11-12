@@ -377,3 +377,39 @@ class LinuxUpdaterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PinnedDownloadTests(unittest.TestCase):
+    """C-BIOS and EmuTOS come from SourceForge, whose mirrors may refuse a request: retried, never a wrong file."""
+
+    def run_with(self, outcomes):
+        from retrorecomp import updater
+        calls = []
+
+        def fake(url, destination, size, digest, limit, mismatch):
+            calls.append(url)
+            outcome = outcomes[len(calls) - 1]
+            if outcome is not None:
+                raise outcome
+        with patch.object(updater, '_download_verified', fake), patch('time.sleep') as sleep:
+            try:
+                updater.download_pinned('https://example.invalid/f.zip', Path('f.part'), 1, '0' * 64, 2, 'bad',
+                                        wait=3)
+                return calls, [c.args[0] for c in sleep.call_args_list], None
+            except Exception as exc:  # noqa: BLE001
+                return calls, [c.args[0] for c in sleep.call_args_list], exc
+
+    def test_a_refusing_mirror_is_tried_again_waiting_longer(self):
+        from retrorecomp.updater import UpdateConnectionError
+        calls, waits, error = self.run_with([UpdateConnectionError(), UpdateConnectionError(), None])
+        self.assertEqual((len(calls), waits, error), (3, [3, 6], None))
+
+    def test_three_refusals_reach_the_caller(self):
+        from retrorecomp.updater import UpdateConnectionError
+        calls, waits, error = self.run_with([UpdateConnectionError()] * 3)
+        self.assertEqual((len(calls), waits), (3, [3, 6]))
+        self.assertIsInstance(error, UpdateConnectionError)
+
+    def test_a_wrong_file_is_never_fetched_again(self):
+        calls, waits, error = self.run_with([ValueError('bad')])
+        self.assertEqual((len(calls), waits, str(error)), (1, [], 'bad'))
