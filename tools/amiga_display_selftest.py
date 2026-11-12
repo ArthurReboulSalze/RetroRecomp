@@ -629,7 +629,8 @@ def main() -> int:
                 failures.append({'seed': seed, 'sprite_fault': 1, 'missed': True})
             else:
                 sprite_seen += 1
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk'),
+                          'cells_refused': first.get('cells_refused')}), flush=True)
     # Frames cut short at their end, with a quick state taken on one of them and loaded back two frames later: equal to the run with
     # every disk event and sprite slot on vAmiga's scheduler; leaving out the run before the snapshot, or the clearing after the load,
     # must be seen; and held-back events must have been run at a frame's end at all (else the scenario proves nothing).
@@ -670,7 +671,7 @@ def main() -> int:
             play(program, path, runs / f'colour-fault-{kind}.rec', '--colour-fault', str(kind))
             if compare(read_record(runs / f'{seed}-a.rec'), read_record(runs / f'colour-fault-{kind}.rec')) is not None:
                 colour_faults[kind] += 1
-        if not colour_faults[kind]:
+        if not colour_faults[kind] and not (kind == 3 and not arguments.shres):   # fault 3 shows only on super-hires scenarios
             failures.append({'colour_fault': kind, 'what': what, 'missed': True})
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
@@ -683,7 +684,7 @@ def main() -> int:
         return 1
     other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
              "every record equal to the one of the same build with every line on vAmiga's events and line pass")
-    print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
+    print(f'Display self-test passed: {arguments.scenarios} scenarios and {arguments.shres} super-hires ones of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
@@ -701,7 +702,7 @@ def main() -> int:
         print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "
               f"0 differences in the table and in {sum(v[0] for k, v in bus_total.get('waits', {}).items() if k in ('fast', 'static'))} predicted CPU waits; "
               f"{len(model_faults)} planted faults of the model each seen (in {min(model_faults.values()) if model_faults else 0} to "
-              f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios} scenarios). Equal to vAmiga, not to the hardware.")
+              f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios + arguments.shres} scenarios). Equal to vAmiga, not to the hardware.")
     return 0
 
 
