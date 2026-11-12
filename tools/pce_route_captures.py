@@ -30,7 +30,8 @@ def plan(report: dict) -> list[tuple[str, int, str]]:
     start = report.get('route_start') or {}
     presses = int(start.get('run_presses') or 3)
     frames = {row['name']: row['frames'] for row in report['final_checks']}
-    rows = routes(report['rom']['sha256'], frames=frames.get('play', 3600), level=report['scan_level'], presses=presses, repairs=start.get('repairs'))
+    rows = routes(report['rom']['sha256'], frames=frames.get('play', 3600), level=report['scan_level'], presses=presses, repairs=start.get('repairs'),
+                  confirm=start.get('confirm') == 'I')
     return [row for row in rows if row[0] in frames]
 
 

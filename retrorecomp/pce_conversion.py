@@ -77,6 +77,8 @@ def _script(rows) -> str:
 
 
 START_PRESSES = (1, 2, 3, 4, 6)   # the start variants a conversion tries on its play route (fresh reference runs)
+CONFIRM_PRESSES = (1, 2, 3)      # the variants that also tap I after each Run press (a menu that Run alone does not answer): the key is (presses, 'I')
+CONFIRM_DELAY = 60               # frames from a Run press to the tap of I that follows it
 PRESS_SPACING = 240              # frames between two Run presses of the start
 WALK_SETTLE = 180                # frames between the last press and the walk: directions must not move a menu's cursor early
 RUN_PAIR_EVERY = 900             # frames between two pairs of Run presses during the walk
@@ -99,18 +101,36 @@ def start_candidates(frames: int) -> list[int]:
     return [presses for presses in START_PRESSES if walk_start(presses) + 600 <= frames]
 
 
-def play_rows(frames: int, seed: int, presses: int = 3, repairs=()) -> list:
+def confirm_candidates(frames: int) -> list[tuple]:
+    """The same for the variants with a tap of I after each Run press: (presses, 'I')."""
+    return [(presses, 'I') for presses in CONFIRM_PRESSES if walk_start(presses) + 600 <= frames]
+
+
+def variant_presses(variant) -> int:
+    """The number of Run presses of a start variant: the integer of a plain one, the first of (presses, 'I')."""
+    return variant[0] if isinstance(variant, tuple) else variant
+
+
+def variant_name(variant) -> str:
+    """'3' for a plain variant, '3+I' for one that taps I after each press (the names of the report and of the scripts)."""
+    return f'{variant[0]}+{variant[1]}' if isinstance(variant, tuple) else str(variant)
+
+
+def play_rows(frames: int, seed: int, presses: int = 3, repairs=(), confirm: bool = False) -> list:
     """Run pressed `presses` times during the title (most HuCards start on Run; stories, menus and password screens
     ask for more), then a deterministic walk: a held direction changing every second or so, I and II tapped, and now and
     then Run twice in a row. In play that is a pause and its end; on a screen that waits for Run, the way out (a story,
     a continue prompt, a game over). The first QUIET_WALK frames of the walk use directions only, so a menu or a password
     screen answers with a cursor and not with typed letters (that is what `reach` counts). One press too many pauses the
     game: `choose_start` keeps the variant that answers. A press of a pair can be lost (a game ignores Run while it restarts),
-    and every later pair then leaves the pause on: `repairs` are frames of one more press, which `repair_route` chose."""
+    and every later pair then leaves the pause on: `repairs` are frames of one more press, which `repair_route` chose. With `confirm`, each
+    Run press is followed, CONFIRM_DELAY frames later, by a tap of I: a menu that waits for I (a cursor on START) is answered as well."""
     rows = []
     for index in range(presses):
         at = PRESS_SPACING * (index + 1)
         rows += [(at, RUN, 0), (at + 6, 0, 0)]
+        if confirm:
+            rows += [(at + CONFIRM_DELAY, I, 0), (at + CONFIRM_DELAY + 6, 0, 0)]
     state = seed & 0xFFFFFFFF or 1
     directions = (RIGHT, RIGHT | UP, RIGHT | DOWN, LEFT, UP, DOWN, RIGHT)
     frame = walk_start(presses)
@@ -146,16 +166,16 @@ def route_seed(identity: str, name: str) -> int:
     return seed + 7919 * int(name.split('-')[1]) if name.startswith('long-') else seed
 
 
-def routes(identity: str, *, frames: int, level: str, presses: int = 3, repairs: dict | None = None) -> list[tuple[str, int, str]]:
+def routes(identity: str, *, frames: int, level: str, presses: int = 3, repairs: dict | None = None, confirm: bool = False) -> list[tuple[str, int, str]]:
     """(name, frames, script): attract (no input), play, then long routes at the extended and thorough levels. `repairs`: the
-    extra Run presses of each route (`repair_route`), which the report records."""
+    extra Run presses of each route (`repair_route`), which the report records. `confirm`: the start taps I after each Run press."""
     repairs = repairs or {}
     rows = [] if level == 'quick' else [('attract', frames, _script([]))]
     play = max(frames, 1800)
-    rows.append(('play', play, _script(play_rows(play, route_seed(identity, 'play'), presses, repairs.get('play', ())))))
+    rows.append(('play', play, _script(play_rows(play, route_seed(identity, 'play'), presses, repairs.get('play', ()), confirm))))
     for index in range(LONG_ROUTES[level]):
         name = f'long-{index + 1}'
-        rows.append((name, LONG_FRAMES, _script(play_rows(LONG_FRAMES, route_seed(identity, name), presses, repairs.get(name, ())))))
+        rows.append((name, LONG_FRAMES, _script(play_rows(LONG_FRAMES, route_seed(identity, name), presses, repairs.get(name, ()), confirm))))
     return rows
 
 
@@ -183,13 +203,13 @@ def stuck_stretch(pictures: list, rows: list, after: int = 0) -> tuple[int, int]
     return None
 
 
-def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, result: dict, play, emit) -> tuple[list, dict]:
+def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, result: dict, play, emit, confirm: bool = False) -> tuple[list, dict]:
     """(extra presses, reference run): one more Run press where the walk leaves the game on a picture that hardly changes, kept
     only when the game answers. A press is tried once per stretch, and the search ends after REPAIR_MISSES presses with no answer, so
     a screen that really waits costs two runs. `play(name, frames, script)` plays a script on the reference."""
     repairs, after, misses = [], 0, 0
     for attempt in range(REPAIR_ATTEMPTS):
-        rows = play_rows(count, seed, presses, repairs)
+        rows = play_rows(count, seed, presses, repairs, confirm)
         stretch = stuck_stretch(trace_pictures(result['trace']), rows, after)
         if stretch is None:
             break
@@ -197,7 +217,7 @@ def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, 
         if press + 36 >= stretch[1]:
             break
         script = scripts / f'{name}-repair{attempt + 1}.inputs'
-        script.write_text(_script(play_rows(count, seed, presses, [*repairs, press])), encoding='ascii', newline='\n')
+        script.write_text(_script(play_rows(count, seed, presses, [*repairs, press], confirm)), encoding='ascii', newline='\n')
         trial = play(f'{name}-repair{attempt + 1}', count, script)
         window = trace_pictures(trial['trace'])[press + 36:stretch[1]]
         if len(set(window)) < ANSWER_SHARE * len(window):
@@ -245,17 +265,21 @@ def reach(trace: Path, baseline: Path, start: int) -> int:
     return len(pictures(trace) - pictures(baseline))
 
 
-def choose_start(results: dict, frames: int) -> int:
-    """The number of Run presses for the play route. `results` maps presses to {'liveness', 'divergence', 'reach'}.
+def choose_start(results: dict, frames: int):
+    """The start variant of the play route: a number of Run presses, or (presses, 'I') when each press is followed by a tap of I. `results` maps
+    variants to {'liveness', 'divergence', 'reach'}.
 
     A variant must keep the picture moving until its last 120 frames (a press too many pauses the game); among those,
     the one whose walk reached the most pictures of its own wins, then the one the input changed the most from the demo
-    (ties: the fewest presses). When none stays alive, the livelier one is kept."""
-    alive = [presses for presses, result in results.items()
+    (ties: the fewest presses, then the plain variant). When none stays alive, the livelier one is kept."""
+    def order(variant):
+        return (variant_presses(variant), isinstance(variant, tuple))
+    alive = [variant for variant, result in results.items()
              if (result['liveness'].get('last_picture_change_frame') or 0) >= frames - 120]
     if alive:
-        return max(sorted(alive), key=lambda presses: (results[presses]['reach'], results[presses]['divergence'], -presses))
-    return max(sorted(results), key=lambda presses: (liveness_score(results[presses]['liveness']), -presses))
+        return min(alive, key=lambda variant: (-results[variant]['reach'], -results[variant]['divergence'], *order(variant)))
+    return min(results, key=lambda variant: (-liveness_score(results[variant]['liveness'])[0], -liveness_score(results[variant]['liveness'])[1],
+                                              -liveness_score(results[variant]['liveness'])[2], *order(variant)))
 
 
 # ------------------------------------------------------------------ runs and traces
@@ -561,6 +585,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     output.mkdir(parents=True, exist_ok=True)
     from .feedback import ingest
     feedback = ingest('pce', card.sha256, output, emit=emit)
+    if card.board != 'base':
+        # The Street Fighter II board never records (native/pce_main.c): the shared field would say it does.
+        feedback = {**feedback, 'recording_default': False, 'recording': 'not available on this board'}
     plan_frames = max(600, min(int(frames or 3600), 10000))
     plan = routes(card.sha256, frames=plan_frames, level=level)
     route_start = None
@@ -590,13 +617,18 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         from .pce_rom import decode as decode_card, file_bytes
         raw_card = file_bytes(card.path)
         decoded_rom = decode_card(raw_card)[0]
+        # The player's own record: what the interpreter ran in his games (the game writes it at its exit, F12 switches it off). `ingest` above brought the file
+        # of the export's datas into the private library. Standard boards only, like every other source of roots.
+        from .feedback import records as player_notes
         received, hints_used = pce_knowledge.shared_rows(card.sha256, decoded_rom, qualified=knowledge.qualified_game('pce', card.sha256),
                                                          imported=knowledge.imported_game('pce', card.sha256),
-                                                         library=pce_knowledge.library_record(card.sha256))
+                                                         library=pce_knowledge.library_record(card.sha256),
+                                                         player=player_notes('pce', card.sha256, pce_knowledge.FEEDBACK_KIND))
         if card.board != pce_knowledge.SHARED_BOARD:
             received = []
         if received:
-            emit(f'PC Engine: {len(received)} instructions received from shared paths, declared to the engine as roots; the routes validate only what they run.')
+            emit(f'PC Engine: {len(received)} instructions received from shared paths and from this player\'s own record ({hints_used["player"]}), declared to the '
+                 'engine as roots; the routes validate only what they run.')
         attempts = max(1, min(int(passes or 1), 10))
         extended_capture, capture_counts = False, {}
         for attempt in range(attempts):
@@ -622,23 +654,26 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     baseline = checks / 'inputs' / 'play-start0.inputs'
                     baseline.write_text(_script([]), encoding='ascii', newline='\n')
                     variants = {0: run(candidate, checks / 'reference', 'play-start0', play_count, baseline, '--reference')}
-                    for presses in start_candidates(play_count):
-                        script = checks / 'inputs' / f'play-start{presses}.inputs'
-                        script.write_text(_script(play_rows(play_count, int(card.sha256[:8], 16), presses)),
+                    for variant in [*start_candidates(play_count), *confirm_candidates(play_count)]:
+                        label = variant_name(variant).replace('+', 'i')
+                        script = checks / 'inputs' / f'play-start{label}.inputs'
+                        script.write_text(_script(play_rows(play_count, int(card.sha256[:8], 16), variant_presses(variant), (), isinstance(variant, tuple))),
                                           encoding='ascii', newline='\n')
-                        variants[presses] = run(candidate, checks / 'reference', f'play-start{presses}', play_count,
+                        variants[variant] = run(candidate, checks / 'reference', f'play-start{label}', play_count,
                                                 script, '--reference')
-                    start = {presses: {'liveness': route_liveness(Path(result['trace'])),
+                    start = {variant: {'liveness': route_liveness(Path(result['trace'])),
                                        'divergence': divergence(result['trace'], variants[0]['trace']),
-                                       'reach': reach(result['trace'], variants[0]['trace'], walk_start(presses))}
-                             for presses, result in variants.items() if presses}
-                    presses = choose_start(start, play_count)
-                    route_start = {'run_presses': presses, 'variants': {str(k): v for k, v in start.items()},
+                                       'reach': reach(result['trace'], variants[0]['trace'], walk_start(variant_presses(variant)))}
+                             for variant, result in variants.items() if variant}
+                    chosen = choose_start(start, play_count)
+                    presses, confirm = variant_presses(chosen), isinstance(chosen, tuple)
+                    route_start = {'run_presses': presses, 'confirm': 'I' if confirm else None,
+                                   'variants': {variant_name(k): v for k, v in start.items()},
                                    'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input never showed',
                                    'repairs': {}}
-                    emit(f'PC Engine: play route starts with Run pressed {presses} time(s) '
-                         f'({start[presses]["reach"]} pictures reached that no input never showed).')
-                    plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses)
+                    emit(f'PC Engine: play route starts with Run pressed {presses} time(s)' + (', each followed by I' if confirm else '') +
+                         f' ({start[chosen]["reach"]} pictures reached that no input never showed).')
+                    plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses, confirm=confirm)
                     for name, count, text in plan:
                         scripts[name].write_text(text, encoding='ascii', newline='\n')
                     for name, count, _ in plan:
@@ -647,18 +682,18 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         if name == 'attract' and count == play_count and scripts[name].read_text() == baseline.read_text():
                             reference[name] = variants[0]
                         else:
-                            reference[name] = (variants[presses] if name == 'play' else
+                            reference[name] = (variants[chosen] if name == 'play' else
                                                run(candidate, checks / 'reference', name, count, scripts[name], '--reference'))
                             # The walk may have left the game on a pause: one more press where that helps, kept in the report.
                             repaired, reference[name] = repair_route(
                                 name, count, route_seed(card.sha256, name), presses, checks / 'inputs', reference[name],
-                                lambda trial, frames_, script: run(candidate, checks / 'reference', trial, frames_, script, '--reference'), emit)
+                                lambda trial, frames_, script: run(candidate, checks / 'reference', trial, frames_, script, '--reference'), emit, confirm)
                             if repaired:
                                 route_start['repairs'][name] = repaired
-                                scripts[name].write_text(_script(play_rows(count, route_seed(card.sha256, name), presses, repaired)),
+                                scripts[name].write_text(_script(play_rows(count, route_seed(card.sha256, name), presses, repaired, confirm)),
                                                          encoding='ascii', newline='\n')
                     if route_start['repairs']:
-                        plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'])
+                        plan = routes(card.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'], confirm=confirm)
                 for name, count, _ in plan:
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.json')
                     capture.parent.mkdir(parents=True, exist_ok=True)
@@ -726,9 +761,17 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         image = work / 'declared-image.pce'
                         if not image.is_file() or file_sha256(image) != card.sha256:
                             image.write_bytes(raw_card)
-                        manifest = pce_build.emit_roots_module(roots, image, index, new_module)
-                        hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap', 'observed_only',
-                                                                                    'unsupported_declarations', 'emitted_instructions')}
+                        try:
+                            manifest = pce_build.emit_roots_module(roots, image, index, new_module)
+                            hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap',
+                                                                                        'observed_only', 'unsupported_declarations', 'emitted_instructions')}
+                        except pce_build.PceBuildError as refusal:
+                            # A damaged or foreign record must never fail a conversion: it goes on with what its own routes ran.
+                            emit('PC Engine: the engine refused the declared roots; this conversion goes on without them.')
+                            hints_used['declared_refused'] = str(refusal).splitlines()[0][:200]
+                            shutil.rmtree(new_module, ignore_errors=True)
+                            received = []
+                            manifest = pce_build.emit_history_module(index, new_module)
                     else:
                         manifest = pce_build.emit_history_module(index, new_module)
                 else:

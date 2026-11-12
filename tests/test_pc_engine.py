@@ -1223,5 +1223,50 @@ class IdentityBoundTests(unittest.TestCase):
             self.assertEqual(pce_conversion.complete_prefix(Path('x'), Path(folder), 'long-1', Path('s'), {'capture_first_drop_frame': 30, 'frames': 18000}, lambda text: None), (None, 0))
 
 
+class ConfirmStartTests(unittest.TestCase):
+    """The start variants that tap I after each Run press (a menu that waits for I, which Run alone does not answer)."""
+
+    def variant(self, last, divergence, reach=0):
+        return {'liveness': {'last_picture_change_frame': last, 'picture_changes': 100, 'audible_frames': 0},
+                'divergence': divergence, 'reach': reach}
+
+    def test_the_variants_and_their_names(self):
+        self.assertEqual(pce_conversion.confirm_candidates(3600), [(1, 'I'), (2, 'I'), (3, 'I')])
+        self.assertEqual(pce_conversion.confirm_candidates(1000), [])
+        self.assertEqual([pce_conversion.variant_name(v) for v in (2, (2, 'I'))], ['2', '2+I'])
+        self.assertEqual([pce_conversion.variant_presses(v) for v in (2, (3, 'I'))], [2, 3])
+
+    def test_each_run_press_is_followed_by_a_tap_of_i_and_the_walk_is_the_plain_one(self):
+        plain = pce_conversion.play_rows(3600, 7, 3)
+        tapped = pce_conversion.play_rows(3600, 7, 3, (), True)
+        extra = [row for row in tapped if row not in plain]
+        self.assertEqual(extra, [row for index in range(3) for row in
+                                 ((240 * (index + 1) + pce_conversion.CONFIRM_DELAY, pce_conversion.I, 0),
+                                  (240 * (index + 1) + pce_conversion.CONFIRM_DELAY + 6, 0, 0))])
+        self.assertEqual([row for row in tapped if row in plain], plain)
+        self.assertTrue(all(a[0] <= b[0] for a, b in zip(tapped, tapped[1:])))
+        self.assertEqual(pce_conversion.play_rows(3600, 7, 3, (), False), plain)
+
+    def test_a_route_with_confirm_differs_from_the_plain_one_only_in_its_start(self):
+        plain = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='extended', presses=2)}
+        tapped = {name: text for name, _, text in pce_conversion.routes(IDENTITY, frames=3600, level='extended', presses=2, confirm=True)}
+        self.assertEqual(plain['attract'], tapped['attract'])
+        for name in ('play', 'long-1'):
+            self.assertNotEqual(plain[name], tapped[name])
+            self.assertEqual(plain[name].splitlines()[-30:], tapped[name].splitlines()[-30:])
+
+    def test_a_confirm_variant_wins_on_its_reach_and_a_tie_keeps_the_plain_one(self):
+        variants = {2: self.variant(3600, 50, 469), (2, 'I'): self.variant(3600, 50, 574), 3: self.variant(3600, 50, 300)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), (2, 'I'))
+        variants = {2: self.variant(3600, 50, 9), (2, 'I'): self.variant(3600, 50, 9), (1, 'I'): self.variant(3600, 50, 9)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), (1, 'I'))
+        variants = {2: self.variant(3600, 50, 9), (2, 'I'): self.variant(3600, 50, 9)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 2)
+
+    def test_a_confirm_variant_that_paused_is_never_chosen(self):
+        variants = {1: self.variant(3600, 10, 5), (2, 'I'): self.variant(721, 3000, 900)}
+        self.assertEqual(pce_conversion.choose_start(variants, 3600), 1)
+
+
 if __name__ == '__main__':
     unittest.main()
