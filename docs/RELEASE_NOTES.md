@@ -54,7 +54,8 @@
     of swapping red and blue in every pixel of every frame. Denise stays emulated. The display
     self-test's 60 scenarios equal vAmiga's own work row for row, each fault planted on purpose is
     seen, and Lotus 2, Rick Dangerous, Lemmings and Civilization give the same routes as before,
-    hash for hash. [SPEED: filled from the quiet-PC bench]
+    hash for hash. Their cost was not timed alone: with the Agnus/Denise steps and stage 7 below,
+    Lotus 2 takes 0.89 of its 1.7.2 time per frame (Speed, at the end).
   - **The sweep shares its bound.** The sweep past the routes keeps at most 150,000 instructions.
     When it reaches more, the bound is now shared between each memory image and phase instead of
     the first one taking it all, and the report counts what is left out; under the bound nothing
@@ -183,7 +184,13 @@
   from games, which hold no Noto glyph. A new machine's notice no longer touches the other
   machines' exports.
 
-**Speed.** [SPEED: filled from the quiet-PC bench]
+**Speed.** Measured on a quiet PC against 1.7.2, one pinned core, one warm-up then the best of two
+runs of 1,200 frames, start-up included: Lotus 2 (Amiga) 0.89 of its 1.7.2 time per frame, Bomb
+Jack (Atari ST) 1.01, Blazing Lazers (PC Engine) 1.02 and Sonic The Hedgehog 2 (Mega Drive) 1.01,
+with Mega Man X2 (Super Nintendo) at 0.99 as the witness ([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)).
+Apart from the Amiga, every figure stays within two per cent. These are host costs per frame, not
+latency. Windows only; the MSX and the MSX2 are new and have no release to compare with, and the
+Game Boy Advance has no frame-cost measure yet.
 
 These are two new experimental machines, less machine time on the Amiga, native-code coverage on
 four machines and limits that are now counted, each on the evidence above; none of them is a
