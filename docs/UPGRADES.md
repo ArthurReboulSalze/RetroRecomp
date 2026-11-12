@@ -417,6 +417,18 @@ other images never ran.
 Arthur decided this on 12 Nov, from the measure in `SWEEP-MEASURE-20261112.md`. On an unseen route the sweep served up to 82 % of
 the native entries (Civilization), and the cap cut 71 % of Cyber Games at the extended level.
 
+**Proofs.** By the real command line, scratch library:
+- **Cyber Games at the extended level.**
+  - The sweep reaches 515,013 instructions; 150,000 are kept and 365,013 left out, counted. Before this change it also kept 150,000,
+    but the first image's walk took them all.
+  - The buckets now share them: image 0's walk 46,021 of 335,632, its fill 46,020 of 112,638, image 2's fill 46,020 of 54,804, and
+    the small buckets whole.
+  - Every field of the three routes is the same as before the change, hashes included, with 0 interpreted outside the Kickstart.
+  - On an unseen route of 18,000 frames (headless, one run), interpreted instructions fall from 790,198 to 96,625, with the same
+    trace.
+- **Civilization at the standard level, under the bound.** The swept instructions, native forms, route fields and hashes are the
+  same as main a5379530's. On the unseen route its native entries, swept entries and trace are the same as in the earlier measure.
+
 **Hot path:** no. This is conversion time only. The generated code changes only for a game whose reachable code is above the bound.
 
 **What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
