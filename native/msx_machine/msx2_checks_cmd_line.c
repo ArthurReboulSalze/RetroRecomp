@@ -370,11 +370,11 @@ static void partition_checks(void)
     static Snap one, seven;
 
     /* partition, mid-run: 9001 cycles after the start (the start is at cycle 228 after the one-line wait; the first unit is due
-     * 120 ticks after it, tick 6 * 228 + 120 = 1488). Class 0: a unit costs 130 ticks, the last unit of a 64-dot line 130 + 68 =
-     * 198, so a line costs 63 * 130 + 198 = 8388 ticks. The span ends at tick 6 * 9229 = 55374: 53886 ticks after the first
-     * unit; six whole lines take 50328, the next line starts at tick 1488 + 50328 = 51816, and its units are due at 51816 +
+     * 123 ticks after it, tick 6 * 228 + 123 = 1491). Class 0: a unit costs 130 ticks, the last unit of a 64-dot line 130 + 59 =
+     * 189, so a line costs 63 * 130 + 189 = 8379 ticks. The span ends at tick 6 * 9229 = 55374: 53883 ticks after the first
+     * unit; six whole lines take 50274, the next line starts at tick 1491 + 50274 = 51765, and its units are due at 51765 +
      * 130 j <= 55374, j = 0 ... 27: 28 units. So SY 6, DY 46, NY 10 (16 - 6), anx 64 - 28 = 36, asx 28, adx 128 and the next
-     * unit due at 51816 + 28 * 130 = 55456. The command still runs (CE). */
+     * unit due at 51765 + 28 * 130 = 55405. The command still runs (CE). */
     run_lmmm(&one, 9001, 0);
     run_lmmm(&seven, 9001, 7);
     compare_snaps("partition mid-run", &one, &seven);
@@ -384,10 +384,10 @@ static void partition_checks(void)
     check("partition mid-run units left in the line", one.anx, 36);
     check("partition mid-run working source X", one.asx, 28);
     check("partition mid-run working destination X", one.adx, 128);
-    check("partition mid-run next tick", (long)one.next, 55456);
+    check("partition mid-run next tick", (long)one.next, 55405);
     check("partition mid-run CE", one.s2 & CE, CE);
 
-    /* partition, finished: both runs 30000 cycles after the start (the command needs 120 + 16 * 8388 = 134328 ticks = 22388
+    /* partition, finished: both runs 30000 cycles after the start (the command needs 123 + 16 * 8379 = 134187 ticks = 22365
      * cycles). CE clear, SY 16, DY 56, NY 0, R#46 0, and the destination block (byte 50 + i of rows 40-55) equals the source
      * (byte i of rows 0-15 for i < 32): the dots are even-aligned so whole bytes copy. */
     run_lmmm(&one, 30000, 0);

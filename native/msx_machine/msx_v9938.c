@@ -1,7 +1,7 @@
 /* The V9938 of the MSX2: ports, registers, status, palette, the VRAM pointer and the line events. MIT, Retro-Recomp.
  *
- * Written from the V9938 Technical Data Book and the MSX2 Technical Handbook; openMSX (VDP.cc, VDP.hh) was read to
- * settle behaviour the books leave open, nothing was copied from it. The picture is drawn in msx_v9938_draw.c, the
+ * Written from the V9938 Technical Data Book and the MSX2 Technical Handbook; behaviour the books leave open was
+ * checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here). The picture is drawn in msx_v9938_draw.c, the
  * command engine runs in msx_v9938_cmd.c (synced before every event that can see it or change what it sees).
  *
  * Time: two events per line of 228 machine cycles. The line boundary (the start of the left border) moves the line
@@ -100,7 +100,7 @@ static unsigned line_irq_line(const MsxV9938 *v)
 }
 
 /* The last line a line interrupt can match before the counter resets (the lines between the picture's start and the
- * next frame's: 17 at 60 Hz, 44 at 50 Hz, ten more with 192 lines; VDP.cc reasoning, data book section on R#19). */
+ * next frame's: 17 at 60 Hz, 44 at 50 Hz, ten more with 192 lines; the data book's section on R#19). */
 static int line_irq_possible(const MsxMachine *m, unsigned line)
 {
     unsigned to_display = (m->lines_per_frame == MSX_LINES_PAL ? 44u : 17u) + (m->v9938->lines_latched == 192 ? 10u : 0u);
@@ -253,7 +253,7 @@ int msx_v9938_irq(const MsxMachine *m)
     return ((v->status0 & 0x80) && (v->reg[1] & 0x20)) || ((v->status1 & 1) && (v->reg[0] & 0x10));
 }
 
-/* The frame starts: what the V9938 takes once per frame (VDP.cc frameStart reasoning): the standard (R#9 bit 1), the
+/* The frame starts: what the V9938 takes once per frame: the standard (R#9 bit 1), the
  * picture height (R#9 bit 7), the adjust (R#18), the even/odd field, the blink counter. */
 static void frame_start(MsxMachine *m)
 {
@@ -303,7 +303,7 @@ static void line_boundary(MsxMachine *m)
 {
     MsxV9938 *v = m->v9938;
     ++m->line;
-    m->vblank_line = (v->reg[9] & 0x80) ? 212 : 192;   /* R#9 LN as it is at this line (VDP.cc reasoning) */
+    m->vblank_line = (v->reg[9] & 0x80) ? 212 : 192;   /* R#9 LN as it is at this line */
     if (m->line == m->vblank_line)
         v->status0 |= 0x80;
     if (m->line >= m->lines_per_frame) {

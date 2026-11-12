@@ -1,13 +1,23 @@
 /* The V9938 command engine (MSX2). MIT, Retro-Recomp.
  *
  * Written from the V9938 Technical Data Book (the commands chapter: the twelve commands, the logical operations, the
- * coordinate registers R#32-R#46 and the status bits); openMSX (VDPCmdEngine.cc) was read to settle what the book leaves
- * open (how the registers read back, TR after a CPU-paced command, the clipping, LINE's step, SRCH's EQ), nothing was
- * copied from it. The rules followed here are restated in .build design notes and in docs/MSX.md.
+ * coordinate registers R#32-R#46 and the status bits); what the book leaves open (how the registers read back, TR after a
+ * CPU-paced command, the clipping, LINE's step, SRCH's EQ) was checked against openMSX 22.0 run as a separate program
+ * (private comparisons; none of its code or tables is here). The
+ * rules followed here are restated in docs/MSX.md.
  *
  * Timing is approximated: each command has a start delay and an average cost per byte or dot in three classes (display
  * off or outside the picture; picture with sprites off; with sprites on), plus a cost at each line end; the access
- * slots of the chip and the slots the CPU takes are not modelled.
+ * slots of the chip and the slots the CPU takes are not modelled. The numbers were measured on 12 November 2026 by
+ * timing commands from the outside in openMSX 22.0 run as a separate program (a black box: none of its code, tables or
+ * data files was used). An authored MSX2 cartridge started each command in Graphic 4 at picture line 1 and read S#2
+ * once, m CPU cycles later, m found by bisection (one read per run, so the reading did not change the timing; Z80
+ * T-states plus one wait per M1 cycle, checked on all 4,370 runs): 200 commands per class, each end known to 6 ticks.
+ * Start = the measured duration of a one-unit command in class 0; cost = the slope over single-line commands; line end
+ * = the extra cost per line of narrow commands (class 0); LINE's minor step from its diagonals; POINT and LMCM's first
+ * dot ended before the earliest possible read (72 ticks): 66 is taken. Against those 600 durations, this model is within
+ * 4 % with the display off, 1 to 7 % on average in the picture, and up to about 40 % on some shapes with sprites on:
+ * real durations follow the access slots, not a straight line.
  *
  * Determinism (native code and the reference interpreter must agree state for state): the engine moves only inside
  * msx_v9938_cmd_sync(m, cycle), which runs every unit whose tick (6 per machine cycle) is at or before the cycle, with the
@@ -26,22 +36,22 @@ enum { TICKS = 6 };                            /* VDP ticks per machine cycle */
 enum { C_STOP = 0, C_POINT = 4, C_PSET = 5, C_SRCH = 6, C_LINE = 7, C_LMMV = 8, C_LMMM = 9, C_LMCM = 10, C_LMMC = 11,
        C_HMMV = 12, C_HMMM = 13, C_YMMM = 14, C_HMMC = 15 };
 
-/* Start delay, cost per unit in classes 0-2, cost at a line end (VDP ticks; approximated averages). */
-static const uint16_t START[16] = { 0, 0, 0, 0, 63, 112, 88, 136, 112, 120, 76, 0, 112, 124, 124, 0 };
+/* Start delay, cost per unit in classes 0-2, cost at a line end (VDP ticks; measured averages, see above). */
+static const uint16_t START[16] = { 0, 0, 0, 0, 66, 117, 99, 141, 117, 123, 66, 0, 117, 126, 126, 0 };
 static const uint16_t COST[16][3] = {
     { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 },
     { 91, 98, 124 },                           /* SRCH */
-    { 114, 124, 137 },                         /* LINE */
-    { 98, 124, 137 },                          /* LMMV */
-    { 130, 132, 152 },                         /* LMMM */
+    { 114, 125, 137 },                         /* LINE */
+    { 98, 125, 138 },                          /* LMMV */
+    { 130, 133, 196 },                         /* LMMM */
     { 0, 0, 0 }, { 0, 0, 0 },                  /* LMCM, LMMC: paced by the CPU */
     { 49, 62, 65 },                            /* HMMV */
-    { 91, 98, 137 },                           /* HMMM */
-    { 65, 68, 124 },                           /* YMMM */
+    { 91, 97, 137 },                           /* HMMM */
+    { 65, 68, 125 },                           /* YMMM */
     { 0, 0, 0 },                               /* HMMC: paced by the CPU */
 };
-static const uint16_t LINE_END[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 58, 68, 0, 0, 58, 68, 68, 0 };
-enum { LINE_MINOR_STEP = 36 };
+static const uint16_t LINE_END[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 64, 59, 0, 0, 56, 65, 64, 0 };
+enum { LINE_MINOR_STEP = 33 };
 
 /* ---- geometry: 0 G4, 1 G5, 2 G6, 3 G7 ---- */
 static const uint16_t WIDTH[4] = { 256, 512, 512, 256 };

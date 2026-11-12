@@ -272,7 +272,7 @@ static void sound_checks(void)
     listen(0.05);
     n = listen(0.2);
     rising_crossings(n, &lo, &hi);
-    check("envelope shape 13: holds at level 15 (32,767 / 3 x 21,000 / 58,000 x 4/5)", (long)lo, 3163);
+    check("envelope shape 13: holds at level 15 (32,767 / 3 x 21,000 / 57,876 x 4/5)", (long)lo, 3169);
     check("envelope shape 13: no change after the ramp", (long)(hi - lo), 0);
     psg(13, 0x00);                              /* a write restarts: shape 0 falls once and holds at 0 */
     listen(0.05);
@@ -286,7 +286,7 @@ static void sound_checks(void)
     jumps = 0;
     for (unsigned i = 2; i < n; ++i) jumps += abs(samples[i] - samples[i - 2]) > 2000;
     check("envelope shape 10: a triangle, no jump", jumps, 0);
-    check("envelope shape 10: spans levels 0 to 15", (long)(hi - lo), 3163);
+    check("envelope shape 10: spans levels 0 to 15", (long)(hi - lo), 3169);
 
     /* Noise on channel A, period 31: the register shifts 1,789,772.5 / (16 x 31) = 3,608 times a second; a new bit
      * differs from the last on half the shifts and rises on a quarter: about 902 rising edges a second. */
@@ -302,7 +302,7 @@ static void sound_checks(void)
     listen(0.01);                               /* the sample that holds the edge is a mix */
     n = listen(0.1);
     rising_crossings(n, &lo, &hi);
-    check("key click: output level with bit 7 set (32,767 x 16,000 / 58,000 x 4/5)", (long)lo, 32767L * 16000 / 58000 * 4 / 5);
+    check("key click: output level with bit 7 set (32,767 x 15,876 / 57,876 x 4/5)", (long)lo, 32767L * 15876 / 57876 * 4 / 5);
 }
 
 /* Cartridges: a synthetic image whose every 8 KB block ends with the byte C0h + block number; the cartridge in slot 1,

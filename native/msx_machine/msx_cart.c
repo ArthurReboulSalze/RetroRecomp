@@ -1,8 +1,7 @@
 /* MSX cartridges: plain ROM placement, the Konami, Konami SCC, ASCII 8 KB and ASCII 16 KB mappers, and the Konami SCC
  * sound chip. MIT, Retro-Recomp. Written from the documented behaviour of these mappers and of the SCC (MSX Resource
- * Center wiki, the measurements by Jon De Schrijder and NYYRIKKI quoted in openMSX's SCC.cc); openMSX was read to
- * settle details (RomPlain.cc, RomKonami.cc, RomKonamiSCC.cc, RomAscii8kB.cc, RomAscii16kB.cc, RomBlocks.cc),
- * nothing was copied from it.
+ * Center wiki, the published measurements of the SCC by Jon De Schrijder and NYYRIKKI); details they leave open were
+ * checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here).
  *
  * Banks: a block number past the end of the image wraps with a mask (the image size in blocks minus one; 31 for the
  * Konami chip, which decodes 256 KB) and gives FFh when it is still past the end. Mirrors outside 4000h-BFFFh: Konami

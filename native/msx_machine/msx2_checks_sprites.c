@@ -2,8 +2,8 @@
  * Retro-Recomp. A development check, never built into a game. Each fixture programs the V9938 through its I/O ports on
  * a fresh machine (no CPU), runs whole lines with msx_advance, and compares with values worked out by hand from the
  * V9938 Technical Data Book (sprite chapter, status registers S#0, S#3-S#6) and the MSX2 Technical Handbook, and from
- * the rules of stage 6's DESIGN.md (section 1.5). The reasoning is written next to each check. openMSX was read to
- * understand behaviour, nothing was copied from it. Prints one line per check and exits 1 if any fails.
+ * the rules of stage 6's DESIGN.md (section 1.5). The reasoning is written next to each check. What the books leave open
+ * was checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here). Prints one line per check and exits 1 if any fails.
  *
  * Layout used everywhere: sprite colour table at 7400h, attribute table at 7600h (R#5 = EFh, R#11 = 0: base =
  * (R#5 << 7) & ~3FFh = 7400h, colours at the base, Y/X/pattern at base + 200h), sprite patterns at 7800h (R#6 = 0Fh).

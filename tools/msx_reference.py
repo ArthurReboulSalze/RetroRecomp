@@ -287,7 +287,8 @@ def instrument(path: Path) -> None:
 
 
 # Authored timing program for the M1 wait state, run bare (no BIOS) until HALT. Each entry: bytes, MSX cycles from
-# openMSX's table (cpu/Z80.hh, WAIT_CYCLES = 1), standard Z80 cycles. LDIR copies three bytes: two repeats and a last.
+# The MSX's rule (one wait state per M1 cycle, the MSX standard) on the Z80's documented cycles. LDIR copies three bytes:
+# two repeats and a last.
 M1_PROGRAM = (
     (bytes([0xF3]), 5, 4),                          # DI
     (bytes([0xDD, 0x00]), 10, 8),                   # DD NOP: a prefix before an opcode without IX, two M1 cycles
@@ -411,9 +412,9 @@ def png(frame: Path, target: Path) -> None:
                        + chunk(b'IDAT', zlib.compress(b''.join(rows))) + chunk(b'IEND', b''))
 
 
-# 7Fh x 15 >> 4 = 119 and 80h x 15 >> 4 = -120, scaled x 32,767 / 600 (6,498 and -6,553), mixed x 21,000 / 58,000
-# (2,352 and -2,372), x 4/5 (1,881 and -1,897), C integer division.
-SCC_SQUARE_SWING = 1881 + 1897
+# 7Fh x 15 >> 4 = 119 and 80h x 15 >> 4 = -120, scaled x 32,767 / 600 (6,498 and -6,553), mixed x 21,000 / 57,876
+# (2,357 and -2,377), x 4/5 (1,885 and -1,901), C integer division.
+SCC_SQUARE_SWING = 1885 + 1901
 
 
 def tone_range(audio: Path, seconds: float = 1.0) -> tuple[int, int]:
@@ -490,7 +491,7 @@ def main() -> int:
     check('m1-table', m1['halted'] and m1['z80_cycles'] == want[1] and m1['cycles'] == want[0]
           and m1['m1_waits'] == want[0] - want[1],
           f"{m1['cycles']} MSX cycles = {m1['z80_cycles']} Z80 T-states + {m1['m1_waits']} M1 waits "
-          f"(openMSX's table: {want[0]} = {want[1]} + {want[0] - want[1]})")
+          f"(one wait per M1: {want[0]} = {want[1]} + {want[0] - want[1]})")
     for name, report in runs.items():
         print(name)
         lines = 313 if name.endswith('-pal') else 262

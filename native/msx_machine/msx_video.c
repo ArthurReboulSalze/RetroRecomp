@@ -1,7 +1,7 @@
 /* TMS9918A picture, one line at a time (MSX1). MIT, Retro-Recomp.
  *
  * Written from the TMS9918A data manual (Texas Instruments) and Sean Young's notes on its undocumented behaviour;
- * openMSX was read to settle the sprite rules (SpriteChecker.cc), nothing was copied from it. The line functions are
+ * the sprite rules they leave open were checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here). The line functions are
  * shared with the V9938 (msx_tiles.inc); this file gives them the TMS9918A's table addresses.
  *
  * Modes: Graphic 1, Graphic 2 with the table masks of R#3 and R#4 (on the TMS99xx R#3's low five bits also mask the

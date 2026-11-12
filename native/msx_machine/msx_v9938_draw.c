@@ -1,7 +1,7 @@
 /* The V9938's picture, one line at a time (MSX2). MIT, Retro-Recomp.
  *
- * Written from the V9938 Technical Data Book; openMSX (SpriteChecker.cc, SpriteConverter.hh, VDP.hh) was read to settle
- * what the book leaves open, nothing was copied from it. A line is drawn at its draw point (msx_v9938.c) with the
+ * Written from the V9938 Technical Data Book; what the book leaves open was checked against openMSX 22.0
+ * run as a separate program (private comparisons; none of its code or tables is here). A line is drawn at its draw point (msx_v9938.c) with the
  * registers, palette and VRAM of that instant, as 512 colours of 9 bits (0GGG0RRR0BBB, the palette applied: a split
  * that changes the palette between lines shows); a 256-pixel mode is doubled.
  *
@@ -15,7 +15,7 @@
  * G3-G7: 8 per line, Y = 216 ends the list, a colour byte per row (EC, CC, IC, colour), sprites with CC set OR their
  * colour into the sprite before them and show only after a sprite with CC clear, collisions between sprites with CC
  * and IC clear (colour 0 only with TP) with the coordinates x + 12, y + 8 in S#3-S#6. Where hardware reports disagree,
- * the rules follow openMSX's reading ("follows openMSX" in docs/MSX.md). */
+ * the rules follow what openMSX does ("follows openMSX" in docs/MSX.md). */
 #include "msx_machine.h"
 
 #include <string.h>

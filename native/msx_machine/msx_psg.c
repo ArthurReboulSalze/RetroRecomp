@@ -10,10 +10,13 @@
  * A channel sounds when (tone or tone disabled) and (noise or noise disabled), at its fixed level or the envelope's.
  * The sixteen output levels are the measured, normalised AY-3-8910 levels published with ayumi (MIT, Peter Sovietov).
  *
- * Mixing: the three channels at equal weight and the key click (PPI port C bit 7) in the ratio of openMSX's C-BIOS
- * machine files (PSG 21000, click 16000), and a Konami SCC cartridge's five channels at the PSG's weight (its full
- * scale equal to the PSG's). The mix is the same whether or not an SCC is plugged in, so the PSG keeps its level.
- * These ratios are stated choices, not measurements of an MSX: not validated.
+ * Mixing: the three channels at equal weight, and the key click (PPI port C bit 7) at 0.756 of a PSG channel at volume
+ * 15: the ratio measured on 12 November 2026 from the outside in openMSX 22.0 run as a separate program (a black box),
+ * from its recorded output of an authored cartridge playing PSG channel A alone (880.8 Hz, volume 15) then the click
+ * alone (toggled at 878.6 Hz): the two fundamentals, 5,322 and 4,025. A Konami SCC cartridge's five channels at the
+ * PSG's weight (its full scale equal to the PSG's: our choice; the same recording gave 0.800 for an SCC channel). The
+ * mix is the same whether or not an SCC is plugged in, so the PSG keeps its level. Not measured on an MSX: not
+ * validated.
  * Output: box-filtered to MSX_AUDIO_RATE. */
 #include "msx_machine.h"
 
@@ -23,7 +26,7 @@
 static const int level_scale[16] = { 0, 327, 473, 690, 1006, 1492, 2113, 3518, 4148, 6717, 9575, 12217, 16139, 20818,
                                      26397, 32767 };
 
-enum { TICK = 16, PSG_WEIGHT = 21000, CLICK_WEIGHT = 16000, SCC_WEIGHT = 21000 };
+enum { TICK = 16, PSG_WEIGHT = 21000, CLICK_WEIGHT = 15876, SCC_WEIGHT = 21000 };   /* 15876 = 21000 x 0.756 */
 #define SAMPLE_STEP ((uint64_t)MSX_CPU_CLOCK * 65536u / MSX_AUDIO_RATE)
 
 void msx_psg_reset(MsxMachine *m)

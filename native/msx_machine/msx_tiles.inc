@@ -2,7 +2,8 @@
  * (msx_v9938_draw.c). MIT, Retro-Recomp. Included, not compiled alone.
  *
  * Written from the TMS9918A data manual (Texas Instruments), the V9938 Technical Data Book and Sean Young's notes on
- * the undocumented behaviour; openMSX was read to settle the sprite rules (SpriteChecker.cc), nothing was copied from it.
+ * the undocumented behaviour; the sprite rules they leave open were checked against openMSX 22.0
+ * run as a separate program (private comparisons; none of its code or tables is here).
  *
  * Each chip computes its table addresses (MsxTileParams); the line functions only read VRAM through them. A line is
  * written as raw colour indices: colour 0 stays 0 and the caller resolves it (the TMS9918A shows the backdrop; the

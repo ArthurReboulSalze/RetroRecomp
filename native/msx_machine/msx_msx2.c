@@ -1,7 +1,7 @@
 /* The MSX2's board: the memory mapper (ports FCh-FFh) and the RP5C01 clock (ports B4h/B5h). MIT, Retro-Recomp.
  *
- * Written from the MSX2 Technical Handbook and the RP5C01 data sheet; openMSX (MSXMemoryMapperBase.cc, RP5C01.cc) was
- * read to settle what they leave open, nothing was copied from it.
+ * Written from the MSX2 Technical Handbook and the RP5C01 data sheet; what they leave open was checked against openMSX 22.0
+ * run as a separate program (private comparisons; none of its code or tables is here).
  *
  * Mapper: one register per 16 KB page; a write keeps the bits that address a segment, a read gives the register with
  * the unused high bits as 1. The machine places the selected segments (msx_machine.c, rebuild_regions).

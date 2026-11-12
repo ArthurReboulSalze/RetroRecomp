@@ -115,21 +115,21 @@ static void lmmv_checks(void)
     static const uint8_t s0[5] = { 0x0, 0x0, 0xC, 0xC, 0xF };
     ops_run("lmmv-s0", 0, 0x0, s0, 5);
 
-    /* lmmv-undef: codes 5, 6, 7, Dh, Eh, Fh write nothing (D stays Ch) and last as long as code 0: one dot, start 112
-     * ticks, the unit is due when 6 * cycle >= 6 * start + 112, 19 cycles later (112 / 6 = 18.67). */
+    /* lmmv-undef: codes 5, 6, 7, Dh, Eh, Fh write nothing (D stays Ch) and last as long as code 0: one dot, start 117
+     * ticks, the unit is due when 6 * cycle >= 6 * start + 117, 20 cycles later (117 / 6 = 19.5). */
     static const unsigned undef[6] = { 5, 6, 7, 0xD, 0xE, 0xF };
     char name[64];
     setmode(0x06);
     VR(0) = 0xC5;
     block(0, 0, 0, 0, 1, 1, 0xA, 0);
     go(0x80);
-    check("lmmv-undef code 0 CE lasts (cycles)", ce_after(), 19);
+    check("lmmv-undef code 0 CE lasts (cycles)", ce_after(), 20);
     for (int i = 0; i < 6; ++i) {
         VR(0) = 0xC5;
         block(0, 0, 0, 0, 1, 1, 0xA, 0);
         go(0x80 | undef[i]);
         snprintf(name, sizeof name, "lmmv-undef code %X CE lasts (cycles)", undef[i]);
-        check(name, ce_after(), 19);
+        check(name, ce_after(), 20);
         snprintf(name, sizeof name, "lmmv-undef code %X leaves the dot", undef[i]);
         check_hex(name, VR(0), 0xC5);
     }
@@ -175,12 +175,12 @@ static void lmmv_checks(void)
     check_hex("lmmv-dix 0001h", VR(1), 0x66);
     check_hex("lmmv-dix 0002h", VR(2), 0x00);
 
-    /* lmmv-time: three dots on one line, class 0: units due at 112, 112 + 98, 112 + 196 = 308 ticks; 308 / 6 = 51.33, so
+    /* lmmv-time: three dots on one line, class 0: units due at 117, 117 + 98, 117 + 196 = 313 ticks; 313 / 6 = 52.17, so
      * CE is still set 51 cycles after the write (306 ticks) and clear at 52. */
     setmode(0x06);
     block(0, 0, 0, 0, 3, 1, 6, 0);
     go(0x80);
-    check("lmmv-time CE lasts (cycles)", ce_after(), 52);
+    check("lmmv-time CE lasts (cycles)", ce_after(), 53);
 }
 
 static void lmmm_checks(void)
@@ -245,7 +245,7 @@ static void lmmm_checks(void)
     idle();
     check_hex("lmmm-ops TIMP with source 6", VR(4), 0x60);
 
-    /* lmmm-time: three dots on one line, class 0: due at 120, 120 + 130, 120 + 260 = 380 ticks; 380 / 6 = 63.33: CE set
+    /* lmmm-time: three dots on one line, class 0: due at 123, 123 + 130, 123 + 260 = 383 ticks; 383 / 6 = 63.83: CE set
      * 63 cycles after the write (378 ticks), clear at 64. */
     setmode(0x06);
     block(0, 0, 5, 0, 3, 1, 0, 0);
@@ -284,7 +284,7 @@ static void cpu_paced_checks(void)
     check("lmmc extra write VRAM sum", vram_sum(), 0x01 + 0x23);
 
     /* lmcm: 0000h = 12h, 0001h = 34h; SX 0, SY 0, NX 3, NY 1, old R#44 = 77h. Dots 1, 2, 3 (x = 2 is the high nibble of byte
-     * 1 = 3). Start delay 76 ticks, 76 / 6 = 12.67: nothing is fetched 12 cycles after the write, the first dot at 13. */
+     * 1 = 3). Start delay 66 ticks, 66 / 6 = 11: nothing is fetched 10 cycles after the write, the first dot at 11. */
     setmode(0x06);
     VR(0) = 0x12;
     VR(1) = 0x34;
@@ -292,8 +292,8 @@ static void cpu_paced_checks(void)
     go(0xA0);
     check_hex("lmcm S#7 at start = old R#44", status(7), 0x77);
     check_hex("lmcm S#2 TR and CE after the start", status(2) & 0x81, 0x81);
-    msx_advance(&m, 12);
-    check_hex("lmcm S#7 before 76 ticks = old R#44", status(7), 0x77);
+    msx_advance(&m, 10);
+    check_hex("lmcm S#7 before 66 ticks = old R#44", status(7), 0x77);
     msx_advance(&m, 1);
     check_hex("lmcm S#7 first read = dot 1", status(7), 0x01);
     check_hex("lmcm S#2 after the first read", status(2) & 0x81, 0x81);
@@ -314,11 +314,11 @@ static void cpu_paced_checks(void)
 static void point_pset_checks(void)
 {
     /* pset: PSET at (3, 1), COL 7, IMP: the address is (1 << 7) | (3 >> 1) = 0081h, x odd = low nibble: 07h. DY and the
-     * other registers do not change; CE lasts the start delay, 112 ticks = 19 cycles; sum shows nothing else moved. */
+     * other registers do not change; CE lasts the start delay, 117 ticks = 20 cycles; sum shows nothing else moved. */
     setmode(0x06);
     block(0, 0, 3, 1, 0, 0, 7, 0);
     go(0x50);
-    check("pset CE lasts (cycles)", ce_after(), 19);
+    check("pset CE lasts (cycles)", ce_after(), 20);
     check_hex("pset 0081h", VR(0x81), 0x07);
     check("pset VRAM sum", vram_sum(), 7);
     check("pset DY unchanged", vdp.reg[38], 1);
@@ -337,7 +337,7 @@ static void point_pset_checks(void)
     check_hex("pset-ops TIMP with colour 0", VR(0x81), 0xA5);
 
     /* point: 0081h = 37h; POINT (3, 1) = 7 (low nibble), POINT (2, 1) = 3 (high nibble). R#44 and S#7 return the dot.
-     * Start 63 ticks = 10.5, due at 11 cycles. */
+     * Start 66 ticks = 11, due at 11 cycles. */
     setmode(0x06);
     VR(0x81) = 0x37;
     block(3, 1, 0, 0, 0, 0, 0, 0);

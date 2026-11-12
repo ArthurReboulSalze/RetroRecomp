@@ -4,9 +4,9 @@
  * I/O ports (no CPU, no BIOS code), advances machine time with msx_advance (228 cycles a line) and compares with values
  * worked out by hand from the V9938 Technical Data Book and the stage 7 design note (the expected number and its
  * reason are written next to each check). Graphic 4 byte address: (y << 7) | (x >> 1); Graphic 6: (y << 8) | (x >> 1);
- * Graphic 7: (y << 8) | x. The engine's cost table (ticks, 6 to a machine cycle): HMMV starts 112 ticks after the R#46
- * write, then 49 a byte with the display off (62 with the picture and sprites off, 65 with sprites on), 58 more at a line
- * end; HMMM 124 / 91; YMMM 124 / 65.
+ * Graphic 7: (y << 8) | x. The engine's cost table (ticks, 6 to a machine cycle; measured, msx_v9938_cmd.c): HMMV
+ * starts 117 ticks after the R#46 write, then 49 a byte with the display off (62 with the picture and sprites off, 65
+ * with sprites on), 56 more at a line end; HMMM 126 / 91; YMMM 126 / 65.
  * Prints one line per check and exits 1 if any fails. */
 #include "msx_machine.h"
 
@@ -85,7 +85,7 @@ static void byte_checks(void)
     uint8_t s;
 
     /* hmmv: DX 4 NX 8 -> 4 bytes from byte 2; DY 2, NY 2 -> lines 2 and 3 (0100h, 0180h). 0102h-0105h and 0182h-0185h
-     * = ABh, nothing else (sum 8 x ABh = 1368). Done 513 ticks after the write; DY 4, NY 0, R#46 reads 0. */
+     * = ABh, nothing else (sum 8 x ABh = 1368). Done 516 ticks after the write; DY 4, NY 0, R#46 reads 0. */
     setup(0x06, 0x00);
     block(0, 0, 4, 2, 8, 2, 0xAB, 0);
     go(0xC0);
@@ -145,12 +145,12 @@ static void byte_checks(void)
     check("hmmv-x300 sum", vram_sum(), 2 * 0xC9);
 
     /* hmmv-ny0: NY 0 means 1024 lines; one byte (NX 2) at byte 0 of every line, 1024 of them (the address wraps at
-     * 1024 lines in G4: 128 KiB). After the first line (114 ticks: the first byte is due at 112) NY passes 1023. Ends
-     * at 112 + 1023 x (49 + 58) + 49 = 109,602 ticks (18,267 cycles): NY 0, DY back to 0. */
+     * 1024 lines in G4: 128 KiB). After the first line (120 ticks: the first byte is due at 117) NY passes 1023. Ends
+     * at 117 + 1023 x (49 + 56) = 107,532 ticks (17,922 cycles): NY 0, DY back to 0. */
     setup(0x06, 0x00);
     block(0, 0, 0, 0, 2, 0, 0x21, 0);
     go(0xC0);
-    (void)run(19);
+    (void)run(20);
     check("hmmv-ny0 NY after one line", rw(42), 1023);
     check("hmmv-ny0 DY after one line", rw(38), 1);
     s = run(20000);
@@ -260,7 +260,7 @@ static void handshake_checks(void)
     check("hmmc-stale done: TR CE", tr(s) * 10 + ce(s), 10);
     check("hmmc-stale sum", vram_sum(), 0x11 + 0x99);
 
-    /* stop: HMMV of 8 bytes (NX 16, NY 1); units are due at 112, 161, 210 ticks, the fourth at 259. R#46 = 00h at
+    /* stop: HMMV of 8 bytes (NX 16, NY 1); units are due at 117, 166, 215 ticks, the fourth at 264. R#46 = 00h at
      * cycle 38 (228 ticks): 3 bytes written, CE 0 at once, R#46 0, DY 0 and NY 1 as they were (the line never ended);
      * nothing more appears later. Both R#46 writes are counted. */
     setup(0x06, 0x00);
@@ -351,7 +351,7 @@ static void mode_checks(void)
     check("mode-latch writes", (long)vdp.cmd.writes, 2);
 
     /* mxd: R#45 bit 5 sends the destination to expansion RAM, which is absent: nothing is written, but the time
-     * passes as usual (CE 1 at 85 cycles = 510 ticks, 0 at 86). */
+     * passes as usual (CE 1 at 85 cycles = 510 ticks, 0 at 86 = 516). */
     setup(0x06, 0x00);
     block(4, 0, 4, 2, 8, 2, 0xAB, 0x20);
     go(0xC0);
@@ -398,12 +398,12 @@ static void mode_checks(void)
 }
 
 /* The timing rows: an HMMV of 8 bytes (DX 4, NX 8, NY 2 in G4: 4 bytes a line), the last byte due at
- * 112 + 7 x cost + 58 ticks, read through S#2 one cycle (6 ticks) before and after that moment. */
+ * 117 + 7 x cost + 56 ticks, read through S#2 one cycle (6 ticks) before and after that moment. */
 static void timing_checks(void)
 {
     uint8_t s;
 
-    /* time-hmmv: display off (class 0, 49 ticks a byte): the last byte is due at 112 + 7 x 49 + 58 = 513 ticks.
+    /* time-hmmv: display off (class 0, 49 ticks a byte): the last byte is due at 117 + 7 x 49 + 56 = 516 ticks.
      * 85 cycles = 510 ticks: CE 1; 86 cycles = 516 ticks: CE 0. */
     setup(0x06, 0x00);
     block(0, 0, 4, 2, 8, 2, 0xAB, 0);
@@ -428,18 +428,18 @@ static void timing_checks(void)
     s = run(86);
     check("time-vblank CE at 86 cycles", ce(s), 0);
 
-    /* time-class 1: picture on, sprites off (R#8 bit 1): 62 a byte, due at 112 + 7 x 62 + 58 = 604 ticks: 100 cycles
-     * = 600 ticks CE 1; 101 cycles = 606 ticks CE 0. */
+    /* time-class 1: picture on, sprites off (R#8 bit 1): 62 a byte, due at 117 + 7 x 62 + 56 = 607 ticks: 101 cycles
+     * = 606 ticks CE 1; 102 cycles = 612 ticks CE 0. */
     setup(0x06, 0x40);
     reg(8, 0x02);
     block(0, 0, 4, 2, 8, 2, 0xAB, 0);
     go(0xC0);
-    s = run(100);
-    check("time-class1 CE at 100 cycles", ce(s), 1);
     s = run(101);
-    check("time-class1 CE at 101 cycles", ce(s), 0);
+    check("time-class1 CE at 101 cycles", ce(s), 1);
+    s = run(102);
+    check("time-class1 CE at 102 cycles", ce(s), 0);
 
-    /* time-class 2: picture on, sprites on: 65 a byte, due at 112 + 7 x 65 + 58 = 625 ticks: 104 cycles = 624 ticks
+    /* time-class 2: picture on, sprites on: 65 a byte, due at 117 + 7 x 65 + 56 = 628 ticks: 104 cycles = 624 ticks
      * CE 1; 105 cycles = 630 ticks CE 0. */
     setup(0x06, 0x40);
     block(0, 0, 4, 2, 8, 2, 0xAB, 0);

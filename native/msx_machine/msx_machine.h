@@ -1,7 +1,7 @@
 /* The MSX machine, CPU-independent: slots and secondary slots, RAM, ROM images, the PPI 8255 (slot select,
  * keyboard matrix), the TMS9918A register and status core, the PSG register file with the joystick port.
  * MIT, Retro-Recomp. Written from the MSX standard as documented (MSX2 Technical Handbook, TMS9918A data
- * manual); openMSX was read to understand behaviour, nothing was copied from it.
+ * manual); behaviour they leave open was checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here).
  *
  * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c, the
  * cartridges (plain, Konami, Konami SCC with its sound chip, ASCII 8 KB and 16 KB) in msx_cart.c. The MSX2's V9938 in

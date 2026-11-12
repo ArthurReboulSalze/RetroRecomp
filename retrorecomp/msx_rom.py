@@ -7,7 +7,7 @@ register addresses:
   sits where its "AB" header's routine pointers point: every non-zero pointer (INIT,
   STATEMENT, DEVICE, TEXT) of a header at offset 0 or 4000h votes for the page it falls in, and the image starts at
   4000h if that page has the most votes (ties go to 4000h), else at 0000h, else at 8000h; with no vote, at 4000h. A
-  plain image is mirrored over the slot. (openMSX places plain images the same way; nothing was copied from it.)
+  plain image is mirrored over the slot. (Checked against openMSX run as a separate program, which places them the same way.)
 - **Larger: a mapper**, by the bank-register writes the program makes. Every `LD (nn),A` (32h, nn), and every
   `LD HL,nn` (21h, nn) followed at once by a write through HL (`LD (HL),r` 70h-75h, 77h, or `LD (HL),n` 36h), whose nn
   is a register address of a mapper (as their documentation gives them) votes for each mapper that has a register
@@ -176,7 +176,7 @@ def system_rom(image: bytes) -> str | None:
     - the disk, IDE and DOS2 kernels: a STATEMENT routine (their CALL commands) that is not a jump opcode, and a table of
       5 to 8 jumps from +10h (DSKIO, DSKCHG, GETDPB, CHOICE, DSKFMT...);
     - a pure BASIC extension (Kanji BASIC, MSX-MUSIC BASIC): no INIT, a STATEMENT routine and nothing at +10h-+1Fh.
-    Measured on 12 November 2026 on a player's BIOS folder (23 of 36 such ROMs) and two MSX game libraries (0 of 522
+    Measured on 12 November 2026 on a player's BIOS folder (24 of its 37 "AB" images) and two MSX game libraries (0 of 522
     cartridges caught: games whose header bytes are code have C3h, JP, where STATEMENT sits, or longer jump tables).
     Firmware, word processors, RS-232C and other language extensions stay listed: no header pattern tells them apart."""
     for offset in (0, 0x4000):
