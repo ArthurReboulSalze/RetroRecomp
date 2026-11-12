@@ -322,7 +322,9 @@ hold no code. Whatever they hold, if it ever runs, runs on the interpreter and i
 unchanged: the same instructions are swept, in the same order.
 
 **Proof.** Cyber Games at the standard scan level, by the real command line: 51,690 swept instructions, the bound not reached, and
-every route equal to the conversion of main a5379530.
+every route equal to the conversion of main a5379530. At the extended level (a third route of 18,000 frames), the case where 1.7.1
+reached the bound: 150,000 swept, `sweep_limit_reached` true, 74,308 walk places and 860,160 page addresses left out, and all three
+routes equal to the reference, 0 interpreted outside the Kickstart.
 
 **Hot path:** no. This is conversion time only.
 
