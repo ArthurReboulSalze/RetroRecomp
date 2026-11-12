@@ -120,7 +120,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).
 - **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental since 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (experimental since 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences).
-- **MSX** — [MSX.md](MSX.md) (experimental, in development: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 without its command engine yet).
+- **MSX** — [MSX.md](MSX.md) (experimental since 1.7.3: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 with its command engine, its timing approximated).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project

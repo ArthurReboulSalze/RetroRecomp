@@ -1,3 +1,220 @@
+# RetroRecomp v1.7.3 — The MSX and the MSX2 open as experimental machines; the Amiga's chips do the same work in less machine time [titre à compléter]
+
+- **MSX and MSX2 (experimental, new).** Two profiles of one family: `msx` for MSX1 cartridges,
+  `msx2` for MSX2 ones ([MSX.md](MSX.md)).
+  - **What is converted.** MSX1 and MSX2 cartridges (a `.rom`, `.mx1`, `.mx2` or a ZIP holding
+    one): plain cartridges and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers. The
+    Z80 code is translated ahead of time by the shared Z80 chain of Sega's 8-bit machines, with a
+    counted interpreter for the rest. The TMS9918A, the V9938 and its command engine (its
+    timing approximated), the AY-3-8910, the Konami SCC, the slots and mappers, and the MSX2's
+    memory mapper and clock are Retro-Recomp's own code, not an emulator core. Quick states with
+    F8 and F9. Windows only for now: Linux has no witness yet.
+  - **Firmware.** C-BIOS 0.29a, a free BIOS, fetched on first use and pinned, or your own MSX BIOS
+    (for the MSX2, its main ROM and sub-ROM), chosen in Options and never shipped. C-BIOS has no
+    MSX-BASIC, no disk and no cassette, and Salamander's stage stays black under it: choose your
+    own BIOS for that game.
+  - **Measured on the Windows panel of 12 November 2026** (extended level): six MSX1 cartridges
+    (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II) and four MSX2
+    cartridges (Metal Gear, Space Manbow, Aleste, Hydlide 3) end at 0 interpreted instructions on
+    every route, equal to our own reference Z80 interpreter frame by frame and on the delivered
+    file. That is agreement with our reference, not with a real MSX.
+  - **Not yet:** disks, cassettes, FM-PAC, cartridge SRAM, MSX2+ and the turbo R, Linux. Nothing
+    is claimed of hardware fidelity, complete gameplay or latency.
+- **Commodore Amiga (experimental).**
+  - **Agnus and Denise do the same work in fewer steps.** Denise's line work is done by table
+    and by word, a line's bitplane slots are taken in a batch, a quiet line is drawn in one loop,
+    and the machine is built with ThinLTO. Then the idle disk controller's events are caught up
+    together, and the slots of sprites that show nothing are left out of their lines. These are
+    hand optimisations of vAmiga's own work, behind a guard where the change needs one: Agnus, Denise
+    and Paula stay emulated, and nothing is specialised from a game.
+  - **Proof.** The display self-test compares every instruction's and every frame's record with
+    vAmiga's own path, and each rule broken on purpose is seen. First-read conversions with the
+    real command line, Lotus 2, Pinball Dreams (NTSC) and Shadow of the Beast after the bitplane
+    batch, then Lotus 2, Rick Dangerous, Lemmings and Civilization after the idle disk and sprite
+    slots: every frame of two routes of 3,600 frames equals the fresh reference, with 0
+    instructions interpreted except Civilization's 19 Kickstart instructions, as in 1.7.2.
+  - **Machine time per frame**, on a quiet PC (Windows, one core, the native game, 2,400 frames of
+    each game's route, the median of three runs): 2.53 ms before these changes, 1.75 ms with the line work and
+    ThinLTO, 1.52 ms with the idle disk and sprite slots. On Rick Dangerous, 2.16 ms, then
+    1.37 ms, then 1.36 ms (that last step is inside the spread of its runs). One PC and two
+    games: this is the cost of a frame, not a latency.
+  - **Tried and reverted:** serving the Blitter alone on its colour clock timed 2 to 3 % slower
+    on both games; nothing of it remains.
+  - **A bus model of our own, in shadow.** It can run beside vAmiga to compare its slots and CPU
+    waits, for the self-test and private reference players only. It is never in an export: the
+    option is off and its hooks are not compiled.
+  - **Quick states on a frame cut short** (VPOSW or BEAMCON0) run the held-back disk events
+    before the state is taken, and a load clears what was derived from the timeline it left.
+    The conversion report counts what the idle disk and sprite slots did.
+  - **Colours in fewer steps.** Three more hand optimisations of vAmiga's display work: a
+    border of one colour is written four entries at a time, a chunk inside the display window
+    takes one colour lookup per pair of entries when the pair holds one pixel (a super-hires line
+    keeps one lookup per entry), and the picture is packed in the host's colour order once instead
+    of swapping red and blue in every pixel of every frame. Denise stays emulated. The display
+    self-test's 60 scenarios equal vAmiga's own work row for row, each fault planted on purpose is
+    seen, and Lotus 2, Rick Dangerous, Lemmings and Civilization give the same routes as before,
+    hash for hash. [à venir : le coût par image avec ces étapes, passe sur PC calme]
+  - **The sweep shares its bound.** The sweep past the routes keeps at most 150,000 instructions.
+    When it reaches more, the bound is now shared between each memory image and phase instead of
+    the first one taking it all, and the report counts what is left out; under the bound nothing
+    changes. On Cyber Games at the extended level, an unseen route of 18,000 frames goes from
+    790,198 to 96,625 interpreted instructions.
+  - **Routes that press 1 and 2, and Monkey Island 2's protection.** The main route of every game
+    now taps 1 and 2, which Civilization's first screen waits for, and Monkey Island 2's route
+    answers its copy protection: both main routes now reach the game's sound. The twelve delivered
+    games other than Another World were converted again: all pass, with 0 instructions
+    interpreted outside the Kickstart. A route is a script, not a validation of gameplay.
+- **Amiga, Atari ST and X68000: the click that captures the mouse stays the window's.** A left
+  click in the window captures the mouse; it also reached the game as a left click the player
+  never meant. It is now consumed, and every later click is the game's, as before. On Another
+  World this stray click locked the protection screen; a deliberate click or C there still does,
+  so answer that screen with the joystick ([AMIGA.md](AMIGA.md)).
+- **The converter window, on every machine: a step that runs out of time.** A conversion step
+  that reaches its time limit is now named in the converter window in your language (eight
+  languages): which step stopped, the limit, the likely causes and what to send, instead of
+  Python's raw text. And a build or generation step (CMake, the compilers, the recompilers) that
+  is still writing now goes past its limit, as long as its last line is younger than the limit,
+  up to four times the limit. A step that writes nothing for a whole limit is stopped as before,
+  Stop still stops it at once, and replays and probes keep their fixed limit. This came from a
+  player whose small PC needed more than 30 minutes to compile Kirby's Adventure (NES); the
+  slowness itself was not reproduced here.
+- **The game report** lists the five languages a generated game ships (`ui_languages`); it listed
+  the converter's eight.
+- **Capcom CPS-1 and CPS-2.** A set ready with no interpreter on its routes now says "no
+  interpreter on the routes played", as the PC Engine does.
+- **Master System and Game Gear: preparation for a future machine.** The banked Z80 chain now
+  reads its memory map from one description per machine instead of the Sega mapper's constants,
+  ready for a second Z80 machine. No machine is added and nothing changes for players: on the
+  three games compared (two Sonic The Hedgehog, Alex Kidd in Miracle World), the generated code
+  and the delivered executables are the same bytes as before.
+- **Code left out by a limit is now counted, wherever a limit applied.** The tables of learned
+  code have limits: the Mega Drive's work-RAM and Z80 variants, the Neo Geo's reference runs, the
+  Super Nintendo's RAM-code rows, the Master System and Game Gear's compiled RAM windows. What
+  went past a limit was left out without a trace; it is now counted in the conversion report and
+  named in the conversion log. What is kept and generated does not change, and code left out
+  still runs on the interpreter fallback, counted as before. No game read for this release
+  reaches a limit; an authored Mega Drive cartridge does, and is counted. An import of shared
+  paths also counts the rows its limits leave out.
+- **Shared paths: what a sync or an import left out is said.** After a sync or an import of
+  shared paths, the converter window says in one line, in your language, how many valid rows a
+  limit of your local base could not keep and how many rows were refused as invalid. Rows you
+  already had stay quiet.
+- **Mega Drive: more of the code met past the routes becomes native.**
+  - **A larger record.** The record a game keeps of the code that ran on the interpreter (F12)
+    now holds 65,536 notes on the Mega Drive instead of 4,096; Ultimate Mortal Kombat 3 met
+    13,871 unknown entries in one session and filled the old one. The other machines keep 4,096
+    notes, and a record of 4,096 notes or fewer is the same file as in 1.7.2.
+  - **Code found from the tables it already reached.** The conversion reads the pointer and jump
+    tables of code it has already reached and adds their targets, never a scan of the ROM; a
+    target runs as native code only when the CPU really gets there, and every refusal is counted
+    in the report. On Ultimate Mortal Kombat 3's first conversion, a scripted walk of 36,000
+    frames with a seed no conversion used ran 2.40 % of its instructions on the interpreter
+    before, and 0.31 % and 0.28 % on two walks now. After two recorded walks and one more
+    conversion, the recorded walk runs 0 interpreted and a new seed 0.30 %. The price is a larger
+    game and a longer code generation (up to 3.2 times the native instructions on a first
+    conversion).
+  - **One more learning pass when the last one still used the interpreter** (Mega Drive and Super
+    Nintendo): it learns what that pass recorded and generates the code again, once at most. On
+    Sonic The Hedgehog 2 from shared paths, the sound CPU's 8,604 interpreted opcodes on its
+    routes became 0.
+  - Scripted walks, not a person's play; the machine time of the larger record is not measured
+    yet.
+- **PC Engine / TurboGrafx-16.**
+  - **The player's own record**, promised in the 1.7.2 notes. A game now records, in a window,
+    the code of the card that ran on the interpreter (F12 switches it), and the next conversion
+    makes it native, read back against your own ROM; the record stays on your PC. The report's
+    `recording_default` was true in 1.7.2 while no game recorded; it is now true because they do,
+    and false on the Street Fighter II board, which does not record. On one scripted walk of
+    Blazing Lazers (18,000 frames), 733,921 interpreted instructions became 0 after one recording
+    and one conversion, equal to the fresh reference on every frame. One card and one walk, not a
+    person's play.
+  - **A start with I after Run.** The conversion also tries the start presses followed by a tap
+    of I and keeps the best variant: Military Madness now reaches further into its game.
+  - **The panel of this release:** the fifteen cards run 0 interpreted instructions and 0 guard
+    misses on every route, on Windows. A checkout with no `.deps` fetched the engine at its pin by
+    itself and converted Blazing Lazers.
+- **Atari ST (experimental).**
+  - **What ran on the interpreter becomes native at the next conversion.** An exported game keeps
+    the player's own record (F12) of the code that ran on the interpreter, and the conversion
+    sweeps the memory left at the end of its routes. The next conversion compiles both, behind the
+    same guard on the latched opcode, counted apart from the observed code. On one scripted
+    session of Turrican II played past its routes, native code goes from 6.9 % to 73 % with the
+    sweep alone; native and interpreted traces of every frame stay byte-identical.
+  - **Games start by themselves more often.** Disks are taken in the order their names mean, and
+    the desktop starts the program a clear rule picks among several: of the eighteen games of the
+    library that stopped on the desktop, six now start their program.
+  - **Hatari's timer D patch is chosen per game**: Options → "Atari ST: timer D", auto, patched or
+    exact. On auto, The Seven Gates of Jambala runs without the patch; an exact game costs more
+    host time than the same game patched (an estimate, not a timing).
+- **Game Boy Advance (experimental).**
+  - **A first conversion reaches native code in fewer passes.** While the conversion's own runs
+    interpret a routine, they now also note the routines it calls, so the next pass compiles them
+    too instead of finding them one layer of calls at a time. From an empty library, Golden Sun
+    took seven passes and still left 3.86 million instructions on the interpreter; it now takes
+    five and leaves 0. Advance Wars and Pokémon Emerald reach 0 in two passes, The Minish Cap in
+    three, with native code equal to the engine's interpreter on both scenarios of each.
+  - **A conversion that differs from the interpreter fails.** A native run that errored, or whose
+    picture, cycle count or memory differs from the engine's interpreter, now stops the
+    conversion instead of passing.
+  - **A Thumb store with an empty register list** writes the value the ARM7TDMI writes, in the
+    interpreter and in the generated code; the loads of that kind are still not modelled. The
+    limits of the code a game builds in RAM are counted in the report, never silent.
+  - **Checked in a new process.** A quick state saved by one run and loaded by a new one gives the
+    same picture (Metroid Fusion); a Flash save written by one run is read by the next (Sonic
+    Advance 2); four scripted routes reach play with 0 interpreted instructions (Advance Wars,
+    Wario Land 4, Metroid Fusion, Sonic Advance 2). The first minutes of each, not a level, and
+    one cartridge each for states and saves.
+  - **Shared paths, in the experimental tier.** The machine shares its paths as numbers about one
+    exact cartridge, never its bytes. A row received from another player is a hint your own
+    conversion checks again, and it is never saved or passed on; a conversion that fails with
+    received rows, or whose code generator does not end on one, is made again without them.
+  - The machine time of a frame has its own tool now; its quiet-PC pass is not done, so no figure
+    is given.
+- [à venir : l'étude de capture commune aux machines]
+- **Every machine: a game carries the notices of its own components.** Each converted game now
+  embeds the licence notices of what is compiled into it, and no other machine's. This filled real
+  gaps: X68000 games carried no notice at all and now carry theirs, the Neo Geo's native route
+  carries GenesisRecomp's terms, and every game names its menu fonts. The Noto notice is gone
+  from games, which hold no Noto glyph. A new machine's notice no longer touches the other
+  machines' exports.
+
+**Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
+
+[à compléter : la phrase de synthèse de la release.] None of it is a measure of hardware
+fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the converter's
+own build steps are inputs of each), so **every export of 1.7.2, on every machine, is converted
+again once** when you update, at the quick level, from its learned paths, and the window offers
+it; the shared paths of the base are kept. The host stamp of every machine moves too, once, with
+the notices each game now embeds; that adds nothing to the conversion. No build stamp moves. The
+Amiga, Atari ST, Nintendo 64, Mega Drive, Super Nintendo, PC Engine and Neo Geo quick-state keys
+move, so a quick state of 1.7.2 is refused cleanly on those seven machines, with a message
+(nothing is lost but the state);
+the states of the other machines with a key still load. Cartridge saves are kept; a save the new export cannot
+use is set aside and never crashes or blocks the game. The Mega Drive, Super Nintendo and PC
+Engine now write their saves through one shared file of code, with the same bytes on disk as
+before. A Mega Drive game of 1.7.2 that exits beside a record of more than 4,096 notes does not
+read it and writes its own session over it; the converter keeps its own copy. A Game Boy Advance
+quick state is the engine's own file, with no key of ours: one made by a game converted before may
+be refused. The MSX and the MSX2 are new: no export of theirs exists before 1.7.3. The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.7.2 — The PC Engine / TurboGrafx-16 is supported; the Amiga learns from the player's own play and the Atari ST's native code is specialised per opcode
 
 - **PC Engine / TurboGrafx-16: supported.** The owner decided on 10 November 2026 that the

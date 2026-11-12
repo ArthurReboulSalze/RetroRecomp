@@ -106,7 +106,7 @@ and its limits are on its page.
 
 ### In development
 
-The **MSX** and the **MSX2** are in development: experimental profiles for MSX1 and MSX2 cartridges (the MSX2 with the V9938 command engine, timing approximated), translated by the shared Z80 chain and booted by C-BIOS or your own MSX BIOS, not in a release yet ([MSX.md](docs/MSX.md), [MSX2](docs/MSX.md#8-the-msx2-msx2)). No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
+No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
 
 Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
@@ -115,7 +115,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.2.** The PC Engine / TurboGrafx-16 is supported. On the Amiga, the code you reach while playing becomes native at the next conversion, and the Amiga and the Atari ST run more of their 68000 code natively. Exports of the PC Engine, the Amiga, the Atari ST and the PlayStation are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.3.** The Amiga's emulated chips do the same work in less machine time, and a conversion step that is still working on a slow PC now goes on past its time limit. Every export of 1.7.2 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
