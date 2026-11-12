@@ -12,9 +12,18 @@
 //     sound, CLXDAT, and every row of vAmiga's texture.
 // A fault can be injected (`--fault ram|clock INDEX`): the comparison of the tool must see it. Text lines of the instructions around a
 // difference come with `--trace FROM COUNT`. `--per-slot` runs every line's bitplane slots on vAmiga's events and every line pass on
-// vAmiga's own (Agnus step 2 and Denise step 3 off); the summary line counts the lines batched, on events and given back midway, and
-// the visible lines passed in one loop and on vAmiga's pass. The records show that two runs agree with each other, not
-// that either matches the hardware.
+// vAmiga's own, and every disk event on vAmiga's scheduler (Agnus step 2, Denise step 3 and stage 7's idle-disk catch-up off;
+// `--disk-fault 1` loses one held-back disk event, which the comparison must see); the summary line counts the lines batched, on events and given back midway, and
+// the visible lines passed in one loop and on vAmiga's pass. `--state SAVE LOAD` takes a quick state at the end of frame SAVE and
+// loads it back at the end of frame LOAD, as the session does (Agnus::rrBeforeSave before, rrAfterLoad after); the frames from LOAD on
+// replay from SAVE's end. `--state-fault 1` leaves out the run of the held-back disk events before a snapshot and before each frame's
+// record, `--state-fault 2` the clearing after the load: the comparison must see either. The records show that two runs agree with
+// each other, not that either matches the hardware.
+//
+// Built with RR_AMIGA_SHADOW (the self-test always does), stage 7's bus model runs in shadow (amiga_bus.h): each frame's record also
+// holds a hash of every line's bus owners, the summary line carries the model's comparison with vAmiga (`bus`, `bus_mismatches`),
+// `--shadow-fault N` plants a fault in the model (the comparison must see it) and `--access-trace FROM COUNT` prints the CPU's bus
+// waits of those instructions with the path the model would take.
 #include "vaconfig.h"
 #include "Emulator.h"
 #include "Amiga.h"
@@ -24,6 +33,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -49,6 +59,9 @@ struct RrDisplayChecks {
     uint32_t fault_address = 0;
     uint64_t dump_frame = ~0ull;
     const char *dump_path = nullptr;
+    uint64_t state_save = ~0ull, state_load = ~0ull;
+    int state_fault = 0;                         // 1: no run of the held-back disk events before a snapshot, 2: no clearing after a load
+    std::unique_ptr<Snapshot> snap;
 
     static inline RrDisplayChecks *self = nullptr;
 
@@ -107,7 +120,7 @@ static uint32_t le32(const std::vector<uint8_t> &b, size_t at) {
 int main(int argc, char **argv) {
     using namespace vamiga;
     if (argc < 3) {
-        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot]\n");
+        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot] [--state SAVE LOAD [--state-fault 1|2]]\n");
         return 2;
     }
     static RrDisplayChecks c;
@@ -125,9 +138,37 @@ int main(int argc, char **argv) {
             c.dump_frame = strtoull(argv[i + 1], nullptr, 10);
             c.dump_path = argv[i + 2];
             i += 2;
+        } else if (!strcmp(argv[i], "--state") && i + 2 < argc) {
+            c.state_save = strtoull(argv[i + 1], nullptr, 10);
+            c.state_load = strtoull(argv[i + 2], nullptr, 10);
+            i += 2;
+        } else if (!strcmp(argv[i], "--state-fault") && i + 1 < argc) {
+            c.state_fault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
+            DiskController::rrLazyOn = false;
+            Agnus::rrSprSkip = false;
+        } else if (!strcmp(argv[i], "--spr-off")) {
+            Agnus::rrSprSkip = false;
+        } else if (!strcmp(argv[i], "--spr-fault") && i + 1 < argc) {
+            Agnus::rrSprFault = atoi(argv[i + 1]);
+            i += 1;
+        } else if (!strcmp(argv[i], "--disk-off")) {
+            DiskController::rrLazyOn = false;
+        } else if (!strcmp(argv[i], "--disk-fault") && i + 1 < argc) {
+            DiskController::rrFault = atoi(argv[i + 1]);
+            i += 1;
+#ifdef RR_AMIGA_SHADOW
+        } else if (!strcmp(argv[i], "--shadow-fault") && i + 1 < argc) {
+            RrBus::fault = atoi(argv[i + 1]);
+            i += 1;
+        } else if (!strcmp(argv[i], "--access-trace") && i + 2 < argc) {
+            RrBus::traceFrom = strtoull(argv[i + 1], nullptr, 10);
+            RrBus::traceCount = strtoull(argv[i + 2], nullptr, 10);
+            i += 2;
+#endif
         } else {
             fprintf(stderr, "Unknown argument %s\n", argv[i]);
             return 2;
@@ -183,18 +224,25 @@ int main(int argc, char **argv) {
         if (!record) throw std::runtime_error("Cannot write the record.");
         const uint32_t rows = (uint32_t)Tex::height;
         fwrite("RRDR", 1, 4, record);
-        const uint32_t head[3] = {1, frames, rows};
+        const uint32_t head[3] = {2, frames, rows};
         fwrite(head, 4, 3, record);
         std::vector<float> sound;
         for (uint32_t frame = 0; frame < frames; frame++) {
             amiga.computeFrame();
             Message m; std::exception_ptr e;
             while (amiga.msgQueue.get(m, e)) {}
+            // A quick state as the session takes and loads one; the record is a snapshot's bytes too, so the same run comes first.
+            if (frame == c.state_load && c.snap) {
+                amiga.loadSnapshot(*c.snap);
+                if (c.state_fault != 2) amiga.agnus.rrAfterLoad();
+            }
+            if (c.state_fault != 1) amiga.agnus.rrBeforeSave();
+            if (frame == c.state_save) c.snap = amiga.takeSnapshot(utl::Compressor::NONE);
             auto &stream = amiga.audioPort.stream;
             const isize count = stream.count();
             sound.assign((size_t)count * 2, 0.0f);
             const isize got = count ? amiga.audioPort.copyInterleaved(sound.data(), count) : 0;
-            uint64_t row[12] = {};
+            uint64_t row[13] = {};
             row[0] = (uint64_t)c.steps.size();
             row[1] = c.save_hash(amiga.agnus);
             row[2] = c.save_hash(amiga.denise);
@@ -207,7 +255,15 @@ int main(int argc, char **argv) {
             row[9] = fnv(BASIS, sound.data(), (size_t)got * 2 * sizeof(float));
             row[10] = amiga.denise.spypeekCLXDAT();
             row[11] = (uint64_t)amiga.agnus.clock;
-            fwrite(row, 8, 12, record);
+            if (getenv("RR_DISK_DEBUG")) {
+                char text[512];
+                amiga.paula.diskController.rrDebug(text, sizeof text);
+                fprintf(stderr, "frame %u clock %lld %s\n", frame, (long long)amiga.agnus.clock, text);
+            }
+#ifdef RR_AMIGA_SHADOW
+            row[12] = RrBus::takeOwners();       // every line's bus owners (who took each colour clock), hashed
+#endif
+            fwrite(row, 8, 13, record);
             const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
             const uint32_t *px = (const uint32_t *)tex.pixels.ptr;
             for (uint32_t y = 0; y < rows; y++) {
@@ -228,10 +284,21 @@ int main(int argc, char **argv) {
         record = nullptr;
         const Agnus &agnus = amiga.agnus;
         const Denise &denise = amiga.denise;
-        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu],\"quiet\":[%llu,%llu]}\n", frames,
+        printf("{\"frames\":%u,\"instructions\":%llu,\"fault\":%d,\"lines\":[%llu,%llu,%llu],\"words\":[%llu,%llu],\"quiet\":[%llu,%llu]", frames,
                (unsigned long long)total, c.fault_kind, (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1],
                (unsigned long long)agnus.rrLines[2], (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
                (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
+        const u64 *disk = amiga.paula.diskController.rrCounts;
+        printf(",\"disk\":[%llu,%llu,%llu,%llu],\"sprite_slots_left_out\":%llu", (unsigned long long)disk[0], (unsigned long long)disk[1],
+               (unsigned long long)disk[2], (unsigned long long)disk[3], (unsigned long long)agnus.rrSprSkipped);
+#ifdef RR_AMIGA_SHADOW
+        {
+            static char bus[8192];
+            RrBus::json(bus, sizeof bus);
+            printf(",\"bus_mismatches\":%llu,\"bus\":%s", (unsigned long long)RrBus::mismatches(), bus);
+        }
+#endif
+        printf("}\n");
     } catch (std::exception &e) {
         if (record) fclose(record);
         fprintf(stderr, "The scenario failed: %s\n", e.what());

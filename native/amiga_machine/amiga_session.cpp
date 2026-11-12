@@ -785,10 +785,14 @@ extern "C" void rr_amiga_write_blitter(const RrAmigaSession *s, FILE *o) {
 extern "C" void rr_amiga_write_display(const RrAmigaSession *s, FILE *o) {
     const auto &agnus = s->amiga->agnus;
     const auto &denise = s->amiga->denise;
-    fprintf(o, "{\"bitplane_lines\":[%llu,%llu,%llu],\"bitplane_words\":[%llu,%llu],\"line_pass\":[%llu,%llu]}",
+    const u64 *disk = s->amiga->paula.diskController.rrCounts;
+    fprintf(o, "{\"bitplane_lines\":[%llu,%llu,%llu],\"bitplane_words\":[%llu,%llu],\"line_pass\":[%llu,%llu],\"disk_idle\":[%llu,%llu,%llu,%llu],"
+               "\"sprite_slots_left_out\":%llu}",
             (unsigned long long)agnus.rrLines[0], (unsigned long long)agnus.rrLines[1], (unsigned long long)agnus.rrLines[2],
             (unsigned long long)agnus.rrWords[0], (unsigned long long)agnus.rrWords[1],
-            (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1]);
+            (unsigned long long)denise.rrQuietLines[0], (unsigned long long)denise.rrQuietLines[1],
+            (unsigned long long)disk[0], (unsigned long long)disk[1], (unsigned long long)disk[2], (unsigned long long)disk[3],
+            (unsigned long long)agnus.rrSprSkipped);
 }
 extern "C" long rr_amiga_resload_calls(const RrAmigaSession *s) { return s->calls; }
 extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) {
@@ -806,7 +810,9 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
     try {
         // vAmiga saves an ordinary machine: the WOM over ExpMem is lifted around the snapshot (its reader reallocates
         // ROM and WOM buffers by the sizes it was configured with, which an alias is not), then set again. The image and
-        // what was patched into it are in slow RAM, which the snapshot keeps.
+        // what was patched into it are in slow RAM, which the snapshot keeps. Stage 7's held-back disk events that are due
+        // run first: a snapshot keeps none of them (Agnus::rrBeforeSave).
+        s->amiga->agnus.rrBeforeSave();
         kick_window(false);
         std::unique_ptr<Snapshot> snap;
         try { snap = s->amiga->takeSnapshot(utl::Compressor::NONE); } catch (...) { kick_window(true); throw; }
@@ -854,6 +860,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     kick_window(false);
     try {
         s->amiga->loadSnapshot(Snapshot(data.data(), (isize)data.size()));
+        s->amiga->agnus.rrAfterLoad();   // stage 7's derived state of the timeline left goes
     } catch (std::exception &) {
         kick_window(true);
         return 3;

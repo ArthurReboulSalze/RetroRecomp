@@ -748,6 +748,355 @@ REPLACEMENTS = [
      '    // Retro-Recomp modification (MPL-2.0, like this file): the table is about to change: a batched line goes back to events.\n'
      '    agnus.rrBplMaterialise(false);\n\n'
      '    // AGA takes the ECS path\n'),
+] + [
+    # Stage 7, in shadow: the hooks of our bus and DMA model (native/amiga_machine/amiga_bus.h, MIT). Compiled only with
+    # RR_AMIGA_SHADOW (the display self-test, private reference players); without it every hook is preprocessed away and the Core
+    # is the same code as before. The model computes beside vAmiga and changes nothing.
+    ('Components/Agnus/Agnus.h',
+     '#include "utl/wrappers.h"\n',
+     '#include "utl/wrappers.h"\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow\n'
+     '#include "amiga_bus.h"\n'
+     '#endif\n'),
+    ('Components/Agnus/Agnus.h',
+     'class Agnus : public SubComponent {\n',
+     'class Agnus : public SubComponent {\n\n'
+     '    friend struct RrBus;   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow reads Agnus\n'),
+    ('Components/Agnus/Sequencer/Sequencer.h',
+     'class Sequencer final : public SubComponent\n{\n',
+     'class Sequencer final : public SubComponent\n{\n'
+     '    friend struct RrBus;   // Retro-Recomp modification (MPL-2.0, like this file): stage 7\'s model in shadow reads the DDF registers\n\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Clear the bus usage table\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the line\'s owners against the model\'s table\n'
+     '    RrBus::lineEnd(*this);\n'
+     '#endif\n\n'
+     '    // Clear the bus usage table\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model\'s table of the line\n'
+     '    RrBus::lineStart(*this);\n'
+     '#endif\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '#ifdef RR_AMIGA_SHADOW\n    RrBus::reset(*this);\n#endif\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Check if the bus is blocked\n    if (busOwner[pos.h] != BusOwner::NONE) {\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model\'s prediction of this wait\n'
+     '    RrBus::busWaitStart(*this);\n'
+     '    long long rrDelay = 0;\n'
+     '#endif\n\n'
+     '    // Check if the bus is blocked\n    if (busOwner[pos.h] != BusOwner::NONE) {\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '        cpu.addWaitStates(DMA_CYCLES(delay));\n    }\n\n    // Assign bus to the CPU\n',
+     '        cpu.addWaitStates(DMA_CYCLES(delay));\n'
+     '#ifdef RR_AMIGA_SHADOW\n        rrDelay = delay;\n#endif\n'
+     '    }\n\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    RrBus::busWaitEnd(*this, rrDelay);\n'
+     '#endif\n\n'
+     '    // Assign bus to the CPU\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    // Sync with the E clock driving the CIA\n',
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    RrBus::ciaWait(*this);\n'
+     '#endif\n\n'
+     '    // Sync with the E clock driving the CIA\n'),
+    ('Components/Agnus/Agnus.cpp',
+     'Agnus::executeUntil(Cycle cycle) {\n',
+     'Agnus::executeUntil(Cycle cycle) {\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the events the model would meet\n'
+     '    RrBus::events(*this, (long long)cycle);\n'
+     '#endif\n'),
+    ('Components/Agnus/AgnusRegs.cpp',
+     '        // Rectify the currently scheduled DAS event\n        scheduleDasEventForCycle(pos.h);\n',
+     '        // Rectify the currently scheduled DAS event\n        scheduleDasEventForCycle(pos.h);\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model reads the line\'s new DAS slots\n'
+     '        RrBus::dasChanged(*this);\n'
+     '#endif\n'),
+    ('Components/Agnus/Sequencer/SequencerBpl.cpp',
+     '    agnus.isOCS() ? computeBplEventTable<false>(sr) : computeBplEventTable<true>(sr);\n',
+     '    agnus.isOCS() ? computeBplEventTable<false>(sr) : computeBplEventTable<true>(sr);\n'
+     '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file): the model reads the new plan\n'
+     '    RrBus::planChanged(agnus);\n'
+     '#endif\n'),
+] + [
+    # Stage 7, checkpoint 3 (controls the machine): the idle disk controller caught up. While no drive is selected, its DMA is off,
+    # DSKSYNC is not zero and the shift register already holds zero, a disk event only shifts zeros in, writes a zero byte into the
+    # FIFO and advances the rotation delay: it cannot raise an interrupt or touch memory. Such events are taken off the scheduler:
+    # one event is scheduled at the time of the last of them (never past the frame's end), and the others are run in order when it
+    # comes or when something could see the controller first (its registers, the CIA-B port that selects a drive). Their times are
+    # those vAmiga's own arithmetic gives. Agnus marks its event loop, so that a barrier inside it (a Copper or delayed write) runs
+    # the events strictly before its colour clock, and a CPU access those of its own clock too, as vAmiga's order is.
+    ('Components/Agnus/Agnus.h',
+     '    void rrBplSync() { if (rrLazy && rrNext <= pos.h) rrBplCatchUp(pos.h); }\n',
+     '    bool rrInEvents = false;                    // stage 7: inside executeUntil (derived, never saved)\n'
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n'
+     '    void rrBplSync() { if (rrLazy && rrNext <= pos.h) rrBplCatchUp(pos.h); }\n'),
+    # No scope guard on rrInEvents: nothing the events run throws (vAmiga's StateChangeException is thrown by Amiga's run loop,
+    # outside executeUntil; an option set from a register is a valid one), and a quick state's load clears it (rrAfterLoad).
+    ('Components/Agnus/Agnus.cpp',
+     'Agnus::executeUntil(Cycle cycle) {\n',
+     'Agnus::executeUntil(Cycle cycle) {\n'
+     '    rrInEvents = true;   // Retro-Recomp modification (MPL-2.0, like this file); no throw before it is cleared\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    nextTrigger = next;\n}\n',
+     '    nextTrigger = next;\n'
+     '    rrInEvents = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n}\n'),
+    # Stage 7, checkpoint 3b (controls the machine): the idle sprites' slots skipped. A sprite's DMA cycle does nothing on a line
+    # where its DMA is off and that is not its stop line; both are known at the line's start (the DMA state is updated at $E1 of the
+    # line before). Such a sprite's two slot events are left out of the line's schedule. A write to its SPRxPOS or SPRxCTL (always
+    # applied by a register-change event, before the slot events of its colour clock) puts it back for the rest of the line. Line 0,
+    # where the host frame ends, keeps every event.
+    ('Components/Agnus/Agnus.h',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n',
+     '    bool rrFrameEnding = false;                 // stage 7: the host frame ends at the next instruction (vsyncHandler ran)\n'
+     '    u8 rrSprIdle = 0;                           // stage 7: sprites whose slot events this line leaves out (derived)\n'
+     '    static inline bool rrSprSkip = true;        // false: every sprite slot event on the schedule\n'
+     '    static inline int rrSprFault = 0;           // a planted fault (1: an armed sprite taken for idle), for the self-test\n'
+     '    u64 rrSprSkipped = 0;                       // sprite slot events left out (lines ended)\n'
+     '    u16 rrSprLeftMask = 0;                      // the line\'s sprite slots (S0_1 .. S7_2) its schedule passes over\n'
+     '    void rrBeforeSave();\n'
+     '    void rrAfterLoad();\n'
+     '    void rrSprLineStart();\n'
+     '    void rrSprWake(isize x);\n'
+     '    isize rrSkipIdle(isize h);\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrBplLineStart();\n    scheduleFirstDasEvent();\n',
+     '    rrBplLineStart();\n'
+     '    rrSprLineStart();   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    scheduleFirstDasEvent();\n'),
+    ('Components/Agnus/Agnus.cpp',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n',
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    rrSprIdle = 0;\n'
+     '    rrSprLeftMask = 0;\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    u8 dmacycle = sequencer.nextDasEvent[0];\n    assert(dmacycle != 0);\n'
+     '    scheduleRel<SLOT_DAS>(DMA_CYCLES(dmacycle), sequencer.dasEvent[dmacycle]);\n',
+     '    u8 dmacycle = sequencer.nextDasEvent[0];\n    assert(dmacycle != 0);\n'
+     '    dmacycle = u8(rrSkipIdle(dmacycle));   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    scheduleRel<SLOT_DAS>(DMA_CYCLES(dmacycle), sequencer.dasEvent[dmacycle]);\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    u8 next = sequencer.nextDasEvent[hpos];\n    assert(next >= 0 && next < HPOS_CNT);\n',
+     '    u8 next = sequencer.nextDasEvent[hpos];\n    assert(next >= 0 && next < HPOS_CNT);\n'
+     '    next = u8(rrSkipIdle(next));   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Agnus/AgnusEvents.cpp',
+     '    if (sequencer.dasEvent[hpos] != EVENT_NONE) {\n'
+     '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
+     '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): an idle sprite\'s event is passed over. The sprite slots from hpos on\n'
+     '    // are decided again (slot k of the mask is at $15 + 2k).\n'
+     '    if (hpos <= 0x15) rrSprLeftMask = 0;\n'
+     '    else if (hpos < 0x35) rrSprLeftMask &= u16((1 << ((hpos - 0x15 + 1) >> 1)) - 1);\n'
+     '    if (sequencer.dasEvent[hpos] != EVENT_NONE && rrSkipIdle(hpos) == hpos) {\n'
+     '        scheduleRel<SLOT_DAS>(DMA_CYCLES(hpos - pos.h), sequencer.dasEvent[hpos]);\n'
+     '    } else {\n        scheduleNextDasEvent(hpos);\n    }\n}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): the idle sprites of the line (Agnus.h). Not on line 0, not on AGA.\n'
+     'void\nAgnus::rrSprLineStart()\n{\n'
+     '    for (u16 m = rrSprLeftMask; m; m &= u16(m - 1)) rrSprSkipped++;   // the line that ended: each slot passed over, once\n'
+     '    rrSprLeftMask = 0;\n'
+     '    rrSprIdle = 0;\n'
+     '    if (!rrSprSkip || pos.v == 0 || isAGA()) return;\n'
+     '    for (isize n = 0; n < 8; n++) {\n'
+     '        if ((!sprDmaEnabled[n] || rrSprFault == 1) && pos.v != sprVStop[n]) rrSprIdle |= u8(1 << n);\n'
+     '    }\n'
+     '}\n\n'
+     '// The first event at or after slot h that is not an idle sprite\'s.\n'
+     'isize\nAgnus::rrSkipIdle(isize h)\n{\n'
+     '    while (rrSprIdle) {\n'
+     '        const EventID e = sequencer.dasEvent[h];\n'
+     '        if (e < DAS_S0_1 || e > DAS_S7_2 || !(rrSprIdle & (1 << ((e - DAS_S0_1) >> 1)))) break;\n'
+     '        rrSprLeftMask |= u16(1 << (e - DAS_S0_1));\n'
+     '        h = sequencer.nextDasEvent[h];\n'
+     '    }\n'
+     '    return h;\n'
+     '}\n\n'
+     '// A write to the sprite\'s position or control (in a register-change event, before the slot events of this clock): its slots\n'
+     '// are back for the rest of the line.\n'
+     'void\nAgnus::rrSprWake(isize x)\n{\n'
+     '    if (!(rrSprIdle & (1 << x))) return;\n'
+     '    rrSprIdle &= u8(~(1 << x));\n'
+     '    scheduleDasEventForCycle(pos.h);\n'
+     '}\n\n'
+     '// Before a snapshot (a quick state): the held-back disk events that are due run, the next one is scheduled. A frame cut short\n'
+     '// after a batch started (VPOSW clearing LOF, BEAMCON0 from PAL to NTSC) can end with some, and a snapshot keeps none of them.\n'
+     'void\nAgnus::rrBeforeSave()\n{\n'
+     '    paula.diskController.rrBarrier();\n'
+     '}\n\n'
+     '// After a snapshot is loaded: stage 7\'s derived state belongs to the timeline left, and goes. The loaded schedule has every\n'
+     '// event it needs (an idle sprite\'s slot that comes back only does nothing).\n'
+     'void\nAgnus::rrAfterLoad()\n{\n'
+     '    rrSprIdle = 0;\n'
+     '    rrSprLeftMask = 0;\n'
+     '    rrInEvents = false;\n'
+     '    paula.diskController.rrForget();\n'
+     '}\n'),
+] + [
+    ('Components/Agnus/AgnusRegs.cpp', head,
+     head + '    rrSprWake(x);   // Retro-Recomp modification (MPL-2.0, like this file)\n\n')
+    for head in ('Agnus::setSPRxPOS(u16 value)\n{\n', 'Agnus::setSPRxCTL(u16 value)\n{\n')
+] + [
+    ('Components/Agnus/Agnus.cpp',
+     'Agnus::vsyncHandler()\n{\n',
+     'Agnus::vsyncHandler()\n{\n'
+     '    rrFrameEnding = true;   // Retro-Recomp modification (MPL-2.0, like this file): no disk event held back past this frame\n'),
+    ('Components/Amiga.cpp',
+     'Amiga::computeFrame()\n{\n',
+     'Amiga::computeFrame()\n{\n'
+     '    agnus.rrFrameEnding = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
+    ('Components/Paula/DiskController/DiskController.h',
+     '    double dskEventDelay = 0;\n',
+     '    double dskEventDelay = 0;\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the idle controller caught up (DiskControllerEvents.cpp). Derived\n'
+     '    // state, never saved: no event is held back at a frame\'s end, where states are taken.\n'
+     'public:\n'
+     '    static inline bool rrLazyOn = true;         // false: every disk event on vAmiga\'s scheduler\n'
+     '    static inline int rrFault = 0;              // a planted fault (1: one held-back event lost), for the self-test\n'
+     '    u64 rrCounts[4] = { };                      // batches, batches run at their event, batches run at a barrier, events held back\n'
+     '    void rrBarrier();\n'
+     '    void rrForget() { rrLazy = false; rrLeft = 0; }   // after a snapshot\'s load (Agnus::rrAfterLoad)\n'
+     '    void rrDebug(char *out, isize size) const;\n'
+     'private:\n'
+     '    bool rrLazy = false;\n'
+     '    Cycle rrNext = 0;                           // the time of the next held-back event\n'
+     '    isize rrLeft = 0;                           // held-back events before the scheduled one\n'
+     '    bool rrIdle() const;\n'
+     '    double rrDiskDelay();\n'
+     '    Cycle rrAt(Cycle t) const;\n'
+     '    void rrReplay(Cycle upTo, bool inclusive);\n'
+     '    void rrEnter();\n'),
+    ('Components/Paula/DiskController/DiskControllerEvents.cpp',
+     'void\nDiskController::serviceDiskEvent()\n{        \n    // Receive next byte from the selected drive\n    transferByte();\n    \n'
+     '    // Schedule next event\n    scheduleNextDiskEvent();\n}\n',
+     'void\nDiskController::serviceDiskEvent()\n{\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the held-back events before this one run first, in order.\n'
+     '    if (rrLazy) {\n'
+     '        rrReplay(agnus.clock, false);\n'
+     '        rrLazy = false;\n'
+     '        rrCounts[1]++;\n'
+     '    }\n\n'
+     '    // Receive next byte from the selected drive\n    transferByte();\n    \n'
+     '    // Schedule next event\n    scheduleNextDiskEvent();\n\n'
+     '    // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    rrEnter();\n}\n\n'
+     '// Retro-Recomp modification (MPL-2.0, like this file): the idle controller caught up (DiskController.h).\n'
+     'bool\nDiskController::rrIdle() const\n{\n'
+     '    return selected < 0 && state == DriveDmaState::OFF && dataReg == 0 && dsksync != 0 && !config.autoDskSync && !turboMode();\n'
+     '}\n\n'
+     '// Hold back the events after the one just scheduled, up to the frame\'s end (a lower bound of it) and at most 64.\n'
+     'void\nDiskController::rrEnter()\n{\n'
+     '    if (!rrLazyOn || agnus.rrFrameEnding || !rrIdle()) return;\n'
+     '    const Cycle first = agnus.trigger[SLOT_DSK];\n'
+     '    // The host frame ends at the first instruction after HSYNC of line 0 ($12): a lower bound of the distance to it.\n'
+     '    const isize h = agnus.pos.h, v = agnus.pos.v;\n'
+     '    const isize ahead = (v == 0 && h < 0x12) ? 0x12 - h : agnus.pos.hCnt() - h + (agnus.pos.vMax() - v) * 227 + 0x12;\n'
+     '    const Cycle bound = agnus.clock + DMA_CYCLES(ahead - 1);\n'
+     '    const double delay = rrDiskDelay();\n'
+     '    double d = dskEventDelay;\n'
+     '    Cycle t = first;\n'
+     '    isize m = 1;\n'
+     '    while (m < 64) {\n'
+     '        d += delay;\n'
+     '        const double rounded = round(d);\n'
+     '        d -= rounded;\n'
+     '        const Cycle next = rrAt(t) + Cycle(rounded);\n'
+     '        if (rrAt(next) > bound) break;\n'
+     '        t = next;\n'
+     '        m++;\n'
+     '    }\n'
+     '    if (m < 2) return;\n'
+     '    rrLazy = true;\n'
+     '    rrNext = first;\n'
+     '    rrLeft = m - 1 - (rrFault == 1 ? 1 : 0);\n'
+     '    agnus.scheduleAbs<SLOT_DSK>(t, DSK_ROTATE);\n'
+     '    rrCounts[0]++;\n'
+     '    rrCounts[3] += u64(m - 1);\n'
+     '}\n\n'
+     '// An event triggered at t runs at the first colour clock of Agnus at or after t, and the next one is scheduled from there.\n'
+     'Cycle\nDiskController::rrAt(Cycle t) const\n{\n'
+     '    return t + (((agnus.clock - t) % DMA_CYCLES(1)) + DMA_CYCLES(1)) % DMA_CYCLES(1);\n'
+     '}\n\n'
+     '// The held-back events up to a colour clock, each as vAmiga runs it: the byte, then the delay to the next one.\n'
+     'void\nDiskController::rrReplay(Cycle upTo, bool inclusive)\n{\n'
+     '    while (rrLeft > 0 && (rrAt(rrNext) < upTo || (inclusive && rrAt(rrNext) == upTo))) {\n'
+     '        transferByte();\n'
+     '        dskEventDelay += rrDiskDelay();\n'
+     '        const double rounded = round(dskEventDelay);\n'
+     '        dskEventDelay -= rounded;\n'
+     '        rrNext = rrAt(rrNext) + Cycle(rounded);\n'
+     '        rrLeft--;\n'
+     '    }\n'
+     '}\n\n'
+     '// The controller\'s state and its slot, for the self-test\'s diagnostics.\n'
+     'void\nDiskController::rrDebug(char *out, isize size) const\n{\n'
+     '    snprintf(out, size_t(size), "delay=%.17g incoming=%04x dataReg=%04x count=%d fifo=%llx fifoCount=%d sync=%lld counter=%ld "\n'
+     '             "lazy=%d next=%lld left=%ld trigger=%lld sec=%lld nextTrigger=%lld", dskEventDelay, incoming, dataReg, dataRegCount,\n'
+     '             (unsigned long long)fifo, fifoCount, (long long)syncCycle, (long)syncCounter, rrLazy, (long long)rrNext, (long)rrLeft,\n'
+     '             (long long)agnus.trigger[SLOT_DSK], (long long)agnus.trigger[SLOT_SEC], (long long)agnus.nextTrigger);\n'
+     '}\n\n'
+     '// Something may see the controller (its registers, the drive select): the events before now run, the next one is scheduled.\n'
+     'void\nDiskController::rrBarrier()\n{\n'
+     '    if (!rrLazy) return;\n'
+     '    rrReplay(agnus.clock, !agnus.rrInEvents);\n'
+     '    rrLazy = false;\n'
+     '    if (rrLeft > 0) agnus.scheduleAbs<SLOT_DSK>(rrNext, DSK_ROTATE);\n'
+     '    rrLeft = 0;\n'
+     '    rrCounts[2]++;\n'
+     '}\n'),
+    ('Components/Paula/DiskController/DiskControllerEvents.cpp',
+     '    static constexpr double bytesPerTrack = 12668.0;\n\n    // How many revolutions per minute are we supposed to achieve?\n',
+     '    // Retro-Recomp modification (MPL-2.0, like this file): the delay is computed in rrDiskDelay, the same statements.\n'
+     '    const double delay = rrDiskDelay();\n'
+     '    dskEventDelay += delay;\n'
+     '    double rounded = round(dskEventDelay);\n'
+     '    dskEventDelay -= rounded;\n\n'
+     '    if (turboMode()) {\n'
+     '        agnus.cancel<SLOT_DSK>();\n'
+     '    } else {\n'
+     '        agnus.scheduleRel<SLOT_DSK>(Cycle(rounded), DSK_ROTATE);\n'
+     '    }\n'
+     '}\n\n'
+     'double\nDiskController::rrDiskDelay()\n{\n'
+     '    static constexpr double bytesPerTrack = 12668.0;\n\n'
+     '    // How many revolutions per minute are we supposed to achieve?\n'),
+    ('Components/Paula/DiskController/DiskControllerEvents.cpp',
+     '    dskEventDelay += delay;\n    double rounded = round(dskEventDelay);\n    dskEventDelay -= rounded;\n\n'
+     '    if (turboMode()) {\n        agnus.cancel<SLOT_DSK>();\n    } else {\n'
+     '        agnus.scheduleRel<SLOT_DSK>(Cycle(rounded), DSK_ROTATE);\n    }\n}\n\n}\n',
+     '    return delay;\n}\n\n}\n'),
+    ('Components/Paula/DiskController/DiskControllerEvents.cpp',
+     '    dskEventDelay = 0.0;\n',
+     '    dskEventDelay = 0.0;\n'
+     '    rrLazy = false;   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     '    rrLeft = 0;\n'),
+] + [
+    ('Components/Paula/DiskController/DiskControllerRegs.cpp', head,
+     head + '    rrBarrier();   // Retro-Recomp modification (MPL-2.0, like this file): the held-back disk events first\n\n')
+    for head in ('DiskController::pokeDSKLEN(u16 value)\n{\n', 'DiskController::pokeDSKDAT(u16 value)\n{\n', 'DiskController::peekDSKBYTR()\n{\n',
+                 'DiskController::pokeDSKSYNC(u16 value)\n{\n', 'DiskController::PRBdidChange(u8 oldValue, u8 newValue)\n{\n')
+] + [
+    # The CPU's bus accesses as the model sees them (class of the address; custom and CIA accesses are its synchronisations).
+    ('Components/CPU/CPU.cpp', head,
+     head + '#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     f'    RrBus::cpuAccess(agnus, addr, {write});\n#endif\n')
+    for head, write in (('Moira::read8(u32 addr) const\n{\n', 0), ('Moira::read16(u32 addr) const\n{\n', 0), ('Moira::read32(u32 addr) const\n{\n', 0),
+                        ('Moira::write8(u32 addr, u8 val) const\n{\n', 1), ('Moira::write16(u32 addr, u16 val) const\n{\n', 1),
+                        ('Moira::write32(u32 addr, u32 val) const\n{\n', 1))
+] + [
+    # And after it: a custom register or CIA access is complete, what it scheduled is known.
+    ('Components/CPU/CPU.cpp', f'    return mem.peek{size}<Accessor::CPU>(addr);\n',
+     f'#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n'
+     f'    const auto rrValue = mem.peek{size}<Accessor::CPU>(addr);\n    RrBus::cpuDone(agnus);\n    return rrValue;\n'
+     f'#else\n    return mem.peek{size}<Accessor::CPU>(addr);\n#endif\n')
+    for size in (8, 16, 32)
+] + [
+    ('Components/CPU/CPU.cpp', f'    mem.poke{size} <Accessor::CPU> (addr, val);\n',
+     f'    mem.poke{size} <Accessor::CPU> (addr, val);\n'
+     f'#ifdef RR_AMIGA_SHADOW   // Retro-Recomp modification (MPL-2.0, like this file)\n    RrBus::cpuDone(agnus);\n#endif\n')
+    for size in (8, 16, 32)
 ]
 
 # What a routine checks at each slot: the bits of BLTCON0 and BLTCON1 that make a shape, all but the two shift fields, which it reads live. amiga_codegen keys its shapes on these.

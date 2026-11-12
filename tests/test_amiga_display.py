@@ -96,5 +96,20 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(selftest.compare(a, b), {'at': 'frame', 'frame': 0, 'parts': ['chip'], 'rows': [1], 'row_count': 1})
 
 
+class ReportCountTests(unittest.TestCase):
+    """The counters a session writes (rr_amiga_write_display) as the report names them; a run without the idle disk and sprite counters reads 0."""
+    def test_the_counters_are_named_in_the_report(self):
+        sys.path.insert(0, str(ROOT))
+        from retrorecomp.amiga_conversion import display_counts
+        run = {'agnus_denise': {'bitplane_lines': [10, 2, 1], 'bitplane_words': [400, 8], 'line_pass': [9, 3], 'disk_idle': [5, 3, 2, 120],
+                                'sprite_slots_left_out': 77}}
+        counts = display_counts(run)
+        self.assertEqual((counts['bitplane_lines_given_back'], counts['visible_lines_general_pass']), (1, 3))
+        self.assertEqual((counts['disk_idle_batches'], counts['disk_idle_batches_at_event'], counts['disk_idle_batches_at_barrier'],
+                          counts['disk_events_held_back'], counts['sprite_slot_events_left_out']), (5, 3, 2, 120, 77))
+        older = display_counts({'agnus_denise': {'bitplane_lines': [1, 0, 0], 'bitplane_words': [1, 0], 'line_pass': [1, 0]}})
+        self.assertEqual((older['disk_idle_batches'], older['disk_events_held_back'], older['sprite_slot_events_left_out']), (0, 0, 0))
+
+
 if __name__ == '__main__':
     unittest.main()

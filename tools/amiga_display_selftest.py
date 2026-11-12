@@ -14,6 +14,11 @@ once with every line on vAmiga's events and line pass (`--per-slot`, steps 2 and
 lines batched and passed in one loop (Denise step 3) are counted. With
 `--against EXE` the second run is a checks program built before a change (side A). Either way an injected fault (a bit of chip RAM, one
 colour clock) must be seen and placed. This shows that two runs agree, not that either matches the hardware.
+
+The checks program is built with stage 7's bus model in shadow (`native/amiga_machine/amiga_bus.h`): every line's table of slots is
+compared with vAmiga's bus owners and every CPU bus wait the table can predict with the wait vAmiga gave; both must be equal on every
+scenario, and each fault planted in the model (`SHADOW_FAULTS`) must be seen. About half the scenarios run with interrupts on and a CIA-B
+TOD alarm; programs race their own blits, rewrite sprite data and the Copper's list while they are fetched.
 """
 from __future__ import annotations
 
@@ -40,6 +45,7 @@ BITMAP = 0x10000          # six planes of 0x8000 bytes
 SCRATCH = 0x40000         # blits beside the display, random data read back
 SCRATCH_END = 0x7F000
 UNTOUCHED = 0x7F800       # never written by a scenario: where the injected RAM fault goes
+HANDLER = 0x0F00          # the interrupt handler (scenarios with interrupts on)
 UNMAPPED = 0x200000       # no fast RAM in this machine: an open bus
 SLOW = 0xC00000           # slow RAM, on Agnus's bus
 
@@ -48,7 +54,12 @@ DMACONR, VPOSR, VHPOSR, JOY0DAT, CLXDAT = 0x002, 0x004, 0x006, 0x00A, 0x00E
 BLTCON0, BLTCON1, BLTAFWM, BLTALWM, BLTCPT, BLTBPT, BLTAPT, BLTDPT, BLTSIZE = 0x040, 0x042, 0x044, 0x046, 0x048, 0x04C, 0x050, 0x054, 0x058
 BLTCMOD, BLTBMOD, BLTAMOD, BLTDMOD = 0x060, 0x062, 0x064, 0x066
 COP1LC, COPJMP1, DIWSTRT, DIWSTOP, DDFSTRT, DDFSTOP, DMACON, CLXCON, INTENA, INTREQ = 0x080, 0x088, 0x08E, 0x090, 0x092, 0x094, 0x096, 0x098, 0x09A, 0x09C
+CIAB_TODLO, CIAB_TODMID, CIAB_TODHI, CIAB_ICR, CIAB_CRB = 0xBFD800, 0xBFD900, 0xBFDA00, 0xBFDD00, 0xBFDF00
+CIAA_ICR = 0xBFED01
 BPLPT, SPRPT = 0x0E0, 0x120
+DSKBYTR, DSKLEN, DSKSYNC = 0x01A, 0x024, 0x07E
+VPOSW, BEAMCON0 = 0x02A, 0x1DC
+CIAB_PRB = 0xBFD100
 BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, BPL1DAT, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x110, 0x180
 
 
@@ -123,6 +134,13 @@ class Assembler:
         self.move_w_abs_d(0xDFF000 + VHPOSR, 6)
         self.w(0xE04E, 0x0C46, line & 0xFF)
         self.w(0x6500 | ((top - (self.here + 2)) & 0xFF))
+
+    def wait_v8(self, set_: bool) -> None:
+        """btst #0,$dff005 ; beq.s back (or bne.s): until VPOSR's V8 is set (or clear)."""
+        top = self.here
+        self.w(0x0839, 0x0000)
+        self.l(0xDFF000 + VPOSR + 1)
+        self.w((0x6700 if set_ else 0x6600) | ((top - (self.here + 2)) & 0xFF))
 
     def data(self) -> bytes:
         return b''.join(struct.pack('>H', word) for word in self.words)
@@ -212,6 +230,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     regions.append((NULL_SPRITE, bytes(4)))
 
     copper = []
+    colour_words = []                               # chip addresses of the Copper's colour values, rewritten while it runs
     line = 0x20
     safe = [COLOR + 2 * n for n in range(32)] + [BPLCON1] * 6 + [BPLCON2, BPL1MOD, BPL2MOD] + [BPLPT + 2 + 4 * n for n in range(planes)]
     while line < 0xF0:
@@ -231,6 +250,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
                 value = modulo() & 0xFFFF
             else:
                 value = r.randrange(0x1000)
+                colour_words.append(COPPER + 2 * (len(copper) + 1))
             copper += [register, value]
     copper += [0xFFFF, 0xFFFE]
     regions.append((COPPER, struct.pack(f'>{len(copper)}H', *copper)))
@@ -251,6 +271,25 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     a.move_w_imm_abs(0, custom(COPJMP1))
     blitter_on = r.random() < 0.8
     a.move_w_imm_abs(0x8000 | 0x0200 | 0x0100 | 0x0080 | 0x0020 | (0x0040 if blitter_on else 0), custom(DMACON))
+    # Stage 7's barriers: about half the scenarios run with interrupts on (VERTB, the Blitter's end, the CIAs), and CIA-B's TOD alarm
+    # set a few lines ahead, so that an interrupt lands inside long bus accesses and on the TOD pulse. The handler clears every source.
+    interrupts = r.random() < 0.5
+    if interrupts:
+        handler = Assembler(HANDLER)
+        handler.move_w_imm_abs(0x7FFF, custom(INTREQ))
+        handler.w(0x4A39)                                    # tst.b CIA-A ICR
+        handler.l(CIAA_ICR)
+        handler.w(0x4A39)                                    # tst.b CIA-B ICR
+        handler.l(CIAB_ICR)
+        handler.w(0x4E73)                                    # rte
+        regions.append((HANDLER, handler.data()))
+        regions.append((0x64, struct.pack('>7I', *[HANDLER] * 7)))
+        for value, address in ((0x00, CIAB_CRB), (0x00, CIAB_TODHI), (0x00, CIAB_TODMID), (0x00, CIAB_TODLO), (0x80, CIAB_CRB),
+                               (0x00, CIAB_TODHI), (0x00, CIAB_TODMID), (r.randrange(8, 200), CIAB_TODLO), (0x00, CIAB_CRB), (0x84, CIAB_ICR)):
+            a.w(0x13FC, value)
+            a.l(address)
+        a.move_w_imm_abs(0xC000 | 0x2000 | 0x0040 | 0x0020 | 0x0008, custom(INTENA))
+        a.w(0x46FC, 0x2000)                                  # move.w #$2000,sr
 
     body = a.here
     reads = 0
@@ -271,6 +310,8 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
                 value = 0x8000 | bit
             elif register in (DDFSTRT, DDFSTOP):
                 value = (ddf[0] if register == DDFSTRT else ddf[1]) + r.choice((0, 0, 4, -4, 8, -8))
+                if r.random() < 0.25:                          # anywhere: before the hardware start, past the hardware stop, odd
+                    value = r.randrange(0x08, 0xF0) & (0xFF if r.random() < 0.2 else 0xFE)
             elif register in (DIWSTRT, DIWSTOP):
                 value = (diwstrt if register == DIWSTRT else diwstop) + r.choice((0, 0, 1, -1, 0x0100, -0x0100))
             elif register in (BPL1MOD, BPL2MOD):
@@ -320,6 +361,12 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
             for register in (BLTAMOD, BLTBMOD, BLTCMOD, BLTDMOD):
                 a.move_w_imm_abs(r.choice((0, 2, 8, 38)), custom(register))
             a.move_w_imm_abs(r.randrange(2, 24) << 6 | r.randrange(1, 12), custom(BLTSIZE))
+            for _ in range(r.choice((0, 0, 1, 2, 3))):          # the CPU racing the blit it just started
+                if r.random() < 0.5:
+                    a.move_w_abs_d(destination + (r.randrange(0, 0x200) & ~1), d)
+                    reads += 1
+                else:
+                    a.move_w_imm_abs(r.randrange(0x10000), destination + (r.randrange(0, 0x200) & ~1))
         elif kind < 0.865:
             # A read of a write-only register: the chip writes the last value of the data bus into it (often a bitplane word).
             a.move_w_abs_d(custom(r.choice((BPL1MOD, BPL2MOD, BPLCON1, COLOR + 2 * r.randrange(32)))), d)
@@ -329,10 +376,29 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
         elif kind < 0.895:
             n = r.randrange(planes)
             a.move_l_imm_abs(plane(n) + (r.randrange(0, 0x6000) & ~1), custom(BPLPT + 4 * n))
-        elif kind < 0.94:
+        elif kind < 0.915:
             a.moveq(r.randrange(1, 120), 7)
             loop = a.here
             a.dbra(7, loop)
+        elif kind < 0.93 and live:
+            n = r.choice(live)                                     # a sprite's data rewritten under its fetch
+            a.move_w_imm_abs(r.randrange(0x10000), SPRITES + n * 0x200 + 4 + (r.randrange(0, 0x40) & ~1))
+        elif kind < 0.945 and colour_words:
+            a.move_w_imm_abs(r.randrange(0x1000), r.choice(colour_words))   # the Copper's list rewritten while it runs
+        elif kind < 0.96:
+            # The disk controller, idle or not (stage 7 holds its idle events back): DSKBYTR read, DSKSYNC (zero now and then), the
+            # drive select and motor lines of CIA-B, DSKLEN with DMA off.
+            what = r.random()
+            if what < 0.4:
+                a.move_w_abs_d(custom(DSKBYTR), d)
+                reads += 1
+            elif what < 0.6:
+                a.move_w_imm_abs(r.choice((0x4489, 0x4489, 0x4489, r.randrange(1, 0x10000), 0)), custom(DSKSYNC))
+            elif what < 0.85:
+                a.w(0x13FC, r.choice((0xFF, 0xFF, 0xF7, 0x77, 0x7F)))      # move.b #v,CIA-B PRB: none, df0, df0 with motor
+                a.l(CIAB_PRB)
+            else:
+                a.move_w_imm_abs(0, custom(DSKLEN))
         else:
             a.wait_line(r.randrange(0x10, 0xF8))
     a.bra_w(body)
@@ -340,14 +406,42 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900) -> Scenario:
     if PROGRAM + len(program) > COPPER:
         raise ValueError('The scenario program is too long.')
     regions.insert(0, (PROGRAM, program))
-    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on,
+    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on, 'interrupts': interrupts,
                'ddf': [hex(ddf[0]), hex(ddf[1])], 'program_bytes': len(program), 'copper_words': len(copper)}
     return Scenario(seed, ntsc, frames, regions, fault_address, summary)
+
+
+# Frames cut short at their end, where the session takes quick states (stage 7, checkpoint 3): the idle disk controller holds its
+# events back up to a bound of the frame's end read when a batch starts. Each frame starts long and PAL; near its end the program
+# clears LOF through VPOSW (one line less) or switches BEAMCON0 to NTSC (the frame ends at line 262), after a batch has started.
+FRAME_END_KINDS = {'lof': (VPOSW, 0x8000, 0x0001, 0x36), 'ntsc': (BEAMCON0, 0x0020, 0x0000, 0x05)}
+FRAME_END_FRAMES, FRAME_END_STATE = 6, ('1', '3')   # a quick state taken at the end of frame 1, loaded back at the end of frame 3
+
+
+def frame_end_scenario(kind: str) -> Scenario:
+    """An idle disk controller, sprite DMA with empty sprites, and every frame cut short near its end (FRAME_END_KINDS)."""
+    register, first, last, line = FRAME_END_KINDS[kind]
+    a = Assembler(PROGRAM)
+    a.move_w_imm_abs(0x8220, 0xDFF000 + DMACON)                # DMAEN and SPREN: the idle sprites' slots are left out too
+    for n in range(8):
+        a.move_l_imm_abs(NULL_SPRITE, 0xDFF000 + SPRPT + 4 * n)
+    top = a.here
+    a.wait_v8(False)
+    a.wait_line(0x20)
+    a.move_w_imm_abs(first, 0xDFF000 + register)               # a long PAL frame again
+    a.wait_v8(True)
+    a.wait_line(line)                                           # line $136 (PAL, LOF) or $105 (then NTSC)
+    a.move_w_imm_abs(last, 0xDFF000 + register)
+    a.bra_w(top)
+    regions = [(PROGRAM, a.data()), (NULL_SPRITE, bytes(4))]
+    return Scenario(0, False, FRAME_END_FRAMES, regions, UNTOUCHED, {'frame_end': kind})
 
 
 # Records: "RRDR", version, frames, rows; per frame 12 u64 (instructions so far, Agnus, Denise, Paula, CIA-A, CIA-B, CPU, chip RAM,
 # slow RAM, sound, CLXDAT, Agnus's clock) and one u64 per texture row; then the instruction count and one u64 per instruction.
 FRAME_FIELDS = ('instructions', 'agnus', 'denise', 'paula', 'cia_a', 'cia_b', 'cpu', 'chip', 'slow', 'sound', 'clxdat', 'clock')
+# Version 2 adds a 13th: every line's bus owners, hashed (stage 7's shadow builds; 0 in a build without the model).
+FRAME_FIELDS_2 = FRAME_FIELDS + ('owners',)
 
 
 def read_record(path: Path) -> dict:
@@ -355,13 +449,14 @@ def read_record(path: Path) -> dict:
     if data[:4] != b'RRDR':
         raise ValueError(f'{path} is not a record.')
     version, frames, rows = struct.unpack_from('<3I', data, 4)
-    if version != 1:
+    if version not in (1, 2):
         raise ValueError(f'{path}: record version {version}.')
+    names = FRAME_FIELDS if version == 1 else FRAME_FIELDS_2
     at = 16
     out = []
     for _ in range(frames):
-        fields = dict(zip(FRAME_FIELDS, struct.unpack_from('<12Q', data, at)))
-        at += 96
+        fields = dict(zip(names, struct.unpack_from(f'<{len(names)}Q', data, at)))
+        at += 8 * len(names)
         fields['rows'] = list(struct.unpack_from(f'<{rows}Q', data, at))
         at += 8 * rows
         out.append(fields)
@@ -379,7 +474,8 @@ def compare(a: dict, b: dict) -> dict | None:
     if len(a['steps']) != len(b['steps']):
         return {'at': 'instruction', 'index': min(len(a['steps']), len(b['steps'])), 'frame': None}
     for n, (x, y) in enumerate(zip(a['frames'], b['frames'])):
-        parts = [name for name in FRAME_FIELDS if x[name] != y[name]]
+        # The owners are compared only when both records have them (a build before stage 7 writes version 1).
+        parts = [name for name in FRAME_FIELDS_2 if name in x and name in y and x[name] != y[name]]
         rows = [i for i, (p, q) in enumerate(zip(x['rows'], y['rows'])) if p != q]
         if parts or rows:
             return {'at': 'frame', 'frame': n, 'parts': parts, 'rows': rows[:20], 'row_count': len(rows)}
@@ -405,6 +501,10 @@ foreach(RR_TARGET VACore rvlib utlib)
         set_property(TARGET ${{RR_TARGET}} PROPERTY INTERFACE_COMPILE_OPTIONS "")
     endif()
 endforeach()
+# Stage 7's bus model in shadow (amiga_bus.h): compiled into the Core of this program only, never into a game.
+target_compile_definitions(VACore PUBLIC RR_AMIGA_SHADOW=1)
+target_include_directories(VACore PUBLIC "{machine}")
+target_sources(VACore PRIVATE "{machine}/amiga_bus.cpp")
 add_executable(amiga_display_checks "{machine}/amiga_display_checks.cpp")
 target_link_libraries(amiga_display_checks PRIVATE VACore)
 if(WIN32)
@@ -426,6 +526,26 @@ def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
     return json.loads(next(line for line in result.stdout.splitlines() if line.startswith('{')))
 
 
+# Faults planted in stage 7's bus model (amiga_bus.cpp, `--shadow-fault N`): each must make the model disagree with vAmiga somewhere.
+SHADOW_FAULTS = {1: 'refresh at $E2 on a long line', 2: 'audio slots two clocks late', 3: 'bitplane slots given to the wrong plane',
+                 4: 'a change of plan inside the line ignored', 5: 'sprite slots outside the sprite area', 6: 'a conditional slot taken for free',
+                 7: 'a static wait one clock long', 9: 'our own bitplane plan one fetch unit short'}
+
+
+def add_bus(total: dict, bus: dict) -> None:
+    """Sums the model's figures of several runs (numbers, lists and dicts of them)."""
+    for key, value in bus.items():
+        if key in ('first', 'fault'):
+            continue
+        if isinstance(value, dict):
+            add_bus(total.setdefault(key, {}), value)
+        elif isinstance(value, list):
+            have = total.setdefault(key, [0] * len(value))
+            total[key] = [x + y for x, y in zip(have, value)]
+        else:
+            total[key] = total.get(key, 0) + value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--scenarios', type=int, default=SCENARIOS)
@@ -444,13 +564,24 @@ def main() -> int:
     failures, seen, placed, instructions = [], 0, 0, 0
     lines = [0, 0, 0]
     quiet = [0, 0]
+    bus_total: dict = {}
+    scenario_files = []
+    disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
+    sprite_left_out, sprite_controls, sprite_seen = 0, 0, 0
     for n in range(arguments.scenarios):
         seed = arguments.seed * 1000 + n
         scenario = generate(seed, arguments.frames)
         path = runs / f'scenario-{seed}.bin'
         scenario.write(path)
         first = play(program, path, runs / f'{seed}-a.rec')
-        play(arguments.against or program, path, runs / f'{seed}-b.rec', *(() if arguments.against else ('--per-slot',)))
+        second = play(arguments.against or program, path, runs / f'{seed}-b.rec', *(() if arguments.against else ('--per-slot',)))
+        scenario_files.append(path)
+        # Stage 7's model in shadow: its table and its predicted waits equal vAmiga's on both runs.
+        for run_name, result in (('batched', first), ('per_slot', second)):
+            if 'bus_mismatches' in result and result['bus_mismatches']:
+                failures.append({'seed': seed, 'bus': run_name, 'mismatches': result['bus_mismatches'], 'first': result['bus'].get('first', [])[:6]})
+        if 'bus' in first:
+            add_bus(bus_total, first['bus'])
         lines = [n + m for n, m in zip(lines, first.get('lines', (0, 0, 0)))]
         quiet = [n + m for n, m in zip(quiet, first.get('quiet', (0, 0)))]
         a, b = read_record(runs / f'{seed}-a.rec'), read_record(runs / f'{seed}-b.rec')
@@ -467,11 +598,61 @@ def main() -> int:
             placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
             if found is None:
                 failures.append({'seed': seed, 'fault': kind, 'missed': True})
-        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet')}), flush=True)
+        # Stage 7's idle-disk catch-up: one held-back event lost must change the records (where events were held back at all).
+        if first.get('disk', [0])[0]:
+            disk_controls += 1
+            play(program, path, runs / f'{seed}-disk.rec', '--disk-fault', '1')
+            if compare(a, read_record(runs / f'{seed}-disk.rec')) is None:
+                failures.append({'seed': seed, 'disk_fault': 1, 'missed': True})
+            else:
+                disk_seen += 1
+        disk = [n + m for n, m in zip(disk, first.get('disk', (0, 0, 0, 0)))]
+        sprite_left_out += first.get('sprite_slots_left_out', 0)
+        # Stage 7's idle sprites: an armed sprite taken for idle must change the records (where a sprite is shown at all).
+        if scenario.summary.get('sprites'):
+            sprite_controls += 1
+            play(program, path, runs / f'{seed}-sprite.rec', '--spr-fault', '1')
+            if compare(a, read_record(runs / f'{seed}-sprite.rec')) is None:
+                failures.append({'seed': seed, 'sprite_fault': 1, 'missed': True})
+            else:
+                sprite_seen += 1
+        print(json.dumps({**scenario.summary, 'instructions': first['instructions'], 'lines': first.get('lines'), 'quiet': first.get('quiet'), 'disk': first.get('disk')}), flush=True)
+    # Frames cut short at their end, with a quick state taken on one of them and loaded back two frames later: equal to the run with
+    # every disk event and sprite slot on vAmiga's scheduler; leaving out the run before the snapshot, or the clearing after the load,
+    # must be seen; and held-back events must have been run at a frame's end at all (else the scenario proves nothing).
+    frame_end = {}
+    if not arguments.against:
+        for kind in FRAME_END_KINDS:
+            path = runs / f'frame-end-{kind}.bin'
+            frame_end_scenario(kind).write(path)
+            first = play(program, path, runs / f'frame-end-{kind}-a.rec', '--state', *FRAME_END_STATE)
+            play(program, path, runs / f'frame-end-{kind}-b.rec', '--per-slot', '--state', *FRAME_END_STATE)
+            a = read_record(runs / f'frame-end-{kind}-a.rec')
+            row = {'equal': compare(a, read_record(runs / f'frame-end-{kind}-b.rec')) is None, 'disk': first.get('disk'),
+                   'sprite_slots_left_out': first.get('sprite_slots_left_out')}
+            for fault in (1, 2):
+                play(program, path, runs / f'frame-end-{kind}-f{fault}.rec', '--state', *FRAME_END_STATE, '--state-fault', str(fault))
+                row[f'fault_{fault}_seen'] = compare(a, read_record(runs / f'frame-end-{kind}-f{fault}.rec')) is not None
+            frame_end[kind] = row
+            if not (row['equal'] and row['fault_1_seen'] and row['fault_2_seen'] and (row['disk'] or [0, 0, 0])[2]):
+                failures.append({'frame_end': kind, **row})
     controls = 2 * (arguments.scenarios - sum(1 for f in failures if 'replay' in f))
+    # Planted faults of the model: each must be seen on at least one scenario.
+    model_faults = {}
+    if bus_total:
+        for kind, what in SHADOW_FAULTS.items():
+            model_faults[kind] = 0
+            for path in scenario_files:
+                found = play(program, path, runs / f'model-fault-{kind}.rec', '--shadow-fault', str(kind))
+                if found.get('bus_mismatches'):
+                    model_faults[kind] += 1
+            if not model_faults[kind]:
+                failures.append({'model_fault': kind, 'what': what, 'missed': True})
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
-                      'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'failures': failures[:10]}))
+                      'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
+                      'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
+                      'frame_end': frame_end, 'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
@@ -480,6 +661,19 @@ def main() -> int:
     print(f'Display self-test passed: {arguments.scenarios} scenarios of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
+    print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
+    print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
+          f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
+    for kind, row in frame_end.items():
+        print(f"Frames cut short at their end ({kind}), a quick state taken and loaded back: every record equal to the run with every event on "
+              f"vAmiga's scheduler, {row['disk'][2]} runs of held-back disk events at a barrier; leaving out the run before the snapshot "
+              f"and the clearing after the load both seen.")
+    if bus_total:
+        table = bus_total.get('table', {})
+        print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "
+              f"0 differences in the table and in {sum(v[0] for k, v in bus_total.get('waits', {}).items() if k in ('fast', 'static'))} predicted CPU waits; "
+              f"{len(model_faults)} planted faults of the model each seen (in {min(model_faults.values()) if model_faults else 0} to "
+              f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios} scenarios). Equal to vAmiga, not to the hardware.")
     return 0
 
 

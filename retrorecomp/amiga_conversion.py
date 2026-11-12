@@ -357,13 +357,17 @@ def blitter_counts(report: dict) -> dict:
 
 def display_counts(report: dict) -> dict:
     """Agnus's and Denise's counters of a run; both stay emulated. A batched line ran its bitplane slots behind barriers instead of one event each; a line given
-    back went on vAmiga's events from a change of its plan on. A line passed in one loop wrote its texture row without the separate translate pass."""
+    back went on vAmiga's events from a change of its plan on. A line passed in one loop wrote its texture row without the separate translate pass. An idle disk
+    controller's events were caught up in one batch, at their own instant or at a barrier; an idle sprite's slot events were left out (Paula and Agnus stay emulated)."""
     counts = report.get('agnus_denise') or {}
     lines = list(counts.get('bitplane_lines', (0, 0, 0)))
     words = list(counts.get('bitplane_words', (0, 0)))
     passes = list(counts.get('line_pass', (0, 0)))
+    disk = list(counts.get('disk_idle', (0, 0, 0, 0)))
     return {'bitplane_lines_batched': lines[0], 'bitplane_lines_on_events': lines[1], 'bitplane_lines_given_back': lines[2],
-            'bitplane_words_batched': words[0], 'bitplane_words_on_events': words[1], 'visible_lines_one_pass': passes[0], 'visible_lines_general_pass': passes[1]}
+            'bitplane_words_batched': words[0], 'bitplane_words_on_events': words[1], 'visible_lines_one_pass': passes[0], 'visible_lines_general_pass': passes[1],
+            'disk_idle_batches': disk[0], 'disk_idle_batches_at_event': disk[1], 'disk_idle_batches_at_barrier': disk[2], 'disk_events_held_back': disk[3],
+            'sprite_slot_events_left_out': counts.get('sprite_slots_left_out', 0)}
 
 
 def generate(project: Path, samples: list, table: Path, images: list = (), rom_images: list = (), reports=(), windows: list = ()) -> dict:
@@ -764,11 +768,15 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                 {'id': 'agnus_copper', 'kind': 'video_unit', 'mode': 'emulated',
                  'details': {'by': 'vAmiga', 'copper': 'not compiled (docs/AMIGA.md)',
                              'bitplane_slots': ("a line's bitplane slots run in a batch behind barriers when its plan allows it, else one event each: the same work at fewer "
-                                                "scheduled instants (final_checks.agnus_denise)")}},
+                                                "scheduled instants (final_checks.agnus_denise)"),
+                             'sprite_slots': ("a sprite whose DMA is off on a line that is not its stop line has its two slot events left out of that line; a write "
+                                              "to its SPRxPOS or SPRxCTL puts them back for the rest of the line: the same work (final_checks.agnus_denise)")}},
                 {'id': 'denise', 'kind': 'video_unit', 'mode': 'emulated',
                  'details': {'by': 'vAmiga', 'line_pass': ('a quiet line (no sprite, no BPLCON change, no HAM, no super-hires) writes its row in one loop, '
                                                            'else vAmiga\'s line pass (final_checks.agnus_denise)')}},
-                {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated', 'details': {'by': 'vAmiga'}}],
+                {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated',
+                 'details': {'by': 'vAmiga', 'disk': ("an idle disk controller's events are caught up in one batch, at the last one's instant or earlier when something "
+                                                      "could see the controller (its registers, the CIA-B drive select and motor): the same work (final_checks.agnus_denise)")}}],
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
                               'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
