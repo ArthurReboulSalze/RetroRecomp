@@ -115,7 +115,7 @@ def compose(captures: list[Path], out: Path) -> Path:
 
 # Files of native/ a PC Engine game is built from beside the host kit (hostkit.stage) and the feedback recorder
 # (feedback.stage): the bridge to the engine, the game's entry, the quick-state file of the 16-bit family, the menu.
-GAME_FILES = ('pce_main.c', 'pce_machine.cpp', 'pce_machine.h', 'pce_backup.c', 'pce_backup.h', 'console16_state.c', 'console16_state.h',
+GAME_FILES = ('pce_main.c', 'pce_machine.cpp', 'pce_machine.h', 'pce_backup.c', 'pce_backup.h', 'cart_save.c', 'cart_save.h', 'console16_state.c', 'console16_state.h',
               'console16_video.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c',
               'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
               'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
@@ -179,7 +179,7 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set_target_properties(pce_module PROPERTIES CXX_EXTENSIONS OFF)',
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
-        f'add_executable(game pce_main.c pce_machine.cpp pce_backup.c {kit} console16_state.c retro_menu.c',
+        f'add_executable(game pce_main.c pce_machine.cpp pce_backup.c cart_save.c {kit} console16_state.c retro_menu.c',
         '  $<TARGET_OBJECTS:pce_module>)',
         'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
         'if(WIN32)', '  target_sources(game PRIVATE content.rc)',

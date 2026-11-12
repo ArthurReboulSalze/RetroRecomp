@@ -777,9 +777,15 @@ class BackupRamCheckTests(TempFiles):
         self.assertEqual((1, 2048), (int.from_bytes(data[8:12], 'little'), int.from_bytes(data[12:16], 'little')))
         self.assertEqual(pce_conversion.fnv64(data[112:]), int.from_bytes(data[16:24], 'little'))
         self.assertEqual(self.SHA.encode(), data[40:104])
-        source = (Path(__file__).parents[1] / 'native/pce_backup.c').read_text(encoding='utf-8')
-        for fragment in ("'R', 'R', 'P', 'C', 'E', 'B', 'R', '1'", 'HEADER_BYTES = 112', 'header + 16', 'header + 20', 'header + 40'):
-            self.assertIn(fragment, source)
+        # The format is described in native/pce_backup.c (magic, no identity word, the hash at offset 16) and written by the
+        # shared native/cart_save.c (a header of 112 bytes, the ROM's SHA-256 at offset 40).
+        native = Path(__file__).parents[1] / 'native'
+        machine = (native / 'pce_backup.c').read_text(encoding='utf-8')
+        shared = (native / 'cart_save.c').read_text(encoding='utf-8')
+        for fragment in ("'R', 'R', 'P', 'C', 'E', 'B', 'R', '1'", 'PCE_BACKUP_BYTES, 0, 16}'):
+            self.assertIn(fragment, machine)
+        for fragment in ('HEADER_BYTES = 112', 'header + 40', 'header + 8', 'header + 12', 'header + format->hash_offset'):
+            self.assertIn(fragment, shared)
 
     def test_the_formatted_memory_is_written_down_in_both_places(self):
         self.assertEqual(b'HUBM\x00\x88\x10\x80', pce_conversion.BACKUP_FORMATTED[:8])

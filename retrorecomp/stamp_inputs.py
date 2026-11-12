@@ -193,6 +193,9 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    # tools/cart_save_selftest.py (the cartridge save file of the Mega Drive, the Super Nintendo and the PC Engine, on each machine's own
+    # entry points with a stand-in memory): built for a check, never into a game.
+    'native/cart_save_checks.c',
     # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
     # never into a game (the folder's CMakeLists.txt does not build it).
     'native/amiga_machine/amiga_vector_checks.cpp',
@@ -468,6 +471,11 @@ INPUTS = _resolve({
         'retrorecomp.nes_ram',
         'retrorecomp.nes_runtime',
         'retrorecomp.nes_state_layout',
+    ),
+    # The cartridge save file the three machines with a battery or a backup unit share (the format of each is in its own *_battery.c / pce_backup.c). Game role.
+    ('md', 'snes', 'pce'): (
+        'native/cart_save.c',
+        'native/cart_save.h',
     ),
     ('md',): (
         'native/md_audio_bridge_checks.c',

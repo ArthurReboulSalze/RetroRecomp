@@ -136,7 +136,7 @@ find_package(SDL2 REQUIRED)
         rollback = runtime / 'runner/rb_state.c'
         rollback.write_text(megadrive_read.snapshot(megadrive_dma.snapshot(megadrive_fifo.snapshot(megadrive_sram.snapshot_source(rollback.read_text(encoding='utf-8'))))), encoding='utf-8')
         runner = (runtime / 'runner').as_posix()
-        for name in ('md_battery.h', 'md_battery.c', 'md_eeprom.h', 'md_cart.h', 'md_cart.inc'):
+        for name in ('cart_save.h', 'cart_save.c', 'md_battery.h', 'md_battery.c', 'md_eeprom.h', 'md_cart.h', 'md_cart.inc'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
         shutil.copy2(ASSETS / 'native/md_ym_timers.h', project / 'md_ym_timers.h')
         shutil.copy2(ASSETS / 'native/md_timing.h', project / 'md_timing.h')
@@ -268,7 +268,7 @@ find_package(SDL2 REQUIRED)
                           '"generated/*_part*.c" "generated/*_dispatch.c" "generated/*_layout.c"')
         step_sources = 'md_step_dispatch.c native/rb_state.c' if step_aot else ''
         common += f'''file(GLOB GENERATED CONFIGURE_DEPENDS {generated_glob})
-add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c md_backend.c md_battery.c
+add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c md_backend.c md_battery.c cart_save.c
   native/glue.c native/m68k_interp.c native/audio.c native/genesis_bus.c native/genesis_vdp.c
   native/genesis_machine.c native/z80_reference.c md_z80_runtime.c md_z80_generated.c
   native/sim_step.c native/ym2612_ymfm.cpp native/sn76489.c
@@ -298,7 +298,7 @@ endif()
         for name in ('snes_spc_native.h', 'snes_spc_runtime.c'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
         from .snes_cart import adapt_cart, adapt_loader, adapt_cpu
-        for name in ('snes_cart.h', 'snes_battery.h', 'snes_battery.c'):
+        for name in ('snes_cart.h', 'cart_save.h', 'cart_save.c', 'snes_battery.h', 'snes_battery.c'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
         (project / 'variables.h').write_text('/* No foreign game RAM aliases. */\n', encoding='ascii')
         # Upstream uses one GCC alignment annotation in its PPU header.
@@ -366,7 +366,7 @@ list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 # the host opens files with wide paths, so the engine's resource is left out: two manifests do not link.
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "snesrecomp_utf8_manifest\\.rc$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
-add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
+add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c cart_save.c
   ${{RESOURCE_SOURCES}} ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})

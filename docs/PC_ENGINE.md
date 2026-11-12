@@ -335,8 +335,8 @@ to the engine. It is a choice of our bridge, not something the pinned engine off
 
 **The file.** `datas/saves/<game>-<first 12 hex of the card's SHA-256>.rrsram`, 2,160 bytes: a 112-byte header (magic `RRPCEBR1`, version,
 size, FNV-1a hash of the memory, the card's SHA-256) and the memory. It is written atomically, two seconds after the game's last change and
-when the game closes. It belongs to the exact card and survives a rebuild of the game. `native/pce_backup.c` holds it, and `pce_main.c` asks
-it once per frame.
+when the game closes. It belongs to the exact card and survives a rebuild of the game. `native/pce_backup.c` holds it (the rules of the file are the shared `native/cart_save.c`, which the Mega Drive and the Super Nintendo
+use too), and `pce_main.c` asks it once per frame.
 
 **A file that cannot be used** (empty, cut, one byte too short or long, the raw memory without a header, another magic, version or size, a
 wrong hash, another card's) is renamed `<file>.unusable-N` unchanged, the game starts as if there were none, and a notice says so. If it cannot be

@@ -36,7 +36,7 @@ target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/W4>")
     source=runtime/'video/genesis_bus.c'
     source.write_text(megadrive_cart.bus(megadrive_memory.runtime_source(
         megadrive_sram.bus_source(source.read_text()),'bus')),encoding='utf-8')
-    for name in ('md_cart.h','md_cart.inc','md_eeprom.h','md_timing.h','md_battery.h','md_battery.c'):
+    for name in ('md_cart.h','md_cart.inc','md_eeprom.h','md_timing.h','md_battery.h','md_battery.c','cart_save.h','cart_save.c'):
         shutil.copy2(ROOT/'native'/name,bus_project/name)
     (bus_project/'retro_md_game.h').write_text('#define RR_MD_ROM_BYTES 0x200000u\n',encoding='ascii')
     (bus_project/'retro16_state_config.h').write_text(
@@ -49,7 +49,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 '''
     for kind in (1,2,3):
-        cmake_text+=f'''add_executable(bus{kind} fixture.c runtime/video/genesis_bus.c md_battery.c)
+        cmake_text+=f'''add_executable(bus{kind} fixture.c runtime/video/genesis_bus.c md_battery.c cart_save.c)
 target_include_directories(bus{kind} PRIVATE . runtime)
 target_compile_options(bus{kind} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 target_compile_definitions(bus{kind} PRIVATE RR_MD_EEPROM_KIND={kind} RR_MD_EEPROM_WIRING={kind})

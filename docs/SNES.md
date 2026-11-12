@@ -118,7 +118,7 @@ the SA-1 numbers of [SNES_LOG.md](SNES_LOG.md) and [UPGRADES.md](UPGRADES.md) st
 | `retrorecomp/snes_routes.py` | Authored host-input routes (seven routes for six exact Super FX cartridges), replayed from the Extended level |
 | `retrorecomp/systems/console16.py` | `SnesProfile`: id `snes`, stamp group `guns16`, devices `superfx`, `dsp1`, `cx4`, quick-state family `rr16`, `.sfc`/`.smc`, path sections `w65c816` and `spc700` |
 | `native/snes_backend.c`, `snes_bus.*`, `snes_cart.h`, `snes_dma.h`, `snes_hdma.inc`, `snes_ppu_bus.inc`, `snes_ppu_cache.inc`, `snes_timing.h` | Runtime: bus, cartridge, DMA/HDMA, PPU port and tile-row cache, timing |
-| `native/snes_native_steps.h`, `snes_spc_native.h`, `snes_spc_runtime.c`, `snes_battery.*`, `snes_dsp1_*` | Native step dispatch, SPC700 native and runtime, battery file, DSP-1 projection and vectors |
+| `native/snes_native_steps.h`, `snes_spc_native.h`, `snes_spc_runtime.c`, `snes_battery.*` and the shared `cart_save.*`, `snes_dsp1_*` | Native step dispatch, SPC700 native and runtime, battery file, DSP-1 projection and vectors |
 | `native/hostkit/adapters/rrhk_snes.c` | The Super Nintendo adapter of the host kit ([HOST_KIT.md](HOST_KIT.md)) |
 | `native/console16_*.c`, `gun16.*` | Shared with the Mega Drive (state, main, video, gun); Neo Geo and CPS-1 hosts compile `console16_state.c` |
 | `tools/snes_*_selftest.py` | Native, bus, cart, chip, DMA, HDMA, object, PPU bus and cache, RAM, scheduler, SPC700, timing, video and Super FX self-tests (the C checks are `native/snes_*_checks.c`, `native/snes_cpu/interrupt_checks.c`) |
