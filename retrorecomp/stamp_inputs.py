@@ -232,7 +232,11 @@ NOT_INPUTS = (
     'native/gba_vector_checks/',
     # tools/psx_vector_selftest.py (Beetle's R3000A interpreter, the native steps and its GTE against independent corpora): compiled with
     # Beetle's cpu.c for a check, never into a game.
-    'native/psx_vector_checks/')
+    'native/psx_vector_checks/',
+    # The MSX hardware checks (authored programs against the documented TMS9918A, PSG, PPI and mappers, run by tools/msx_reference.py): a check only.
+    'native/msx_machine/msx_hardware_checks.c',
+    # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
+    'native/msx_machine/msx2_checks_')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -374,6 +378,7 @@ INPUTS = _resolve({
         'native/scanline_sdl.h',
         'native/scanlines.h',
         'native/sms_sprite_probe.c',
+        'native/state_envelope.h',
         'native/state_io.h',
         'native/stereo_fir.h',
         'native/video_frame.h',
@@ -670,6 +675,38 @@ INPUTS = _resolve({
         'retrorecomp.atarist_hatari',
         'retrorecomp.atarist_tos',
     ),
+    # The MSX (experimental from 1.7.3): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),
+    # the machine (TMS9918A, AY-3-8910, PPI, slots, mappers, SCC: our own C), the glue of the banked Z80 chain, the player, the
+    # native and reference runners the conversion builds to learn and compare, C-BIOS's notice and the host-kit adapter (host
+    # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from
+    # stamp_groups.
+    # The MSX2 (stage 6) is the same machine with the V9938, the memory mapper and the clock: both profiles own every file.
+    ('msx', 'msx2'): (
+        'native/hostkit/adapters/rrhk_msx.inc',
+        'native/msx_machine/msx_cart.c',
+        'native/msx_machine/msx_glue.inc',
+        'native/msx_machine/msx_machine.c',
+        'native/msx_machine/msx_machine.h',
+        'native/msx_machine/msx_msx2.c',
+        'native/msx_machine/msx_native_main.c',
+        'native/msx_machine/msx_player.c',
+        'native/msx_machine/msx_psg.c',
+        'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_headless.inc',
+        'native/msx_machine/msx_route.inc',
+        'native/msx_machine/msx_state.c',
+        'native/msx_machine/msx_state_file.inc',
+        'native/msx_machine/msx_tiles.inc',
+        'native/msx_machine/msx_v9938.c',
+        'native/msx_machine/msx_v9938_cmd.c',
+        'native/msx_machine/msx_v9938_draw.c',
+        'native/msx_machine/msx_video.c',
+        'retrorecomp.msx_build',
+        'retrorecomp.msx_cbios',
+        'retrorecomp.msx_conversion',
+        'retrorecomp.msx_rom',
+        'retrorecomp.msx_routes',
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
@@ -867,6 +904,11 @@ INPUTS = _resolve({
         'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
+    # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
+    # the PC Engine and the MSX family call it.
+    ('pce', 'msx', 'msx2'): (
+        'retrorecomp.route_start',
+    ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
     # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
     ('psx',): (
@@ -950,7 +992,7 @@ INPUTS = _resolve({
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
     ),
-    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System and the Game Gear now): what a machine declares
+    # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).

@@ -64,3 +64,32 @@ def continuation_difference(timeline: Sequence, resumed: Sequence, start: int, l
     `start` (a resumed run of another length differs where the shorter one ends).
     """
     return first_difference(timeline[start:start + length], resumed)
+
+
+def check_quick_states(folder: Path, state: Path, *, machine: str, route: str, at: int, settle: int,
+                       continued: Callable[[], tuple[Sequence, Sequence]], refused: Callable[[Path], bool],
+                       damaged: Callable[[bytes], dict], error: Callable[[str], Exception]) -> dict:
+    """The fresh-process check of quick states (G6), lifted from the PC Engine on 12 November 2026 (STANDARDS rule 1).
+
+    `continued()` saves `state` at row `at` of `route` in one process and loads it in a new one; it returns (the
+    uninterrupted rows, the rows of the process that loaded it), which must agree for `settle` rows. Then every damaged copy
+    of the state (`damaged(bytes)`: label -> bytes, the machine's own list of offsets) is written in `folder` and must be
+    refused (`refused(path)`: the game's own exit code) and left byte for byte as it was; a missing state is refused and
+    creates nothing. `error(text)` makes the machine's exception, whose texts begin with `machine`."""
+    timeline, resumed = continued()
+    require(continuation_difference(timeline, resumed, at, settle) is None,
+            lambda: error(f'{machine} F9 continuation differs from its saved timeline; existing export preserved.'))
+    original = state.read_bytes()
+    variants = damaged(original)
+    for label, data in variants.items():
+        invalid = folder / f'invalid-{label}{state.suffix}'
+        invalid.write_bytes(data)
+        require(refused(invalid), lambda: error(f'{machine} accepted a damaged quick state ({label}).'))
+        require(invalid.read_bytes() == data, lambda: error(f'{machine} rewrote a quick state it refused ({label}).'))
+    missing = folder / f'missing{state.suffix}'
+    missing.unlink(missing_ok=True)
+    require(refused(missing), lambda: error(f'{machine} accepted a missing quick state.'))
+    require(not missing.exists(), lambda: error('Loading a missing quick state created a file.'))
+    return {'route': route, 'saved_at': at, 'continued_frames': settle, 'fresh_process_match': True,
+            'truncated_state_rejected': True, 'damaged_states_refused': sorted(variants),
+            'missing_state_creates_nothing': True, 'state_bytes': len(original)}

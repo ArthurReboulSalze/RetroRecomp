@@ -52,6 +52,14 @@ FIRMWARE_ROWS = {
     # The Atari ST TOS: a file or a folder like the Kickstart, but without a Check button (the conversion reads it by content).
     'atarist_tos': {'pady': (0, 8), 'title': 'label', 'filetypes': [('TOS', '*.img *.rom'), ('All files', '*.*')],
                     'resolve': True, 'folder': True},
+    # The MSX BIOS: one file (a 32 KiB main ROM), optional; without it the machine boots C-BIOS. No Check button (read by content).
+    'msx_bios': {'pady': (0, 8), 'title': 'label', 'filetypes': [('MSX BIOS', '*.rom *.bin'), ('All files', '*.*')],
+                 'resolve': True},
+    # The MSX2 BIOS pair: the main ROM and its 16 KiB sub-ROM, both optional; without them the machine boots C-BIOS's MSX2 images.
+    'msx2_bios': {'pady': (0, 8), 'title': 'label', 'filetypes': [('MSX2 BIOS', '*.rom *.bin'), ('All files', '*.*')],
+                  'resolve': True},
+    'msx2_subrom': {'pady': (0, 8), 'title': 'label', 'filetypes': [('MSX2 sub-ROM', '*.rom *.bin'), ('All files', '*.*')],
+                    'resolve': True},
 }
 
 

@@ -28,7 +28,7 @@ tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_se
 tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
-retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
+retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
 native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py
@@ -100,6 +100,14 @@ native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py test
 native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
+native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
+native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py tests/test_msx_rom.py tools/msx_first_read.py
+native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tests/test_msx_native.py
+retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
+native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc
+native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
+native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
+native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
@@ -445,7 +453,7 @@ native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
-native/gamestate.h native/gamestate.inc native/state_io.h native/psg_state.inc native/psg_runs.inc
+native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py

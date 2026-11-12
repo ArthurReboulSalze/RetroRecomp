@@ -3,12 +3,12 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation (the last five experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation · MSX · MSX2 (the last seven experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.7.2-d4a737" alt="Release version 1.7.2">
-  <img src="https://img.shields.io/badge/console_profiles-16-626262" alt="Sixteen machine profiles, and Adventure (ScummVM) as a category of its own">
+  <img src="https://img.shields.io/badge/console_profiles-17-626262" alt="Seventeen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -83,6 +83,8 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Atari ST](docs/ATARI_ST.md)\* | experimental | `█████░░░░░` 53 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
+| [MSX](docs/MSX.md) | experimental | `░░░░░░░░░░` 3 % |
+| [MSX2](docs/MSX.md) | experimental | `░░░░░░░░░░` 3 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
@@ -99,12 +101,12 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
 and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
-CPS-2 the key file of the romset). The Atari ST (a TOS) and the PlayStation (a BIOS) take your own as an option and have a free fallback. The Commodore Amiga takes your own Kickstart image, needed only by the installs that ask for one. What each machine converts, its options
+CPS-2 the key file of the romset). The Atari ST (a TOS), the PlayStation (a BIOS) and the MSX and the MSX2 (an MSX or MSX2 BIOS) take your own as an option and have a free fallback. The Commodore Amiga takes your own Kickstart image, needed only by the installs that ask for one. What each machine converts, its options
 and its limits are on its page.
 
 ### In development
 
-No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
+The **MSX** and the **MSX2** are in development: experimental profiles for MSX1 and MSX2 cartridges (the MSX2 with the V9938 command engine, timing approximated), translated by the shared Z80 chain and booted by C-BIOS or your own MSX BIOS, not in a release yet ([MSX.md](docs/MSX.md), [MSX2](docs/MSX.md#8-the-msx2-msx2)). No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
 
 Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

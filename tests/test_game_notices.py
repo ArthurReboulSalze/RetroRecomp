@@ -35,6 +35,7 @@ UPSTREAM_NOTICES = {
     'mupen64plus-next': ('licenses/mupen64plus-next.md',),
     'ScummVM': ('licenses/scummvm.md',),
     'FreeType': ('licenses/freetype.md',),
+    'C-BIOS': ('licenses/cbios.md',),                          # the MSX and MSX2: optional, in a game that boots it
 }
 # Upstreams a machine follows without compiling any of their code into its games, each with the reason
 # (retrorecomp/upstreams.py says the same in its `compiled` column or beside MACHINE_UPSTREAMS).

@@ -29,6 +29,8 @@ fallback stays counted and shown wherever it is used.
 | Atari ST | experimental (since 1.7.1) | the cause of Kick Off 2's stop on its protected tracks, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
+| MSX | experimental, in development (not in a release yet) | the panel and its qualification, MSX2, disks, FM-PAC and SRAM, the Linux witness |
+| MSX2 | experimental, in development (not in a release yet) | stage 7 (the V9938 command engine, timing approximated) is done; next stage 8, the panel on Windows, then its qualification, disks, FM-PAC, MSX2+, the Linux witness |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -153,6 +155,18 @@ a game played on Linux. The 64DD is out of scope today.
 
 Experimental since 1.7.1 ([PLAYSTATION.md](PLAYSTATION.md)): discs on Beetle PSX with native R3000A steps for the code the conversion saw run. Next:
 the owner's play of the panel discs, more discs, the Linux witness beyond one disc, and the mouse, multitap and light guns, which are out of scope today.
+
+### MSX
+
+In development as an experimental profile ([MSX.md](MSX.md)): MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16) booted by C-BIOS or the player's own
+BIOS, native Z80 code from the shared banked chain. Next: a panel of games and its qualification, the owner's play, the Linux witness, quick states. MSX2+ and the turbo R,
+disks, cassettes, FM-PAC and the SRAM mappers are out of scope today.
+
+### MSX2
+
+In development as a second experimental profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, a memory mapper and the
+RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. The V9938 command engine (stage 7) is done, timing approximated. Next: stage 8, the panel on Windows, then its qualification, the owner's play, the
+Linux witness. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
 
 ### Adventure games (ScummVM)
 

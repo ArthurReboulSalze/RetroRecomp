@@ -20,7 +20,7 @@ from pathlib import Path
 import shutil
 import time
 
-from . import __version__
+from . import __version__, route_start
 from .core import ConversionError
 from .pce_rom import read_hucard
 from .platforms import target_id
@@ -186,21 +186,10 @@ def trace_pictures(trace: Path) -> list:
 
 def stuck_stretch(pictures: list, rows: list, after: int = 0) -> tuple[int, int] | None:
     """The first stretch from the end of a pair (or of an extra press) to the next press or to the end of the route, starting at or
-    after `after`, in which the picture hardly changes: a pause the walk left on, a prompt or a screen that waits. None when none does."""
-    pressed = [row[0] for row in rows if row[1] & RUN]
-    pairs = [frame for frame in pressed if frame + PAIR_GAP in pressed]
-    if not pairs:
-        return None
-    seconds = {frame + PAIR_GAP for frame in pairs}
-    ends = sorted({frame + 6 for frame in pressed if frame in seconds or (frame > pairs[0] and frame not in pairs)})
-    for start in ends:
-        if start < after:
-            continue
-        end = next((frame for frame in pressed if frame > start), len(pictures))
-        length = end - start
-        if length >= STUCK_FRAMES and len(set(pictures[start:end])) <= STUCK_SHARE * length:
-            return start, end
-    return None
+    after `after`, in which the picture hardly changes: a pause the walk left on, a prompt or a screen that waits. None when none does.
+    The rule is shared (route_start.stuck_stretch); the PC Engine gives its Run presses and its thresholds."""
+    return route_start.stuck_stretch(pictures, [row[0] for row in rows if row[1] & RUN], pair_gap=PAIR_GAP,
+                                     stuck_frames=STUCK_FRAMES, stuck_share=STUCK_SHARE, after=after)
 
 
 def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, result: dict, play, emit, confirm: bool = False) -> tuple[list, dict]:
@@ -233,53 +222,33 @@ def repair_route(name: str, count: int, seed: int, presses: int, scripts: Path, 
     return repairs, result
 
 
-def liveness_score(liveness: dict) -> tuple:
-    """How alive a route stayed: the latest picture change first, then the number of changes, then audible frames."""
-    return (liveness.get('last_picture_change_frame') or 0, liveness.get('picture_changes') or 0,
-            liveness.get('audible_frames') or 0)
+liveness_score = route_start.liveness_score
+
+
+def _trace_table(path: Path) -> dict:
+    """frame (as written) -> picture hash, for every row of a trace."""
+    return {fields[0]: fields[3] for fields in
+            (line.split(',') for line in Path(path).read_text(encoding='ascii').splitlines()[1:]) if len(fields) == 6}
 
 
 def divergence(trace: Path, baseline: Path) -> int:
-    """Frames whose picture differs from the same frame of the route without input: what the input changed on screen.
-    A variant whose presses the game ignored (it kept playing its demo) has none; work RAM is not used, since the
-    game's pad reader stores the input even when nothing else reacts (Bonk's Adventure, 5 November 2026)."""
-    def rows(path):
-        return {fields[0]: fields[3] for fields in
-                (line.split(',') for line in Path(path).read_text(encoding='ascii').splitlines()[1:]) if len(fields) == 6}
-    ours, theirs = rows(trace), rows(baseline)
-    return sum(1 for frame, value in ours.items() if theirs.get(frame) != value)
+    """Frames whose picture differs from the same frame of the route without input (route_start.divergence). Work RAM is
+    not used, since the game's pad reader stores the input even when nothing else reacts (Bonk's Adventure, 5 November 2026)."""
+    return route_start.divergence(_trace_table(trace), _trace_table(baseline))
 
 
 def reach(trace: Path, baseline: Path, start: int) -> int:
-    """How many distinct pictures the directions-only part of the walk (QUIET_WALK frames after `start`) showed that the same
-    frames without input never showed: how much the game answers the pad. A demo, a title, a story and a paused game show the
-    same pictures with or without the walk, a menu or a password screen a handful (the cursor's places), and a game in play
-    hundreds of its own."""
+    """Distinct pictures of the directions-only part of the walk (QUIET_WALK frames after `start`) that the same frames
+    without input never showed (route_start.reach)."""
     def pictures(path):
-        found = set()
-        for line in Path(path).read_text(encoding='ascii').splitlines()[1:]:
-            fields = line.split(',')
-            if len(fields) == 6 and fields[0].isdigit() and start <= int(fields[0]) < start + QUIET_WALK:
-                found.add(fields[3])
-        return found
-    return len(pictures(trace) - pictures(baseline))
+        return {int(frame): value for frame, value in _trace_table(path).items() if frame.isdigit()}
+    return route_start.reach(pictures(trace), pictures(baseline), start, QUIET_WALK)
 
 
 def choose_start(results: dict, frames: int):
-    """The start variant of the play route: a number of Run presses, or (presses, 'I') when each press is followed by a tap of I. `results` maps
-    variants to {'liveness', 'divergence', 'reach'}.
-
-    A variant must keep the picture moving until its last 120 frames (a press too many pauses the game); among those,
-    the one whose walk reached the most pictures of its own wins, then the one the input changed the most from the demo
-    (ties: the fewest presses, then the plain variant). When none stays alive, the livelier one is kept."""
-    def order(variant):
-        return (variant_presses(variant), isinstance(variant, tuple))
-    alive = [variant for variant, result in results.items()
-             if (result['liveness'].get('last_picture_change_frame') or 0) >= frames - 120]
-    if alive:
-        return min(alive, key=lambda variant: (-results[variant]['reach'], -results[variant]['divergence'], *order(variant)))
-    return min(results, key=lambda variant: (-liveness_score(results[variant]['liveness'])[0], -liveness_score(results[variant]['liveness'])[1],
-                                              -liveness_score(results[variant]['liveness'])[2], *order(variant)))
+    """The start variant of the play route (route_start.choose_start): a number of Run presses, or (presses, 'I') when each
+    press is followed by a tap of I. Ties: the fewest presses, then the plain variant."""
+    return route_start.choose_start(results, frames, lambda variant: (variant_presses(variant), isinstance(variant, tuple)))
 
 
 # ------------------------------------------------------------------ runs and traces
@@ -333,35 +302,23 @@ def damaged_states(state: bytes) -> dict[str, bytes]:
 
 def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
     """F8 at a frame, F9 in a fresh process: the continued timeline must match; every damaged state is refused (exit 4)
-    and left as it was; loading a missing state is refused and creates nothing."""
+    and left as it was; loading a missing state is refused and creates nothing (conversion_gates.check_quick_states)."""
     from .conversion_common import spawn
-    from .conversion_gates import continuation_difference, require
+    from .conversion_gates import check_quick_states
     at = max(60, frames - STATE_SETTLE - 60)
     state = folder / 'quick.rrstate'
-    run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
-    run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
-    rows = expected.read_text(encoding='ascii').splitlines()[1:]
-    resumed = (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:]
-    require(continuation_difference(rows, resumed, at, STATE_SETTLE) is None,
-            lambda: ConversionError('PC Engine F9 continuation differs from its saved timeline; existing export preserved.'))
+
+    def continued():
+        run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
+        run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
+        return (expected.read_text(encoding='ascii').splitlines()[1:],
+                (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
+
     def refused(path: Path) -> bool:
         return spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(path)],
                      cwd=folder, timeout=120, capture_output=True).returncode == 4
-    original = state.read_bytes()
-    damaged = damaged_states(original)
-    for label, data in damaged.items():
-        invalid = folder / f'invalid-{label}.rrstate'
-        invalid.write_bytes(data)
-        require(refused(invalid), lambda: ConversionError(f'PC Engine accepted a damaged quick state ({label}).'))
-        require(invalid.read_bytes() == data,
-                lambda: ConversionError(f'PC Engine rewrote a quick state it refused ({label}).'))
-    missing = folder / 'missing.rrstate'
-    missing.unlink(missing_ok=True)
-    require(refused(missing), lambda: ConversionError('PC Engine accepted a missing quick state.'))
-    require(not missing.exists(), lambda: ConversionError('Loading a missing quick state created a file.'))
-    return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
-            'truncated_state_rejected': True, 'damaged_states_refused': sorted(damaged),
-            'missing_state_creates_nothing': True, 'state_bytes': len(original)}
+    return check_quick_states(folder, state, machine='PC Engine', route=name, at=at, settle=STATE_SETTLE,
+                              continued=continued, refused=refused, damaged=damaged_states, error=ConversionError)
 
 
 # ------------------------------------------------------------------ the Backup RAM file (native/pce_backup.c)

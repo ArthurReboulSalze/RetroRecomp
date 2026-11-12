@@ -810,6 +810,51 @@ class GateTests(unittest.TestCase):
                 self.assertEqual(built.read_bytes(), b'built')
                 self.assertEqual(packed.read_bytes(), b'packed')
 
+    def test_quick_states_continue_and_every_damaged_copy_is_refused_untouched(self):
+        from retrorecomp.conversion_gates import check_quick_states
+        timeline = [str(i) for i in range(100)]
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name)
+            state = folder / 'quick.rrstate'
+            state.write_bytes(b'STATE' * 10)
+
+            def damaged(data):
+                return {'empty': b'', 'cut': data[:3], 'flip': bytes([data[0] ^ 0x80]) + data[1:]}
+
+            def refuse_all(path):
+                return True
+
+            def args(**changes):
+                values = dict(machine='Machine', route='play', at=40, settle=20, continued=lambda: (timeline, timeline[40:60]),
+                              refused=refuse_all, damaged=damaged, error=RuntimeError)
+                values.update(changes)
+                return values
+            self.assertEqual(check_quick_states(folder, state, **args()),
+                             {'route': 'play', 'saved_at': 40, 'continued_frames': 20, 'fresh_process_match': True,
+                              'truncated_state_rejected': True, 'damaged_states_refused': ['cut', 'empty', 'flip'],
+                              'missing_state_creates_nothing': True, 'state_bytes': 50})
+            self.assertEqual((folder / 'invalid-cut.rrstate').read_bytes(), b'STA')
+            self.assertFalse((folder / 'missing.rrstate').exists())
+            with self.assertRaisesRegex(RuntimeError, r'^Machine F9 continuation differs'):
+                check_quick_states(folder, state, **args(continued=lambda: (timeline, timeline[41:61])))
+            with self.assertRaisesRegex(RuntimeError, r'^Machine accepted a damaged quick state \(empty\)\.$'):
+                check_quick_states(folder, state, **args(refused=lambda path: path.name != 'invalid-empty.rrstate'))
+
+            def rewrite(path):
+                if path.exists():
+                    path.write_bytes(b'rewritten')
+                return True
+            with self.assertRaisesRegex(RuntimeError, r'^Machine rewrote a quick state it refused \(empty\)\.$'):
+                check_quick_states(folder, state, **args(refused=rewrite))
+            with self.assertRaisesRegex(RuntimeError, r'^Machine accepted a missing quick state\.$'):
+                check_quick_states(folder, state, **args(refused=lambda path: path.name != 'missing.rrstate'))
+
+            def create(path):
+                path.write_bytes(b'') if path.name == 'missing.rrstate' else None
+                return True
+            with self.assertRaisesRegex(RuntimeError, r'^Loading a missing quick state created a file\.$'):
+                check_quick_states(folder, state, **args(refused=create))
+
 
 class PinnedCheckoutTests(unittest.TestCase):
     """The skeleton of the pinned checkouts, with the commands recorded (the consoles' own are in the golden)."""
