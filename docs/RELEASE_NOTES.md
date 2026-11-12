@@ -52,7 +52,11 @@
   named in the conversion log. What is kept and generated does not change, and code left out
   still runs on the interpreter fallback, counted as before. No game read for this release
   reaches a limit; an authored Mega Drive cartridge does, and is counted. An import of shared
-  paths also counts the rows its limits leave out (not shown in the window yet).
+  paths also counts the rows its limits leave out.
+- **Shared paths: what a sync or an import left out is said.** After a sync or an import of
+  shared paths, the converter window says in one line, in your language, how many valid rows a
+  limit of your local base could not keep and how many rows were refused as invalid. Rows you
+  already had stay quiet.
 - **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
   pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
 - **Atari ST (experimental).**
