@@ -4,7 +4,12 @@
  * The cartridge is resource 103 and the slot-0 BIOS image resource 104 (C-BIOS's main and logo ROMs, or the player's own
  * 32 KiB BIOS); msx_game.h, written by the converter, gives the title, the mapper and where a plain cartridge sits. The guest
  * owns the loop: at the end of each frame the game hands the picture and the sound to the kit and takes the inputs back,
- * at an instruction boundary (msx_main_service). A reset starts the machine and the CPU again from address 0. */
+ * at an instruction boundary (msx_main_service). A reset starts the machine and the CPU again from address 0.
+ *
+ * `game.exe --headless [options]` replays a route with no window, no sound device and nothing written beside the game: the
+ * cartridge and the BIOS are the game's own resources, the options and the report those of the native check
+ * (msx_headless.inc), so the delivered (packed) file is compared with the reference as the check is. The player's own
+ * path is unchanged: its per-instruction service keeps its one test (frame_ended); the headless branch comes after it. */
 #define SMSRECOMP_BANKED_AOT 1
 #include <SDL.h>
 #include "msx_glue.inc"
@@ -23,8 +28,10 @@ static double aspect_ratio = 4.0 / 3.0;
 static char player_config[1024] = "player.cfg";
 
 #include "hostkit/adapters/rrhk_msx.inc"
+#include "msx_headless.inc"
 
 static volatile int frame_ended;
+static int headless;                           /* --headless: a route replayed, no host */
 /* The picture is whole and the VDP raises its frame flag at the first line after the picture (192, or 212 on a V9938 set
  * so): the frame is handed over there, so the inputs taken back reach the game's own vertical-blank interrupt that follows
  * (not one frame later). */
@@ -53,11 +60,23 @@ static void power_on(void)
     g_next_line_cyc = msx_next_event(&machine);
 }
 
+/* Headless: the route's line hook, and the frame flag raised with the route's row so the service below sees it. */
+static void headless_line(void)
+{
+    msx_route_line();
+    if (route_frame_due)
+        frame_ended = 1;
+}
+
 static void msx_main_service(void)
 {
     if (!frame_ended)
         return;
     frame_ended = 0;
+    if (headless) {
+        headless_service();                    /* the row, the frame limit (it ends the process there) */
+        return;
+    }
     switch (msx_host_frame(&machine)) {
     case 0: break;
     case 2: power_on(); g_z80.cyc = 0; step_start = 0; break;
@@ -88,7 +107,8 @@ static void prepare_data_folder(void)
     snprintf(player_config, sizeof player_config, "%s/player.cfg", folder);
 }
 
-static int run(void)
+/* The machine from the game's own resources: the cartridge (103) and the BIOS source (104), as msx_game.h describes them. */
+static int setup_machine(void)
 {
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
@@ -115,6 +135,14 @@ static int run(void)
     device.mirrored = RR_MSX_MIRRORED;
     device.source = 0;
     msx_set_device(&machine, 1, 0, device);
+    return 0;
+}
+
+static int run(void)
+{
+    int status = setup_machine();
+    if (status)
+        return status;
     machine.line_hook = line_hook;
     prepare_data_folder();
     if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL == 2 ? 2 : 3, &machine)) return 4;
@@ -123,8 +151,29 @@ static int run(void)
     return 0;
 }
 
-#ifdef _WIN32
-int main(void) { return run(); }
-#else
-int main(int argc, char **argv) { (void)argc; (void)argv; return run(); }
-#endif
+/* `--headless`: exit codes 0 done, 2 a bad option, 3 a missing resource or an unwritable file. */
+static int run_headless(int argc, char **argv)
+{
+    for (int i = 2; i < argc; ++i) {
+        const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
+        if (!v) return 2;
+        ++i;
+        if (headless_option(a, v) <= 0) return 2;
+    }
+    int status = setup_machine();
+    if (status)
+        return status;
+    headless = 1;
+    machine.trace_frames = 1;                  /* the per-frame running hash the comparison reads */
+    machine.line_hook = headless_line;
+    power_on();
+    smsrecomp_banked_run();                    /* returns through headless_finish() at the frame limit */
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc > 1 && !strcmp(argv[1], "--headless"))
+        return run_headless(argc, argv);
+    return run();
+}

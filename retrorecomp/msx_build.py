@@ -46,7 +46,7 @@ blacklist = []
 # they include; the mains and the glue.
 MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
                    'msx_v9938_cmd.c', 'msx_msx2.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_native_main.c',
+MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_native_main.c',
                  'msx_reference_main.c', 'msx_player.c')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
