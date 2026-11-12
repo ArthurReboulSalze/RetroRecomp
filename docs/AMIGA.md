@@ -159,7 +159,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
     screen's bytecode checks four variables only a passed protection sets, and stops every thread when they are missing. The
     interpreted reference and the native build end with the same memory; our resload layer, the Kickstart side and vAmiga play no
     part.
-  - **Our part, fixed after 1.7.3.** The click that captures the mouse in the window used to reach the game as a left click, so a
+  - **Our part, fixed in 1.7.3.** The click that captures the mouse in the window used to reach the game as a left click, so a
     player who clicked into the window locked it without meaning to. That click is now the host's (UPGRADES). On a hidden desktop,
     through the windowed player, an exe with the fix passes the protection after a capture click and a joystick answer, and the
     delivered exe built before it locks.

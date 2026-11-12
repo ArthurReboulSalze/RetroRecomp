@@ -115,7 +115,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.3.** The Amiga's emulated chips do the same work in less machine time, and a conversion step that is still working on a slow PC now goes on past its time limit. Every export of 1.7.2 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.3.** The MSX and the MSX2 open as experimental machines, for cartridges, on a free BIOS or your own. The Amiga's emulated chips do the same work in less machine time. The Mega Drive, the PC Engine and the Atari ST make native, at the next conversion, more of the code a game ran on the interpreter: a larger record and code found from the tables it reached on the Mega Drive, the player's own record and a start with I on the PC Engine, the player's record and a sweep of memory on the Atari ST. The Game Boy Advance shares its paths in the experimental tier and reaches native code in fewer passes on a first conversion. Each game carries the licence notices of its own components, and a conversion step that is still working on a slow PC goes on past its time limit. Every export of 1.7.2 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

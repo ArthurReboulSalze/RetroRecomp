@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.3 — The MSX and the MSX2 open as experimental machines; the Amiga's chips do the same work in less machine time [titre à compléter]
+# RetroRecomp v1.7.3 — The MSX and the MSX2 open as experimental machines; the Amiga's chips do the same work in less machine time; more of the code a game met becomes native on the Mega Drive, the PC Engine and the Atari ST
 
 - **MSX and MSX2 (experimental, new).** Two profiles of one family: `msx` for MSX1 cartridges,
   `msx2` for MSX2 ones ([MSX.md](MSX.md)).
@@ -53,7 +53,7 @@
     of swapping red and blue in every pixel of every frame. Denise stays emulated. The display
     self-test's 60 scenarios equal vAmiga's own work row for row, each fault planted on purpose is
     seen, and Lotus 2, Rick Dangerous, Lemmings and Civilization give the same routes as before,
-    hash for hash. [à venir : le coût par image avec ces étapes, passe sur PC calme]
+    hash for hash. [SPEED: filled from the quiet-PC bench]
   - **The sweep shares its bound.** The sweep past the routes keeps at most 150,000 instructions.
     When it reaches more, the bound is now shared between each memory image and phase instead of
     the first one taking it all, and the report counts what is left out; under the bound nothing
@@ -80,7 +80,7 @@
   slowness itself was not reproduced here.
 - **Disk space: the build folders of the newer machines are removed too.** After publication,
   Retro-Recomp removes a game's build folder; on the Amiga, the Atari ST, the Nintendo 64, the
-  CPS-2, the PlayStation and the MSX it did not, and Options > Common > Disk space did not list
+  CPS-2, the PlayStation and the MSX it did not, and Options → Common → Disk space did not list
   those folders, so each conversion left a few hundred MB in `.build`. They are now removed like
   the others, and the ones earlier versions left appear in Disk space.
 - **The game report** lists the five languages a generated game ships (`ui_languages`); it listed
@@ -175,7 +175,6 @@
     received rows, or whose code generator does not end on one, is made again without them.
   - The machine time of a frame has its own tool now; its quiet-PC pass is not done, so no figure
     is given.
-- [à venir : l'étude de capture commune aux machines]
 - **Every machine: a game carries the notices of its own components.** Each converted game now
   embeds the licence notices of what is compiled into it, and no other machine's. This filled real
   gaps: X68000 games carried no notice at all and now carry theirs, the Neo Geo's native route
@@ -183,11 +182,12 @@
   from games, which hold no Noto glyph. A new machine's notice no longer touches the other
   machines' exports.
 
-**Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
+**Speed.** [SPEED: filled from the quiet-PC bench]
 
-[à compléter : la phrase de synthèse de la release.] None of it is a measure of hardware
-fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
-and shown per CPU and per device wherever it is used.
+These are two new experimental machines, less machine time on the Amiga, native-code coverage on
+four machines and limits that are now counted, each on the evidence above; none of them is a
+measure of hardware fidelity, complete gameplay or physical latency, and the interpreter fallback
+is still counted and shown per CPU and per device wherever it is used.
 
 **Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the converter's
 own build steps are inputs of each), so **every export of 1.7.2, on every machine, is converted
