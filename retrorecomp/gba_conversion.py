@@ -102,6 +102,23 @@ def _matches(native, reference) -> bool | None:
                 and native.mem_hash == reference.mem_hash and native.cpu_hash == reference.cpu_hash)
 
 
+def validation_failures(rows: list, runs: dict) -> list[str]:
+    """Why a conversion cannot be delivered, one sentence per scenario; empty when every scenario ran to its end and the generated code ended where
+    the engine's own interpreter did. A scenario whose generated code stopped with an error is a failure, not a scenario that was skipped: before
+    this check it was left out of the verdict and the conversion went on to publish the game."""
+    failures = []
+    for row in rows:
+        name = row['scenario']
+        run = runs[name]
+        if run.returncode:
+            failures.append(f'{name}: the generated code stopped with exit code {run.returncode}' + (f' ({run.aborted})' if run.aborted else ''))
+        elif row['reference_match'] is None:
+            failures.append(f"{name}: the engine's interpreter did not replay it to the end")
+        elif not row['reference_match']:
+            failures.append(f"{name}: the generated code and the engine's interpreter end in different states")
+    return failures
+
+
 def convert(path: Path, *, output: Path | None = None, title: str | None = None, passes: int = 3, frames: int = 3600,
             scan_level: str | None = None, gba_bios=None, emit=print, player: bool = True, cover: Path | None = None,
             boxart_dir: Path | None = None, online_cover: bool = True, use_cover: bool = True, **options) -> Path:
@@ -221,6 +238,11 @@ def convert(path: Path, *, output: Path | None = None, title: str | None = None,
         reference = build.run_scenario(host, rom_file, sha1, bios, project / 'runs', name, count, paths[name],
                                        timeout=3600, reference=True)
         row['reference_match'] = _matches(runs[name], reference)
+    failures = validation_failures(rows, runs)
+    if failures:
+        # Nothing is published: the paths learned stay (they were saved above), the report is not written and the batch sees an error, so that it
+        # converts again without imported paths if there were some.
+        raise ConversionError('Game Boy Advance: the check against the engine\'s interpreter failed; no game was built. ' + '; '.join(failures) + '.')
     checked = [row for row in rows if row['reference_match'] is not None]
     validation = {'passed': (all(row['reference_match'] for row in checked) if checked else None),
                   'method': "final picture, guest cycle count and a hash of the machine state (memories, device registers, CPU registers) at the first VBlank after the frame limit, against the engine's own interpreter, same scenario",

@@ -339,6 +339,23 @@ class ConversionTests(unittest.TestCase):
         self.assertIsNone(gba_conversion._matches(make('a', 5, 3), make('a', 5)))
         self.assertIsNone(gba_conversion._matches(make('', None), make('', None, 1)))
 
+    def test_a_conversion_whose_native_run_failed_or_differs_is_refused(self):
+        make = lambda code=0, aborted='': build.Run('s', 10, code, '', {}, '', None, aborted, 'sha', 1, 'm', 'c')
+        row = lambda name, match: {'scenario': name, 'reference_match': match}
+        good = {'boot': make(), 'generic': make()}
+        self.assertEqual(gba_conversion.validation_failures([row('boot', True), row('generic', True)], good), [])
+        failures = gba_conversion.validation_failures([row('boot', True), row('generic', False)], good)
+        self.assertEqual(len(failures), 1)
+        self.assertIn('generic', failures[0])
+        self.assertIn('different states', failures[0])
+        broken = {'boot': make(3, 'bridge stopped'), 'generic': make()}                       # an errored native run used to be left out of the verdict
+        failures = gba_conversion.validation_failures([row('boot', None), row('generic', True)], broken)
+        self.assertEqual(len(failures), 1)
+        self.assertIn('exit code 3', failures[0])
+        self.assertIn('bridge stopped', failures[0])
+        failures = gba_conversion.validation_failures([row('boot', None), row('generic', None)], good)
+        self.assertEqual(len(failures), 2)                                                      # nothing compared is not a pass either
+
     def test_a_report_with_measured_rows_goes_through_the_common_builder(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'Authored.gba'
