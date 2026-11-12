@@ -10,11 +10,11 @@ captures = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(captures)
 
 
-def report(level='extended', presses=2):
+def report(level='extended', presses=2, confirm=None):
     rows = [{'name': 'attract', 'frames': 3600}, {'name': 'play', 'frames': 3600}]
     if level != 'standard':
         rows.append({'name': 'long-1', 'frames': 18000})
-    return {'rom': {'sha256': 'ab' * 32}, 'scan_level': level, 'route_start': {'run_presses': presses}, 'final_checks': rows}
+    return {'rom': {'sha256': 'ab' * 32}, 'scan_level': level, 'route_start': {'run_presses': presses, 'confirm': confirm}, 'final_checks': rows}
 
 
 class PlanTests(unittest.TestCase):
@@ -25,6 +25,11 @@ class PlanTests(unittest.TestCase):
     def test_the_route_is_the_conversions_own(self):
         from retrorecomp.pce_conversion import routes
         self.assertEqual(routes('ab' * 32, frames=3600, level='extended', presses=2), captures.plan(report()))
+
+    def test_a_start_that_taps_i_is_replayed_as_the_conversion_played_it(self):
+        from retrorecomp.pce_conversion import routes
+        self.assertEqual(routes('ab' * 32, frames=3600, level='extended', presses=2, confirm=True), captures.plan(report(confirm='I')))
+        self.assertNotEqual(captures.plan(report(confirm='I')), captures.plan(report()))
 
     def test_the_run_presses_of_the_report_are_used(self):
         one, two = captures.plan(report(presses=1)), captures.plan(report(presses=2))

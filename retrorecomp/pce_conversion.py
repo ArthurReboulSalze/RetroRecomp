@@ -510,6 +510,22 @@ def fitting_received(received: list, identities: set, limit: int = EXTENDED_CAPT
     return rows, left
 
 
+def emit_with_roots(build, roots: Path, image: Path, index: Path, module: Path, hints_used: dict, emit) -> tuple[dict, bool]:
+    """(manifest, roots kept): the module of the history and of the declared roots. A damaged or foreign record, or an engine that refuses the roots, never fails a
+    conversion: the module is then emitted from the history alone, what the report says (`declared_refused`) and `roots kept` False (every declared root goes, the
+    shared and library ones with the player's). `build` is the `pce_build` module."""
+    try:
+        manifest = build.emit_roots_module(roots, image, index, module)
+    except build.PceBuildError as refusal:
+        emit('PC Engine: the engine refused the declared roots; this conversion goes on without them.')
+        hints_used['declared_refused'] = str(refusal).splitlines()[0][:200]
+        shutil.rmtree(module, ignore_errors=True)
+        return build.emit_history_module(index, module), False
+    hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap', 'observed_only',
+                                                                'unsupported_declarations', 'emitted_instructions')}
+    return manifest, True
+
+
 def compose_fitting(captures: list, out: Path, work: Path):
     """Compose the captures that fit one profile (the engine's union bound is 65,536 identities, never a silent
     drop): each one is tried in order, a capture that would overflow is left out. (kept, skipped)."""
@@ -761,17 +777,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         image = work / 'declared-image.pce'
                         if not image.is_file() or file_sha256(image) != card.sha256:
                             image.write_bytes(raw_card)
-                        try:
-                            manifest = pce_build.emit_roots_module(roots, image, index, new_module)
-                            hints_used['declared'] = {key: manifest.get(key) for key in ('declared_instructions', 'declared_only', 'declared_observed_overlap',
-                                                                                        'observed_only', 'unsupported_declarations', 'emitted_instructions')}
-                        except pce_build.PceBuildError as refusal:
-                            # A damaged or foreign record must never fail a conversion: it goes on with what its own routes ran.
-                            emit('PC Engine: the engine refused the declared roots; this conversion goes on without them.')
-                            hints_used['declared_refused'] = str(refusal).splitlines()[0][:200]
-                            shutil.rmtree(new_module, ignore_errors=True)
+                        manifest, roots_kept = emit_with_roots(pce_build, roots, image, index, new_module, hints_used, emit)
+                        if not roots_kept:
                             received = []
-                            manifest = pce_build.emit_history_module(index, new_module)
                     else:
                         manifest = pce_build.emit_history_module(index, new_module)
                 else:
@@ -853,7 +861,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'native_coverage': native_coverage,
         'video_model': {'standard': 'ntsc', 'master_ticks_per_frame': 1365 * 262, 'display_aspect': '4:3'},
         'audio_cpu': None, 'audio_model': {'kind': 'PSG of the HuC6280 (the engine)', 'rate': 44100, 'channels': 2},
-        'counter_unit': 'retired instructions', 'runtime_learning': False, 'runtime_feedback': feedback,
+        'counter_unit': 'retired instructions', 'runtime_learning': card.board == pce_knowledge.SHARED_BOARD, 'runtime_feedback': feedback,
         'physical_latency_measured': False, 'latency_ms': None,
         'hardware_accuracy_validated': False, 'full_game_validated': False,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',

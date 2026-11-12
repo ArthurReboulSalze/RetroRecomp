@@ -96,10 +96,43 @@ class GameRecordsTests(unittest.TestCase):
         self.assertIn("if card.board != 'base':", conversion)
         self.assertIn("'recording_default': False, 'recording': 'not available on this board'", conversion)
 
+    def test_the_roots_go_to_the_engine_beside_the_history(self):
+        from types import SimpleNamespace
+        from retrorecomp import pce_conversion
+        calls, hints = [], {}
+        build = SimpleNamespace(PceBuildError=RuntimeError,
+                                emit_roots_module=lambda *args: calls.append(('roots', args[-1])) or {'declared_instructions': 5, 'emitted_instructions': 5},
+                                emit_history_module=lambda *args: calls.append(('history', args[-1])) or {})
+        manifest, kept = pce_conversion.emit_with_roots(build, 'roots.json', 'image.pce', 'index.json', 'module', hints, lambda text: None)
+        self.assertEqual((kept, calls, hints['declared']['declared_instructions']), (True, [('roots', 'module')], 5))
+        self.assertEqual(manifest['declared_instructions'], 5)
+
     def test_a_refusal_of_the_declared_roots_never_fails_the_conversion(self):
+        import tempfile
+        from types import SimpleNamespace
+        from retrorecomp import pce_conversion
+        said, hints = [], {}
+        with tempfile.TemporaryDirectory() as folder:
+            module = Path(folder) / 'module-1'
+            module.mkdir()
+            (module / 'half-written.cpp').write_text('x', encoding='ascii')
+
+            def history(index, target):
+                self.assertFalse(Path(target).exists())          # the engine writes a new folder only: the refused one is gone
+                return {'native_instructions_emitted': 7}
+
+            def refuse(*arguments):
+                raise RuntimeError('pcerecomp emit-roots failed (2):\nDuplicate identical declared root\nmore')
+            build = SimpleNamespace(PceBuildError=RuntimeError, emit_roots_module=refuse, emit_history_module=history)
+            manifest, kept = pce_conversion.emit_with_roots(build, 'roots.json', 'image.pce', 'index.json', module, hints, said.append)
+        self.assertEqual((manifest, kept), ({'native_instructions_emitted': 7}, False))
+        self.assertEqual(hints, {'declared_refused': 'pcerecomp emit-roots failed (2):'})
+        self.assertEqual(len(said), 1)
+        self.assertNotIn('declared', hints)
+
+    def test_the_report_says_the_game_learns_only_where_it_records(self):
         conversion = (ROOT / 'retrorecomp/pce_conversion.py').read_text(encoding='utf-8')
-        self.assertIn('except pce_build.PceBuildError as refusal:', conversion)
-        self.assertIn("hints_used['declared_refused']", conversion)
+        self.assertIn("'runtime_learning': card.board == pce_knowledge.SHARED_BOARD", conversion)
 
     def test_the_length_table_of_the_bridge_is_the_converter_s(self):
         bridge = (ROOT / 'native/pce_machine.cpp').read_text(encoding='utf-8')

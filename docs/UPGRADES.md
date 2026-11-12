@@ -389,7 +389,7 @@ The pinned Beetle PSX checkout in `.deps` is shared by every disc, but only the 
 
 **The player's own record.** A PC Engine game now records, in a window, each instruction of the card that the interpreter ran (kind 20 of the shared recorder, F12, written at a normal
 exit beside the game). The next conversion reads the notes back against the player's own ROM and declares them to the engine as roots, so the code he reached becomes native; the report's
-`runtime_feedback.recording_default` is now true, which it was not in 1.7.2. Proved on Blazing Lazers by script: an 18,000-frame walk went from 733,921 interpreted instructions to 0 after one
+`runtime_feedback.recording_default` was true in 1.7.2 while no game recorded; it is now true because they do (and false on the Street Fighter II board). Proved on Blazing Lazers by script: an 18,000-frame walk went from 733,921 interpreted instructions to 0 after one
 recording and one conversion, and equals its fresh reference on all 18,000 frames ([PC_ENGINE.md](PC_ENGINE.md#the-players-own-record-12-november-2026)). The Street Fighter II board does not record. If the engine refuses the roots, the conversion goes on without them.
 **What the owner saw in 1.7.2 is answered after he plays:** code past the routes stays interpreted, counted and shown, until his own record has been converted.
 
@@ -398,7 +398,7 @@ and not Boxyboy, whose start waits on a second Run.
 
 **What moves:** only the PC Engine's game stamp (`native/pce_machine.cpp`, `native/pce_machine.h`, `native/pce_main.c`, `pce_conversion.py`, `pce_knowledge.py`); every game stamp moves in 1.7.3 anyway. A PC Engine
 export of 1.7.2 is rebuilt when it is upgraded, and its quick states are refused cleanly, as after any change of the bridge. **Hot path (declared):** the game's step loop copies the program counter and the
-eight bank registers and compares one counter at each step while the recorder is on (the default in a window); not timed. The frame cost against the 1.7.1 pin (1.09x and 1.04x, [above](#pc-engine--turbografx-16-the-larger-capture-format-shared-paths-the-walk-repair-and-the-exit-from-the-experimental-status-172))
+eight bank registers and compares one counter at each step while the recorder is on (the default in a window); not timed. The frame cost against the 1.7.1 pin (1.09x and 1.04x, [below](#pc-engine--turbografx-16-the-larger-capture-format-shared-paths-the-walk-repair-and-the-exit-from-the-experimental-status-172))
 is accepted by the owner and was not investigated further.
 
 ## PC Engine / TurboGrafx-16: the larger capture format, shared paths, the walk repair, and the exit from the experimental status (1.7.2)
