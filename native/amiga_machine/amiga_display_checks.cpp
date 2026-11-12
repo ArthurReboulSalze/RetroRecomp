@@ -157,6 +157,9 @@ int main(int argc, char **argv) {
             i += 1;
         } else if (!strcmp(argv[i], "--disk-off")) {
             DiskController::rrLazyOn = false;
+        } else if (!strcmp(argv[i], "--colour-fault") && i + 1 < argc) {
+            PixelEngine::rrColourFault = atoi(argv[i + 1]);
+            i += 1;
         } else if (!strcmp(argv[i], "--disk-fault") && i + 1 < argc) {
             DiskController::rrFault = atoi(argv[i + 1]);
             i += 1;

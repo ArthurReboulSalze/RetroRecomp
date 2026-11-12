@@ -327,6 +327,27 @@ unchanged: the same instructions are swept, in the same order.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: a border of one colour written four Texels at a time (after 1.7.3, colour step B)
+
+**What changes.** In step 3's colorize of a quiet line (`PixelEngine::rrColorize`), an 8-entry chunk whose border bytes are all
+the same non-zero value is now written as four 64-bit Texels of that border colour. Before, each entry chose between the border
+and the bitplane colour. A Texel holds its colour twice (`TEXEL`), so the texture row is the same byte for byte. Chunks with a
+mixed border, and chunks inside the display window, are unchanged.
+
+**Why.** On a normal PC, the border chunks were 7.5 % of a Lotus 2 frame and 8.4 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Proofs.**
+- The display self-test passes: 52 scenarios, every texture row equal to vAmiga's own colorize (`--per-slot`).
+- A planted fault (`--colour-fault 1`: the one-colour chunk one bit off) is seen in 52 of 52 scenarios.
+
+**Hot path:** yes, the per-line colorize: one comparison more per chunk that has a border, four stores instead of eight on one-colour
+chunks. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

@@ -708,7 +708,8 @@ REPLACEMENTS = [
      '    void colorize(isize line);\n'
      '    // Retro-Recomp modification (MPL-2.0, like this file): colorize of a quiet line, the colour index of each pixel read through\n'
      '    // the line\'s table from the line buffer (Denise.cpp, rrQuietLine).\n'
-     '    void rrColorize(isize line, const u8 *dbuf, const u8 *map);\n'),
+     '    void rrColorize(isize line, const u8 *dbuf, const u8 *map);\n'
+     '    static inline int rrColourFault = 0;         // a planted fault for the self-test (1: a one-colour border chunk one bit off)\n'),
     ('Components/Denise/PixelEngine.cpp',
      'void\nPixelEngine::colorize(u32 *dst, Pixel from, Pixel to)\n',
      '// Retro-Recomp modification (MPL-2.0, like this file): colorize(line) of a quiet line. No sprite pixel exists on such a line, so\n'
@@ -717,6 +718,7 @@ REPLACEMENTS = [
      '    auto *dst = (u32 *)workingPtr(line);\n'
      '    auto *bbuf = denise.bBuffer;\n'
      '    Pixel pixel = 0;\n'
+     '    const Texel fault1 = rrColourFault == 1 ? TEXEL(0x100u) : 0;\n'
      '    colChanges.insert(Denise::PIXEL_CNT, RegChange { .reg = Reg(0), .value = 0 } );\n'
      '    for (isize c = 0, end = colChanges.end(); c < end; c++) {\n'
      '        const Pixel to = (Pixel)colChanges.keys[c];\n'
@@ -726,6 +728,10 @@ REPLACEMENTS = [
      '            std::memcpy(&border, bbuf + i, 8);\n'
      '            if (border == 0) {\n'
      '                for (isize k = 0; k < 8; k++) dst[i + k] = u32(palette[map[dbuf[i + k]]]);\n'
+     '            } else if (border == (border & 0xFF) * 0x0101010101010101ull) {\n'
+     '                // Eight entries of one border colour: a Texel holds that colour twice (TEXEL), so four stores write them.\n'
+     '                const Texel t = borderPalette[bbuf[i]] ^ fault1;\n'
+     '                for (isize k = 0; k < 8; k += 2) std::memcpy(dst + i + k, &t, 8);\n'
      '            } else {\n'
      '                for (isize k = 0; k < 8; k++) dst[i + k] = u32(bbuf[i + k] == BORDER_NONE ? palette[map[dbuf[i + k]]] : borderPalette[bbuf[i + k]]);\n'
      '            }\n'

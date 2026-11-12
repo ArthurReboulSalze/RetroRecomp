@@ -526,6 +526,10 @@ def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
     return json.loads(next(line for line in result.stdout.splitlines() if line.startswith('{')))
 
 
+# Faults planted in the colour step (PixelEngine::rrColorize, `--colour-fault N`): each must change a record on some scenario.
+COLOUR_FAULTS = {1: 'a border chunk of one colour written one bit off'}
+
+
 # Faults planted in stage 7's bus model (amiga_bus.cpp, `--shadow-fault N`): each must make the model disagree with vAmiga somewhere.
 SHADOW_FAULTS = {1: 'refresh at $E2 on a long line', 2: 'audio slots two clocks late', 3: 'bitplane slots given to the wrong plane',
                  4: 'a change of plan inside the line ignored', 5: 'sprite slots outside the sprite area', 6: 'a conditional slot taken for free',
@@ -648,9 +652,21 @@ def main() -> int:
                     model_faults[kind] += 1
             if not model_faults[kind]:
                 failures.append({'model_fault': kind, 'what': what, 'missed': True})
+    # Planted faults of the colour step: each must change the record of at least one scenario (the run without it is `a`).
+    colour_faults = {}
+    for kind, what in COLOUR_FAULTS.items():
+        colour_faults[kind] = 0
+        for path in scenario_files:
+            seed = path.stem.split('-')[1]
+            play(program, path, runs / f'colour-fault-{kind}.rec', '--colour-fault', str(kind))
+            if compare(read_record(runs / f'{seed}-a.rec'), read_record(runs / f'colour-fault-{kind}.rec')) is not None:
+                colour_faults[kind] += 1
+        if not colour_faults[kind]:
+            failures.append({'colour_fault': kind, 'what': what, 'missed': True})
     print(json.dumps({'scenarios': arguments.scenarios, 'frames': arguments.frames, 'instructions': instructions,
                       'lines_batched_events_left': lines, 'lines_one_pass_general': quiet, 'replays_differ': sum(1 for f in failures if 'replay' in f),
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
+                      'colour_faults_seen_in_scenarios': colour_faults,
                       'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
                       'frame_end': frame_end, 'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
@@ -664,6 +680,8 @@ def main() -> int:
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
     print(f"Stage 7's idle-disk catch-up: {disk[3]} disk events held back in {disk[0]} batches ({disk[1]} run at their event, {disk[2]} at a barrier), "
           f"every record equal to the run with every disk event on vAmiga's scheduler; one held-back event lost seen in {disk_seen} of {disk_controls} scenarios.")
+    print(f"The colour step: {len(colour_faults)} planted fault(s) each seen (in "
+          f"{', '.join(f'{n} of {len(scenario_files)}' for n in colour_faults.values())} scenarios), against vAmiga's own colorize.")
     for kind, row in frame_end.items():
         print(f"Frames cut short at their end ({kind}), a quick state taken and loaded back: every record equal to the run with every event on "
               f"vAmiga's scheduler, {row['disk'][2]} runs of held-back disk events at a barrier; leaving out the run before the snapshot "
