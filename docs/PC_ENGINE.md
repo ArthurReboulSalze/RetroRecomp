@@ -312,6 +312,60 @@ the fresh interpreted reference on all 45 routes, packed replay, quick states, B
   Bonk III) received their own record of that earlier batch from the library, as declared roots: every declared row was also run by their own routes
   (none declared only), so what was emitted is what they ran.
 
+### The player's own record (12 November 2026)
+
+Until 1.7.2 a PC Engine game recorded nothing: the shared recorder (`native/runtime_feedback.c`, kind 20) was declared for the machine and never called, so the
+F12 line of the help page read OFF and did nothing, and the report's `runtime_feedback.recording_default` read `true`. Since 1.7.3 the game records, as the Amiga's does.
+
+**What is kept.** In a window, from the start of the game (F12 switches it), the bridge notes each instruction of a card bank that the interpreter ran: its logical
+address, the eight bank registers and its bytes (9 to 15 bytes; `native/pce_machine.cpp`). Code in work RAM, in the Backup RAM or behind an I/O bank is not on
+the card and is not noted. One note for each address under each set of the eight registers, so a routine called with two different data banks is noted twice
+(the engine's identity is the full set). The file is written at a normal exit, beside the game (`datas/fallbacks/pce-<identity>.rrfb`), in the shared format: at most 4,096
+notes a game, the rest counted in the file (`limit_reached`). A headless run records nothing unless `RETRO_RECOMP_FEEDBACK=1`. The Street Fighter II board does not
+record (its mapper changes what a physical bank holds): its F12 line stays OFF and its report says `recording_default: false`. The file stays on the player's PC: nothing of
+the PC Engine's record is shared (the machine shares paths, not fallback hints).
+
+**What the conversion does.** `retrorecomp/pce_knowledge.player_rows` reads each note back against the player's own ROM: the bytes must be the card's at those places, so a note
+of another ROM, of code that is not on the card or of a damaged file is left out and counted by reason; what is kept is declared to the engine as roots (the numbers of
+`pce-declared-roots-1`, never the bytes), first at the engine's bound, beside the rows of the shared base, the imported bank and the library. A root is one instruction:
+the engine does not walk forward from it, which is why every interpreted instruction is noted, not one in a run. A declared row is not an executed one: the report counts
+declared, emitted and executed apart, and only a window that a route really ran is validated by it. If the engine refuses the roots, the conversion goes on without them.
+
+**The proof** (Blazing Lazers, Windows, standard level, scratch library, no window). An 18,000-frame walk of another seed than the conversion's ran 572,238,948 instructions
+natively and 733,921 interpreted (all guard misses). Played with the recorder on, the game wrote 844 notes (none dropped, all 844 read back against the card), and the card
+converted again beside that file declared them (10,218 instructions declared: 9,374 its own library record's, which its routes ran, and 844 declared only), emitted all of them,
+and passed its routes with no interpreter. The same walk on that game ran **572,972,869 native, 0 interpreted, 0 guard misses** (= 572,238,948 + 733,921), and its per-frame
+CPU, RAM, picture and PCM hashes equal those of the same game with every instruction interpreted on **all 18,000 frames**. A first version that skipped the instruction right after
+the one noted last gave 142 notes: the engine does not walk, so that rule was wrong and is gone (found by a review before the commit).
+
+**What this does not say.** One card, one walk, scripted keys, not a person's play. The path was compared with the reference on that walk, not on the conversion's routes: the
+conversion's own routes validate only what they run, and the 844 were not on them. A real window was not run for this path (the exit write was proved headless with the same code;
+the Amiga's hidden-window check was not repeated here). The record holds at most 4,096 notes a game and counts the rest; a game with more unseen code than that needs more than one round. Hot path: when the recorder is on (the default in a window) each step of the loop copies the program counter and the eight registers and compares one counter; when it
+is off, two predictable branches. Not timed.
+
+### The start with I after Run (12 November 2026)
+
+The conversion tries three more start variants on its play route: one, two or three Run presses, each followed 60 frames later by a tap of I (`confirm_candidates`; the report's
+`route_start.variants` names them `1+I`, `2+I`, `3+I` and `route_start.confirm` says `I` when one is kept). The choice is the same rule as before (alive to the end, then the most pictures the
+walk reached that no input never showed). Tried on the delivered games, on four cards the plain variants reached least (reach: pictures of the walk that the no-input run never shows):
+
+| Card | Best plain variant | Best with I | |
+|---|---|---|---|
+| Legend of Hero Tonma | 4 presses: 469 | 2 presses + I: 574 | better |
+| Military Madness | 4 presses: 246 | 3 presses + I: 237 | not better |
+| Neutopia II | 1 press: 533 | 1 press + I: 533 | the same |
+| Boxyboy | 6 presses: 156 | none: every variant with I equals its plain one | no effect |
+
+So the variant helps one of four, and **it is not what Boxyboy needs**. Boxyboy ignores I at its title; its Run starts it, then a screen reads CHALLENGE AMERICA! and waits for a second Run once PUSH RUN
+appears (about frame 1,200); a third Run at frame 1,100 changed nothing, and a script that waits on that screen ran 547 instructions interpreted on the delivered game (a screen the routes pass through
+quickly, not a menu answered by I). What a player's own waits run is what the record is for.
+
+### The engine fetch from a clean state (12 November 2026)
+
+A checkout with no `.deps` at all (a new worktree, no engine, no SDL) converted a card with the real command line and a scratch library: the converter cloned
+`rages4calm/pcenginerecomp` and checked out the pin `6bb848e8` by itself (the setup log shows the clone and `checkout --detach 6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0`), built SDL, and
+converted Blazing Lazers in 17 minutes 17 seconds, 0 interpreted on its routes. A main checkout that shows no `.deps/pcenginerecomp` has simply never converted a PC Engine game.
+
 ## 6. Saves
 
 Added on 9 November 2026. A HuCard has no memory of its own, but the console's backup units (the CD interface, the Tennokoe 2, the Backup
@@ -430,8 +484,8 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 - The engine's static analysis stops at the first `TAM` (a bank-register write), so the native code is taken from observed
   runs, never from the ROM alone.
 - Speed is measured on two cards only, against the 1.7.1 pin ([above](#5-what-was-measured)), and the vectors have three known differences on the interpreter (the oracle is an emulator).
-- A PC Engine game keeps no player's record yet: the F12 line of its help page says the record is off, and the code a player reaches past the routes stays interpreted at the next conversion.
-- The conversion report's `runtime_feedback.recording_default` reads `true` for the PC Engine, but no PC Engine game records anything: its F12 line says the record is off and stays off. 1.7.3 corrects the field together with the record itself.
+- A PC Engine game of the standard board keeps the player's own record since 1.7.3 ([above](#the-players-own-record-12-november-2026)): the code he reaches past the routes becomes native at the next conversion,
+  after he played and the converter ran again. Until then it runs interpreted, counted and shown. It was proved on one card by script, not in a window and not on Linux, and the Street Fighter II board does not record.
 - The play route is a pseudo-random walk: six of the fifteen panel cards stall in it (a prompt, a loop, a pause the walk left on, a restarting
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
 - The Backup RAM is a model of ours (its bank is in the RAM hash, equal on Linux on the panel's routes): plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
@@ -444,8 +498,8 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 ## 10. Next stages
 
-1. In 1.7.3, the player's own record (kind 20), with F12 made real: what a player runs on the interpreter is kept at the game's exit and given to the next conversion as declared roots, as on the Amiga; the report's `recording_default` is corrected in the same change.
-2. In 1.7.3, a start variant of the play route with I after Run, for a screen confirmed with I (Boxyboy after Start). Both change every card's game, so the panel is converted again, on Windows and on the Debian 13 PC, at that time.
+1. The record's window test (a hidden window, a normal exit, F12 off) and its Linux witness, which the Amiga has and the PC Engine does not yet.
+2. A play route that waits on a screen the way a player does (Boxyboy's PUSH RUN), which the record answers only after a player has played it.
 3. SuperGrafx and CD-ROM2 as separate studies.
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
