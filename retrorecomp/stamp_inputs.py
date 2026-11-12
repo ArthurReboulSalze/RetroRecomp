@@ -682,7 +682,6 @@ INPUTS = _resolve({
     # stamp_groups.
     # The MSX2 (stage 6) is the same machine with the V9938, the memory mapper and the clock: both profiles own every file.
     ('msx', 'msx2'): (
-        'licenses/cbios.md',
         'native/hostkit/adapters/rrhk_msx.inc',
         'native/msx_machine/msx_cart.c',
         'native/msx_machine/msx_glue.inc',

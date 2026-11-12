@@ -211,7 +211,7 @@ MUPEN64PLUS_NEXT = Upstream(
     _py('retrorecomp/n64_core.py', 'CORE_REV'), checkout='mupen64plus-libretro-nx')
 CBIOS = Upstream(
     'C-BIOS', 'cbios/cbios', 'master', 'MSX BIOS booted by a game when the player gives no MSX BIOS of their own (SourceForge project)',
-    'BSD-2-Clause', 'the MSX1 main and logo ROMs of the official release archive cbios-0.29a.zip (SourceForge), checked by size and '
+    'BSD-2-Clause', 'the MSX1 and MSX2 main, logo and sub ROMs of the official release archive cbios-0.29a.zip (SourceForge), checked by size and '
     'SHA-256; embedded in a game that boots them, with their notice (licenses/cbios.md)',
     _py('retrorecomp/msx_cbios.py', 'VERSION'), tag='v{}', home='https://sourceforge.net/projects/cbios/')
 

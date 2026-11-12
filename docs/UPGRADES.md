@@ -720,7 +720,8 @@ changes are in its Python conversion only.
   now the MSX and MSX2).
 - `retrorecomp/pce_conversion.py` moves the PC Engine's game stamp; `retrorecomp/route_start.py` is a new game input of the PC
   Engine, the MSX and the MSX2.
-- The host stamps (the C-BIOS notice in the notices) are listed with the lead's change that makes the notices per machine.
+- No other machine's host stamp moves: C-BIOS's notice (`licenses/cbios.md`) is an optional notice of the MSX and MSX2
+  profiles only (embedded in a game that boots C-BIOS), and THIRD_PARTY_NOTICES.md is no longer a stamp input.
 
 **Quick states:** unchanged for every existing machine (the Master System's and Game Gear's bytes are equal; the PC Engine's
 format is not touched). The MSX and MSX2 states are new (layout `msx-state-2`).

@@ -282,7 +282,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
                         'online_cover': online_cover, 'boxart_dir': boxart_dir}
         prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model,
-                                mapper_kib=mapper_kib, presentation=presentation)
+                                mapper_kib=mapper_kib, presentation=presentation, cbios=own is None)
         try:
             executable = msx_build.build(work, ('game',), emit)['game']
         except Exception as error:  # noqa: BLE001 - the build's own log names the cause
@@ -443,7 +443,7 @@ def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int
 
 
 def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard: str, bios: bytes, emit=print, *,
-                 model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None) -> dict:
+                 model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None, cbios: bool = True) -> dict:
     """The game's resources beside the project: the cartridge as the checked runs saw it (103, padded to whole banks), the BIOS
     (104), the notices (203), the identity (205), the Windows metadata and icon, and msx_game.h. `presentation` (the
     player's cover options: rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, found as on the
@@ -454,10 +454,10 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
     _write_bytes = lambda path, data: path.write_bytes(data) if not path.is_file() or path.read_bytes() != data else None
     _write_bytes(work / 'cartridge.rom', cartridge)
     _write_bytes(work / 'slot0.rom', bios)
-    notices = [(ASSETS / name).read_text(encoding='utf-8') for name in
-               ('LICENSE', 'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/llvm-mingw.md',
-                'licenses/superzazu-z80.md', 'licenses/cbios.md') if (ASSETS / name).is_file()]
-    _write_bytes(work / 'notices.txt', '\n\n'.join(notices).encode('utf-8'))
+    from .notices import notice_text
+    # The notices of the components compiled into this game (the profile's list); C-BIOS's only when the game boots it.
+    _write_bytes(work / 'notices.txt', notice_text(_system(model)['id'], optional=('licenses/cbios.md',) if cbios else ())
+                 .encode('utf-8'))
     _write_bytes(work / 'runtime_feedback_config.h',
                  f'#define RR_FEEDBACK_SYSTEM "{_system(model)['id']}"\n#define RR_FEEDBACK_IDENTITY "{cart.sha256}"\n'.encode('ascii'))
     _write_bytes(work / 'export-identity.bin', b'[Retro-Recomp]\0' + cart.sha256.encode('ascii') + b'\0')
