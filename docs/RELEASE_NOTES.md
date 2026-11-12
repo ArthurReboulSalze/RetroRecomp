@@ -1,3 +1,70 @@
+# RetroRecomp v1.7.3 — The Amiga's chips do the same work in less machine time; a step that runs out of time is named in your language [titre à compléter]
+
+- **Commodore Amiga (experimental).**
+  - **Agnus and Denise do the same work in fewer steps.** Denise's line work is done by table
+    and by word, a line's bitplane slots are taken in a batch, a quiet line is drawn in one loop,
+    and the machine is built with ThinLTO. Then the idle disk controller's events are caught up
+    together, and the slots of sprites that show nothing are left out of their lines. These are
+    hand optimisations of vAmiga's own work, behind a guard where the change needs one: Agnus, Denise
+    and Paula stay emulated, and nothing is specialised from a game.
+  - **Proof.** The display self-test compares every instruction's and every frame's record with
+    vAmiga's own path, and each rule broken on purpose is seen. First-read conversions with the
+    real command line, Lotus 2, Pinball Dreams (NTSC) and Shadow of the Beast after the bitplane
+    batch, then Lotus 2, Rick Dangerous, Lemmings and Civilization after the idle disk and sprite
+    slots: every frame of two routes of 3,600 frames equals the fresh reference, with 0
+    instructions interpreted except Civilization's 19 Kickstart instructions, as in 1.7.2.
+  - **Machine time per frame**, on a quiet PC (Windows, one core, the native game, 2,400 frames of
+    each game's route, the median of three runs): 2.53 ms before these changes, 1.75 ms with the line work and
+    ThinLTO, 1.52 ms with the idle disk and sprite slots. On Rick Dangerous, 2.16 ms, then
+    1.37 ms, then 1.36 ms (that last step is inside the spread of its runs). One PC and two
+    games: this is the cost of a frame, not a latency.
+  - **Tried and reverted:** serving the Blitter alone on its colour clock timed 2 to 3 % slower
+    on both games; nothing of it remains.
+  - **A bus model of our own, in shadow.** It can run beside vAmiga to compare its slots and CPU
+    waits, for the self-test and private reference players only. It is never in an export: the
+    option is off and its hooks are not compiled.
+  - **Quick states on a frame cut short** (VPOSW or BEAMCON0) run the held-back disk events
+    before the state is taken, and a load clears what was derived from the timeline it left.
+    The conversion report counts what the idle disk and sprite slots did.
+  - [à venir : les 13 jeux Amiga relivrés, la conversion des couleurs]
+- **The converter window, on every machine: a step that runs out of time.** A conversion step that reaches its time
+  limit is now named in the converter window in your language (eight languages): which step
+  stopped, the limit, the likely causes and what to send, instead of Python's raw text.
+  [à venir, commit du jour : une étape qui écrit encore dépasse sa limite, jusqu'à 4 fois. Venu
+  d'un joueur dont le petit PC ne finissait pas Kirby's Adventure (NES) ; la cause n'est pas
+  reproduite ici.]
+- [à venir : le rapport liste les cinq langues des jeux]
+- [à venir : CPS-1 et CPS-2, la formulation « ready »]
+- **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
+  pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
+- [à venir : Game Boy Advance et Atari ST, à décider]
+- [à venir : l'étude de capture commune aux machines]
+
+**Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
+
+[à compléter : la phrase de synthèse de la release.] None of it is a measure of hardware
+fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** [à venir : avec le commit du jour, le game stamp de chaque
+console bouge, donc chaque export de 1.7.2 est reconverti une fois ; les clés d'état qui bougent
+(l'Amiga au moins).] Cartridge saves are kept; a save the new export cannot use is set aside
+and never crashes or blocks the game. The details are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.7.2 — The PC Engine / TurboGrafx-16 is supported; the Amiga learns from the player's own play and the Atari ST's native code is specialised per opcode
 
 - **PC Engine / TurboGrafx-16: supported.** The owner decided on 10 November 2026 that the
