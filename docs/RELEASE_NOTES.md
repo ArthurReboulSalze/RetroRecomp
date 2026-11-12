@@ -55,7 +55,20 @@
   paths also counts the rows its limits leave out (not shown in the window yet).
 - **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
   pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
-- [à venir : Game Boy Advance et Atari ST, à décider]
+- **Atari ST (experimental).**
+  - **What ran on the interpreter becomes native at the next conversion.** An exported game keeps
+    the player's own record (F12) of the code that ran on the interpreter, and the conversion
+    sweeps the memory left at the end of its routes. The next conversion compiles both, behind the
+    same guard on the latched opcode, counted apart from the observed code. On one scripted
+    session of Turrican II played past its routes, native code goes from 6.9 % to 73 % with the
+    sweep alone; native and interpreted traces of every frame stay byte-identical.
+  - **Games start by themselves more often.** Disks are taken in the order their names mean, and
+    the desktop starts the program a clear rule picks among several: of the eighteen games of the
+    library that stopped on the desktop, six now start their program.
+  - **Hatari's timer D patch is chosen per game**: Options → "Atari ST: timer D", auto, patched or
+    exact. On auto, The Seven Gates of Jambala runs without the patch; an exact game costs more
+    host time than the same game patched (an estimate, not a timing).
+- [à venir : Game Boy Advance, à décider]
 - [à venir : l'étude de capture commune aux machines]
 
 **Speed.** [mesure de coût par image 1.7.3 contre 1.7.2 à venir]
