@@ -29,15 +29,20 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'La liste des modules est indisponible.' }
     $resourceArguments += '--additional-hooks-dir'
     $resourceArguments += (Join-Path $projectRoot '.build\packaging-hooks')
-    python -m PyInstaller --noconfirm --onefile --windowed --name Retro-Recomp `
-        --icon "$projectRoot\assets\Retro-Recomp.ico" `
-        --splash "$projectRoot\.build\splash.png" `
-        --version-file "$projectRoot\.build\converter-version.txt" `
-        --add-binary "$creditsAudio;credits-runtime" `
-        --add-binary "$playerGamepad;player-runtime" `
-        --exclude-module numpy `
-        --distpath .build/packaged --workpath .build/packaging --specpath .build `
-        @resourceArguments RetroRecomp.py
+    $pyinstallerArguments = @('--noconfirm', '--onefile', '--windowed', '--name', 'Retro-Recomp',
+        '--icon', "$projectRoot\assets\Retro-Recomp.ico",
+        '--splash', "$projectRoot\.build\splash.png",
+        '--version-file', "$projectRoot\.build\converter-version.txt",
+        '--add-binary', "$creditsAudio;credits-runtime",
+        '--add-binary', "$playerGamepad;player-runtime",
+        '--exclude-module', 'numpy',
+        '--distpath', '.build/packaged', '--workpath', '.build/packaging', '--specpath', '.build') +
+        $resourceArguments + @('RetroRecomp.py')
+    # Over five hundred bundled files make a command longer than Windows accepts (32,767 characters):
+    # the arguments go to PyInstaller through a file, the same ones in the same order.
+    $argumentsFile = Join-Path $projectRoot '.build\pyinstaller-args.json'
+    ConvertTo-Json -InputObject $pyinstallerArguments | Set-Content -LiteralPath $argumentsFile -Encoding UTF8
+    python -c "import json, sys; import PyInstaller.__main__ as main; main.run(json.load(open(sys.argv[1], encoding='utf-8-sig')))" $argumentsFile
     if ($LASTEXITCODE -ne 0) { throw 'La compilation de Retro-Recomp.exe a échoué.' }
     # -NoInstall leaves Export untouched (checks of the packaged build only).
     if ($NoInstall) {
