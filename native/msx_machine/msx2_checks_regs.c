@@ -404,6 +404,34 @@ static void frame_checks(void)
     check("line-irq PAL R#19 = 255 fires", fh_flag(), 1);
 }
 
+/* R#18 set-adjust. The horizontal adjust is taken at each line boundary: a write during line L moves lines L + 1 and
+ * below, as a game's line interrupt does to scroll its playfield under a fixed status bar (Space Manbow, about 630
+ * such writes in 2,300 frames, on the same lines as openMSX); the vertical adjust waits for the next frame start. The
+ * nibble n gives (n ^ 7) - 7: 1 to 7 move left by 1 to 7 pixels, 8 to 15 right by 8 to 1 (V9938 Data Book, R#18). */
+static void adjust_checks(void)
+{
+    fresh();
+    reg(1, 0x40);                              /* display on: every picture line is drawn */
+    reg(18, 0x00);
+    to_frame(1);
+    uint64_t t0 = line_start();
+    to(t0 + 100 * (uint64_t)LINE + 50);        /* during line 100, before its draw point */
+    reg(18, 0x35);                             /* horizontal 5: -5; vertical 3: -3 */
+    to(t0 + 192 * (uint64_t)LINE);
+    check("adjust line 0 keeps the frame's value", vdp.line_adjust[0], 0);
+    check("adjust line 100 (the write's own line) unchanged", vdp.line_adjust[100], 0);
+    check("adjust line 101 takes the write", vdp.line_adjust[101], -5);
+    check("adjust line 191 keeps it", vdp.line_adjust[191], -5);
+    check("adjust vertical not taken mid-frame", vdp.adjust_v, 0);
+    to_frame(2);
+    check("adjust vertical taken at the next frame start", vdp.adjust_v, -3);
+    to(line_start() + 10 * (uint64_t)LINE);
+    check("adjust next frame from its first line", vdp.line_adjust[0], -5);
+    reg(18, 0x08);                             /* 8: right by 8 */
+    to(line_start() + 2 * (uint64_t)LINE);
+    check("adjust nibble 8 is +8", vdp.line_adjust[11], 8);
+}
+
 /* R#13: the high nibble is the ON time and the low one the OFF time, in units of 10 frames; the state flips after that
  * many frame starts. The ON state starts at the write. */
 static void blink_checks(void)
@@ -445,6 +473,7 @@ int main(void)
     line_irq_checks();
     frame_checks();
     blink_checks();
+    adjust_checks();
     printf("%s\n", failures ? "FAILED" : "all MSX2 register checks passed");
     return failures ? 1 : 0;
 }

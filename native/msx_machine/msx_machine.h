@@ -128,12 +128,15 @@ typedef struct {
     uint16_t collision_x, collision_y; /* S#3-S#6 */
     uint8_t blink_on, blink_count;     /* R#13 */
     uint8_t lines_latched;             /* 192 or 212, taken at frame start */
-    int8_t adjust_h, adjust_v;         /* R#18 at frame start */
+    /* R#18: the horizontal adjust is taken at each line boundary (a write applies from the next line: a game that sets it
+     * at a line interrupt scrolls only the lines below, as openMSX's VDP and the chip do); the vertical one at frame start. */
+    int8_t adjust_h, adjust_v;
     /* The picture: 9-bit colours, palette applied when the line was drawn; 256-pixel modes doubled. The border colour of
      * each line (even and odd half-pixels: Graphic 5 pairs). */
     uint16_t frame[MSX2_LINES][MSX2_WIDTH];
     uint16_t border[MSX2_LINES][2];
     uint8_t line_mode[MSX2_LINES];
+    int8_t line_adjust[MSX2_LINES];    /* the horizontal adjust each picture line was drawn with (the host shifts it) */
     MsxV9938Cmd cmd;
 } MsxV9938;
 

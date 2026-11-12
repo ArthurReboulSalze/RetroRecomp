@@ -392,7 +392,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     return executable
 
 
-STATE_LAYOUT = 'msx-state-1'     # raised whenever msx_state.c or msx_state_file.inc writes another body
+STATE_LAYOUT = 'msx-state-2'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line)
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 
 

@@ -204,6 +204,7 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
     v->border[line][0] = border_even;
     v->border[line][1] = border_odd;
     v->line_mode[line] = (uint8_t)mode;
+    v->line_adjust[line] = v->adjust_h;
     if (!(v->reg[1] & 0x40)) {                 /* display off: the line is the border */
         fill(out, border_even, border_odd);
         return;

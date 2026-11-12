@@ -186,7 +186,8 @@ int msx_dump_frame(const MsxMachine *m, FILE *out)
 {
     if (m->video == MSX_VIDEO_V9938)
         return fwrite(m->v9938->frame, 1, sizeof m->v9938->frame, out) == sizeof m->v9938->frame
-            && fwrite(m->v9938->border, 1, sizeof m->v9938->border, out) == sizeof m->v9938->border;
+            && fwrite(m->v9938->border, 1, sizeof m->v9938->border, out) == sizeof m->v9938->border
+            && fwrite(m->v9938->line_adjust, 1, sizeof m->v9938->line_adjust, out) == sizeof m->v9938->line_adjust;
     return fwrite(m->vdp.frame, 1, sizeof m->vdp.frame, out) == sizeof m->vdp.frame
         && fwrite(m->vdp.border, 1, sizeof m->vdp.border, out) == sizeof m->vdp.border;
 }
@@ -221,8 +222,8 @@ void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uin
 uint32_t msx_frame_hash(const MsxMachine *m)
 {
     if (m->video == MSX_VIDEO_V9938)
-        return fnv_add(fnv_add(2166136261u, m->v9938->frame, sizeof m->v9938->frame), m->v9938->border,
-                       sizeof m->v9938->border);
+        return fnv_add(fnv_add(fnv_add(2166136261u, m->v9938->frame, sizeof m->v9938->frame), m->v9938->border,
+                               sizeof m->v9938->border), m->v9938->line_adjust, sizeof m->v9938->line_adjust);
     return fnv_add(fnv_add(2166136261u, m->vdp.frame, sizeof m->vdp.frame), m->vdp.border, sizeof m->vdp.border);
 }
 

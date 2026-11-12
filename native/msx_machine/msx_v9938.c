@@ -44,6 +44,7 @@ void msx_v9938_reset(MsxMachine *m)
     v->blink_on = v->blink_count = 0;
     v->lines_latched = 192;
     v->adjust_h = v->adjust_v = 0;
+    memset(v->line_adjust, 0, sizeof v->line_adjust);
     msx_v9938_cmd_reset(m);
     m->lines_per_frame = MSX_LINES_NTSC;              /* R#9 is 0 after a reset: 60 Hz until the BIOS sets PAL */
     m->vblank_line = 192;
@@ -260,7 +261,6 @@ static void frame_start(MsxMachine *m)
     v->status2 ^= 0x02;
     m->lines_per_frame = (v->reg[9] & 0x02) ? MSX_LINES_PAL : MSX_LINES_NTSC;
     v->lines_latched = (v->reg[9] & 0x80) ? 212 : 192;
-    v->adjust_h = (int8_t)(((v->reg[18] & 0x0F) ^ 7) - 7);
     v->adjust_v = (int8_t)((((v->reg[18] >> 4) & 0x0F) ^ 7) - 7);
     if (v->blink_count) {
         if (--v->blink_count == 0) {
@@ -278,6 +278,8 @@ static void fold_trace(MsxMachine *m)
     for (size_t i = 0; i < sizeof v->frame; ++i) h = (h ^ p[i]) * 16777619u;
     p = (const uint8_t *)v->border;
     for (size_t i = 0; i < sizeof v->border; ++i) h = (h ^ p[i]) * 16777619u;
+    p = (const uint8_t *)v->line_adjust;
+    for (size_t i = 0; i < sizeof v->line_adjust; ++i) h = (h ^ p[i]) * 16777619u;
     for (int i = 0; i < 24; ++i) h = (h ^ v->reg[i]) * 16777619u;
     for (int i = 32; i < 47; ++i) h = (h ^ v->reg[i]) * 16777619u;
     h = (h ^ v->cmd.status) * 16777619u;
@@ -311,6 +313,7 @@ static void line_boundary(MsxMachine *m)
             fold_trace(m);
         frame_start(m);
     }
+    v->adjust_h = (int8_t)(((v->reg[18] & 0x0F) ^ 7) - 7);   /* R#18 written during the last line applies from this one */
     if (m->line_hook)
         m->line_hook();
 }

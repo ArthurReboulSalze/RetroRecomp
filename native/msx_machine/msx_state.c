@@ -103,6 +103,8 @@ static void v9938_state(MsxMachine *m, RetroStateIO *io)
     words16(io, &v->frame[0][0], (size_t)MSX2_LINES * MSX2_WIDTH, 0xFFFF);
     words16(io, &v->border[0][0], (size_t)MSX2_LINES * 2, 0xFFFF);
     rr_state_bytes(io, v->line_mode, sizeof v->line_mode);
+    for (int i = 0; i < MSX2_LINES; ++i)
+        S(v->line_adjust[i], 1);
     MsxV9938Cmd *c = &v->cmd;
     W(c->sx, 2, 0x3FF); W(c->sy, 2, 0x3FF); W(c->dx, 2, 0x3FF);
     W(c->dy, 2, 0x3FF); W(c->nx, 2, 0x3FF); W(c->ny, 2, 0x3FF);
@@ -199,6 +201,9 @@ static int consistent(const MsxMachine *m, const uint8_t *ram64)
         if ((v->lines_latched != 192 && v->lines_latched != 212) || v->adjust_h < -7 || v->adjust_h > 8
             || v->adjust_v < -7 || v->adjust_v > 8)
             return 0;
+        for (int i = 0; i < MSX2_LINES; ++i)
+            if (v->line_adjust[i] < -7 || v->line_adjust[i] > 8)
+                return 0;
         for (int i = 0; i < 16; ++i)
             if (m->v9938->palette[i] > 0x777)
                 return 0;

@@ -28,7 +28,7 @@ PALETTE = ((0, 0, 0), (0, 0, 0), (33, 200, 66), (94, 220, 120), (84, 85, 237), (
            (66, 235, 245), (252, 85, 84), (255, 121, 120), (212, 193, 84), (230, 206, 128), (33, 176, 59),
            (201, 91, 186), (204, 204, 204), (255, 255, 255))
 TMS_BYTES = 192 * 256 + 192
-V9938_BYTES = 212 * 512 * 2 + 212 * 2 * 2
+V9938_BYTES = 212 * 512 * 2 + 212 * 2 * 2 + 212     # the picture, the borders, R#18's horizontal adjust per line
 
 
 def plan(report: dict) -> list[tuple[str, int, str]]:
@@ -45,7 +45,8 @@ def plan(report: dict) -> list[tuple[str, int, str]]:
 
 def picture(path: Path):
     """A raw picture (msx_dump_frame) as a Pillow image: the TMS9918A's 256 x 192 indices, or the V9938's 512 x 212 9-bit
-    colours shown at 512 x 424 (its half-pixels are half as wide)."""
+    colours with a 16-half-pixel border, each line moved by its horizontal adjust as the player shows it, at 544 x 424 (its
+    half-pixels are half as wide)."""
     from PIL import Image
     data = path.read_bytes()
     if len(data) == TMS_BYTES:
@@ -54,9 +55,20 @@ def picture(path: Path):
         return image.resize((512, 384), Image.NEAREST)
     if len(data) == V9938_BYTES:
         words = struct.unpack(f'<{512 * 212}H', data[:512 * 212 * 2])
-        image = Image.new('RGB', (512, 212))
-        image.putdata([(((c >> 4) & 7) * 255 // 7, ((c >> 8) & 7) * 255 // 7, (c & 7) * 255 // 7) for c in words])
-        return image.resize((512, 424), Image.NEAREST)
+        borders = struct.unpack(f'<{212 * 2}H', data[512 * 212 * 2:512 * 212 * 2 + 212 * 4])
+        adjust = struct.unpack('<212b', data[-212:])
+
+        def rgb(c):
+            return ((c >> 4) & 7) * 255 // 7, ((c >> 8) & 7) * 255 // 7, (c & 7) * 255 // 7
+        pixels = []
+        for line in range(212):
+            row = [rgb(borders[2 * line + (x & 1)]) for x in range(544)]
+            left = 16 + 2 * adjust[line]
+            row[left:left + 512] = [rgb(c) for c in words[line * 512:(line + 1) * 512]]
+            pixels += row
+        image = Image.new('RGB', (544, 212))
+        image.putdata(pixels)
+        return image.resize((544, 424), Image.NEAREST)
     raise ValueError(f'{path.name}: {len(data)} bytes is not an MSX picture')
 
 

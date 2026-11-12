@@ -174,7 +174,7 @@ static int eq_machine(const MsxMachine *x, const MsxMachine *y, const uint8_t *r
         EQ("v.blink_on", a->blink_on, b->blink_on); EQ("v.blink_count", a->blink_count, b->blink_count);
         EQ("v.lines_latched", a->lines_latched, b->lines_latched);
         EQ("v.adjust_h", a->adjust_h, b->adjust_h); EQ("v.adjust_v", a->adjust_v, b->adjust_v);
-        EQM("v.frame", a->frame, b->frame); EQM("v.border", a->border, b->border); EQM("v.line_mode", a->line_mode, b->line_mode);
+        EQM("v.frame", a->frame, b->frame); EQM("v.border", a->border, b->border); EQM("v.line_mode", a->line_mode, b->line_mode); EQM("v.line_adjust", a->line_adjust, b->line_adjust);
         const MsxV9938Cmd *c = &a->cmd, *d = &b->cmd;
         EQ("cmd.sx", c->sx, d->sx); EQ("cmd.sy", c->sy, d->sy); EQ("cmd.dx", c->dx, d->dx); EQ("cmd.dy", c->dy, d->dy);
         EQ("cmd.nx", c->nx, d->nx); EQ("cmd.ny", c->ny, d->ny); EQ("cmd.col", c->col, d->col); EQ("cmd.arg", c->arg, d->arg);

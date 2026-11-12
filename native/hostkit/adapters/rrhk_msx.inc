@@ -145,16 +145,20 @@ static uint32_t m_rgb9(uint16_t c) {
 
 static void m_picture2(const MsxMachine *m) {
    const MsxV9938 *v = m->v9938;
-   int lines = v->lines_latched, top = 8 + (MSX2_LINES - lines) / 2 + v->adjust_v, left = 16 + 2 * v->adjust_h;
+   /* R#18: the vertical adjust moves the whole picture (taken at frame start); the horizontal one each line as it was drawn
+    * (a game that changes it at a line interrupt, Space Manbow's playfield under its status bar, scrolls those lines only). */
+   int lines = v->lines_latched, top = 8 + (MSX2_LINES - lines) / 2 + v->adjust_v;
    for (int y = 0; y < M_VIEW2_H; y++) {
       int line = y - top;
       int edge_line = line < 0 ? 0 : line >= lines ? lines - 1 : line;
       uint32_t edge_even = m_rgb9(v->border[edge_line][0]), edge_odd = m_rgb9(v->border[edge_line][1]);
       uint32_t *out = m_view + y * M_VIEW2_W;
       for (int x = 0; x < M_VIEW2_W; x++) out[x] = (x & 1) ? edge_odd : edge_even;
-      if (line >= 0 && line < lines)
+      if (line >= 0 && line < lines) {
+         const int left = 16 + 2 * v->line_adjust[line];      /* 2 to 32: the 512 half-pixels always fit in 544 */
          for (int x = 0; x < MSX2_WIDTH; x++)
             if (left + x >= 0 && left + x < M_VIEW2_W) out[left + x] = m_rgb9(v->frame[line][x]);
+      }
    }
 }
 
