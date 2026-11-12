@@ -55,7 +55,7 @@ class MsxProfile(SystemProfile):
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'msx'
     host_adapter = 'adapters/rrhk_msx.inc'
-    linux = 'pending'
+    linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
     # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: the player records nothing for path sharing yet.
     feedback_kinds = frozenset({26})
     # The third-party components compiled into its games (retrorecomp/notices.py; the player shell's are added): the banked
