@@ -78,6 +78,11 @@
   Stop still stops it at once, and replays and probes keep their fixed limit. This came from a
   player whose small PC needed more than 30 minutes to compile Kirby's Adventure (NES); the
   slowness itself was not reproduced here.
+- **Disk space: the build folders of the newer machines are removed too.** After publication,
+  Retro-Recomp removes a game's build folder; on the Amiga, the Atari ST, the Nintendo 64, the
+  CPS-2, the PlayStation and the MSX it did not, and Options > Common > Disk space did not list
+  those folders, so each conversion left a few hundred MB in `.build`. They are now removed like
+  the others, and the ones earlier versions left appear in Disk space.
 - **The game report** lists the five languages a generated game ships (`ui_languages`); it listed
   the converter's eight.
 - **Capcom CPS-1 and CPS-2.** A set ready with no interpreter on its routes now says "no

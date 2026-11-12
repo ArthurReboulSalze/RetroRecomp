@@ -85,6 +85,12 @@ class IdentificationTests(unittest.TestCase):
             ('x68', 'win', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
             ('x68', 'win-llvm', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
             ('x68', 'linux', '013098655eb5', '609d891fcc979af8'): ('x68', '609d891fcc979af8'),
+            ('cps2', 'ssf2-22897b4338a7'): ('cps2', '22897b4338a7'),
+            ('psx', '22897b4338a7'): ('psx', '22897b4338a7'),
+            ('msx', '22897b4338a7-0a1b2c3d'): ('msx', '22897b4338a7'),
+            ('amiga', 'win-llvm', '10032de82080', '37b8afa13b085e80'): ('amiga', '37b8afa13b085e80'),
+            ('n64', 'linux', 'cf9525415d3c', '1fb61b96aba61ed0'): ('n64', '1fb61b96aba61ed0'),
+            ('atarist', 'win', '848b26c7b196', '18b18806f73926f2', '0f6dba94fae29150'): ('atarist', '18b18806f73926f2'),
             (REMOVING + '0123456789abcdef',): ('removing', ''),
         }
         for parts, expected in shapes.items():
@@ -102,8 +108,26 @@ class IdentificationTests(unittest.TestCase):
                       ('sms-sprite-selftest',), ('video-selftest',), ('neogeo-thirty-20261020',),
                       ('ng-host-pages',), ('gb_Tetris',), ('gba_Metroid',), ('sms_Game_887D9F6B_C66AC645F7D1',),
                       ('nes_Game_58fb9ef0c14c_1b0c621a_dendy',), ('cleanup-check',), ('.deps',),
-                      ('sms_Ace_887D9F6B_c66ac645f7d1_banked', 'build-native')]:
+                      ('sms_Ace_887D9F6B_c66ac645f7d1_banked', 'build-native'),
+                      # The shared bases of the machines built on one: engine, references, emulator cores.
+                      ('amiga', 'win-llvm', '10032de82080'), ('amiga', 'win-llvm', '10032de82080', 'reference'),
+                      ('amiga', 'win-llvm', '10032de82080', 'vamiga'), ('amiga', 'win-llvm', '10032de82080', 'vamiga-lock'),
+                      ('n64', 'win-llvm', 'core-11dcc7fc056c'), ('n64', 'win-llvm', 'core-11dcc7fc056c', 'core'),
+                      ('atarist', 'win-llvm', 'hatari-e89a52b7e31d', 'hatari'),
+                      ('atarist', 'win', '848b26c7b196', '18b18806f73926f2'),     # the game's folder: its TOS folders are the projects
+                      ('atarist', 'win', '848b26c7b196', 'reference-lock'), ('psx',), ('msx', '22897b4338a7'),
+                      ('scummvm', 'gob'), ('scummvm', 'tools'), ('cps2', 'ssf2')]:
             self.assertIsNone(classify(parts), parts)
+
+    def test_every_machine_has_a_project_rule(self):
+        # A machine without a rule leaves every game's project on the player's disk after publication, and Options >
+        # Common > Disk space never lists it (the Amiga and the Atari ST had piled up 54 GB here before 1.7.3).
+        from retrorecomp import build_cleanup
+        from retrorecomp.systems import system_ids
+        top_level = {'sms', 'gg', 'gb', 'gba', 'nes', 'md', 'snes', 'ng'}
+        covered = top_level | {folder for folder, _ in build_cleanup._FLAT} | set(build_cleanup._BASED)
+        for system in system_ids():
+            self.assertIn(build_cleanup._FOLDER_OF.get(system, system), covered, system)
 
     def test_removing_build_folders_never_changes_a_game_stamp(self):
         # Like the interface, the cleanup is not a compiler input: changing it
@@ -126,7 +150,14 @@ class IdentificationTests(unittest.TestCase):
                      ('cps1', 'cps1/ffight-' + SHA[:12], 'native/build/Release/game.exe'),
                      ('pce', 'pce/' + SHA[:12], 'n/build/Release/game.exe'),
                      ('x68', 'x68/win/013098655eb5/' + SHA[:16], 'native/build/reference/Release/RetroRecomp-X68000-Native.exe'),
-                     ('x68', 'x68/linux/013098655eb5/' + SHA[:16], 'native/build/reference/RetroRecomp-X68000-Native')]
+                     ('x68', 'x68/linux/013098655eb5/' + SHA[:16], 'native/build/reference/RetroRecomp-X68000-Native'),
+                     ('cps2', 'cps2/ssf2-' + SHA[:12], 'native/build/game.exe'),
+                     ('psx', 'psx/' + SHA[:12], 'project/build/game.exe'),
+                     ('msx', 'msx/' + SHA[:12] + '-0a1b2c3d', 'native/game.exe'),
+                     ('msx2', 'msx/' + SHA[:12] + '-0a1b2c3d', 'native/game.exe'),
+                     ('amiga', 'amiga/win-llvm/10032de82080/' + SHA[:16], 'native/build/game.exe'),
+                     ('n64', 'n64/linux/cf9525415d3c/' + SHA[:16], 'native/build/game'),
+                     ('atarist', 'atarist/win/848b26c7b196/' + SHA[:16] + '/' + OTHER[:16], 'native/build/game.exe')]
             for system, name, executable in cases:
                 project = build / name
                 for report in ({'build_executable': str(project / executable)},
@@ -221,6 +252,29 @@ class RemovalTests(unittest.TestCase):
         # Another cartridge's folder under pce/ is not this conversion's project.
         files(self.build / 'pce' / OTHER[:12])
         self.assertEqual(game_projects('pce', SHA, {'build_directory': str(pce / 'n')}, self.root), [pce])
+        # The machines on a shared base: the same game under an older engine base goes too, another game stays.
+        amiga = files(self.build / 'amiga/win-llvm/10032de82080' / SHA[:16])
+        old_amiga = age(files(self.build / 'amiga/win-llvm/3ffce5b362d3' / SHA[:16]))
+        other_amiga = age(files(self.build / 'amiga/win-llvm/10032de82080' / OTHER[:16]))
+        reference = age(files(self.build / 'amiga/win-llvm/10032de82080/reference'))
+        self.assertEqual(game_projects('amiga', SHA, {'build_executable': str(amiga / 'native/game.exe')}, self.root),
+                         [amiga, old_amiga])
+        st = files(self.build / 'atarist/win/848b26c7b196' / SHA[:16] / OTHER[:16])
+        st_other_tos = age(files(self.build / 'atarist/win/848b26c7b196' / SHA[:16] / ('0' * 16)))
+        self.assertEqual(game_projects('atarist', SHA, {'build_executable': str(st / 'native/game.exe')}, self.root),
+                         [st, st_other_tos])
+        freed = release_build(self.item('atarist'), {'build_executable': str(st / 'native/game.exe')}, self.log.append,
+                              root=self.root)
+        self.assertEqual(freed, 4000)
+        self.assertFalse((self.build / 'atarist/win/848b26c7b196' / SHA[:16]).exists())   # the emptied game folder too
+        self.assertTrue(other_amiga.exists() and reference.exists())
+        # The MSX2 converts in the MSX's folder; CPS-2 and PlayStation have their own.
+        msx = files(self.build / 'msx' / (SHA[:12] + '-0a1b2c3d'))
+        self.assertEqual(game_projects('msx2', SHA, {'build_directory': str(msx)}, self.root), [msx])
+        cps2 = files(self.build / 'cps2' / ('ssf2-' + SHA[:12]))
+        self.assertEqual(game_projects('cps2', SHA, {'build_directory': str(cps2)}, self.root), [cps2])
+        psx = files(self.build / 'psx' / SHA[:12])
+        self.assertEqual(game_projects('psx', SHA, {'build_directory': str(psx)}, self.root), [psx])
         # A report whose project carries another cartridge's identity removes nothing.
         stray = files(self.build / f'gb_Tetris_{OTHER[:12]}_9150f87d')
         self.assertEqual(game_projects('gb', SHA, {'build_directory': str(stray)}, self.root), [])

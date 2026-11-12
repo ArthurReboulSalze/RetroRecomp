@@ -58,8 +58,15 @@ REMOVING = '.retro-recomp-removing-'
 #   snes    supernintendo.py   snes-rom-<sha16|32|64>, snes-<exact-ROM catalogue id>
 #   ng      neogeo_build.py    ng-<cart+BIOS identity20>[-native|-<random8>]
 #   cps1    cps1_conversion.py cps1/<set>-<sha12>
+#   cps2    cps1_conversion.py cps2/<set>-<sha12>
 #   pce     pce_conversion.py  pce/<sha12>
+#   psx     psx_conversion.py  psx/<sha12>
+#   msx     msx_conversion.py  msx/<sha12>-<BIOS8>         (MSX and MSX2 alike)
+#   scummvm scummvm_export.py  scummvm/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
+#   amiga   amiga_conversion   amiga/<win|win-llvm|linux>/<SDK12>/<sha16>
+#   n64     n64_conversion     n64/<win|win-llvm|linux>/<SDK12>/<sha16>
+#   atarist atarist_conversion atarist/<win|win-llvm|linux>/<SDK12>/<sha16>/<TOS16>
 #                              (the <SDK12> base is shared: only the game below)
 _SEGA = re.compile(r'(sms|gg)_.+_[0-9A-F]{8}_([0-9a-f]{12})(?:_banked)?')
 _GB = re.compile(r'gb_.+_([0-9a-f]{12})_[0-9a-f]{8}')
@@ -73,6 +80,13 @@ _PCE = re.compile(r'([0-9a-f]{12})')
 _X68_HOST = re.compile(r'win(?:-llvm)?|linux')
 _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
+_MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
+# Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE))
+# Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
+_BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}
+# A profile that shares another one's build folder (the MSX2 converts with the MSX's converter).
+_FOLDER_OF = {'msx2': 'msx'}
 _REMOVING = re.compile(re.escape(REMOVING) + r'[0-9a-f]{16}')
 _SHA = re.compile(r'[0-9a-f]{64}')
 
@@ -125,16 +139,20 @@ def classify(parts) -> tuple[str, str] | None:
                 if sha:
                     return system, sha
         return None
-    if len(parts) == 2 and parts[0] == 'cps1' and (match := _CPS1.fullmatch(parts[1])):
-        return 'cps1', match[1]
-    if len(parts) == 2 and parts[0] == 'pce' and (match := _PCE.fullmatch(parts[1])):
-        return 'pce', match[1]
-    if len(parts) == 2 and parts[0] == 'scummvm' and (match := _PCE.fullmatch(parts[1])):
-        return 'scummvm', match[1]
-    if (len(parts) == 4 and parts[0] == 'x68' and _X68_HOST.fullmatch(parts[1])
-            and _X68_SDK.fullmatch(parts[2]) and _X68_GAME.fullmatch(parts[3])):
-        return 'x68', parts[3]
+    if len(parts) == 2:
+        for folder, pattern in _FLAT:
+            if parts[0] == folder and (match := pattern.fullmatch(parts[1])):
+                return folder, match[1]
+        return None
+    depth = _BASED.get(parts[0])
+    if (depth and len(parts) == 3 + depth and _X68_HOST.fullmatch(parts[1]) and _X68_SDK.fullmatch(parts[2])
+            and all(_X68_GAME.fullmatch(part) for part in parts[3:])):
+        return parts[0], parts[3]
     return None
+
+
+def _system_folder(system: str) -> str:
+    return _FOLDER_OF.get(system, system)
 
 
 def _link(info) -> bool:
@@ -212,9 +230,10 @@ def _measure(path, cancel=None) -> tuple[int, float]:
 
 
 def _locked(path: Path, system: str) -> bool:
-    """CPS-1, PC Engine and X68000 conversions hold an entry lock on their project."""
-    lock = {'cps1': path / 'entry.lock', 'pce': path / 'entry.lock', 'x68': path / 'lock' / 'entry.lock'}.get(system)
-    if lock is None or not lock.is_file():
+    """A conversion in progress holds an entry lock on its project: in the project itself (the flat machines) or in its
+    ``lock`` folder (the machines on a shared base)."""
+    lock = path / 'lock' / 'entry.lock' if system in _BASED else path / 'entry.lock'
+    if not lock.is_file():
         return False
     from .library import entry_lock
     try:
@@ -270,7 +289,13 @@ def _remove(path, build: Path, *, keep_recent: bool, cancel=None) -> tuple[str, 
     size, newest = _measure(path, cancel)
     if (keep_recent and newest > time.time() - RECENT_SECONDS) or _locked(path, system):
         return 'in_use', size
-    return _discard(path, build, size, renamed=system == 'removing')
+    outcome = _discard(path, build, size, renamed=system == 'removing')
+    if outcome[0] == 'removed' and _BASED.get(system, 1) > 1:
+        try:
+            os.rmdir(_native(path.parent))    # the game's folder once its last TOS (Atari ST) is gone
+        except OSError:
+            pass
+    return outcome
 
 
 def _discard(path: Path, parent: Path, size: int, *, renamed: bool = False) -> tuple[str, int]:
@@ -323,8 +348,10 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'pce', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'psx', 'msx', 'scummvm'):
         return key == sha256[:12]
+    if system in ('amiga', 'n64', 'atarist'):
+        return key == sha256[:16]
     if system == 'md':
         return key == sha256
     if system == 'snes':
@@ -341,6 +368,7 @@ def report_project(system: str, report: dict, root: Path | None = None) -> Path 
     """The per-game project a conversion report names (build_directory, else
     build_executable at any depth: Visual Studio and Ninja builds differ)."""
     build = build_root(root)
+    system = _system_folder(system)
     for key in ('build_directory', 'build_executable'):
         value = report.get(key)
         if not isinstance(value, str) or not value:
@@ -371,6 +399,7 @@ def game_projects(system: str, sha256: str, report: dict, root: Path | None = No
     standard or back end). Empty unless the report names its project and that
     project carries this ROM's identity."""
     build = build_root(root)
+    system = _system_folder(system)
     if not _SHA.fullmatch(sha256 or ''):
         return []
     machine = report.get('source_identity', '') if system == 'x68' else ''
@@ -385,12 +414,8 @@ def game_projects(system: str, sha256: str, report: dict, root: Path | None = No
             system == 'ng' and _owner(project, 'ng') is None):
         return []
     found = [project]
-    if system in ('cps1', 'pce', 'scummvm'):
-        candidates = [build / system / name for name in _subfolders(build / system)]
-    elif system == 'x68':
-        candidates = [build / 'x68' / host / sdk / name
-                      for host in _subfolders(build / 'x68') for sdk in _subfolders(build / 'x68' / host)
-                      for name in _subfolders(build / 'x68' / host / sdk)]
+    if any(system == folder for folder, _ in _FLAT) or system in _BASED:
+        candidates = [build.joinpath(*parts) for parts in _below(build, system)]
     else:
         candidates = [build / name for name in _subfolders(build)]
     for path in candidates:
@@ -448,13 +473,17 @@ def _candidates(build: Path) -> list[tuple[str, ...]]:
     """Where per-game projects can be, as parts below .build (not yet checked
     by ``classify``)."""
     candidates = [(name,) for name in _subfolders(build)]
-    candidates += [('cps1', name) for name in _subfolders(build / 'cps1')]
-    candidates += [('pce', name) for name in _subfolders(build / 'pce')]
-    candidates += [('scummvm', name) for name in _subfolders(build / 'scummvm')]
-    candidates += [('x68', host, sdk, name) for host in _subfolders(build / 'x68')
-                   for sdk in _subfolders(build / 'x68' / host)
-                   for name in _subfolders(build / 'x68' / host / sdk)]
+    for folder in (*dict(_FLAT), *_BASED):
+        candidates += _below(build, folder)
     return candidates
+
+
+def _below(build: Path, folder: str) -> list[tuple[str, ...]]:
+    """Folders at a project's depth under a machine's own folder, as parts below .build."""
+    levels = [(folder,)]
+    for _ in range(1 if folder not in _BASED else 3 + _BASED[folder] - 1):
+        levels = [(*parts, name) for parts in levels for name in _subfolders(build.joinpath(*parts))]
+    return levels
 
 
 def leftover_projects(root: Path | None = None, *, cancel=None) -> list[Project]:

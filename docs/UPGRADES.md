@@ -540,6 +540,18 @@ player had played. It now reads only the records beside its own output, as its p
 `retrorecomp/feedback.py` is a game-stamp input of every console (every game stamp moves in 1.7.3 anyway). **Quick states:** the keys of the Amiga, the Atari ST and the Nintendo 64 take every input of their machine, so they move (they move in
 1.7.3 anyway); the other keys hash none of the files changed.
 
+## Amiga, Atari ST, Nintendo 64, CPS-2, PlayStation, MSX: the build project is removed after publication (1.7.3)
+
+The cleanup of build projects (`build_cleanup.classify`) knew the folders of the first nine machines only. A conversion on
+the Amiga (`amiga/<host>/<engine12>/<game16>`), the Atari ST (`atarist/<host>/<engine12>/<game16>/<TOS16>`), the Nintendo 64
+(`n64/<host>/<engine12>/<game16>`), the CPS-2 (`cps2/<set>-<sha12>`), the PlayStation (`psx/<sha12>`) or the MSX and MSX2
+(`msx/<sha12>-<BIOS8>`) left its project in `.build` after publication, and Options > Common > Disk space never listed it: a
+few hundred MB per game, without limit. These shapes are now rules like the others: a published game's project goes, with
+the same game's projects under an older engine; the shared bases (engine references, the vAmiga, Hatari and Mupen64Plus
+builds) never match. Projects left by earlier versions appear in Disk space. A test fails when a registered machine has no
+rule. Proof: `tests/test_build_cleanup.py`. **Hot path:** no. **What moves:** nothing: `build_cleanup` is interface code,
+which no stamp hashes.
+
 ## Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three (1.7.3)
 
 The cartridge's save file beside the game was written three times: `native/md_battery.c`, `native/snes_battery.c` and `native/pce_backup.c` each carried their own load at start, their own two-second pacing, atomic write, size and header checks and set-aside of a file the game cannot use ([STANDARDS.md](STANDARDS.md), rule 1). The rules are now written once in `native/cart_save.c` and `cart_save.h`, and each machine's file keeps only what is its own: the format (magic, the identity words the file repeats, where its hash sits, the largest memory), its memory and its guards. The differences between the machines are named capabilities of the format, not silent divergences: the Mega Drive leaves a file it cannot use where it is and opens without saving, where the Super Nintendo and the PC Engine move it to `.unusable-N` and start blank; the PC Engine also reports a file that exists and cannot be read (notice 2). Nothing a player can see changes: the same file under `datas/saves/<game>-<card>.rrsram`, the same 112-byte header and size, the same moments of writing (the memory quiet for two seconds, checked every half second, a failed write retried after ten seconds, at once on exit), the same handling of a missing, short, long, damaged or read-only file. An old save still loads, and a bad one is never deleted and never blocks a game. Two cases the old code could not reach are tidied: a file is read into the buffer reserved at start instead of an allocation whose failure counted as a damaged file (the Mega Drive and the Super Nintendo), and a PC Engine whose machine is not there is refused instead of read at address zero.
