@@ -78,7 +78,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `████░░░░░░` 43 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `█████░░░░░` 47 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | experimental | `██████░░░░` 57 % |
 | [Atari ST](docs/ATARI_ST.md)\* | experimental | `█████░░░░░` 53 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |

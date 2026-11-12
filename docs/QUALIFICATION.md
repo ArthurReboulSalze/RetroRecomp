@@ -60,7 +60,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| Game Boy Advance | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
+| Game Boy Advance | experimental | `█████░░░░░` 47 % | ✅ 0 · 🟡 14 · ❔ 1 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
 | Atari ST | experimental | `█████░░░░░` 53 % | ✅ 2 · 🟡 12 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
@@ -84,7 +84,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❔ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -114,7 +114,7 @@ psx = Sony PlayStation.
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | P | ? | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | Y | P | P | Y | P | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | ? | P | P | ? | P |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | P | ? | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | - | - | - | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
