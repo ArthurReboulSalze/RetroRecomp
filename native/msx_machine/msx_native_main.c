@@ -18,8 +18,11 @@ static void finish(void);
 
 /* The run stops at the frame limit once an instruction and the interrupt it may accept are complete, as the reference
  * does. */
+static unsigned long long trace_from, trace_to;   /* tools: the instructions that start in a window of machine cycles */
 static void msx_main_service(void)
 {
+    if (trace_to && g_z80.cyc >= trace_from && g_z80.cyc < trace_to)
+        fprintf(stderr, "T %llu %04X\n", (unsigned long long)g_z80.cyc, g_z80.pc);
     if (machine.frames >= frames_wanted)
         finish();
 }
@@ -151,6 +154,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--audio")) audio_out = v;
         else if (!strcmp(a, "--vram")) vram_out = v;
         else if (!strcmp(a, "--learn")) learn_out = v;
+        else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
         else if (!strcmp(a, "--watch") && watches < 32) watch[watches++] = (unsigned)strtoul(v, NULL, 16) & 0xFFFF;
         else if (!strcmp(a, "--mapper")) {
             int found = -1;
@@ -201,7 +205,7 @@ int main(int argc, char **argv)
     if (audio_out && !(audio = fopen(audio_out, "wb"))) { fprintf(stderr, "cannot write %s\n", audio_out); return 3; }
     machine.line_hook = frame_service;
     memset(&g_z80, 0, sizeof g_z80);
-    g_next_line_cyc = machine.next_line;
+    g_next_line_cyc = msx_next_event(&machine);
     smsrecomp_banked_run();                      /* returns through finish() at the frame limit */
     return 0;
 }

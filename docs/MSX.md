@@ -1,6 +1,6 @@
 # MSX
 
-Experimental profile (`msx`), in development: it is not in a release yet. It converts an MSX1 cartridge into a standalone Windows
+Experimental profiles (`msx`, and `msx2` for the MSX2, described in section 8), in development: they are not in a release yet. The `msx` profile converts an MSX1 cartridge into a standalone Windows
 executable whose Z80 code, as far as the conversion saw it run, is translated ahead of time to C, with a counted interpreter for the rest.
 The cartridge boots on C-BIOS 0.29a or on the player's own MSX BIOS. Nothing here says that a game plays completely, that the hardware is
 reproduced faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each, and
@@ -10,7 +10,7 @@ for the MSX most of them are not known yet.
 
 | Converted (experimental) | Not yet |
 | --- | --- |
-| MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | MSX2 (the V9938 video chip), MSX2+, the turbo R |
+| MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | MSX2+ and the turbo R (the MSX2 is the `msx2` profile, section 8) |
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers | The other mappers (the rare ones), FM-PAC, cartridge SRAM and the saves that depend on it |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
 | The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound | Quick states (F8/F9) |
@@ -52,7 +52,7 @@ These were development checks and are not a qualification (see section 7). They 
 
 ## 4. Controls
 
-The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-experimental):
+The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental):
 
 | Key | MSX |
 | --- | --- |
@@ -74,7 +74,7 @@ C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the 
   your own MSX BIOS in Options > MSX.
 - **BASIC cartridges** are refused under C-BIOS, which has no MSX-BASIC.
 
-Other known limits: the SRAM, FM-PAC, disk, cassette and MSX2 cartridges are not converted, and no game other than the ones named in section 3 has been checked.
+Other known limits: the SRAM, FM-PAC, disk and cassette are not converted (MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in section 3 has been checked.
 
 ## 6. Licences
 
@@ -89,3 +89,38 @@ G1 is partial: the profile is declared experimental and `tools/status_lint.py`, 
 strings agree. Every other gate of [QUALIFICATION.md](QUALIFICATION.md) is unknown (`?`), and G16 is not applicable (`-`): the MSX shares no paths. The
 development checks of section 3 are listed in its caveats and are not a qualification. Leaving the experimental status is the owner's own decision (G14),
 and nothing here asks for it.
+
+## 8. The MSX2 (`msx2`)
+
+Experimental profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
+keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is in development, not in a release yet, and
+**the V9938 command engine is not there yet (stage 7)**.
+
+**Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you
+choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine: the V9938 drawn line by line (all screen modes, sprite mode 2, the
+palette, scrolling, the line interrupt, the display pages), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
+RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
+
+**Firmware:** C-BIOS 0.29a MSX2 images (main ROM, logo and sub-ROM), fetched and pinned like the MSX1's, or your own MSX2 BIOS pair: the main ROM
+(`msx2_bios`) and its 16 KiB sub-ROM (`msx2_subrom`, the file beginning "CD"), chosen in Options > MSX2 and never shipped. The same rules as for the MSX1:
+the input is never changed, and a game converted with your own BIOS holds it and code translated from it.
+
+**Not yet:** the V9938 command engine (stage 7: C-BIOS's MSX2 logo stays empty, and games that draw with commands show wrong pictures), disks,
+cassettes, FM-PAC, MSX2+, the turbo R, quick states (F8/F9), a Linux witness.
+
+**Not modelled in the V9938:** the timing of access through port 98h, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
+switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM. Where hardware reports disagree on sprite mode 2's rules,
+the profile follows openMSX's reading; that is a choice, not a proof.
+
+**The five measures for the MSX2**, kept separate:
+
+| Measure | What is known | What is not |
+| --- | --- | --- |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning | No game, no panel, no release-level run |
+| CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
+| Hardware fidelity | Nothing is claimed. 317 hand-worked checks of the V9938 and the MSX2 board pass: they check our model against our own reading of the documents | The V9938 and the RP5C01 against an independent reference; everything in the list above |
+| Gameplay validation | None: no MSX2 game is validated | Everything |
+| Physical latency | Not measured | No latency figure; none is claimed |
+
+Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial,
+G16 not applicable and every other gate unknown.

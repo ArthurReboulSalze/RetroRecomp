@@ -81,14 +81,29 @@ def generator(emit: Callable[[str], None] = print) -> tuple[Path, Path]:
     return build_executable(core.ROOT / '.deps' / (MSX_MACHINE.generator_build + suffix()), 'SmsRecomp'), engine
 
 
+# The interpreter runs a DD/FD prefix before an opcode that does not use the index register by executing that opcode
+# again as unprefixed, and takes back the second R increment; the M1 count (cpu.prepare_reference, m1_counter: one wait
+# state per M1 cycle on the MSX) must be taken back with it, or "DD C9" costs three wait states instead of two.
+DDFD_R_BACK = '    // R should not be incremented twice:\n    z->r = (z->r & 0x80) | ((z->r - 1) & 0x7f);'
+
+
 def instrument_reference(path: Path) -> None:
-    """The reference interpreter's own interrupt acceptance exported (behaviour unchanged): the reference runner reads /INT
-    after each instruction, as the native loop does."""
+    """The MSX's corrections to its copy of the reference interpreter: its own interrupt acceptance exported (behaviour
+    unchanged; the reference runner reads /INT after each instruction, as the native loop does), and the M1 count taken
+    back where the interpreter takes R back (DDFD_R_BACK)."""
     source = path.read_text(encoding='utf-8')
     if 'static inline void process_interrupts(z80* const z)' not in source:
         raise MsxBuildError('Pinned CPU source changed: process_interrupts')
+    if source.count(DDFD_R_BACK) != 1 or 'unsigned long z80_m1_fetches;' not in source:
+        raise MsxBuildError('Pinned CPU source changed: the DD/FD fallback or the M1 count')
+    changed = False
+    if '--z80_m1_fetches;' not in source:
+        source = source.replace(DDFD_R_BACK, DDFD_R_BACK + '\n    --z80_m1_fetches;   /* nor the M1 count (msx_build.DDFD_R_BACK) */')
+        changed = True
     if 'msx_reference_accept' not in source:
         source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
+        changed = True
+    if changed:
         path.write_text(source, encoding='utf-8', newline='\n')
 
 

@@ -62,7 +62,7 @@ static void machine_to(uint64_t cycle)
 {
     if (cycle > machine.cycles)
         msx_advance(&machine, cycle - machine.cycles);
-    g_next_line_cyc = machine.next_line;
+    g_next_line_cyc = msx_next_event(&machine);
 }
 
 /* The machine catches up at the end of an instruction (the loop never calls this inside a prefix chain). */

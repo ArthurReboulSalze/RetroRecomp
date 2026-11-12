@@ -48,8 +48,8 @@ DECLINED = {
     # The PlayStation (in development) has no pad script writer yet: its routes come with its conversion.
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
     # The Nintendo 64 too (n64_conversion.main_route / explore_route: pad buttons and analog stick events in its own script format).
-    # The MSX (experimental): scripted routes come with its panel stage.
-    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64', 'psx', 'msx'},
+    # The MSX and MSX2 (experimental): scripted routes come with their panel stage.
+    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64', 'psx', 'msx', 'msx2'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),

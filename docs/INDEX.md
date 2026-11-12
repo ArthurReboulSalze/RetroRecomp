@@ -3,9 +3,9 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Seventeen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+never hidden. Eighteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16 and, experimental, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64,
-the Sony PlayStation and the MSX; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Sony PlayStation, the MSX and the MSX2; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
@@ -45,6 +45,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Commodore Amiga](AMIGA.md) (experimental) | main | none | none | none | none |
 | [Atari ST](ATARI_ST.md) (experimental) | main | none | none | none | none |
 | [MSX](MSX.md) (experimental) | none | main | none | none | none |
+| [MSX2](MSX.md#8-the-msx2-msx2) (experimental) | none | main | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 The PC Engine (HuC6280), the Game Boy Advance (ARM), the Nintendo 64 (VR4300) and the Sony PlayStation (R3000A) have no processor page yet: their processor
@@ -84,7 +85,7 @@ Each page covers one processor family across all the machines that use it: who u
 upstream, how code is found and translated, what stays interpreted, semantics and timing, tests and vectors.
 
 - [CPU_68000.md](CPU_68000.md) — Motorola 68000: Mega Drive, Neo Geo, Capcom CPS-1, Sharp X68000.
-- [CPU_Z80.md](CPU_Z80.md) — Zilog Z80: Master System, Game Gear and MSX (main), Mega Drive, Neo Geo and CPS-1 (sound).
+- [CPU_Z80.md](CPU_Z80.md) — Zilog Z80: Master System, Game Gear, MSX and MSX2 (main), Mega Drive, Neo Geo and CPS-1 (sound).
 - [CPU_6502.md](CPU_6502.md) — 6502 (Ricoh 2A03 and 2A07): NES.
 - [CPU_SM83.md](CPU_SM83.md) — SM83: the original Game Boy.
 - [CPU_65816_SPC700.md](CPU_65816_SPC700.md) — 65816 and SPC700: Super Nintendo.
@@ -119,7 +120,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).
 - **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental since 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (experimental since 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences).
-- **MSX** — [MSX.md](MSX.md) (experimental, in development: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures).
+- **MSX** — [MSX.md](MSX.md) (experimental, in development: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 without its command engine yet).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project

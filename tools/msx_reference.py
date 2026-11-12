@@ -78,6 +78,55 @@ def cartridge_16k() -> bytes:
     return _cartridge(0x4000, bytes([0x3E, 0x5A, 0x32, 0x00, 0xE0]))
 
 
+def _vdp_reg(register: int, value: int) -> bytes:
+    """LD A,value; OUT (99h),A; LD A,80h|register; OUT (99h),A."""
+    return bytes([0x3E, value, 0xD3, 0x99, 0x3E, 0x80 | register, 0xD3, 0x99])
+
+
+def _vram_write_at(address: int) -> bytes:
+    """R#14 and the pointer set for writing at a 17-bit VRAM address."""
+    return (_vdp_reg(14, address >> 14) + bytes([0x3E, address & 0xFF, 0xD3, 0x99,
+                                                 0x3E, 0x40 | ((address >> 8) & 0x3F), 0xD3, 0x99]))
+
+
+def _vram_bytes(values) -> bytes:
+    return b''.join(bytes([0x3E, v, 0xD3, 0x98]) for v in values)
+
+
+def cartridge_msx2_screen() -> bytes:
+    """MSX2 (stage 6), 16 KB: INIT disables interrupts and drives the V9938 and the memory mapper itself, then halts for
+    good, so any frame after the setup can be compared (with the reference, or privately with openMSX):
+
+    - mapper: page 2 to segment 5, writes AAh at 8000h, back to segment 1 (reads its byte into E011h), to segment 5 again
+      (reads AAh into E012h), the register read back into E010h (F5h with 16 segments), back to segment 1;
+    - Graphic 4, 212 lines, backdrop 4, a palette of 16 written through port 9Ah, the vertical scroll R#23 = 16, VRAM
+      0000h-69FFh filled with the low byte of a down counter (a pattern on every line), mode-2 sprites at 7400h/7600h with a
+      pattern at 7800h: sprite 0 (colour 0Ah), sprite 1 overlapping it with CC set (colour 5), the list ended at sprite 2."""
+    code = bytearray([0xF3])                                             # DI
+    code += bytes([0x3E, 0x05, 0xD3, 0xFE, 0x3E, 0xAA, 0x32, 0x00, 0x80,   # OUT (FEh),5; LD (8000h),AAh
+                   0x3E, 0x01, 0xD3, 0xFE, 0x3A, 0x00, 0x80, 0x32, 0x11, 0xE0,  # segment 1: (8000h) -> E011h
+                   0x3E, 0x05, 0xD3, 0xFE, 0x3A, 0x00, 0x80, 0x32, 0x12, 0xE0,  # segment 5: (8000h) -> E012h
+                   0xDB, 0xFE, 0x32, 0x10, 0xE0,                         # IN A,(FEh) -> E010h
+                   0x3E, 0x01, 0xD3, 0xFE])                              # back to segment 1
+    for register, value in ((1, 0x00), (0, 0x06), (8, 0x08), (9, 0x80), (2, 0x1F), (5, 0xEF), (11, 0x00), (6, 0x0F),
+                            (7, 0x04), (23, 16), (16, 0)):
+        code += _vdp_reg(register, value)
+    for i in range(16):                                                  # palette i: red i/2, green 7 - i/2, blue i & 7
+        code += bytes([0x3E, ((i >> 1) << 4) | (i & 7), 0xD3, 0x9A, 0x3E, 7 - (i >> 1), 0xD3, 0x9A])
+    code += _vram_write_at(0)
+    code += bytes([0x21, 0x00, 0x6A,                                     # LD HL,6A00h
+                   0x7D, 0xD3, 0x98, 0x2B, 0x7C, 0xB5, 0x20, 0xF8])      # loop: LD A,L; OUT (98h),A; DEC HL; LD A,H; OR L; JR NZ
+    code += _vram_write_at(0x7400) + _vram_bytes([0x0A] * 16 + [0x45] * 16)          # sprite colours: 0 then 1 (CC)
+    code += _vram_write_at(0x7600) + _vram_bytes([40, 60, 0, 0, 40, 64, 0, 0, 216, 0, 0, 0])
+    code += _vram_write_at(0x7800) + _vram_bytes([0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF])
+    code += _vdp_reg(1, 0x40)                                            # display on, no interrupt
+    code += bytes([0x76, 0x18, 0xFD])                                    # HALT (interrupts off: for good)
+    image = bytearray([0xFF]) * 0x4000
+    image[0:16] = b'AB' + INIT.to_bytes(2, 'little') + bytes(12)
+    image[0x10:0x10 + len(code)] = code
+    return bytes(image)
+
+
 def cartridge_polling() -> bytes:
     """16 KB: INIT enables interrupts and polls the VDP status forever (EI; loop: IN A,(99h); JR loop)."""
     image = bytearray(b'\xFF' * 0x4000)
@@ -187,19 +236,16 @@ ENASLT), the standard way. Its JP P target is absolute: it must start at INIT (4
 
 
 def instrument(path: Path) -> None:
-    """One MSX addition to the generated interpreter copy (behaviour unchanged): its own interrupt acceptance exported,
-    so the runner reads /INT after each instruction. The M1 count is the shared one (cpu.prepare_reference, m1_counter)."""
-    source = path.read_text(encoding='utf-8')
-    if 'static inline void process_interrupts(z80* const z)' not in source:
-        raise ValueError('Pinned CPU source changed: process_interrupts')
-    source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
-    path.write_text(source, encoding='utf-8', newline='\n')
+    """The MSX's corrections to the generated interpreter copy, shared with the conversion (msx_build.instrument_reference)."""
+    from retrorecomp.msx_build import instrument_reference
+    instrument_reference(path)
 
 
 # Authored timing program for the M1 wait state, run bare (no BIOS) until HALT. Each entry: bytes, MSX cycles from
 # openMSX's table (cpu/Z80.hh, WAIT_CYCLES = 1), standard Z80 cycles. LDIR copies three bytes: two repeats and a last.
 M1_PROGRAM = (
     (bytes([0xF3]), 5, 4),                          # DI
+    (bytes([0xDD, 0x00]), 10, 8),                   # DD NOP: a prefix before an opcode without IX, two M1 cycles
     (bytes([0x3E, 0xC0]), 8, 7),                    # LD A,C0h
     (bytes([0xD3, 0xA8]), 12, 11),                  # OUT (A8h),A        page 3 -> slot 3 (RAM)
     (bytes([0x00]), 5, 4),                          # NOP

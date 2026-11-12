@@ -83,6 +83,8 @@ typedef struct { unsigned long frame; int joy, a, b, c; } Event;
 int main(int argc, char **argv)
 {
     const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL, *audio_out = NULL;
+    const char *page3_out = NULL;
+    unsigned long long trace_from = 0, trace_to = 0;   /* tools: the instructions that start in a window of machine cycles */                /* tools: the 16 KB the CPU sees at C000h-FFFFh, for oracle comparisons */
     static Event events[64];
     int event_count = 0;
     const char *layout = "basic", *sub_rom = NULL;
@@ -115,7 +117,9 @@ int main(int argc, char **argv)
         }
         else if (!strcmp(a, "--frames")) frames = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--vram")) vram_out = v;
+        else if (!strcmp(a, "--page3")) page3_out = v;
         else if (!strcmp(a, "--trace")) trace = strtoul(v, NULL, 10);
+        else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
         else if (!strcmp(a, "--frame")) frame_out = v;
         else if (!strcmp(a, "--audio")) audio_out = v;
         else if (!strcmp(a, "--event") && event_count < 64) {
@@ -189,6 +193,10 @@ int main(int argc, char **argv)
             samples += n;
             if (audio) fwrite(chunk, sizeof *chunk, n, audio);
         }
+        if (trace_to && machine.cycles >= trace_from && machine.cycles < trace_to)   /* --trace-cycles: one line per instruction */
+            fprintf(stderr, "T %llu %04X %02X%02X%02X%02X %02X%02X\n", (unsigned long long)machine.cycles, z.pc,
+                    msx_peek(&machine, z.pc), msx_peek(&machine, (uint16_t)(z.pc + 1)), msx_peek(&machine, (uint16_t)(z.pc + 2)),
+                    msx_peek(&machine, (uint16_t)(z.pc + 3)), machine.primary, machine.secondary[3]);
         if (trace && steps < trace)
             fprintf(stderr, "%06llu pc=%04X slot=%02X a=%02X sp=%04X\n", (unsigned long long)steps, z.pc,
                     msx_slot_of(&machine, z.pc), z.a, z.sp);
@@ -225,6 +233,12 @@ int main(int argc, char **argv)
     if (frame_out) {
         FILE *f = fopen(frame_out, "wb");
         if (!f || !msx_dump_frame(&machine, f)) return 3;
+        fclose(f);
+    }
+    if (page3_out) {
+        FILE *f = fopen(page3_out, "wb");
+        if (!f) return 3;
+        for (unsigned a = 0xC000; a <= 0xFFFF; ++a) fputc(msx_peek(&machine, (uint16_t)a), f);
         fclose(f);
     }
     if (vram_out) {

@@ -221,7 +221,9 @@ def convert(path: Path, *, title=None, output=None, msx_bios=None, frames=FRAMES
                               'delivered_executable_run': False},
         'native_coverage': native_coverage,
         'video_model': {'chip': 'V9938 (our own C, line by line; command engine: not yet)' if msx2 else
-                                'TMS9918A (our own C, line by line)', 'standard': standard, 'display_aspect': '4:3'},
+                                'TMS9918A (our own C, line by line)',
+                        'standard': 'decided by your own MSX2 BIOS (R#9)' if msx2 and own is not None else standard,
+                        'display_aspect': '4:3'},
         'audio_cpu': None,
         'audio_model': {'kind': 'AY-3-8910, key click and Konami SCC (our own C); mixing levels stated, not validated',
                         'rate': 44100, 'channels': 1},

@@ -182,7 +182,6 @@ typedef struct {
     uint64_t next_line;
     uint64_t next_draw;    /* V9938: the draw point of the current line (MSX2_DRAW_AT cycles after its start) */
     uint8_t video;         /* MSX_VIDEO_TMS9918A or MSX_VIDEO_V9938 */
-    uint8_t standard_pal;  /* the board's standard (the TMS9918A's lines; the V9938 starts there, then follows R#9) */
     MsxV9938 *v9938;       /* the MSX2's VDP, storage owned by the caller (msx_set_v9938) */
     MsxMapperRam mapper;   /* MSX2: segments 0 when absent */
     MsxRtc rtc;
@@ -207,6 +206,13 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value);
 int msx_irq(const MsxMachine *m);
 /* Add machine cycles and run the line events they cross (the frame flag at the end of the active area). */
 void msx_advance(MsxMachine *m, uint64_t cycles);
+
+/* The machine cycle of the next line event: the line boundary, or on the V9938 the draw point when it comes first. A
+ * caller that advances the machine lazily (the native step loop) must not let the CPU run past it. */
+static inline uint64_t msx_next_event(const MsxMachine *m)
+{
+    return m->video == MSX_VIDEO_V9938 && m->next_draw < m->next_line ? m->next_draw : m->next_line;
+}
 
 /* The slot (as the BIOS writes it: bit 7 expanded, bits 0-1 primary, 2-3 secondary) behind an address. */
 uint8_t msx_slot_of(const MsxMachine *m, uint16_t address);
@@ -251,7 +257,6 @@ void msx_v9938_out(MsxMachine *m, uint8_t port, uint8_t value);
 int msx_v9938_irq(const MsxMachine *m);
 void msx_v9938_advance(MsxMachine *m);
 void msx_v9938_draw_line(MsxMachine *m, int line);
-void msx_v9938_sprites(MsxMachine *m, int line, uint16_t *pixels);
 void msx_v9938_print(const MsxMachine *m, FILE *out);
 uint8_t msx_mapper_in(const MsxMachine *m, uint8_t port);
 void msx_mapper_out(MsxMachine *m, uint8_t port, uint8_t value);

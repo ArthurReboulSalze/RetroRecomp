@@ -110,3 +110,47 @@ class FirstReadTests(unittest.TestCase):
 
     def test_output_folders_are_named_from_the_file_names(self):
         self.assertEqual(self.tool.slug('msx1/Road Fighter (Japan).zip'), 'road-fighter-japan')
+
+
+class Msx2IdentificationTests(unittest.TestCase):
+    """The MSX2 profile claims a cartridge from its path (.mx2, the player's choice, an msx2 folder); a damaged ZIP is
+    refused with a sentence; a .mx1 stays the MSX1's whatever its folder; Hydlide 3's header (text over the pointer
+    fields) is read."""
+
+    def setUp(self):
+        import tempfile
+        self.folder = Path(tempfile.mkdtemp()) / 'msx2'
+        self.folder.mkdir()
+        self.addCleanup(__import__('shutil').rmtree, self.folder.parent, True)
+
+    def zip_with(self, name, data):
+        import zipfile
+        archive = self.folder / (Path(name).stem + '.zip')
+        with zipfile.ZipFile(archive, 'w') as bundle:
+            bundle.writestr(name, data)
+        return archive
+
+    def test_the_msx2_folder_claims_a_rom_and_a_zip_of_a_rom(self):
+        from retrorecomp.systems import profile_for_path
+        rom = self.folder / 'game.rom'
+        rom.write_bytes(image(0x4000))
+        self.assertEqual(profile_for_path(rom).id, 'msx2')
+        self.assertEqual(profile_for_path(self.zip_with('game.rom', image(0x4000))).id, 'msx2')
+
+    def test_a_zip_holding_a_mx1_stays_the_msx1s(self):
+        from retrorecomp.systems import profile_for_path
+        self.assertEqual(profile_for_path(self.zip_with('game.mx1', image(0x4000))).id, 'msx')
+
+    def test_a_damaged_zip_is_a_sentence(self):
+        from retrorecomp.msx_rom import read_cartridge
+        broken = self.folder / 'broken.zip'
+        broken.write_bytes(b'PK not a zip')
+        with self.assertRaisesRegex(ValueError, 'not a readable ZIP'):
+            read_cartridge(broken)
+
+    def test_text_over_the_header_fields_is_still_a_cartridge(self):
+        from retrorecomp.msx_rom import has_header, looks_like_cartridge
+        data = bytearray(image(0x8000))
+        data[4:16] = b'HYDLIDE3MSX2'                   # what Hydlide 3 writes over STATEMENT, DEVICE, TEXT and the reserved bytes
+        self.assertTrue(has_header(bytes(data)))
+        self.assertFalse(looks_like_cartridge(bytes(data)))   # the strict sniff of a loose .rom stays strict

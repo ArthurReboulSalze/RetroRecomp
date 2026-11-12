@@ -275,6 +275,9 @@ static bool msx_host_open(const char *title, int scale, const MsxMachine *m) {
 /* The end of a guest frame: the picture and the sound out, the window's events and menus, the inputs of the next frame in.
  * 0: go on; 1: quit; 2: reset. */
 static int msx_host_frame(MsxMachine *m) {
+   /* The pace follows the machine's lines: an MSX2's software switches 50/60 Hz with R#9 (taken at each frame start). The
+    * kit reads frame_seconds at every frame (rrhk_main.c), so nothing else is needed. */
+   ((RrhkMachine *)rrhk_adapter())->frame_seconds = (double)MSX_CYCLES_PER_LINE * m->lines_per_frame / MSX_CPU_CLOCK;
    m_picture(m);
    m_sound(m);
    const bool running = rrhk_frame_done();

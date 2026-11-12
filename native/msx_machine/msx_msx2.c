@@ -53,7 +53,7 @@ static void set_two(uint8_t *t, int low, int value) { t[low] = (uint8_t)(value %
 static int month_days(int month, int leap_counter)
 {
     static const uint8_t days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    return month == 2 && leap_counter == 0 ? 29 : days[(month - 1) % 12];
+    return month == 2 && leap_counter == 0 ? 29 : days[(month + 11) % 12];
 }
 
 static void tick_second(MsxRtc *r)

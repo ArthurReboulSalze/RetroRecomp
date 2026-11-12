@@ -204,6 +204,7 @@ class Cartridge:
     data: bytes
     sha256: str
     guess: Guess
+    member: str = ''        # the cartridge's name inside a ZIP, '' for a file
 
     @property
     def size(self) -> int:
@@ -217,17 +218,23 @@ def read_cartridge(path) -> Cartridge:
     from pathlib import Path
     path = Path(path)
     if path.suffix.lower() == '.zip':
-        with zipfile.ZipFile(path) as bundle:
+        try:
+            bundle = zipfile.ZipFile(path)
+        except zipfile.BadZipFile:
+            raise ValueError(f'{path.name}: not a readable ZIP.') from None
+        with bundle:
             names = [n for n in bundle.namelist() if n.lower().endswith(('.rom', '.mx1', '.mx2'))]
             if len(names) != 1:
                 raise ValueError(f'{path.name}: the ZIP must hold exactly one MSX cartridge (.rom, .mx1 or .mx2).')
             if bundle.getinfo(names[0]).file_size > MAX_CARTRIDGE:
                 raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
             data = bundle.read(names[0])
+            member = names[0]
     else:
         if path.stat().st_size > MAX_CARTRIDGE:
             raise ValueError(f'{path.name}: larger than 2 MiB, the largest MSX cartridge read.')
         data = path.read_bytes()
+        member = ''
     if not has_header(data):
         raise ValueError(f'{path.name}: no MSX cartridge header ("AB" and its routine pointers).')
-    return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data))
+    return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data), member)

@@ -210,11 +210,10 @@ static void write_palette(MsxV9938 *v, uint8_t value)
 uint8_t msx_v9938_in(MsxMachine *m, uint8_t port)
 {
     MsxV9938 *v = m->v9938;
-    v->latch = 0;                              /* any read abandons a half-written port 99h pair */
     switch (port) {
-    case 0x98: return read_data(m);
-    case 0x99: return read_status(m);
-    default: return 0xFF;                      /* 9Ah and 9Bh are write-only */
+    case 0x98: v->latch = 0; return read_data(m);   /* a read of 98h or 99h abandons a half-written 99h pair */
+    case 0x99: v->latch = 0; return read_status(m);
+    default: return 0xFF;                      /* 9Ah and 9Bh are write-only: a read does not reach the VDP */
     }
 }
 
@@ -233,10 +232,10 @@ void msx_v9938_out(MsxMachine *m, uint8_t port, uint8_t value)
         write_palette(v, value);
         break;
     default: {                                 /* 9Bh: the register R#17 points at, then R#17 moves on unless bit 7 */
-        uint8_t target = v->reg[17] & 0x3F;
+        uint8_t pointer = v->reg[17], target = pointer & 0x3F;
         write_register(m, target, value);
-        if (!(v->reg[17] & 0x80))
-            v->reg[17] = (uint8_t)((v->reg[17] & 0x80) | ((target + 1) & 0x3F));
+        if (!(pointer & 0x80))
+            v->reg[17] = (uint8_t)((target + 1) & 0x3F);
         break;
     }
     }

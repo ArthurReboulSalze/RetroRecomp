@@ -131,6 +131,8 @@ def main() -> int:
              'scc-window': cartridge_scc_window()}
     for kind in msx_reference.MAPPER_CARTRIDGES:
         cases[f'mapper-{kind}'] = msx_reference.cartridge_mapper(kind)
+    if args.model == 'msx2':
+        cases['msx2-screen'] = msx_reference.cartridge_msx2_screen()
     players = set()
     if args.game:
         import msx_first_read

@@ -28,16 +28,29 @@ static volatile int frame_ended;
 /* The picture is whole and the VDP raises its frame flag at the first line after the picture (192, or 212 on a V9938 set
  * so): the frame is handed over there, so the inputs taken back reach the game's own vertical-blank interrupt that follows
  * (not one frame later). */
-static void line_hook(void) { if (machine.line == machine.vblank_line) frame_ended = 1; }
+static int handed_this_frame;                  /* one hand-over per frame even when R#9 LN changes mid-frame */
+static void line_hook(void)
+{
+    if (machine.line == 0)
+        handed_this_frame = 0;
+    if (!handed_this_frame && machine.line >= machine.vblank_line) {
+        handed_this_frame = 1;
+        frame_ended = 1;
+    }
+}
 
 static void power_on(void)
 {
     msx_reset(&machine);
     memset(ram, 0, sizeof ram);
+    if (machine.mapper.segments)
+        memset(mapper_ram, 0, (size_t)machine.mapper.segments * 0x4000u);
+    if (machine.video == MSX_VIDEO_V9938)
+        memset(v9938.vram, 0, sizeof v9938.vram);
     memset(&g_z80, 0, sizeof g_z80);
     g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;   /* the reset values the step loop sets at its start */
     machine.cycles = 0;
-    g_next_line_cyc = machine.next_line;
+    g_next_line_cyc = msx_next_event(&machine);
 }
 
 static void msx_main_service(void)

@@ -30,6 +30,7 @@ fallback stays counted and shown wherever it is used.
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
 | MSX | experimental, in development (not in a release yet) | the panel and its qualification, MSX2, disks, FM-PAC and SRAM, the Linux witness |
+| MSX2 | experimental, in development (not in a release yet) | the V9938 command engine (stage 7), the panel and its qualification, disks, FM-PAC, MSX2+, the Linux witness |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -158,8 +159,14 @@ the owner's play of the panel discs, more discs, the Linux witness beyond one di
 ### MSX
 
 In development as an experimental profile ([MSX.md](MSX.md)): MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16) booted by C-BIOS or the player's own
-BIOS, native Z80 code from the shared banked chain. Next: a panel of games and its qualification, the owner's play, the Linux witness, quick states. MSX2 (V9938),
+BIOS, native Z80 code from the shared banked chain. Next: a panel of games and its qualification, the owner's play, the Linux witness, quick states. MSX2+ and the turbo R,
 disks, cassettes, FM-PAC and the SRAM mappers are out of scope today.
+
+### MSX2
+
+In development as a second experimental profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, a memory mapper and the
+RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. Next: the V9938 command engine (stage 7), a panel and its qualification, the owner's play, the
+Linux witness. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
 
 ### Adventure games (ScummVM)
 

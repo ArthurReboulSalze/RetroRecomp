@@ -242,8 +242,14 @@ code run from RAM is learned and translated, and what is left runs on a referenc
 fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on development checks, three plain games
 (Road Fighter, Knightmare, Antarctic Adventure) and authored cartridges end at 0 interpreted instructions after one learning pass and equal the reference
 interpreter on 37 state fields after 300 to 1,200 frames; that is not a qualification, no game is validated as played, and hardware fidelity and latency are
-not claimed. Under C-BIOS, Salamander (Japan) stays black ([known failures](MSX.md#5-known-c-bios-failures)); your own MSX BIOS plays it. MSX2, disks, cassettes,
+not claimed. Under C-BIOS, Salamander (Japan) stays black ([known failures](MSX.md#5-known-c-bios-failures)); your own MSX BIOS plays it. Disks, cassettes,
 FM-PAC, SRAM and the rarer mappers are not converted yet.
+
+The **MSX2** profile (`msx2`) is experimental too, in development and not in a release yet ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
+(`.mx2`, or a `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
+with the V9938 drawn by line and a memory mapper. The V9938 command engine is not there yet: games that draw with commands show wrong pictures. On 14 authored
+cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; no MSX2 game is validated, and hardware fidelity and
+latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
 
 ## Local game regression set
 

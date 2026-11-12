@@ -146,9 +146,11 @@ class Msx2Profile(MsxProfile):
             return None
         from ..msx_rom import read_cartridge
         try:
-            read_cartridge(path)
+            cartridge = read_cartridge(path)
         except (OSError, ValueError):
             return None
+        if suffix == '.zip' and cartridge.member.lower().endswith('.mx1'):
+            return None                                   # a .mx1 is the MSX1's, whatever its folder
         return self
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
