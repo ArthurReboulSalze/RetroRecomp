@@ -14,7 +14,7 @@ for the MSX most of them are not known yet.
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers | The other mappers (the rare ones), FM-PAC, cartridge SRAM and the saves that depend on it |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
 | The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound; quick states (F8/F9) | The FM-PAC's sound |
-| Windows | Linux (the profile says `pending`: no witness) |
+| Windows; Linux: one MSX1 and one MSX2 game converted headless on a Debian 13 PC, with the same results as on Windows | Windowed play on Linux (the profile still says `pending`) |
 
 C-BIOS runs cartridges only: it has no MSX-BASIC, so a BASIC cartridge is refused under C-BIOS, and it has no disk and no cassette. A game that needs
 those, or a BASIC cartridge, needs the player's own MSX BIOS. The input is read in place and never changed. The player supplies the cartridge (and
@@ -118,7 +118,7 @@ the input is never changed, and a game converted with your own BIOS holds it and
 **Timing approximated** means an average cost per byte or dot in three classes (display off or outside the picture; picture with sprites off; with sprites on) plus a line-end cost; the chip's access slots and the slots the CPU takes are not modelled. C-BIOS's MSX2 logo, drawn by an HMMC, now appears.
 
 **Not yet:** disks,
-cassettes, FM-PAC, MSX2+, the turbo R, a Linux witness.
+cassettes, FM-PAC, MSX2+, the turbo R, windowed play on Linux.
 
 **Not modelled in the V9938:** the access-slot timing of port 98h and of the command engine, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
 switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM, and a flags-only sprite pass after the picture. The audio of an MSX2 game under heavy load is an open point, to check on a quiet PC. Where hardware reports disagree on sprite mode 2's rules,
