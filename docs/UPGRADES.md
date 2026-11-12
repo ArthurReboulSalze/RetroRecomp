@@ -79,6 +79,55 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Master System, Game Gear: the Z80 chain's second-machine seams completed (1.7.3)
+
+**What changes.** The study of a second Z80 machine built its native stage on the chain of the section below and found five places
+where a machine that is not a Sega one had to work around it. They are closed in the shared chain; nothing is added to the Master
+System or the Game Gear, and no machine is added.
+- **A front end for a machine keyed by a region map.** With `--banked-step` its generator no longer gives the cartridge to the Sega
+  cartridge parser (which strips 512 bytes from a file 512 bytes above a multiple of 16 KiB and looks for the TMR SEGA header):
+  `z80_chain.generator_main` writes that machine's entry point, and `cg_emit_banked_mapped` (`native/banked_emitter.inc`) reads
+  every source whole and pads it with FFh to whole regions. The Sega machines' entry point is the same text as before.
+- **The start of a step.** `Z80Machine.step_begin` makes the loop call `smsrecomp_step_begin(prefix_pending)` at the start of every
+  step. Off for the Sega mapper: the call is not written.
+- **Redundant prefixes.** A machine that reads /INT at the end of the instruction (`irq_sample='instruction_end'`) no longer
+  advances its hardware on each redundant DD/FD prefix. The Sega runner still does, as before.
+- **The state copies.** `native/banked_reference_state.inc` (new) holds `state_to_hz` / `state_from_hz`, the copies between the
+  translated registers and the reference CPU of the counted fallback; `Z80Machine.reference_state` pastes it ahead of the loop. The
+  Master System and the Game Gear keep the pair of their pinned runner, because their generated glue must not change;
+  `tests/test_z80_chain.py` compares the two pairs statement by statement.
+- **A guarded window inside a region.** `BankedRegion` (region-map machines only) gains `guard_from` / `guard_to`: one window of a
+  region that shows a source runs through the byte guards, the rest stays keyed by position.
+
+**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. `native/banked_runtime.inc`
+is not edited. Proof, three conversions with the real command line (portable toolchain, Windows, a library of their own), once
+with the code of main `6d8e27b7` and once with this change, both in the same folder:
+- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
+  `--backend functions`).
+- The 146 files the translator generates and the 77 other sources and inputs of the three projects are equal byte for byte; the
+  three build logs differ by the times.
+- The three delivered executables are equal byte for byte, and so are the unpacked ones and every object file.
+- The 29 run records are equal but for wall-clock times (frames, VDP traces, RAM, final CPU state, native and interpreted counts).
+- The two runs share one folder because the same code built in two different folders gave equal generated sources and executables
+  that differ by a few bytes (43 in the Game Gear game, offsets to a few variables): the linked bytes can depend on the checkout
+  path. This is true of main before this change too.
+
+`tests/test_z80_chain.py` pins each seam as text (the Sega loop is still the file itself; what the other settings render). The
+region-map form with the new front end and the window was run in an authored harness (44 checks: the 23 of the section
+below, a cartridge of 32 KiB + 512 bytes read whole and padded, a window that guards the last quarter of a region). That
+study's own comparison with its reference interpreter (authored cartridges, a free BIOS) was run on this change in a scratch copy of
+its branch, with its glue as it is and with its glue moved onto the five seams: 14 of 14 cases equal both times. None of this is a
+qualification of any machine, and it says nothing of CPU fidelity, hardware fidelity, gameplay or latency.
+
+**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
+
+**What moves:** `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console, so **every console's
+game stamp moves** (it moves in 1.7.3 anyway); `retrorecomp/z80_chain.py` moves the game stamps of the Master System and the Game
+Gear (group `shares:z80_main`). `native/banked_reference_state.inc` is declared out of the stamps (`NOT_INPUTS`) until a machine of
+the converter uses it. Host and build stamps do not move.
+
+**Quick states:** unchanged.
+
 ## Master System, Game Gear: the Z80 chain made ready for a second Z80 machine (1.7.3)
 
 **What changes.** The banked Z80 engine carried the Sega mapper as constants: the bank key `b0, b1, b2`, three 16 KiB slots, a first

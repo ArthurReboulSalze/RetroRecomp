@@ -12,7 +12,7 @@ Two ways to key the translated code:
 * `Z80Regions`: by bank registers. The slots are fixed, each has one register, RAM starts where they end. The Sega mapper.
 * `Z80RegionMap`: by a region map the machine's bus keeps. Every region shows a bank of one of several sources (cartridge,
   firmware) or RAM, and the map changes at run time; a position is keyed by (source, bank, offset). No machine of the
-  converter uses it yet (the MSX study does). Such a machine has its own front end in the generator (`generator_main`):
+  converter uses it yet. Such a machine has its own front end in the generator (`generator_main`):
   its sources are read as they are and padded to whole regions, never through the Sega cartridge parser.
 
 What a machine without the Sega runner asks of the step loop is data too: a call at the start of every step
