@@ -15,10 +15,10 @@ with the figures of a machine whose game code is translated, and it says nothing
 
 | Converted (experimental) | Not yet |
 | --- | --- |
-| Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, played in the order of their names: `x (Disk 1).ipf`, `x (Disk 2).ipf`) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
+| Atari ST, STF and Mega ST (68000 at 8 MHz) floppy games: one disk image of IPF, STX, MSA or ST format, or a ZIP holding only such images (up to 8, in the order their names mean: a boot or unlabelled disk first, then `x (Disk 1).ipf`, `x (Disk 2).ipf`, `Disk A`, `Side B`, `Reel 2`, `Volume II`; section 2) | STE, TT and Falcon games; hard-disk images and GEMDOS folders |
 | EmuTOS 1.4 (free, GPL), the default: fetched once from the EmuTOS project with its source (`retrorecomp/atarist_emutos.py`); or the player's own TOS 1.00, 1.02 or 1.04 (192 KiB), chosen in Options > Atari ST as a file or a folder of images and recognised by content (`retrorecomp/atarist_tos.py`) | TOS 1.6 and later (STE and beyond); EmuTOS in another language than English (UK) |
 | The joystick (the keyboard's arrows and keys, or a gamepad), the mouse and the keyboard; quick states (F8/F9) | A played-through game |
-| A disk whose boot stops at the GEM desktop: the desktop starts its only program (section 2) | A disk with several programs to choose from; TOS 1.00 and 1.02 (no autostart line) |
+| A disk whose boot stops at the GEM desktop: the desktop starts its only program, or the one program a clear rule picks among several (section 2) | A disk with several programs and no clear rule, or none at its root: the player opens one at the desktop; TOS 1.00 and 1.02 (no autostart line) |
 | Windows; Linux (converted and validated headless on a Debian 13 PC, see below) | A game played on Linux |
 
 A ZIP that holds anything other than floppy images is not claimed by the Atari ST profile. The input is read in place and never
@@ -26,7 +26,7 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 
 ## 2. How the conversion works
 
-1. **Reading the input.** `retrorecomp/atarist.py` reads the image or the ZIP (members sorted by name for the disk order) and takes the
+1. **Reading the input.** `retrorecomp/atarist.py` reads the image or the ZIP (members put in disk order by `atarist_disk.disk_order_key`: the unlabelled and boot disks (Boot, StartUp, Program, Main, Loader) first, then the numbered ones by number or letter, so that Disk 10 follows Disk 9, then the disks that only have a name; a name without brackets is read from its end, `game2.st`, `game_b.st`) and takes the
    SHA-256 of the file as the identity of the game. `retrorecomp/atarist_tos.py` recognises the player's TOS by its header (never
    by its name) and takes its SHA-256 as the identity of the firmware. Without one, `retrorecomp/atarist_emutos.py` takes EmuTOS
    1.4: the first conversion fetches its two release files (`emutos-192k-1.4.zip` and the source `emutos-src-1.4.tar.gz`) from
@@ -52,7 +52,14 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    reference run shows that the boot reached the desktop (the TOS opened that file); otherwise the references run again without
    it, so a disk that starts by itself runs as before (Carrier Command, whose disk also holds one `.TOS` utility, gives the same
    counts with and without the feature). While the autostart is kept, Hatari's GEMDOS hook stays installed (its cartridge
-   code), and its traps are counted as interpreted. The report says what was decided and why (`desktop_autostart`).
+   code), and its traps are counted as interpreted. The report says what was decided and why (`desktop_autostart`: the program, the
+   candidates of the root, the rule and the reason).
+   **Several programs.** Only where a clear rule picks one, never by a guess. Rule 1 (`title-word`): exactly one program whose name,
+   letters and digits only, is a word of the game's title (at least four letters, no Roman numeral, no article): `CRICKET.PRG` for
+   Championship Cricket, `OUTCAST_.PRG` for Outcast. Rule 2 (`only-non-utility`): else exactly one program that is not a utility, by a
+   short list of names (setup, config, format, read, view, help, manual, unpack, depack, backup, copy, util, and the installers). Two
+   programs that fit rule 1, or none of the two rules, leave the choice to the player: nothing is started, and the report says so. A
+   lone program is started whatever its name, as before.
    Why this route: an `AUTO` folder cannot be added to an IPF disk without changing its flux and runs before GEM is up (a GEM
    program cannot start from it), and a mouse route depends on each TOS's desktop layout.
 5. **Report.** The conversion report (schema v2, shape `atarist_conversion`) carries the interpreter fallback per CPU, in
@@ -202,6 +209,20 @@ gameplay validation of any game, and it changes no gate.
 ## 5. Known limits
 
 - STE, TT, Falcon, hard disks and CD-style media are out of scope.
+- **A boot that stops at the desktop with nothing the converter can choose** (known limit). When disk 1 has no `AUTO` folder and holds
+  several programs that no rule of section 2 picks (two language versions, a game and its music player, two games on one disk), or
+  holds none at its root, the game starts at the GEM desktop and the player opens the program with the mouse (Ctrl+Alt+M captures it,
+  as on any desktop game; a double click on drive A, then on the program). The report (`desktop_autostart.reason` and `candidates`)
+  names the programs and says that no rule picked one. Which disk-1 programs a game needs is not read from the program: only the names
+  of the root are. In the library tried (275 ZIPs, read by names, 12 November 2026) twelve are left to the player: Backgammon Royale,
+  Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary (several programs, no rule) and Battle Probe, Kick Off 2 - Winning Tactics,
+  Leader Board (a desk accessory), Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board (nothing at the root); six others now
+  start by themselves (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical, Outcast, Rody et Mastico III). Four of
+  them were converted on EmuTOS at the Standard level (Logical and Rody et Mastico III were not) and each reaches a screen of its own
+  (The Chessmaster 2000 an alert of the game, "Lost my BIG pieces!", before any disk change); Mercenary, converted the same way, stops
+  on the desktop and its report says why. Several disks that start by themselves (a boot sector of their own, an `AUTO` folder) are not concerned. A disk
+  whose root is empty and whose boot sector is a plain one (a 10-sector disk without file) cannot be told apart statically from a data
+  disk: the report says it holds no program; it was not run to know how it starts.
 - **The MFP's timer D does not run as on an ST when TOS starts it** (known limit, on purpose, since 1.7.2). TOS, EmuTOS as well as Atari's, starts this timer at a very high rate with its interrupt off; each tick costs an event in Hatari, one every couple of instructions. This
   machine runs Hatari's own option (`hatari_timerd`): when the code that starts the timer is in the TOS's addresses, Hatari starts it far slower, and tells TOS the old value when TOS reads it back. The rate left differs by TOS, as the patch of the control register fires once: TOS 1.04 stays at prescaler 200, data 100, 123 Hz; EmuTOS writes the register again at boot and stays at prescaler 4, data 100, 6,144 Hz, which is 123 events per frame of about 974. **A game that uses the timer as TOS left it sees another rhythm, or another value in its data
   register; a game that programs the timer itself is not touched** (`tools/atarist_hardware_check.py` measures both: 599 interrupts from RAM for 598.4 by the data sheet, 96 from the ROM). No exact fidelity is claimed. The frame comparison cannot see this limit, as the reference has the patch too; each run's report says so, and a conversion refuses a run

@@ -530,8 +530,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         # A boot that reaches the GEM desktop waits there for its program: the desktop starts the only program of disk 1 by the
         # TOS's own autostart line (atarist_disk). Kept only when the main reference run shows that the boot reached the desktop;
         # otherwise the references run again without it, so a disk that starts by itself runs exactly as without the feature.
-        from .atarist_disk import autostart_program
-        autostart, autostart_reason = autostart_program(disks[0].read_bytes(), disks[0].suffix)
+        from .atarist_disk import autostart_decision
+        desktop = autostart_decision(disks[0].read_bytes(), disks[0].suffix, title)
+        autostart, autostart_reason = desktop['program'], desktop['reason']
         candidate_program = autostart
         if autostart and tos.player_supplied and tos.version < 0x0104:
             autostart, autostart_reason = None, f'TOS {tos.version_text()} has no autostart line (TOS 1.04 and EmuTOS have one)'
@@ -685,7 +686,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                 'native': 'its instructions seen running become native code like the RAM code; positions in the '
                                           'TOS are not kept in any shared path'}},
             'tos_note': hint,
-            'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'reason': autostart_reason,
+            'desktop_autostart': {'program': autostart, 'candidate': candidate_program, 'candidates': desktop['candidates'],
+                                  'rule': desktop['rule'], 'reason': autostart_reason,
                                   'mechanism': 'the TOS\'s own autostart line (#Z) in a desktop file Hatari serves in memory; the disk '
                                                'image is not changed' if autostart else None},
             'embedded_rom': True, 'static_sdl': True, 'no_external_firmware_required_after_export': True,

@@ -504,6 +504,32 @@ Stamps (`compilation_inputs.role_stamps`, the tree of `e4ec565b` against this on
 CPS-2, the PC Engine and the PlayStation with it (`console16.py` is a game input of those machines: it holds the report key and the log line; `supernintendo.py` is the
 Super Nintendo's); no host and no build stamp moves, and the quick-state key does not (no native file and no pinned revision changes).
 
+## Atari ST: the disks in the order their names mean, and a program chosen among several (1.7.3)
+
+**What changes.** Two rules of the conversion, both read from names and from the root directory of disk 1, nothing run:
+- **Disk order.** A ZIP's disks were taken in the alphabetical order of their member names, which put the wrong disk first when the boot disk is not the first by name
+  (Battle Chess: the "Animation Disk" before the "StartUp Disk"; The Chessmaster 2000: "(Games Disk)" before the disk without a label; Mean 18: the "Famous Courses" disks before the
+  "Program Disk"). `retrorecomp/atarist_disk.py` now puts them in disk order: the disk without a label and the boot disks (Boot, StartUp, Program, Main, Loader) first, then the numbered
+  ones by number or letter (Disk 1, Disk A, Side B, Reel 2, Volume II; Disk 10 follows Disk 9), then the disks that only have a name; a name without brackets is read from its end
+  (`game2.st`, `game_b.st`). Of the 79 multi-disk ZIPs of the library tried (names only), exactly those three change order.
+- **Several programs on disk 1.** When disk 1 has no `AUTO` folder, the desktop autostart took the only program of the root and nothing otherwise. It now also takes, among several, the
+  one program whose name is a word of the game's title (`CRICKET.PRG` for Championship Cricket), or else the only one that is not a utility by a short list of names (setup,
+  config, format, read, view, help, backup, copy, unpack...). Two programs that fit, or none, leave the choice to the player, who opens the program at the desktop; `desktop_autostart` in the
+  report gives the program, the `candidates` of the root, the `rule` (`only-program`, `title-word`, `only-non-utility`) and the `reason`. A lone program is started as before.
+
+**Library.** Of the 18 ZIPs that stopped on the desktop in the census of 12 November 2026, six now start their program (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical,
+Outcast, Rody et Mastico III) and twelve are left to the player (Backgammon Royale, Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary have several programs no rule picks; Battle
+Probe, Kick Off 2 - Winning Tactics, Leader Board, Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board have no program at their root). The decision of the other 257 ZIPs is the one it was.
+
+**Proof** (Windows, EmuTOS 1.4, Standard level, 3,600 frames on two routes, headless; every route of the native game and of its packed copy equals the fresh reference, and the saved state
+continues the run): The Chessmaster 2000 (disk order, then `CMASTER.PRG`) reaches its title, which shows an alert from the game ("Lost my BIG pieces!"); Battle Chess (`CHESS.TOS`, the
+StartUp disk first) reaches a screen of its own, a prompt that looks like its manual protection; Championship Cricket (`CRICKET.PRG`) reaches a match; Outcast (`OUTCAST_.PRG`) reaches
+its title; Mercenary (two programs that both fit) stops on the EmuTOS desktop and the report says why. These are first screens on the tested routes, not played games.
+
+**Hot path:** no. **What moves:** the Atari ST's game stamp (`e6f3506a6be7` to `3b3a9b68ef52`, the conversion modules `atarist.py`, `atarist_disk.py` and `atarist_conversion.py`); its host stamp and its
+build stamp do not, and no other machine moves. A game of this machine converted before is reconverted in full on its next conversion; an export keeps playing as it did. **Quick states:**
+no native file of the session or the player changes, so the format of a state is the one of before.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no

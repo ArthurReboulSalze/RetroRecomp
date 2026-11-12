@@ -1,7 +1,7 @@
 """Atari ST input: a game's floppy images (one image, or a ZIP holding only floppy images), read without changing them (MIT).
 
 The game's identity is the SHA-256 of the file the player gave: the report's rom.sha256, the export's marker, the library key.
-The disks are the ZIP's members in name order (Disk 1, Disk 2... or Disk A, Disk B..., a boot disk first), every one an image
+The disks are the ZIP's members in disk order (atarist_disk.disk_order_key: the boot disk first, then Disk 1, Disk 2... or Disk A, Disk B..., Side, Reel, Volume), every one an image
 Hatari reads: IPF (the preservation format: a disk's protection data stays in the image; whether it runs is per game), STX (Pasti), MSA or a plain sector image (.st). Nothing in them is
 run here.
 """
@@ -14,6 +14,7 @@ import re
 import zipfile
 from pathlib import Path
 
+from .atarist_disk import order_disks
 from .core import ConversionError
 from .paths import ASSETS
 
@@ -44,7 +45,7 @@ def disk_members(path: Path) -> list[str] | None:
         return None
     if any(Path(name).suffix.casefold() not in DISK_EXTENSIONS or '/' in name.strip('/') or '\\' in name for name in names):
         return None
-    return sorted(names, key=lambda name: name.casefold())
+    return order_disks(names)
 
 
 def is_disk_image(path: Path) -> bool:
