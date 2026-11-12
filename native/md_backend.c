@@ -118,6 +118,30 @@ static uint64_t rom_fallback, ram_fallback;
 #define RAM_VARIANT_LIMIT 2048
 static M68KInstr ram_variants[RAM_VARIANT_LIMIT];
 static unsigned ram_variant_count;
+/* What the cap above drops is counted, never silent: every observation of a RAM instruction that no longer fits, and the distinct
+ * variants among them (a table of 32-bit keys that holds up to 4,096; past that the distinct count is a lower bound and says so).
+ * Those instructions stay on the counted interpreter: they are not in the report's variants, so no later pass compiles them. */
+#define RAM_DROPPED_SLOTS 8192u
+static uint32_t ram_dropped_keys[RAM_DROPPED_SLOTS];
+static unsigned ram_dropped_distinct;
+static bool ram_dropped_saturated;
+static uint64_t ram_observation_overflows;
+static void ram_variant_dropped(const M68KInstr *ins) {
+    uint32_t key = 2166136261u;
+    key = (key ^ ins->addr) * 16777619u;
+    for (int n = 0; n < ins->word_count; ++n) key = (key ^ ins->words[n]) * 16777619u;
+    if (!key) key = 1;
+    ++ram_observation_overflows;
+    for (unsigned slot = key & (RAM_DROPPED_SLOTS - 1u), tried = 0; tried < RAM_DROPPED_SLOTS; slot = (slot + 1u) & (RAM_DROPPED_SLOTS - 1u), ++tried) {
+        if (ram_dropped_keys[slot] == key) return;
+        if (!ram_dropped_keys[slot]) {
+            if (ram_dropped_distinct >= RAM_DROPPED_SLOTS / 2u) break;
+            ram_dropped_keys[slot] = key; ++ram_dropped_distinct;
+            return;
+        }
+    }
+    ram_dropped_saturated = true;
+}
 void rr16_note_ram_instruction(const M68KInstr *ins) {
     if (!rr_md_ram_instruction_recordable(ins)) return;
     if (rr_feedback_enabled()) {
@@ -132,6 +156,7 @@ void rr16_note_ram_instruction(const M68KInstr *ins) {
             !memcmp(other->words, ins->words, ins->word_count * sizeof(uint16_t))) return;
     }
     if (ram_variant_count < RAM_VARIANT_LIMIT) ram_variants[ram_variant_count++] = *ins;
+    else ram_variant_dropped(ins);
 }
 void rr16_note_rom_fallback(uint32_t pc) {
     pc &= 0xffffffu;
@@ -232,6 +257,8 @@ void rr16_reset(void) {
     fm_peak = psg_peak = frame_fm_nonzero = frame_psg_nonzero = 0;
     fm_active_frames = psg_active_frames = 0;
     ram_variant_count = 0;
+    ram_dropped_distinct = 0; ram_dropped_saturated = false; ram_observation_overflows = 0;
+    memset(ram_dropped_keys, 0, sizeof ram_dropped_keys);
     captured_rows = video_modes_seen = interlace_frames = 0;
     memset(evidence, 0, sizeof evidence);
     memset(evidence_counts, 0, sizeof evidence_counts);
@@ -382,7 +409,9 @@ void rr16_report_details(FILE *file) {
         if (!runtime_evidence_has(RT_EVIDENCE_FLOOR_COVERAGE, address)) continue;
         fprintf(file, "%s%u", comma ? "," : "", address); comma = true;
     }
-    fputs("],\"ram_variants\":[", file);
+    fprintf(file, "],\"ram_variant_limit\":%u,\"ram_observation_overflows\":%llu,\"ram_variants_dropped\":%u,\"ram_variants_dropped_exact\":%s,",
+            RAM_VARIANT_LIMIT, (unsigned long long)ram_observation_overflows, ram_dropped_distinct, ram_dropped_saturated ? "false" : "true");
+    fputs("\"ram_variants\":[", file);
     for (unsigned i = 0; i < ram_variant_count; ++i) {
         const M68KInstr *ins = &ram_variants[i];
         fprintf(file, "%s{\"address\":%u,\"bytes\":\"", i ? "," : "", ins->addr);

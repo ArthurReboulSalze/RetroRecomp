@@ -211,7 +211,10 @@ observations, not a compatibility score of the catalogue.
   fallback rule. Special cases and region headers: the [log](MEGADRIVE_LOG.md#earlier-regression-examples).
 - **Fallback**: interpreter fallback is a counted limit, never hidden: work-RAM code not yet observed, changed Z80
   opcodes and prefix chains beyond the four-byte guard window can still use it. At most 4 uploaded 8 KiB Z80 driver
-  images and 32,768 Z80 variants are stored per ROM in the converter's library; generated games write no learning files.
+  images and 32,768 Z80 variants are stored per ROM in the converter's library, and 2,048 work-RAM instruction variants
+  in the library and in the exported game's recording (the lowest addresses are kept); generated games write no learning
+  files. Since 1.7.3 what is past one of these limits is counted, logged and written to the conversion report
+  (`learning_limits`, [UPGRADES.md](UPGRADES.md)): the largest known games use 62 % of the RAM limit and 72 % of the Z80 limit.
 - **Guns**: Justifier has no gameplay-validated cartridge; Menacer horizontal conversion is an estimate by scanline;
   PAL gun cartridges are not covered by the NTSC tests.
 - **Validation**: full playthroughs, the full catalogue, electrical pin precision and physical latency are not claimed.

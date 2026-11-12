@@ -224,7 +224,11 @@ def valid_ram_variant(item):
             and re.fullmatch('[0-9a-fA-F]+', raw) is not None)
 
 
-def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
+RAM_VARIANT_LIMIT = 2048    # the library keeps, and the exported game records, this many distinct work-RAM instructions
+
+
+def _ram_variant_pairs(rom, imported: bool) -> list[tuple[int, str]]:
+    """Every distinct (address, bytes) of work-RAM code the library knows for this ROM, ascending, before any limit."""
     from .console16 import REPOSITORIES
     shared = (shared_ram_variants('md', rom, REPOSITORIES['md'][1]) if imported else
               [{'address': address, 'bytes': rom.data[offset:offset+length].hex()}
@@ -238,8 +242,21 @@ def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
     except (OSError, ValueError, TypeError, AttributeError):
         record = {}
     items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item)]
-    return [{'address': addr, 'bytes': raw} for addr, raw in
-            sorted({(item['address'], item['bytes'].lower()) for item in items})[:2048]]
+    return sorted({(item['address'], item['bytes'].lower()) for item in items})
+
+
+def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
+    # The lowest addresses are kept once the limit is reached; ram_variant_overflow says how many were cut.
+    return [{'address': addr, 'bytes': raw} for addr, raw in _ram_variant_pairs(rom, imported)[:RAM_VARIANT_LIMIT]]
+
+
+def ram_variant_overflow(rom, checks=()) -> dict:
+    """What the limit cuts from the library of work-RAM variants, with the variants the given runs observed: `known` distinct
+    variants against `RAM_VARIANT_LIMIT`, `dropped` of them beyond it (they stay on the counted interpreter)."""
+    seen = set(_ram_variant_pairs(rom, True))
+    seen |= {(item['address'], item['bytes'].lower()) for check in checks
+             for item in check.get('ram_variants', []) if valid_ram_variant(item)}
+    return {'limit': RAM_VARIANT_LIMIT, 'known': len(seen), 'dropped': max(0, len(seen) - RAM_VARIANT_LIMIT)}
 
 
 def learn_entries(rom, checks) -> int:
@@ -258,7 +275,7 @@ def learn_entries(rom, checks) -> int:
         previous = read_entries(rom, imported=False)
         merged = previous | additions
         old_ram = {(item['address'], item['bytes']) for item in read_ram_variants(rom, imported=False)}
-        merged_ram = set(sorted(old_ram | variants)[:2048])
+        merged_ram = set(sorted(old_ram | variants)[:RAM_VARIANT_LIMIT])
         if merged != previous or merged_ram != old_ram:
             atomic_json(path, {'schema': 2, 'rom_sha256': rom.sha256, 'title': profile_for(rom)['title'],
                 'entries': [{'address': address, 'bytes': _entry_signature(rom, address)}
