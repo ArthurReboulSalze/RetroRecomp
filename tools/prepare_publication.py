@@ -245,7 +245,7 @@ retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/nes_state_layout.py retrorecomp/nes_checks.py tests/test_nes_checks.py tools/nes_saves_check.py tools/nes_route_captures.py tools/nes_owner_trial.py tools/nes_cross_os.py tools/nes_state_prg_check.py retrorecomp/systems/nes.py tests/test_nes.py
 tests/test_nes_ram.py tests/test_nes_state_layout.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
-native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
+native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c native/banked_reference_state.inc
 native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h

@@ -193,6 +193,10 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
+    # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
+    # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
+    'native/banked_reference_state.inc',
     # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
     # never into a game (the folder's CMakeLists.txt does not build it).
     'native/amiga_machine/amiga_vector_checks.cpp',
@@ -959,7 +963,8 @@ INPUTS = _resolve({
     ),
     # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System and the Game Gear now): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
-    # The emitter and the step loop it parametrises (native/banked_*) are under ALL above.
+    # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
+    # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',

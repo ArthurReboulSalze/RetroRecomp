@@ -31,7 +31,7 @@ from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
 from .systems import MASTER_SYSTEM, archive_rom, find_profile, profile_for_path
-from .z80_chain import banked_emitter, banked_runtime
+from .z80_chain import banked_emitter, banked_runtime, generator_main
 from .platforms import (build_executable, cmake_target_args, build_jobs, target_id, claim_cache, sdl_install, sdl_library,
                         sdl_install_current, sdl_install_key, sdl_compiler_flags, SDL_INSTALL_MARKER)
 from .toolchain import active as active_toolchain, suffix, describe as toolchain_description
@@ -533,6 +533,8 @@ def dependencies(emit: Callable[[str], None] = print, machine=None) -> tuple[Pat
         rom_free(&rom); return 0;
     }
     if (flat_step) {''')
+    # A machine keyed by a region map has its own front end; the Sega mapper's entry point is unchanged.
+    main_source = generator_main(machine, main_source)
     expected = hashlib.sha256((parser_source + generator_source + main_source).encode()).hexdigest()
     marker = source / "smsrecomp-patch.sha256"
     patch_changed = not marker.exists() or marker.read_text() != expected

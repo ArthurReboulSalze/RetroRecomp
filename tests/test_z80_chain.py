@@ -9,11 +9,22 @@ from retrorecomp.z80_chain import SEGA_MAPPER, Z80Machine, Z80RegionMap, Z80Regi
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = (ROOT / 'native/banked_runtime.inc').read_bytes().decode('utf-8')
 EMITTER = (ROOT / 'native/banked_emitter.inc').read_bytes().decode('utf-8')
+STATE = (ROOT / 'native/banked_reference_state.inc').read_bytes().decode('utf-8')
+ENGINE = ROOT / '.deps/smsggrecomp'
 # Not real machines. Six 8 KiB slots keyed by registers, without a fixed start, one wait state per M1.
 OTHER = Z80Machine('other', Z80Regions(slot_bits=13, slots=6, fixed_bytes=0, ram_from=0xC000, bank_values=256, scope='other'), m1_wait=1)
 # Eight 8 KiB regions keyed by a map over two sources, one wait state per M1, /INT read at the end of the instruction.
 MAPPED = Z80Machine('mapped', Z80RegionMap(region_bits=13, sources=('rom', 'firmware'), bank_values=256, scope='mapped'),
                     m1_wait=1, irq_sample='instruction_end')
+# The same without the Sega runner around the loop: a call at the start of every step and the chain's own state copies.
+STANDALONE = Z80Machine('standalone', MAPPED.regions, m1_wait=1, irq_sample='instruction_end', step_begin=True, reference_state=True)
+
+
+def statements(function: str, text: str) -> set[str]:
+    """The statements of one C function of `text`, without blanks or comments."""
+    import re
+    body = re.search(r'static (?:inline )?[\w ]+\b' + function + r'\([^)]*\)\s*\{(.*?)\n\}', text, re.S).group(1)
+    return {part for part in re.sub(r'\s+', '', re.sub(r'/\*.*?\*/', '', body, flags=re.S)).split(';') if part}
 
 
 class Z80ChainTests(unittest.TestCase):
@@ -103,6 +114,100 @@ class Z80ChainTests(unittest.TestCase):
             '        banked_after_step(pending_irq);\n'))
         # The acceptance of an interrupt keeps the Z80's own count on every machine.
         self.assertEqual(text.count('g_z80.cyc += g_z80.im == 2 ? 19 : 13;'), 1)
+
+    def test_a_mapped_source_never_goes_through_the_sega_cartridge_parser(self):
+        # The entry point of the pinned generator, reduced to the two places the front end of a mapped machine edits.
+        main = ('int main(void){\n    bool banked_step = false;\n    printf("[SmsRecomp] SMS/GG Z80 static recompiler\\n");\n'
+                '    SmsRom rom;\n    if (!rom_parse(rompath, &rom)) return 1;\n    if (banked_step) {}\n}\n')
+        self.assertEqual(z80_chain.generator_main(SEGA_MAPPER, main), main)
+        self.assertEqual(z80_chain.generator_main(OTHER, main), main)
+        mapped = z80_chain.generator_main(MAPPED, main)
+        self.assertNotIn('SMS/GG', mapped)
+        self.assertLess(mapped.index('return cg_emit_banked_mapped(rompath, &cfg, gendir);'), mapped.index('rom_parse(rompath, &rom)'))
+        with self.assertRaises(ValueError):
+            z80_chain.generator_main(MAPPED, main.replace('rom_parse(rompath, &rom)', 'rom_parse(rompath, &rom, 0)'))
+        # The emitter reads the sources itself: whole, padded with FFh to whole regions, no size test of another machine.
+        start = EMITTER.index('static void banked_read_source(')
+        front = EMITTER[start:EMITTER.index('    size_t positions = 0, pairs = 0', start)]
+        self.assertIn('memset(source->data + size, 0xFF, source->size - (size_t)size);', front)
+        self.assertIn('banked_read_source(&sources[0], 0, rom_path, slot_size);', front)
+        for sega in ('512', 'TMR', 'rom->', 'rom_parse', 'copier'):
+            self.assertNotIn(sega, front)
+        self.assertEqual(EMITTER.count('int cg_emit_banked_mapped(const char *rom_path, const GameConfig *cfg, const char *dir) {'), 1)
+        self.assertIn('[banked] a machine keyed by a region map is translated by cg_emit_banked_mapped', EMITTER)
+        # The same padding for the machine's own tools; a mapper with banks of two regions pads to its bank.
+        regions = MAPPED.regions
+        self.assertEqual(regions.image(bytes(0x3000)), bytes(0x3000) + b'\xFF' * 0x1000)
+        self.assertEqual(regions.image(bytes(0x4200)), bytes(0x4200) + b'\xFF' * 0x1E00)       # 16 KiB + 512: nothing stripped
+        self.assertEqual(len(regions.image(bytes(0x6000), 2)), 0x8000)
+        self.assertEqual(regions.image(bytes(0x2000)), bytes(0x2000))
+        with self.assertRaises(ValueError):
+            regions.image(b'')
+
+    def test_a_machine_may_be_called_at_the_start_of_every_step_and_the_sega_loop_has_no_such_call(self):
+        self.assertNotIn('smsrecomp_step_begin', RUNTIME)
+        self.assertFalse(SEGA_MAPPER.step_begin)
+        self.assertNotIn('smsrecomp_step_begin', z80_chain.runtime_source(MAPPED, RUNTIME))
+        text = z80_chain.runtime_source(STANDALONE, RUNTIME, STATE)
+        self.assertEqual(text.count('        SMS_PC(g_z80.pc);\n        smsrecomp_step_begin(prefix_pending);\n'), 1)
+        self.assertEqual(text.count('smsrecomp_step_begin'), 1)
+        # Before the step is chosen (halted or not), so a HALT cycle is a step too.
+        self.assertLess(text.index('smsrecomp_step_begin(prefix_pending);'), text.index('if (g_z80.halted) {'))
+
+    def test_the_hardware_advances_inside_a_prefix_chain_only_where_the_interrupt_is_latched_at_the_start(self):
+        advance = '                prefix_pending = 1;\n                banked_advance_vdp(g_z80.cyc); g_sync_deadline = g_next_line_cyc;\n'
+        self.assertTrue(SEGA_MAPPER.advances_in_prefixes and OTHER.advances_in_prefixes)
+        self.assertFalse(MAPPED.advances_in_prefixes)
+        self.assertEqual(RUNTIME.count(advance), 1)
+        self.assertEqual(z80_chain.runtime_source(OTHER, RUNTIME).count(advance), 1)
+        text = z80_chain.runtime_source(MAPPED, RUNTIME)
+        self.assertNotIn(advance, text)
+        self.assertEqual(text.count('                prefix_pending = 1;\n                continue;\n'), 1)
+        # Once per completed instruction: the catch-up before /INT is read, and the one every machine has after acceptance
+        # (the third occurrence is the helper's own name in its definition).
+        loop = text[text.index('static void smsrecomp_banked_run(void)'):]
+        self.assertEqual(loop.count('banked_advance_vdp(g_z80.cyc);'), 2)
+
+    def test_the_state_copies_come_with_the_loop_for_a_machine_without_the_sega_runner(self):
+        self.assertFalse(SEGA_MAPPER.reference_state)
+        for name in ('static void state_to_hz(void)', 'static void state_from_hz(void)'):
+            self.assertNotIn(name, RUNTIME)                                   # the Sega glue has the pinned runner's
+            self.assertEqual(STATE.count(name), 1)
+        text = z80_chain.runtime_source(STANDALONE, RUNTIME, STATE)
+        self.assertEqual(text, z80_chain.banked_runtime(STANDALONE, ROOT))
+        self.assertEqual(text.count(STATE), 1)
+        self.assertLess(text.index('#ifdef SMSRECOMP_BANKED_AOT'), text.index(STATE))
+        self.assertLess(text.index(STATE), text.index('static void smsrecomp_banked_fallback('))
+        with self.assertRaises(ValueError):
+            z80_chain.runtime_source(STANDALONE, RUNTIME)                      # asked for, not given
+        self.assertEqual(z80_chain.runtime_source(MAPPED, RUNTIME, STATE), z80_chain.runtime_source(MAPPED, RUNTIME))
+        self.assertIn('native/banked_reference_state.inc', stamp_inputs.NOT_INPUTS)
+
+    @unittest.skipUnless((ENGINE / 'runner/glue.c').is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_the_state_copies_are_the_pinned_runners_statement_by_statement(self):
+        glue = (ENGINE / 'runner/glue.c').read_text(encoding='utf-8')
+        rename = lambda found: {part.replace('banked_pack_f', 'pack_f').replace('banked_unpack_f', 'unpack_f') for part in found}
+        # The converter adds the Q and P latches to the runner's pair (core.py) and, for its own I/O timing, a cycle base.
+        self.assertEqual(rename(statements('state_to_hz', STATE)),
+                         statements('state_to_hz', glue) | {'g_hz.q=g_z80.q', 'g_hz.p=g_z80.p'})
+        self.assertEqual(rename(statements('state_from_hz', STATE)),
+                         statements('state_from_hz', glue) | {'g_z80.q=g_hz.q', 'g_z80.p=g_hz.p'})
+        for ours, theirs in (('banked_pack_f', 'pack_f'), ('banked_unpack_f', 'unpack_f')):
+            self.assertEqual(statements(ours, STATE), statements(theirs, glue))
+        from retrorecomp import core
+        source = Path(core.__file__).read_text(encoding='utf-8')
+        self.assertEqual(source.count('    g_hz.q = g_z80.q; g_hz.p = g_z80.p;'), 1)
+        self.assertEqual(source.count('    g_z80.q = g_hz.q; g_z80.p = g_hz.p;'), 1)
+
+    def test_a_region_may_guard_one_window_and_keep_the_rest_keyed(self):
+        self.assertEqual(EMITTER.count('typedef struct { uint8_t source, bank, ram; uint16_t guard_from, guard_to; } BankedRegion;'), 1)
+        # An instruction is at most four bytes: one that starts up to three bytes before the window reads it.
+        self.assertEqual(EMITTER.count('if (region->ram || off >= 0x%zX || (off < region->guard_to && off + 3 >= region->guard_from)) '
+                                       'return game_banked_guarded_step();'), 1)
+        guarded = lambda off, start, end: off < end and off + 3 >= start
+        self.assertFalse(any(guarded(off, 0, 0) for off in range(0x2000)))                      # no window: both 0
+        hit = [off for off in range(0x2000) if guarded(off, 0x1800, 0x2000)]                    # 9800h-9FFFh of 8000h-9FFFh
+        self.assertEqual((hit[0], hit[-1], len(hit)), (0x17FD, 0x1FFF, 0x803))
 
     def test_a_line_of_the_step_loop_that_moved_is_refused(self):
         with self.assertRaises(ValueError):

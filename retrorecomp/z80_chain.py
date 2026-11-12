@@ -11,7 +11,14 @@ Two ways to key the translated code:
 
 * `Z80Regions`: by bank registers. The slots are fixed, each has one register, RAM starts where they end. The Sega mapper.
 * `Z80RegionMap`: by a region map the machine's bus keeps. Every region shows a bank of one of several sources (cartridge,
-  firmware) or RAM, and the map changes at run time; a position is keyed by (source, bank, offset). No machine uses it yet.
+  firmware) or RAM, and the map changes at run time; a position is keyed by (source, bank, offset). No machine of the
+  converter uses it yet (the MSX study does). Such a machine has its own front end in the generator (`generator_main`):
+  its sources are read as they are and padded to whole regions, never through the Sega cartridge parser.
+
+What a machine without the Sega runner asks of the step loop is data too: a call at the start of every step
+(`step_begin`), the hardware left alone inside a chain of redundant prefixes (`irq_sample='instruction_end'`) and the
+copies between the translated register file and the reference CPU of the fallback (`reference_state`,
+native/banked_reference_state.inc). The Sega mapper asks for none: its loop is native/banked_runtime.inc itself.
 
 Game role, group `shares:z80_main` (retrorecomp/stamp_inputs.py): an edit moves the game stamp of the machines on the chain.
 It imports no module of the converter.
@@ -59,11 +66,14 @@ class Z80RegionMap:
 
     The machine's bus keeps the map and gives it to the step loop (`smsrecomp_region_map()`), with a counter it raises each
     time the map changes (`smsrecomp_region_generation`). RAM is wherever the map says, and an instruction that reaches the
-    next region is checked against the bytes it reads there."""
+    next region is checked against the bytes it reads there. A region that shows a source may also name one window of
+    offsets, `guard_from` to `guard_to` (excluded), where something else answers (a sound chip in front of the ROM): only
+    the instructions that read a byte of the window run through the byte guards, the rest of the region stays keyed."""
     # log2 of the size of one region (13: eight regions of 8 KiB).
     region_bits: int
     # The sources a region can show, in the order of the map's `source` numbers. The first is the cartridge of game.toml;
     # the generator reads the others from the files `banked.sources` names beside it, one per line, in this order.
+    # Every source is read whole, nothing stripped, and padded with FFh to whole regions (`image`).
     sources: tuple[str, ...]
     bank_values: int
     scope: str
@@ -79,6 +89,14 @@ class Z80RegionMap:
     @property
     def regions(self) -> int:
         return 0x10000 >> self.region_bits
+
+    def image(self, data: bytes, regions_per_bank: int = 1) -> bytes:
+        """A source as the generator translates it: the bytes as they are, padded with FFh to whole regions. A mapper
+        whose banks span several regions (16 KiB banks over 8 KiB regions: 2) pads to its own bank, and gives the
+        generator that image, so that both take the same mirror of a short image."""
+        if not data or regions_per_bank < 1:
+            raise ValueError('Z80 region map: a source has at least one byte, a bank at least one region.')
+        return data + b'\xFF' * (-len(data) % (regions_per_bank << self.region_bits))
 
     def initialiser(self) -> str:
         return (f'.mapped = 1, .slot_bits = {self.region_bits}, .slots = {self.regions}, .fixed_bytes = 0x0, '
@@ -100,8 +118,18 @@ class Z80Machine:
     # HALT cycle; the acceptance of an interrupt keeps the Z80's own count.
     m1_wait: int = 0
     # 'step_start': the level is latched before the instruction runs (the Sega runner's contract, shared with its reference
-    # CPU). 'instruction_end': it is read after the instruction, once the hardware has caught up with it.
+    # CPU). 'instruction_end': it is read after the instruction, once the hardware has caught up with it; the hardware
+    # then follows whole instructions, so a redundant prefix (a fragment of the instruction it precedes) does not advance
+    # it, where the Sega runner advances it on every fragment (`advances_in_prefixes`).
     irq_sample: str = 'step_start'
+    # The loop calls `smsrecomp_step_begin(prefix_pending)` at the start of every step, HALT cycles included, after
+    # SMS_PC: 0 when an instruction starts, 1 when the step goes on inside a chain of redundant prefixes. The machine's
+    # glue defines it (a function or a macro) before the loop. Off: no call is written at all.
+    step_begin: bool = False
+    # The loop comes with `state_to_hz` / `state_from_hz` (native/banked_reference_state.inc), the copies between the
+    # translated register file and the reference CPU of the counted fallback. Off for the Sega mapper, whose pinned
+    # runner defines its own pair in the glue the loop is appended to.
+    reference_state: bool = False
     # Suffix of the folders where the machine's own build of the generator lives (.deps/recompiler-src<tag>,
     # .deps/recompiler-build<tag>...). Empty for the Sega mapper, whose folders predate it; another machine names its own, so
     # that two machines never rebuild each other's generator.
@@ -118,6 +146,11 @@ class Z80Machine:
     @property
     def mapped(self) -> bool:
         return isinstance(self.regions, Z80RegionMap)
+
+    @property
+    def advances_in_prefixes(self) -> bool:
+        """The hardware advances on every redundant prefix of a chain (the Sega runner's contract)."""
+        return self.irq_sample == 'step_start'
 
     @property
     def generator_source(self) -> str:
@@ -174,6 +207,17 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
     at_start = machine.irq_sample == 'step_start'
     return (
         f'static uint8_t banked_seen[{count}][256];\n',
+        '        SMS_PC(g_z80.pc);\n' + ('        smsrecomp_step_begin(prefix_pending);\n' if machine.step_begin else ''),
+        # A redundant prefix: the Sega runner moves the hardware on every fragment; a machine whose hardware follows
+        # whole instructions leaves it where the chain began.
+        ("                /* A redundant prefix never completes EI's delay and never\n"
+         '                 * accepts an interrupt. Keep hardware time moving even in an\n'
+         '                 * endless prefix stream; no host recursion is involved. */\n'
+         '                prefix_pending = 1;\n'
+         '                banked_advance_vdp(g_z80.cyc); g_sync_deadline = g_next_line_cyc;\n' if machine.advances_in_prefixes else
+         "                /* A redundant prefix never completes EI's delay and never accepts an interrupt. The hardware does\n"
+         '                 * not move inside the chain: it catches up at the end of the instruction the prefixes precede. */\n'
+         '                prefix_pending = 1;\n'),
         # The counted fallback: one instruction on the reference CPU, which knows no wait state. It counts its M1 cycles
         # (cpu.prepare_reference, `m1_counter`) and the machine's wait states are added from that count.
         ('    z80_step(&g_hz);\n' if not machine.m1_wait else
@@ -206,16 +250,50 @@ SEGA_MAPPER = Z80Machine('sega', Z80Regions(slot_bits=14, slots=3, fixed_bytes=0
                                             scope='master-system-sega-mapper'))
 
 
-def runtime_source(machine: Z80Machine, runtime: str) -> str:
+def runtime_source(machine: Z80Machine, runtime: str, reference_state: str = '') -> str:
     """The step loop for one machine.
 
     `runtime` is the text of native/banked_runtime.inc, written with the values of `SEGA_MAPPER`. Each line that depends on
     the machine is found in it as the Sega mapper renders it, exactly once, and replaced by this machine's: for the Sega
     mapper the result is the file itself, byte for byte, and a line edited in the file without this module following
-    raises instead of being left as it is."""
+    raises instead of being left as it is.
+
+    `reference_state` is the text of native/banked_reference_state.inc; a machine that asks for it (`reference_state`)
+    gets it ahead of the loop's first function, inside the same `#ifdef`."""
     for old, new in zip(_runtime_parts(SEGA_MAPPER), _runtime_parts(machine)):
         runtime = _once(runtime, old, new)
+    if machine.reference_state:
+        if 'static void state_to_hz(void)' not in reference_state or 'static void state_from_hz(void)' not in reference_state:
+            raise ValueError('The Z80 chain needs native/banked_reference_state.inc for this machine.')
+        include = '#include "game_banked.h"\n'
+        runtime = _once(runtime, include, include + reference_state)
     return runtime
+
+
+# The entry point of the pinned generator (main_sms.c) once the converter added `--banked-step` to it (core.dependencies).
+_MAIN_BANNER = '    printf("[SmsRecomp] SMS/GG Z80 static recompiler\\n");\n'
+_MAIN_PARSE = '    SmsRom rom;\n    if (!rom_parse(rompath, &rom)) return 1;\n'
+
+
+def generator_main(machine: Z80Machine, main_source: str) -> str:
+    """The generator's entry point for one machine.
+
+    The Sega mapper keeps the pinned front end: the result is `main_source` itself. A machine keyed by a region map gets
+    its own: with `--banked-step` the cartridge named by game.toml is never given to the Sega parser (which strips 512
+    bytes from a file whose size is 512 above a multiple of 16 KiB, looks for the TMR SEGA header and names a Sega
+    region and mapper); `cg_emit_banked_mapped` (native/banked_emitter.inc) reads every source itself."""
+    if not machine.mapped:
+        return main_source
+    main_source = _once(main_source, _MAIN_BANNER, '    printf("[banked] Z80 translator of a region-map machine\\n");\n')
+    return _once(main_source, _MAIN_PARSE, '''    if (banked_step) {
+        /* A machine keyed by a region map (retrorecomp/z80_chain.py) reads its sources itself: whole regions, nothing
+         * stripped, no header of another machine looked for. */
+        extern int cg_emit_banked_mapped(const char *, const GameConfig *, const char *);
+        char dir[260]; dirname_of(game_toml, dir, sizeof(dir));
+        char gendir[300]; snprintf(gendir, sizeof(gendir), "%sgenerated", dir);
+        return cg_emit_banked_mapped(rompath, &cfg, gendir);
+    }
+''' + _MAIN_PARSE)
 
 
 def banked_emitter(machine: Z80Machine, assets: Path) -> str:
@@ -224,5 +302,6 @@ def banked_emitter(machine: Z80Machine, assets: Path) -> str:
 
 
 def banked_runtime(machine: Z80Machine, assets: Path) -> str:
-    """native/banked_runtime.inc for one machine."""
-    return runtime_source(machine, (assets / 'native/banked_runtime.inc').read_text(encoding='utf-8'))
+    """native/banked_runtime.inc for one machine (with native/banked_reference_state.inc when the machine asks for it)."""
+    state = (assets / 'native/banked_reference_state.inc').read_text(encoding='utf-8') if machine.reference_state else ''
+    return runtime_source(machine, (assets / 'native/banked_runtime.inc').read_text(encoding='utf-8'), state)
