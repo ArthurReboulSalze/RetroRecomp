@@ -45,6 +45,59 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(value['identity']['sources'], {'rom': {'bytes': len(ROM), 'sha256': IDENTITY}})
         self.assertEqual(gk.rows(value), (sorted(ROOTS), sorted(SPANS)))
 
+    def test_record_rules_state_what_validate_record_enforces(self):
+        """RECORD_RULES is what the site's builder reads, so it must say what the converter enforces: an interpreter of the rules (the one `paths3.php` has) and
+        `validate_record` accept and refuse the same records, among records the schema and the profile accept (windows, lengths, offsets' halfword alignment)."""
+        from retrorecomp import path_profiles
+        rules = gk.RECORD_RULES
+
+        def accepted_by_rules(value) -> bool:
+            identity = value['identity']
+            sources = identity['sources']
+            if list(identity['layout']) != rules['layout'] or set(sources) - set(rules['sources']['only']) or set(rules['sources']['required']) - set(sources):
+                return False
+            if rules['sources']['hashed'] and not all('sha256' in source for source in sources.values()):
+                return False
+            if value['game'] != gk.SYSTEM + ':' + sources[rules['game']['source']]['sha256']:
+                return False
+            for cpu, section in value['cpus'].items():
+                for kind, blocks in section['paths'].items():
+                    rule = rules['paths'][cpu][kind]
+                    for block in blocks:
+                        if block['src'] != rule['src']:
+                            return False
+                        for row in path_profiles.decode_table(block['table'], 1 if block['shape'] == 'phys' else 3, 1 << 20):
+                            for index in rule.get('even_align_columns', [0]):
+                                if not (row[0] & 1 or row[index] % rule['even_align'] == 0):
+                                    return False
+            return True
+
+        def with_rows(roots, spans, game=IDENTITY, sha=IDENTITY):
+            value = gk.build_record(sha, len(ROM), gk.engine(), roots, spans)
+            value['game'] = f'{gk.SYSTEM}:{game}'
+            return value
+
+        cases = [
+            (with_rows(ROOTS, SPANS), True),
+            (with_rows([0x100], []), True), (with_rows([0x102], []), False), (with_rows([0x103], []), True), (with_rows([0x104], []), True),
+            (with_rows([], [(0x03000100, 0x400, 0x40)]), True), (with_rows([], [(0x03000102, 0x400, 0x40)]), False),
+            (with_rows([], [(0x03000100, 0x402, 0x40)]), False), (with_rows([], [(0x03000103, 0x402, 0x40)]), True),
+            (with_rows([], [(0x03007FFE, 0, 2)]), False),
+            (with_rows([], [(0x02000000, 2 * number, 0x100) for number in range(1, 5)]), False),
+            (with_rows(ROOTS, SPANS, game=OTHER), False),
+        ]
+        for number, (value, expected) in enumerate(cases):
+            with self.subTest(case=number):
+                try:
+                    gk.validate_record(value)
+                    enforced = True
+                except ValueError:
+                    enforced = False
+                self.assertEqual(enforced, expected)
+                self.assertEqual(accepted_by_rules(value), expected)
+        self.assertEqual(rules['layout'], [])
+        self.assertEqual(set(rules['paths'][gk.CPU]), {'entries', 'spans'})
+
     def test_the_players_own_store_and_the_shared_record_have_one_writer(self):
         self.assertEqual(analysis.record(IDENTITY, len(ROM), gk.engine(), observations(ROOTS, SPANS)), record())
 

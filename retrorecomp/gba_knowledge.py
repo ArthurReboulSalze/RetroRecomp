@@ -59,6 +59,23 @@ SPAN_VERSIONS_PER_ADDRESS = 8
 
 UnknownFormat = pp.UnknownFormat
 
+# An ARM entry or an ARM RAM copy (bit 0 of its address clear) is a multiple of this, in RAM and in the cartridge; a Thumb one needs the profile's halfword alignment only.
+ARM_ALIGN = 4
+
+# What this module's `validate_record` enforces on top of the schema 3 check, as data (the form the site's builder reads, `tools/build_web_limits.py`, so that
+# `web/lib/paths3.php` and the validation corpus follow the converter instead of a copy of its rules). Keys: `layout` (the exact keys of the layout: none);
+# `sources` (`only`, `required`: the names, `hashed`: each one states its SHA-256); `game` (`source`: the record's game id is `<system>:` plus the SHA-256 of that
+# source, the cartridge); `paths` ({cpu: {kind: {`src`: the one image its blocks point into, `even_align`: a row whose first column is even (an ARM row) is a multiple of this,
+# `even_align_columns`: and so are the rows' columns of these indexes (default: the first only; a RAM copy is `[address, offset, length]`: the address and the offset)}}}).
+# The windows of a RAM copy, the lengths, the offsets' alignment, the ceilings and the formats are the profile's (`path_profiles`), read by the builder from the converter.
+RECORD_RULES = {
+    'layout': [],
+    'sources': {'only': [ROM], 'required': [ROM], 'hashed': True},
+    'game': {'source': ROM},
+    'paths': {CPU: {'entries': {'src': ROM, 'even_align': ARM_ALIGN},
+                    'spans': {'src': ROM, 'even_align': ARM_ALIGN, 'even_align_columns': [0, 1]}}},
+}
+
 
 def engine() -> str:
     """The `cores` string of the base for this converter: the revision of our use of the engine and the two pins, not our game stamp and not the patch set."""
@@ -96,7 +113,7 @@ def patch_pin(patches=None) -> str:
 
 def root_valid(value, size: int) -> bool:
     """A ROM root inside a cartridge of `size` bytes: bit 0 says Thumb, an ARM entry is a multiple of 4."""
-    return (type(value) is int and 0 <= value and value + _PROFILE.entry_tail <= size and (value & 1 or not value % 4))
+    return (type(value) is int and 0 <= value and value + _PROFILE.entry_tail <= size and (value & 1 or not value % ARM_ALIGN))
 
 
 def span_valid(row, size: int) -> bool:
@@ -109,7 +126,7 @@ def span_valid(row, size: int) -> bool:
         return False
     return (1 <= length <= SPAN_LENGTH and not length % _PROFILE.length_align and not offset % _PROFILE.offset_align and 0 <= offset
             and offset + length <= size and any(low <= address and address + length - 1 < high for low, high in _PROFILE.windows)
-            and (address & 1 or not (address % 4 or offset % 4)))                    # an ARM copy is word aligned in RAM and in the cartridge
+            and (address & 1 or not (address % ARM_ALIGN or offset % ARM_ALIGN)))                    # an ARM copy is word aligned in RAM and in the cartridge
 
 
 def _spans_fit(spans) -> list:
