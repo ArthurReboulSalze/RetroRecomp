@@ -79,92 +79,130 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
-## Master System, Game Gear: the Z80 chain's second-machine seams completed (1.7.3)
+## Exports of 1.7.2 in 1.7.3
 
-**What changes.** The study of a second Z80 machine built its native stage on the chain of the section below and found five places
-where a machine that is not a Sega one had to work around it. They are closed in the shared chain; nothing is added to the Master
-System or the Game Gear, and no machine is added.
-- **A front end for a machine keyed by a region map.** With `--banked-step` its generator no longer gives the cartridge to the Sega
-  cartridge parser (which strips 512 bytes from a file 512 bytes above a multiple of 16 KiB and looks for the TMR SEGA header):
-  `z80_chain.generator_main` writes that machine's entry point, and `cg_emit_banked_mapped` (`native/banked_emitter.inc`) reads
-  every source whole and pads it with FFh to whole regions. The Sega machines' entry point is the same text as before.
-- **The start of a step.** `Z80Machine.step_begin` makes the loop call `smsrecomp_step_begin(prefix_pending)` at the start of every
-  step. Off for the Sega mapper: the call is not written.
-- **Redundant prefixes.** A machine that reads /INT at the end of the instruction (`irq_sample='instruction_end'`) no longer
-  advances its hardware on each redundant DD/FD prefix. The Sega runner still does, as before.
-- **The state copies.** `native/banked_reference_state.inc` (new) holds `state_to_hz` / `state_from_hz`, the copies between the
-  translated registers and the reference CPU of the counted fallback; `Z80Machine.reference_state` pastes it ahead of the loop. The
-  Master System and the Game Gear keep the pair of their pinned runner, because their generated glue must not change;
-  `tests/test_z80_chain.py` compares the two pairs statement by statement.
-- **A guarded window inside a region.** `BankedRegion` (region-map machines only) gains `guard_from` / `guard_to`: one window of a
-  region that shows a source runs through the byte guards, the rest stays keyed by position.
+1.7.3 is the release after 1.7.2 (published on 10 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no
+section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
+computed on `main` on 12 November 2026 (`6bdc7863`).
 
-**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. `native/banked_runtime.inc`
-is not edited. Proof, three conversions with the real command line (portable toolchain, Windows, a library of their own), once
-with the code of main `6d8e27b7` and once with this change, both in the same folder:
-- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
-  `--backend functions`).
-- The 146 files the translator generates and the 77 other sources and inputs of the three projects are equal byte for byte; the
-  three build logs differ by the times.
-- The three delivered executables are equal byte for byte, and so are the unpacked ones and every object file.
-- The 29 run records are equal but for wall-clock times (frames, VDP traces, RAM, final CPU state, native and interpreted counts).
-- The two runs share one folder because the same code built in two different folders gave equal generated sources and executables
-  that differ by a few bytes (43 in the Game Gear game, offsets to a few variables): the linked bytes can depend on the checkout
-  path. This is true of main before this change too.
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [MSX and MSX2: the shared pieces the two new profiles use](#msx-and-msx2-the-shared-pieces-the-two-new-profiles-use-173); the MSX and the MSX2 open as experimental machines | **every machine's game stamp** (`native/gamestate.inc`, `state_envelope.h`, `runtime_feedback.h`), and the PC Engine's own conversion; no game of an existing machine changes; the MSX and the MSX2 are new | none (C-BIOS's notice is the MSX's own) | **the Mega Drive and Super Nintendo keys move**, and the Amiga, Atari ST and Nintendo 64 keys; the others do not; the MSX and MSX2 keys are new |
+| [Every console: each game embeds the notices of its own components](#every-console-each-game-embeds-the-notices-of-its-own-components-173) | **every machine's game stamp** (the modules that write the notices) | **the host stamp of every machine, once** (`notices.py`, the notice files each machine owns, `THIRD_PARTY_NOTICES.md` leaving the inputs) | **the Neo Geo key moves** (`neogeo_build.py`), and the Amiga, Atari ST and Nintendo 64 keys; the others do not |
+| [Game Boy Advance: the first conversion converges faster, a conversion that differs from the interpreter fails, shared paths](#game-boy-advance-the-first-conversion-converges-faster-a-conversion-that-differs-from-the-interpreter-fails-shared-paths-173) | the Game Boy Advance only | none | no key of ours: a state is the engine's own container (magic, version, the ROM's SHA-1); a state of a game converted before may be refused |
+| The command line: `--gba-bios` has its own help text, and a test requires one for every firmware path flag (no section of this page; commit `c93ae7bd`) | none | none | none |
+| [Commodore Amiga: what the sweep's bound leaves out is counted](#commodore-amiga-what-the-sweeps-bound-leaves-out-is-counted-173) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a border of one colour written four Texels at a time (colour step B)](#commodore-amiga-a-border-of-one-colour-written-four-texels-at-a-time-173-colour-step-b) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the texture in the host's order, the picture copied without a swap (colour step D)](#commodore-amiga-the-texture-in-the-hosts-order-the-picture-copied-without-a-swap-173-colour-step-d) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: one lookup per hires pixel inside the display window (colour step A)](#commodore-amiga-one-lookup-per-hires-pixel-inside-the-display-window-173-colour-step-a) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the sweep's bound shared between images and phases, the Kickstart part removed](#commodore-amiga-the-sweeps-bound-shared-between-images-and-phases-the-kickstart-part-removed-173) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the main route presses 1 and 2, and answers Monkey Island 2's protection](#commodore-amiga-the-main-route-presses-1-and-2-and-answers-monkey-island-2s-protection-173) | the Amiga only (the routes of every Amiga game change) | none | the Amiga key moves, as between any two Amiga builds |
+| [Amiga, Atari ST and Sharp X68000: the click that captures the mouse stays the host's](#amiga-atari-st-and-sharp-x68000-the-click-that-captures-the-mouse-stays-the-hosts-173) | none | **the host stamps of the Amiga, the Atari ST and the X68000** (`native/hostkit/adapters/rrhk_computer.inc`) | the Amiga and Atari ST keys move (they take every input, the host's included); the X68000 key does not |
+| [Mega Drive: a larger player's record, anchored static discovery, and a learning pass when the last one still ran the interpreter](#mega-drive-a-larger-players-record-anchored-static-discovery-and-a-learning-pass-when-the-last-one-still-ran-the-interpreter-173) | **every machine's game stamp** (`native/runtime_feedback.c`, `feedback.py`, the profiles), the Mega Drive's own files too | none | **the Mega Drive and Super Nintendo keys move** (`runtime_feedback.c`), and the Amiga, Atari ST and Nintendo 64 keys; the others do not |
+| [Every console: a conversion with its own library reads no player's record of the player's exports](#every-console-a-conversion-with-its-own-library-reads-no-players-record-of-the-players-exports-173) | **every machine's game stamp** (`feedback.py`); no game changes | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
+| The Z80 chain: the reference CPU's M1 count is taken back with R where it calls `inc_r` twice for one M1 cycle, for machines with M1 wait states (no section of this page; commit `b9f0d38f`; off for the Master System and the Game Gear) | the Master System and the Game Gear (`retrorecomp/cpu.py`); their output does not change | none | none (they have no key) |
+| [Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three](#mega-drive-super-nintendo-pc-engine-one-cartridge-save-file-for-the-three-173) | the Mega Drive, the Super Nintendo and the PC Engine, and the Neo Geo, the CPS-1, the CPS-2 and the PlayStation through `console16.py` (their games do not change) | none | **the Mega Drive and Super Nintendo keys move** (they hash the listed native files); the others do not |
+| [PC Engine / TurboGrafx-16: the player's own record, and a start with I after Run](#pc-engine--turbografx-16-the-players-own-record-and-a-start-with-i-after-run-173) | the PC Engine only | none | **the PC Engine key moves** (the bridge files change) |
+| [Master System, Game Gear: the Z80 chain's second-machine seams completed](#master-system-game-gear-the-z80-chains-second-machine-seams-completed-173) | **every machine's game stamp** (`core.py`, `native/banked_emitter.inc`); the Master System and Game Gear output is byte-identical | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
+| [Atari ST: the player's own record](#atari-st-the-players-own-record-173) | the Atari ST, and the Amiga through the walk they share (`m68k_record_walk.py`; no Amiga output changes) | none | the Atari ST and Amiga keys move (the Amiga's with its game stamp) |
+| [Atari ST: a sweep over the memory at the end of the routes](#atari-st-a-sweep-over-the-memory-at-the-end-of-the-routes-173) | the Atari ST, and the Amiga through the same shared walk (no Amiga output changes) | none | the Atari ST and Amiga keys move |
+| [Atari ST: the disks in the order their names mean, and a program chosen among several](#atari-st-the-disks-in-the-order-their-names-mean-and-a-program-chosen-among-several-173) | the Atari ST only | none | the Atari ST key moves |
+| [Atari ST: Hatari's timer D patch chosen per game](#atari-st-hataris-timer-d-patch-chosen-per-game-173) | the Atari ST only (and the Hatari adaptation digest, so the machine core is built again once) | none | the Atari ST key moves |
+| [Mega Drive: the limits of the learned code are counted, never silent](#mega-drive-the-limits-of-the-learned-code-are-counted-never-silent-173) | the Mega Drive, and the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation through `console16.py` (their output does not change) | none | **the Mega Drive key moves** (`md_backend.c`); the others do not |
+| [Neo Geo: the code the reference runs could not keep is counted and reported](#neo-geo-the-code-the-reference-runs-could-not-keep-is-counted-and-reported-173) | the Neo Geo only | none | **the Neo Geo key moves** (`native/neogeo_reference.c`) |
+| [Super Nintendo: the rows the RAM-code limit leaves out are counted](#super-nintendo-the-rows-the-ram-code-limit-leaves-out-are-counted-173) | the Super Nintendo, and the Mega Drive, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation through `console16.py` (their output does not change) | none | none |
+| [Master System and Game Gear: the cap on compiled RAM windows is counted](#master-system-and-game-gear-the-cap-on-compiled-ram-windows-is-counted-173) | **every machine's game stamp** (`core.py`, `library.py`); no game changes | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
+| The knowledge exchange: an import of shared paths counts the valid rows a limit leaves out (`knowledge_exchange.dropped`; no section of this page; merge `6d8e27b7`) | none (`knowledge_exchange.py` and `online.py` are out of the stamps) | none | none |
+| The converter window: what a sync or an import of shared paths left out is said in one line, in the eight languages (no section of this page; commit `4924c803`) | none (interface strings) | none | none |
+| [Master System, Game Gear: the Z80 chain made ready for a second Z80 machine](#master-system-game-gear-the-z80-chain-made-ready-for-a-second-z80-machine-173) | **every machine's game stamp** (`core.py`, `native/banked_emitter.inc`); the Master System and Game Gear output is byte-identical | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
+| [Every console: a step still writing goes past its time limit](#every-console-a-step-still-writing-goes-past-its-time-limit-173) | **every machine's game stamp** (`core.py` and `batch.py`) | none | the Amiga, Atari ST and Nintendo 64 keys move; the others do not |
+| [Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (Agnus/Denise step 1)](#commodore-amiga-denises-line-work-by-table-and-by-word-agnuss-clock-step-inlined-173-agnusdenise-step-1) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a line's bitplane slots taken in a batch (Agnus/Denise step 2)](#commodore-amiga-a-lines-bitplane-slots-taken-in-a-batch-173-agnusdenise-step-2) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: a quiet line's pass in one loop (Agnus/Denise step 3)](#commodore-amiga-a-quiet-lines-pass-in-one-loop-173-agnusdenise-step-3) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: stage 7's bus model in shadow, never in an export (stage 7 checkpoints 0-2)](#commodore-amiga-stage-7s-bus-model-in-shadow-never-in-an-export-173-stage-7-checkpoints-0-2) | the Amiga only (the text of the hooks enters vAmiga's adaptation) | none | the Amiga key moves |
+| [Commodore Amiga: the idle disk controller's events caught up (stage 7 checkpoint 3a)](#commodore-amiga-the-idle-disk-controllers-events-caught-up-173-stage-7-checkpoint-3a) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the idle sprites' slots left out of their lines (stage 7 checkpoint 3b)](#commodore-amiga-the-idle-sprites-slots-left-out-of-their-lines-173-stage-7-checkpoint-3b) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: quick states on a frame cut short, and the idle sprites counted once (stage 7)](#commodore-amiga-quick-states-on-a-frame-cut-short-and-the-idle-sprites-counted-once-173-stage-7) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: the Blitter served alone on its colour clock, tried and reverted (stage 7 checkpoint 4)](#commodore-amiga-the-blitter-served-alone-on-its-colour-clock-tried-and-reverted-173-stage-7-checkpoint-4) | none: not in any build | none | none |
+| [Commodore Amiga: checkpoint 3's counters in the conversion report (stage 7)](#commodore-amiga-checkpoint-3s-counters-in-the-conversion-report-173-stage-7) | the Amiga only (each section says so) | none | the Amiga key moves, as between any two Amiga builds |
+| The converter window: a step that reaches its time limit is named in the player's language (no section of this page; commit `976e2a88`) | none (interface strings) | none | none |
+| Qualification: the Game Boy Advance's G15 (honesty) is partial ([QUALIFICATION.md](QUALIFICATION.md); no section of this page) | none | none | none |
 
-`tests/test_z80_chain.py` pins each seam as text (the Sega loop is still the file itself; what the other settings render). The
-region-map form with the new front end and the window was run in an authored harness (44 checks: the 23 of the section
-below, a cartridge of 32 KiB + 512 bytes read whole and padded, a window that guards the last quarter of a region). That
-study's own comparison with its reference interpreter (authored cartridges, a free BIOS) was run on this change in a scratch copy of
-its branch, with its glue as it is and with its glue moved onto the five seams: 14 of 14 cases equal both times. None of this is a
-qualification of any machine, and it says nothing of CPU fidelity, hardware fidelity, gameplay or latency.
+Taken together (`compilation_inputs.role_stamps` of the nineteen profiles, the tree of `v1.7.2` against `main`, Windows, Python 3.14): **the game stamp of every
+profile moves**, through the converter's own build steps (`core.py`, `batch.py`, `native/banked_emitter.inc`) and the player's record
+(`native/runtime_feedback.c`, `feedback.py`); **the host stamp of every profile moves**, once, because each game now embeds the notices of its own
+components (the click that captures the mouse moves the Amiga, Atari ST and X68000 host stamps as well); **no build stamp moves**. The MSX and the MSX2 are new.
 
-**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
+| Machine | Game stamp (v1.7.2, now) | Host stamp | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `63c93fcb0264`, `0f2ae3577f5f` | `62a7e9f65d83`, `afcd7d80d268` | `fe2d99b3cd5e` (same) |
+| Game Gear | `70eafce5937a`, `f6156c79361a` | `fa5e7fa22b05`, `1a50c71be834` | `f5671c38cf26` (same) |
+| Game Boy | `b218f94d2c75`, `fda8a848fcba` | `2a0942586a4a`, `b0c6d1f25dcb` | `819a054ad881` (same) |
+| NES | `af5a3a096738`, `d003f9637777` | `39c36bfa861a`, `aace3c47c69a` | `8e0941f93b43` (same) |
+| Mega Drive | `ed3a49ab59a8`, `fcf472f6e2b0` | `8f4324fbcb85`, `ae954d97ef21` | `9615ff2e96c8` (same) |
+| Super Nintendo | `064bd8544d76`, `830816cf1a5d` | `d35383911455`, `1338832835c7` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `b45ca489a2c9`, `296e61d8c8b5` | `f1fde4b7a652`, `209363c3cb2d` | `110349f043bd` (same) |
+| X68000 | `107b51de2145`, `6a1a3e6fffa6` | `be9dae27aacf`, `cd36f942cda8` | `5903c0449429` (same) |
+| CPS-1 | `28dd85714948`, `5bad58285e1e` | `0220746ac9ad`, `1744a86d265c` | `2782cd370f91` (same) |
+| CPS-2 | `cb7b5d304275`, `3d06a5ebcc85` | `7889559074ad`, `5f073fe7a9ca` | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `aa7913b68d39`, `dc4e67408d8f` | `3da7363bd893`, `20772c959102` | `66d912662e5c` (same) |
+| Game Boy Advance | `1658c523234f`, `ef6f51ae60c8` | `7b18d021f143`, `287e639d641a` | `6b70933a9b0a` (same) |
+| Amiga | `6854eee76d0e`, `f069a288af8a` | `8ca835ce1027`, `7d590498bb06` | `92ca8a0c142c` (same) |
+| Atari ST | `e6f3506a6be7`, `dc2c17398e06` | `3b7c6f50488a`, `c1f3ab554861` | `54b75964897d` (same) |
+| Nintendo 64 | `ec87144eb331`, `77b096906adf` | `3c4f6ccca458`, `93684dc83103` | `4f6fedf926c7` (same) |
+| Adventure (ScummVM) | `42dfc172e91c`, `7e79677b16a3` | `82088d749a09`, `2e274a46f2af` | `05417bbcea96` (same) |
+| Sony PlayStation | `4a3b197254a5`, `c6a915039614` | `5dbdb5df79ca`, `34ac75fcabae` | `b6c9cf73b176` (same) |
+| MSX | `6a9f2486a049` (new) | `7f3fdbbcf3d1` (new) | `3e7de8099a99` (new) |
+| MSX2 | `e8b4a1cc911d` (new) | `e75758647762` (new) | `d2329c8c61ad` (new) |
 
-**What moves:** `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console, so **every console's
-game stamp moves** (it moves in 1.7.3 anyway); `retrorecomp/z80_chain.py` moves the game stamps of the Master System and the Game
-Gear (group `shares:z80_main`). `native/banked_reference_state.inc` is declared out of the stamps (`NOT_INPUTS`) until a machine of
-the converter uses it. Host and build stamps do not move.
+(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.2, on every machine, is converted again once at the
+upgrade**, at the quick level, from its learned paths, and the window offers it. The shared paths of the base are kept: they are qualified by the recompiler's revision, not by
+this stamp.
 
-**Quick states:** unchanged.
+**Quick states.** The **Amiga, Atari ST and Nintendo 64 keys move**: each takes every input of its machine, which moves with the converter's build steps (and the Amiga's
+own files, and the Amiga and Atari ST host, change too). The **Mega Drive and Super Nintendo keys move** too: they hash their listed native files, which the shared cartridge-save file and the player's record
+(`runtime_feedback.c`) change (and the Mega Drive's learned-code counters). The **PC Engine key moves**: it hashes the bridge files the player's record changes. The **Neo Geo key moves**: it hashes
+`native/neogeo_reference.c` (the counted variants) and the code of `neogeo_build.py` (the notices). A quick state of 1.7.2 of those seven
+machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the
+CPS-1, the CPS-2, the PlayStation and the X68000 hash none of the files that changed (the X68000's host stamp moves, its key does not), so their states of 1.7.2 load in the rebuilt export; the Master System, Game Gear and Game Boy have no such key. A quick state of
+the Game Boy Advance is the engine's own container (magic, version, the ROM's SHA-1), with no key of ours; its section says a state of a game converted before may be refused. The MSX and MSX2 keys are new. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
 
-## Master System, Game Gear: the Z80 chain made ready for a second Z80 machine (1.7.3)
+## MSX and MSX2: the shared pieces the two new profiles use (1.7.3)
 
-**What changes.** The banked Z80 engine carried the Sega mapper as constants: the bank key `b0, b1, b2`, three 16 KiB slots, a first
-KiB that never pages, code from RAM at `pc >= $C000`, the plain Z80 cycle table and /INT sampled at the start of a step. They are now
-one description per machine, `Z80Machine` in the new `retrorecomp/z80_chain.py`, which the profiles of the Master System and the Game
-Gear name (`z80_machine = SEGA_MAPPER`). The emitter (`native/banked_emitter.inc`) reads it and names no mapper or address of its
-own; the step loop (`native/banked_runtime.inc`) is unchanged, and `z80_chain.runtime_source` renders its machine-dependent lines.
-The description also has what a second machine will need and no machine uses yet: wait states per M1 cycle, /INT read at the end of
-the instruction, and a second way to key the code, by a region map over several sources with RAM in any region (`Z80RegionMap`).
-A machine also names the folders of its own build of the translator (`generator_tag`; `core.dependencies` and
-`core.compiler_signature` take the machine), and `cpu.prepare_reference` can make the reference CPU count its M1 cycles
-(`m1_counter`), from which the counted fallback adds the wait states. For the Sega mapper the tag is empty and the count is off:
-the same folders, the same signature, the same reference CPU. No machine is added.
+**What changes.** The MSX and the MSX2 open as experimental profiles ([MSX.md](MSX.md)); nothing of an existing export changes behaviour. What they
+share with other machines was lifted out of those machines instead of copied a third time (STANDARDS rule 1), with identical
+results, and two shared tables grow:
+- **The quick-state envelope** (`native/state_envelope.h`, new): the Master System's 88-byte header, CRC and check-then-apply,
+  lifted from `native/gamestate.inc`, which now calls it. The bytes of a Master System or Game Gear quick state are unchanged:
+  Alex Kidd in Miracle World, quick states saved by an export built before and after, are equal byte for byte, and the Sega
+  quick-state harness passes 6/6 on both.
+- **The fresh-process quick-state check** (`conversion_gates.check_quick_states`), lifted from `pce_conversion.check_states`, which
+  now calls it with the same texts and the same record.
+- **The start chosen on the reference** (`retrorecomp/route_start.py`, new): `choose_start`, `liveness_score`, `divergence`,
+  `reach` and `stuck_stretch`, lifted from `pce_conversion.py`, whose functions keep their names as callers. Alien Crush
+  (Japan), standard level: the chosen start, every variant's numbers, the route scripts and `game_states` are equal before and
+  after the three lifts.
+- **The feedback kinds** (`native/runtime_feedback.h`): `RR_FB_MSX` 26 and `RR_FB_MSX2` 27, and `RR_FB_MAX_KIND` 27.
 
-**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. Proof, three conversions
-with the real command line (portable toolchain, Windows), once from main `f12dc2df` and once from this change, in two separate
-checkouts with a library of their own:
-- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
-  `--backend functions`).
-- The 146 files the translator generates and the 77 other sources and inputs of the three projects (the patched glue, the Z80 headers,
-  the reference CPU, the configuration) are equal byte for byte; the three build logs differ by the checkout path and the times.
-- The three delivered executables are equal byte for byte, and so are the unpacked ones.
-- The 29 run records are equal but for wall-clock times and the checkout path (frames, VDP traces, RAM, final CPU state, native and
-  interpreted counts).
+**Hot path:** no. The Master System's generated glue calls the same envelope code through one more function; the PC Engine's
+changes are in its Python conversion only.
 
-`tests/test_z80_chain.py` pins that the step loop rendered for the Sega mapper is the file itself, and what another machine renders.
-The region-map form was run once in an authored harness (two sources, a map that changes, RAM in a low region, an instruction across
-a region edge, one wait state per M1): 23 checks. It is not a qualification of any machine, and it says nothing of CPU fidelity,
-hardware fidelity, gameplay or latency.
+**What moves:**
+- `native/gamestate.inc` and `native/state_envelope.h` are game-stamp inputs of every console (`ALL`): **every console's game
+  stamp moves**.
+- `native/runtime_feedback.h` is a game-stamp input of every console: **every console's game stamp moves** (the same release).
+- `retrorecomp/conversion_gates.py` moves the game stamps of the machines of `shares:conversion_gates` (the Master System, Game
+  Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1, CPS-2, PC Engine, Amiga, Atari ST, Nintendo 64, PlayStation, and
+  now the MSX and MSX2).
+- `retrorecomp/pce_conversion.py` moves the PC Engine's game stamp; `retrorecomp/route_start.py` is a new game input of the PC
+  Engine, the MSX and the MSX2.
+- No other machine's host stamp moves: C-BIOS's notice (`licenses/cbios.md`) is an optional notice of the MSX and MSX2
+  profiles only (embedded in a game that boots C-BIOS), and THIRD_PARTY_NOTICES.md is no longer a stamp input.
 
-**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
-
-**What moves:** the game stamps of the Master System and the Game Gear (their profiles, the new module, the group `shares:z80_main`
-that now holds `retrorecomp/cpu.py`). `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console,
-so **every console's game stamp moves** (it moves in 1.7.3 anyway, see the next section). Host and build stamps do not move.
-
-**Quick states:** unchanged.
+**Quick states:** the bytes of a state do not change on any existing machine (the Master System's and Game Gear's are equal; the PC
+Engine's format is not touched). The Mega Drive and Super Nintendo keys move, because they hash `native/gamestate.inc` and
+`native/runtime_feedback.h` among their listed files, and the Amiga, Atari ST and Nintendo 64 keys take every input of their machine: all five
+move in 1.7.3 anyway. The PC Engine key hashes none of the files changed. The MSX and MSX2 states are new (layout `msx-state-2`).
 
 ## Every console: each game embeds the notices of its own components (1.7.3)
 
@@ -205,30 +243,208 @@ editing one machine's notice moves that machine's host stamp alone), `tests/test
 **What moves:** **the host stamp of every console, once** (the new host module, the notice files each machine now owns, the public
 list leaving the inputs). The modules that write the notices are game-side, so the game stamps move too (every game stamp moves in
 1.7.3 anyway). **From now on a new machine's notice moves only its own stamps**: it declares its files on its profile and adds a row
-to the public list, which no game reads. **Quick states:** unchanged.
+to the public list, which no game reads. **Quick states:** the Neo Geo key moves (it hashes the code of `neogeo_build.py`, which now
+writes the notices through `notices.py`); the Amiga, Atari ST and Nintendo 64 keys take every input of their machine, the host's included, so they
+move too (all four move in 1.7.3 anyway); the other keys hash none of the files changed. The bytes of a state do not change.
 
-## Every console: a conversion with its own library reads no player's record of the player's exports (1.7.3)
+## Game Boy Advance: the first conversion converges faster, a conversion that differs from the interpreter fails, shared paths (1.7.3)
 
-A conversion given its own library (`RETRO_RECOMP_LIBRARY_DIR`: a test, a campaign) still read the player's own records
-(`datas/fallbacks/*.rrfb`) beside the player's exports and in the folders the Options name, so a test's counts could depend on what the
-player had played. It now reads only the records beside its own output, as its path banks were already set aside
-(`feedback._isolated`). A player's normal conversion is unchanged. Proof: `tests/test_feedback.py`. **Hot path:** no. **What moves:**
-`retrorecomp/feedback.py` is a game-stamp input of every console (every game stamp moves in 1.7.3 anyway). **Quick states:** unchanged.
+The Game Boy Advance's engine patches (`retrorecomp/gba_patches.py`, 47 patches in 1.7.2, 52 now, `ENGINE_REV` unchanged, pin `c1a5fda3`) and converter, and its player's test
+switch. **What changes for a player:** (1) the interpreter's bridge proposes the callees of a routine it interprets, so a *first* conversion from an empty library reaches
+0 interpreted instructions in fewer passes (Golden Sun 7 passes with 3.86 million interpreted in generic before, 5 asked-and-settling passes and 0 now; Advance Wars 2,
+The Minish Cap 3, Pokémon Emerald 2; [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-verdict-is-enforced-and-a-first-conversion-converges-faster-12-november-2026-173)); (2) a conversion
+whose generated code differs from the engine's interpreter, or whose native run errored, now **fails** where it could pass, and a generator that does not end (it can loop on a wrong root; 300 s with received rows, 900 s otherwise) is stopped and the conversion made again without the received rows; (3) a Thumb `STMIA`/`PUSH` with an empty register list stores
+the program counter plus six as the hardware does (interpreter and generated code); (4) the report counts the caps of the RAM code (`native_coverage.ram_code.caps`); (5) the machine can
+share its paths in the experimental tier (`gba_knowledge.py`, a schema 3 record with an empty layout; not on until the site's limits for `gba` are deployed with the release); (6) the player reads
+the test switch `RETRORECOMP_GBA_STATE` (a hidden player only).
+**What moves:** the Game Boy Advance **game** stamp (`1658c523234f` in 1.7.2, `375fdcf55fc3` on the branch, `d89f30a66855` to `9ddd7055d88c` for this merge on main `3c593926`: the engine patches, the conversion code and the player source are game inputs). The host stamp
+(`7b18d021f143`) and the build stamp (`6b70933a9b0a`) of the Game Boy Advance do not move, and **no other console's** stamp moves (the three stamps of the seventeen profiles were compared with the
+merge base `a5379530`: only that one differs). `resources.py` is untouched. **Existing Game Boy Advance exports:** the game stamp moves, so an export of 1.7.2 is converted in full at its next conversion, from the player's own paths
+(a game input changed; the machine is experimental and its exports are private to the player; no frozen legacy stamp is kept for it). **Quick states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused after the new build, by
+the rule of [UPGRADES](#the-rule-the-previous-release-only). **Hot path:** none. The generated code differs from before only where the new roots add functions and where the Thumb empty-list store is
+generated (two vectors of the self-test); the interpreter's replay is the proof, not a timing; `tools/gba_frame_cost.py` has not made its quiet-PC pass.
 
-## Every console: a step still writing goes past its time limit (after 1.7.2)
+## Commodore Amiga: what the sweep's bound leaves out is counted (1.7.3)
 
-A player's small PC needed more than 30 minutes to compile Kirby's Adventure, and the conversion stopped at the step's fixed limit
-while the compiler was still finishing files. The build and generation steps (`core.run`: CMake, the compilers, the recompilers) now
-go past their limit while they are still writing (a compiler prints a line per finished file), as long as their last line is younger
-than the limit, up to four times the limit (`PROGRESS_LIMIT_FACTOR`). A step that writes nothing for a whole limit is stopped as
-before, and Stop still kills it at once. Replays and probes keep their fixed limit. The shared setup lock (the SDL build) waits as long.
-A step stopped this way is named with the time it ran, in minutes. The game report lists the five languages a generated game ships
-(`ui_languages`; it listed the converter's eight), and the CPS-1 and CPS-2 print "no interpreter on the routes played" when a set is
-ready without a fallback, as the PC Engine does. Proof: `tests/test_stop_now.py` (a writing step past its limit, a silent one stopped at
-it, an endless writer stopped at the ceiling, text decoded as `subprocess.run` does). **Hot path:** no, nothing in a game changes.
-**What moves:** `retrorecomp/core.py` and `batch.py` are game-stamp inputs of every console, so **every console's game stamp moves**:
-an export of 1.7.2 is converted again at the upgrade (the quick upgrade above, from its learned paths). The shared paths of the base are kept (they are qualified by the
-recompiler's revision, not by this stamp). **Quick states:** unchanged.
+**What changes.** The sweep beyond the routes stops at 150,000 instructions per conversion (`SWEEP_LIMIT`). Until now it stopped
+there silently: Cyber Games reached it exactly. The bound stays where it is, but `native_forms` now reports what it left out:
+- `sweep_limit` and `sweep_limit_reached`;
+- `sweep_left_out.walk_places_left`: the places a branch walk had queued and not reached;
+- `sweep_left_out.page_addresses_left`: the even addresses of the 4 KiB pages where code ran that were not tried.
+
+The same figures are in `native_validation.generation.sweep_cut`. They count candidates, not instructions: most of those addresses
+hold no code. Whatever they hold, if it ever runs, runs on the interpreter and is counted there, as before. The generated code is
+unchanged: the same instructions are swept, in the same order.
+
+**Proof.** Cyber Games at the standard scan level, by the real command line: 51,690 swept instructions, the bound not reached, and
+every route equal to the conversion of main a5379530. At the extended level (a third route of 18,000 frames), the case where 1.7.1
+reached the bound: 150,000 swept, `sweep_limit_reached` true, 74,308 walk places and 860,160 page addresses left out, and all three
+routes equal to the reference, 0 interpreted outside the Kickstart.
+
+**Hot path:** no. This is conversion time only.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: a border of one colour written four Texels at a time (1.7.3, colour step B)
+
+**What changes.** In step 3's colorize of a quiet line (`PixelEngine::rrColorize`), an 8-entry chunk whose border bytes are all
+the same non-zero value is now written as four 64-bit Texels of that border colour. Before, each entry chose between the border
+and the bitplane colour. A Texel holds its colour twice (`TEXEL`), so the texture row is the same byte for byte. Chunks with a
+mixed border, and chunks inside the display window, are unchanged.
+
+**Why.** On a normal PC, the border chunks were 7.5 % of a Lotus 2 frame and 8.4 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Proofs.**
+- The display self-test passes: 52 scenarios, every texture row equal to vAmiga's own colorize (`--per-slot`).
+- A planted fault (`--colour-fault 1`: the one-colour chunk one bit off) is seen in 52 of 52 scenarios.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Hot path:** yes, the per-line colorize: one comparison more per chunk that has a border, four stores instead of eight on one-colour
+chunks. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the texture in the host's order, the picture copied without a swap (1.7.3, colour step D)
+
+**What changes.** The session sets vAmiga's texture format to ARGB (`Opt::HOST_TEX_FORMAT`), so the palette is packed in the host's
+order once. Until now the option was never set, and the session swapped red and blue in every pixel of every frame. The copy of
+the picture now moves one 32-bit value per hires pixel and sets the alpha byte. The picture handed to the host is meant to be the
+same bytes as before. A Fable review of 12 Nov found it safe: until now the format was ABGR, because the option was never set and
+`HostConfig` is value-initialised, so the old swap gave 0xAARRGGBB; every texel outside the palettes that reaches the copied area
+reads the same in both orders.
+
+**Proofs.**
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Why.** On a normal PC, the copy with its swap was 6.0 % of a Lotus 2 frame and 8.9 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Hot path:** yes, the end of each frame: the per-pixel swap is gone.
+
+**What moves:** the Amiga's game stamp (the session); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: one lookup per hires pixel inside the display window (1.7.3, colour step A)
+
+**What changes.** In step 3's colorize of a quiet line, an 8-entry chunk inside the display window first checks that its four pairs
+of entries (2k and 2k + 1) hold the same colour index. If they do, it writes one 64-bit Texel (the colour twice) per pair: four
+lookups instead of eight. A chunk whose pairs differ keeps one lookup per entry, and is counted (`rrCellsRefused`).
+- **Why pairs differ.** In lores and hires a pixel always fills two or four entries from an even position. Super-hires does not.
+  This machine has an ECS Agnus and an OCS Denise, so Agnus can draw super-hires on a line Denise's guard still calls quiet. A
+  resolution change at the line's start, or a quick state loaded in mid-line, can also leave pairs unequal.
+- **Review.** Fable reviewed the design on 12 Nov and found the super-hires case; the pair check is its recommendation.
+
+**Proofs.**
+- The display self-test: the 52 scenarios, plus 8 new ones with BPLCON0's SHRES bit. The 52 old scenarios are generated as before.
+- Every texture row of all 60 scenarios is equal to vAmiga's own colorize.
+- Planted faults, each seen:
+  - `--colour-fault 2`, a cell's second entry one bit off: 60 of 60 scenarios;
+  - `--colour-fault 3`, cells taken without the pair check: exactly the 8 super-hires scenarios.
+- 234,044 chunks were refused, and 0 cells were written from a Texel with two different halves (the census under `RR_AMIGA_SHADOW`).
+- A second Fable read of the committed code found it safe.
+- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
+
+**Hot path:** yes, the per-line colorize: one 8-byte load and three operations more per chunk inside the window, four lookups less
+when the pairs match. Measured in the quiet-PC pass at the end of the colour steps.
+
+**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the sweep's bound shared between images and phases, the Kickstart part removed (1.7.3)
+
+**What changes.** The sweep first finds everything it can reach, up to 8 times the bound. When that is more than the bound
+(150,000 instructions), the bound is now shared equally between each memory image's branch walk and its page fill (water-filling,
+in order). Until now the first image's walk could take it all, and on Cyber Games at the extended level the page fill and the
+other images never ran.
+- **Under the bound nothing changes.** The same instructions are kept, in the same order, so a game below it gets the same code.
+- **The Kickstart sweep is removed.** The Amiga's code apertures end at $DC0000, so it never added an instruction.
+- **The report is exact now.** `native_forms` gives `sweep_reachable`, `sweep_left_out` (instructions, no longer candidate
+  addresses) and `sweep_buckets` (image, phase, reached, kept). This replaces the counters added a few commits earlier, which were
+  never released.
+
+Arthur decided this on 12 Nov, from the measure in `SWEEP-MEASURE-20261112.md`. On an unseen route the sweep served up to 82 % of
+the native entries (Civilization), and the cap cut 71 % of Cyber Games at the extended level.
+
+**Proofs.** By the real command line, scratch library:
+- **Cyber Games at the extended level.**
+  - The sweep reaches 515,013 instructions; 150,000 are kept and 365,013 left out, counted. Before this change it also kept 150,000,
+    but the first image's walk took them all.
+  - The buckets now share them: image 0's walk 46,021 of 335,632, its fill 46,020 of 112,638, image 2's fill 46,020 of 54,804, and
+    the small buckets whole.
+  - Every field of the three routes is the same as before the change, hashes included, with 0 interpreted outside the Kickstart.
+  - On an unseen route of 18,000 frames (headless, one run), interpreted instructions fall from 790,198 to 96,625, with the same
+    trace.
+- **Civilization at the standard level, under the bound.** The swept instructions, native forms, route fields and hashes are the
+  same as main a5379530's. On the unseen route its native entries, swept entries and trace are the same as in the earlier measure.
+
+**Hot path:** no. This is conversion time only. The generated code changes only for a game whose reachable code is above the bound.
+
+**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: the main route presses 1 and 2, and answers Monkey Island 2's protection (1.7.3)
+
+**What changes.**
+- **Every game.** The generic main route also taps the keys 1 (frame 400) and 2 (frame 1300), never when one of them is the slave's
+  quit key. Civilization's first screen, "1) Mouse + Keyboard / 2) Keyboard", waited for one of them, so its routes stayed silent.
+- **Monkey Island 2 only.** The game is recognised by its install's SHA-256 (`ROUTE_ANSWERS`, numbers about the install). Its main
+  route first answers the "lame-o" copy protection: Return, any recipe digits, Return, then a box clicked with the mouse. The
+  generic route follows from frame 3100. The route is at least 7,000 frames long, because the first sound comes at about frame 6,000.
+
+Arthur decided this on 12 Nov, after playing the games himself; the study is `SILENT-ROUTES-20261112.md`. Another World's answer
+waits for the green-screen investigation. A route is a scripted input, not gameplay validation. The native code it finds is still
+proved against the interpreted reference, as on every route.
+
+**Hot path:** no. This is conversion time only. Monkey Island 2's conversion runs a longer main route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes of every Amiga game change, so their
+observed code and their native counts can change too.
+
+**Recheck.** On 12 Nov the 12 delivered games other than Another World were converted by the real command line, scratch library.
+- **All 12 pass.** Native validation passed, both routes equal the reference and the compressed copy, the quick-state restart is
+  equal, 0 interpreted outside the Kickstart, and the Kickstart installs keep their 19 counted opcodes.
+- **Explore routes:** unchanged, all five hashes equal on all 12.
+- **Main routes:** they changed on 10 games, as expected. On Pinball Dreams and Shadow of the Beast every hash is the same.
+- **Civilization:** its main route is audible now (2,491 frames) and runs 36.8 M native entries instead of 4.4 M.
+- **Monkey Island 2:** its main route of 7,000 frames is audible (272 frames) and runs 79.3 M native entries instead of 41.0 M.
+- **Not investigated:** Pinball Dreams' main route has 48 more native entries with the same trace.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Amiga, Atari ST and Sharp X68000: the click that captures the mouse stays the host's (1.7.3)
+
+**What changes.** On the disk computers a left click in the window captures the mouse. Until now that click also reached the guest:
+the event went on, and the next frames read the button still held. The machine saw a left click the player never meant for it.
+- **The new rule.** The capturing click is consumed. The guest's left button stays up until that click is released, and every later
+  click is the guest's, as before.
+- **Unchanged.** A mouse game captures at start without a click, and Ctrl+Alt+M captures without one either.
+- **Why.** On Another World's protection screen that stray click locked the game: the lead's decision of 12 Nov, the same rule on
+  every computer machine.
+
+**Proof.** `tests/amiga_menu_harness.c` gains seven checks of the click, with SDL's dummy driver and no window shown:
+- the capturing click is consumed and captures the mouse;
+- the guest's left button stays up while that click is held, and after it is released;
+- a click on the captured mouse is the guest's, press and release.
+
+The same harness on the code before the change fails three of them. The Atari ST, X68000 and host kit unit tests pass. The one
+X68000 failure needs the main checkout's `.deps` and is unrelated.
+
+**Hot path:** no. One test per frame on a flag.
+
+**What moves:** the host stamp of the Amiga, the Atari ST and the X68000 (`native/hostkit/adapters/rrhk_computer.inc`, host role,
+`shares:hostkit_computer`). No game stamp moves. Exports already made keep the old behaviour until they are rebuilt.
+
+**Quick states:** the Amiga and Atari ST keys take every input of their machine, the host's included, so they move (they move in 1.7.3
+anyway); the X68000 key hashes its own state sources, which do not change.
+
 ## Mega Drive: a larger player's record, anchored static discovery, and a learning pass when the last one still ran the interpreter (1.7.3)
 
 Three changes that act on what a Mega Drive player meets **past the conversion's routes**. Measures are kept apart: everything below is native code (and what the
@@ -310,9 +526,152 @@ never more than one, never when the last pass ran none, never when nothing new w
 - **Stamps** (`tools/std_baseline.py`, tree `751866b8` against this one): the **game stamp of every machine moves** (`native/runtime_feedback.c`, `retrorecomp/feedback.py` and the profiles are
   inputs of all), with the Mega Drive's own (`megadrive_static.py`, `console16.py`); **no host and no build stamp** moves. The **quick-state key** of the Mega Drive, the Super Nintendo and the
   Master System / Game Gear build signature move (they hash the listed native files, which now include `runtime_feedback.c`); the Mega Drive and Super Nintendo keys had already moved in 1.7.3
-  (the cartridge-save file), so a 1.7.2 quick state is refused cleanly as before. The four pinned 68000 generator files and `megadrive_codegen.py`, `megadrive_z80.py` are untouched.
+  (the cartridge-save file), so a 1.7.2 quick state is refused cleanly as before. The Master System and the Game Gear have no quick-state key; the keys of the
+  Amiga, the Atari ST and the Nintendo 64 take every input of their machine, so they move too (they move in 1.7.3 anyway). The four pinned 68000 generator files and `megadrive_codegen.py`, `megadrive_z80.py` are untouched.
   New files and their role: `retrorecomp/megadrive_static.py` (game, md), `tests/test_megadrive_static.py`.
 - Existing exports are affected: every game's next conversion is a full one in the sense of this page (its game stamp moved).
+
+## Every console: a conversion with its own library reads no player's record of the player's exports (1.7.3)
+
+A conversion given its own library (`RETRO_RECOMP_LIBRARY_DIR`: a test, a campaign) still read the player's own records
+(`datas/fallbacks/*.rrfb`) beside the player's exports and in the folders the Options name, so a test's counts could depend on what the
+player had played. It now reads only the records beside its own output, as its path banks were already set aside
+(`feedback._isolated`). A player's normal conversion is unchanged. Proof: `tests/test_feedback.py`. **Hot path:** no. **What moves:**
+`retrorecomp/feedback.py` is a game-stamp input of every console (every game stamp moves in 1.7.3 anyway). **Quick states:** the keys of the Amiga, the Atari ST and the Nintendo 64 take every input of their machine, so they move (they move in
+1.7.3 anyway); the other keys hash none of the files changed.
+
+## Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three (1.7.3)
+
+The cartridge's save file beside the game was written three times: `native/md_battery.c`, `native/snes_battery.c` and `native/pce_backup.c` each carried their own load at start, their own two-second pacing, atomic write, size and header checks and set-aside of a file the game cannot use ([STANDARDS.md](STANDARDS.md), rule 1). The rules are now written once in `native/cart_save.c` and `cart_save.h`, and each machine's file keeps only what is its own: the format (magic, the identity words the file repeats, where its hash sits, the largest memory), its memory and its guards. The differences between the machines are named capabilities of the format, not silent divergences: the Mega Drive leaves a file it cannot use where it is and opens without saving, where the Super Nintendo and the PC Engine move it to `.unusable-N` and start blank; the PC Engine also reports a file that exists and cannot be read (notice 2). Nothing a player can see changes: the same file under `datas/saves/<game>-<card>.rrsram`, the same 112-byte header and size, the same moments of writing (the memory quiet for two seconds, checked every half second, a failed write retried after ten seconds, at once on exit), the same handling of a missing, short, long, damaged or read-only file. An old save still loads, and a bad one is never deleted and never blocks a game. Two cases the old code could not reach are tidied: a file is read into the buffer reserved at start instead of an allocation whose failure counted as a damaged file (the Mega Drive and the Super Nintendo), and a PC Engine whose machine is not there is refused instead of read at address zero.
+
+**Proof.** `tools/cart_save_selftest.py` builds each machine's own entry points with `native/cart_save_checks.c` over a stand-in memory, with the portable toolchain (llvm-mingw), and runs them in a scratch folder: a fresh save and its pacing, a reload, nineteen kinds of file (empty, short header, short or long payload, another magic, version, size, ROM, identity word or hash, a changed byte, bytes no field covers), a folder where the file should be, a file where the folder should be, read-only files, the ninety-nine names taken, and the cases where saving is off. The program checks the written file against its own writer of the format and prints every result, notice, memory hash and byte left on disk. With `--against 683f22ea` (the sources of 1.7.2) it builds those too and requires the same log: 289 lines for the Mega Drive, 306 for the Super Nintendo, 326 for the PC Engine, equal line by line, so the bytes on disk are equal before and after. A change of the pacing by one millisecond in the new file is caught by the same comparison. The other self-tests of these saves (`megadrive_sram_selftest.py` and the Mega Drive and Super Nintendo cartridge checks) read the new file list.
+
+**Hot path:** no (the file is looked at twice a second, outside the frame). **What moves:** the Mega Drive, Super Nintendo and PC Engine game stamps (`native/cart_save.c`, `native/cart_save.h`, the three machines' files, `console16.py`, `pce_build.py`): md `ed3a49ab59a8` to `fe76d6ca02f8`, snes `064bd8544d76` to `9926f19eb43f`, pce `aa7913b68d39` to `bcb4ccd25784`. Because `retrorecomp/console16.py` is a module of the whole 16-bit family, the game stamps of the Neo Geo, the CPS-1, the CPS-2 and the PlayStation move with it (`b45ca489a2c9` to `7ac8db94e287`, `28dd85714948` to `8a2840f6e587`, `cb7b5d304275` to `dff3d26878f1`, `4a3b197254a5` to `8b76809837b2`) although what their games run does not change; their host and build stamps do not move, and neither do any other console's. **Quick states:** no state holds the save file and no layout moves, but the Mega Drive and Super Nintendo quick-state keys hash their listed native files, so their values move with this change (checked on main, `1ff81f47` against `751866b8`): a quick state of 1.7.2 of those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state, and cartridge saves are kept. The PC Engine key does not hash these files.
+
+## PC Engine / TurboGrafx-16: the player's own record, and a start with I after Run (1.7.3)
+
+**The player's own record.** A PC Engine game now records, in a window, each instruction of the card that the interpreter ran (kind 20 of the shared recorder, F12, written at a normal
+exit beside the game). The next conversion reads the notes back against the player's own ROM and declares them to the engine as roots, so the code the player reached becomes native; the report's
+`runtime_feedback.recording_default` was true in 1.7.2 while no game recorded; it is now true because they do (and false on the Street Fighter II board). Proved on Blazing Lazers by script: an 18,000-frame walk went from 733,921 interpreted instructions to 0 after one
+recording and one conversion, and equals its fresh reference on all 18,000 frames ([PC_ENGINE.md](PC_ENGINE.md#the-players-own-record-12-november-2026)). The Street Fighter II board does not record. If the engine refuses the roots, the conversion goes on without them.
+**What the owner saw in 1.7.2 is answered once the owner plays:** code past the routes stays interpreted, counted and shown, until his own record has been converted.
+
+**The start with I.** The conversion also tries one, two and three Run presses each followed by a tap of I, and keeps the best variant by the same rule. On the fifteen cards of the panel it was kept on two
+(Military Madness, a real gain; Splatterhouse, a tie settled by one picture), and it does not help Boxyboy, whose start waits on a second Run. The panel of the new tree: 15 of 15 at 0 interpreted and 0 guard misses on every route,
+on Windows.
+
+**What moves:** only the PC Engine's game stamp (`native/pce_machine.cpp`, `native/pce_machine.h`, `native/pce_main.c`, `pce_conversion.py`, `pce_knowledge.py`); every game stamp moves in 1.7.3 anyway. A PC Engine
+export of 1.7.2 is rebuilt when it is upgraded, and its quick states are refused cleanly, as after any change of the bridge. **Hot path (declared):** the game's step loop copies the program counter and the
+eight bank registers and compares one counter at each step while the recorder is on (the default in a window); not timed. The frame cost against the 1.7.1 pin (1.09x and 1.04x, [below](#pc-engine--turbografx-16-the-larger-capture-format-shared-paths-the-walk-repair-and-the-exit-from-the-experimental-status-172))
+is accepted by the owner and was not investigated further.
+
+## Master System, Game Gear: the Z80 chain's second-machine seams completed (1.7.3)
+
+**What changes.** The study of a second Z80 machine built its native stage on the chain of [the first step](#master-system-game-gear-the-z80-chain-made-ready-for-a-second-z80-machine-173) and found five places
+where a machine that is not a Sega one had to work around it. They are closed in the shared chain; nothing is added to the Master
+System or the Game Gear, and no machine is added.
+- **A front end for a machine keyed by a region map.** With `--banked-step` its generator no longer gives the cartridge to the Sega
+  cartridge parser (which strips 512 bytes from a file 512 bytes above a multiple of 16 KiB and looks for the TMR SEGA header):
+  `z80_chain.generator_main` writes that machine's entry point, and `cg_emit_banked_mapped` (`native/banked_emitter.inc`) reads
+  every source whole and pads it with FFh to whole regions. The Sega machines' entry point is the same text as before.
+- **The start of a step.** `Z80Machine.step_begin` makes the loop call `smsrecomp_step_begin(prefix_pending)` at the start of every
+  step. Off for the Sega mapper: the call is not written.
+- **Redundant prefixes.** A machine that reads /INT at the end of the instruction (`irq_sample='instruction_end'`) no longer
+  advances its hardware on each redundant DD/FD prefix. The Sega runner still does, as before.
+- **The state copies.** `native/banked_reference_state.inc` (new) holds `state_to_hz` / `state_from_hz`, the copies between the
+  translated registers and the reference CPU of the counted fallback; `Z80Machine.reference_state` pastes it ahead of the loop. The
+  Master System and the Game Gear keep the pair of their pinned runner, because their generated glue must not change;
+  `tests/test_z80_chain.py` compares the two pairs statement by statement.
+- **A guarded window inside a region.** `BankedRegion` (region-map machines only) gains `guard_from` / `guard_to`: one window of a
+  region that shows a source runs through the byte guards, the rest stays keyed by position.
+
+**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. `native/banked_runtime.inc`
+is not edited. Proof, three conversions with the real command line (portable toolchain, Windows, a library of their own), once
+with the code of main `6d8e27b7` and once with this change, both in the same folder:
+- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
+  `--backend functions`).
+- The 146 files the translator generates and the 77 other sources and inputs of the three projects are equal byte for byte; the
+  three build logs differ by the times.
+- The three delivered executables are equal byte for byte, and so are the unpacked ones and every object file.
+- The 29 run records are equal but for wall-clock times (frames, VDP traces, RAM, final CPU state, native and interpreted counts).
+- The two runs share one folder because the same code built in two different folders gave equal generated sources and executables
+  that differ by a few bytes (43 in the Game Gear game, offsets to a few variables): the linked bytes can depend on the checkout
+  path. This is true of main before this change too.
+
+`tests/test_z80_chain.py` pins each seam as text (the Sega loop is still the file itself; what the other settings render). The
+region-map form with the new front end and the window was run in an authored harness (44 checks: the 23 of [the first
+step](#master-system-game-gear-the-z80-chain-made-ready-for-a-second-z80-machine-173), a cartridge of 32 KiB + 512 bytes read whole and padded, a window that guards the last quarter of a region). That
+study's own comparison with its reference interpreter (authored cartridges, a free BIOS) was run on this change in a scratch copy of
+its branch, with its glue as it is and with its glue moved onto the five seams: 14 of 14 cases equal both times. None of this is a
+qualification of any machine, and it says nothing of CPU fidelity, hardware fidelity, gameplay or latency.
+
+**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
+
+**What moves:** `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console, so **every console's
+game stamp moves** (it moves in 1.7.3 anyway); `retrorecomp/z80_chain.py` moves the game stamps of the Master System and the Game
+Gear (group `shares:z80_main`). `native/banked_reference_state.inc` is declared out of the stamps (`NOT_INPUTS`) until a machine of
+the converter uses it. Host and build stamps do not move.
+
+**Quick states:** the keys of the Amiga, the Atari ST and the Nintendo 64 take their machine's build stamp, which `core.py` is an
+input of, so they move (they move in 1.7.3 anyway). The Master System and the Game Gear have no such key; the other keys hash none of
+the files changed.
+
+## Atari ST: the player's own record (1.7.3)
+
+An exported Atari ST game now keeps the player's own record (F12, on by default, in `datas/fallbacks` beside the game): windows of 16 bytes at instructions that ran on the interpreter, with the TOS they
+ran on. The next conversion of that game reads it and makes native code of those instructions and of what a walk through each window finds, counted apart (`native_learned`, `native_walked`,
+`player_record` in the report); no route proves them, the guard on the latched opcode is the same, and a window of another TOS or whose ROM bytes changed is not used. The record is private and never
+shared. The walk is shared with the Amiga (`retrorecomp/m68k_record_walk.py`): the Amiga's `walk_records` now calls it, with identical results on three real records of players (Lotus 2 among them).
+Measured on one scripted session each: Turrican II's window of play past its routes from 6.91 % native to 100.00 %, Indiana Jones from 569 interpreted instructions to 0; beyond the routes the native trace
+equals the interpreted one. **What moves:** the Atari ST's game stamp and the Amiga's game stamp (the shared walk; no Amiga output changes); no host stamp, not the X68000's. **Quick states:** the Atari ST's
+key moves, as between any two Atari ST builds. **Hot path:** nothing on native code; on an interpreted instruction, one test, and a 16-byte read and a record when a new window starts.
+
+## Atari ST: a sweep over the memory at the end of the routes (1.7.3)
+
+A conversion now walks an image of the RAM taken at the last frame of each fresh reference run, with the TOS ROM, from the instructions the routes ran, and compiles what it reaches as native code with the same
+guard on the latched opcode (`retrorecomp/m68k_record_walk.py`, shared; `atarist_codegen.sweep`): branches, DBcc, JSR and JMP with an absolute or PC-relative address, and what falls through, from an
+observed instruction the image still holds as observed, up to 60,000 instructions added (a capped sweep says so). They are counted apart (`sweep` and `final_checks.native_swept` in the report; the player's
+headless report has `native_swept`); no route proves them, and on the routes the count is 0 by construction. The image is read by the conversion and deleted, never copied to the library or to the export; a page
+fill (every even address of a page where code ran) is written and tested but off (measured once on Turrican II: 91.48 % native, 59,190 swept, 42.6 MB, trace equal). Measured on Windows, Standard level from an empty library, the delivered game on a play script of 5,200 (Turrican II, TOS 1.04) and
+4,500 frames (Bomb Jack, EmuTOS): Turrican II's window of play from 6.91 % native to 73.00 %, Bomb Jack's 17 interpreted instructions to 0; native and interpreted traces of every frame byte-identical. Cost, on a PC shared with other sessions (so the times are indicative), a cold build of the same game's native code without and with the sweep, in turn: Turrican II 24-33 s and 19.6 MB against 61-81 s and 29.3 MB (packed 4.6 against 5.3 MB), Bomb Jack 38 s and 22.5 MB
+against 49 s and 25.3 MB (packed 5.6 against 6.0 MB). `tools/atarist_sweep_guard_check.py` shows the guard on an authored program that rewrites a swept block before it runs it (another opcode: the routine never
+runs, the interpreter does; the same opcode with another extension word: the routine runs and reads the new word). **What moves:** the Atari ST's game stamp, and the Amiga's game stamp as well, because
+`retrorecomp/m68k_record_walk.py` (the walk shared by the two machines, which gained the sweep) is owned by both: no Amiga output changes, the Amiga's own sweep (`amiga_codegen.sweep`) is not touched. No
+host stamp, not the X68000's. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. **Hot path:** nothing on native code (a swept instruction counts into one more counter); the exe is larger and
+a conversion compiles longer in proportion to what is swept.
+
+## Atari ST: the disks in the order their names mean, and a program chosen among several (1.7.3)
+
+**What changes.** Two rules of the conversion, both read from names and from the root directory of disk 1, nothing run:
+- **Disk order.** A ZIP's disks were taken in the alphabetical order of their member names, which put the wrong disk first when the boot disk is not the first by name
+  (Battle Chess: the "Animation Disk" before the "StartUp Disk"; The Chessmaster 2000: "(Games Disk)" before the disk without a label; Mean 18: the "Famous Courses" disks before the
+  "Program Disk"). `retrorecomp/atarist_disk.py` now puts them in disk order: the disk without a label and the boot disks (Boot, StartUp, Program, Main, Loader) first, then the numbered
+  ones by number or letter (Disk 1, Disk A, Side B, Reel 2, Volume II; Disk 10 follows Disk 9), then the disks that only have a name; a name without brackets is read from its end
+  (`game2.st`, `game_b.st`). Of the 79 multi-disk ZIPs of the library tried (names only), exactly those three change order.
+- **Several programs on disk 1.** When disk 1 has no `AUTO` folder, the desktop autostart took the only program of the root and nothing otherwise. It now also takes, among several, the
+  one program whose name is a word of the game's title (`CRICKET.PRG` for Championship Cricket), or else the only one that is not a utility by a short list of names (setup,
+  config, format, read, view, help, backup, copy, unpack...). Two programs that fit, or none, leave the choice to the player, who opens the program at the desktop; `desktop_autostart` in the
+  report gives the program, the `candidates` of the root, the `rule` (`only-program`, `title-word`, `only-non-utility`) and the `reason`. A lone program is started as before.
+
+**Library.** Of the 18 ZIPs that stopped on the desktop in the census of 12 November 2026, six now start their program (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical,
+Outcast, Rody et Mastico III) and twelve are left to the player (Backgammon Royale, Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary have several programs no rule picks; Battle
+Probe, Kick Off 2 - Winning Tactics, Leader Board, Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board have no program at their root). The decision of the other 257 ZIPs is the one it was.
+
+**Proof** (Windows, EmuTOS 1.4, Standard level, 3,600 frames on two routes, headless; every route of the native game and of its packed copy equals the fresh reference, and the saved state
+continues the run): The Chessmaster 2000 (disk order, then `CMASTER.PRG`) reaches its title, which shows an alert from the game ("Lost my BIG pieces!"); Battle Chess (`CHESS.TOS`, the
+StartUp disk first) reaches a screen of its own, a prompt that looks like its manual protection; Championship Cricket (`CRICKET.PRG`) reaches a match; Outcast (`OUTCAST_.PRG`) reaches
+its title; Mercenary (two programs that both fit) stops on the EmuTOS desktop and the report says why. These are first screens on the tested routes, not played games.
+
+**Hot path:** no. **What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the conversion modules `atarist.py`, `atarist_disk.py` and `atarist_conversion.py`); its host stamp and its
+build stamp do not, and no other machine moves. A game of this machine converted before is reconverted in full on its next conversion; an export keeps playing as it did. **Quick states:**
+no native file of the session or the player changes, so the format of a state is the one of before.
+
+## Atari ST: Hatari's timer D patch chosen per game (1.7.3)
+
+**What changes.** Since 1.7.2 every Atari ST game ran Hatari's patch of the MFP's timer D, which slows down TOS's own start of that timer and changes what a game that uses the timer as TOS left it sees. Now the patch is chosen per game. The new option **Atari ST: timer D** (`atarist_timer_d`, `--atarist-timer-d`, in the request signature) is `auto` by default, `patched` or `exact`. On `auto` the fresh references run with the patch, and a detector in the adapted Hatari counts, from outside the TOS's addresses, a read of TDDR (A), timer D's interrupt left enabled and unmasked without a write of TDDR or a start (B) and TCDCR started before any write of TDDR (C); reads of TCDCR (D) are counted and never decide. A sign on any route makes the references run again with the patch off, and the game is built and validated on that machine. The reference, the native game and its packed copy always run the same mode: each run's report says which, and the conversion refuses a run of another mode (it refused any run without the patch before). `machine.timer_d` in the report says the mode, the choice, the reason (the sign, the frame, the pc, the route) and every sign by route. The detector sees the code the routes reach and nothing else, and the TOS's own code is not looked at ([ATARI_ST.md](ATARI_ST.md#5-known-limits)).
+**Seen:** Bomb Jack (EmuTOS) shows no sign and stays patched; The Seven Gates of Jambala reads TDDR (A, frame 779, pc `$0106F8`) and runs exact, 4 interpreted instructions on a route; both validate on every route and on the packed copy. An `exact` game costs about 1.3 to 1.8 times the host cycles of the same game patched (the 9 November estimates, not a timing).
+**Hot path:** no change for a game that stays patched; the detector is three comparisons on a register access of the MFP, none per instruction. A game that runs exact runs a heavier machine, as before 1.7.2.
+**What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the session, the player, the conversion, the Hatari adaptation and the profile are in it), the Hatari adaptation digest (`e89a52b7e31d` to `1bb961c240a8`: the machine core is built again once), and the request signature of every Atari ST export, which now holds the option; the host and build stamps and every other console's stamps do not move. An Atari ST export of an earlier version is rebuilt when it is upgraded, and a game that now shows a sign is reconverted on the exact machine. Quick states: the Atari ST's key moves, as between any two Atari ST builds. Tool: `tools/atarist_hardware_check.py` measures the detector (51 measurements, 49 agree, the same 2 recorded differences).
 
 ## Mega Drive: the limits of the learned code are counted, never silent (1.7.3)
 
@@ -377,6 +736,53 @@ The report grows by four numbers per probe.
   `ram_variants_dropped`, `ram_variants_dropped_exact`); in the conversion report the differences are those keys, `learning_limits` and the new fields of
   `passes`, and the packed size ratio (0.3488 against 0.3487, a different binary). Every generated step, every picture, sound, CPU, RAM, VDP and Z80 hash is equal.
 
+## Neo Geo: the code the reference runs could not keep is counted and reported (1.7.3)
+
+**What changes.** The reference runs of a Neo Geo conversion keep at most 4,096 variants of work-RAM 68000 code and 4,096 variants of
+Z80 code (`RR_NG_VARIANT_CAP`, `native/neogeo_reference.h`). Past that, a note was dropped without a trace: the Z80 side had no counter,
+and the 68000 side wrote a flag (`m68k_ram_observations_truncated`) that nothing read. Now:
+- the executable's reference report writes `variant_cap`, `m68k_ram_variants_dropped` and `z80_variants_dropped` beside the flag;
+- the conversion report has a `native_discovery` record: the cap, the same figures per route, their maximum over the routes (never a sum),
+  the flag read from every route, and `observed_code_dropped`;
+- when something was dropped, the conversion says so in its log. Dropped code is not translated: a run that reaches it uses the counted
+  interpreter fallback, shown as before in `final_checks` and in the game.
+
+A dropped count is a number of notes, not of distinct variants: a variant met again counts again. No game of the panel reaches the cap
+(the most observed 68000 variants are 565, on Matrimelee, and 1 Z80 variant on every set read), so the counters read 0.
+
+**What it does not change.** The code generated for the game: the counters sit after the point where a variant is kept or dropped, and
+the generators are untouched. A report of an earlier build has no `native_discovery`.
+
+**Hot path:** no. The counter is a store on the path that already drops a note, at conversion time only (the reference runs).
+
+**What moves:** the Neo Geo game stamp (`native/neogeo_main.c`, `neogeo_reference.c`, `neogeo_reference.h` and `retrorecomp/neogeo_conversion.py`
+are Neo Geo files); the CPS-1, CPS-2 and X68000 stamps and the two generator pins do not (`neogeo_codegen.py` is not edited). The
+Neo Geo quick-state key **moves**: it hashes `native/neogeo_reference.c` among its state files (and the code of `neogeo_build`, `neogeo_codegen`
+and `neogeo_z80`), so a Neo Geo quick state of 1.7.2 is refused cleanly.
+
+## Super Nintendo: the rows the RAM-code limit leaves out are counted (1.7.3)
+
+The three places of `supernintendo.py` that cut the RAM-code tables at `RAM_VARIANT_LIMIT` (16,384 rows) left no trace: the merged read of the
+guarded RAM variants, the merged read of the RAM opcode guards, and the merge a conversion writes back into the library (`native-ram.json`). Each keeps the
+lowest addresses and drops the rest, as before; what is new is that the number of rows there were is kept (`supernintendo.row_counts(rom)`, per kind: `ram_variants`,
+`ram_opcodes`, their `_own` forms and `library_merge`). The conversion report of a Super Nintendo game carries it as `library_rows` (`{kind: {limit, rows,
+dropped}}`), and the conversion log says so when a kind left rows out. The line printed when a run met more distinct RAM instructions than the native table keeps
+(`ram_observation_overflows`) no longer says those instructions stay on the counted interpreter: since 1.6.7 they run from their live opcode, compiled and counted as
+compiled and not observed. **What a game does is unchanged**: nothing that is read, kept or generated differs (counters only).
+
+How near the limit is: two conversions at the standard level from an empty library (Dirt Racer, Star Fox 2 (USA), the two cartridges the shared base holds the most
+RAM-code rows for) read 7,827 and 8,517 rows (48 % and 52 % of the limit, 0 left out); native equal to the reference on both routes, the compressed copy equal to it, 0
+interpreted opcodes of the 65816 and the SPC700. The shared record of the base is nearer: Dirt Racer 13,354 rows of `ram_opcode_refs` of 16,384 (82 %), Godzilla - Kaijuu
+Daikessen 12,330, the two Star Fox 2 11,974 and 11,469, of 314 records (four above 8,192). *Raising the limit:* the local limit is two constants (`RAM_VARIANT_LIMIT` and
+`RR_SN_RAM_VARIANT_LIMIT` of `native/snes_native_steps.h`, a power of two for the hash of `snes_backend.c`; 32,768 would add 192 KiB of static arrays to the game, and moves
+the Super Nintendo's quick-state key), but it is not the limit that binds: what travels is bounded by the field caps of `path_profiles.LEGACY_FIELDS` (`ram_refs` and
+`ram_opcode_refs`, 16,384 rows each), which the exchange validates and from which the site's limits are generated (`tools/build_web_limits.py`); a record over a cap is refused
+by a converter that does not know the new one and by the site until its limits are deployed. So a raise is a format and site decision, not a one-line change; none is made here.
+
+Stamps (`compilation_inputs.role_stamps`, the tree of `e4ec565b` against this one): the game stamps of the Super Nintendo move, and of the Mega Drive, the Neo Geo, the CPS-1, the
+CPS-2, the PC Engine and the PlayStation with it (`console16.py` is a game input of those machines: it holds the report key and the log line; `supernintendo.py` is the
+Super Nintendo's); no host and no build stamp moves, and the quick-state key does not (no native file and no pinned revision changes).
+
 ## Master System and Game Gear: the cap on compiled RAM windows is counted (1.7.3)
 
 The banked engine compiles at most 4,096 RAM windows per ROM (`library.PATTERN_LIMIT`; the generator reads the same file). `GameMemory.code_patterns()` cuts at that limit, so the
@@ -385,83 +791,66 @@ report's `compiled_windows` and `pending_windows`, both taken from it, could nev
 (0 when none was left out; the journal itself keeps them). Nothing is compiled differently and no game changes: the largest known ROM holds 0 of them in the shared base, so the cap is a
 bound today and now a visible one. Reports, not games.
 
-**What moves.** `retrorecomp.core` and `retrorecomp.library` are inputs of every console: the game stamp of all nine consoles then moves with this change like with any edit of `core.py`
-(the generated game is the same); the host stamps and the quick-state keys do not move. An export made before carries no `windows_over_limit` (it reads as absent, not as 0).
+**What moves.** `retrorecomp.core` and `retrorecomp.library` are inputs of every console: the game stamp of every machine then moves with this change like with any edit of `core.py`
+(the generated game is the same); the host stamps do not move. The quick-state keys of the Amiga, the Atari ST and the Nintendo 64 take their machine's
+build stamp, so they move (they move in 1.7.3 anyway); the other keys do not. An export made before carries no `windows_over_limit` (it reads as absent, not as 0).
 
-## Atari ST: the player's own record (1.7.3)
+## Master System, Game Gear: the Z80 chain made ready for a second Z80 machine (1.7.3)
 
-An exported Atari ST game now keeps the player's own record (F12, on by default, in `datas/fallbacks` beside the game): windows of 16 bytes at instructions that ran on the interpreter, with the TOS they
-ran on. The next conversion of that game reads it and makes native code of those instructions and of what a walk through each window finds, counted apart (`native_learned`, `native_walked`,
-`player_record` in the report); no route proves them, the guard on the latched opcode is the same, and a window of another TOS or whose ROM bytes changed is not used. The record is private and never
-shared. The walk is shared with the Amiga (`retrorecomp/m68k_record_walk.py`): the Amiga's `walk_records` now calls it, with identical results on three real records of players (Lotus 2 among them).
-Measured on one scripted session each: Turrican II's window of play past its routes from 6.91 % native to 100.00 %, Indiana Jones from 569 interpreted instructions to 0; beyond the routes the native trace
-equals the interpreted one. **What moves:** the Atari ST's game stamp and the Amiga's game stamp (the shared walk; no Amiga output changes); no host stamp, not the X68000's. **Quick states:** the Atari ST's
-key moves, as between any two Atari ST builds. **Hot path:** nothing on native code; on an interpreted instruction, one test, and a 16-byte read and a record when a new window starts.
+**What changes.** The banked Z80 engine carried the Sega mapper as constants: the bank key `b0, b1, b2`, three 16 KiB slots, a first
+KiB that never pages, code from RAM at `pc >= $C000`, the plain Z80 cycle table and /INT sampled at the start of a step. They are now
+one description per machine, `Z80Machine` in the new `retrorecomp/z80_chain.py`, which the profiles of the Master System and the Game
+Gear name (`z80_machine = SEGA_MAPPER`). The emitter (`native/banked_emitter.inc`) reads it and names no mapper or address of its
+own; the step loop (`native/banked_runtime.inc`) is unchanged, and `z80_chain.runtime_source` renders its machine-dependent lines.
+The description also has what a second machine will need and no machine uses yet: wait states per M1 cycle, /INT read at the end of
+the instruction, and a second way to key the code, by a region map over several sources with RAM in any region (`Z80RegionMap`).
+A machine also names the folders of its own build of the translator (`generator_tag`; `core.dependencies` and
+`core.compiler_signature` take the machine), and `cpu.prepare_reference` can make the reference CPU count its M1 cycles
+(`m1_counter`), from which the counted fallback adds the wait states. For the Sega mapper the tag is empty and the count is off:
+the same folders, the same signature, the same reference CPU. No machine is added.
 
-## Atari ST: a sweep over the memory at the end of the routes (1.7.3)
+**The output is identical.** For the Master System and the Game Gear nothing a conversion writes changes. Proof, three conversions
+with the real command line (portable toolchain, Windows), once from main `f12dc2df` and once from this change, in two separate
+checkouts with a library of their own:
+- Sonic The Hedgehog (Master System, banked), Sonic The Hedgehog (Game Gear, banked), Alex Kidd in Miracle World (Master System,
+  `--backend functions`).
+- The 146 files the translator generates and the 77 other sources and inputs of the three projects (the patched glue, the Z80 headers,
+  the reference CPU, the configuration) are equal byte for byte; the three build logs differ by the checkout path and the times.
+- The three delivered executables are equal byte for byte, and so are the unpacked ones.
+- The 29 run records are equal but for wall-clock times and the checkout path (frames, VDP traces, RAM, final CPU state, native and
+  interpreted counts).
 
-A conversion now walks an image of the RAM taken at the last frame of each fresh reference run, with the TOS ROM, from the instructions the routes ran, and compiles what it reaches as native code with the same
-guard on the latched opcode (`retrorecomp/m68k_record_walk.py`, shared; `atarist_codegen.sweep`): branches, DBcc, JSR and JMP with an absolute or PC-relative address, and what falls through, from an
-observed instruction the image still holds as observed, up to 60,000 instructions added (a capped sweep says so). They are counted apart (`sweep` and `final_checks.native_swept` in the report; the player's
-headless report has `native_swept`); no route proves them, and on the routes the count is 0 by construction. The image is read by the conversion and deleted, never copied to the library or to the export; a page
-fill (every even address of a page where code ran) is written and tested but off (measured once on Turrican II: 91.48 % native, 59,190 swept, 42.6 MB, trace equal). Measured on Windows, Standard level from an empty library, the delivered game on a play script of 5,200 (Turrican II, TOS 1.04) and
-4,500 frames (Bomb Jack, EmuTOS): Turrican II's window of play from 6.91 % native to 73.00 %, Bomb Jack's 17 interpreted instructions to 0; native and interpreted traces of every frame byte-identical. Cost, on a PC shared with other sessions (so the times are indicative), a cold build of the same game's native code without and with the sweep, in turn: Turrican II 24-33 s and 19.6 MB against 61-81 s and 29.3 MB (packed 4.6 against 5.3 MB), Bomb Jack 38 s and 22.5 MB
-against 49 s and 25.3 MB (packed 5.6 against 6.0 MB). `tools/atarist_sweep_guard_check.py` shows the guard on an authored program that rewrites a swept block before it runs it (another opcode: the routine never
-runs, the interpreter does; the same opcode with another extension word: the routine runs and reads the new word). **What moves:** the Atari ST's game stamp, and the Amiga's game stamp as well, because
-`retrorecomp/m68k_record_walk.py` (the walk shared by the two machines, which gained the sweep) is owned by both: no Amiga output changes, the Amiga's own sweep (`amiga_codegen.sweep`) is not touched. No
-host stamp, not the X68000's. **Quick states:** the Atari ST's key moves, as between any two Atari ST builds. **Hot path:** nothing on native code (a swept instruction counts into one more counter); the exe is larger and
-a conversion compiles longer in proportion to what is swept.
+`tests/test_z80_chain.py` pins that the step loop rendered for the Sega mapper is the file itself, and what another machine renders.
+The region-map form was run once in an authored harness (two sources, a map that changes, RAM in a low region, an instruction across
+a region edge, one wait state per M1): 23 checks. It is not a qualification of any machine, and it says nothing of CPU fidelity,
+hardware fidelity, gameplay or latency.
 
-## Atari ST: the disks in the order their names mean, and a program chosen among several (1.7.3)
+**Hot path:** no. The generated C of a Master System or Game Gear game is the same text, and the executables are the same bytes.
 
-**What changes.** Two rules of the conversion, both read from names and from the root directory of disk 1, nothing run:
-- **Disk order.** A ZIP's disks were taken in the alphabetical order of their member names, which put the wrong disk first when the boot disk is not the first by name
-  (Battle Chess: the "Animation Disk" before the "StartUp Disk"; The Chessmaster 2000: "(Games Disk)" before the disk without a label; Mean 18: the "Famous Courses" disks before the
-  "Program Disk"). `retrorecomp/atarist_disk.py` now puts them in disk order: the disk without a label and the boot disks (Boot, StartUp, Program, Main, Loader) first, then the numbered
-  ones by number or letter (Disk 1, Disk A, Side B, Reel 2, Volume II; Disk 10 follows Disk 9), then the disks that only have a name; a name without brackets is read from its end
-  (`game2.st`, `game_b.st`). Of the 79 multi-disk ZIPs of the library tried (names only), exactly those three change order.
-- **Several programs on disk 1.** When disk 1 has no `AUTO` folder, the desktop autostart took the only program of the root and nothing otherwise. It now also takes, among several, the
-  one program whose name is a word of the game's title (`CRICKET.PRG` for Championship Cricket), or else the only one that is not a utility by a short list of names (setup,
-  config, format, read, view, help, backup, copy, unpack...). Two programs that fit, or none, leave the choice to the player, who opens the program at the desktop; `desktop_autostart` in the
-  report gives the program, the `candidates` of the root, the `rule` (`only-program`, `title-word`, `only-non-utility`) and the `reason`. A lone program is started as before.
+**What moves:** the game stamps of the Master System and the Game Gear (their profiles, the new module, the group `shares:z80_main`
+that now holds `retrorecomp/cpu.py`). `native/banked_emitter.inc` and `retrorecomp/core.py` are game-stamp inputs of every console,
+so **every console's game stamp moves** (it moves in 1.7.3 anyway, see the next section). Host and build stamps do not move.
 
-**Library.** Of the 18 ZIPs that stopped on the desktop in the census of 12 November 2026, six now start their program (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical,
-Outcast, Rody et Mastico III) and twelve are left to the player (Backgammon Royale, Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary have several programs no rule picks; Battle
-Probe, Kick Off 2 - Winning Tactics, Leader Board, Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board have no program at their root). The decision of the other 257 ZIPs is the one it was.
+**Quick states:** the keys of the Amiga, the Atari ST and the Nintendo 64 take their machine's build stamp, which `core.py` is an
+input of, so they move (they move in 1.7.3 anyway). The Master System and the Game Gear have no such key; the other keys hash none of
+the files changed.
 
-**Proof** (Windows, EmuTOS 1.4, Standard level, 3,600 frames on two routes, headless; every route of the native game and of its packed copy equals the fresh reference, and the saved state
-continues the run): The Chessmaster 2000 (disk order, then `CMASTER.PRG`) reaches its title, which shows an alert from the game ("Lost my BIG pieces!"); Battle Chess (`CHESS.TOS`, the
-StartUp disk first) reaches a screen of its own, a prompt that looks like its manual protection; Championship Cricket (`CRICKET.PRG`) reaches a match; Outcast (`OUTCAST_.PRG`) reaches
-its title; Mercenary (two programs that both fit) stops on the EmuTOS desktop and the report says why. These are first screens on the tested routes, not played games.
+## Every console: a step still writing goes past its time limit (1.7.3)
 
-**Hot path:** no. **What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the conversion modules `atarist.py`, `atarist_disk.py` and `atarist_conversion.py`); its host stamp and its
-build stamp do not, and no other machine moves. A game of this machine converted before is reconverted in full on its next conversion; an export keeps playing as it did. **Quick states:**
-no native file of the session or the player changes, so the format of a state is the one of before.
+A player's small PC needed more than 30 minutes to compile Kirby's Adventure, and the conversion stopped at the step's fixed limit
+while the compiler was still finishing files. The build and generation steps (`core.run`: CMake, the compilers, the recompilers) now
+go past their limit while they are still writing (a compiler prints a line per finished file), as long as their last line is younger
+than the limit, up to four times the limit (`PROGRESS_LIMIT_FACTOR`). A step that writes nothing for a whole limit is stopped as
+before, and Stop still kills it at once. Replays and probes keep their fixed limit. The shared setup lock (the SDL build) waits as long.
+A step stopped this way is named with the time it ran, in minutes. The game report lists the five languages a generated game ships
+(`ui_languages`; it listed the converter's eight), and the CPS-1 and CPS-2 print "no interpreter on the routes played" when a set is
+ready without a fallback, as the PC Engine does. Proof: `tests/test_stop_now.py` (a writing step past its limit, a silent one stopped at
+it, an endless writer stopped at the ceiling, text decoded as `subprocess.run` does). **Hot path:** no, nothing in a game changes.
+**What moves:** `retrorecomp/core.py` and `batch.py` are game-stamp inputs of every console, so **every console's game stamp moves**:
+an export of 1.7.2 is converted again at the upgrade (the quick upgrade above, from its learned paths). The shared paths of the base are kept (they are qualified by the
+recompiler's revision, not by this stamp). **Quick states:** the keys of the Amiga, the Atari ST and the Nintendo 64 take their machine's build stamp, which this change moves, so they move; the other keys hash none of the files changed (see the index above).
 
-## Atari ST: Hatari's timer D patch chosen per game (1.7.3)
-
-**What changes.** Since 1.7.2 every Atari ST game ran Hatari's patch of the MFP's timer D, which slows down TOS's own start of that timer and changes what a game that uses the timer as TOS left it sees. Now the patch is chosen per game. The new option **Atari ST: timer D** (`atarist_timer_d`, `--atarist-timer-d`, in the request signature) is `auto` by default, `patched` or `exact`. On `auto` the fresh references run with the patch, and a detector in the adapted Hatari counts, from outside the TOS's addresses, a read of TDDR (A), timer D's interrupt left enabled and unmasked without a write of TDDR or a start (B) and TCDCR started before any write of TDDR (C); reads of TCDCR (D) are counted and never decide. A sign on any route makes the references run again with the patch off, and the game is built and validated on that machine. The reference, the native game and its packed copy always run the same mode: each run's report says which, and the conversion refuses a run of another mode (it refused any run without the patch before). `machine.timer_d` in the report says the mode, the choice, the reason (the sign, the frame, the pc, the route) and every sign by route. The detector sees the code the routes reach and nothing else, and the TOS's own code is not looked at ([ATARI_ST.md](ATARI_ST.md#5-known-limits)).
-**Seen:** Bomb Jack (EmuTOS) shows no sign and stays patched; The Seven Gates of Jambala reads TDDR (A, frame 779, pc `$0106F8`) and runs exact, 4 interpreted instructions on a route; both validate on every route and on the packed copy. An `exact` game costs about 1.3 to 1.8 times the host cycles of the same game patched (the 9 November estimates, not a timing).
-**Hot path:** no change for a game that stays patched; the detector is three comparisons on a register access of the MFP, none per instruction. A game that runs exact runs a heavier machine, as before 1.7.2.
-**What moves:** the Atari ST's game stamp (`9159a9d9c95b` to `9aad96e2808d` with the other Atari ST changes of 1.7.3, measured on main `6d8e27b7`; the session, the player, the conversion, the Hatari adaptation and the profile are in it), the Hatari adaptation digest (`e89a52b7e31d` to `1bb961c240a8`: the machine core is built again once), and the request signature of every Atari ST export, which now holds the option; the host and build stamps and every other console's stamps do not move. An Atari ST export of an earlier version is rebuilt when it is upgraded, and a game that now shows a sign is reconverted on the exact machine. Quick states: the Atari ST's key moves, as between any two Atari ST builds. Tool: `tools/atarist_hardware_check.py` measures the detector (51 measurements, 49 agree, the same 2 recorded differences).
-## Game Boy Advance: the first conversion converges faster, a conversion that differs from the interpreter fails, shared paths (after 1.7.2, 1.7.3)
-
-The Game Boy Advance's engine patches (`retrorecomp/gba_patches.py`, 47 patches in 1.7.2, 52 now, `ENGINE_REV` unchanged, pin `c1a5fda3`) and converter, and its player's test
-switch. **What changes for a player:** (1) the interpreter's bridge proposes the callees of a routine it interprets, so a *first* conversion from an empty library reaches
-0 interpreted instructions in fewer passes (Golden Sun 7 passes with 3.86 million interpreted in generic before, 5 asked-and-settling passes and 0 now; Advance Wars 2,
-The Minish Cap 3, Pokémon Emerald 2; [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-verdict-is-enforced-and-a-first-conversion-converges-faster-12-november-2026-173)); (2) a conversion
-whose generated code differs from the engine's interpreter, or whose native run errored, now **fails** where it could pass, and a generator that does not end (it can loop on a wrong root; 300 s with received rows, 900 s otherwise) is stopped and the conversion made again without the received rows; (3) a Thumb `STMIA`/`PUSH` with an empty register list stores
-the program counter plus six as the hardware does (interpreter and generated code); (4) the report counts the caps of the RAM code (`native_coverage.ram_code.caps`); (5) the machine can
-share its paths in the experimental tier (`gba_knowledge.py`, a schema 3 record with an empty layout; not on until the site's limits for `gba` are deployed with the release); (6) the player reads
-the test switch `RETRORECOMP_GBA_STATE` (a hidden player only).
-**What moves:** the Game Boy Advance **game** stamp (`1658c523234f` in 1.7.2, `375fdcf55fc3` in this tree: the engine patches, the conversion code and the player source are game inputs). The host stamp
-(`7b18d021f143`) and the build stamp (`6b70933a9b0a`) of the Game Boy Advance do not move, and **no other console's** stamp moves (the three stamps of the seventeen profiles were compared with the
-merge base `a5379530`: only that one differs). `resources.py` is untouched. **Existing Game Boy Advance exports:** the game stamp moves, so an export of 1.7.2 is converted in full at its next conversion, from the player's own paths
-(a game input changed; the machine is experimental and its exports are private to the player; no frozen legacy stamp is kept for it). **Quick states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused after the new build, by
-the rule of [UPGRADES](#the-rule-the-previous-release-only). **Hot path:** none. The generated code differs from before only where the new roots add functions and where the Thumb empty-list store is
-generated (two vectors of the self-test); the interpreter's replay is the proof, not a timing; `tools/gba_frame_cost.py` has not made its quiet-PC pass.
-
-## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (after 1.7.2, Agnus/Denise step 1)
+## Commodore Amiga: Denise's line work by table and by word, Agnus's clock step inlined (1.7.3, Agnus/Denise step 1)
 
 Hand optimisations of emulated code, through vAmiga's adaptation (`retrorecomp/amiga_vamiga.py`): the same events at the same instants and the same bytes in every buffer after each
 function, fewer operations. Denise's draw routines take a shift register's slices from a table and write the line buffer four or two entries at a time; when both parities are armed
@@ -478,7 +867,7 @@ reference player, built before and after (and after with ThinLTO), give the same
 conversions are not done yet. **What it brings:** the timing above, on one game; an earlier estimate from shares of a loaded PC was 12-17 % (21-25 % on a dual-playfield game). **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga
 builds; the dual-playfield table is derived and rebuilt after a load.
 
-## Commodore Amiga: a line's bitplane slots taken in a batch (after 1.7.2, Agnus/Denise step 2)
+## Commodore Amiga: a line's bitplane slots taken in a batch (1.7.3, Agnus/Denise step 2)
 
 Agnus no longer schedules an event for every bitplane slot of a line whose plan allows it. At the start of such a line its bitplane DMA slots are marked taken on the bus, as
 vAmiga's own events mark them before anyone else in their colour clock, and they run later in their own order, each at the beam position of its slot, as soon as something could
@@ -502,7 +891,7 @@ reference, 0 instructions interpreted. **What it brings:** on a quiet PC, 11 Nov
 machine time per frame goes from 1.887 ms (step 1 with ThinLTO) to 1.809 ms (-4.1 %; rounds within 2.1 %), past the 3 % bar; one game, not a latency. **Hot path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other
 console. **Quick states:** the Amiga's key moves, as between any two Amiga builds; the batch state is derived, never saved (line 0, where a state is taken, never has one).
 
-## Commodore Amiga: a quiet line's pass in one loop (after 1.7.2, Agnus/Denise step 3)
+## Commodore Amiga: a quiet line's pass in one loop (1.7.3, Agnus/Denise step 3)
 
 At the end of every visible line Denise translates its line buffer into colour indices (`translate`), draws the sprites, checks playfield collisions and turns the indices
 into the texture row (`colorize`). On a quiet line the colour index of each buffer byte depends only on that byte and on the line's start state, so `translate`'s own loop is run
@@ -524,7 +913,7 @@ to 1.710 ms per frame (-5.5 %; rounds within 0.7 %); steps 1 to 3 with ThinLTO t
 path:** this is one. **What moves:** vAmiga's adaptation and the Amiga's game stamp; no other console. **Quick states:** the Amiga's key moves, as between any two Amiga builds;
 the table is derived, never saved.
 
-## Commodore Amiga: stage 7's bus model in shadow, never in an export (after 1.7.3, stage 7 checkpoints 0-2)
+## Commodore Amiga: stage 7's bus model in shadow, never in an export (1.7.3, stage 7 checkpoints 0-2)
 
 **What changes.** A bus and DMA model of our own (`native/amiga_machine/amiga_bus.*`, MIT) can be computed beside vAmiga, line by
 line, to compare its slots and its CPU waits with vAmiga's. Its hooks in vAmiga's adaptation (MPL-2.0 edits) sit under
@@ -540,7 +929,7 @@ other console moves.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
-## Commodore Amiga: the idle disk controller's events caught up (after 1.7.3, stage 7 checkpoint 3a)
+## Commodore Amiga: the idle disk controller's events caught up (1.7.3, stage 7 checkpoint 3a)
 
 **What changes.** vAmiga's disk controller has an event about every 56 colour clocks, whether or not a floppy is in use. In a WHDLoad
 install that is 1,269 events per frame on every game, between 4 and 21 % of all the machine's events.
@@ -590,7 +979,7 @@ This is done through vAmiga's adaptation (MPL-2.0 edits). Paula stays emulated, 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds. The held-back events that are due run before a state is
 taken.
 
-## Commodore Amiga: the idle sprites' slots left out of their lines (after 1.7.3, stage 7 checkpoint 3b)
+## Commodore Amiga: the idle sprites' slots left out of their lines (1.7.3, stage 7 checkpoint 3b)
 
 **What changes.** With sprite DMA on, Agnus has two slot events per sprite on every line (16 per line), even when no sprite is shown.
 On Lotus 2 that is 4,563 events per frame with 16 fetches. On Civilization it is 4,321 events with 73 fetches, a third of all its
@@ -637,7 +1026,7 @@ in one quiet-PC pass on 11 Nov 2026 (Windows, one core, native game, 3 rounds of
 
 **Quick states:** the Amiga's key moves; the line's set of idle sprites is derived, never saved (line 0 has none).
 
-## Commodore Amiga: quick states on a frame cut short, and the idle sprites counted once (after 1.7.3, stage 7)
+## Commodore Amiga: quick states on a frame cut short, and the idle sprites counted once (1.7.3, stage 7)
 
 **What changes.**
 - **Before a quick state is taken,** the idle disk controller's held-back events that are due now run, and the next one is scheduled.
@@ -669,13 +1058,13 @@ idle sprite slots happens once per line.
 
 **Quick states:** the Amiga's key moves. A state of an earlier build is refused, as between any two Amiga builds.
 
-## Commodore Amiga: the Blitter served alone on its colour clock, tried and reverted (stage 7 checkpoint 4)
+## Commodore Amiga: the Blitter served alone on its colour clock, tried and reverted (1.7.3, stage 7 checkpoint 4)
 
 Not in any build. Checkpoint 4 served the Blitter's event alone when no other slot could be due on its colour clock. Its checks were
 equal to vAmiga's. On a quiet PC (12 Nov 2026), it timed 2 to 3 % slower than checkpoint 3 on Lotus 2 and on Rick Dangerous, so it was
 reverted. Nothing of it remains, and no stamp moved.
 
-## Commodore Amiga: checkpoint 3's counters in the conversion report (after 1.7.3, stage 7)
+## Commodore Amiga: checkpoint 3's counters in the conversion report (1.7.3, stage 7)
 
 **What changes.** Each route's `final_checks.agnus_denise` now also counts what checkpoint 3 did:
 - `disk_idle_batches`, `disk_idle_batches_at_event`, `disk_idle_batches_at_barrier` and `disk_events_held_back`, for the idle disk
@@ -690,272 +1079,6 @@ build reads 0 for each of them.
 **What moves:** the Amiga's game stamp (the session and the conversion module); no other console.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## MSX and MSX2: the shared pieces the two new profiles use (after 1.7.3)
-
-**What changes.** The MSX and the MSX2 open as experimental profiles; nothing of an existing export changes behaviour. What they
-share with other machines was lifted out of those machines instead of copied a third time (STANDARDS rule 1), with identical
-results, and two shared tables grow:
-- **The quick-state envelope** (`native/state_envelope.h`, new): the Master System's 88-byte header, CRC and check-then-apply,
-  lifted from `native/gamestate.inc`, which now calls it. The bytes of a Master System or Game Gear quick state are unchanged:
-  Alex Kidd in Miracle World, quick states saved by an export built before and after, are equal byte for byte, and the Sega
-  quick-state harness passes 6/6 on both.
-- **The fresh-process quick-state check** (`conversion_gates.check_quick_states`), lifted from `pce_conversion.check_states`, which
-  now calls it with the same texts and the same record.
-- **The start chosen on the reference** (`retrorecomp/route_start.py`, new): `choose_start`, `liveness_score`, `divergence`,
-  `reach` and `stuck_stretch`, lifted from `pce_conversion.py`, whose functions keep their names as callers. Alien Crush
-  (Japan), standard level: the chosen start, every variant's numbers, the route scripts and `game_states` are equal before and
-  after the three lifts.
-- **The feedback kinds** (`native/runtime_feedback.h`): `RR_FB_MSX` 26 and `RR_FB_MSX2` 27, and `RR_FB_MAX_KIND` 27.
-
-**Hot path:** no. The Master System's generated glue calls the same envelope code through one more function; the PC Engine's
-changes are in its Python conversion only.
-
-**What moves:**
-- `native/gamestate.inc` and `native/state_envelope.h` are game-stamp inputs of every console (`ALL`): **every console's game
-  stamp moves**.
-- `native/runtime_feedback.h` is a game-stamp input of every console: **every console's game stamp moves** (the same release).
-- `retrorecomp/conversion_gates.py` moves the game stamps of the machines of `shares:conversion_gates` (the Master System, Game
-  Gear, Game Boy, NES, Mega Drive, Neo Geo, X68000, CPS-1, CPS-2, PC Engine, Amiga, Atari ST, Nintendo 64, PlayStation, and
-  now the MSX and MSX2).
-- `retrorecomp/pce_conversion.py` moves the PC Engine's game stamp; `retrorecomp/route_start.py` is a new game input of the PC
-  Engine, the MSX and the MSX2.
-- No other machine's host stamp moves: C-BIOS's notice (`licenses/cbios.md`) is an optional notice of the MSX and MSX2
-  profiles only (embedded in a game that boots C-BIOS), and THIRD_PARTY_NOTICES.md is no longer a stamp input.
-
-**Quick states:** unchanged for every existing machine (the Master System's and Game Gear's bytes are equal; the PC Engine's
-format is not touched). The MSX and MSX2 states are new (layout `msx-state-2`).
-
-## Neo Geo: the code the reference runs could not keep is counted and reported (after 1.7.3)
-
-**What changes.** The reference runs of a Neo Geo conversion keep at most 4,096 variants of work-RAM 68000 code and 4,096 variants of
-Z80 code (`RR_NG_VARIANT_CAP`, `native/neogeo_reference.h`). Past that, a note was dropped without a trace: the Z80 side had no counter,
-and the 68000 side wrote a flag (`m68k_ram_observations_truncated`) that nothing read. Now:
-- the executable's reference report writes `variant_cap`, `m68k_ram_variants_dropped` and `z80_variants_dropped` beside the flag;
-- the conversion report has a `native_discovery` record: the cap, the same figures per route, their maximum over the routes (never a sum),
-  the flag read from every route, and `observed_code_dropped`;
-- when something was dropped, the conversion says so in its log. Dropped code is not translated: a run that reaches it uses the counted
-  interpreter fallback, shown as before in `final_checks` and in the game.
-
-A dropped count is a number of notes, not of distinct variants: a variant met again counts again. No game of the panel reaches the cap
-(the most observed 68000 variants are 565, on Matrimelee, and 1 Z80 variant on every set read), so the counters read 0.
-
-**What it does not change.** The code generated for the game: the counters sit after the point where a variant is kept or dropped, and
-the generators are untouched. A report of an earlier build has no `native_discovery`.
-
-**Hot path:** no. The counter is a store on the path that already drops a note, at conversion time only (the reference runs).
-
-**What moves:** the Neo Geo game stamp (`native/neogeo_main.c`, `neogeo_reference.c`, `neogeo_reference.h` and `retrorecomp/neogeo_conversion.py`
-are Neo Geo files); the CPS-1, CPS-2 and X68000 stamps and the two generator pins do not (`neogeo_codegen.py` is not edited), nor does the
-Neo Geo quick-state key (it hashes `neogeo_build`, `neogeo_codegen` and `neogeo_z80`, none edited).
-## Super Nintendo: the rows the RAM-code limit leaves out are counted (after 1.7.2, 1.7.3 item of the silent caps)
-
-The three places of `supernintendo.py` that cut the RAM-code tables at `RAM_VARIANT_LIMIT` (16,384 rows) left no trace: the merged read of the
-guarded RAM variants, the merged read of the RAM opcode guards, and the merge a conversion writes back into the library (`native-ram.json`). Each keeps the
-lowest addresses and drops the rest, as before; what is new is that the number of rows there were is kept (`supernintendo.row_counts(rom)`, per kind: `ram_variants`,
-`ram_opcodes`, their `_own` forms and `library_merge`). The conversion report of a Super Nintendo game carries it as `library_rows` (`{kind: {limit, rows,
-dropped}}`), and the conversion log says so when a kind left rows out. The line printed when a run met more distinct RAM instructions than the native table keeps
-(`ram_observation_overflows`) no longer says those instructions stay on the counted interpreter: since 1.6.7 they run from their live opcode, compiled and counted as
-compiled and not observed. **What a game does is unchanged**: nothing that is read, kept or generated differs (counters only).
-
-How near the limit is: two conversions at the standard level from an empty library (Dirt Racer, Star Fox 2 (USA), the two cartridges the shared base holds the most
-RAM-code rows for) read 7,827 and 8,517 rows (48 % and 52 % of the limit, 0 left out); native equal to the reference on both routes, the compressed copy equal to it, 0
-interpreted opcodes of the 65816 and the SPC700. The shared record of the base is nearer: Dirt Racer 13,354 rows of `ram_opcode_refs` of 16,384 (82 %), Godzilla - Kaijuu
-Daikessen 12,330, the two Star Fox 2 11,974 and 11,469, of 314 records (four above 8,192). *Raising the limit:* the local limit is two constants (`RAM_VARIANT_LIMIT` and
-`RR_SN_RAM_VARIANT_LIMIT` of `native/snes_native_steps.h`, a power of two for the hash of `snes_backend.c`; 32,768 would add 192 KiB of static arrays to the game, and moves
-the Super Nintendo's quick-state key), but it is not the limit that binds: what travels is bounded by the field caps of `path_profiles.LEGACY_FIELDS` (`ram_refs` and
-`ram_opcode_refs`, 16,384 rows each), which the exchange validates and from which the site's limits are generated (`tools/build_web_limits.py`); a record over a cap is refused
-by a converter that does not know the new one and by the site until its limits are deployed. So a raise is a format and site decision, not a one-line change; none is made here.
-
-Stamps (`compilation_inputs.role_stamps`, the tree of `e4ec565b` against this one): the game stamps of the Super Nintendo move, and of the Mega Drive, the Neo Geo, the CPS-1, the
-CPS-2, the PC Engine and the PlayStation with it (`console16.py` is a game input of those machines: it holds the report key and the log line; `supernintendo.py` is the
-Super Nintendo's); no host and no build stamp moves, and the quick-state key does not (no native file and no pinned revision changes).
-## Mega Drive, Super Nintendo, PC Engine: one cartridge-save file for the three (after 1.7.2)
-
-The cartridge's save file beside the game was written three times: `native/md_battery.c`, `native/snes_battery.c` and `native/pce_backup.c` each carried their own load at start, their own two-second pacing, atomic write, size and header checks and set-aside of a file the game cannot use ([STANDARDS.md](STANDARDS.md), rule 1). The rules are now written once in `native/cart_save.c` and `cart_save.h`, and each machine's file keeps only what is its own: the format (magic, the identity words the file repeats, where its hash sits, the largest memory), its memory and its guards. The differences between the machines are named capabilities of the format, not silent divergences: the Mega Drive leaves a file it cannot use where it is and opens without saving, where the Super Nintendo and the PC Engine move it to `.unusable-N` and start blank; the PC Engine also reports a file that exists and cannot be read (notice 2). Nothing a player can see changes: the same file under `datas/saves/<game>-<card>.rrsram`, the same 112-byte header and size, the same moments of writing (the memory quiet for two seconds, checked every half second, a failed write retried after ten seconds, at once on exit), the same handling of a missing, short, long, damaged or read-only file. An old save still loads, and a bad one is never deleted and never blocks a game. Two cases the old code could not reach are tidied: a file is read into the buffer reserved at start instead of an allocation whose failure counted as a damaged file (the Mega Drive and the Super Nintendo), and a PC Engine whose machine is not there is refused instead of read at address zero.
-
-**Proof.** `tools/cart_save_selftest.py` builds each machine's own entry points with `native/cart_save_checks.c` over a stand-in memory, with the portable toolchain (llvm-mingw), and runs them in a scratch folder: a fresh save and its pacing, a reload, nineteen kinds of file (empty, short header, short or long payload, another magic, version, size, ROM, identity word or hash, a changed byte, bytes no field covers), a folder where the file should be, a file where the folder should be, read-only files, the ninety-nine names taken, and the cases where saving is off. The program checks the written file against its own writer of the format and prints every result, notice, memory hash and byte left on disk. With `--against 683f22ea` (the sources of 1.7.2) it builds those too and requires the same log: 289 lines for the Mega Drive, 306 for the Super Nintendo, 326 for the PC Engine, equal line by line, so the bytes on disk are equal before and after. A change of the pacing by one millisecond in the new file is caught by the same comparison. The other self-tests of these saves (`megadrive_sram_selftest.py` and the Mega Drive and Super Nintendo cartridge checks) read the new file list.
-
-**Hot path:** no (the file is looked at twice a second, outside the frame). **What moves:** the Mega Drive, Super Nintendo and PC Engine game stamps (`native/cart_save.c`, `native/cart_save.h`, the three machines' files, `console16.py`, `pce_build.py`): md `ed3a49ab59a8` to `fe76d6ca02f8`, snes `064bd8544d76` to `9926f19eb43f`, pce `aa7913b68d39` to `bcb4ccd25784`. Because `retrorecomp/console16.py` is a module of the whole 16-bit family, the game stamps of the Neo Geo, the CPS-1, the CPS-2 and the PlayStation move with it (`b45ca489a2c9` to `7ac8db94e287`, `28dd85714948` to `8a2840f6e587`, `cb7b5d304275` to `dff3d26878f1`, `4a3b197254a5` to `8b76809837b2`) although what their games run does not change; their host and build stamps do not move, and neither do any other console's. **Quick states:** unchanged: no state holds the save file and no layout moves. The Mega Drive and Super Nintendo quick-state keys hash their listed native files, so their values move with this change: a quick state of 1.7.2 of those two machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state, and cartridge saves are kept. The PC Engine key does not hash these files.
-## Commodore Amiga: what the sweep's bound leaves out is counted (after 1.7.3)
-
-**What changes.** The sweep beyond the routes stops at 150,000 instructions per conversion (`SWEEP_LIMIT`). Until now it stopped
-there silently: Cyber Games reached it exactly. The bound stays where it is, but `native_forms` now reports what it left out:
-- `sweep_limit` and `sweep_limit_reached`;
-- `sweep_left_out.walk_places_left`: the places a branch walk had queued and not reached;
-- `sweep_left_out.page_addresses_left`: the even addresses of the 4 KiB pages where code ran that were not tried.
-
-The same figures are in `native_validation.generation.sweep_cut`. They count candidates, not instructions: most of those addresses
-hold no code. Whatever they hold, if it ever runs, runs on the interpreter and is counted there, as before. The generated code is
-unchanged: the same instructions are swept, in the same order.
-
-**Proof.** Cyber Games at the standard scan level, by the real command line: 51,690 swept instructions, the bound not reached, and
-every route equal to the conversion of main a5379530. At the extended level (a third route of 18,000 frames), the case where 1.7.1
-reached the bound: 150,000 swept, `sweep_limit_reached` true, 74,308 walk places and 860,160 page addresses left out, and all three
-routes equal to the reference, 0 interpreted outside the Kickstart.
-
-**Hot path:** no. This is conversion time only.
-
-**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: a border of one colour written four Texels at a time (after 1.7.3, colour step B)
-
-**What changes.** In step 3's colorize of a quiet line (`PixelEngine::rrColorize`), an 8-entry chunk whose border bytes are all
-the same non-zero value is now written as four 64-bit Texels of that border colour. Before, each entry chose between the border
-and the bitplane colour. A Texel holds its colour twice (`TEXEL`), so the texture row is the same byte for byte. Chunks with a
-mixed border, and chunks inside the display window, are unchanged.
-
-**Why.** On a normal PC, the border chunks were 7.5 % of a Lotus 2 frame and 8.4 % of a Rick Dangerous frame
-(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
-
-**Proofs.**
-- The display self-test passes: 52 scenarios, every texture row equal to vAmiga's own colorize (`--per-slot`).
-- A planted fault (`--colour-fault 1`: the one-colour chunk one bit off) is seen in 52 of 52 scenarios.
-- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
-
-**Hot path:** yes, the per-line colorize: one comparison more per chunk that has a border, four stores instead of eight on one-colour
-chunks. Measured in the quiet-PC pass at the end of the colour steps.
-
-**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: the texture in the host's order, the picture copied without a swap (after 1.7.3, colour step D)
-
-**What changes.** The session sets vAmiga's texture format to ARGB (`Opt::HOST_TEX_FORMAT`), so the palette is packed in the host's
-order once. Until now the option was never set, and the session swapped red and blue in every pixel of every frame. The copy of
-the picture now moves one 32-bit value per hires pixel and sets the alpha byte. The picture handed to the host is meant to be the
-same bytes as before. A Fable review of 12 Nov found it safe: until now the format was ABGR, because the option was never set and
-`HostConfig` is value-initialised, so the old swap gave 0xAARRGGBB; every texel outside the palettes that reaches the copied area
-reads the same in both orders.
-
-**Proofs.**
-- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
-
-**Why.** On a normal PC, the copy with its swap was 6.0 % of a Lotus 2 frame and 8.9 % of a Rick Dangerous frame
-(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
-
-**Hot path:** yes, the end of each frame: the per-pixel swap is gone.
-
-**What moves:** the Amiga's game stamp (the session); no other console.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: one lookup per hires pixel inside the display window (after 1.7.3, colour step A)
-
-**What changes.** In step 3's colorize of a quiet line, an 8-entry chunk inside the display window first checks that its four pairs
-of entries (2k and 2k + 1) hold the same colour index. If they do, it writes one 64-bit Texel (the colour twice) per pair: four
-lookups instead of eight. A chunk whose pairs differ keeps one lookup per entry, and is counted (`rrCellsRefused`).
-- **Why pairs differ.** In lores and hires a pixel always fills two or four entries from an even position. Super-hires does not.
-  This machine has an ECS Agnus and an OCS Denise, so Agnus can draw super-hires on a line Denise's guard still calls quiet. A
-  resolution change at the line's start, or a quick state loaded in mid-line, can also leave pairs unequal.
-- **Review.** Fable reviewed the design on 12 Nov and found the super-hires case; the pair check is its recommendation.
-
-**Proofs.**
-- The display self-test: the 52 scenarios, plus 8 new ones with BPLCON0's SHRES bit. The 52 old scenarios are generated as before.
-- Every texture row of all 60 scenarios is equal to vAmiga's own colorize.
-- Planted faults, each seen:
-  - `--colour-fault 2`, a cell's second entry one bit off: 60 of 60 scenarios;
-  - `--colour-fault 3`, cells taken without the pair check: exactly the 8 super-hires scenarios.
-- 234,044 chunks were refused, and 0 cells were written from a Texel with two different halves (the census under `RR_AMIGA_SHADOW`).
-- A second Fable read of the committed code found it safe.
-- Wave 1 by the real command line (Lotus 2, Rick Dangerous, Lemmings, Civilization, two routes each): every route equal to the conversions of main a5379530 (picture, sound, CPU, RAM and trace hashes, native and interpreted counts, the reference and compressed matches, the quick-state restart).
-
-**Hot path:** yes, the per-line colorize: one 8-byte load and three operations more per chunk inside the window, four lookups less
-when the pairs match. Measured in the quiet-PC pass at the end of the colour steps.
-
-**What moves:** the Amiga's game stamp (the adaptation of vAmiga, the display checks); no other console. Denise stays emulated.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: the sweep's bound shared between images and phases, the Kickstart part removed (after 1.7.3)
-
-**What changes.** The sweep first finds everything it can reach, up to 8 times the bound. When that is more than the bound
-(150,000 instructions), the bound is now shared equally between each memory image's branch walk and its page fill (water-filling,
-in order). Until now the first image's walk could take it all, and on Cyber Games at the extended level the page fill and the
-other images never ran.
-- **Under the bound nothing changes.** The same instructions are kept, in the same order, so a game below it gets the same code.
-- **The Kickstart sweep is removed.** The Amiga's code apertures end at $DC0000, so it never added an instruction.
-- **The report is exact now.** `native_forms` gives `sweep_reachable`, `sweep_left_out` (instructions, no longer candidate
-  addresses) and `sweep_buckets` (image, phase, reached, kept). This replaces the counters added a few commits earlier, which were
-  never released.
-
-Arthur decided this on 12 Nov, from the measure in `SWEEP-MEASURE-20261112.md`. On an unseen route the sweep served up to 82 % of
-the native entries (Civilization), and the cap cut 71 % of Cyber Games at the extended level.
-
-**Proofs.** By the real command line, scratch library:
-- **Cyber Games at the extended level.**
-  - The sweep reaches 515,013 instructions; 150,000 are kept and 365,013 left out, counted. Before this change it also kept 150,000,
-    but the first image's walk took them all.
-  - The buckets now share them: image 0's walk 46,021 of 335,632, its fill 46,020 of 112,638, image 2's fill 46,020 of 54,804, and
-    the small buckets whole.
-  - Every field of the three routes is the same as before the change, hashes included, with 0 interpreted outside the Kickstart.
-  - On an unseen route of 18,000 frames (headless, one run), interpreted instructions fall from 790,198 to 96,625, with the same
-    trace.
-- **Civilization at the standard level, under the bound.** The swept instructions, native forms, route fields and hashes are the
-  same as main a5379530's. On the unseen route its native entries, swept entries and trace are the same as in the earlier measure.
-
-**Hot path:** no. This is conversion time only. The generated code changes only for a game whose reachable code is above the bound.
-
-**What moves:** the Amiga's game stamp (the code generator and the conversion module); no other console.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: the main route presses 1 and 2, and answers Monkey Island 2's protection (after 1.7.3)
-
-**What changes.**
-- **Every game.** The generic main route also taps the keys 1 (frame 400) and 2 (frame 1300), never when one of them is the slave's
-  quit key. Civilization's first screen, "1) Mouse + Keyboard / 2) Keyboard", waited for one of them, so its routes stayed silent.
-- **Monkey Island 2 only.** The game is recognised by its install's SHA-256 (`ROUTE_ANSWERS`, numbers about the install). Its main
-  route first answers the "lame-o" copy protection: Return, any recipe digits, Return, then a box clicked with the mouse. The
-  generic route follows from frame 3100. The route is at least 7,000 frames long, because the first sound comes at about frame 6,000.
-
-Arthur decided this on 12 Nov, after playing the games himself; the study is `SILENT-ROUTES-20261112.md`. Another World's answer
-waits for the green-screen investigation. A route is a scripted input, not gameplay validation. The native code it finds is still
-proved against the interpreted reference, as on every route.
-
-**Hot path:** no. This is conversion time only. Monkey Island 2's conversion runs a longer main route.
-
-**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes of every Amiga game change, so their
-observed code and their native counts can change too.
-
-**Recheck.** On 12 Nov the 12 delivered games other than Another World were converted by the real command line, scratch library.
-- **All 12 pass.** Native validation passed, both routes equal the reference and the compressed copy, the quick-state restart is
-  equal, 0 interpreted outside the Kickstart, and the Kickstart installs keep their 19 counted opcodes.
-- **Explore routes:** unchanged, all five hashes equal on all 12.
-- **Main routes:** they changed on 10 games, as expected. On Pinball Dreams and Shadow of the Beast every hash is the same.
-- **Civilization:** its main route is audible now (2,491 frames) and runs 36.8 M native entries instead of 4.4 M.
-- **Monkey Island 2:** its main route of 7,000 frames is audible (272 frames) and runs 79.3 M native entries instead of 41.0 M.
-- **Not investigated:** Pinball Dreams' main route has 48 more native entries with the same trace.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Amiga, Atari ST and Sharp X68000: the click that captures the mouse stays the host's (after 1.7.3)
-
-**What changes.** On the disk computers a left click in the window captures the mouse. Until now that click also reached the guest:
-the event went on, and the next frames read the button still held. The machine saw a left click the player never meant for it.
-- **The new rule.** The capturing click is consumed. The guest's left button stays up until that click is released, and every later
-  click is the guest's, as before.
-- **Unchanged.** A mouse game captures at start without a click, and Ctrl+Alt+M captures without one either.
-- **Why.** On Another World's protection screen that stray click locked the game: the lead's decision of 12 Nov, the same rule on
-  every computer machine.
-
-**Proof.** `tests/amiga_menu_harness.c` gains seven checks of the click, with SDL's dummy driver and no window shown:
-- the capturing click is consumed and captures the mouse;
-- the guest's left button stays up while that click is held, and after it is released;
-- a click on the captured mouse is the guest's, press and release.
-
-The same harness on the code before the change fails three of them. The Atari ST, X68000 and host kit unit tests pass. The one
-X68000 failure needs the main checkout's `.deps` and is unrelated.
-
-**Hot path:** no. One test per frame on a flag.
-
-**What moves:** the host stamp of the Amiga, the Atari ST and the X68000 (`native/hostkit/adapters/rrhk_computer.inc`, host role,
-`shares:hostkit_computer`). No game stamp moves. Exports already made keep the old behaviour until they are rebuilt.
-
-**Quick states:** not affected (host side).
 
 ## Exports of 1.7.1 in 1.7.2
 
@@ -1032,23 +1155,6 @@ change is in the host adapter). The other machines are not rebuilt. **Cartridge 
 The pinned Beetle PSX checkout in `.deps` is shared by every disc, but only the game's own work folder was locked. Two discs converted at once on a fresh `.deps` could both clone it. Fetching it now goes through the shared setup gate, as the other machines' setups do. Nothing changes in the machine or in a game.
 
 **What moves:** only the PlayStation's game stamp: game `920cf82497a6` to `4a3b197254a5` (`psx_beetle.py`). Its host and build stamps and every other console's stamps do not move. A PlayStation export of an earlier version is rebuilt when it is upgraded, to the same machine.
-
-## PC Engine / TurboGrafx-16: the player's own record, and a start with I after Run (1.7.3)
-
-**The player's own record.** A PC Engine game now records, in a window, each instruction of the card that the interpreter ran (kind 20 of the shared recorder, F12, written at a normal
-exit beside the game). The next conversion reads the notes back against the player's own ROM and declares them to the engine as roots, so the code he reached becomes native; the report's
-`runtime_feedback.recording_default` was true in 1.7.2 while no game recorded; it is now true because they do (and false on the Street Fighter II board). Proved on Blazing Lazers by script: an 18,000-frame walk went from 733,921 interpreted instructions to 0 after one
-recording and one conversion, and equals its fresh reference on all 18,000 frames ([PC_ENGINE.md](PC_ENGINE.md#the-players-own-record-12-november-2026)). The Street Fighter II board does not record. If the engine refuses the roots, the conversion goes on without them.
-**What the owner saw in 1.7.2 is answered after he plays:** code past the routes stays interpreted, counted and shown, until his own record has been converted.
-
-**The start with I.** The conversion also tries one, two and three Run presses each followed by a tap of I, and keeps the best variant by the same rule. On the fifteen cards of the panel it was kept on two
-(Military Madness, a real gain; Splatterhouse, a tie settled by one picture), and it does not help Boxyboy, whose start waits on a second Run. The panel of the new tree: 15 of 15 at 0 interpreted and 0 guard misses on every route,
-on Windows.
-
-**What moves:** only the PC Engine's game stamp (`native/pce_machine.cpp`, `native/pce_machine.h`, `native/pce_main.c`, `pce_conversion.py`, `pce_knowledge.py`); every game stamp moves in 1.7.3 anyway. A PC Engine
-export of 1.7.2 is rebuilt when it is upgraded, and its quick states are refused cleanly, as after any change of the bridge. **Hot path (declared):** the game's step loop copies the program counter and the
-eight bank registers and compares one counter at each step while the recorder is on (the default in a window); not timed. The frame cost against the 1.7.1 pin (1.09x and 1.04x, [below](#pc-engine--turbografx-16-the-larger-capture-format-shared-paths-the-walk-repair-and-the-exit-from-the-experimental-status-172))
-is accepted by the owner and was not investigated further.
 
 ## PC Engine / TurboGrafx-16: the larger capture format, shared paths, the walk repair, and the exit from the experimental status (1.7.2)
 
@@ -2112,7 +2218,7 @@ Each machine family has one shell for its window, menus and input:
 | Game Boy | the host kit, staged in the project's runtime: the shell, `hostkit/adapters/rrhk_gb.inc` (included by the patched `platform_sdl.cpp`) and `gameboy_host.py` | `game_main.c`, `gameboy_runtime.py` |
 | Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
 | Sharp X68000 | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_x68k.inc`, included by the frontend | `x68000_reference/reference_host.c` (frame loop, reports, states, disks) and the SDK |
-| MSX (experimental, in development) | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_msx.inc`, included by the player (`native/msx_machine/msx_player.c`) | `native/msx_machine/msx_native_main.c` (frame loop, reports) and `msx_reference_main.c` (the reference interpreter's host) |
+| MSX and MSX2 (experimental) | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_msx.inc`, included by the player (`native/msx_machine/msx_player.c`) | `native/msx_machine/msx_native_main.c` (frame loop, reports) and `msx_reference_main.c` (the reference interpreter's host) |
 
 Files that are used both by the shell and by headless checks stay game-side:
 `platform_io.c/.h` (quick-state files), `embedded_resources.h`, the

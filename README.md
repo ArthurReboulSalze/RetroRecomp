@@ -115,7 +115,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.2.** The PC Engine / TurboGrafx-16 is supported. On the Amiga, the code you reach while playing becomes native at the next conversion, and the Amiga and the Atari ST run more of their 68000 code natively. Exports of the PC Engine, the Amiga, the Atari ST and the PlayStation are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.3.** The Amiga's emulated chips do the same work in less machine time, and a conversion step that is still working on a slow PC now goes on past its time limit. Every export of 1.7.2 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

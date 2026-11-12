@@ -27,14 +27,23 @@
     before the state is taken, and a load clears what was derived from the timeline it left.
     The conversion report counts what the idle disk and sprite slots did.
   - [à venir : les 13 jeux Amiga relivrés, la conversion des couleurs]
-- **The converter window, on every machine: a step that runs out of time.** A conversion step that reaches its time
-  limit is now named in the converter window in your language (eight languages): which step
-  stopped, the limit, the likely causes and what to send, instead of Python's raw text.
-  [à venir, commit du jour : une étape qui écrit encore dépasse sa limite, jusqu'à 4 fois. Venu
-  d'un joueur dont le petit PC ne finissait pas Kirby's Adventure (NES) ; la cause n'est pas
-  reproduite ici.]
-- [à venir : le rapport liste les cinq langues des jeux]
-- [à venir : CPS-1 et CPS-2, la formulation « ready »]
+- **The converter window, on every machine: a step that runs out of time.** A conversion step
+  that reaches its time limit is now named in the converter window in your language (eight
+  languages): which step stopped, the limit, the likely causes and what to send, instead of
+  Python's raw text. And a build or generation step (CMake, the compilers, the recompilers) that
+  is still writing now goes past its limit, as long as its last line is younger than the limit,
+  up to four times the limit. A step that writes nothing for a whole limit is stopped as before,
+  Stop still stops it at once, and replays and probes keep their fixed limit. This came from a
+  player whose small PC needed more than 30 minutes to compile Kirby's Adventure (NES); the
+  slowness itself was not reproduced here.
+- **The game report** lists the five languages a generated game ships (`ui_languages`); it listed
+  the converter's eight.
+- **Capcom CPS-1 and CPS-2.** A set ready with no interpreter on its routes now says "no
+  interpreter on the routes played", as the PC Engine does.
+- **Master System and Game Gear: preparation for a future machine.** The banked Z80 chain now
+  reads its memory map from one description per machine instead of the Sega mapper's constants,
+  ready for a second Z80 machine. No machine is added and nothing changes for players: the
+  converted Master System and Game Gear games are the same bytes.
 - **PC Engine / TurboGrafx-16.** [à venir : le record du joueur et `recording_default`, promis
   pour 1.7.3 ; la variante de départ ; le nouveau clonage de `.deps`]
 - [à venir : Game Boy Advance et Atari ST, à décider]
@@ -46,10 +55,15 @@
 fidelity, complete gameplay or physical latency, and the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** [à venir : avec le commit du jour, le game stamp de chaque
-console bouge, donc chaque export de 1.7.2 est reconverti une fois ; les clés d'état qui bougent
-(l'Amiga au moins).] Cartridge saves are kept; a save the new export cannot use is set aside
-and never crashes or blocks the game. The details are in [UPGRADES.md](UPGRADES.md).
+**Your exports and quick states.** 1.7.3 moves the game stamp of every machine (the
+converter's own build steps are inputs of each), so **every export of 1.7.2, on every machine,
+is converted again once** when you update, at the quick level, from its learned paths, and the
+window offers it; the shared paths of the base are kept. No host or build stamp moves. The
+Amiga, Atari ST and Nintendo 64 quick-state keys move, so a quick state of 1.7.2 is refused
+cleanly on those three machines, with a message (nothing is lost but the state); the other
+machines' states still load. Cartridge saves are kept; a save the new export cannot use is set
+aside and never crashes or blocks the game. [à venir : ce que les branches restantes
+changent.] The details are in [UPGRADES.md](UPGRADES.md#exports-of-172-in-173).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows
