@@ -20,6 +20,7 @@ enum { MSX_CYCLES_PER_LINE = 228, MSX_LINES_NTSC = 262, MSX_LINES_PAL = 313, MSX
 enum { MSX_KEY_ROWS = 11 };
 
 typedef enum { MSX_DEV_NONE = 0, MSX_DEV_ROM, MSX_DEV_RAM } MsxDeviceKind;
+enum { MSX_SOURCE_NONE = 0xFF };
 
 /* The cartridge mappers of the first scope. A plain ROM has no register: it sits at `base`, and with `mirrored` its
  * 8 KB blocks repeat over the other regions of the slot. */
@@ -57,6 +58,7 @@ typedef struct {
     uint8_t mirrored;      /* plain ROMs: repeat over the slot */
     int16_t block[8];      /* the 8 KB block of the image seen in each region, -1 for none (kept by the machine) */
     uint8_t scc_on;        /* Konami SCC: the SCC answers at 9800h-9FFFh */
+    uint8_t source;        /* native code: which translated source the image is (0 cartridge, 1 BIOS), MSX_SOURCE_NONE if none */
     MsxScc scc;
 } MsxDevice;
 
@@ -114,6 +116,10 @@ typedef struct {
     uint8_t joystick[2];   /* active low: bits 0-3 up/down/left/right, 4-5 triggers A/B */
     uint8_t key_layout;    /* the value of PSG R14 bit 6 itself: 00h ("50on" layout, the default) or 40h (JIS) */
     MsxRegion region[8];
+    uint32_t generation;   /* raised each time the region layout changes */
+    void (*line_hook)(void);   /* optional: called after each line the machine runs */
+    uint8_t trace_frames;      /* comparisons: fold every frame's picture and VDP state into frame_trace */
+    uint32_t frame_trace;
     MsxVdp vdp;
     MsxPsgSynth synth;
     void (*cart_write_hook)(void *user, uint16_t address, uint8_t value);   /* optional trace of writes to a cartridge */
@@ -156,6 +162,11 @@ void msx_joystick(MsxMachine *m, int port, uint8_t active_low);
 
 /* Sound: mono 16-bit samples at MSX_AUDIO_RATE, PSG and key click mixed. Takes up to `max` samples. */
 unsigned msx_audio_take(MsxMachine *m, int16_t *out, unsigned max);
+
+/* Comparisons: the machine-side state as JSON members (each followed by ", "): PSG registers, the cartridge banks of
+ * every slot, the SCC registers, the per-frame trace. */
+#include <stdio.h>
+void msx_print_state(const MsxMachine *m, FILE *out);
 
 /* Internal pieces shared by the machine's files. */
 void msx_vdp_draw_line(MsxMachine *m, int line);

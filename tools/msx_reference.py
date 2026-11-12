@@ -218,12 +218,9 @@ ENASLT), the standard way. Its JP P target is absolute: it must start at INIT (4
 
 
 def instrument(path: Path) -> None:
-    """Two MSX additions to the generated interpreter copy (behaviour unchanged): a count of M1 cycles at the R-register
-    increment, and the interpreter's own interrupt acceptance exported, so the runner reads /INT after each instruction."""
-    from retrorecomp.cpu import replace
+    """One MSX addition to the generated interpreter copy (behaviour unchanged): its own interrupt acceptance exported,
+    so the runner reads /INT after each instruction. The M1 count is the shared one (cpu.prepare_reference, m1_counter)."""
     source = path.read_text(encoding='utf-8')
-    source = replace(source, 'static inline void inc_r(z80* const z) {',
-                     'unsigned long msx_m1_fetches;\nstatic inline void inc_r(z80* const z) {\n  ++msx_m1_fetches;')
     if 'static inline void process_interrupts(z80* const z)' not in source:
         raise ValueError('Pinned CPU source changed: process_interrupts')
     source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
@@ -266,7 +263,7 @@ def build() -> Path:
     from retrorecomp.platforms import build_executable, cmake_target_args
     WORK.mkdir(parents=True, exist_ok=True)
     engine = ROOT / '.deps' / 'smsggrecomp'
-    prepare_reference(WORK, engine)
+    prepare_reference(WORK, engine, m1_counter=True)
     instrument(WORK / 'runtime_reference.c')
     native = (ROOT / 'native' / 'msx_machine').as_posix()
     (WORK / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)

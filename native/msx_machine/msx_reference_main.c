@@ -32,7 +32,7 @@
 #include <io.h>
 #endif
 
-extern unsigned long msx_m1_fetches;          /* counted by the generated interpreter copy */
+extern unsigned long z80_m1_fetches;          /* counted by the reference CPU (cpu.prepare_reference, m1_counter) */
 void msx_reference_accept(z80 *const z);      /* the interpreter's interrupt acceptance */
 
 static MsxMachine machine;
@@ -128,6 +128,7 @@ int main(int argc, char **argv)
     if (!main_rom) { fprintf(stderr, "--main is required\n"); return 2; }
 
     msx_init(&machine, pal ? MSX_LINES_PAL : MSX_LINES_NTSC);
+    machine.trace_frames = 1;                    /* comparisons: the per-frame running hash */
     if (trace_mapper) { machine.cart_write_hook = trace_cart_write; machine.hook_user = &machine; }
     memset(slot0, 0xFF, sizeof slot0);
     load(main_rom, slot0, 0x8000);
@@ -182,9 +183,9 @@ int main(int argc, char **argv)
                     msx_slot_of(&machine, z.pc), z.a, z.sp);
         int was_halted = z.halted;
         z.int_pending = 0;                    /* the step accepts nothing: the level is read after it */
-        unsigned long c0 = z.cyc, f0 = msx_m1_fetches;
+        unsigned long c0 = z.cyc, f0 = z80_m1_fetches;
         z80_step(&z);
-        unsigned long m1 = msx_m1_fetches - f0;
+        unsigned long m1 = z80_m1_fetches - f0;
         waits += m1;
         ++steps;
         msx_advance(&machine, (uint64_t)(z.cyc - c0) + m1);
@@ -229,7 +230,7 @@ int main(int argc, char **argv)
            "\"primary\": %u, \"secondary\": [%u, %u, %u, %u], \"unmapped_reads\": %llu, \"dropped_writes\": %llu, "
            "\"vdp_regs\": [%u, %u, %u, %u, %u, %u, %u, %u], \"vdp_status\": %u, \"vram_fnv\": %u, \"vram_nonzero\": %u, "
            "\"frame_fnv\": %u, \"audio_samples\": %llu, \"audio_fnv\": %u, \"audio_dropped\": %llu, "
-           "\"watch\": {",
+           "\"af\": %u, \"bc\": %u, \"de\": %u, \"hl\": %u, \"ix\": %u, \"iy\": %u, \"ram_fnv\": %u, ",
            (unsigned long long)machine.frames, (unsigned long long)machine.cycles, z.cyc, (unsigned long long)waits,
            (unsigned long long)steps, (unsigned long long)accepted, z.pc, msx_slot_of(&machine, z.pc), z.sp, z.iff1,
            z.halted, machine.primary, machine.secondary[0], machine.secondary[1], machine.secondary[2],
@@ -237,7 +238,15 @@ int main(int argc, char **argv)
            machine.vdp.reg[0], machine.vdp.reg[1], machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4],
            machine.vdp.reg[5], machine.vdp.reg[6], machine.vdp.reg[7], machine.vdp.status,
            fnv(machine.vdp.vram, sizeof machine.vdp.vram), nonzero, frame_hash, (unsigned long long)samples, audio_hash,
-           (unsigned long long)machine.synth.dropped);
+           (unsigned long long)machine.synth.dropped,
+           (unsigned)(z.a << 8 | (z.sf << 7 | z.zf << 6 | z.yf << 5 | z.hf << 4 | z.xf << 3 | z.pf << 2 | z.nf << 1 | z.cf)),
+           (unsigned)(z.b << 8 | z.c), (unsigned)(z.d << 8 | z.e), (unsigned)(z.h << 8 | z.l), z.ix, z.iy,
+           fnv(ram, sizeof ram));
+    printf("\"af2\": %u, \"bc2\": %u, \"de2\": %u, \"hl2\": %u, \"i\": %u, \"r\": %u, \"im\": %u, \"iff2\": %d, \"wz\": %u, ",
+           (unsigned)(z.a_ << 8 | z.f_), (unsigned)(z.b_ << 8 | z.c_), (unsigned)(z.d_ << 8 | z.e_),
+           (unsigned)(z.h_ << 8 | z.l_), z.i, z.r, z.interrupt_mode, z.iff2, z.mem_ptr);
+    msx_print_state(&machine, stdout);
+    printf("\"watch\": {");
     for (int i = 0; i < watches; ++i)
         printf("%s\"%04X\": %u", i ? ", " : "", watch[i], msx_peek(&machine, (uint16_t)watch[i]));
     printf("}}\n");

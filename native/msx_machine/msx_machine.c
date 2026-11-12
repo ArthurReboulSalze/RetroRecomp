@@ -5,6 +5,7 @@
 
 static void rebuild_regions(MsxMachine *m)
 {
+    ++m->generation;
     for (int i = 0; i < 8; ++i) {
         int page = i >> 1;
         int p = (m->primary >> (page * 2)) & 3;
@@ -80,6 +81,24 @@ void msx_reset(MsxMachine *m)
             if (m->slot[p][s].kind == MSX_DEV_ROM)
                 msx_cart_reset(&m->slot[p][s]);
     rebuild_regions(m);
+}
+
+void msx_print_state(const MsxMachine *m, FILE *out)
+{
+    fprintf(out, "\"psg\": [");
+    for (int i = 0; i < 16; ++i) fprintf(out, "%s%u", i ? ", " : "", m->psg[i]);
+    fprintf(out, "], \"psg_latch\": %u, \"port_c\": %u, \"blocks\": [", m->psg_latch, m->port_c);
+    int first = 1;
+    for (int p = 0; p < 4; ++p)
+        for (int s = 0; s < 4; ++s) {
+            const MsxDevice *d = &m->slot[p][s];
+            if (d->kind != MSX_DEV_ROM) continue;
+            fprintf(out, "%s[%d, %d", first ? "" : ", ", p, s);
+            for (int i = 0; i < 8; ++i) fprintf(out, ", %d", d->block[i]);
+            fprintf(out, ", %u, %u, %u, %u]", d->scc_on, d->scc.enable, d->scc.period[0], d->scc.volume[0]);
+            first = 0;
+        }
+    fprintf(out, "], \"frame_trace\": %u, ", m->frame_trace);
 }
 
 void msx_key(MsxMachine *m, int row, int bit, int down)
@@ -277,7 +296,17 @@ void msx_advance(MsxMachine *m, uint64_t cycles)
         if (m->line == m->lines_per_frame) {
             m->line = 0;
             ++m->frames;
+            if (m->trace_frames) {           /* a running hash, so a divergence that reconverges still shows */
+                uint32_t h = m->frame_trace ^ 2166136261u;
+                const uint8_t *p = &m->vdp.frame[0][0];
+                for (size_t i = 0; i < sizeof m->vdp.frame; ++i) h = (h ^ p[i]) * 16777619u;
+                for (int i = 0; i < MSX_HEIGHT; ++i) h = (h ^ m->vdp.border[i]) * 16777619u;
+                for (int i = 0; i < 8; ++i) h = (h ^ m->vdp.reg[i]) * 16777619u;
+                m->frame_trace = (h ^ m->vdp.status) * 16777619u;
+            }
         }
+        if (m->line_hook)
+            m->line_hook();
     }
     msx_psg_catch_up(m);
 }
