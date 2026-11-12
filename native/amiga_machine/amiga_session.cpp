@@ -495,6 +495,9 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::MON_PALETTE, (i64)Palette::RGB);   // plain 4-bit to 8-bit colours, no monitor model
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
         S->emu->set(Opt::AUD_ASR, 0);                       // a fixed sample rate: the sound does not follow the host's clock
+        // The texture in the host's own order (0xAARRGGBB): the palette is packed once in that order, and the picture's copy moves
+        // texels without swapping red and blue in each pixel. Setting it repacks the palette (Host::setOption, updateRGBA).
+        S->emu->set(Opt::HOST_TEX_FORMAT, (i64)TexFormat::ARGB);
         S->amiga = &S->emu->rrMain();
 #ifdef RR_AMIGA_NATIVE
         rr_amiga_run_flags = S->amiga->rrRunFlags();
@@ -628,10 +631,8 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
     for (int y = 0; y < s->lines; y++) {
         const uint32_t *row = px + (size_t)(first + y) * Tex::width + FIRST_TEXEL;
         uint32_t *out = s->picture.data() + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
-        for (int x = 0; x < RR_AMIGA_PICTURE_WIDTH; x++) {
-            uint32_t c = row[2 * x];
-            out[x] = 0xFF000000u | (c & 0xFFu) << 16 | (c & 0xFF00u) | (c >> 16 & 0xFFu);
-        }
+        // One hires pixel per Texel (its first half); the texture is ARGB already (HOST_TEX_FORMAT above), the alpha is opaque.
+        for (int x = 0; x < RR_AMIGA_PICTURE_WIDTH; x++) out[x] = 0xFF000000u | row[2 * x];
     }
     return 0;
 }

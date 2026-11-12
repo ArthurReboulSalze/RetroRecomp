@@ -348,6 +348,22 @@ chunks. Measured in the quiet-PC pass at the end of the colour steps.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: the texture in the host's order, the picture copied without a swap (after 1.7.3, colour step D)
+
+**What changes.** The session sets vAmiga's texture format to ARGB (`Opt::HOST_TEX_FORMAT`), so the palette is packed in the host's
+order once. Until now the option was never set, and the session swapped red and blue in every pixel of every frame. The copy of
+the picture now moves one 32-bit value per hires pixel and sets the alpha byte. The picture handed to the host is meant to be the
+same bytes as before. The proof is the picture hashes of every route against the conversions of main a5379530.
+
+**Why.** On a normal PC, the copy with its swap was 6.0 % of a Lotus 2 frame and 8.9 % of a Rick Dangerous frame
+(`PLAN-colour-20261112.md`). This is not a quiet-PC timing.
+
+**Hot path:** yes, the end of each frame: the per-pixel swap is gone.
+
+**What moves:** the Amiga's game stamp (the session); no other console.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Exports of 1.7.1 in 1.7.2
 
 1.7.2 is the release after 1.7.1 (published on 8 November 2026). This section is the index of its changes, one line per section below (or per machine page when a change has no
