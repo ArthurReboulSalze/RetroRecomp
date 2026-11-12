@@ -323,6 +323,11 @@ static void damaged(const char *tag, int msx2)
     memcpy(buf2, buf1, n); buf2[at_line] ^= 0;              /* control: an untouched copy is accepted */
     snprintf(name, sizeof name, "%s: control copy accepted", tag);
     check(name, msx_machine_state_check(a, ram_a, buf2, n), 1);
+    /* 313 lines (little-endian 39h 01h): on the V9938 the standard is R#9's, taken at each frame, so a state saved after a
+     * game (or a European BIOS) set 50 Hz loads into a machine that started at 262; on the TMS9918A it is the build's. */
+    memcpy(buf2, buf1, n); buf2[at_lpf] = 0x39; buf2[at_lpf + 1] = 0x01;
+    snprintf(name, sizeof name, "%s: a state of 313 lines into a 262-line machine", tag);
+    check(name, msx_machine_state_check(a, ram_a, buf2, n), msx2 ? 1 : 0);
     if (msx2) {
         memcpy(buf2, buf1, n); buf2[at_reg] = SEGMENTS;     /* a mapper register at the segment count */
         check("msx2: mapper register >= segments refused", msx_machine_state_check(a, ram_a, buf2, n), 0);

@@ -18,8 +18,11 @@
 void msx_rebuild_layout(MsxMachine *m);   /* msx_machine.c: rebuild_regions plus the scc[] list of msx_set_device */
 
 #define FULL(width) ((width) == 8 ? UINT64_MAX : ((1ull << (8 * (width))) - 1))
-/* An unsigned field of `width` bytes whose value must not exceed `maximum`. */
-#define W(lvalue, width, maximum) ((lvalue) = rr_state_word(io, (uint64_t)(lvalue), (width), (maximum)))
+/* An unsigned field of `width` bytes whose value must not exceed `maximum`. Writing a state never assigns: a save that fails
+ * (a value above its maximum, no room left) leaves the running machine as it was. */
+#define W(lvalue, width, maximum) \
+    (io->mode == RR_STATE_WRITE ? (void)rr_state_word(io, (uint64_t)(lvalue), (width), (maximum)) \
+                                : (void)((lvalue) = rr_state_word(io, (uint64_t)(lvalue), (width), (maximum))))
 #define B(lvalue) W(lvalue, 1, 0xFF)
 
 static int64_t signed_word(RetroStateIO *io, int64_t value, unsigned width)
@@ -30,7 +33,9 @@ static int64_t signed_word(RetroStateIO *io, int64_t value, unsigned width)
         r |= ~mask;
     return (int64_t)r;
 }
-#define S(lvalue, width) ((lvalue) = (int64_t)signed_word(io, (int64_t)(lvalue), (width)))
+#define S(lvalue, width) \
+    (io->mode == RR_STATE_WRITE ? (void)signed_word(io, (int64_t)(lvalue), (width)) \
+                                : (void)((lvalue) = (int64_t)signed_word(io, (int64_t)(lvalue), (width))))
 
 /* A field of the configuration: written from the live machine, never applied, refused when it differs. */
 static void same(RetroStateIO *io, uint64_t live, unsigned width)
@@ -43,13 +48,13 @@ static void same(RetroStateIO *io, uint64_t live, unsigned width)
 static void words16(RetroStateIO *io, uint16_t *p, size_t n, uint64_t maximum)
 {
     for (size_t i = 0; i < n; ++i)
-        p[i] = (uint16_t)rr_state_word(io, p[i], 2, maximum);
+        W(p[i], 2, maximum);
 }
 
 static void signed16(RetroStateIO *io, int16_t *p, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
-        p[i] = (int16_t)signed_word(io, p[i], 2);
+        S(p[i], 2);
 }
 
 static void scc_state(RetroStateIO *io, MsxScc *s)
@@ -146,7 +151,20 @@ static uint64_t abs_diff(uint64_t a, uint64_t b) { return a > b ? a - b : b - a;
 static int consistent(const MsxMachine *m, const uint8_t *ram64)
 {
     (void)ram64;
+    if (m->lines_per_frame != MSX_LINES_NTSC && m->lines_per_frame != MSX_LINES_PAL)
+        return 0;
     if (m->line >= m->lines_per_frame || m->vblank_line > m->lines_per_frame)
+        return 0;
+    /* Time: at the service point the sound, the clock and the CPU are within a line of the machine (msx_advance catches the
+     * sound up at its end); a longer gap would only be a crafted state making the next catch-up loop for ever. */
+    if (m->cycles >= (1ull << 48) || m->synth.time > m->cycles || m->cycles - m->synth.time > MSX_CYCLES_PER_LINE)
+        return 0;
+    if (m->synth.tick_rest >= 16 || m->synth.tick_rest > m->synth.time)
+        return 0;
+    if (m->synth.next_sample <= ((m->synth.time - m->synth.tick_rest) << 16)
+        || m->synth.next_sample > ((m->synth.time + 64) << 16) + (1ull << 24))
+        return 0;
+    if (m->has_rtc && m->rtc.counted > m->cycles)
         return 0;
     if (abs_diff(m->next_line, m->cycles) > MSX_CYCLES_PER_LINE)
         return 0;
@@ -175,6 +193,12 @@ static int consistent(const MsxMachine *m, const uint8_t *ram64)
         const MsxV9938Cmd *c = &m->v9938->cmd;
         if (c->mode > 3 && c->mode != 0xFF)
             return 0;
+        if (c->mode == 0xFF && (c->status & 0x01))  /* CE outside the bitmap modes: the engine never leaves it so */
+            return 0;
+        const MsxV9938 *v = m->v9938;
+        if ((v->lines_latched != 192 && v->lines_latched != 212) || v->adjust_h < -7 || v->adjust_h > 8
+            || v->adjust_v < -7 || v->adjust_v > 8)
+            return 0;
         for (int i = 0; i < 16; ++i)
             if (m->v9938->palette[i] > 0x777)
                 return 0;
@@ -200,7 +224,10 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
     for (int i = 0; i < 4; ++i)
         same(io, m->expanded[i], 1);
     same(io, m->key_layout, 1);
-    same(io, m->lines_per_frame, 4);
+    if (m->video == MSX_VIDEO_V9938)
+        W(m->lines_per_frame, 4, MSX_LINES_PAL);   /* the V9938 takes it from R#9 at each frame (msx_v9938.c frame_start) */
+    else
+        same(io, m->lines_per_frame, 4);
     same(io, m->video, 1);
     same(io, m->has_rtc, 1);
     /* 4. Slots */

@@ -95,11 +95,22 @@ static wchar_t state_save_file[32768], state_load_file[32768];
 static unsigned long state_save_at;
 static int state_save_due, state_load_due;
 
+/* A path given on the command line: argv is in the ANSI code page on Windows (the game's manifest names no UTF-8 code page),
+ * as fopen reads the other options' paths; UTF-8 elsewhere. */
+static int headless_path(const char *v, wchar_t *out)
+{
+#ifdef _WIN32
+    return MultiByteToWideChar(CP_ACP, 0, v, -1, out, 32768) != 0;
+#else
+    return rr_from_utf8(v, out, 32768);
+#endif
+}
+
 static int headless_state_option(const char *a, const char *v)
 {
-    if (!strcmp(a, "--save-state")) { if (!rr_from_utf8(v, state_save_file, 32768)) return -1; state_save_due = 1; }
+    if (!strcmp(a, "--save-state")) { if (!headless_path(v, state_save_file)) return -1; state_save_due = 1; }
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
-    else if (!strcmp(a, "--load-state")) { if (!rr_from_utf8(v, state_load_file, 32768)) return -1; state_load_due = 1; }
+    else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
     else return 0;
     return 1;
 }

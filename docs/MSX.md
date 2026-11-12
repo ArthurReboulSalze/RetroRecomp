@@ -49,8 +49,8 @@ Kept separate here, as everywhere. Interpreter fallback is always counted, per C
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | In development checks, authored test cartridges and three plain games (Road Fighter, Knightmare, Antarctic Adventure) end at 0 interpreted instructions after one learning pass | No panel and no release-level run; nothing is said of the mapper cartridges or of the games not named here |
-| CPU fidelity | On the same games and cartridges the native code is equal to the reference Z80 interpreter on 37 state fields after 300 to 1,200 frames. This is agreement with our own reference interpreter, not with a real MSX | No independent comparison on a real machine or a second emulator is claimed; no CPU vector set is run for the MSX yet |
+| Native code | On the Windows panel of 12 November 2026 (extended level: attract, play and an 18,000-frame route), six MSX1 cartridges (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II; plain, Konami, Konami SCC, NTSC and PAL) end at 0 interpreted instructions on every route, Salamander also with an MSX BIOS of its owner | No release-level run, no Linux witness; nothing is said of the games not named here |
+| CPU fidelity | On the same games the native code is equal to the reference Z80 interpreter on every route, on the state fields at its end and on one row per frame (CPU, RAM, picture, sound); the delivered (compressed) game gives the same rows. This is agreement with our own reference interpreter, not with a real MSX | No independent comparison on a real machine or a second emulator is claimed; no CPU vector set is run for the MSX yet |
 | Hardware fidelity | Nothing is claimed. The mixing levels of the sound (PSG, key click, SCC) are a stated choice, not validated | The TMS9918A, the AY-3-8910 and the SCC against an independent reference |
 | Gameplay validation | None: no game has been played through by the owner | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
@@ -128,7 +128,7 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; the four MSX2 panel games convert with native code equal to our reference interpreter and 0 interpreted instructions on the route played | No release-level run, no panel qualification |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | No release-level run, no Linux witness; Hydlide 3's routes stay in its character set-up menu, so its play is not covered |
 | CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
 | Hardware fidelity | Nothing is claimed as exact. 682 hand-worked checks of the V9938, the engine and the MSX2 board pass (development checks, not a qualification): they check our model against our own reading of the documents. Against openMSX (a private comparison emulator, never shipped) the 128 KiB VRAM, the 47 VDP registers and the palette are equal at chosen still frames for the C-BIOS logo, two authored cartridges, Metal Gear, Space Manbow, Aleste and Hydlide 3; at other frames the differences are timing (a command still running, a palette fade step, a sprite double-buffer phase) | Other frames; command timing; the RP5C01; everything in the list above |
 | Gameplay validation | None: no game has been played through | Everything |

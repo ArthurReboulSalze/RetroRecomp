@@ -46,7 +46,8 @@ static void msx_state_body(RetroStateIO *io)
     /* (3-9) the machine */
     if (io->mode == RR_STATE_CHECK) {
         uint64_t cycles = 0;
-        if (!msx_machine_state_check_io(&machine, ram, io, &cycles) || cycles > cpu.cyc)
+        if (!msx_machine_state_check_io(&machine, ram, io, &cycles) || cycles > cpu.cyc
+            || cpu.cyc - cycles > MSX_CYCLES_PER_LINE)
             io->ok = false;
         return;
     }
@@ -102,6 +103,13 @@ static int msx_state_load(const wchar_t *path)
     if (read_ok && extra == EOF) {
         RetroStateEnvelope envelope = msx_state_envelope();
         result = rr_state_envelope_read(&envelope, data, size);
+        /* A whole, undamaged state of another build (BIOS, mapper, standard, RAM...): incompatible, not damaged. */
+        if (result == RR_STATE_INVALID && size >= RR_STATE_ENVELOPE_HEADER + 32
+            && (size_t)(data[80] | data[81] << 8 | (uint32_t)data[82] << 16 | (uint32_t)data[83] << 24) == size - RR_STATE_ENVELOPE_HEADER
+            && rr_state_crc(data + RR_STATE_ENVELOPE_HEADER, size - RR_STATE_ENVELOPE_HEADER)
+               == (uint32_t)(data[84] | data[85] << 8 | (uint32_t)data[86] << 16 | (uint32_t)data[87] << 24)
+            && memcmp(data + RR_STATE_ENVELOPE_HEADER, msx_state_binding, 32))
+            result = RR_STATE_INCOMPATIBLE;
     }
     free(data);
     return result;
