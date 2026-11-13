@@ -83,7 +83,7 @@
     "empty_title": "Nessuna ROM in elenco",
     "empty_hint": "Trascina qui ROM o cartelle per iniziare",
     "drop_added": "{count} ROM aggiunte. Pronte per la conversione.",
-    "already_compiled": "{count} dei giochi aggiunti sono già compilati ({examples}). Tenerli nell'elenco per riconvertirli?\nNo conserva solo i giochi non ancora compilati.",
+    "already_compiled": "Già compilati ({count}): {examples}\n\nRiconvertirli?\n\nSì: restano nell'elenco e vengono convertiti di nuovo.\nNo: vengono tolti dall'elenco; i loro eseguibili attuali non cambiano.",
     "already_compiled_left_out": "{count} giochi già compilati esclusi dall'elenco.",
     "drop_blocked": "Attendi il termine della conversione o dell’aggiornamento prima di trascinare ROM.",
     "console_choice_set_aside": "{title}: riconosciuto come {detected}, quindi viene convertito per {detected}. Il menu delle console ({chosen}) decide solo per i file senza intestazione; impostalo su Automatico per non vedere più questa riga.",

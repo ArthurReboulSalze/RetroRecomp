@@ -83,7 +83,7 @@
     "empty_title": "列表中没有 ROM",
     "empty_hint": "将 ROM 或文件夹拖到此处开始",
     "drop_added": "已添加 {count} 个 ROM，可以开始转换。",
-    "already_compiled": "添加的游戏中有 {count} 个已经编译（{examples}）。是否保留在列表中以便重新转换？\n选择“否”则只保留尚未编译的游戏。",
+    "already_compiled": "已编译（{count} 个）：{examples}\n\n要重新转换吗？\n\n是：保留在列表中并重新转换。\n否：从列表中移除；现有的可执行文件保持不变。",
     "already_compiled_left_out": "已从列表中排除 {count} 个已编译的游戏。",
     "drop_blocked": "请等待当前转换或更新完成后再拖入 ROM。",
     "console_choice_set_aside": "{title}：识别为 {detected}，因此按 {detected} 转换。主机菜单（{chosen}）只对没有文件头的文件起作用；设为“自动”即可不再显示此行。",

@@ -86,6 +86,10 @@
   sessions, so a converter left on Adventure refused every cartridge. A recognised cartridge is
   now converted for its own machine, whatever the menu says, and the log says so in one line in
   your language. The menu still decides for a file nothing recognises (a dump without a header).
+- **The question about games already compiled is clearer.** When added games are already
+  compiled, the window now asks "Reconvert them?" and says what each answer does: Yes keeps them
+  in the list to be converted again, No removes them from the list and leaves their executables
+  as they are.
 - **Disk space: the build folders of the newer machines are removed too.** After publication,
   Retro-Recomp removes a game's build folder; on the Amiga, the Atari ST, the Nintendo 64, the
   CPS-2, the PlayStation and the MSX it did not, and Options → Common → Disk space did not list

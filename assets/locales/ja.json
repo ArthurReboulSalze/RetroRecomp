@@ -83,7 +83,7 @@
     "empty_title": "ROMがありません",
     "empty_hint": "ROMやフォルダーをここにドロップ",
     "drop_added": "ROMを{count}本追加しました。変換できます。",
-    "already_compiled": "追加したゲームのうち {count} 本はすでにコンパイル済みです（{examples}）。再変換のためにリストに残しますか？\n「いいえ」でまだコンパイルされていないゲームだけを残します。",
+    "already_compiled": "コンパイル済み（{count} 本）：{examples}\n\n再変換しますか？\n\nはい：リストに残し、もう一度変換します。\nいいえ：リストから外します。今の実行ファイルはそのままです。",
     "already_compiled_left_out": "コンパイル済みの {count} 本をリストから除外しました。",
     "drop_blocked": "変換または更新が終わってからドロップしてください。",
     "console_choice_set_aside": "{title}: {detected} と認識されたため、{detected} 用に変換します。コンソールメニュー（{chosen}）はヘッダーのないファイルにだけ使われます。この行を表示しないには「自動」にしてください。",

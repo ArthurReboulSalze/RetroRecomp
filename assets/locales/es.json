@@ -83,7 +83,7 @@
     "empty_title": "No hay ROMs en la lista",
     "empty_hint": "Arrastra ROMs o carpetas aquí para empezar",
     "drop_added": "{count} ROMs añadidas. Listas para convertir.",
-    "already_compiled": "{count} de los juegos añadidos ya están compilados ({examples}). ¿Mantenerlos en la lista para reconvertirlos?\nNo conserva solo los juegos aún no compilados.",
+    "already_compiled": "Ya compilados ({count}): {examples}\n\n¿Reconvertirlos?\n\nSí: se quedan en la lista y se convierten de nuevo.\nNo: se quitan de la lista; sus ejecutables actuales no cambian.",
     "already_compiled_left_out": "{count} juegos ya compilados excluidos de la lista.",
     "drop_blocked": "Espera a que termine la conversión o actualización antes de soltar ROMs.",
     "console_choice_set_aside": "{title}: reconocido como {detected}, así que se convierte para {detected}. El menú de consolas ({chosen}) solo decide para archivos sin cabecera; ponlo en Automático para dejar de ver esta línea.",
