@@ -334,6 +334,7 @@ static bool write_capture(const char *path) {
 }
 
 static bool bare_frames;
+static bool interpreted_sites;     /* --interpreted-sites: the report lists where the interpreted instructions ran */
 
 /* The report's timer D signs (A, B, C, D of atarist_session.h): {"A":{"count":N,"frame":F,"pc":P}, ...}. */
 static void timer_d_signs_json(const RrStSession *s, char *out, size_t size) {
@@ -417,11 +418,20 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       rr_st_picture(session, &w, &h, &stride);
       fprintf(r, "{\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"chain_entries\":%llu,\"native_learned\":%llu,\"native_walked\":%llu,\"native_swept\":%llu,\"interpreted\":%llu,\"observed\":%llu,"
                  "\"nonblack_frames\":%u,\"audible_frames\":%u,\"refresh_rate\":%u,\"fps\":%u,\"audio_rate\":%u,\"picture\":[%d,%d],"
-                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"timer_d_signs\":%s,\"disk_writes\":%u}\n",
+                 "\"disk\":%u,\"state_loaded\":%s,\"desktop_started\":%s,\"timer_d_patch\":%s,\"timer_d_signs\":%s,\"disk_writes\":%u",
               n, stopped ? "true" : "false", escaped, (unsigned long long)rr_st_native_count(session), (unsigned long long)rr_st_chain_entries(session), (unsigned long long)rr_st_learned_count(session), (unsigned long long)rr_st_walked_count(session), (unsigned long long)rr_st_swept_count(session),
               (unsigned long long)rr_st_interpreted_count(session), (unsigned long long)rr_st_observation_count(session),
               nonblack, audible, rate, rate, rr_st_audio_rate(session), w, h, rr_st_disk_index(session), load_start ? "true" : "false",
               rr_st_desktop_started(session) ? "true" : "false", rr_st_timer_d_patched(session) ? "true" : "false", signs_json, rr_st_writes_count(session));
+      if (interpreted_sites) {
+         /* Where the interpreted instructions ran: [pc, opcode, count], most run first (at most 4096), the distinct ones and the instructions the table could not hold. */
+         static RrStSite sites[4096];
+         size_t listed = rr_st_site_list(session, sites, 4096), s;
+         fprintf(r, ",\"interpreted_sites\":[");
+         for (s = 0; s < listed; s++) fprintf(r, "%s[%u,%u,%llu]", s ? "," : "", sites[s].pc, sites[s].opcode, (unsigned long long)sites[s].count);
+         fprintf(r, "],\"interpreted_sites_distinct\":%llu,\"interpreted_sites_unlisted\":%llu", (unsigned long long)rr_st_site_distinct(session), (unsigned long long)rr_st_site_unlisted(session));
+      }
+      fprintf(r, "}\n");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
@@ -498,9 +508,10 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--reference-cpu")) reference_cpu = true;
       else if (!strcmp(a, "--bare-frames")) bare_frames = true;
+      else if (!strcmp(a, "--interpreted-sites")) interpreted_sites = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Atari ST player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
-              "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+              "--observations FILE --opcode-lengths FILE --opcode-map FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start --interpreted-sites --verbose\n"
               "an exported game that boots EmuTOS: --write-sources DIR (writes EmuTOS's source archive there)\n"
               "a build without an embedded game: --tos FILE --disk FILE (up to 8, in order) --machine st|megast|ste --memory KIB --autostart A:\\NAME.PRG --timer-d patched|exact\na headless run keeps what the game writes to its disks only with --disk-writes FILE");
          return 0;
@@ -576,6 +587,7 @@ int main(int argc, char **argv) {
    /* A build with native steps runs them unless the run is the interpreted reference (--reference-cpu); a build without them
     * runs every instruction on Hatari's interpreter. */
    if (!reference_cpu) rr_st_set_native(session, 1);
+   if (interpreted_sites && !rr_st_set_site_count(session, 1)) { fail("Cannot keep the interpreted sites"); return 1; }
 #ifdef RR_ST_LINKED
    rr_feedback_start(!headless);    /* Headless, only with RETRO_RECOMP_FEEDBACK=1: the conversion's own runs record nothing. */
    if (!reference_cpu && (!headless || rr_feedback_enabled())) rr_st_set_recorder(session, record_note);

@@ -32,7 +32,7 @@ MAX_SECTORS = 3000
 # prefixes, is not chosen by the "only program that is not a utility" rule.
 UTILITY_WORDS = frozenset({'SETUP', 'CONFIG', 'CONFIGUR', 'CONFIGURE', 'FORMAT', 'README', 'READ', 'READER', 'VIEW', 'VIEWER', 'HELP',
                            'MANUAL', 'DOC', 'DOCS', 'UNPACK', 'DEPACK', 'UNZIP', 'BACKUP', 'COPY', 'COPIER', 'UTIL', 'UTILS',
-                           'UTILITY', 'HDINST'})
+                           'UTILITY', 'HDINST', 'MUSIC', 'EDITOR'})
 UTILITY_PREFIXES = ('INSTAL', 'FORMAT', 'BACKUP', 'README', 'UNPACK', 'DEPACK', 'SETUP')
 TITLE_STOP_WORDS = frozenset({'THE', 'AND', 'FOR', 'FROM', 'WITH', 'LES', 'DES', 'UND', 'DER', 'DIE', 'DAS', 'EDITION', 'GAME'})
 MIN_TITLE_WORD = 4
@@ -259,7 +259,11 @@ def msa_sectors(blob: bytes) -> dict:
 
 # -------------------------------------------------------------------------------------------------- the root directory
 def root_entries(sectors: dict) -> list[dict]:
-    """The entries of the root directory (name, extension, attributes, size), as the TOS reads them from the boot sector's BPB."""
+    """The entries of the root directory (name, extension, attributes, size), as the TOS reads them from the boot sector's BPB.
+
+    The TOS always takes a floppy to have two FATs, whatever the BPB's number of FATs says (its BIOS puts the root directory at the reserved sectors
+    plus two FATs): a disk that declares one is read there too (Battle Probe, Pharaoh III and Trailblazer of the 275 tried: with the field believed,
+    their root looked empty while the TOS lists their programs)."""
     boot = sectors.get((0, 0, 1))
     if not boot or len(boot) != 512:
         raise DiskError('no boot sector')
@@ -268,7 +272,7 @@ def root_entries(sectors: dict) -> list[dict]:
     spt, heads = _geometry(boot)
     if bps != 512 or not spc or not reserved or fats not in (1, 2) or not 16 <= entries <= 512 or not 1 <= per_fat <= 12:
         raise DiskError('no DOS file system')
-    first = reserved + fats * per_fat
+    first = reserved + 2 * per_fat
     out = []
     for n in range((entries * 32 + 511) // 512):
         track, sector = divmod(first + n, spt)
