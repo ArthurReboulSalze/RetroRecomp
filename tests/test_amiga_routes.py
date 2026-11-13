@@ -177,6 +177,25 @@ class RouteScriptTests(unittest.TestCase):
         self.assertTrue(later and min(begin for begin, *_ in later) >= answer['then'])
         self.assertTrue(max(end for _, end, *_ in route) <= 7000)
 
+    def test_another_world_answers_its_wheel_with_the_joystick_and_its_routes_leave_the_mouse_out(self):
+        answer = conversion.ROUTE_ANSWERS['87f9ecbba2c2ef98bb9cc806f58e60c3f4be0f99f218d356079c8369df7caf9b']
+        route = conversion.answered_route(answer, 7000, 0x59)
+        self.assertEqual([kind for _, _, kind, _, _ in answer['events']], ['joy'] * 24)        # three submissions, joystick only
+        self.assertFalse([event for event in route if event[2] == 'mouse'])
+        later = [event for event in route if event not in answer['events']]
+        self.assertTrue(later and min(begin for begin, *_ in later) >= answer['then'])
+        # A long or exploration route of the install starts with the same answer.
+        long_ = conversion.answered_route(answer, 18000, 0x59, lambda n: conversion.long_route('x' * 64, 0, n, 0x59))
+        self.assertTrue(set(answer['events']) <= set(long_))
+        self.assertFalse([event for event in long_ if event[2] == 'mouse'])
+
+    def test_lemmings_clicks_1_player_after_its_intro_then_plays_the_generic_route(self):
+        answer = conversion.ROUTE_ANSWERS['37b8afa13b085e804015599e9f67833a9dbdcdbead90438f9a46a2a6aeda21c5']
+        route = conversion.answered_route(answer, 7200, 0x59)
+        self.assertEqual(min(begin for begin, *_ in route), 3600)                                 # nothing during the intro
+        self.assertIn((3660, 3666, 'mouse', 2, 1), route)
+        self.assertTrue(max(end for _, end, *_ in route) <= 7200)
+
     def test_the_damaged_states_follow_the_players_header(self):
         # The offsets the conversion flips are the fields of StateHead in amiga_session.cpp (200 bytes, asserted there too).
         source = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_session.cpp').read_text(encoding='utf-8')

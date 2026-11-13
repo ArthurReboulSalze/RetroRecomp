@@ -90,22 +90,38 @@ def main_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int
     return sorted(events)
 
 
-# Installs whose main route must first answer a screen no generic script passes, by the install's SHA-256 (numbers about an install,
-# never its bytes): the frames the route needs at least, the answer, and the frame from which the generic main route follows it.
+# Installs whose routes must first answer a screen no generic script passes, by the install's SHA-256 (numbers about an install,
+# never its bytes): the frames a route needs at least, the answer, the frame from which the generic route follows it, and the
+# kinds of event the generic route must leave out (`drop`). Every route of such an install starts with the answer. The answer is
+# the input the game's owner would give; a protection is never patched or skipped.
 # Monkey Island 2 (its "lame-o" copy protection takes any recipe digits, then a box clicked with the mouse; Arthur, 12 Nov).
+# Another World (FR) (its code wheel, answered with the joystick: three submissions; the lead, 13 Nov). Its slave maps the left
+# button, C and port 1's second button to the access-code screen, which ends the game's threads before the protection has passed,
+# so its generic routes leave the mouse out.
+# Lemmings (Image) (its menu: after the intro, the pointer moved onto "1 PLAYER" and clicked, then the level's briefing clicked).
 ROUTE_ANSWERS = {
     'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596': {
         'frames': 7000, 'then': 3100,
         'events': ([(1900, 1906, 'key', 0x44, 1)] + [(2200 + 50 * n, 2206 + 50 * n, 'key', code, 1) for n, code in enumerate((1, 2, 3, 4))]
                    + [(2450, 2456, 'key', 0x44, 1), (2800, 2814, 'mouse', 0, 3), (2850, 2872, 'mouse', 1, 6), (3000, 3006, 'mouse', 2, 1)])},
+    '87f9ecbba2c2ef98bb9cc806f58e60c3f4be0f99f218d356079c8369df7caf9b': {
+        'frames': 7000, 'then': 1500, 'drop': ('mouse',),
+        'events': [(begin + f, begin + f + 8, 'joy', bit, 1) for begin in (500, 900, 1300)
+                   for f, bit in ((0, 4), (20, 4), (40, 4), (60, 4), (100, 3), (130, 3), (160, 3), (200, 4))]},
+    '37b8afa13b085e804015599e9f67833a9dbdcdbead90438f9a46a2a6aeda21c5': {
+        'frames': 7200, 'then': 4800,
+        'events': [(3600, 3614, 'mouse', 0, 3), (3600, 3627, 'mouse', 1, 6), (3660, 3666, 'mouse', 2, 1), (4200, 4212, 'mouse', 2, 1),
+                   (4500, 4512, 'mouse', 2, 1)]},
 }
 
 
-def answered_route(answer: dict, frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
-    """The main route of an install that must answer a screen first: the answer, then the generic main route from `then` on."""
+def answered_route(answer: dict, frames: int, key_exit: int, generic=None) -> list[tuple[int, int, str, int, int]]:
+    """A route of an install that must answer a screen first: the answer, then a generic route (`generic(frames)`, the main route by
+    default) from `then` on, without the kinds of event the answer drops."""
     then = answer['then']
+    follow = generic(frames - then) if generic else main_route(frames - then, key_exit)
     return sorted(list(answer['events']) + [(begin + then, end + then, kind, code, value)
-                                            for begin, end, kind, code, value in main_route(frames - then, key_exit)])
+                                            for begin, end, kind, code, value in follow if kind not in answer.get('drop', ())])
 
 
 def explore_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
@@ -617,10 +633,16 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         else:
             routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
         if level != 'quick':
-            routes.append(('explore', count, explore_route(count, slave.key_exit)))
+            if answer:
+                frames_ = max(count, answer['frames'])
+                routes.append(('explore', frames_, answered_route(answer, frames_, slave.key_exit, lambda n: explore_route(n, slave.key_exit))))
+            else:
+                routes.append(('explore', count, explore_route(count, slave.key_exit)))
         from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
         for index in range(LONG_ROUTES.get(level, 0)):
-            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES, long_route(source.sha256, index, LONG_ROUTE_FRAMES, slave.key_exit)))
+            long_ = (lambda n, index=index: long_route(source.sha256, index, n, slave.key_exit))
+            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES,
+                           answered_route(answer, LONG_ROUTE_FRAMES, slave.key_exit, long_) if answer else long_(LONG_ROUTE_FRAMES)))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {", ".join(str(f) for _, f, _ in routes)} frames, interpreted 68000).')
         expected = {}

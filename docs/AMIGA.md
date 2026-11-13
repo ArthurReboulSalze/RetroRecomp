@@ -165,8 +165,13 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
     delivered exe built before it locks.
   - **What still locks it.** A deliberate click, or C, on the wheel: answer that screen with the joystick. After the protection, C or
     a click opens the access-code screen normally.
-  - **Routes.** None answers this screen, so the conversion's routes stay on it (12 November 2026, `AW-GREEN-20261112.md` and
-    `AW-E2E-20261112.md`, private).
+  - **Routes.** Since 1.7.4 every route of this install starts by answering the wheel with the joystick, as its owner would (three
+    submissions, `ROUTE_ANSWERS`). The generic part that follows leaves the mouse out, because its clicks would bring back the
+    access-code screen. Headless, with the answer, the protection passes by frame 1,500 and the intro runs to the laboratory by
+    frame 7,000, with sound. Before 1.7.4 no route answered, and they all stayed on the wheel, silent. A route is a scripted input,
+    not gameplay validation.
+- (1.7.4) Lemmings (Image): its menu waits for a click on "1 PLAYER", which no generic route gives. Its routes now wait for the intro,
+  move the pointer onto that button, click it and then the level's briefing, so level 1 is played from about frame 4,500 on.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences

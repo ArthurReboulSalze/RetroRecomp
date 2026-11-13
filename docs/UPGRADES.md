@@ -184,6 +184,27 @@ changes once, to the LF file's digest, which is the one Linux already wrote.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer (1.7.4)
+
+**What changes.**
+- **Another World (FR).** Its routes answer the code wheel with the joystick: three submissions at frames 500, 900 and 1300. The
+  generic route follows from frame 1500, without mouse events, because the slave maps the left button to the access-code screen,
+  which locks a game whose protection has not passed. Headless on the delivered exe, the protection passes and the intro plays to
+  the laboratory (5,217 audible frames of 7,000; before, 43).
+- **Lemmings (Image).** After its intro, the pointer moves onto "1 PLAYER" and clicks, then the level's briefing is clicked. The
+  generic route follows from frame 4800. Headless, level 1 is played from about frame 4,500 on.
+- **Every route of an install in `ROUTE_ANSWERS`** now starts with the answer: main as before, and now also the exploration route
+  (at least the answer's frames) and the long routes. Monkey Island 2's exploration and long routes change with it.
+- Both are the inputs the game's owner would give (the lead, 13 Nov: Monkey Island 2's answer of 1.7.3 is the precedent; a
+  protection is never patched or skipped). A route is a scripted input, not gameplay validation.
+
+**Hot path:** no. Conversion time only: these three installs run their answer on every route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes, the observed code and the native
+counts of Another World, Lemmings and Monkey Island 2 change. The other installs' routes do not.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused (1.7.4, G6)
 
 **What changes.**
