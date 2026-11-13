@@ -183,10 +183,13 @@ void rrhk_toggle_start_help(void) {
 
 static void draw_notices(RrhkRun *r) {
     const RrhkMachine *m = r->machine;
+    if (!start_until && !rrhk.status[0]) return;      /* nothing to show: no clock read, no layout (every frame comes here) */
     const Uint64 now = SDL_GetTicks64();
+    if (now >= start_until) start_until = 0;
+    if (!start_until && !(rrhk.status[0] && now < rrhk.status_until)) return;
     int ox, oy, unit, y = 172;
     rr_menu_layout(r->ren, &ox, &oy, &unit);
-    if (now < start_until && !rrhk.paused) {
+    if (start_until && !rrhk.paused) {
         char line[200], quit[48], restart[48];
         const bool computer = m->keyboard_pad != NULL, guest_keyboard = computer && !m->keyboard_pad();
         const bool own_f1 = guest_keyboard || !rrhk_options_host_fkey(SDL_SCANCODE_F1, KMOD_NONE, false);
