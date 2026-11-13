@@ -149,6 +149,24 @@ class X68000ReferenceStagingTests(unittest.TestCase):
             self.prepare()
         self.assertFalse(any(outside.iterdir()))
 
+    def test_an_output_below_a_linked_folder_is_staged(self):
+        # A player's library (or the project, since its K: path became a link) may sit on a linked folder: the folders above
+        # the output are the player's and are never refused. The output and what is under it still are (test above).
+        real = self.root / 'real library'
+        real.mkdir()
+        linked = self.root / 'linked library'
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(real), str(linked))
+        else:
+            self.symlink(linked, real, directory=True)
+        # Only the link goes, before the temporary folder: os.rmdir on a junction never touches the target.
+        self.addCleanup(lambda: os.rmdir(linked) if os.name == 'nt' else os.unlink(linked))
+        self.output = linked / 'output'
+        target = self.prepare()
+        self.assertEqual(target.read_bytes(), self.exe.read_bytes())
+        self.assertEqual((real / 'output/datas/media/disk-01.xdf').read_bytes(), self.disks[0].read_bytes())
+
     def test_symlink_working_disk_cannot_redirect_guest_writes_to_source(self):
         self.prepare()
         disk = self.output / 'datas/media/disk-01.xdf'

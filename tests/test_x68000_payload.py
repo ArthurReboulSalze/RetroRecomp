@@ -213,6 +213,47 @@ class LongPathPayloadTests(unittest.TestCase):
         with open(extended(self.game_folder(base) / 'system/keropi/iplrom.dat'), 'rb') as handle:
             self.assertEqual(handle.read(), CONTENT['system/keropi/iplrom.dat'])
 
+    def link(self, link, target):
+        """A folder link the player could have (a Windows junction, a POSIX symbolic link), removed before the tree."""
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(target), str(link))
+        else:
+            os.symlink(target, link, target_is_directory=True)
+        # Only the link goes: os.rmdir on a junction and os.unlink on a symbolic link never touch the target.
+        self.addCleanup(lambda: (os.path.isjunction(link) or os.path.islink(link)) and
+                        (os.rmdir(link) if os.name == 'nt' else os.unlink(link)))
+
+    def test_a_game_reached_through_a_linked_folder_above_its_own_starts(self):
+        # Since 6 November 2026 the project folder on K: is a link to C:, and a player's library may sit on a linked folder:
+        # the folders above the executable's are the player's and are never refused.
+        real = Path(self.folder(0)) / 'real library'
+        (real / 'games').mkdir(parents=True)
+        linked = self.tree / 'linked library'
+        self.link(linked, real)
+        base = str(linked / 'games') + os.sep
+        status, output = self.prepare(base)
+        self.assertEqual((status, output), (0, 'DIRECTORY ' + str(self.game_folder(base))))
+        self.assertEqual(self.written(self.game_folder(str(real / 'games') + os.sep), 'media/game.m3u'),
+                         CONTENT['media/game.m3u'])
+        # The executable's own folder may be the link too.
+        status, output = self.prepare(str(linked) + os.sep)
+        self.assertEqual(status, 0, output)
+
+    def test_a_link_inside_the_games_own_data_is_still_refused(self):
+        base = self.folder(0)
+        elsewhere = self.tree / 'elsewhere'
+        elsewhere.mkdir()
+        game = self.game_folder(base)
+        for inside in (Path(base) / 'datas', Path(base) / 'datas' / 'games', game, game / 'media', game / 'system'):
+            with self.subTest(link=str(inside.relative_to(base))):
+                shutil.rmtree(Path(base) / 'datas', ignore_errors=True)
+                inside.parent.mkdir(parents=True, exist_ok=True)
+                self.link(inside, elsewhere)
+                self.assertEqual(self.prepare(base), (1, 'PREPARE-FAILED'))
+                os.rmdir(inside) if os.name == 'nt' else os.unlink(inside)
+                self.assertEqual(os.listdir(elsewhere), [])
+
     def test_a_short_folder_is_prepared_as_before(self):
         base = self.folder(0)
         game = self.game_folder(base)

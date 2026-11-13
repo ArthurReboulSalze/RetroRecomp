@@ -72,8 +72,8 @@ def build_reference(build: Path, source: Path, sdl: Path, jobs: int = 4) -> Path
     return executable
 
 
-def _checked_copy(source: Path | bytes, destination: Path, expected: str, *, preserve=False):
-    _safe_destination(destination)
+def _checked_copy(source: Path | bytes, destination: Path, expected: str, *, root: Path | None = None, preserve=False):
+    _safe_destination(destination, root=root)
     if destination.exists():
         if not destination.is_file():
             raise ValueError(f'Staged input is not a regular file: {destination}')
@@ -100,22 +100,31 @@ def _checked_copy(source: Path | bytes, destination: Path, expected: str, *, pre
             temporary.unlink()
 
 
-def _no_links(path: Path):
+def _no_links(path: Path, *, root: Path | None = None):
     # Check before resolve(): resolution would hide a linked parent, including
-    # a dangling link or a Windows directory junction.
+    # a dangling link or a Windows directory junction. Only the bundle's own
+    # folders are checked, from `root` (the output folder) down: the folders
+    # above it are the player's (a library on a linked folder, a drive letter
+    # that is a link) and are never refused. Without `root`, or for a path
+    # outside it, every folder is checked.
+    path = Path(path).absolute()
+    root = Path(root).absolute() if root is not None else None
+    inside = root is not None and (path == root or root in path.parents)
     for part in (path, *path.parents):
+        if inside and part != root and root not in part.parents:
+            break
         if part.is_symlink() or (hasattr(part, 'is_junction') and part.is_junction()):
             raise ValueError(f'Refusing linked reference destination: {part}')
 
 
-def _safe_destination(path: Path):
-    _no_links(path)
+def _safe_destination(path: Path, *, root: Path | None = None):
+    _no_links(path, root=root)
     if path.exists() and path.is_file() and path.stat().st_nlink > 1:
         raise ValueError(f'Refusing hard-linked reference destination: {path}')
 
 
-def _atomic_bytes(path: Path, content: bytes, *, executable=False):
-    _safe_destination(path)
+def _atomic_bytes(path: Path, content: bytes, *, root: Path | None = None, executable=False):
+    _safe_destination(path, root=root)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(prefix='.' + path.name + '.', dir=path.parent)
     temporary = Path(name)
@@ -129,8 +138,8 @@ def _atomic_bytes(path: Path, content: bytes, *, executable=False):
         temporary.unlink(missing_ok=True)
 
 
-def _atomic_text(path: Path, content: str, *, executable=False):
-    _atomic_bytes(path, content.encode('utf-8'), executable=executable)
+def _atomic_text(path: Path, content: str, *, root: Path | None = None, executable=False):
+    _atomic_bytes(path, content.encode('utf-8'), root=root, executable=executable)
 
 
 def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
@@ -154,7 +163,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
     if any('\n' in str(p) or '\r' in str(p) for p in (output, executable, *disks, ipl, cgrom)):
         raise ValueError('Media paths cannot contain line breaks.')
     output = output.absolute()
-    _no_links(output)
+    _no_links(output, root=output)
     output = output.resolve()
     # All originals live outside the working tree being created. A mistaken
     # output directory can never replace an original disk, even when writable.
@@ -172,7 +181,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
                      'datas/media/game.m3u', 'datas/reference.cfg', 'reference-notices',
                      'README-REFERENCE.txt', executable.name, module.name,
                      f'{title}.desktop', 'datas/source-manifest.json'):
-        _safe_destination(output / relative)
+        _safe_destination(output / relative, root=output)
     if receipt.exists():
         old = json.loads(receipt.read_text(encoding='utf-8'))
         if old.get('sha256') != manifest.sha256:
@@ -184,49 +193,49 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
     system_dir = output / 'datas/system/keropi'
     save_dir = output / 'datas/saves'
     for directory in (media_dir, original_dir, system_dir, save_dir):
-        _no_links(directory)
+        _no_links(directory, root=output)
         directory.mkdir(parents=True, exist_ok=True)
     staged = []
     for index, disk in enumerate(manifest.media):
         name = f'disk-{index + 1:02}.{disk.format}'
         stored = disk.path if disk.converted is None else disk.converted
-        _checked_copy(stored, original_dir / name, disk.sha256)
+        _checked_copy(stored, original_dir / name, disk.sha256, root=output)
         # Keep guest writes in private copies between prototype launches.
-        _checked_copy(stored, media_dir / name, disk.sha256, preserve=True)
+        _checked_copy(stored, media_dir / name, disk.sha256, preserve=True, root=output)
         staged.append(name)
     for image, name in ((manifest.firmware.ipl, 'iplrom.dat'),
                         (manifest.firmware.cgrom, 'cgrom.dat')):
-        _checked_copy(image.path, system_dir / name, image.sha256)
+        _checked_copy(image.path, system_dir / name, image.sha256, root=output)
     # PX68k M3U inserts its first two entries into the two physical drives.
     # General ordered media remain in the manifest for later swap handling.
-    _atomic_text(media_dir / 'game.m3u', '\n'.join(staged) + '\n')
-    _atomic_text(output / 'datas/reference.cfg', f'ram_mib={ram_mib}\n')
+    _atomic_text(media_dir / 'game.m3u', '\n'.join(staged) + '\n', root=output)
+    _atomic_text(output / 'datas/reference.cfg', f'ram_mib={ram_mib}\n', root=output)
     manifest.verify_sources()
-    _atomic_text(receipt, json.dumps(manifest.local_record(), indent=2) + '\n')
-    _atomic_text(output / 'datas/source-identity.txt', manifest.sha256 + '\n')
+    _atomic_text(receipt, json.dumps(manifest.local_record(), indent=2) + '\n', root=output)
+    _atomic_text(output / 'datas/source-identity.txt', manifest.sha256 + '\n', root=output)
     target = output / executable.name
     for src in (executable, module):
         dst = output / src.name
         if dst.resolve() != src.resolve():
-            _atomic_bytes(dst, src.read_bytes(), executable=os.name != 'nt')
+            _atomic_bytes(dst, src.read_bytes(), executable=os.name != 'nt', root=output)
     metadata = {'schema': 1, 'stage': 'x68000-reference-boot', 'title': title,
                 'native_cpu': False, 'reference_core': _machine_revision(),
                 'source_identity': manifest.sha256, 'ram_mib': ram_mib,
                 'disk_count': len(manifest.media), 'initial_drives': list(initial_drives),
                 'source_bytes_shared': False,
                 'executable_sha256': digest(target), 'module_sha256': digest(output / module.name)}
-    _atomic_text(output / 'datas/reference-build.json', json.dumps(metadata, indent=2) + '\n')
+    _atomic_text(output / 'datas/reference-build.json', json.dumps(metadata, indent=2) + '\n', root=output)
     license_dir = output / 'reference-notices'
     license_dir.mkdir(exist_ok=True)
     audit = ROOT / 'docs/X68000_REFERENCE_LICENSES.md'
     if audit.exists():
-        _atomic_bytes(license_dir / audit.name, audit.read_bytes())
+        _atomic_bytes(license_dir / audit.name, audit.read_bytes(), root=output)
     if _machine_revision() == HISSORII_REV:
         # hissorii/px68k originals, unchanged, and our notice pages.
         source = ROOT / '.deps/px68k-hissorii-74ddbb3'
         notices = ('doc/kero_src.txt', 'fmgen/readme.txt')
         for page in ('x68000-machine.md', 'fmgen.md', 'musashi.md', 'segagenesisrecomp.md'):
-            _atomic_bytes(license_dir / page, (Path(__file__).resolve().parents[1] / 'licenses' / page).read_bytes())
+            _atomic_bytes(license_dir / page, (Path(__file__).resolve().parents[1] / 'licenses' / page).read_bytes(), root=output)
     else:
         source = ROOT / '.deps/px68k-reference'
         notices = ('COPYING', 'doc/kero_src.txt', 'fmgen/readme.txt',
@@ -235,7 +244,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
         original = source / relative
         if original.is_file():
             destination = license_dir / relative
-            _atomic_bytes(destination, original.read_bytes())
+            _atomic_bytes(destination, original.read_bytes(), root=output)
     _atomic_text(output / 'README-REFERENCE.txt',
         f'{title} — X68000 development reference\n'
         'MC68000 10 MHz, interpreted CPU (not yet an AOT export).\n'
@@ -244,7 +253,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
         'Ctrl+Alt+Enter: fullscreen; Ctrl+Alt+Q: close.\n'
         f'Default settings: {ram_mib} MiB RAM, native video cadence, no frameskip.\n'
         'Guest disk writes and SRAM remain under datas. Originals are preserved.\n'
-        'CPU/hardware fidelity, full gameplay and physical latency are not qualified.\n')
+        'CPU/hardware fidelity, full gameplay and physical latency are not qualified.\n', root=output)
     if os.name != 'nt':
         desktop = output / f'{title}.desktop'
         # Use the existing tested quoting for a path with spaces; no shell.
@@ -253,7 +262,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
                      f'Name={_value(title)} — X68000 reference\n'
                      f'Exec={_argument(target)}\n'
                      f'Path={_value(output)}\nTerminal=false\nCategories=Game;\n',
-                     executable=True)
+                     executable=True, root=output)
     return target
 
 

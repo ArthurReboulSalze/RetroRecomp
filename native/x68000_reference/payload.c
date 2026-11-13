@@ -83,9 +83,12 @@ static int path_exists(const wchar_t *given) {
     return rr_to_utf8(given,name,sizeof(name))&&!lstat(name,&st);
 #endif
 }
-static int directories(wchar_t *path) {
+/* Creates the last folder of `path`. Links are refused only in the game's own data: the folders from `owned` characters on
+ * (datas and what is under it). The folders above the executable's are the player's (a library on a linked or redirected
+ * folder, a drive letter that is a link) and are never inspected; the executable already runs from there. */
+static int directories(wchar_t *path,size_t owned) {
     for(wchar_t *p=path;*p;p++)if(*p=='/'||*p=='\\'){
-        wchar_t old=*p;if(p==path||(p==path+2&&path[1]==':'))continue;
+        wchar_t old=*p;if(p==path||(p==path+2&&path[1]==':')||(size_t)(p-path)<owned)continue;
         *p=0;int ok=safe_path(path);*p=old;if(!ok)return 0;
     }
     return safe_path(path)&&os_mkdir(path);
@@ -107,11 +110,14 @@ static int set_aside(const wchar_t *file) {
     return 0;
 }
 int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
-    char value[4096];wchar_t root[4096],file[4096],lock[4096];
-    if(snprintf(value,sizeof(value),"%sdatas",base)>=(int)sizeof(value)||!rr_from_utf8(value,root,4096)||!directories(root))return 0;
-    rr_wide_append(root,4096,RR_SLASH_W L"games");if(!directories(root))return 0;
+    char value[4096];wchar_t root[4096],file[4096],lock[4096];size_t owned;
+    /* The executable's folder (base, with its separator) is where the owned part starts. */
+    if(!rr_from_utf8(base,root,4096))return 0;
+    owned=wcslen(root);
+    if(snprintf(value,sizeof(value),"%sdatas",base)>=(int)sizeof(value)||!rr_from_utf8(value,root,4096)||!directories(root,owned))return 0;
+    rr_wide_append(root,4096,RR_SLASH_W L"games");if(!directories(root,owned))return 0;
     snprintf(value,sizeof(value),"%sx68-%s",RR_SLASH,RR_X68K_SOURCE_IDENTITY);
-    if(!rr_from_utf8(value,file,4096)||rr_wide_append(root,4096,file)||!directories(root)||!rr_to_utf8(root,directory,capacity))return 0;
+    if(!rr_from_utf8(value,file,4096)||rr_wide_append(root,4096,file)||!directories(root,owned)||!rr_to_utf8(root,directory,capacity))return 0;
     rr_wide_copy(lock,4096,root);rr_wide_append(lock,4096,RR_SLASH_W L"session.lock");if(!safe_path(lock))return 0;
 #ifdef _WIN32
     {wchar_t long_lock[OS_PATH_CAPACITY];const wchar_t *lock_path=os_path(lock,long_lock);
@@ -125,7 +131,7 @@ int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
     const wchar_t *folders[]={L"media",L"system",L"system" RR_SLASH_W L"keropi",L"saves"};
     for(unsigned i=0;i<4;i++){
         rr_wide_copy(file,4096,root);rr_wide_append(file,4096,RR_SLASH_W);rr_wide_append(file,4096,folders[i]);
-        if(!directories(file))return 0;
+        if(!directories(file,owned))return 0;
     }
     for(unsigned i=0;i<RR_X68K_FILE_COUNT;i++){
         const RrX68kPayloadFile *item=&rr_x68k_files[i];size_t size=0;

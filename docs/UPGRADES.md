@@ -98,6 +98,7 @@ computed on `main` on 13 November 2026 (`ddfeb018`).
 | [Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report](#commodore-amiga-route-scripts-in-lf-on-every-system-the-long-routes-script-digest-in-the-report-174) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
 | [Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer](#commodore-amiga-another-world-and-lemmings-answer-their-first-screen-every-route-of-such-an-install-starts-with-the-answer-174) | the Amiga only (the routes of Another World, Lemmings and Monkey Island 2 change) | none | the Amiga key moves, as between any two Amiga builds |
 | [Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused](#commodore-amiga-quick-states-carry-a-checksum-and-the-installs-identity-damaged-ones-are-refused-174-g6) | the Amiga only | none | **every Amiga state is refused** (format `RRAMIGA-STATE-3`) |
+| [Sharp X68000: a game opened through a linked folder starts](#sharp-x68000-a-game-opened-through-a-linked-folder-starts-174) | the X68000 only (`payload.c`, `media_session.c`, `tools/x68000_reference.py`) | none | none (the key hashes neither file) |
 | The converter window on Linux: a context menu closes when you click elsewhere (no section of this page; commit `e2512ecc`) | none (interface code) | none | none |
 | The Mega Drive's native test harnesses link with the portable toolchain, Visual Studio only as a fallback (no section of this page; merge `8f0c85c9`) | none (tools) | none | none |
 | Licences: the m68k-recomp-core author's permission for the Atari ST in `licenses/` and the third-party notices (no section of this page; commit `71c6acec`) | none (embedded in no game; `stamp_inputs.NOT_INPUTS`) | none | none |
@@ -144,6 +145,24 @@ the NES, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation ha
 System, Game Gear and Game Boy have no such key. A quick state of the Game Boy Advance is the engine's own container, with no key of ours; its section says a state of a game
 converted before may be refused. The MSX2+ is new. **Cartridge saves** are kept on every machine (the MSX and MSX2 now keep the battery SRAM of their ASCII cartridges); the game
 saves of Adventure (ScummVM) are ScummVM's own. A game of 1.7.3 that reads the stretched F4 mode (`display_mode` 3) written by 1.7.4 opens in a window.
+
+## Sharp X68000: a game opened through a linked folder starts (1.7.4)
+
+Every X68000 game, those of earlier releases included, refused to start when its folder was reached through a link (a symbolic link, a junction, a drive
+letter or a library folder that points elsewhere): it stopped with "Cannot prepare private game data (linked path, changed firmware, or another running
+copy)". The host checked every folder from the root of the drive down to the game's data, and refused a link anywhere on the way.
+
+- **What is checked now.** Only the game's own data: `datas`, `games`, `x68-<identity>` and what is under them, on Windows (no reparse point) and on Linux
+  (`lstat`, no symbolic link). The folders above the executable's are the player's and are never inspected; the executable already runs from there. A link
+  inside the game's data is still refused, as are a hard link in place of a file and a second running copy (the lock).
+- **The media session** (`media_session.c`) checks its files the same way, from the folder that holds the media folder down. The converter's staging
+  (`tools/x68000_reference.py`) checks from the output folder down, so a conversion whose output sits below a linked folder works too.
+- **Proof.** Twins, converted from this tree: 30 headless frames exit 0 from its folder and from the same folder reached through a drive-level symbolic link, and
+  exit 1 with the same message when `datas\games` is made a junction. Tests (`test_x68000_payload`, `test_x68000_media_session`, `test_x68000_reference`) build a
+  linked parent (a junction on Windows, a symbolic link elsewhere) and show the start, and keep refusing a link at `datas`, `games`, `x68-<identity>`,
+  `media` and `system`; they fail on the code of `4d7f4b65`.
+- **Stamps** (`compilation_inputs.role_stamps`, this branch against `4d7f4b65`): **the game stamp of the X68000 only**; no host or build stamp; the quick-state key
+  does not move (it hashes `media_session.h`, not these files). Only the X68000 has this check; the other machines' runtimes refuse no link in a folder above their data.
 
 ## 68000 machines: the decimal instructions follow Moira on every operand (1.7.4)
 
