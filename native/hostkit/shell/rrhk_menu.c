@@ -166,7 +166,12 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     rr_menu_box(ren, ox, oy, unit, 14, y, 228, 1, RR_MENU_SHADE, 255);
     const int kind = hub_kind(hub_tile);
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
-    else snprintf(title, sizeof title, "%s", rr_tr(kind == -2 ? "Options" : m->page->title));
+    else {
+        /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
+        const char *name = rr_tr(kind == -2 ? "Options" : m->page->title);
+        if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
+        snprintf(title, sizeof title, "%s", name);
+    }
     int width = rr_menu_text_width(title); if (width > 228) width = 228;
     rr_menu_text_fit(ren, ox, oy, unit, 128 - width / 2, y + 6, 228, title, RR_MENU_ACCENT);
     if (kind >= 0 && kind % 2) {

@@ -85,15 +85,28 @@ The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d15
 of tiles, Esc and the Quit combination ask "Quit? No / Yes", notices are plates, each game says its keys when it opens, and
 the menus get icons, block letters and key caps.
 
-* **Stamps.** `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`, the shell files
-  `hostkit/shell/rrhk_main.c`, `rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `hostkit/hostkit.h` and
-  `hostkit/hostkit_internal.h` are host inputs: the **host stamp of every profile moves** (the twenty of the registry), no
-  game stamp and no build stamp does. An export of 1.7.3 is **upgraded** (rebuilt from its learned paths, no rediscovery), as
-  for any change of the shell.
+* **Stamps** (`compilation_inputs.role_stamps`, compared with main `f57eb9e3` on Windows). The files changed are host inputs
+  (`stamp_inputs.HOST_NATIVE`): `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`,
+  `hostkit/hostkit.h`, `hostkit/hostkit_internal.h` and the shell's `rrhk_main.c`, `rrhk_menu.c`, `rrhk_events.c`,
+  `rrhk_options.c`, `rrhk_pointer.c`. The **host stamp moves for all twenty profiles**: sms, gg, gb, nes, md, snes, ng, cps1,
+  cps2, pce, gba, amiga, atarist, n64, psx, msx, msx2, msx2plus, x68 and scummvm. **No game stamp and no build stamp moves.**
+  An export of 1.7.3 is **upgraded** (rebuilt from its learned paths, no rediscovery), as for any change of the shell.
+  ScummVM's games do not use the kit (their menus are ScummVM's own), but their host stamp lists the same files: they are
+  upgraded too, and look the same afterwards.
+* **What players see** (every machine on the kit; nothing changes in ScummVM's games): F2 opens the tiles; Esc in play and
+  L3+R3 ask "Quit? No / Yes"; a plate at the bottom of the picture for about 4.5 s when the game opens (F1, F2, Esc; with a
+  gamepad, its Quit and Restart combinations; on a computer, who has the keyboard), which the new **Start-up reminders** row
+  of the options page turns off; notices on a dark plate; the help, control pages, options, graphics and gun pages with the
+  mark, block letters, icons and key caps; gamepad buttons named as printed on a pad. The Master System, Game Gear and MSX
+  adapters still post their own opening notice (2.4 s), which shows above the kit's plates until their adapters drop it
+  (adapter change, not in this step).
 * **Quick states of the Mega Drive and the Super Nintendo.** Their state key hashes the listed files directly below `native/`
-  (`compilation_inputs.state_native_files`), which include `retro_menu.c`, `retro_menu.h`, `game_options.h` and
-  `runtime_catalog.inc`: the key moves, and an F8 state written by 1.7.3 is refused with the usual notice ("No compatible
-  quick state to load") instead of being loaded. Cartridge saves are not concerned.
+  (`compilation_inputs.state_native_files`, read by `console16_state.write_config`), which include `retro_menu.c`,
+  `retro_menu.h`, `game_options.h` and `runtime_catalog.inc`: the key moves, and an F8 state written by 1.7.3 is refused with
+  the usual notice ("No compatible quick state to load") instead of being loaded. Cartridge saves are not concerned. No other
+  machine's state key reads these files (the CPS-1/CPS-2, Neo Geo, PC Engine, NES, PlayStation and MSX keys hash their own
+  machine files; the Master System's `compiler_signature` that lists them is a record of the library, not a state key; the
+  Amiga, Atari ST, X68000 and Nintendo 64 bind their states to the game stamp), so their F8 states of 1.7.3 still load.
 * **Texts.** Eleven new entries in the catalogue of the five game languages (and in the seven locale files): "Controls",
   "Options", "Help", "Yes", "No", "P%d", "Reset", "Start-up reminders: %s", the tiles' hint line and the two lines about a
   computer's keyboard. Every
