@@ -149,9 +149,9 @@ full by the first batch of 1.7.4. What a converted game does is not changed, exc
   Operation Stealth (colour codes), Leader Board (hardware key), Trinity (a resolution the machine does not start in), and Metro-Cross and Pharaoh III (EmuTOS; they start with the player's TOS 1.04). It adds a sentence to
   `route_warnings` and changes nothing a conversion does: no protection is answered, skipped or patched.
 
-**Proof** (Windows, one tree, 13 November 2026): the panel of fifteen games, converted one at a time from an empty scratch library at the extended level (Captain Blood and Lethal Xcess at the thorough level: the second long route
-changes the disk, and both reach play); on all 47 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on
-15 of 15 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). The fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
+**Proof** (Windows, one tree, 13 November 2026): the panel of eight games, converted one at a time from an empty scratch library at the extended level (Lethal Xcess at the thorough level: the second long route changes the disk, and it reaches play);
+on all 25 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on 8 of 8 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). Seven more games
+were converted in the same run and are outside the panel; the fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
 
 ## Exports of 1.7.2 in 1.7.3
 
