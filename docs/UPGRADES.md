@@ -79,6 +79,35 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Every machine: the menus drawn again, F2 as tiles, "Quit?" and the opening plates (1.7.4)
+
+The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d15), decisions D15 to D18): F2 opens a menu
+of tiles, Esc and the Quit combination ask "Quit? No / Yes", notices are plates, each game says its keys when it opens, and
+the menus get icons, block letters and key caps.
+
+* **Stamps.** `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`, the shell files
+  `hostkit/shell/rrhk_main.c`, `rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `hostkit/hostkit.h` and
+  `hostkit/hostkit_internal.h` are host inputs: the **host stamp of every profile moves** (the twenty of the registry), no
+  game stamp and no build stamp does. An export of 1.7.3 is **upgraded** (rebuilt from its learned paths, no rediscovery), as
+  for any change of the shell.
+* **Quick states of the Mega Drive and the Super Nintendo.** Their state key hashes the listed files directly below `native/`
+  (`compilation_inputs.state_native_files`), which include `retro_menu.c`, `retro_menu.h`, `game_options.h` and
+  `runtime_catalog.inc`: the key moves, and an F8 state written by 1.7.3 is refused with the usual notice ("No compatible
+  quick state to load") instead of being loaded. Cartridge saves are not concerned.
+* **Texts.** Eleven new entries in the catalogue of the five game languages (and in the seven locale files): "Controls",
+  "Options", "Help", "Yes", "No", "P%d", "Reset", "Start-up reminders: %s", the tiles' hint line and the two lines about a
+  computer's keyboard. Every
+  other text is an existing one, drawn differently.
+* **Preferences.** One key added, `[Interface] start_help` (the new **Start-up reminders** row of the options page: 0 turns
+  the opening plates off; absent or 1, they are shown); none renamed: bindings, combinations and options are read and written
+  as before.
+* **Unchanged.** What the pages do, the function keys, the pictures the machines produce (the plates and menus are drawn on
+  the window after the picture), the headless runs, the routes and their hashes. A hidden-window test run shows no opening
+  plate and still stops on Esc or on the Quit combination without a question.
+* **Measured.** `tools/hostkit_capabilities_selftest.py` (195 checks: the tiles, the pages opened from them, "Quit?" with No,
+  Esc and Yes, the Start-up reminders row and its preference) and `tools/hostkit_players_selftest.py` pass with the portable toolchain on Windows. The frame cost of the
+  plates and of an open menu was **not** measured; nothing is drawn once the plates are gone and no menu is open.
+
 ## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
 
 **What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
