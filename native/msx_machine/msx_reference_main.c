@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     unsigned long long trace_from = 0, trace_to = 0;   /* tools: the instructions that start in a window of machine cycles */                /* tools: the 16 KB the CPU sees at C000h-FFFFh, for oracle comparisons */
     int route_result;
     const char *layout = "basic", *sub_rom = NULL;
-    unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256;
+    unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256, sram_bit = 0;
     unsigned watch[32];
     int watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0, count_writes = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
@@ -129,6 +129,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
+        else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
         else if (!strcmp(a, "--layout")) layout = v;
         else if (!strcmp(a, "--mapper")) {
             int found = -1;
@@ -180,6 +181,12 @@ int main(int argc, char **argv)
         MsxDevice device = { MSX_DEV_ROM, cart, (uint32_t)n, (uint16_t)cart_base, NULL };
         device.mapper = mapper;
         device.mirrored = (uint8_t)mirrored;
+        if (sram_bit && (mapper == MSX_MAPPER_ASCII8 || mapper == MSX_MAPPER_ASCII16)) {
+            static uint8_t sram[MSX_SRAM_ASCII8];     /* blank, as a fresh battery: the game's own file is not read here */
+            device.sram = sram;
+            device.sram_size = mapper == MSX_MAPPER_ASCII8 ? MSX_SRAM_ASCII8 : MSX_SRAM_ASCII16;
+            device.sram_bit = (uint8_t)sram_bit;
+        }
         msx_set_device(&machine, 1, 0, device);
     }
 

@@ -331,33 +331,19 @@ BACKUP_FRAMES = 60          # frames of a run that only checks what a file gave 
 BACKUP_FORMATTED = b'HUBM\x00\x88\x10\x80' + bytes(BACKUP_BYTES - 8)
 
 
-def fnv64(data: bytes) -> int:
-    value = 14695981039346656037
-    for byte in data:
-        value = ((value ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
-    return value
+from .conversion_gates import fnv64  # noqa: E402 - the shared cartridge-save helpers (conversion_gates, since 13 November 2026)
 
 
 def backup_file(memory: bytes, rom_sha256: str) -> bytes:
     """A Backup RAM file: magic, version 1, size, FNV-1a of the memory, reserved, the HuCard's SHA-256 in hex, reserved, the memory."""
-    header = bytearray(BACKUP_HEADER)
-    header[:8] = BACKUP_MAGIC
-    header[8:12] = (1).to_bytes(4, 'little')
-    header[12:16] = len(memory).to_bytes(4, 'little')
-    header[16:24] = fnv64(memory).to_bytes(8, 'little')
-    header[40:104] = rom_sha256.encode('ascii')
-    return bytes(header) + memory
+    from .conversion_gates import cart_save_file
+    return cart_save_file(BACKUP_MAGIC, memory, rom_sha256)
 
 
 def damaged_backups(good: bytes) -> dict[str, bytes]:
     """Files the game cannot use, by what is wrong with them: each must be set aside whole, and the game must start formatted."""
-    def flipped(offset: int) -> bytes:
-        data = bytearray(good)
-        data[offset] ^= 0x80
-        return bytes(data)
-    return {'empty': b'', 'header-cut': good[:40], 'one-byte-short': good[:-1], 'one-byte-long': good + b'\0',
-            'raw-memory': good[BACKUP_HEADER:], 'magic': flipped(0), 'version': flipped(8), 'size': flipped(12),
-            'hash': flipped(16), 'other-card': flipped(40), 'memory': flipped(len(good) - 1)}
+    from .conversion_gates import damaged_cart_saves
+    return damaged_cart_saves(good)
 
 
 def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str) -> dict:

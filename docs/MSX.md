@@ -11,7 +11,7 @@ for the MSX most of them are not known yet.
 | Converted (experimental) | Not yet |
 | --- | --- |
 | MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | MSX2+ and the turbo R (the MSX2 is the `msx2` profile, section 8) |
-| Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers | The other mappers (the rare ones), FM-PAC, cartridge SRAM and the saves that depend on it |
+| Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers, with the battery SRAM of an ASCII cartridge (since 1.7.4, section 4) | The other mappers (the rare ones), FM-PAC and its SRAM, the MSX2 clock's memory between runs |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
 | The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound; quick states (F8/F9) | The FM-PAC's sound |
 | Windows; Linux: one MSX1 and one MSX2 game converted headless on a Debian 13 PC, with the same results as on Windows | Windowed play on Linux |
@@ -75,6 +75,13 @@ on the MSX2). A state is refused, and the game goes on untouched, when anything 
 checks it on the delivered file: a state saved near the end of the route is loaded by a fresh process, which must continue the same frames for 600 frames,
 and damaged or missing states must be refused and left as they were. The F2 pages, autofire and the speed and sound controls are the common ones of the host kit.
 
+**Saves (battery SRAM, since 1.7.4).** An ASCII 8 KiB or 16 KiB cartridge with battery SRAM keeps it in `datas/saves/<game>-<cartridge>.rrsram`
+beside the game: loaded at start, written two seconds after the game last wrote it and when the window closes. The conversion finds the SRAM
+from the bank values the game writes (a bit above the bank number, which depends on the cartridge's wiring), so a game that selects its SRAM
+only later than its start, or a variant of another size (2 KiB or 32 KiB on ASCII 8, 8 KiB on ASCII 16), is not told apart: 8 KiB on ASCII 8
+and 2 KiB repeated over the page on ASCII 16. A file the game cannot use is moved aside (`.unusable-1`) and the game starts blank. Checked
+on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC's SRAM and the MSX2 clock's memory are not kept.
+
 ## 5. Known C-BIOS failures
 
 C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the original has.
@@ -86,7 +93,7 @@ C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the 
   black playfield, choose your own MSX BIOS in Options > MSX.
 - **BASIC cartridges** are refused under C-BIOS, which has no MSX-BASIC.
 
-Other known limits: the SRAM, FM-PAC, disk and cassette are not converted (MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in section 3 has been checked.
+Other known limits: the FM-PAC, disk and cassette are not converted (MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in section 3 has been checked.
 
 ## 6. Licences
 
@@ -101,7 +108,7 @@ The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evalua
 1.7.3 release tree (the evidence of each letter is there). Met: native coverage (G3), the fresh reference run (G4), the replay of the delivered file (G5)
 and the fresh-process quick states (G6). Partial: the status (G1), the common report (G2: its main CPU block carries no counts yet), liveness (G8: a
 route that never reaches play is not named in the report), route depth (G9), independent CPU and hardware evidence (G10, G11), the panel (G12) and the
-Linux witness (G13, one game each). Not met: battery saves (G7: SRAM mappers and FM-PAC are not converted). Unknown: the owner's acceptance (G14) and
+Linux witness (G13, one game each). Battery saves (G7) were not met on 13 November 2026; the ASCII cartridges' SRAM is kept since 1.7.4 (section 4). Unknown: the owner's acceptance (G14) and
 the read for honesty (G15). Not applicable: shared paths (G16). Leaving the experimental status is the owner's own decision (G14), and nothing here asks
 for it.
 

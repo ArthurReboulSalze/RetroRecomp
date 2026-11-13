@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 
@@ -122,7 +123,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     from .msx_rom import read_cartridge
     from .report_schema import write_report
     from .toolchain import describe as toolchain_description
-    from . import msx_routes, route_start
+    from . import msx_rom, msx_routes, route_start
     from .conversion_common import check_run_budget, resolve_scan_level
     from .delivery_evidence import (deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
                                     require_moving_picture, same_trace)
@@ -230,6 +231,32 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                 'divergence': route_start.divergence(mine, baseline),
                                 'reach': route_start.reach(mine, baseline, msx_routes.walk_start(msx_routes.presses_of(variant)),
                                                            msx_routes.QUIET_WALK)}
+        bank_high = 0
+        for result, _rows in played:
+            bank_high |= cartridge_bank_high(result)
+        found = msx_rom.sram_bit(guess.mapper, cart.size, bank_high) if guess.sram is None else None
+        if found is not None:
+            # The game selected a bank past its image: the cartridge's battery SRAM. The start is chosen again with it.
+            from dataclasses import replace
+            guess = replace(guess, sram=found)
+            machine_args = [*bios_args, *guess.arguments(), *standard_args]
+            emit(f'MSX: battery SRAM found (bank bit {found}); choosing the start again with it.')
+            try:
+                played = replay_routes([('baseline', None), *((f'start-{msx_routes.variant_name(v)}', v) for v in variants)],
+                                       lambda row: reference_rows(row[0], play_frames, '' if row[1] is None else
+                                                                  msx_routes.script(msx_routes.events(play_frames, seed, row[1]))),
+                                       workers=4)
+            except msx_build.MsxBuildError as error:
+                raise ConversionError(f'MSX: {error}') from None
+            baseline = pictures(played[0][1])
+            results = {}
+            for variant, (_result, rows) in zip(variants, played[1:]):
+                mine = pictures(rows)
+                results[variant] = {'liveness': report_fields(liveness_summary(msx_build.frame_rows(rows)), LIVENESS_FIELDS),
+                                    'divergence': route_start.divergence(mine, baseline),
+                                    'reach': route_start.reach(mine, baseline,
+                                                               msx_routes.walk_start(msx_routes.presses_of(variant)),
+                                                               msx_routes.QUIET_WALK)}
         chosen = route_start.choose_start(results, play_frames, msx_routes.variant_order)
         start_record = {'presses': msx_routes.presses_of(chosen), 'confirm': chosen[1] if isinstance(chosen, tuple) else None,
                         'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input showed, '
@@ -316,6 +343,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         try:
             states = check_states(delivered.path, work / 'states', 'play', play[1], options(*play)[2:],
                                   folder / 'play-packed.csv')
+            sram = None
+            if guess.sram is not None:
+                emit('MSX: checking the battery SRAM file in fresh processes.')
+                sram = check_sram(delivered.path, work / 'sram', play[1], options(*play)[2:],
+                                  0x2000 if guess.mapper == 'ascii8' else 0x800, cart.sha256)
         except msx_build.MsxBuildError as error:
             raise ConversionError(f'MSX: {error}') from None
         timings['quick_states'] = round(time.perf_counter() - phase, 3)
@@ -363,6 +395,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
         'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks),
+        'ordinary_saves': ({'supported': True, 'reason': None,
+                            'scope': f'the battery SRAM of the cartridge ({"8 KiB" if guess.mapper == "ascii8" else "2 KiB"}), '
+                                     'kept beside the game and loaded at start',
+                            'path': 'datas/saves/<game>-<cartridge>.rrsram', 'validation': sram}
+                           if guess.sram is not None else
+                           {'supported': False, 'reason': 'no battery SRAM was seen on this cartridge', 'scope': None,
+                            'path': None, 'validation': None}),
         'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
         'native_validation': {'passed': True, 'reference_kind': 'the same machine with every instruction on the reference '
                                                                 'interpreter (corrected SuperZazu, MSX wait states)',
@@ -397,6 +436,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     return executable
 
 
+def cartridge_bank_high(result: dict) -> int:
+    """The bank values past the image's last bank that the cartridge in slot 1 was given, ORed (msx_print_state: the last
+    number of the slot's entry in `blocks`); 0 when there is none."""
+    for entry in result.get('blocks') or ():
+        if len(entry) >= 17 and entry[0] == 1 and entry[1] == 0:
+            return int(entry[-1])
+    return 0
+
+
 def hardware_devices(guess, msx2: bool) -> list:
     """The `hardware_devices` of the common report (gate G2): the cartridge mapper, the video chip and the sound units. None of them
     is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated."""
@@ -404,7 +452,8 @@ def hardware_devices(guess, msx2: bool) -> list:
     common = {'translated_from_rom': False, 'hardware_fidelity_validated': False}
     mapper = {'id': guess.mapper, 'kind': 'cartridge_mapper', 'mode': 'c_model',
               'details': {'cartridge_base': f'{guess.base:04X}', 'mirrored': guess.mirrored, 'reason': guess.reason,
-                          'sram_modelled': False,
+                          'sram_modelled': getattr(guess, 'sram', None) is not None,
+                          'sram_bit': getattr(guess, 'sram', None),
                           'interpreter': 'none: the mapper is C code in the runtime, driven by the writes the program makes',
                           **common}}
     video = {'id': 'v9938' if msx2 else 'tms9918a', 'kind': 'video_unit', 'mode': 'c_model',
@@ -428,7 +477,7 @@ def route_warnings(final_checks: list) -> list:
     return words(final_checks)
 
 
-STATE_LAYOUT = 'msx-state-2'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line)
+STATE_LAYOUT = 'msx-state-3'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM)
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 
 
@@ -443,6 +492,62 @@ def damaged_states(state: bytes) -> dict[str, bytes]:
             'magic': flipped(0), 'schema': flipped(8), 'machine': flipped(12), 'identity': flipped(16), 'length': flipped(80),
             'crc': flipped(84), 'binding': flipped(88), 'payload': flipped(len(state) - 1),
             'not-a-state': b'not a state.' * 4096}
+
+
+SRAM_MAGIC = b'RRMSXSR1'
+SRAM_FRAMES = 60            # frames of a run that only checks what a file gave the game at the start
+
+
+def check_sram(game: Path, folder: Path, frames: int, route_rest: list[str], sram_bytes: int, rom_sha256: str) -> dict:
+    """The cartridge's battery SRAM beside the game, in fresh processes of the delivered file (as the PC Engine's Backup RAM). No
+    file: the blank memory, and a file only if the game wrote. A valid file reaches the game. Damaged files are set aside whole
+    and never block it. What the play route leaves in the SRAM is there in the next process. `route_rest`: the play route's
+    options without its frame count."""
+    from . import msx_build
+    from .conversion_gates import cart_save_file, damaged_cart_saves, fnv64, require
+
+    def failure(text: str):
+        return lambda: ConversionError(f'MSX SRAM: {text}')
+
+    def hex64(data: bytes) -> str:
+        return f'{fnv64(data):016x}'
+
+    def run(label: str, count: int, rest: list[str], path: Path) -> dict:
+        return msx_build.run_game(game, ['--frames', str(count), *rest, '--sram', str(path)], folder / f'{label}.json')
+    folder.mkdir(parents=True, exist_ok=True)
+    blank = bytes(sram_bytes)
+    none = folder / 'none.rrsram'
+    start = run('sram-none', SRAM_FRAMES, [], none)
+    require(start['sram_start_hash'] == hex64(blank) and not start['sram_notice'],
+            failure('without a file the game did not find the blank memory.'))
+    require(none.exists() == (start['sram_hash'] != start['sram_start_hash']),
+            failure('a file was written though the game wrote nothing, or the reverse.'))
+    seeded = blank[:-1] + b'\x5a'
+    valid = folder / 'valid.rrsram'
+    good = cart_save_file(SRAM_MAGIC, seeded, rom_sha256)
+    valid.write_bytes(good)
+    loaded = run('sram-valid', SRAM_FRAMES, [], valid)
+    require(loaded['sram_start_hash'] == hex64(seeded) and not loaded['sram_notice'], failure('a valid file did not reach the game.'))
+    damaged = damaged_cart_saves(good)
+    for label, data in damaged.items():
+        path = folder / f'damaged-{label}.rrsram'
+        path.write_bytes(data)
+        result = run(f'sram-{label}', SRAM_FRAMES, [], path)
+        aside = path.with_name(path.name + '.unusable-1')
+        require(result['sram_notice'] == 1 and result['sram_start_hash'] == hex64(blank),
+                failure(f'a damaged file ({label}) was used.'))
+        require(aside.is_file() and aside.read_bytes() == data, failure(f'a damaged file ({label}) was not kept as it was.'))
+    route = folder / 'route.rrsram'
+    played = run('sram-route', frames, route_rest, route)
+    changed = played['sram_hash'] != played['sram_start_hash']
+    require(route.exists() == changed, failure('the file does not follow what the game wrote on the play route.'))
+    if changed:
+        survived = run('sram-survived', SRAM_FRAMES, [], route)
+        require(survived['sram_start_hash'] == played['sram_hash'],
+                failure('what the game wrote did not survive into a fresh process.'))
+    return {'play_route_wrote_memory': changed, 'written_memory_survives_a_fresh_process': changed or None,
+            'no_file_starts_blank': True, 'valid_file_loaded': True, 'damaged_files_set_aside': sorted(damaged),
+            'sram_bytes': sram_bytes}
 
 
 def check_states(game: Path, folder: Path, name: str, frames: int, route_rest: list[str], expected: Path) -> dict:
@@ -474,6 +579,7 @@ def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int
     """The quick state's build binding (RR_MSX_STATE_ABI, 32 bytes): a state of another layout, BIOS, mapper, cartridge base,
     mirror, standard, model or RAM size is refused as incompatible."""
     text = '\n'.join([STATE_LAYOUT, hashlib.sha256(bios).hexdigest(), guess.mapper, f'{guess.base:04X}',
+                      str(getattr(guess, 'sram', None)),
                       str(int(guess.mirrored)), standard, model, str(mapper_kib)])
     return hashlib.sha256(text.encode('ascii')).digest()
 
@@ -523,6 +629,11 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
         f'#define RR_MSX_CART_BASE 0x{guess.base:04X}\n#define RR_MSX_MIRRORED {int(guess.mirrored)}\n'
         f'#define RR_MSX_PAL {int(standard == "pal")}\n#define RR_MSX_MODEL {2 if model == "msx2" else 1}\n'
         f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n'
+        f'#define RR_MSX_SRAM_BIT {0 if guess.sram is None else 1 << guess.sram}\n'
         f'#define RR_MSX_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in state_binding(bios, guess, standard, model, mapper_kib))}}}\n',
         encoding='utf-8', newline='\n')
+    # cart_save.c's names: the SRAM file is datas/saves/<game>-<cartridge>.rrsram, checked against the exact cartridge.
+    stem = Path(executable_name(title)).stem if os.name == 'nt' else executable_name(title)
+    (work / 'retro16_state_config.h').write_text(f'#pragma once\n#define RR16_STATE_ROM "{cart.sha256}"\n'
+                                                 f'#define RR16_STATE_NAME {_c_string(stem)}\n', encoding='utf-8', newline='\n')
     return {'artwork': artwork, 'windows_metadata': metadata}

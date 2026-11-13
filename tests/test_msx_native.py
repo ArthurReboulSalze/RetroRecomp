@@ -181,6 +181,40 @@ class VectorTests(unittest.TestCase):
             self.assertEqual(module.m1_cycles(opcode, following), expected, (hex(opcode), hex(following)))
 
 
+class SramTests(unittest.TestCase):
+    """Gate G7: an ASCII cartridge's battery SRAM, found from the bank values the game writes, kept in a cart_save.c file."""
+
+    def test_the_bit_is_the_lowest_set_one_above_the_bank_number(self):
+        from retrorecomp.msx_rom import sram_bit
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x20), 5)          # Xanadu: 16 banks of 8 KiB, bit 5
+        self.assertEqual(sram_bit('ascii8', 0x100000, 0x80), 7)         # Royal Blood: bit 7
+        self.assertEqual(sram_bit('ascii16', 0x20000, 0x10), 4)         # Hydlide 2: 8 banks of 16 KiB, bit 4
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x30), 4)
+        self.assertIsNone(sram_bit('ascii8', 0x20000, 0))
+        self.assertIsNone(sram_bit('konami', 0x20000, 0x20))
+        self.assertIsNone(sram_bit('ascii8', 0x200000, 0x01))           # no bit at or above 256 banks
+
+    def test_the_runners_take_the_bit_and_the_state_binding_changes_with_it(self):
+        from types import SimpleNamespace
+        from retrorecomp.msx_conversion import cartridge_bank_high, state_binding
+        from retrorecomp.msx_rom import Guess
+        self.assertEqual(Guess('ascii8', sram=5).arguments(), ['--mapper', 'ascii8', '--sram-bit', '5'])
+        self.assertEqual(Guess('ascii8').arguments(), ['--mapper', 'ascii8'])
+        plain = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=None)
+        with_sram = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=5)
+        self.assertNotEqual(state_binding(b'b', plain, 'ntsc', 'msx1', 0), state_binding(b'b', with_sram, 'ntsc', 'msx1', 0))
+        entry = [1, 0, *range(8), 0, 0, 0, 15, 32, 12345, 0x20]
+        self.assertEqual(cartridge_bank_high({'blocks': [[0, 0, *range(8), 0, 0, 0, 15, 0, 0, 0], entry]}), 0x20)
+        self.assertEqual(cartridge_bank_high({'blocks': []}), 0)
+
+    def test_the_cartridge_writes_sram_only_in_page_2(self):
+        text = (ROOT / 'native/msx_machine/msx_cart.c').read_text(encoding='utf-8')
+        self.assertEqual(text.count('if (address >= 0x8000 && address < 0xC000 && d->block[address >> 13] == MSX_BLOCK_SRAM)'), 2)
+        player = (ROOT / 'native/msx_machine/msx_player.c').read_text(encoding='utf-8')
+        self.assertIn('atexit(sram_at_exit)', player)
+        self.assertIn('"--sram"', player)
+
+
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
 
