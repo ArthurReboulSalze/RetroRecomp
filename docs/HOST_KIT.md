@@ -403,6 +403,17 @@ X68000 too, without asking again**.
   1.3 KB of data; no image, no texture, no new file in a game's build). The five game languages are unchanged (no accents in
   games, as before).
 
+* <a id="d19"></a>**D19 — A stretched fullscreen mode on F4** (owner's decision of 13 November 2026, 1.7.4), on every machine.
+  F4 cycles window → pixel-perfect → fit → **stretched** → window: the stretched mode fills the whole screen and ignores the
+  picture's aspect (a 4:3 picture on a 16:9 screen is widened). It is a choice, never the default. The kit decides it before the
+  machine's own placement (`RrhkMachine.game_rect`: the Master System and Game Gear crops, the computers' aspect), so every
+  machine has it with no adapter change: what the machine shows of its picture is unchanged, only the rectangle it is drawn
+  into is the screen; a light gun's aim follows the same rectangle. `[<Console>.Video] display_mode` keeps its numbers (0 window,
+  1 pixel-perfect, 2 fit; 3 is the new mode; anything else is the window, as before), so a value saved by an earlier release
+  means the same mode. A machine that reads its former display key in `settings_loaded` and knows three modes (Master System,
+  Game Gear, Game Boy) keeps the stretched mode all the same: the kit reads its own key again after that hook. F4 now shows the
+  mode's name for 1.8 s (Windowed, Pixel perfect, Fit to screen, Stretched), as F3 names the filter.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in
@@ -471,7 +482,7 @@ name=                      ; the pinned controller's name, for display only (emp
 
 [<Console>.Video]
 filter=0                   ; 0..3
-display_mode=0             ; 0 window, 1 pixel/fullscreen integer, 2 fit
+display_mode=0             ; 0 window, 1 pixel/fullscreen integer, 2 fit, 3 stretched (D19, 1.7.4)
 reduce_sprite_flicker=0    ; only SMS/NES
 
 [<Console>.Pointer]

@@ -396,8 +396,8 @@ static const char *rr_option_filter_name(int filter) {
     return rr_tr(names[filter >= 0 && filter < 4 ? filter : 0]);
 }
 static const char *rr_option_mode_name(int mode) {
-    static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen"};
-    return rr_tr(names[mode >= 0 && mode < 3 ? mode : 0]);
+    static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen", "Stretched"};
+    return rr_tr(names[mode >= 0 && mode < 4 ? mode : 0]);
 }
 /* Rows of the options page: one menu line each, from the first line. */
 static int rr_pages_row_at(const SDL_Event *e, int count) {

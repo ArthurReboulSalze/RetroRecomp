@@ -18,7 +18,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F1 | Help; **Shift+F1** restarts at once, without confirmation |
 | F2 | Settings: a menu of tiles (1.7.4), one per page: each player's keyboard and gamepad, the gun or DIP page, the options. Enter opens a page, Esc comes back |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
-| F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
+| F4 | Window → pixel-perfect fullscreen → fit fullscreen → **stretched fullscreen** (1.7.4: the whole screen, the aspect ignored) → window; a short notice names the mode |
 | F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |

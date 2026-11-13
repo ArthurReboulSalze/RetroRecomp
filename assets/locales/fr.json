@@ -299,6 +299,8 @@
     "%s keyboard: only the gamepad plays": "Clavier %s : seule la manette joue",
     "Game controls on the keyboard": "Commandes de jeu au clavier",
     "Reset": "Reset",
-    "Start-up reminders: %s": "Rappels au démarrage : %s"
+    "Start-up reminders: %s": "Rappels au démarrage : %s",
+    "Stretched": "Étiré",
+    "F4  Window / Pixel / Fit / Stretched": "F4  Fenêtre / Pixels / Ajusté / Étiré"
   }
 }

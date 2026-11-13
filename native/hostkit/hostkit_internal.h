@@ -153,7 +153,8 @@ void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
 const char *rrhk_combo_hint(int index);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
-const char *rrhk_filter_name(int filter);   /* the translated name of a picture filter, as the options page shows it */
+const char *rrhk_filter_name(int filter);
+const char *rrhk_display_name(int mode);    /* "Windowed", "Pixel perfect", "Fit to screen", "Stretched" (translated) */   /* the translated name of a picture filter, as the options page shows it */
 int rrhk_option_scroll(void);               /* the first row the options page shows (0 up to fourteen rows; past them it scrolls) */
 int rrhk_option_selected(void);             /* the selected row of the options page */
 

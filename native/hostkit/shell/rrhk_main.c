@@ -431,13 +431,14 @@ bool rrhk_picture_limit(int *width, int *height) {
 /* F4 and the computers' own display shortcut. Window, then integer-scale fullscreen, then fit fullscreen, then the window
  * again at the position and size it had (divergence 8). Going from one fullscreen mode to the other keeps the window as it is. */
 void rrhk_cycle_display(void) {
-    int wanted = (rrhk.fullscreen + 1) % 3;
+    int wanted = (rrhk.fullscreen + 1) % RR_DISPLAY_MODES;      /* window, pixel-perfect, fit, stretched (1.7.4) */
     bool leaving_window = rrhk.fullscreen == 0, entering_window = wanted == 0;
     if (leaving_window) remember_window();
     if ((leaving_window || entering_window) &&
         SDL_SetWindowFullscreen(run.win, wanted ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) != 0) return;
     rrhk.fullscreen = wanted;
     if (entering_window) restore_window();
+    rrhk_notice(rrhk_display_name(wanted), 1800);       /* 1.7.4: the mode is named, as F3 names the filter */
     if (!rrhk_write_ready() || !rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"display_mode", wanted))
         snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
 }

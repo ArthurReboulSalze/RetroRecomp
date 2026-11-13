@@ -1049,6 +1049,8 @@
     "%s keyboard: only the gamepad plays": "%s キーボード：パッドのみ操作",
     "Game controls on the keyboard": "キーボードでゲーム操作",
     "Reset": "リセット",
-    "Start-up reminders: %s": "起動時のヒント：%s"
+    "Start-up reminders: %s": "起動時のヒント：%s",
+    "Stretched": "引き延ばし",
+    "F4  Window / Pixel / Fit / Stretched": "F4  ウィンドウ / ピクセル / フィット / 引き延ばし"
   }
 }

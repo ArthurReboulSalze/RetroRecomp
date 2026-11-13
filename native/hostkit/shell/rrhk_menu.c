@@ -341,7 +341,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
         lines[count++] = rr_tr("F2  Controls & options");
         lines[count++] = rr_tr(m->gfx_option_count > 0 ? "F3  Graphics options" : "F3  Next filter");
-        lines[count++] = rr_tr("F4  Window / Pixel / Fit");
+        lines[count++] = rr_tr("F4  Window / Pixel / Fit / Stretched");
         if (m->help_lines) m->help_lines(0, lines, &count);
         lines[count++] = fire;
         lines[count++] = rr_tr("F7  Next language");

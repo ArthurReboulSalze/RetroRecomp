@@ -20,6 +20,8 @@
  *   - discs: the Change disc key and pad button select the next disc with a "Disc 2/3" notice, a refused change, nothing in a
  *     menu;
  *   - with the fields left out: F3 cycles the filter, the left stick is the directions, no dead zone row, no rumble, no disc.
+ *   - F4 (1.7.4): window, pixel-perfect, fit, stretched (the whole output), kept and read back, even by a machine that clamps
+ *     its former value to three modes;
  *   - the F2 tiles (1.7.4): F2 opens them, Enter opens a page, Esc comes back to them and then to the game; "Quit?": Esc in play
  *     asks, the machine waits, Enter on No and Esc cancel, Yes ends the loop.
  * No ROM, no visible window, no sound device. Original RetroRecomp code: MIT. */
@@ -608,6 +610,7 @@ static void plain_script(void) {
         break;
     case 17:    /* Esc in play asks "Quit?": the machine waits, No is selected */
         CHECK(ui->menu == 0);
+        CHECK(ui->fullscreen == 0);
         key(SDL_SCANCODE_ESCAPE);
         break;
     case 18:
@@ -619,9 +622,46 @@ static void plain_script(void) {
         CHECK(ui->menu == 0 && frames <= frames_mark + 1);
         key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
         break;
-    case 20:    /* Esc on the question cancels it */
+    case 20:    /* Esc on the question cancels it; F4: pixel-perfect */
         CHECK(ui->menu == 0);
+        key(SDL_SCANCODE_F4);
+        break;
+    case 21:
+        CHECK(ui->fullscreen == 1 && ini(L"Test3D.Video", L"display_mode") == 1);
+        key(SDL_SCANCODE_F4);
+        break;
+    case 22:    /* fit */
+        CHECK(ui->fullscreen == 2 && ini(L"Test3D.Video", L"display_mode") == 2);
+        key(SDL_SCANCODE_F4);
+        break;
+    case 23: {  /* 1.7.4: stretched, named by the notice, the picture over the whole output, kept */
+        CHECK(ui->fullscreen == 3 && ini(L"Test3D.Video", L"display_mode") == 3);
+        CHECK(!strcmp(ui->status, "Stretched"));
+        int w = 0, h = 0;
+        SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
+        const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
+        CHECK(dst.x == 0 && dst.y == 0 && dst.w == w && dst.h == h && w > 0);
         key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);     /* Yes: the loop ends */
+        break;
+    }
+    default: break;
+    }
+}
+
+/* A machine that reads its former display mode in settings_loaded and knows three of them. */
+static void three_modes(RrhkUi *ui) { if (ui->fullscreen < 0 || ui->fullscreen > 2) ui->fullscreen = 0; }
+static void stretched_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0:
+        CHECK(ui->fullscreen == 3);
+        key(SDL_SCANCODE_F4);
+        break;
+    case 1:
+        CHECK(ui->fullscreen == 0 && ini(L"Test3D.Video", L"display_mode") == 0 && !strcmp(ui->status, "Windowed"));
+        break;
+    case 2:
+        stop = true;
         break;
     default: break;
     }
@@ -729,7 +769,13 @@ int main(int argc, char **argv) {
     scale = 1; draw_picture(); disc_calls = 0; rumble_calls = 0;
     begin(plain_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
-    CHECK(step >= 21);       /* the last step answered Yes to "Quit?" */
+    CHECK(step >= 24);       /* the last step answered Yes to "Quit?" */
+    /* 5. 1.7.4: the stretched mode is read back at the next start, even by a machine that reads its former preferences and knows
+     * three modes (Master System, Game Gear, Game Boy clamp what they read); F4 then goes back to the window. */
+    plain.settings_loaded = three_modes;
+    begin(stretched_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 3);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

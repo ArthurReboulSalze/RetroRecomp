@@ -203,6 +203,7 @@ void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_comb
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
 const char *rrhk_combo_hint(int index) { return rr_combo_hint(index); }
 const char *rrhk_filter_name(int filter) { return rr_option_filter_name(filter); }
+const char *rrhk_display_name(int mode) { return rr_option_mode_name(mode); }
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title) {
     rr_menu_page_header(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, title, rrhk_pages_index(), rrhk_pages_count());
 }

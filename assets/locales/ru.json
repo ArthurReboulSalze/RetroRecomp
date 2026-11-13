@@ -1049,6 +1049,8 @@
     "%s keyboard: only the gamepad plays": "Клавиатура %s: играет только геймпад",
     "Game controls on the keyboard": "Игровое управление на клавиатуре",
     "Reset": "Сброс",
-    "Start-up reminders: %s": "Подсказки при запуске: %s"
+    "Start-up reminders: %s": "Подсказки при запуске: %s",
+    "Stretched": "Растянуто",
+    "F4  Window / Pixel / Fit / Stretched": "F4  Окно / Пиксели / Вписать / Растянуть"
   }
 }

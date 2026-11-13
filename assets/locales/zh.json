@@ -1049,6 +1049,8 @@
     "%s keyboard: only the gamepad plays": "%s 键盘：仅手柄可玩",
     "Game controls on the keyboard": "键盘用于游戏控制",
     "Reset": "重置",
-    "Start-up reminders: %s": "启动提示：%s"
+    "Start-up reminders: %s": "启动提示：%s",
+    "Stretched": "全屏填充",
+    "F4  Window / Pixel / Fit / Stretched": "F4  窗口 / 像素 / 适应 / 全屏填充"
   }
 }
