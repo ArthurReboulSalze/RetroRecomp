@@ -17,8 +17,11 @@
 // the visible lines passed in one loop and on vAmiga's pass. `--state SAVE LOAD` takes a quick state at the end of frame SAVE and
 // loads it back at the end of frame LOAD, as the session does (Agnus::rrBeforeSave before, rrAfterLoad after); the frames from LOAD on
 // replay from SAVE's end. `--state-fault 1` leaves out the run of the held-back disk events before a snapshot and before each frame's
-// record, `--state-fault 2` the clearing after the load: the comparison must see either. The records show that two runs agree with
-// each other, not that either matches the hardware.
+// record, `--state-fault 2` the clearing after the load: the comparison must see either. `--state-step N` takes the state at the
+// start of instruction N instead (inside a frame, as when one instruction runs past line 0 before the session's state), and
+// `--state-probe` names the first instruction of frame SAVE that starts while a batched line still has bitplane slots to run;
+// `--state-fault 3` leaves those slots out of the snapshot (Agnus::rrSaveFault), which the comparison must see. The records show
+// that two runs agree with each other, not that either matches the hardware.
 //
 // Built with RR_AMIGA_SHADOW (the self-test always does), stage 7's bus model runs in shadow (amiga_bus.h): each frame's record also
 // holds a hash of every line's bus owners, the summary line carries the model's comparison with vAmiga (`bus`, `bus_mismatches`),
@@ -61,6 +64,11 @@ struct RrDisplayChecks {
     const char *dump_path = nullptr;
     uint64_t state_save = ~0ull, state_load = ~0ull;
     int state_fault = 0;                         // 1: no run of the held-back disk events before a snapshot, 2: no clearing after a load
+    uint64_t state_step = ~0ull;                 // --state-step: the state is taken at the start of this instruction
+    bool state_probe = false;                    // --state-probe: name the first instruction of frame SAVE inside a batched line
+    uint64_t lazy_step = ~0ull;
+    uint64_t lazy_saved = 0;                     // states taken while a batched line had slots left
+    uint32_t frame_now = 0;
     std::unique_ptr<Snapshot> snap;
 
     static inline RrDisplayChecks *self = nullptr;
@@ -88,6 +96,14 @@ struct RrDisplayChecks {
         if (index == c.fault_at) {
             if (c.fault_kind == 1) c.amiga->mem.chip[c.fault_address % (uint32_t)c.amiga->mem.chipRamSize()] ^= 0x10;
             if (c.fault_kind == 2) agnus.execute();
+        }
+        if (c.state_probe && c.lazy_step == ~0ull && c.frame_now == c.state_save && agnus.rrLazy) c.lazy_step = index;
+        if (index == c.state_step && !c.snap) {
+            // A quick state inside a frame, as the session takes one (rrBeforeSave first); the instruction runs after it, and again
+            // from the start once the state is loaded.
+            c.lazy_saved += agnus.rrLazy;
+            if (c.state_fault != 1) agnus.rrBeforeSave();
+            c.snap = c.amiga->takeSnapshot(utl::Compressor::NONE);
         }
         return false;                            // the instruction runs on Moira, as without the hook
     }
@@ -120,7 +136,7 @@ static uint32_t le32(const std::vector<uint8_t> &b, size_t at) {
 int main(int argc, char **argv) {
     using namespace vamiga;
     if (argc < 3) {
-        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot] [--state SAVE LOAD [--state-fault 1|2]]\n");
+        fprintf(stderr, "usage: amiga_display_checks SCENARIO RECORD [--fault ram|clock INDEX] [--trace FROM COUNT] [--per-slot] [--state SAVE LOAD [--state-fault 1|2|3] [--state-step N] [--state-probe]]\n");
         return 2;
     }
     static RrDisplayChecks c;
@@ -144,7 +160,13 @@ int main(int argc, char **argv) {
             i += 2;
         } else if (!strcmp(argv[i], "--state-fault") && i + 1 < argc) {
             c.state_fault = atoi(argv[i + 1]);
+            if (c.state_fault == 3) Agnus::rrSaveFault = 1;
             i += 1;
+        } else if (!strcmp(argv[i], "--state-step") && i + 1 < argc) {
+            c.state_step = strtoull(argv[i + 1], nullptr, 10);
+            i += 1;
+        } else if (!strcmp(argv[i], "--state-probe")) {
+            c.state_probe = true;
         } else if (!strcmp(argv[i], "--per-slot")) {
             Agnus::rrBplBatching = false;
             Denise::rrQuiet = false;
@@ -231,6 +253,7 @@ int main(int argc, char **argv) {
         fwrite(head, 4, 3, record);
         std::vector<float> sound;
         for (uint32_t frame = 0; frame < frames; frame++) {
+            c.frame_now = frame;
             amiga.computeFrame();
             Message m; std::exception_ptr e;
             while (amiga.msgQueue.get(m, e)) {}
@@ -240,7 +263,7 @@ int main(int argc, char **argv) {
                 if (c.state_fault != 2) amiga.agnus.rrAfterLoad();
             }
             if (c.state_fault != 1) amiga.agnus.rrBeforeSave();
-            if (frame == c.state_save) c.snap = amiga.takeSnapshot(utl::Compressor::NONE);
+            if (frame == c.state_save && c.state_step == ~0ull) c.snap = amiga.takeSnapshot(utl::Compressor::NONE);
             auto &stream = amiga.audioPort.stream;
             const isize count = stream.count();
             sound.assign((size_t)count * 2, 0.0f);
@@ -295,6 +318,8 @@ int main(int argc, char **argv) {
         printf(",\"disk\":[%llu,%llu,%llu,%llu],\"sprite_slots_left_out\":%llu", (unsigned long long)disk[0], (unsigned long long)disk[1],
                (unsigned long long)disk[2], (unsigned long long)disk[3], (unsigned long long)agnus.rrSprSkipped);
         printf(",\"cells_refused\":%llu", (unsigned long long)PixelEngine::rrCellsRefused);
+        if (c.state_probe) printf(",\"lazy_step\":%lld", c.lazy_step == ~0ull ? -1LL : (long long)c.lazy_step);
+        if (c.state_step != ~0ull) printf(",\"lazy_saved\":%llu", (unsigned long long)c.lazy_saved);
 #ifdef RR_AMIGA_SHADOW
         {
             static char bus[8192];

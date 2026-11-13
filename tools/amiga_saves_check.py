@@ -3,7 +3,10 @@
     python tools/amiga_saves_check.py <install.lha> --output .build/saves-<name> [--frames 6000] [--kickstart FOLDER]
 
 Evidence for gate G7 (saves) of docs/QUALIFICATION.md; a developer tool, never part of a conversion. The game must write a file on the
-standard exploration route by itself (5th Gear saves its high scores); nothing is forced. The steps, all in --output (the conversion library
+standard exploration route by itself (5th Gear saves its high scores), or on the route given with --events (a file of the routes'
+"begin end kind code value" lines: the inputs a player gives to make the game save, e.g. Panza Kick Boxing's OPTIONS, save, MAINTENANT);
+nothing is forced. With --events, the runs that read the kept file play the same route for --read-frames frames (stop it before the
+route's own save). The steps, all in --output (the conversion library
 too: RETRO_RECOMP_LIBRARY_DIR is set below it, a different one for each conversion):
 
   1. convert the game, copy its player to a play folder and run it headless with the exploration route: a file must appear under
@@ -46,6 +49,18 @@ def run_player(player, frames, *extra, allow_stop=False):
     return done.returncode
 
 
+def refused_save_handled(save_calls, stopped_there, message, kept_name, ran_to_the_end, temporaries, still_a_folder):
+    """Step 4b's verdict. A slave that stops at the refused save (WHDLoad's NoError) must stop on a refused call that names the kept file;
+    a game may have saved other files before it (Panza Kick Boxing writes boxer.00i, then boxer.00A). A slave that goes on must have had
+    no successful save at all. In both cases no temporary file stays and the folder where the file goes is untouched."""
+    if not save_calls or temporaries or not still_a_folder:
+        return False
+    if stopped_there:
+        named = message.rsplit('(', 1)[-1].rstrip(')').rsplit('/', 1)[-1]        # "... DOS error 221 (b/boxer.00A)": the file's own name
+        return save_calls[-1] == 'abort' and named.lower() == kept_name.lower()
+    return ran_to_the_end and 'ok' not in save_calls
+
+
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -75,6 +90,8 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--frames', type=int, default=6000)
     parser.add_argument('--kickstart', default=None)
+    parser.add_argument('--events', type=Path, default=None, help='a route that makes the game save, instead of the exploration route')
+    parser.add_argument('--read-frames', type=int, default=1500, help='frames of the runs that read the kept file')
     options = parser.parse_args(argv)
     from retrorecomp import amiga_whdload
     from retrorecomp.amiga_conversion import convert, explore_route, write_events
@@ -82,7 +99,12 @@ def main(argv=None):
     shutil.rmtree(output, ignore_errors=True)
     output.mkdir(parents=True)
     key_exit = amiga_whdload.install(options.lha.read_bytes()).slave.key_exit
-    events = write_events(output / 'inputs.txt', explore_route(options.frames, key_exit))
+    if options.events:
+        events = output / 'inputs.txt'
+        events.write_bytes(options.events.read_bytes())
+    else:
+        events = write_events(output / 'inputs.txt', explore_route(options.frames, key_exit))
+    reading = ('--input-events', events) if options.events else ()
     play = output / 'play'
     play.mkdir()
     name = 'Game.exe' if os.name == 'nt' else 'Game'
@@ -113,16 +135,16 @@ def main(argv=None):
     # 2. The fresh process reads it: the machine differs with and without the file. A game that saves what its install already holds
     #    (a high-score table nobody beat on this route: 5th Gear) writes a file the machine cannot tell from the install's own, so the
     #    kept file is then shown through a copy with one byte changed, the first that makes the machine differ; the result says so.
-    run_player(player, 1500, '--trace', output / 'with.tsv')
+    run_player(player, options.read_frames, '--trace', output / 'with.tsv', *reading)
     result['kept_at_relaunch'] = sha(kept) == written
     aside = output / 'aside.bin'
     shutil.move(kept, aside)
-    run_player(player, 1500, '--trace', output / 'without.tsv')
+    run_player(player, options.read_frames, '--trace', output / 'without.tsv', *reading)
     for extra in saved_files(saves):
         extra.unlink()
     base = ram_column(output / 'without.tsv')
     data = aside.read_bytes()
-    default = install_file(options.lha, kept.name)
+    default = install_file(options.lha, kept.relative_to(saves).as_posix())
     result['saved_equals_install_file'] = default == data
     variants = [(None, data)]
     if default == data:
@@ -131,7 +153,7 @@ def main(argv=None):
     for at, content in variants:
         kept.parent.mkdir(parents=True, exist_ok=True)
         kept.write_bytes(content)
-        run_player(player, 1500, '--trace', output / 'with.tsv')
+        run_player(player, options.read_frames, '--trace', output / 'with.tsv', *reading)
         kept.unlink()
         differ = [a != b for a, b in zip(ram_column(output / 'with.tsv'), base)]
         if any(differ):
@@ -154,35 +176,39 @@ def main(argv=None):
     # 4. Damaged saves never block the game.
     data = aside.read_bytes()
     damage = {}
+    damaged_frames = options.read_frames if options.events else 600
     for label, change in (('cut to half', lambda: kept.write_bytes(data[:len(data) // 2])), ('empty', lambda: kept.write_bytes(b'')),
                           ('a folder in its place', lambda: (kept.unlink(), kept.mkdir()))):
         change()
-        status = run_player(player, 600, '--report', output / 'damaged.json', allow_stop=True)
+        # With a route, the damaged file is offered where the game reads it (the route up to --read-frames); else 600 frames from the start.
+        status = run_player(player, damaged_frames, '--report', output / 'damaged.json', *reading, allow_stop=True)
         report = json.loads((output / 'damaged.json').read_text(encoding='utf-8'))
         damage[label] = {'status': status, 'frames': report['frames'], 'error': report['error'][:120]}
         if kept.is_dir():
             kept.rmdir()
         shutil.copy2(aside, kept)
     result['damaged_saves'] = damage
-    result['damaged_saves_ran'] = all(entry['frames'] == 600 for entry in damage.values())
+    result['damaged_saves_ran'] = all(entry['frames'] == damaged_frames for entry in damage.values())
 
     # 4b. A disk that refuses the save: a folder where the file goes, so the replacing rename fails. The game saves on the same route as
     #     in step 1 and is told it failed (DOS error 221). A slave that sets WHDLoad's NoError flag expects no error back, so the run
     #     stops there with the message, as WHDLoad does; any other slave gets the error and may go on. Either way the save must have been
-    #     refused (no successful SaveFile), no temporary file may stay behind and the folder is not touched.
+    #     refused, no temporary file may stay behind and the folder is not touched (refused_save_handled).
     kept.unlink()
     kept.mkdir()
     refused_log = output / 'refused-resload.log'
     status = run_player(player, options.frames, '--input-events', events, '--report', output / 'refused.json', '--resload-log', refused_log,
                         allow_stop=True)
     report = json.loads((output / 'refused.json').read_text(encoding='utf-8'))
-    save_calls = [line.split()[2] for line in refused_log.read_text(encoding='ascii').splitlines()[1:] if line.split()[1:2] == ['0C']]
-    stopped_there = bool(report.get('stopped')) and report.get('error', '').startswith('SaveFile failed with DOS error 221')
+    # SaveFile (0C) or SaveFileOffset (38): an install with WHDLoad's OS emulation writes through the second.
+    save_calls = [line.split()[2] for line in refused_log.read_text(encoding='ascii').splitlines()[1:] if line.split()[1:2] in (['0C'], ['38'])]
+    stopped_there = bool(report.get('stopped')) and report.get('error', '').startswith(('SaveFile failed with DOS error 221',
+                                                                                       'SaveFileOffset failed with DOS error 221'))
     result['refused_save'] = {'frames': report['frames'], 'status': status, 'save_calls': dict(Counter(save_calls)),
                               'game_stopped_at_the_save': stopped_there, 'message': report.get('error', '')[:80],
                               'temporaries_left': [p.name for p in saves.rglob('*.tmp')], 'still_a_folder': kept.is_dir()}
-    result['refused_save_handled'] = (bool(save_calls) and 'ok' not in save_calls and (stopped_there or report['frames'] == options.frames) and
-                                      not result['refused_save']['temporaries_left'] and kept.is_dir())
+    result['refused_save_handled'] = refused_save_handled(save_calls, stopped_there, report.get('error', ''), kept.name,
+                                                          report['frames'] == options.frames, result['refused_save']['temporaries_left'], kept.is_dir())
     shutil.rmtree(kept, ignore_errors=True)
     shutil.copy2(aside, kept)
 

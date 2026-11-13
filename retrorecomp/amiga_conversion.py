@@ -26,7 +26,7 @@ import time
 
 from . import __version__, timings
 from .conversion_common import check_exit, resolve_scan_level, spawn
-from .conversion_gates import continuation_difference, require, require_same_file
+from .conversion_gates import check_quick_states, continuation_difference, require, require_same_file
 from .core import ConversionError, executable_name, run, toolchain
 from .delivery_evidence import FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields, require_moving_picture, same_trace
 from .library import atomic_json, entry_lock, file_sha256, library_root
@@ -90,22 +90,54 @@ def main_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int
     return sorted(events)
 
 
-# Installs whose main route must first answer a screen no generic script passes, by the install's SHA-256 (numbers about an install,
-# never its bytes): the frames the route needs at least, the answer, and the frame from which the generic main route follows it.
+# Installs whose routes must first answer a screen no generic script passes, by the install's SHA-256 (numbers about an install,
+# never its bytes): the frames a route needs at least, the answer, the frame from which the generic route follows it, and the
+# kinds of event the generic route must leave out (`drop`). Every route of such an install starts with the answer. The answer is
+# the input the game's owner would give; a protection is never patched or skipped.
 # Monkey Island 2 (its "lame-o" copy protection takes any recipe digits, then a box clicked with the mouse; Arthur, 12 Nov).
+# Another World (FR) (its code wheel, answered with the joystick: three submissions; the lead, 13 Nov). Its slave maps the left
+# button, C and port 1's second button to the access-code screen, which ends the game's threads before the protection has passed,
+# so its generic routes leave the mouse out.
+# Lemmings (Image) (its menu: after the intro, the pointer moved onto "1 PLAYER" and clicked, then the level's briefing clicked).
 ROUTE_ANSWERS = {
     'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596': {
         'frames': 7000, 'then': 3100,
         'events': ([(1900, 1906, 'key', 0x44, 1)] + [(2200 + 50 * n, 2206 + 50 * n, 'key', code, 1) for n, code in enumerate((1, 2, 3, 4))]
                    + [(2450, 2456, 'key', 0x44, 1), (2800, 2814, 'mouse', 0, 3), (2850, 2872, 'mouse', 1, 6), (3000, 3006, 'mouse', 2, 1)])},
+    '87f9ecbba2c2ef98bb9cc806f58e60c3f4be0f99f218d356079c8369df7caf9b': {
+        'frames': 7000, 'then': 1500, 'drop': ('mouse',),
+        'events': [(begin + f, begin + f + 8, 'joy', bit, 1) for begin in (500, 900, 1300)
+                   for f, bit in ((0, 4), (20, 4), (40, 4), (60, 4), (100, 3), (130, 3), (160, 3), (200, 4))]},
+    '37b8afa13b085e804015599e9f67833a9dbdcdbead90438f9a46a2a6aeda21c5': {
+        'frames': 7200, 'then': 4800,
+        'events': [(3600, 3614, 'mouse', 0, 3), (3600, 3627, 'mouse', 1, 6), (3660, 3666, 'mouse', 2, 1), (4200, 4212, 'mouse', 2, 1),
+                   (4500, 4512, 'mouse', 2, 1)]},
 }
 
 
-def answered_route(answer: dict, frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
-    """The main route of an install that must answer a screen first: the answer, then the generic main route from `then` on."""
+# What the routes of an install are known to stop on before play, by the install's SHA-256: words about a game, never its bytes, read on the
+# captures of a panel and carried into the report's `route_warnings` (gate G9 names each panel game whose routes do not reach play, with
+# its reason). It changes nothing a conversion does: no route is chosen from it.
+ROUTE_STOPS = {
+    'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596':
+        "Monkey Island 2: the routes answer its protection and then play its opening (the LucasArts logo, the credits, Scabb Island, the campfire story); "
+        "the 18,000-frame route ends in that story, before the first scene the player controls (Escape, which skips a scene, is not among the route's keys)",
+}
+
+
+def route_stops(identity: str) -> list[str]:
+    """The known stop of an install, as the words `route_warnings` carries: [] for an install that is not in the table."""
+    note = ROUTE_STOPS.get(identity)
+    return [f'known stop (panel of 13 November 2026): {note}'] if note else []
+
+
+def answered_route(answer: dict, frames: int, key_exit: int, generic=None) -> list[tuple[int, int, str, int, int]]:
+    """A route of an install that must answer a screen first: the answer, then a generic route (`generic(frames)`, the main route by
+    default) from `then` on, without the kinds of event the answer drops."""
     then = answer['then']
+    follow = generic(frames - then) if generic else main_route(frames - then, key_exit)
     return sorted(list(answer['events']) + [(begin + then, end + then, kind, code, value)
-                                            for begin, end, kind, code, value in main_route(frames - then, key_exit)])
+                                            for begin, end, kind, code, value in follow if kind not in answer.get('drop', ())])
 
 
 def explore_route(frames: int, key_exit: int) -> list[tuple[int, int, str, int, int]]:
@@ -135,10 +167,29 @@ def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tu
     return long_events(f'amiga-long:{identity}:{index}', frames, tuple(key for key in LONG_ROUTE_KEYS if key != key_exit))
 
 
+def route_events(identity: str, name: str, frames: int, key_exit: int, answered: bool = True) -> list[tuple[int, int, str, int, int]]:
+    """The input script of route `name` ('main', 'explore' or 'long-N') of the exact install, `frames` long, as the conversion plays it: an
+    answered install (ROUTE_ANSWERS) starts every route with its answer, unless `answered` is false (a qualification script replaces the main
+    route). One place for the conversion and the tools that replay its routes."""
+    answer = ROUTE_ANSWERS.get(identity) if answered else None
+    if name == 'main':
+        generic = None
+    elif name == 'explore':
+        generic = (lambda n: explore_route(n, key_exit))
+    elif name.startswith('long-'):
+        generic = (lambda n, index=int(name.split('-')[1]) - 1: long_route(identity, index, n, key_exit))
+    else:
+        raise ValueError(f'unknown Amiga route {name!r}')
+    if answer:
+        return answered_route(answer, frames, key_exit, generic)
+    return generic(frames) if generic else main_route(frames, key_exit)
+
+
 def write_events(path: Path, events) -> Path:
     if len(events) > 4096:
         raise ConversionError('Too many Amiga route events.')
-    path.write_text(''.join(f'{b} {e} {kind} {code} {value}\n' for b, e, kind, code, value in events), encoding='ascii')
+    # Bytes, not text: the same LF file on every system, so a route's script_sha256 compares across systems (G13).
+    path.write_bytes(''.join(f'{b} {e} {kind} {code} {value}\n' for b, e, kind, code, value in events).encode('ascii'))
     return path
 
 
@@ -459,19 +510,34 @@ def trace_digests(path: Path) -> dict:
 # samples, the filters' memory, the sub-sample fraction, the volume ramps); the adapted core saves and restores exactly those, so the
 # samples after a load equal an unbroken run's. The tuple stays for a column a later machine may have to exempt.
 CONTINUATION_IGNORED = ()
+# The quick state (G6): saved this many frames before the main route's end, continued by a fresh process to that end.
+STATE_SETTLE = 600
+# native/amiga_machine/amiga_session.cpp, StateHead: magic 16, ABI 72, the install's identity 72, frame 8, inputs 12, the
+# snapshot's and the sound's sizes 8, reserved 4, checksum 8.
+STATE_HEADER = 200
+STATE_OFFSETS = {'magic': 0, 'abi': 16, 'identity': 88, 'frame': 160, 'joystick': 168, 'snapshot-size': 180, 'audio-size': 184,
+                 'checksum': 192}
 
 
-def continues(timeline: Path, resumed: Path) -> bool:
-    """A fresh process that loaded the state continues the timeline: its rows (frame numbers included, they are the machine's)
-    equal the timeline's rows of the same frames, on every column but CONTINUATION_IGNORED."""
-    def rows(path):
-        lines = Path(path).read_text(encoding='ascii').splitlines()
-        header = lines[0].split('\t')
-        keep = [i for i, name in enumerate(header) if name not in CONTINUATION_IGNORED]
-        return [tuple(line.split('\t')[i] for i in keep) for line in lines[1:]]
-    later = rows(resumed)
-    earlier = {row[0]: row for row in rows(timeline)}
-    return bool(later) and all(earlier.get(row[0]) == row for row in later)
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of an Amiga quick state, by what is wrong with them: the game must refuse every one (exit 4) and leave it as it
+    was (conversion_gates.check_quick_states). A changed byte anywhere is caught by the checksum, a cut or a longer file by the sizes."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:STATE_HEADER // 2], 'one-byte-short': state[:-1], 'one-byte-longer': state + b'\0',
+            'body-cut': state[:len(state) // 2], **{label: flipped(offset) for label, offset in STATE_OFFSETS.items()},
+            'resload': flipped(STATE_HEADER), 'payload': flipped(len(state) // 2), 'last-byte': flipped(len(state) - 1),
+            'not-a-state': b'not a state.' * 4096}
+
+
+def trace_table(path: Path) -> list[tuple]:
+    """A route's trace rows (frame numbers included, they are the machine's) on every column but CONTINUATION_IGNORED."""
+    lines = Path(path).read_text(encoding='ascii').splitlines()
+    header = lines[0].split('\t')
+    keep = [i for i, name in enumerate(header) if name not in CONTINUATION_IGNORED]
+    return [tuple(line.split('\t')[i] for i in keep) for line in lines[1:]]
 
 
 def game_entry(source, kick=None) -> Path:
@@ -595,16 +661,17 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         slave: amiga_whdload.Slave = extracted['install'].slave
         count = max(1000, min(int(frames or 3000), 36000))
         answer = ROUTE_ANSWERS.get(source.sha256) if qualification_events is None else None
-        if answer:
-            main_frames = max(count, answer['frames'])
-            routes = [('main', main_frames, answered_route(answer, main_frames, slave.key_exit))]
+        short = max(count, answer['frames']) if answer else count
+        if qualification_events is None:
+            routes = [('main', short, route_events(source.sha256, 'main', short, slave.key_exit))]
         else:
-            routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
+            routes = [('main', count, list(qualification_events))]
         if level != 'quick':
-            routes.append(('explore', count, explore_route(count, slave.key_exit)))
+            routes.append(('explore', short, route_events(source.sha256, 'explore', short, slave.key_exit, answer is not None)))
         from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
         for index in range(LONG_ROUTES.get(level, 0)):
-            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES, long_route(source.sha256, index, LONG_ROUTE_FRAMES, slave.key_exit)))
+            name = f'long-{index + 1}'
+            routes.append((name, LONG_ROUTE_FRAMES, route_events(source.sha256, name, LONG_ROUTE_FRAMES, slave.key_exit, answer is not None)))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {", ".join(str(f) for _, f, _ in routes)} frames, interpreted 68000).')
         expected = {}
@@ -701,7 +768,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference.
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Amiga', emit)
-        state_frame = ended.get('main', routes[0][1]) - 600
+        state_frame = ended.get('main', routes[0][1]) - STATE_SETTLE
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
                         ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
                        for name, frames_, _ in routes]
@@ -723,16 +790,26 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                          nonblack_frames=result['nonblack_frames'], audible_frames=result['audible_frames'])
                     for (name, folder, _, _, _), result in zip(packed_runs, packed_results)]
         require_moving_picture(liveness[0], lambda: ConversionError('Amiga main route: the picture never changed.'))
-        # The quick state, loaded by a genuinely fresh process of the delivered file, continues the saved timeline.
+        # The quick state, loaded by a genuinely fresh process of the delivered file, continues the saved timeline to the route's end;
+        # every damaged copy is refused and left as it was, and a missing one is refused and creates nothing (conversion_gates).
         restart = checks / 'restart'
         restart.mkdir()
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
+        saved = checks / 'packed' / 'main' / 'quick.rrstate'
+        timeline = trace_table(checks / 'packed' / 'main' / 'trace.tsv')
+
+        def continued():
+            replay(fresh, restart, STATE_SETTLE, scripts['main'], extra=['--state-load-start', '--state-slot', saved], game_may_quit='main' in ended)
+            return timeline, trace_table(restart / 'trace.tsv')
+
+        def refused(path: Path) -> bool:
+            return spawn([str(fresh), '--headless', '--frames', '1', '--state-load-start', '--state-slot', str(path)],
+                         cwd=restart, timeout=120, capture_output=True).returncode == 4
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'],
-                   game_may_quit='main' in ended)
-        require(continues(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv'),
-                lambda: ConversionError('Amiga: the quick state does not continue its saved timeline.'))
+            state_check = check_quick_states(restart, saved, machine='Amiga', route='main', at=state_frame + 1 - int(timeline[0][0]),
+                                             settle=STATE_SETTLE, continued=continued, refused=refused, damaged=damaged_states,
+                                             error=ConversionError)
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
             native = results[name]['native']
@@ -809,15 +886,18 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                 {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated',
                  'details': {'by': 'vAmiga', 'disk': ("an idle disk controller's events are caught up in one batch, at the last one's instant or earlier when something "
                                                       "could see the controller (its registers, the CIA-B drive select and motor): the same work (final_checks.agnus_denise)")}}],
-            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
+            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'route_warnings': route_stops(source.sha256), 'scan_level': level,
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
-                              'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
+                              'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                                                                   'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
                                                                    'generator': 'computer_routes.long_events'} for name, frames_, events in routes if name.startswith('long-')]},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
-                            'schema': 'RRAMIGA-STATE-2', 'machine': 'amiga500', 'rom_identity': source.sha256,
+                            'schema': 'RRAMIGA-STATE-3', 'machine': 'amiga500', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
-                                           'continuation_frames': 400, 'continuation_matches': True,
+                                           'continuation_frames': STATE_SETTLE, 'continuation_matches': True,
+                                           **{key: state_check[key] for key in ('fresh_process_match', 'truncated_state_rejected',
+                                                                                 'damaged_states_refused', 'missing_state_creates_nothing', 'state_bytes')},
                                            'compared': 'CPU registers, RAM, picture and sound samples of every frame'}},
             'ordinary_saves': {'supported': True, 'scope': 'files the install writes through resload_SaveFile, kept beside the game',
                                'path': 'datas/games/amiga-' + source.sha256 + '/saves',

@@ -86,7 +86,23 @@
   ScummVM's own menus. The cost per frame of the plates and of an open menu is not measured; once
   the plates are gone and no menu is open, nothing more is drawn.
 - **The converter window on Linux:** a context menu now closes when you click elsewhere.
-- [AMIGA: pending branch]
+- **Commodore Amiga (experimental), now at 90 % of the qualification list.**
+  - **Quick states carry a checksum and the install's identity.** A damaged state, or one of
+    another build or install, is refused and left as it was; loading a missing one creates nothing.
+    **States saved with 1.7.3 are refused** (another build), as between any two Amiga builds.
+  - **Games that save keep their files beside the game.** Panza Kick Boxing saves its boxers when
+    you choose OPTIONS, the save row, then MAINTENANT; its default, SI PROGRES, saves only after
+    progress. The files survive a restart and a new conversion, and a damaged one never stops the game.
+  - **Monkey Island 2 and Another World answer their protection** on the conversion's routes, as you
+    would: the recipe digits for one, the code wheel with the joystick for the other. Lemmings' routes
+    click 1 PLAYER. Nothing is patched or skipped. Monkey Island 2's long route still ends in its
+    opening, and its report says so.
+  - **Proof:** a panel of eight installs and Panza, converted one at a time from an empty library on
+    Windows: on every route the native game and its compressed copy equal the fresh interpreted
+    reference, frame by frame, and no instruction outside your Kickstart is interpreted. Quick states
+    continue for 600 frames in a fresh process and 17 damaged ones are refused. On a Debian 13 PC, the
+    installs run there give the same trace on every route as on Windows. The reference is the
+    machine's own interpreter, not the chips.
 - **Game Boy Advance (experimental), 47 % to 69 % of its checklist.** A conversion now runs the player it
   built on both scenarios, then the compressed copy it delivers, and publishes only if the last picture
   and every frame's picture and sound hash are equal; the report counts the frames that carried a sound

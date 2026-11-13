@@ -371,6 +371,78 @@ machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](G
 CPS-1, the CPS-2, the PlayStation and the X68000 hash none of the files that changed (the X68000's host stamp moves, its key does not), so their states of 1.7.2 load in the rebuilt export; the Master System, Game Gear and Game Boy have no such key. A quick state of
 the Game Boy Advance is the engine's own container (magic, version, the ROM's SHA-1), with no key of ours; its section says a state of a game converted before may be refused. The MSX and MSX2 keys are new. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
 
+## Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report (1.7.4)
+
+**What changes.** The input script of each route (`inputs-<route>.txt`) is written as LF bytes on every system. It used to be
+written in text mode, so Windows wrote CRLF. The player reads both the same way, but `final_checks[].script_sha256` of the same
+route differed between Windows and Linux. The Lotus 2 witness of 12 Nov showed it: every hash of both routes was equal, and only
+these two digests differed. The long routes of `advanced_scan.long_routes` (so `scan.routes` of the common report) now also carry
+their `script_sha256`.
+
+**Hot path:** no. Conversion time and the report only. The events, and so the inputs a game receives, are the same.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. On Windows, the `script_sha256` of every route
+changes once, to the LF file's digest, which is the one Linux already wrote.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer (1.7.4)
+
+**What changes.**
+- **Another World (FR).** Its routes answer the code wheel with the joystick: three submissions at frames 500, 900 and 1300. The
+  generic route follows from frame 1500, without mouse events, because the slave maps the left button to the access-code screen,
+  which locks a game whose protection has not passed. Headless on the delivered exe, the protection passes and the intro plays to
+  the laboratory (5,217 audible frames of 7,000; before, 43).
+- **Lemmings (Image).** After its intro, the pointer moves onto "1 PLAYER" and clicks, then the level's briefing is clicked. The
+  generic route follows from frame 4800. Headless, level 1 is played from about frame 4,500 on.
+- **Every route of an install in `ROUTE_ANSWERS`** now starts with the answer: main as before, and now also the exploration route
+  (at least the answer's frames) and the long routes. Monkey Island 2's exploration and long routes change with it.
+- Both are the inputs the game's owner would give (the lead, 13 Nov: Monkey Island 2's answer of 1.7.3 is the precedent; a
+  protection is never patched or skipped). A route is a scripted input, not gameplay validation.
+- **One writer of the routes.** `amiga_conversion.route_events` writes every route, answered or not, for the conversion and for
+  `tools/amiga_route_captures.py`. Before, that tool rewrote the routes without the answer, so its pictures of an answered install were
+  not of the route the conversion played. It now refuses a route whose rewritten script does not have the report's `script_sha256`.
+  The 27 routes of the final panel (13 November, nine installs) give their recorded digests again: the conversion's scripts are unchanged.
+- **Known stops in the report.** An install whose routes are known to stop before play is named with its reason in the report's
+  `route_warnings` (read into `honesty.route_warnings`), from `amiga_conversion.ROUTE_STOPS`, as the Atari ST does: Monkey Island 2's
+  routes end in its opening. Words about a game, never its bytes; no route is chosen from them.
+
+**Hot path:** no. Conversion time only: these three installs run their answer on every route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes, the observed code and the native
+counts of Another World, Lemmings and Monkey Island 2 change. The other installs' routes do not.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused (1.7.4, G6)
+
+**What changes.**
+- **The quick state file** (`RRAMIGA-STATE-3`, was 2). Its header now has the install's identity (its SHA-256) and a checksum of the
+  whole file (FNV-1a 64). A state of another build or install, or one with a changed byte, a cut, or anything added after its end,
+  is refused before the machine is touched. The game goes on as it was. The headless player exits 4 on a refused state, as the
+  other machines' players do. The F9 page says the state could not be loaded, as before.
+- **The conversion** checks quick states with the shared `conversion_gates.check_quick_states`, as the PC Engine and the MSX do.
+  The state is saved 600 frames before the main route's end and continued by a fresh process of the compressed copy for those 600
+  frames (it was 400). Then 17 damaged copies must each be refused and left byte for byte as they were: empty, header cut, one
+  byte short, one byte more, half cut, a flipped bit in the magic, the ABI, the identity, the frame, the inputs, each size, the
+  checksum, the resload state, the payload and the last byte, and a text file. Loading a missing state must be refused and create
+  nothing. The report's `game_states.validation` carries these results.
+- **The bitplane batch at a state** (stage 7's open note). A state taken while a batched line still has bitplane slots to run,
+  which can happen when one instruction runs past line 0 before the state, now gives that line back first. The slots this colour
+  clock has seen run, and the rest go back to vAmiga's events, which the snapshot keeps (`Agnus::rrBeforeSave`). The display
+  self-test takes a state inside a batched line on 6 scenarios: every record is equal to the run with every line on vAmiga's
+  events, and leaving the slots out (`--state-fault 3`) is seen on all 6. The rest of the self-test is unchanged (12 + 8
+  scenarios, 40 of 40 faults, 0 bus-model differences).
+
+**Hot path:** no. The check runs at a state's save and load only. The bitplane give-back runs only when a state is taken inside a
+batched line.
+
+**What moves:** the Amiga's game stamp (the session, the player, the adapter `rrhk_amiga.inc`, the conversion module and the
+adaptation of vAmiga); no other console. The host kit's shell is not touched.
+
+**Quick states:** every Amiga state saved before this change is refused cleanly (another format), as the rule of 1.6.5 allows.
+Cartridge-like saves (the files an install writes through resload) are not affected.
+
 ## MSX and MSX2: the shared pieces the two new profiles use (1.7.3)
 
 **What changes.** The MSX and the MSX2 open as experimental profiles ([MSX.md](MSX.md)); nothing of an existing export changes behaviour. What they

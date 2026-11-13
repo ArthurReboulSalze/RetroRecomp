@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-2";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-3";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -804,10 +804,13 @@ extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *p
 }
 
 // ---- quick states ----------------------------------------------------------------------------------------------------
-// magic, ABI string, frame, resload state (its host callbacks are this process's), inputs held, then vAmiga's snapshot.
-struct StateHead { char magic[16]; char abi[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size; };
+// magic, ABI string, the install's identity, frame, inputs held, sizes, a checksum (FNV-1a 64 of the whole file with this field
+// zero), then the resload state (its host callbacks are this process's), the keys held, vAmiga's snapshot and the sound path's
+// memory. A state of another build or install, or one whose bytes changed, is refused before the machine is touched.
+struct StateHead { char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size, reserved; uint64_t checksum; };
+static_assert(sizeof(StateHead) == 200, "the Amiga state header is 200 bytes (retrorecomp/amiga_conversion.py, damaged_states)");
 
-extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi) {
+extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity) {
     try {
         // vAmiga saves an ordinary machine: the WOM over ExpMem is lifted around the snapshot (its reader reallocates
         // ROM and WOM buffers by the sizes it was configured with, which an alias is not), then set again. The image and
@@ -821,12 +824,18 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         StateHead head{};
         memcpy(head.magic, STATE_MAGIC, sizeof head.magic);
         snprintf(head.abi, sizeof head.abi, "%s", abi ? abi : "");
+        snprintf(head.identity, sizeof head.identity, "%s", identity ? identity : "");
         head.frame = s->frame; head.joy = s->joy; head.mouse_left = (uint32_t)s->mouse_left; head.mouse_right = (uint32_t)s->mouse_right;
         head.snapshot_size = (uint32_t)snap->data.size;
         // The sound path's own memory (samplers, filters, volume ramps), which the snapshot leaves out.
         std::vector<uint8_t> audio;
         s->amiga->audioPort.rrSaveAudio(audio);
         head.audio_size = (uint32_t)audio.size();
+        uint64_t sum = fnv(14695981039346656037ull, &head, sizeof head);
+        sum = fnv(sum, &s->rl, sizeof s->rl);
+        sum = fnv(sum, s->keys, sizeof s->keys);
+        sum = fnv(sum, snap->data.ptr, (size_t)snap->data.size);
+        head.checksum = fnv(sum, audio.data(), audio.size());
         std::string temporary = std::string(path) + ".tmp";
         FILE *f = open_file(temporary.c_str(), "wb");
         if (!f) return 4;
@@ -843,7 +852,7 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
     }
 }
 
-extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi) {
+extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi, const char *identity) {
     FILE *f = open_file(path, "rb");
     if (!f) return 1;
     StateHead head{};
@@ -851,12 +860,24 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     uint8_t keys[128];
     std::vector<uint8_t> data;
     bool ok = fread(&head, sizeof head, 1, f) == 1;
-    if (ok && (memcmp(head.magic, STATE_MAGIC, sizeof head.magic) || strncmp(head.abi, abi ? abi : "", sizeof head.abi))) { fclose(f); return 2; }
+    if (ok && (memcmp(head.magic, STATE_MAGIC, sizeof head.magic) || strncmp(head.abi, abi ? abi : "", sizeof head.abi) ||
+               strncmp(head.identity, identity ? identity : "", sizeof head.identity))) { fclose(f); return 2; }
     ok = ok && fread(&rl, sizeof rl, 1, f) == 1 && fread(keys, sizeof keys, 1, f) == 1 && head.snapshot_size && head.snapshot_size < (256u << 20) && head.audio_size < (64u << 20);
     std::vector<uint8_t> audio;
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
     if (ok) { audio.resize(head.audio_size); ok = fread(audio.data(), 1, audio.size(), f) == audio.size(); }
+    uint8_t extra;
+    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the sound path's memory
     fclose(f);
+    if (ok) {
+        const uint64_t expected = head.checksum;
+        head.checksum = 0;
+        uint64_t sum = fnv(14695981039346656037ull, &head, sizeof head);
+        sum = fnv(sum, &rl, sizeof rl);
+        sum = fnv(sum, keys, sizeof keys);
+        sum = fnv(sum, data.data(), data.size());
+        ok = fnv(sum, audio.data(), audio.size()) == expected;
+    }
     if (!ok) return 3;
     kick_window(false);
     try {

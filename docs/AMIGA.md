@@ -150,7 +150,10 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   one once every byte is flushed and closed; a refusal is reported to the slave as a full disk and leaves the file and the game's view of it as they were).
   Shown on one game, 5th Gear (`tools/amiga_saves_check.py`, 8 November 2026): it writes `5thgear.highs` by itself on the exploration route, a relaunch keeps it, a fresh
   process reads it (through a one-byte-changed copy: the game saved what its install already holds), a quick state does not roll it back, a damaged file never stops the
-  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
+  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). On 13 November 2026, Panza Kick Boxing (FR) the
+  same way, on the route a player uses to save (OPTIONS, the save row, MAINTENANT): it writes its two boxer files through `resload_SaveFileOffset`, and the refused
+  one stops the run after the other was written. Panza's default setting (SI PROGRES) saves only after progress, so a player who changes nothing finds no new file:
+  MAINTENANT saves at once. A really full disk, a new high score and a changed boxer are not checked.
 - (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
   is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
 - (1.7.3) Another World (the French WHDLoad install): on its code-wheel protection screen, the C key, a left click or the second
@@ -165,8 +168,13 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
     delivered exe built before it locks.
   - **What still locks it.** A deliberate click, or C, on the wheel: answer that screen with the joystick. After the protection, C or
     a click opens the access-code screen normally.
-  - **Routes.** None answers this screen, so the conversion's routes stay on it (12 November 2026, `AW-GREEN-20261112.md` and
-    `AW-E2E-20261112.md`, private).
+  - **Routes.** Since 1.7.4 every route of this install starts by answering the wheel with the joystick, as its owner would (three
+    submissions, `ROUTE_ANSWERS`). The generic part that follows leaves the mouse out, because its clicks would bring back the
+    access-code screen. Headless, with the answer, the protection passes by frame 1,500 and the intro runs to the laboratory by
+    frame 7,000, with sound. Before 1.7.4 no route answered, and they all stayed on the wheel, silent. A route is a scripted input,
+    not gameplay validation.
+- (1.7.4) Lemmings (Image): its menu waits for a click on "1 PLAYER", which no generic route gives. Its routes now wait for the intro,
+  move the pointer onto that button, click it and then the level's briefing, so level 1 is played from about frame 4,500 on.
 - The profile is hidden unless the installation carries the Amiga converter's files (`retrorecomp/amiga.py`, `converter_available`).
 
 ## 5. Licences
@@ -186,6 +194,4 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 8 November 2026: `Y` on G1; `P` on G2 to G8, G10, G11, G13, G14
-and G15; `-` on G16 (the Amiga shares no paths); `?` on G9 and G12. Each `P` names what is shown and what is missing there; none of them says hardware fidelity, gameplay
-coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 13 November 2026: `Y` on G1 to G9, G12, G13 and G15; `P` on G10, G11 and G14; `-` on G16 (the Amiga shares no paths). The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.

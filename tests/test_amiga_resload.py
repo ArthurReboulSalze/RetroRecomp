@@ -215,5 +215,33 @@ class SaveFileHarnessTest(unittest.TestCase):
             self.assertIn('OK (0 failures)', result.stdout)
 
 
+class RefusedSaveVerdictTest(unittest.TestCase):
+    """tools/amiga_saves_check.py step 4b: what counts as a refused save handled (the tool's verdict, no game involved)."""
+
+    def verdict(self, *args):
+        import sys
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import amiga_saves_check
+        return amiga_saves_check.refused_save_handled(*args)
+
+    def test_a_game_may_save_other_files_before_the_refused_one(self):
+        message = 'SaveFileOffset failed with DOS error 221 (b/boxer.00A)'
+        self.assertTrue(self.verdict(['ok', 'abort'], True, message, 'boxer.00a', False, [], True))
+        self.assertTrue(self.verdict(['abort'], True, 'SaveFile failed with DOS error 221 (5thgear.highs)', '5thgear.highs', False, [], True))
+
+    def test_the_stop_must_be_on_the_refused_file_and_leave_nothing_behind(self):
+        message = 'SaveFileOffset failed with DOS error 221 (b/boxer.00I)'
+        self.assertFalse(self.verdict(['ok', 'abort'], True, message, 'boxer.00a', False, [], True))      # another file was refused
+        self.assertFalse(self.verdict(['abort', 'ok'], True, message, 'boxer.00i', False, [], True))      # a save went through after it
+        self.assertFalse(self.verdict(['abort'], True, message, 'boxer.00i', False, ['boxer.00i.tmp'], True))
+        self.assertFalse(self.verdict(['abort'], True, message, 'boxer.00i', False, [], False))
+        self.assertFalse(self.verdict([], False, '', 'boxer.00i', True, [], True))
+
+    def test_a_slave_that_goes_on_must_have_saved_nothing(self):
+        self.assertTrue(self.verdict(['abort'], False, '', 'save.dat', True, [], True))
+        self.assertFalse(self.verdict(['ok', 'abort'], False, '', 'save.dat', True, [], True))
+        self.assertFalse(self.verdict(['abort'], False, '', 'save.dat', False, [], True))
+
+
 if __name__ == '__main__':
     unittest.main()
