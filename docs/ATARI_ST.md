@@ -264,6 +264,7 @@ gameplay validation of any game, and it changes no gate.
 - The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
 - Linux: the ten panel games were converted and validated on a Debian 13 PC (9 November 2026, system GCC, Standard level, the tree of the Windows panel above): the same counts as Windows, the
   traces of all 20 routes (CPU registers, RAM, picture and sound of every frame) byte for byte those of Windows, the compressed copy and the state continuation too. No game was played interactively on Linux (window, sound, pad).
+- Linux, panel of eight (13 November 2026, a Debian 13 PC, system GCC, the tree of `spec/atarist-174`, extended level, one scratch library per game, the game's files deleted after each run): Bomb Jack, Another World, Operation Stealth, Turrican II (the player's own TOS 1.04), Kick Off 2, Lethal Xcess, The Lurking Horror and Battle Probe were converted and validated there; the trace hash of every one of the 24 routes (3 per game; the fourth, thorough-level route of Lethal Xcess was not run on Linux) is the same as on Windows, with the same native and interpreted counts, and the compressed copy and the state continuation equal the reference. No game was played interactively on Linux (window, sound, pad).
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on its main route and its
   trace still equals the reference), and a fresh process that loads it continues the unbroken run on every column, sound samples included (compared by every
   conversion over 400 frames, reported, not refused). Three mechanisms were found for this on 8 November 2026 by comparing a state of the running machine with a
@@ -301,6 +302,6 @@ gameplay validation of any game, and it changes no gate.
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G13 and G15, `P` on G7 (saves: one real game), on G12 (the panel of eight is shown on Windows; its Linux pass is queued) and on G10 and G11 (named behaviours measured against documentation and
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G12, G13 and G15, `P` on G7 (saves: one real game) and on G10 and G11 (named behaviours measured against documentation and
 fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that
 each lists in `route_warnings` with its reason. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
