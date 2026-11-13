@@ -135,7 +135,7 @@ Geo, CPS-1, CPS-2, PC Engine and PlayStation still load; a Game Boy Advance quic
 engine's own file, with no key of ours. Cartridge saves are kept; a save the new export cannot use
 is set aside and never crashes or blocks the game. A game of 1.7.3 that reads the stretched F4
 mode saved by 1.7.4 opens in a window. The MSX2+ is new: no export of it exists before 1.7.4. The
-details are in [UPGRADES.md](UPGRADES.md).
+details are in [UPGRADES.md](UPGRADES.md#exports-of-173-in-174).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows
