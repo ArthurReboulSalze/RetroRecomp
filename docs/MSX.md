@@ -179,5 +179,11 @@ is a latch, 00h at power-on.
 **Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** disks (the next
 step: your own disk ROM will be needed, never shipped), MSX-MUSIC (YM2413), the kanji ROM, cassettes.
 
+**First comparison, and an open difference (13 November 2026).** Family Stadium Professional Baseball slides its title in with the
+horizontal scroll (R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate
+program, never shipped) with its C-BIOS MSX2+ machine shows the same slide and the same final values, about 60 frames later (its boot is
+longer). Open: after the slide openMSX's R#1 has the line interrupt off (42h) and ours keeps it on (62h). openMSX's C-BIOS MSX2+ machine also
+has MSX-MUSIC, which ours does not yet, and that can change the game's path; the cause is not proven.
+
 **The five measures:** nothing is measured yet for the MSX2+: no panel has run, no fidelity is claimed, no game is validated, and no latency is
 measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial, G16 not applicable and every other gate unknown.
