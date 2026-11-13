@@ -92,6 +92,12 @@ static void disks_save(void)
 
 static void disks_at_exit(void) { disks_save(); }
 
+static int disk_dirty_any(void)
+{
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) if (disk_dirty[n]) return 1;
+    return 0;
+}
+
 static void disks_swap(void)
 {
     if (want_eject) want_eject = false;          /* eject is not offered: a disk game always has a disk in drive A */
@@ -127,11 +133,23 @@ static size_t sram_size;
 static wchar_t sram_file[32768];
 static int sram_given;
 static uint64_t sram_start_hash;
+#if RR_MSX_DISKS
+static uint64_t disk_start_hash[RR_MSX_DISKS];
+#endif
+
 static void sram_report(FILE *out)
 {
     fprintf(out, "\"sram_bytes\": %u, \"sram_start_hash\": \"%016llx\", \"sram_hash\": \"%016llx\", \"sram_notice\": %u, ",
             (unsigned)sram_size, (unsigned long long)sram_start_hash, (unsigned long long)msx_sram_hash(sram_bytes, sram_size),
             msx_sram_notice());
+#if RR_MSX_DISKS
+    fprintf(out, "\"disk_start_hashes\": [");
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) fprintf(out, "%s\"%016llx\"", n ? ", " : "", (unsigned long long)disk_start_hash[n]);
+    fprintf(out, "], \"disk_hashes\": [");
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n)
+        fprintf(out, "%s\"%016llx\"", n ? ", " : "", (unsigned long long)msx_sram_hash(disk_data[n], disk_sizes[n]));
+    fprintf(out, "], \"disk_written\": %d, ", fdc.disk[0].written || disk_dirty_any());
+#endif
 }
 #define MSX_HEADLESS_SAVE_FIELDS(out) sram_report(out)
 #include "msx_headless.inc"
@@ -211,6 +229,13 @@ static int headless_state_option(const char *a, const char *v)
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
     else if (!strcmp(a, "--sram")) { if (!headless_path(v, sram_file)) return -1; sram_given = 1; }
+#if RR_MSX_DISKS
+    else if (!strcmp(a, "--disk-copies")) {
+        if (strlen(v) >= sizeof disk_folder) return -1;
+        strcpy(disk_folder, v);
+        disk_copies = 1;
+    }
+#endif
     else return 0;
     return 1;
 }
@@ -412,6 +437,10 @@ static int run_headless(int argc, char **argv)
     machine.line_hook = headless_line;
     sram_start_hash = msx_sram_hash(sram_bytes, sram_size);
     if (sram_given) sram_open(sram_file);
+#if RR_MSX_DISKS
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) disk_start_hash[n] = msx_sram_hash(disk_data[n], disk_sizes[n]);
+    if (disk_copies) atexit(disks_at_exit);
+#endif
     power_on();
     frame_ended = state_load_due;              /* a load waits for the first service, not for the first frame */
     smsrecomp_banked_run();                    /* returns through headless_finish() at the frame limit */

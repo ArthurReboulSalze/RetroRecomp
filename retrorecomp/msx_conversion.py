@@ -380,6 +380,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 emit('MSX: checking the battery SRAM file in fresh processes.')
                 sram = check_sram(delivered.path, work / 'sram', play[1], options(*play)[2:],
                                   0x2000 if guess.mapper == 'ascii8' else 0x800, cart.sha256)
+            disk_writes = None
+            if disks is not None:
+                emit('MSX2+: checking what the game writes to its disks, in fresh processes.')
+                longest = max(routes, key=lambda route: route[1])
+                disk_writes = check_disks(delivered.path, work / 'disk-copies', longest[0], longest[1],
+                                          options(*longest)[2:])
         except msx_build.MsxBuildError as error:
             raise ConversionError(f'MSX: {error}') from None
         timings['quick_states'] = round(time.perf_counter() - phase, 3)
@@ -427,6 +433,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
         'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks),
+        **({'disk_writes': disk_writes} if disks is not None else {}),
         'ordinary_saves': ({'supported': True, 'reason': None,
                             'scope': f'the battery SRAM of the cartridge ({"8 KiB" if guess.mapper == "ascii8" else "2 KiB"}), '
                                      'kept beside the game and loaded at start',
@@ -599,6 +606,43 @@ def check_sram(game: Path, folder: Path, frames: int, route_rest: list[str], sra
     return {'play_route_wrote_memory': changed, 'written_memory_survives_a_fresh_process': changed or None,
             'no_file_starts_blank': True, 'valid_file_loaded': True, 'damaged_files_set_aside': sorted(damaged),
             'sram_bytes': sram_bytes}
+
+
+def check_disks(game: Path, folder: Path, name: str, frames: int, route_rest: list[str]) -> dict:
+    """What an MSX2+ disk game writes, kept in the copies beside it (here --disk-copies), in fresh processes of the delivered
+    file: the route `name` played with no copy leaves a copy exactly when the game wrote, and a new process starts from that
+    copy; a copy of the wrong size is not read (the embedded disk is used) and is left as it was. The embedded disks never
+    change. `route_rest`: the route's options without its frame count."""
+    import shutil
+    from . import msx_build
+    from .conversion_gates import require
+
+    def failure(text: str):
+        return lambda: ConversionError(f'MSX2+ disks: {text}')
+
+    def run(label: str, count: int, rest: list[str], copies: Path) -> dict:
+        return msx_build.run_game(game, ['--frames', str(count), *rest, '--disk-copies', str(copies)],
+                                  folder / f'{label}.json')
+    shutil.rmtree(folder, ignore_errors=True)      # the build folder is reused: no copy of an earlier conversion may be read
+    copies = folder / 'copies'
+    copies.mkdir(parents=True)
+    played = run('route', frames, route_rest, copies)
+    wrote = played['disk_hashes'] != played['disk_start_hashes']
+    written = sorted(path.name for path in copies.glob('disk-*.dsk'))
+    require(bool(written) == wrote, failure('the copies do not follow what the game wrote on the route.'))
+    if wrote:
+        again = run('again', 60, [], copies)
+        require(again['disk_start_hashes'] == played['disk_hashes'],
+                failure('what the game wrote did not come back in a fresh process.'))
+    damaged = folder / 'damaged'
+    damaged.mkdir()
+    (damaged / 'disk-1.dsk').write_bytes(b'not a disk')
+    blank = run('damaged', 60, [], damaged)
+    require(blank['disk_start_hashes'][0] == played['disk_start_hashes'][0]
+            and (damaged / 'disk-1.dsk').read_bytes() == b'not a disk',
+            failure('a copy of the wrong size was read, or changed.'))
+    return {'route': name, 'game_wrote': wrote, 'copies_written': written, 'written_data_survives_a_fresh_process': wrote or None,
+            'wrong_size_copy_ignored_and_kept': True, 'embedded_disks_unchanged': True}
 
 
 def check_states(game: Path, folder: Path, name: str, frames: int, route_rest: list[str], expected: Path) -> dict:
