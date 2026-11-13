@@ -172,8 +172,8 @@ Gates and their numbering: [QUALIFICATION.md](QUALIFICATION.md) and [STANDARDS.m
 The matrix of 27 October 2026 gives Mega Drive: met for scope (G1), native coverage (G3), CPU fidelity against the
 fresh reference (G4), packed replay (G5), fresh-process states (G6), saves (G7), route depth (G9), panel (G12),
 owner acceptance (G14) and shared-knowledge safety (G16), since 4 November 2026 liveness (G8), and since 13 November 2026 the report contract (G2),
-independent CPU evidence (G10) and honesty (G15); partial for independent hardware evidence (G11) and the cross-OS witness (G13).
-Read the caveats there before quoting a letter; what each of the three letters of 13 November rests on, and what it leaves out, is in
+independent CPU evidence (G10), the cross-OS witness (G13, eight cartridges) and honesty (G15); partial for independent hardware evidence (G11).
+Read the caveats there before quoting a letter; what each of the four letters of 13 November rests on, and what it leaves out, is in
 [QUALIFICATION.md](QUALIFICATION.md#mega-drive-evidence-behind-its-column-13-november-2026). The panel is 24 + 8 cartridges.
 
 | Measure | What stands behind it |
