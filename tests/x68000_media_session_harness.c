@@ -96,7 +96,7 @@ int main(int argc,char**argv){
     CHECK(rr_media_capture(&t,&blob,&size));
     CHECK(rr_media_auto_advance(&t)==1);CHECK(mask==3&&t.selected[0]==2&&t.selected[1]==1);
     CHECK(rr_media_apply(&t,blob,size));free(blob);blob=NULL; /* F9 replays the same choice. */
-    CHECK(mask==2&&t.request[0].active==1&&t.request[0].refused==3u);
+    CHECK(mask==2&&t.request[0].active==1&&t.request[0].refused==2u); /* Disk 1, ejected, is not excluded: it comes last. */
     CHECK(rr_media_auto_advance(&t)==1);CHECK(mask==3&&t.selected[0]==2);
     CHECK(rr_media_capture(&t,&blob,&size));
     for(unsigned n=1;n<RR_MEDIA_REJECT_WINDOW;n++)CHECK(rr_media_auto_advance(&t)==0);
@@ -113,6 +113,11 @@ int main(int argc,char**argv){
     mask&=~1u;for(unsigned n=1;n<RR_MEDIA_INSERT_WAIT;n++)CHECK(rr_media_auto_advance(&t)==0);
     CHECK(rr_media_auto_advance(&t)==1);CHECK(t.selected[0]==1&&t.selected[1]==-1&&t.request[0].moved);
     mask&=~1u;CHECK(rr_media_auto_advance(&t)==0);CHECK(mask==2&&t.selected[1]==1);
+    /* The disk the game ejected is offered last, after every other was refused (a game that asks for its system disk
+     * again gets it back); refused too, the request is exhausted. */
+    for(unsigned n=2;n<RR_MEDIA_INSERT_WAIT;n++)CHECK(rr_media_auto_advance(&t)==0);
+    CHECK(rr_media_auto_advance(&t)==1);CHECK(mask==3&&t.selected[0]==2&&t.selected[1]==1&&!t.request[0].moved);
+    mask&=~1u;
     for(unsigned n=0;n<4*RR_MEDIA_INSERT_WAIT;n++)CHECK(rr_media_auto_advance(&t)==0);
     CHECK(t.request[0].active==2&&!(mask&1)); /* The player decides now. */
     CHECK(rr_media_swap(&t,0,0));CHECK(!t.request[0].active&&mask==3);

@@ -48,7 +48,7 @@ typedef struct {
  * media. A game that ejects disks it has finished loading, and polls the
  * drive at most once more, is left alone. After
  * the bounded removal interval, candidates follow the set
- * order after the ejected disk (excluded), or after the other drive's disk for
+ * order after the ejected disk (which comes last), or after the other drive's disk (excluded) for
  * a blink request. After an eject, the other drive's disk may be moved (its
  * drive is emptied first). A candidate the guest ejects again within
  * RR_MEDIA_REJECT_WINDOW frames is refused: a moved disk returns to its drive

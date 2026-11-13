@@ -197,14 +197,16 @@ int rr_media_auto_advance(RRMediaSession*s){
         if(actual_choice(s,d)>=0){if(r->active||r->polled)clear_request(s,d);continue;}
         if(s->empty_frames[d]<RR_MEDIA_INSERT_WAIT)continue;
         if(!r->active){
-            int blink=(s->ready_mask()&(1u<<(8+d)))!=0;
+            int blink=(s->ready_mask()&(1u<<(8+d)))!=0,ejected;
             /* Host ejects clear selected[], so a retained choice is a guest eject. */
-            if(s->selected[d]>=0&&(r->polled>=2||blink))r->base=(signed char)s->selected[d];
-            else if(s->selected[d]<0&&blink)r->base=(signed char)actual_choice(s,other);
+            if(s->selected[d]>=0&&(r->polled>=2||blink)){r->base=(signed char)s->selected[d];ejected=1;}
+            else if(s->selected[d]<0&&blink){r->base=(signed char)actual_choice(s,other);ejected=0;}
             else continue;
-            /* The ejected disk is never offered back. A blink request does not
-             * take the other drive's disk either. */
-            r->active=1;r->refused=r->base>=0?(unsigned short)(1u<<r->base):0;
+            /* The ejected disk comes last, after every other disk was refused: a
+             * game that asks for its system disk again gets it back (Lagoon asks
+             * for a user disk or the system disk). A blink request never takes
+             * the other drive's disk. */
+            r->active=1;r->refused=r->base>=0&&!ejected?(unsigned short)(1u<<r->base):0;
         }
         if(r->active!=1)continue;
         for(k=1;k<=s->count&&candidate<0;k++){
