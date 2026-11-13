@@ -50,6 +50,15 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   list, ``validation.native_code`` carries ``native_share`` 0.0 and the claim "emulated", ``validation.cpu_fidelity`` says
   "not applicable", and a top-level ``engine`` object (the emulator, its pinned revision and the game it was given) is added for
   that shape only. The sections and keys of every other machine are unchanged, so no reader needs a new number.
+* The Mega Drive's reading of the ``console16`` writer fills, on the read side, the keys that its report holds under other forms
+  (old documents that still carry their own keys included): the digests of ``final_checks`` per scenario, the main CPU's mode and
+  interpreted share from its counts, ``saves`` for a cartridge that declares no memory, and the build's executable size,
+  recompiler and phases. Since the honesty change (gate G15) the writer also stores what the conversion itself knows and the reader takes it as it is (a
+  stored value always wins over a derived one): ``main_cpu`` (the 68000's word over every scenario, the ``reported_label``),
+  ``game_states.schema``, ``machine`` and ``rom_identity``, ``ordinary_saves`` (the verdict read from the cartridge memory, with its
+  path), ``input_players``, ``peripheral`` (pad type and gun device) and ``sdl_revision``. What only a tool run proves (the
+  ``validation`` of the saves, the state check in a fresh process unless route chaining ran) stays None, as does the compiler
+  signature (no 16-bit writer computes one). The Super Nintendo's reading is unchanged.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -204,6 +213,14 @@ def _first(*values):
     return next((value for value in values if value is not None), None)
 
 
+def _is_md(shape):
+    """The Mega Drive's reading of the ``console16`` writer (the 68000 shape of the writer it shares with the Super Nintendo).
+
+    Read from the profile's CPUs, not from a console id: the Super Nintendo's 65816 reading of the same writer is unchanged.
+    The fields it adds (see the ``_md_*`` functions) only restate what the report itself holds; none is a new measurement."""
+    return shape.writer == 'console16' and shape.main_arch == 'm68000'
+
+
 # ---------------------------------------------------------------- scenarios
 
 def _scenario_name(row):
@@ -334,6 +351,8 @@ def _cpus(shape, data, rows):
             'scenarios': [_main_scenario(shape.writer, row) for row in rows]}
     main['fallback_present'] = _fallback_state(main['scenarios'])
     main['ram_single_step_present'] = _ram_single_step_state(main['scenarios'])
+    if _is_md(shape):
+        _md_main_cpu(main, data.get('main_cpu'))
     cpus = [main]
     if shape.audio_arch and ('audio_cpu' in data or any(key in row for row in rows for key in _AUDIO_KEYS)):
         label = data.get('audio_cpu')
@@ -345,6 +364,39 @@ def _cpus(shape, data, rows):
         audio['fallback_present'] = _fallback_state(audio['scenarios'])
         cpus.append(audio)
     return cpus
+
+
+def _md_main_cpu(main, label=None):
+    """The Mega Drive's 68000, read from its own counts (both in instructions): the share of interpreted instructions per
+    scenario and the mode word of the tested scenarios.
+
+    The writer stores the counts, at the top of the report ``native_percentage`` (the complement of the share below) and, since
+    the honesty change (gate G15), ``main_cpu``: its word over every scenario (native, hybrid, interpreted, not_run), the twin of
+    ``audio_cpu``. A stored word is the ``reported_label`` and the ``mode`` (not_run is no mode); a report without it has none
+    (``reported_label`` stays None) and the mode is derived. ``cycles`` stays None: cycles are never made from instructions.
+    The share is marked ``interpreted_percent_derived`` so that ``fallback_summary`` keeps showing the figures the writers
+    stored. The derived mode describes the tested scenarios only: 'native' when none interpreted an instruction,
+    'interpreted' when none ran native, else 'hybrid'; None when a count is missing."""
+    scenarios = main['scenarios']
+    if isinstance(label, str):
+        main['reported_label'] = label
+    for scenario in scenarios:
+        native, interpreted = scenario['native'], scenario['interpreted']
+        if scenario['interpreted_percent'] is None and native is not None and interpreted is not None and native + interpreted > 0:
+            scenario['interpreted_percent'] = round(100 * interpreted / (native + interpreted), 6)
+            scenario['interpreted_percent_derived'] = True
+    if label in _AUDIO_MODES:
+        main['mode'] = label           # what the writer stored wins over what the counts give
+        return
+    counts = [(scenario['native'], scenario['interpreted']) for scenario in scenarios]
+    if not counts or any(value is None for pair in counts for value in pair):
+        return
+    if all(interpreted == 0 for _, interpreted in counts):
+        main['mode'] = 'native' if any(native > 0 for native, _ in counts) else None
+    elif all(native == 0 for native, _ in counts):
+        main['mode'] = 'interpreted'
+    else:
+        main['mode'] = 'hybrid'
 
 
 def _device(data, rows):
@@ -449,15 +501,30 @@ def _cpu_scenarios(shape, data, rows):
                  else None, 'checks': None, 'hashes': {'pcm': item.get('audio_pcm_sha256')}}
                 for item in _dict_rows(validation.get('scenarios'))]
     if writer == 'console16':
+        md = _is_md(shape)
         return [{'name': item.get('scenario'), 'frames': _count(item.get('frames')),
                  'match': (not item['differences']) if isinstance(item.get('differences'), list) else None,
-                 'checks': None, 'hashes': None, 'differences': _copy(item.get('differences'))}
+                 'checks': None, 'hashes': _md_hashes(rows, item.get('scenario')) if md else None,
+                 **({'hashes_from': 'final_checks (the native run of the scenario)'} if md else {}),
+                 'differences': _copy(item.get('differences'))}
                 for item in _dict_rows(validation.get('comparisons'))]
     keys = {'cpu': 'cpu_hash', 'ram': 'ram_hash', 'image': 'image_hash', 'pcm': 'pcm_hash',
             'hardware': 'hardware_hash', 'z80': 'z80_hash'}
     return [{'name': _scenario_name(row), 'frames': _count(row.get('frames')), 'match': _flag(row.get('reference_match')),
              'checks': None, 'hashes': {name: row[key] for name, key in keys.items() if key in row}}
             for row in rows]
+
+
+def _md_hashes(rows, scenario):
+    """The digests the Mega Drive writer holds in the ``final_checks`` row of a scenario (CPU, RAM, VDP memories and registers,
+    frame, frame sequence, FM, PSG, Z80 CPU and RAM, ...), keyed by the writer's name without ``_hash``; None when the row
+    has none. They are digests of the native run, kept next to the agreement the comparison recorded, not digests of a
+    separate reference run."""
+    row = next((row for row in rows if row.get('scenario') == scenario), None)
+    if row is None:
+        return None
+    hashes = {key[:-len('_hash')]: value for key, value in row.items() if key.endswith('_hash') and isinstance(value, str)}
+    return hashes or None
 
 
 def _reference_kind(shape, data):
@@ -606,16 +673,23 @@ def _states(data):
     return {**{key: _copy(states.get(key)) for key in keys}, 'validation': _copy(states.get('validation'))}
 
 
-def _saves(data):
+def _saves(shape, data):
     ordinary, memory = data.get('ordinary_saves'), data.get('cartridge_memory')
     if isinstance(ordinary, dict):
         return {'supported': _flag(ordinary.get('supported')), 'reason': ordinary.get('reason'),
                 'scope': ordinary.get('scope'), 'path': ordinary.get('path'),
-                'validation': _copy(ordinary.get('validation')), 'cartridge_memory': None}
+                'validation': _copy(ordinary.get('validation')),
+                # The Mega Drive's cartridge layout is the ground of its verdict and stays beside it.
+                'cartridge_memory': _copy(memory) if _is_md(shape) else None}
     if memory is not None:
         # The Mega Drive and Super Nintendo store the cartridge's memory layout, not a verdict.
-        return {'supported': None, 'reason': None, 'scope': None, 'path': None, 'validation': None,
-                'cartridge_memory': _copy(memory)}
+        saves = {'supported': None, 'reason': None, 'scope': None, 'path': None, 'validation': None,
+                 'cartridge_memory': _copy(memory)}
+        if _is_md(shape) and isinstance(memory, dict) and memory.get('kind') == 'none' and memory.get('battery') is False:
+            # A fact of the report, not a test: the cartridge declares no memory, so there is nothing for ordinary saves to keep.
+            # A cartridge that declares one stays None here: only a run of tools/megadrive_save_selftest.py proves its saves.
+            saves.update(supported=False, reason='the cartridge declares no battery or extra memory (cartridge_memory: none)')
+        return saves
     return None
 
 
@@ -635,7 +709,32 @@ def _knowledge(data):
             'bundled_paths': _copy(data.get('bundled_paths'))}
 
 
-def _build(data):
+def _build(shape, data):
+    build = _build_common(data)
+    if _is_md(shape):
+        _md_build(build, data)
+    return build
+
+
+def _md_build(build, data):
+    """What the Mega Drive report holds under other names, for the keys its writer does not store (only a None is filled).
+
+    ``executable_bytes``: the size of the build executable, as the packing record measured it (``packing.unpacked``; the
+    delivered file's size is ``packed.published``). ``backend`` and ``engine_revision``: the recompiler the report names
+    (``compiler.repository`` and ``compiler.revision``). ``phases_seconds``: the batch's ``timings`` without ``total``, which is
+    not a phase. ``sdl_revision`` and ``compiler_signature`` stay None: the report records neither."""
+    compiler, packing = _dict(data.get('compiler')), _dict(data.get('packing'))
+    timings = _timings(data.get('timings'))
+    fills = {'executable_bytes': _count(_dict(packing.get('unpacked')).get('bytes')),
+             'backend': compiler.get('repository') if isinstance(compiler.get('repository'), str) else None,
+             'engine_revision': compiler.get('revision') if isinstance(compiler.get('revision'), str) else None,
+             'phases_seconds': {name: seconds for name, seconds in timings.items() if name != 'total'} if timings else None}
+    for key, value in fills.items():
+        if build.get(key) is None:
+            build[key] = value
+
+
+def _build_common(data):
     return {'executable': data.get('executable'), 'build_executable': data.get('build_executable'),
             'executable_bytes': data.get('executable_bytes'), 'toolchain': _copy(data.get('toolchain')),
             'backend': data.get('backend'), 'compiler': _copy(data.get('compiler')),
@@ -689,7 +788,44 @@ def _validate_v2(data):
         report['engine'] = _copy(data['engine'])
     if isinstance(report['knowledge'], dict):
         report['knowledge'] = {key: report['knowledge'].get(key) for key in KNOWLEDGE_KEYS}
+    _fill_from_own_keys(report, data)
     return report
+
+
+# The sections a reading added later may fill, in a document written before it (never a value the document stores).
+FILLED_SECTIONS = ('cpus', 'validation', 'states', 'saves', 'runtime', 'build')
+
+
+def _fill_gaps(stored, derived):
+    """``stored`` with every None or missing leaf taken from ``derived``; a stored value is never replaced."""
+    if stored is None:
+        return _copy(derived)
+    if isinstance(stored, dict) and isinstance(derived, dict):
+        merged = dict(stored)
+        for key, value in derived.items():
+            merged[key] = _fill_gaps(stored[key], value) if key in stored else _copy(value)
+        return merged
+    if isinstance(stored, list) and isinstance(derived, list) and len(stored) == len(derived):
+        return [_fill_gaps(old, new) for old, new in zip(stored, derived)]
+    return stored
+
+
+def _fill_from_own_keys(report, data):
+    """The Mega Drive's reading on a dual-written document of an earlier version (its writer's own keys are still in it).
+
+    The sections stored on disk were derived when the report was written; the ones this reading fills (``_md_*``) are None in
+    a document written before it. They are derived again from the same document's own keys and only the gaps are filled, so a
+    1.7.3 report reads as a new one. A document without its own keys, or whose keys no longer read, is returned as it is."""
+    system_id = _dict(data.get('system')).get('id')
+    shape = _shapes().get(system_id)
+    if shape is None or not _is_md(shape) or _dict(data.get('read_from')).get('legacy_keys') is not True:
+        return
+    try:
+        derived = _from_legacy(legacy_view(data), schema_version=SCHEMA_VERSION)
+    except ReportShapeError:
+        return
+    for key in FILLED_SECTIONS:
+        report[key] = _fill_gaps(report[key], derived[key])
 
 
 def _load(data_or_path):
@@ -740,7 +876,7 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
                                                     if 'source_identity' in data else {})},
         'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
         'honesty': _honesty(data, validation), 'packed': _packed(shape, data, rows), 'states': _states(data),
-        'saves': _saves(data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(data),
+        'saves': _saves(shape, data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(shape, data),
         'timings': _timings(data.get('timings')),
         'upgrade': _copy(data.get('upgrade')), 'export_receipt': _copy(data.get('export_receipt')),
         # Written by the old shapes, not yet given a schema-2 home. reference_vdp_trace_match is kept here
@@ -921,7 +1057,9 @@ def fallback_summary(report, *, lenient=False) -> dict:
         report = read_report(report, lenient=lenient)
     main, audio = _cpu(report, 'main'), _cpu(report, 'audio')
     scenarios = main['scenarios'] if main else []
-    percents = [s['interpreted_percent'] for s in scenarios if s['interpreted_percent'] is not None]
+    # The share the reader derived from the counts (the Mega Drive's) is not shown: the figures the writers stored are.
+    percents = [s['interpreted_percent'] for s in scenarios
+                if s['interpreted_percent'] is not None and not s.get('interpreted_percent_derived')]
     device = _coprocessor(report)
     summary = {
         'conversion_stage': report['system'].get('status'),
