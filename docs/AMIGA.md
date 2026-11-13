@@ -150,7 +150,10 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   one once every byte is flushed and closed; a refusal is reported to the slave as a full disk and leaves the file and the game's view of it as they were).
   Shown on one game, 5th Gear (`tools/amiga_saves_check.py`, 8 November 2026): it writes `5thgear.highs` by itself on the exploration route, a relaunch keeps it, a fresh
   process reads it (through a one-byte-changed copy: the game saved what its install already holds), a quick state does not roll it back, a damaged file never stops the
-  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). A really full disk, a new high score and other games are not checked.
+  game, and a refused save is reported as DOS error 221 (a slave that sets NoError then stops there, as WHDLoad does). On 13 November 2026, Panza Kick Boxing (FR) the
+  same way, on the route a player uses to save (OPTIONS, the save row, MAINTENANT): it writes its two boxer files through `resload_SaveFileOffset`, and the refused
+  one stops the run after the other was written. Panza's default setting (SI PROGRES) saves only after progress, so a player who changes nothing finds no new file:
+  MAINTENANT saves at once. A really full disk, a new high score and a changed boxer are not checked.
 - (1.7.2) The library's memory of an install (earlier observations, Kickstart addresses) only helps: one that cannot be read, or is past the bound of an observation,
   is ignored, and a conversion that fails after merging it is tried once more without it (`remembered_data` in the report). Shown with an oversized valid file on Rick Dangerous (quick level): ignored, the conversion finished and replaced it; the retry itself is tested with a fake conversion.
 - (1.7.3) Another World (the French WHDLoad install): on its code-wheel protection screen, the C key, a left click or the second
@@ -191,6 +194,4 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 8 November 2026: `Y` on G1; `P` on G2 to G8, G10, G11, G13, G14
-and G15; `-` on G16 (the Amiga shares no paths); `?` on G9 and G12. Each `P` names what is shown and what is missing there; none of them says hardware fidelity, gameplay
-coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 13 November 2026: `Y` on G1, G2, G3, G4, G5, G6, G7, G8, G12, G13, G15; `P` on G9, G10, G11, G14; `-` on G16 (the Amiga shares no paths). The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
