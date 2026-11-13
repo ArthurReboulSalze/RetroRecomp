@@ -115,7 +115,14 @@
   shown yet). Four routes run millions of interpreted instructions, counted. None of this is a measure
   of gameplay, hardware fidelity or physical latency.
 
-**Speed.** [SPEED: quiet-PC bench pending]
+**Speed.** Measured on a quiet PC against 1.7.3, one pinned core, one warm-up then the best of two
+runs of 1,200 frames, start-up included: Lotus 2 (Amiga) 0.99 of its 1.7.3 time per frame, Bomb Jack
+(Atari ST) 0.99, Nemesis (MSX) 1.02 and Sonic The Hedgehog 2 (Mega Drive) 1.00, with Mega Man X2
+(Super Nintendo) at 1.00 as the witness ([RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md)). Every
+figure stays within two per cent: the new interface and the changes of this release cost no measurable
+time per frame (Nemesis takes 0.27 ms per frame, where two per cent is five microseconds). These are
+host costs per frame, not latency. Windows only; the MSX2+ is new and has no release to compare with,
+and the Game Boy Advance has no frame-cost measure yet.
 
 These are a new experimental machine with cartridges and disks, a new interface in the games of
 every machine, and qualification evidence on four machines, each on the evidence above; none of
