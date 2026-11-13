@@ -344,7 +344,7 @@ class ReportTests(unittest.TestCase):
     def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
         text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
         self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
-        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks)", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus, len(disks.disks) if disks is not None else 0)", text)
 
     def test_the_devices_are_c_models_with_no_counter(self):
         from types import SimpleNamespace
@@ -356,7 +356,13 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': units})), 4)
         plain = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=True, reason='size'), False)
         self.assertEqual([u['id'] for u in plain], ['plain', 'tms9918a', 'ay-3-8910'])
-        for unit in units + plain:
+        disk = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'),
+                                True, True, 2)
+        self.assertEqual([(u['id'], u['kind']) for u in disk],
+                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit')])
+        self.assertEqual(disk[0]['details']['disks'], 2)
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 3)
+        for unit in units + plain + disk:
             self.assertFalse(unit['details']['hardware_fidelity_validated'])
 
     def test_a_route_that_stops_early_is_named(self):

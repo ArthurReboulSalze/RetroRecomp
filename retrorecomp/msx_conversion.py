@@ -432,7 +432,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'lines_per_frame': (native.get('v9938') or {}).get('lines_per_frame'),
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
-        'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks),
+        'hardware_devices': hardware_devices(guess, msx2, plus, len(disks.disks) if disks is not None else 0),
+        'route_warnings': route_warnings(final_checks),
         **({'disk_writes': disk_writes} if disks is not None else {}),
         'ordinary_saves': ({'supported': True, 'reason': None,
                             'scope': f'the battery SRAM of the cartridge ({"8 KiB" if guess.mapper == "ascii8" else "2 KiB"}), '
@@ -501,11 +502,24 @@ def _disk_game(disks):
                      guess=Guess('plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'))
 
 
-def hardware_devices(guess, msx2: bool, plus: bool = False) -> list:
+def hardware_devices(guess, msx2: bool, plus: bool = False, disks: int = 0) -> list:
     """The `hardware_devices` of the common report (gate G2): the cartridge mapper, the video chip and the sound units. None of them
-    is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated."""
+    is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated.
+    A disk game (`disks` images) has no cartridge: its slot device is the disk interface, the player's disk ROM with the
+    TC8566AF controller's registers, named in the mapper's place (the report's kinds have no disk controller of their own)."""
     scc = guess.mapper == 'konami-scc'
     common = {'translated_from_rom': False, 'hardware_fidelity_validated': False}
+    if disks:
+        mapper = {'id': 'disk-interface', 'kind': 'cartridge_mapper', 'mode': 'c_model',
+                  'details': {'slot': '2, page 1 (4000h-7FFFh): the disk ROM, registers at 7FF8h-7FFBh',
+                              'controller': 'TC8566AF (uPD765 command set), one drive, double-sided 720 KiB or single-sided 360 KiB',
+                              'disks': disks, 'disk_change': 'Page Up / Page Down, and the long routes',
+                              'writes': 'kept in a copy of each written disk beside the game; the embedded disks never change',
+                              'timing': 'no rotation or seek delays: a command ends when the program reads its result',
+                              'interpreter': 'none: the controller is C code in the runtime; the disk ROM is Z80 code of the '
+                                             'program, translated like the rest',
+                              **common}}
+        return [mapper, *hardware_devices(guess, msx2, plus)[1:]]
     mapper = {'id': guess.mapper, 'kind': 'cartridge_mapper', 'mode': 'c_model',
               'details': {'cartridge_base': f'{guess.base:04X}', 'mirrored': guess.mirrored, 'reason': guess.reason,
                           'sram_modelled': getattr(guess, 'sram', None) is not None,
