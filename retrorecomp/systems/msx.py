@@ -206,6 +206,10 @@ class Msx2PlusProfile(Msx2Profile):
     extensions = ('.mx2', '.dsk')
     archived_rom_limits = (('.mx2', 0x200000),)
     disk_set = (('.dsk',), 'msx2plus-sets')
+    # The MSX2's catalogues (there is no MSX2+ folder in libretro-thumbnails), with the reviewed references of
+    # assets/cover-references.json for the titles they name otherwise.
+    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=116, thegamesdb=4929,
+                            cover_references=True)
     media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
