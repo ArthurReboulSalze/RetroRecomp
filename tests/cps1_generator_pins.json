@@ -1,12 +1,12 @@
 {
- "revision": 13,
+ "revision": 14,
  "sources": {
   "retrorecomp/cps1_build.py": "0ba0a431ceae334933139f7d2d71b2215589569fbefbce9cbdffece2cf6f9750",
   "retrorecomp/cps1_codegen.py": "bfacdf2644da9d03ca918bd571b695d3426c62532e3247d92e2eada72a01f385",
   "retrorecomp/cps1_kabuki.py": "94487779c79c9513773f1ebe4b2f876abefeacc1891b2a1496a616212f54d8e5",
   "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
-  "retrorecomp/m68000_state_rules.py": "d948cc0c91bae785821b9aedc702b52df3f03880127573fa6d798ea8ec31f26b",
-  "retrorecomp/megadrive_rules.py": "9e32aa3083628681a0c03bcf6facfbc477a3ad62794b064a3544847e03566990",
+  "retrorecomp/m68000_state_rules.py": "731f61bdf937a956df2ebc20eac883ae8126eb3ed2178c5d0ed48e0005529675",
+  "retrorecomp/megadrive_rules.py": "aaa2c97248d9ae1a588ccde1ce896dcba31a8ab5f5e1096c6936426b7f6880de",
   "retrorecomp/megadrive_z80.py": "211d24dc6962b6a3c4fbe51ee8100e9736d69de89a73b44a448caecb61803046",
   "retrorecomp/neogeo_codegen.py": "293ff493510149e3b54b02689175f713133c1da1ebf1244f4343f1ec76b3d566",
   "retrorecomp/neogeo_z80.py": "478ecb669c50b8f3e78bad908f1e7bdd375e5f20bed7e2908b32444336e2d919"

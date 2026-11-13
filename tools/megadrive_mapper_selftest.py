@@ -31,7 +31,7 @@ def main():
                        (0x400440,'13fc000900a130f3')):
         data=bytes.fromhex(raw);payload[offset:offset+len(data)]=data;pcs.add(offset)
     path=work/'authored.bin';path.write_bytes(payload)
-    game=prepare16(path,'md',title='Authored Sega mapper',emit=lambda x:None);project=game.parents[2 if os.name=='nt' else 1]
+    game=prepare16(path,'md',title='Authored Sega mapper',emit=lambda x:None);project=game.parents[2 if game.parent.name=='Release' else 1]
     generate_steps(ROOT/'.deps/segagenesisrecomp',project,read_megadrive_rom(path),pcs,follow_flow=False)
     cmake,_=toolchain();run([cmake,'--build',project/'build','--config','Release','--parallel',build_jobs()],log=work/'build.log')
     exe=executable(project,work,(ROOT/'native/md_mapper_checks.c').read_text(encoding='utf-8'))

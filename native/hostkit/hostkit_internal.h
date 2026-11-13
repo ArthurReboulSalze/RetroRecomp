@@ -65,6 +65,7 @@ typedef struct RrhkRun {
 /* Pseudo-keys of the kit's own option rows: past every scancode and past the machines' own rows (rrhk_computer.inc uses
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
 #define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
+#define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
 
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
@@ -91,6 +92,10 @@ void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop 
 void rrhk_rumble_stop(void);
 bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
 
+/* main.c: the plates a game shows for a few seconds when it opens (D17), and the options row that turns them off. */
+bool rrhk_start_help(void);
+void rrhk_toggle_start_help(void);       /* flip, keep in [Interface] start_help (shared by the games of the folder, like the language) */
+
 /* video.c */
 void rrhk_scale2x(const uint32_t *source, uint32_t *target);
 SDL_Rect rrhk_game_rect(SDL_Renderer *renderer);
@@ -110,6 +115,9 @@ int rrhk_graphics_rows(void);        /* the graphics page: the machine's options
 void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
+void rrhk_hub_key(SDL_Scancode key);  /* the F2 tiles: arrows choose, Enter opens the page */
+void rrhk_quit_ask(void);            /* open "Quit?" (No selected) */
+bool rrhk_quit_key(SDL_Scancode key);   /* a key on "Quit?"; true: Yes was chosen */
 void rrhk_toggle_menu(int kind);     /* Help or Pause: open it, or return to the menu it was opened from */
 void rrhk_close_menu(void);          /* Esc, B: back to the menu this one was opened from, or to the game */
 void rrhk_menu_draw(SDL_Renderer *renderer);
@@ -138,12 +146,15 @@ void rrhk_option_page_draw(SDL_Renderer *renderer);
 int rrhk_combo_rows(void);
 void rrhk_combo_start(int index, bool gamepad);
 bool rrhk_combo_capturing_pad(void);     /* a gamepad combination waits for its buttons */
+bool rrhk_combo_capturing(int index, bool gamepad);   /* this combination waits for its keys or buttons */
+bool rrhk_combo_set(int index, bool gamepad);         /* this combination has keys or buttons */
 void rrhk_combo_clear(int index, bool gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
 const char *rrhk_combo_hint(int index);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
-const char *rrhk_filter_name(int filter);   /* the translated name of a picture filter, as the options page shows it */
+const char *rrhk_filter_name(int filter);
+const char *rrhk_display_name(int mode);    /* "Windowed", "Pixel perfect", "Fit to screen", "Stretched" (translated) */   /* the translated name of a picture filter, as the options page shows it */
 int rrhk_option_scroll(void);               /* the first row the options page shows (0 up to fourteen rows; past them it scrolls) */
 int rrhk_option_selected(void);             /* the selected row of the options page */
 

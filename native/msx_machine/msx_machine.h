@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "msx_fdc.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,7 +33,10 @@ typedef enum {
     MSX_MAPPER_KONAMI_SCC,     /* 8 KB banks; writes at 5000h, 7000h, 9000h, B000h (+ 7FFh); the SCC at 9800h */
     MSX_MAPPER_ASCII8,         /* 8 KB banks; writes at 6000h, 6800h, 7000h, 7800h (+ 7FFh) for 4000h-BFFFh */
     MSX_MAPPER_ASCII16,        /* 16 KB banks; writes at 6000h-67FFh (page 1) and 7000h-77FFh (page 2) */
-    MSX_MAPPER_COUNT
+    MSX_MAPPER_COUNT,
+    /* Not a cartridge mapper: the disk interface of the Panasonic MSX2+ (msx_fdc.h), its 16 KB disk ROM at 4000h-7FFFh and
+     * the controller's registers at 7FF8h-7FFBh and BFF8h-BFFBh. Outside the mappers the runners name. */
+    MSX_MAPPER_DISK = 16
 } MsxMapper;
 
 /* The Konami SCC (K051649): five channels of 32 signed 8-bit samples, channels 4 and 5 sharing one waveform. */
@@ -69,6 +74,7 @@ typedef struct {
     uint16_t sram_size;    /* 8 KB (ASCII 8) or 2 KB mirrored over the 16 KB page (ASCII 16) */
     uint8_t sram_bit;
     uint8_t bank_high;
+    MsxFdc *fdc;           /* MSX_MAPPER_DISK: the floppy controller, storage owned by the program */
 } MsxDevice;
 
 enum { MSX_BLOCK_SRAM = -2 };    /* a region of a cartridge that shows its SRAM */
@@ -148,7 +154,14 @@ typedef struct {
     uint8_t line_mode[MSX2_LINES];
     int8_t line_adjust[MSX2_LINES];    /* the horizontal adjust each picture line was drawn with (the host shifts it) */
     MsxV9938Cmd cmd;
+    /* The MSX2+'s V9958 (set by msx_setup_msx2plus, never saved: the board decides it): R#25-R#27, the ID 2 in S#1, the
+     * horizontal scroll, YJK and YJK+YAE in Graphic 7 (MSX_COLOUR15 points), commands in every mode with R#25 CMD. */
+    uint8_t v9958;
 } MsxV9938;
+
+/* A point of the MSX2 picture (MsxV9938.frame) is a 9-bit colour, 0GGG0RRR0BBB, or, with this bit set, a 15-bit colour
+ * 0GGGGGRRRRRBBBBB (5 bits a channel: the V9958's YJK modes). No 9-bit colour has the bit, so a picture of the V9938 is unchanged. */
+enum { MSX_COLOUR15 = 0x8000 };
 
 /* The MSX2 memory mapper (ports FCh-FFh): RAM in 16 KB segments, one register per page. */
 typedef struct {
@@ -217,6 +230,7 @@ typedef struct {
     MsxMapperRam mapper;   /* MSX2: segments 0 when absent */
     MsxRtc rtc;
     uint8_t has_rtc;
+    uint8_t has_f4, port_f4;   /* MSX2+: the I/O port F4h the BIOS reads at start (a latch here, 00h at power-on) */
     uint64_t frames;
     uint64_t unmapped_reads, dropped_writes;
 } MsxMachine;
@@ -272,6 +286,11 @@ void msx_set_rtc(MsxMachine *m);
  * the mapper RAM in 3-2; the RP5C01 and the V9938. `bios` is the 64 KB BIOS source (native code: source 1, the sub-ROM
  * from its bank 6). The cartridge goes in slot 1 as on the MSX1. Call after msx_init. */
 void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
+/* The disk interface in primary slot `primary`: the 16 KB disk ROM (translated as part of the BIOS source from 8 KB bank
+ * `bank_base`) and the controller `fdc`. */
+void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxFdc *fdc, uint8_t bank_base);
+/* The MSX2+ board: the MSX2's, with the V9958 and the port F4h. */
+void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 
 /* Quick states: the region table and the SCC list rebuilt from the registers and the blocks after a state is applied
  * (msx_state.c, msx_refresh_layout). */

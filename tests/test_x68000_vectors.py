@@ -59,13 +59,13 @@ class GroupsReplayTests(unittest.TestCase):
         for test in json.loads((ROOT / 'tests/fixtures/m68k-groups/cases.json').read_text(encoding='utf-8'))['tests']:
             sizes[test['group']] = sizes.get(test['group'], 0) + 1
         self.assertEqual(selftest.GROUPS, 'm68k-groups')
-        self.assertTrue(recorded)
         for name, counts in recorded.items():
             self.assertIn(name, sizes)
             self.assertTrue(all(0 < value <= sizes[name] for value in counts.values()), name)
-        # LINK A7, UNLK A7 and NEGX.B were listed until the three machines took the Mega Drive's state rules (1.6.7): only the
-        # decimal instructions on operands that are not digits remain.
-        self.assertEqual(set(recorded), {'ABCD', 'NBCD', 'SBCD'})
+        # LINK A7, UNLK A7 and NEGX.B were listed until the three machines took the Mega Drive's state rules (1.6.7), and the decimal
+        # instructions on operands that are not digits (ABCD, NBCD, SBCD) until they took the decimal rule too (13 November 2026): the
+        # list is empty and a group that differs is a regression.
+        self.assertEqual(recorded, {})
 
     def test_a_group_that_agrees_with_the_vectors_and_is_not_listed_passes(self):
         self.assertEqual(selftest.group_problems({'groups': [self.group()]}, {}), [])

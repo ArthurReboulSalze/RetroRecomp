@@ -16,9 +16,9 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | Key | Action |
 | --- | --- |
 | F1 | Help; **Shift+F1** restarts at once, without confirmation |
-| F2 | Settings pages: controls, gun, display & game, options |
+| F2 | Settings: a menu of tiles (1.7.4), one per page: each player's keyboard and gamepad, the gun or DIP page, the options. Enter opens a page, Esc comes back |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
-| F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
+| F4 | Window → pixel-perfect fullscreen → fit fullscreen → **stretched fullscreen** (1.7.4: the whole screen, the aspect ignored) → window; a short notice names the mode |
 | F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
@@ -31,7 +31,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)); the trigger of player 1's controller |
 | ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below); the trigger of player 1's controller |
 | M | Mute or unmute the sound |
-| Esc | Close a menu or quit |
+| Esc | Close a menu. In play: asks **Quit? No / Yes** (1.7.4) before the game closes |
 
 On every console whose controller has a **Start** button (Game Gear, Game Boy,
 NES, Mega Drive, SNES, Neo Geo, CPS-1), the default keyboard layout is the
@@ -48,6 +48,14 @@ from F1 to F12, followed by the console's own controls.
 On a controller, **Start+Select (Back)** held for one second restarts and
 **L3+R3** held for one second quits; both can be changed or cleared at the
 bottom of player 1's F2 gamepad page (keyboard combinations: keyboard page).
+Since 1.7.4 quitting asks first: **L3+R3** held for one second, like **Esc** in
+play, opens **Quit? No / Yes** in the game's own menu (No is selected; A or
+Enter answers, B or Esc cancels). When a game opens, a plate at the bottom of
+the picture recalls F1, F2 and Esc for a few seconds, with these two
+combinations when a gamepad is plugged in; on a computer (X68000, Amiga, Atari
+ST, MSX) it says instead whether the keyboard plays the game controls or
+belongs to the computer alone. The **Start-up reminders** row of the options
+page turns these plates off, for every game of the folder.
 Since 1.6.9 both are watched on **player 1's controller only**, like the
 triggers' speed controls: on an arcade board Start+Coin is every player's
 normal play, and another player holding it no longer restarts the game for
@@ -187,7 +195,11 @@ first). No console of this release declares any of them, so nothing below appear
 
 ## F2 settings pages
 
-F2 gathers every setting in one place, on every console, as pages:
+F2 gathers every setting in one place, on every console. Since 1.7.4 it opens a **menu of tiles**, one per page, each
+with its icon: the arrows (or the D-pad) choose a tile, **Enter** (or A) opens its page, **Esc** (or B) comes back to the
+tiles and then to the game, and F2 closes everything at once. Under the tiles the menu names the selected page and, for a
+gamepad, the controller that player has. Inside a page Left/Right, Tab and the shoulder buttons still go to the next page.
+The pages:
 
 1. the control pages: keyboard then gamepad for each player (Game Gear and
    Game Boy: keyboard, gamepad). Player 1's pages end with the **Quit** and

@@ -74,7 +74,7 @@ class InstructionRulesTests(unittest.TestCase):
         self.assertLess(split.index('m68k_write16(a + 2u'), split.index('rr_md_prefetch_release();'))
         self.assertLess(split.index('rr_md_prefetch_release();'), split.index('m68k_write16(a, (uint16_t)(v >> 16));'))
         # m68000_state_rules reads STATE_RULES by position: the bus order rules are a tuple of their own.
-        self.assertEqual(len(megadrive_rules.STATE_RULES), 4)
+        self.assertEqual(len(megadrive_rules.STATE_RULES), 9)
         for other in ('m68000_state_rules',):
             self.assertNotIn('BUS_ORDER', (ROOT / 'retrorecomp' / (other + '.py')).read_text(encoding='utf-8'))
 

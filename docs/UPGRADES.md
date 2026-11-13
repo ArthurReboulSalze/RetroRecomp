@@ -79,6 +79,133 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## 68000 machines: the decimal instructions follow Moira on every operand (1.7.4)
+
+`ABCD`, `SBCD` and `NBCD` on operands that are not decimal digits are left undefined by the manual; the four 68000 machines gave
+their own answer, and 22 vectors of `tests/fixtures/m68k-groups` (`ABCD` 2, `SBCD` 2, `NBCD` 18) disagreed with it. They now follow Moira
+(MIT, the 68000 of vAmiga) on the result and on the five flags X, C, N, Z and V, register and memory forms, written from its behaviour in our own
+code (`retrorecomp/megadrive_rules.py` state rules 4 to 8, reached by the Neo Geo, CPS-1 and X68000 native steps through
+`retrorecomp/m68000_state_rules.py`; the Musashi reference of those three through `retrorecomp/musashi_fixes.py`, 20 handlers). A valid
+decimal operand gives the same result as before; V, which the native steps always cleared, now takes Moira's value (no hardware test or
+documented source says otherwise; the manual calls it undefined).
+
+- **Evidence** (`tools/megadrive_moira_vectors.py` with `native/md_bcd_checks.c`, a real run of Moira, portable toolchain): every operand pair,
+  X and Z of each instruction (1,050,624 states), **0 differences** on the result and the five flags, on the Mega Drive's native steps and on its
+  reference path (before: 41,616, 36,864 and 704 states outside V; 4,288 to 147,776 on V alone). `m68k-groups`: **2,895 of 2,895** vectors whole on the
+  Mega Drive, the CPS-1, the X68000 and the Neo Geo, native and reference alike (before 2,873); both deviation lists are empty. The vectors come
+  from MAME and Moira is a software model: neither is silicon.
+- **What moves:** the generated code and the **game stamps of the Mega Drive, the Neo Geo, the CPS-1, the CPS-2 and the X68000**
+  (`tools/std_baseline.py`; no host or build stamp, no quick-state key); `GENERATOR_REVISION` of `cps1_knowledge.py` 13 to 14 and of
+  `x68_knowledge.py` 1 to 2, with `tests/cps1_generator_pins.json` and `tests/x68_generator_pins.json`. Existing exports of these five machines are
+  converted again in full. A game that never runs a decimal instruction on a non-decimal digit does the same thing as before.
+- **Left as listed:** the same bench found that on 16 forms with no vector (`ADDI`, `SUBI`, `ANDI`, `ORI`, `EORI` `.L` and `CMPI` on `-(An)` and
+  `(d8,An,Xn)`) the Mega Drive's first read comes two clocks later than Moira's (the same total clocks and data); and that Moira writes the high word of
+  a long read-modify-write first where the MAME vectors write the low word first. Neither is changed (no vector for the first, the vectors win on the
+  second).
+
+## Mega Drive: what the report says (1.7.4, gates G2 and G15)
+
+One writer change of `retrorecomp/console16.py` and `console16_optimization.py` (commit `50ce0d5f`): the report of a Mega Drive conversion now writes
+`independent_cpu_oracle: false`, a `qualification_scope` with `universal_zero_fallback_claim: false`, `cpu_agreement`, the sound and main CPU's word over
+every route, `native_percentage_scope`, `native_coverage` and a closing "ready (no interpreter on the routes played | interpreter fallback reported)" line;
+the per-route line gives the native side. The state schema, machine and ROM identity, the ordinary saves (supported, scope, path), two players and the
+pad or gun, and the SDL revision are recorded; a field that would claim a tool proof stays empty unless this conversion ran it. The common report reads
+the route hashes, the main CPU's mode and share and the build fields (`report_schema.py`, an interface module). The Super Nintendo shares the writer: its
+`audio_cpu` is now the word over every route, it gains `native_percentage_scope`, and two log lines change wording. **Game stamps that move:** the Mega Drive,
+the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16.py` is one of their inputs); no host or build stamp.
+The window's fallback line of the machines counted in instructions says "on the tested routes, at most" and "hardware unverified" (interface strings, no stamp).
+
+## Every machine: the menus drawn again, F2 as tiles, "Quit?", the opening plates and a stretched F4 mode (1.7.4)
+
+The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d15), decisions D15 to D19): F2 opens a menu
+of tiles, Esc and the Quit combination ask "Quit? No / Yes", notices are plates, each game says its keys when it opens, the
+menus get icons, block letters and key caps, and F4 gains a fourth mode, stretched fullscreen.
+
+* **Stamps** (`compilation_inputs.role_stamps`, compared with main `f57eb9e3` on Windows). The files changed are host inputs
+  (`stamp_inputs.HOST_NATIVE`): `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`,
+  `display_settings.h`, `display_settings_checks.c`, `hostkit/hostkit.h`, `hostkit/hostkit_internal.h` and the shell's
+  `rrhk_main.c`, `rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_input.c`, `rrhk_video.c`, `rrhk_pointer.c`. The **host stamp moves for all twenty profiles**: sms, gg, gb, nes, md, snes, ng, cps1,
+  cps2, pce, gba, amiga, atarist, n64, psx, msx, msx2, msx2plus, x68 and scummvm. **No game stamp and no build stamp moves.**
+  An export of 1.7.3 is **upgraded** (rebuilt from its learned paths, no rediscovery), as for any change of the shell.
+  ScummVM's games do not use the kit (their menus are ScummVM's own), but their host stamp lists the same files: they are
+  upgraded too, and look the same afterwards.
+* **What players see** (every machine on the kit; nothing changes in ScummVM's games): F2 opens the tiles; Esc in play and
+  L3+R3 ask "Quit? No / Yes"; a plate at the bottom of the picture for about 4.5 s when the game opens (F1, F2, Esc; with a
+  gamepad, its Quit and Restart combinations; on a computer, who has the keyboard), which the new **Start-up reminders** row
+  of the options page turns off; F4 gains a **stretched** fullscreen mode after fit (the whole screen, the aspect ignored),
+  and names each mode in a notice; notices on a dark plate; the help, control pages, options, graphics and gun pages with the
+  mark, block letters, icons and key caps; gamepad buttons named as printed on a pad. The Master System, Game Gear and MSX
+  adapters still post their own opening notice (2.4 s), which shows above the kit's plates until their adapters drop it
+  (adapter change, not in this step).
+* **Quick states of the Mega Drive and the Super Nintendo.** Their state key hashes the listed files directly below `native/`
+  (`compilation_inputs.state_native_files`, read by `console16_state.write_config`), which include `retro_menu.c`,
+  `retro_menu.h`, `game_options.h` and `runtime_catalog.inc`: the key moves, and an F8 state written by 1.7.3 is refused with
+  the usual notice ("No compatible quick state to load") instead of being loaded. Cartridge saves are not concerned. No other
+  machine's state key reads these files (the CPS-1/CPS-2, Neo Geo, PC Engine, NES, PlayStation and MSX keys hash their own
+  machine files; the Master System's `compiler_signature` that lists them is a record of the library, not a state key; the
+  Amiga, Atari ST, X68000 and Nintendo 64 bind their states to the game stamp), so their F8 states of 1.7.3 still load.
+* **Texts.** Thirteen new entries in the catalogue of the five game languages (and in the seven locale files): "Controls",
+  "Options", "Help", "Yes", "No", "P%d", "Reset", "Start-up reminders: %s", "Stretched", "F4  Window / Pixel / Fit /
+  Stretched", the tiles' hint line and the two lines about a computer's keyboard. Every
+  other text is an existing one, drawn differently.
+* **F4.** `[<Console>.Video] display_mode` keeps 0, 1 and 2 (window, pixel-perfect, fit) for what they meant, and adds 3
+  (stretched); an exported game of 1.7.3 reading a 3 written by 1.7.4 falls back to the window, as for any unknown value.
+  Checked: `tools/display_settings_selftest.py` (saved 0 to 3 read as themselves, 4 and -1 as the window, two rounds of F4)
+  and the capabilities run (F4 four times, the notice, the whole output, a machine that clamps its former value).
+* **Preferences.** One key added, `[Interface] start_help` (the new **Start-up reminders** row of the options page: 0 turns
+  the opening plates off; absent or 1, they are shown); none renamed: bindings, combinations and options are read and written
+  as before.
+* **Unchanged.** What the pages do, the function keys, the pictures the machines produce (the plates and menus are drawn on
+  the window after the picture), the headless runs, the routes and their hashes. A hidden-window test run shows no opening
+  plate and still stops on Esc or on the Quit combination without a question.
+* **Measured.** `tools/hostkit_capabilities_selftest.py` (205 checks: the tiles, the pages opened from them, "Quit?" with No,
+  Esc and Yes, the Start-up reminders row and its preference, the four F4 modes) and `tools/hostkit_players_selftest.py` pass with the portable toolchain on Windows. The frame cost of the
+  plates and of an open menu was **not** measured; nothing is drawn once the plates are gone and no menu is open.
+
+## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
+
+**What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
+with the V9958 (R#25-R#27, the ID in S#1, YJK and YAE in Graphic 7, the horizontal scroll with MSK and SP2, the command engine in every mode with
+CMD) and the port F4h; C-BIOS 0.29a's MSX2+ images come from the same pinned archive. The MSX2 picture's points may be 15-bit colours (bit 15
+set); a V9938 never makes one, so an MSX2 game's picture is unchanged (the MSX2 panel converted on this tree is equal to the panel of 13 November
+on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not `\b`, so "MSX2+" is a name
+and "MSX2" followed by "+" is another machine; every other name matches as before.
+
+**Hot path:** a V9958 line with a scroll or the mask is drawn up to three times (the background of one or two pages, then the sprites); a V9938
+line takes the same path as before.
+
+**What moves:** the MSX and MSX2 game stamps (`msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_v9938.c`, `msx_v9938_draw.c`,
+`msx_v9938_cmd.c`, `msx_player.c`, `msx_native_main.c`, `msx_reference_main.c`, `msx_state_file.inc`, `rrhk_msx.inc`, `msx_cbios.py`,
+`msx_conversion.py`, `systems/msx.py`); the MSX2+ is a new owner of the same files and of `cart_save.c` and `route_start.py`. No other
+machine's stamp moves.
+
+**Quick states:** the layout is `msx-state-4` (the port F4h); a state of an earlier build is refused cleanly.
+
+## MSX2+: disk games (1.7.4, experimental, step 2)
+
+**What changes.** The `msx2plus` profile converts disk games: a `.dsk` (720 or 360 KiB) or a set of one to ten, grouped into an M3U whose first
+line names the machine ([MSX.md](MSX.md#disks-13-november-2026-branch-specmsx2plus-disk-174)). A disk game needs the player's own MSX2+ BIOS pair
+and own disk ROM (a new path option, Options > MSX2+ disk ROM; nothing is shipped). The runtime gains the TC8566AF disk controller in slot 2 with
+the disk ROM (`msx_fdc.c`, our own MIT code); the disks are embedded in the game, what a game writes goes to a copy beside its settings
+(`datas/games/msx2plus-<id>/disk-N.dsk`), Page Up / Page Down change disk, and the long routes of a multi-disk game insert the next disks. The
+report names the disk interface in the cartridge's place and has a `disk_writes` block (what the game wrote, checked in fresh processes).
+`tools/msx_write_disk.py` builds an authored disk (our own boot sector, no game data) that writes one sector, which proves the write path
+end to end; `tools/msx_fdc_selftest.py` checks the controller alone (a write changes exactly the sectors it is given).
+
+**Shared:** `rom_sources.disk_sets` now groups disk sets for any machine that declares them (`DiskSetKind`: the profile, its suffixes, its
+folder, its marker), and an M3U it writes for the MSX2+ starts with `# Retro-Recomp system: msx2plus`; the X68000's M3U bytes are unchanged
+(a test pins them) and the Atari ST's sets are untouched. `rom_sources.py` is in no stamp.
+
+**Hot path:** none: the controller is reached only when the program reads or writes its four registers; a cartridge game builds without it
+(`RR_MSX_DISKS` is 0) and its loop is unchanged.
+
+**What moves:** the MSX, MSX2 and MSX2+ game stamps (`msx_fdc.c` and `msx_fdc.h` are new files of the three; `msx_machine.c`,
+`msx_machine.h`, `msx_cart.c`, `msx_glue.inc`, `msx_player.c`, `msx_state.c`, `msx_route.inc`, `msx_native_main.c`,
+`msx_reference_main.c`, `msx_build.py`, `msx_conversion.py`, `msx_routes.py`, `systems/msx.py`, and the new `retrorecomp/msx_disk.py`). No other machine's
+stamp moves.
+
+**Quick states:** the layout is `msx-state-5` (the controller and the disk in the drive); a state of an earlier build is refused cleanly.
+
 ## MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts (1.7.4)
 
 **What changes.**
@@ -132,6 +259,27 @@ binding differs). No other machine's state changes.
 profiles were compared with main `f3479c5a`: only that one differs). `delivery_evidence.py`, `conversion_gates.py` and `resources.py` are untouched. **Existing Game Boy Advance
 exports:** the game stamp moves, so a 1.7.3 export is converted in full at its next conversion, from the player's own paths (experimental, private to the player, no frozen legacy stamp). **Quick
 states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused by the build binding (a rule of [UPGRADES](#the-rule-the-previous-release-only)).
+## Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report (1.7.4)
+
+The Atari ST game stamp moves, from `f61238ca2d46` to `f414185b00f5` (measured on main `be170091`; the host and build stamps do not move), so an Atari ST export of 1.7.3 is converted again in
+full by the first batch of 1.7.4. What a converted game does is not changed, except where a disk's root was read wrongly or a name is now a utility:
+
+- **The root directory of disk 1 is read after two FATs, as the TOS reads it.** The reader of `atarist_disk.py` believed the BPB's number of FATs, and the TOS takes every floppy to have two. Of the 275 disk 1 images
+  of the library tried, 10 declare one FAT and three change: Battle Probe (empty root before; `PROBE.PRG`, started by the desktop autostart, which stays kept only when the reference run shows the boot reached the
+  desktop), Pharaoh III (`PHAROAH.TOS`: it starts its menu with the player's own TOS 1.04 and ends in an EmuTOS "Panic: Bus Error") and Trailblazer (`EDITOR.PRG` and `TRAIL.PRG`). The other 272 decide as before.
+- **"music" and "editor" are utilities** in rule 2 of the desktop autostart (exact words): Conquests of Camelot starts `SIERRA.PRG` (not `MUSIC.PRG`) and Trailblazer starts `TRAIL.PRG`. The rule stays a guess by name, and the
+  player can open another program from the desktop. Language versions, game pairs and Mercenary are still left to the player.
+- **Each report lists where the interpreted instructions ran**: `final_checks[].interpreted_sites` (address, opcode, count, most run first), `interpreted_sites_distinct`, `interpreted_sites_unlisted` and `interpreted_sites_complete`
+  (the counts add up to the run's total; true on all 47 routes of the panel), asked of the delivered file's runs by the player's option `--interpreted-sites` (a table of 65,536 sites, off in a game that is played). The report also names the
+  Shifter/GLUE/MMU and the YM2149 as devices (`hardware_devices`, no counter), the MFP, the IKBD and the WD1772 with its DMA in `machine.other_devices`, keeps the picture changes and the frame of the last one in the
+  liveness record, and fills `route_warnings` (the Sega modules' function: a route whose picture stops changing in its first tenth).
+- **`atarist_notes.py`: the known stops.** A table, keyed by a dump's SHA-256, of what the routes of the panel run of 13 November 2026 stop on: Another World (code wheel), Carrier Command (manual word), Elite (novella protection),
+  Operation Stealth (colour codes), Leader Board (hardware key), Trinity (a resolution the machine does not start in), and Metro-Cross and Pharaoh III (EmuTOS; they start with the player's TOS 1.04). It adds a sentence to
+  `route_warnings` and changes nothing a conversion does: no protection is answered, skipped or patched.
+
+**Proof** (Windows, one tree, 13 November 2026): the panel of eight games, converted one at a time from an empty scratch library at the extended level (Lethal Xcess at the thorough level: the second long route changes the disk, and it reaches play);
+on all 25 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on 8 of 8 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). Seven more games
+were converted in the same run and are outside the panel; the fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
 
 ## Exports of 1.7.2 in 1.7.3
 

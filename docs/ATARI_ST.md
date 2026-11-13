@@ -54,10 +54,10 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    counts with and without the feature). While the autostart is kept, Hatari's GEMDOS hook stays installed (its cartridge
    code), and its traps are counted as interpreted. The report says what was decided and why (`desktop_autostart`: the program, the
    candidates of the root, the rule and the reason).
-   **Several programs.** Only where a clear rule picks one, never by a guess. Rule 1 (`title-word`): exactly one program whose name,
+   **Several programs.** Only where a clear rule picks one; rule 2 is a guess by name, and the player can still open another program from the desktop. Rule 1 (`title-word`): exactly one program whose name,
    letters and digits only, is a word of the game's title (at least four letters, no Roman numeral, no article): `CRICKET.PRG` for
    Championship Cricket, `OUTCAST_.PRG` for Outcast. Rule 2 (`only-non-utility`): else exactly one program that is not a utility, by a
-   short list of names (setup, config, format, read, view, help, manual, unpack, depack, backup, copy, util, and the installers). Two
+   short list of names (setup, config, format, read, view, help, manual, unpack, depack, backup, copy, util, music, editor, and the installers: exact words, no exception for one game). Two
    programs that fit rule 1, or none of the two rules, leave the choice to the player: nothing is started, and the report says so. A
    lone program is started whatever its name, as before.
    Why this route: an `AUTO` folder cannot be added to an IPF disk without changing its flux and runs before GEM is up (a GEM
@@ -96,7 +96,7 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
+| Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below; the panel of eight games of 13 November 2026 (extended level, interpreted instructions listed by address) follows them. On the tested routes only. |
 | CPU fidelity | The native code is Hatari's own handlers, specialised per opcode (section 2): on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native form was compared on 6,107 vectors of the flat bus and 3,569 of the ST's map, those whose opcode has a form, and equals the interpreter on all of them; with `--all-forms`, each of the 45,814 forms of every opcode but RESET equals the table's handler on eight random states (366,512 runs: registers, flags, clocks in each position of the bus slot, interrupt level changing during the instruction, prefetch, RAM, and 834,101 bus accesses in order and clock). These checks found that a compiler reads a literal differently: ADDX.L D6,D6 gave wrong flags until the forms were compiled with wrapping arithmetic. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
 | Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 51 measurements, 49 agree, 2 recorded differences): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. Two recorded differences: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the round 2 MHz its data sheet gives as a maximum; and timer D, started from the TOS's addresses, runs slower with Hatari's patch of it, which is on for a game that shows no sign of relying on the timer as TOS left it and off for one that does (section 5). The 263 lines at 60 Hz rest on the GLUE's vertical counter as MAME and the gstmcu replica model it; several numbers rest on Hatari and MAME, as the check's `SOURCES` say (the WD1772 data sheet, the Atari Compendium and the ST's schematics were not reached). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
 | Gameplay validation | None. |
@@ -138,6 +138,29 @@ continues in a fresh process on all ten, on every column, sound samples included
 (delivered conversion, Standard level, EmuTOS).
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
+
+**The panel of eight (1.7.4, 13 November 2026).** Eight games chosen for what each one adds, converted one at a time on Windows from an empty scratch library, from one tree (1.7.3 and the changes of 1.7.4), at the extended level
+(the main and the exploration routes of 3,000 frames and one pseudo-random route of 18,000), Lethal Xcess at the thorough level (a second route of 18,000 frames that changes the disk once), with EmuTOS 1.4, Turrican II with the player's TOS 1.04.
+On all 25 routes the native game and its compressed copy equal the fresh interpreted reference, frame by frame (picture, sound, RAM, CPU registers), and the state saved on the main route continues in a fresh process on 8 of 8; no game was dropped. The interpreted
+instructions of a run are listed where they ran (`final_checks[].interpreted_sites`: address, opcode, count) and add up to the run's total on 25 of 25 routes. They are of three kinds: EmuTOS's own start (four to six instructions:
+processor probes, line A and line F, the same addresses in every game), Hatari's GEMDOS hook (its cartridge code at $FA002A, installed while the desktop starts a program: a file read through GEMDOS is one of them; 351 to 775,400 on a route) and the game's own line A
+opcodes (Kick Off 2 at $012E60), which never become native code, as Hatari's table sends them to its exception handlers. Pictures change on the main route of every game and every game is heard on at least one route. What the routes reach is read from the
+last picture of each (the captures were looked at by the specialist agent, not by the owner; pad and key routes, not played games):
+
+| Game (disks) | Why it is on the panel | TOS, timer D | Starts by | Interpreted per route (main / exploration / long) | The routes reach |
+| --- | --- | --- | --- | ---: | --- |
+| Bomb Jack (1) | EmuTOS, starts by itself, a joystick arcade game: the plain case | EmuTOS, patched | itself | 5 / 5 / 5 | play |
+| Another World (2) | two disks, starts by itself, a code-wheel protection | EmuTOS, patched | itself | 5 / 5 / 5 | the code wheel, then ERROR after the route's entry (protection) |
+| Operation Stealth (3) | three disks, started by the desktop, Hatari's GEMDOS hook, a colour-code protection | EmuTOS, patched | DELPHINE.PRG | 872 / 857 / 5,026 | the colour-code check (protection) |
+| Turrican II (1) | the player's own TOS 1.04, which EmuTOS cannot run | TOS 1.04, patched | itself | 0 / 0 / 0 | a level |
+| Kick Off 2 (1) | protected tracks read through the WD1772 model, line A in the game's code | EmuTOS, patched | itself | 545 / 423 / 2,095 | menus, a match |
+| Lethal Xcess (2) | timer D chosen `exact` by `auto`, two disks (the disk change of the second long route) | EmuTOS, exact | itself | 4 / 4 / 4 / 4 | its title, then INSERT DISK B; play after the disk change |
+| The Lurking Horror (1) | a text game on the keyboard, started by the desktop, saves through GEMDOS | EmuTOS, patched | LURKING.PRG | 99,302 / 99,702 / 775,400 | its text game, typed commands |
+| Battle Probe (1) | a disk the converter read wrongly until 1.7.4 (it declares one FAT), started by the desktop | EmuTOS, patched | PROBE.PRG | 351 / 354 / 10,833 | play |
+
+Six of the eight reach play or a match on a route; Another World and Operation Stealth stop on a copy protection whose answer is on a wheel or a card that came with the game: no route answers or skips a protection, and each says so in the report's `route_warnings`.
+The same run converted seven more games (Captain Blood, Carrier Command, Championship Cricket, Elite, Indiana Jones and the Temple of Doom, Outcast, The Seven Gates of Jambala), all validated the same way; they are not the panel, no gate rests on them, and
+their exports stay in the owner's folder. Of them Carrier Command (a language menu, then its manual-word protection) and Elite (its novella protection) also stop on a protection, and Jambala stays on its title.
 
 At the thorough level, with the timer D patch for every game (9 November 2026, before it was chosen per game, one tree, every game: main and exploration routes of 3,000 frames, two pseudo-random routes of 18,000, Turrican II with the player's TOS 1.04, the others on EmuTOS; a scratch library holding the same tree's Standard pass). All 40 routes equal their
 fresh interpreted reference and the compressed copy; a state continues on every game:
@@ -214,15 +237,19 @@ gameplay validation of any game, and it changes no gate.
   holds none at its root, the game starts at the GEM desktop and the player opens the program with the mouse (Ctrl+Alt+M captures it,
   as on any desktop game; a double click on drive A, then on the program). The report (`desktop_autostart.reason` and `candidates`)
   names the programs and says that no rule picked one. Which disk-1 programs a game needs is not read from the program: only the names
-  of the root are. In the library tried (275 ZIPs, read by names, 12 November 2026) twelve are left to the player: Backgammon Royale,
-  Chess Simulator, Conquests of Camelot, Mean 18 and Mercenary (several programs, no rule) and Battle Probe, Kick Off 2 - Winning Tactics,
-  Leader Board (a desk accessory), Metro-Cross, Pac-Mania, Trailblazer and World Class Leader Board (nothing at the root); six others now
-  start by themselves (Battle Chess, The Chessmaster 2000, Championship Cricket, Logical, Outcast, Rody et Mastico III). Four of
-  them were converted on EmuTOS at the Standard level (Logical and Rody et Mastico III were not) and each reaches a screen of its own
-  (The Chessmaster 2000 an alert of the game, "Lost my BIG pieces!", before any disk change); Mercenary, converted the same way, stops
-  on the desktop and its report says why. Several disks that start by themselves (a boot sector of their own, an `AUTO` folder) are not concerned. A disk
-  whose root is empty and whose boot sector is a plain one (a 10-sector disk without file) cannot be told apart statically from a data
-  disk: the report says it holds no program; it was not run to know how it starts.
+  of the root are. The root is read where the TOS reads it, after two FATs whatever the BPB declares (1.7.4: Battle Probe, Pharaoh III and Trailblazer declare
+  one, and looked empty before). In the library tried (275 ZIPs; the twelve of the census of 12 November 2026 were each booted for the first time on 13 November,
+  headless, on EmuTOS and on TOS 1.04) the games that stop at the desktop are: Backgammon Royale (BG.PRG and three language versions), Chess Simulator
+  (CHESS_F.PRG, CHESS_GB.PRG), Mean 18 (ARCH.PRG, GOLF.PRG) and Mercenary (ESCAPE.TOS and SECOND.TOS, two games) with several programs and no rule; Kick Off 2 - Winning
+  Tactics, a data disk with nothing to start; and Trailblazer, now that "editor" is a utility, started by TRAIL.PRG. The census had put three others among them that start
+  by themselves (Pac-Mania through its AUTO folder, World Class Leader Board, and Leader Board, whose title then prints "INSERT SECURITY KEY": a hardware-key
+  protection the converter does not answer, listed in the report's `route_warnings`); Metro-Cross starts by itself on TOS 1.04 and stays on a blank screen on
+  EmuTOS, and Pharaoh III (PHAROAH.TOS, the only program once the root is read as the TOS reads it) starts its menu on TOS 1.04 and ends in an EmuTOS "Panic: Bus
+  Error" (choose your own TOS 1.04 in Options > Atari ST for both). Six others start their program since 1.7.3 (Battle Chess, The Chessmaster 2000, Championship Cricket,
+  Logical, Outcast, Rody et Mastico III), Battle Probe (PROBE.PRG) and Conquests of Camelot (SIERRA.PRG, as MUSIC.PRG is a utility; its title shows on EmuTOS) since 1.7.4.
+  Several disks that start by themselves (a boot sector of their own, an `AUTO` folder) are not concerned. A disk
+  whose root is empty and whose boot sector is a plain one cannot be told apart statically from a data
+  disk: the report says it holds no program.
 - **The MFP's timer D: Hatari's patch of it is chosen per game** (1.7.3; the patch itself is a known limit, on purpose, since 1.7.2). TOS, EmuTOS as well as Atari's, starts this timer at a very high rate with its interrupt off; each tick costs an event in Hatari, one every couple of instructions, which keeps the native chains short. Hatari's own option (`hatari_timerd`) starts it far slower when the code that starts it is in the TOS's addresses, and tells TOS the old value when TOS reads it back. The rate left differs by TOS, as the patch of the control register fires once: TOS 1.04 stays at prescaler 200, data 100, 123 Hz; EmuTOS writes the register again at boot and stays at prescaler 4, data 100, 6,144 Hz, which is 123 events per frame of about 974. **A game that uses the timer as TOS left it sees another rhythm, or another value in its data register; a game that programs the timer itself is not touched.** So the machine has two modes, and each game gets one: `patched` (Hatari's option on, lighter on the PC) or `exact` (off: TOS starts the timer as it asks, `tools/atarist_hardware_check.py` measures 599 interrupts for 598.4 by the data sheet, the same program started from RAM). No fidelity is claimed in either mode.
   **How a game gets its mode.** The Options row "Atari ST: timer D" (`atarist_timer_d`, `--atarist-timer-d` on the command line) is `auto` by default, `patched` or `exact`. On `auto` the fresh references run with the patch, and a detector in the adapted Hatari (`retrorecomp/atarist_hatari.py`, observation only, in either mode) looks at the accesses to the MFP's registers made from outside the TOS's addresses: **sign A**, a read of timer D's data register (TDDR); **sign B**, timer D's interrupt left enabled and unmasked (IERB and IMRB bit 4) while the code never wrote TDDR or started the timer, so that TOS's own brief enabling at boot does not count; **sign C**, TCDCR written with timer D's bits not zero before any write of TDDR; **sign D**, a read of TCDCR, counted and never alone a reason. If A, B or C is seen on any route, the references run again with the patch off, the game is built and validated on that machine (the reference, the native game and its packed copy run the same mode: each run's report says which, and a conversion refuses a run of another mode), and the report says why in `machine.timer_d`: the mode, the choice, the reason (the sign, the frame, the pc and the route), the counts of every sign by route, and the first references' mode they were measured on. `patched` and `exact` force the mode and say so. The frame comparison cannot see the mode, as the reference has it too.
   **What was seen** (EmuTOS, the Standard routes, 12 November 2026): Bomb Jack shows no sign and stays `patched`; The Seven Gates of Jambala reads TDDR once (sign A, frame 779, pc $0106F8 in RAM, on both routes), so `auto` runs it `exact` (Hatari's list names it as needing the option off, for its colour rasters); both routes of each equal their fresh reference and the compressed copy, and Jambala is 4 interpreted instructions on a route (48.9 million native). `tools/atarist_hardware_check.py` now also measures the detector with authored programs (51 measurements, 49 agree, the same 2 recorded differences): each sign counts from RAM, nothing counts for the same accesses made from the ROM, for a masked interrupt, or for the order a game that sets the timer itself uses, and the counts are the same with the patch off.
@@ -237,6 +264,7 @@ gameplay validation of any game, and it changes no gate.
 - The first conversion without a TOS of the player's needs the network once, for EmuTOS (3.5 MB).
 - Linux: the ten panel games were converted and validated on a Debian 13 PC (9 November 2026, system GCC, Standard level, the tree of the Windows panel above): the same counts as Windows, the
   traces of all 20 routes (CPU registers, RAM, picture and sound of every frame) byte for byte those of Windows, the compressed copy and the state continuation too. No game was played interactively on Linux (window, sound, pad).
+- Linux, panel of eight (13 November 2026, a Debian 13 PC, system GCC, the tree of `spec/atarist-174`, extended level, one scratch library per game, the game's files deleted after each run): Bomb Jack, Another World, Operation Stealth, Turrican II (the player's own TOS 1.04), Kick Off 2, Lethal Xcess, The Lurking Horror and Battle Probe were converted and validated there; the trace hash of every one of the 24 routes (3 per game; the fourth, thorough-level route of Lethal Xcess was not run on Linux) is the same as on Windows, with the same native and interpreted counts, and the compressed copy and the state continuation equal the reference. No game was played interactively on Linux (window, sound, pad).
 - Quick states: saving one leaves the running machine unchanged (checked on every conversion: the delivered copy saves a state on its main route and its
   trace still equals the reference), and a fresh process that loads it continues the unbroken run on every column, sound samples included (compared by every
   conversion over 400 frames, reported, not refused). Three mechanisms were found for this on 8 November 2026 by comparing a state of the running machine with a
@@ -248,9 +276,10 @@ gameplay validation of any game, and it changes no gate.
   `datas/games/atarist-<game>/disk-writes.bin`, and survives without F8/F9; the image is never changed. A file that is not valid is kept aside as
   `disk-writes.bin.unusable-N` and the game starts from its disks. A state brings the disks back as they were when it was saved. Not kept: a track the game formats
   (WD1772 Write Track on an IPF answers an error, as before), and a Read Track shows the original track, not the written sectors. A game that asks for a separate blank
-  save disk has none to use yet.
+  save disk has none to use yet: The Pawn is one (tried on 13 November 2026, EmuTOS, headless: its save command asks for a file name, then answers "Ouch - bad save", with three names; the file system of its disk is a nine-sector
+  fragment that holds only its loader, so the TOS has no room to create a file there, and the game expects a blank formatted disk).
   One real game was seen saving (`tools/atarist_saves_game.py`, 9 November 2026, TOS 1.04 and EmuTOS, Windows and Linux): The Lurking Horror writes 27 sectors by GEMDOS, and a new process with the file restores to the
-  room of the save, where one without it answers "Failed."; no game of the panel was seen saving.
+  room of the save, where one without it answers "Failed."; no route of the panel saves.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).
@@ -268,10 +297,14 @@ gameplay validation of any game, and it changes no gate.
   writes into a folder on request (`Game.exe --write-sources FOLDER`). Retro-Recomp's repository and installer hold no EmuTOS
   file. Notice: [licenses/emutos.md](../licenses/emutos.md).
 - The 68000 decoder of m68k-recomp-core (PolyForm Noncommercial) runs during the conversion only, to tell the length and the
-  target of an observed instruction; since 1.7.2 none of its text enters a game.
+  target of an observed instruction; since 1.7.2 none of its text enters a game. Its author granted the project owner an
+  additional, personal permission (13 November 2026) for this build-time use on the Atari ST target, alongside the GPL
+  components of the exports, on condition that no code of m68k-recomp-core enters them; it does not pass to forks or to other
+  machines: [licenses/m68k-recomp-core-atari-st-permission.md](../licenses/m68k-recomp-core-atari-st-permission.md).
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) is `P` on the gates with evidence above and `?` elsewhere. Leaving the experimental status is the maintainer's
-own decision, after a very high evidence bar.
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G12, G13 and G15, `P` on G7 (saves: one real game) and on G10 and G11 (named behaviours measured against documentation and
+fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that
+each lists in `route_warnings` with its reason. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.

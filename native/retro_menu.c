@@ -178,8 +178,13 @@ void rr_menu_text(SDL_Renderer *r, int ox, int oy, int unit,
 /* Text wider than `available` cells is narrowed to fit, never clipped. */
 void rr_menu_text_fit(SDL_Renderer *r, int ox, int oy, int unit, int x, int y,
                       int available, const char *s, int red, int green, int blue) {
+    if (s) rr_menu_text_plain(r, ox, oy, unit, x, y, available, rr_tr(s), red, green, blue);
+}
+/* The same without a look-up in the catalogue: for text that is already translated (a part of a translated line, a key's
+ * name), which must not be translated a second time ("Enter" is itself an entry). */
+void rr_menu_text_plain(SDL_Renderer *r, int ox, int oy, int unit, int x, int y,
+                        int available, const char *s, int red, int green, int blue) {
     if (!s || r != font_renderer || !use_font_unit(unit)) return;
-    s=rr_tr(s);
     SDL_SetTextureColorMod(font, red, green, blue);
     int width=rr_menu_text_width(s), offset=0;
     if(available<=0 || width<=0)return;
@@ -218,5 +223,241 @@ void rr_menu_page_header(SDL_Renderer *r, int ox, int oy, int unit, const char *
             rr_menu_box(r, ox, oy, unit, x, 15, 1, 4, RR_MENU_HINT, 255);
             rr_menu_box(r, ox, oy, unit, x + 5, 15, 1, 4, RR_MENU_HINT, 255);
         }
+    }
+}
+
+/* ---- Pixel art of the menus (1.7.4): icons, block letters, key caps, notice plates ----
+ * Drawn by hand on the menu grid and kept as packed rows, about 1.3 KB in all: no image file, no texture.
+ * An icon row is 2 bits a cell, cell x in bits 2x and 2x+1: 0 nothing, 1 line, 2 fill, 3 highlight. The Retro-Recomp mark
+ * uses the same bits for its plate, border, white and gold, with its four corner cells left out. */
+static const uint64_t icon_keyboard[18] = {
+    0x0ull, 0x0ull, 0x155555555555554ull, 0x6aaaaaaaaaaaaa9ull, 0x6aaaaaaaaaaaaa9ull, 0x6a5965965965969ull, 0x6a5965965965969ull,
+    0x6aaaaaaaaaaaaa9ull, 0x6965965965965a9ull, 0x6965965965965a9ull, 0x6aaaaaaaaaaaaa9ull, 0x6965bfffffe5969ull,
+    0x6965bfffffe5969ull, 0x6aaaaaaaaaaaaa9ull, 0x6aaaaaaaaaaaaa9ull, 0x155555555555554ull, 0x0ull, 0x0ull};
+static const uint64_t icon_gamepad[18] = {
+    0x0ull, 0x0ull, 0x155555555555554ull, 0x6aaaaaaaaaaaaa9ull, 0x6aafaaaaaaaaaa9ull, 0x6aafaaaaaaa5aa9ull, 0x6aaaaaaaaaa5aa9ull,
+    0x6afafa5a5a555a9ull, 0x6afafaaaaa555a9ull, 0x6aaaaaaaaaa5aa9ull, 0x6aafaaaaaaa5aa9ull, 0x6aafaaaaaaaaaa9ull,
+    0x1aaa9555556aaa4ull, 0x1aaa9000006aaa4ull, 0x1aaa9000006aaa4ull, 0x1aaa9000006aaa4ull, 0x55540000015550ull, 0x0ull};
+static const uint64_t icon_options[18] = {
+    0x0ull, 0x0ull, 0x154000ull, 0x1f4000ull, 0x2aaaaaaaa9f5554ull, 0x1f4000ull, 0x154000ull, 0x154000000000ull,
+    0x1f4000000000ull, 0x2aa9f5555555554ull, 0x1f4000000000ull, 0x154000000000ull, 0x55000000ull, 0x7d000000ull,
+    0x2aaaaaa7d555554ull, 0x7d000000ull, 0x55000000ull, 0x0ull};
+static const uint64_t icon_pointer[18] = {
+    0xf0000000ull, 0xf0000000ull, 0x15f5400000ull, 0x140f0140000ull, 0x400f0010000ull, 0x1000f0004000ull, 0x100000004000ull,
+    0x100000004000ull, 0xfffc0503fff00ull, 0xfffc0503fff00ull, 0x100000004000ull, 0x100000004000ull, 0x1000f0004000ull,
+    0x400f0010000ull, 0x140f0140000ull, 0x15f5400000ull, 0xf0000000ull, 0xf0000000ull};
+static const uint64_t icon_switches[18] = {
+    0x0ull, 0x0ull, 0x155555555555554ull, 0x6aaaaaaaaaaaaa9ull, 0x6a5656565656569ull, 0x6a4676764646769ull, 0x6a4676764646769ull,
+    0x6a4676764646769ull, 0x6a4676764646769ull, 0x6a7646467676469ull, 0x6a7646467676469ull, 0x6a7646467676469ull,
+    0x6a7646467676469ull, 0x6a5656565656569ull, 0x6aaaaaaaaaaaaa9ull, 0x155555555555554ull, 0x0ull, 0x0ull};
+static const uint64_t icon_logo[20] = {
+    0x1555555555554ull, 0x4f00000000001ull, 0x4fc0000000001ull, 0x4c00000000001ull, 0x40ffff02aaa81ull, 0x40ffff02aaa81ull,
+    0x43f03f0a80a81ull, 0x43f03f0a80a81ull, 0x43ffff0aaaa81ull, 0x40ffff02aaa81ull, 0x40fc3f02a0a81ull, 0x43f03f0a80a81ull,
+    0x43f03f0a80a81ull, 0x4000000000001ull, 0x42aaaaaaaaa81ull, 0x4000000000001ull, 0x42aaabfeaaa81ull, 0x400000f000001ull,
+    0x4000000000001ull, 0x1555555555554ull};
+static const uint64_t icon_keyboard_small[9] = {
+    0x55555554ull, 0x1aaaaaaa9ull, 0x199999999ull, 0x1aaaaaaa9ull, 0x199999999ull, 0x1aaaaaaa9ull, 0x1abffffa9ull, 0x1aaaaaaa9ull,
+    0x55555554ull};
+static const uint64_t icon_gamepad_small[9] = {
+    0x55555554ull, 0x1aaaaaaa9ull, 0x1abaaaa69ull, 0x1aaaaa959ull, 0x1aeaaaa69ull, 0xaaaaaaa8ull, 0x1a95555a9ull, 0x1a90001a9ull,
+    0x54000054ull};
+static const uint64_t icon_options_small[9] = {
+    0x3f00ull, 0x2aaaabf55ull, 0x3f00ull, 0x3f00000ull, 0x2abf55555ull, 0x3f00000ull, 0x3f000ull, 0x2aaabf555ull, 0x3f000ull};
+static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
+    {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
+    {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9}};
+int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
+
+/* The value of one cell, -1 for a cell that is not drawn (the mark's plate is rounded: its four corner cells). */
+static int icon_cell(int icon, int row, int cx) {
+    const int value = (int)((icons[icon].rows[row] >> (2 * cx)) & 3);
+    if (icon == RR_ICON_LOGO) return (row == 0 || row == icons[icon].h - 1) && (cx == 0 || cx == icons[icon].w - 1) ? -1 : value;
+    return value ? value : -1;
+}
+
+void rr_menu_icon(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, int icon, bool dim) {
+    static const unsigned char bright[4][3] = {{0, 0, 0}, {RR_MENU_GOLD}, {RR_MENU_SHADE}, {RR_MENU_ACCENT}};
+    static const unsigned char faded[4][3] = {{0, 0, 0}, {RR_MENU_HINT}, {32, 27, 16}, {RR_MENU_HINT}};
+    static const unsigned char mark[4][3] = {{8, 8, 8}, {RR_MENU_HINT}, {240, 240, 240}, {245, 170, 30}};
+    if (icon < 0 || icon >= RR_ICON_COUNT) return;
+    const unsigned char (*colors)[3] = icon == RR_ICON_LOGO ? mark : dim ? faded : bright;
+    const int w = icons[icon].w, h = icons[icon].h;
+    for (int row = 0; row < h; ++row)
+        for (int cx = 0; cx < w;) {      /* one rectangle per run of equal cells */
+            const int value = icon_cell(icon, row, cx);
+            int end = cx + 1;
+            while (end < w && icon_cell(icon, row, end) == value) ++end;
+            if (value >= 0)
+                rr_menu_box(r, ox, oy, unit, x + cx, y + row, end - cx, 1, colors[value][0], colors[value][1], colors[value][2], 255);
+            cx = end;
+        }
+}
+
+/* Block letters, 5 rows of up to 5 cells: bit (row * 5 + x), the width in bits 28-30. Upper case, digits and a few signs. */
+static const char block_chars[] = " +-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const uint32_t block_glyphs[] = {
+    0x20000000, 0x30011c40, 0x30001c00, 0x10100000, 0x50111110, 0x50e9d72e, 0x30710862, 0x51f0ba0f, 0x50f83a0f, 0x50847d29,
+    0x50f83c3f, 0x50e8bc2e, 0x5042221f, 0x50e8ba2e, 0x50e87a2e, 0x10008020, 0x40201907, 0x5118fe2e, 0x50f8be2f, 0x51e0843e,
+    0x50f8c62f, 0x51f0bc3f, 0x5010bc3f, 0x51e8f43e, 0x5118fe31, 0x30710847, 0x5064a11c, 0x51149d31, 0x51f08421, 0x5118d771,
+    0x511cd671, 0x50e8c62e, 0x5010be2f, 0x5164d62e, 0x5114be2f, 0x50f8383e, 0x5042109f, 0x50e8c631, 0x50454631, 0x511dd631,
+    0x51151151, 0x50421151, 0x51f1111f};
+static uint32_t block_glyph(char c) {
+    if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+    const char *at = c ? strchr(block_chars, c) : NULL;
+    return block_glyphs[at ? at - block_chars : strchr(block_chars, '?') - block_chars];
+}
+int rr_menu_block_width(const char *text, int k) {
+    int width = 0;
+    text = rr_tr(text);
+    while (*text) width += ((int)(block_glyph(ascii_code(next_code(&text))) >> 28) + 1) * k;
+    return width > 0 ? width - k : 0;
+}
+int rr_menu_block(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, int k, const char *text, int red, int green, int blue) {
+    const int start = x;
+    text = rr_tr(text);
+    while (*text) {
+        const uint32_t glyph = block_glyph(ascii_code(next_code(&text)));
+        const int w = (int)(glyph >> 28);
+        for (int row = 0; row < 5; ++row) for (int cx = 0; cx < w; ++cx)
+            if (glyph & (1u << (row * 5 + cx))) rr_menu_box(r, ox, oy, unit, x + cx * k, y + row * k, k, k, red, green, blue, 255);
+        x += (w + 1) * k;
+    }
+    return x - start;
+}
+
+/* A key cap: the key's name on a lighter plate, one text line tall. Returns its width. */
+static int keycap_width(const char *label, size_t length) { (void)label; return (int)length * GW + 4; }
+static int keycap(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, const char *label, size_t length) {
+    char text[40];
+    if (length >= sizeof text) length = sizeof text - 1;
+    memcpy(text, label, length); text[length] = 0;
+    const int w = keycap_width(text, length);
+    rr_menu_box(r, ox, oy, unit, x, y, w, 9, RR_MENU_SELECT, 255);
+    rr_menu_box(r, ox, oy, unit, x, y + 9, w, 1, RR_MENU_SHADE, 255);
+    rr_menu_text_plain(r, ox, oy, unit, x + 2, y, w, text, RR_MENU_ACCENT);
+    return w;
+}
+int rr_menu_keycap(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, const char *label) {
+    return keycap(r, ox, oy, unit, x, y, label, strlen(label));
+}
+
+/* "Enter: remap | Left/Right: page": each part is a key and what it does. A part counts as a key when it is short and its
+ * only spaces sit beside a '/' or a '+' ("Enter / A", "Ctrl+Alt+K"); anything else stays ordinary text. */
+typedef struct { const char *key; size_t key_length; const char *word; size_t word_length; } HintPart;
+static bool key_like(const char *s, size_t n) {
+    if (!n || n > 14) return false;
+    for (size_t i = 0; i < n; ++i)
+        if (s[i] == ' ' && !((i && (s[i - 1] == '/' || s[i - 1] == '+')) || (i + 1 < n && (s[i + 1] == '/' || s[i + 1] == '+')))) return false;
+    return true;
+}
+static int hint_parts(const char *text, HintPart *parts, int capacity) {
+    int count = 0;
+    while (*text && count < capacity) {
+        const char *end = strstr(text, " | ");
+        size_t length = end ? (size_t)(end - text) : strlen(text);
+        HintPart part = {NULL, 0, text, length};
+        const char *colon = memchr(text, ':', length);
+        if (colon) {
+            size_t key = (size_t)(colon - text);
+            while (key && text[key - 1] == ' ') --key;
+            if (key_like(text, key)) {
+                const char *word = colon + 1;
+                while (word < text + length && *word == ' ') ++word;
+                part.key = text; part.key_length = key; part.word = word; part.word_length = (size_t)(text + length - word);
+            }
+        }
+        while (part.word_length && part.word[part.word_length - 1] == ' ') --part.word_length;
+        parts[count++] = part;
+        text = end ? end + 3 : text + length;
+    }
+    return count;
+}
+static int hint_width(const HintPart *parts, int count) {
+    int width = 0;
+    for (int i = 0; i < count; ++i)
+        width += (parts[i].key ? keycap_width(parts[i].key, parts[i].key_length) + (parts[i].word_length ? 3 : 0) : 0) +
+                 (int)parts[i].word_length * GW + (i + 1 < count ? 8 : 0);
+    return width;
+}
+int rr_menu_hints_width(const char *text) {
+    HintPart parts[6];
+    text = rr_tr(text);
+    return hint_width(parts, hint_parts(text, parts, 6));
+}
+/* Draws the line from x; wider than `available`, it is drawn as plain narrowed text instead (never clipped). */
+void rr_menu_hints(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, int available, const char *text, int red, int green, int blue) {
+    HintPart parts[6];
+    text = rr_tr(text);
+    const int count = hint_parts(text, parts, 6);
+    if (hint_width(parts, count) > available) { rr_menu_text_plain(r, ox, oy, unit, x, y, available, text, red, green, blue); return; }
+    for (int i = 0; i < count; ++i) {
+        char word[100];
+        if (parts[i].key) x += keycap(r, ox, oy, unit, x, y, parts[i].key, parts[i].key_length) + (parts[i].word_length ? 3 : 0);
+        size_t n = parts[i].word_length < sizeof word ? parts[i].word_length : sizeof word - 1;
+        memcpy(word, parts[i].word, n); word[n] = 0;
+        rr_menu_text_plain(r, ox, oy, unit, x, y, (int)n * GW, word, red, green, blue);
+        x += (int)n * GW + 8;
+    }
+}
+
+/* A notice over the game: a dark plate with a gold line, centred, as wide as its text (at most the menu's width). An icon may
+ * lead it (-1: none). The text is a hint line: its keys are drawn as key caps. */
+void rr_menu_plate(SDL_Renderer *r, int ox, int oy, int unit, int y, const char *text, int icon) {
+    text = rr_tr(text);
+    const int lead = icon >= 0 ? rr_menu_icon_width(icon) + 4 : 0;
+    int content = rr_menu_hints_width(text) + lead;
+    if (content > 232) content = 232;
+    const int width = content + 12, x = (256 - width) / 2;
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    rr_menu_box(r, ox, oy, unit, x, y - 3, width, 16, 0, 0, 0, 215);
+    rr_menu_box(r, ox, oy, unit, x, y - 3, width, 1, RR_MENU_GOLD, 255);
+    rr_menu_box(r, ox, oy, unit, x, y + 12, width, 1, RR_MENU_SHADE, 255);
+    if (icon >= 0) rr_menu_icon(r, ox, oy, unit, x + 6, y, icon, false);
+    rr_menu_hints(r, ox, oy, unit, x + 6 + lead, y, content - lead, text, RR_MENU_GOLD);
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+}
+
+/* The head of a menu. Tall: the mark, the title in large block letters, a line under it, the version at the right (help,
+ * the F2 menu). Compact: a small icon (-1: none) and the title in small block letters on the title line, for the pages whose
+ * rows start at RR_MENU_FIRST_LINE. */
+void rr_menu_header(SDL_Renderer *r, int ox, int oy, int unit, const char *title, const char *subtitle) {
+    rr_menu_icon(r, ox, oy, unit, 12, 10, RR_ICON_LOGO, false);
+    const int width = rr_menu_block_width(title, 2);
+    if (width <= 150) rr_menu_block(r, ox, oy, unit, 43, 12, 2, title, RR_MENU_GOLD);
+    else rr_menu_block(r, ox, oy, unit, 43, 14, 1, title, RR_MENU_GOLD);
+    if (subtitle) rr_menu_text_fit(r, ox, oy, unit, 43, 23, 150, subtitle, RR_MENU_HINT);
+    rr_menu_build_footer(r, ox, oy, unit);
+}
+void rr_menu_header_compact(SDL_Renderer *r, int ox, int oy, int unit, const char *title, int icon) {
+    int x = 14;
+    if (icon >= 0) { rr_menu_icon(r, ox, oy, unit, x, 11, icon, false); x += rr_menu_icon_width(icon) + 5; }
+    if (x + rr_menu_block_width(title, 1) <= 242) rr_menu_block(r, ox, oy, unit, x, 13, 1, title, RR_MENU_GOLD);
+    else rr_menu_text_fit(r, ox, oy, unit, x, RR_MENU_TITLE_LINE, 242 - x, title, RR_MENU_GOLD);
+}
+
+/* A gamepad button as a player reads it on the pad, not SDL's identifier ("leftstick"): L3. The four directions are
+ * translated. */
+const char *rr_menu_pad_name(int button) {
+    switch (button) {
+    case SDL_CONTROLLER_BUTTON_A: return "A";
+    case SDL_CONTROLLER_BUTTON_B: return "B";
+    case SDL_CONTROLLER_BUTTON_X: return "X";
+    case SDL_CONTROLLER_BUTTON_Y: return "Y";
+    case SDL_CONTROLLER_BUTTON_BACK: return "Select";
+    case SDL_CONTROLLER_BUTTON_GUIDE: return "Guide";
+    case SDL_CONTROLLER_BUTTON_START: return "Start";
+    case SDL_CONTROLLER_BUTTON_LEFTSTICK: return "L3";
+    case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return "R3";
+    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return "L1";
+    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return "R1";
+    case SDL_CONTROLLER_BUTTON_DPAD_UP: return rr_tr("D-pad up");
+    case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return rr_tr("D-pad down");
+    case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return rr_tr("D-pad left");
+    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return rr_tr("D-pad right");
+    default: {
+        const char *name = button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX ?
+            SDL_GameControllerGetStringForButton((SDL_GameControllerButton)button) : NULL;
+        return name ? name : "-";
+    }
     }
 }

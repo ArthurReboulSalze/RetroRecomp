@@ -37,18 +37,50 @@ static long load(const char *path, uint8_t *into, long limit)
     return n;
 }
 
+/* The disk interface (--diskrom, --disk): the player's own disk ROM in primary slot 2, one disk in drive A. */
+static const char *diskrom_file, *disk_file[10];
+static unsigned disk_files;
+static uint8_t diskrom[0x4000], disk_image[10][2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
+static uint32_t disk_length[10];
+static MsxFdc fdc;
+
+/* A route's disk change (msx_route.inc): disk `index` in drive A. */
+static void msx_route_disk(unsigned index)
+{
+    if (index < disk_files)
+        msx_fdc_insert(&fdc, 0, disk_image[index], disk_length[index], 0);
+}
+
+static int attach_disk(MsxMachine *m, long (*loader)(const char *, uint8_t *, long))
+{
+    if (!diskrom_file)
+        return 1;
+    if (loader(diskrom_file, diskrom, (long)sizeof diskrom) != (long)sizeof diskrom) { fprintf(stderr, "bad --diskrom\n"); return 0; }
+    memset(&fdc, 0, sizeof fdc);
+    for (unsigned i = 0; i < disk_files; ++i) {
+        long n = loader(disk_file[i], disk_image[i], (long)sizeof disk_image[i]);
+        disk_length[i] = n > 0 ? (uint32_t)n : 0;
+        if (!msx_fdc_insert(&fdc, 0, disk_image[i], disk_length[i], 0)) { fprintf(stderr, "bad --disk\n"); return 0; }
+    }
+    if (disk_files)
+        msx_fdc_insert(&fdc, 0, disk_image[0], disk_length[0], 0);
+    msx_set_disk_interface(m, 2, diskrom, &fdc, 8);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *main_rom = NULL, *logo_rom = NULL, *sub_rom = NULL, *cart_rom = NULL, *layout = "basic";
     unsigned long mapper_kib = 256;
     unsigned long cart_base = 0x4000, sram_bit = 0;
-    int pal = 0, mirrored = 0, route_result;
+    int msx2plus = 0, pal = 0, mirrored = 0, route_result;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
         const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (!strcmp(a, "--pal")) { pal = 1; continue; }
         if (!strcmp(a, "--mirrored")) { mirrored = 1; continue; }
+        if (!strcmp(a, "--msx2plus")) { msx2plus = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
@@ -56,6 +88,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--sub")) sub_rom = v;
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
+        else if (!strcmp(a, "--diskrom")) diskrom_file = v;
+        else if (!strcmp(a, "--disk")) { if (disk_files >= 10) { fprintf(stderr, "too many --disk\n"); return 2; } disk_file[disk_files++] = v; }
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
         else if (!strcmp(a, "--layout")) layout = v;
@@ -80,7 +114,7 @@ int main(int argc, char **argv)
         uint32_t segments = (uint32_t)(mapper_kib / 16);
         if (segments < 4 || segments > 256 || (segments & (segments - 1))) { fprintf(stderr, "bad --mapper-kib\n"); return 2; }
         load(sub_rom, slot0 + 0xC000, 0x4000);
-        msx_setup_msx2(&machine, slot0, mapper_ram, segments, &v9938);
+        (msx2plus ? msx_setup_msx2plus : msx_setup_msx2)(&machine, slot0, mapper_ram, segments, &v9938);
     } else {
     MsxDevice bios = { MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL };
     bios.source = 1;                             /* the BIOS is the second translated source (banked.sources) */
@@ -92,6 +126,8 @@ int main(int argc, char **argv)
         msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else { fprintf(stderr, "unknown layout %s\n", layout); return 2; }
     }
+    if (!attach_disk(&machine, load))
+        return 2;
     if (cart_rom) {
         memset(cart, 0xFF, sizeof cart);
         long n = load(cart_rom, cart, (long)sizeof cart);

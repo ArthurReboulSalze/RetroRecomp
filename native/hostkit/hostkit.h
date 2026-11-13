@@ -45,6 +45,8 @@ extern "C" {
 #define RRHK_MENU_PAGE 4
 #define RRHK_MENU_OPTIONS 5
 #define RRHK_MENU_GRAPHICS 6       /* decision D14: F3 on a machine that declares gfx_options */
+#define RRHK_MENU_HUB 7            /* 1.7.4: F2 opens tiles, one per page (controls of each player, the machine's page, options) */
+#define RRHK_MENU_QUIT 8           /* 1.7.4: "Quit?" Yes / No, asked by Esc in play and by the Quit combination */
 
 /* The sticks of a player (RrhkMachine.analog_sticks, rrhk_pad_axes): -32768..32767, centre 0, SDL's axes (Y down positive). */
 #define RRHK_AXIS_LX 0

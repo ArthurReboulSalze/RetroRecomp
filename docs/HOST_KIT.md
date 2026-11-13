@@ -367,6 +367,53 @@ X68000 too, without asking again**.
   the guest's timing (CPU or disc speed, overclock) is never declared; headless runs, routes and gates use each option's
   default.
 
+* <a id="d15"></a>**D15 — F2 opens a menu of tiles** (owner's decision of 13 November 2026, 1.7.4), on every machine. One tile
+  per page, with an icon: each player's keyboard and gamepad, the machine's own page when it has one (guns, DIP switches), the
+  options. The arrows (or the D-pad) choose, Enter (or A) opens the page, Esc (or B) comes back to the tiles, and Esc on the
+  tiles goes back to where F2 was pressed (the game, or the Pause menu); F2 closes everything at once. Under the tiles the kit
+  names the selected one and, for a gamepad, the controller that player has. The pages themselves are unchanged in what they
+  do (rows, bindings, combinations, the Gamepad row); Left/Right, Tab and the shoulder buttons still turn them. A page opened
+  another way (the Guide button opens the options, a computer's Ctrl+Alt+O) closes as before. Five tiles a line: a machine
+  with three or four players gets two lines.
+* <a id="d16"></a>**D16 — "Quit?" before the game closes** (owner's decision of 13 November 2026, 1.7.4), on every machine.
+  **Esc in play** and the **Quit combination** (L3+R3 held one second by default, or the player's own) no longer close the game
+  at once: the kit asks **Quit? No / Yes** in its own menu, drawn like every menu (never a window of the system), with **No**
+  selected. Left/Right (or the D-pad) choose, Enter (or A) answers, Esc (or B) cancels; the machine waits meanwhile, as in every
+  menu. A combination still held after the answer does not ask again until it is released. The window's close button and a
+  computer's Ctrl+Alt+Q still close at once, and a hidden-window test run (`RETRORECOMP_HOST_TEST_FRAMES`) has nobody to
+  answer: it stops as before.
+* <a id="d17"></a>**D17 — Notices are plates, and every game says its keys when it opens** (owner's decision of 13 November
+  2026, 1.7.4). A notice (autofire, filter, language, quick state, disc) is a dark plate with a gold line, centred at the bottom
+  of the menu grid and as wide as its text, instead of bare gold text over the picture; the keys it names are drawn as key
+  caps. For about 4.5 s after a game opens, on **every machine** (two adapters showed a line of their own before), a plate
+  gives **F1 Help, F2 Controls, Esc Quit**, and a second one what else a player must know first: on a **computer**, who has the
+  keyboard (the game controls, or the computer alone: then only a gamepad plays and the help is at Ctrl+F1), and on a console
+  the Quit and Restart combinations of player 1's gamepad when one is plugged in. Shown once per run of the program, never in
+  a hidden-window test run, gone as soon as a menu opens; the keyboard's owner is **not** shown all the time. A row of the
+  options page, **Start-up reminders: ON/OFF**, turns these opening plates off (`[Interface] start_help`, default on, shared by
+  the games of the folder like the language; the other notices are not concerned). All of it is
+  drawn on the window after the picture, like the menus: nothing is written in the machine's picture, so captures, hashes and
+  routes are unchanged.
+* <a id="d18"></a>**D18 — The look of the menus** (1.7.4): the Retro-Recomp mark and block letters at the head of the help,
+  of the F2 tiles and of "Quit?", a small icon at the head of the control pages, the options and the graphics page; the keys of
+  the help and of the hint lines as key caps (the existing texts are split at their `|` and `:`, no new wording); the control
+  pages in two columns, the binding as a key cap; a gamepad button by the name printed on a pad (**L3 + R3**, **Select +
+  Start**, **D-pad up**) instead of SDL's identifier ("leftstick"). F8 and F9 share one help line, so that the longest help
+  still fits under the taller head. The art is packed rows in `native/retro_menu.c` (nine icons and 43 block letters, about
+  1.3 KB of data; no image, no texture, no new file in a game's build). The five game languages are unchanged (no accents in
+  games, as before).
+
+* <a id="d19"></a>**D19 — A stretched fullscreen mode on F4** (owner's decision of 13 November 2026, 1.7.4), on every machine.
+  F4 cycles window → pixel-perfect → fit → **stretched** → window: the stretched mode fills the whole screen and ignores the
+  picture's aspect (a 4:3 picture on a 16:9 screen is widened). It is a choice, never the default. The kit decides it before the
+  machine's own placement (`RrhkMachine.game_rect`: the Master System and Game Gear crops, the computers' aspect), so every
+  machine has it with no adapter change: what the machine shows of its picture is unchanged, only the rectangle it is drawn
+  into is the screen; a light gun's aim follows the same rectangle. `[<Console>.Video] display_mode` keeps its numbers (0 window,
+  1 pixel-perfect, 2 fit; 3 is the new mode; anything else is the window, as before), so a value saved by an earlier release
+  means the same mode. A machine that reads its former display key in `settings_loaded` and knows three modes (Master System,
+  Game Gear, Game Boy) keeps the stretched mode all the same: the kit reads its own key again after that hook. F4 now shows the
+  mode's name for 1.8 s (Windowed, Pixel perfect, Fit to screen, Stretched), as F3 names the filter.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in
@@ -409,6 +456,7 @@ Proposed layout (`ini-migration.md:174-227`):
 ```ini
 [Interface]
 language=en                ; en|fr|it|es|de
+start_help=1               ; D17 (1.7.4): 0 turns off the plates a game shows for a few seconds when it opens
 
 [Options]
 quit_key0=0                ; SDL scancode integer
@@ -434,7 +482,7 @@ name=                      ; the pinned controller's name, for display only (emp
 
 [<Console>.Video]
 filter=0                   ; 0..3
-display_mode=0             ; 0 window, 1 pixel/fullscreen integer, 2 fit
+display_mode=0             ; 0 window, 1 pixel/fullscreen integer, 2 fit, 3 stretched (D19, 1.7.4)
 reduce_sprite_flicker=0    ; only SMS/NES
 
 [<Console>.Pointer]

@@ -3,7 +3,8 @@
  * includer has `machine` (an MsxMachine) in scope.
  *
  * Events: `--event FRAME:key:ROW:BIT:DOWN` or `FRAME:joy:PORT:HEX` (tools), or `--script FILE` with one event per line,
- * `FRAME key ROW BIT DOWN` or `FRAME joy PORT HEX` (routes, msx_routes.py), frames not decreasing. An event applies at the
+ * `FRAME key ROW BIT DOWN`, `FRAME joy PORT HEX` or `FRAME disk N` (routes, msx_routes.py; N from 0: the disk put in drive
+ * A, by msx_route_disk, which each including program defines), frames not decreasing. An event applies at the
  * first line hook at which the frame counter has reached its frame, so at the same instant on both CPUs (the frame wraps at
  * a line boundary, between two instructions).
  *
@@ -13,7 +14,8 @@
  * there exactly: msx_psg_catch_up_to; the sound stream itself does not depend on when it is taken), their count, whether
  * they hold two different values (the AY output has no DC removal: silence is a constant, not zero), and the PC. */
 
-typedef struct { unsigned long frame; int joy, a, b, c; } MsxRouteEvent;
+typedef struct { unsigned long frame; int joy, a, b, c; } MsxRouteEvent;   /* joy: 0 a key, 1 a joystick, 2 a disk */
+static void msx_route_disk(unsigned index);
 
 static MsxRouteEvent *route_events;
 static size_t route_event_count, route_event_cap, route_next_event;
@@ -50,6 +52,8 @@ static int route_event_text(const char *v, int spaced)
         e = (MsxRouteEvent){ f, 0, r, b, d };
     else if (spaced ? sscanf(v, "%lu joy %u %x", &f, &port, &bits) == 3 : sscanf(v, "%lu:joy:%u:%x", &f, &port, &bits) == 3)
         e = (MsxRouteEvent){ f, 1, (int)port, (int)bits, 0 };
+    else if (spaced ? sscanf(v, "%lu disk %u", &f, &port) == 2 : sscanf(v, "%lu:disk:%u", &f, &port) == 2)
+        e = (MsxRouteEvent){ f, 2, (int)port, 0, 0 };
     else
         return 0;
     return route_add_event(e);
@@ -107,7 +111,8 @@ static void msx_route_events(void)
 {
     for (; route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames; ++route_next_event) {
         const MsxRouteEvent *e = &route_events[route_next_event];
-        if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
+        if (e->joy == 2) msx_route_disk((unsigned)e->a);
+        else if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
         else msx_key(&machine, e->a, e->b, e->c);
     }
 }

@@ -45,10 +45,10 @@ blacklist = []
 # The machine's C sources (both VDPs, the sound, the cartridges, the MSX2 board), compiled into every program; the files
 # they include; the mains and the glue.
 MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
-                   'msx_v9938_cmd.c', 'msx_msx2.c', 'msx_state.c')
+                   'msx_v9938_cmd.c', 'msx_msx2.c', 'msx_state.c', 'msx_fdc.c')
 MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_state_file.inc',
                  'msx_native_main.c',
-                 'msx_reference_main.c', 'msx_player.c', 'msx_sram.c', 'msx_sram.h')
+                 'msx_reference_main.c', 'msx_player.c', 'msx_sram.c', 'msx_sram.h', 'msx_fdc.h')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',

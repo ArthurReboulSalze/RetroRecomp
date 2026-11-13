@@ -21,10 +21,10 @@ int wmain(int argc,wchar_t **argv) {
     assert(filter==0 && mode==0 && GetFileAttributesW(argv[1])==INVALID_FILE_ATTRIBUTES);
     for (int s=0;s<3;++s) {
         mode=0;
-        for (int cycle=0;cycle<6;++cycle) {
+        for (int cycle=0;cycle<2*RR_DISPLAY_MODES;++cycle) {     /* twice round: it ends on the window */
             assert(rr_display_cycle(NULL,&mode,path,argv[1],sections[s])==1);
             int stored=-1; rr_display_load(path,sections[s],&filter,&stored);
-            assert(stored==mode && stored==(cycle+1)%3);
+            assert(stored==mode && stored==(cycle+1)%RR_DISPLAY_MODES);
         }
         for (int f=0;f<4;++f) {
             assert(rr_display_save(path,argv[1],sections[s],L"filter",f));
@@ -38,6 +38,15 @@ int wmain(int argc,wchar_t **argv) {
     assert(rr_display_save(path,argv[1],sections[0],L"display_mode",99));
     assert(rr_display_save(path,argv[1],sections[0],L"filter",-1));
     rr_display_load(path,sections[0],&filter,&mode); assert(filter==0 && mode==0);
-    puts("PASS: lazy reads; three independent console profiles; F4 cycles survive reload; four filters; failed transitions; invalid values.");
+    /* 1.7.4: a value saved by an earlier release keeps its meaning (0 window, 1 pixel, 2 fit); 3 is the new stretched mode;
+     * anything else is the window, as before. */
+    {
+        const int saved[]={0,1,2,3,4,-1}, read[]={0,1,2,3,0,0};
+        for (int i=0;i<6;++i) {
+            assert(rr_display_save(path,argv[1],sections[2],L"display_mode",saved[i]));
+            rr_display_load(path,sections[2],&filter,&mode); assert(mode==read[i]);
+        }
+    }
+    puts("PASS: lazy reads; three independent console profiles; F4 cycles of four modes survive reload; saved modes keep their meaning; four filters; failed transitions; invalid values.");
     return 0;
 }

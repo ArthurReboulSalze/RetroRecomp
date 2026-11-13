@@ -31,6 +31,8 @@ static void rebuild_regions(MsxMachine *m)
             r->device = d->mapper != MSX_MAPPER_PLAIN;          /* writes reach the mapper */
             if (d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4)
                 r->read = NULL;                                 /* 9800h-9FFFh answer from the SCC */
+            if (d->mapper == MSX_MAPPER_DISK && (i == 3 || i == 5))
+                r->read = NULL;                                 /* 7FF8h-7FFBh and BFF8h-BFFBh answer from the controller */
         }
     }
 }
@@ -222,6 +224,28 @@ void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uin
     msx_set_v9938(m, v9938);
 }
 
+void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxFdc *fdc, uint8_t bank_base)
+{
+    MsxDevice disk;
+    memset(&disk, 0, sizeof disk);
+    disk.kind = MSX_DEV_ROM;
+    disk.rom = rom;
+    disk.size = 0x4000;
+    disk.mapper = MSX_MAPPER_DISK;
+    disk.fdc = fdc;
+    disk.source = 1;                              /* translated as part of the BIOS source */
+    disk.bank_base = bank_base;
+    msx_set_device(m, primary, 0, disk);
+}
+
+void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938)
+{
+    msx_setup_msx2(m, bios, mapper_ram, segments, v9938);
+    v9938->v9958 = 1;
+    m->has_f4 = 1;
+    m->port_f4 = 0;
+}
+
 uint32_t msx_frame_hash(const MsxMachine *m)
 {
     if (m->video == MSX_VIDEO_V9938)
@@ -373,6 +397,8 @@ uint8_t msx_in(MsxMachine *m, uint8_t port)
         return msx_mapper_in(m, port);
     if ((port == 0xB4 || port == 0xB5) && m->has_rtc)
         return msx_rtc_in(m, port);
+    if (port == 0xF4 && m->has_f4)
+        return m->port_f4;
     switch (port) {
     case 0x98: return vdp_read_data(&m->vdp);
     case 0x99: return vdp_read_status(&m->vdp);
@@ -405,6 +431,10 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
     }
     if ((port == 0xB4 || port == 0xB5) && m->has_rtc) {
         msx_rtc_out(m, port, value);
+        return;
+    }
+    if (port == 0xF4 && m->has_f4) {
+        m->port_f4 = value;
         return;
     }
     switch (port) {

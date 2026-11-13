@@ -2,8 +2,8 @@
 
 ## Current scope
 
-Since release **1.0.3**, seven console profiles are supported within their documented scopes,
-including **Neo Geo**, following renewed user gameplay validation. Capcom CPS-1 joined them in 1.6.6 (see the end of this section).
+Since release **1.0.3** the supported profiles have joined one after another; the current list is the table of the [README](../README.md#console-support).
+**Neo Geo** was among them, following renewed user gameplay validation, and Capcom CPS-1 joined in 1.6.6 (see the end of this section).
 The following CPU/reference results remain valid for
 their tested paths, but do not establish complete rendering or hardware fidelity.
 The latest eight-game Neo Geo expansion adds 49 packed/reference comparisons
@@ -58,8 +58,9 @@ final ordinary scenarios compared 1,316,400 guest frames, with no
 observed 68000 or sound-Z80 fallback. Each actual compressed export also passed
 two 7,200-frame routes, CPU/memory/frame/PCM and trace comparison, fresh-process
 state continuation, eight corrupt-state rejections and a missing-load check.
-Five selected routes were extended to 36,000 frames. Reviewed captures show
-original gameplay, menus or RPG interactions; they are not complete playthroughs.
+Five selected routes were extended to 36,000 frames. Captures looked at by the
+specialist agent (not by the owner) show original gameplay, menus or RPG
+interactions; they are not complete playthroughs.
 Late attract scenes first exposed additional native entries after 18,000 frames.
 The production advanced scan now evaluates at least 24,000 demo frames, with
 reference validation before learning. Its ordinary conversion and actual packed
@@ -246,11 +247,20 @@ every route and equal the reference interpreter frame by frame; no game is valid
 FM-PAC, SRAM and the rarer mappers are not converted yet.
 
 The **MSX2** profile (`msx2`) is experimental since 1.7.3 too ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
-(`.mx2`, or a `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
+(a `.mx2`, `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
 with the V9938 drawn by line and a memory mapper. The V9938 command engine runs all twelve commands with their timing approximated (the chip's access slots are not modelled), in the bitmap modes only. On 14 authored
 cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games (Metal Gear, Space Manbow, Aleste, Hydlide 3) reach 0 interpreted instructions on every route, but Hydlide 3's routes never leave its
 Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
+
+The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
+cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:
+[the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
+the V9958 (its YJK modes and horizontal scroll) on the MSX2's board, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS
+pair and your own disk ROM. On the disk panel of 13 November 2026 (eight games, extended level) every route ends at 0 interpreted instructions;
+six of the eight reach play on their long route, Golvellius II stays in its intro and Xak III stops on a request for its third disk; no game has
+been played through (gameplay validation: none), and hardware fidelity and latency are not claimed. MSX-MUSIC and the kanji ROM are not
+converted.
 
 ## Local game regression set
 

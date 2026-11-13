@@ -40,7 +40,8 @@ static bool host_action_pressed(const SDL_Event *event, SDL_Scancode key, int ho
     }
     if (key == SDL_SCANCODE_UNKNOWN) return false;
     /* Enter binds rows on an F2 page and changes a row of the graphics page: it does not act there. */
-    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS) && (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER))
+    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS || rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) &&
+        (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER))
         return false;
     for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
     return false;
@@ -217,11 +218,6 @@ void rrhk_toggle_menu(int kind) {
     else { if (rrhk.menu == RRHK_MENU_PAUSE) rrhk.parent_menu = RRHK_MENU_PAUSE; rrhk.menu = kind; }
 }
 
-void rrhk_close_menu(void) {
-    rrhk.menu = rrhk.parent_menu;
-    rrhk.parent_menu = 0;
-}
-
 void rrhk_poll_events(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Event event;
@@ -283,6 +279,18 @@ void rrhk_poll_events(RrhkRun *run) {
                     SDL_SCANCODE_UNKNOWN;
             }
         }
+        /* The F2 tiles and "Quit?" with a gamepad: the D-pad chooses, A opens or answers, B goes back. */
+        if ((rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) && event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
+            int b = event.cbutton.button;
+            if (b == SDL_CONTROLLER_BUTTON_B) { rrhk_close_menu(); continue; }
+            key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
+                b == SDL_CONTROLLER_BUTTON_DPAD_LEFT ? SDL_SCANCODE_LEFT : b == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? SDL_SCANCODE_RIGHT :
+                b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
+            if (key == SDL_SCANCODE_UNKNOWN) continue;
+            if (rrhk.menu == RRHK_MENU_HUB) rrhk_hub_key(key);
+            else if (rrhk_quit_key(key)) run->running = false;
+            continue;
+        }
         /* The graphics page with a gamepad: the D-pad chooses and changes, A changes or restores, B closes. */
         if (rrhk.menu == RRHK_MENU_GRAPHICS && event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
             int b = event.cbutton.button;
@@ -320,7 +328,13 @@ void rrhk_poll_events(RrhkRun *run) {
             rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
         } else if (media_pressed(&event, key) && !rrhk_options_component(key, -1)) {
             change_disc();
-        } else if (key == SDL_SCANCODE_ESCAPE) { if (rrhk.menu) rrhk_close_menu(); else run->running = false; }
+        } else if (key == SDL_SCANCODE_ESCAPE) {
+            /* 1.7.4: Esc in play asks "Quit?" in the kit's own menu; Esc closes a menu, the question included. A hidden-window
+             * test run has nobody to answer: it stops as before. */
+            if (rrhk.menu) rrhk_close_menu();
+            else if (run->test_frames) run->running = false;
+            else rrhk_quit_ask();
+        }
         /* F1 opens help. */
         else if (key == SDL_SCANCODE_F1) rrhk_toggle_menu(RRHK_MENU_HELP);
         else if (key == SDL_SCANCODE_F2) rrhk_toggle_settings();
@@ -335,6 +349,8 @@ void rrhk_poll_events(RrhkRun *run) {
             save_filter();
         } else if (key == RRHK_KEY_RUMBLE && from_row) {
             rrhk_toggle_rumble();
+        } else if (key == RRHK_KEY_START_HELP && from_row) {
+            rrhk_toggle_start_help();
         } else if (key == SDL_SCANCODE_F4) {
             rrhk_cycle_display();
         } else if (m->key_event && m->key_event(&rrhk, key, &run->running)) {
@@ -353,6 +369,10 @@ void rrhk_poll_events(RrhkRun *run) {
             if (key == SDL_SCANCODE_M) toggle_mute(); else toggle_max_speed();
         } else if (rrhk.menu == RRHK_MENU_GRAPHICS) {
             graphics_key(run, key);
+        } else if (rrhk.menu == RRHK_MENU_HUB) {
+            rrhk_hub_key(key);
+        } else if (rrhk.menu == RRHK_MENU_QUIT) {
+            if (rrhk_quit_key(key)) run->running = false;
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
             if (m->page && m->page->key) m->page->key(&rrhk, key);
         } else if (rrhk.menu == RRHK_MENU_CONTROLS) {

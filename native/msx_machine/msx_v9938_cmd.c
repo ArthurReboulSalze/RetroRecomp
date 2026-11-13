@@ -66,7 +66,7 @@ static uint8_t mode_of(const MsxV9938 *v)
     case 0x10: return 1;
     case 0x14: return 2;
     case 0x1C: return 3;
-    default: return MODE_NONE;
+    default: return (v->v9958 && (v->reg[25] & 0x40)) ? 3 : MODE_NONE;   /* V9958 CMD: every mode, as Graphic 7 */
     }
 }
 
