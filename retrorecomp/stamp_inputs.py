@@ -194,6 +194,8 @@ NOT_INPUTS = (
     'licenses/SingleStepTests-z80.md', 'licenses/SingleStepTests-m68000.md',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
     'licenses/SingleStepTests-sm83.md', 'licenses/SingleStepTests-huc6280.md',
+    # The m68k-recomp-core author's permission for the Atari ST (13 Nov 2026): a document of the repository, embedded in no game.
+    'licenses/m68k-recomp-core-atari-st-permission.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py, tools/cps1_qsound_selftest.py,
     # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py, tools/pce_huc6280_vector_selftest.py, tools/pce_huc6280_native_vector_selftest.py): never built
