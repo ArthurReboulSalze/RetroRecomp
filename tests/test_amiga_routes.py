@@ -196,6 +196,37 @@ class RouteScriptTests(unittest.TestCase):
         self.assertIn((3660, 3666, 'mouse', 2, 1), route)
         self.assertTrue(max(end for _, end, *_ in route) <= 7200)
 
+    def test_route_events_is_the_one_writer_of_every_route_answered_or_not(self):
+        lemmings = '37b8afa13b085e804015599e9f67833a9dbdcdbead90438f9a46a2a6aeda21c5'
+        answer = conversion.ROUTE_ANSWERS[lemmings]
+        self.assertEqual(conversion.route_events(lemmings, 'main', 7200, 0x59), conversion.answered_route(answer, 7200, 0x59))
+        self.assertEqual(conversion.route_events(lemmings, 'explore', 7200, 0x59),
+                         conversion.answered_route(answer, 7200, 0x59, lambda n: conversion.explore_route(n, 0x59)))
+        self.assertEqual(conversion.route_events(lemmings, 'long-1', 18000, 0x59),
+                         conversion.answered_route(answer, 18000, 0x59, lambda n: conversion.long_route(lemmings, 0, n, 0x59)))
+        # Not answered: an install without an entry, or a qualification script in place of the main route.
+        other = 'ab' * 32
+        self.assertEqual(conversion.route_events(other, 'main', 3600, 0x59), conversion.main_route(3600, 0x59))
+        self.assertEqual(conversion.route_events(other, 'explore', 3600, 0x59), conversion.explore_route(3600, 0x59))
+        self.assertEqual(conversion.route_events(other, 'long-2', 18000, 0x59), conversion.long_route(other, 1, 18000, 0x59))
+        self.assertEqual(conversion.route_events(lemmings, 'long-1', 18000, 0x59, answered=False), conversion.long_route(lemmings, 0, 18000, 0x59))
+        with self.assertRaises(ValueError):
+            conversion.route_events(other, 'mouse', 3600, 0x59)
+
+    def test_the_route_pictures_replay_the_answered_route_and_refuse_a_script_of_another_revision(self):
+        import hashlib
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+        import amiga_route_captures
+        identity = '87f9ecbba2c2ef98bb9cc806f58e60c3f4be0f99f218d356079c8369df7caf9b'
+        events = conversion.route_events(identity, 'main', 7000, 0x59)
+        digest = hashlib.sha256(''.join(f'{b} {e} {k} {c} {v}\n' for b, e, k, c, v in events).encode('ascii')).hexdigest()
+        report = {'whdload': {'key_exit': 0x59}, 'source_identity': identity, 'final_checks': [{'route': 'main', 'frames': 7000, 'script_sha256': digest}]}
+        self.assertEqual(amiga_route_captures.plan(report), [('main', 7000, events)])
+        report['final_checks'][0]['script_sha256'] = '0' * 64
+        with self.assertRaises(SystemExit):
+            amiga_route_captures.plan(report)
+
     def test_the_damaged_states_follow_the_players_header(self):
         # The offsets the conversion flips are the fields of StateHead in amiga_session.cpp (200 bytes, asserted there too).
         source = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_session.cpp').read_text(encoding='utf-8')

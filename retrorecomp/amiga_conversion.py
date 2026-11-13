@@ -151,6 +151,24 @@ def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tu
     return long_events(f'amiga-long:{identity}:{index}', frames, tuple(key for key in LONG_ROUTE_KEYS if key != key_exit))
 
 
+def route_events(identity: str, name: str, frames: int, key_exit: int, answered: bool = True) -> list[tuple[int, int, str, int, int]]:
+    """The input script of route `name` ('main', 'explore' or 'long-N') of the exact install, `frames` long, as the conversion plays it: an
+    answered install (ROUTE_ANSWERS) starts every route with its answer, unless `answered` is false (a qualification script replaces the main
+    route). One place for the conversion and the tools that replay its routes."""
+    answer = ROUTE_ANSWERS.get(identity) if answered else None
+    if name == 'main':
+        generic = None
+    elif name == 'explore':
+        generic = (lambda n: explore_route(n, key_exit))
+    elif name.startswith('long-'):
+        generic = (lambda n, index=int(name.split('-')[1]) - 1: long_route(identity, index, n, key_exit))
+    else:
+        raise ValueError(f'unknown Amiga route {name!r}')
+    if answer:
+        return answered_route(answer, frames, key_exit, generic)
+    return generic(frames) if generic else main_route(frames, key_exit)
+
+
 def write_events(path: Path, events) -> Path:
     if len(events) > 4096:
         raise ConversionError('Too many Amiga route events.')
@@ -627,22 +645,17 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         slave: amiga_whdload.Slave = extracted['install'].slave
         count = max(1000, min(int(frames or 3000), 36000))
         answer = ROUTE_ANSWERS.get(source.sha256) if qualification_events is None else None
-        if answer:
-            main_frames = max(count, answer['frames'])
-            routes = [('main', main_frames, answered_route(answer, main_frames, slave.key_exit))]
+        short = max(count, answer['frames']) if answer else count
+        if qualification_events is None:
+            routes = [('main', short, route_events(source.sha256, 'main', short, slave.key_exit))]
         else:
-            routes = [('main', count, main_route(count, slave.key_exit) if qualification_events is None else list(qualification_events))]
+            routes = [('main', count, list(qualification_events))]
         if level != 'quick':
-            if answer:
-                frames_ = max(count, answer['frames'])
-                routes.append(('explore', frames_, answered_route(answer, frames_, slave.key_exit, lambda n: explore_route(n, slave.key_exit))))
-            else:
-                routes.append(('explore', count, explore_route(count, slave.key_exit)))
+            routes.append(('explore', short, route_events(source.sha256, 'explore', short, slave.key_exit, answer is not None)))
         from .scan_levels import LONG_ROUTES, LONG_ROUTE_FRAMES
         for index in range(LONG_ROUTES.get(level, 0)):
-            long_ = (lambda n, index=index: long_route(source.sha256, index, n, slave.key_exit))
-            routes.append((f'long-{index + 1}', LONG_ROUTE_FRAMES,
-                           answered_route(answer, LONG_ROUTE_FRAMES, slave.key_exit, long_) if answer else long_(LONG_ROUTE_FRAMES)))
+            name = f'long-{index + 1}'
+            routes.append((name, LONG_ROUTE_FRAMES, route_events(source.sha256, name, LONG_ROUTE_FRAMES, slave.key_exit, answer is not None)))
         scripts = {name: write_events(work / f'inputs-{name}.txt', events) for name, _, events in routes}
         emit(f'Amiga: fresh reference runs ({len(routes)} route(s) of {", ".join(str(f) for _, f, _ in routes)} frames, interpreted 68000).')
         expected = {}

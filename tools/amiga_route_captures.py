@@ -23,20 +23,20 @@ NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
 
 
 def plan(report: dict) -> list[tuple[str, int, list]]:
-    """(route, frames, events) as the conversion that wrote `report` played them."""
+    """(route, frames, events) as the conversion that wrote `report` played them (an answered install's answer included). A route whose
+    rewritten script does not have the digest the report recorded (`script_sha256`) is refused: its pictures would not be that route's."""
+    import hashlib
     from retrorecomp import amiga_conversion
     key_exit = int(report['whdload'].get('key_exit') or 0)
     identity = report['source_identity']
     rows = []
     for row in report['final_checks']:
         name, frames = row['route'], int(row.get('frames_run') or row['frames'])
-        written = int(row['frames'])
-        if name == 'main':
-            events = amiga_conversion.main_route(written, key_exit)
-        elif name == 'explore':
-            events = amiga_conversion.explore_route(written, key_exit)
-        else:
-            events = amiga_conversion.long_route(identity, int(name.split('-')[1]) - 1, written, key_exit)
+        events = amiga_conversion.route_events(identity, name, int(row['frames']), key_exit)
+        recorded = row.get('script_sha256')
+        text = ''.join(f'{b} {e} {kind} {code} {value}\n' for b, e, kind, code, value in events).encode('ascii')
+        if recorded and hashlib.sha256(text).hexdigest() != recorded:
+            raise SystemExit(f'The {name} route written again differs from the one the report records (script_sha256): another converter revision?')
         rows.append((name, frames, events))
     return rows
 

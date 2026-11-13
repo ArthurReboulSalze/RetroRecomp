@@ -343,6 +343,10 @@ changes once, to the LF file's digest, which is the one Linux already wrote.
   (at least the answer's frames) and the long routes. Monkey Island 2's exploration and long routes change with it.
 - Both are the inputs the game's owner would give (the lead, 13 Nov: Monkey Island 2's answer of 1.7.3 is the precedent; a
   protection is never patched or skipped). A route is a scripted input, not gameplay validation.
+- **One writer of the routes.** `amiga_conversion.route_events` writes every route, answered or not, for the conversion and for
+  `tools/amiga_route_captures.py`. Before, that tool rewrote the routes without the answer, so its pictures of an answered install were
+  not of the route the conversion played. It now refuses a route whose rewritten script does not have the report's `script_sha256`.
+  The 27 routes of the final panel (13 November, nine installs) give their recorded digests again: the conversion's scripts are unchanged.
 
 **Hot path:** no. Conversion time only: these three installs run their answer on every route.
 

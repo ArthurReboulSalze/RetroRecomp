@@ -49,6 +49,18 @@ def run_player(player, frames, *extra, allow_stop=False):
     return done.returncode
 
 
+def refused_save_handled(save_calls, stopped_there, message, kept_name, ran_to_the_end, temporaries, still_a_folder):
+    """Step 4b's verdict. A slave that stops at the refused save (WHDLoad's NoError) must stop on a refused call that names the kept file;
+    a game may have saved other files before it (Panza Kick Boxing writes boxer.00i, then boxer.00A). A slave that goes on must have had
+    no successful save at all. In both cases no temporary file stays and the folder where the file goes is untouched."""
+    if not save_calls or temporaries or not still_a_folder:
+        return False
+    if stopped_there:
+        named = message.rsplit('(', 1)[-1].rstrip(')').rsplit('/', 1)[-1]        # "... DOS error 221 (b/boxer.00A)": the file's own name
+        return save_calls[-1] == 'abort' and named.lower() == kept_name.lower()
+    return ran_to_the_end and 'ok' not in save_calls
+
+
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -181,7 +193,7 @@ def main(argv=None):
     # 4b. A disk that refuses the save: a folder where the file goes, so the replacing rename fails. The game saves on the same route as
     #     in step 1 and is told it failed (DOS error 221). A slave that sets WHDLoad's NoError flag expects no error back, so the run
     #     stops there with the message, as WHDLoad does; any other slave gets the error and may go on. Either way the save must have been
-    #     refused (no successful SaveFile), no temporary file may stay behind and the folder is not touched.
+    #     refused, no temporary file may stay behind and the folder is not touched (refused_save_handled).
     kept.unlink()
     kept.mkdir()
     refused_log = output / 'refused-resload.log'
@@ -195,8 +207,8 @@ def main(argv=None):
     result['refused_save'] = {'frames': report['frames'], 'status': status, 'save_calls': dict(Counter(save_calls)),
                               'game_stopped_at_the_save': stopped_there, 'message': report.get('error', '')[:80],
                               'temporaries_left': [p.name for p in saves.rglob('*.tmp')], 'still_a_folder': kept.is_dir()}
-    result['refused_save_handled'] = (bool(save_calls) and 'ok' not in save_calls and (stopped_there or report['frames'] == options.frames) and
-                                      not result['refused_save']['temporaries_left'] and kept.is_dir())
+    result['refused_save_handled'] = refused_save_handled(save_calls, stopped_there, report.get('error', ''), kept.name,
+                                                          report['frames'] == options.frames, result['refused_save']['temporaries_left'], kept.is_dir())
     shutil.rmtree(kept, ignore_errors=True)
     shutil.copy2(aside, kept)
 
