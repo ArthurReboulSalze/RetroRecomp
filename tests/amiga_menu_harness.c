@@ -33,8 +33,8 @@ uint64_t rr_amiga_native_count(const RrAmigaSession *s) { (void)s; return 0; }
 uint64_t rr_amiga_interpreted_count(const RrAmigaSession *s) { (void)s; return 0; }
 long rr_amiga_resload_calls(const RrAmigaSession *s) { (void)s; return 0; }
 int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path) { (void)s; (void)path; return 1; }
-int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi) { (void)s; (void)path; (void)abi; return 4; }
-int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi) { (void)s; (void)path; (void)abi; return 1; }
+int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity) { (void)s; (void)path; (void)abi; (void)identity; return 4; }
+int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi, const char *identity) { (void)s; (void)path; (void)abi; (void)identity; return 1; }
 
 static unsigned checks, failures;
 static bool harness_running = true;

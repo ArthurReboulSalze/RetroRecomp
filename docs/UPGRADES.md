@@ -184,6 +184,35 @@ changes once, to the LF file's digest, which is the one Linux already wrote.
 
 **Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
+## Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused (1.7.4, G6)
+
+**What changes.**
+- **The quick state file** (`RRAMIGA-STATE-3`, was 2). Its header now has the install's identity (its SHA-256) and a checksum of the
+  whole file (FNV-1a 64). A state of another build or install, or one with a changed byte, a cut, or anything added after its end,
+  is refused before the machine is touched. The game goes on as it was. The headless player exits 4 on a refused state, as the
+  other machines' players do. The F9 page says the state could not be loaded, as before.
+- **The conversion** checks quick states with the shared `conversion_gates.check_quick_states`, as the PC Engine and the MSX do.
+  The state is saved 600 frames before the main route's end and continued by a fresh process of the compressed copy for those 600
+  frames (it was 400). Then 17 damaged copies must each be refused and left byte for byte as they were: empty, header cut, one
+  byte short, one byte more, half cut, a flipped bit in the magic, the ABI, the identity, the frame, the inputs, each size, the
+  checksum, the resload state, the payload and the last byte, and a text file. Loading a missing state must be refused and create
+  nothing. The report's `game_states.validation` carries these results.
+- **The bitplane batch at a state** (stage 7's open note). A state taken while a batched line still has bitplane slots to run,
+  which can happen when one instruction runs past line 0 before the state, now gives that line back first. The slots this colour
+  clock has seen run, and the rest go back to vAmiga's events, which the snapshot keeps (`Agnus::rrBeforeSave`). The display
+  self-test takes a state inside a batched line on 6 scenarios: every record is equal to the run with every line on vAmiga's
+  events, and leaving the slots out (`--state-fault 3`) is seen on all 6. The rest of the self-test is unchanged (12 + 8
+  scenarios, 40 of 40 faults, 0 bus-model differences).
+
+**Hot path:** no. The check runs at a state's save and load only. The bitplane give-back runs only when a state is taken inside a
+batched line.
+
+**What moves:** the Amiga's game stamp (the session, the player, the adapter `rrhk_amiga.inc`, the conversion module and the
+adaptation of vAmiga); no other console. The host kit's shell is not touched.
+
+**Quick states:** every Amiga state saved before this change is refused cleanly (another format), as the rule of 1.6.5 allows.
+Cartridge-like saves (the files an install writes through resload) are not affected.
+
 ## MSX and MSX2: the shared pieces the two new profiles use (1.7.3)
 
 **What changes.** The MSX and the MSX2 open as experimental profiles ([MSX.md](MSX.md)); nothing of an existing export changes behaviour. What they

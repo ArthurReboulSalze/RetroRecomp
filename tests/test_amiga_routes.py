@@ -177,6 +177,19 @@ class RouteScriptTests(unittest.TestCase):
         self.assertTrue(later and min(begin for begin, *_ in later) >= answer['then'])
         self.assertTrue(max(end for _, end, *_ in route) <= 7000)
 
+    def test_the_damaged_states_follow_the_players_header(self):
+        # The offsets the conversion flips are the fields of StateHead in amiga_session.cpp (200 bytes, asserted there too).
+        source = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_session.cpp').read_text(encoding='utf-8')
+        self.assertIn('char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, '
+                      'snapshot_size, audio_size, reserved; uint64_t checksum;', source)
+        self.assertIn('sizeof(StateHead) == 200', source)
+        self.assertEqual(conversion.STATE_HEADER, 200)
+        self.assertEqual(conversion.STATE_OFFSETS['checksum'], 192)
+        state = bytes(range(256)) * 64
+        damaged = conversion.damaged_states(state)
+        self.assertTrue({'empty', 'one-byte-short', 'one-byte-longer', 'magic', 'abi', 'identity', 'checksum', 'payload'} <= set(damaged))
+        self.assertTrue(all(data != state for data in damaged.values()))
+
     def test_a_route_script_is_the_same_lf_bytes_on_every_system(self):
         # Windows and Linux runs of the same route compare their script_sha256 (G13): no CRLF from text mode.
         with tempfile.TemporaryDirectory() as folder:

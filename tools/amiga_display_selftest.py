@@ -417,6 +417,9 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
 # clears LOF through VPOSW (one line less) or switches BEAMCON0 to NTSC (the frame ends at line 262), after a batch has started.
 FRAME_END_KINDS = {'lof': (VPOSW, 0x8000, 0x0001, 0x36), 'ntsc': (BEAMCON0, 0x0020, 0x0000, 0x05)}
 FRAME_END_FRAMES, FRAME_END_STATE = 6, ('1', '3')   # a quick state taken at the end of frame 1, loaded back at the end of frame 3
+# A quick state taken inside a batched line (one instruction can run past line 0 before the session takes one): on the first
+# scenarios whose frame 1 has one, at the first instruction that starts while that line still has bitplane slots to run.
+MID_LINE_SCENARIOS = 6
 
 
 def frame_end_scenario(kind: str) -> Scenario:
@@ -650,6 +653,32 @@ def main() -> int:
             frame_end[kind] = row
             if not (row['equal'] and row['fault_1_seen'] and row['fault_2_seen'] and (row['disk'] or [0, 0, 0])[2]):
                 failures.append({'frame_end': kind, **row})
+    # A quick state inside a batched line: the slots seen run, the rest go back to vAmiga's events before the snapshot
+    # (Agnus::rrBeforeSave). Equal to the run with every line on events; leaving the slots out (state fault 3) must be seen.
+    mid_line = {'scenarios': 0, 'equal': 0, 'fault_seen': 0, 'saved_inside_a_batch': 0}
+    if not arguments.against:
+        for path in scenario_files[:arguments.scenarios]:
+            if mid_line['scenarios'] >= MID_LINE_SCENARIOS:
+                break
+            seed = path.stem.split('-')[1]
+            probe = play(program, path, runs / f'{seed}-mid-probe.rec', '--state', *FRAME_END_STATE, '--state-probe')
+            step = probe.get('lazy_step', -1)
+            if step < 0:
+                continue
+            mid_line['scenarios'] += 1
+            first = play(program, path, runs / f'{seed}-mid-a.rec', '--state', *FRAME_END_STATE, '--state-step', str(step))
+            play(program, path, runs / f'{seed}-mid-b.rec', '--per-slot', '--state', *FRAME_END_STATE, '--state-step', str(step))
+            play(program, path, runs / f'{seed}-mid-f3.rec', '--state', *FRAME_END_STATE, '--state-step', str(step), '--state-fault', '3')
+            a = read_record(runs / f'{seed}-mid-a.rec')
+            equal = compare(a, read_record(runs / f'{seed}-mid-b.rec')) is None
+            seen_fault = compare(a, read_record(runs / f'{seed}-mid-f3.rec')) is not None
+            mid_line['equal'] += equal
+            mid_line['fault_seen'] += seen_fault
+            mid_line['saved_inside_a_batch'] += first.get('lazy_saved', 0)
+            if not (equal and seen_fault and first.get('lazy_saved')):
+                failures.append({'mid_line_state': seed, 'step': step, 'equal': equal, 'fault_seen': seen_fault, 'lazy_saved': first.get('lazy_saved')})
+        if not mid_line['scenarios']:
+            failures.append({'mid_line_state': 'no scenario has a batched line in frame 1'})
     controls = 2 * (arguments.scenarios + arguments.shres - sum(1 for f in failures if 'replay' in f))
     # Planted faults of the model: each must be seen on at least one scenario.
     model_faults = {}
@@ -678,7 +707,7 @@ def main() -> int:
                       'faults_seen': seen, 'faults_placed': placed, 'faults_injected': controls, 'model_faults_seen_in_scenarios': model_faults,
                       'colour_faults_seen_in_scenarios': colour_faults, 'cells_refused': cells_refused, 'cells_broken': cells_broken,
                       'disk_batches_at_event_at_barrier_events': disk, 'disk_faults_seen': [disk_seen, disk_controls],
-                      'frame_end': frame_end, 'bus': bus_total, 'failures': failures[:10]}))
+                      'frame_end': frame_end, 'mid_line_state': mid_line, 'bus': bus_total, 'failures': failures[:10]}))
     if failures or seen != controls or placed != controls:
         print('Display self-test FAILED.')
         return 1
@@ -697,6 +726,10 @@ def main() -> int:
         print(f"Frames cut short at their end ({kind}), a quick state taken and loaded back: every record equal to the run with every event on "
               f"vAmiga's scheduler, {row['disk'][2]} runs of held-back disk events at a barrier; leaving out the run before the snapshot "
               f"and the clearing after the load both seen.")
+    if mid_line['scenarios']:
+        print(f"A quick state taken inside a batched line ({mid_line['scenarios']} scenarios, at the first instruction of frame 1 inside one): every "
+              f"record equal to the run with every line on vAmiga's events; leaving the line's slots out of the snapshot seen in "
+              f"{mid_line['fault_seen']} of {mid_line['scenarios']}.")
     if bus_total:
         table = bus_total.get('table', {})
         print(f"Stage 7's bus model in shadow: {bus_total.get('lines_compared', 0)} lines compared slot by slot ({table.get('taken', 0)} certain slots), "

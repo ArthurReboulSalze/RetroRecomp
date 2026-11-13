@@ -23,6 +23,9 @@
 #ifndef RR_AMIGA_STATE_ABI
 #define RR_AMIGA_STATE_ABI "amiga-development"
 #endif
+#ifndef RR_AMIGA_SOURCE_IDENTITY
+#define RR_AMIGA_SOURCE_IDENTITY "development"
+#endif
 /* The display window the conversion measured on its reference routes (amiga_payload.h); none: the standard one. */
 #ifndef RR_AMIGA_VIEW_X
 #define RR_AMIGA_VIEW_X 0
@@ -285,8 +288,9 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       fputc('\n', trace);
    }
    if (load_start) {
-      state_result = rr_amiga_state_load(session, state_slot, RR_AMIGA_STATE_ABI);
-      if (state_result) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 1; }
+      state_result = rr_amiga_state_load(session, state_slot, RR_AMIGA_STATE_ABI, RR_AMIGA_SOURCE_IDENTITY);
+      /* Exit 4: the state was refused (missing, another build or install, damaged), as the other machines' players. */
+      if (state_result) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 4; }
    }
    for (n = 0; n < frame_limit; n++) {
       RrAmigaFrameInfo info;
@@ -305,7 +309,7 @@ static int run_headless(const char *trace_path, const char *report_path, const c
          snprintf(numbered, sizeof numbered, "%s.%06u.ppm", capture_path, n + 1);
          if (!write_capture(numbered)) { fail("Cannot write the capture"); if (trace) fclose(trace); return 1; }
       }
-      if (save_at && info.frame == save_at && rr_amiga_state_save(session, state_slot, RR_AMIGA_STATE_ABI)) {
+      if (save_at && info.frame == save_at && rr_amiga_state_save(session, state_slot, RR_AMIGA_STATE_ABI, RR_AMIGA_SOURCE_IDENTITY)) {
          fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
       }
    }

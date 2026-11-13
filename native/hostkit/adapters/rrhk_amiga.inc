@@ -219,7 +219,8 @@ static bool a_state_path(wchar_t *path, size_t capacity) { return rr_from_utf8(s
 static bool a_state_file(const wchar_t *path, bool load) {
    char utf8[PATH_CAP];
    if (!rr_to_utf8(path, utf8, sizeof utf8)) return false;
-   return (load ? rr_amiga_state_load(session, utf8, RR_AMIGA_STATE_ABI) : rr_amiga_state_save(session, utf8, RR_AMIGA_STATE_ABI)) == 0;
+   return (load ? rr_amiga_state_load(session, utf8, RR_AMIGA_STATE_ABI, RR_AMIGA_SOURCE_IDENTITY)
+                : rr_amiga_state_save(session, utf8, RR_AMIGA_STATE_ABI, RR_AMIGA_SOURCE_IDENTITY)) == 0;
 }
 
 const RrhkMachine *rrhk_adapter(void) {

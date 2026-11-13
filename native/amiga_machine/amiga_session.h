@@ -106,10 +106,11 @@ void rr_amiga_write_display(const RrAmigaSession *s, FILE *out);
 long rr_amiga_resload_calls(const RrAmigaSession *s);
 int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path);
 
-/* Quick states (F8/F9): the whole machine, the resload state and the inputs; refused between builds (`abi`). 0: done;
- * 1: no state; 2: another build or game; 3: invalid; 4: input/output error. */
-int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi);
-int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi);
+/* Quick states (F8/F9): the whole machine, the resload state and the inputs; refused between builds (`abi`) and installs
+ * (`identity`, the install's SHA-256), and when a byte changed (a checksum of the whole file). 0: done; 1: no state; 2: another
+ * build or install; 3: invalid (cut, changed, longer); 4: input/output error. A refused load leaves the machine as it was. */
+int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity);
+int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi, const char *identity);
 
 #ifdef __cplusplus
 }
