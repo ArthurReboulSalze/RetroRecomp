@@ -458,5 +458,6 @@ int main(int argc, char **argv) {
    rr_feedback_finish();     /* The exit below runs no exit handler. */
    fflush(stdout); fflush(stderr);
    /* The machine's destructor expects its emulator thread, which this host never starts: leave without it. */
-   _Exit(failed ? 1 : result);
+   /* 4: a quick state refused at the start (its message is printed too), as the other machines' players exit; any other failure 1. */
+   _Exit(result == 4 ? 4 : failed ? 1 : result);
 }
