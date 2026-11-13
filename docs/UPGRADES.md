@@ -79,6 +79,42 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## 68000 machines: the decimal instructions follow Moira on every operand (1.7.4)
+
+`ABCD`, `SBCD` and `NBCD` on operands that are not decimal digits are left undefined by the manual; the four 68000 machines gave
+their own answer, and 22 vectors of `tests/fixtures/m68k-groups` (`ABCD` 2, `SBCD` 2, `NBCD` 18) disagreed with it. They now follow Moira
+(MIT, the 68000 of vAmiga) on the result and on the five flags X, C, N, Z and V, register and memory forms, written from its behaviour in our own
+code (`retrorecomp/megadrive_rules.py` state rules 4 to 8, reached by the Neo Geo, CPS-1 and X68000 native steps through
+`retrorecomp/m68000_state_rules.py`; the Musashi reference of those three through `retrorecomp/musashi_fixes.py`, 20 handlers). A valid
+decimal operand gives the same result as before; V, which the native steps always cleared, now takes Moira's value (no hardware test or
+documented source says otherwise; the manual calls it undefined).
+
+- **Evidence** (`tools/megadrive_moira_vectors.py` with `native/md_bcd_checks.c`, a real run of Moira, portable toolchain): every operand pair,
+  X and Z of each instruction (1,050,624 states), **0 differences** on the result and the five flags, on the Mega Drive's native steps and on its
+  reference path (before: 41,616, 36,864 and 704 states outside V; 4,288 to 147,776 on V alone). `m68k-groups`: **2,895 of 2,895** vectors whole on the
+  Mega Drive, the CPS-1, the X68000 and the Neo Geo, native and reference alike (before 2,873); both deviation lists are empty. The vectors come
+  from MAME and Moira is a software model: neither is silicon.
+- **What moves:** the generated code and the **game stamps of the Mega Drive, the Neo Geo, the CPS-1, the CPS-2 and the X68000**
+  (`tools/std_baseline.py`; no host or build stamp, no quick-state key); `GENERATOR_REVISION` of `cps1_knowledge.py` 13 to 14 and of
+  `x68_knowledge.py` 1 to 2, with `tests/cps1_generator_pins.json` and `tests/x68_generator_pins.json`. Existing exports of these five machines are
+  converted again in full. A game that never runs a decimal instruction on a non-decimal digit does the same thing as before.
+- **Left as listed:** the same bench found that on 16 forms with no vector (`ADDI`, `SUBI`, `ANDI`, `ORI`, `EORI` `.L` and `CMPI` on `-(An)` and
+  `(d8,An,Xn)`) the Mega Drive's first read comes two clocks later than Moira's (the same total clocks and data); and that Moira writes the high word of
+  a long read-modify-write first where the MAME vectors write the low word first. Neither is changed (no vector for the first, the vectors win on the
+  second).
+
+## Mega Drive: what the report says (1.7.4, gates G2 and G15)
+
+One writer change of `retrorecomp/console16.py` and `console16_optimization.py` (commit `50ce0d5f`): the report of a Mega Drive conversion now writes
+`independent_cpu_oracle: false`, a `qualification_scope` with `universal_zero_fallback_claim: false`, `cpu_agreement`, the sound and main CPU's word over
+every route, `native_percentage_scope`, `native_coverage` and a closing "ready (no interpreter on the routes played | interpreter fallback reported)" line;
+the per-route line gives the native side. The state schema, machine and ROM identity, the ordinary saves (supported, scope, path), two players and the
+pad or gun, and the SDL revision are recorded; a field that would claim a tool proof stays empty unless this conversion ran it. The common report reads
+the route hashes, the main CPU's mode and share and the build fields (`report_schema.py`, an interface module). The Super Nintendo shares the writer: its
+`audio_cpu` is now the word over every route, it gains `native_percentage_scope`, and two log lines change wording. **Game stamps that move:** the Mega Drive,
+the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16.py` is one of their inputs); no host or build stamp.
+The window's fallback line of the machines counted in instructions says "on the tested routes, at most" and "hardware unverified" (interface strings, no stamp).
+
 ## Exports of 1.7.2 in 1.7.3
 
 1.7.3 is the release after 1.7.2 (published on 10 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no

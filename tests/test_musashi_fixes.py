@@ -13,8 +13,16 @@ LINK = 'static void m68k_op_link_16_a7(void)\n{\n\tREG_A[7] -= 4;\n\tm68ki_write
 MOVE16 = 'static void m68k_op_move16_32(void)\n{\n\tuint16_t w2 = OPER_I_16();\n'
 
 
-def sample(divides=22, checks=11, mins=11):
-    return DIVIDE * divides + CHECK * checks + DIVS_MIN * mins + LINK + MOVE16
+ABCD_HEAD = 'static void m68k_op_abcd_8_rr(void)\n{\n'
+ABCD = musashi_fixes.MUSASHI_OPS_FIXES[6][1]
+SBCD = musashi_fixes.MUSASHI_OPS_FIXES[7][1]
+NBCD_REGISTER = musashi_fixes.MUSASHI_OPS_FIXES[8][1]
+NBCD_MEMORY = musashi_fixes.MUSASHI_OPS_FIXES[9][1]
+
+
+def sample(divides=22, checks=11, mins=11, abcd=5, sbcd=5, nbcd_register=1, nbcd_memory=9):
+    return (DIVIDE * divides + CHECK * checks + DIVS_MIN * mins + LINK + MOVE16 + ABCD_HEAD
+            + ABCD * abcd + SBCD * sbcd + NBCD_REGISTER * nbcd_register + NBCD_MEMORY * nbcd_memory)
 
 
 class MusashiFixesTests(unittest.TestCase):
@@ -27,6 +35,15 @@ class MusashiFixesTests(unittest.TestCase):
         self.assertNotIn('m68ki_write_32(REG_A[7], REG_A[7])', fixed)
         self.assertIn('{\n\tif(!CPU_TYPE_IS_040_PLUS(CPU_TYPE))\n\t{\n\t\tm68ki_exception_1111();\n\t\treturn;\n\t}\n\tuint16_t w2', fixed)
 
+    def test_the_decimal_instructions_call_the_helpers(self):
+        fixed = musashi_fixes.adapt_musashi_ops(sample())
+        self.assertEqual((fixed.count(' res = rr_bcd_add(src, dst);'), fixed.count(' res = rr_bcd_sub(src, dst);')), (5, 5))
+        self.assertEqual(fixed.count(' res = rr_bcd_sub(dst, 0);'), 10)
+        self.assertEqual(fixed.count('static unsigned rr_bcd_'), 3)
+        for old in ('0x9a - dst', 'Undefined V behavior', 'HIGH_NIBBLE', 'res -= 0xa0', 'res += 0xa0'):
+            self.assertNotIn(old, fixed)
+        self.assertEqual(fixed.count('m68ki_write_8(ea, res);'), 9)                # the byte is written whatever its value
+
     def test_the_line_ends_of_the_file_are_kept(self):
         crlf = sample().replace('\n', '\r\n')
         fixed = musashi_fixes.adapt_musashi_ops(crlf)
@@ -34,7 +51,8 @@ class MusashiFixesTests(unittest.TestCase):
         self.assertEqual(fixed.replace('\r\n', '\n'), musashi_fixes.adapt_musashi_ops(sample()))
 
     def test_a_moved_pin_is_refused(self):
-        for text in (sample(divides=21), sample(checks=10), sample(mins=10), sample() + MOVE16, sample().replace('move16_32', 'move16_33'), sample().replace('link_16_a7', 'link_16_b7'), sample() + LINK):
+        for text in (sample(divides=21), sample(checks=10), sample(mins=10), sample() + MOVE16, sample().replace('move16_32', 'move16_33'), sample().replace('link_16_a7', 'link_16_b7'), sample() + LINK,
+                     sample(abcd=4), sample(sbcd=6), sample(nbcd_register=0), sample(nbcd_memory=8), sample() + ABCD_HEAD):
             with self.assertRaises(ValueError):
                 musashi_fixes.adapt_musashi_ops(text)
 
@@ -42,7 +60,9 @@ class MusashiFixesTests(unittest.TestCase):
     def test_the_pinned_file_takes_the_corrections(self):
         source = PIN.read_text(encoding='utf-8')
         fixed = musashi_fixes.adapt_musashi_ops(source)
-        self.assertEqual(len(fixed.splitlines()), len(source.splitlines()) + 22 * 3 - 11 + 11 + 5 + 1)
+        grown = sum(count * (after.count('\n') - before.count('\n')) for _, before, after, count in musashi_fixes.MUSASHI_OPS_FIXES)
+        self.assertEqual(len(fixed.splitlines()), len(source.splitlines()) + grown)
+        self.assertEqual(fixed.count('rr_bcd_sub(') + fixed.count('rr_bcd_add('), 20 + 2)            # 20 handlers and the 2 definitions
         self.assertEqual(musashi_fixes.adapt_musashi_ops(PIN.read_bytes().decode('utf-8')).replace('\r\n', '\n'), fixed)
 
 

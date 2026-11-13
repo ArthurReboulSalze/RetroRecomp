@@ -127,7 +127,12 @@ PATH_CAPS = {'m68k_ram': ROW_LIMIT, 'z80_ram': ROW_LIMIT}
 # PC-relative operand reads go through the instruction-fetch view (`adapt_decrypted_reads`). The generated code of every other board is
 # byte for byte that of revision 12 (checked by generating the same sets on both trees); the revision is raised because the pins cover the
 # whole generator. No CPS-1 path was qualified, so nothing is lost today.
-GENERATOR_REVISION = 13
+# 14: ABCD, SBCD and NBCD on bytes that are not two decimal digits (13 November 2026, the Mega Drive's G10 study; Arthur's direction: follow the independent
+# model Moira on the four 68000 machines): the translated steps take the three new state rules of `m68000_state_rules` (two helpers and the three call
+# sites), and Musashi's twenty decimal handlers take the same arithmetic (`musashi_fixes`), so the two paths agree and the 22 decimal vectors of
+# m68k-groups pass. The generated code changes only for those three instructions; V follows Moira too (the five flags). The shipped snapshot holds no
+# qualified CPS-1 path, so nothing is lost today.
+GENERATOR_REVISION = 14
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

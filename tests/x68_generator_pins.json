@@ -1,11 +1,11 @@
 {
- "revision": 1,
+ "revision": 2,
  "sources": {
   "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
-  "retrorecomp/m68000_state_rules.py": "d948cc0c91bae785821b9aedc702b52df3f03880127573fa6d798ea8ec31f26b",
+  "retrorecomp/m68000_state_rules.py": "731f61bdf937a956df2ebc20eac883ae8126eb3ed2178c5d0ed48e0005529675",
   "retrorecomp/m68k_observed.py": "fea2669cae49f6a42d81742b70b32b722cbbfd3f38c34cd6865600108c23becc",
-  "retrorecomp/megadrive_rules.py": "9e32aa3083628681a0c03bcf6facfbc477a3ad62794b064a3544847e03566990",
-  "retrorecomp/musashi_fixes.py": "fa1561de5b75637c5033cd891f57f4c2d6353054c7d64cbd7a258e8dc92326aa",
+  "retrorecomp/megadrive_rules.py": "aaa2c97248d9ae1a588ccde1ce896dcba31a8ab5f5e1096c6936426b7f6880de",
+  "retrorecomp/musashi_fixes.py": "9d1047a843253bf8d3407420b4472584bbd6e28f0b371c97c3d9def807bdf21d",
   "retrorecomp/neogeo_codegen.py": "293ff493510149e3b54b02689175f713133c1da1ebf1244f4343f1ec76b3d566",
   "tools/x68000_base74.py": "22d0a699539f99c891f41cc0670ccc9370a3798aa9b772ae4a888333a46bce18",
   "tools/x68000_native.py": "0c892adadb734d57cdaea4488cdb67b9571e5085cc01ba3eb35c267dee79f235"
