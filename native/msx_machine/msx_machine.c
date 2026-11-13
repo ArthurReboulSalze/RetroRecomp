@@ -118,7 +118,10 @@ void msx_print_state(const MsxMachine *m, FILE *out)
             if (d->kind != MSX_DEV_ROM) continue;
             fprintf(out, "%s[%d, %d", first ? "" : ", ", p, s);
             for (int i = 0; i < 8; ++i) fprintf(out, ", %d", d->block[i]);
-            fprintf(out, ", %u, %u, %u, %u]", d->scc_on, d->scc.enable, d->scc.period[0], d->scc.volume[0]);
+            uint32_t sram = 2166136261u;
+            for (unsigned i = 0; d->sram && i < d->sram_size; ++i) sram = (sram ^ d->sram[i]) * 16777619u;
+            fprintf(out, ", %u, %u, %u, %u, %u, %u, %u]", d->scc_on, d->scc.enable, d->scc.period[0], d->scc.volume[0],
+                    d->sram_bit, d->sram ? sram : 0u, d->bank_high);
             first = 0;
         }
     fprintf(out, "], \"frame_trace\": %u, \"mapper\": ", m->frame_trace);

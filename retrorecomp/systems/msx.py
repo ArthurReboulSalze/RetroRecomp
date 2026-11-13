@@ -5,7 +5,7 @@ What it converts: an MSX1 cartridge (plain 8 KiB to 64 KiB, Konami, Konami SCC, 
 translated ahead of time by the shared banked Z80 chain (retrorecomp/z80_chain.py) on the MSX's own machine description: a
 region map of eight 8 KiB regions, the cartridge then the BIOS as sources, one wait state per M1 cycle, /INT read at the end of
 each instruction. Code run from RAM is learned and translated with byte guards; what is left runs on the reference interpreter,
-counted. The TMS9918A, the AY-3-8910, the PPI, the slots and the mappers are our own C (native/msx_machine).
+counted. The TMS9918A, the AY-3-8910, the Konami SCC, the PPI, the slots and the mappers are our own C (native/msx_machine).
 
 The MSX2 (`msx2`) is the same chain and the same cartridges on the MSX2 board: the V9938 (with its command engine, timing approximated), the
 memory mapper and the RP5C01 (native/msx_machine/msx_v9938*.c, msx_msx2.c), booted by C-BIOS 0.29a's MSX2 images or by the
@@ -44,7 +44,7 @@ class MsxProfile(SystemProfile):
     video_modes = ('ntsc', 'pal')
     status = 'experimental'
     scope_note = ('MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX BIOS; '
-                  'no MSX2, disks or cassettes yet')
+                  'MSX2 cartridges are the MSX2 profile; no disks or cassettes yet')
     # The machine has one processor; the PSG and the SCC are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)
     media_kinds = ('cartridge',)

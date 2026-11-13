@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 {
     const char *main_rom = NULL, *logo_rom = NULL, *sub_rom = NULL, *cart_rom = NULL, *layout = "basic";
     unsigned long mapper_kib = 256;
-    unsigned long cart_base = 0x4000;
+    unsigned long cart_base = 0x4000, sram_bit = 0;
     int pal = 0, mirrored = 0, route_result;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
@@ -57,6 +57,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
+        else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
         else if (!strcmp(a, "--layout")) layout = v;
         else if (!strcmp(a, "--learn")) learn_out = v;
         else if (!strcmp(a, "--mapper")) {
@@ -98,6 +99,12 @@ int main(int argc, char **argv)
         device.mapper = mapper;
         device.mirrored = (uint8_t)mirrored;
         device.source = 0;                       /* the cartridge is the first translated source (game.toml) */
+        if (sram_bit && (mapper == MSX_MAPPER_ASCII8 || mapper == MSX_MAPPER_ASCII16)) {
+            static uint8_t sram[MSX_SRAM_ASCII8];     /* blank, as a fresh battery: the game's own file is not read here */
+            device.sram = sram;
+            device.sram_size = mapper == MSX_MAPPER_ASCII8 ? MSX_SRAM_ASCII8 : MSX_SRAM_ASCII16;
+            device.sram_bit = (uint8_t)sram_bit;
+        }
         msx_set_device(&machine, 1, 0, device);
     }
     machine.line_hook = msx_route_line;

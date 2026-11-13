@@ -62,7 +62,17 @@ typedef struct {
     uint8_t source;        /* native code: which translated source the image is (0 cartridge, 1 BIOS), MSX_SOURCE_NONE if none */
     uint8_t bank_base;     /* native code: the 8 KB bank of the source where this image starts (the MSX2 sub-ROM: 6) */
     MsxScc scc;
+    /* Battery SRAM of an ASCII 8 KB or ASCII 16 KB cartridge: a bank value with `sram_bit` set shows the SRAM in that page
+     * (block MSX_BLOCK_SRAM), readable there and writable only in 8000h-BFFFh. `sram_bit` 0: none. `bank_high` is every
+     * bank value written past the image's last bank, ORed (the conversion reads it to find the bit). */
+    uint8_t *sram;         /* sram_size bytes, owned by the program */
+    uint16_t sram_size;    /* 8 KB (ASCII 8) or 2 KB mirrored over the 16 KB page (ASCII 16) */
+    uint8_t sram_bit;
+    uint8_t bank_high;
 } MsxDevice;
+
+enum { MSX_BLOCK_SRAM = -2 };    /* a region of a cartridge that shows its SRAM */
+enum { MSX_SRAM_ASCII8 = 0x2000, MSX_SRAM_ASCII16 = 0x800 };
 
 /* One 8 KB region of the Z80 address space as currently selected: what reads see, where writes go. */
 typedef struct {

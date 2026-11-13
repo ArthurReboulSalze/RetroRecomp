@@ -48,12 +48,13 @@ MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'm
                    'msx_v9938_cmd.c', 'msx_msx2.c', 'msx_state.c')
 MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_state_file.inc',
                  'msx_native_main.c',
-                 'msx_reference_main.c', 'msx_player.c')
+                 'msx_reference_main.c', 'msx_player.c', 'msx_sram.c', 'msx_sram.h')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
-             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
+             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h',
+             'cart_save.c', 'cart_save.h')
 BUILD_TIMEOUT = 2 * 3600
 
 
@@ -186,7 +187,8 @@ def project_cmake(version: str, game: bool, bodies: bool = True) -> str:
         lines += [
             'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
             'find_package(SDL2 CONFIG REQUIRED)',
-            f'add_executable(game msx_player.c {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
+            f'add_executable(game msx_player.c msx_sram.c cart_save.c {machine} runtime_reference.c retro_menu.c platform_io.c '
+            f'runtime_feedback.c {kit}',
             '  $<TARGET_OBJECTS:msx_bodies>)',
             'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
             'if(WIN32)', '  target_sources(game PRIVATE content.rc)',

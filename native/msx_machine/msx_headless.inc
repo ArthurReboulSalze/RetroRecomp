@@ -86,6 +86,9 @@ static void headless_finish(void)
            (unsigned)(g_z80.a_ << 8 | g_z80.f_), (unsigned)(g_z80.b_ << 8 | g_z80.c_), (unsigned)(g_z80.d_ << 8 | g_z80.e_),
            (unsigned)(g_z80.h_ << 8 | g_z80.l_), g_z80.i, g_z80.r, g_z80.im, g_z80.iff2, g_z80.wz);
     msx_print_state(&machine, out);
+#ifdef MSX_HEADLESS_SAVE_FIELDS
+    MSX_HEADLESS_SAVE_FIELDS(out);
+#endif
     fprintf(out, "\"watch\": {");
     for (int i = 0; i < watches; ++i)
         fprintf(out, "%s\"%04X\": %u", i ? ", " : "", watch[i], msx_peek(&machine, (uint16_t)watch[i]));

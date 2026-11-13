@@ -167,5 +167,90 @@ class QuickStateTests(unittest.TestCase):
         self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
 
 
+class VectorTests(unittest.TestCase):
+    """Gate G10: the independent Z80 vectors through the MSX's own generator expect one wait state per M1 cycle."""
+
+    def test_m1_cycles_by_prefix(self):
+        sys.path.insert(0, str(ROOT / 'tools'))
+        spec = importlib.util.spec_from_file_location('banked_vector_selftest', ROOT / 'tools' / 'banked_vector_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cases = {(0x00, 0x00): 1, (0x3E, 0x12): 1, (0xCB, 0x11): 2, (0xED, 0xB0): 2, (0xDD, 0x21): 2, (0xFD, 0xCB): 2,
+                 (0xDD, 0xC9): 2, (0xDD, 0xDD): 1, (0xFD, 0xED): 1}
+        for (opcode, following), expected in cases.items():
+            self.assertEqual(module.m1_cycles(opcode, following), expected, (hex(opcode), hex(following)))
+
+
+class SramTests(unittest.TestCase):
+    """Gate G7: an ASCII cartridge's battery SRAM, found from the bank values the game writes, kept in a cart_save.c file."""
+
+    def test_the_bit_is_the_lowest_set_one_above_the_bank_number(self):
+        from retrorecomp.msx_rom import sram_bit
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x20), 5)          # Xanadu: 16 banks of 8 KiB, bit 5
+        self.assertEqual(sram_bit('ascii8', 0x100000, 0x80), 7)         # Royal Blood: bit 7
+        self.assertEqual(sram_bit('ascii16', 0x20000, 0x10), 4)         # Hydlide 2: 8 banks of 16 KiB, bit 4
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x30), 4)
+        self.assertIsNone(sram_bit('ascii8', 0x20000, 0))
+        self.assertIsNone(sram_bit('konami', 0x20000, 0x20))
+        self.assertIsNone(sram_bit('ascii8', 0x200000, 0x01))           # no bit at or above 256 banks
+
+    def test_the_runners_take_the_bit_and_the_state_binding_changes_with_it(self):
+        from types import SimpleNamespace
+        from retrorecomp.msx_conversion import cartridge_bank_high, state_binding
+        from retrorecomp.msx_rom import Guess
+        self.assertEqual(Guess('ascii8', sram=5).arguments(), ['--mapper', 'ascii8', '--sram-bit', '5'])
+        self.assertEqual(Guess('ascii8').arguments(), ['--mapper', 'ascii8'])
+        plain = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=None)
+        with_sram = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=5)
+        self.assertNotEqual(state_binding(b'b', plain, 'ntsc', 'msx1', 0), state_binding(b'b', with_sram, 'ntsc', 'msx1', 0))
+        entry = [1, 0, *range(8), 0, 0, 0, 15, 32, 12345, 0x20]
+        self.assertEqual(cartridge_bank_high({'blocks': [[0, 0, *range(8), 0, 0, 0, 15, 0, 0, 0], entry]}), 0x20)
+        self.assertEqual(cartridge_bank_high({'blocks': []}), 0)
+
+    def test_the_cartridge_writes_sram_only_in_page_2(self):
+        text = (ROOT / 'native/msx_machine/msx_cart.c').read_text(encoding='utf-8')
+        self.assertEqual(text.count('if (address >= 0x8000 && address < 0xC000 && d->block[address >> 13] == MSX_BLOCK_SRAM)'), 2)
+        player = (ROOT / 'native/msx_machine/msx_player.c').read_text(encoding='utf-8')
+        self.assertIn('atexit(sram_at_exit)', player)
+        self.assertIn('"--sram"', player)
+
+
+class ReportTests(unittest.TestCase):
+    """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
+
+    def test_a_final_row_gives_the_main_cpu_its_counts(self):
+        from retrorecomp import report_schema
+        row = {'name': 'play', 'scenario': 'play', 'frames': 3600, 'native_steps': 1000, 'interpreted_steps': 7,
+               'native_entries': 1000, 'interpreted_opcodes': 7, 'interpreter_cycles': 40, 'interpreter_percent': 0.7}
+        scenario = report_schema._main_scenario('msx', row)
+        self.assertEqual((scenario['name'], scenario['native'], scenario['interpreted']), ('play', 1000, 7))
+        self.assertEqual(scenario['cycles']['interpreted'], 40)
+        self.assertTrue(report_schema._fallback_state([scenario]))
+
+    def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
+        text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
+        self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks)", text)
+
+    def test_the_devices_are_c_models_with_no_counter(self):
+        from types import SimpleNamespace
+        from retrorecomp import report_schema
+        from retrorecomp.msx_conversion import hardware_devices
+        units = hardware_devices(SimpleNamespace(mapper='konami-scc', base=0x4000, mirrored=False, reason='probe'), True)
+        self.assertEqual([(u['id'], u['kind']) for u in units],
+                         [('konami-scc', 'cartridge_mapper'), ('v9938', 'video_unit'), ('ay-3-8910', 'audio_unit'), ('scc', 'audio_unit')])
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': units})), 4)
+        plain = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=True, reason='size'), False)
+        self.assertEqual([u['id'] for u in plain], ['plain', 'tms9918a', 'ay-3-8910'])
+        for unit in units + plain:
+            self.assertFalse(unit['details']['hardware_fidelity_validated'])
+
+    def test_a_route_that_stops_early_is_named(self):
+        from retrorecomp.msx_conversion import route_warnings
+        rows = [{'scenario': 'play', 'liveness': {'frames': 3600, 'last_picture_change_frame': 100}},
+                {'scenario': 'long-1', 'liveness': {'frames': 18000, 'last_picture_change_frame': 17999}}]
+        self.assertEqual(route_warnings(rows), ['play: the picture stopped changing at frame 100 of 3600'])
+
+
 if __name__ == '__main__':
     unittest.main()
