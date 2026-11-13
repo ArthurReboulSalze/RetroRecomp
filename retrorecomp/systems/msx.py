@@ -187,8 +187,9 @@ class Msx2PlusProfile(Msx2Profile):
     MSX-MUSIC and the kanji ROM come in later steps (docs/MSX.md)."""
     id = 'msx2plus'
     name = 'MSX2+'
-    extensions = ('.rom',)
-    archived_rom_limits = (('.rom', 0x200000),)
+    # A .mx2 stays the MSX2's (identify_path below passes it on); a .rom or ZIP is the MSX2+'s when chosen or in an msx2+ folder.
+    extensions = ('.mx2',)
+    archived_rom_limits = (('.mx2', 0x200000),)
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
                   'BIOS; the V9958 with YJK and the horizontal scroll; no disks, MSX-MUSIC or kanji yet')
