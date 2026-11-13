@@ -237,7 +237,7 @@ retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
 retrorecomp/timings.py tests/test_timings.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
-retrorecomp/dropfiles.py tests/test_dropfiles.py
+retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc
 native/snes_dsp1_vectors.h
 tools/snes_hdma_selftest.py
