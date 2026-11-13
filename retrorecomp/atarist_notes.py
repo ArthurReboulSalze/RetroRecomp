@@ -24,6 +24,8 @@ ROUTE_STOPS: dict[str, str] = {
         "the converter does not answer or skip it",
     '1f204778eb5298535821944c74f2cc2d1f853bdfbfad33de63924ba8abb77805':
         "Metro-Cross: on EmuTOS the screen stays blank; the game starts its own title with the player's own TOS 1.04 (Options > Atari ST)",
+    '407ada38c7050f5d86557464a484f10149e7a279b35f0be8d5b398906bf0613c':
+        "Trinity: the game says that its screen resolution is too low and exits; it asks for a higher resolution than the low-resolution colour screen this machine starts in",
     '1d04ed8256e85f30930c20cd9f9c4f07a8bf4aa89339cef334d8f14a22e93219':
         "Pharaoh III: on EmuTOS its program ends in a 'Panic: Bus Error'; it starts its menu with the player's own TOS 1.04 (Options > Atari ST)",
 }
