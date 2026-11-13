@@ -205,7 +205,8 @@ class CommandLineTests(FakeProbeCase):
         self.assertFalse((self.root / 'result.json').exists())
         self.assertIn('DRY RUN - NOT A MEASUREMENT', output)
         self.assertIn('VALID ONLY ON A QUIET PC', output)
-        for needle in (str(a), str(b), '--no-window', '--frames 10', '--frames 0', 'GBARECOMP_VBLANK_SNAPSHOT=1', 'core 3'):
+        # The launchers by name: Windows CI spells its temporary folder short (RUNNER~1) and the tool prints it long.
+        for needle in (a.name, b.name, '--no-window', '--frames 10', '--frames 0', 'GBARECOMP_VBLANK_SNAPSHOT=1', 'core 3'):
             self.assertIn(needle, output)
 
 

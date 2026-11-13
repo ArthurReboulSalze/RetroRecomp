@@ -7,6 +7,7 @@ from collections import deque
 from pathlib import Path
 import copy
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -610,8 +611,11 @@ class WrapperTests(Checks):
             case.setUp()
             try:
                 if written:
-                    project = case.root / 'project'
-                    project.mkdir()
+                    # Where the conversion reads it: beside `checks`, which console16 puts two levels above a Windows
+                    # build/Release executable and one level above any other; the harness's executable is
+                    # project/build/Release/game.exe on every OS, so off Windows that is project/build.
+                    project = case.root / 'project' / ('' if os.name == 'nt' else 'build')
+                    project.mkdir(parents=True)
                     counters = static.new_counters()
                     counters['roots_accepted'] = 7
                     (project / 'static-discovery.json').write_text(json.dumps(counters), encoding='utf-8')
