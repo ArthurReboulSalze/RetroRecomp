@@ -1,0 +1,9 @@
+# The Legend of Zelda: The Minish Cap (USA): the title screen to the file select (gate G7, saves: the EEPROM chip).
+# Start at frame 1,100 and 1,400 (the title appears after the logos), then no key: with the save written by minish_cap_new_file_home.keys the file select shows the file made by the first process, with no save an empty file select.
+# The frame limit is 2,200.
+# frame,keyinput_active_low (the value holds until the next line)
+0,0x03ff
+1100,0x03f7
+1104,0x03ff
+1400,0x03f7
+1404,0x03ff
