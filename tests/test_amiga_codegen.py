@@ -133,8 +133,8 @@ class AmigaCodegenTest(unittest.TestCase):
         player = (Path(__file__).resolve().parents[1] / 'native/amiga_machine/amiga_player.c').read_text(encoding='utf-8')
         # F12 can switch recording on after the start: in a window the recorder is always wired; the shared recorder keeps nothing while off.
         self.assertIn('if (!reference_cpu && (!headless || rr_feedback_enabled())) rr_amiga_set_recorder(session, record_note);', player)
-        # The exit of the player runs no handler: the record is written by hand before it.
-        self.assertLess(player.index('rr_feedback_finish();     /* The exit below'), player.index('_Exit(failed ? 1 : result)'))
+        # The exit of the player runs no handler: the record is written by hand before it. A refused state keeps its own status, 4.
+        self.assertLess(player.index('rr_feedback_finish();     /* The exit below'), player.index('_Exit(result == 4 ? 4 : failed ? 1 : result)'))
 
     def test_a_window_gives_the_instruction_that_ran_and_counts_what_a_walk_finds_apart(self):
         self.sweep_table()
