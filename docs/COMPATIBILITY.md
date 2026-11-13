@@ -246,14 +246,15 @@ every route and equal the reference interpreter frame by frame; no game is valid
 FM-PAC, SRAM and the rarer mappers are not converted yet.
 
 The **MSX2** profile (`msx2`) is experimental since 1.7.3 too ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
-(`.mx2`, or a `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
+(a `.mx2`, `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
 with the V9938 drawn by line and a memory mapper. The V9938 command engine runs all twelve commands with their timing approximated (the chip's access slots are not modelled), in the bitmap modes only. On 14 authored
 cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games (Metal Gear, Space Manbow, Aleste, Hydlide 3) reach 0 interpreted instructions on every route, but Hydlide 3's routes never leave its
 Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
 
 The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
-cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
+cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:
+[the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
 the V9958 (its YJK modes and horizontal scroll) on the MSX2's board. No game has been converted for a qualification yet. Disks, MSX-MUSIC and the
 kanji ROM are not converted.
 

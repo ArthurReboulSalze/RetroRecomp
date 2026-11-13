@@ -215,6 +215,50 @@ class SramTests(unittest.TestCase):
         self.assertIn('"--sram"', player)
 
 
+class Msx2OrMsx2PlusTests(unittest.TestCase):
+    """Arthur's rule of 13 November 2026 between the MSX2 and the MSX2+, on authored cartridges (no ROM): the folder or the menu
+    decides; a file known to be at least MSX2 with nothing saying which goes to the MSX2+; a plain .rom with no hint stays where
+    it went before; the hint that decided is kept for the log."""
+
+    @staticmethod
+    def cartridge() -> bytes:
+        return bytes((0x41, 0x42, 0x10, 0x40)) + bytes(12) + bytes((0xC9,)) + bytes(0x4000 - 17)   # AB, INIT at 4010h: RET
+
+    def place(self, root, folder: str, name: str) -> Path:
+        import zipfile
+        where = Path(root) / folder if folder else Path(root)
+        where.mkdir(parents=True, exist_ok=True)
+        path = where / name
+        if name.endswith('.zip'):
+            with zipfile.ZipFile(path, 'w') as bundle:
+                bundle.writestr(Path(name).stem + '.mx2', self.cartridge())
+        else:
+            path.write_bytes(self.cartridge())
+        return path
+
+    def test_each_case(self):
+        import tempfile
+        from retrorecomp.batch import identify
+        from retrorecomp.systems.msx import decided
+        cases = (('msx2+', 'game.rom', None, 'msx2plus', 'msx2+ folder'),
+                 ('msx2plus', 'game.rom', None, 'msx2plus', 'msx2+ folder'),
+                 ('msx2', 'game.rom', None, 'msx2', 'msx2 folder'),
+                 ('msx2', 'game.mx2', None, 'msx2', 'msx2 folder'),
+                 ('msx2+', 'game.mx2', None, 'msx2plus', 'msx2+ folder'),
+                 ('', 'game.mx2', None, 'msx2plus', 'in doubt between MSX2 and MSX2+: MSX2+'),
+                 ('', 'game.zip', None, 'msx2plus', 'in doubt between MSX2 and MSX2+: MSX2+'),
+                 ('', 'game.mx2', 'msx2', 'msx2', 'chosen in the menu'),
+                 ('', 'game.rom', 'msx2plus', 'msx2plus', 'chosen in the menu'),
+                 ('msx2', 'game.mx2', 'msx2plus', 'msx2plus', 'chosen in the menu'),
+                 ('', 'game.rom', None, 'msx', None))                         # a plain .rom with no hint: the MSX1's, as before
+        for folder, name, selected, system, hint in cases:
+            with self.subTest(folder=folder, name=name, selected=selected), tempfile.TemporaryDirectory() as root:
+                path = self.place(root, folder, name)
+                item = identify(path, selected)
+                self.assertEqual(item.system, system, item.error)
+                self.assertEqual(decided(path), hint)
+
+
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
 

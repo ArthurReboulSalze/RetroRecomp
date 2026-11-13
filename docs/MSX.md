@@ -118,8 +118,8 @@ Experimental profile `msx2`, the second profile of the MSX family, beside `msx` 
 keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is experimental since 1.7.3, and
 **the V9938 command engine's timing is approximated**.
 
-**Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you
-choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
+**Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2`, `.rom` or ZIP that you
+choose as MSX2 in the console list or that sits in a folder named `msx2` (a `.mx2` with no such hint goes to the MSX2+: section 9). The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
 palette, scrolling, the line interrupt, the display pages; VRAM is held as the chip holds it, in two banks, so Graphic 6 and 7 reach their logical addresses interleaved), the V9938 command engine (all twelve commands, HMMC, YMMM, HMMM, HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, and STOP, with the logical operations, in the bitmap modes G4 to G7 only; V9938 commands: all twelve, timing approximated), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
 RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
 
@@ -155,7 +155,18 @@ Experimental profile `msx2plus`, the third profile of the family, in development
 in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
 
 **Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
-(or `msx2plus`). **Firmware:** C-BIOS 0.29a's MSX2+ images (main ROM, logo, and the MSX2 sub-ROM), from the same pinned archive as the MSX1's
+(or `msx2plus`, `msx2p`).
+
+**MSX2 or MSX2+: which machine a file goes to** (Arthur's rule, 13 November 2026), in this order:
+
+1. MSX2 chosen in the console list, or the file in an `msx2` folder: the MSX2.
+2. MSX2+ chosen, or the file in an `msx2+` folder: the MSX2+.
+3. A file known to be at least MSX2 with nothing saying which (a `.mx2`, or a ZIP holding one, outside those folders): the MSX2+, which runs
+   nearly every MSX2 game, while the MSX2 cannot run an MSX2+ game.
+4. A plain `.rom` with no hint: the MSX1's check, as before (the doubt is not widened to MSX1 files).
+
+The conversion says in one line which hint decided (`msx2+ folder`, `msx2 folder`, `chosen in the menu`, or `in doubt between MSX2 and
+MSX2+: MSX2+`). There is no table of checksums and no scan of the code. **Firmware:** C-BIOS 0.29a's MSX2+ images (main ROM, logo, and the MSX2 sub-ROM), from the same pinned archive as the MSX1's
 and MSX2's, or your own MSX2+ BIOS pair (the main ROM, byte 2Dh = 2, and its 16 KiB sub-ROM), chosen in Options > MSX2+ and never shipped.
 
 **The V9958, as written from Yamaha's V9958 technical data and the MSX2+ technical documents:** R#25 (CMD, VDS, YAE, YJK, WTE, MSK, SP2), R#26

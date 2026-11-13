@@ -138,10 +138,12 @@ class Msx2Profile(MsxProfile):
         return None
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
+        # Reached when the MSX2+ (identified first) left the file: a .mx2 or ZIP in an msx2 folder, or MSX2 chosen.
         if suffix == '.mx2':
             from ..systems import ConsoleMismatchError
-            if selected_system and selected_system != self.id:
-                raise ConsoleMismatchError('Detected MSX2; choose Automatic or MSX2.', self.id)
+            if selected_system and selected_system not in (self.id, 'msx2plus'):
+                raise ConsoleMismatchError('Detected MSX2; choose Automatic, MSX2 or MSX2+.', self.id)
+            _decided(path, 'chosen in the menu' if selected_system == self.id else 'msx2 folder')
             return self
         if suffix not in ('.rom', '.zip'):
             return None
@@ -156,6 +158,7 @@ class Msx2Profile(MsxProfile):
             return None
         if suffix == '.zip' and cartridge.member.lower().endswith('.mx1'):
             return None                                   # a .mx1 is the MSX1's, whatever its folder
+        _decided(path, 'chosen in the menu' if selected_system == self.id else 'msx2 folder')
         return self
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
@@ -178,7 +181,18 @@ MSX2 = Msx2Profile()
 
 
 # The folder names that say MSX2+ for a .rom or a ZIP.
-MSX2PLUS_FOLDERS = frozenset(('msx2+', 'msx2plus', 'msx 2+', 'msx2 plus', 'msx-2+'))
+MSX2PLUS_FOLDERS = frozenset(('msx2+', 'msx2plus', 'msx2p', 'msx 2+', 'msx2 plus', 'msx-2+'))
+# Which hint decided between the MSX2 and the MSX2+ for each file identified in this process (the conversion logs it).
+DECIDED: dict[str, str] = {}
+
+
+def _decided(path: Path, hint: str) -> None:
+    DECIDED[str(Path(path).resolve())] = hint
+
+
+def decided(path: Path) -> str | None:
+    """The hint that sent this file to the MSX2 or the MSX2+ ('msx2+ folder', 'chosen in the menu', ...), None if unknown."""
+    return DECIDED.get(str(Path(path).resolve()))
 
 
 class Msx2PlusProfile(Msx2Profile):
@@ -206,20 +220,39 @@ class Msx2PlusProfile(Msx2Profile):
     identify = Identify(path_order=54)
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
-        if suffix not in ('.rom', '.zip'):
-            return None
+        """MSX2 or MSX2+ (Arthur, 13 November 2026). A file in an msx2 folder, or with MSX2 chosen, is left to the MSX2; one in an
+        msx2+ folder, or with MSX2+ chosen, is the MSX2+'s; a file known to be at least MSX2 with nothing saying which (a .mx2,
+        or a ZIP holding one, outside those folders) is the MSX2+'s, which runs nearly every MSX2 game while the reverse is
+        false. A plain .rom with no hint is not taken: it goes where it went before (the MSX1's content check)."""
         if selected_system and selected_system != self.id:
             return None
-        if selected_system != self.id and path.parent.name.casefold() not in MSX2PLUS_FOLDERS:
+        folder = path.parent.name.casefold()
+        chosen = selected_system == self.id
+        if not chosen and folder in MSX2_FOLDERS:
+            return None
+        if suffix == '.mx2':
+            _decided(path, 'chosen in the menu' if chosen else 'msx2+ folder' if folder in MSX2PLUS_FOLDERS
+                     else 'in doubt between MSX2 and MSX2+: MSX2+')
+            return self
+        if suffix not in ('.rom', '.zip'):
+            return None
+        if not chosen and folder not in MSX2PLUS_FOLDERS and suffix != '.zip':
             return None
         from ..msx_rom import read_cartridge
         try:
-            cartridge = read_cartridge(path)
+            cartridge = read_cartridge(path)             # the MSX cartridge header, checked
         except (OSError, ValueError):
             return None
-        if suffix == '.zip' and cartridge.member.lower().endswith(('.mx1', '.mx2')):
-            return None
-        return self
+        member = cartridge.member.lower() if suffix == '.zip' else ''
+        if member.endswith('.mx1'):
+            return None                                   # a .mx1 is the MSX1's, whatever its folder
+        if chosen or folder in MSX2PLUS_FOLDERS:
+            _decided(path, 'chosen in the menu' if chosen else 'msx2+ folder')
+            return self
+        if member.endswith('.mx2'):
+            _decided(path, 'in doubt between MSX2 and MSX2+: MSX2+')
+            return self
+        return None                                       # a ZIP with no hint: left as before
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """The BIOS pair the machine boots (the player's own MSX2+ image, its SHA-256; or C-BIOS, its pin) and the mapper RAM."""
