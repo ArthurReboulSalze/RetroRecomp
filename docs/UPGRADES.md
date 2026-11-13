@@ -347,6 +347,9 @@ changes once, to the LF file's digest, which is the one Linux already wrote.
   `tools/amiga_route_captures.py`. Before, that tool rewrote the routes without the answer, so its pictures of an answered install were
   not of the route the conversion played. It now refuses a route whose rewritten script does not have the report's `script_sha256`.
   The 27 routes of the final panel (13 November, nine installs) give their recorded digests again: the conversion's scripts are unchanged.
+- **Known stops in the report.** An install whose routes are known to stop before play is named with its reason in the report's
+  `route_warnings` (read into `honesty.route_warnings`), from `amiga_conversion.ROUTE_STOPS`, as the Atari ST does: Monkey Island 2's
+  routes end in its opening. Words about a game, never its bytes; no route is chosen from them.
 
 **Hot path:** no. Conversion time only: these three installs run their answer on every route.
 

@@ -196,6 +196,15 @@ class RouteScriptTests(unittest.TestCase):
         self.assertIn((3660, 3666, 'mouse', 2, 1), route)
         self.assertTrue(max(end for _, end, *_ in route) <= 7200)
 
+    def test_a_known_stop_is_words_for_the_report_and_changes_no_route(self):
+        mi2 = 'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596'
+        words = conversion.route_stops(mi2)
+        self.assertEqual(len(words), 1)
+        self.assertTrue(words[0].startswith('known stop (panel of 13 November 2026): Monkey Island 2: '))
+        self.assertEqual(conversion.route_stops('ab' * 32), [])
+        self.assertEqual(conversion.route_events(mi2, 'long-1', 18000, 0x59),
+                         conversion.answered_route(conversion.ROUTE_ANSWERS[mi2], 18000, 0x59, lambda n: conversion.long_route(mi2, 0, n, 0x59)))
+
     def test_route_events_is_the_one_writer_of_every_route_answered_or_not(self):
         lemmings = '37b8afa13b085e804015599e9f67833a9dbdcdbead90438f9a46a2a6aeda21c5'
         answer = conversion.ROUTE_ANSWERS[lemmings]

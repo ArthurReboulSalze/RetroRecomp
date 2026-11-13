@@ -115,6 +115,22 @@ ROUTE_ANSWERS = {
 }
 
 
+# What the routes of an install are known to stop on before play, by the install's SHA-256: words about a game, never its bytes, read on the
+# captures of a panel and carried into the report's `route_warnings` (gate G9 names each panel game whose routes do not reach play, with
+# its reason). It changes nothing a conversion does: no route is chosen from it.
+ROUTE_STOPS = {
+    'f9811f6041b178fa9669cb3508137ebd65ae7bc5eedc334f4f2591268a112596':
+        "Monkey Island 2: the routes answer its protection and then play its opening (the LucasArts logo, the credits, Scabb Island, the campfire story); "
+        "the 18,000-frame route ends in that story, before the first scene the player controls (Escape, which skips a scene, is not among the route's keys)",
+}
+
+
+def route_stops(identity: str) -> list[str]:
+    """The known stop of an install, as the words `route_warnings` carries: [] for an install that is not in the table."""
+    note = ROUTE_STOPS.get(identity)
+    return [f'known stop (panel of 13 November 2026): {note}'] if note else []
+
+
 def answered_route(answer: dict, frames: int, key_exit: int, generic=None) -> list[tuple[int, int, str, int, int]]:
     """A route of an install that must answer a screen first: the answer, then a generic route (`generic(frames)`, the main route by
     default) from `then` on, without the kinds of event the answer drops."""
@@ -870,7 +886,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                 {'id': 'paula', 'kind': 'audio_unit', 'mode': 'emulated',
                  'details': {'by': 'vAmiga', 'disk': ("an idle disk controller's events are caught up in one batch, at the last one's instant or earlier when something "
                                                       "could see the controller (its registers, the CIA-B drive select and motor): the same work (final_checks.agnus_denise)")}}],
-            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
+            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'route_warnings': route_stops(source.sha256), 'scan_level': level,
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
                               'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
                                                                    'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
