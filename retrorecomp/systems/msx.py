@@ -201,9 +201,12 @@ class Msx2PlusProfile(Msx2Profile):
     MSX-MUSIC and the kanji ROM come in later steps (docs/MSX.md)."""
     id = 'msx2plus'
     name = 'MSX2+'
-    # A .mx2 stays the MSX2's (identify_path below passes it on); a .rom or ZIP is the MSX2+'s when chosen or in an msx2+ folder.
-    extensions = ('.mx2',)
+    # A .mx2 with no other hint and a .rom or ZIP chosen or in an msx2+ folder (identify_path below); a .dsk, or an M3U of
+    # them (rom_sources.disk_sets groups "(Disk n of m)" files into one, marked with this machine).
+    extensions = ('.mx2', '.dsk')
     archived_rom_limits = (('.mx2', 0x200000),)
+    disk_set = (('.dsk',), 'msx2plus-sets')
+    media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
                   'BIOS; the V9958 with YJK and the horizontal scroll; no disks, MSX-MUSIC or kanji yet')
@@ -217,13 +220,24 @@ class Msx2PlusProfile(Msx2Profile):
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
-    identify = Identify(path_order=54)
+    identify = Identify(path_order=7)        # before the X68000, which takes every other M3U
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         """MSX2 or MSX2+ (Arthur, 13 November 2026). A file in an msx2 folder, or with MSX2 chosen, is left to the MSX2; one in an
         msx2+ folder, or with MSX2+ chosen, is the MSX2+'s; a file known to be at least MSX2 with nothing saying which (a .mx2,
         or a ZIP holding one, outside those folders) is the MSX2+'s, which runs nearly every MSX2 game while the reverse is
         false. A plain .rom with no hint is not taken: it goes where it went before (the MSX1's content check)."""
+        if suffix in ('.m3u', '.dsk'):
+            if suffix == '.m3u':
+                from ..rom_sources import playlist_owner
+                if playlist_owner(path) != self.id:
+                    return None                    # the X68000's, or nobody's: left to the next profile
+            if selected_system and selected_system != self.id:
+                from ..systems import ConsoleMismatchError
+                raise ConsoleMismatchError('Detected MSX2+ disks; choose Automatic or MSX2+.', self.id)
+            _decided(path, 'chosen in the menu' if selected_system == self.id else
+                     'disk set' if suffix == '.m3u' else 'disk image')
+            return self
         if selected_system and selected_system != self.id:
             return None
         folder = path.parent.name.casefold()
@@ -236,8 +250,16 @@ class Msx2PlusProfile(Msx2Profile):
             return self
         if suffix not in ('.rom', '.zip'):
             return None
-        if not chosen and folder not in MSX2PLUS_FOLDERS and suffix != '.zip':
-            return None
+        if not chosen and folder not in MSX2PLUS_FOLDERS:
+            if suffix != '.zip':
+                return None
+            import zipfile
+            try:                                          # names only: a ZIP of another machine is never read here
+                with zipfile.ZipFile(path) as bundle:
+                    if not any(name.lower().endswith('.mx2') for name in bundle.namelist()):
+                        return None
+            except (OSError, zipfile.BadZipFile):
+                return None
         from ..msx_rom import read_cartridge
         try:
             cartridge = read_cartridge(path)             # the MSX cartridge header, checked
@@ -253,6 +275,12 @@ class Msx2PlusProfile(Msx2Profile):
             _decided(path, 'in doubt between MSX2 and MSX2+: MSX2+')
             return self
         return None                                       # a ZIP with no hint: left as before
+
+    def read_rom(self, path: Path):
+        if path.suffix.casefold() in ('.dsk', '.m3u'):
+            from ..msx_disk import read_disks
+            return read_disks(path)
+        return super().read_rom(path)
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """The BIOS pair the machine boots (the player's own MSX2+ image, its SHA-256; or C-BIOS, its pin) and the mapper RAM."""

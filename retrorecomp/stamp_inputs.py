@@ -711,6 +711,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
+        'retrorecomp.msx_disk',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),

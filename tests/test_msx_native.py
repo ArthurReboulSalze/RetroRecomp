@@ -259,6 +259,38 @@ class Msx2OrMsx2PlusTests(unittest.TestCase):
                 self.assertEqual(decided(path), hint)
 
 
+class Msx2PlusDiskInputTests(unittest.TestCase):
+    """MSX2+ disks as the converter reads them (msx_disk.py) and identifies them: a .dsk, a set grouped by
+    rom_sources.disk_sets into an M3U marked with the machine, sizes checked, an identity for the set."""
+
+    def test_a_disk_a_set_and_what_is_refused(self):
+        import tempfile
+        from retrorecomp.batch import identify
+        from retrorecomp.msx_disk import read_disks
+        from retrorecomp.rom_sources import disk_sets
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            one = root / 'Game (Disk 1 of 2).dsk'
+            two = root / 'Game (Disk 2 of 2).dsk'
+            one.write_bytes(bytes(737280))
+            two.write_bytes(bytes([1]) * 368640)
+            single = read_disks(one)
+            self.assertEqual((single.size, len(single.disks)), (737280, 1))
+            sets = disk_sets([two, one], root / 'sets')
+            self.assertEqual(sets.grouped, 1)
+            playlist = sets.paths[0]
+            self.assertIn('# Retro-Recomp system: msx2plus', playlist.read_text(encoding='utf-8'))
+            both = read_disks(playlist)
+            self.assertEqual([p.name for p in both.disks], [one.name, two.name])
+            self.assertNotEqual(both.sha256, single.sha256)
+            self.assertEqual(identify(playlist).system, 'msx2plus')
+            self.assertEqual(identify(one).system, 'msx2plus')
+            bad = root / 'bad.dsk'
+            bad.write_bytes(bytes(1000))
+            with self.assertRaises(ValueError):
+                read_disks(bad)
+
+
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
 
