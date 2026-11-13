@@ -537,8 +537,8 @@ was added (the rows are written beside the picture and change nothing of what is
 
 ### The Linux witness of the same tree (gate G13)
 
-Golden Sun, Mario Kart Super Circuit and Pokémon Emerald were converted from an empty library on a Debian 13 PC (the tree of `spec/gba-174` as of the delivered file's evidence, one job
-at a time, the PC shared with other conversions: 50, 36 and 72 minutes, the times of a busy machine) and their delivered players run hidden under SDL's dummy drivers with the same
+Golden Sun, Mario Kart Super Circuit, Pokémon Emerald and The Minish Cap were converted from an empty library on a Debian 13 PC (the tree of `spec/gba-174` as of the delivered file's evidence, one job
+at a time, the PC shared with other conversions: 50, 36, 72 and 19 minutes, the times of a busy machine; the player of that tree hashed the sound of every frame, a later commit only does it when the rows are asked) and their delivered players run hidden under SDL's dummy drivers with the same
 key scripts:
 
 | Cartridge | Conversion on Debian | Route | Last picture (first 16 digits) | Interpreted on the route |
@@ -546,9 +546,11 @@ key scripts:
 | Golden Sun | five passes, 0 / 0 at the end, native = interpreter | the Vale scene, 4,500 frames | `5582b59b2f2de25e`, **equal to Windows** | 34, equal |
 | Mario Kart Super Circuit | two passes, 0 / 0, native = interpreter | a race, 4,500 frames | `c329fb2241850849`, **equal** | 0, equal |
 | Pokémon Emerald | two passes, 0 / 0, native = interpreter | the player's house, 9,600 frames | `a8f5fb98324d3d1c`, **equal** | 9,733,707, equal |
+| The Minish Cap | three passes, 0 / 0, native = interpreter | Link's house, 10,000 frames | `56161e0fd97184d0`, **equal** | 13,910,846, equal |
 
 The functions generated per pass and the interpreted counts per pass of Golden Sun equal the Windows ones (13,600, 15,695, 15,768, 15,771 and 15,776 functions; one instruction apart in
-the first pass of the generic scenario, 72,238,563 against 72,238,564, an intermediate count that changes nothing). The compressed copy matched the player as built on both scenarios on Linux too (`packed_reference_match` true on the three). On the Golden Sun player, the fresh-process state check
+the first pass of the generic scenario, 72,238,563 against 72,238,564, an intermediate count that changes nothing). The compressed copy matched the player as built on both scenarios on Linux too (`packed_reference_match` true on the four). On Linux the Pokémon Emerald save check passes too: the 131,072-byte Flash file written by the route has the same size, the same 148 distinct values and the same SHA-256 as the Windows one (`5e02f098866d5198…`),
+the fresh process shows CONTINUE with the same picture hash as Windows, and the file is unchanged after it (The Minish Cap's save on Linux was not run). On the Golden Sun player, the fresh-process state check
 passes (same picture as the process that saved, the control differs, both pictures equal the Windows ones) and so does the refusals check (seven of seven forms refused, a missing state
 creates nothing, the byte flipped in the middle accepted, as on Windows).
 
