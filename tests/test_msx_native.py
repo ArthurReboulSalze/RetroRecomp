@@ -167,6 +167,20 @@ class QuickStateTests(unittest.TestCase):
         self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
 
 
+class VectorTests(unittest.TestCase):
+    """Gate G10: the independent Z80 vectors through the MSX's own generator expect one wait state per M1 cycle."""
+
+    def test_m1_cycles_by_prefix(self):
+        sys.path.insert(0, str(ROOT / 'tools'))
+        spec = importlib.util.spec_from_file_location('banked_vector_selftest', ROOT / 'tools' / 'banked_vector_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cases = {(0x00, 0x00): 1, (0x3E, 0x12): 1, (0xCB, 0x11): 2, (0xED, 0xB0): 2, (0xDD, 0x21): 2, (0xFD, 0xCB): 2,
+                 (0xDD, 0xC9): 2, (0xDD, 0xDD): 1, (0xFD, 0xED): 1}
+        for (opcode, following), expected in cases.items():
+            self.assertEqual(module.m1_cycles(opcode, following), expected, (hex(opcode), hex(following)))
+
+
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
 

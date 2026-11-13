@@ -14,7 +14,7 @@ for the MSX most of them are not known yet.
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers | The other mappers (the rare ones), FM-PAC, cartridge SRAM and the saves that depend on it |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
 | The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound; quick states (F8/F9) | The FM-PAC's sound |
-| Windows; Linux: one MSX1 and one MSX2 game converted headless on a Debian 13 PC, with the same results as on Windows | Windowed play on Linux (the profile still says `pending`) |
+| Windows; Linux: one MSX1 and one MSX2 game converted headless on a Debian 13 PC, with the same results as on Windows | Windowed play on Linux |
 
 C-BIOS runs cartridges only: it has no MSX-BASIC, so a BASIC cartridge is refused under C-BIOS, and it has no disk and no cassette. A game that needs
 those, or a BASIC cartridge, needs the player's own MSX BIOS. The input is read in place and never changed. The player supplies the cartridge (and
@@ -79,9 +79,11 @@ and damaged or missing states must be refused and left as they were. The F2 page
 
 C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the original has.
 
-- **Salamander (Japan).** Its stage stays black under C-BIOS 0.29a: the score and the lives change, nothing is drawn. The same happens on openMSX 22.0
-  with the same C-BIOS, so it is C-BIOS's behaviour with this game and not the conversion's. With the player's own MSX BIOS the game plays. Answer: choose
-  your own MSX BIOS in Options > MSX.
+- **Salamander (Japan): no longer seen failing.** In development (12 November 2026) its playfield stayed black under C-BIOS 0.29a while the score and
+  the lives changed, on our machine and on openMSX 22.0 with the same C-BIOS. On the panel of the 1.7.3 release tree it is drawn under C-BIOS on all three
+  routes, as with the owner's own MSX BIOS (the stars, the ships, the enemies, the mothership and the score panel of the first stage, the same pictures
+  on both BIOSes). Why the earlier run differed is not established, and nothing past the start of the first stage was looked at; if your copy shows a
+  black playfield, choose your own MSX BIOS in Options > MSX.
 - **BASIC cartridges** are refused under C-BIOS, which has no MSX-BASIC.
 
 Other known limits: the SRAM, FM-PAC, disk and cassette are not converted (MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in section 3 has been checked.
@@ -107,10 +109,10 @@ for it.
 
 Experimental profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
 keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is experimental since 1.7.3, and
-**the V9938 command engine exists since stage 7, with its timing approximated**.
+**the V9938 command engine's timing is approximated**.
 
 **Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you
-choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine: the V9938 drawn line by line (all screen modes, sprite mode 2, the
+choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
 palette, scrolling, the line interrupt, the display pages; VRAM is held as the chip holds it, in two banks, so Graphic 6 and 7 reach their logical addresses interleaved), the V9938 command engine (all twelve commands, HMMC, YMMM, HMMM, HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, and STOP, with the logical operations, in the bitmap modes G4 to G7 only; V9938 commands: all twelve, timing approximated), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
 RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
 
@@ -131,7 +133,7 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | Metal Gear also on a Debian 13 PC (same counts as Windows); Hydlide 3's routes stay in its character set-up menu, so its play is not covered |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | Metal Gear also on a Debian 13 PC (same counts as Windows); Hydlide 3's routes stay in its character set-up menu, so its play is not covered; Metal Gear's play route stops at its first transceiver call (its long route goes on) |
 | CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
 | Hardware fidelity | Nothing is claimed as exact. 682 hand-worked checks of the V9938, the engine and the MSX2 board pass (development checks, not a qualification): they check our model against our own reading of the documents. Against openMSX (a private comparison emulator, never shipped) the 128 KiB VRAM, the 47 VDP registers and the palette are equal at chosen still frames for the C-BIOS logo, two authored cartridges, Metal Gear, Space Manbow, Aleste and Hydlide 3; at other frames the differences are timing (a command still running, a palette fade step, a sprite double-buffer phase) | Other frames; command timing; the RP5C01; everything in the list above |
 | Gameplay validation | None: no game has been played through | Everything |

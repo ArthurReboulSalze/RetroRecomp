@@ -197,8 +197,8 @@ The page of each console, which the README links its line to (a console of the m
   MSX2 Metal Gear (Konami), Space Manbow (Konami SCC), Aleste (ASCII 16, chosen by the probe where the bytes suggested Konami SCC) and Hydlide 3 (ASCII 8).
   Salamander was also converted with the owner's own MSX BIOS on the development tree of 12 November. G1 `P`: the profiles are declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.3; a read of the pages for this gate is still to do (G15), and three statements of
-  [MSX.md](MSX.md) were already found stale on 13 November (no Linux witness, no release-level run, Salamander black under C-BIOS: the panel's captures show
-  its first stage drawn). G2 `P`: every conversion writes the common report v2, but its main CPU block carries no count (`native` and `interpreted` are
+  [MSX.md](MSX.md) were found stale and corrected on 13 November (no Linux witness, no release-level run, Salamander black under C-BIOS: the panel's
+  captures show its first stage drawn under C-BIOS as with the owner's BIOS). G2 `P`: every conversion writes the common report v2, but its main CPU block carries no count (`native` and `interpreted` are
   `null` on every route: the MSX's rows name them `native_steps` and `interpreted_steps`, which the common reader does not read) and its device list is
   empty; the counts are in the MSX's own `final_checks`. G3 `Y`: 0 interpreted Z80 instructions on all 30 routes of the ten games (16.8 to 121.8 million
   native instructions a route), and on the three routes of Salamander with the owner's BIOS; code run from RAM is translated with byte guards and counted; there
