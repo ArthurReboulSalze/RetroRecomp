@@ -216,11 +216,12 @@ class Msx2PlusProfile(Msx2Profile):
                   'BIOS; the V9958 with YJK and the horizontal scroll; no disks, MSX-MUSIC or kanji yet')
     option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
                    OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
-                   OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256))
+                   OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256),
+                   OptionKey('msx2plus_diskrom', signature=False, kind='path', label='msx2plus_diskrom_label'))
     quick_state_family = 'msx2plus'
     feedback_kinds = frozenset({27})       # RR_FB_MSX2, shared as the Master System and Game Gear share theirs: one record format
     path_spec = PathSpec(order=18, sections=(('z80', 'msx2plus'),),
-                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x10000))),
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x14000))),
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
@@ -296,12 +297,19 @@ class Msx2PlusProfile(Msx2Profile):
             bios = None
         settings['msx2plus_bios'] = bios[1] if bios is not None else 'cbios-' + msx_cbios.VERSION
         settings['msx2plus_ram'] = int(options.get('msx2plus_ram') or 256)
+        if options.get('msx2plus_diskrom'):
+            import hashlib
+            try:
+                settings['msx2plus_diskrom'] = hashlib.sha256(Path(options['msx2plus_diskrom']).read_bytes()).hexdigest()
+            except OSError:
+                pass
 
     def convert(self, path: Path, **options) -> Path:
         from ..msx_conversion import convert
         options['msx2_bios'] = options.pop('msx2plus_bios', None)
         options['msx2_subrom'] = options.pop('msx2plus_subrom', None)
         options['msx2_ram'] = options.pop('msx2plus_ram', None) or 256
+        options['msx2_diskrom'] = options.pop('msx2plus_diskrom', None)
         return convert(path, model='msx2plus', **options)
 
 

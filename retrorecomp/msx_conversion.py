@@ -84,8 +84,11 @@ def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int, plus
         (work / 'bios_logo.rom').write_bytes(bios_image[0x8000:0xC000])
         args += ['--logo', str(work / 'bios_logo.rom')]
     if msx2:
-        (work / 'bios_sub.rom').write_bytes(bios_image[0xC000:])
+        (work / 'bios_sub.rom').write_bytes(bios_image[0xC000:0x10000])
         args += ['--sub', str(work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
+    if len(bios_image) > 0x10000:                   # an MSX2+ disk game: the player's disk ROM
+        (work / 'bios_diskrom.rom').write_bytes(bios_image[0x10000:0x14000])
+        args += ['--diskrom', str(work / 'bios_diskrom.rom')]
     if plus:
         args += ['--msx2plus']
     return args
@@ -119,7 +122,7 @@ def _basic_only(data: bytes) -> bool:
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None,
             msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
-            msx2_ram=256, **unused) -> Path:
+            msx2_ram=256, msx2_diskrom=None, **unused) -> Path:
     from . import __version__, msx_build, msx_cbios
     from .core import ROOT, executable_name
     from .library import entry_lock
@@ -133,8 +136,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     started = time.perf_counter()
     if profile is not None:
         raise ConversionError('MSX cartridges are read from their content; TOML cartridge profiles do not apply.')
+    disks = None
     try:
-        cart = read_cartridge(path)
+        if model == 'msx2plus' and Path(path).suffix.casefold() in ('.dsk', '.m3u'):
+            from .msx_disk import read_disks
+            disks = read_disks(path)
+            cart = _disk_game(disks)
+        else:
+            cart = read_cartridge(path)
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
     guess = cart.guess
@@ -151,6 +160,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         own = own_bios2(msx2_bios, msx2_subrom, 2 if plus else 1) if msx2 else own_bios(msx_bios)
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
+    diskrom = None
+    if disks is not None:
+        # A disk game needs the player's own MSX2+ BIOS (C-BIOS has no MSX-BASIC or DOS for the disk ROM to start) and the
+        # player's own disk ROM (the TC8566AF interface of the Panasonic MSX2+); neither is ever shipped.
+        if own is None or not msx2_diskrom:
+            raise ConversionError(f'{Path(path).name}: MSX2+ disks need your own MSX2+ BIOS (its main ROM and sub-ROM) and your '
+                                  'own disk ROM (16 KiB, the Panasonic TC8566AF interface), chosen in Options > MSX2+. '
+                                  'Retro-Recomp ships neither.')
+        diskrom = own_diskrom(msx2_diskrom)
     mapper_kib = int(msx2_ram or 256) if msx2 else 0
     if msx2 and mapper_kib not in MAPPER_KIB:
         raise ConversionError(f'MSX2: the mapper RAM is {", ".join(map(str, MAPPER_KIB))} KiB, not {mapper_kib}.')
@@ -168,6 +186,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     # The BIOS source: main ROM, logo page (FFh with an own BIOS on the MSX2, absent on the MSX1), then the MSX2 sub-ROM.
     if own is not None:
         bios_image, bios_source = own[0], {'kind': 'own', 'sha256': own[1]}
+        if diskrom is not None:                    # the disk ROM ends the BIOS source (8 KB banks 8 and 9)
+            bios_image = bios_image + diskrom
+            bios_source['disk_rom_sha256'] = hashlib.sha256(diskrom).hexdigest()
     else:
         bios_image = msx_cbios.image(standard, emit, model=model if msx2 else 'msx1')
         bios_source = {'kind': 'c-bios', 'version': msx_cbios.VERSION, 'sha256': hashlib.sha256(bios_image).hexdigest()}
@@ -179,6 +200,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     with entry_lock(work, timeout=1800):
         work.mkdir(parents=True, exist_ok=True)
         bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus)
+        if disks is not None:
+            bios_args += ['--disk', str(disks.disks[0])]     # drive A: the first disk, read in place
         if guess.mapper != 'plain':
             # A mapper cartridge: the static guess reads LD (nn),A stores only; short reference runs under each mapper
             # settle what the program really drives (msx_build.probe_mapper).
@@ -315,7 +338,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         emit('MSX: building the game.')
         presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
                         'online_cover': online_cover, 'boxart_dir': boxart_dir}
-        prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model,
+        prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model, disks=disks,
                                 mapper_kib=mapper_kib, presentation=presentation, cbios=own is None)
         try:
             executable = msx_build.build(work, ('game',), emit)['game']
@@ -453,6 +476,22 @@ def cartridge_bank_high(result: dict) -> int:
     return 0
 
 
+def own_diskrom(path) -> bytes:
+    """The player's own disk ROM: 16 KiB, an MSX ROM header ("AB")."""
+    data = Path(path).read_bytes()
+    if len(data) != 0x4000 or data[:2] != b'AB':
+        raise ConversionError(f'{Path(path).name}: not an MSX disk ROM (16 KiB starting with "AB").')
+    return data
+
+
+def _disk_game(disks):
+    """A disk game as the rest of the conversion reads a cartridge: no cartridge in the slot (8 KB of FFh, an empty socket to
+    the BIOS), the identity and size of the disks."""
+    from .msx_rom import Cartridge, Guess
+    return Cartridge(path=disks.path, data=b'\xFF' * 0x2000, sha256=disks.sha256,
+                     guess=Guess('plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'))
+
+
 def hardware_devices(guess, msx2: bool, plus: bool = False) -> list:
     """The `hardware_devices` of the common report (gate G2): the cartridge mapper, the video chip and the sound units. None of them
     is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated."""
@@ -485,7 +524,7 @@ def route_warnings(final_checks: list) -> list:
     return words(final_checks)
 
 
-STATE_LAYOUT = 'msx-state-4'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM; 4: port F4h)
+STATE_LAYOUT = 'msx-state-5'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM; 4: port F4h; 5: the disk interface)
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 
 
@@ -595,7 +634,8 @@ def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int
 
 
 def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard: str, bios: bytes, emit=print, *,
-                 model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None, cbios: bool = True) -> dict:
+                 model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None, cbios: bool = True,
+                 disks=None) -> dict:
     """The game's resources beside the project: the cartridge as the checked runs saw it (103, padded to whole banks), the BIOS
     (104), the notices (203), the identity (205), the Windows metadata and icon, and msx_game.h. `presentation` (the
     player's cover options: rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, found as on the
@@ -627,10 +667,15 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
     metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=bool(artwork['embedded']),
                                    standard=standard, system_id=system_id)
     (work / 'content.rc').write_text('#pragma code_page(65001)\n103 RCDATA "cartridge.rom"\n104 RCDATA "slot0.rom"\n'
+                                     + ('106 RCDATA "disks.bin"\n' if disks is not None else '') +
                                      '203 RCDATA "notices.txt"\n205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n',
                                      encoding='utf-8', newline='\n')
-    embed_resources(work, {103: work / 'cartridge.rom', 104: work / 'slot0.rom', 203: work / 'notices.txt',
-                           205: work / 'export-identity.bin'})
+    resources = {103: work / 'cartridge.rom', 104: work / 'slot0.rom', 203: work / 'notices.txt',
+                 205: work / 'export-identity.bin'}
+    if disks is not None:                         # the disks, in order: the player keeps its own copies of what the game writes
+        _write_bytes(work / 'disks.bin', b''.join(disks.images))
+        resources[106] = work / 'disks.bin'
+    embed_resources(work, resources)
     mappers = {'plain': 'MSX_MAPPER_PLAIN', 'konami': 'MSX_MAPPER_KONAMI', 'konami-scc': 'MSX_MAPPER_KONAMI_SCC',
                'ascii8': 'MSX_MAPPER_ASCII8', 'ascii16': 'MSX_MAPPER_ASCII16'}
     (work / 'msx_game.h').write_text('#pragma once\n'
@@ -640,6 +685,8 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
         f'#define RR_MSX_PAL {int(standard == "pal")}\n#define RR_MSX_MODEL {3 if model == "msx2plus" else 2 if model == "msx2" else 1}\n'
         f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n'
         f'#define RR_MSX_SRAM_BIT {0 if guess.sram is None else 1 << guess.sram}\n'
+        f'#define RR_MSX_DISKS {0 if disks is None else len(disks.images)}\n'
+        f'#define RR_MSX_DISK_SIZES {{{", ".join(str(len(i)) for i in (disks.images if disks is not None else ()))}}}\n'
         f'#define RR_MSX_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in state_binding(bios, guess, standard, model, mapper_kib))}}}\n',
         encoding='utf-8', newline='\n')
     # cart_save.c's names: the SRAM file is datas/saves/<game>-<cartridge>.rrsram, checked against the exact cartridge.

@@ -535,6 +535,7 @@
     "msx2plus_subrom_label": "MSX2+: seine Sub-ROM (16 KiB, beginnt mit „CD“, optional)",
     "msx2_ram_label": "MSX2: Mapper-RAM (KiB)",
     "msx2plus_ram_label": "MSX2+: Mapper-RAM (KiB)",
+    "msx2plus_diskrom_label": "MSX2+: dein eigenes Disketten-ROM (16 KiB, für Disketten)",
     "options_n64": "Nintendo 64",
     "options_n64_note": "Nintendo-64-Profil (experimentell): Modul-Images (.z64, .v64, .n64, jede Bytereihenfolge), ausgeführt auf Mupen64Plus-Next mit dem ParaLLEl-RDP-Renderer (eine Grafikkarte mit Vulkan 1.1 ist nötig; integrierte Grafik ungeprüft). Der Code, den die Konvertierung laufen sieht, wird zu abgesicherten nativen Blöcken; der Rest läuft gezählt auf dem Interpreter des Kerns. Kein 64DD und kein Transfer Pak. Analogstick, Vibration, die F3-Grafikseite und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
     "x68_sets_grouped": "Sharp X68000: zusammengefasste Diskettensätze: {count} (eine Zeile pro Spiel).",
