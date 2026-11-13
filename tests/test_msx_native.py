@@ -167,5 +167,42 @@ class QuickStateTests(unittest.TestCase):
         self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
 
 
+class ReportTests(unittest.TestCase):
+    """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
+
+    def test_a_final_row_gives_the_main_cpu_its_counts(self):
+        from retrorecomp import report_schema
+        row = {'name': 'play', 'scenario': 'play', 'frames': 3600, 'native_steps': 1000, 'interpreted_steps': 7,
+               'native_entries': 1000, 'interpreted_opcodes': 7, 'interpreter_cycles': 40, 'interpreter_percent': 0.7}
+        scenario = report_schema._main_scenario('msx', row)
+        self.assertEqual((scenario['name'], scenario['native'], scenario['interpreted']), ('play', 1000, 7))
+        self.assertEqual(scenario['cycles']['interpreted'], 40)
+        self.assertTrue(report_schema._fallback_state([scenario]))
+
+    def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
+        text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
+        self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks)", text)
+
+    def test_the_devices_are_c_models_with_no_counter(self):
+        from types import SimpleNamespace
+        from retrorecomp import report_schema
+        from retrorecomp.msx_conversion import hardware_devices
+        units = hardware_devices(SimpleNamespace(mapper='konami-scc', base=0x4000, mirrored=False, reason='probe'), True)
+        self.assertEqual([(u['id'], u['kind']) for u in units],
+                         [('konami-scc', 'cartridge_mapper'), ('v9938', 'video_unit'), ('ay-3-8910', 'audio_unit'), ('scc', 'audio_unit')])
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': units})), 4)
+        plain = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=True, reason='size'), False)
+        self.assertEqual([u['id'] for u in plain], ['plain', 'tms9918a', 'ay-3-8910'])
+        for unit in units + plain:
+            self.assertFalse(unit['details']['hardware_fidelity_validated'])
+
+    def test_a_route_that_stops_early_is_named(self):
+        from retrorecomp.msx_conversion import route_warnings
+        rows = [{'scenario': 'play', 'liveness': {'frames': 3600, 'last_picture_change_frame': 100}},
+                {'scenario': 'long-1', 'liveness': {'frames': 18000, 'last_picture_change_frame': 17999}}]
+        self.assertEqual(route_warnings(rows), ['play: the picture stopped changing at frame 100 of 3600'])
+
+
 if __name__ == '__main__':
     unittest.main()

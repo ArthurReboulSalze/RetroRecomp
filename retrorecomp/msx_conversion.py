@@ -324,10 +324,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         native = compared[name][0]
         executed = native['native_steps'] + native['fallback_steps']
         final_checks.append({
-            'name': name, 'frames': native['frames'], 'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest(),
+            'name': name, 'scenario': name, 'frames': native['frames'],
+            'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest(),
             'script_events': len(text.splitlines()), 'native_steps': native['native_steps'],
             'halt_steps': native['halt_steps'], 'interpreted_steps': native['fallback_steps'],
             'interpreted_cycles': native['fallback_cycles'], 'guarded_steps': native['guarded_steps'],
+            # The same counts under the names the common report reads (report_schema._main_scenario): Z80 instructions.
+            'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps'],
+            'interpreter_cycles': native['fallback_cycles'],
             'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
             'reference_match': True, 'compared_fields': list(msx_build.COMPARED),
             'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
@@ -358,6 +362,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'lines_per_frame': (native.get('v9938') or {}).get('lines_per_frame'),
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
+        'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks),
         'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
         'native_validation': {'passed': True, 'reference_kind': 'the same machine with every instruction on the reference '
                                                                 'interpreter (corrected SuperZazu, MSX wait states)',
@@ -390,6 +395,37 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     write_report(output / 'conversion-report.json', report)
     emit(f'MSX: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable
+
+
+def hardware_devices(guess, msx2: bool) -> list:
+    """The `hardware_devices` of the common report (gate G2): the cartridge mapper, the video chip and the sound units. None of them
+    is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated."""
+    scc = guess.mapper == 'konami-scc'
+    common = {'translated_from_rom': False, 'hardware_fidelity_validated': False}
+    mapper = {'id': guess.mapper, 'kind': 'cartridge_mapper', 'mode': 'c_model',
+              'details': {'cartridge_base': f'{guess.base:04X}', 'mirrored': guess.mirrored, 'reason': guess.reason,
+                          'sram_modelled': False,
+                          'interpreter': 'none: the mapper is C code in the runtime, driven by the writes the program makes',
+                          **common}}
+    video = {'id': 'v9938' if msx2 else 'tms9918a', 'kind': 'video_unit', 'mode': 'c_model',
+             'details': {'display': 'line by line', 'interpreter': 'none: the video chip is C code in the runtime, not a CPU '
+                                                                   'with a program',
+                         **({'commands': 'all twelve, timing approximated (no access slots)'} if msx2 else {}), **common}}
+    psg = {'id': 'ay-3-8910', 'kind': 'audio_unit', 'mode': 'c_model',
+           'details': {'with': 'the key click', 'mixing_levels': 'stated, not validated',
+                       'interpreter': 'none: the sound chip is C code in the runtime', **common}}
+    units = [mapper, video, psg]
+    if scc:
+        units.append({'id': 'scc', 'kind': 'audio_unit', 'mode': 'c_model',
+                      'details': {'in': 'the cartridge', 'mixing_levels': 'stated, not validated',
+                                  'interpreter': 'none: the sound chip is C code in the runtime', **common}})
+    return units
+
+
+def route_warnings(final_checks: list) -> list:
+    """The routes whose picture stopped changing early, in words (the Master System's rule, shared by import)."""
+    from .sega_evidence import route_warnings as words
+    return words(final_checks)
 
 
 STATE_LAYOUT = 'msx-state-2'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line)
