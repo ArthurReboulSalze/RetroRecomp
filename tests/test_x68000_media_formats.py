@@ -125,10 +125,10 @@ class FloppyFormatTests(unittest.TestCase):
     def test_a_stored_equivalent_is_staged_from_its_bytes_and_checked_against_its_hash(self):
         image = identify_disk(self.write('game.d88', d88_disk(self.raw)))
         destination = self.root / 'stage' / 'disk-01.xdf'
-        _checked_copy(image.converted, destination, image.sha256)
+        _checked_copy(image.converted, destination, image.sha256, root=self.root)
         self.assertEqual(destination.read_bytes(), self.raw)
         with self.assertRaisesRegex(ValueError, 'changed while copying'):
-            _checked_copy(image.converted, self.root / 'stage' / 'disk-02.xdf', '0' * 64)
+            _checked_copy(image.converted, self.root / 'stage' / 'disk-02.xdf', '0' * 64, root=self.root)
         self.assertFalse((self.root / 'stage' / 'disk-02.xdf').exists())
 
     def test_the_conversion_embeds_the_stored_bytes_not_the_file(self):

@@ -35,14 +35,24 @@ const char *rr_media_error(const RRMediaSession*s){return s->error;}
 static int path(RRMediaSession*s,unsigned index,char*out,size_t capacity,const char*suffix){
     int n=snprintf(out,capacity,"%s/%s%s",s->directory,s->names[index],suffix?suffix:"");return n>0&&(size_t)n<capacity;
 }
-static int safe_file(const char*name,int allow_missing){
-    char checked[RR_MEDIA_PATH];size_t n,len=strlen(name);
+/* Length of the part of `name` that is the player's, not the session's own: everything above the folder that holds the
+ * media folder (for an exported game, above datas/games/x68-<id>; datas and games are checked when they are made). Those
+ * folders may be links (a library on a linked folder) and are not inspected; a name elsewhere is checked whole. */
+static size_t owned_from(const RRMediaSession*s,const char*name){
+    const char*slash=strrchr(s->directory,'/'),*back=strrchr(s->directory,'\\');size_t n;
+    if(back&&(!slash||back>slash))slash=back;
+    if(!slash)return 0;
+    n=(size_t)(slash-s->directory);
+    return !strncmp(name,s->directory,n)&&(name[n]=='/'||name[n]=='\\')?n:0;
+}
+static int safe_file(const RRMediaSession*s,const char*name,int allow_missing){
+    char checked[RR_MEDIA_PATH];size_t n,len=strlen(name),owned=owned_from(s,name);
     if(!len||len>=sizeof(checked))return 0;
-    /* Check every existing parent, preventing a media-directory link from
+    /* Check every existing folder of the session's own part, preventing a media-directory link from
      * redirecting writes to the supplied source collection. */
     memcpy(checked,name,len+1);
     for(n=1;n<=len;n++)if(checked[n]=='/'||checked[n]=='\\'||!checked[n]){
-        char c=checked[n];checked[n]=0;
+        char c=checked[n];if(n<owned)continue;checked[n]=0;
         if(strlen(checked)==2&&checked[1]==':'){checked[n]=c;continue;}
 #ifdef _WIN32
         wchar_t wname[RR_MEDIA_PATH];DWORD flags;
@@ -69,17 +79,17 @@ static int safe_file(const char*name,int allow_missing){
      return S_ISREG(st.st_mode)&&st.st_nlink==1;}
 #endif
 }
-static int read_file(const char*name,unsigned char**data,size_t*size){
+static int read_file(const RRMediaSession*s,const char*name,unsigned char**data,size_t*size){
     FILE*f;long end;unsigned char*b;
-    if(!safe_file(name,0)||(f=open_file(name,"rb"))==NULL)return 0;
+    if(!safe_file(s,name,0)||(f=open_file(name,"rb"))==NULL)return 0;
     if(fseek(f,0,SEEK_END)||(end=ftell(f))<1||(unsigned long)end>RR_MEDIA_IMAGE_MAX||fseek(f,0,SEEK_SET)){fclose(f);return 0;}
     b=(unsigned char*)malloc((size_t)end);if(!b){fclose(f);return 0;}
     {int okay=fread(b,1,(size_t)end,f)==(size_t)end;int closed=fclose(f);if(!okay||closed){free(b);return 0;}}
     *data=b;*size=(size_t)end;return 1;
 }
-static int replace_file(const char*name,const void*data,size_t size){
+static int replace_file(const RRMediaSession*s,const char*name,const void*data,size_t size){
     char temp[RR_MEDIA_PATH];FILE*f;int n=snprintf(temp,sizeof(temp),"%s.rr-new",name);
-    if(n<0||(size_t)n>=sizeof(temp)||!safe_file(name,1)||!safe_file(temp,1))return 0;
+    if(n<0||(size_t)n>=sizeof(temp)||!safe_file(s,name,1)||!safe_file(s,temp,1))return 0;
     /* Stale temporary files are never silently adopted or truncated. */
     if((f=open_file(temp,"rb"))!=NULL){fclose(f);return 0;}
     f=open_file(temp,"wb");if(!f)return 0;
@@ -114,7 +124,7 @@ int rr_media_open(RRMediaSession*s,const char*content,const char*session_file,
     strcpy(s->content,content);strcpy(s->directory,content);strcpy(s->session_file,session_file);
     slash=strrchr(s->directory,'/');{char*b=strrchr(s->directory,'\\');if(b&&(!slash||b>slash))slash=b;}
     if(!slash)return error(s,"Private media path must include its directory");*slash=0;
-    if(!safe_file(content,0)||(f=open_file(content,"rb"))==NULL)return error(s,"Private playlist cannot be opened safely");
+    if(!safe_file(s,content,0)||(f=open_file(content,"rb"))==NULL)return error(s,"Private playlist cannot be opened safely");
     while(fgets(line,sizeof(line),f)){
         size_t n=strcspn(line,"\r\n");line[n]=0;
         if(!n||line[0]=='#')continue;
@@ -128,7 +138,7 @@ int rr_media_open(RRMediaSession*s,const char*content,const char*session_file,
     s->identity=identity;s->disk=*disk;s->select_drive=select_drive;s->ready_mask=ready_mask;
     s->selected[0]=0;s->selected[1]=s->count>1?1:-1;
     for(i=0;i<s->count;i++){unsigned char*b=NULL;size_t size;char name[RR_MEDIA_PATH];
-        if(!path(s,i,name,sizeof(name),NULL)||!read_file(name,&b,&size))return error(s,"Unsafe, missing or oversized private disk");free(b);}
+        if(!path(s,i,name,sizeof(name),NULL)||!read_file(s,name,&b,&size))return error(s,"Unsafe, missing or oversized private disk");free(b);}
     return 1;
 }
 /* Drive change shared by host actions and automatic answers. */
@@ -139,7 +149,7 @@ static int change_drive(RRMediaSession*s,unsigned drive,int image){
     if(image>=0&&actual_choice(s,1-drive)==image)return error(s,"Disk is already inserted in the other drive");
     old=actual_choice(s,drive);if(old==image)return 1;
     if(image>=0){char name[RR_MEDIA_PATH];unsigned char*b=NULL;size_t size;
-        if(!path(s,(unsigned)image,name,sizeof(name),NULL)||!read_file(name,&b,&size))return error(s,"Requested private disk is unavailable");free(b);}
+        if(!path(s,(unsigned)image,name,sizeof(name),NULL)||!read_file(s,name,&b,&size))return error(s,"Requested private disk is unavailable");free(b);}
     s->select_drive(drive);
     if(!s->disk.set_eject_state(true))return error(s,"Core refused disk eject");
     s->selected[drive]=-1;s->empty_frames[drive]=0;
@@ -187,14 +197,16 @@ int rr_media_auto_advance(RRMediaSession*s){
         if(actual_choice(s,d)>=0){if(r->active||r->polled)clear_request(s,d);continue;}
         if(s->empty_frames[d]<RR_MEDIA_INSERT_WAIT)continue;
         if(!r->active){
-            int blink=(s->ready_mask()&(1u<<(8+d)))!=0;
+            int blink=(s->ready_mask()&(1u<<(8+d)))!=0,ejected;
             /* Host ejects clear selected[], so a retained choice is a guest eject. */
-            if(s->selected[d]>=0&&(r->polled>=2||blink))r->base=(signed char)s->selected[d];
-            else if(s->selected[d]<0&&blink)r->base=(signed char)actual_choice(s,other);
+            if(s->selected[d]>=0&&(r->polled>=2||blink)){r->base=(signed char)s->selected[d];ejected=1;}
+            else if(s->selected[d]<0&&blink){r->base=(signed char)actual_choice(s,other);ejected=0;}
             else continue;
-            /* The ejected disk is never offered back. A blink request does not
-             * take the other drive's disk either. */
-            r->active=1;r->refused=r->base>=0?(unsigned short)(1u<<r->base):0;
+            /* The ejected disk comes last, after every other disk was refused: a
+             * game that asks for its system disk again gets it back (Lagoon asks
+             * for a user disk or the system disk). A blink request never takes
+             * the other drive's disk. */
+            r->active=1;r->refused=r->base>=0&&!ejected?(unsigned short)(1u<<r->base):0;
         }
         if(r->active!=1)continue;
         for(k=1;k<=s->count&&candidate<0;k++){
@@ -229,12 +241,12 @@ int rr_media_boot(RRMediaSession*s){
 int rr_media_save_session(RRMediaSession*s){
     unsigned char b[32]={0};memcpy(b,"RRX68DS1",8);put64(b+8,s->identity);put32(b+16,s->count);
     put32(b+20,(uint32_t)(actual_choice(s,0)+1));put32(b+24,(uint32_t)(actual_choice(s,1)+1));put32(b+28,(uint32_t)hash(b,28));
-    return replace_file(s->session_file,b,sizeof(b))?1:error(s,"Could not save private disk choices");
+    return replace_file(s,s->session_file,b,sizeof(b))?1:error(s,"Could not save private disk choices");
 }
 int rr_media_load_session(RRMediaSession*s){
     unsigned char*b=NULL;size_t size;FILE*f=open_file(s->session_file,"rb");int a,bchoice;
     if(!f)return errno==ENOENT?1:error(s,"Could not read disk choices");fclose(f);
-    if(!read_file(s->session_file,&b,&size))return error(s,"Unsafe saved disk choices");
+    if(!read_file(s,s->session_file,&b,&size))return error(s,"Unsafe saved disk choices");
     if(size!=32||memcmp(b,"RRX68DS1",8)||get64(b+8)!=s->identity||get32(b+16)!=s->count||get32(b+28)!=(uint32_t)hash(b,28)||get32(b+20)>s->count||get32(b+24)>s->count){free(b);return error(s,"Saved disk choices do not match this private bundle");}
     a=(int)get32(b+20)-1;bchoice=(int)get32(b+24)-1;free(b);
     if(a>=0&&a==bchoice)return error(s,"Saved disk is inserted twice");
@@ -264,7 +276,7 @@ static void unpack_request(RRMediaRequest*r,uint32_t v){
 int rr_media_capture(RRMediaSession*s,void**data,size_t*size){
     unsigned char*files[RR_MEDIA_MAX]={0},*out=NULL;size_t lengths[RR_MEDIA_MAX]={0},total=HEADER_BYTES,at;unsigned i;
     *data=NULL;*size=0;
-    for(i=0;i<s->count;i++){char name[RR_MEDIA_PATH];if(!path(s,i,name,sizeof(name),NULL)||!read_file(name,&files[i],&lengths[i]))goto failed;total+=lengths[i];}
+    for(i=0;i<s->count;i++){char name[RR_MEDIA_PATH];if(!path(s,i,name,sizeof(name),NULL)||!read_file(s,name,&files[i],&lengths[i]))goto failed;total+=lengths[i];}
     out=(unsigned char*)calloc(1,total);if(!out)goto failed;
     memcpy(out,"RRX68DM1",8);put64(out+8,s->identity);put32(out+16,s->count);
     put32(out+20,(uint32_t)(actual_choice(s,0)+1));put32(out+24,(uint32_t)(actual_choice(s,1)+1));
@@ -293,13 +305,13 @@ int rr_media_validate(RRMediaSession*s,const void*data,size_t size){
     if(!valid_request(get32(b+52),s->count,a)||!valid_request(get32(b+68),s->count,c))
         return error(s,"Disk snapshot automatic request is invalid");
     for(i=0;i<s->count;i++){size_t n=get32(b+32+i*16);char name[RR_MEDIA_PATH];
-        if(!n||n>RR_MEDIA_IMAGE_MAX||n>size-at||get64(b+40+i*16)!=hash(b+at,n)||!path(s,i,name,sizeof(name),NULL)||!safe_file(name,0))return error(s,"Disk snapshot data or private destination is invalid");at+=n;}
+        if(!n||n>RR_MEDIA_IMAGE_MAX||n>size-at||get64(b+40+i*16)!=hash(b+at,n)||!path(s,i,name,sizeof(name),NULL)||!safe_file(s,name,0))return error(s,"Disk snapshot data or private destination is invalid");at+=n;}
     return at==size?1:error(s,"Disk snapshot has trailing data");
 }
 static int apply_files(RRMediaSession*s,const unsigned char*b){
     unsigned i;size_t at=HEADER_BYTES;
     for(i=0;i<s->count;i++){char name[RR_MEDIA_PATH];size_t n=get32(b+32+i*16);
-        if(!path(s,i,name,sizeof(name),NULL)||!replace_file(name,b+at,n))return error(s,"Could not restore private disk file");at+=n;}
+        if(!path(s,i,name,sizeof(name),NULL)||!replace_file(s,name,b+at,n))return error(s,"Could not restore private disk file");at+=n;}
     return 1;
 }
 static void apply_pending(RRMediaSession*s,const unsigned char*b){
