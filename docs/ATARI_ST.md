@@ -301,6 +301,6 @@ gameplay validation of any game, and it changes no gate.
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G12, G13 and G15, `P` on G7 (saves: one real game) and on G10 and G11 (named behaviours measured against documentation and
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G13 and G15, `P` on G7 (saves: one real game), on G12 (the panel of eight is shown on Windows; its Linux pass is queued) and on G10 and G11 (named behaviours measured against documentation and
 fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that
 each lists in `route_warnings` with its reason. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.

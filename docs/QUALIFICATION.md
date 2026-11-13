@@ -62,7 +62,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Game Boy Advance | experimental | `█████░░░░░` 47 % | ✅ 0 · 🟡 14 · ❔ 1 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
-| Atari ST | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
+| Atari ST | experimental | `████████░░` 80 % | ✅ 10 · 🟡 4 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
@@ -84,7 +84,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ❔ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
@@ -114,7 +114,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | P | ? | Y | Y | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | ? |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | P | ? | P | P | P | ? |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | Y | P | P | Y | P | P | P | P | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
 | G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | ? | P | P | P | ? |
@@ -192,8 +192,8 @@ The page of each console, which the README links its line to (a console of the m
   supported Atari ST would have to join the sharing (`tests/test_machine_registry.py`). No hardware fidelity is claimed, no game is validated and the latency is not
   measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
 
-- Atari ST (13 November 2026; tree of `spec/atarist-174`, Windows, one conversion at a time from an empty scratch library): **G1, G2, G3, G4, G5, G8, G9, G12 and G15 move from `P` to `Y`**; G6 and G13 stay `Y`, G7, G10 and G11 stay `P`,
-  G14 stays `?` and G16 `-`. The evidence is in [ATARI_ST.md](ATARI_ST.md#3-the-five-measures) (the panel of eight) and in [UPGRADES.md](UPGRADES.md). **G12 `Y`**: eight games chosen for what each adds, none dropped, every one equal to the fresh reference on every route:
+- Atari ST (13 November 2026; tree of `spec/atarist-174`, Windows, one conversion at a time from an empty scratch library): **G1, G2, G3, G4, G5, G8, G9 and G15 move from `P` to `Y`**; G6 and G13 stay `Y`, G7, G10, G11 and G12 stay `P`,
+  G14 stays `?` and G16 `-`. The evidence is in [ATARI_ST.md](ATARI_ST.md#3-the-five-measures) (the panel of eight) and in [UPGRADES.md](UPGRADES.md). **G12 stays `P`: the Windows half is shown, the Linux half is not run yet (the Linux pass of the eight is queued on a Debian 13 PC; the criterion asks for identical route hashes on both systems, and a docs-only follow-up moves the letter when they are compared).** The Windows half: eight games chosen for what each adds, none dropped, every one equal to the fresh reference on every route:
   Bomb Jack (the plain case: EmuTOS, starts by itself, a joystick game), Another World (two disks, a code-wheel protection), Operation Stealth (three disks, started by the desktop, Hatari's GEMDOS hook, a colour-code protection), Turrican II (the player's own TOS 1.04,
   which EmuTOS cannot run), Kick Off 2 (protected tracks read through the WD1772 model, line A in the game), Lethal Xcess (timer D chosen `exact` by `auto`, two disks and a disk change), The Lurking Horror (a text game on the keyboard, started by the desktop, saving through GEMDOS)
   and Battle Probe (a disk read wrongly until 1.7.4, started by the desktop). **G4 and G5 `Y`**: on the 25 routes of the panel (extended level, 3,000 frames twice and 18,000 once; Lethal Xcess at the thorough level with a second route of 18,000 that changes the disk) the
