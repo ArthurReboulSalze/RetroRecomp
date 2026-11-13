@@ -169,6 +169,21 @@ machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](G
 CPS-1, the CPS-2, the PlayStation and the X68000 hash none of the files that changed (the X68000's host stamp moves, its key does not), so their states of 1.7.2 load in the rebuilt export; the Master System, Game Gear and Game Boy have no such key. A quick state of
 the Game Boy Advance is the engine's own container (magic, version, the ROM's SHA-1), with no key of ours; its section says a state of a game converted before may be refused. The MSX and MSX2 keys are new. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
 
+## Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report (1.7.4)
+
+**What changes.** The input script of each route (`inputs-<route>.txt`) is written as LF bytes on every system. It used to be
+written in text mode, so Windows wrote CRLF. The player reads both the same way, but `final_checks[].script_sha256` of the same
+route differed between Windows and Linux. The Lotus 2 witness of 12 Nov showed it: every hash of both routes was equal, and only
+these two digests differed. The long routes of `advanced_scan.long_routes` (so `scan.routes` of the common report) now also carry
+their `script_sha256`.
+
+**Hot path:** no. Conversion time and the report only. The events, and so the inputs a game receives, are the same.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. On Windows, the `script_sha256` of every route
+changes once, to the LF file's digest, which is the one Linux already wrote.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
 ## MSX and MSX2: the shared pieces the two new profiles use (1.7.3)
 
 **What changes.** The MSX and the MSX2 open as experimental profiles ([MSX.md](MSX.md)); nothing of an existing export changes behaviour. What they

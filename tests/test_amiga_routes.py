@@ -176,3 +176,9 @@ class RouteScriptTests(unittest.TestCase):
         later = [event for event in route if event not in answer['events']]
         self.assertTrue(later and min(begin for begin, *_ in later) >= answer['then'])
         self.assertTrue(max(end for _, end, *_ in route) <= 7000)
+
+    def test_a_route_script_is_the_same_lf_bytes_on_every_system(self):
+        # Windows and Linux runs of the same route compare their script_sha256 (G13): no CRLF from text mode.
+        with tempfile.TemporaryDirectory() as folder:
+            path = conversion.write_events(Path(folder) / 'inputs-main.txt', [(400, 406, 'key', 0x01, 1), (500, 900, 'joy', 0x40, 1)])
+            self.assertEqual(path.read_bytes(), b'400 406 key 1 1\n500 900 joy 64 1\n')

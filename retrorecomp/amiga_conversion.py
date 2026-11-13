@@ -138,7 +138,8 @@ def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tu
 def write_events(path: Path, events) -> Path:
     if len(events) > 4096:
         raise ConversionError('Too many Amiga route events.')
-    path.write_text(''.join(f'{b} {e} {kind} {code} {value}\n' for b, e, kind, code, value in events), encoding='ascii')
+    # Bytes, not text: the same LF file on every system, so a route's script_sha256 compares across systems (G13).
+    path.write_bytes(''.join(f'{b} {e} {kind} {code} {value}\n' for b, e, kind, code, value in events).encode('ascii'))
     return path
 
 
@@ -811,7 +812,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                                       "could see the controller (its registers, the CIA-B drive select and motor): the same work (final_checks.agnus_denise)")}}],
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
-                              'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
+                              'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                                                                   'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
                                                                    'generator': 'computer_routes.long_events'} for name, frames_, events in routes if name.startswith('long-')]},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
