@@ -430,6 +430,7 @@ retrorecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
+native/md_bcd_checks.c native/amiga_machine/moira_vector_maker.cpp tools/megadrive_moira_vectors.py tests/test_md_moira_vectors.py
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
 tests/test_megadrive_rules.py tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py tools/megadrive_variant_cap_selftest.py tools/megadrive_mame_compare.py tools/megadrive_cross_os.py
 tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE
