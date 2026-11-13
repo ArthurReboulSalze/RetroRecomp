@@ -24,7 +24,7 @@
 
 static MsxMachine machine;
 static uint8_t ram[65536];
-static uint8_t slot0[0x10000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h */
+static uint8_t slot0[0x14000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h; a disk ROM at 10000h */
 static uint8_t cart[0x200000];
 static MsxV9938 v9938;                      /* the MSX2's VDP (msx_setup_msx2) */
 static uint8_t mapper_ram[4u << 20];        /* the MSX2's mapper RAM: up to 256 segments of 16 KB */
@@ -133,12 +133,14 @@ static const BankedRegion *smsrecomp_region_map(void)
             const MsxDevice *d = &machine.slot[r->primary][r->secondary];
             /* The Konami SCC answers at 9800h-9FFFh in front of the ROM, which still shows at 8000h-97FFh. */
             int scc = d->kind == MSX_DEV_ROM && d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4;
-            int rom = d->kind == MSX_DEV_ROM && (r->read || scc) && d->block[i] >= 0 && d->source != MSX_SOURCE_NONE;
+            /* The disk ROM's last region holds the controller's registers at 7FF8h-7FFBh: the ROM still shows below them. */
+            int disk = d->kind == MSX_DEV_ROM && d->mapper == MSX_MAPPER_DISK && i == 3;
+            int rom = d->kind == MSX_DEV_ROM && (r->read || scc || disk) && d->block[i] >= 0 && d->source != MSX_SOURCE_NONE;
             region_map[i].source = rom ? d->source : 0;
             region_map[i].bank = rom ? (uint8_t)(d->bank_base + d->block[i]) : 0;
             region_map[i].ram = (uint8_t)!rom;
-            region_map[i].guard_from = rom && scc ? 0x1800 : 0;
-            region_map[i].guard_to = rom && scc ? 0x2000 : 0;
+            region_map[i].guard_from = rom && scc ? 0x1800 : rom && disk ? 0x1FF8 : 0;
+            region_map[i].guard_to = rom && (scc || disk) ? 0x2000 : 0;
         }
         map_built = machine.generation;
         smsrecomp_region_generation = machine.generation;

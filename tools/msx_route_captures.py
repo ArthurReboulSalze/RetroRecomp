@@ -59,6 +59,9 @@ def picture(path: Path):
         adjust = struct.unpack('<212b', data[-212:])
 
         def rgb(c):
+            if c & 0x8000:              # a V9958 YJK point (MSX_COLOUR15): 0GGGGGRRRRRBBBBB, as the player shows it
+                r5, g5, b5 = (c >> 5) & 31, (c >> 10) & 31, c & 31
+                return (r5 << 3) | (r5 >> 2), (g5 << 3) | (g5 >> 2), (b5 << 3) | (b5 >> 2)
             return ((c >> 4) & 7) * 255 // 7, ((c >> 8) & 7) * 255 // 7, (c & 7) * 255 // 7
         pixels = []
         for line in range(212):

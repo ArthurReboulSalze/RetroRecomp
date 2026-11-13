@@ -203,6 +203,7 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -696,6 +697,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_fdc.c',
+        'native/msx_machine/msx_fdc.h',
         'native/msx_machine/msx_sram.c',
         'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',
@@ -710,6 +713,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
+        'retrorecomp.msx_disk',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),

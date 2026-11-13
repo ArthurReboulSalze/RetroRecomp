@@ -255,8 +255,11 @@ latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
 The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
 cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:
 [the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
-the V9958 (its YJK modes and horizontal scroll) on the MSX2's board. No game has been converted for a qualification yet. Disks, MSX-MUSIC and the
-kanji ROM are not converted.
+the V9958 (its YJK modes and horizontal scroll) on the MSX2's board, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS
+pair and your own disk ROM. On the disk panel of 13 November 2026 (eight games, extended level) every route ends at 0 interpreted instructions;
+six of the eight reach play on their long route, Golvellius II stays in its intro and Xak III stops on a request for its third disk; no game has
+been played through (gameplay validation: none), and hardware fidelity and latency are not claimed. MSX-MUSIC and the kanji ROM are not
+converted.
 
 ## Local game regression set
 
