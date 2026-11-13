@@ -106,6 +106,17 @@ static void disks_swap(void)
              (unsigned)RR_MSX_DISKS);
     rrhk_notice(text, 3500);
 }
+
+/* A route's disk change in a headless run (msx_route.inc): disk `index` of the embedded ones in drive A. */
+static void msx_route_disk(unsigned index)
+{
+    if (index >= RR_MSX_DISKS) return;
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_index = index;
+    msx_fdc_insert(&fdc, 0, disk_data[index], disk_sizes[index], 0);
+}
+#else
+static void msx_route_disk(unsigned index) { (void)index; }
 #endif
 
 /* The cartridge's battery SRAM (msx_cart.c, msx_sram.c), when the conversion found one (RR_MSX_SRAM_BIT): beside the game in a

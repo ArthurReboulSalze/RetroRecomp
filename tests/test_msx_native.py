@@ -131,6 +131,19 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(msx_routes.candidates(3600), [1, 2, 3, 4, 6, (1, 'RETURN'), (2, 'RETURN'), (3, 'RETURN')])
         self.assertEqual(sorted(msx_routes.candidates(3600), key=msx_routes.variant_order)[:2], [1, (1, 'RETURN')])
 
+    def test_a_multi_disk_game_gets_its_next_disks_on_the_long_routes(self):
+        from retrorecomp import msx_routes
+        self.assertEqual(msx_routes.disk_changes(18000, 1), [])
+        self.assertEqual(msx_routes.disk_changes(18000, 3), [('disk', 6000, 1), ('disk', 9000, 2)])
+        rows = msx_routes.routes(self.IDENTITY, frames=3600, level='extended', disks=3)
+        self.assertNotIn(' disk ', rows[1][2])                       # play: never a disk change
+        long_route = rows[2][2].splitlines()
+        self.assertIn('6000 disk 1', long_route)
+        self.assertIn('9000 disk 2', long_route)
+        frames = [int(line.split()[0]) for line in long_route]
+        self.assertEqual(frames, sorted(frames))
+
+
 
 class QuickStateTests(unittest.TestCase):
     """The MSX's quick states: the shared envelope, the build binding, the damaged copies the conversion feeds the game."""

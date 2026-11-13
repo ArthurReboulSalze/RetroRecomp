@@ -102,9 +102,18 @@ static uint32_t reference_cpu_hash(const z80 *z)
 }
 
 /* The disk interface (--diskrom, --disk): the player's own disk ROM in primary slot 2, one disk in drive A. */
-static const char *diskrom_file, *disk_file;
-static uint8_t diskrom[0x4000], disk_image[2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
+static const char *diskrom_file, *disk_file[10];
+static unsigned disk_files;
+static uint8_t diskrom[0x4000], disk_image[10][2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
+static uint32_t disk_length[10];
 static MsxFdc fdc;
+
+/* A route's disk change (msx_route.inc): disk `index` in drive A. */
+static void msx_route_disk(unsigned index)
+{
+    if (index < disk_files)
+        msx_fdc_insert(&fdc, 0, disk_image[index], disk_length[index], 0);
+}
 
 static int attach_disk(MsxMachine *m, long (*loader)(const char *, uint8_t *, long))
 {
@@ -112,10 +121,13 @@ static int attach_disk(MsxMachine *m, long (*loader)(const char *, uint8_t *, lo
         return 1;
     if (loader(diskrom_file, diskrom, (long)sizeof diskrom) != (long)sizeof diskrom) { fprintf(stderr, "bad --diskrom\n"); return 0; }
     memset(&fdc, 0, sizeof fdc);
-    if (disk_file) {
-        long n = loader(disk_file, disk_image, (long)sizeof disk_image);
-        if (!msx_fdc_insert(&fdc, 0, disk_image, (uint32_t)n, 0)) { fprintf(stderr, "bad --disk\n"); return 0; }
+    for (unsigned i = 0; i < disk_files; ++i) {
+        long n = loader(disk_file[i], disk_image[i], (long)sizeof disk_image[i]);
+        disk_length[i] = n > 0 ? (uint32_t)n : 0;
+        if (!msx_fdc_insert(&fdc, 0, disk_image[i], disk_length[i], 0)) { fprintf(stderr, "bad --disk\n"); return 0; }
     }
+    if (disk_files)
+        msx_fdc_insert(&fdc, 0, disk_image[0], disk_length[0], 0);
     msx_set_disk_interface(m, 2, diskrom, &fdc, 8);
     return 1;
 }
@@ -150,7 +162,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--diskrom")) diskrom_file = v;
-        else if (!strcmp(a, "--disk")) disk_file = v;
+        else if (!strcmp(a, "--disk")) { if (disk_files >= 10) { fprintf(stderr, "too many --disk\n"); return 2; } disk_file[disk_files++] = v; }
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
         else if (!strcmp(a, "--layout")) layout = v;

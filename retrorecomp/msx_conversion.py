@@ -201,7 +201,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         work.mkdir(parents=True, exist_ok=True)
         bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus)
         if disks is not None:
-            bios_args += ['--disk', str(disks.disks[0])]     # drive A: the first disk, read in place
+            for disk in disks.disks:                          # read in place; drive A holds the first
+                bios_args += ['--disk', str(disk)]
         if guess.mapper != 'plain':
             # A mapper cartridge: the static guess reads LD (nn),A stores only; short reference runs under each mapper
             # settle what the program really drives (msx_build.probe_mapper).
@@ -294,7 +295,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'variants': {msx_routes.variant_name(v): r for v, r in results.items()}}
         emit(f'MSX: the play route starts with {msx_routes.variant_name(chosen)} press(es) of fire'
              f'{" and RETURN" if isinstance(chosen, tuple) else ""}.')
-        routes = msx_routes.routes(cart.sha256, frames=frames, level=level, variant=chosen)
+        routes = msx_routes.routes(cart.sha256, frames=frames, level=level, variant=chosen,
+                                   disks=len(disks.disks) if disks is not None else 1)
         timings['start_choice'] = round(time.perf_counter() - phase, 3)
 
         emit(f'{machine_name}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
