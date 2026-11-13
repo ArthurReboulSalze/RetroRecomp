@@ -27,6 +27,10 @@ MEMBERS = {
     'cbios_main_msx2_eu.rom': (32768, '625a740ba093e2987acc6c995825724feaba6200b2ecc845820cd8bd5447515a'),
     'cbios_logo_msx2.rom': (16384, 'a6ecf0bee1d1aeae4a2df4ace1d711b8c5883cbed50f7d6c8c524f6b19f03ef4'),
     'cbios_sub.rom': (16384, '95db258195d1dea673b3826a8ef3d4b747f87f93587ae66e137acd2e39c3c0f1'),
+    # The MSX2+ (13 Nov 2026): its main ROMs and logo ROM, from the same archive; the sub-ROM is the MSX2's.
+    'cbios_main_msx2+.rom': (32768, 'f65adce74b52836f1e2a54d2f7e269859baa688b61c18bafbcf7496adfb440e3'),
+    'cbios_main_msx2+_eu.rom': (32768, '594c4067cd80c929930bac40b24987746d906d0fe8ad4005fe4a262160728156'),
+    'cbios_logo_msx2+.rom': (16384, 'cc89b76cbf87ee87ab6c84dbd26e3bad014d8bd30a1f1bbe0629d2f39a1ab87b'),
 }
 LIMIT = 4 * 1024 * 1024
 
@@ -87,8 +91,12 @@ def _fetch_locked(folder: Path, emit) -> None:
 
 def image(standard: str = 'ntsc', emit=print, model: str = 'msx1') -> bytes:
     """The BIOS source the machine boots. MSX1: 48 KiB, the main ROM (international 60 Hz, or European 50 Hz) and the logo
-    ROM. MSX2: 64 KiB, the MSX2 main ROM, its logo ROM and the sub-ROM (msx_setup_msx2's layout)."""
+    ROM. MSX2: 64 KiB, the MSX2 main ROM, its logo ROM and the sub-ROM (msx_setup_msx2's layout); MSX2+ the same with the
+    MSX2+ main and logo ROMs."""
     folder = fetch(emit)
+    if model == 'msx2plus':
+        main = 'cbios_main_msx2+_eu.rom' if standard == 'pal' else 'cbios_main_msx2+.rom'
+        return b''.join((folder / name).read_bytes() for name in (main, 'cbios_logo_msx2+.rom', 'cbios_sub.rom'))
     if model == 'msx2':
         main = 'cbios_main_msx2_eu.rom' if standard == 'pal' else 'cbios_main_msx2.rom'
         return b''.join((folder / name).read_bytes() for name in (main, 'cbios_logo_msx2.rom', 'cbios_sub.rom'))

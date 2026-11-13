@@ -82,6 +82,11 @@ static void slots_state(MsxMachine *m, RetroStateIO *io)
                 S(d->block[i], 2);
             W(d->scc_on, 1, 1);
             scc_state(io, &d->scc);
+            same(io, d->sram ? d->sram_size : 0u, 2);             /* the battery SRAM travels with the state */
+            same(io, d->sram_bit, 1);
+            if (d->sram)
+                rr_state_bytes(io, d->sram, d->sram_size);
+            B(d->bank_high);
         }
 }
 
@@ -179,7 +184,8 @@ static int consistent(const MsxMachine *m, const uint8_t *ram64)
                 continue;
             for (int i = 0; i < 8; ++i)
                 if (d->block[i] < -1 || d->block[i] >= (int)(d->size / 0x2000u))
-                    return 0;
+                    if (!(d->block[i] == MSX_BLOCK_SRAM && d->sram))
+                        return 0;
         }
     for (int i = 0; i < 4; ++i)
         if (m->mapper.segments && m->mapper.reg[i] >= m->mapper.segments)
@@ -217,6 +223,7 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
     B(m->primary);
     rr_state_bytes(io, m->secondary, sizeof m->secondary);
     B(m->port_c);
+    B(m->port_f4);
     B(m->psg_latch);
     rr_state_bytes(io, m->psg, sizeof m->psg);
     W(m->line, 4, 0xFFFFFFFFu);

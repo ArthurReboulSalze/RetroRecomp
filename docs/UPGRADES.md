@@ -79,6 +79,58 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
+
+**What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
+with the V9958 (R#25-R#27, the ID in S#1, YJK and YAE in Graphic 7, the horizontal scroll with MSK and SP2, the command engine in every mode with
+CMD) and the port F4h; C-BIOS 0.29a's MSX2+ images come from the same pinned archive. The MSX2 picture's points may be 15-bit colours (bit 15
+set); a V9938 never makes one, so an MSX2 game's picture is unchanged (the MSX2 panel converted on this tree is equal to the panel of 13 November
+on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not ``, so "MSX2+" is a name
+and "MSX2" followed by "+" is another machine; every other name matches as before.
+
+**Hot path:** a V9958 line with a scroll or the mask is drawn up to three times (the background of one or two pages, then the sprites); a V9938
+line takes the same path as before.
+
+**What moves:** the MSX and MSX2 game stamps (`msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_v9938.c`, `msx_v9938_draw.c`,
+`msx_v9938_cmd.c`, `msx_player.c`, `msx_native_main.c`, `msx_reference_main.c`, `msx_state_file.inc`, `rrhk_msx.inc`, `msx_cbios.py`,
+`msx_conversion.py`, `systems/msx.py`); the MSX2+ is a new owner of the same files and of `cart_save.c` and `route_start.py`. No other
+machine's stamp moves.
+
+**Quick states:** the layout is `msx-state-4` (the port F4h); a state of an earlier build is refused cleanly.
+
+## MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts (1.7.4)
+
+**What changes.**
+- **Battery SRAM** (gate G7). An ASCII 8 KiB or ASCII 16 KiB cartridge whose game selects a bank past its image (the bit above the
+  bank number that its wiring uses for the SRAM: bit 5 on Xanadu, bit 7 on Royal Blood, bit 4 on Hydlide 2) gets its SRAM: the
+  conversion finds the bit from the bank values the game writes while the start is chosen, then chooses the start again with it.
+  The SRAM (8 KiB on ASCII 8, 2 KiB repeated over the page on ASCII 16) is readable where it is selected and written only in
+  8000h-BFFFh. The player keeps it in `datas/saves/<game>-<cartridge>.rrsram` through the shared `native/cart_save.c` (the Mega
+  Drive's, Super Nintendo's and PC Engine's), loaded at start and written two seconds after the game last wrote it and when it
+  closes; a file it cannot use is set aside, never deleted. Each such conversion checks it on the delivered file in fresh
+  processes (no file, a valid file, eleven damaged files, what the play route wrote surviving into the next process). Dragon
+  Slayer II - Xanadu (Japan), standard level: bit 5 found, the play route writes it, the checks pass, 0 interpreted instructions.
+- **The common report** (gate G2): the MSX's final rows also give `native_entries`, `interpreted_opcodes` and
+  `interpreter_cycles`, so the report's main CPU block has its counts (they were `null`); `hardware_devices` names the mapper,
+  the video chip, the PSG and the SCC; `route_warnings` uses the Master System's rule. The shared reader is unchanged.
+- **Shared helpers:** the cartridge-save file format and its damaged copies (`conversion_gates.cart_save_file`,
+  `damaged_cart_saves`, `fnv64`) are lifted from `pce_conversion.py`, whose `backup_file` and `damaged_backups` now call them with
+  identical results (the PC Engine's tests unchanged).
+
+**Hot path:** no. A cartridge with SRAM reads and writes its SRAM pages through the mapper's path, which only ASCII cartridges with
+SRAM take; no other machine's code changes.
+
+**What moves:**
+- The MSX and MSX2 game stamps: `native/msx_machine/msx_cart.c`, `msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_player.c`,
+  `msx_native_main.c`, `msx_reference_main.c`, `msx_headless.inc`, the new `msx_sram.c` and `msx_sram.h`, `retrorecomp/msx_rom.py`
+  and `retrorecomp/msx_conversion.py`; `native/cart_save.c` and `cart_save.h` become inputs of the MSX and MSX2 too (their bytes do
+  not change, so the Mega Drive's, Super Nintendo's and PC Engine's stamps do not move for them).
+- `retrorecomp/conversion_gates.py` moves the game stamps of the machines of `shares:conversion_gates`; `retrorecomp/pce_conversion.py`
+  moves the PC Engine's.
+
+**Quick states:** MSX and MSX2 states carry the SRAM: the layout is `msx-state-3`, and a state of 1.7.3 is refused cleanly (the build
+binding differs). No other machine's state changes.
+
 ## Exports of 1.7.2 in 1.7.3
 
 1.7.3 is the release after 1.7.2 (published on 10 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no
