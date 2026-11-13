@@ -43,7 +43,7 @@
   - **Salamander under C-BIOS.** The 1.7.3 notes said its stage stays black under C-BIOS. On the
     panel of the 1.7.3 release tree it is drawn under C-BIOS on all three routes, as with the owner's
     own MSX BIOS; why the earlier run differed is not established ([MSX.md](MSX.md#5-known-c-bios-failures)).
-- **Atari ST (experimental), now at 83 % of the qualification list** [ST: confirm].
+- **Atari ST (experimental), now at 83 % of the qualification list.**
   - **The root of a disk is read as the TOS reads it,** after two FATs whatever the disk declares.
     Of 275 first disks of the library tried, three change: Battle Probe and Trailblazer now find
     their program, and Pharaoh III starts its menu with your own TOS 1.04.
@@ -56,7 +56,8 @@
     answered, skipped or patched.
   - **Proof:** the panel of eight, converted one at a time from an empty library on Windows: on all
     25 routes the native game and its compressed copy equal the fresh interpreted reference, frame by
-    frame, and quick states continue in a fresh process on eight of eight.
+    frame, and quick states continue in a fresh process on eight of eight. The same eight converted on
+    a Debian 13 PC give the same trace on all 24 of their routes there as on Windows.
   - **A licence note.** The author of m68k-recomp-core gave the project a written permission for
     the Atari ST, kept in `licenses/` and named in the third-party notices. It is personal to the
     project's owner and does not pass to forks; no game embeds it.
