@@ -472,8 +472,9 @@ INPUTS = _resolve({
         'retrorecomp.nes_runtime',
         'retrorecomp.nes_state_layout',
     ),
-    # The cartridge save file the three machines with a battery or a backup unit share (the format of each is in its own *_battery.c / pce_backup.c). Game role.
-    ('md', 'snes', 'pce'): (
+    # The cartridge save file the machines with a battery or a backup unit share (the format of each is in its own *_battery.c /
+    # pce_backup.c / msx_sram.c). Game role.
+    ('md', 'snes', 'pce', 'msx', 'msx2'): (
         'native/cart_save.c',
         'native/cart_save.h',
     ),
@@ -692,6 +693,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_sram.c',
+        'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',
         'native/msx_machine/msx_route.inc',
         'native/msx_machine/msx_state.c',

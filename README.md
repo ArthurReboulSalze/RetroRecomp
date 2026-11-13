@@ -83,8 +83,8 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Atari ST](docs/ATARI_ST.md)\* | experimental | `█████░░░░░` 53 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
-| [MSX](docs/MSX.md) | experimental | `█░░░░░░░░░` 7 % |
-| [MSX2](docs/MSX.md) | experimental | `█░░░░░░░░░` 7 % |
+| [MSX](docs/MSX.md) | experimental | `████████░░` 77 % |
+| [MSX2](docs/MSX.md) | experimental | `████████░░` 77 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).

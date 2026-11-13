@@ -49,6 +49,9 @@ class Guess:
     votes: tuple = ()
     reason: str = ''
     candidates: tuple = ()
+    # The bit of an ASCII mapper's bank value that selects the cartridge's battery SRAM (0-7), None when it has none
+    # (sram_bit, found from the bank values the game writes).
+    sram: int | None = None
 
     def arguments(self) -> list[str]:
         """The reference runner's options for this guess."""
@@ -56,7 +59,24 @@ class Guess:
             raise ValueError('no mapper guessed: ' + self.reason)
         if self.mapper == 'plain':
             return ['--mapper', 'plain', '--cart-base', f'{self.base:04X}'] + (['--mirrored'] if self.mirrored else [])
-        return ['--mapper', self.mapper]
+        return ['--mapper', self.mapper, *(['--sram-bit', str(self.sram)] if self.sram is not None else [])]
+
+
+SRAM_MAPPERS = ('ascii8', 'ascii16')
+
+
+def sram_bit(mapper: str, image_size: int, bank_high: int) -> int | None:
+    """The bit that selects an ASCII cartridge's SRAM, from the bank values the game wrote past the image's last bank, ORed
+    (`bank_high`): the lowest set bit at or above the bank-number bits (docs: "a bit above the segment number bits selects
+    SRAM", which one depends on the cartridge's wiring). None for another mapper or when no such value was written."""
+    if mapper not in SRAM_MAPPERS or not bank_high:
+        return None
+    unit = 0x2000 if mapper == 'ascii8' else 0x4000
+    count = max(1, -(-image_size // unit))
+    for bit in range(8):
+        if (1 << bit) >= count and bank_high & (1 << bit):
+            return bit
+    return None
 
 
 def _header_votes(image: bytes, offset: int, pages: list[int]) -> None:

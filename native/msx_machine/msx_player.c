@@ -16,6 +16,7 @@
 #include "msx_game.h"
 #include "embedded_resources.h"
 #include "platform_io.h"
+#include "msx_sram.h"
 
 /* The frontend variables rrhk_computer.inc reads (see its header). */
 static bool guest_keyboard, mouse_grab, mouse_game, input_focus = true, fast_forward, want_swap, want_eject;
@@ -35,6 +36,22 @@ static bool msx_game_state_file(const wchar_t *path, bool load);
 static bool msx_game_state_path(wchar_t *path, size_t capacity);
 
 #include "hostkit/adapters/rrhk_msx.inc"
+
+/* The cartridge's battery SRAM (msx_cart.c, msx_sram.c), when the conversion found one (RR_MSX_SRAM_BIT): beside the game in a
+ * window; a headless run touches no file unless --sram names one. Its report gives the memory's hash at the start and at the
+ * end, and the file's notice. */
+static uint8_t sram_bytes[MSX_SRAM_MAX];
+static size_t sram_size;
+static wchar_t sram_file[32768];
+static int sram_given;
+static uint64_t sram_start_hash;
+static void sram_report(FILE *out)
+{
+    fprintf(out, "\"sram_bytes\": %u, \"sram_start_hash\": \"%016llx\", \"sram_hash\": \"%016llx\", \"sram_notice\": %u, ",
+            (unsigned)sram_size, (unsigned long long)sram_start_hash, (unsigned long long)msx_sram_hash(sram_bytes, sram_size),
+            msx_sram_notice());
+}
+#define MSX_HEADLESS_SAVE_FIELDS(out) sram_report(out)
 #include "msx_headless.inc"
 
 static volatile int frame_ended;
@@ -111,6 +128,7 @@ static int headless_state_option(const char *a, const char *v)
     if (!strcmp(a, "--save-state")) { if (!headless_path(v, state_save_file)) return -1; state_save_due = 1; }
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
+    else if (!strcmp(a, "--sram")) { if (!headless_path(v, sram_file)) return -1; sram_given = 1; }
     else return 0;
     return 1;
 }
@@ -135,6 +153,17 @@ static void msx_main_service(void)
                 exit(3);
         }
         return;
+    }
+    if (sram_size) {
+        /* A save the game could not use never stops it: it is set aside, the game starts blank, the player is told once. */
+        static int told;
+        if (!told) {
+            told = 1;
+            unsigned state = msx_sram_notice();
+            if (state == 1) rrhk_notice(rr_tr("Save unreadable: set aside"), 6000);
+            else if (state == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
+        }
+        msx_sram_flush(SDL_GetTicks64(), false);
     }
     switch (msx_host_frame(&machine)) {
     case 0: break;
@@ -175,6 +204,17 @@ static bool msx_game_state_path(wchar_t *path, size_t capacity)
 }
 
 /* The machine from the game's own resources: the cartridge (103) and the BIOS source (104), as msx_game.h describes them. */
+/* The SRAM is written at once when the process ends, whatever way it ends (the window closed, the headless frame limit). */
+static void sram_at_exit(void) { msx_sram_flush(SDL_GetTicks64(), true); }
+
+static void sram_open(const wchar_t *path)
+{
+    if (!sram_size) return;
+    msx_sram_open(path, sram_bytes, sram_size);
+    sram_start_hash = msx_sram_hash(sram_bytes, sram_size);
+    atexit(sram_at_exit);
+}
+
 static int setup_machine(void)
 {
     size_t cart_size = 0, bios_size = 0;
@@ -201,6 +241,12 @@ static int setup_machine(void)
     device.mapper = RR_MSX_MAPPER;
     device.mirrored = RR_MSX_MIRRORED;
     device.source = 0;
+    if (RR_MSX_SRAM_BIT && (RR_MSX_MAPPER == MSX_MAPPER_ASCII8 || RR_MSX_MAPPER == MSX_MAPPER_ASCII16)) {
+        sram_size = RR_MSX_MAPPER == MSX_MAPPER_ASCII8 ? MSX_SRAM_ASCII8 : MSX_SRAM_ASCII16;
+        device.sram = sram_bytes;
+        device.sram_size = (uint16_t)sram_size;
+        device.sram_bit = RR_MSX_SRAM_BIT;
+    }
     msx_set_device(&machine, 1, 0, device);
     return 0;
 }
@@ -212,6 +258,10 @@ static int run(void)
         return status;
     machine.line_hook = line_hook;
     prepare_data_folder();
+    if (sram_size) {
+        static wchar_t path[32768];
+        if (msx_sram_path(path, sizeof path / sizeof *path)) sram_open(path);
+    }
     if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL == 2 ? 2 : 3, &machine)) return 4;
     power_on();
     smsrecomp_banked_run();                       /* returns through exit() when the player quits */
@@ -236,6 +286,8 @@ static int run_headless(int argc, char **argv)
     headless = 1;
     machine.trace_frames = 1;                  /* the per-frame running hash the comparison reads */
     machine.line_hook = headless_line;
+    sram_start_hash = msx_sram_hash(sram_bytes, sram_size);
+    if (sram_given) sram_open(sram_file);
     power_on();
     frame_ended = state_load_due;              /* a load waits for the first service, not for the first frame */
     smsrecomp_banked_run();                    /* returns through headless_finish() at the frame limit */
