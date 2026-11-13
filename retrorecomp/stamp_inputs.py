@@ -695,6 +695,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_fdc.c',
+        'native/msx_machine/msx_fdc.h',
         'native/msx_machine/msx_sram.c',
         'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',

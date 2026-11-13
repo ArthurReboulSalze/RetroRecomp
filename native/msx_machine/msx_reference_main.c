@@ -101,6 +101,25 @@ static uint32_t reference_cpu_hash(const z80 *z)
     return msx_route_cpu_hash(regs);
 }
 
+/* The disk interface (--diskrom, --disk): the player's own disk ROM in primary slot 2, one disk in drive A. */
+static const char *diskrom_file, *disk_file;
+static uint8_t diskrom[0x4000], disk_image[2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
+static MsxFdc fdc;
+
+static int attach_disk(MsxMachine *m, long (*loader)(const char *, uint8_t *, long))
+{
+    if (!diskrom_file)
+        return 1;
+    if (loader(diskrom_file, diskrom, (long)sizeof diskrom) != (long)sizeof diskrom) { fprintf(stderr, "bad --diskrom\n"); return 0; }
+    memset(&fdc, 0, sizeof fdc);
+    if (disk_file) {
+        long n = loader(disk_file, disk_image, (long)sizeof disk_image);
+        if (!msx_fdc_insert(&fdc, 0, disk_image, (uint32_t)n, 0)) { fprintf(stderr, "bad --disk\n"); return 0; }
+    }
+    msx_set_disk_interface(m, 2, diskrom, &fdc, 8);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *main_rom = NULL, *logo_rom = NULL, *cart_rom = NULL, *vram_out = NULL, *frame_out = NULL;
@@ -120,6 +139,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--until-halt")) { until_halt = 1; continue; }
         if (!strcmp(a, "--mirrored")) { mirrored = 1; continue; }
         if (!strcmp(a, "--msx2plus")) { msx2plus = 1; continue; }
+        if (!strcmp(a, "--trace-fdc")) { extern int msx_fdc_trace; msx_fdc_trace = 1; continue; }
         if (!strcmp(a, "--trace-mapper")) { trace_mapper = 1; continue; }
         if (!strcmp(a, "--count-cart-writes")) { count_writes = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
@@ -129,6 +149,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--sub")) sub_rom = v;
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
+        else if (!strcmp(a, "--diskrom")) diskrom_file = v;
+        else if (!strcmp(a, "--disk")) disk_file = v;
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
         else if (!strcmp(a, "--layout")) layout = v;
@@ -175,6 +197,8 @@ int main(int argc, char **argv)
         msx_set_device(&machine, 3, 0, (MsxDevice){ MSX_DEV_RAM, NULL, 0, 0, ram });
     } else { fprintf(stderr, "unknown layout %s\n", layout); return 2; }
     }
+    if (!attach_disk(&machine, load))
+        return 2;
     static uint8_t cart[0x200000];
     if (cart_rom) {
         memset(cart, 0xFF, sizeof cart);              /* the padding up to a whole bank reads as an empty socket */
