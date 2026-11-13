@@ -106,7 +106,8 @@ and own disk ROM (a new path option, Options > MSX2+ disk ROM; nothing is shippe
 the disk ROM (`msx_fdc.c`, our own MIT code); the disks are embedded in the game, what a game writes goes to a copy beside its settings
 (`datas/games/msx2plus-<id>/disk-N.dsk`), Page Up / Page Down change disk, and the long routes of a multi-disk game insert the next disks. The
 report names the disk interface in the cartridge's place and has a `disk_writes` block (what the game wrote, checked in fresh processes).
-`tools/msx_write_disk.py` builds an authored disk (our own boot sector, no game data) that writes, which proves the write path.
+`tools/msx_write_disk.py` builds an authored disk (our own boot sector, no game data) that writes one sector, which proves the write path
+end to end; `tools/msx_fdc_selftest.py` checks the controller alone (a write changes exactly the sectors it is given).
 
 **Shared:** `rom_sources.disk_sets` now groups disk sets for any machine that declares them (`DiskSetKind`: the profile, its suffixes, its
 folder, its marker), and an M3U it writes for the MSX2+ starts with `# Retro-Recomp system: msx2plus`; the X68000's M3U bytes are unchanged

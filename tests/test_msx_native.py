@@ -319,7 +319,9 @@ class Msx2PlusDiskInputTests(unittest.TestCase):
         self.assertEqual(disk[21], 0xF9)
         code = writer.boot_code()
         self.assertEqual(disk[0x1E:0x1E + len(code)], code)
+        self.assertEqual(code[0], 0xD8)                                # RET C: the MSX-DOS boot call (page 0 RAM) writes nothing
         self.assertIn(bytes((0x22, 0xDB, 0xFE)), code)                 # the hook's address into H.STKE
+        self.assertEqual(code.count(bytes((0xCD, 0x44, 0x01))), 1)     # one PHYDIO call, from the hook
         self.assertIn(bytes((0x37, 0xCD, 0x44, 0x01)), code)           # SCF / CALL PHYDIO: a write
         for fat in (1, 4):
             self.assertEqual(disk[fat * 512:fat * 512 + 3], bytes((0xF9, 0xFF, 0xFF)))

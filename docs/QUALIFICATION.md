@@ -271,8 +271,9 @@ The page of each console, which the README links its line to (a console of the m
   native run. G6 `Y`: the quick states pass in fresh processes on all eight (layout `msx-state-5`, with the controller and the disk in the drive).
   G7 `P`: no panel game writes to its disks on its routes; the write path is proven on an authored disk (`tools/msx_write_disk.py`, our own boot
   sector, no game data): converted as a game, it writes, the copy is kept beside the game, a fresh process starts from it, a copy of the wrong
-  size is ignored and kept, the embedded disks never change; open: the disk ROM writes 256 sectors there instead of the one asked, cause not
-  found. Cartridge SRAM uses the MSX2's code, not checked on an MSX2+ game. G8 `Y`: a moving picture is required on the play and long routes, the route warnings
+  size is ignored and kept, the embedded disks never change, and the copy differs from the image in the one sector written (its 512 bytes, every
+  other byte identical); `tools/msx_fdc_selftest.py` checks that a write changes exactly the sectors it is given (21 checks; a controller that
+  ignores the terminal count on a write fails 7). Cartridge SRAM uses the MSX2's code, not checked on an MSX2+ game. G8 `Y`: a moving picture is required on the play and long routes, the route warnings
   are reported, and the long routes' captures were looked at by the specialist (not the owner). G9 `P`: six of the eight reach play on their
   long route (Arc, Quinpl, Laydock 2, F-1 Spirit 3D Special, Nyancle Racing after its name entry, Sonyc for a stage before its password
   screen); Golvellius II stays in its Japanese intro, and Xak III stops on "SET DISK 3 AND PUSH SPACE PLEASE", which the route's fixed disk

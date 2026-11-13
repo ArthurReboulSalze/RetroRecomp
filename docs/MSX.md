@@ -211,10 +211,14 @@ PLEASE"), which the route's fixed disk changes do not answer. Xak III showed no 
 screens need is not known. Covers: Quinpl and Xak III found one (libretro); the other six have none.
 
 **Writes, proven on an authored disk:** no panel game writes to its disks on its routes. `tools/msx_write_disk.py` builds a 720 KiB disk of
-our own (an MSX-DOS boot sector, no game data) whose boot program hooks H.STKE and, once BASIC has started, writes 512 bytes to sector 20
-through PHYDIO. Converted as a game (0 interpreted instructions), it writes, its copy is kept, a fresh process starts from the copy, and a copy
-of the wrong size is ignored. Open: the disk ROM writes 256 sectors there, not the one asked; the cause (our controller or the boot program) is
-not found yet.
+our own (an MSX-DOS boot sector, no game data) whose boot program refuses the MSX-DOS boot call, hooks H.STKE and, once BASIC has started,
+writes one 512-byte pattern to sector 20 through PHYDIO. Converted as a game (0 interpreted instructions), it writes; the copy kept beside the
+game differs from the image in sector 20 only, which holds the pattern, every other byte identical; a fresh process starts from the copy, and a
+copy of the wrong size is ignored. A first version wrote 256 sectors: it wrote from the MSX-DOS boot call, where page 0 is RAM, so its
+`CALL 0144h` ran RAM instead of PHYDIO (traced: the call never passed the H.PHYD hook). The controller wrote exactly what the disk ROM sent it,
+one WRITE command a sector, each ended by the terminal count. `tools/msx_fdc_selftest.py` checks the controller alone (21 checks, needs a C
+compiler): one sector asked, one written and the rest of the image unchanged; up to EOT; past EOT without terminal count; write protection; a
+sector off the track; a stray byte in the result phase; a read.
 
 **First comparison, and an open difference (13 November 2026).** Family Stadium Professional Baseball slides its title in with the
 horizontal scroll (R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate
