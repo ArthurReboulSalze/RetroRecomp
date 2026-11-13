@@ -79,6 +79,80 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
+
+**What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
+with the V9958 (R#25-R#27, the ID in S#1, YJK and YAE in Graphic 7, the horizontal scroll with MSK and SP2, the command engine in every mode with
+CMD) and the port F4h; C-BIOS 0.29a's MSX2+ images come from the same pinned archive. The MSX2 picture's points may be 15-bit colours (bit 15
+set); a V9938 never makes one, so an MSX2 game's picture is unchanged (the MSX2 panel converted on this tree is equal to the panel of 13 November
+on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not ``, so "MSX2+" is a name
+and "MSX2" followed by "+" is another machine; every other name matches as before.
+
+**Hot path:** a V9958 line with a scroll or the mask is drawn up to three times (the background of one or two pages, then the sprites); a V9938
+line takes the same path as before.
+
+**What moves:** the MSX and MSX2 game stamps (`msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_v9938.c`, `msx_v9938_draw.c`,
+`msx_v9938_cmd.c`, `msx_player.c`, `msx_native_main.c`, `msx_reference_main.c`, `msx_state_file.inc`, `rrhk_msx.inc`, `msx_cbios.py`,
+`msx_conversion.py`, `systems/msx.py`); the MSX2+ is a new owner of the same files and of `cart_save.c` and `route_start.py`. No other
+machine's stamp moves.
+
+**Quick states:** the layout is `msx-state-4` (the port F4h); a state of an earlier build is refused cleanly.
+
+## MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts (1.7.4)
+
+**What changes.**
+- **Battery SRAM** (gate G7). An ASCII 8 KiB or ASCII 16 KiB cartridge whose game selects a bank past its image (the bit above the
+  bank number that its wiring uses for the SRAM: bit 5 on Xanadu, bit 7 on Royal Blood, bit 4 on Hydlide 2) gets its SRAM: the
+  conversion finds the bit from the bank values the game writes while the start is chosen, then chooses the start again with it.
+  The SRAM (8 KiB on ASCII 8, 2 KiB repeated over the page on ASCII 16) is readable where it is selected and written only in
+  8000h-BFFFh. The player keeps it in `datas/saves/<game>-<cartridge>.rrsram` through the shared `native/cart_save.c` (the Mega
+  Drive's, Super Nintendo's and PC Engine's), loaded at start and written two seconds after the game last wrote it and when it
+  closes; a file it cannot use is set aside, never deleted. Each such conversion checks it on the delivered file in fresh
+  processes (no file, a valid file, eleven damaged files, what the play route wrote surviving into the next process). Dragon
+  Slayer II - Xanadu (Japan), standard level: bit 5 found, the play route writes it, the checks pass, 0 interpreted instructions.
+- **The common report** (gate G2): the MSX's final rows also give `native_entries`, `interpreted_opcodes` and
+  `interpreter_cycles`, so the report's main CPU block has its counts (they were `null`); `hardware_devices` names the mapper,
+  the video chip, the PSG and the SCC; `route_warnings` uses the Master System's rule. The shared reader is unchanged.
+- **Shared helpers:** the cartridge-save file format and its damaged copies (`conversion_gates.cart_save_file`,
+  `damaged_cart_saves`, `fnv64`) are lifted from `pce_conversion.py`, whose `backup_file` and `damaged_backups` now call them with
+  identical results (the PC Engine's tests unchanged).
+
+**Hot path:** no. A cartridge with SRAM reads and writes its SRAM pages through the mapper's path, which only ASCII cartridges with
+SRAM take; no other machine's code changes.
+
+**What moves:**
+- The MSX and MSX2 game stamps: `native/msx_machine/msx_cart.c`, `msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_player.c`,
+  `msx_native_main.c`, `msx_reference_main.c`, `msx_headless.inc`, the new `msx_sram.c` and `msx_sram.h`, `retrorecomp/msx_rom.py`
+  and `retrorecomp/msx_conversion.py`; `native/cart_save.c` and `cart_save.h` become inputs of the MSX and MSX2 too (their bytes do
+  not change, so the Mega Drive's, Super Nintendo's and PC Engine's stamps do not move for them).
+- `retrorecomp/conversion_gates.py` moves the game stamps of the machines of `shares:conversion_gates`; `retrorecomp/pce_conversion.py`
+  moves the PC Engine's.
+
+**Quick states:** MSX and MSX2 states carry the SRAM: the layout is `msx-state-3`, and a state of 1.7.3 is refused cleanly (the build
+binding differs). No other machine's state changes.
+
+## Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report (1.7.4)
+
+The Atari ST game stamp moves, from `f61238ca2d46` to `f414185b00f5` (measured on main `be170091`; the host and build stamps do not move), so an Atari ST export of 1.7.3 is converted again in
+full by the first batch of 1.7.4. What a converted game does is not changed, except where a disk's root was read wrongly or a name is now a utility:
+
+- **The root directory of disk 1 is read after two FATs, as the TOS reads it.** The reader of `atarist_disk.py` believed the BPB's number of FATs, and the TOS takes every floppy to have two. Of the 275 disk 1 images
+  of the library tried, 10 declare one FAT and three change: Battle Probe (empty root before; `PROBE.PRG`, started by the desktop autostart, which stays kept only when the reference run shows the boot reached the
+  desktop), Pharaoh III (`PHAROAH.TOS`: it starts its menu with the player's own TOS 1.04 and ends in an EmuTOS "Panic: Bus Error") and Trailblazer (`EDITOR.PRG` and `TRAIL.PRG`). The other 272 decide as before.
+- **"music" and "editor" are utilities** in rule 2 of the desktop autostart (exact words): Conquests of Camelot starts `SIERRA.PRG` (not `MUSIC.PRG`) and Trailblazer starts `TRAIL.PRG`. The rule stays a guess by name, and the
+  player can open another program from the desktop. Language versions, game pairs and Mercenary are still left to the player.
+- **Each report lists where the interpreted instructions ran**: `final_checks[].interpreted_sites` (address, opcode, count, most run first), `interpreted_sites_distinct`, `interpreted_sites_unlisted` and `interpreted_sites_complete`
+  (the counts add up to the run's total; true on all 47 routes of the panel), asked of the delivered file's runs by the player's option `--interpreted-sites` (a table of 65,536 sites, off in a game that is played). The report also names the
+  Shifter/GLUE/MMU and the YM2149 as devices (`hardware_devices`, no counter), the MFP, the IKBD and the WD1772 with its DMA in `machine.other_devices`, keeps the picture changes and the frame of the last one in the
+  liveness record, and fills `route_warnings` (the Sega modules' function: a route whose picture stops changing in its first tenth).
+- **`atarist_notes.py`: the known stops.** A table, keyed by a dump's SHA-256, of what the routes of the panel run of 13 November 2026 stop on: Another World (code wheel), Carrier Command (manual word), Elite (novella protection),
+  Operation Stealth (colour codes), Leader Board (hardware key), Trinity (a resolution the machine does not start in), and Metro-Cross and Pharaoh III (EmuTOS; they start with the player's TOS 1.04). It adds a sentence to
+  `route_warnings` and changes nothing a conversion does: no protection is answered, skipped or patched.
+
+**Proof** (Windows, one tree, 13 November 2026): the panel of eight games, converted one at a time from an empty scratch library at the extended level (Lethal Xcess at the thorough level: the second long route changes the disk, and it reaches play);
+on all 25 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on 8 of 8 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). Seven more games
+were converted in the same run and are outside the panel; the fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
+
 ## Exports of 1.7.2 in 1.7.3
 
 1.7.3 is the release after 1.7.2 (published on 10 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no

@@ -48,8 +48,8 @@ DECLINED = {
     # The PlayStation (in development) has no pad script writer yet: its routes come with its conversion.
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
     # The Nintendo 64 too (n64_conversion.main_route / explore_route: pad buttons and analog stick events in its own script format).
-    # The MSX and MSX2 (experimental): scripted routes come with their panel stage.
-    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64', 'psx', 'msx', 'msx2'},
+    # The MSX, MSX2 and MSX2+ (experimental): their routes come from msx_routes (the default mapping's keys and joystick).
+    'random_routes': {'x68', 'pce', 'amiga', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
@@ -214,7 +214,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if system not in dict(status_lint.CONSOLES) or system not in status_lint.ALIASES:
         add('tools/status_lint.py (CONSOLES, ALIASES) does not know the console')
     names = status_lint.ALIASES.get(system, (profile.name,))
-    pattern = re.compile(r'\b(?:' + '|'.join(re.escape(name) for name in names) + r')\b')
+    pattern = re.compile(r'(?<!\w)(?:' + '|'.join(re.escape(name) for name in names) + r')(?!\w)')
     if not pattern.search(status_lint.readme_section(_text('README.md'))):
         add('README.md "Console support" does not name the console')
     if not pattern.search(_text('docs/COMPATIBILITY.md')):

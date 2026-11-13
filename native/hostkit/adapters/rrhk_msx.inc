@@ -139,6 +139,11 @@ static const uint32_t m_palette[16] = {
 
 /* A V9938 colour (0GGG0RRR0BBB) as ARGB: each three-bit component scaled to 0-255. */
 static uint32_t m_rgb9(uint16_t c) {
+   if (c & MSX_COLOUR15) {                   /* a V9958 YJK point: 5 bits a channel */
+      unsigned g15 = (c >> 10) & 31, r15 = (c >> 5) & 31, b15 = c & 31;
+      return 0xFF000000u | ((uint32_t)((r15 << 3) | (r15 >> 2)) << 16) | ((uint32_t)((g15 << 3) | (g15 >> 2)) << 8)
+             | (uint32_t)((b15 << 3) | (b15 >> 2));
+   }
    unsigned g = (c >> 8) & 7, r = (c >> 4) & 7, b = c & 7;
    return 0xFF000000u | (r * 255 / 7) << 16 | (g * 255 / 7) << 8 | (b * 255 / 7);
 }

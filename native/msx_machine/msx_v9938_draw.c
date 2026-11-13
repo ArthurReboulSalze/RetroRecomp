@@ -177,6 +177,85 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
 
 /* ---- the line ---- */
 
+/* A V9958 YJK point (Graphic 7 with R#25 YJK): each group of four bytes holds four 5-bit Y values (bits 7-3) and, in the low
+ * three bits, K (bytes 0 and 1, low part first) and J (bytes 2 and 3), 6-bit signed. R = Y + J, G = Y + K,
+ * B = (5Y - 2J - K) / 4 rounded down, each clipped to 0-31. With YAE, a byte whose bit 3 is set is the palette colour of
+ * its bits 7-4 instead. */
+static uint16_t yjk_colour(const MsxV9938 *v, uint32_t row, int x, int yae)
+{
+    uint8_t b[4];
+    for (int i = 0; i < 4; ++i)
+        b[i] = v->vram[msx_v9938_physical(row + (uint32_t)((x & ~3) + i), 1)];
+    uint8_t byte = b[x & 3];
+    if (yae && (byte & 0x08))
+        return v->palette[byte >> 4];
+    int k = (b[0] & 7) | ((b[1] & 7) << 3), j = (b[2] & 7) | ((b[3] & 7) << 3);
+    k -= (k & 0x20) << 1;
+    j -= (j & 0x20) << 1;
+    int luma = byte >> 3;
+    int r = luma + j, g = luma + k, sum = 5 * luma - 2 * j - k;
+    int bl = sum >= 0 ? sum / 4 : -((-sum + 3) / 4);
+    r = r < 0 ? 0 : r > 31 ? 31 : r;
+    g = g < 0 ? 0 : g > 31 ? 31 : g;
+    bl = bl < 0 ? 0 : bl > 31 ? 31 : bl;
+    return (uint16_t)(MSX_COLOUR15 | (g << 10) | (r << 5) | bl);
+}
+
+/* One line of a bitmap mode from `page`, the sprite layer `layer` laid over it. */
+static void bitmap_line(const MsxV9938 *v, int mode, int page, int y, const uint8_t *layer, uint16_t zero, int tp,
+                        uint16_t *out)
+{
+    switch (mode) {
+    case MODE_G4: {                                /* 256 x 4 bits: two pixels a byte, high nibble first */
+        const uint8_t *row = &v->vram[((uint32_t)page << 15) | ((uint32_t)y << 7)];
+        for (int x = 0; x < MSX_WIDTH; ++x) {
+            uint8_t c = (layer[x] & 0x10) ? (layer[x] & 0x0F) : ((x & 1) ? row[x >> 1] & 0x0F : row[x >> 1] >> 4);
+            out[2 * x] = out[2 * x + 1] = c ? v->palette[c] : zero;
+        }
+        break;
+    }
+    case MODE_G5: {                                /* 512 x 2 bits: four half-pixels a byte, bits 7-6 first */
+        const uint8_t *row = &v->vram[((uint32_t)page << 15) | ((uint32_t)y << 7)];
+        uint16_t zero_even = tp ? v->palette[0] : v->palette[(v->reg[7] >> 2) & 3];
+        uint16_t zero_odd = tp ? v->palette[0] : v->palette[v->reg[7] & 3];
+        for (int h = 0; h < MSX2_WIDTH; ++h) {
+            uint8_t c = (uint8_t)((row[h >> 2] >> (6 - 2 * (h & 3))) & 3);
+            uint8_t s = layer[h >> 1];
+            if (s & 0x10)                          /* a sprite pixel is two half-pixels: colour bits 3-2, then 1-0 */
+                c = (h & 1) ? (s & 3) : ((s >> 2) & 3);
+            out[h] = c || (s & 0x10) ? v->palette[c] : ((h & 1) ? zero_odd : zero_even);
+        }
+        break;
+    }
+    case MODE_G6: {                                /* 512 x 4 bits: two half-pixels a byte, through the interleave */
+        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
+        for (int h = 0; h < MSX2_WIDTH; ++h) {
+            uint8_t s = layer[h >> 1], byte = v->vram[msx_v9938_physical(row + (uint32_t)(h >> 1), 1)];
+            uint8_t c = (s & 0x10) ? (s & 0x0F) : ((h & 1) ? byte & 0x0F : byte >> 4);
+            out[h] = c ? v->palette[c] : zero;
+        }
+        break;
+    }
+    case MODE_G7: {                                /* 256 x 8 bits, GGGRRRBB, through the interleave; no transparency */
+        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
+        int yjk = v->v9958 && (v->reg[25] & 0x08), yae = yjk && (v->reg[25] & 0x10);
+        for (int x = 0; x < MSX_WIDTH; ++x) {
+            uint16_t colour;
+            if (layer[x] & 0x10)                   /* sprites: the fixed Graphic 7 colours, the palette in YJK */
+                colour = yjk ? v->palette[layer[x] & 0x0F] : g7_sprite_colours[layer[x] & 0x0F];
+            else if (yjk)
+                colour = yjk_colour(v, row, x, yae);
+            else
+                colour = g7_colour(v->vram[msx_v9938_physical(row + (uint32_t)x, 1)]);
+            out[2 * x] = out[2 * x + 1] = colour;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void fill(uint16_t *out, uint16_t even, uint16_t odd)
 {
     for (int x = 0; x < MSX2_WIDTH; x += 2) {
@@ -218,6 +297,13 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
         v9938_tile_params(v, &t, tp);
         int tile = mode == MODE_T1 ? MSX_TILE_T1 : mode == MODE_MC ? MSX_TILE_MC : mode == MODE_G1 ? MSX_TILE_G1 : MSX_TILE_G2;
         msx_tiles_line(&t, tile, y, v->reg[7] >> 4, backdrop, idx);
+        int scroll = v->v9958 && mode != MODE_T1 ? ((v->reg[26] & 0x3F) << 3) - (v->reg[27] & 7) : 0;
+        if (scroll) {                              /* V9958: the background moves, the sprites do not */
+            uint8_t moved[MSX_WIDTH];
+            for (int x = 0; x < MSX_WIDTH; ++x)
+                moved[x] = idx[(x + scroll) & 0xFF];
+            memcpy(idx, moved, sizeof moved);
+        }
         uint8_t layer[MSX_WIDTH];
         memset(layer, 0, sizeof layer);
         if (mode == MODE_G3) {
@@ -236,6 +322,8 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
             uint16_t colour = c ? v->palette[c] : zero;
             if (mode == MODE_T1 && (x < t.text_left || x >= t.text_left + 240))
                 colour = v->palette[backdrop];
+            if (v->v9958 && (v->reg[25] & 0x02) && x < 8 && mode != MODE_T1)
+                colour = border_even;              /* V9958 MSK: the left 8 dots show the border */
             out[2 * x] = out[2 * x + 1] = colour;
         }
         return;
@@ -275,48 +363,35 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
         if (!(v->reg[8] & 0x02))
             sprites2(m, line, y, layer);
     }
-    switch (mode) {
-    case MODE_G4: {                                /* 256 x 4 bits: two pixels a byte, high nibble first */
-        const uint8_t *row = &v->vram[((uint32_t)page << 15) | ((uint32_t)y << 7)];
-        for (int x = 0; x < MSX_WIDTH; ++x) {
-            uint8_t c = (layer[x] & 0x10) ? (layer[x] & 0x0F) : ((x & 1) ? row[x >> 1] & 0x0F : row[x >> 1] >> 4);
-            out[2 * x] = out[2 * x + 1] = c ? v->palette[c] : zero;
-        }
-        break;
+    int hs = 0, msk = 0, sp2 = 0;
+    if (v->v9958) {                                /* R#26 in 8-dot steps to the left, R#27 back to the right */
+        hs = ((v->reg[26] & 0x3F) << 3) - (v->reg[27] & 7);
+        msk = (v->reg[25] & 0x02) != 0;
+        sp2 = v->reg[25] & 0x01;
     }
-    case MODE_G5: {                                /* 512 x 2 bits: four half-pixels a byte, bits 7-6 first */
-        const uint8_t *row = &v->vram[((uint32_t)page << 15) | ((uint32_t)y << 7)];
-        uint16_t zero_even = tp ? v->palette[0] : v->palette[(v->reg[7] >> 2) & 3];
-        uint16_t zero_odd = tp ? v->palette[0] : v->palette[v->reg[7] & 3];
-        for (int h = 0; h < MSX2_WIDTH; ++h) {
-            uint8_t c = (uint8_t)((row[h >> 2] >> (6 - 2 * (h & 3))) & 3);
-            uint8_t s = layer[h >> 1];
-            if (s & 0x10)                          /* a sprite pixel is two half-pixels: colour bits 3-2, then 1-0 */
-                c = (h & 1) ? (s & 3) : ((s >> 2) & 3);
-            out[h] = c || (s & 0x10) ? v->palette[c] : ((h & 1) ? zero_odd : zero_even);
-        }
-        break;
+    if (mode != MODE_G4 && mode != MODE_G5 && mode != MODE_G6 && mode != MODE_G7) {
+        fill(out, v->palette[backdrop], v->palette[backdrop]);   /* an undocumented mode mix: the backdrop, no sprites */
+        return;
     }
-    case MODE_G6: {                                /* 512 x 4 bits: two half-pixels a byte, through the interleave */
-        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
-        for (int h = 0; h < MSX2_WIDTH; ++h) {
-            uint8_t s = layer[h >> 1], byte = v->vram[msx_v9938_physical(row + (uint32_t)(h >> 1), 1)];
-            uint8_t c = (s & 0x10) ? (s & 0x0F) : ((h & 1) ? byte & 0x0F : byte >> 4);
-            out[h] = c ? v->palette[c] : zero;
-        }
-        break;
+    if (!hs && !msk) {
+        bitmap_line(v, mode, page, y, layer, zero, tp, out);
+        return;
     }
-    case MODE_G7: {                                /* 256 x 8 bits, GGGRRRBB, through the interleave; no transparency */
-        uint32_t row = ((uint32_t)(page & 1) << 16) | ((uint32_t)y << 8);
-        for (int x = 0; x < MSX_WIDTH; ++x) {
-            uint16_t colour = (layer[x] & 0x10) ? g7_sprite_colours[layer[x] & 0x0F]
-                                                : g7_colour(v->vram[msx_v9938_physical(row + (uint32_t)x, 1)]);
-            out[2 * x] = out[2 * x + 1] = colour;
-        }
-        break;
-    }
-    default:                                       /* an undocumented mode mix: the backdrop, no sprites */
-        fill(out, v->palette[backdrop], v->palette[backdrop]);
-        break;
+    /* V9958 scroll: the background of this page (and of the next with SP2, two pages side by side) drawn without sprites and
+     * rotated; the sprites do not scroll; MSK covers the left 8 dots with the border. */
+    static uint16_t back[2][MSX2_WIDTH], front[MSX2_WIDTH];
+    static const uint8_t none[MSX_WIDTH];
+    bitmap_line(v, mode, page, y, none, zero, tp, back[0]);
+    if (sp2)
+        bitmap_line(v, mode, page ^ 1, y, none, zero, tp, back[1]);
+    bitmap_line(v, mode, page, y, layer, zero, tp, front);
+    int span = sp2 ? 2 * MSX2_WIDTH : MSX2_WIDTH;
+    for (int h = 0; h < MSX2_WIDTH; ++h) {
+        int s = (h + 2 * hs) % span;
+        if (s < 0)
+            s += span;
+        uint16_t c = (layer[h >> 1] & 0x10) ? front[h] : back[s >= MSX2_WIDTH][s % MSX2_WIDTH];
+        out[h] = msk && h < 16 ? ((h & 1) ? border_odd : border_even) : c;
     }
 }
+

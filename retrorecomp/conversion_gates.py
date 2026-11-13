@@ -93,3 +93,40 @@ def check_quick_states(folder: Path, state: Path, *, machine: str, route: str, a
     return {'route': route, 'saved_at': at, 'continued_frames': settle, 'fresh_process_match': True,
             'truncated_state_rejected': True, 'damaged_states_refused': sorted(variants),
             'missing_state_creates_nothing': True, 'state_bytes': len(original)}
+
+
+# ------------------------------------------------------------------ cartridge save files (native/cart_save.c)
+
+CART_SAVE_HEADER = 112      # cart_save.c: magic, version 1, size, the hash, identity words, the ROM's SHA-256 in hex at 40
+
+
+def fnv64(data: bytes) -> int:
+    """FNV-1a 64 of a save's memory, as cart_save.c stores it in the header."""
+    value = 14695981039346656037
+    for byte in data:
+        value = ((value ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
+def cart_save_file(magic: bytes, memory: bytes, rom_sha256: str) -> bytes:
+    """A cartridge save file as cart_save.c writes it (hash at offset 16, no identity word): magic, version 1, size, FNV-1a of
+    the memory, reserved, the ROM's SHA-256 in hex, reserved, the memory. Lifted from the PC Engine on 13 November 2026."""
+    header = bytearray(CART_SAVE_HEADER)
+    header[:8] = magic
+    header[8:12] = (1).to_bytes(4, 'little')
+    header[12:16] = len(memory).to_bytes(4, 'little')
+    header[16:24] = fnv64(memory).to_bytes(8, 'little')
+    header[40:104] = rom_sha256.encode('ascii')
+    return bytes(header) + memory
+
+
+def damaged_cart_saves(good: bytes) -> dict[str, bytes]:
+    """Files a game cannot use, by what is wrong with them (cart_save.c): each must be set aside whole, and the game must start
+    with its blank memory."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(good)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': good[:40], 'one-byte-short': good[:-1], 'one-byte-long': good + b'\0',
+            'raw-memory': good[CART_SAVE_HEADER:], 'magic': flipped(0), 'version': flipped(8), 'size': flipped(12),
+            'hash': flipped(16), 'other-card': flipped(40), 'memory': flipped(len(good) - 1)}

@@ -10,7 +10,12 @@
  * 3,579,545 / (32 x (period + 1)) Hz); a period below 9 stops it; writing a period restarts the current sample; a
  * new volume is taken at the next sample; a channel's output is sample x volume with its low four bits dropped. The
  * deformation register (E0h-FFh) is not modelled. A channel's output is latched: a wave-RAM write at the sample being
- * played sounds from the next step, a volume from the next step or the next period write. */
+ * played sounds from the next step, a volume from the next step or the next period write.
+ * Battery SRAM (the same wiki, "MegaROM Mappers"): on an ASCII 8 KB or 16 KB cartridge a bit of the bank value above the
+ * bank number selects the SRAM instead of a ROM bank; which bit depends on the cartridge's wiring (bit 5 on Xanadu, bit 7
+ * on Royal Blood, bit 4 on Hydlide 2), so the conversion finds it from the values the game writes (`bank_high`). SRAM is
+ * written only in 8000h-BFFFh. Sizes taken: 8 KB on ASCII 8, 2 KB repeated over the page on ASCII 16; the 2 KB and 32 KB
+ * ASCII 8 and the 8 KB ASCII 16 variants are not told apart. */
 #include "msx_machine.h"
 
 #include <string.h>
@@ -38,9 +43,28 @@ static void konami_switch(MsxDevice *d, int region, int block)
     d->block[mirror] = d->block[region];
 }
 
+static int sram_selected(MsxDevice *d, int value, int count)
+{
+    if (value >= count)
+        d->bank_high |= (uint8_t)value;
+    return d->sram && d->sram_bit && (value & d->sram_bit);
+}
+
+static void ascii8_switch(MsxDevice *d, int region, int block)
+{
+    if (sram_selected(d, block, blocks8(d)))
+        d->block[region] = MSX_BLOCK_SRAM;
+    else
+        set8(d, region, block, blocks8(d) - 1);
+}
+
 static void ascii16_switch(MsxDevice *d, int page, int block)
 {
     int count = (int)((d->size + 0x3FFFu) / 0x4000u);    /* a last half bank reads the padding */
+    if (sram_selected(d, block, count)) {
+        d->block[page * 2] = d->block[page * 2 + 1] = MSX_BLOCK_SRAM;
+        return;
+    }
     int16_t b = resolve(count, count - 1, block);
     d->block[page * 2] = b < 0 ? -1 : (int16_t)(b * 2);
     d->block[page * 2 + 1] = b < 0 ? -1 : (int16_t)(b * 2 + 1);
@@ -74,10 +98,12 @@ void msx_cart_reset(MsxDevice *d)
     case MSX_MAPPER_ASCII8:
         for (int region = 2; region < 6; ++region)
             set8(d, region, 0, blocks8(d) - 1);
+        d->bank_high = 0;
         break;
     case MSX_MAPPER_ASCII16:
         ascii16_switch(d, 1, 0);
         ascii16_switch(d, 2, 0);
+        d->bank_high = 0;
         break;
     default:
         break;
@@ -137,15 +163,19 @@ int msx_cart_write(MsxDevice *d, uint16_t address, uint8_t value)
     }
     case MSX_MAPPER_ASCII8:
         if (address >= 0x6000 && address < 0x8000) {
-            set8(d, ((address >> 11) & 3) + 2, value, blocks8(d) - 1);
+            ascii8_switch(d, ((address >> 11) & 3) + 2, value);
             return 1;
         }
+        if (address >= 0x8000 && address < 0xC000 && d->block[address >> 13] == MSX_BLOCK_SRAM)
+            d->sram[address & (d->sram_size - 1u)] = value;
         return 0;
     case MSX_MAPPER_ASCII16:
         if (address >= 0x6000 && address < 0x7800 && !(address & 0x0800)) {
             ascii16_switch(d, ((address >> 12) & 1) + 1, value);
             return 1;
         }
+        if (address >= 0x8000 && address < 0xC000 && d->block[address >> 13] == MSX_BLOCK_SRAM)
+            d->sram[address & (d->sram_size - 1u)] = value;
         return 0;
     default:
         return 0;
@@ -159,6 +189,8 @@ uint8_t msx_cart_read(const MsxDevice *d, uint16_t address)
         return a < 0x80 ? (uint8_t)d->scc.wave[a >> 5][a & 31] : 0xFF;
     }
     int16_t block = d->block[address >> 13];
+    if (block == MSX_BLOCK_SRAM)
+        return d->sram[address & (d->sram_size - 1u)];
     return block < 0 ? 0xFF : d->rom[(uint32_t)block * 0x2000u + (address & 0x1FFF)];
 }
 

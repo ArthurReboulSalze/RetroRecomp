@@ -207,6 +207,7 @@ local dependency folder and never shipped.
 | Generator patches | the patched generator text contains each fix once; a changed pin fails | `tests/test_game_gear.py` |
 | Mega Drive sound | authored opcode, RAM, bank and interrupt bodies; mutation of code under suspended Z80 fibers; guards and escapes | `tools/megadrive_z80_selftest.py`, `tools/megadrive_z80_resume_selftest.py`, `tests/test_megadrive_z80.py` |
 | Neo Geo sound | ROM-free native ABI, cycle, memory, full-port and guard checks | `tools/neogeo_z80_selftest.py` |
+| MSX and MSX2 | the same 51,328 vectors through the MSX's own build of the generator (a region map, one wait state per M1 cycle added to the expected T-states): 51,328 pass, 0 fail, 0 miss (13 November 2026) | `tools/banked_vector_selftest.py --machine msx` |
 | CPS-1 sound | native dispatch present in native builds only; board tests; the same 51,328 independent vectors replayed through the CPS-1 Z80 generator and its patched Geolith core, native and interpreted, results below | `tests/test_cps1_codegen.py`; `tools/cps1_z80_vector_selftest.py` (builds C, a few seconds once the corpus is cached), `tests/test_cps1_z80_vectors.py` |
 
 The counts recorded for these runs (51,328 independent vectors over 1,604 family files; 28,544 Mega Drive comparisons plus

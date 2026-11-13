@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation · MSX · MSX2 (the last seven experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · Game Boy Advance · Commodore Amiga · Atari ST · Nintendo 64 · Sony PlayStation · MSX · MSX2 · MSX2+ (the last eight experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -80,11 +80,12 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `█████░░░░░` 47 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | experimental | `██████░░░░` 57 % |
-| [Atari ST](docs/ATARI_ST.md)\* | experimental | `█████░░░░░` 53 % |
+| [Atari ST](docs/ATARI_ST.md)\* | experimental | `████████░░` 80 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
-| [MSX](docs/MSX.md) | experimental | `█░░░░░░░░░` 7 % |
-| [MSX2](docs/MSX.md) | experimental | `█░░░░░░░░░` 7 % |
+| [MSX](docs/MSX.md) | experimental | `████████░░` 77 % |
+| [MSX2](docs/MSX.md) | experimental | `████████░░` 77 % |
+| [MSX2+](docs/MSX.md) | experimental | `░░░░░░░░░░` 3 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).

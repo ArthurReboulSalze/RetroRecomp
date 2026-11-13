@@ -135,7 +135,7 @@ The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
 Joystick 1 is on the **arrow keys**, which also press the MSX cursor keys. Trigger A is **X** (it also presses the SPACE key) and trigger B is **W**.
 **Start** (Enter, pad Start) presses the MSX SPACE key and **Select** (right Shift, pad Back) presses the MSX **F1**; on a controller, the D-pad moves and A and
 B are the triggers. **Ctrl+Alt+K** hands the whole keyboard to the MSX (the same switch as on the other computers; F1 to F5 then go to the MSX, and the help is
-at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. The quick states (F8/F9) are not available on the MSX or the MSX2 yet. See
+at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
 [MSX.md](MSX.md#4-controls).
 
 ## Speed and sound

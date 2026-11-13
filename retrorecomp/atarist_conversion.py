@@ -47,7 +47,20 @@ MARKER_RESOURCE = 299
 FIRST_DISK_RESOURCE = 300
 OBSERVATIONS = 'converter-observations.txt'
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'distinct_audio_blocks': 'distinct_sound_blocks',
-                   'distinct_ram_states': 'distinct_ram_states', 'distinct_program_counters': 'distinct_program_counters'}
+                   'distinct_ram_states': 'distinct_ram_states', 'distinct_program_counters': 'distinct_program_counters',
+                   'picture_changes': 'picture_changes', 'last_picture_change_frame': 'last_picture_change_frame'}
+# The chips of the machine, all run by Hatari (no native code, no counter of their own: the report's devices, gate G2). The video and the
+# sound unit are the report's own kinds; the others are named in `machine.other_devices`.
+HARDWARE_DEVICES = (
+    {'id': 'shifter_glue_mmu', 'kind': 'video_unit', 'mode': 'emulated',
+     'details': {'by': "Hatari (src/video.c)", 'what': 'the Shifter, the GLUE and the MMU: video timing, the picture and the video counter'}},
+    {'id': 'ym2149', 'kind': 'audio_unit', 'mode': 'emulated',
+     'details': {'by': "Hatari (src/psg.c, src/sound.c)", 'what': 'the YM2149 sound chip and its port A (drive select, side) and B'}})
+OTHER_DEVICES = (
+    {'id': 'mfp_68901', 'mode': 'emulated', 'by': 'Hatari (src/mfp.c)', 'what': 'interrupts and the four timers (timer D: machine.timer_d)'},
+    {'id': 'ikbd', 'mode': 'emulated', 'by': 'Hatari (src/ikbd.c, src/acia.c)',
+     'what': "the keyboard processor's protocol, joysticks and mouse: Hatari's model of the HD6301's commands, not its own program"},
+    {'id': 'wd1772_dma', 'mode': 'emulated', 'by': 'Hatari (src/fdc.c; the image readers: floppy.disks and floppy.reader)', 'what': 'the floppy controller and its DMA, with its timing model (fast loading off)'})
 MACHINE = 'st'
 MEMORY_KB = 1024
 # The MFP's timer D (docs/ATARI_ST.md, known limits): Hatari's patch of the TOS's own start of the timer is chosen per game. On `auto`
@@ -442,6 +455,17 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, disks: list
     return report
 
 
+def interpreted_sites(result: dict) -> dict:
+    """Where the interpreted instructions of a run of the delivered file ran (its report with --interpreted-sites): the sites, most run first,
+    each {pc, opcode, count}; how many distinct (pc, opcode) there were; and the instructions beyond the player's table of sites, counted
+    without a pc. The counts add up to the run's `interpreted` (gate G3: each interpreted instruction listed with its count)."""
+    sites = [{'pc': f'0x{pc:06x}', 'opcode': f'0x{opcode:04x}', 'count': count} for pc, opcode, count in result.get('interpreted_sites') or ()]
+    return {'interpreted_sites': sites, 'interpreted_sites_distinct': result.get('interpreted_sites_distinct'),
+            'interpreted_sites_unlisted': result.get('interpreted_sites_unlisted'),
+            'interpreted_sites_complete': (sum(site['count'] for site in sites) + (result.get('interpreted_sites_unlisted') or 0)
+                                           == result.get('interpreted'))}
+
+
 def timer_d_signs(reports: dict) -> dict:
     """The detector's signs of each route's run report: {route: {letter: {count, frame, pc}}}, the pc as a hexadecimal string."""
     out = {}
@@ -695,8 +719,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         packed = work / ('packed-game.exe' if os.name == 'nt' else 'packed-game')
         delivered = deliver_packed(candidate, packed, 'Atari ST', emit)
         state_frame = count - 600
+        # Each route of the delivered file also lists where its interpreted instructions ran (pc, opcode, count: gate G3).
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
-                        ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
+                        ['--interpreted-sites', *(['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')]
+                                                  if name == 'main' else [])])
                        for name, frames_, _ in routes]
 
         def replay_copy(run_):
@@ -716,6 +742,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          nonblack_frames=result['nonblack_frames'], audible_frames=result['audible_frames'])
                     for (name, folder, _, _, _), result in zip(packed_runs, packed_results)]
         require_moving_picture(liveness[0], lambda: ConversionError('Atari ST main route: the picture never changed.'))
+        from .sega_evidence import route_warnings
+        from .atarist_notes import route_stops
+        warnings = route_warnings([{'scenario': entry['route'], 'liveness': entry} for entry in liveness]) + route_stops(source.sha256)
         hint = None if tos.player_supplied else EMUTOS_NOTE
         if hint:
             emit('Atari ST: ' + hint)
@@ -739,6 +768,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                         **interpreted_sites(result),
                          **({'state_saved_at': state_frame, 'state_restart_match': resumed['matches']} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {
@@ -754,6 +784,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                         'build time, its cycle-exact 68000 mode and its floppy timing model (fast loading off), borders shown; accuracy against hardware '
                         'is not measured here',
                         'timer_d': timer_d_report(choice, timer_d, timer_d_reason, first_mode, signs, final_signs),
+                        'other_devices': [dict(entry) for entry in OTHER_DEVICES],
                         'tos': {'used': tos.label(), 'version': tos.version_text(), 'country': tos.country,
                                 'pal': tos.pal, 'sha256': tos.sha256, 'player_supplied': tos.player_supplied, 'stored_in_library': False,
                                 'shared': False, 'embedded_in_export': True,
@@ -784,7 +815,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                       'private': True, 'shared': False},
             'native_coverage': 'observed instructions (RAM, TOS ROM, cartridge area), those of the player record and those a sweep over the memory at the end of the routes reaches, the last two counted apart, as native code chained from instruction to instruction, guarded by the opcode the CPU has latched: the handler of '
                                'Hatari\'s cycle-exact table for their opcode; the rest on Hatari\'s interpreter, counted',
-            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
+            'hardware_devices': [dict(entry, details=dict(entry['details'])) for entry in HARDWARE_DEVICES],
+            'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'route_warnings': warnings, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game, TOS and build that wrote the state; refused between builds',
                             'schema': 'RRATARIST-STATE-1', 'machine': 'atarist', 'rom_identity': source.sha256,

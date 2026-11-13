@@ -12,7 +12,11 @@
  *
  * Not modelled (docs/MSX.md): the access-slot timing of port 98h, the F and FH "lost" windows, the frame-length change
  * when R#9 LN switches between 192 and 212 lines, mid-line effects, interlace's half-line field offset, the
- * superimpose and digitise bits, the expansion RAM (R#45 bit 6: reads FFh, writes dropped). */
+ * superimpose and digitise bits, the expansion RAM (R#45 bit 6: reads FFh, writes dropped).
+ *
+ * The V9958 (MSX2+; Yamaha's V9958 technical data and the MSX2+ technical documents): R#25 (CMD, VDS, YAE, YJK, WTE, MSK,
+ * SP2), R#26 and R#27 (the horizontal scroll in 8-dot and 1-dot steps) and the ID 2 in S#1 bits 1-5. Not modelled: WTE's
+ * wait states (no access slots here) and VDS (a pin function). */
 #include "msx_machine.h"
 
 #include <string.h>
@@ -124,7 +128,8 @@ static uint8_t read_status(MsxMachine *m)
         } else {                               /* disabled: FH is live, from the match line's draw point to its end */
             value = (m->line == line_irq_line(v) && line_cycle(m) >= MSX2_DRAW_AT) ? 1 : 0;
         }
-        break;                                 /* ID bits 1-5: 0 (V9938); light pen bits: 0 */
+        value |= v->v9958 ? 0x04 : 0x00;       /* ID bits 1-5: 0 on the V9938, 2 on the V9958; light pen bits: 0 */
+        break;
     case 2: {
         msx_v9938_cmd_sync(m, m->cycles);
         unsigned c = line_cycle(m);
@@ -155,8 +160,14 @@ static void write_register(MsxMachine *m, unsigned index, uint8_t value)
         msx_v9938_cmd_write(m, (int)index - 32, value);
         return;
     }
+    if (index >= 25 && index <= 27 && v->v9958) {
+        static const uint8_t v9958_masks[3] = { 0x7F, 0x3F, 0x07 };
+        msx_v9938_cmd_sync(m, m->cycles);      /* R#25 CMD changes which modes the engine draws in */
+        v->reg[index] = value & v9958_masks[index - 25];
+        return;
+    }
     if (index >= 24)
-        return;                                /* R#24-R#31 and R#47-R#63 do not exist */
+        return;                                /* R#24-R#31 and R#47-R#63 do not exist (R#25-R#27 on the V9958) */
     value &= reg_masks[index];
     if (index == 0 || index == 1 || index == 8 || index == 9)
         msx_v9938_cmd_sync(m, m->cycles);      /* the engine's screen and cost class come from these */
@@ -345,6 +356,8 @@ void msx_v9938_print(const MsxMachine *m, FILE *out)
     const MsxV9938 *v = m->v9938;
     fprintf(out, "{\"reg\": [");
     for (int i = 0; i < 24; ++i) fprintf(out, "%s%u", i ? ", " : "", v->reg[i]);
+    if (v->v9958)                              /* the V9958's R#25-R#27 follow R#23 in the same list */
+        fprintf(out, ", %u, %u, %u", v->reg[25], v->reg[26], v->reg[27]);
     fprintf(out, "], \"cmd\": [");
     for (int i = 0; i < 15; ++i) fprintf(out, "%s%u", i ? ", " : "", v->reg[32 + i]);
     fprintf(out, "], \"engine\": ");
