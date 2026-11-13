@@ -146,7 +146,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     machine_name = 'MSX2+' if plus else 'MSX2' if msx2 else 'MSX'
     if msx2:
         from .systems.msx import decided
-        emit(f'{machine_name}: chosen by {decided(Path(path)) or "the console given to the conversion"}.')
+        emit(f'{machine_name} ({decided(Path(path)) or "the console given to the conversion"}).')
     try:
         own = own_bios2(msx2_bios, msx2_subrom, 2 if plus else 1) if msx2 else own_bios(msx_bios)
     except (OSError, ValueError) as error:
