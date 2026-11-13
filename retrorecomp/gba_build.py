@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -169,6 +170,58 @@ def input_script(frames: int, kind: str) -> str:
             events.append((frame, value))
             previous = value
     return '# frame,keyinput_active_low\n' + ''.join(f'{frame},0x{value:04x}\n' for frame, value in events)
+
+
+# The test switches of the player a conversion must not inherit from the shell that runs it.
+PLAYER_SWITCHES = ('RETRORECOMP_GBA_INPUT', 'RETRORECOMP_GBA_DUMP', 'RETRORECOMP_GBA_STATE', 'RETRORECOMP_GBA_SELFTEST', 'RETRORECOMP_GBA_ROWS',
+                   'RETRORECOMP_HOST_TEST_FRAMES', 'RETRORECOMP_HOST_TEST_NO_AUDIO', 'RETRORECOMP_HOST_TEST_FILTER')
+PLAYER_STATS = re.compile(r'\[host\] frames=(\d+).*?interpreted=(\d+)')
+
+
+@dataclass
+class PlayerRun:
+    """One run of the exported player on a scenario: what it said, the hash of its last picture and its per-frame rows (`frame,picture,sound,audible`)."""
+    returncode: int
+    frames: int | None
+    interpreted: int | None
+    picture_sha256: str | None
+    rows: bytes
+
+
+def run_player(executable: Path, folder: Path, frames: int, script: Path | None, timeout: int = 1800) -> PlayerRun:
+    """The exported player, hidden and silent (SDL dummy drivers), bounded by the frame limit, started from a fresh `datas` of `folder`'s own, with the
+    key script of a scenario. The clock of a clock cartridge is fixed by the player itself in such a run."""
+    if folder.exists():
+        for stale in folder.glob('**/*'):
+            if stale.is_file():
+                stale.unlink()
+    folder.mkdir(parents=True, exist_ok=True)
+    rows, picture = folder / 'rows.csv', folder / 'picture.ppm'
+    environment = {key: value for key, value in os.environ.items() if key not in PLAYER_SWITCHES}
+    environment.update(RETRORECOMP_HOST_TEST_FRAMES=str(frames), RETRORECOMP_HOST_TEST_NO_AUDIO='1', RETRORECOMP_GBA_ROWS=str(rows),
+                       RETRORECOMP_GBA_DUMP=str(picture), SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
+    if script is not None:
+        environment['RETRORECOMP_GBA_INPUT'] = str(script)
+    try:
+        result = spawn([executable], cwd=folder, timeout=timeout, env=environment, phase='native_runs', stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+    except subprocess.TimeoutExpired as error:
+        raise ConversionError(f'The player did not end within {timeout} seconds on a scenario of {frames} frames (it was stopped).') from error
+    stats = PLAYER_STATS.search(result.stdout or '')
+    return PlayerRun(result.returncode, int(stats.group(1)) if stats else None, int(stats.group(2)) if stats else None,
+                     hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else None,
+                     rows.read_bytes() if rows.is_file() else b'')
+
+
+def frame_rows(rows: bytes) -> list:
+    """The per-frame rows of a player run as `delivery_evidence.FrameRow`."""
+    from .delivery_evidence import FrameRow
+    found = []
+    for line in rows.decode('ascii', errors='replace').splitlines():
+        parts = line.split(',')
+        if len(parts) == 4:
+            found.append(FrameRow(int(parts[0]), parts[1], parts[2], parts[3] == '1'))
+    return found
 
 
 def _capped(path: Path) -> tuple:

@@ -424,5 +424,98 @@ class ConversionTests(unittest.TestCase):
                          ['external/arm-recomp-core', 'external/recomp-net', 'external/rbengine'])
 
 
+
+class DeliveryEvidenceTests(unittest.TestCase):
+    """Gates G5 and G8: the player's per-frame rows, its run, and the compressed copy compared with the build."""
+
+    def rows(self, frames, still=False, silent=False):
+        return ''.join(f'{frame},{"0" * 15 + str(0 if still else frame % 7)},{"1" * 16},{0 if silent else 1}\n'
+                       for frame in range(1, frames + 1)).encode('ascii')
+
+    def test_the_rows_of_a_run_are_frame_rows(self):
+        found = build.frame_rows(b'1,00000000000000aa,00000000000000bb,1\n2,00000000000000cc,00000000000000bb,0\nnot a row\n')
+        self.assertEqual([(row.frame, row.picture, row.sound, row.audible) for row in found],
+                         [(1, '00000000000000aa', '00000000000000bb', True), (2, '00000000000000cc', '00000000000000bb', False)])
+
+    def test_a_run_is_hidden_silent_bounded_and_does_not_inherit_the_switches(self):
+        seen = {}
+
+        class Done:
+            returncode = 0
+            stdout = '[host] frames=600 audio_samples=1 audio_nonzero=0 audio_peak=0 interpreted=12\n'
+
+        def fake_spawn(command, **options):
+            seen.update(options['env'], cwd=options['cwd'])
+            Path(options['env']['RETRORECOMP_GBA_ROWS']).write_bytes(b'1,a,b,1\n')
+            Path(options['env']['RETRORECOMP_GBA_DUMP']).write_bytes(b'P6 picture')
+            return Done()
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(build, 'spawn', fake_spawn), \
+                patch.dict('os.environ', {'RETRORECOMP_GBA_STATE': 'load@1', 'RETRORECOMP_GBA_SELFTEST': '1'}):
+            run = build.run_player(Path('game.exe'), Path(folder) / 'one', 600, Path('script.txt'))
+        self.assertEqual((run.returncode, run.frames, run.interpreted, run.rows), (0, 600, 12, b'1,a,b,1\n'))
+        self.assertEqual(len(run.picture_sha256), 64)
+        self.assertEqual((seen['SDL_VIDEODRIVER'], seen['SDL_AUDIODRIVER'], seen['RETRORECOMP_HOST_TEST_FRAMES']), ('dummy', 'dummy', '600'))
+        self.assertEqual(seen['RETRORECOMP_GBA_INPUT'], 'script.txt')
+        self.assertNotIn('RETRORECOMP_GBA_STATE', seen)
+        self.assertNotIn('RETRORECOMP_GBA_SELFTEST', seen)
+
+    def delivery(self, packed_rows=None, packed_picture=None, still=False, silent=False):
+        """`_delivery_evidence` against a fake player: the build gives `self.rows`, the compressed copy the given rows."""
+        import types
+        calls = []
+        runs = {}
+
+        def fake_run(executable, folder, frames, script, timeout=1800):
+            is_packed = folder.name == 'packed'
+            calls.append((folder.parent.name, folder.name))
+            rows = packed_rows(frames) if is_packed and packed_rows else self.rows(frames, still, silent)
+            picture = packed_picture if is_packed and packed_picture else 'p' * 64
+            return build.PlayerRun(0, frames, 0, picture, rows)
+
+        class Delivered:
+            path = Path('packed.exe')
+            kind = 'packed'
+
+            def __init__(self):
+                self.matched = False
+
+        delivered = Delivered()
+
+        def fake_replay(handed, routes, replay, *, same, workers, mismatch):
+            for route in routes:
+                if not same(route, replay(route)):
+                    raise mismatch(route)
+            handed.matched = True
+
+        scenarios = [('boot', 6, 'boot'), ('generic', 12, 'generic')]
+        paths = {'boot': Path('boot.txt'), 'generic': Path('generic.txt')}
+        with tempfile.TemporaryDirectory() as folder, patch.object(build, 'run_player', fake_run), \
+                patch('retrorecomp.delivery_evidence.deliver_packed', lambda *arguments: delivered), \
+                patch('retrorecomp.delivery_evidence.replay_packed', fake_replay):
+            result = gba_conversion._delivery_evidence(Path('game.exe'), Path(folder), scenarios, paths, lambda text: None)
+        return result, calls
+
+    def test_the_compressed_copy_is_compared_with_the_build_on_every_scenario(self):
+        (delivered, liveness), calls = self.delivery()
+        self.assertTrue(delivered.matched)
+        self.assertEqual(calls, [('boot', 'build'), ('generic', 'build'), ('boot', 'packed'), ('generic', 'packed')])
+        self.assertEqual(liveness['generic']['frames'], 12)
+        self.assertGreater(liveness['generic']['distinct_pictures'], 1)
+        self.assertEqual(liveness['generic']['audible_frames'], 12)
+
+    def test_a_compressed_copy_that_differs_by_one_row_or_one_picture_is_refused(self):
+        with self.assertRaises(ConversionError) as caught:
+            self.delivery(packed_rows=lambda frames: self.rows(frames).replace(b'3,', b'9,', 1))
+        self.assertIn('compressed', str(caught.exception))
+        with self.assertRaises(ConversionError):
+            self.delivery(packed_picture='q' * 64)
+
+    def test_a_player_whose_picture_never_changes_is_refused(self):
+        with self.assertRaises(ConversionError) as caught:
+            self.delivery(still=True)
+        self.assertIn('never changes', str(caught.exception))
+
+
 if __name__ == '__main__':
     unittest.main()

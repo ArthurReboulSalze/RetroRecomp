@@ -142,6 +142,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
     from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_knowledge, gba_patches, knowledge, path_profiles, timings
     from .conversion_common import check_run_budget, resolve_scan_level, write_if_changed
     from .core import slug, toolchain
+    from .delivery_evidence import report_fields
     from .gba import bios_status, read_bytes
     from .library import atomic_json, library_root
     from .paths import ROOT, selected_bios_path
@@ -248,12 +249,15 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                     reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
             interpreted = outcome.coverage.get('interpreted_insns')
             rows.append(_row(name, count, None, interpreted, coverage=outcome.coverage.get('coverage'),
-                             distinct_misses=outcome.coverage.get('distinct_misses'), aborted=outcome.aborted or None,
+                             distinct_misses=outcome.coverage.get('distinct_misses'), healed_native=outcome.coverage.get('healed_native'),
+                             aborted=outcome.aborted or None,
                              exit_code=outcome.returncode, picture_sha256=outcome.frame_sha256 or None,
                              cycles_total=outcome.cycles))
             history.append({**rows[-1], 'pass': number})
             emit(f"Game Boy Advance {name}: {outcome.coverage.get('coverage', 'no coverage report')}, "
                  f"{interpreted} interpreted instructions, {outcome.coverage.get('distinct_misses')} distinct addresses"
+                 + (f", {outcome.coverage['healed_native']} healed natively (the engine's label counts a heal as not fully static)"
+                    if outcome.coverage.get('healed_native') else '')
                  + (f'; stopped: {outcome.aborted}' if outcome.aborted else '.'))
         new = len(learned.roots - in_build.roots) + len(learned.spans - in_build.spans) + fresh
         observations.merge(learned)
@@ -310,17 +314,25 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
     compiler = {'url': ENGINE_URL, 'revision': ENGINE_REV, 'license': LICENSE, 'arm_core_revision': ARM_CORE_REV,
                 'patch_digest': digest, 'patches': notes, 'bios': "generated from the player's own system ROM, private"}
     exported = artwork = None
+    delivery_extra: dict = {}
     if player and output is not None:
         exported, artwork = _export_player(project, stage_root, bios_code, bios, rom_file, rom, title, sha1, emit,
                                            {'rom_path': rom.path, 'cover': cover, 'boxart_dir': boxart_dir,
                                             'online_cover': online_cover, 'use_cover': use_cover, 'emit': emit})
+        delivered, liveness = _delivery_evidence(exported, project, scenarios, paths, emit)
+        validation = {**validation, **delivered.validation_fields(),
+                      'sound_heard': any(record['audible_frames'] for record in liveness.values())}
+        for row in rows:
+            row['liveness'] = report_fields(liveness[row['scenario']], LIVENESS_FIELDS)
+        delivery_extra = {**delivered.report_fields(), 'delivered_file': delivered.kind,
+                          'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()}}
     report = report_of(rom, level, rows, validation=validation, coverage=coverage, compiler=compiler,
                        extra={'history': history, 'backend': 'gbarecomp-player' if exported else 'gbarecomp-probe-host',
                               'executable': exported.name if exported else build.HOST_NAME,
                               'build_executable': str(exported) if exported else str(host),
                               'build_directory': str(project), 'artwork': artwork,
                               'knowledge': gba_knowledge.knowledge_block(record, promotion, {**received_info, **proof}),
-                              'conversion_wall_seconds': round(time.perf_counter() - started, 6),
+                              'conversion_wall_seconds': round(time.perf_counter() - started, 6), **delivery_extra,
                               'player': ('host kit: window, controls, menus, sound at 32768 Hz mono, quick state, battery save'
                                          if exported else 'none: the probe host has no window and no sound')})
     destination = (output.resolve() if output else project) / 'conversion-report.json'
@@ -335,6 +347,46 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                           'record_counts': promotion})
     emit('Game Boy Advance run checked on tested scenarios; gameplay and hardware fidelity remain unverified.')
     return exported or host
+
+
+# The liveness keys of the report, from the common record of delivery_evidence.
+LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
+                   'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',
+                   'last_audible_frame': 'last_audible_frame', 'distinct_sound_blocks': 'distinct_sound_blocks'}
+
+
+def _delivery_evidence(executable: Path, project: Path, scenarios: list, paths: dict, emit) -> tuple:
+    """The player is run on the scenarios (the reference of the delivered file: its picture, its frame count and one row per frame, the hashes of the
+    picture and of the sound), then the compressed copy that is delivered is run the same way and must give the same rows (gate G5); the rows say that the
+    picture and the sound change (gate G8). Returns `(delivered, liveness)`. Not a reference of the CPU: that is the interpreter comparison above."""
+    from . import gba_build as build
+    from .delivery_evidence import deliver_packed, liveness_summary, replay_packed, require_moving_picture
+    work = project / 'delivery'
+    emit('Game Boy Advance: running the player on the scenarios (the reference of the delivered file).')
+    reference = {}
+    for name, count, _ in scenarios:
+        run = build.run_player(executable, work / name / 'build', count, paths[name])
+        if run.returncode or run.frames != count or not run.rows:
+            raise ConversionError(f'Game Boy Advance: the player did not run the {name} scenario to its end (code {run.returncode}, '
+                                  f'frames {run.frames} of {count}); nothing was published.')
+        reference[name] = run
+    liveness = {name: liveness_summary(build.frame_rows(run.rows)) for name, run in reference.items()}
+    require_moving_picture(liveness['generic'], lambda: ConversionError(
+        'Game Boy Advance: the picture never changes on the generic scenario of the player; nothing was published.'))
+    delivered = deliver_packed(executable, project / ('packed-' + executable.name), 'Game Boy Advance', emit)
+    routes = [(name, count, paths[name]) for name, count, _ in scenarios]
+
+    def replay(route):
+        return build.run_player(delivered.path, work / route[0] / 'packed', route[1], route[2])
+
+    def same(route, result):
+        expected = reference[route[0]]
+        return (result.returncode == 0 and result.frames == expected.frames and result.picture_sha256 == expected.picture_sha256
+                and result.rows == expected.rows)
+
+    replay_packed(delivered, routes, replay, same=same, workers=1, mismatch=lambda route: ConversionError(
+        f'Game Boy Advance: the delivered (compressed) player differs from the player as built on the {route[0]} scenario; nothing was published.'))
+    return delivered, liveness
 
 
 def _export_player(project: Path, stage_root: Path, bios_code: Path, bios: Path, rom_file: Path, rom, title: str, sha1: str,

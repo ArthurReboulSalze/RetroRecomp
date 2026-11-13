@@ -25,7 +25,9 @@ class FakeProcess:
     """Stands in for subprocess.run: a player whose picture is its frame count and the keys it was given, whose state file
     restores the frame count it was saved at, and whose save is written when the key script is named 'write'."""
 
-    def __init__(self, restore_state=True, same_picture_without_state=False, write_save=True, old_player=False):
+    def __init__(self, restore_state=True, same_picture_without_state=False, write_save=True, old_player=False, refuse_damaged=True, create_on_missing=False):
+        self.refuse_damaged = refuse_damaged
+        self.create_on_missing = create_on_missing
         self.restore_state = restore_state
         self.same_picture_without_state = same_picture_without_state
         self.write_save = write_save
@@ -52,8 +54,18 @@ class FakeProcess:
             lines.append(f'[state] save at frame {save.group(1)} ok')
         elif load and not self.old_player:
             at, resume = int(load.group(1)), int(load.group(2))
-            lines.append(f'[state] load at frame {at} ok')
-            end = resume + (frames - at)       # the player counts from the saved frame whether or not the state restored
+            state_file = cwd / 'datas' / 'states' / 'game-0123.rrstate'
+            if not state_file.is_file():
+                lines.append(f'[state] load at frame {at} FAILED')
+                if self.create_on_missing:
+                    state_file.parent.mkdir(parents=True, exist_ok=True)
+                    state_file.write_bytes(b'')
+            elif self.refuse_damaged and state_file.read_bytes() != b'state' * 100:
+                lines.append('[host] quick state refused: snapshot: bad magic (not a GBAS file)')
+                lines.append(f'[state] load at frame {at} FAILED')
+            else:
+                lines.append(f'[state] load at frame {at} ok')
+                end = resume + (frames - at)       # the player counts from the saved frame whether or not the state restored
         colour = (end * 7 + sum(map(ord, keys))) % 251
         if load and not self.restore_state and not self.same_picture_without_state:
             colour = (colour + 99) % 251
@@ -304,6 +316,54 @@ class ChecksAgainstAFakePlayerTest(unittest.TestCase):
         self.run_state(fake)
         self.assertTrue(self.exe.is_file())
         self.assertFalse((self.exe.parent / 'datas').exists())
+
+    def run_refusals(self, fake):
+        with unittest.mock.patch.object(tool.subprocess, 'run', fake):
+            return tool.run_refusal_check(self.exe, self.work, self.keys, 600, 120, 2, 60)
+
+    def test_refusal_check_passes_when_every_damaged_state_is_refused_and_a_missing_one_creates_nothing(self):
+        fake = FakeProcess()
+        report = self.run_refusals(fake)
+        result = report['result']
+        self.assertEqual(result['verdict'], 'pass', result)
+        self.assertEqual(len(result['variants']), 9)             # eight damaged forms and the missing state
+        self.assertTrue(all(row['ok'] for row in result['variants'].values() if row['required']), result['variants'])
+        self.assertEqual(result['files_created_by_the_missing_state'], [])
+        self.assertEqual(fake.calls[0][0], 'save@600')
+        self.assertTrue(all(call[0] == 'load@2=600' for call in fake.calls[2:]))
+        self.assertEqual(fake.calls[1], ('', 'write.keys', 122))   # the control never loads
+
+    def test_a_player_that_accepts_a_damaged_state_fails_the_check(self):
+        result = self.run_refusals(FakeProcess(refuse_damaged=False))['result']
+        self.assertEqual(result['verdict'], 'fail')
+        self.assertFalse(result['variants']['emptied']['ok'])
+        self.assertIn('emptied', ' '.join(result['problems']))
+
+    def test_a_missing_state_that_creates_a_file_fails_the_check(self):
+        result = self.run_refusals(FakeProcess(create_on_missing=True))['result']
+        self.assertEqual(result['verdict'], 'fail')
+        self.assertEqual(result['files_created_by_the_missing_state'], ['game-0123.rrstate'])
+
+    def test_an_old_player_stops_the_refusal_check(self):
+        with self.assertRaises(tool.CheckError):
+            self.run_refusals(FakeProcess(old_player=True))
+
+    def test_the_damaged_forms_break_the_container_but_one(self):
+        data = bytes(range(256)) * 4
+        forms = tool.damaged_states(data)
+        self.assertEqual(len(forms), 8)
+        self.assertEqual([name for name, (_, required) in forms.items() if not required], ['one byte inverted in the middle'])
+        self.assertTrue(all(blob != data for blob, _ in forms.values()))
+        self.assertEqual(forms['noise of the same size'][0], tool.damaged_states(data)['noise of the same size'][0])   # deterministic
+        self.assertEqual(len(forms['noise of the same size'][0]), len(data))
+
+    def test_a_route_reports_the_last_picture_the_frames_and_the_interpreted_count(self):
+        with unittest.mock.patch.object(tool.subprocess, 'run', FakeProcess()):
+            report = tool.run_route_check(self.exe, self.work, self.keys, 300, 60)
+        self.assertEqual(report['result']['verdict'], 'pass', report['result'])
+        self.assertEqual((report['result']['frames'], report['result']['interpreted_instructions']), (300, 0))
+        self.assertEqual(len(report['result']['picture_sha256']), 64)
+        self.assertEqual(len(report['parameters']['keys_sha256']), 64)
 
     def test_state_check_arguments_are_checked(self):
         with self.assertRaises(tool.CheckError):

@@ -60,7 +60,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| Game Boy Advance | experimental | `█████░░░░░` 47 % | ✅ 0 · 🟡 14 · ❔ 1 |
+| Game Boy Advance | experimental | `███████░░░` 69 % | ✅ 6 · 🟡 10 · ❔ 0 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
 | Atari ST | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
@@ -75,20 +75,20 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | 🟡 | ❔ | ✅ | ✅ | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | ❔ | ✅ | ✅ | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -105,20 +105,20 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | P |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | Y | Y | Y |
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | Y | Y | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | Y | Y | Y |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | P | P | P | P | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | P | ? | Y | Y | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | Y | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | ? | Y | Y | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | P | P | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | P | P | Y | P | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | P | P | P |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | P | Y | P | P | P | P | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | P | Y | ? | P | P | P | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | - | - | - | ? | - | - | - | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | - | - | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -370,6 +370,22 @@ The page of each console, which the README links its line to (a console of the m
   lengths of one exact cartridge, no bytes), rows a conversion receives are rechecked by its own run and are never saved nor shared, and a failed conversion with received rows
   is converted again without them (tests; a forced-mismatch proof; `tools/gba_bogus_rows_audit.py` on the Minish Cap with 2,000, 150 and 20 invented rows: the generator hangs on wrong roots, the converter stops it after 300 s and converts again without them, native equal to the interpreter, no bogus row in the player's paths or the promoted record; 230 in-area roots accepted by the generator also pass); no path is qualified yet, the site's limits are not deployed
   and nothing was shared, the CPS-1, X68000 and PC Engine precedent. Not done: the Debian witness of this tree, the quiet-PC cost of a frame, a conversion of any other cartridge.
+
+- Game Boy Advance (13 November 2026, tree of `spec/gba-174`; Windows, and a Debian 13 PC for four cartridges): a panel of **four** cartridges (the maintainer's decision of 13 November: Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Flash 64 KB and EEPROM, affine layers, code run from RAM, a software 3D game) and eight more as extra evidence, not panel members
+  (Pokémon Emerald and Ruby: Flash 128 KB and the clock; Metroid Fusion, Mega Man Zero 3, Wario Land 4: SRAM; Sonic Advance 2; Advance Wars; Mario & Luigi), 4 to 16 MB, converted from an empty library, none dropped, native equal to the engine's interpreter on both scenarios of each (picture, guest cycles, memory and CPU hashes), 0 interpreted
+  instructions at the end ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-panel-of-four-eight-more-cartridges-the-delivered-file-the-refusals-and-the-routes-13-november-2026-174)). The matrix moves
+  in letters, each with its evidence (the owner may take any of them back): G3 *Native code* `P` to `Y`: 0 interpreted instructions on the final scenarios of the twelve, the four
+  routes that run millions of instructions listed with their counts; G5 *Delivered file* `P` to `Y`: the conversion runs the player as built, then the compressed copy it
+  delivers, and publishes only if the last picture, the frame count and **every frame's row** (picture hash, sound hash, audible) are equal (12 of 12); G8 *Liveness* `P` to `Y`: the
+  rows say that picture and sound change (1,028 to 2,905 different pictures in the generic scenario, 2,514 to 3,433 frames with a sample of 3,600; nobody listened); G6 *States*
+  `P` to `Y`: a state saved by one process is loaded by a fresh one (Golden Sun and Metroid Fusion on Windows, Golden Sun on Debian), seven of seven damaged forms of the file that
+  break its container are refused and a missing state creates nothing (the eighth, one byte flipped in the middle of the memory, is accepted: no checksum); G12 *Panel* `P` to `Y`:
+  the four, none dropped (two of the four save chips; Flash 128 KB, the clock and SRAM only through the extra evidence); G13 *Cross-OS* `P` to `Y`: on Debian the conversions of Golden Sun, Mario Kart, Pokémon Emerald and The Minish Cap end with the same counts and the delivered players give
+  **the same last picture as Windows on their routes** (4,500, 4,500, 9,600 and 10,000 frames; 34, 0, 9,733,707 and 13,910,846 interpreted instructions, equal), the Golden Sun state and refusals checks and the Emerald save pass there too; G9 *Route depth* `?` to `P`: one route per cartridge
+  reaches play (twelve), the first minutes, not a level or a boss, four of them through millions of interpreted instructions (code the two scenarios never reach); G16 *Shared hints* `-` to
+  `P`: the path sharing of 1.7.3 (numeric records, received rows rechecked and never saved, a failed conversion converted again without them, the generator's time limit). **Not moved:**
+  G7 *Saves* stays `P` (three chips of four: Flash 64 KB on Sonic Advance 2, Flash 128 KB on Pokémon Emerald, EEPROM on The Minish Cap; SRAM was tried on Mega Man Zero 3 and its route does not reach a save point),
+  G4 stays `P` (the sound is not compared with the interpreter's), G10 and G11 stay `P`, G2 and G15 are not examined, G1 and G14 are the owner's. No gate is `Y` by an agent's word: these are proposals in the owner's matrix.
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags

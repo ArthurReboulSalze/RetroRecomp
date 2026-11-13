@@ -56,6 +56,13 @@ bool g_selftest = false;
 int g_selftest_phase = 0;
 uint64_t g_state_hash = 0;
 
+// RETRORECOMP_GBA_ROWS (a test of the player, like the switches above) names a text file that receives one line per frame,
+// `frame,picture,sound,audible` (the two hashes in hexadecimal; audible is 1 when a sample of the frame was not zero): what the
+// conversion compares between the build and the compressed copy it delivers, and counts to say that the picture and the sound change.
+FILE* g_rows = nullptr;
+uint64_t g_frame_sound = 1469598103934665603ull;
+bool g_frame_audible = false;
+
 // RETRORECOMP_GBA_STATE (a test of the player, like the switches above) presses F8 and F9 at chosen frames: `save@N` writes the
 // quick state at the end of frame N; `load@K=N` loads it at the end of frame K and counts from N afterwards (the frame the state
 // was saved at), so that a key script goes on where the saving process left it. Steps are separated by commas. Used by
@@ -79,6 +86,11 @@ void parse_state_switch() {
         g_state_steps.push_back(step);
         text = end && *end == ',' ? end + 1 : nullptr;
     }
+}
+
+void open_rows() {
+    const char* path = getenv("RETRORECOMP_GBA_ROWS");
+    if (path && *path) g_rows = fopen(path, "w");
 }
 
 void load_script() {
@@ -139,6 +151,10 @@ void take_sound() {
         if (!count) break;
         const uint32_t ratio = rate >= kOutputRate && rate % kOutputRate == 0 ? rate / kOutputRate : 1;
         for (size_t i = 0; i < count; ++i) {
+            if (g_rows) {                          // only a run that writes the rows hashes the sound: play is unchanged
+                g_frame_sound = (g_frame_sound ^ static_cast<uint16_t>(block[i])) * 1099511628211ull;
+                if (block[i]) g_frame_audible = true;
+            }
             g_sum += block[i];
             if (++g_sum_count >= ratio) {
                 push_sample(static_cast<int16_t>(g_sum / static_cast<int32_t>(g_sum_count)));
@@ -203,6 +219,10 @@ int driver(const gbarecomp::RrDriverApi& api) {
     const int status = rrhk_main(rrhk_adapter(), RR_GBA_TITLE, scale);
     flush_battery();
     dump_picture();
+    if (g_rows) {
+        fclose(g_rows);
+        g_rows = nullptr;
+    }
     g_api = nullptr;
     return g_failed ? 1 : status;
 }
@@ -237,12 +257,17 @@ bool rrgba_frame(uint16_t pressed) {
     if (g_scripted) pressed = scripted_pressed();
     g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
     ++g_frame_index;
+    g_frame_sound = 1469598103934665603ull;
+    g_frame_audible = false;
     if (!g_api->step_frame()) {
         g_failed = true;
         return false;
     }
     take_picture();
     take_sound();
+    if (g_rows)
+        fprintf(g_rows, "%llu,%016llx,%016llx,%d\n", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(picture_hash()),
+                static_cast<unsigned long long>(g_frame_sound), g_frame_audible ? 1 : 0);
     if (g_selftest) run_selftest();
     if (!g_state_steps.empty()) run_state_switch();
     if (++g_since_flush >= kFlushFrames) {
@@ -355,6 +380,7 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_embedded_bios = {static_cast<const uint8_t*>(bios), bios_size};
     gbarecomp::g_rr_driver = driver;
     load_script();
+    open_rows();
     parse_state_switch();
     g_selftest = getenv("RETRORECOMP_GBA_SELFTEST") != nullptr;
     // Every check (a scripted run, the self-test, the kit's frame limit) starts the cartridge's clock from a fixed time and moves it

@@ -1,0 +1,7 @@
+# Pokemon Emerald (USA, Europe): the title screen to the Start menu (gate G7, saves).
+# Start at frame 400, then no key: with the save of pokemon_emerald_save_write.keys the menu offers CONTINUE with the player's panel, with no save only NEW GAME.
+# The frame limit is 1,500.
+# frame,keyinput_active_low (the value holds until the next line)
+0,0x03ff
+400,0x03f7
+404,0x03ff

@@ -9,6 +9,13 @@ place). Two checks, each of them with two or three separate processes:
           from N afterwards, runs the same M frames and keeps its last picture. The two pictures must have the same SHA-256.
           A control process that never loads the state and runs as long as B must give another picture, otherwise the picture
           would not tell the state from nothing and the check says so ("weak").
+  refusals  the state file process A saved is damaged in eight ways (emptied, cut, grown, header and identity inverted, noise, one byte in
+          the middle) and a fresh process tries to load each, then one tries to load none: every one must say `quick state refused` (the
+          missing one nothing), end with code 0 as a run that never loaded a state (same picture and frame count as the control), and the
+          missing one must create no state file. A byte inverted in the middle is reported, not required (memory has no checksum).
+  route    one process plays a key script (tools/gba_routes/*.keys) to a frame limit and reports the last picture's SHA-256, the frame count and
+          the instructions the interpreter ran: the numbers two systems must give equal for the same converted game (gate G13) and the depth
+          a route reaches (gate G9). It says nothing about what the picture shows: read it.
   save    process A plays a key script that makes the game write its cartridge save and ends; the save file is on disk, of the
           size the game keeps, and not one single byte value. Process B, fresh, starts with that file and plays a second script
           (to the file-select screen, say); a control process with no file plays the same second script. B's last picture must
@@ -18,6 +25,8 @@ The headless player has no key for F8 and F9, so the state check needs the test 
 `load@K=N` that native/gba_machine.cpp reads (an executable converted before it existed says so and the check stops).
 
     python -B tools/gba_fresh_process.py state --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
+    python -B tools/gba_fresh_process.py refusals --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
+    python -B tools/gba_fresh_process.py route --exe GAME.exe --keys tools/gba_routes/ROUTE.keys --frames N
     python -B tools/gba_fresh_process.py save  --exe GAME.exe --keys-a WRITE.keys --frames-a 3000 --keys-b SHOW.keys --frames-b 900
     python -B tools/gba_fresh_process.py keys  --out ROUTE.keys --header "what it reaches" --events "300:8,304:0" --pulse 1,700,6000,50,4
 
@@ -182,6 +191,7 @@ class RunResult:
     picture_sha256: str | None = None
     picture: str | None = None
     stderr_tail: str = ''
+    refused: bool = False             # the player said "quick state refused" (a state it read and did not accept)
 
     def state_ok(self, kind: str) -> bool:
         return any(k == kind and ok for k, _, ok in self.state_lines)
@@ -189,7 +199,7 @@ class RunResult:
     def as_dict(self) -> dict:
         return {'label': self.label, 'returncode': self.returncode, 'frames': self.frames, 'interpreted': self.interpreted,
                 'state_lines': [f'{k}@{frame} {"ok" if ok else "FAILED"}' for k, frame, ok in self.state_lines],
-                'picture_sha256': self.picture_sha256}
+                'picture_sha256': self.picture_sha256, **({'refused': True} if self.refused else {})}
 
 
 def parse_player_output(text: str) -> tuple[int | None, int | None, list[tuple[str, int, bool]]]:
@@ -232,7 +242,8 @@ def run_player(exe: Path, folder: Path, label: str, frames: int, keys: Path | No
         raise CheckError(f'{label}: the player did not end within {timeout} s (killed)') from error
     text = (done.stdout or '') + (done.stderr or '')
     reached, interpreted, states = parse_player_output(text)
-    result = RunResult(label, done.returncode, reached, interpreted, states, stderr_tail='\n'.join(text.strip().splitlines()[-6:]))
+    result = RunResult(label, done.returncode, reached, interpreted, states, stderr_tail='\n'.join(text.strip().splitlines()[-6:]),
+                       refused='quick state refused' in text)
     if dump.is_file():
         result.picture = str(dump)
         result.picture_sha256 = picture_sha256(dump)
@@ -368,6 +379,104 @@ def run_state_check(exe: Path, work: Path, keys: Path | None, save_frame: int, m
                         {'keys': keys.name if keys else None, 'save_frame': save_frame, 'more': more, 'load_frame': load_frame})
 
 
+def damaged_states(data: bytes) -> dict[str, tuple[bytes, bool]]:
+    """{name: (bytes, required)} the damaged forms of a quick state. `required`: the player must refuse it (it breaks the container: magic, identity or
+    size). The one byte flipped in the middle is only reported: a state of memory has no checksum to refuse it by."""
+    noise = bytearray()
+    block = 0
+    while len(noise) < len(data):
+        noise += hashlib.sha256(b'gba-fresh-process noise %d' % block).digest()
+        block += 1
+    middle = bytearray(data)
+    middle[len(data) // 2] ^= 0xFF
+    return {
+        'emptied': (b'', True),
+        'cut in half': (data[: len(data) // 2], True),
+        'last byte missing': (data[:-1], True),
+        'grown by 64 bytes': (data + bytes(64), True),
+        'first 16 bytes inverted': (bytes(byte ^ 0xFF for byte in data[:16]) + data[16:], True),
+        'cartridge identity damaged': (data[:8] + bytes(byte ^ 0xFF for byte in data[8:28]) + data[28:], True),
+        'noise of the same size': (bytes(noise[: len(data)]), True),
+        'one byte inverted in the middle': (bytes(middle), False),
+    }
+
+
+def refusal_verdict(control: RunResult, variants: dict[str, tuple[RunResult, bool]], created: list[str]) -> dict:
+    """A state the player must not accept: it said so (`quick state refused`, the load failed), went on from where a fresh start is (the picture
+    and the frame count of a run that never loaded) and ended with code 0; a missing state is not an error and creates nothing."""
+    problems: list[str] = []
+    stopping: list[str] = []          # what stops the check from being a check (verdict "error")
+    table: dict[str, dict] = {}
+    if control.picture_sha256 is None or control.returncode != 0:
+        stopping.append('the control process (no state loaded) did not end with a picture')
+    if not any(kind == 'load' for run, _ in variants.values() for kind, _, _ in run.state_lines):
+        stopping.append('the player printed no [state] line: it was built before RETRORECOMP_GBA_STATE, convert it again')
+    for name, (run, required) in variants.items():
+        failed = any(kind == 'load' and not ok for kind, _, ok in run.state_lines)
+        same = run.picture_sha256 is not None and run.picture_sha256 == control.picture_sha256 and run.frames == control.frames
+        row = {'required': required, 'load_failed': failed, 'refused_with_a_message': run.refused, 'picture_equals_a_fresh_start': same,
+               'exit_code': run.returncode}
+        row['ok'] = failed and same and run.returncode == 0 and (run.refused or name == 'missing')
+        table[name] = row
+        if required and not row['ok']:
+            problems.append(f'{name}: not refused as it should be ({row})')
+    if created:
+        problems.append(f'a load of a missing state created {created}')
+    verdict = 'error' if stopping else ('fail' if problems else 'pass')
+    return {'verdict': verdict, 'variants': table, 'files_created_by_the_missing_state': created, 'problems': stopping + problems}
+
+
+def run_refusal_check(exe: Path, work: Path, keys: Path | None, save_frame: int, more: int, load_frame: int, timeout: int) -> dict:
+    """Damaged states are refused and a missing state creates nothing (gate G6): process A saves a state, then fresh processes try to load it damaged
+    in eight ways and try to load none. Every one must end as a run that never loaded a state."""
+    if load_frame < 1 or load_frame >= save_frame:
+        raise CheckError('--load-frame must be at least 1 and below --save-frame')
+    if keys is not None:
+        read_key_script(keys)
+    folder = work / 'refusals'
+    game = prepare_folder(exe, folder)
+    a = run_player(game, folder, 'A', save_frame + more, keys, state_switch(save_frame=save_frame), timeout)
+    states = states_in(folder)
+    if not states or not a.state_ok('save'):
+        raise CheckError('process A saved no state (a player built before RETRORECOMP_GBA_STATE, or a game that cannot save one)')
+    path = states[0]
+    original = path.read_bytes()
+    control = run_player(game, folder, 'control', load_frame + more, keys, '', timeout)
+    variants: dict[str, tuple[RunResult, bool]] = {}
+    for name, (data, required) in damaged_states(original).items():
+        path.write_bytes(data)
+        label = 'D-' + re.sub(r'[^a-z0-9]+', '-', name)
+        variants[name] = (run_player(game, folder, label, load_frame + more, keys, state_switch(load_frame=load_frame, resume=save_frame), timeout),
+                          required)
+    for leftover in states_in(folder):
+        leftover.unlink()
+    missing = run_player(game, folder, 'missing', load_frame + more, keys, state_switch(load_frame=load_frame, resume=save_frame), timeout)
+    variants['missing'] = (missing, True)
+    created = [file.name for file in states_in(folder)]
+    verdict = refusal_verdict(control, variants, created)
+    verdict['state_file_bytes'] = len(original)
+    runs = {'A': a, 'control': control, **{name: run for name, (run, _) in variants.items()}}
+    return build_report('refusals', exe, runs, verdict,
+                        {'keys': keys.name if keys else None, 'save_frame': save_frame, 'more': more, 'load_frame': load_frame})
+
+
+def run_route_check(exe: Path, work: Path, keys: Path, frames: int, timeout: int) -> dict:
+    read_key_script(keys)
+    folder = work / 'route'
+    game = prepare_folder(exe, folder)
+    run = run_player(game, folder, 'route', frames, keys, '', timeout)
+    problems = []
+    if run.returncode != 0:
+        problems.append(f'the player ended with code {run.returncode}')
+    if run.frames != frames:
+        problems.append(f'the player ended at frame {run.frames} of {frames}')
+    if run.picture_sha256 is None:
+        problems.append('the player left no picture')
+    verdict = {'verdict': 'error' if problems else 'pass', 'picture_sha256': run.picture_sha256, 'frames': run.frames,
+               'interpreted_instructions': run.interpreted, 'problems': problems}
+    return build_report('route', exe, {'route': run}, verdict, {'keys': keys.name, 'keys_sha256': hashlib.sha256(keys.read_bytes()).hexdigest(), 'frames': frames})
+
+
 def sav_of(folder: Path) -> tuple[dict | None, Path | None]:
     files = saves_in(folder)
     return (save_stats(files[0].read_bytes()), files[0]) if files else (None, None)
@@ -414,6 +523,16 @@ def build_parser() -> argparse.ArgumentParser:
     state.add_argument('--save-frame', type=int, default=600)
     state.add_argument('--more', type=int, default=120, help='frames run after the save (A) and after the load (B)')
     state.add_argument('--load-frame', type=int, default=2, help='frame at which the fresh process loads the state')
+    refusals = sub.add_parser('refusals', help='damaged states are refused, a missing state creates nothing')
+    common(refusals)
+    refusals.add_argument('--keys', type=Path, help='key script played by every process (a route into play)')
+    refusals.add_argument('--save-frame', type=int, default=600)
+    refusals.add_argument('--more', type=int, default=120)
+    refusals.add_argument('--load-frame', type=int, default=2)
+    route = sub.add_parser('route', help='one route played to a frame limit: the last picture hash and the interpreted count')
+    common(route)
+    route.add_argument('--keys', type=Path, required=True)
+    route.add_argument('--frames', type=int, required=True)
     save = sub.add_parser('save', help='a cartridge save written by one process is read back by another')
     common(save)
     save.add_argument('--keys-a', type=Path, required=True)
@@ -447,6 +566,10 @@ def main(argv: list[str] | None = None) -> int:
         work.mkdir(parents=True, exist_ok=True)
         if args.command == 'state':
             report = run_state_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
+        elif args.command == 'route':
+            report = run_route_check(exe, work, args.keys, args.frames, args.timeout)
+        elif args.command == 'refusals':
+            report = run_refusal_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         else:
             report = run_save_check(exe, work, args.keys_a, args.frames_a, args.keys_b, args.frames_b, args.timeout)
     except (CheckError, ValueError) as error:

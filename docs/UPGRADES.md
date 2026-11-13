@@ -239,6 +239,26 @@ SRAM take; no other machine's code changes.
 **Quick states:** MSX and MSX2 states carry the SRAM: the layout is `msx-state-3`, and a state of 1.7.3 is refused cleanly (the build
 binding differs). No other machine's state changes.
 
+## Game Boy Advance: the delivered file is replayed against the player as built, the player can write a row per frame, a heal count in the report (1.7.4)
+
+**What changes.**
+- **The delivered file** (gates G5 and G8). The player writes one text line per frame (the frame, the hash of the picture, the hash of the sound of that frame, whether a
+  sample was not zero) when `RETRORECOMP_GBA_ROWS` names a file: a test switch, like the player's other `RETRORECOMP_GBA_*` ones, never read in play, and the sound is hashed
+  only when the switch is set. After the player is built the conversion runs it on both scenarios, then runs the compressed copy it delivers (`delivery_evidence`, the helper of the
+  other machines) and **refuses to publish** a copy whose last picture, frame count or any row differs; a picture that never changes in the generic scenario refuses the
+  conversion too. The report gets the liveness of each scenario, `packed_reference_match`, `delivered_file` and `sound_routes`. A conversion takes a few minutes more (two
+  runs of the player per scenario).
+- **The report counts the heals** the engine did (`healed_native` in the rows and in the log): on Linux the engine's `NOT_STATIC` label also counts a heal.
+- **Checks** (tools, not the converter): `gba_fresh_process.py refusals` (damaged quick states refused, a missing one creates nothing) and `route` (a route's last picture, frame count and
+  interpreted count); twelve key-script routes and three save scripts in `tools/gba_routes/`.
+
+**Hot path:** no. The player does one `getenv` at start; with the switch unset it does nothing more per frame than before (one pointer test).
+
+**What moves:** the Game Boy Advance **game** stamp only (`20b869ddcba2` on main at the 1.7.3 release, `f65705900b6a` on this branch: `native/gba_machine.cpp`, `retrorecomp/gba_build.py` and
+`retrorecomp/gba_conversion.py` are game inputs). The host stamp and the build stamp of the Game Boy Advance do not move, and **no other console's** stamp moves (the stamps of the nineteen
+profiles were compared with main `f3479c5a`: only that one differs). `delivery_evidence.py`, `conversion_gates.py` and `resources.py` are untouched. **Existing Game Boy Advance
+exports:** the game stamp moves, so a 1.7.3 export is converted in full at its next conversion, from the player's own paths (experimental, private to the player, no frozen legacy stamp). **Quick
+states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused by the build binding (a rule of [UPGRADES](#the-rule-the-previous-release-only)).
 ## Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report (1.7.4)
 
 The Atari ST game stamp moves, from `f61238ca2d46` to `f414185b00f5` (measured on main `be170091`; the host and build stamps do not move), so an Atari ST export of 1.7.3 is converted again in
