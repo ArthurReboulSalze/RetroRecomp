@@ -13,6 +13,9 @@ place). Two checks, each of them with two or three separate processes:
           the middle) and a fresh process tries to load each, then one tries to load none: every one must say `quick state refused` (the
           missing one nothing), end with code 0 as a run that never loaded a state (same picture and frame count as the control), and the
           missing one must create no state file. A byte inverted in the middle is reported, not required (memory has no checksum).
+  route    one process plays a key script (tools/gba_routes/*.keys) to a frame limit and reports the last picture's SHA-256, the frame count and
+          the instructions the interpreter ran: the numbers two systems must give equal for the same converted game (gate G13) and the depth
+          a route reaches (gate G9). It says nothing about what the picture shows: read it.
   save    process A plays a key script that makes the game write its cartridge save and ends; the save file is on disk, of the
           size the game keeps, and not one single byte value. Process B, fresh, starts with that file and plays a second script
           (to the file-select screen, say); a control process with no file plays the same second script. B's last picture must
@@ -23,6 +26,7 @@ The headless player has no key for F8 and F9, so the state check needs the test 
 
     python -B tools/gba_fresh_process.py state --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
     python -B tools/gba_fresh_process.py refusals --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
+    python -B tools/gba_fresh_process.py route --exe GAME.exe --keys tools/gba_routes/ROUTE.keys --frames N
     python -B tools/gba_fresh_process.py save  --exe GAME.exe --keys-a WRITE.keys --frames-a 3000 --keys-b SHOW.keys --frames-b 900
     python -B tools/gba_fresh_process.py keys  --out ROUTE.keys --header "what it reaches" --events "300:8,304:0" --pulse 1,700,6000,50,4
 
@@ -456,6 +460,23 @@ def run_refusal_check(exe: Path, work: Path, keys: Path | None, save_frame: int,
                         {'keys': keys.name if keys else None, 'save_frame': save_frame, 'more': more, 'load_frame': load_frame})
 
 
+def run_route_check(exe: Path, work: Path, keys: Path, frames: int, timeout: int) -> dict:
+    read_key_script(keys)
+    folder = work / 'route'
+    game = prepare_folder(exe, folder)
+    run = run_player(game, folder, 'route', frames, keys, '', timeout)
+    problems = []
+    if run.returncode != 0:
+        problems.append(f'the player ended with code {run.returncode}')
+    if run.frames != frames:
+        problems.append(f'the player ended at frame {run.frames} of {frames}')
+    if run.picture_sha256 is None:
+        problems.append('the player left no picture')
+    verdict = {'verdict': 'error' if problems else 'pass', 'picture_sha256': run.picture_sha256, 'frames': run.frames,
+               'interpreted_instructions': run.interpreted, 'problems': problems}
+    return build_report('route', exe, {'route': run}, verdict, {'keys': keys.name, 'keys_sha256': hashlib.sha256(keys.read_bytes()).hexdigest(), 'frames': frames})
+
+
 def sav_of(folder: Path) -> tuple[dict | None, Path | None]:
     files = saves_in(folder)
     return (save_stats(files[0].read_bytes()), files[0]) if files else (None, None)
@@ -508,6 +529,10 @@ def build_parser() -> argparse.ArgumentParser:
     refusals.add_argument('--save-frame', type=int, default=600)
     refusals.add_argument('--more', type=int, default=120)
     refusals.add_argument('--load-frame', type=int, default=2)
+    route = sub.add_parser('route', help='one route played to a frame limit: the last picture hash and the interpreted count')
+    common(route)
+    route.add_argument('--keys', type=Path, required=True)
+    route.add_argument('--frames', type=int, required=True)
     save = sub.add_parser('save', help='a cartridge save written by one process is read back by another')
     common(save)
     save.add_argument('--keys-a', type=Path, required=True)
@@ -541,6 +566,8 @@ def main(argv: list[str] | None = None) -> int:
         work.mkdir(parents=True, exist_ok=True)
         if args.command == 'state':
             report = run_state_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
+        elif args.command == 'route':
+            report = run_route_check(exe, work, args.keys, args.frames, args.timeout)
         elif args.command == 'refusals':
             report = run_refusal_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         else:

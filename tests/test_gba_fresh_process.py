@@ -357,6 +357,14 @@ class ChecksAgainstAFakePlayerTest(unittest.TestCase):
         self.assertEqual(forms['noise of the same size'][0], tool.damaged_states(data)['noise of the same size'][0])   # deterministic
         self.assertEqual(len(forms['noise of the same size'][0]), len(data))
 
+    def test_a_route_reports_the_last_picture_the_frames_and_the_interpreted_count(self):
+        with unittest.mock.patch.object(tool.subprocess, 'run', FakeProcess()):
+            report = tool.run_route_check(self.exe, self.work, self.keys, 300, 60)
+        self.assertEqual(report['result']['verdict'], 'pass', report['result'])
+        self.assertEqual((report['result']['frames'], report['result']['interpreted_instructions']), (300, 0))
+        self.assertEqual(len(report['result']['picture_sha256']), 64)
+        self.assertEqual(len(report['parameters']['keys_sha256']), 64)
+
     def test_state_check_arguments_are_checked(self):
         with self.assertRaises(tool.CheckError):
             tool.run_state_check(self.exe, self.work, self.keys, 100, 10, 100, 60)
