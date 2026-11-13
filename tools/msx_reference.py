@@ -362,7 +362,8 @@ endforeach()
 # quick-state serializer (stage 8). Each prints "ok"/"FAIL" lines with
 # the hand-worked value next to the one found, and exits 1 on any failure.
 CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board',
-                  'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line', 'msx2_checks_state')
+                  'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line', 'msx2_checks_state',
+                  'msx2plus_checks')
 
 
 def hardware_checks() -> list[str]:

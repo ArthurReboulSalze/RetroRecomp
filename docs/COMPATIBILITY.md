@@ -252,6 +252,11 @@ cases native code equals the reference interpreter and ends at 0 interpreted ins
 Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
 
+The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
+cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
+the V9958 (its YJK modes and horizontal scroll) on the MSX2's board. No game has been converted for a qualification yet. Disks, MSX-MUSIC and the
+kanji ROM are not converted.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

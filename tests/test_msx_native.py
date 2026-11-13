@@ -230,7 +230,7 @@ class ReportTests(unittest.TestCase):
     def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
         text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
         self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
-        self.assertIn("'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks)", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks)", text)
 
     def test_the_devices_are_c_models_with_no_counter(self):
         from types import SimpleNamespace

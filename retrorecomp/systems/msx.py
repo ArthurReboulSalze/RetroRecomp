@@ -175,3 +175,68 @@ class Msx2Profile(MsxProfile):
 
 
 MSX2 = Msx2Profile()
+
+
+# The folder names that say MSX2+ for a .rom or a ZIP.
+MSX2PLUS_FOLDERS = frozenset(('msx2+', 'msx2plus', 'msx 2+', 'msx2 plus', 'msx-2+'))
+
+
+class Msx2PlusProfile(Msx2Profile):
+    """The MSX2+ (experimental since 1.7.4): the MSX2's board with the V9958 (YJK and YAE modes, the horizontal scroll) and the
+    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges only for now: disks,
+    MSX-MUSIC and the kanji ROM come in later steps (docs/MSX.md)."""
+    id = 'msx2plus'
+    name = 'MSX2+'
+    extensions = ('.rom',)
+    archived_rom_limits = (('.rom', 0x200000),)
+    export_folder = 'MSX2+'
+    scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
+                  'BIOS; the V9958 with YJK and the horizontal scroll; no disks, MSX-MUSIC or kanji yet')
+    option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
+                   OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
+                   OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256))
+    quick_state_family = 'msx2plus'
+    feedback_kinds = frozenset({27})       # RR_FB_MSX2, shared as the Master System and Game Gear share theirs: one record format
+    path_spec = PathSpec(order=18, sections=(('z80', 'msx2plus'),),
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x10000))),
+                         required_sources=('rom',), hashed_sources=('rom', 'bios'),
+                         shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
+    library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
+    identify = Identify(path_order=54)
+
+    def identify_path(self, path: Path, suffix: str, selected_system: str | None):
+        if suffix not in ('.rom', '.zip'):
+            return None
+        if selected_system and selected_system != self.id:
+            return None
+        if selected_system != self.id and path.parent.name.casefold() not in MSX2PLUS_FOLDERS:
+            return None
+        from ..msx_rom import read_cartridge
+        try:
+            cartridge = read_cartridge(path)
+        except (OSError, ValueError):
+            return None
+        if suffix == '.zip' and cartridge.member.lower().endswith(('.mx1', '.mx2')):
+            return None
+        return self
+
+    def request_identity(self, item, options: dict, settings: dict) -> None:
+        """The BIOS pair the machine boots (the player's own MSX2+ image, its SHA-256; or C-BIOS, its pin) and the mapper RAM."""
+        from .. import msx_cbios
+        from ..msx_conversion import own_bios2
+        try:
+            bios = own_bios2(options.get('msx2plus_bios'), options.get('msx2plus_subrom'), 2)
+        except (OSError, ValueError):
+            bios = None
+        settings['msx2plus_bios'] = bios[1] if bios is not None else 'cbios-' + msx_cbios.VERSION
+        settings['msx2plus_ram'] = int(options.get('msx2plus_ram') or 256)
+
+    def convert(self, path: Path, **options) -> Path:
+        from ..msx_conversion import convert
+        options['msx2_bios'] = options.pop('msx2plus_bios', None)
+        options['msx2_subrom'] = options.pop('msx2plus_subrom', None)
+        options['msx2_ram'] = options.pop('msx2plus_ram', None) or 256
+        return convert(path, model='msx2plus', **options)
+
+
+MSX2PLUS = Msx2PlusProfile()

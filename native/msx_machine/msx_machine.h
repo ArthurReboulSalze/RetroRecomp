@@ -148,6 +148,9 @@ typedef struct {
     uint8_t line_mode[MSX2_LINES];
     int8_t line_adjust[MSX2_LINES];    /* the horizontal adjust each picture line was drawn with (the host shifts it) */
     MsxV9938Cmd cmd;
+    /* The MSX2+'s V9958 (set by msx_setup_msx2plus, never saved: the board decides it): R#25-R#27, the ID 2 in S#1, the
+     * horizontal scroll, YJK and YJK+YAE in Graphic 7 (MSX_COLOUR15 points), commands in every mode with R#25 CMD. */
+    uint8_t v9958;
 } MsxV9938;
 
 /* A point of the MSX2 picture (MsxV9938.frame) is a 9-bit colour, 0GGG0RRR0BBB, or, with this bit set, a 15-bit colour
@@ -221,6 +224,7 @@ typedef struct {
     MsxMapperRam mapper;   /* MSX2: segments 0 when absent */
     MsxRtc rtc;
     uint8_t has_rtc;
+    uint8_t has_f4, port_f4;   /* MSX2+: the I/O port F4h the BIOS reads at start (a latch here, 00h at power-on) */
     uint64_t frames;
     uint64_t unmapped_reads, dropped_writes;
 } MsxMachine;
@@ -276,6 +280,8 @@ void msx_set_rtc(MsxMachine *m);
  * the mapper RAM in 3-2; the RP5C01 and the V9938. `bios` is the 64 KB BIOS source (native code: source 1, the sub-ROM
  * from its bank 6). The cartridge goes in slot 1 as on the MSX1. Call after msx_init. */
 void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
+/* The MSX2+ board: the MSX2's, with the V9958 and the port F4h. */
+void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 
 /* Quick states: the region table and the SCC list rebuilt from the registers and the blocks after a state is applied
  * (msx_state.c, msx_refresh_layout). */

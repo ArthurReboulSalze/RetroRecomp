@@ -728,9 +728,9 @@ class OptionsFromProfiles(unittest.TestCase):
         self.assertEqual([k for k in artwork.REPOSITORIES if k in nine], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'])
         self.assertEqual(cover_sources.SS_SYSTEMS, {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4, 'cps1': 6, 'cps2': 7,
                                                     'scummvm': 123,      # 123: ScreenScraper's ScummVM platform
-                                                    'msx': 113, 'msx2': 116})
+                                                    'msx': 113, 'msx2': 116, 'msx2plus': 116})
         self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6, 'cps1': 23, 'cps2': 23,
-                                                      'msx': 4929, 'msx2': 4929})   # TheGamesDB has one MSX platform for both
+                                                      'msx': 4929, 'msx2': 4929, 'msx2plus': 4929})   # TheGamesDB has one MSX platform for all three
         self.assertEqual(game_metadata.PLATFORMS, {
             'sms': {'Q209868'}, 'gg': {'Q751719'}, 'gb': {'Q186437'}, 'nes': {'Q172742'}, 'md': {'Q10676'},
             'snes': {'Q183259'}, 'ng': {'Q1054350', 'Q64428080', 'Q3338058'}})

@@ -223,6 +223,7 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
     B(m->primary);
     rr_state_bytes(io, m->secondary, sizeof m->secondary);
     B(m->port_c);
+    B(m->port_f4);
     B(m->psg_latch);
     rr_state_bytes(io, m->psg, sizeof m->psg);
     W(m->line, 4, 0xFFFFFFFFu);

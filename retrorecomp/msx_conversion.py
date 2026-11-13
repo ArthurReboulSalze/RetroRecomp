@@ -59,22 +59,23 @@ def own_bios(path) -> tuple[bytes, str] | None:
     return data, hashlib.sha256(data).hexdigest()
 
 
-def own_bios2(main, sub) -> tuple[bytes, str] | None:
-    """The player's own MSX2 BIOS: its main ROM and its 16 KiB sub-ROM, as the 64 KiB BIOS source of msx_setup_msx2 (main,
-    an empty logo page, sub-ROM) and its SHA-256; None when neither is given."""
+def own_bios2(main, sub, generation: int = 1) -> tuple[bytes, str] | None:
+    """The player's own MSX2 (generation 1) or MSX2+ (generation 2) BIOS: its main ROM and its 16 KiB sub-ROM, as the 64 KiB
+    BIOS source of msx_setup_msx2 (main, an empty logo page, sub-ROM) and its SHA-256; None when neither is given."""
+    name = 'MSX2+' if generation == 2 else 'MSX2'
     if not main and not sub:
         return None
     if not main or not sub:
-        raise ValueError('An MSX2 BIOS of your own is two files: the main ROM and its sub-ROM. Choose both in Options.')
-    data = _main_rom(Path(main), 1)
+        raise ValueError(f'An {name} BIOS of your own is two files: the main ROM and its sub-ROM. Choose both in Options.')
+    data = _main_rom(Path(main), generation)
     sub_data = Path(sub).read_bytes()
     if len(sub_data) != SUBROM_SIZE or sub_data[:2] != b'CD':
-        raise ValueError(f'{Path(sub).name}: not an MSX2 sub-ROM (16 KiB starting with "CD").')
+        raise ValueError(f'{Path(sub).name}: not an {name} sub-ROM (16 KiB starting with "CD").')
     image = data + bytes([0xFF]) * 0x4000 + sub_data
     return image, hashlib.sha256(image).hexdigest()
 
 
-def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int) -> list[str]:
+def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int, plus: bool = False) -> list[str]:
     """The BIOS source written beside the work (main ROM, logo page when there is one, MSX2 sub-ROM) and the runners'
     options for it."""
     (work / 'bios_main.rom').write_bytes(bios_image[:0x8000])
@@ -85,6 +86,8 @@ def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int) -> l
     if msx2:
         (work / 'bios_sub.rom').write_bytes(bios_image[0xC000:])
         args += ['--sub', str(work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
+    if plus:
+        args += ['--msx2plus']
     return args
 
 
@@ -99,7 +102,7 @@ def _c_string(text: str) -> str:
 
 def _system(model: str) -> dict:
     from .systems import get_profile
-    profile = get_profile('msx2' if model == 'msx2' else 'msx')
+    profile = get_profile(model if model in ('msx2', 'msx2plus') else 'msx')
     return {'id': profile.id, 'name': profile.name}
 
 
@@ -139,9 +142,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         raise ConversionError(f'{Path(path).name}: its mapper could not be recognised ({guess.reason}). '
                               'The MSX profile reads plain, Konami, Konami SCC, ASCII 8 and ASCII 16 cartridges.')
     standard = 'pal' if standard_override == 'pal' else 'ntsc'
-    msx2 = model == 'msx2'
+    msx2, plus = model in ('msx2', 'msx2plus'), model == 'msx2plus'
+    machine_name = 'MSX2+' if plus else 'MSX2' if msx2 else 'MSX'
     try:
-        own = own_bios2(msx2_bios, msx2_subrom) if msx2 else own_bios(msx_bios)
+        own = own_bios2(msx2_bios, msx2_subrom, 2 if plus else 1) if msx2 else own_bios(msx_bios)
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
     mapper_kib = int(msx2_ram or 256) if msx2 else 0
@@ -162,7 +166,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     if own is not None:
         bios_image, bios_source = own[0], {'kind': 'own', 'sha256': own[1]}
     else:
-        bios_image = msx_cbios.image(standard, emit, model='msx2' if msx2 else 'msx1')
+        bios_image = msx_cbios.image(standard, emit, model=model if msx2 else 'msx1')
         bios_source = {'kind': 'c-bios', 'version': msx_cbios.VERSION, 'sha256': hashlib.sha256(bios_image).hexdigest()}
     # One work folder per cartridge and BIOS: the probe, the bodies, the learned patterns and the game are those of this pair.
     work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
@@ -171,7 +175,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     standard_args = ['--pal'] if standard == 'pal' else []
     with entry_lock(work, timeout=1800):
         work.mkdir(parents=True, exist_ok=True)
-        bios_args = _bios_files(work, bios_image, msx2, mapper_kib)
+        bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus)
         if guess.mapper != 'plain':
             # A mapper cartridge: the static guess reads LD (nn),A stores only; short reference runs under each mapper
             # settle what the program really drives (msx_build.probe_mapper).
@@ -267,7 +271,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         routes = msx_routes.routes(cart.sha256, frames=frames, level=level, variant=chosen)
         timings['start_choice'] = round(time.perf_counter() - phase, 3)
 
-        emit(f'{"MSX2" if msx2 else "MSX"}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
+        emit(f'{machine_name}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
              f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS, learning on '
              f'{len(routes)} route(s) ({", ".join(name for name, _, _ in routes)}).')
         phase = time.perf_counter()
@@ -318,7 +322,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         # The delivered file (G5): the compressed copy the player receives, replayed headless on every route and compared
         # with the fresh reference (report and every frame's row); delivery_evidence falls back to the build if UPX fails.
         phase = time.perf_counter()
-        delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'MSX2' if msx2 else 'MSX', emit)
+        delivered = deliver_packed(executable, work / ('packed-' + executable.name), machine_name, emit)
 
         def replay(route):
             name = route[0]
@@ -378,7 +382,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "msx"',
                      'native_cpu': 'every instruction position of the cartridge and of the BIOS translated ahead of time; '
                                    'code run from RAM learned and translated with byte guards'},
-        'msx_checks': {'machine': 'MSX2' if msx2 else 'MSX1', 'mapper': guess.mapper, 'mapper_reason': guess.reason,
+        'msx_checks': {'machine': 'MSX1' if not msx2 else machine_name, 'mapper': guess.mapper, 'mapper_reason': guess.reason,
                        'mapper_candidates': list(guess.candidates), 'cartridge_base': f'{guess.base:04X}',
                        'mirrored': guess.mirrored, 'bios': bios_source, 'standard': standard,
                        'mapper_probe': probe,
@@ -394,7 +398,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'lines_per_frame': (native.get('v9938') or {}).get('lines_per_frame'),
                            'lines': (native.get('v9938') or {}).get('lines')} if msx2 else {})},
         'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
-        'hardware_devices': hardware_devices(guess, msx2), 'route_warnings': route_warnings(final_checks),
+        'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks),
         'ordinary_saves': ({'supported': True, 'reason': None,
                             'scope': f'the battery SRAM of the cartridge ({"8 KiB" if guess.mapper == "ascii8" else "2 KiB"}), '
                                      'kept beside the game and loaded at start',
@@ -411,7 +415,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                               **delivered.validation_fields()},
         **delivered.report_fields(), 'delivered_file': delivered.kind,
         'native_coverage': native_coverage,
-        'video_model': {'chip': 'V9938 (our own C, line by line; commands: all twelve, timing approximated)' if msx2 else
+        'video_model': {'chip': f'{"V9958" if plus else "V9938"} (our own C, line by line; commands: all twelve, timing approximated'
+                                f'{"; YJK, YAE and the horizontal scroll" if plus else ""})' if msx2 else
                                 'TMS9918A (our own C, line by line)',
                         'standard': 'decided by your own MSX2 BIOS (R#9)' if msx2 and own is not None else standard,
                         'display_aspect': '4:3'},
@@ -421,7 +426,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'counter_unit': 'cycles', 'physical_latency_measured': False, 'latency_ms': None,
         'hardware_accuracy_validated': False, 'full_game_validated': False,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9',
-                        'schema': 'RRMSX2-STATE-1' if msx2 else 'RRMSX-STATE-1',
+                        'schema': 'RRMSX2P-STATE-1' if plus else 'RRMSX2-STATE-1' if msx2 else 'RRMSX-STATE-1',
                         'compatibility': 'the exact cartridge, BIOS, options and build',
                         'fresh_process_verified': True, 'validation': states},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
@@ -445,7 +450,7 @@ def cartridge_bank_high(result: dict) -> int:
     return 0
 
 
-def hardware_devices(guess, msx2: bool) -> list:
+def hardware_devices(guess, msx2: bool, plus: bool = False) -> list:
     """The `hardware_devices` of the common report (gate G2): the cartridge mapper, the video chip and the sound units. None of them
     is a CPU with a program, so none has an interpreter counter; each is a C model of the runtime whose fidelity is not validated."""
     scc = guess.mapper == 'konami-scc'
@@ -456,7 +461,7 @@ def hardware_devices(guess, msx2: bool) -> list:
                           'sram_bit': getattr(guess, 'sram', None),
                           'interpreter': 'none: the mapper is C code in the runtime, driven by the writes the program makes',
                           **common}}
-    video = {'id': 'v9938' if msx2 else 'tms9918a', 'kind': 'video_unit', 'mode': 'c_model',
+    video = {'id': 'v9958' if plus else 'v9938' if msx2 else 'tms9918a', 'kind': 'video_unit', 'mode': 'c_model',
              'details': {'display': 'line by line', 'interpreter': 'none: the video chip is C code in the runtime, not a CPU '
                                                                    'with a program',
                          **({'commands': 'all twelve, timing approximated (no access slots)'} if msx2 else {}), **common}}
@@ -477,7 +482,7 @@ def route_warnings(final_checks: list) -> list:
     return words(final_checks)
 
 
-STATE_LAYOUT = 'msx-state-3'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM)
+STATE_LAYOUT = 'msx-state-4'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM; 4: port F4h)
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 
 
@@ -629,7 +634,7 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
         f'#define RR_MSX_TITLE {_c_string(title)}\n#define RR_MSX_IDENTITY "{cart.sha256}"\n'
         f'#define RR_MSX_MAPPER {mappers[guess.mapper]}\n'
         f'#define RR_MSX_CART_BASE 0x{guess.base:04X}\n#define RR_MSX_MIRRORED {int(guess.mirrored)}\n'
-        f'#define RR_MSX_PAL {int(standard == "pal")}\n#define RR_MSX_MODEL {2 if model == "msx2" else 1}\n'
+        f'#define RR_MSX_PAL {int(standard == "pal")}\n#define RR_MSX_MODEL {3 if model == "msx2plus" else 2 if model == "msx2" else 1}\n'
         f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n'
         f'#define RR_MSX_SRAM_BIT {0 if guess.sram is None else 1 << guess.sram}\n'
         f'#define RR_MSX_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in state_binding(bios, guess, standard, model, mapper_kib))}}}\n',

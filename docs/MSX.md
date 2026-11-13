@@ -148,3 +148,25 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has the same
 letters as the `msx` column (section 7).
+
+## 9. The MSX2+ (`msx2plus`)
+
+Experimental profile `msx2plus`, the third profile of the family, in development (not in a release yet). It is the MSX2's board with the V9958
+in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
+
+**Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
+(or `msx2plus`). **Firmware:** C-BIOS 0.29a's MSX2+ images (main ROM, logo, and the MSX2 sub-ROM), from the same pinned archive as the MSX1's
+and MSX2's, or your own MSX2+ BIOS pair (the main ROM, byte 2Dh = 2, and its 16 KiB sub-ROM), chosen in Options > MSX2+ and never shipped.
+
+**The V9958, as written from Yamaha's V9958 technical data and the MSX2+ technical documents:** R#25 (CMD, VDS, YAE, YJK, WTE, MSK, SP2), R#26
+and R#27 (the horizontal scroll: R#26 moves the picture left in 8-dot steps, R#27 back right by 0 to 7 dots; SP2 shows two pages side by side;
+MSK covers the left 8 dots with the border), the ID 2 in S#1, YJK and YJK+YAE in Graphic 7 (15-bit colours: R = Y + J, G = Y + K,
+B = (5Y - 2J - K) / 4 rounded down, each clipped to 0-31; with YAE a byte with bit 3 set shows the palette colour of its bits 7-4), and the
+command engine in every screen mode with CMD (as Graphic 7). Sprites do not scroll; in the YJK modes they take the palette's colours. Port F4h
+is a latch, 00h at power-on.
+
+**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** disks (the next
+step: your own disk ROM will be needed, never shipped), MSX-MUSIC (YM2413), the kanji ROM, cassettes.
+
+**The five measures:** nothing is measured yet for the MSX2+: no panel has run, no fidelity is claimed, no game is validated, and no latency is
+measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial, G16 not applicable and every other gate unknown.

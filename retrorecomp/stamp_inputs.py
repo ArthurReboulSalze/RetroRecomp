@@ -236,7 +236,9 @@ NOT_INPUTS = (
     # The MSX hardware checks (authored programs against the documented TMS9918A, PSG, PPI and mappers, run by tools/msx_reference.py): a check only.
     'native/msx_machine/msx_hardware_checks.c',
     # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
-    'native/msx_machine/msx2_checks_')
+    'native/msx_machine/msx2_checks_',
+    # The MSX2+ fixtures: the V9958's registers, ID, scroll and YJK colours, checked by hand-worked values.
+    'native/msx_machine/msx2plus_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -474,7 +476,7 @@ INPUTS = _resolve({
     ),
     # The cartridge save file the machines with a battery or a backup unit share (the format of each is in its own *_battery.c /
     # pce_backup.c / msx_sram.c). Game role.
-    ('md', 'snes', 'pce', 'msx', 'msx2'): (
+    ('md', 'snes', 'pce', 'msx', 'msx2', 'msx2plus'): (
         'native/cart_save.c',
         'native/cart_save.h',
     ),
@@ -682,7 +684,7 @@ INPUTS = _resolve({
     # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from
     # stamp_groups.
     # The MSX2 (stage 6) is the same machine with the V9938, the memory mapper and the clock: both profiles own every file.
-    ('msx', 'msx2'): (
+    ('msx', 'msx2', 'msx2plus'): (
         'native/hostkit/adapters/rrhk_msx.inc',
         'native/msx_machine/msx_cart.c',
         'native/msx_machine/msx_glue.inc',
@@ -909,7 +911,7 @@ INPUTS = _resolve({
     ),
     # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
     # the PC Engine and the MSX family call it.
-    ('pce', 'msx', 'msx2'): (
+    ('pce', 'msx', 'msx2', 'msx2plus'): (
         'retrorecomp.route_start',
     ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,

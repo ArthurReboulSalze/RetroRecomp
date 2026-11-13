@@ -222,6 +222,14 @@ void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uin
     msx_set_v9938(m, v9938);
 }
 
+void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938)
+{
+    msx_setup_msx2(m, bios, mapper_ram, segments, v9938);
+    v9938->v9958 = 1;
+    m->has_f4 = 1;
+    m->port_f4 = 0;
+}
+
 uint32_t msx_frame_hash(const MsxMachine *m)
 {
     if (m->video == MSX_VIDEO_V9938)
@@ -373,6 +381,8 @@ uint8_t msx_in(MsxMachine *m, uint8_t port)
         return msx_mapper_in(m, port);
     if ((port == 0xB4 || port == 0xB5) && m->has_rtc)
         return msx_rtc_in(m, port);
+    if (port == 0xF4 && m->has_f4)
+        return m->port_f4;
     switch (port) {
     case 0x98: return vdp_read_data(&m->vdp);
     case 0x99: return vdp_read_status(&m->vdp);
@@ -405,6 +415,10 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
     }
     if ((port == 0xB4 || port == 0xB5) && m->has_rtc) {
         msx_rtc_out(m, port, value);
+        return;
+    }
+    if (port == 0xF4 && m->has_f4) {
+        m->port_f4 = value;
         return;
     }
     switch (port) {
