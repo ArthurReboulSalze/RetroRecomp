@@ -514,6 +514,8 @@ def check_sram(game: Path, folder: Path, frames: int, route_rest: list[str], sra
 
     def run(label: str, count: int, rest: list[str], path: Path) -> dict:
         return msx_build.run_game(game, ['--frames', str(count), *rest, '--sram', str(path)], folder / f'{label}.json')
+    import shutil
+    shutil.rmtree(folder, ignore_errors=True)       # the build folder is reused: no file of an earlier conversion may be read
     folder.mkdir(parents=True, exist_ok=True)
     blank = bytes(sram_bytes)
     none = folder / 'none.rrsram'

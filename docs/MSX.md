@@ -104,13 +104,13 @@ their own licences, listed in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md
 
 ## 7. Where it stands in the qualification
 
-The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evaluated on 13 November 2026 on the panel of ten cartridges converted with the
-1.7.3 release tree (the evidence of each letter is there). Met: native coverage (G3), the fresh reference run (G4), the replay of the delivered file (G5)
-and the fresh-process quick states (G6). Partial: the status (G1), the common report (G2: its main CPU block carries no counts yet), liveness (G8: a
-route that never reaches play is not named in the report), route depth (G9), independent CPU and hardware evidence (G10, G11), the panel (G12) and the
-Linux witness (G13, one game each). Battery saves (G7) were not met on 13 November 2026; the ASCII cartridges' SRAM is kept since 1.7.4 (section 4). Unknown: the owner's acceptance (G14) and
-the read for honesty (G15). Not applicable: shared paths (G16). Leaving the experimental status is the owner's own decision (G14), and nothing here asks
-for it.
+The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evaluated on 13 November 2026 on the panel converted at the
+thorough level (the evidence of each letter is there). Met: the status (G1), the common report (G2), native coverage (G3), the fresh reference run
+(G4), the replay of the delivered file (G5), the fresh-process quick states (G6), liveness (G8), route depth (G9) and the independent Z80 vectors
+through the MSX's generator (G10). Partial: battery saves (G7: ASCII cartridges' SRAM kept and checked on one game; FM-PAC and clock memory not),
+independent hardware evidence (G11), the panel (G12), the Linux witness (G13, one game each) and honesty (G15: the published 1.7.3 notes keep an old
+sentence on Salamander). Unknown: the owner's acceptance (G14). Not applicable: shared paths (G16). Leaving the experimental status is the owner's own
+decision (G14), and nothing here asks for it.
 
 ## 8. The MSX2 (`msx2`)
 
