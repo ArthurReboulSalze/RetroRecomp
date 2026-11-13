@@ -23,6 +23,11 @@ static RrhkRun run;
 /* Divergence 8 (decided, D3): the window keeps its position and size when it goes fullscreen and back, and when the guest
  * is restarted and the window is made again. Not claimed across runs of the program. */
 static SDL_Rect saved_window;
+/* The plates of the first seconds (draw_notices), and the Quit combination's question. */
+static Uint64 start_until;
+static bool start_shown;
+static bool start_help = true;   /* [Interface] start_help: the player may turn the opening plates off (the options page) */
+static bool quit_asked;          /* the Quit combination asked its question and is still held */
 
 static void remember_window(void) {
     if (!run.win || rrhk.fullscreen) return;
@@ -153,10 +158,63 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     if (test_filter && !strcmp(test_filter, "3")) rrhk.filter = 3;
     /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
+    quit_asked = false;
+    start_help = rr_ini_int(L"Interface", L"start_help", 1, rrhk.read_file) != 0;
+    if (!r->test_frames && !start_shown) { start_shown = true; start_until = start_help ? SDL_GetTicks64() + 4500 : 0; }
     return true;
 }
 
 static uint64_t now_ticks(void) { return SDL_GetPerformanceCounter(); }
+
+/* ---- Notices over the game (1.7.4) ----
+ * A notice is a dark plate at the bottom of the menu grid, drawn on the window after the picture (never in the machine's
+ * picture). For a few seconds after the game opens, two more plates say what a player needs before anything else: the help
+ * key, the controls key and how to quit; then, on a computer, who has the keyboard (the game controls, or the computer alone:
+ * then only a gamepad plays), and on a console the Quit and Restart combinations of player 1's gamepad when one is plugged in.
+ * Shown once per run of the program (a guest that restarts opens the shell again), never in a hidden-window test run, and
+ * gone as soon as a menu opens. */
+
+bool rrhk_start_help(void) { return start_help; }
+void rrhk_toggle_start_help(void) {
+    start_help = !start_help;
+    if (!rrhk_write_ready() || !rr_ini_set(L"Interface", L"start_help", start_help ? L"1" : L"0", rrhk.ini_file))
+        snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+}
+
+static void draw_notices(RrhkRun *r) {
+    const RrhkMachine *m = r->machine;
+    const Uint64 now = SDL_GetTicks64();
+    int ox, oy, unit, y = 172;
+    rr_menu_layout(r->ren, &ox, &oy, &unit);
+    if (now < start_until && !rrhk.paused) {
+        char line[200], quit[48], restart[48];
+        const bool computer = m->keyboard_pad != NULL, guest_keyboard = computer && !m->keyboard_pad();
+        const bool own_f1 = guest_keyboard || !rrhk_options_host_fkey(SDL_SCANCODE_F1, KMOD_NONE, false);
+        const char *escape = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
+        int used = snprintf(line, sizeof line, "%s: %s | %s: %s", own_f1 ? "Ctrl+F1" : "F1", rr_tr("Help"),
+                            own_f1 ? "Ctrl+F2" : "F2", rr_tr("Controls"));
+        if (!guest_keyboard && used > 0 && used < (int)sizeof line)
+            snprintf(line + used, sizeof line - (size_t)used, " | %.*s: %s", (int)strcspn(escape, " "), escape, rr_tr("Quit"));
+        rr_menu_plate(r->ren, ox, oy, unit, y, line, -1);
+        y -= 16;
+        line[0] = 0;
+        if (computer) {
+            if (guest_keyboard) snprintf(line, sizeof line, rr_tr("%s keyboard: only the gamepad plays"), m->console_name);
+            else snprintf(line, sizeof line, "%s", rr_tr("Game controls on the keyboard"));
+            rr_menu_plate(r->ren, ox, oy, unit, y, line, guest_keyboard ? RR_ICON_KEYBOARD_SMALL : RR_ICON_GAMEPAD_SMALL);
+            y -= 16;
+        } else if (rrhk.pads[0] && (rrhk_combo_set(0, true) || rrhk_combo_set(1, true))) {
+            rrhk_combo_value(quit, sizeof quit, 0, true);
+            rrhk_combo_value(restart, sizeof restart, 1, true);
+            used = rrhk_combo_set(0, true) ? snprintf(line, sizeof line, "%s: %s", quit, rr_tr("Quit")) : 0;
+            if (rrhk_combo_set(1, true) && used >= 0 && used < (int)sizeof line)
+                snprintf(line + used, sizeof line - (size_t)used, "%s%s: %s", used ? " | " : "", restart, rr_tr("Reset"));
+            rr_menu_plate(r->ren, ox, oy, unit, y, line, RR_ICON_GAMEPAD_SMALL);
+            y -= 16;
+        }
+    }
+    if (rrhk.status[0] && now < rrhk.status_until) rr_menu_plate(r->ren, ox, oy, unit, y, rrhk.status, -1);
+}
 
 /* The first half of an iteration: events, quit and restart, the state requests, the pads, and the machine's frame (or,
  * for a guest that owns the loop, the hand-over of the pad words: the guest runs when the caller returns). false: stop. */
@@ -169,8 +227,15 @@ static bool begin_frame(RrhkRun *r) {
     rrhk_audio_wait_room(r);
     if (m->frame_start) m->frame_start(r->win, r->ren);
     rrhk_poll_events(r);
-    if (rrhk_options_quit(rrhk.menu)) r->running = false;
-    else if (rrhk_options_restart(rrhk.menu)) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
+    /* 1.7.4: the Quit combination asks "Quit?" like Esc, once per hold (a hidden-window test run stops as before). */
+    const bool quit_held = rrhk_options_quit(rrhk.menu);
+    if (quit_held && !quit_asked) {
+        quit_asked = true;
+        if (r->test_frames) r->running = false; else rrhk_quit_ask();
+    } else if (!quit_held) {
+        quit_asked = false;
+        if (rrhk_options_restart(rrhk.menu)) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
+    }
     if (!r->running) return false;
     /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
     bool fast = m->fast_forward && m->fast_forward();
@@ -257,10 +322,8 @@ static void end_frame(RrhkRun *r) {
         r->title_state = current_title_state;
     }
     rrhk_menu_draw(r->ren);
-    if (!rrhk.menu && rrhk.status[0] && SDL_GetTicks64() < rrhk.status_until) {
-        int ox, oy, unit; rr_menu_layout(r->ren, &ox, &oy, &unit);
-        rr_menu_text(r->ren, ox, oy, unit, 8, 183, rrhk.status, RR_MENU_GOLD);
-    }
+    if (rrhk.menu) start_until = 0;
+    else draw_notices(r);
     if (m->before_present) m->before_present(r->ren);
     Uint64 present_started = r->work_started ? now_ticks() : 0;
     if (r->timing_enabled) r->ticks[4] = now_ticks();

@@ -115,6 +115,8 @@ static RrhkOptionRows option_rows(void) {
     RrOptionRows shared; shared.count = 0;
     rr_option_shared_rows(&shared);
     for (int i = 0; i < shared.count; ++i) add_row(&d, shared.keys[i], shared.text[i]);
+    /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
+    rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
     return d;
 }
@@ -191,6 +193,11 @@ void rrhk_combo_start(int index, bool gamepad) {
     rr_options.capture_from = pad ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)) : -1;
 }
 bool rrhk_combo_capturing_pad(void) { return rr_options.capture == 2 || rr_options.capture == 4; }
+bool rrhk_combo_capturing(int index, bool gamepad) { return rr_options.capture == rr_combo_id(index, gamepad); }
+bool rrhk_combo_set(int index, bool gamepad) {
+    if (gamepad) return (index ? rr_options.rpad : rr_options.pad) != 0;
+    return (index ? rr_options.rkey : rr_options.key)[0] != 0;
+}
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }

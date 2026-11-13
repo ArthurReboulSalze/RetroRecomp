@@ -20,6 +20,8 @@
  *   - discs: the Change disc key and pad button select the next disc with a "Disc 2/3" notice, a refused change, nothing in a
  *     menu;
  *   - with the fields left out: F3 cycles the filter, the left stick is the directions, no dead zone row, no rumble, no disc.
+ *   - the F2 tiles (1.7.4): F2 opens them, Enter opens a page, Esc comes back to them and then to the game; "Quit?": Esc in play
+ *     asks, the machine waits, Enter on No and Esc cancel, Yes ends the loop.
  * No ROM, no visible window, no sound device. Original RetroRecomp code: MIT. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -276,8 +278,9 @@ static void full_script(void) {
         CHECK(last_has[0] && last_axes[0][0] == 1000 && last_axes[0][1] == 2000 && last_axes[0][2] == 3000 && last_axes[0][3] == 4000);
         scripted = false;
         axis(SDL_CONTROLLER_AXIS_LEFTX, 0);
-        /* F2, the first gamepad page, Up wraps to the last row: the Stick dead zone row; Enter steps it */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
+        /* F2 opens the tiles (1.7.4): Right is player 1's gamepad, Enter opens its page; Up wraps to the last row: the Stick
+         * dead zone row; Enter steps it */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
         break;
     case 19:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
@@ -300,7 +303,7 @@ static void full_script(void) {
         ui->row = 14; CHECK(rrhk_page_scroll() == 0);
         ui->row = 16; CHECK(rrhk_page_scroll() == 2);
         ui->row = 0; CHECK(rrhk_page_scroll() == 0);
-        key(SDL_SCANCODE_ESCAPE);
+        key(SDL_SCANCODE_F2);          /* F2 closes its page and its tiles at once */
         break;
     case 22:    /* the graphics page: F3 opens it; the machine waits */
         CHECK(ui->menu == 0);
@@ -441,7 +444,7 @@ static void full_script(void) {
         CHECK(last_pad[0] == L2_BIT && ui->fast_hold == 0 && ui->max_speed == 0);
         axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
         /* F2 captures a trigger: the first gamepad page, the L1 row, Enter, then the left trigger */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         for (int row = 0; row < A_L1; ++row) key(SDL_SCANCODE_DOWN);
         key(SDL_SCANCODE_RETURN);
         break;
@@ -454,11 +457,11 @@ static void full_script(void) {
         CHECK(ini(L"Test3D.Gamepad.Player1", L"L1") == (int)RRHK_PAD_LEFT_TRIGGER);
         CHECK(ini(L"Test3D.Gamepad.Player1", L"L2") == (int)SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
         axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
-        key(SDL_SCANCODE_ESCAPE);      /* L1 stays on the left trigger for the next start */
+        key(SDL_SCANCODE_F2);          /* F2 closes its page and its tiles at once; L1 stays on the left trigger for the next start */
         break;
     case 63:    /* a trigger is refused on a host-side row (Change disc): the kit's notice, the row still waits for a button */
         CHECK(ui->menu == 0);
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         for (int row = 0; row < A_DISC; ++row) key(SDL_SCANCODE_DOWN);
         key(SDL_SCANCODE_RETURN);
         break;
@@ -470,13 +473,13 @@ static void full_script(void) {
         CHECK(ui->capturing && ui->buttons[0][A_DISC] == SDL_CONTROLLER_BUTTON_PADDLE1 && ui->buttons[0][A_R2] == RRHK_PAD_RIGHT_TRIGGER);
         CHECK(!strcmp(ui->status, "Reserved button or config unavailable"));
         axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768);
-        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);     /* cancel the binding, close F2 */
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_F2);     /* cancel the binding, close F2 */
         break;
     case 66:    /* the options page with more rows than it shows at once: the machine adds six */
         CHECK(ui->menu == 0 && !ui->capturing);
         extra_rows = true;
         ui->menu = RRHK_MENU_OPTIONS;
-        option_rows_total = 17;
+        option_rows_total = 18;      /* 1.7.4: the Start-up reminders row, before the last one */
         for (int k = rrhk_option_selected(); k < option_rows_total - 1; ++k) key(SDL_SCANCODE_DOWN);
         break;
     case 67:    /* the last row (` Max speed) is reached, the window scrolled; Enter runs it */
@@ -501,11 +504,20 @@ static void full_script(void) {
         CHECK(rrhk_option_selected() == 14 && rrhk_option_scroll() == 1);
         key(SDL_SCANCODE_UP);       /* Volume: still inside the window, which does not move */
         break;
-    case 72:
+    case 72:    /* 1.7.4: the Start-up reminders row, three rows down, is kept in [Interface] start_help */
         CHECK(rrhk_option_selected() == 13 && rrhk_option_scroll() == 1);
-        key(SDL_SCANCODE_ESCAPE);
+        CHECK(ini(L"Interface", L"start_help") == -1000);
+        key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);
         break;
     case 73:
+        CHECK(rrhk_option_selected() == 16 && ini(L"Interface", L"start_help") == 0);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 74:
+        CHECK(ini(L"Interface", L"start_help") == 1);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 75:
         CHECK(ui->menu == 0);
         extra_rows = false;
         stop = true;
@@ -560,7 +572,7 @@ static void plain_script(void) {
         break;
     case 5:     /* no disc, no rumble */
         CHECK(disc_calls == 0 && rumble_calls == 0);
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
     case 6:     /* no Stick dead zone row */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1);
@@ -569,7 +581,7 @@ static void plain_script(void) {
         break;
     case 7:
         CHECK(rrhk_device_row() && !rrhk_deadzone_row());
-        key(SDL_SCANCODE_ESCAPE);
+        key(SDL_SCANCODE_F2);
         /* the triggers are the speed controls: a saved trigger binding is not read, and the right trigger fast-forwards */
         CHECK(ui->buttons[0][A_L1] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
         axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
@@ -580,7 +592,36 @@ static void plain_script(void) {
         break;
     case 13:
         CHECK(ui->fast_hold == 0);
-        stop = true;
+        key(SDL_SCANCODE_F2);
+        break;
+    case 14:    /* 1.7.4: F2 opens the tiles; Right then Enter open player 1's gamepad page */
+        CHECK(ui->menu == RRHK_MENU_HUB);
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        break;
+    case 15:    /* Esc comes back to the tiles, Esc again to the game */
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 16:
+        CHECK(ui->menu == RRHK_MENU_HUB);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 17:    /* Esc in play asks "Quit?": the machine waits, No is selected */
+        CHECK(ui->menu == 0);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 18:
+        CHECK(ui->menu == RRHK_MENU_QUIT);
+        frames_mark = frames;
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 19:    /* Enter on No: back to the game, which did not run meanwhile */
+        CHECK(ui->menu == 0 && frames <= frames_mark + 1);
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 20:    /* Esc on the question cancels it */
+        CHECK(ui->menu == 0);
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);     /* Yes: the loop ends */
         break;
     default: break;
     }
@@ -651,7 +692,7 @@ int main(int argc, char **argv) {
     /* 1. The 3D machine, from fresh preferences. */
     begin(full_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
-    CHECK(step >= 74);
+    CHECK(step >= 76);
     /* 2. Its next start. */
     begin(reload_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
@@ -688,7 +729,7 @@ int main(int argc, char **argv) {
     scale = 1; draw_picture(); disc_calls = 0; rumble_calls = 0;
     begin(plain_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
-    CHECK(step >= 14);
+    CHECK(step >= 21);       /* the last step answered Yes to "Quit?" */
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();
