@@ -538,6 +538,10 @@ that it still draws and plays sound, not that the picture is the right one.
 The last-picture hashes above are those of the final players. The eight routes made on 13 November gave the same hashes on the players converted before the delivered file's evidence
 was added (the rows are written beside the picture and change nothing of what is drawn).
 
+The eight panel cartridges were converted once more on the merged tree (main with the new in-game interface), from an empty library, with online covers on (the libretro thumbnail of each, embedded in the
+player's icon and menu art), and delivered to the maintainer's `Export` folder: 8 of 8 ready, native equal to the interpreter, 0 / 0 interpreted, the compressed copy equal to the build, and the eight routes above gave the same
+last-picture hashes and interpreted counts on the delivered files.
+
 ### The Linux witness of the same tree (gate G13)
 
 Golden Sun, Mario Kart Super Circuit, Pokémon Emerald and The Minish Cap were converted from an empty library on a Debian 13 PC (the tree of `spec/gba-174` as of the delivered file's evidence, one job
