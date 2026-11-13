@@ -119,7 +119,7 @@ profile but Adventure (ScummVM) moves**: the Master System, Game Gear, Game Boy,
 | Mega Drive | `fcf472f6e2b0`, `99b2890365d8` | `ae954d97ef21`, `51731b499338` | `9615ff2e96c8` (same) |
 | Super Nintendo | `830816cf1a5d`, `70b9bd7f54b0` | `1338832835c7`, `c18fd880c901` | `3f0a58ad3c7c` (same) |
 | Neo Geo | `296e61d8c8b5`, `10c2a91887ed` | `209363c3cb2d`, `3fba6ce0ccc0` | `110349f043bd` (same) |
-| X68000 | `6a1a3e6fffa6`, `eb47efd4d316` | `cd36f942cda8`, `f797a5fe02b9` | `5903c0449429` (same) |
+| X68000 | `6a1a3e6fffa6`, `4b3544e4c896` | `cd36f942cda8`, `f797a5fe02b9` | `5903c0449429` (same) |
 | CPS-1 | `5bad58285e1e`, `d477757abcb7` | `1744a86d265c`, `b1d84d7c729a` | `2782cd370f91` (same) |
 | CPS-2 | `3d06a5ebcc85`, `e87153ef3f90` | `5f073fe7a9ca`, `2d378c71769a` | `81a51ad49349` (same) |
 | PC Engine / TurboGrafx-16 | `dc4e67408d8f`, `467ee58b350b` | `20772c959102`, `ee9194a1d5cc` | `66d912662e5c` (same) |

@@ -114,6 +114,13 @@
   Flash 64 KB, Flash 128 KB and EEPROM saves are read back by a fresh process (the SRAM chip is not
   shown yet). Four routes run millions of interpreted instructions, counted. None of this is a measure
   of gameplay, hardware fidelity or physical latency.
+- **Sharp X68000: games open from a linked folder, and a game that asks for its system disk again
+  gets it.** An X68000 game refused to start when the folder above it was reached through a link (a
+  symbolic link or a junction, as when a library is moved to another drive and linked back): it now
+  refuses a link only inside its own data, and its other checks stay. And when a game ejects its
+  disk and refuses every other disk of the set, the disk it ejected is now offered back last: Lagoon,
+  whose system disk is asked for again with a "user disk" message, now gets it back and plays on with
+  no key. No list of games is involved; Metal Sight and Power Unit change disks as before.
 
 **Speed.** Measured on a quiet PC against 1.7.3, one pinned core, one warm-up then the best of two
 runs of 1,200 frames, start-up included: Lotus 2 (Amiga) 0.99 of its 1.7.3 time per frame, Bomb Jack
