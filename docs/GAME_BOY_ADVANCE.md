@@ -447,18 +447,138 @@ every console's game stamp hashes, is not edited and only the Game Boy Advance g
 * **Not done.** The site's limits for the `gba` machine are not regenerated or deployed, no record was uploaded, and the Linux witness is not run: sharing is code and tests
   in the tree, switched on only with the release and the maintainer's seeding. The local carry-over of paths at a pin bump is for later.
 
+## The panel of twelve, the delivered file, the refusals and the routes (13 November 2026, 1.7.4)
+
+Twelve cartridges chosen by risk (all four save chips, 4 to 16 MB, two clock cartridges, a software 3D game, a role-playing game of 16 MB) were converted from an **empty** scratch library on a
+Windows PC, two conversions at a time (`batch --jobs 2`, the PC in use for other work: the times are not a benchmark), three passes asked and up to four settling ones,
+with the tree of `spec/gba-174`. None was dropped. Each ran the two scenarios (`boot` 600 frames, `generic` 3,600 frames) natively and with the engine's interpreter alone;
+on all twelve the final picture, the guest's cycle count, the memory hash and the CPU hash are equal.
+
+| Cartridge | Size, save chip | Passes (3 asked, up to 4 settling) | Interpreted at pass 1, boot / generic | Interpreted at the end | Time (Windows, two conversions at once) |
+|---|---|---|---|---|---|
+| Golden Sun | 8 MB, flash64 | 5 | 2,581,873 / 72,238,564 | 0 / 0 | 21 min |
+| Advance Wars (Rev 1) | 4 MB, flash64 | 2 | 2,044,548 / 60,656,952 | 0 / 0 | 27 min |
+| The Minish Cap | 16 MB, eeprom | 3 | 1,636,808 / 19,684,139 | 0 / 0 | 19 min |
+| Pokémon Emerald | 16 MB, flash128 | 2 | 106,192 / 3,782,142 | 0 / 0 | 44 min |
+| Pokémon Ruby (Rev 2) | 16 MB, flash128 | 2 | 50,811 / 802,234 | 0 / 0 | 24 min |
+| Metroid Fusion | 8 MB, sram | 1 | 0 / 0 | 0 / 0 | 14 min |
+| Wario Land 4 | 8 MB, sram | 2 | 1,422 / 37,051 | 0 / 0 | 21 min |
+| Sonic Advance 2 | 16 MB, flash64 | 2 | 97,066 / 4,432,092 | 0 / 0 | 24 min |
+| Mario Kart Super Circuit | 4 MB, flash64 | 2 | 3,230 / 332,875 | 0 / 0 | 23 min |
+| Mario & Luigi Superstar Saga | 16 MB, eeprom | 3 | 1,765,387 / 153,260,822 | 0 / 0 | 28 min |
+| Mega Man Zero 3 | 8 MB, sram | 2 | 63,873 / 658,163 | 0 / 0 | 29 min |
+| Crazy Taxi Catch a Ride | 8 MB, eeprom | 2 | 1,128,263 / 60,667,828 | 0 / 0 | 31 min |
+
+Pokémon Ruby, Mario & Luigi, Mega Man Zero 3 and Crazy Taxi are new on this page; the other eight were converted before (the first-pass counts of Golden Sun, Advance Wars,
+The Minish Cap and Pokémon Emerald are the ones of [the 12 November pass](#the-verdict-is-enforced-and-a-first-conversion-converges-faster-12-november-2026-173)).
+This is native code coverage on two bounded scripted scenarios and the comparison with the engine's own interpreter, which is not an independent oracle; it says nothing about
+gameplay or hardware fidelity.
+
+### The delivered file: gates G5 and G8
+
+The exported player writes one text line per frame when it is started with `RETRORECOMP_GBA_ROWS` (a test switch, never read in play): the frame, the hash of the picture,
+the hash of the sound of that frame and whether a sample was not zero. After the player is built, the conversion runs it hidden on both scenarios, then runs the **compressed
+copy it is going to deliver** the same way, and refuses to publish unless the compressed copy ends at the same frame with the same last picture and **the same row for every
+frame** (`delivery_evidence`, the helper the other machines use; the copy is replayed on the unpacked build if the compression fails on the system, as for them). The rows are
+also the liveness record of the report: how many different pictures and sound blocks, the last frame at which the picture changed, how many frames carried a sample. A
+generic scenario whose picture never changes refuses the conversion.
+
+On the twelve: the compressed copy matched on both scenarios of every cartridge (`packed_reference_match` true), the picture changed in every scenario (1,028 to 2,905 different pictures in the generic scenario of 3,600 frames, 203 to 454 in the boot scenario of 600), and 2,514 to 3,433 of the 3,600 frames of the generic scenario and 201 to 504 of the 600 frames of the boot scenario carried a
+sample. Nobody listened to those samples: the rows show that the sound changes, not that it is right.
+
+### Quick states and the files they are read from: gate G6
+
+`tools/gba_fresh_process.py refusals` saves a state in one process, then damages the file in eight ways (emptied, cut in half, last byte missing, grown by 64 bytes, the first 16
+bytes inverted, the cartridge identity inverted, noise of the same size, one byte inverted in the middle) and tries to load each in a fresh process, then tries to load none.
+On the delivered Golden Sun, **seven of seven** forms that break the container are refused with a message (`quick state refused`), the game goes on as a run that never loaded a
+state (same picture and frame count as the control, exit code 0), and the missing state creates no file. The eighth, one byte inverted in the middle of the memory, is
+**accepted**: a state of memory has no checksum (the engine checks the magic, the version, the cartridge's SHA-1 and the structure of the sections), so a flipped byte of
+memory is the game's own business; the check reports it and does not require it. The fresh-process state check itself (a state saved by one process and loaded by another gives the
+same picture, a control that never loads gives another) passes on Golden Sun and Metroid Fusion with 0 interpreted instructions in every process.
+
+### Saves: gate G7
+
+The save of one process read back by a fresh one, with a control with no file, to the picture (`gba_fresh_process.py save`): Sonic Advance 2 (a Flash chip of 64 KB, the
+language screen to the name), Pokémon Emerald (a **128 KB Flash** file written by the Start menu's SAVE, 131,072 bytes, 148 distinct values, and the title shows CONTINUE in
+the second process) and The Minish Cap (the **8 KB EEPROM** written when the file is made, the file select shows it in the second process). The file is identical after the
+second process. Not shown: the **SRAM** family. Mega Man Zero 3 was tried: on its route the game rewrites only the 192 header bytes of its 32 KB file and the title does not
+change, because the route never reaches one of its save points; a route to a save point of an SRAM cartridge is still to be made. Saves from real hardware are not read.
+
+### Routes into play: gate G9
+
+One key script per panel cartridge, in `tools/gba_routes/` (numbers only: a frame and the buttons held), run on the delivered players:
+
+| Route (`tools/gba_routes/`) | Frames | Instructions the interpreter ran on the route | Last picture, SHA-256 (first 16 digits) |
+|---|---|---|---|
+| Golden Sun: the title, the intro, the rainy Vale scene | 4,500 | 34 | `5582b59b2f2de25e` |
+| Advance Wars: Nell's lesson on the first Field Training map | 10,000 | 0 | `0d5dcf35394cdac6` |
+| The Minish Cap: a new file, the intro, Link's house | 10,000 | 13,910,846 | `56161e0fd97184d0` |
+| Pokémon Emerald: the intro, the moving van, the player's house | 9,600 | 9,733,707 | `a8f5fb98324d3d1c` |
+| Metroid Fusion: the opening story, Samus in the Navigation Room | 30,000 | 0 | `6ad2598f42b38b2c` |
+| Wario Land 4: Entry Passage, Wario in play | 10,000 | 0 | `070e11ca1c241eb3` |
+| Sonic Advance 2: the language screen to the save (the G7 route) | 1,500 | 0 | `962bbf2fd78b72e1` |
+| Mario Kart Super Circuit: a race | 4,500 | 0 | `c329fb2241850849` |
+| Pokémon Ruby: the same, on the clock cartridge | 9,400 | 8,373,178 | `b40b81a019ea61d7` |
+| Mario & Luigi: the castle scenes, a Toad walks a house | 6,500 | 14,268 | `a85a84f3dee937a2` |
+| Mega Man Zero 3: the intro and the briefing, Zero in a snowy stage | 20,000 | 59,017,036 | `49092f3d0637eac9` |
+| Crazy Taxi: the taxi driving in the city | 4,200 | 0 | `acd8986b69a00232` |
+
+Every route reaches play: the pictures at several frames were read one by one (a title, a menu or an opening story is not play; these are: the player's character in a house or
+a village, a kart in a race, a taxi in the city, Zero in a stage, Samus under control). They are the **first minutes**, not a level won, a boss or a save point.
+Seven routes run with 0 instructions interpreted or a few (34 for Golden Sun, 14,268 for Mario & Luigi). Four routes run **millions** of interpreted instructions (The Minish Cap, Pokémon
+Emerald and Ruby, Mega Man Zero 3): they walk through code that the two scenarios of the conversion never reach, so the generated code does not contain it and the
+interpreter runs it, correctly and counted. These routes are not part of the discovery: a route as a third scenario would learn that code, but its replay with the interpreter
+alone, which the verdict needs, is too slow (a run of 3,000 frames of Pokémon Emerald with the engine's interpreter alone had not ended after 15 minutes, where the native player takes
+one and a half), so it is a decision for the maintainer, not a thing done here. No route was compared with an interpreter run: a route says how deep the player goes and
+that it still draws and plays sound, not that the picture is the right one.
+
+The last-picture hashes above are those of the final players. The eight routes made on 13 November gave the same hashes on the players converted before the delivered file's evidence
+was added (the rows are written beside the picture and change nothing of what is drawn).
+
+### The Linux witness of the same tree (gate G13)
+
+Golden Sun, Mario Kart Super Circuit and Pokémon Emerald were converted from an empty library on a Debian 13 PC (the tree of `spec/gba-174` as of the delivered file's evidence, one job
+at a time, the PC shared with other conversions: 50, 36 and 72 minutes, the times of a busy machine) and their delivered players run hidden under SDL's dummy drivers with the same
+key scripts:
+
+| Cartridge | Conversion on Debian | Route | Last picture (first 16 digits) | Interpreted on the route |
+|---|---|---|---|---|
+| Golden Sun | five passes, 0 / 0 at the end, native = interpreter | the Vale scene, 4,500 frames | `5582b59b2f2de25e`, **equal to Windows** | 34, equal |
+| Mario Kart Super Circuit | two passes, 0 / 0, native = interpreter | a race, 4,500 frames | `c329fb2241850849`, **equal** | 0, equal |
+| Pokémon Emerald | two passes, 0 / 0, native = interpreter | the player's house, 9,600 frames | `a8f5fb98324d3d1c`, **equal** | 9,733,707, equal |
+
+The functions generated per pass and the interpreted counts per pass of Golden Sun equal the Windows ones (13,600, 15,695, 15,768, 15,771 and 15,776 functions; one instruction apart in
+the first pass of the generic scenario, 72,238,563 against 72,238,564, an intermediate count that changes nothing). The compressed copy matched the player as built on both scenarios on Linux too (`packed_reference_match` true on the three). On the Golden Sun player, the fresh-process state check
+passes (same picture as the process that saved, the control differs, both pictures equal the Windows ones) and so does the refusals check (seven of seven forms refused, a missing state
+creates nothing, the byte flipped in the middle accepted, as on Windows).
+
+
+### The "NOT_STATIC" label on Linux
+
+On the Debian 13 PC the passes of Golden Sun and of Mario Kart printed `NOT_STATIC` even with 0 interpreted instructions, where the Windows passes printed `FULLY_STATIC` (Pokémon Emerald's printed
+`FULLY_STATIC` on Linux too). The engine calls a run fully static only when no address was bridged **and nothing was healed**; on Linux the engine reported 1 heal in the boot scenario and 12 in the
+generic one of Golden Sun (the 12 addresses the second pass had learned) and 1 in Mario Kart's, on Windows 0. It is a label and a count: the interpreted instructions, the pictures and the verdicts are equal on both systems. The log and the rows
+of the report now carry the number of heals (`healed_native`), so that the label can be read with its reason. The cause (a warm miss cache read back on Linux, as the engine's comment says,
+or something else) was not looked for.
+
+### What this does not show
+
+Gameplay beyond the first minutes of twelve cartridges, the SRAM family's save, an independent oracle of the CPU (the interpreter is the engine's own), hardware fidelity (no
+external emulator was compared), the sound itself (counts and hashes, not listening) and physical latency (not measured; `tools/gba_frame_cost.py` is ready and waits for a quiet PC).
+
+
 ## What exists today
 
 | Piece | File |
 | --- | --- |
 | Profile (experimental, listed with its files) | `retrorecomp/systems/gba.py` |
 | Cartridge reader: header, checksum, hash, save chip by library identification strings, BIOS hash | `retrorecomp/gba.py` |
-| Engine pin, the conversion loop (observe, learn paths, rebuild), the player export, the report | `retrorecomp/gba_conversion.py` |
+| Engine pin, the conversion loop (observe, learn paths, rebuild), the player export, the delivered file's evidence, the report | `retrorecomp/gba_conversion.py` |
 | The player: the project of the executable, its resources, the kit | `retrorecomp/gba_player.py`, `native/gba_machine.cpp`, `native/gba_machine.h`, `native/gba_driver.h`, `native/hostkit/adapters/rrhk_gba.c` |
 | Checkout of the pinned engine and the staged, patched copy | `retrorecomp/gba_engine.py`, `retrorecomp/gba_patches.py` |
 | Misses to roots and RAM routines, the engine's configuration | `retrorecomp/gba_analysis.py` |
 | Shared paths (the record, the limits, the received rows' use) | `retrorecomp/gba_knowledge.py`, `tests/test_gba_knowledge.py`, `tools/gba_bogus_rows_audit.py` |
-| Fresh-process checks, route scripts, cost of a frame | `tools/gba_fresh_process.py`, `tools/gba_routes/`, `tools/gba_frame_cost.py` |
+| Fresh-process checks (state, refusals, save, route), twelve key-script routes and the save scripts, cost of a frame | `tools/gba_fresh_process.py`, `tools/gba_routes/`, `tools/gba_frame_cost.py` |
 | Recompiler, BIOS and game generation, the headless probe host, the key scripts | `retrorecomp/gba_build.py` |
 | Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py`, `tests/test_gba_player.py` |
 
