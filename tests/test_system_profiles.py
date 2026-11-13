@@ -80,10 +80,12 @@ class RegistryTests(unittest.TestCase):
         seen = set()
         for profile in ALL_PROFILES:
             self.assertEqual(feedback.KINDS[profile.id], set(profile.feedback_kinds))
-            if profile.id != 'gg':  # Game Gear shares kind 1 with the Master System
+            # The Game Gear shares kind 1 with the Master System, the MSX2+ kind 27 with the MSX2 (one record format each pair).
+            if profile.id not in ('gg', 'msx2plus'):
                 self.assertFalse(seen & set(profile.feedback_kinds), profile.id)
             seen |= set(profile.feedback_kinds)
         self.assertEqual(feedback.KINDS['sms'], feedback.KINDS['gg'])
+        self.assertEqual(feedback.KINDS['msx2'], feedback.KINDS['msx2plus'])
         # The runtime recorder refuses a kind above RR_FB_MAX_KIND: every declared kind must fit under it
         # (until 1.7.0 the bound was the CPS-1's last kind, 16, and the CPS-2 and PC Engine hints were dropped).
         import re
@@ -367,7 +369,7 @@ class ProfileContractTests(unittest.TestCase):
     def test_identification_orders_follow_the_documented_priority(self):
         from retrorecomp.systems import registry
         # A game folder (Adventure (ScummVM)) is claimed first; a file is never that machine's.
-        self.assertEqual([p.id for p in registry.path_stage()], ['scummvm', 'x68', 'cps1', 'cps2', 'ng', 'atarist', 'amiga', 'n64', 'gba', 'msx2', 'psx'])
+        self.assertEqual([p.id for p in registry.path_stage()], ['scummvm', 'x68', 'cps1', 'cps2', 'ng', 'atarist', 'amiga', 'n64', 'gba', 'msx2plus', 'msx2', 'psx'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
         self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb', 'msx'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])

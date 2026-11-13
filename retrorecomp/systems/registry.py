@@ -31,7 +31,7 @@ from .game_gear import GAME_GEAR
 from .gba import GAME_BOY_ADVANCE
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO
 from .master_system import MASTER_SYSTEM
-from .msx import MSX, MSX2
+from .msx import MSX, MSX2, MSX2PLUS
 from .n64 import NINTENDO_64
 from .neogeo import NEOGEO
 from .nes import NES
@@ -73,7 +73,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS):
     register(_profile)
 del _profile
 

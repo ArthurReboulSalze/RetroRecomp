@@ -179,7 +179,8 @@ static void prepare_data_folder(void)
     static char folder[1024];
     char *base = SDL_GetBasePath();
     size_t start = base ? strlen(base) : 0;
-    int n = snprintf(folder, sizeof folder, "%sdatas/games/%s-%.12s", base ? base : "", RR_MSX_MODEL == 2 ? "msx2" : "msx",
+    int n = snprintf(folder, sizeof folder, "%sdatas/games/%s-%.12s", base ? base : "",
+                     RR_MSX_MODEL == 3 ? "msx2plus" : RR_MSX_MODEL == 2 ? "msx2" : "msx",
                      RR_MSX_IDENTITY);
     SDL_free(base);
     if (n <= 0 || n >= (int)sizeof folder) return;              /* keep player.cfg in the working folder */
@@ -220,15 +221,15 @@ static int setup_machine(void)
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
     if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0
-        || (RR_MSX_MODEL == 2 && bios_size != 0x10000)) {
+        || (RR_MSX_MODEL >= 2 && bios_size != 0x10000)) {
         fprintf(stderr, "[msx] the game's cartridge or BIOS resource is missing\n");
         return 3;
     }
     msx_init(&machine, RR_MSX_PAL ? MSX_LINES_PAL : MSX_LINES_NTSC);
     memset(slot0, 0xFF, sizeof slot0);
     memcpy(slot0, bios_image, bios_size);
-    if (RR_MSX_MODEL == 2) {                      /* the MSX2 board: main, logo page and sub-ROM in one BIOS source */
-        msx_setup_msx2(&machine, slot0, mapper_ram, RR_MSX_MAPPER_SEGMENTS, &v9938);
+    if (RR_MSX_MODEL >= 2) {                      /* the MSX2 board: main, logo page and sub-ROM in one BIOS source */
+        (RR_MSX_MODEL == 3 ? msx_setup_msx2plus : msx_setup_msx2)(&machine, slot0, mapper_ram, RR_MSX_MAPPER_SEGMENTS, &v9938);
     } else {
         MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
         bios.source = 1;
@@ -262,7 +263,7 @@ static int run(void)
         static wchar_t path[32768];
         if (msx_sram_path(path, sizeof path / sizeof *path)) sram_open(path);
     }
-    if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL == 2 ? 2 : 3, &machine)) return 4;
+    if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL >= 2 ? 2 : 3, &machine)) return 4;
     power_on();
     smsrecomp_banked_run();                       /* returns through exit() when the player quits */
     return 0;

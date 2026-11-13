@@ -79,6 +79,25 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
+
+**What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
+with the V9958 (R#25-R#27, the ID in S#1, YJK and YAE in Graphic 7, the horizontal scroll with MSK and SP2, the command engine in every mode with
+CMD) and the port F4h; C-BIOS 0.29a's MSX2+ images come from the same pinned archive. The MSX2 picture's points may be 15-bit colours (bit 15
+set); a V9938 never makes one, so an MSX2 game's picture is unchanged (the MSX2 panel converted on this tree is equal to the panel of 13 November
+on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not ``, so "MSX2+" is a name
+and "MSX2" followed by "+" is another machine; every other name matches as before.
+
+**Hot path:** a V9958 line with a scroll or the mask is drawn up to three times (the background of one or two pages, then the sprites); a V9938
+line takes the same path as before.
+
+**What moves:** the MSX and MSX2 game stamps (`msx_machine.c`, `msx_machine.h`, `msx_state.c`, `msx_v9938.c`, `msx_v9938_draw.c`,
+`msx_v9938_cmd.c`, `msx_player.c`, `msx_native_main.c`, `msx_reference_main.c`, `msx_state_file.inc`, `rrhk_msx.inc`, `msx_cbios.py`,
+`msx_conversion.py`, `systems/msx.py`); the MSX2+ is a new owner of the same files and of `cart_save.c` and `route_start.py`. No other
+machine's stamp moves.
+
+**Quick states:** the layout is `msx-state-4` (the port F4h); a state of an earlier build is refused cleanly.
+
 ## MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts (1.7.4)
 
 **What changes.**

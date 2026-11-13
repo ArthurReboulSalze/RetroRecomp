@@ -66,7 +66,7 @@ static void msx_state_body(RetroStateIO *io)
 
 static RetroStateEnvelope msx_state_envelope(void)
 {
-    RetroStateEnvelope e = {"RRMSXST\0", MSX_STATE_SCHEMA, RR_MSX_MODEL == 2 ? 2u : 1u, RR_MSX_IDENTITY, msx_state_body};
+    RetroStateEnvelope e = {"RRMSXST\0", MSX_STATE_SCHEMA, (unsigned)RR_MSX_MODEL, RR_MSX_IDENTITY, msx_state_body};
     return e;
 }
 

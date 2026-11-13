@@ -118,8 +118,8 @@ Experimental profile `msx2`, the second profile of the MSX family, beside `msx` 
 keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is experimental since 1.7.3, and
 **the V9938 command engine's timing is approximated**.
 
-**Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2` (always MSX2), or from a `.rom` or ZIP that you
-choose as MSX2 in the console list or that sits in a folder named `msx2`. The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
+**Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2`, `.rom` or ZIP that you
+choose as MSX2 in the console list or that sits in a folder named `msx2` (a `.mx2` with no such hint goes to the MSX2+: section 9). The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
 palette, scrolling, the line interrupt, the display pages; VRAM is held as the chip holds it, in two banks, so Graphic 6 and 7 reach their logical addresses interleaved), the V9938 command engine (all twelve commands, HMMC, YMMM, HMMM, HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, and STOP, with the logical operations, in the bitmap modes G4 to G7 only; V9938 commands: all twelve, timing approximated), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
 RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
 
@@ -148,3 +148,42 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has the same
 letters as the `msx` column (section 7).
+
+## 9. The MSX2+ (`msx2plus`)
+
+Experimental profile `msx2plus`, the third profile of the family, in development (not in a release yet). It is the MSX2's board with the V9958
+in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
+
+**Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
+(or `msx2plus`, `msx2p`).
+
+**MSX2 or MSX2+: which machine a file goes to** (Arthur's rule, 13 November 2026), in this order:
+
+1. MSX2 chosen in the console list, or the file in an `msx2` folder: the MSX2.
+2. MSX2+ chosen, or the file in an `msx2+` folder: the MSX2+.
+3. A file known to be at least MSX2 with nothing saying which (a `.mx2`, or a ZIP holding one, outside those folders): the MSX2+, which runs
+   nearly every MSX2 game, while the MSX2 cannot run an MSX2+ game.
+4. A plain `.rom` with no hint: the MSX1's check, as before (the doubt is not widened to MSX1 files).
+
+The conversion says in one line which hint decided (`msx2+ folder`, `msx2 folder`, `chosen in the menu`, or `in doubt between MSX2 and
+MSX2+: MSX2+`). There is no table of checksums and no scan of the code. **Firmware:** C-BIOS 0.29a's MSX2+ images (main ROM, logo, and the MSX2 sub-ROM), from the same pinned archive as the MSX1's
+and MSX2's, or your own MSX2+ BIOS pair (the main ROM, byte 2Dh = 2, and its 16 KiB sub-ROM), chosen in Options > MSX2+ and never shipped.
+
+**The V9958, as written from Yamaha's V9958 technical data and the MSX2+ technical documents:** R#25 (CMD, VDS, YAE, YJK, WTE, MSK, SP2), R#26
+and R#27 (the horizontal scroll: R#26 moves the picture left in 8-dot steps, R#27 back right by 0 to 7 dots; SP2 shows two pages side by side;
+MSK covers the left 8 dots with the border), the ID 2 in S#1, YJK and YJK+YAE in Graphic 7 (15-bit colours: R = Y + J, G = Y + K,
+B = (5Y - 2J - K) / 4 rounded down, each clipped to 0-31; with YAE a byte with bit 3 set shows the palette colour of its bits 7-4), and the
+command engine in every screen mode with CMD (as Graphic 7). Sprites do not scroll; in the YJK modes they take the palette's colours. Port F4h
+is a latch, 00h at power-on.
+
+**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** disks (the next
+step: your own disk ROM will be needed, never shipped), MSX-MUSIC (YM2413), the kanji ROM, cassettes.
+
+**First comparison, and an open difference (13 November 2026).** Family Stadium Professional Baseball slides its title in with the
+horizontal scroll (R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate
+program, never shipped) with its C-BIOS MSX2+ machine shows the same slide and the same final values, about 60 frames later (its boot is
+longer). Open: after the slide openMSX's R#1 has the line interrupt off (42h) and ours keeps it on (62h). openMSX's C-BIOS MSX2+ machine also
+has MSX-MUSIC, which ours does not yet, and that can change the game's path; the cause is not proven.
+
+**The five measures:** nothing is measured yet for the MSX2+: no panel has run, no fidelity is claimed, no game is validated, and no latency is
+measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial, G16 not applicable and every other gate unknown.

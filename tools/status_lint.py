@@ -60,13 +60,15 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.;!?])\s+")
 
 
 # A name followed by these is another machine: the CPS-1.5 tier or the CPS-2 board family, the Game Boy Color or
-# Advance; they are not statements about this profile.
-_OTHER_MACHINE = r"(?!\.\d)(?!\s+(?:Advance|Color)\b)"
+# Advance, the MSX2+ after "MSX2"; they are not statements about this profile.
+_OTHER_MACHINE = r"(?!\.\d)(?!\s+(?:Advance|Color)\b)(?!\+)"
 
 
 def alias_pattern(console_id: str) -> re.Pattern[str]:
     names = "|".join(re.escape(alias) for alias in ALIASES[console_id])
-    return re.compile(rf"\b(?:{names})\b{_OTHER_MACHINE}")
+    # Edges by lookaround rather than \b: the same for a name that begins and ends with a letter or a digit, and right for
+    # one that ends with another sign ("MSX2+").
+    return re.compile(rf"(?<!\w)(?:{names})(?!\w){_OTHER_MACHINE}")
 
 
 def sentence_status(sentence: str) -> str | None:
