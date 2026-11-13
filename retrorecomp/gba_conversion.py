@@ -248,12 +248,15 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                     reasons[analysis.why_unresolved(item, data, outcome.iwram, outcome.ewram, outcome.samples)] += 1
             interpreted = outcome.coverage.get('interpreted_insns')
             rows.append(_row(name, count, None, interpreted, coverage=outcome.coverage.get('coverage'),
-                             distinct_misses=outcome.coverage.get('distinct_misses'), aborted=outcome.aborted or None,
+                             distinct_misses=outcome.coverage.get('distinct_misses'), healed_native=outcome.coverage.get('healed_native'),
+                             aborted=outcome.aborted or None,
                              exit_code=outcome.returncode, picture_sha256=outcome.frame_sha256 or None,
                              cycles_total=outcome.cycles))
             history.append({**rows[-1], 'pass': number})
             emit(f"Game Boy Advance {name}: {outcome.coverage.get('coverage', 'no coverage report')}, "
                  f"{interpreted} interpreted instructions, {outcome.coverage.get('distinct_misses')} distinct addresses"
+                 + (f", {outcome.coverage['healed_native']} healed natively (the engine's label counts a heal as not fully static)"
+                    if outcome.coverage.get('healed_native') else '')
                  + (f'; stopped: {outcome.aborted}' if outcome.aborted else '.'))
         new = len(learned.roots - in_build.roots) + len(learned.spans - in_build.spans) + fresh
         observations.merge(learned)
