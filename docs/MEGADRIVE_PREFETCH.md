@@ -169,8 +169,9 @@ Z80 operand/prefix phases and remaining unplaced 68000 internal phases,
 BR/BG/BGACK synchronizers and board turnaround,
 refresh/HSYNC/blanking slots, VDP port collisions, finer raster/IRQ/interlace
 fields, other EEPROM/mapper circuits and broader gameplay remain separate
-evidence areas. The supported standard profile completed its finite cartridge
-qualification; finer electrical behavior is not claimed. See
+evidence areas. The supported standard profile meets the written criteria within
+its cartridge scope; the gates still partial are listed in
+[QUALIFICATION.md](QUALIFICATION.md). Finer electrical behavior is not claimed. See
 [compatibility scope](COMPATIBILITY.md).
 
 The cartridge follow-up qualifies [three EEPROM families](MEGADRIVE_EEPROM.md)
