@@ -285,7 +285,8 @@ status reads, acknowledgement and 6,000 raster/audio ticks per standard.
 Additional local checks exercise the actual backend using authored RAM loops
 and F8/F9. Commercial-ROM native/reference comparisons, native coverage,
 hands-on gameplay and physical latency remain separate evidence axes.
-The supported standard profile completed its finite cartridge qualification.
+The supported standard profile meets the written criteria within its cartridge
+scope; the gates still partial are listed in [QUALIFICATION.md](QUALIFICATION.md).
 Remaining electrical and VDP collision details are explicitly outside that scope;
 see [compatibility evidence](COMPATIBILITY.md).
 

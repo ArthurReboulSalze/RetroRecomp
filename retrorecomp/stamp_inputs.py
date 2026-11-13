@@ -214,6 +214,9 @@ NOT_INPUTS = (
     # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
     # never into a game (the folder's CMakeLists.txt does not build it).
     'native/amiga_machine/amiga_vector_checks.cpp',
+    # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
+    # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
+    'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.

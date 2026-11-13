@@ -4,7 +4,9 @@ Release 0.20.0 adds mouse Menacer input on Mega Drive and mouse
 Super Scope input on Super Nintendo. Recognition is based on an explicit
 per-console catalogue. CPU conversion builds a separate profile for each ROM;
 a familiar gun-game filename never selects a different cartridge's native code.
-These additions are experimental.
+These additions opened as experimental in 0.20.0; the Menacer and the Super Scope
+are qualified within their machine's scope (see [MEGADRIVE.md](MEGADRIVE.md),
+[SNES.md](SNES.md)).
 
 ## Qualified test cartridges
 
@@ -99,8 +101,10 @@ latching. Conversion compares native and interpreted main-CPU executions on
 3,600-frame demo and scripted mouse-play scenarios, including CPU/memory,
 visible-frame sequence and gun state. Both paths share hardware semantics;
 agreement is not independent hardware validation or complete gameplay
-validation. The Z80/SPC700 audio CPUs remain interpreted, and physical latency
-has not been measured. Complete playthrough validation remains open.
+validation. The sound CPUs (the Mega Drive's Z80, the Super Nintendo's SPC700)
+run guarded native code with a counted interpreter fallback and are compared with
+the reference like the main CPU; physical latency has not been measured.
+Complete playthrough validation remains open.
 The tested Menacer and Super Scope scenarios produce sensor captures. T2's
 script now selects one-player Menacer through its original menu, without
 changing guest RAM or ROM. Its 3,000-frame-or-longer gun test requires sensor

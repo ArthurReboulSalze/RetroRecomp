@@ -71,7 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `██████████` 97 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |

@@ -851,5 +851,200 @@ class CompiledUnobservedTests(unittest.TestCase):
         self.assertEqual((scenario['native'], scenario['compiled_unobserved']), (0, 1))
 
 
+
+HASH_KEYS = ('cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'vsram_hash', 'vdp_register_hash', 'frame_hash',
+             'sequence_hash', 'fm_hash', 'psg_hash', 'z80_cpu_hash', 'z80_ram_hash')
+
+
+def md_report(system_id='md', *, main=0, memory=None):
+    """The Mega Drive's report as the writer left it: digests in final_checks, a packing record, the batch's timings."""
+    report = published(console16_report(system_id, main=main))
+    for row_number, row in enumerate(report['final_checks']):
+        for index, key in enumerate(HASH_KEYS):
+            row[key] = f'{row_number}{index:x}' * 8
+    report['timings'] = {'compile': 18.8, 'discovery': 49.5, 'total': 129.2}
+    report['native_percentage'] = [round(100 * (1 - main / 900_000), 6)] * 2
+    if memory is not None:
+        report['cartridge_memory'] = memory
+    return report
+
+
+class MegaDriveReading(unittest.TestCase):
+    """What the reader fills for the Mega Drive from the report's own keys (gate G2), and what it leaves None.
+
+    Only the 68000 shape of the console16 writer is read this way; the Super Nintendo's reading is unchanged."""
+
+    def test_the_digests_of_final_checks_reach_each_scenario(self):
+        scenarios = read_report(md_report())['validation']['cpu_fidelity']['scenarios']
+        self.assertEqual([s['name'] for s in scenarios], ['demo', 'play'])
+        self.assertEqual(set(scenarios[0]['hashes']), {key[:-5] for key in HASH_KEYS})
+        self.assertEqual(scenarios[0]['hashes']['z80_cpu'], '0a' * 8)
+        self.assertEqual(scenarios[0]['hashes']['cpu'], '00' * 8)
+        self.assertEqual(scenarios[1]['hashes']['cpu'], '10' * 8)
+        self.assertIn('native run', scenarios[0]['hashes_from'])
+        self.assertIs(scenarios[0]['match'], True)
+        # A scenario without a row, or a row without digests, has none (never an empty object).
+        data = md_report()
+        data['final_checks'][1] = {k: v for k, v in data['final_checks'][1].items() if not k.endswith('_hash')}
+        data['native_validation']['comparisons'].append({'scenario': 'other', 'frames': 1, 'differences': []})
+        scenarios = read_report(data)['validation']['cpu_fidelity']['scenarios']
+        self.assertIsNone(scenarios[1]['hashes'])
+        self.assertIsNone(scenarios[2]['hashes'])
+
+    def test_the_main_cpu_share_and_mode_come_from_its_counts_and_the_summary_keeps_the_stored_figures(self):
+        clean = read_report(md_report())['cpus'][0]
+        self.assertEqual((clean['mode'], clean['reported_label'], clean['unit']), ('native', None, 'instructions'))
+        self.assertEqual(clean['scenarios'][0]['interpreted_percent'], 0.0)
+        self.assertIsNone(clean['scenarios'][0]['cycles'], 'instructions are never turned into cycles')
+        mixed = read_report(md_report(main=40))
+        self.assertEqual(mixed['cpus'][0]['mode'], 'hybrid')
+        self.assertEqual(mixed['cpus'][0]['scenarios'][0]['interpreted_percent'], round(100 * 40 / 900_000, 6))
+        self.assertIsNone(fallback_summary(mixed)['interpreter_percent'])
+        # A missing count gives no mode and no share; the sound CPU keeps the word the writer stored.
+        data = md_report()
+        del data['final_checks'][0]['interpreted_opcodes']
+        broken = read_report(data)['cpus'][0]
+        self.assertIsNone(broken['mode'])
+        self.assertIsNone(broken['scenarios'][0]['interpreted_percent'])
+        self.assertEqual(read_report(md_report())['cpus'][1]['mode'], 'native')
+        interpreted = md_report(main=900_000)
+        for row in interpreted['final_checks']:
+            row['native_entries'] = 0
+        self.assertEqual(read_report(interpreted)['cpus'][0]['mode'], 'interpreted')
+
+    def test_saves_say_only_what_the_cartridge_memory_shows(self):
+        none = read_report(md_report(memory={'kind': 'none', 'bytes': 0, 'battery': False}))['saves']
+        self.assertIs(none['supported'], False)
+        self.assertIn('no battery', none['reason'])
+        self.assertEqual(none['cartridge_memory'], {'kind': 'none', 'bytes': 0, 'battery': False})
+        self.assertIsNone(none['validation'], 'a test result is never read from a layout')
+        for memory in ({'kind': 'sram', 'bytes': 8192, 'battery': True}, {'kind': 'eeprom', 'bytes': 256, 'battery': True}):
+            saves = read_report(md_report(memory=memory))['saves']
+            self.assertIsNone(saves['supported'])
+            self.assertIsNone(saves['reason'])
+
+    def test_the_build_keys_come_from_the_packing_record_the_compiler_and_the_timings(self):
+        build = read_report(md_report())['build']
+        self.assertEqual(build['executable_bytes'], 3000)
+        self.assertEqual((build['backend'], build['engine_revision']), ('x/y', 'r'))
+        self.assertEqual(build['phases_seconds'], {'compile': 18.8, 'discovery': 49.5})
+        self.assertIsNone(build['sdl_revision'])
+        self.assertIsNone(build['compiler_signature'])
+        # What the writer stores stays; a report not yet published has no size.
+        data = md_report()
+        data['backend'], data['conversion_phases_seconds'] = 'stored-backend', {'only': 1.0}
+        stored = read_report(data)['build']
+        self.assertEqual((stored['backend'], stored['phases_seconds']), ('stored-backend', {'only': 1.0}))
+        del data['packing']
+        self.assertIsNone(read_report(data)['build']['executable_bytes'])
+
+    def test_what_a_report_without_the_writers_new_keys_does_not_record_stays_none(self):
+        """A report written before the honesty change (gate G15) has no schema, no pad count and no SDL revision: they read None."""
+        document = read_report(md_report())
+        for key in ('schema', 'machine', 'rom_identity', 'fresh_process_verified', 'validation'):
+            self.assertIsNone(document['states'][key], key)
+        self.assertIs(document['states']['supported'], True)
+        self.assertEqual(document['states']['save_key'], 'F8')
+        self.assertIsNone(document['runtime']['input_players'])
+        self.assertIsNone(document['runtime']['peripheral'])
+        for measure in MEASURES:
+            self.assertNotIn('exact', document['validation'][measure]['claim'])
+        self.assertIs(document['validation']['gameplay']['validated'], False)
+        self.assertIs(document['validation']['hardware_fidelity']['validated'], False)
+
+    def test_what_the_writer_stores_is_read_as_it_is_and_wins_over_what_the_report_derives(self):
+        data = md_report(memory={'kind': 'none', 'bytes': 0, 'battery': False})
+        data['native_validation'].update(independent_cpu_oracle=False, cpu_agreement=True)
+        data['qualification_scope'] = {'routes': 'r', 'cartridge_hardware': 'c', 'universal_zero_fallback_claim': False}
+        data.update(main_cpu='hybrid', input_players=2, sdl_revision='5d' * 20, native_coverage=True,
+                    native_percentage_scope='main CPU only, in instructions; the sound CPU is audio_native_percentage, in cycles',
+                    peripheral={'pad': 'six_button', 'gun_device': None},
+                    ordinary_saves={'supported': False, 'reason': 'stored reason', 'scope': 'none', 'path': None, 'validation': None})
+        data['game_states'].update(schema='RR16ST1-MD-11', machine='md', rom_identity=SHA)
+        document = read_report(data)
+        # The counts say native only; the stored word is the label and the mode (a stored value always wins).
+        main = document['cpus'][0]
+        self.assertEqual((main['reported_label'], main['mode']), ('hybrid', 'hybrid'))
+        self.assertEqual(main['scenarios'][0]['interpreted_percent'], 0.0)
+        self.assertEqual(document['cpus'][1]['reported_label'], 'native')
+        for key in ('independent_cpu_oracle', 'universal_zero_fallback_claim', 'cpu_fidelity_validated',
+                    'hardware_fidelity_validated', 'full_game_validated', 'physical_latency_measured'):
+            self.assertIs(document['honesty'][key], False, key)
+        self.assertIs(document['validation']['cpu_fidelity']['agreement'], True)
+        self.assertEqual((document['states']['schema'], document['states']['machine'], document['states']['rom_identity']),
+                         ('RR16ST1-MD-11', 'md', SHA))
+        self.assertIsNone(document['states']['fresh_process_verified'])
+        self.assertEqual(document['runtime']['input_players'], 2)
+        self.assertEqual(document['runtime']['peripheral'], {'pad': 'six_button', 'gun_device': None})
+        self.assertEqual(document['build']['sdl_revision'], '5d' * 20)
+        self.assertIsNone(document['build']['compiler_signature'])
+        # The stored verdict is the one read (not the derived one), and the cartridge layout stays beside it.
+        self.assertEqual(document['saves']['reason'], 'stored reason')
+        self.assertEqual(document['saves']['cartridge_memory'], {'kind': 'none', 'bytes': 0, 'battery': False})
+        # A stored word that is not a mode (a CPU that did not run) is the label, and the mode is read from the counts.
+        data['main_cpu'] = 'not_run'
+        main = read_report(data)['cpus'][0]
+        self.assertEqual((main['reported_label'], main['mode']), ('not_run', 'native'))
+        # Written, then read back from the dual-written file: the same document, nothing lost on the way.
+        written = report_schema.with_schema_v2(data)
+        self.assertEqual(read_report(written)['saves'], read_report(data)['saves'])
+        self.assertEqual(read_report(written)['cpus'][0]['reported_label'], 'not_run')
+
+    def test_the_writers_new_keys_mean_nothing_to_the_super_nintendo_reading(self):
+        data = md_report('snes')
+        data.update(main_cpu='hybrid', ordinary_saves={'supported': True, 'reason': None, 'scope': 'x', 'path': 'p', 'validation': None})
+        data['cartridge_memory'] = {'kind': 'sram', 'bytes': 8192}
+        document = read_report(data)
+        self.assertIsNone(document['cpus'][0]['reported_label'])
+        self.assertIsNone(document['cpus'][0]['mode'])
+        # A stored verdict is read for any machine, but the cartridge layout is only kept beside it for the Mega Drive.
+        self.assertIs(document['saves']['supported'], True)
+        self.assertIsNone(document['saves']['cartridge_memory'])
+
+    def test_a_dual_written_document_of_an_earlier_version_reads_as_a_new_one(self):
+        fresh = report_schema.with_schema_v2(md_report())
+        earlier = copy.deepcopy(fresh)
+        earlier['build'].update(executable_bytes=None, backend=None, engine_revision=None, phases_seconds=None)
+        earlier['cpus'][0].update(mode=None)
+        earlier['cpus'][0]['scenarios'][0].update(interpreted_percent=None)
+        earlier['cpus'][0]['scenarios'][0].pop('interpreted_percent_derived')
+        earlier['saves'].update(supported=None, reason=None)
+        for scenario in earlier['validation']['cpu_fidelity']['scenarios']:
+            scenario['hashes'] = None
+            scenario.pop('hashes_from')
+        self.assertIsNone(earlier['build']['executable_bytes'])
+        self.assertEqual(read_report(earlier), read_report(fresh))
+        self.assertEqual(read_report(earlier)['build']['executable_bytes'], 3000)
+        # A value the document stores is never replaced.
+        earlier['build']['backend'] = 'stored'
+        self.assertEqual(read_report(earlier)['build']['backend'], 'stored')
+        # Without its own keys nothing can be derived, and the stored sections are returned as they are.
+        bare = {key: value for key, value in earlier.items() if key in REQUIRED_KEYS or key == 'timings'}
+        bare['read_from'] = {'schema_version': 2, 'writer': 'console16'}
+        self.assertIsNone(read_report(bare)['build']['executable_bytes'])
+
+    def test_the_super_nintendo_and_the_other_machines_read_as_before(self):
+        snes = read_report(md_report('snes'))
+        scenario = snes['validation']['cpu_fidelity']['scenarios'][0]
+        self.assertIsNone(scenario['hashes'])
+        self.assertNotIn('hashes_from', scenario)
+        self.assertIsNone(snes['cpus'][0]['mode'])
+        self.assertIsNone(snes['cpus'][0]['scenarios'][0]['interpreted_percent'])
+        self.assertNotIn('interpreted_percent_derived', snes['cpus'][0]['scenarios'][0])
+        self.assertIsNone(snes['build']['executable_bytes'])
+        self.assertIsNone(snes['build']['backend'])
+        self.assertIsNone(snes['build']['phases_seconds'])
+        data = md_report('snes', memory={'kind': 'none', 'bytes': 0, 'battery': False})
+        self.assertIsNone(read_report(data)['saves']['supported'])
+        written = report_schema.with_schema_v2(md_report('snes'))
+        self.assertEqual({k: v for k, v in read_report(written).items() if k != 'read_from'},
+                         {k: v for k, v in read_report(md_report('snes')).items() if k != 'read_from'})
+        for build in (sms_report, gb_report, nes_report, neogeo_report, cps1_report, x68_report):
+            document = read_report(build())
+            self.assertNotIn('interpreted_percent_derived', document['cpus'][0]['scenarios'][0])
+            scenarios = document['validation']['cpu_fidelity']['scenarios'] or [{}]
+            self.assertNotIn('hashes_from', scenarios[0])
+
+
 if __name__ == '__main__':
     unittest.main()

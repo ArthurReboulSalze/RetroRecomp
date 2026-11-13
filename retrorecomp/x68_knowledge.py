@@ -64,7 +64,11 @@ PATH_CAPS = {'x68_span': SPAN_LIMIT, 'x68_ipl': IPL_LIMIT}
 #     path "waiting" again for it.
 # 1: first revision (5 November 2026, the X68000 joins the base). The generator moved from tools/x68000_native.py into retrorecomp/m68k_observed.py on
 # 5 November 2026 without changing a byte of what it writes (A/B of UPGRADES.md): the revision stays 1, the pins follow.
-GENERATOR_REVISION = 1
+# 2: ABCD, SBCD and NBCD on bytes that are not two decimal digits (13 November 2026): the translated steps take the three new state rules of
+# `m68000_state_rules` (shared with the Mega Drive, Neo Geo and CPS-1) and Musashi's twenty decimal handlers take the same arithmetic
+# (`musashi_fixes`), so the two paths agree and the 22 decimal vectors of m68k-groups pass. The generated code changes only for those three
+# instructions; V follows Moira too (the five flags). Valid decimal operands give the same result as before.
+GENERATOR_REVISION = 2
 NATIVE_INPUTS = ('native/x68000_native/CMakeLists.txt', 'native/x68000_native/decode.c', 'native/x68000_native/guard_checks.c',
                  'native/x68000_native/observe.c', 'native/x68000_native/observe.h')
 GENERATOR_SOURCES = ('tools/x68000_native.py', 'tools/x68000_base74.py', 'retrorecomp/m68k_observed.py', 'retrorecomp/m68000.py', 'retrorecomp/m68000_state_rules.py',
