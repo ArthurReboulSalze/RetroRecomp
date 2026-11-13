@@ -303,6 +303,31 @@ class Msx2PlusDiskInputTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 read_disks(bad)
 
+    def test_the_authored_write_disk_is_a_disk_the_converter_reads(self):
+        """tools/msx_write_disk.py, the disk that proves the write path (no game data): 720 KiB, an MSX-DOS boot sector with
+        its BPB, a boot program that hooks H.STKE and calls PHYDIO with the carry set, the two FATs marked F9h."""
+        import tempfile
+        from retrorecomp.msx_disk import read_disks
+        spec = importlib.util.spec_from_file_location('msx_write_disk', ROOT / 'tools' / 'msx_write_disk.py')
+        writer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(writer)
+        disk = writer.image()
+        self.assertEqual(len(disk), 737280)
+        self.assertEqual(disk[0], 0xEB)
+        self.assertEqual(int.from_bytes(disk[11:13], 'little'), 512)
+        self.assertEqual(int.from_bytes(disk[19:21], 'little'), 1440)
+        self.assertEqual(disk[21], 0xF9)
+        code = writer.boot_code()
+        self.assertEqual(disk[0x1E:0x1E + len(code)], code)
+        self.assertIn(bytes((0x22, 0xDB, 0xFE)), code)                 # the hook's address into H.STKE
+        self.assertIn(bytes((0x37, 0xCD, 0x44, 0x01)), code)           # SCF / CALL PHYDIO: a write
+        for fat in (1, 4):
+            self.assertEqual(disk[fat * 512:fat * 512 + 3], bytes((0xF9, 0xFF, 0xFF)))
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'write.dsk'
+            path.write_bytes(disk)
+            self.assertEqual(read_disks(path).images, (disk,))
+
 
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
