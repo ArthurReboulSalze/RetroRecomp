@@ -447,10 +447,13 @@ every console's game stamp hashes, is not edited and only the Game Boy Advance g
 * **Not done.** The site's limits for the `gba` machine are not regenerated or deployed, no record was uploaded, and the Linux witness is not run: sharing is code and tests
   in the tree, switched on only with the release and the maintainer's seeding. The local carry-over of paths at a pin bump is for later.
 
-## The panel of twelve, the delivered file, the refusals and the routes (13 November 2026, 1.7.4)
+## The panel of eight, four more cartridges, the delivered file, the refusals and the routes (13 November 2026, 1.7.4)
 
-Twelve cartridges chosen by risk (all four save chips, 4 to 16 MB, two clock cartridges, a software 3D game, a role-playing game of 16 MB) were converted from an **empty** scratch library on a
-Windows PC, two conversions at a time (`batch --jobs 2`, the PC in use for other work: the times are not a benchmark), three passes asked and up to four settling ones,
+The qualification panel is **eight** cartridges (the rule of 13 November 2026: at most eight per machine), chosen so that every case is covered: Golden Sun (Flash 64 KB, code run from RAM), Pokémon
+Emerald (Flash 128 KB, the clock), The Minish Cap (EEPROM, 16 MB), Metroid Fusion (SRAM, all code found by the engine), Mario Kart Super Circuit (affine layers, Flash 64 KB), Mega Man Zero 3
+(SRAM, a route through millions of interpreted instructions), Crazy Taxi (a software 3D game, bitmap modes, EEPROM) and Sonic Advance 2 (Flash 64 KB, the save route). Four more cartridges had been converted and
+routed before that rule and stay here as extra evidence, not as panel members: Advance Wars, Pokémon Ruby, Wario Land 4 and Mario & Luigi. All twelve (all four save chips, 4 to 16 MB, two clock
+cartridges, a software 3D game, a role-playing game of 16 MB) were converted from an **empty** scratch library on a Windows PC, two conversions at a time (`batch --jobs 2`, the PC in use for other work: the times are not a benchmark), three passes asked and up to four settling ones,
 with the tree of `spec/gba-174`. None was dropped. Each ran the two scenarios (`boot` 600 frames, `generic` 3,600 frames) natively and with the engine's interpreter alone;
 on all twelve the final picture, the guest's cycle count, the memory hash and the CPU hash are equal.
 
