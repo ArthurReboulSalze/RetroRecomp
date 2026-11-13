@@ -151,8 +151,10 @@ void take_sound() {
         if (!count) break;
         const uint32_t ratio = rate >= kOutputRate && rate % kOutputRate == 0 ? rate / kOutputRate : 1;
         for (size_t i = 0; i < count; ++i) {
-            g_frame_sound = (g_frame_sound ^ static_cast<uint16_t>(block[i])) * 1099511628211ull;
-            if (block[i]) g_frame_audible = true;
+            if (g_rows) {                          // only a run that writes the rows hashes the sound: play is unchanged
+                g_frame_sound = (g_frame_sound ^ static_cast<uint16_t>(block[i])) * 1099511628211ull;
+                if (block[i]) g_frame_audible = true;
+            }
             g_sum += block[i];
             if (++g_sum_count >= ratio) {
                 push_sample(static_cast<int16_t>(g_sum / static_cast<int32_t>(g_sum_count)));
