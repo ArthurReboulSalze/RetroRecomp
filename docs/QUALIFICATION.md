@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2 of 13 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2 of 13 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026)
 
 ### Progress through the qualification list
 
@@ -62,7 +62,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Game Boy Advance | experimental | `█████░░░░░` 47 % | ✅ 0 · 🟡 14 · ❔ 1 |
 | Commodore Amiga | experimental | `██████░░░░` 57 % | ✅ 2 · 🟡 13 · ❔ 0 |
-| Atari ST | experimental | `█████░░░░░` 53 % | ✅ 2 · 🟡 12 · ❔ 1 |
+| Atari ST | experimental | `████████░░` 80 % | ✅ 10 · 🟡 4 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
@@ -73,21 +73,21 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ❔ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -103,21 +103,21 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | P | Y | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | P | P | P | P | P | Y | Y | ? |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | Y | Y | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | Y | Y | ? |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | Y | Y | ? |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | P |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | P | P | P | P | ? |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | Y | Y | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | P | P | ? | Y | Y | ? |
 | G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | ? |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | P | ? | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | P | P | ? |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | Y | P | P | Y | P | P | P | P | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | P | P | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | ? | P | P | P | ? |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | - | - | - | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -191,6 +191,23 @@ The page of each console, which the README links its line to (a console of the m
   call Hatari's own handlers, so a shared path would raise the native count without making a game faster. The question comes back with a translated 68000, and a
   supported Atari ST would have to join the sharing (`tests/test_machine_registry.py`). No hardware fidelity is claimed, no game is validated and the latency is not
   measured ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)).
+
+- Atari ST (13 November 2026; tree of `spec/atarist-174`, Windows, one conversion at a time from an empty scratch library): **G1, G2, G3, G4, G5, G8, G12 and G15 move from `P` to `Y`**; G6 and G13 stay `Y`, G7, G9, G10 and G11 stay `P`,
+  G14 stays `?` and G16 `-`. The evidence is in [ATARI_ST.md](ATARI_ST.md#3-the-five-measures) (the panel of fifteen) and in [UPGRADES.md](UPGRADES.md). **G12 `Y`**: fifteen named games (one more than the ten of 8 November: The Seven Gates of Jambala,
+  Championship Cricket, Outcast, The Lurking Horror and Battle Probe, the last three started by the desktop), none dropped, every one equal to the fresh reference on every route; Turrican II on the player's TOS 1.04, which EmuTOS cannot run. **G4 and G5 `Y`**:
+  on all 47 routes (extended level, 3,000 frames twice and 18,000 once; two games at the thorough level with a second route of 18,000 that changes the disk) the native game and its compressed copy equal the fresh interpreted reference, frame by frame
+  (picture, sound, RAM, CPU registers), and the published executable is byte for byte the compressed copy that was replayed (the 15 exports of the owner's folder, SHA-256 compared); the reference is Hatari's own interpreter, which the vectors of G10 check
+  and not an independent oracle. **G3 `Y`**: the interpreted instructions of every run are listed where they ran (address, opcode, count; the counts add up to the run's total on 47 of 47 routes): EmuTOS's own start (four to six), Hatari's
+  GEMDOS hook while the desktop starts a program (75 to 775,400 on a route) and the game's line A opcodes, which never become native; devices are counted apart (they run on Hatari). **G2 `Y`**: the report names the Shifter/GLUE/MMU and the YM2149
+  as devices with no counter, the MFP, the IKBD and the WD1772 with its DMA beside them, and carries `route_warnings`. **G8 `Y`**: the picture changes on the main route of all 15 games and 14 of 15 are heard on a route (Carrier Command stays at its
+  language menu and its protection and is silent on all of them); the last picture of every route was looked at by the specialist agent, not by the owner. **G1 `Y`**: `tools/status_lint.py` finds 0 contradictions, and the pages were corrected
+  (the desktop list, KNOWN_FAILURES, ROADMAP); the one statement that still disagrees is outside this machine's pages: the public page `site/index.html` lists the Atari ST among the machines that "will join", each in its own experimental phase.
+  **G15 `Y`**: the machine page, this matrix, COMPATIBILITY, the README, the release notes, UPGRADES, KNOWN_FAILURES, ROADMAP, the F1 help of the adapter (it lists only the disk keys the machine answers) and the report's claims were read again after the
+  features of 1.7.3 and 1.7.4; five statements were corrected (the list of desktop games, Kick Off 2 listed as failing, two stale lines of the roadmap and the density of the "twelve left to the player"); no fidelity, completeness or latency is claimed.
+  **G9 stays `P`**: with the routes of the panel, ten of fifteen reach play or a menu of the game (Battle Probe, Bomb Jack, Captain Blood and Lethal Xcess after the disk change, Championship Cricket, Indiana Jones, Kick Off 2, The Lurking Horror, Outcast, Turrican II);
+  four stop on a protection whose answer is on a card, a wheel or in the manual (Another World, Carrier Command, Elite, Operation Stealth: each says so in `route_warnings`, no route answers or skips it) and The Seven Gates of Jambala stays on its title. Whether
+  a protection listed with its reason counts as reaching depth is the owner's reading of the gate. **G7 stays `P`**: one real game (The Lurking Horror) saves through GEMDOS on two TOSes and two systems; a second game was tried on 13 November (The Pawn
+  asks for a file name and answers "Ouch - bad save" in this setup; the cause was not found, and Trinity does not start in low resolution), so it is not a second proof. G14 is the owner's: the fifteen exports are in his folder for his play.
 
 - MSX and MSX2 (13 November 2026; experimental profiles `msx` and `msx2` of 1.7.3; letters set on the evidence of the release tree, main `6bdc7863`,
   whose MSX code is that of the tag `v1.7.3`): the panel is ten cartridges converted at the extended level (attract, play and an 18,000-frame route) from an empty

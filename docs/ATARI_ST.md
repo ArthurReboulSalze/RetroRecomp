@@ -96,7 +96,7 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
 
 | Measure | What is known today |
 | --- | --- |
-| Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below. On the tested routes only. |
+| Native code | The panel of ten games, converted once each on Windows with TOS 1.04 (6 November 2026) and with EmuTOS 1.4 (7 November 2026), Standard level (Bomb Jack at Quick), main route of 3,000 frames (the exploration route is within a few instructions of it): see the tables below; the panel of fifteen games of 13 November 2026 (extended level, interpreted instructions listed by address) follows them. On the tested routes only. |
 | CPU fidelity | The native code is Hatari's own handlers, specialised per opcode (section 2): on the ten games the trace of every frame (picture, sound, RAM, CPU registers) of the native game and of its compressed copy is identical to the interpreted reference's, on every route. This shows that the steps equal the core, not that the core equals a 68000; the independent corpus is the vectors. Hatari's cycle-exact 68000 replayed on the SingleStepTests 68000 fixtures (`tools/atarist_vector_selftest.py`): 6,764 vectors. On a flat 24-bit bus 6,762 run and the state agrees on 6,760 (the two others are divisions by zero whose N/Z flags the 68000 leaves undefined); on the ST's memory map 3,593 run and all agree. Clocks on the flat bus: 4,363 equal, 1,857 the ST's 4-cycle rounding, 14 CHK vectors 4 clocks more, 528 neither explained nor refuted (a fixture without a list of bus transactions). The native form was compared on 6,107 vectors of the flat bus and 3,569 of the ST's map, those whose opcode has a form, and equals the interpreter on all of them; with `--all-forms`, each of the 45,814 forms of every opcode but RESET equals the table's handler on eight random states (366,512 runs: registers, flags, clocks in each position of the bus slot, interrupt level changing during the instruction, prefetch, RAM, and 834,101 bus accesses in order and clock). These checks found that a compiler reads a literal differently: ADDX.L D6,D6 gave wrong flags until the forms were compiled with wrapping arithmetic. The fixtures leave out odd-address and bus errors, TAS, TRAPV and interrupt acknowledge. The vectors are MAME-made, not silicon. |
 | Hardware fidelity | Not claimed for the machine. Named behaviours measured from inside it with authored 68000 programs against the documentation, not against silicon (`tools/atarist_hardware_check.py`, 51 measurements, 49 agree, 2 recorded differences): the PAL frame and line, the MFP's prescalers and timer B's event count, a 320x200 picture pixel by pixel, the YM2149's tone periods, the IKBD's packets and byte time, the WD1772's index period, step rates and DMA reads. Two recorded differences: the YM2149 runs on the PAL crystal's division (2.005312 MHz), 0.27 % above the round 2 MHz its data sheet gives as a maximum; and timer D, started from the TOS's addresses, runs slower with Hatari's patch of it, which is on for a game that shows no sign of relying on the timer as TOS left it and off for one that does (section 5). The 263 lines at 60 Hz rest on the GLUE's vertical counter as MAME and the gstmcu replica model it; several numbers rest on Hatari and MAME, as the check's `SOURCES` say (the WD1772 data sheet, the Atari Compendium and the ST's schematics were not reached). MAME 0.289, flagged not working on the ST, agrees on the video and MFP lines it can run. |
 | Gameplay validation | None. |
@@ -138,6 +138,35 @@ continues in a fresh process on all ten, on every column, sound samples included
 (delivered conversion, Standard level, EmuTOS).
 
 "Own screen" means the route's last picture is the game's, not that the game was played.
+
+**The panel of fifteen (1.7.4, 13 November 2026).** Fifteen games converted one at a time on Windows from an empty scratch library, from one tree (1.7.3 and the changes of 1.7.4), at the
+extended level (the main and the exploration routes of 3,000 frames and one pseudo-random route of 18,000), Captain Blood and Lethal Xcess at the thorough level (a second route of 18,000 frames that
+changes the disk once), with EmuTOS 1.4, Turrican II with the player's TOS 1.04. On all 47 routes the native game and its compressed copy equal the fresh interpreted reference, frame by frame (picture, sound, RAM, CPU registers), and the state
+saved on the main route continues in a fresh process on all 15 games; no game was dropped. The interpreted instructions of a run are listed where they ran (`final_checks[].interpreted_sites`: address, opcode, count) and add up to the run's total on
+all 47 routes. They are of three kinds: EmuTOS's own start (four to six instructions: processor probes, line A and line F, the same addresses in every game), Hatari's GEMDOS hook (its cartridge code at $FA002A, installed while the desktop starts a program: a file
+read through GEMDOS is one of them; 75 to 775,400 on a route) and the game's own line A opcodes (Kick Off 2 at $012E60, Outcast at $019AFC), which never become native code, as Hatari's table sends them to its exception handlers. Pictures change on the main route of every game; every
+game but Carrier Command, which stays at its language menu and its protection, is heard on at least one route. What the routes reach is read from the last picture of each (the captures were looked at by the specialist agent, not by the owner; pad and key routes, not played games):
+
+| Game (disks) | TOS | Timer D | Starts by | Interpreted per route (main / exploration / long) | The routes reach |
+| --- | --- | --- | --- | ---: | --- |
+| Another World (2) | EmuTOS | patched | itself | 5 / 5 / 5 | the code wheel, then ERROR after the route's entry (protection) |
+| Battle Probe (1) | EmuTOS | patched | PROBE.PRG | 351 / 354 / 10,833 | play |
+| Bomb Jack (1) | EmuTOS | patched | itself | 5 / 5 / 5 | play |
+| Captain Blood (2) | EmuTOS | patched | BLOOD.PRG | 75 / 83 / 291 / 197 | its title, which asks for disk 2; play after the disk change (second long route) |
+| Carrier Command (1) | EmuTOS | patched | itself | 4 / 4 / 4 | the language menu, then a black screen (manual-word protection) |
+| Championship Cricket (1) | EmuTOS | patched | CRICKET.PRG | 89 / 89 / 95 | its intro, then its team selection |
+| Elite (1) | EmuTOS | patched | itself | 4 / 4 / 4 | the novella protection |
+| Indiana Jones and the Temple of Doom (1) | EmuTOS | patched | itself | 6 / 6 / 6 | play |
+| Kick Off 2 (1) | EmuTOS | patched | itself | 545 / 423 / 2,095 | menus, a match |
+| Lethal Xcess - Wings of Death II (2) | EmuTOS | exact | itself | 4 / 4 / 4 / 4 | its title, then INSERT DISK B; play after the disk change (second long route) |
+| The Lurking Horror (1) | EmuTOS | patched | LURKING.PRG | 99,302 / 99,702 / 775,400 | its text game, typed commands |
+| Operation Stealth (3) | EmuTOS | patched | DELPHINE.PRG | 872 / 857 / 5,026 | the colour-code check (protection) |
+| Outcast (1) | EmuTOS | patched | OUTCAST_.PRG | 40,282 / 40,303 / 101,092 | its title, a cockpit |
+| The Seven Gates of Jambala (2) | EmuTOS | exact | itself | 4 / 4 / 4 | the Thalion logo and its music, no further |
+| Turrican II - The Final Fight (1) | TOS 1.04 | patched | itself | 0 / 0 / 0 | a level |
+
+Ten of the fifteen reach play or a menu of the game on a route (Battle Probe, Bomb Jack, Captain Blood and Lethal Xcess after the disk change, Championship Cricket, Indiana Jones, Kick Off 2, The Lurking Horror, Outcast, Turrican II); four stop on a
+copy protection whose answer is on a card, a wheel or in a manual that came with the game (Another World, Carrier Command, Elite, Operation Stealth): no route answers or skips a protection, and each of them says so in the report's `route_warnings`; The Seven Gates of Jambala stays on its title.
 
 At the thorough level, with the timer D patch for every game (9 November 2026, before it was chosen per game, one tree, every game: main and exploration routes of 3,000 frames, two pseudo-random routes of 18,000, Turrican II with the player's TOS 1.04, the others on EmuTOS; a scratch library holding the same tree's Standard pass). All 40 routes equal their
 fresh interpreted reference and the compressed copy; a state continues on every game:
@@ -277,5 +306,6 @@ gameplay validation of any game, and it changes no gate.
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) is `P` on the gates with evidence above and `?` elsewhere. Leaving the experimental status is the maintainer's
-own decision, after a very high evidence bar.
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G12, G13 and G15, `P` on G7 (saves: one real game), G9 (route depth: ten of the fifteen games of the panel reach play or a
+menu of the game; four stop on a protection, one on its title), G10 and G11 (named behaviours measured against documentation and fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). Leaving the
+experimental status is the maintainer's own decision, after a very high evidence bar.
