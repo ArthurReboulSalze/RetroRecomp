@@ -673,6 +673,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_notes',
         'retrorecomp.atarist_tos',
     ),
     # The MSX (experimental from 1.7.3): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),

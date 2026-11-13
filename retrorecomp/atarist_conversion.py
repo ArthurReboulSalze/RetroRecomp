@@ -743,7 +743,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     for (name, folder, _, _, _), result in zip(packed_runs, packed_results)]
         require_moving_picture(liveness[0], lambda: ConversionError('Atari ST main route: the picture never changed.'))
         from .sega_evidence import route_warnings
-        warnings = route_warnings([{'scenario': entry['route'], 'liveness': entry} for entry in liveness])
+        from .atarist_notes import route_stops
+        warnings = route_warnings([{'scenario': entry['route'], 'liveness': entry} for entry in liveness]) + route_stops(source.sha256)
         hint = None if tos.player_supplied else EMUTOS_NOTE
         if hint:
             emit('Atari ST: ' + hint)
