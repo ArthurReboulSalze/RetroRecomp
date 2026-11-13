@@ -49,7 +49,7 @@ Kept separate here, as everywhere. Interpreter fallback is always counted, per C
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On the Windows panel of 12 November 2026 (extended level: attract, play and an 18,000-frame route), six MSX1 cartridges (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II; plain, Konami, Konami SCC, NTSC and PAL) end at 0 interpreted instructions on every route, Salamander also with an MSX BIOS of its owner | No release-level run, no Linux witness; nothing is said of the games not named here |
+| Native code | On the Windows panel of 12 November 2026 (extended level: attract, play and an 18,000-frame route), six MSX1 cartridges (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II; plain, Konami, Konami SCC, NTSC and PAL) end at 0 interpreted instructions on every route, Salamander also with an MSX BIOS of its owner | Nemesis also on a Debian 13 PC (same counts as Windows); nothing is said of the games not named here |
 | CPU fidelity | On the same games the native code is equal to the reference Z80 interpreter on every route, on the state fields at its end and on one row per frame (CPU, RAM, picture, sound); the delivered (compressed) game gives the same rows. This is agreement with our own reference interpreter, not with a real MSX | No independent comparison on a real machine or a second emulator is claimed; no CPU vector set is run for the MSX yet |
 | Hardware fidelity | Nothing is claimed. The mixing levels of the sound (PSG, key click, SCC) are a stated choice, not validated | The TMS9918A, the AY-3-8910 and the SCC against an independent reference |
 | Gameplay validation | None: no game has been played through by the owner | Everything |
@@ -95,10 +95,13 @@ their own licences, listed in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md
 
 ## 7. Where it stands in the qualification
 
-G1 is partial: the profile is declared experimental and `tools/status_lint.py`, the README, [COMPATIBILITY.md](COMPATIBILITY.md) and the interface
-strings agree. Every other gate of [QUALIFICATION.md](QUALIFICATION.md) is unknown (`?`), and G16 is not applicable (`-`): the MSX shares no paths. The
-development checks of section 3 are listed in its caveats and are not a qualification. Leaving the experimental status is the owner's own decision (G14),
-and nothing here asks for it.
+The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evaluated on 13 November 2026 on the panel of ten cartridges converted with the
+1.7.3 release tree (the evidence of each letter is there). Met: native coverage (G3), the fresh reference run (G4), the replay of the delivered file (G5)
+and the fresh-process quick states (G6). Partial: the status (G1), the common report (G2: its main CPU block carries no counts yet), liveness (G8: a
+route that never reaches play is not named in the report), route depth (G9), independent CPU and hardware evidence (G10, G11), the panel (G12) and the
+Linux witness (G13, one game each). Not met: battery saves (G7: SRAM mappers and FM-PAC are not converted). Unknown: the owner's acceptance (G14) and
+the read for honesty (G15). Not applicable: shared paths (G16). Leaving the experimental status is the owner's own decision (G14), and nothing here asks
+for it.
 
 ## 8. The MSX2 (`msx2`)
 
@@ -128,11 +131,11 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | No release-level run, no Linux witness; Hydlide 3's routes stay in its character set-up menu, so its play is not covered |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | Metal Gear also on a Debian 13 PC (same counts as Windows); Hydlide 3's routes stay in its character set-up menu, so its play is not covered |
 | CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
 | Hardware fidelity | Nothing is claimed as exact. 682 hand-worked checks of the V9938, the engine and the MSX2 board pass (development checks, not a qualification): they check our model against our own reading of the documents. Against openMSX (a private comparison emulator, never shipped) the 128 KiB VRAM, the 47 VDP registers and the palette are equal at chosen still frames for the C-BIOS logo, two authored cartridges, Metal Gear, Space Manbow, Aleste and Hydlide 3; at other frames the differences are timing (a command still running, a palette fade step, a sprite double-buffer phase) | Other frames; command timing; the RP5C01; everything in the list above |
 | Gameplay validation | None: no game has been played through | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
 
-Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial,
-G16 not applicable and every other gate unknown.
+Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has the same
+letters as the `msx` column (section 7).
