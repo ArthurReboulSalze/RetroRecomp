@@ -85,7 +85,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 with the V9958 (R#25-R#27, the ID in S#1, YJK and YAE in Graphic 7, the horizontal scroll with MSK and SP2, the command engine in every mode with
 CMD) and the port F4h; C-BIOS 0.29a's MSX2+ images come from the same pinned archive. The MSX2 picture's points may be 15-bit colours (bit 15
 set); a V9938 never makes one, so an MSX2 game's picture is unchanged (the MSX2 panel converted on this tree is equal to the panel of 13 November
-on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not ``, so "MSX2+" is a name
+on 15 fields of each of its 12 routes). The status lint and the registry test find a machine name by lookaround, not `\b`, so "MSX2+" is a name
 and "MSX2" followed by "+" is another machine; every other name matches as before.
 
 **Hot path:** a V9958 line with a scroll or the mask is drawn up to three times (the background of one or two pages, then the sprites); a V9938
@@ -97,6 +97,30 @@ line takes the same path as before.
 machine's stamp moves.
 
 **Quick states:** the layout is `msx-state-4` (the port F4h); a state of an earlier build is refused cleanly.
+
+## MSX2+: disk games (1.7.4, experimental, step 2)
+
+**What changes.** The `msx2plus` profile converts disk games: a `.dsk` (720 or 360 KiB) or a set of one to ten, grouped into an M3U whose first
+line names the machine ([MSX.md](MSX.md#disks-13-november-2026-branch-specmsx2plus-disk-174)). A disk game needs the player's own MSX2+ BIOS pair
+and own disk ROM (a new path option, Options > MSX2+ disk ROM; nothing is shipped). The runtime gains the TC8566AF disk controller in slot 2 with
+the disk ROM (`msx_fdc.c`, our own MIT code); the disks are embedded in the game, what a game writes goes to a copy beside its settings
+(`datas/games/msx2plus-<id>/disk-N.dsk`), Page Up / Page Down change disk, and the long routes of a multi-disk game insert the next disks. The
+report names the disk interface in the cartridge's place and has a `disk_writes` block (what the game wrote, checked in fresh processes).
+`tools/msx_write_disk.py` builds an authored disk (our own boot sector, no game data) that writes, which proves the write path.
+
+**Shared:** `rom_sources.disk_sets` now groups disk sets for any machine that declares them (`DiskSetKind`: the profile, its suffixes, its
+folder, its marker), and an M3U it writes for the MSX2+ starts with `# Retro-Recomp system: msx2plus`; the X68000's M3U bytes are unchanged
+(a test pins them) and the Atari ST's sets are untouched. `rom_sources.py` is in no stamp.
+
+**Hot path:** none: the controller is reached only when the program reads or writes its four registers; a cartridge game builds without it
+(`RR_MSX_DISKS` is 0) and its loop is unchanged.
+
+**What moves:** the MSX, MSX2 and MSX2+ game stamps (`msx_fdc.c` and `msx_fdc.h` are new files of the three; `msx_machine.c`,
+`msx_machine.h`, `msx_cart.c`, `msx_glue.inc`, `msx_player.c`, `msx_state.c`, `msx_route.inc`, `msx_native_main.c`,
+`msx_reference_main.c`, `msx_build.py`, `msx_conversion.py`, `msx_routes.py`, `systems/msx.py`, and the new `retrorecomp/msx_disk.py`). No other machine's
+stamp moves.
+
+**Quick states:** the layout is `msx-state-5` (the controller and the disk in the drive); a state of an earlier build is refused cleanly.
 
 ## MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts (1.7.4)
 

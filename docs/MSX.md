@@ -176,8 +176,45 @@ B = (5Y - 2J - K) / 4 rounded down, each clipped to 0-31; with YAE a byte with b
 command engine in every screen mode with CMD (as Graphic 7). Sprites do not scroll; in the YJK modes they take the palette's colours. Port F4h
 is a latch, 00h at power-on.
 
-**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** disks (the next
-step: your own disk ROM will be needed, never shipped), MSX-MUSIC (YM2413), the kanji ROM, cassettes.
+**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** MSX-MUSIC
+(YM2413), the kanji ROM, cassettes, disks on the MSX1 and MSX2 profiles.
+
+### Disks (13 November 2026, branch `spec/msx2plus-disk-174`)
+
+**Converted:** an MSX2+ disk game, from a `.dsk` (720 KiB double-sided or 360 KiB single-sided) or a set of one to ten `.dsk` files. A set is
+grouped as the Atari ST's and the X68000's are (`rom_sources.disk_sets`, shared: names that differ only by "Disk 1", "Disk 2"...), into an M3U
+whose first line marks the machine (`# Retro-Recomp system: msx2plus`). A `.dsk` is the MSX2+'s wherever it sits (no other machine of the
+converter reads `.dsk`); an MSX1 or MSX2 disk game therefore goes to the MSX2+ too (only MSX2+ games were on the panel).
+The disks are embedded in the game, in order; the game boots from the first.
+
+**Firmware:** a disk game needs **your own** MSX2+ BIOS pair and **your own** disk ROM (16 KiB starting with "AB", chosen in Options > MSX2+
+disk ROM): C-BIOS has no disk ROM, and none is shipped. The panel used one machine's firmware (Panasonic FS-A1WSX: main ROM, sub-ROM, disk ROM).
+
+**The disk interface, our own code** (`native/msx_machine/msx_fdc.c`, MIT): the TC8566AF with the uPD765 command set, one drive, in slot 2
+page 1 with the disk ROM, registers at 7FF8h-7FFBh (mirrored at BFF8h). The addresses and the commands were read from MAME's MSX disk
+interface (BSD-3) as documentation only; no line is copied. There are no rotation or seek delays: a command ends when the program reads its
+result. The disk ROM is Z80 code like the game's and is translated with it; the report names the disk interface in the cartridge's place.
+
+**What a game writes:** the embedded disks never change. A written disk is copied beside the game's settings
+(`datas/games/msx2plus-<id>/disk-N.dsk`) a few seconds after the last write and at exit, and is read back the next time the game starts; a copy
+of the wrong size is ignored and left as it is. **Disk change:** Page Up / Page Down, with the same notices as the Atari ST; the long routes of
+a multi-disk game insert the next disk at frame 6,000 and then every 3,000 frames (the play route never changes disk). Quick states include
+the controller and the disk in the drive.
+
+**The disk panel (13 November 2026, extended level, two conversions at a time, online covers on):** Arc, Quinpl, Nyancle Racing, Sonyc
+(one disk each), Laydock 2 - Last Attack, F-1 Spirit 3D Special, Golvellius II, Xak III - The Tower of Gazzel (several disks). On all eight,
+0 interpreted Z80 instructions on attract, play and the long route (18,000 frames), each equal to its fresh reference and to the packed file,
+quick states passing in fresh processes. Where the long routes get: Arc, Quinpl, Laydock 2 and F-1 Spirit 3D Special play (F-1's attract and
+play look alike, and its dashboard digits were not checked); Nyancle Racing enters a name and races; Sonyc plays a stage, then waits on its
+password screen; Golvellius II stays in its Japanese intro; Xak III shows its intro, then asks for disk 3 ("SET DISK 3 AND PUSH SPACE
+PLEASE"), which the route's fixed disk changes do not answer. Xak III showed no sign of needing the kanji ROM on its routes; what its later
+screens need is not known. Covers: Quinpl and Xak III found one (libretro); the other six have none.
+
+**Writes, proven on an authored disk:** no panel game writes to its disks on its routes. `tools/msx_write_disk.py` builds a 720 KiB disk of
+our own (an MSX-DOS boot sector, no game data) whose boot program hooks H.STKE and, once BASIC has started, writes 512 bytes to sector 20
+through PHYDIO. Converted as a game (0 interpreted instructions), it writes, its copy is kept, a fresh process starts from the copy, and a copy
+of the wrong size is ignored. Open: the disk ROM writes 256 sectors there, not the one asked; the cause (our controller or the boot program) is
+not found yet.
 
 **First comparison, and an open difference (13 November 2026).** Family Stadium Professional Baseball slides its title in with the
 horizontal scroll (R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate
@@ -185,5 +222,8 @@ program, never shipped) with its C-BIOS MSX2+ machine shows the same slide and t
 longer). Open: after the slide openMSX's R#1 has the line interrupt off (42h) and ours keeps it on (62h). openMSX's C-BIOS MSX2+ machine also
 has MSX-MUSIC, which ours does not yet, and that can change the game's path; the cause is not proven.
 
-**The five measures:** nothing is measured yet for the MSX2+: no panel has run, no fidelity is claimed, no game is validated, and no latency is
-measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has G1 partial, G16 not applicable and every other gate unknown.
+**The five measures:** native code: 0 interpreted Z80 instructions on the 24 routes of the disk panel (the first conversion of each game
+learns its paths: between 0 and 40.5 million interpreted instructions in that pass, none after). CPU fidelity: each route equals a fresh
+run of the reference (the same Z80 interpreter on the same machine model), not real hardware. Hardware fidelity: not validated (the V9958, the
+PSG and the disk controller are C models; one openMSX comparison, above). Gameplay: bounded pad routes, not full games. Physical latency: not
+measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has the letters and their evidence.

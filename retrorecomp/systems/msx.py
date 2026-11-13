@@ -213,7 +213,8 @@ class Msx2PlusProfile(Msx2Profile):
     media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
-                  'BIOS; the V9958 with YJK and the horizontal scroll; no disks, MSX-MUSIC or kanji yet')
+                  'BIOS; the V9958 with YJK and the horizontal scroll; disk games with your own BIOS and disk ROM; no MSX-MUSIC '
+                  'or kanji yet')
     option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
                    OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
                    OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256),
