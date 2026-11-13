@@ -12,6 +12,67 @@ from retrorecomp.core import run
 from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 
 
+def _ninja_tokens(text):
+    """Split a Ninja path list on unescaped spaces and undo `$ `, `$:` and `$$`."""
+    import re
+    return [re.sub(r'\$(.)', r'\1', token) for token in re.findall(r'(?:\$.|[^ $])+', text)]
+
+
+def link_inputs(project, excluded=()):
+    """The objects and compiled resources the game's own link used, minus the `excluded` source stems.
+
+    The source is the game build itself, the same list on every toolchain: `build/build.ninja` (the portable
+    toolchain, llvm-mingw with Ninja, and Linux), whose link statement of `game.exe` names every input; only when
+    the build has no Ninja file (a Visual Studio build) the `game.vcxproj` of that build. Returns (objects, resources)
+    or None when neither file is there."""
+    import re
+    from collections import Counter
+    build = project / 'build'
+    ninja = build / 'build.ninja'
+    if ninja.is_file():
+        text = re.sub(r'(?<!\$)\$\n[ \t]*', '', ninja.read_text(encoding='utf-8'))
+        for line in text.splitlines():
+            match = re.match(r'build ((?:\$.|[^:$])+): (\S*_EXECUTABLE_LINKER\S*)(.*)$', line)
+            if not match or not ({'game.exe', 'game'} & set(_ninja_tokens(match[1]))):
+                continue
+            tokens = _ninja_tokens(match[3])
+            explicit = tokens[:tokens.index('|')] if '|' in tokens else tokens
+            explicit = explicit[:explicit.index('||')] if '||' in explicit else explicit
+            paths = [Path(token) if Path(token).is_absolute() else build / token for token in explicit]
+            stem = lambda path: path.name.split('.')[0].lower()
+            objects = [p for p in paths if p.suffix.lower() in ('.obj', '.o') and stem(p) not in excluded]
+            resources = [p for p in paths if p.suffix.lower() == '.res']
+            assert all(n == 1 for n in Counter(stem(p) for p in objects).values()), 'Ambiguous source/object names'
+            assert all(p.is_file() for p in objects + resources), [p for p in objects + resources if not p.is_file()]
+            return objects, resources
+        raise SystemExit(f'{ninja}: no link statement for game.exe')
+    if (build / 'game.vcxproj').is_file():
+        # Visual Studio, the last resort: incremental MSBuild tlogs retain old input sets, so the current project
+        # is the authority (its first historical tlog record once omitted later state, battery and feedback objects).
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(build / 'game.vcxproj')
+        ns = {'m': 'http://schemas.microsoft.com/developer/msbuild/2003'}
+        names = [Path(n.attrib['Include']).stem.lower() for n in tree.findall('.//m:ClCompile', ns)
+                 if 'Include' in n.attrib]
+        assert all(n == 1 for n in Counter(names).values()), 'Ambiguous source/object names'
+        folder = build / 'game.dir/Release'
+        objects, resources = [], []
+        for name in names:
+            if name in excluded:
+                continue
+            found = list(folder.rglob(name + '.obj'))
+            assert len(found) == 1, (name, found)
+            objects.append(found[0])
+        for node in tree.findall('.//m:ResourceCompile', ns):
+            if 'Include' not in node.attrib:
+                continue
+            found = list(folder.rglob(Path(node.attrib['Include']).stem + '.res'))
+            assert len(found) == 1, found
+            resources += found
+        return objects, resources
+    return None
+
+
 def native_executable(project, output, harness, z80_source=None):
     """Link authored fixtures against current production objects, never run its ROM."""
     from retrorecomp.core import toolchain
@@ -25,37 +86,15 @@ def native_executable(project, output, harness, z80_source=None):
     harness = harness.replace('#include "genesis_machine.c"', '#include "' + (project/'native/genesis_machine.c').as_posix() + '"')
     if z80_source is not None:
         excluded.add('md_z80_generated')
-    resources=[]
-    if os.name=='nt':
-        from retrorecomp import toolchain as toolchain_module
-        if toolchain_module.active() != toolchain_module.MSVC:
-            raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
-        # Incremental MSBuild tlogs retain old input sets. The current project
-        # is the authority; using its first historical tlog record omitted
-        # later state, battery and feedback objects from the fixture link.
-        import xml.etree.ElementTree as ET
-        from collections import Counter
-        tree=ET.parse(project/'build/game.vcxproj')
-        ns={'m':'http://schemas.microsoft.com/developer/msbuild/2003'}
-        names=[Path(n.attrib['Include']).stem.lower() for n in tree.findall('.//m:ClCompile',ns)
-               if 'Include' in n.attrib]
-        assert all(n==1 for n in Counter(names).values()), 'Ambiguous source/object names'
-        folder=project/'build/game.dir/Release'
-        objects=[]
-        for name in names:
-            if name in excluded:continue
-            found=list(folder.rglob(name+'.obj'))
-            assert len(found)==1,(name,found)
-            objects.append(found[0])
-        for node in tree.findall('.//m:ResourceCompile',ns):
-            if 'Include' not in node.attrib:continue
-            found=list(folder.rglob(Path(node.attrib['Include']).stem+'.res'))
-            assert len(found)==1,found
-            resources+=found
+    found = link_inputs(project, excluded)
+    if found is not None:
+        objects, resources = found
     else:
+        # A build of an older tree without build.ninja (Unix Makefiles): its objects as they lie.
+        resources = []
         objects=sorted(p for p in (project/'build/CMakeFiles/game.dir').rglob('*.o')
                        if p.name.removesuffix('.o').removesuffix('.c').removesuffix('.cpp') not in excluded)
-    assert objects and any(p.name in ('md_backend.obj','md_backend.c.o') for p in objects)
+    assert objects and any(p.name in ('md_backend.obj','md_backend.c.o','md_backend.c.obj') for p in objects)
     sources = '\n'.join('  "' + p.as_posix() + '"' for p in objects)
     if z80_source is not None:
         sources += '\n  "' + z80_source.as_posix() + '"'
@@ -63,6 +102,9 @@ def native_executable(project, output, harness, z80_source=None):
     runner = (project/'engine/runner').as_posix()
     libraries='SDL2::SDL2-static '+('ws2_32 comdlg32' if os.name=='nt' else 'dl m pthread')
     libraries+=' '+ ' '.join('"'+p.as_posix()+'"' for p in resources)
+    # A harness whose Windows entry is wmain links as such with MinGW (MSVC finds it by itself).
+    unicode_entry = ('if(MINGW)\n target_link_options(checks PRIVATE -municode)\nendif()\n'
+                     if 'int wmain(' in harness else '')
     (work/'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdBusChecks C CXX)
 set(CMAKE_C_STANDARD 11)
@@ -81,7 +123,7 @@ if(MSVC)
  target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
  target_link_options(checks PRIVATE /CETCOMPAT:NO)
 endif()
-''', encoding='utf-8')
+{unicode_entry}''', encoding='utf-8')
     cmake, generator = toolchain()
     run([cmake, '-S', work, '-B', work/'build', '-G', generator, *cmake_target_args(),
          '-DCMAKE_PREFIX_PATH='+sdl_install().as_posix()], log=work/'build.log')

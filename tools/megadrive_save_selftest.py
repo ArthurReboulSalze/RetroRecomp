@@ -118,20 +118,21 @@ int wmain(int argc,wchar_t **argv) {
 
 
 def check(project,output):
-    from retrorecomp import toolchain as toolchain_module
-    if toolchain_module.active() != toolchain_module.MSVC:
-        raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
     project=project.resolve();output.mkdir(parents=True,exist_ok=True)
-    log=project/'build/game.dir/Release/game.tlog/link.command.1.tlog'
-    lines=log.read_text(encoding='utf-16').splitlines()
-    objects=[Path(p) for p in next(line for line in lines if line.startswith('^'))[1:].split('|')
-             if Path(p).suffix.lower() in ('.obj','.res') and Path(p).name.lower()!='console16_main.obj']
+    # The objects of the game's own link, from build.ninja (the portable toolchain) or, only without one, the
+    # Visual Studio project: one reader for every Mega Drive check (tools/megadrive_bus_selftest.py).
+    from megadrive_bus_selftest import link_inputs
+    found=link_inputs(project,{'console16_main'})
+    if found is None:
+        raise SystemExit(f'{project}: no build.ninja or game.vcxproj in its build folder (convert with --keep-build).')
+    objects=found[0]+found[1]
     assert objects and all(p.is_file() for p in objects)
     work=output/'harness';work.mkdir(exist_ok=True)
     (work/'checks.c').write_text(HARNESS,encoding='utf-8')
     runner=(project/'engine/runner').as_posix()
-    sources='\n'.join('  "'+p.as_posix()+'"' for p in objects if p.suffix.lower()=='.obj')
+    sources='\n'.join('  "'+p.as_posix()+'"' for p in objects if p.suffix.lower() in ('.obj','.o'))
     resources=' '.join('"'+p.as_posix()+'"' for p in objects if p.suffix.lower()=='.res')
+    system_libraries='ws2_32 comdlg32' if sys.platform=='win32' else 'dl m pthread'
     (work/'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdSaveChecks C CXX)
 set(CMAKE_C_STANDARD 11)
@@ -144,8 +145,13 @@ target_compile_definitions(checks PRIVATE RR16_MD=1 OWN_BACKEND=1)
 target_include_directories(checks PRIVATE "{project.as_posix()}" "{runner}" "{runner}/include"
  "{(ROOT/'.deps/segagenesisrecomp/recompiler/src').as_posix()}"
  "{runner}/video" "{runner}/audio" "{runner}/external/superzazu" "{runner}/external/clowncommon")
-target_link_libraries(checks PRIVATE SDL2::SDL2-static ws2_32 comdlg32 {resources})
-target_link_options(checks PRIVATE /CETCOMPAT:NO)
+target_link_libraries(checks PRIVATE SDL2::SDL2-static {system_libraries} {resources})
+if(MSVC)
+ target_link_options(checks PRIVATE /CETCOMPAT:NO)
+endif()
+if(MINGW)
+ target_link_options(checks PRIVATE -municode)
+endif()
 target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''',encoding='utf-8')
     cmake,generator=toolchain()
