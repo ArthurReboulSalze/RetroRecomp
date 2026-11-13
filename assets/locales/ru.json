@@ -1039,6 +1039,19 @@
     "Disc %d/%d": "Диск %d/%d",
     "Change disc": "Сменить диск",
     "F3  Graphics options": "F3  Настройки графики",
-    "%s (not at this size)": "%s (не при этом размере)"
+    "%s (not at this size)": "%s (не при этом размере)",
+    "Controls": "Управление",
+    "Options": "Настройки",
+    "Help": "Справка",
+    "Arrows: choose | Enter: open | Esc: close": "Стрелки: выбор | Enter: открыть | Esc: закрыть",
+    "Yes": "Да",
+    "No": "Нет",
+    "P%d": "P%d",
+    "%s keyboard: only the gamepad plays": "Клавиатура %s: играет только геймпад",
+    "Game controls on the keyboard": "Игровое управление на клавиатуре",
+    "Reset": "Сброс",
+    "Start-up reminders: %s": "Подсказки при запуске: %s",
+    "Stretched": "Растянуто",
+    "F4  Window / Pixel / Fit / Stretched": "F4  Окно / Пиксели / Вписать / Растянуть"
   }
 }

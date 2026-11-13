@@ -347,8 +347,7 @@ static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
         int pad = index ? rr_options.rpad : rr_options.pad;
         for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; ++i) if (pad & (1 << i)) {
             size_t used = strlen(out);
-            const char *name = SDL_GameControllerGetStringForButton((SDL_GameControllerButton)i);
-            snprintf(out + used, size - used, "%s%s", used ? " + " : "", name ? name : "?");
+            snprintf(out + used, size - used, "%s%s", used ? " + " : "", rr_menu_pad_name(i));
         }
     }
     if (!out[0]) snprintf(out, size, "%s", rr_tr("Unassigned"));
@@ -397,8 +396,8 @@ static const char *rr_option_filter_name(int filter) {
     return rr_tr(names[filter >= 0 && filter < 4 ? filter : 0]);
 }
 static const char *rr_option_mode_name(int mode) {
-    static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen"};
-    return rr_tr(names[mode >= 0 && mode < 3 ? mode : 0]);
+    static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen", "Stretched"};
+    return rr_tr(names[mode >= 0 && mode < 4 ? mode : 0]);
 }
 /* Rows of the options page: one menu line each, from the first line. */
 static int rr_pages_row_at(const SDL_Event *e, int count) {
@@ -452,7 +451,8 @@ static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page
     rr_options.renderer = r;
     int x, y, unit; rr_menu_layout(r, &x, &y, &unit);
     rr_menu_begin(r, x, y, unit);
-    rr_menu_page_header(r, x, y, unit, rr_tr("Retro-Recomp - Options"), page, pages);
+    (void)page; (void)pages;      /* 1.7.4: the pages are tiles of the F2 menu, no longer squares in this head */
+    rr_menu_header_compact(r, x, y, unit, rr_tr("Retro-Recomp - Options"), RR_ICON_OPTIONS_SMALL);
     if (rr_options.row >= d->count) rr_options.row = 0;
     for (int i = 0; i < d->count; ++i) {
         int line = RR_MENU_FIRST_LINE + i * RR_MENU_LINE;
@@ -461,9 +461,9 @@ static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page
     }
     bool computer = d->count && d->keys[rr_options.row] == RR_ROW_FKEYS;
     if (rr_options.status[0]) rr_menu_text(r, x, y, unit, 14, RR_MENU_HINT_LINE, rr_options.status, RR_MENU_GOLD);
-    else rr_menu_text(r, x, y, unit, 14, RR_MENU_HINT_LINE,
+    else rr_menu_hints(r, x, y, unit, 14, RR_MENU_HINT_LINE, 228,
         rr_tr(computer ? "Ctrl+F1-F12: Retro-Recomp shortcuts" : "Enter / A: change"), RR_MENU_HINT);
-    rr_menu_text(r, x, y, unit, 14, RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"), RR_MENU_HINT);
+    rr_menu_hints(r, x, y, unit, 14, RR_MENU_LAST_LINE, 228, rr_tr("Left/Right: page | Esc: close"), RR_MENU_HINT);
     rr_menu_end(r);
 }
 

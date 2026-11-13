@@ -1039,6 +1039,19 @@
     "Disc %d/%d": "Disco %d/%d",
     "Change disc": "Cambiar disco",
     "F3  Graphics options": "F3  Opciones gráficas",
-    "%s (not at this size)": "%s (no a este tamaño)"
+    "%s (not at this size)": "%s (no a este tamaño)",
+    "Controls": "Controles",
+    "Options": "Opciones",
+    "Help": "Ayuda",
+    "Arrows: choose | Enter: open | Esc: close": "Flechas: elegir | Enter: abrir | Esc: cerrar",
+    "Yes": "Sí",
+    "No": "No",
+    "P%d": "J%d",
+    "%s keyboard: only the gamepad plays": "Teclado %s: solo juega el mando",
+    "Game controls on the keyboard": "Controles del juego en el teclado",
+    "Reset": "Reset",
+    "Start-up reminders: %s": "Avisos al inicio: %s",
+    "Stretched": "Estirado",
+    "F4  Window / Pixel / Fit / Stretched": "F4  Ventana / Píxel / Ajustar / Estirado"
   }
 }

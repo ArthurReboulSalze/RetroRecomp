@@ -1039,6 +1039,19 @@
     "Disc %d/%d": "光盘 %d/%d",
     "Change disc": "更换光盘",
     "F3  Graphics options": "F3  图形选项",
-    "%s (not at this size)": "%s (此尺寸下无效)"
+    "%s (not at this size)": "%s (此尺寸下无效)",
+    "Controls": "控制",
+    "Options": "选项",
+    "Help": "帮助",
+    "Arrows: choose | Enter: open | Esc: close": "方向键选择 | Enter：打开 | Esc：关闭",
+    "Yes": "是",
+    "No": "否",
+    "P%d": "P%d",
+    "%s keyboard: only the gamepad plays": "%s 键盘：仅手柄可玩",
+    "Game controls on the keyboard": "键盘用于游戏控制",
+    "Reset": "重置",
+    "Start-up reminders: %s": "启动提示：%s",
+    "Stretched": "全屏填充",
+    "F4  Window / Pixel / Fit / Stretched": "F4  窗口 / 像素 / 适应 / 全屏填充"
   }
 }

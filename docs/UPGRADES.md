@@ -79,6 +79,53 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Every machine: the menus drawn again, F2 as tiles, "Quit?", the opening plates and a stretched F4 mode (1.7.4)
+
+The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d15), decisions D15 to D19): F2 opens a menu
+of tiles, Esc and the Quit combination ask "Quit? No / Yes", notices are plates, each game says its keys when it opens, the
+menus get icons, block letters and key caps, and F4 gains a fourth mode, stretched fullscreen.
+
+* **Stamps** (`compilation_inputs.role_stamps`, compared with main `f57eb9e3` on Windows). The files changed are host inputs
+  (`stamp_inputs.HOST_NATIVE`): `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`,
+  `display_settings.h`, `display_settings_checks.c`, `hostkit/hostkit.h`, `hostkit/hostkit_internal.h` and the shell's
+  `rrhk_main.c`, `rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_input.c`, `rrhk_video.c`, `rrhk_pointer.c`. The **host stamp moves for all twenty profiles**: sms, gg, gb, nes, md, snes, ng, cps1,
+  cps2, pce, gba, amiga, atarist, n64, psx, msx, msx2, msx2plus, x68 and scummvm. **No game stamp and no build stamp moves.**
+  An export of 1.7.3 is **upgraded** (rebuilt from its learned paths, no rediscovery), as for any change of the shell.
+  ScummVM's games do not use the kit (their menus are ScummVM's own), but their host stamp lists the same files: they are
+  upgraded too, and look the same afterwards.
+* **What players see** (every machine on the kit; nothing changes in ScummVM's games): F2 opens the tiles; Esc in play and
+  L3+R3 ask "Quit? No / Yes"; a plate at the bottom of the picture for about 4.5 s when the game opens (F1, F2, Esc; with a
+  gamepad, its Quit and Restart combinations; on a computer, who has the keyboard), which the new **Start-up reminders** row
+  of the options page turns off; F4 gains a **stretched** fullscreen mode after fit (the whole screen, the aspect ignored),
+  and names each mode in a notice; notices on a dark plate; the help, control pages, options, graphics and gun pages with the
+  mark, block letters, icons and key caps; gamepad buttons named as printed on a pad. The Master System, Game Gear and MSX
+  adapters still post their own opening notice (2.4 s), which shows above the kit's plates until their adapters drop it
+  (adapter change, not in this step).
+* **Quick states of the Mega Drive and the Super Nintendo.** Their state key hashes the listed files directly below `native/`
+  (`compilation_inputs.state_native_files`, read by `console16_state.write_config`), which include `retro_menu.c`,
+  `retro_menu.h`, `game_options.h` and `runtime_catalog.inc`: the key moves, and an F8 state written by 1.7.3 is refused with
+  the usual notice ("No compatible quick state to load") instead of being loaded. Cartridge saves are not concerned. No other
+  machine's state key reads these files (the CPS-1/CPS-2, Neo Geo, PC Engine, NES, PlayStation and MSX keys hash their own
+  machine files; the Master System's `compiler_signature` that lists them is a record of the library, not a state key; the
+  Amiga, Atari ST, X68000 and Nintendo 64 bind their states to the game stamp), so their F8 states of 1.7.3 still load.
+* **Texts.** Thirteen new entries in the catalogue of the five game languages (and in the seven locale files): "Controls",
+  "Options", "Help", "Yes", "No", "P%d", "Reset", "Start-up reminders: %s", "Stretched", "F4  Window / Pixel / Fit /
+  Stretched", the tiles' hint line and the two lines about a computer's keyboard. Every
+  other text is an existing one, drawn differently.
+* **F4.** `[<Console>.Video] display_mode` keeps 0, 1 and 2 (window, pixel-perfect, fit) for what they meant, and adds 3
+  (stretched); an exported game of 1.7.3 reading a 3 written by 1.7.4 falls back to the window, as for any unknown value.
+  Checked: `tools/display_settings_selftest.py` (saved 0 to 3 read as themselves, 4 and -1 as the window, two rounds of F4)
+  and the capabilities run (F4 four times, the notice, the whole output, a machine that clamps its former value).
+* **Preferences.** One key added, `[Interface] start_help` (the new **Start-up reminders** row of the options page: 0 turns
+  the opening plates off; absent or 1, they are shown); none renamed: bindings, combinations and options are read and written
+  as before.
+* **Unchanged.** What the pages do, the function keys, the pictures the machines produce (the plates and menus are drawn on
+  the window after the picture), the headless runs, the routes and their hashes. A hidden-window test run shows no opening
+  plate and still stops on Esc or on the Quit combination without a question.
+* **Measured.** `tools/hostkit_capabilities_selftest.py` (205 checks: the tiles, the pages opened from them, "Quit?" with No,
+  Esc and Yes, the Start-up reminders row and its preference, the four F4 modes) and `tools/hostkit_players_selftest.py` pass with the portable toolchain on Windows. The frame cost of the
+  plates and of an open menu was **not** measured; nothing is drawn once the plates are gone and no menu is open.
+
 ## MSX2+: a third profile of the MSX family, with the V9958 (1.7.4, experimental, step 1)
 
 **What changes.** The `msx2plus` profile opens as experimental for MSX2+ cartridges ([MSX.md](MSX.md#9-the-msx2-msx2plus)): the MSX2's board
