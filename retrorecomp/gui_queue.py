@@ -213,14 +213,22 @@ class QueueMixin:
 
     def _prepare_path(self, path, mode, output):
         """Identify one ROM and read its existing export, without Tk calls."""
+        set_aside = None
         try:
             item = identify(path, None if mode == 'auto' else mode)
+            if item.skipped:
+                # The console menu settles only a file nothing recognises (a dump without a header): a cartridge
+                # recognised as another machine's is converted for that machine, never refused for the menu (Arthur,
+                # 13 Nov 2026). The item keeps no choice, so the check before conversion reads it as Automatic.
+                set_aside, item = mode, identify(path, None)
         except Exception as exc:        # a reader that fails is one row in error, never a scan that stops in silence
             item = BatchItem(Path(path), Path(path).stem, error=f'{type(exc).__name__}: {exc}',
                              selected_system='' if mode == 'auto' else mode)
         status = ('skipped' if item.skipped else 'unrecognized' if item.unknown
                   else 'invalid' if item.error else 'waiting')
         prepared = {'item': item, 'status': status, 'result': None}
+        if set_aside and item.system and not item.error:
+            prepared['set_aside'] = set_aside   # the window says in one line why the menu's choice was set aside
         if item.error:
             return prepared
         folder = system_output(output, item.system)
@@ -245,6 +253,9 @@ class QueueMixin:
 
     def _insert_prepared(self, prepared):
         item, status, result = prepared['item'], prepared['status'], prepared['result']
+        if prepared.get('set_aside'):
+            self.messages.put(('log', self.tr('console_choice_set_aside', title=item.title,
+                detected=get_profile(item.system).name, chosen=get_profile(prepared['set_aside']).name)))
         row = self.table.insert('', 'end', values=(item.title,
             get_profile(item.system).name if item.system else self.tr('unknown_console'),
             self.video_display(item, result),

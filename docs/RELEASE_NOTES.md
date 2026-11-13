@@ -80,6 +80,12 @@
   Stop still stops it at once, and replays and probes keep their fixed limit. This came from a
   player whose small PC needed more than 30 minutes to compile Kirby's Adventure (NES); the
   slowness itself was not reproduced here.
+- **The console menu no longer refuses a cartridge.** With a console or Adventure (ScummVM)
+  chosen in the menu at the top of the window, a cartridge recognised as another machine's was
+  listed as "Other console · ignored" and never converted; the menu's choice is kept between
+  sessions, so a converter left on Adventure refused every cartridge. A recognised cartridge is
+  now converted for its own machine, whatever the menu says, and the log says so in one line in
+  your language. The menu still decides for a file nothing recognises (a dump without a header).
 - **Disk space: the build folders of the newer machines are removed too.** After publication,
   Retro-Recomp removes a game's build folder; on the Amiga, the Atari ST, the Nintendo 64, the
   CPS-2, the PlayStation and the MSX it did not, and Options → Common → Disk space did not list

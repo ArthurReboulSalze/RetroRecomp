@@ -86,6 +86,7 @@
     "already_compiled": "{count} der hinzugefügten Spiele sind bereits kompiliert ({examples}). In der Liste behalten, um sie neu zu konvertieren?\nNein behält nur die noch nicht kompilierten Spiele.",
     "already_compiled_left_out": "{count} bereits kompilierte Spiele aus der Liste gelassen.",
     "drop_blocked": "Warte auf das Ende der Konvertierung oder Aktualisierung, bevor du ROMs ablegst.",
+    "console_choice_set_aside": "{title}: als {detected} erkannt und daher für {detected} umgewandelt. Das Konsolenmenü ({chosen}) entscheidet nur bei Dateien ohne Header; stelle es auf Automatisch, um diese Zeile nicht mehr zu sehen.",
     "drop_unreadable": "Einige abgelegte Dateien oder Ordner konnten nicht gelesen werden.",
     "drop_unavailable": "Drag-and-drop ist nicht verfügbar. Nutze ROMs hinzufügen oder Ordner hinzufügen.",
     "tagline": "So nativ wie möglich.",

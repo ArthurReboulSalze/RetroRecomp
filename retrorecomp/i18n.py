@@ -293,6 +293,8 @@ STRINGS = {
     'already_compiled': ('{count} of the games you added are already compiled ({examples}). Keep them in the list to reconvert them?\nNo keeps only the games not compiled yet.', '{count} des jeux ajoutés sont déjà compilés ({examples}). Les garder dans la liste pour les reconvertir ?\nNon ne garde que les jeux pas encore compilés.'),
     'already_compiled_left_out': ('{count} already compiled games left out of the list.', '{count} jeux déjà compilés laissés hors de la liste.'),
     'drop_blocked': ('Finish the current conversion or update before dropping ROMs.', 'Attends la fin de la conversion ou de la mise à jour avant de déposer des ROMs.'),
+    'console_choice_set_aside': ('{title}: recognised as {detected}, so it is converted for {detected}. The console menu ({chosen}) only decides for files without a header; set it to Automatic to stop seeing this line.',
+                                 '{title} : reconnu comme {detected}, il est donc converti pour {detected}. Le menu des consoles ({chosen}) ne décide que pour les fichiers sans en-tête ; mets-le sur Automatique pour ne plus voir cette ligne.'),
     'drop_unreadable': ('Some dropped files or folders could not be read.', 'Certains fichiers ou dossiers déposés sont illisibles.'),
     'drop_unavailable': ('Drag and drop is unavailable. Use Add ROMs or Add folder.', 'Le glisser-déposer est indisponible. Utilise Ajouter des ROMs ou Ajouter un dossier.'),
     'queue_restored': ('{count} unfinished ROMs restored. Use Convert to resume.', '{count} ROMs du lot interrompu retrouvées. Clique sur Convertir pour reprendre.'),

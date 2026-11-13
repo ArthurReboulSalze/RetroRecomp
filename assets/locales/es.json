@@ -86,6 +86,7 @@
     "already_compiled": "{count} de los juegos añadidos ya están compilados ({examples}). ¿Mantenerlos en la lista para reconvertirlos?\nNo conserva solo los juegos aún no compilados.",
     "already_compiled_left_out": "{count} juegos ya compilados excluidos de la lista.",
     "drop_blocked": "Espera a que termine la conversión o actualización antes de soltar ROMs.",
+    "console_choice_set_aside": "{title}: reconocido como {detected}, así que se convierte para {detected}. El menú de consolas ({chosen}) solo decide para archivos sin cabecera; ponlo en Automático para dejar de ver esta línea.",
     "drop_unreadable": "No se pudieron leer algunos archivos o carpetas.",
     "drop_unavailable": "No se puede arrastrar y soltar. Usa Añadir ROMs o Añadir carpeta.",
     "tagline": "Tan nativo como sea posible.",

@@ -86,6 +86,7 @@
     "already_compiled": "添加的游戏中有 {count} 个已经编译（{examples}）。是否保留在列表中以便重新转换？\n选择“否”则只保留尚未编译的游戏。",
     "already_compiled_left_out": "已从列表中排除 {count} 个已编译的游戏。",
     "drop_blocked": "请等待当前转换或更新完成后再拖入 ROM。",
+    "console_choice_set_aside": "{title}：识别为 {detected}，因此按 {detected} 转换。主机菜单（{chosen}）只对没有文件头的文件起作用；设为“自动”即可不再显示此行。",
     "drop_unreadable": "部分文件或文件夹无法读取。",
     "drop_unavailable": "无法拖放，请使用添加 ROM 或添加文件夹。",
     "tagline": "尽可能原生。",

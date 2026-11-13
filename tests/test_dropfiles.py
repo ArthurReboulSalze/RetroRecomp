@@ -167,13 +167,18 @@ class WindowsDropTests(unittest.TestCase):
         self.assertEqual(before, {p: hashlib.sha256(p.read_bytes()).digest() for p in before})
         self.assertFalse((self.folder / 'exports').exists())
 
-    def test_manual_console_choice_still_rejects_mismatched_roms(self):
+    def test_a_recognised_cartridge_is_never_refused_for_the_console_menu(self):
+        # Arthur, 13 Nov 2026: a cartridge dropped with another console (or Adventure) in the menu goes to its own
+        # machine, and the log says why in one line.
         self.app.system_mode = 'gb'
         path = self.fixture('Wrong console.sms', bytes(8192))
         self.send_drop(self.app.table, [path])
-        item = next(iter(self.app.items.values()))
-        self.assertTrue(item.skipped)
-        self.assertEqual(item.system, 'sms')
+        row, item = next(iter(self.app.items.items()))
+        self.assertEqual((item.system, item.skipped, item.error, self.app.row_status[row]), ('sms', False, '', 'waiting'))
+        logged = [value[0] for kind, *value in list(self.app.messages.queue) if kind == 'log']
+        logged.append(self.app.log.get('1.0', 'end'))
+        self.assertIn(tr('console_choice_set_aside', 'en', title=item.title, detected='Master System',
+                         chosen='Game Boy'), '\n'.join(logged))
 
     def test_busy_drop_is_consumed_without_mutating_batch(self):
         path = self.fixture('a.sms', bytes(8192))
