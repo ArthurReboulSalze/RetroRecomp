@@ -105,6 +105,12 @@ void msx_cart_reset(MsxDevice *d)
         ascii16_switch(d, 2, 0);
         d->bank_high = 0;
         break;
+    case MSX_MAPPER_DISK:                         /* the disk ROM in page 1; page 2 has only the registers' mirror */
+        d->block[2] = 0;
+        d->block[3] = 1;
+        if (d->fdc)
+            msx_fdc_reset(d->fdc);
+        break;
     default:
         break;
     }
@@ -136,6 +142,10 @@ static void scc_write(MsxScc *s, uint8_t address, uint8_t value)
 int msx_cart_write(MsxDevice *d, uint16_t address, uint8_t value)
 {
     switch (d->mapper) {
+    case MSX_MAPPER_DISK:
+        if (d->fdc && (address & 0x3FFC) == 0x3FF8 && address >= 0x4000 && address < 0xC000)
+            msx_fdc_write(d->fdc, address & 3, value);
+        return 0;
     case MSX_MAPPER_KONAMI:
         if (address >= 0x6000 && address < 0xC000) {
             konami_switch(d, address >> 13, value);
@@ -184,6 +194,8 @@ int msx_cart_write(MsxDevice *d, uint16_t address, uint8_t value)
 
 uint8_t msx_cart_read(const MsxDevice *d, uint16_t address)
 {
+    if (d->mapper == MSX_MAPPER_DISK && d->fdc && (address & 0x3FFC) == 0x3FF8 && address >= 0x4000 && address < 0xC000)
+        return msx_fdc_read(d->fdc, address & 3);
     if (d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && address >= 0x9800 && address < 0xA000) {
         uint8_t a = (uint8_t)address;
         return a < 0x80 ? (uint8_t)d->scc.wave[a >> 5][a & 31] : 0xFF;

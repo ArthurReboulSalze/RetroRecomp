@@ -767,6 +767,22 @@
         "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEixy8-kJBOCB2q2WREFtKNs5s1I5e5q6RmqtFd4gLEUd5q1o35Rve-8cNXlZlnJDnd9s2nmX1vNaheqraLyHwAmBQerxT050XJszPiqKO_pxVW3QNHH9zlkIC2Pv4DKP_g-RTKM2V8hkGyWeVjdkJv6ul0vm2Udc6hFXZLzzFUXSC9qOY3Wr5PC9l3oh9f8/s600/Air%20Combat%20II%20Yuugekiou%20II%20(1990).png"
       ],
       "source_page": "https://redparsley.blogspot.com/2024/01/the-best-of-x68000-cover-art-part-1.html"
+    },
+    {
+      "id": "msx2plus-family-stadium-professional-baseball",
+      "system_id": "msx2plus",
+      "rom_sha256": [
+        "7b5a2256f321398f67f6b1cc0408412cdca397534e4715b068bf1ab0f3c68eef"
+      ],
+      "rom_names": [
+        "Family Stadium Professional Baseball (Japan)",
+        "Pro Yakyuu Family Stadium - Pennant Race (Japan)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Microsoft_-_MSX2/master/Named_Boxarts/Pro%20Yakyuu%20Family%20Stadium%20-%20Pennant%20Race%20%28Japan%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Microsoft_-_MSX2/blob/master/Named_Boxarts/Pro%20Yakyuu%20Family%20Stadium%20-%20Pennant%20Race%20%28Japan%29.png"
     }
   ]
 }

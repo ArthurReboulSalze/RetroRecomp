@@ -35,7 +35,7 @@ yes.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2 of 13 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026)
 
 ### Progress through the qualification list
 
@@ -67,27 +67,27 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
 | MSX2 | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
-| MSX2+ | experimental | `░░░░░░░░░░` 3 % | ✅ 0 · 🟡 1 · ❔ 14 |
+| MSX2+ | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ❔ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | 🟡 | ❔ | ✅ | ✅ | 🟡 |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | 🟡 | 🟡 | 🟡 | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -104,20 +104,20 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | P |
-| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | P | P | P | P | ? |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | ? |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | P | ? | Y | Y | ? |
-| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | ? |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | P | ? | P | P | P | ? |
+| G2 | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | P | P | P | P | P | P | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | P | P | Y | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | P | ? | Y | Y | P |
+| G10 | Y | Y | Y | Y | P | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | P | ? | P | P | P | P |
 | G13 | Y | Y | Y | Y | P | P | P | P | Y | Y | Y | P | P | Y | P | P | P | P | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
-| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | ? | P | P | P | ? |
+| G15 | Y | Y | Y | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | ? | P | P | P | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | - | - | - | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -273,6 +273,31 @@ The page of each console, which the README links its line to (a console of the m
 - MSX2+ (13 November 2026; experimental profile `msx2plus`, the third profile of the MSX family, branch `spec/msx2plus-174`): G1 `P`: the
   profile is declared experimental and `tools/status_lint.py` agrees; not offered in a release yet. Every other gate but G16 is `?`: no panel has run.
   G16 `-`: the MSX2+ shares no paths and is not in `SHARED_SYSTEMS`. Scope and the five measures: [MSX.md](MSX.md#9-the-msx2-msx2plus).
+- MSX2+ disk panel (13 November 2026, evening; branch `spec/msx2plus-disk-174`, panel approved by the lead): Arc, Quinpl, Nyancle Racing,
+  Sonyc, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Golvellius II and Xak III - The Tower of Gazzel (four single-disk and four multi-disk
+  games), converted at the **extended** level (attract, play and one long route of 18,000 frames) from an empty library, two at a time, online
+  covers on, with the owner's own MSX2+ firmware of one machine (main ROM, sub-ROM and disk ROM of a Panasonic FS-A1WSX). G2 `Y`: the
+  common report's main CPU block has its counts on every route, `devices` names the disk interface (the disk ROM and the TC8566AF) in the
+  cartridge's place, the V9958 and the PSG as C models with no counter (seen in a conversion after `34994e59`; the panel's reports, made before,
+  name a plain mapper there), `honesty.route_warnings` is filled (empty on all 24 routes), and `disk_writes` says what the game wrote. G3 `Y`:
+  0 interpreted Z80 instructions on all 24 routes; the first conversion learns (between 0 and 40.5 million interpreted instructions in that
+  pass, counted and reported). G4 `Y`: each route equals its fresh reference run. G5 `Y`: each route of the delivered, packed file equals the
+  native run. G6 `Y`: the quick states pass in fresh processes on all eight (layout `msx-state-5`, with the controller and the disk in the drive).
+  G7 `P`: no panel game writes to its disks on its routes; the write path is proven on an authored disk (`tools/msx_write_disk.py`, our own boot
+  sector, no game data): converted as a game, it writes, the copy is kept beside the game, a fresh process starts from it, a copy of the wrong
+  size is ignored and kept, the embedded disks never change, and the copy differs from the image in the one sector written (its 512 bytes, every
+  other byte identical); `tools/msx_fdc_selftest.py` checks that a write changes exactly the sectors it is given (21 checks; a controller that
+  ignores the terminal count on a write fails 7). Cartridge SRAM uses the MSX2's code, not checked on an MSX2+ game. G8 `Y`: a moving picture is required on the play and long routes, the route warnings
+  are reported, and the long routes' captures were looked at by the specialist (not the owner). G9 `P`: six of the eight reach play on their
+  long route (Arc, Quinpl, Laydock 2, F-1 Spirit 3D Special, Nyancle Racing after its name entry, Sonyc for a stage before its password
+  screen); Golvellius II stays in its Japanese intro, and Xak III stops on "SET DISK 3 AND PUSH SPACE PLEASE", which the route's fixed disk
+  changes (frame 6,000, then every 3,000) do not answer. G10 `Y`: the MSX2+ is built with the MSX's own generator build (`MSX_MACHINE`), whose
+  51,328 SingleStepTests/z80 vectors pass (the MSX column). G11 `P`: one openMSX comparison of the V9958's horizontal scroll (Family Stadium,
+  [MSX.md](MSX.md#9-the-msx2-msx2plus)), with an open difference on R#1; the disk controller is compared with nothing independent. G12 `P`: eight
+  disk games, varied (shooting, racing, puzzle, role-playing, one to several disks), none dropped for failing, at the extended level only; one
+  firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
+  step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
+  named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in
   instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,

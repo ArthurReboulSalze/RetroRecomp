@@ -37,6 +37,94 @@ static bool msx_game_state_path(wchar_t *path, size_t capacity);
 
 #include "hostkit/adapters/rrhk_msx.inc"
 
+/* An MSX2+ disk game (RR_MSX_DISKS > 0): the disks are resource 106 in order (RR_MSX_DISK_SIZES), the player's disk ROM ends the
+ * BIOS source at 10000h, the controller is msx_fdc.c. What the game writes goes to a copy beside its settings
+ * (datas/games/msx2plus-<identity>/disk-<n>.dsk), read back at the next start when its size is right, written a few seconds
+ * after the game last wrote and when the game closes; the embedded disks are never changed. Page Up / Page Down (the computers'
+ * keys, rrhk_computer.inc) put the previous or next disk in drive A. */
+#if RR_MSX_DISKS
+static const uint32_t disk_sizes[RR_MSX_DISKS] = RR_MSX_DISK_SIZES;
+static uint8_t disk_data[RR_MSX_DISKS][2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
+static uint8_t disk_dirty[RR_MSX_DISKS];
+static unsigned disk_index;
+static MsxFdc fdc;
+static char disk_folder[1024];
+static int disk_copies;                          /* 0 in a headless run: nothing is written beside the game */
+
+static int disk_copy_path(unsigned n, wchar_t *out)
+{
+    char path[1100];
+    snprintf(path, sizeof path, "%s/disk-%u.dsk", disk_folder, n + 1);
+    return rr_from_utf8(path, out, 1100);
+}
+
+static void disks_load_copies(void)
+{
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+        wchar_t path[1100];
+        if (!disk_copy_path(n, path)) continue;
+        FILE *f = rr_fopen(path, L"rb");
+        if (!f) continue;
+        static uint8_t copy[sizeof disk_data[0]];
+        size_t got = fread(copy, 1, sizeof copy, f);
+        fclose(f);
+        if (got == disk_sizes[n])                /* a copy of another size is not this disk's: the embedded one is kept */
+            memcpy(disk_data[n], copy, got);
+    }
+}
+
+static void disks_save(void)
+{
+    if (!disk_copies) return;
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+        if (!disk_dirty[n]) continue;
+        wchar_t path[1100], staged[1100];
+        if (!disk_copy_path(n, path)) continue;
+        swprintf(staged, 1100, L"%ls.tmp", path);
+        FILE *f = rr_fopen(staged, L"wb");
+        if (!f) continue;
+        int ok = fwrite(disk_data[n], 1, disk_sizes[n], f) == disk_sizes[n] && rr_flush_file(f);
+        ok = fclose(f) == 0 && ok;
+        if (ok && rr_replace(staged, path)) disk_dirty[n] = 0; else rr_remove(staged);
+    }
+}
+
+static void disks_at_exit(void) { disks_save(); }
+
+static int disk_dirty_any(void)
+{
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) if (disk_dirty[n]) return 1;
+    return 0;
+}
+
+static void disks_swap(void)
+{
+    if (want_eject) want_eject = false;          /* eject is not offered: a disk game always has a disk in drive A */
+    if (!want_swap) return;
+    want_swap = false;
+    if (RR_MSX_DISKS < 2 || swap_drive) { player_notice(RR_MSX_DISKS < 2 ? "This game has one disk" : "Drive B is not used"); return; }
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_index = (disk_index + RR_MSX_DISKS + (swap_direction < 0 ? RR_MSX_DISKS - 1u : 1u)) % RR_MSX_DISKS;
+    msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
+    char text[96];
+    snprintf(text, sizeof text, rrhk_tr("Disk %u of %u in drive A", "Disquette %u sur %u dans le lecteur A"), disk_index + 1u,
+             (unsigned)RR_MSX_DISKS);
+    rrhk_notice(text, 3500);
+}
+
+/* A route's disk change in a headless run (msx_route.inc): disk `index` of the embedded ones in drive A. */
+static void msx_route_disk(unsigned index)
+{
+    if (index >= RR_MSX_DISKS) return;
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_index = index;
+    msx_fdc_insert(&fdc, 0, disk_data[index], disk_sizes[index], 0);
+}
+#else
+static void msx_route_disk(unsigned index) { (void)index; }
+#endif
+
 /* The cartridge's battery SRAM (msx_cart.c, msx_sram.c), when the conversion found one (RR_MSX_SRAM_BIT): beside the game in a
  * window; a headless run touches no file unless --sram names one. Its report gives the memory's hash at the start and at the
  * end, and the file's notice. */
@@ -45,11 +133,23 @@ static size_t sram_size;
 static wchar_t sram_file[32768];
 static int sram_given;
 static uint64_t sram_start_hash;
+#if RR_MSX_DISKS
+static uint64_t disk_start_hash[RR_MSX_DISKS];
+#endif
+
 static void sram_report(FILE *out)
 {
     fprintf(out, "\"sram_bytes\": %u, \"sram_start_hash\": \"%016llx\", \"sram_hash\": \"%016llx\", \"sram_notice\": %u, ",
             (unsigned)sram_size, (unsigned long long)sram_start_hash, (unsigned long long)msx_sram_hash(sram_bytes, sram_size),
             msx_sram_notice());
+#if RR_MSX_DISKS
+    fprintf(out, "\"disk_start_hashes\": [");
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) fprintf(out, "%s\"%016llx\"", n ? ", " : "", (unsigned long long)disk_start_hash[n]);
+    fprintf(out, "], \"disk_hashes\": [");
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n)
+        fprintf(out, "%s\"%016llx\"", n ? ", " : "", (unsigned long long)msx_sram_hash(disk_data[n], disk_sizes[n]));
+    fprintf(out, "], \"disk_written\": %d, ", fdc.disk[0].written || disk_dirty_any());
+#endif
 }
 #define MSX_HEADLESS_SAVE_FIELDS(out) sram_report(out)
 #include "msx_headless.inc"
@@ -129,6 +229,13 @@ static int headless_state_option(const char *a, const char *v)
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
     else if (!strcmp(a, "--sram")) { if (!headless_path(v, sram_file)) return -1; sram_given = 1; }
+#if RR_MSX_DISKS
+    else if (!strcmp(a, "--disk-copies")) {
+        if (strlen(v) >= sizeof disk_folder) return -1;
+        strcpy(disk_folder, v);
+        disk_copies = 1;
+    }
+#endif
     else return 0;
     return 1;
 }
@@ -165,6 +272,14 @@ static void msx_main_service(void)
         }
         msx_sram_flush(SDL_GetTicks64(), false);
     }
+#if RR_MSX_DISKS
+    disks_swap();
+    {   /* what the game wrote goes to its copy once the disk has been quiet for about three seconds */
+        static unsigned quiet;
+        if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; quiet = 0; }
+        else if (++quiet == 180) disks_save();
+    }
+#endif
     switch (msx_host_frame(&machine)) {
     case 0: break;
     case 2: power_on(); g_z80.cyc = 0; step_start = 0; break;
@@ -221,7 +336,7 @@ static int setup_machine(void)
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
     if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0
-        || (RR_MSX_MODEL >= 2 && bios_size != 0x10000)) {
+        || (RR_MSX_MODEL >= 2 && bios_size != (RR_MSX_DISKS ? 0x14000u : 0x10000u))) {
         fprintf(stderr, "[msx] the game's cartridge or BIOS resource is missing\n");
         return 3;
     }
@@ -249,6 +364,26 @@ static int setup_machine(void)
         device.sram_bit = RR_MSX_SRAM_BIT;
     }
     msx_set_device(&machine, 1, 0, device);
+#if RR_MSX_DISKS
+    size_t disks_size = 0;
+    const uint8_t *disks = rr_resource(106, &disks_size);
+    size_t at = 0;
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) at += disk_sizes[n];
+    if (!disks || disks_size != at) {
+        fprintf(stderr, "[msx] the game's disks resource is missing\n");
+        return 3;
+    }
+    at = 0;
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+        memcpy(disk_data[n], disks + at, disk_sizes[n]);
+        at += disk_sizes[n];
+    }
+    if (disk_copies)
+        disks_load_copies();
+    memset(&fdc, 0, sizeof fdc);
+    msx_set_disk_interface(&machine, 2, slot0 + 0x10000, &fdc, 8);
+    msx_fdc_insert(&fdc, 0, disk_data[0], disk_sizes[0], 0);
+#endif
     return 0;
 }
 
@@ -259,6 +394,19 @@ static int run(void)
         return status;
     machine.line_hook = line_hook;
     prepare_data_folder();
+#if RR_MSX_DISKS
+    {   /* the copies of the disks live beside player.cfg; a copy the game wrote before is put back now */
+        size_t n = strlen(player_config);
+        if (n > 11 && n - 11 < sizeof disk_folder) {
+            memcpy(disk_folder, player_config, n - 11);          /* without "/player.cfg" */
+            disk_folder[n - 11] = 0;
+            disk_copies = 1;
+            disks_load_copies();
+            msx_fdc_insert(&fdc, 0, disk_data[0], disk_sizes[0], 0);
+            atexit(disks_at_exit);
+        }
+    }
+#endif
     if (sram_size) {
         static wchar_t path[32768];
         if (msx_sram_path(path, sizeof path / sizeof *path)) sram_open(path);
@@ -289,6 +437,10 @@ static int run_headless(int argc, char **argv)
     machine.line_hook = headless_line;
     sram_start_hash = msx_sram_hash(sram_bytes, sram_size);
     if (sram_given) sram_open(sram_file);
+#if RR_MSX_DISKS
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) disk_start_hash[n] = msx_sram_hash(disk_data[n], disk_sizes[n]);
+    if (disk_copies) atexit(disks_at_exit);
+#endif
     power_on();
     frame_ended = state_load_due;              /* a load waits for the first service, not for the first frame */
     smsrecomp_banked_run();                    /* returns through headless_finish() at the frame limit */
