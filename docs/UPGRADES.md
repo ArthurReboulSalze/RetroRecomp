@@ -79,6 +79,72 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.3 in 1.7.4
+
+1.7.4 is the release after 1.7.3 (published on 13 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no
+section here), with the stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch; the totals are under the table and were
+computed on `main` on 13 November 2026 (`ddfeb018`).
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [68000 machines: the decimal instructions follow Moira on every operand](#68000-machines-the-decimal-instructions-follow-moira-on-every-operand-174) | the Mega Drive, the Neo Geo, the CPS-1, the CPS-2 and the X68000 (their generated code changes; `GENERATOR_REVISION` of the CPS-1 and the X68000 raised) | none | **the X68000 key moves** (it hashes the generated `m68kcpu.c`); the others do not |
+| [Mega Drive: what the report says](#mega-drive-what-the-report-says-174-gates-g2-and-g15) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16.py`) | none | none |
+| [Every machine: the menus drawn again, F2 as tiles, "Quit?", the opening plates and a stretched F4 mode](#every-machine-the-menus-drawn-again-f2-as-tiles-quit-the-opening-plates-and-a-stretched-f4-mode-174) | none | **the host stamp of every profile** (the host kit's shell, `retro_menu.c`, `game_options.h`, `runtime_catalog.inc`, `display_settings.h`) | **the Mega Drive and Super Nintendo keys move** (they hash `retro_menu.c`, `retro_menu.h`, `game_options.h`, `runtime_catalog.inc`), and the Amiga, Atari ST and Nintendo 64 keys (every input, the host's included); the others do not |
+| [MSX2+: a third profile of the MSX family, with the V9958](#msx2-a-third-profile-of-the-msx-family-with-the-v9958-174-experimental-step-1) | the MSX and the MSX2 (their files); the MSX2+ is new | none | **the MSX and MSX2 states are refused** (layout `msx-state-4`) |
+| [MSX2+: disk games](#msx2-disk-games-174-experimental-step-2) | the MSX, the MSX2 and the MSX2+ (`msx_fdc.c`, `msx_disk.py`) | none (`rom_sources.py` is in no stamp) | **the MSX and MSX2 states are refused** (layout `msx-state-5`) |
+| [MSX and MSX2: the cartridge's battery SRAM is kept, the common report has the counts](#msx-and-msx2-the-cartridges-battery-sram-is-kept-the-common-report-has-the-counts-174) | the MSX and the MSX2, and **every machine that uses `conversion_gates.py`** (all but the Super Nintendo, the Game Boy Advance and ScummVM); the PC Engine's own conversion; no other game changes | none | **the MSX and MSX2 states are refused** (layout `msx-state-3`, the SRAM), and the Amiga, Atari ST and Nintendo 64 keys move (every input); the others do not |
+| [Game Boy Advance: the delivered file is replayed against the player as built, the player can write a row per frame, a heal count in the report](#game-boy-advance-the-delivered-file-is-replayed-against-the-player-as-built-the-player-can-write-a-row-per-frame-a-heal-count-in-the-report-174) | the Game Boy Advance only | none | no key of ours: a state is the engine's own container; a state of a game converted before may be refused |
+| [Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report](#atari-st-the-root-of-a-disk-is-read-as-the-tos-reads-it-two-names-more-among-the-utilities-the-interpreted-instructions-listed-by-address-the-known-stops-in-the-report-174) | the Atari ST only | none | the Atari ST key moves |
+| [Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report](#commodore-amiga-route-scripts-in-lf-on-every-system-the-long-routes-script-digest-in-the-report-174) | the Amiga only | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer](#commodore-amiga-another-world-and-lemmings-answer-their-first-screen-every-route-of-such-an-install-starts-with-the-answer-174) | the Amiga only (the routes of Another World, Lemmings and Monkey Island 2 change) | none | the Amiga key moves, as between any two Amiga builds |
+| [Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused](#commodore-amiga-quick-states-carry-a-checksum-and-the-installs-identity-damaged-ones-are-refused-174-g6) | the Amiga only | none | **every Amiga state is refused** (format `RRAMIGA-STATE-3`) |
+| The converter window on Linux: a context menu closes when you click elsewhere (no section of this page; commit `e2512ecc`) | none (interface code) | none | none |
+| The Mega Drive's native test harnesses link with the portable toolchain, Visual Studio only as a fallback (no section of this page; merge `8f0c85c9`) | none (tools) | none | none |
+| Licences: the m68k-recomp-core author's permission for the Atari ST in `licenses/` and the third-party notices (no section of this page; commit `71c6acec`) | none (embedded in no game; `stamp_inputs.NOT_INPUTS`) | none | none |
+| Tests: two failures seen only in the public CI of 1.7.3 (no section of this page; commit `96a70fa0`) | none | none | none |
+| Qualification: the letters of the MSX, MSX2, MSX2+, Atari ST, Mega Drive, Game Boy Advance and Amiga columns ([QUALIFICATION.md](QUALIFICATION.md); no section of this page) | none | none | none |
+
+Taken together (`compilation_inputs.role_stamps` of the twenty profiles, the tree of `v1.7.3` against `main`, Windows, Python 3.14): **the game stamp of every
+profile but Adventure (ScummVM) moves**: the Master System, Game Gear, Game Boy, NES, Nintendo 64 and PlayStation through `conversion_gates.py` (and the PlayStation through
+`console16.py`), the others through their own changes as well; **the host stamp of every profile moves**, with the new in-game interface; **no build stamp moves**. The MSX2+ is new.
+
+| Machine | Game stamp (v1.7.3, now) | Host stamp | Build stamp |
+| --- | --- | --- | --- |
+| Master System | `0f2ae3577f5f`, `da7740751f6c` | `afcd7d80d268`, `9c85ab2c271f` | `fe2d99b3cd5e` (same) |
+| Game Gear | `f6156c79361a`, `5659d9208ad1` | `1a50c71be834`, `207706f2e7e6` | `f5671c38cf26` (same) |
+| Game Boy | `fda8a848fcba`, `4a7ee6ffd023` | `b0c6d1f25dcb`, `b5b3db390890` | `819a054ad881` (same) |
+| NES | `d003f9637777`, `0766ec8cacdf` | `aace3c47c69a`, `d104374c07dd` | `8e0941f93b43` (same) |
+| Mega Drive | `fcf472f6e2b0`, `99b2890365d8` | `ae954d97ef21`, `51731b499338` | `9615ff2e96c8` (same) |
+| Super Nintendo | `830816cf1a5d`, `70b9bd7f54b0` | `1338832835c7`, `c18fd880c901` | `3f0a58ad3c7c` (same) |
+| Neo Geo | `296e61d8c8b5`, `10c2a91887ed` | `209363c3cb2d`, `3fba6ce0ccc0` | `110349f043bd` (same) |
+| X68000 | `6a1a3e6fffa6`, `eb47efd4d316` | `cd36f942cda8`, `f797a5fe02b9` | `5903c0449429` (same) |
+| CPS-1 | `5bad58285e1e`, `d477757abcb7` | `1744a86d265c`, `b1d84d7c729a` | `2782cd370f91` (same) |
+| CPS-2 | `3d06a5ebcc85`, `e87153ef3f90` | `5f073fe7a9ca`, `2d378c71769a` | `81a51ad49349` (same) |
+| PC Engine / TurboGrafx-16 | `dc4e67408d8f`, `467ee58b350b` | `20772c959102`, `ee9194a1d5cc` | `66d912662e5c` (same) |
+| Game Boy Advance | `20b869ddcba2`, `f65705900b6a` | `287e639d641a`, `3f8e2ffea164` | `6b70933a9b0a` (same) |
+| Amiga | `f069a288af8a`, `b9c3b53105d9` | `7d590498bb06`, `ec0dd3422e72` | `92ca8a0c142c` (same) |
+| Atari ST | `6c70ccd1ff7c`, `f414185b00f5` | `c1f3ab554861`, `71e4d66f2a87` | `54b75964897d` (same) |
+| Nintendo 64 | `77b096906adf`, `b2f1227b519d` | `93684dc83103`, `b7e3362c659a` | `4f6fedf926c7` (same) |
+| Adventure (ScummVM) | `7e79677b16a3` (same) | `2e274a46f2af`, `73f0cabdf927` | `05417bbcea96` (same) |
+| Sony PlayStation | `c6a915039614`, `65cfde0bce50` | `34ac75fcabae`, `c6229c50d0ee` | `b6c9cf73b176` (same) |
+| MSX | `5ad96cd2add4`, `15a037262516` | `7f3fdbbcf3d1`, `7f2e26ded315` | `3e7de8099a99` (same) |
+| MSX2 | `cbb66977125c`, `2ffee6245075` | `e75758647762`, `5a5bc27e0c7c` | `d2329c8c61ad` (same) |
+| MSX2+ | `8ae143afa6f8` (new) | `ccd13cd7df54` (new) | `88e08041d92f` (new) |
+
+(First twelve hexadecimal digits of each stamp.) `LEGACY_GAME_STAMPS` stays empty. **So every export of 1.7.3 is converted again once at the upgrade**, at the quick level,
+from its learned paths, and the window offers it, **except the games of Adventure (ScummVM)**, which are only upgraded (rebuilt with the new host files, no
+rediscovery; they look the same, as ScummVM draws its own menus). The shared paths of the base are kept: they are qualified by the recompiler's revision, not by this stamp.
+
+**Quick states.** The **Mega Drive and Super Nintendo keys move**: they hash their listed native files, which the new interface changes (`retro_menu.c`, `retro_menu.h`,
+`game_options.h`, `runtime_catalog.inc`). The **Amiga, Atari ST and Nintendo 64 keys move**: each takes every input of its machine, the host's included; the Amiga's
+state file also has a new format (`RRAMIGA-STATE-3`, with the install's identity and a checksum). The **X68000 key moves**: it hashes the generated CPU code, which the
+decimal instructions change. The **MSX and MSX2 states are refused**: their layout went from `msx-state-2` to `msx-state-5` (the SRAM, the port F4h, the disk controller).
+A quick state of 1.7.3 of those eight machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of
+the NES, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation hash none of the files that changed, so their states of 1.7.3 load in the rebuilt export; the Master
+System, Game Gear and Game Boy have no such key. A quick state of the Game Boy Advance is the engine's own container, with no key of ours; its section says a state of a game
+converted before may be refused. The MSX2+ is new. **Cartridge saves** are kept on every machine (the MSX and MSX2 now keep the battery SRAM of their ASCII cartridges); the game
+saves of Adventure (ScummVM) are ScummVM's own. A game of 1.7.3 that reads the stretched F4 mode (`display_mode` 3) written by 1.7.4 opens in a window.
+
 ## 68000 machines: the decimal instructions follow Moira on every operand (1.7.4)
 
 `ABCD`, `SBCD` and `NBCD` on operands that are not decimal digits are left undefined by the manual; the four 68000 machines gave
@@ -95,7 +161,8 @@ documented source says otherwise; the manual calls it undefined).
   Mega Drive, the CPS-1, the X68000 and the Neo Geo, native and reference alike (before 2,873); both deviation lists are empty. The vectors come
   from MAME and Moira is a software model: neither is silicon.
 - **What moves:** the generated code and the **game stamps of the Mega Drive, the Neo Geo, the CPS-1, the CPS-2 and the X68000**
-  (`tools/std_baseline.py`; no host or build stamp, no quick-state key); `GENERATOR_REVISION` of `cps1_knowledge.py` 13 to 14 and of
+  (`tools/std_baseline.py`; no host or build stamp). Of the quick-state keys, only the X68000's moves: it hashes the generated CPU code
+  (`m68kcpu.c`) that the Musashi fixes change; the Mega Drive, Neo Geo, CPS-1 and CPS-2 keys hash none of the files changed; `GENERATOR_REVISION` of `cps1_knowledge.py` 13 to 14 and of
   `x68_knowledge.py` 1 to 2, with `tests/cps1_generator_pins.json` and `tests/x68_generator_pins.json`. Existing exports of these five machines are
   converted again in full. A game that never runs a decimal instruction on a non-decimal digit does the same thing as before.
 - **Left as listed:** the same bench found that on 16 forms with no vector (`ADDI`, `SUBI`, `ANDI`, `ORI`, `EORI` `.L` and `CMPI` on `-(An)` and
@@ -143,7 +210,9 @@ menus get icons, block letters and key caps, and F4 gains a fourth mode, stretch
   the usual notice ("No compatible quick state to load") instead of being loaded. Cartridge saves are not concerned. No other
   machine's state key reads these files (the CPS-1/CPS-2, Neo Geo, PC Engine, NES, PlayStation and MSX keys hash their own
   machine files; the Master System's `compiler_signature` that lists them is a record of the library, not a state key; the
-  Amiga, Atari ST, X68000 and Nintendo 64 bind their states to the game stamp), so their F8 states of 1.7.3 still load.
+  X68000's key hashes its own machine files and its generated CPU code), so their F8 states of 1.7.3 still load. The Amiga, Atari ST and
+  Nintendo 64 keys take every input of their machine, the host's included (`sdk_stamp`), so they move with this change too (their game
+  stamps move in 1.7.4 anyway).
 * **Texts.** Thirteen new entries in the catalogue of the five game languages (and in the seven locale files): "Controls",
   "Options", "Help", "Yes", "No", "P%d", "Reset", "Start-up reminders: %s", "Stretched", "F4  Window / Pixel / Fit /
   Stretched", the tiles' hint line and the two lines about a computer's keyboard. Every
@@ -259,6 +328,7 @@ binding differs). No other machine's state changes.
 profiles were compared with main `f3479c5a`: only that one differs). `delivery_evidence.py`, `conversion_gates.py` and `resources.py` are untouched. **Existing Game Boy Advance
 exports:** the game stamp moves, so a 1.7.3 export is converted in full at its next conversion, from the player's own paths (experimental, private to the player, no frozen legacy stamp). **Quick
 states and saves:** the cartridge save is untouched; a quick state of a game converted before may be refused by the build binding (a rule of [UPGRADES](#the-rule-the-previous-release-only)).
+
 ## Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report (1.7.4)
 
 The Atari ST game stamp moves, from `f61238ca2d46` to `f414185b00f5` (measured on main `be170091`; the host and build stamps do not move), so an Atari ST export of 1.7.3 is converted again in
@@ -280,6 +350,78 @@ full by the first batch of 1.7.4. What a converted game does is not changed, exc
 **Proof** (Windows, one tree, 13 November 2026): the panel of eight games, converted one at a time from an empty scratch library at the extended level (Lethal Xcess at the thorough level: the second long route changes the disk, and it reaches play);
 on all 25 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on 8 of 8 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). Seven more games
 were converted in the same run and are outside the panel; the fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
+
+## Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report (1.7.4)
+
+**What changes.** The input script of each route (`inputs-<route>.txt`) is written as LF bytes on every system. It used to be
+written in text mode, so Windows wrote CRLF. The player reads both the same way, but `final_checks[].script_sha256` of the same
+route differed between Windows and Linux. The Lotus 2 witness of 12 Nov showed it: every hash of both routes was equal, and only
+these two digests differed. The long routes of `advanced_scan.long_routes` (so `scan.routes` of the common report) now also carry
+their `script_sha256`.
+
+**Hot path:** no. Conversion time and the report only. The events, and so the inputs a game receives, are the same.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. On Windows, the `script_sha256` of every route
+changes once, to the LF file's digest, which is the one Linux already wrote.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer (1.7.4)
+
+**What changes.**
+- **Another World (FR).** Its routes answer the code wheel with the joystick: three submissions at frames 500, 900 and 1300. The
+  generic route follows from frame 1500, without mouse events, because the slave maps the left button to the access-code screen,
+  which locks a game whose protection has not passed. Headless on the delivered exe, the protection passes and the intro plays to
+  the laboratory (5,217 audible frames of 7,000; before, 43).
+- **Lemmings (Image).** After its intro, the pointer moves onto "1 PLAYER" and clicks, then the level's briefing is clicked. The
+  generic route follows from frame 4800. Headless, level 1 is played from about frame 4,500 on.
+- **Every route of an install in `ROUTE_ANSWERS`** now starts with the answer: main as before, and now also the exploration route
+  (at least the answer's frames) and the long routes. Monkey Island 2's exploration and long routes change with it.
+- Both are the inputs the game's owner would give (the lead, 13 Nov: Monkey Island 2's answer of 1.7.3 is the precedent; a
+  protection is never patched or skipped). A route is a scripted input, not gameplay validation.
+- **One writer of the routes.** `amiga_conversion.route_events` writes every route, answered or not, for the conversion and for
+  `tools/amiga_route_captures.py`. Before, that tool rewrote the routes without the answer, so its pictures of an answered install were
+  not of the route the conversion played. It now refuses a route whose rewritten script does not have the report's `script_sha256`.
+  The 27 routes of the final panel (13 November, nine installs) give their recorded digests again: the conversion's scripts are unchanged.
+- **Known stops in the report.** An install whose routes are known to stop before play is named with its reason in the report's
+  `route_warnings` (read into `honesty.route_warnings`), from `amiga_conversion.ROUTE_STOPS`, as the Atari ST does: Monkey Island 2's
+  routes end in its opening. Words about a game, never its bytes; no route is chosen from them.
+
+**Hot path:** no. Conversion time only: these three installs run their answer on every route.
+
+**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes, the observed code and the native
+counts of Another World, Lemmings and Monkey Island 2 change. The other installs' routes do not.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
+
+## Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused (1.7.4, G6)
+
+**What changes.**
+- **The quick state file** (`RRAMIGA-STATE-3`, was 2). Its header now has the install's identity (its SHA-256) and a checksum of the
+  whole file (FNV-1a 64). A state of another build or install, or one with a changed byte, a cut, or anything added after its end,
+  is refused before the machine is touched. The game goes on as it was. The headless player exits 4 on a refused state, as the
+  other machines' players do. The F9 page says the state could not be loaded, as before.
+- **The conversion** checks quick states with the shared `conversion_gates.check_quick_states`, as the PC Engine and the MSX do.
+  The state is saved 600 frames before the main route's end and continued by a fresh process of the compressed copy for those 600
+  frames (it was 400). Then 17 damaged copies must each be refused and left byte for byte as they were: empty, header cut, one
+  byte short, one byte more, half cut, a flipped bit in the magic, the ABI, the identity, the frame, the inputs, each size, the
+  checksum, the resload state, the payload and the last byte, and a text file. Loading a missing state must be refused and create
+  nothing. The report's `game_states.validation` carries these results.
+- **The bitplane batch at a state** (stage 7's open note). A state taken while a batched line still has bitplane slots to run,
+  which can happen when one instruction runs past line 0 before the state, now gives that line back first. The slots this colour
+  clock has seen run, and the rest go back to vAmiga's events, which the snapshot keeps (`Agnus::rrBeforeSave`). The display
+  self-test takes a state inside a batched line on 6 scenarios: every record is equal to the run with every line on vAmiga's
+  events, and leaving the slots out (`--state-fault 3`) is seen on all 6. The rest of the self-test is unchanged (12 + 8
+  scenarios, 40 of 40 faults, 0 bus-model differences).
+
+**Hot path:** no. The check runs at a state's save and load only. The bitplane give-back runs only when a state is taken inside a
+batched line.
+
+**What moves:** the Amiga's game stamp (the session, the player, the adapter `rrhk_amiga.inc`, the conversion module and the
+adaptation of vAmiga); no other console. The host kit's shell is not touched.
+
+**Quick states:** every Amiga state saved before this change is refused cleanly (another format), as the rule of 1.6.5 allows.
+Cartridge-like saves (the files an install writes through resload) are not affected.
 
 ## Exports of 1.7.2 in 1.7.3
 
@@ -370,78 +512,6 @@ own files, and the Amiga and Atari ST host, change too). The **Mega Drive and Su
 machines is refused cleanly (no compatibility key is carried, [GAME_STATES.md](GAME_STATES.md)); nothing is lost but that state. The keys of the NES, the
 CPS-1, the CPS-2, the PlayStation and the X68000 hash none of the files that changed (the X68000's host stamp moves, its key does not), so their states of 1.7.2 load in the rebuilt export; the Master System, Game Gear and Game Boy have no such key. A quick state of
 the Game Boy Advance is the engine's own container (magic, version, the ROM's SHA-1), with no key of ours; its section says a state of a game converted before may be refused. The MSX and MSX2 keys are new. **Cartridge saves** are kept on every machine; the game saves of Adventure (ScummVM) are ScummVM's own.
-
-## Commodore Amiga: route scripts in LF on every system, the long route's script digest in the report (1.7.4)
-
-**What changes.** The input script of each route (`inputs-<route>.txt`) is written as LF bytes on every system. It used to be
-written in text mode, so Windows wrote CRLF. The player reads both the same way, but `final_checks[].script_sha256` of the same
-route differed between Windows and Linux. The Lotus 2 witness of 12 Nov showed it: every hash of both routes was equal, and only
-these two digests differed. The long routes of `advanced_scan.long_routes` (so `scan.routes` of the common report) now also carry
-their `script_sha256`.
-
-**Hot path:** no. Conversion time and the report only. The events, and so the inputs a game receives, are the same.
-
-**What moves:** the Amiga's game stamp (the conversion module); no other console. On Windows, the `script_sha256` of every route
-changes once, to the LF file's digest, which is the one Linux already wrote.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: Another World and Lemmings answer their first screen; every route of such an install starts with the answer (1.7.4)
-
-**What changes.**
-- **Another World (FR).** Its routes answer the code wheel with the joystick: three submissions at frames 500, 900 and 1300. The
-  generic route follows from frame 1500, without mouse events, because the slave maps the left button to the access-code screen,
-  which locks a game whose protection has not passed. Headless on the delivered exe, the protection passes and the intro plays to
-  the laboratory (5,217 audible frames of 7,000; before, 43).
-- **Lemmings (Image).** After its intro, the pointer moves onto "1 PLAYER" and clicks, then the level's briefing is clicked. The
-  generic route follows from frame 4800. Headless, level 1 is played from about frame 4,500 on.
-- **Every route of an install in `ROUTE_ANSWERS`** now starts with the answer: main as before, and now also the exploration route
-  (at least the answer's frames) and the long routes. Monkey Island 2's exploration and long routes change with it.
-- Both are the inputs the game's owner would give (the lead, 13 Nov: Monkey Island 2's answer of 1.7.3 is the precedent; a
-  protection is never patched or skipped). A route is a scripted input, not gameplay validation.
-- **One writer of the routes.** `amiga_conversion.route_events` writes every route, answered or not, for the conversion and for
-  `tools/amiga_route_captures.py`. Before, that tool rewrote the routes without the answer, so its pictures of an answered install were
-  not of the route the conversion played. It now refuses a route whose rewritten script does not have the report's `script_sha256`.
-  The 27 routes of the final panel (13 November, nine installs) give their recorded digests again: the conversion's scripts are unchanged.
-- **Known stops in the report.** An install whose routes are known to stop before play is named with its reason in the report's
-  `route_warnings` (read into `honesty.route_warnings`), from `amiga_conversion.ROUTE_STOPS`, as the Atari ST does: Monkey Island 2's
-  routes end in its opening. Words about a game, never its bytes; no route is chosen from them.
-
-**Hot path:** no. Conversion time only: these three installs run their answer on every route.
-
-**What moves:** the Amiga's game stamp (the conversion module); no other console. The routes, the observed code and the native
-counts of Another World, Lemmings and Monkey Island 2 change. The other installs' routes do not.
-
-**Quick states:** the Amiga's key moves, as between any two Amiga builds.
-
-## Commodore Amiga: quick states carry a checksum and the install's identity; damaged ones are refused (1.7.4, G6)
-
-**What changes.**
-- **The quick state file** (`RRAMIGA-STATE-3`, was 2). Its header now has the install's identity (its SHA-256) and a checksum of the
-  whole file (FNV-1a 64). A state of another build or install, or one with a changed byte, a cut, or anything added after its end,
-  is refused before the machine is touched. The game goes on as it was. The headless player exits 4 on a refused state, as the
-  other machines' players do. The F9 page says the state could not be loaded, as before.
-- **The conversion** checks quick states with the shared `conversion_gates.check_quick_states`, as the PC Engine and the MSX do.
-  The state is saved 600 frames before the main route's end and continued by a fresh process of the compressed copy for those 600
-  frames (it was 400). Then 17 damaged copies must each be refused and left byte for byte as they were: empty, header cut, one
-  byte short, one byte more, half cut, a flipped bit in the magic, the ABI, the identity, the frame, the inputs, each size, the
-  checksum, the resload state, the payload and the last byte, and a text file. Loading a missing state must be refused and create
-  nothing. The report's `game_states.validation` carries these results.
-- **The bitplane batch at a state** (stage 7's open note). A state taken while a batched line still has bitplane slots to run,
-  which can happen when one instruction runs past line 0 before the state, now gives that line back first. The slots this colour
-  clock has seen run, and the rest go back to vAmiga's events, which the snapshot keeps (`Agnus::rrBeforeSave`). The display
-  self-test takes a state inside a batched line on 6 scenarios: every record is equal to the run with every line on vAmiga's
-  events, and leaving the slots out (`--state-fault 3`) is seen on all 6. The rest of the self-test is unchanged (12 + 8
-  scenarios, 40 of 40 faults, 0 bus-model differences).
-
-**Hot path:** no. The check runs at a state's save and load only. The bitplane give-back runs only when a state is taken inside a
-batched line.
-
-**What moves:** the Amiga's game stamp (the session, the player, the adapter `rrhk_amiga.inc`, the conversion module and the
-adaptation of vAmiga); no other console. The host kit's shell is not touched.
-
-**Quick states:** every Amiga state saved before this change is refused cleanly (another format), as the rule of 1.6.5 allows.
-Cartridge-like saves (the files an install writes through resload) are not affected.
 
 ## MSX and MSX2: the shared pieces the two new profiles use (1.7.3)
 
