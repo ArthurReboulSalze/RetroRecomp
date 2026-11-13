@@ -275,9 +275,10 @@ gameplay validation of any game, and it changes no gate.
   `datas/games/atarist-<game>/disk-writes.bin`, and survives without F8/F9; the image is never changed. A file that is not valid is kept aside as
   `disk-writes.bin.unusable-N` and the game starts from its disks. A state brings the disks back as they were when it was saved. Not kept: a track the game formats
   (WD1772 Write Track on an IPF answers an error, as before), and a Read Track shows the original track, not the written sectors. A game that asks for a separate blank
-  save disk has none to use yet.
+  save disk has none to use yet: The Pawn is one (tried on 13 November 2026, EmuTOS, headless: its save command asks for a file name, then answers "Ouch - bad save", with three names; the file system of its disk is a nine-sector
+  fragment that holds only its loader, so the TOS has no room to create a file there, and the game expects a blank formatted disk).
   One real game was seen saving (`tools/atarist_saves_game.py`, 9 November 2026, TOS 1.04 and EmuTOS, Windows and Linux): The Lurking Horror writes 27 sectors by GEMDOS, and a new process with the file restores to the
-  room of the save, where one without it answers "Failed."; no game of the panel was seen saving.
+  room of the save, where one without it answers "Failed."; no route of the panel saves.
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).
@@ -300,6 +301,6 @@ gameplay validation of any game, and it changes no gate.
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G12, G13 and G15, `P` on G7 (saves: one real game), G9 (route depth: six of the eight panel games reach play or a
-match; two stop on a protection), G10 and G11 (named behaviours measured against documentation and fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). Leaving the
-experimental status is the maintainer's own decision, after a very high evidence bar.
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (13 November 2026) is `Y` on G1 to G6, G8, G9, G12, G13 and G15, `P` on G7 (saves: one real game) and on G10 and G11 (named behaviours measured against documentation and
+fixtures, not silicon), `?` on G14 (the owner's own play, which no tool fills) and `-` on G16 (no shared paths). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that
+each lists in `route_warnings` with its reason. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
