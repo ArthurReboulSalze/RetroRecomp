@@ -92,7 +92,7 @@ class DeviationTests(unittest.TestCase):
         for row in recorded.values():
             self.assertTrue(row and set(row) <= set(selftest.KINDS))
         total = sum(sum(row.values()) for row in recorded.values())
-        self.assertEqual(total, 22)      # the decimal instructions on operands that are not digits (undefined in the manual)
+        self.assertEqual(total, 0)       # the 22 decimal vectors (operands that are not digits) are reproduced since the decimal rule of 13 November 2026
 
 
 if __name__ == '__main__':

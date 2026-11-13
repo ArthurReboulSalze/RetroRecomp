@@ -71,7 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `██████████` 97 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
@@ -80,7 +80,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `█████░░░░░` 47 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | experimental | `█████████░` 90 % |
-| [Atari ST](docs/ATARI_ST.md)\* | experimental | `████████░░` 80 % |
+| [Atari ST](docs/ATARI_ST.md)\* | experimental | `████████░░` 83 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | [MSX](docs/MSX.md) | experimental | `████████░░` 77 % |
@@ -116,7 +116,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.3.** The MSX and the MSX2 open as experimental machines, for cartridges, on a free BIOS or your own. The Amiga's emulated chips do the same work in less machine time. The Mega Drive, the PC Engine and the Atari ST make native, at the next conversion, more of the code a game ran on the interpreter: a larger record and code found from the tables it reached on the Mega Drive, the player's own record and a start with I on the PC Engine, the player's record and a sweep of memory on the Atari ST. The Game Boy Advance shares its paths in the experimental tier and reaches native code in fewer passes on a first conversion. Each game carries the licence notices of its own components, and a conversion step that is still working on a slow PC goes on past its time limit. Every export of 1.7.2 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.4.** The MSX2+ opens as an experimental machine, for cartridges and, with your own BIOS and disk ROM, disk games. Every machine's games get a new in-game interface: F2 as tiles, a "Quit?" question, the keys shown when a game opens, and a stretched F4 mode. The MSX and the MSX2 keep the battery saves of their ASCII cartridges, the Atari ST reads more disks as the TOS does, and the Mega Drive's report says what each conversion checked, with the same routes on Windows and Linux. [AMIGA: pending branch] [GBA: pending branch] Every export of 1.7.3 is converted again once, except on the Game Boy Advance and Adventure (ScummVM), where it is only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

@@ -92,7 +92,7 @@ class X68000Summary(unittest.TestCase):
     def test_an_x68_result_shows_the_opcode_sentence(self):
         text = self.result_summary({'status': 'success', 'main_interpreted_opcodes': 1234,
                                     'audio_interpreted_opcodes': 0})
-        self.assertIn('Main CPU: 1234 fallback instructions', text)
+        self.assertIn('main CPU 1234 instructions', text)
         self.assertNotIn('interpreter cycles', text)
 
 

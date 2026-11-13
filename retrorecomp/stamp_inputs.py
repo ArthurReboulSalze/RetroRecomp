@@ -194,6 +194,8 @@ NOT_INPUTS = (
     'licenses/SingleStepTests-z80.md', 'licenses/SingleStepTests-m68000.md',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
     'licenses/SingleStepTests-sm83.md', 'licenses/SingleStepTests-huc6280.md',
+    # The m68k-recomp-core author's permission for the Atari ST (13 Nov 2026): a document of the repository, embedded in no game.
+    'licenses/m68k-recomp-core-atari-st-permission.md',
     # Developer harnesses (tools/cps1_vector_selftest.py, tools/cps1_z80_vector_selftest.py, tools/neogeo_vector_selftest.py,
     # tools/neogeo_z80_vector_selftest.py, tools/cps1_kabuki_selftest.py, tools/cps1_eeprom_selftest.py, tools/cps1_qsound_selftest.py,
     # tools/cps1_persistence_selftest.py, tools/x68000_vector_selftest.py, tools/gameboy_sm83_vector_selftest.py, tools/pce_huc6280_vector_selftest.py, tools/pce_huc6280_native_vector_selftest.py): never built
@@ -214,6 +216,9 @@ NOT_INPUTS = (
     # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
     # never into a game (the folder's CMakeLists.txt does not build it).
     'native/amiga_machine/amiga_vector_checks.cpp',
+    # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
+    # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
+    'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.

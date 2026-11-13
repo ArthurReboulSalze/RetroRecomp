@@ -12,11 +12,12 @@ from .platforms import build_executable, cmake_target_args, build_jobs, sdl_inst
 from .toolchain import active as active_toolchain, describe as toolchain_description
 from .conversion_common import (check_exit, check_run_budget, convert_single, pinned_checkout, probe_environment,
                                 resolve_scan_level, spawn)
-from .core import ConversionError, run, serialized_setup, toolchain
+from .core import SDL_REV, ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__, timings
 from .library import atomic_json
 from .report_schema import write_report
+from .console16_state import MD_PORTABLE_STATE_ABI
 from .snes_chips import device_entry
 from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
@@ -34,6 +35,55 @@ MD_AUDIO_FIELDS = ('fm_samples', 'fm_nonzero', 'fm_peak', 'fm_hash', 'fm_active_
                    'psg_samples', 'psg_nonzero', 'psg_peak', 'psg_hash', 'psg_active_frames',
                    'z80_pc', 'z80_slice_cycles', 'z80_ram_hash', 'z80_cpu_hash', 'ym_timer_hash')
 MD_SRAM_FIELDS = megadrive_sram.REPORT_FIELDS + megadrive_cart.REPORT_FIELDS
+# Where the Mega Drive game keeps its cartridge memory, beside its executable (native/cart_save.c: rr_cart_save_path, the
+# name of rr_game_data_file: datas/saves/<game slug>-<first 12 hex digits of the ROM's SHA-256>.rrsram).
+MD_SAVE_FILE = 'datas/saves/<game-slug>-<rom-sha12>.rrsram'
+
+
+def cpu_mode(words) -> str:
+    """One word (native, hybrid, interpreted, not_run) for a CPU over every scenario of a conversion.
+
+    ``words`` is the word of each scenario. All the same gives that word; a scenario that did not run the CPU says nothing
+    about its code and is left out when another ran it; scenarios that differ give ``hybrid``: the native code and the
+    counted interpreter both ran somewhere in the tested scenarios. Never the word of the last scenario alone."""
+    words = set(words)
+    ran = words - {'not_run'}
+    if not ran:
+        return 'not_run' if words else 'interpreted'
+    return next(iter(ran)) if len(ran) == 1 else 'hybrid'
+
+
+def main_cpu_mode(native: int, interpreted: int) -> str:
+    """The word of the main CPU in one scenario, from its counts (both in instructions): the writer's twin of the sound
+    CPU's `rr16_audio_cpu` (native/md_backend.c)."""
+    if interpreted:
+        return 'hybrid' if native else 'interpreted'
+    return 'native' if native else 'not_run'
+
+
+def md_ordinary_saves(memory: dict) -> dict:
+    """What the cartridge's declared memory says about ordinary saves (the report's `ordinary_saves`, Mega Drive).
+
+    Only facts of the conversion: the layout it read from the header and the file the game's own code writes
+    (native/md_battery.c keeps a battery SRAM or an EEPROM in one file when the cartridge declares a battery).
+    `validation` is None: nothing in a conversion saves and reloads the cartridge memory of a game (the test and
+    tools/megadrive_save_selftest.py do, outside the conversion). The reader (report_schema `_saves`) derives the
+    same verdict from `cartridge_memory` for a report written without this key."""
+    kind = memory.get('kind')
+    saved = {'supported': True, 'reason': None, 'path': MD_SAVE_FILE, 'validation': None}
+    if kind == 'eeprom' and memory.get('implemented') is not False:
+        chip = f" {memory['chip']}" if memory.get('chip') else ''
+        return {**saved, 'scope': f"serial EEPROM{chip}, {memory.get('bytes')} bytes"}
+    if kind == 'sram' and memory.get('battery'):
+        return {**saved, 'scope': f"battery SRAM, {memory.get('bytes')} bytes"}
+    unsupported = {'supported': False, 'path': None, 'validation': None}
+    if kind == 'eeprom':
+        return {**unsupported, 'scope': 'eeprom, circuit not implemented',
+                'reason': 'this EEPROM circuit is not implemented; use the F8/F9 quick states'}
+    if kind == 'sram':
+        return {**unsupported, 'scope': 'sram without a battery',
+                'reason': 'the cartridge declares extra RAM without a battery: it is not kept between runs'}
+    return {**unsupported, 'scope': 'none', 'reason': 'the cartridge declares no battery or extra memory (cartridge_memory: none)'}
 
 
 def conversion_rom(path: Path, system_id: str, standard_override: str | None = None):
@@ -467,7 +517,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
             analysis = generate_steps(engine, project, rom, seeds | roots, ram_variants)
         atomic_json(project / STATIC_DISCOVERY, discovery)
         emit(f'{analysis["translated_instructions"]} native instructions, '
-             f'{analysis["guarded_ram_variants"]} guarded RAM variants; exact PC/stack control flow.')
+             f'{analysis["guarded_ram_variants"]} guarded RAM variants; guest PC and stack kept in the native code.')
         from .megadrive_static import summary_line
         emit(summary_line(discovery))
     with timings.phase('code_generation'):
@@ -744,7 +794,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     emit(f'{name}: {stage} {title} {standard.upper()} conversion; '
          + ('using exact-ROM catalogue settings.' if cartridge_profile.get('source') == 'catalogue'
             else 'generating a profile from this cartridge; no catalogue entry required.'))
-    emit('68000 and Z80 sound CPU use guarded native code.' if system_id == 'md' else
+    emit('68000 and sound Z80: guarded native code, with a counted interpreter for what is not translated. '
+         'Hardware fidelity is a separate check.' if system_id == 'md' else
          '65816 and SPC700 sound CPU use guarded native code. Hardware fidelity is a separate check.')
     if system_id=='snes':
         from .snes_chips import identify
@@ -895,9 +946,19 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             if check['scenario'] in route_metadata:
                 check['input_route'] = route_metadata[check['scenario']]
             checks.append(check)
-            emit(f"{name} {check['scenario']}: {check['frames']} frames, "
-                 f"{check.get('main_interpreted_opcodes',check['interpreted_opcodes'])} interpreted main CPU opcodes. Sound CPU: " +
-                 f"{check['audio_interpreted_opcodes']} interpreted {'Z80' if system_id == 'md' else 'SPC700'} opcodes.")
+            if system_id == 'md':
+                # The native side beside the counts: a count of interpreted opcodes alone says neither how much ran native nor
+                # that the sound CPU is hybrid (the share is the writer's own formula below, in sound CPU cycles).
+                native_cycles = check.get('audio_native_cycles', 0)
+                audio_share = 100 * native_cycles / max(1, native_cycles + check.get('audio_interpreted_cycles', 0))
+                emit(f"{name} {check['scenario']}: {check['frames']} frames, "
+                     f"{check.get('main_interpreted_opcodes', check['interpreted_opcodes'])} interpreted main CPU opcodes "
+                     f"({check['native_entries']} native). Sound CPU: {check['audio_interpreted_opcodes']} interpreted Z80 opcodes "
+                     f"({audio_share:.2f} % of its cycles native).")
+            else:
+                emit(f"{name} {check['scenario']}: {check['frames']} frames, "
+                     f"{check.get('main_interpreted_opcodes',check['interpreted_opcodes'])} interpreted main CPU opcodes. Sound CPU: " +
+                     f"{check['audio_interpreted_opcodes']} interpreted SPC700 opcodes.")
             if system_id=='snes' and check.get('coprocessor_instructions'):
                 emit(f"{check['cartridge_chip'].upper()}: {check['coprocessor_instructions']} counted interpreted device instructions.")
             if check.get('ram_observation_overflows'):
@@ -976,7 +1037,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     else:
         from .snes_spc import learn as learn_spc
         learn_spc(rom, checks)
-    emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
+    emit('Internal reference comparison (the same build with every instruction interpreted): CPU, memory, visible frames '
+         'and audio PCM match. Not a hardware comparison.')
     if system_id == 'snes':
         left_out = {kind: counts['dropped'] for kind, counts in supernintendo.row_counts(rom).items() if counts['dropped']}
         if left_out:
@@ -1006,6 +1068,21 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         for check in checks:
             check['liveness'] = delivered_runs[check['scenario']]['liveness']
         emit(f'{machine}: the compressed executable matches the fresh reference on every route.')
+    # Mega Drive: no interpreted opcode of either CPU on any route played (the PC Engine's and CPS-1's `native_coverage`). The
+    # Super Nintendo counts its cartridge device separately and keeps its own report.
+    native_coverage = all(not check.get('main_interpreted_opcodes', check['interpreted_opcodes'])
+                          and not check['audio_interpreted_opcodes'] for check in checks)
+    chain_verified = {}
+    if system_id == 'md' and chained:
+        # Only when a route continued from the end state another process saved (CHAIN_LONG_ROUTES): that is the one place a
+        # conversion loads a saved state in a fresh process. The same chain ran on the native build, on the reference and on the
+        # compressed copy, and every comparison above matched (a difference raised before this report).
+        chain_verified = {'fresh_process_verified': True, 'validation': {
+            'process': 'fresh', 'kind': 'route_chain', 'chained_routes': dict(chained),
+            'compressed_copy': delivered is not None, 'compared_with_reference': True,
+            'scope': "each chained route loaded the end state that the previous route's own process saved (the executable's "
+                     '--save-state and --load-state file, the one the F8 and F9 keys use), on the native build, the reference and '
+                     'the compressed copy; not a key press, and no other state was loaded'}}
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': stage,
         'created_utc': datetime.now(timezone.utc).isoformat(),
         'system': {'id': system_id, 'name': name}, 'scan_level': level, 'rom': rom.metadata(),
@@ -1045,14 +1122,22 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                               'reference_before_learning': reference_before_learning,
                               'cpu_fidelity_validated': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False,
-                              # The reference is the engine's own interpreter; the independent evidence is the vector run of the
-                              # release (docs/CPU_65816_SPC700.md), not part of a conversion.
-                              **({'independent_cpu_oracle': False} if system_id == 'snes' else {}),
+                              # The reference is the engine's own interpreter; the independent evidence (the Super Nintendo's vector
+                              # run, docs/CPU_65816_SPC700.md; the Mega Drive's SingleStepTests/m68000 vectors and MAME 0.289,
+                              # docs/CPU_68000.md) belongs to the release, not to a conversion.
+                              **({'independent_cpu_oracle': False} if system_id in ('md', 'snes') else {}),
+                              # A disagreement raises before this report is written: reaching it means the comparison agreed.
+                              **({'cpu_agreement': True} if system_id == 'md' else {}),
                               **(delivered.validation_fields() if delivered else {})},
         'video_model': {'standard': standard, 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256,
                         checks[-1].get('visible_height', 224)],
                         'console_version': checks[-1].get('console_version') if system_id == 'md' else None},
-        'audio_cpu': checks[-1].get('audio_cpu', 'interpreted'),
+        # The word over every scenario of the conversion (not the last scenario's alone): hybrid when they differ.
+        'audio_cpu': cpu_mode(check.get('audio_cpu', 'interpreted') for check in checks),
+        # The main CPU's word, from its counts, the same set of words over the same scenarios (Mega Drive).
+        **({'main_cpu': cpu_mode(main_cpu_mode(check['native_entries'], check.get('main_interpreted_opcodes',
+                                                                                  check['interpreted_opcodes']))
+                                 for check in checks)} if system_id == 'md' else {}),
         'audio_counter_unit': 'sound CPU cycles',
         'audio_native_percentage': [round(100 * check.get('audio_native_cycles', 0) /
             max(1, check.get('audio_native_cycles', 0) + check.get('audio_interpreted_cycles', 0)), 6)
@@ -1061,22 +1146,44 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'native_percentage': [round(100 * check['native_entries'] /
             max(1, check['native_entries'] + check.get('main_interpreted_opcodes', check['interpreted_opcodes'])), 6)
             for check in checks],
+        'native_percentage_scope': 'main CPU only, in instructions; the sound CPU is audio_native_percentage, in cycles',
+        **({'native_coverage': native_coverage} if system_id == 'md' else {}),
         **({'cartridge_device': device} if system_id == 'snes' and (device := device_entry(checks)) else {}),
         # How near the RAM-code tables of this cartridge are to their limit, and how many rows the limit left out.
         **({'library_rows': supernintendo.row_counts(rom)} if system_id == 'snes' else {}),
         # What the Super Nintendo's conversion does not claim (gate G15): read back by the common `honesty` block.
-        **({'qualification_scope': {
+        'qualification_scope': ({
             'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
             'coprocessors': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
-            'universal_zero_fallback_claim': False}} if system_id == 'snes' else {}),
-        'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
+            'universal_zero_fallback_claim': False} if system_id == 'snes' else {
+            'routes': 'the pad routes of the scan level (attract, play, varied input, pseudo-random and authored), '
+                      'not a full playthrough',
+            'cartridge_hardware': 'standard linear cartridges, the Sega 512 KiB mapper and three serial EEPROM families; '
+                                  'other boards are refused or converted with a stated limit',
+            'universal_zero_fallback_claim': False}),
+        # The Mega Drive host takes two pads (native/hostkit/adapters/rrhk_md.c: table_players and players()); the pad is three or
+        # six buttons as the cartridge profile says (`six_buttons` above); a gun is the catalogue's (guns16.gun_game).
+        **({'input_players': 2} if system_id == 'md' else {}),
+        'peripheral': (({'pad': 'six_button' if six_buttons else 'three_button', 'gun_device': gun.device if gun else None,
+                         **({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else {})})
+                       if system_id == 'md' else ({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None)),
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
-                        'compatibility': 'same ROM, video standard and runtime ABI'},
-        'cartridge_memory': megadrive_sram.layout(rom) if system_id == 'md' else snes_cart.layout(rom),
+                        'compatibility': 'same ROM, video standard and runtime ABI',
+                        # The state layout this build writes and what binds a state to this ROM (native/console16_state.c: the
+                        # header's magic RR16ST1, the ROM's SHA-256, and RR16_STATE_ABI, which hashes the layout version below).
+                        **({'schema': f'RR16ST1-MD-{MD_PORTABLE_STATE_ABI}', 'machine': 'md', 'rom_identity': rom.sha256,
+                            **chain_verified} if system_id == 'md' else {})},
+        'cartridge_memory': (cartridge_memory := megadrive_sram.layout(rom) if system_id == 'md' else snes_cart.layout(rom)),
+        **({'ordinary_saves': md_ordinary_saves(cartridge_memory)} if system_id == 'md' else {}),
         'runtime_learning': True, 'runtime_feedback': gameplay_feedback,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
+        # The SDL revision this build links (core.SDL_REV, the pin of the static SDL2). No compiler signature is computed for
+        # the 16-bit machines (core.compiler_signature is the Master System's and Game Gear's), so none is stored.
+        **({'sdl_revision': SDL_REV} if system_id == 'md' else {}),
         'build_directory': str(executable.parents[2 if os.name == 'nt' and executable.parent.name == 'Release' else 1]),
         'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
     write_report(output / 'conversion-report.json', report)
+    if system_id == 'md':
+        emit(f'Mega Drive: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable

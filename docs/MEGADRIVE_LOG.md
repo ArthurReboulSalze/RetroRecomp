@@ -29,8 +29,9 @@ See [the acceptance scope and separate evidence](COMPATIBILITY.md).
 Full playthroughs, the full catalogue, electrical pin precision and physical
 latency are not claimed. Other cartridge circuits and 68000 address/bus errors
 remain outside the qualified scope. The implementation history below records
-the individual stages; their older experimental status is superseded by this
-completed standard-profile qualification.
+the individual stages; their older experimental status is superseded: the
+supported standard profile meets the written criteria within its cartridge
+scope, and the gates still partial are listed in [QUALIFICATION.md](QUALIFICATION.md).
 
 ## Compiler and runtime evidence
 
@@ -147,7 +148,7 @@ share it. Explicit internal waits also yield for Z80 bus requests, including
 MUL's internal-only tail, without charging the overlapping work twice. The
 retirement budget handles a 32-bit diagnostic-counter wrap. Remaining internal/
 operand phase placement, request/grant pin timing and refresh/blanking/field timing
-and broader progression remain follow-up areas outside this finite qualification; see [video scope](MEGADRIVE_VIDEO.md).
+and broader progression remain follow-up areas outside the qualified scope; see [video scope](MEGADRIVE_VIDEO.md).
 
 An eligible unlisted cartridge receives its own analysis and must pass the
 normal execution checks before export. Identification alone is not qualification.
@@ -333,7 +334,8 @@ guest-stack return modification, RTE frames, byte stack alignment and
 self-modifying RAM guard rejection. Additional authored checks exercise static
 control-flow discovery and timer start/stop, overflow, flags, reload and long
 clock spans. The three new revisions reach zero interpreted 68000 instructions
-in both 3,600-frame scenarios, with complete CPU/video/PCM reference agreement.
+in both 3,600-frame scenarios, with agreement on every compared field (CPU, video,
+PCM) with the internal reference.
 
 The common 68000 compiler also implements all four MOVEP transfers. Byte accesses
 visit alternating bus addresses, word loads preserve the upper half of the

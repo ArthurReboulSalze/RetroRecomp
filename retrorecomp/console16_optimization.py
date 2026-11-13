@@ -138,8 +138,8 @@ def build_game(project: Path, cmake: Path, generator: str, sdl: Path, emit, syst
         enabled = 'RR16_PGO_AVAILABLE:INTERNAL=TRUE' in cache
         seconds = 0.0
         if enabled:
-            emit(('Windows: optimizing the hardware code on a short native run; full validation follows.' if clang else
-                  'Linux: optimizing hardware helpers on a short native run; full validation follows.'))
+            emit(('Windows: optimizing the hardware code on a short native run; the route checks follow.' if clang else
+                  'Linux: optimizing hardware helpers on a short native run; the route checks follow.'))
             start = time.perf_counter()
             try:
                 with timings.phase('profile_training'):

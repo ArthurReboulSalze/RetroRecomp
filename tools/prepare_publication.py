@@ -93,7 +93,7 @@ tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translat
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py retrorecomp/atarist_notes.py docs/ATARI_ST.md
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
-native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md
+native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md licenses/m68k-recomp-core-atari-st-permission.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py tests/test_atarist_disk.py tests/test_atarist_notes.py tests/test_atarist_timer_d.py
 native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
 native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py native/amiga_machine/amiga_display_checks.cpp native/amiga_machine/amiga_bus.h native/amiga_machine/amiga_bus.cpp tools/amiga_display_selftest.py tests/test_amiga_display.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
@@ -430,6 +430,7 @@ retrorecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
+native/md_bcd_checks.c native/amiga_machine/moira_vector_maker.cpp tools/megadrive_moira_vectors.py tests/test_md_moira_vectors.py
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
 tests/test_megadrive_rules.py tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py tools/megadrive_variant_cap_selftest.py tools/megadrive_mame_compare.py tools/megadrive_cross_os.py
 tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE

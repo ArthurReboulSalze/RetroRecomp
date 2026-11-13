@@ -3,7 +3,7 @@
 Test writes are isolated. The source cartridge and player files are untouched.
 """
 from pathlib import Path
-import argparse,json,sys,tempfile
+import argparse,json,re,sys,tempfile
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 from retrorecomp.core import run
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/, also when imported as tools.<name>
@@ -60,6 +60,8 @@ def check(project,output):
     master=master.replace('static uint64_t guest_clock;','')
     master=master.replace('uint64_t machine_cart_stamp(void) { return guest_clock; }','')
     master=master.replace('guest_clock+=101;','g_machine.master_cycle+=101;')
+    # The fixture's own serial helper is named like the Winsock `send` that MinGW's headers declare: renamed here.
+    master=re.sub(r'\bsend\(','eeprom_send(',master)
     harness='''#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>

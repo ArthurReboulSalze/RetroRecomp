@@ -2,8 +2,8 @@
 
 ## Current scope
 
-Since release **1.0.3**, seven console profiles are supported within their documented scopes,
-including **Neo Geo**, following renewed user gameplay validation. Capcom CPS-1 joined them in 1.6.6 (see the end of this section).
+Since release **1.0.3** the supported profiles have joined one after another; the current list is the table of the [README](../README.md#console-support).
+**Neo Geo** was among them, following renewed user gameplay validation, and Capcom CPS-1 joined in 1.6.6 (see the end of this section).
 The following CPU/reference results remain valid for
 their tested paths, but do not establish complete rendering or hardware fidelity.
 The latest eight-game Neo Geo expansion adds 49 packed/reference comparisons
@@ -58,8 +58,9 @@ final ordinary scenarios compared 1,316,400 guest frames, with no
 observed 68000 or sound-Z80 fallback. Each actual compressed export also passed
 two 7,200-frame routes, CPU/memory/frame/PCM and trace comparison, fresh-process
 state continuation, eight corrupt-state rejections and a missing-load check.
-Five selected routes were extended to 36,000 frames. Reviewed captures show
-original gameplay, menus or RPG interactions; they are not complete playthroughs.
+Five selected routes were extended to 36,000 frames. Captures looked at by the
+specialist agent (not by the owner) show original gameplay, menus or RPG
+interactions; they are not complete playthroughs.
 Late attract scenes first exposed additional native entries after 18,000 frames.
 The production advanced scan now evaluates at least 24,000 demo frames, with
 reference validation before learning. Its ordinary conversion and actual packed
