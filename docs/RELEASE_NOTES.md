@@ -1,3 +1,130 @@
+# RetroRecomp v1.7.4 — The MSX2+ opens as an experimental machine, with cartridges and disks; a new in-game interface on every machine; the MSX, the Atari ST and the Mega Drive move up the qualification list
+
+- **MSX2+ (experimental, new).** A third profile of the MSX family, `msx2plus`: the MSX2's board with
+  the V9958 in place of the V9938 ([MSX.md](MSX.md#9-the-msx2-msx2plus)).
+  - **Cartridges.** The same cartridges, mappers and battery SRAM as the MSX2, on the V9958 as we
+    model it: YJK and YJK with YAE in Graphic 7, the horizontal scroll (with the border mask and two
+    pages side by side), the command engine in every screen mode, and the port F4h. The firmware is
+    C-BIOS 0.29a's MSX2+ images, from the same pinned archive, or your own MSX2+ BIOS pair, chosen in
+    Options and never shipped.
+  - **Disks.** A `.dsk` (720 or 360 KiB), or a set of up to ten grouped like the Atari ST's and the
+    X68000's, converts as an MSX2+ disk game. It needs your own MSX2+ BIOS pair and your own disk
+    ROM (Options → MSX2+ disk ROM): C-BIOS has no disk ROM, and none is shipped. The disk
+    controller (a TC8566AF) is Retro-Recomp's own code. The disks are embedded in the game; what the
+    game writes goes to a copy beside its settings and is read back next time, and the embedded disks
+    never change. Page Up and Page Down change the disk, and quick states hold the controller and the
+    disk in the drive. A `.dsk` always goes to the MSX2+, MSX1 and MSX2 disk games included.
+  - **MSX2 or MSX2+.** Choosing MSX2 or MSX2+ in the console list, or an `msx2` or `msx2+` folder,
+    decides. A `.mx2` with nothing saying which goes to the MSX2+, which runs nearly every MSX2 game,
+    and the conversion says in one line which hint decided.
+  - **Measured on the disk panel of 13 November 2026** (Windows, extended level, eight games, one
+    disk or several): 0 interpreted Z80 instructions on attract, play and the long route of each,
+    every route equal to a fresh run of our reference and to the delivered file, and quick states
+    passing in a fresh process. The routes reach play in six of the eight (Sonyc then waits on its
+    password screen); Golvellius II stays in its intro, and Xak III asks for a disk the routes do not
+    insert. No panel game writes to its disk on its routes: writing was proven on a small authored
+    disk of our own, where exactly the sector written differs. A first comparison with openMSX
+    shows the same horizontal scroll on one title, and one register difference whose cause is not
+    proven.
+  - **Not yet:** MSX-MUSIC, the kanji ROM, cassettes, Linux. Nothing is claimed of hardware
+    fidelity, complete gameplay or latency.
+- **MSX and MSX2 (experimental), now at 77 % of the qualification list.**
+  - **The battery SRAM of ASCII 8 KiB and ASCII 16 KiB cartridges is kept** beside the game in
+    `datas/saves`, loaded at start and written a few seconds after the game last wrote it and when
+    it closes; a file the game cannot use is set aside, never deleted. Each such conversion checks
+    the SRAM on the delivered file in new processes (Dragon Slayer II - Xanadu: 0 interpreted
+    instructions, the checks pass).
+  - **The report has its counts.** The common report now gives the MSX's native entries,
+    interpreted opcodes and interpreter cycles, names the mapper and the video and sound chips, and
+    warns about a route whose picture stops changing early.
+  - **Z80 vectors through the MSX's own generator,** and the panel converted again at the thorough
+    level. This is agreement with our own reference interpreter and with the vectors, not with a
+    real MSX.
+  - **Salamander under C-BIOS.** The 1.7.3 notes said its stage stays black under C-BIOS. On the
+    panel of the 1.7.3 release tree it is drawn under C-BIOS on all three routes, as with the owner's
+    own MSX BIOS; why the earlier run differed is not established ([MSX.md](MSX.md#5-known-c-bios-failures)).
+- **Atari ST (experimental), now at 83 % of the qualification list** [ST: confirm].
+  - **The root of a disk is read as the TOS reads it,** after two FATs whatever the disk declares.
+    Of 275 first disks of the library tried, three change: Battle Probe and Trailblazer now find
+    their program, and Pharaoh III starts its menu with your own TOS 1.04.
+  - **"music" and "editor" are utilities** for the desktop's choice of a program: Conquests of
+    Camelot starts `SIERRA.PRG` and Trailblazer starts `TRAIL.PRG`. The rule is still a guess by
+    name, and you can open another program from the desktop.
+  - **The report says more:** where the interpreted instructions ran (by address, most run first),
+    the chips as devices, a warning when a route's picture stops changing early, and, for the games
+    of the panel that stop on a protection or an EmuTOS case, why they stop. No protection is
+    answered, skipped or patched.
+  - **Proof:** the panel of eight, converted one at a time from an empty library on Windows: on all
+    25 routes the native game and its compressed copy equal the fresh interpreted reference, frame by
+    frame, and quick states continue in a fresh process on eight of eight.
+  - **A licence note.** The author of m68k-recomp-core gave the project a written permission for
+    the Atari ST, kept in `licenses/` and named in the third-party notices. It is personal to the
+    project's owner and does not pass to forks; no game embeds it.
+- **Mega Drive (supported), now at 97 % of the qualification list.**
+  - **The report says what the conversion knows,** and no more: the scope of its native figures,
+    the main and sound CPUs' word over every route, the saves, the players and their pads or gun,
+    and a closing "ready" line that says whether the routes played used the interpreter. A field that
+    would claim a tool's proof stays empty unless this conversion ran that tool. The Super Nintendo
+    shares the writer and gains the same scope field.
+  - **The same routes on Windows and Linux:** eight cartridges chosen by risk give 46 of 46
+    identical routes on Windows and on a Debian 13 PC.
+  - The window's fallback line says "on the tested routes, at most" and "hardware unverified".
+- **68000 machines: the decimal instructions on any operand.** `ABCD`, `SBCD` and `NBCD` on a
+  value that is not a decimal digit are left undefined by the manual. The Mega Drive, the Neo Geo,
+  the CPS-1, the CPS-2 and the X68000 now give Moira's answer (the 68000 of vAmiga), result and
+  five flags, from our own code: 0 differences over every operand pair against a real run of Moira,
+  and 2,895 of 2,895 instruction vectors whole on four of those machines. A valid decimal operand
+  gives the same result as before. The vectors come from MAME and Moira is a software model:
+  neither is the chip.
+- **Every machine: a new in-game interface.** F2 opens a menu of tiles; Esc in play, and the Quit
+  combination on a gamepad, ask "Quit? No / Yes"; notices are plates; each game shows its keys for
+  a few seconds when it opens, which **Start-up reminders** in the options page turns off; the menus
+  get icons, block letters and key caps, and gamepad buttons are named as printed on a pad. **F4**
+  gains a fourth mode, **stretched** fullscreen, after fit, and names each mode. The pictures the
+  machines produce, the routes and the function keys do not change; Adventure (ScummVM) games keep
+  ScummVM's own menus. The cost per frame of the plates and of an open menu is not measured; once
+  the plates are gone and no menu is open, nothing more is drawn.
+- **The converter window on Linux:** a context menu now closes when you click elsewhere.
+- [AMIGA: pending branch]
+- [GBA: pending branch]
+
+**Speed.** [SPEED: quiet-PC bench pending]
+
+These are a new experimental machine with cartridges and disks, a new interface in the games of
+every machine, and qualification evidence on four machines, each on the evidence above; none of
+them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter
+fallback is still counted and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.4 moves the game stamp of every machine but the Game Boy
+Advance and Adventure (ScummVM), so **every export of 1.7.3 on those machines is converted again
+once** when you update, at the quick level, from its learned paths, and the window offers it; the
+shared paths of the base are kept. The host stamp of every machine moves with the new interface: a
+Game Boy Advance or ScummVM export is only **upgraded**, rebuilt from its learned paths with no
+rediscovery (ScummVM's games look the same afterwards). No build stamp moves. The Mega Drive and
+Super Nintendo quick-state keys hash the interface's files, and the Amiga, Atari ST, Nintendo 64
+and X68000 bind their states to their build, so a quick state of 1.7.3 is refused cleanly on those
+six machines, with a message (nothing is lost but the state). The MSX and MSX2 states now hold the
+SRAM, so theirs are refused too. The states of the Master System, Game Gear, Game Boy, NES, Neo
+Geo, CPS-1, CPS-2, PC Engine and PlayStation still load; a Game Boy Advance quick state is the
+engine's own file, with no key of ours. Cartridge saves are kept; a save the new export cannot use
+is set aside and never crashes or blocks the game. A game of 1.7.3 that reads the stretched F4
+mode saved by 1.7.4 opens in a window. The MSX2+ is new: no export of it exists before 1.7.4. The
+details are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.7.3 — The MSX and the MSX2 open as experimental machines; the Amiga's chips do the same work in less machine time; more of the code a game met becomes native on the Mega Drive, the PC Engine and the Atari ST
 
 - **MSX and MSX2 (experimental, new).** Two profiles of one family: `msx` for MSX1 cartridges,

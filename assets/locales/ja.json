@@ -206,7 +206,7 @@
     "credits_own_snes": "スーパーファミコン：DSP-1 と CX4 チップの統合と検証、Super FX（GSU）と SA-1 のインタプリタ実行と実行量の計測、および S-DD1（Andreas Naive による展開方式、パブリックドメイン）。",
     "credits_own_68k": "ネオジオ、CPS-1、CPS-2、X68000：上記のハードウェアコアとネイティブ 68000 コードの結合、その接続コードと検証。CPS-1 と X68000 は共有経路ベースに加わり、その QSound 基板（CPS-1.5）には Kabuki デコーダーと MAME を元にした QSound モデルを加えた。CPS-2 は命令の復号を加える。",
     "credits_own_pce_gba": "PC エンジンと Game Boy Advance：pcenginerecomp と gbarecomp エンジンの統合、PC エンジンの保護されたネイティブモジュールとバックアップ RAM、プレイヤー自身の GBA BIOS の検証、共有パス、レポート、検証。",
-    "credits_own_msx": "MSX と MSX2：独自の TMS9918A、コマンドエンジン付きの V9938、PSG、Konami SCC、スロットとカートリッジのマッパー。Master System と Game Gear と共有する Z80 チェーンの上で動作し、検証も行います。",
+    "credits_own_msx": "MSX、MSX2 と MSX2+：独自の TMS9918A、コマンドエンジン付きの V9938 と V9958、PSG、Konami SCC、スロット、カートリッジのマッパー、TC8566AF ディスクコントローラー。Master System と Game Gear と共有する Z80 チェーンの上で動作し、検証も行います。",
     "credits_own_amiga_scummvm": "Commodore Amiga とアドベンチャー（ScummVM）：WHDLoad のサービスを自前のコードで提供し、プレイヤーの Kickstart を書き出しに埋め込み、Moira の 68000 コードをオペコードごとに専用化して一部を C に変換する。アドベンチャーごとにクリックで起動できる実行ファイルが 1 つあり、ゲームは実行ファイルの中から読み込まれる。",
     "credits_own_cores": "Atari ST、Nintendo 64、PlayStation：各ゲームの実行内容から書き出すメイン CPU のネイティブステップ。上記のコアの命令コードを使い（Atari ST では Hatari のコードをオペコードごとに専用化して連結）、接続コード、各コアのインタプリタとの比較、検証を含む。",
     "credits_license": "一部の上流コンポーネントには非商用条件があります。再利用前に各ライセンスを確認してください。",
