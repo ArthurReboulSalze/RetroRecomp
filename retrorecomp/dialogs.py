@@ -18,3 +18,17 @@ def center_dialog(panel, parent, width, height):
     x = max(parent.winfo_vrootx() + 10, min(x, parent.winfo_vrootx() + room_width + 30 - width))
     y = max(parent.winfo_vrooty() + 30, min(y, parent.winfo_vrooty() + room_height + 50 - height))
     panel.geometry(f'{width}x{height}{x:+d}{y:+d}')
+
+
+def popup_menu(menu, x, y):
+    """Show a context menu at (x, y), screen coordinates. On Windows and macOS the menu is native: tk_popup waits until
+    it closes and any outside click closes it, so the grab it leaves is released after. On X11 (Linux) tk_popup returns
+    at once and the menu closes on an outside click or Escape only while it holds its grab: releasing it there left the
+    menu open after a click elsewhere (Arthur, 13 Nov 2026, on a Linux laptop). Every menu of the window goes here."""
+    if menu.tk.call('tk', 'windowingsystem') == 'x11':
+        menu.tk_popup(x, y)
+        return
+    try:
+        menu.tk_popup(x, y)
+    finally:
+        menu.grab_release()
