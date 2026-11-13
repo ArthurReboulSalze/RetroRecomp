@@ -1038,6 +1038,17 @@
     "Disc %d/%d": "ディスク %d/%d",
     "Change disc": "ディスクを交換",
     "F3  Graphics options": "F3  グラフィック設定",
-    "%s (not at this size)": "%s (このサイズでは無効)"
+    "%s (not at this size)": "%s (このサイズでは無効)",
+    "Controls": "操作設定",
+    "Options": "オプション",
+    "Help": "ヘルプ",
+    "Arrows: choose | Enter: open | Esc: close": "矢印：選択 | Enter：決定 | Esc：閉じる",
+    "Yes": "はい",
+    "No": "いいえ",
+    "P%d": "P%d",
+    "%s keyboard: only the gamepad plays": "%s キーボード：パッドのみ操作",
+    "Game controls on the keyboard": "キーボードでゲーム操作",
+    "Reset": "リセット",
+    "Start-up reminders: %s": "起動時のヒント：%s"
   }
 }
