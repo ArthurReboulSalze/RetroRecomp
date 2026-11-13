@@ -150,6 +150,10 @@ typedef struct {
     MsxV9938Cmd cmd;
 } MsxV9938;
 
+/* A point of the MSX2 picture (MsxV9938.frame) is a 9-bit colour, 0GGG0RRR0BBB, or, with this bit set, a 15-bit colour
+ * 0GGGGGRRRRRBBBBB (5 bits a channel: the V9958's YJK modes). No 9-bit colour has the bit, so a picture of the V9938 is unchanged. */
+enum { MSX_COLOUR15 = 0x8000 };
+
 /* The MSX2 memory mapper (ports FCh-FFh): RAM in 16 KB segments, one register per page. */
 typedef struct {
     uint8_t *ram;
