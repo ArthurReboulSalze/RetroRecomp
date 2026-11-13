@@ -203,6 +203,7 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp',
+    'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -239,7 +240,9 @@ NOT_INPUTS = (
     # The MSX hardware checks (authored programs against the documented TMS9918A, PSG, PPI and mappers, run by tools/msx_reference.py): a check only.
     'native/msx_machine/msx_hardware_checks.c',
     # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
-    'native/msx_machine/msx2_checks_')
+    'native/msx_machine/msx2_checks_',
+    # The MSX2+ fixtures: the V9958's registers, ID, scroll and YJK colours, checked by hand-worked values.
+    'native/msx_machine/msx2plus_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -475,8 +478,9 @@ INPUTS = _resolve({
         'retrorecomp.nes_runtime',
         'retrorecomp.nes_state_layout',
     ),
-    # The cartridge save file the three machines with a battery or a backup unit share (the format of each is in its own *_battery.c / pce_backup.c). Game role.
-    ('md', 'snes', 'pce'): (
+    # The cartridge save file the machines with a battery or a backup unit share (the format of each is in its own *_battery.c /
+    # pce_backup.c / msx_sram.c). Game role.
+    ('md', 'snes', 'pce', 'msx', 'msx2', 'msx2plus'): (
         'native/cart_save.c',
         'native/cart_save.h',
     ),
@@ -676,6 +680,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_notes',
         'retrorecomp.atarist_tos',
     ),
     # The MSX (experimental from 1.7.3): its converter modules (the cartridge reader, the C-BIOS pin, the build and the conversion),
@@ -684,7 +689,7 @@ INPUTS = _resolve({
     # role: in HOST_NATIVE above). The profile module comes from the profile; the Z80 chain and the computer adapter come from
     # stamp_groups.
     # The MSX2 (stage 6) is the same machine with the V9938, the memory mapper and the clock: both profiles own every file.
-    ('msx', 'msx2'): (
+    ('msx', 'msx2', 'msx2plus'): (
         'native/hostkit/adapters/rrhk_msx.inc',
         'native/msx_machine/msx_cart.c',
         'native/msx_machine/msx_glue.inc',
@@ -695,6 +700,10 @@ INPUTS = _resolve({
         'native/msx_machine/msx_player.c',
         'native/msx_machine/msx_psg.c',
         'native/msx_machine/msx_reference_main.c',
+        'native/msx_machine/msx_fdc.c',
+        'native/msx_machine/msx_fdc.h',
+        'native/msx_machine/msx_sram.c',
+        'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',
         'native/msx_machine/msx_route.inc',
         'native/msx_machine/msx_state.c',
@@ -707,6 +716,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
+        'retrorecomp.msx_disk',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),
@@ -909,7 +919,7 @@ INPUTS = _resolve({
     ),
     # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
     # the PC Engine and the MSX family call it.
-    ('pce', 'msx', 'msx2'): (
+    ('pce', 'msx', 'msx2', 'msx2plus'): (
         'retrorecomp.route_start',
     ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,

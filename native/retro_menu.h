@@ -39,11 +39,37 @@ void rr_menu_text(SDL_Renderer *renderer, int ox, int oy, int unit,
                   int x, int y, const char *label, int red, int green, int blue);
 void rr_menu_text_fit(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y,
                       int available, const char *label, int red, int green, int blue);
+/* Text that is already translated: drawn as it is, with no look-up in the catalogue. */
+void rr_menu_text_plain(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y,
+                        int available, const char *text, int red, int green, int blue);
 int rr_menu_text_width(const char *text);
 void rr_menu_begin(SDL_Renderer *renderer, int ox, int oy, int unit);
 void rr_menu_end(SDL_Renderer *renderer);
 void rr_menu_page_header(SDL_Renderer *renderer, int ox, int oy, int unit,
                          const char *title, int page, int count);
+/* Pixel art of the menus (1.7.4): small icons, block letters, key caps and notice plates, all drawn from packed rows of
+ * retro_menu.c (no image, no texture). Coordinates are menu units, as for the text. */
+#define RR_MENU_SHADE 46, 38, 20     /* dark gold: icon fills, the lower edge of a key cap, separators */
+enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_ICON_SWITCHES, RR_ICON_LOGO,
+       RR_ICON_KEYBOARD_SMALL, RR_ICON_GAMEPAD_SMALL, RR_ICON_OPTIONS_SMALL, RR_ICON_COUNT };
+int rr_menu_icon_width(int icon);
+void rr_menu_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, bool dim);
+/* Block letters, five cells tall, `k` units a cell; both translate `text` and return its width in units. */
+int rr_menu_block_width(const char *text, int k);
+int rr_menu_block(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int k, const char *text,
+                  int red, int green, int blue);
+/* A key cap around `label` as it is (already translated); returns its width. */
+int rr_menu_keycap(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, const char *label);
+/* A hint line such as "Enter: remap | Left/Right: page": the keys become key caps. Wider than `available`, it is drawn as
+ * plain narrowed text. */
+int rr_menu_hints_width(const char *text);
+void rr_menu_hints(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int available, const char *text,
+                   int red, int green, int blue);
+/* A notice over the game picture: a dark plate, centred, with an optional icon (-1: none). */
+void rr_menu_plate(SDL_Renderer *renderer, int ox, int oy, int unit, int y, const char *text, int icon);
+void rr_menu_header(SDL_Renderer *renderer, int ox, int oy, int unit, const char *title, const char *subtitle);
+void rr_menu_header_compact(SDL_Renderer *renderer, int ox, int oy, int unit, const char *title, int icon);
+const char *rr_menu_pad_name(int button);   /* "L3", "Select", "D-pad up" (translated) */
 /* The converter injects this version at build time, never from user settings. */
 const char *rr_menu_build_label(void);
 void rr_menu_build_footer(SDL_Renderer *renderer, int ox, int oy, int unit);

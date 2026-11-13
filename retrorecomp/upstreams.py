@@ -307,6 +307,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The MSX runs on the banked Z80 chain of the Master System (smsggrecomp's generator on the MSX's own region map) and boots C-BIOS.
     'msx': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
     'msx2': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
+    'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

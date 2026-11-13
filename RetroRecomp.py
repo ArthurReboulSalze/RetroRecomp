@@ -34,6 +34,10 @@ _PATH_HELP = {
     'msx2_bios': 'MSX2: your own MSX2 BIOS main ROM (with --msx2-subrom); without both C-BIOS 0.29a is used.',
     'msx2_subrom': 'MSX2: your own MSX2 sub-ROM (16 KiB, with --msx2-bios).',
     'msx2_ram': 'MSX2 memory mapper RAM in KiB.',
+    'msx2plus_bios': 'MSX2+: your own MSX2+ BIOS main ROM (with --msx2plus-subrom); without both C-BIOS 0.29a is used.',
+    'msx2plus_subrom': 'MSX2+: your own MSX2+ sub-ROM (16 KiB, with --msx2plus-bios).',
+    'msx2plus_ram': 'MSX2+ memory mapper RAM in KiB.',
+    'msx2plus_diskrom': 'MSX2+: your own disk ROM (16 KiB, the Panasonic TC8566AF interface), needed for disk games with --msx2plus-bios and --msx2plus-subrom; never shipped.',
 }
 _FLAG_HELP = {
     'convert': {

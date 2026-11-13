@@ -1,4 +1,8 @@
-"""Compile independent Z80 vectors through the production AOT emitter."""
+"""Compile independent Z80 vectors through the production AOT emitter.
+
+`--machine msx` runs them through the MSX's own build of the generator (systems/msx.py, `MSX_MACHINE`: a region map and one
+wait state per M1 cycle, which its bodies add to the Z80's T-states): the expected T-states are the vector's plus one per M1
+cycle of the instruction (`m1_cycles`). The reference interpreter adds no wait state, so `--reference` checks the plain count."""
 import argparse
 from collections import Counter
 import hashlib
@@ -17,6 +21,15 @@ from retrorecomp.core import dependencies, default_config, read_rom, run
 from retrorecomp.cpu import prepare_cpu_headers, prepare_reference
 from fetch_z80_vectors import fetch
 
+def m1_cycles(opcode: int, following: int) -> int:
+    """The M1 (opcode fetch) cycles of the instruction that begins with these two bytes: two after a CB, ED, DD or FD prefix
+    (DD CB d op too: d and op are read without M1), one otherwise. A DD or FD followed by another prefix is an instruction of
+    its own, one M1."""
+    if opcode in (0xDD, 0xFD):
+        return 1 if following in (0xDD, 0xFD, 0xED) else 2
+    return 2 if opcode in (0xCB, 0xED) else 1
+
+
 FIELDS = 'pc sp a f b c d e h l i r ix iy wz af_ bc_ de_ hl_ im iff1 iff2 ei p q cycles'.split()
 
 
@@ -32,11 +45,16 @@ def main():
     parser.add_argument('--samples', type=int, default=32)
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--reference', action='store_true')
+    parser.add_argument('--machine', choices=('sms', 'msx'), default='sms')
     args = parser.parse_args()
+    machine = None
+    if args.machine == 'msx':
+        from retrorecomp.systems.msx import MSX_MACHINE as machine
     source = fetch(args.samples)
     vectors = json.loads(source.read_text(encoding='utf-8'))
     cases = vectors['cases']
-    game = ROOT / '.build/banked-vectors'
+    game = ROOT / ('.build/banked-vectors' + ('' if machine is None else '-' + args.machine))
+    wait = machine.m1_wait if machine is not None and not args.reference else 0
     game.mkdir(parents=True, exist_ok=True)
     # All immediate/displacement values in this corpus are translated as
     # constants. The test binary never executes a generic opcode interpreter.
@@ -48,7 +66,14 @@ def main():
     rom = b''.join(window + b'\0' * 4 for window in sorted(windows))
     rom += b'\0' * (-len(rom) % 16384)
     (game / 'rom.sms').write_bytes(rom)
-    (game / 'game.toml').write_text(default_config(read_rom(game / 'rom.sms')), encoding='utf-8')
+    if machine is None:
+        (game / 'game.toml').write_text(default_config(read_rom(game / 'rom.sms')), encoding='utf-8')
+    else:
+        # The machine's own generator: the cartridge is source 0 of the region map, a blank BIOS region source 1.
+        from retrorecomp.msx_build import GAME_TOML
+        (game / 'bios.rom').write_bytes(b'\xFF' * (1 << machine.regions.region_bits))
+        (game / 'banked.sources').write_text(str((game / 'bios.rom').resolve()) + '\n', encoding='utf-8', newline='\n')
+        (game / 'game.toml').write_text(GAME_TOML, encoding='utf-8', newline='\n')
     with (game / 'vectors.bin').open('wb') as output:
         def words(values):
             values = list(values)
@@ -57,7 +82,13 @@ def main():
         for case in cases:
             for phase in ('initial', 'final'):
                 state = case[phase]
-                words(len(case['cycles']) if key == 'cycles' and phase == 'final' else state.get(key, 0) for key in FIELDS)
+                if phase == 'final' and wait:
+                    memory = dict(case['initial']['ram'])
+                    pc = case['initial']['pc']
+                    extra = wait * m1_cycles(memory.get(pc, 0xA5), memory.get((pc + 1) & 65535, 0xA5))
+                else:
+                    extra = 0
+                words(len(case['cycles']) + extra if key == 'cycles' and phase == 'final' else state.get(key, 0) for key in FIELDS)
             for phase in ('initial', 'final'):
                 words([len(case[phase]['ram'])])
                 for address, value in case[phase]['ram']:
@@ -77,17 +108,20 @@ def main():
     header.extend(f'v[{i}] = (uint32_t){expression(field)};' for i, field in enumerate(FIELDS))
     header.append('}')
     (game / 'vector_state.h').write_text('\n'.join(header), encoding='utf-8')
-    engine, _, cmake, generator = dependencies()
+    engine, _, cmake, generator = dependencies(machine=machine)
     prepare_cpu_headers(game, engine)
     prepare_reference(game, engine)
-    emitter_digest = hashlib.sha256((ROOT / '.deps/recompiler-src/src/code_generator.c').read_bytes()).hexdigest()
+    source_dir = 'recompiler-src' if machine is None else machine.generator_source
+    emitter_digest = hashlib.sha256((ROOT / '.deps' / source_dir / 'src/code_generator.c').read_bytes()).hexdigest()
+    tool = build_executable(recompiler_build(), 'SmsRecomp') if machine is None else __import__(
+        'retrorecomp.msx_build', fromlist=['generator']).generator()[0]
     stamp = game / 'generated/emitter.sha256'
     if args.reuse_build and (not stamp.exists() or stamp.read_text() != emitter_digest):
         parser.error('Generated bodies do not match the current emitter; run without --reuse-build.')
     if not args.reuse_build:
         for stale in (game / 'generated').glob('game_banked_ops_*.c'):
             stale.unlink()
-        run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', game / 'game.toml', '--banked-step'], log=game / 'build.log')
+        run([tool, '--game', game / 'game.toml', '--banked-step'], log=game / 'build.log')
         stamp.write_text(emitter_digest)
     (game / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
 project(BankedVectors C)
@@ -121,7 +155,8 @@ target_compile_definitions(reference_vectors PRIVATE VECTOR_REFERENCE _CRT_SECUR
         reference_sha256=hashlib.sha256((game / 'runtime_reference.c').read_bytes()).hexdigest(),
         helpers_sha256=hashlib.sha256((game / 'z80_ops.h').read_bytes()).hexdigest(),
         executable_sha256=hashlib.sha256(build_executable(game / 'build', target).read_bytes()).hexdigest(),
-        families=len(vectors['families']), cases=len(cases), selected_per_family=args.samples,
+        families=len(vectors['families']), cases=len(cases), selected_per_family=args.samples, machine=args.machine,
+        m1_wait_added=wait,
         exact_encodings=len(windows), exit_code=result.returncode, failure_counts=dict(failures), failures=details,
         scope='Generated native bodies: registers, flags, WZ/Q/P, total cycles, all memory writes and low-byte SMS ports; not bus waveforms or hardware fidelity')
     (game / f'{target}.json').write_text(json.dumps(report, indent=2), encoding='utf-8')

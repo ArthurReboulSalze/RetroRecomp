@@ -131,6 +131,19 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(msx_routes.candidates(3600), [1, 2, 3, 4, 6, (1, 'RETURN'), (2, 'RETURN'), (3, 'RETURN')])
         self.assertEqual(sorted(msx_routes.candidates(3600), key=msx_routes.variant_order)[:2], [1, (1, 'RETURN')])
 
+    def test_a_multi_disk_game_gets_its_next_disks_on_the_long_routes(self):
+        from retrorecomp import msx_routes
+        self.assertEqual(msx_routes.disk_changes(18000, 1), [])
+        self.assertEqual(msx_routes.disk_changes(18000, 3), [('disk', 6000, 1), ('disk', 9000, 2)])
+        rows = msx_routes.routes(self.IDENTITY, frames=3600, level='extended', disks=3)
+        self.assertNotIn(' disk ', rows[1][2])                       # play: never a disk change
+        long_route = rows[2][2].splitlines()
+        self.assertIn('6000 disk 1', long_route)
+        self.assertIn('9000 disk 2', long_route)
+        frames = [int(line.split()[0]) for line in long_route]
+        self.assertEqual(frames, sorted(frames))
+
+
 
 class QuickStateTests(unittest.TestCase):
     """The MSX's quick states: the shared envelope, the build binding, the damaged copies the conversion feeds the game."""
@@ -165,6 +178,200 @@ class QuickStateTests(unittest.TestCase):
             self.assertEqual(changed, [offset], label)
         self.assertEqual(damaged['empty'], b'')
         self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
+
+
+class VectorTests(unittest.TestCase):
+    """Gate G10: the independent Z80 vectors through the MSX's own generator expect one wait state per M1 cycle."""
+
+    def test_m1_cycles_by_prefix(self):
+        sys.path.insert(0, str(ROOT / 'tools'))
+        spec = importlib.util.spec_from_file_location('banked_vector_selftest', ROOT / 'tools' / 'banked_vector_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cases = {(0x00, 0x00): 1, (0x3E, 0x12): 1, (0xCB, 0x11): 2, (0xED, 0xB0): 2, (0xDD, 0x21): 2, (0xFD, 0xCB): 2,
+                 (0xDD, 0xC9): 2, (0xDD, 0xDD): 1, (0xFD, 0xED): 1}
+        for (opcode, following), expected in cases.items():
+            self.assertEqual(module.m1_cycles(opcode, following), expected, (hex(opcode), hex(following)))
+
+
+class SramTests(unittest.TestCase):
+    """Gate G7: an ASCII cartridge's battery SRAM, found from the bank values the game writes, kept in a cart_save.c file."""
+
+    def test_the_bit_is_the_lowest_set_one_above_the_bank_number(self):
+        from retrorecomp.msx_rom import sram_bit
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x20), 5)          # Xanadu: 16 banks of 8 KiB, bit 5
+        self.assertEqual(sram_bit('ascii8', 0x100000, 0x80), 7)         # Royal Blood: bit 7
+        self.assertEqual(sram_bit('ascii16', 0x20000, 0x10), 4)         # Hydlide 2: 8 banks of 16 KiB, bit 4
+        self.assertEqual(sram_bit('ascii8', 0x20000, 0x30), 4)
+        self.assertIsNone(sram_bit('ascii8', 0x20000, 0))
+        self.assertIsNone(sram_bit('konami', 0x20000, 0x20))
+        self.assertIsNone(sram_bit('ascii8', 0x200000, 0x01))           # no bit at or above 256 banks
+
+    def test_the_runners_take_the_bit_and_the_state_binding_changes_with_it(self):
+        from types import SimpleNamespace
+        from retrorecomp.msx_conversion import cartridge_bank_high, state_binding
+        from retrorecomp.msx_rom import Guess
+        self.assertEqual(Guess('ascii8', sram=5).arguments(), ['--mapper', 'ascii8', '--sram-bit', '5'])
+        self.assertEqual(Guess('ascii8').arguments(), ['--mapper', 'ascii8'])
+        plain = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=None)
+        with_sram = SimpleNamespace(mapper='ascii8', base=0x4000, mirrored=False, sram=5)
+        self.assertNotEqual(state_binding(b'b', plain, 'ntsc', 'msx1', 0), state_binding(b'b', with_sram, 'ntsc', 'msx1', 0))
+        entry = [1, 0, *range(8), 0, 0, 0, 15, 32, 12345, 0x20]
+        self.assertEqual(cartridge_bank_high({'blocks': [[0, 0, *range(8), 0, 0, 0, 15, 0, 0, 0], entry]}), 0x20)
+        self.assertEqual(cartridge_bank_high({'blocks': []}), 0)
+
+    def test_the_cartridge_writes_sram_only_in_page_2(self):
+        text = (ROOT / 'native/msx_machine/msx_cart.c').read_text(encoding='utf-8')
+        self.assertEqual(text.count('if (address >= 0x8000 && address < 0xC000 && d->block[address >> 13] == MSX_BLOCK_SRAM)'), 2)
+        player = (ROOT / 'native/msx_machine/msx_player.c').read_text(encoding='utf-8')
+        self.assertIn('atexit(sram_at_exit)', player)
+        self.assertIn('"--sram"', player)
+
+
+class Msx2OrMsx2PlusTests(unittest.TestCase):
+    """Arthur's rule of 13 November 2026 between the MSX2 and the MSX2+, on authored cartridges (no ROM): the folder or the menu
+    decides; a file known to be at least MSX2 with nothing saying which goes to the MSX2+; a plain .rom with no hint stays where
+    it went before; the hint that decided is kept for the log."""
+
+    @staticmethod
+    def cartridge() -> bytes:
+        return bytes((0x41, 0x42, 0x10, 0x40)) + bytes(12) + bytes((0xC9,)) + bytes(0x4000 - 17)   # AB, INIT at 4010h: RET
+
+    def place(self, root, folder: str, name: str) -> Path:
+        import zipfile
+        where = Path(root) / folder if folder else Path(root)
+        where.mkdir(parents=True, exist_ok=True)
+        path = where / name
+        if name.endswith('.zip'):
+            with zipfile.ZipFile(path, 'w') as bundle:
+                bundle.writestr(Path(name).stem + '.mx2', self.cartridge())
+        else:
+            path.write_bytes(self.cartridge())
+        return path
+
+    def test_each_case(self):
+        import tempfile
+        from retrorecomp.batch import identify
+        from retrorecomp.systems.msx import decided
+        cases = (('msx2+', 'game.rom', None, 'msx2plus', 'msx2+ folder'),
+                 ('msx2plus', 'game.rom', None, 'msx2plus', 'msx2+ folder'),
+                 ('msx2', 'game.rom', None, 'msx2', 'msx2 folder'),
+                 ('msx2', 'game.mx2', None, 'msx2', 'msx2 folder'),
+                 ('msx2+', 'game.mx2', None, 'msx2plus', 'msx2+ folder'),
+                 ('', 'game.mx2', None, 'msx2plus', 'in doubt between MSX2 and MSX2+: MSX2+'),
+                 ('', 'game.zip', None, 'msx2plus', 'in doubt between MSX2 and MSX2+: MSX2+'),
+                 ('', 'game.mx2', 'msx2', 'msx2', 'chosen in the menu'),
+                 ('', 'game.rom', 'msx2plus', 'msx2plus', 'chosen in the menu'),
+                 ('msx2', 'game.mx2', 'msx2plus', 'msx2plus', 'chosen in the menu'),
+                 ('', 'game.rom', None, 'msx', None))                         # a plain .rom with no hint: the MSX1's, as before
+        for folder, name, selected, system, hint in cases:
+            with self.subTest(folder=folder, name=name, selected=selected), tempfile.TemporaryDirectory() as root:
+                path = self.place(root, folder, name)
+                item = identify(path, selected)
+                self.assertEqual(item.system, system, item.error)
+                self.assertEqual(decided(path), hint)
+
+
+class Msx2PlusDiskInputTests(unittest.TestCase):
+    """MSX2+ disks as the converter reads them (msx_disk.py) and identifies them: a .dsk, a set grouped by
+    rom_sources.disk_sets into an M3U marked with the machine, sizes checked, an identity for the set."""
+
+    def test_a_disk_a_set_and_what_is_refused(self):
+        import tempfile
+        from retrorecomp.batch import identify
+        from retrorecomp.msx_disk import read_disks
+        from retrorecomp.rom_sources import disk_sets
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            one = root / 'Game (Disk 1 of 2).dsk'
+            two = root / 'Game (Disk 2 of 2).dsk'
+            one.write_bytes(bytes(737280))
+            two.write_bytes(bytes([1]) * 368640)
+            single = read_disks(one)
+            self.assertEqual((single.size, len(single.disks)), (737280, 1))
+            sets = disk_sets([two, one], root / 'sets')
+            self.assertEqual(sets.grouped, 1)
+            playlist = sets.paths[0]
+            self.assertIn('# Retro-Recomp system: msx2plus', playlist.read_text(encoding='utf-8'))
+            both = read_disks(playlist)
+            self.assertEqual([p.name for p in both.disks], [one.name, two.name])
+            self.assertNotEqual(both.sha256, single.sha256)
+            self.assertEqual(identify(playlist).system, 'msx2plus')
+            self.assertEqual(identify(one).system, 'msx2plus')
+            bad = root / 'bad.dsk'
+            bad.write_bytes(bytes(1000))
+            with self.assertRaises(ValueError):
+                read_disks(bad)
+
+    def test_the_authored_write_disk_is_a_disk_the_converter_reads(self):
+        """tools/msx_write_disk.py, the disk that proves the write path (no game data): 720 KiB, an MSX-DOS boot sector with
+        its BPB, a boot program that hooks H.STKE and calls PHYDIO with the carry set, the two FATs marked F9h."""
+        import tempfile
+        from retrorecomp.msx_disk import read_disks
+        spec = importlib.util.spec_from_file_location('msx_write_disk', ROOT / 'tools' / 'msx_write_disk.py')
+        writer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(writer)
+        disk = writer.image()
+        self.assertEqual(len(disk), 737280)
+        self.assertEqual(disk[0], 0xEB)
+        self.assertEqual(int.from_bytes(disk[11:13], 'little'), 512)
+        self.assertEqual(int.from_bytes(disk[19:21], 'little'), 1440)
+        self.assertEqual(disk[21], 0xF9)
+        code = writer.boot_code()
+        self.assertEqual(disk[0x1E:0x1E + len(code)], code)
+        self.assertEqual(code[0], 0xD8)                                # RET C: the MSX-DOS boot call (page 0 RAM) writes nothing
+        self.assertIn(bytes((0x22, 0xDB, 0xFE)), code)                 # the hook's address into H.STKE
+        self.assertEqual(code.count(bytes((0xCD, 0x44, 0x01))), 1)     # one PHYDIO call, from the hook
+        self.assertIn(bytes((0x37, 0xCD, 0x44, 0x01)), code)           # SCF / CALL PHYDIO: a write
+        for fat in (1, 4):
+            self.assertEqual(disk[fat * 512:fat * 512 + 3], bytes((0xF9, 0xFF, 0xFF)))
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'write.dsk'
+            path.write_bytes(disk)
+            self.assertEqual(read_disks(path).images, (disk,))
+
+
+class ReportTests(unittest.TestCase):
+    """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
+
+    def test_a_final_row_gives_the_main_cpu_its_counts(self):
+        from retrorecomp import report_schema
+        row = {'name': 'play', 'scenario': 'play', 'frames': 3600, 'native_steps': 1000, 'interpreted_steps': 7,
+               'native_entries': 1000, 'interpreted_opcodes': 7, 'interpreter_cycles': 40, 'interpreter_percent': 0.7}
+        scenario = report_schema._main_scenario('msx', row)
+        self.assertEqual((scenario['name'], scenario['native'], scenario['interpreted']), ('play', 1000, 7))
+        self.assertEqual(scenario['cycles']['interpreted'], 40)
+        self.assertTrue(report_schema._fallback_state([scenario]))
+
+    def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
+        text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
+        self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus, len(disks.disks) if disks is not None else 0)", text)
+
+    def test_the_devices_are_c_models_with_no_counter(self):
+        from types import SimpleNamespace
+        from retrorecomp import report_schema
+        from retrorecomp.msx_conversion import hardware_devices
+        units = hardware_devices(SimpleNamespace(mapper='konami-scc', base=0x4000, mirrored=False, reason='probe'), True)
+        self.assertEqual([(u['id'], u['kind']) for u in units],
+                         [('konami-scc', 'cartridge_mapper'), ('v9938', 'video_unit'), ('ay-3-8910', 'audio_unit'), ('scc', 'audio_unit')])
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': units})), 4)
+        plain = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=True, reason='size'), False)
+        self.assertEqual([u['id'] for u in plain], ['plain', 'tms9918a', 'ay-3-8910'])
+        disk = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'),
+                                True, True, 2)
+        self.assertEqual([(u['id'], u['kind']) for u in disk],
+                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit')])
+        self.assertEqual(disk[0]['details']['disks'], 2)
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 3)
+        for unit in units + plain + disk:
+            self.assertFalse(unit['details']['hardware_fidelity_validated'])
+
+    def test_a_route_that_stops_early_is_named(self):
+        from retrorecomp.msx_conversion import route_warnings
+        rows = [{'scenario': 'play', 'liveness': {'frames': 3600, 'last_picture_change_frame': 100}},
+                {'scenario': 'long-1', 'liveness': {'frames': 18000, 'last_picture_change_frame': 17999}}]
+        self.assertEqual(route_warnings(rows), ['play: the picture stopped changing at frame 100 of 3600'])
 
 
 if __name__ == '__main__':

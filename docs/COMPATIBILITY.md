@@ -240,17 +240,27 @@ The **MSX** profile is experimental since 1.7.3 ([status](MSX.md)): it converts 
 holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within
 [its documented scope](MSX.md). It has no list of compatible games. The cartridge and the BIOS are translated ahead of time by the shared banked Z80 chain,
 code run from RAM is learned and translated, and what is left runs on a reference Z80 interpreter and is counted. Native code, CPU fidelity, hardware
-fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on development checks, three plain games
-(Road Fighter, Knightmare, Antarctic Adventure) and authored cartridges end at 0 interpreted instructions after one learning pass and equal the reference
-interpreter on 37 state fields after 300 to 1,200 frames; that is not a qualification, no game is validated as played, and hardware fidelity and latency are
-not claimed. Under C-BIOS, Salamander (Japan) stays black ([known failures](MSX.md#5-known-c-bios-failures)); your own MSX BIOS plays it. Disks, cassettes,
+fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on the panel of the 1.7.3 release tree
+(extended level), six MSX1 cartridges (Knightmare, Road Fighter, Space Invaders, Nemesis, Salamander, Spy vs Spy II) end at 0 interpreted instructions on
+every route and equal the reference interpreter frame by frame; no game is validated as played, and hardware fidelity and latency are not claimed
+([qualification](QUALIFICATION.md)). Salamander (Japan), once seen with a black playfield under C-BIOS in development, is drawn under C-BIOS on the panel's routes ([known failures](MSX.md#5-known-c-bios-failures)). Disks, cassettes,
 FM-PAC, SRAM and the rarer mappers are not converted yet.
 
 The **MSX2** profile (`msx2`) is experimental since 1.7.3 too ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
-(`.mx2`, or a `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
+(a `.mx2`, `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
 with the V9938 drawn by line and a memory mapper. The V9938 command engine runs all twelve commands with their timing approximated (the chip's access slots are not modelled), in the bitmap modes only. On 14 authored
-cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games reach 0 interpreted instructions on the route played, no game has been played through (gameplay validation: none), and hardware fidelity and
+cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games (Metal Gear, Space Manbow, Aleste, Hydlide 3) reach 0 interpreted instructions on every route, but Hydlide 3's routes never leave its
+Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
+
+The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
+cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:
+[the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
+the V9958 (its YJK modes and horizontal scroll) on the MSX2's board, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS
+pair and your own disk ROM. On the disk panel of 13 November 2026 (eight games, extended level) every route ends at 0 interpreted instructions;
+six of the eight reach play on their long route, Golvellius II stays in its intro and Xak III stops on a request for its third disk; no game has
+been played through (gameplay validation: none), and hardware fidelity and latency are not claimed. MSX-MUSIC and the kanji ROM are not
+converted.
 
 ## Local game regression set
 

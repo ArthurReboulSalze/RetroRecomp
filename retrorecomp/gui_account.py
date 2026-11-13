@@ -7,6 +7,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox, ttk
 
+from .dialogs import popup_menu
 from . import __version__, online
 from .paths import APP_NAME
 from .branding import COLORS
@@ -59,10 +60,7 @@ class AccountMixin:
         menu.add_command(label=self.tr('account_open_site'), command=self.open_account_site)
         menu.add_command(label=self.tr('account_pseudonym_change'), command=self.pseudonym_dialog,
                          state='disabled' if self.busy or self.updating else 'normal')
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        popup_menu(menu, event.x_root, event.y_root)
 
     def pseudonym_clicked(self):
         """The name in the header: while the pseudonym is a generated one, choose one."""

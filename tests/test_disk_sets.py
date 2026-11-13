@@ -110,5 +110,59 @@ class DiskSetTests(unittest.TestCase):
         self.assertEqual(read_input(found).sha256, game.identity)
 
 
+class DiskSetKindsTests(unittest.TestCase):
+    """The grouping opened to every machine that reads disks (1.7.4): the X68000's M3U keeps its bytes, folder and owner;
+    another machine's set gets its own folder and a marker line that names it."""
+
+    def setUp(self):
+        self.temp = TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.roms = self.root / 'roms'
+        self.roms.mkdir()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_an_x68000_set_is_the_same_bytes_folder_and_owner_as_before(self):
+        import hashlib
+        import os
+        from retrorecomp.rom_sources import playlist_owner
+        first = synthetic_dim(self.roms / 'Game (1990)(Pub)(Disk 1 of 2)(System).dim', 1)
+        second = synthetic_dim(self.roms / 'Game (1990)(Pub)(Disk 2 of 2)(User).dim', 2)
+        playlist = disk_sets([second, first], self.root / 'sets').paths[0]
+        # The bytes and the folder the 1.7.3 code wrote (captured before the change, 13 November 2026).
+        lines = [os.path.abspath(first), os.path.abspath(second)]
+        digest = hashlib.sha256('\0'.join(map(os.path.normcase, lines)).encode('utf-8')).hexdigest()[:16]
+        self.assertEqual(playlist, self.root / 'sets' / digest / 'Game (1990)(Pub).m3u')
+        self.assertEqual(playlist.read_text(encoding='utf-8'),
+                         '# Retro-Recomp: disks grouped by name; the originals stay in place.\n' + '\n'.join(lines) + '\n')
+        self.assertIsNone(playlist_owner(playlist))
+        self.assertEqual(identify(playlist).system, 'x68')
+
+    def test_another_machines_set_has_its_folder_and_its_marker(self):
+        from unittest.mock import patch
+        from retrorecomp import rom_sources
+        kinds = (rom_sources.DiskSetKind('x68', ('.dim',), 'x68000-sets', False),
+                 rom_sources.DiskSetKind('other', ('.dsk',), 'other-sets', True))
+        for name in ('Quest (Disk 1 of 2).dsk', 'Quest (Disk 2 of 2).dsk', 'Quest (Disk 1 of 2).dim', 'Quest (Disk 2 of 2).dim'):
+            (self.roms / name).write_bytes(bytes(16))
+        with patch.object(rom_sources, 'disk_set_kinds', return_value=kinds), \
+                patch.object(rom_sources, 'data_directory', return_value=self.root / 'datas'):
+            sets = rom_sources.disk_sets(sorted(self.roms.iterdir()))
+            self.assertEqual(sets.grouped, 2)                 # one set per machine, never mixed
+            by_folder = {path.parent.parent.name: path for path in sets.paths}
+            self.assertEqual(sorted(by_folder), ['other-sets', 'x68000-sets'])
+            other = by_folder['other-sets'].read_text(encoding='utf-8').splitlines()
+            self.assertEqual(other[1], rom_sources.PLAYLIST_MARKER + 'other')
+            self.assertTrue(all(line.endswith('.dsk') for line in other[2:]))
+            self.assertNotIn(rom_sources.PLAYLIST_MARKER, by_folder['x68000-sets'].read_text(encoding='utf-8'))
+            self.assertEqual(rom_sources.playlist_owner(by_folder['other-sets']), 'other')
+            self.assertIsNone(rom_sources.playlist_owner(by_folder['x68000-sets']))
+            # A player's own M3U without the marker: the one machine whose disks it lists.
+            handwritten = self.root / 'mine.m3u'
+            handwritten.write_text('Quest (Disk 1 of 2).dsk\nQuest (Disk 2 of 2).dsk\n', encoding='utf-8')
+            self.assertEqual(rom_sources.playlist_owner(handwritten), 'other')
+
+
 if __name__ == '__main__':
     unittest.main()

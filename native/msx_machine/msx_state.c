@@ -70,6 +70,30 @@ static void scc_state(RetroStateIO *io, MsxScc *s)
     signed16(io, s->out, 5);
 }
 
+/* The disk interface: the controller's registers and the transfer in progress, and the disk in drive A as it is now (what the
+ * game wrote included). The disk in the drive must be the same size in the saving and the loading process. */
+static void fdc_state(RetroStateIO *io, MsxFdc *f)
+{
+    B(f->dor); W(f->phase, 1, MSX_FDC_RESULT);
+    rr_state_bytes(io, f->cmd, sizeof f->cmd);
+    W(f->cmd_len, 1, 9); W(f->cmd_need, 1, 9);
+    rr_state_bytes(io, f->result, sizeof f->result);
+    W(f->result_len, 1, 7); W(f->result_pos, 1, 7);
+    rr_state_bytes(io, f->pcn, sizeof f->pcn);
+    rr_state_bytes(io, f->int_pending, sizeof f->int_pending);
+    rr_state_bytes(io, f->int_st0, sizeof f->int_st0);
+    W(f->drive, 1, MSX_FDC_DRIVES - 1); W(f->head, 1, 1);
+    B(f->c); B(f->h); B(f->r); B(f->n); B(f->eot); W(f->mt, 1, 1);
+    W(f->pos, 2, MSX_FDC_SECTOR - 1);
+    B(f->format_left); B(f->format_fill);
+    rr_state_bytes(io, f->format_id, sizeof f->format_id);
+    W(f->at_end, 1, 1);
+    MsxDisk *d = &f->disk[0];
+    same(io, d->data ? d->size : 0u, 4);
+    if (d->data)
+        rr_state_bytes(io, d->data, d->size);
+}
+
 static void slots_state(MsxMachine *m, RetroStateIO *io)
 {
     for (int p = 0; p < 4; ++p)
@@ -82,6 +106,14 @@ static void slots_state(MsxMachine *m, RetroStateIO *io)
                 S(d->block[i], 2);
             W(d->scc_on, 1, 1);
             scc_state(io, &d->scc);
+            same(io, d->sram ? d->sram_size : 0u, 2);             /* the battery SRAM travels with the state */
+            same(io, d->sram_bit, 1);
+            if (d->sram)
+                rr_state_bytes(io, d->sram, d->sram_size);
+            B(d->bank_high);
+            same(io, d->fdc != NULL, 1);
+            if (d->fdc)
+                fdc_state(io, d->fdc);
         }
 }
 
@@ -179,7 +211,8 @@ static int consistent(const MsxMachine *m, const uint8_t *ram64)
                 continue;
             for (int i = 0; i < 8; ++i)
                 if (d->block[i] < -1 || d->block[i] >= (int)(d->size / 0x2000u))
-                    return 0;
+                    if (!(d->block[i] == MSX_BLOCK_SRAM && d->sram))
+                        return 0;
         }
     for (int i = 0; i < 4; ++i)
         if (m->mapper.segments && m->mapper.reg[i] >= m->mapper.segments)
@@ -217,6 +250,7 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
     B(m->primary);
     rr_state_bytes(io, m->secondary, sizeof m->secondary);
     B(m->port_c);
+    B(m->port_f4);
     B(m->psg_latch);
     rr_state_bytes(io, m->psg, sizeof m->psg);
     W(m->line, 4, 0xFFFFFFFFu);

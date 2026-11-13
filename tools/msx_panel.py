@@ -91,7 +91,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('roms', type=Path, nargs='+')
     parser.add_argument('--group', required=True)
-    parser.add_argument('--system', choices=('msx', 'msx2'), required=True)
+    parser.add_argument('--system', choices=('msx', 'msx2', 'msx2plus'), required=True)
     parser.add_argument('--level', default='extended', choices=('quick', 'standard', 'extended', 'thorough'))
     parser.add_argument('--jobs', type=int, default=3)
     parser.add_argument('--run', type=Path, default=ROOT / '.build' / 'msx-panel' / date.today().isoformat())

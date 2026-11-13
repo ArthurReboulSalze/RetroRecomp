@@ -62,6 +62,8 @@ struct RrStSession {
     uint64_t frames;
     char memory_option[16];
     uint64_t interpreted, chain_entries;
+    RrStSite *sites;                       /* rr_st_set_site_count: SITE_CAPACITY slots, an empty one has count 0 */
+    uint64_t sites_distinct, sites_unlisted;
     int observe, native_enabled;
     /* The player's own record (rr_st_set_recorder): the last window of 16 bytes told, at an instruction that ran on the interpreter. */
     void (*recorder)(uint32_t pc, const uint8_t *bytes, unsigned size);
@@ -77,6 +79,7 @@ struct RrStSession {
     int writes_dirty;
 };
 
+#define SITE_CAPACITY 65536u     /* a power of two */
 static RrStSession *current;
 
 extern int rr_snapshot_restoring;   /* the adapted memorySnapShot.c: a restore is running */
@@ -721,6 +724,17 @@ static void record_window(RrStSession *s, uint32_t pc, uint32_t opcode) {
     s->recorder(pc, bytes, 16);
 }
 
+/* The sites of the interpreted instructions (rr_st_set_site_count): open addressing on (pc, opcode); a full table counts the rest apart. */
+static void site_note(RrStSession *s, uint32_t pc, uint32_t opcode) {
+    uint32_t mask = SITE_CAPACITY - 1, i = (pc * 2654435761u ^ opcode * 40503u) & mask, n;
+    for (n = 0; n < SITE_CAPACITY; n++, i = (i + 1) & mask) {
+        RrStSite *site = &s->sites[i];
+        if (!site->count) { site->pc = pc; site->opcode = opcode; site->count = 1; s->sites_distinct++; return; }
+        if (site->pc == pc && site->opcode == opcode) { site->count++; return; }
+    }
+    s->sites_unlisted++;
+}
+
 static bool step_hook(uint32_t pc, uint32_t opcode) {
     if (!current) return false;
     if (current->observe) {
@@ -737,6 +751,7 @@ static bool step_hook(uint32_t pc, uint32_t opcode) {
 #endif
     if (current->recorder) record_window(current, pc & 0xffffff, opcode & 0xffff);
     current->interpreted++;
+    if (current->sites) site_note(current, pc & 0xffffff, opcode & 0xffff);
     return false;
 }
 
@@ -775,6 +790,37 @@ int rr_st_write_opcode_map(const RrStSession *s, FILE *out) {
 }
 
 uint64_t rr_st_interpreted_count(const RrStSession *s) { return s->interpreted; }
+
+int rr_st_set_site_count(RrStSession *s, int enabled) {
+    if (!enabled) { free(s->sites); s->sites = NULL; return 1; }
+    if (!s->sites && !(s->sites = (RrStSite *)calloc(SITE_CAPACITY, sizeof *s->sites))) return 0;
+    s->sites_distinct = s->sites_unlisted = 0;
+    return 1;
+}
+
+static int site_order(const void *a, const void *b) {
+    const RrStSite *x = (const RrStSite *)a, *y = (const RrStSite *)b;
+    if (x->count != y->count) return x->count > y->count ? -1 : 1;
+    if (x->pc != y->pc) return x->pc < y->pc ? -1 : 1;
+    return x->opcode < y->opcode ? -1 : x->opcode > y->opcode;
+}
+
+size_t rr_st_site_list(const RrStSession *s, RrStSite *out, size_t max) {
+    size_t n = 0, i;
+    RrStSite *all;
+    if (!s->sites || !max) return 0;
+    if (!(all = (RrStSite *)malloc((size_t)(s->sites_distinct ? s->sites_distinct : 1) * sizeof *all))) return 0;
+    for (i = 0; i < SITE_CAPACITY && n < s->sites_distinct; i++)
+        if (s->sites[i].count) all[n++] = s->sites[i];
+    qsort(all, n, sizeof *all, site_order);
+    if (n > max) n = max;
+    memcpy(out, all, n * sizeof *out);
+    free(all);
+    return n;
+}
+
+uint64_t rr_st_site_distinct(const RrStSession *s) { return s->sites_distinct; }
+uint64_t rr_st_site_unlisted(const RrStSession *s) { return s->sites_unlisted; }
 uint64_t rr_st_chain_entries(const RrStSession *s) { return s->chain_entries; }
 uint64_t rr_st_native_count(const RrStSession *s) {
     (void)s;
