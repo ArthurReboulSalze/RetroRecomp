@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RetroRecomp</title>
-  <meta name="description" content="RetroRecomp recompiles retro console games into standalone Windows and Linux executables, with as much native execution as possible and no FPGA.">
+  <meta name="description" content="RetroRecomp recompiles retro console, arcade and computer games into standalone Windows and Linux executables, with as much native execution as possible and no FPGA.">
   <meta name="theme-color" content="#0f0f10">
   <meta property="og:type" content="website">
   <meta property="og:title" content="RetroRecomp">
@@ -49,7 +49,7 @@
           <a class="button" href="https://github.com/ArthurReboulSalze/RetroRecomp">View the source</a>
         </div>
         <ul class="badges" aria-label="Key facts">
-          <li>9 console profiles</li>
+          <li>11 supported machines · 7 experimental</li>
           <li>Windows x64 · Linux x86-64</li>
           <li>Original code under MIT</li>
         </ul>
@@ -88,7 +88,7 @@
     <section class="section section--alt" id="consoles">
       <div class="wrap">
         <p class="eyebrow">Console support</p>
-        <h2>Nine console profiles</h2>
+        <h2>Eleven supported machines</h2>
         <p class="section__lead">Compatibility depends on the game and its exact revision. The 16-bit profiles
           analyze new games automatically; there is no fixed game list.</p>
         <div class="consoles">
@@ -122,13 +122,23 @@
           </article>
           <article class="console">
             <h3>Capcom CPS-1</h3>
-            <p>MAME/FBNeo romsets of the standard boards, up to four players and six buttons, DIP switches, rotated vertical games, quick states.</p>
+            <p>MAME/FBNeo romsets of the standard boards and the QSound boards (CPS-1.5), up to four players and six buttons, DIP switches, rotated vertical games, quick states.</p>
           </article>
           <article class="console">
             <h3>Sharp X68000</h3>
             <p>DIM/XDF/D88 disks and multi-disk sets, your own IPL and font ROM, quick states, mouse and keyboard.</p>
           </article>
+          <article class="console">
+            <h3>Capcom CPS-2</h3>
+            <p>MAME romsets with the set's key file and your own QSound DSP ROM, decrypted program, QSound sound, quick states.</p>
+          </article>
+          <article class="console">
+            <h3>PC Engine / TurboGrafx-16</h3>
+            <p>HuCards, US TurboGrafx-16 cards included, Backup RAM saves beside the game, quick states.</p>
+          </article>
         </div>
+        <p class="note"><strong>Adventure games (ScummVM)</strong> are supported too, as a category of their own: each
+          point-and-click game is packed with its files into one executable and runs in ScummVM, emulated, with 0 % native code by design.</p>
         <p class="note">Limits for each profile are listed in the
           <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/COMPATIBILITY.md">compatibility guide</a>.</p>
       </div>
@@ -145,9 +155,9 @@
           <p>The game then collects small hints in memory and saves them when you close it. RetroRecomp
             checks those hints against the exact game and uses them on the next regeneration to reduce
             fallback. Graphics and hardware issues still need fixes in the runtime itself.</p>
-          <p>Verified hints for <strong>1,305 exact game identities</strong> ship with the converter, the whole convertible Neo Geo library among them.
-            Your own discoveries stay in your local library, and you can share them as one ROM-free file:
-            only addresses and positions in the ROM travel, never ROM bytes.</p>
+          <p>A shared <strong>base of verified paths</strong> is installed beside the converter and kept up to date; each path is bound
+            to one exact game and engine revision, and your own conversion checks it again. Your own discoveries stay in your local library,
+            and you can share them as one ROM-free file: only addresses and positions in the ROM travel, never ROM bytes.</p>
         </div>
         <figure class="shot shot--flat">
           <img src="media/learning-cycle.webp" alt="Learning cycle: play, save fallback hints, enrich RetroRecomp, regenerate" width="1200" height="800" loading="lazy">
@@ -240,43 +250,45 @@
     <section class="section" id="next">
       <div class="wrap">
         <p class="eyebrow">Roadmap</p>
-        <h2>Stable today, more machines next</h2>
-        <p class="section__lead">The current
-          runtimes are stable and already optimized on Windows and Linux; the library of verified titles grows
-          step by step. The groundwork for the next machines has been reviewed. If development goes as planned,
-          they will join in this order, each in its own experimental phase:</p>
+        <h2>Experimental today, more machines next</h2>
+        <p class="section__lead">These machines are open to players as <strong>experimental</strong>: they convert real games,
+          with their limits written on each machine's page, the interpreter fallback counted and nothing claimed of complete
+          gameplay, hardware fidelity or latency. Leaving that status takes a high bar of evidence and the owner's own decision.</p>
         <div class="consoles">
           <article class="console">
-            <h3>Capcom CPS-2</h3>
-            <p>Arcade boards, after CPS-1.</p>
-          </article>
-          <article class="console">
-            <h3>PC Engine / TurboGrafx-16</h3>
-            <p>Home console.</p>
-          </article>
-          <article class="console">
             <h3>Game Boy Advance</h3>
-            <p>Handheld.</p>
-          </article>
-          <article class="console">
-            <h3>Atari ST</h3>
-            <p>Home computer.</p>
+            <p>Handheld. Native ARM and Thumb code from what the game ran, with your own BIOS.</p>
           </article>
           <article class="console">
             <h3>Amiga 500</h3>
-            <p>Home computer, WHDLoad-based.</p>
+            <p>Home computer, WHDLoad installs. An emulator core with native code for the main CPU.</p>
           </article>
           <article class="console">
-            <h3>Amiga 1200 AGA</h3>
-            <p>Home computer, WHDLoad-based.</p>
+            <h3>Atari ST</h3>
+            <p>Home computer, floppy games. An emulator core with native code for the main CPU.</p>
           </article>
           <article class="console">
             <h3>Nintendo 64</h3>
-            <p>Home console.</p>
+            <p>Home console. An emulator core with native code for the main CPU.</p>
           </article>
           <article class="console">
             <h3>PlayStation</h3>
-            <p>Home console.</p>
+            <p>Home console, CD images. An emulator core with native code for the main CPU.</p>
+          </article>
+          <article class="console">
+            <h3>MSX and MSX2</h3>
+            <p>Home computers, cartridges. Native Z80 code and RetroRecomp's own video and sound chips, on a free BIOS or your own.</p>
+          </article>
+        </div>
+        <p class="section__lead">Next, each in its own experimental phase:</p>
+        <div class="consoles">
+          <article class="console">
+            <h3>MSX2+</h3>
+            <p>In development: cartridges first, disks in progress. Not in a release yet.</p>
+          </article>
+          <article class="console">
+            <h3>Amiga 1200 AGA</h3>
+            <p>Home computer, WHDLoad-based. Planned.</p>
           </article>
         </div>
         <p class="note">These are plans, not release dates or compatibility promises. See the

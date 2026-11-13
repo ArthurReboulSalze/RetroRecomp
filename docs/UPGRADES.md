@@ -156,6 +156,28 @@ SRAM take; no other machine's code changes.
 **Quick states:** MSX and MSX2 states carry the SRAM: the layout is `msx-state-3`, and a state of 1.7.3 is refused cleanly (the build
 binding differs). No other machine's state changes.
 
+## Atari ST: the root of a disk is read as the TOS reads it, two names more among the utilities, the interpreted instructions listed by address, the known stops in the report (1.7.4)
+
+The Atari ST game stamp moves, from `f61238ca2d46` to `f414185b00f5` (measured on main `be170091`; the host and build stamps do not move), so an Atari ST export of 1.7.3 is converted again in
+full by the first batch of 1.7.4. What a converted game does is not changed, except where a disk's root was read wrongly or a name is now a utility:
+
+- **The root directory of disk 1 is read after two FATs, as the TOS reads it.** The reader of `atarist_disk.py` believed the BPB's number of FATs, and the TOS takes every floppy to have two. Of the 275 disk 1 images
+  of the library tried, 10 declare one FAT and three change: Battle Probe (empty root before; `PROBE.PRG`, started by the desktop autostart, which stays kept only when the reference run shows the boot reached the
+  desktop), Pharaoh III (`PHAROAH.TOS`: it starts its menu with the player's own TOS 1.04 and ends in an EmuTOS "Panic: Bus Error") and Trailblazer (`EDITOR.PRG` and `TRAIL.PRG`). The other 272 decide as before.
+- **"music" and "editor" are utilities** in rule 2 of the desktop autostart (exact words): Conquests of Camelot starts `SIERRA.PRG` (not `MUSIC.PRG`) and Trailblazer starts `TRAIL.PRG`. The rule stays a guess by name, and the
+  player can open another program from the desktop. Language versions, game pairs and Mercenary are still left to the player.
+- **Each report lists where the interpreted instructions ran**: `final_checks[].interpreted_sites` (address, opcode, count, most run first), `interpreted_sites_distinct`, `interpreted_sites_unlisted` and `interpreted_sites_complete`
+  (the counts add up to the run's total; true on all 47 routes of the panel), asked of the delivered file's runs by the player's option `--interpreted-sites` (a table of 65,536 sites, off in a game that is played). The report also names the
+  Shifter/GLUE/MMU and the YM2149 as devices (`hardware_devices`, no counter), the MFP, the IKBD and the WD1772 with its DMA in `machine.other_devices`, keeps the picture changes and the frame of the last one in the
+  liveness record, and fills `route_warnings` (the Sega modules' function: a route whose picture stops changing in its first tenth).
+- **`atarist_notes.py`: the known stops.** A table, keyed by a dump's SHA-256, of what the routes of the panel run of 13 November 2026 stop on: Another World (code wheel), Carrier Command (manual word), Elite (novella protection),
+  Operation Stealth (colour codes), Leader Board (hardware key), Trinity (a resolution the machine does not start in), and Metro-Cross and Pharaoh III (EmuTOS; they start with the player's TOS 1.04). It adds a sentence to
+  `route_warnings` and changes nothing a conversion does: no protection is answered, skipped or patched.
+
+**Proof** (Windows, one tree, 13 November 2026): the panel of eight games, converted one at a time from an empty scratch library at the extended level (Lethal Xcess at the thorough level: the second long route changes the disk, and it reaches play);
+on all 25 routes the native game and its compressed copy equal the fresh interpreted reference (picture, sound, RAM, CPU registers of every frame) and the state continues in a fresh process on 8 of 8 ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)). Seven more games
+were converted in the same run and are outside the panel; the fifteen exports were delivered to the owner's folder with the same publish step as the batch (each published file's SHA-256 equals the compressed copy the conversion replayed).
+
 ## Exports of 1.7.2 in 1.7.3
 
 1.7.3 is the release after 1.7.2 (published on 10 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no

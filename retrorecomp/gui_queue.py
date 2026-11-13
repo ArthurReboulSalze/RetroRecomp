@@ -7,6 +7,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+from .dialogs import popup_menu
 from .batch import BatchItem, identify, system_output
 from .publishing import is_pending
 from .report_schema import fallback_summary
@@ -430,10 +431,7 @@ class QueueMixin:
                          state=state(free))
         menu.add_command(label=self.tr('clear'), command=self.clear, state=state(free))
         menu.add_command(label=self.tr('select_all'), command=self.select_all_rows)
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        popup_menu(menu, event.x_root, event.y_root)
 
     def remove_selected(self):
         if self.busy:

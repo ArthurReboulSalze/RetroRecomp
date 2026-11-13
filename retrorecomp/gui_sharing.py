@@ -8,6 +8,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+from .dialogs import popup_menu
 from . import online, shared_batch
 from .paths import APP_NAME
 from .branding import COLORS
@@ -34,8 +35,7 @@ class SharingMixin:
             if not online.account():
                 menu.add_command(label=self.tr('knowledge_sign_in'), command=self.sign_in_dialog)
         button = self.knowledge_button
-        try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
-        finally:menu.grab_release()
+        popup_menu(menu, button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
 
     def knowledge_task(self, callback, status='knowledge_working'):
         """File work runs off Tk; the result comes back as one message."""

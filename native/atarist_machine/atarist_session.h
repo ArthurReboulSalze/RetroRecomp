@@ -60,6 +60,15 @@ unsigned rr_st_disk_count(const RrStSession *s);
 /* The 68000 instructions the machine ran on Hatari's interpreter (every instruction of a build without native steps) and the
  * observation of the instructions run from RAM, the TOS ROM or the cartridge area: lines "pc words" (the instruction's own bytes). */
 uint64_t rr_st_interpreted_count(const RrStSession *s);
+/* Where the interpreted instructions ran (gate G3 of the qualification: each one listed with its count): once on, every instruction run on Hatari's
+ * interpreter is counted by (pc, opcode) in a table of 65,536 sites; the instructions of a site beyond the table are counted apart (unlisted). Off by
+ * default: the delivered game does not keep the table unless the run asks for it (--interpreted-sites). */
+typedef struct RrStSite { uint32_t pc, opcode; uint64_t count; } RrStSite;
+int rr_st_set_site_count(RrStSession *s, int enabled);
+/* A copy of the sites, the most run first (then by address), at most `max`; the number of sites kept, the distinct ones seen by the table, the instructions not listed. */
+size_t rr_st_site_list(const RrStSession *s, RrStSite *out, size_t max);
+uint64_t rr_st_site_distinct(const RrStSession *s);
+uint64_t rr_st_site_unlisted(const RrStSession *s);
 uint64_t rr_st_native_count(const RrStSession *s);
 /* How many times the 68000 loop entered native code: the native count over this is the mean length of a chain. */
 uint64_t rr_st_chain_entries(const RrStSession *s);
