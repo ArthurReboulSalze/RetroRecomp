@@ -71,7 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `████████░░` 84 % |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `██████████` 97 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
@@ -85,7 +85,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | [MSX](docs/MSX.md) | experimental | `████████░░` 77 % |
 | [MSX2](docs/MSX.md) | experimental | `████████░░` 77 % |
-| [MSX2+](docs/MSX.md) | experimental | `░░░░░░░░░░` 3 % |
+| [MSX2+](docs/MSX.md) | experimental | `███████░░░` 67 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).

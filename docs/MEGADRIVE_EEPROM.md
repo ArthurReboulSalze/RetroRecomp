@@ -1,6 +1,6 @@
 # Mega Drive serial EEPROM
 
-RetroRecomp implements an original wire model for X24C01, X24C02 and 24C04,
+RetroRecomp implements a wire model of our own, written from the datasheets, for X24C01, X24C02 and 24C04,
 with Sega, Acclaim 16 Mbit and Acclaim 32 Mbit cartridge wiring. Board selection
 uses the internal product and actual save header in `megadrive_hardware.py`.
 Unknown serial boards retain an explicit limitation. A parallel-SRAM replacement
@@ -65,7 +65,7 @@ cartridges cannot load an old ordinary-SRAM state as though it were serial.
   zero main/sound interpreter entries. Evidence remains local in
   `.build/md-cartridge-hardware-20261011/`.
 
-The real Wily Wars battery boot and protocol fixtures establish persistence;
+The Wily Wars battery boot and protocol fixtures establish persistence;
 they do not establish completion of the game's save-menu progression. Native
 coverage, shared-hardware CPU comparisons, independent circuit fixtures,
 human gameplay and physical latency remain separate evidence. Other wiring

@@ -297,7 +297,10 @@ gameplay validation of any game, and it changes no gate.
   writes into a folder on request (`Game.exe --write-sources FOLDER`). Retro-Recomp's repository and installer hold no EmuTOS
   file. Notice: [licenses/emutos.md](../licenses/emutos.md).
 - The 68000 decoder of m68k-recomp-core (PolyForm Noncommercial) runs during the conversion only, to tell the length and the
-  target of an observed instruction; since 1.7.2 none of its text enters a game.
+  target of an observed instruction; since 1.7.2 none of its text enters a game. Its author granted the project owner an
+  additional, personal permission (13 November 2026) for this build-time use on the Atari ST target, alongside the GPL
+  components of the exports, on condition that no code of m68k-recomp-core enters them; it does not pass to forks or to other
+  machines: [licenses/m68k-recomp-core-atari-st-permission.md](../licenses/m68k-recomp-core-atari-st-permission.md).
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
 ## 7. Where it stands in the qualification

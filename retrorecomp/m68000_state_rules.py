@@ -4,9 +4,10 @@ The Mega Drive corrected three instructions of that text that the independent ve
 showed wrong (`retrorecomp/megadrive_rules.py`, 1.6.7). The Neo Geo, the CPS-1 and the X68000 translate the same text into
 their native steps, so they differed from the vectors on the same instructions. They apply the same three rules, taken from
 that module (one copy of the text, not a second one): `LINK A7` pushes the value A7 had before the decrement, `UNLK A7` ends
-with the long it popped, and `NEGX` leaves Z alone when the result is zero. The Mega Drive's own rules are not touched, so its
-stamp and its generated code do not move. The other half of `LINK A7` is Musashi, their reference path
-(`retrorecomp/musashi_fixes.py`): both must agree, or a game that runs the instruction would be refused.
+with the long it popped, `NEGX` leaves Z alone when the result is zero, and `ABCD`, `SBCD` and `NBCD` give the result byte and the five flags
+(X, C, N, Z, V) of the independent model Moira (the two helpers, the three call sites and the line that sets V).
+The other half of each is Musashi, their reference path (`retrorecomp/musashi_fixes.py`): both must agree, or a game that runs
+the instruction would be refused.
 
 Applied after `m68000.adapt_semantics`, by the three machines' generators; each profile lists the group `m68000_state_rules`.
 """
@@ -16,8 +17,10 @@ from .conversion_common import replace_counted
 from .core import ConversionError
 from .megadrive_rules import STATE_RULES
 
-# STATE_RULES = (RTR, LINK A7, UNLK A7, NEGX): the RTR rule is not applied here, those machines run RTR on Musashi.
-RULES = {'LINK A7': STATE_RULES[1], 'UNLK A7': STATE_RULES[2], 'NEGX': STATE_RULES[3]}
+# STATE_RULES = (RTR, LINK A7, UNLK A7, NEGX, decimal helpers, ABCD, SBCD, NBCD, decimal V): the RTR rule is not applied here, those machines
+# run RTR on Musashi. The tuple is read by position (new rules are appended there, never inserted).
+RULES = {'LINK A7': STATE_RULES[1], 'UNLK A7': STATE_RULES[2], 'NEGX': STATE_RULES[3], 'decimal helpers': STATE_RULES[4],
+         'ABCD': STATE_RULES[5], 'SBCD': STATE_RULES[6], 'NBCD': STATE_RULES[7], 'decimal V': STATE_RULES[8]}
 
 
 def adapt_state_rules(source: str) -> str:

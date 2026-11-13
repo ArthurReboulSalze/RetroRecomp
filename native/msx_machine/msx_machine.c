@@ -31,6 +31,8 @@ static void rebuild_regions(MsxMachine *m)
             r->device = d->mapper != MSX_MAPPER_PLAIN;          /* writes reach the mapper */
             if (d->mapper == MSX_MAPPER_KONAMI_SCC && d->scc_on && i == 4)
                 r->read = NULL;                                 /* 9800h-9FFFh answer from the SCC */
+            if (d->mapper == MSX_MAPPER_DISK && (i == 3 || i == 5))
+                r->read = NULL;                                 /* 7FF8h-7FFBh and BFF8h-BFFBh answer from the controller */
         }
     }
 }
@@ -220,6 +222,20 @@ void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uin
     msx_set_mapper(m, 3, 2, mapper_ram, segments);
     msx_set_rtc(m);
     msx_set_v9938(m, v9938);
+}
+
+void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxFdc *fdc, uint8_t bank_base)
+{
+    MsxDevice disk;
+    memset(&disk, 0, sizeof disk);
+    disk.kind = MSX_DEV_ROM;
+    disk.rom = rom;
+    disk.size = 0x4000;
+    disk.mapper = MSX_MAPPER_DISK;
+    disk.fdc = fdc;
+    disk.source = 1;                              /* translated as part of the BIOS source */
+    disk.bank_base = bank_base;
+    msx_set_device(m, primary, 0, disk);
 }
 
 void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938)

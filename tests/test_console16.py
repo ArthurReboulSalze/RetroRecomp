@@ -8,7 +8,7 @@ from unittest.mock import patch
 from zipfile import ZipFile
 from retrorecomp.cartridge16 import read_megadrive_rom, read_snes_rom
 from retrorecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, MD_SRAM_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script, _md_menu_confirm_script
-from retrorecomp.core import ConversionError, module_fingerprint
+from retrorecomp.core import SDL_REV, ConversionError, module_fingerprint
 from retrorecomp.snes_chips import device_summary, main_interpreted
 from retrorecomp.systems import profile_for_path, discover_roms
 from retrorecomp.batch import identify, system_output
@@ -334,13 +334,17 @@ class Console16Tests(unittest.TestCase):
         return executable.parents[2 if os.name == 'nt' else 1] / 'checks'
 
     def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced',
-                        scan_level=None, passes=3, persistent=False):
-        """Exercise real conversion scheduling/gates with authored probe results."""
+                        scan_level=None, passes=3, persistent=False, log=None, payload=None, name='Authored.md',
+                        audio_cpu=None):
+        """Exercise real conversion scheduling/gates with authored probe results.
+
+        `log` collects the conversion's lines, `payload` and `name` give another cartridge, `audio_cpu` maps a scenario to the
+        sound CPU word the host reports (native when it is not named)."""
         project = self.root / 'project'
         executable = project / 'build/Release/game.exe'
-        executable.parent.mkdir(parents=True)
+        executable.parent.mkdir(parents=True, exist_ok=True)
         executable.write_bytes(b'authored test executable')
-        source = self.source('Authored.md', md())
+        source = self.source(name, payload or md())
         rom = read_megadrive_rom(source)
         events = []
         scripts = {}
@@ -387,7 +391,7 @@ class Console16Tests(unittest.TestCase):
                 interpreted_opcodes=100 if reference else fallback,
                 audio_native_opcodes=0 if reference else 200, audio_interpreted_opcodes=200 if reference else 0,
                 audio_native_cycles=0 if reference else 800, audio_interpreted_cycles=800 if reference else 0,
-                rom_entries=[{'offset': 42}] if fallback else [], audio_cpu='native')
+                rom_entries=[{'offset': 42}] if fallback else [], audio_cpu=(audio_cpu or {}).get(scenario, 'native'))
             failed_scenario = fail_reference if isinstance(fail_reference, str) else 'advanced'
             if fail_reference and reference and (not advanced or scenario == failed_scenario):
                 data['cpu_hash'] = 2
@@ -404,6 +408,7 @@ class Console16Tests(unittest.TestCase):
             events.append('learn')
             return int(any(check['rom_entries'] for check in checks))
 
+        emit = log.append if log is not None else (lambda text: None)
         with patch('retrorecomp.console16.prepare16', side_effect=prepare), \
                 patch('retrorecomp.console16.probe16', side_effect=probe), \
                 patch('retrorecomp.delivery_evidence.pack_candidate', side_effect=pack), \
@@ -412,12 +417,12 @@ class Console16Tests(unittest.TestCase):
             if fail_reference:
                 with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
                     convert16(source, system_id='md', output=self.root / 'reports',
-                              frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
+                              frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=emit)
                 self.assertNotIn('learn', events)
                 self.assertFalse((self.root / 'reports/conversion-report.json').exists())
                 return events, None
             convert16(source, system_id='md', output=self.root / 'reports',
-                      frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
+                      frames=30, passes=passes, md_advanced_scan=advanced, scan_level=scan_level, emit=emit)
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
         self.assert_written_in_schema_2(report)
         return events, report
@@ -537,6 +542,236 @@ class Console16Tests(unittest.TestCase):
         self.assertTrue(report['native_validation']['packed_reference_match'])
         self.assertEqual(len(report['packed_candidate_sha256']), 64)
         self.assertEqual([check['liveness']['picture_changes'] for check in report['final_checks']], [2, 2])
+
+    # ---- the honesty of the Mega Drive report (gate G15) and what the report states (gate G2, writer side)
+
+    def test_the_md_report_states_its_flags_scope_and_agreement_and_the_reader_does_not_see_none(self):
+        from retrorecomp.report_schema import read_report
+        log = []
+        events, report = self.scan_conversion(advanced=False, log=log)
+        document = read_report(report)
+        for key in ('hardware_fidelity_validated', 'full_game_validated', 'physical_latency_measured',
+                    'independent_cpu_oracle', 'cpu_fidelity_validated', 'universal_zero_fallback_claim'):
+            self.assertIs(document['honesty'][key], False, key)
+        self.assertIs(document['validation']['cpu_fidelity']['agreement'], True)
+        self.assertEqual(set(report['qualification_scope']), {'routes', 'cartridge_hardware', 'universal_zero_fallback_claim'})
+        self.assertIn('not a full playthrough', report['qualification_scope']['routes'])
+        self.assertIs(report['qualification_scope']['universal_zero_fallback_claim'], False)
+        self.assertNotIn('exact', json.dumps(report['qualification_scope']).lower())
+        # The refusal of the oracle and the agreement are in the writer's own keys too (the website and old readers read those).
+        self.assertIs(report['native_validation']['independent_cpu_oracle'], False)
+        self.assertIs(report['native_validation']['cpu_agreement'], True)
+        self.assertIs(report['native_validation']['cpu_fidelity_validated'], False)
+
+    def test_the_md_report_says_main_cpu_only_and_gives_a_coverage_flag_and_a_closing_line(self):
+        from retrorecomp.report_schema import read_report
+        log = []
+        events, report = self.scan_conversion(advanced=False, log=log)
+        self.assertIn('main CPU only', report['native_percentage_scope'])
+        self.assertIn('audio_native_percentage', report['native_percentage_scope'])
+        self.assertIs(report['native_coverage'], True)
+        self.assertEqual(log[-1], 'Mega Drive: TEST ROM ready (no interpreter on the routes played).')
+        self.assertEqual((report['main_cpu'], report['audio_cpu']), ('native', 'native'))
+        main = read_report(report)['cpus'][0]
+        self.assertEqual((main['reported_label'], main['mode']), ('native', 'native'))
+        self.assertIsNone(main['scenarios'][0]['cycles'], 'a count of instructions is never turned into cycles')
+        # A route that still ran recorded interpreter code: the flag, the closing line and the words say so.
+        log = []
+        events, report = self.scan_conversion(advanced=False, learned_scenario='play', passes=2, persistent=True, log=log)
+        self.assertIs(report['native_coverage'], False)
+        self.assertEqual(log[-1], 'Mega Drive: TEST ROM ready (interpreter fallback reported).')
+        self.assertEqual(report['main_cpu'], 'hybrid')
+        self.assertEqual(read_report(report)['cpus'][0]['reported_label'], 'hybrid')
+        # The counts of the sound line carry the native side and the share of cycles (100 % here: 800 native, 0 interpreted).
+        line = next(line for line in log if line.startswith('Mega Drive play: 30 frames,'))
+        self.assertIn('interpreted main CPU opcodes (99 native). Sound CPU: 0 interpreted Z80 opcodes (100.00 % of its cycles native).', line)
+
+    def test_the_sound_cpu_word_is_the_one_of_every_scenario_and_never_the_last_one_alone(self):
+        for words, expected in (({'demo': 'native', 'play': 'native'}, 'native'),
+                                ({'demo': 'hybrid', 'play': 'native'}, 'hybrid'),
+                                ({'demo': 'native', 'play': 'hybrid'}, 'hybrid'),
+                                ({'demo': 'native', 'play': 'interpreted'}, 'hybrid'),
+                                ({'demo': 'not_run', 'play': 'native'}, 'native'),
+                                ({'demo': 'not_run', 'play': 'not_run'}, 'not_run')):
+            with self.subTest(words=words):
+                events, report = self.scan_conversion(advanced=False, audio_cpu=words, learn_new=False)
+                self.assertEqual(report['audio_cpu'], expected)
+        from retrorecomp.console16 import cpu_mode, main_cpu_mode
+        self.assertEqual(cpu_mode(()), 'interpreted')
+        self.assertEqual([main_cpu_mode(*counts) for counts in ((9, 0), (9, 1), (0, 5), (0, 0))],
+                         ['native', 'hybrid', 'interpreted', 'not_run'])
+
+    def test_the_md_report_states_the_state_format_the_saves_the_pads_and_the_sdl_pin_it_knows(self):
+        from retrorecomp.console16_state import MD_PORTABLE_STATE_ABI
+        from retrorecomp.report_schema import read_report
+        events, report = self.scan_conversion(advanced=False)
+        rom = read_megadrive_rom(self.root / 'Authored.md')
+        states = report['game_states']
+        self.assertEqual((states['schema'], states['machine'], states['rom_identity']),
+                         (f'RR16ST1-MD-{MD_PORTABLE_STATE_ABI}', 'md', rom.sha256))
+        # No state was loaded in a fresh process in this conversion (the routes are not chained): nothing says so.
+        self.assertNotIn('fresh_process_verified', states)
+        self.assertNotIn('validation', states)
+        self.assertEqual(report['input_players'], 2)
+        self.assertEqual(report['peripheral'], {'pad': 'three_button', 'gun_device': None})
+        self.assertEqual(report['sdl_revision'], SDL_REV)
+        self.assertNotIn('compiler_signature', report, 'no 16-bit writer computes one')
+        document = read_report(report)
+        self.assertEqual({key: document['states'][key] for key in ('schema', 'machine', 'rom_identity')},
+                         {'schema': states['schema'], 'machine': 'md', 'rom_identity': rom.sha256})
+        self.assertIsNone(document['states']['fresh_process_verified'])
+        self.assertIsNone(document['states']['validation'])
+        self.assertEqual(document['runtime']['input_players'], 2)
+        self.assertEqual(document['runtime']['peripheral'], report['peripheral'])
+        self.assertEqual(document['build']['sdl_revision'], SDL_REV)
+        self.assertIsNone(document['build']['compiler_signature'])
+        # A cartridge with no memory: the verdict is stated, the proof of saves is not.
+        saves = document['saves']
+        self.assertEqual((saves['supported'], saves['scope'], saves['path']), (False, 'none', None))
+        self.assertIn('no battery or extra memory', saves['reason'])
+        self.assertIsNone(saves['validation'])
+        self.assertEqual(saves['cartridge_memory'], {'kind': 'none', 'bytes': 0, 'battery': False})
+
+    def test_chained_routes_are_the_only_fresh_process_state_check_a_conversion_records(self):
+        from retrorecomp.report_schema import read_report
+        with patch('retrorecomp.console16.CHAIN_LONG_ROUTES', True):
+            events, report = self.scan_conversion(advanced=True)
+        states = report['game_states']
+        self.assertIs(states['fresh_process_verified'], True)
+        self.assertEqual(states['validation']['chained_routes'], {'long-2': 'long-1'})
+        self.assertEqual((states['validation']['process'], states['validation']['kind']), ('fresh', 'route_chain'))
+        self.assertIs(states['validation']['compressed_copy'], True)
+        self.assertIs(states['validation']['compared_with_reference'], True)
+        self.assertIn('not a key press', states['validation']['scope'])
+        document = read_report(report)['states']
+        self.assertIs(document['fresh_process_verified'], True)
+        self.assertEqual(document['validation']['chained_routes'], {'long-2': 'long-1'})
+        # Without chaining (the default) the same scan states nothing of the kind.
+        events, report = self.scan_conversion(advanced=True)
+        self.assertNotIn('fresh_process_verified', report['game_states'])
+
+    def test_md_ordinary_saves_follow_the_cartridge_memory_and_never_claim_a_test(self):
+        from retrorecomp.console16 import MD_SAVE_FILE, md_ordinary_saves
+        saved = {'supported': True, 'reason': None, 'path': MD_SAVE_FILE, 'validation': None}
+        for memory, expected in (
+                ({'kind': 'sram', 'bytes': 16384, 'battery': True, 'implemented': True},
+                 {**saved, 'scope': 'battery SRAM, 16384 bytes'}),
+                ({'kind': 'eeprom', 'bytes': 256, 'battery': True, 'chip': 'X24C02', 'implemented': True},
+                 {**saved, 'scope': 'serial EEPROM X24C02, 256 bytes'}),
+                ({'kind': 'sram', 'bytes': 8192, 'battery': False, 'implemented': True},
+                 {'supported': False, 'path': None, 'validation': None, 'scope': 'sram without a battery',
+                  'reason': 'the cartridge declares extra RAM without a battery: it is not kept between runs'}),
+                ({'kind': 'eeprom', 'bytes': 0, 'battery': True, 'implemented': False},
+                 {'supported': False, 'path': None, 'validation': None, 'scope': 'eeprom, circuit not implemented',
+                  'reason': 'this EEPROM circuit is not implemented; use the F8/F9 quick states'}),
+                ({'kind': 'none', 'bytes': 0, 'battery': False},
+                 {'supported': False, 'path': None, 'validation': None, 'scope': 'none',
+                  'reason': 'the cartridge declares no battery or extra memory (cartridge_memory: none)'})):
+            with self.subTest(memory=memory):
+                self.assertEqual(md_ordinary_saves(memory), expected)
+        # The file is the one the game writes: native/cart_save.c names it datas/saves/<name>-<12 hex>.rrsram.
+        self.assertEqual(MD_SAVE_FILE, 'datas/saves/<game-slug>-<rom-sha12>.rrsram')
+        source = (Path(__file__).resolve().parents[1] / 'native' / 'cart_save.c').read_text(encoding='utf-8')
+        self.assertIn('rr_game_data_file(path, capacity, "saves", RR16_STATE_NAME, RR16_STATE_ROM, ".rrsram")', source)
+        # The reader derives the same verdict from the layout alone for a report that has no such key.
+        from retrorecomp.report_schema import read_report
+        events, report = self.scan_conversion(advanced=False)
+        legacy = {key: value for key, value in report.items() if key != 'ordinary_saves'}
+        legacy.pop('schema'), legacy.pop('read_from')
+        derived = {key: read_report(legacy)['saves'][key] for key in ('supported', 'reason')}
+        self.assertEqual(derived, {key: report['ordinary_saves'][key] for key in ('supported', 'reason')})
+
+    def test_a_battery_cartridge_states_its_save_file_in_the_conversion_report(self):
+        from retrorecomp.report_schema import read_report
+        payload = bytearray(md())
+        payload[0x1b0:0x1b4] = b'RA\xe0\x20'                       # battery-backed RAM, one byte per address
+        payload[0x1b4:0x1bc] = (0x200000).to_bytes(4, 'big') + (0x203fff).to_bytes(4, 'big')
+        events, report = self.scan_conversion(advanced=False, payload=bytes(payload))
+        self.assertEqual(report['cartridge_memory']['kind'], 'sram')
+        saves = read_report(report)['saves']
+        self.assertEqual((saves['supported'], saves['scope'], saves['path']),
+                         (True, 'battery SRAM, 16384 bytes', 'datas/saves/<game-slug>-<rom-sha12>.rrsram'))
+        self.assertIsNone(saves['validation'])
+        self.assertEqual(saves['cartridge_memory']['kind'], 'sram')
+
+    def test_the_md_pad_is_three_or_six_buttons_as_the_cartridge_profile_says_and_a_gun_is_the_catalogues(self):
+        payload = bytearray(md())
+        payload[0x190:0x192] = b'J6'
+        events, report = self.scan_conversion(advanced=False, payload=bytes(payload))
+        self.assertEqual(report['peripheral'], {'pad': 'six_button', 'gun_device': None})
+        events, report = self.scan_conversion(advanced=False, name='Menacer.md')
+        self.assertEqual(report['peripheral'], {'pad': 'three_button', 'gun_device': 'menacer',
+                                                'device': 'menacer', 'port': 2, 'host_input': 'mouse'})
+        self.assertEqual(report['input_players'], 2)
+
+    def test_the_super_nintendo_report_changes_only_in_the_words_of_the_sound_cpu_the_scope_of_its_percentage_and_the_log(self):
+        """G15 of the Mega Drive shares console16.py with the Super Nintendo: what reaches it is W3 (the sound CPU's word over
+        every scenario, `native_percentage_scope`) and the lines of the log (W9, W10); every Mega Drive key stays out of its report."""
+        from retrorecomp.report_schema import read_report
+        executable = self.root / 'snes-words/build/Release/game.exe'
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b'authored executable')
+        source = self.source('Words.sfc', snes())
+        log = []
+
+        def probe(executable, directory, frames, *, play=False, reference=False, **options):
+            from retrorecomp.snes_cart import REPORT_FIELDS
+            scenario = 'play' if play else 'demo'
+            fields = SNES_AUDIO_FIELDS + REPORT_FIELDS + ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash',
+                'vram_hash', 'cram_hash', 'cpu_pc', 'oam_hash', 'high_oam_hash', 'apu_ram_hash',
+                'cpu_cycles', 'master_cycles', 'apu_cycles')
+            data = dict.fromkeys(fields, 1)
+            data.update(scenario=scenario, frames=frames, native_entries=100, interpreted_opcodes=0,
+                audio_native_opcodes=200, audio_interpreted_opcodes=0, audio_native_cycles=800, audio_interpreted_cycles=0,
+                audio_cpu='hybrid' if scenario == 'demo' else 'native')
+            if options.get('trace'): write_snes_trace(directory, scenario)
+            return data
+
+        with patch('retrorecomp.console16.prepare16', return_value=executable), \
+                patch('retrorecomp.console16.probe16', side_effect=probe), \
+                patch('retrorecomp.supernintendo.learn_ram_variants', return_value=0), \
+                patch('retrorecomp.snes_spc.learn', return_value=0), \
+                patch('retrorecomp.delivery_evidence.pack_candidate', side_effect=lambda built, target, emit: Path(target).write_bytes(Path(built).read_bytes())), \
+                patch('retrorecomp.console16.reference_differences', return_value=[]):
+            convert16(source, system_id='snes', output=self.root / 'reports', frames=30, passes=1, emit=log.append)
+        report = json.loads((self.root / 'reports/conversion-report.json').read_text())
+        self.assert_written_in_schema_2(report)
+        # W3: the word over both scenarios (the last alone would have said native), and the scope beside the percentage.
+        self.assertEqual(report['audio_cpu'], 'hybrid')
+        self.assertIn('main CPU only', report['native_percentage_scope'])
+        # Nothing of the Mega Drive's additions: no key, and the keys they extend keep their former content.
+        for key in ('main_cpu', 'native_coverage', 'input_players', 'ordinary_saves', 'sdl_revision'):
+            self.assertNotIn(key, report)
+        self.assertEqual(set(report['game_states']), {'supported', 'save_key', 'load_key', 'slots', 'compatibility'})
+        self.assertEqual(set(report['qualification_scope']), {'routes', 'coprocessors', 'universal_zero_fallback_claim'})
+        self.assertIsNone(report['peripheral'])
+        self.assertNotIn('cpu_agreement', report['native_validation'])
+        self.assertIs(report['native_validation']['independent_cpu_oracle'], False)
+        document = read_report(report)
+        self.assertIsNone(document['cpus'][0]['reported_label'])
+        self.assertIsNone(document['saves']['supported'])
+        self.assertIsNone(document['runtime']['input_players'])
+        self.assertIsNone(document['build']['sdl_revision'])
+        # The log: the line of each route keeps its SNES form (no native count), there is no closing line, the comparison line is W9's.
+        self.assertIn('Super Nintendo demo: 30 frames, 0 interpreted main CPU opcodes. Sound CPU: 0 interpreted SPC700 opcodes.', log)
+        self.assertFalse(any(line.endswith('ready (no interpreter on the routes played).') for line in log))
+        self.assertIn('Internal reference comparison (the same build with every instruction interpreted): CPU, memory, visible '
+                      'frames and audio PCM match. Not a hardware comparison.', log)
+        self.assertIn('65816 and SPC700 sound CPU use guarded native code. Hardware fidelity is a separate check.', log)
+
+    def test_the_log_lines_of_the_md_conversion_say_what_the_interpreter_and_the_reference_are(self):
+        log = []
+        self.scan_conversion(advanced=False, log=log)
+        self.assertIn('68000 and sound Z80: guarded native code, with a counted interpreter for what is not translated. '
+                      'Hardware fidelity is a separate check.', log)
+        self.assertTrue(any('Internal reference comparison (the same build with every instruction interpreted)' in line
+                            and line.endswith('Not a hardware comparison.') for line in log))
+        # The lines the stubbed build would print are in the sources (the build is not run here).
+        from retrorecomp import console16, console16_optimization
+        sources = [Path(module.__file__).read_text(encoding='utf-8') for module in (console16, console16_optimization)]
+        self.assertTrue(all('exact PC/stack' not in text and 'full validation' not in text for text in sources))
+        self.assertIn('guest PC and stack kept in the native code.', sources[0])
+        self.assertIn('the route checks follow.', sources[1])
 
     def test_standard_md_divergence_does_not_enter_the_memory_library(self):
         events, report = self.scan_conversion(advanced=False, fail_reference=True)

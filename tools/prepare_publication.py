@@ -93,7 +93,7 @@ tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translat
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py retrorecomp/atarist_notes.py docs/ATARI_ST.md
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
-native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md
+native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md licenses/m68k-recomp-core-atari-st-permission.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py tests/test_atarist_disk.py tests/test_atarist_notes.py tests/test_atarist_timer_d.py
 native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
 native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py native/amiga_machine/amiga_display_checks.cpp native/amiga_machine/amiga_bus.h native/amiga_machine/amiga_bus.cpp tools/amiga_display_selftest.py tests/test_amiga_display.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
@@ -101,13 +101,13 @@ native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
 native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
-native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py tests/test_msx_rom.py tools/msx_first_read.py
-native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tests/test_msx_native.py
+native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py tests/test_msx_rom.py tools/msx_first_read.py
+native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
-native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
+native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
@@ -237,7 +237,7 @@ retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
 retrorecomp/timings.py tests/test_timings.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
-retrorecomp/dropfiles.py tests/test_dropfiles.py
+retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc
 native/snes_dsp1_vectors.h
 tools/snes_hdma_selftest.py
@@ -430,6 +430,7 @@ retrorecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
+native/md_bcd_checks.c native/amiga_machine/moira_vector_maker.cpp tools/megadrive_moira_vectors.py tests/test_md_moira_vectors.py
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
 tests/test_megadrive_rules.py tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py tools/megadrive_variant_cap_selftest.py tools/megadrive_mame_compare.py tools/megadrive_cross_os.py
 tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE

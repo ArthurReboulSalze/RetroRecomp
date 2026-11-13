@@ -131,6 +131,19 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(msx_routes.candidates(3600), [1, 2, 3, 4, 6, (1, 'RETURN'), (2, 'RETURN'), (3, 'RETURN')])
         self.assertEqual(sorted(msx_routes.candidates(3600), key=msx_routes.variant_order)[:2], [1, (1, 'RETURN')])
 
+    def test_a_multi_disk_game_gets_its_next_disks_on_the_long_routes(self):
+        from retrorecomp import msx_routes
+        self.assertEqual(msx_routes.disk_changes(18000, 1), [])
+        self.assertEqual(msx_routes.disk_changes(18000, 3), [('disk', 6000, 1), ('disk', 9000, 2)])
+        rows = msx_routes.routes(self.IDENTITY, frames=3600, level='extended', disks=3)
+        self.assertNotIn(' disk ', rows[1][2])                       # play: never a disk change
+        long_route = rows[2][2].splitlines()
+        self.assertIn('6000 disk 1', long_route)
+        self.assertIn('9000 disk 2', long_route)
+        frames = [int(line.split()[0]) for line in long_route]
+        self.assertEqual(frames, sorted(frames))
+
+
 
 class QuickStateTests(unittest.TestCase):
     """The MSX's quick states: the shared envelope, the build binding, the damaged copies the conversion feeds the game."""
@@ -259,6 +272,65 @@ class Msx2OrMsx2PlusTests(unittest.TestCase):
                 self.assertEqual(decided(path), hint)
 
 
+class Msx2PlusDiskInputTests(unittest.TestCase):
+    """MSX2+ disks as the converter reads them (msx_disk.py) and identifies them: a .dsk, a set grouped by
+    rom_sources.disk_sets into an M3U marked with the machine, sizes checked, an identity for the set."""
+
+    def test_a_disk_a_set_and_what_is_refused(self):
+        import tempfile
+        from retrorecomp.batch import identify
+        from retrorecomp.msx_disk import read_disks
+        from retrorecomp.rom_sources import disk_sets
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            one = root / 'Game (Disk 1 of 2).dsk'
+            two = root / 'Game (Disk 2 of 2).dsk'
+            one.write_bytes(bytes(737280))
+            two.write_bytes(bytes([1]) * 368640)
+            single = read_disks(one)
+            self.assertEqual((single.size, len(single.disks)), (737280, 1))
+            sets = disk_sets([two, one], root / 'sets')
+            self.assertEqual(sets.grouped, 1)
+            playlist = sets.paths[0]
+            self.assertIn('# Retro-Recomp system: msx2plus', playlist.read_text(encoding='utf-8'))
+            both = read_disks(playlist)
+            self.assertEqual([p.name for p in both.disks], [one.name, two.name])
+            self.assertNotEqual(both.sha256, single.sha256)
+            self.assertEqual(identify(playlist).system, 'msx2plus')
+            self.assertEqual(identify(one).system, 'msx2plus')
+            bad = root / 'bad.dsk'
+            bad.write_bytes(bytes(1000))
+            with self.assertRaises(ValueError):
+                read_disks(bad)
+
+    def test_the_authored_write_disk_is_a_disk_the_converter_reads(self):
+        """tools/msx_write_disk.py, the disk that proves the write path (no game data): 720 KiB, an MSX-DOS boot sector with
+        its BPB, a boot program that hooks H.STKE and calls PHYDIO with the carry set, the two FATs marked F9h."""
+        import tempfile
+        from retrorecomp.msx_disk import read_disks
+        spec = importlib.util.spec_from_file_location('msx_write_disk', ROOT / 'tools' / 'msx_write_disk.py')
+        writer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(writer)
+        disk = writer.image()
+        self.assertEqual(len(disk), 737280)
+        self.assertEqual(disk[0], 0xEB)
+        self.assertEqual(int.from_bytes(disk[11:13], 'little'), 512)
+        self.assertEqual(int.from_bytes(disk[19:21], 'little'), 1440)
+        self.assertEqual(disk[21], 0xF9)
+        code = writer.boot_code()
+        self.assertEqual(disk[0x1E:0x1E + len(code)], code)
+        self.assertEqual(code[0], 0xD8)                                # RET C: the MSX-DOS boot call (page 0 RAM) writes nothing
+        self.assertIn(bytes((0x22, 0xDB, 0xFE)), code)                 # the hook's address into H.STKE
+        self.assertEqual(code.count(bytes((0xCD, 0x44, 0x01))), 1)     # one PHYDIO call, from the hook
+        self.assertIn(bytes((0x37, 0xCD, 0x44, 0x01)), code)           # SCF / CALL PHYDIO: a write
+        for fat in (1, 4):
+            self.assertEqual(disk[fat * 512:fat * 512 + 3], bytes((0xF9, 0xFF, 0xFF)))
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'write.dsk'
+            path.write_bytes(disk)
+            self.assertEqual(read_disks(path).images, (disk,))
+
+
 class ReportTests(unittest.TestCase):
     """Gate G2: the MSX's rows give the common report v2 its counts, its devices and its route warnings."""
 
@@ -274,7 +346,7 @@ class ReportTests(unittest.TestCase):
     def test_the_writer_names_its_counts_as_the_reader_reads_them(self):
         text = (ROOT / 'retrorecomp' / 'msx_conversion.py').read_text(encoding='utf-8')
         self.assertIn("'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps']", text)
-        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus), 'route_warnings': route_warnings(final_checks)", text)
+        self.assertIn("'hardware_devices': hardware_devices(guess, msx2, plus, len(disks.disks) if disks is not None else 0)", text)
 
     def test_the_devices_are_c_models_with_no_counter(self):
         from types import SimpleNamespace
@@ -286,7 +358,13 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': units})), 4)
         plain = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=True, reason='size'), False)
         self.assertEqual([u['id'] for u in plain], ['plain', 'tms9918a', 'ay-3-8910'])
-        for unit in units + plain:
+        disk = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'),
+                                True, True, 2)
+        self.assertEqual([(u['id'], u['kind']) for u in disk],
+                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit')])
+        self.assertEqual(disk[0]['details']['disks'], 2)
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 3)
+        for unit in units + plain + disk:
             self.assertFalse(unit['details']['hardware_fidelity_validated'])
 
     def test_a_route_that_stops_early_is_named(self):

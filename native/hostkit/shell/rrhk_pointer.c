@@ -103,8 +103,8 @@ static void pointer_draw(RrhkUi *ui, const RrhkMenuCtx *ctx) {
         if (i == 3) snprintf(line, sizeof line, "Scope turbo: %s", ui->pointer_turbo ? "On" : "Off");
         rr_menu_text(ren, ox, oy, unit, 14, 45 + 22 * i, line, RR_MENU_GOLD);
     }
-    rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_HINT_LINE, rr_tr("Enter / A / +: next | -: previous"), RR_MENU_GOLD);
-    if (!ui->status[0]) rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"), RR_MENU_GOLD);
+    rr_menu_hints(ren, ox, oy, unit, 14, RR_MENU_HINT_LINE, 228, rr_tr("Enter / A / +: next | -: previous"), RR_MENU_HINT);
+    if (!ui->status[0]) rr_menu_hints(ren, ox, oy, unit, 14, RR_MENU_LAST_LINE, 228, rr_tr("Left/Right: page | Esc: close"), RR_MENU_HINT);
 }
 
 const RrhkPage rrhk_pointer_page = {"Retro-Recomp - Gun", NULL, pointer_draw, pointer_key};

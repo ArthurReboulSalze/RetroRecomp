@@ -10,6 +10,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
+from .dialogs import popup_menu
 from .branding import COLORS
 from .compiled_games import LEVEL_STARS, Game, default_roots, scan, refresh
 from .path_profiles import STABLE_SHARED
@@ -378,8 +379,7 @@ class CompiledGamesView(ttk.Frame):
         # A game that was created but is wrong: the report carries its conversion report.
         menu.add_command(label=self.tr('report_problem'),command=lambda:self.owner.report_game_problem(self.chosen()[0]),
                          state='normal' if len(self.chosen())==1 and self.owner.report_available() else 'disabled')
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:menu.grab_release()
+        popup_menu(menu,event.x_root,event.y_root)
 
     def play(self):
         if self.running:return

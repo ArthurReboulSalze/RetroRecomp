@@ -33,6 +33,10 @@ SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     const RrhkMachine *m = rrhk.machine;
     int w, h; SDL_GetRendererOutputSize(renderer, &w, &h);
     SDL_Rect own;
+    /* 1.7.4: the stretched mode fills the whole output, the aspect ignored, on every machine. It comes before the machine's own
+     * placement (Master System and Game Gear crops, computers' aspect): what the machine shows of its picture is unchanged, the
+     * rectangle it is drawn into is the screen. */
+    if (rrhk.fullscreen == 3) return (SDL_Rect){0, 0, w, h};
     if (m->game_rect && m->game_rect(w, h, rrhk.fullscreen, &own)) return own;
     int density = m->visible_height() / m->raster_height();
     int horizontal = m->visible_width() / m->display_width();

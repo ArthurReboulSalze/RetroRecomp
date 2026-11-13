@@ -24,14 +24,17 @@ def state_literal(state, pc_offset=4):
     values = [state[key] if key != 'pc' else (state[key] - pc_offset) & 0xffffff for key in REGS]
     return '{' + ','.join(f'{v}u' for v in values) + '}'
 
-def build(fixture_name='md-prefetch'):
+def build(fixture_name='md-prefetch', folder=None, harness=None):
     """Generate and build the replay of a SingleStepTests fixture; `m68k-shifts` is the shift/rotate corpus, without authored
-    cases. Returns the project folder, the checks executable, the fixture and the counts of its external and authored cases."""
+    cases. Returns the project folder, the checks executable, the fixture and the counts of its external and authored cases.
+    `folder` (a folder that holds `cases.json`, in the same format; `fixture_name` then only names the build folder) replaces
+    `tests/fixtures/<name>`, and `harness` (a C file) replaces `native/md_prefetch_checks.c`: tools/megadrive_moira_vectors.py
+    replays vectors made in `.build` that way. Without them nothing differs from what every caller had."""
     project = ROOT / ('.build/megadrive-prefetch-selftest' if fixture_name == 'md-prefetch'
                       else f'.build/megadrive-prefetch-selftest-{fixture_name}')
     project.mkdir(parents=True, exist_ok=True)
     engine = ROOT / '.deps/segagenesisrecomp'
-    fixture = json.loads((ROOT / 'tests/fixtures' / fixture_name / 'cases.json').read_text())
+    fixture = json.loads(((Path(folder) if folder else ROOT / 'tests/fixtures' / fixture_name) / 'cases.json').read_text())
     external_count = len(fixture['tests'])
     authored = (json.loads((ROOT / 'tests/fixtures/md-prefetch/authored.json').read_text())
                 if fixture_name == 'md-prefetch' else {'tests': []})
@@ -86,7 +89,7 @@ def build(fixture_name='md-prefetch'):
     for name in ('md_prefetch.h', 'md_prefetch.inc'):
         shutil.copy2(ROOT / 'native' / name, project / name)
     prefix = engine.as_posix()
-    harness = (ROOT / 'native/md_prefetch_checks.c').as_posix()
+    harness = (Path(harness) if harness else ROOT / 'native/md_prefetch_checks.c').as_posix()
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdExceptions C)
 set(CMAKE_C_STANDARD 11)
