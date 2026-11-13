@@ -87,7 +87,17 @@
   the plates are gone and no menu is open, nothing more is drawn.
 - **The converter window on Linux:** a context menu now closes when you click elsewhere.
 - [AMIGA: pending branch]
-- [GBA: pending branch]
+- **Game Boy Advance (experimental), 47 % to 69 % of its checklist.** A conversion now runs the player it
+  built on both scenarios, then the compressed copy it delivers, and publishes only if the last picture
+  and every frame's picture and sound hash are equal; the report counts the frames that carried a sound
+  and the heals the engine did. The panel of four (Golden Sun, Mario Kart Super Circuit, The Minish Cap,
+  Crazy Taxi) and eight more cartridges were converted from an empty library: native equal to the
+  engine's interpreter and 0 interpreted instructions on the two scenarios. Twelve key-script routes
+  reach play (the first minutes, not a level won), and on four cartridges a Debian 13 PC gives the
+  same last pictures as Windows. A damaged quick state is refused and a missing one creates nothing;
+  Flash 64 KB, Flash 128 KB and EEPROM saves are read back by a fresh process (the SRAM chip is not
+  shown yet). Four routes run millions of interpreted instructions, counted. None of this is a measure
+  of gameplay, hardware fidelity or physical latency.
 
 **Speed.** [SPEED: quiet-PC bench pending]
 
@@ -96,11 +106,10 @@ every machine, and qualification evidence on four machines, each on the evidence
 them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter
 fallback is still counted and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.4 moves the game stamp of every machine but the Game Boy
-Advance and Adventure (ScummVM), so **every export of 1.7.3 on those machines is converted again
-once** when you update, at the quick level, from its learned paths, and the window offers it; the
+**Your exports and quick states.** 1.7.4 moves the game stamp of every machine but Adventure (ScummVM), so **every export of 1.7.3
+on those machines, the Game Boy Advance included, is converted again once** when you update, at the quick level, from its learned paths, and the window offers it; the
 shared paths of the base are kept. The host stamp of every machine moves with the new interface: a
-Game Boy Advance or ScummVM export is only **upgraded**, rebuilt from its learned paths with no
+ScummVM export is only **upgraded**, rebuilt from its learned paths with no
 rediscovery (ScummVM's games look the same afterwards). No build stamp moves. The Mega Drive and
 Super Nintendo quick-state keys hash the interface's files, and the Amiga, Atari ST, Nintendo 64
 and X68000 bind their states to their build, so a quick state of 1.7.3 is refused cleanly on those
