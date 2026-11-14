@@ -3,9 +3,9 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Eighteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+never hidden. Nineteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16 and, experimental, the Game Boy Advance, the Commodore Amiga, the Atari ST, the Nintendo 64,
-the Sony PlayStation, the MSX and the MSX2; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Sony PlayStation, the MSX, the MSX2 and the MSX2+; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 

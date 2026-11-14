@@ -102,7 +102,7 @@ measures, and it never decides a status: leaving the experimental status is the 
 
 The Capcom CPS-1 line includes its 18 QSound boards (CPS-1.5). Some machines need files you supply yourself: the Neo Geo
 and the Game Boy Advance (their BIOS), the Sharp X68000 (its IPL and font ROM), and the QSound boards and the Capcom CPS-2 (their DSP ROM, and for the
-CPS-2 the key file of the romset). The Atari ST (a TOS), the PlayStation (a BIOS) and the MSX and the MSX2 (an MSX or MSX2 BIOS) take your own as an option and have a free fallback. The Commodore Amiga takes your own Kickstart image, needed only by the installs that ask for one. What each machine converts, its options
+CPS-2 the key file of the romset). The Atari ST (a TOS), the PlayStation (a BIOS) and the MSX, MSX2 and MSX2+ cartridges (an MSX, MSX2 or MSX2+ BIOS) take your own as an option and have a free fallback; MSX2+ disks need your own MSX2+ BIOS and disk ROM. The Commodore Amiga takes your own Kickstart image, needed only by the installs that ask for one. What each machine converts, its options
 and its limits are on its page.
 
 ### In development
@@ -116,7 +116,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.4.** The MSX2+ opens as an experimental machine, for cartridges and, with your own BIOS and disk ROM, disk games. Every machine's games get a new in-game interface: F2 as tiles, a "Quit?" question, the keys shown when a game opens, and a stretched F4 mode. The MSX and the MSX2 keep the battery saves of their ASCII cartridges, the Atari ST reads more disks as the TOS does, and the Mega Drive's report says what each conversion checked, with the same routes on Windows and Linux. [AMIGA: pending branch] The Game Boy Advance conversion replays the file it delivers against the player it built, and twelve cartridges' routes into play are checked (69 % of its checklist). Every export of 1.7.3 is converted again once, except on Adventure (ScummVM), where it is only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.4.** The MSX2+ opens as an experimental machine, for cartridges and, with your own BIOS and disk ROM, disk games. Every machine's games get a new in-game interface: F2 as tiles, a "Quit?" question, the keys shown when a game opens, and a stretched F4 mode. The MSX and the MSX2 keep the battery saves of their ASCII cartridges, the Atari ST reads more disks as the TOS does, and the Mega Drive's report says what each conversion checked, with the same routes on Windows and Linux. The Amiga refuses a damaged quick state and keeps the files of games that save, like Panza Kick Boxing's boxers. X68000 games open from a linked folder, and Lagoon gets its system disk back by itself. The Game Boy Advance conversion replays the file it delivers against the player it built, and twelve cartridges' routes into play are checked (69 % of its checklist). Every export of 1.7.3 is converted again once, except on Adventure (ScummVM), where it is only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
