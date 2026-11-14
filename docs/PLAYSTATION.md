@@ -105,6 +105,52 @@ Each line is one measure; none says anything about the others. The record is in
 - **Linux**: Ape Escape, converted on a Debian 13 PC with GCC, gives the same hashes as Windows on both routes. One disc, and no
   game played on Linux.
 
-## 5. Not in this first scope
+## 5. Leaving the experimental status: what each gate means here
+
+The PlayStation is, like the Amiga and the Atari ST, an emulator core with native code. Beetle PSX runs the machine, and the
+conversion turns the R3000A code its routes ran into native steps. The gates of [STANDARDS.md](STANDARDS.md#supported-checklist)
+are read for it as they were for those two machines, which left the experimental status in 1.7.5. A gate is `Y` only when what
+is written here is shown. Anything less is `P`, with what is missing named. No gate says hardware fidelity, gameplay coverage or
+latency.
+
+- **Native code (G3).** Native: the R3000A instructions in main RAM and in the BIOS that the routes ran, as guarded steps holding
+  the interpreter's own handler bodies. Not native, and not counted as such: the GPU, SPU, CD-ROM controller, MDEC, DMA and
+  timers, which Beetle emulates (as vAmiga emulates the Amiga's chips), and the GTE's arithmetic, which a COP2 step calls in
+  Beetle's GTE code. **Met:** on every final route of every panel disc, either no instruction runs on the interpreter, or each
+  one that does is listed in the report by address, with its count and its reason. The reasons are an interrupt pending at that
+  instruction (the interpreter takes it), a word beyond the four kept for one address, or code the observation did not hold.
+  None may be left unexplained. Today the report gives totals only (0.0003 % to 0.0165 % on the routes), so the list is the
+  work. Code past the routes runs on the counted interpreter, as on every machine: no whole-game claim.
+- **CPU fidelity, the reference (G4).** The reference is a fresh run of the same machine with every instruction on Beetle's
+  interpreter: the observing build, which records the code it runs and does not change the machine. **Met:** on every frame of
+  every final route of every panel disc, the delivered executable equals that reference in RAM, picture and sound, as today,
+  and in the CPU's own state. That state is the 32 registers, HI and LO, the PC, the COP0 registers a game sees (SR, CAUSE,
+  EPC) and the GTE's registers. Today's per-frame trace holds RAM, picture and sound only, so the CPU state is the part to add
+  (the Amiga's trace carries its registers). This is agreement with Beetle's interpreter, not with a real R3000A.
+- **CPU fidelity, independent (G10).** The corpus: SingleStepTests/r3000 (55,000 vectors, made from ares's interpreter), run
+  on Beetle's interpreter and on the native steps, and the GTE vectors of JaCzekanski/ps1-tests (1,150, recorded on a console
+  according to their author). **Met for `Y`:** every vector passes on both paths with none unexplained, the check of the check
+  sees a corrupted vector, and the GTE vectors also pass through native COP2 steps, not only on the GTE directly. The R3000A
+  vectors hold no COP0 or GTE instruction and come from a model, not silicon; that stays written beside the letter. Without the
+  COP2 path, G10 stays `P`, as it was for the Amiga, the Atari ST and the X68000 when they left.
+
+The other gates are read as on the Amiga and the Atari ST:
+
+- **Saves (G7):** two games save to the first memory card on their route. A fresh process of the delivered file reads the card
+  back, and a damaged card file is set aside and never blocks the game.
+- **Liveness and depth (G8, G9):** each panel disc's long route gets past its loading screens and cut-scenes into play, and its
+  pictures are read. A route that cannot do so (a protection, a peripheral the game requires) is named in the report with its
+  reason, and is never forced past it by a patch.
+- **Hardware evidence (G11):** ps1-tests' GPU, timer and CD-ROM tests run on the machine and their results are recorded. This is
+  `P` on every machine: named behaviours, not the chips.
+- **Panel and platforms (G12, G13):** 7 or 8 discs with written reasons, none dropped for failing, and at least four of them as
+  risk cases in `tools/campaign-risk-cases.json`. One or two discs on a Debian 13 PC give the same route hashes as on Windows.
+- **Owner acceptance (G14):** the owner plays the delivered discs and decides. No tool or agent fills this gate.
+- **Honesty (G15):** the interface, the exported game's window and its report are read for claims.
+- **Shared knowledge (G16):** a supported machine either shares its paths or is declined on its panel's measured evidence that
+  received paths would add no native instruction and save no conversion pass (the owner's rule of 14 November 2026). The
+  PlayStation shares nothing today and that evidence is not measured, so G16 needs either that measurement or the sharing.
+
+## 6. Not in this first scope
 
 Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.
