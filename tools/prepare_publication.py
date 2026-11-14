@@ -99,7 +99,7 @@ native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py 
 native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py native/amiga_machine/amiga_display_checks.cpp native/amiga_machine/amiga_bus.h native/amiga_machine/amiga_bus.cpp tools/amiga_display_selftest.py tests/test_amiga_display.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
 native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
-tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
+tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_keys_check.py tests/test_atarist_keys_check.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
 native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
 native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py tests/test_msx_rom.py tools/msx_first_read.py
 native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py

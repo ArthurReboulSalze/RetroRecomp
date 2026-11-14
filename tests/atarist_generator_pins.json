@@ -2,6 +2,6 @@
  "revision": 1,
  "sources": {
   "retrorecomp/atarist_codegen.py": "c184a52d980402eb77aa947ac72547207dd1607fcaaabca9dc9dab8d6a3fb29d",
-  "retrorecomp/atarist_hatari.py": "fab76934b58ff2c5efa01b9fda1beed7c10e24da20d06d19126f21552e7be46e"
+  "retrorecomp/atarist_hatari.py": "35208d310f4e6dd92f1d0b20af04effc89a13b07497bbcd587c936fda6ebfa57"
  }
 }
