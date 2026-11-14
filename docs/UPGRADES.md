@@ -86,6 +86,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
 
@@ -144,6 +145,31 @@ player's own firmware image (the IPL, the Kickstart, the TOS). The code that doe
 - **Stamps** (`compilation_inputs.role_stamps`, this branch against `9f9e9ce9`): **the game stamp of the X68000 only** (the new module is in its
   inputs, the group `shares:m68k_media_knowledge`); no host or build stamp; no quick-state key. An X68000 export of 1.7.4 is converted once in full,
   with the same result.
+
+## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
+
+**What changes.** The mapper probe of an ASCII cartridge runs the reference with a blank SRAM behind every bank value past the cartridge
+(`--sram-probe` of `msx_reference_main.c`): the game's writes to that SRAM are counted apart (`sram_writes`) instead of as writes the cartridge
+would ignore, and one register write is no longer evidence when another candidate's run made two (`msx_build.choose_mapper`). Deep Dungeon
+(ASCII 8, 2 KiB SRAM) was read as ASCII 16 and Super Daisenryaku (ASCII 16, 2 KiB SRAM) as ASCII 8; both convert with their own mapper now,
+and the sixteen other cartridges probed keep their choice. Five risk cases each for the MSX and the MSX2 join `tools/campaign-risk-cases.json`,
+and the campaign's MSX share folder is `msx1`. Path sharing is declined for the MSX and the MSX2 (`DECLINED['path_sharing']`; the evidence is in
+[MSX.md](MSX.md#7-where-it-stands-in-the-qualification)), so nothing of the base changes for them. The MSX2 profile's note says its clock's battery
+memory is not kept.
+
+**Hot path:** none; the probe runs before the conversion, on the reference only.
+
+**What moves:** the MSX, MSX2 and MSX2+ game stamps (`msx_build.py`, `msx_conversion.py`, `msx_reference_main.c`, `systems/msx.py`). No other
+machine's stamp moves (checked against `v1.7.4` and main with `RetroRecomp.py _compilation-stamps`). A previous export of an ASCII cartridge whose
+probe now chooses another mapper was built with the wrong one: convert it again (Deep Dungeon and Super Daisenryaku among the panel's).
+
+**Status.** The MSX and the MSX2 are supported from 1.7.5, on the owner's decision of 14 November 2026 after his play test (the owner-acceptance
+table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the MSX2+ stays experimental. The status lives in `retrorecomp/systems/msx.py`,
+which the three profiles share, so the change moves the MSX, MSX2 and MSX2+ game stamps once more; the 1.7.5 update handles it as for the PC
+Engine, and the delivered exports are not converted again. `tools/status_lint.py` no longer reads the page name `MSX.md` in a link as the
+MSX (the three profiles share their page).
+
+**Quick states:** the layout is unchanged (`msx-state-5`).
 
 ## Exports of 1.7.3 in 1.7.4
 

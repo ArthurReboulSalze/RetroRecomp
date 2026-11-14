@@ -240,7 +240,7 @@ UPX = Upstream(
 SST_Z80 = Upstream(
     'SingleStepTests/z80', 'SingleStepTests/z80', 'main', 'independent Z80 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_z80_vectors.py into .deps; not shipped',
-    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md'))
+    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md', 'msx', 'msx2', 'msx2plus'))
 SST_SM83 = Upstream(
     'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',

@@ -272,6 +272,14 @@ class Msx2OrMsx2PlusTests(unittest.TestCase):
                 self.assertEqual(decided(path), hint)
 
 
+class StatusTests(unittest.TestCase):
+    def test_the_msx_and_msx2_are_supported_and_the_msx2plus_experimental(self):
+        """The owner's play test of 14 November 2026 (G14): the MSX and the MSX2 leave the experimental status; the MSX2+ stays."""
+        from retrorecomp.systems import get_profile
+        self.assertEqual([get_profile(s).status for s in ('msx', 'msx2', 'msx2plus')], ['supported', 'supported', 'experimental'])
+        self.assertEqual([get_profile(s).linux for s in ('msx', 'msx2')], ['witnessed', 'witnessed'])
+
+
 class Msx2PlusDiskInputTests(unittest.TestCase):
     """MSX2+ disks as the converter reads them (msx_disk.py) and identifies them: a .dsk, a set grouped by
     rom_sources.disk_sets into an M3U marked with the machine, sizes checked, an identity for the set."""
