@@ -612,7 +612,7 @@ liveness counts say that it changes).
 ### G6, the quick state is checked by a checksum
 
 The engine's state file has no checksum of the memory it holds: a byte inverted in the middle was accepted (the fresh-process check of 13 November reported it as the one form it did not require). The
-player now writes the state inside an envelope of its own (`RRGS`, a version, the length and a 64-bit hash of the engine's bytes) and refuses, before the engine sees it, a file that was
+player now writes the state inside the envelope the Z80 machines and the MSX share (`native/state_envelope.h`: a magic, a schema, the game's SHA-256, the length and a CRC-32 of the engine's bytes) and refuses, before the engine sees it, a state of another game or a file that was
 cut, grown or damaged anywhere; a state of an earlier build, without the envelope, is refused cleanly too (quick states may break between releases). `gba_fresh_process.py refusals` on the delivered
 Golden Sun: **eight of eight** damaged forms (emptied, cut in half, last byte missing, grown by 64 bytes, the first 16 bytes inverted, the identity inverted, noise of the same size, one byte inverted
 in the middle) are refused with a message, the game goes on as a run that never loaded a state, and a missing state creates no file; the fresh-process state check (saved by one process, loaded by another,

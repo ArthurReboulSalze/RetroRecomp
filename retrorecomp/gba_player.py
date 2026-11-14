@@ -24,7 +24,7 @@ SUPPORT = ('platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu
            'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h',
            'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
            'console16_video.h', 'runtime_feedback.h', 'runtime_feedback.c', 'runtime_feedback_sdl.h',
-           'gba_machine.h', 'gba_machine.cpp')
+           'gba_machine.h', 'gba_machine.cpp', 'state_envelope.h', 'state_io.h', 'gamestate.h')
 ROM_RESOURCE, BIOS_RESOURCE, NOTICES_RESOURCE, IDENTITY_RESOURCE = 201, 202, 203, 205
 
 CMAKE = '''cmake_minimum_required(VERSION 3.20)
@@ -88,8 +88,8 @@ def prepare(player: Path, stage: Path, game: Path, bios_code: Path, rom_file: Pa
     from .gba import save_type
     save_limit = SAVE_LIMITS.get(save_type(Path(rom_file).read_bytes())[0], 0)
     write_if_changed(player / 'gba_game.h', ('#pragma once\n#define RR_GBA_TITLE %s\n#define RR_GBA_NAME %s\n#define RR_GBA_ROM_SHA1 "%s"\n'
-                                              '#define RR_GBA_ROM_RESOURCE %d\n#define RR_GBA_BIOS_RESOURCE %d\n#define RR_GBA_SAVE_LIMIT %d\n'
-                                              % (json.dumps(title), json.dumps(name), sha1, ROM_RESOURCE, BIOS_RESOURCE, save_limit)).encode('utf-8'))
+                                              '#define RR_GBA_ROM_RESOURCE %d\n#define RR_GBA_BIOS_RESOURCE %d\n#define RR_GBA_SAVE_LIMIT %d\n#define RR_GBA_ROM_SHA256 "%s"\n'
+                                              % (json.dumps(title), json.dumps(name), sha1, ROM_RESOURCE, BIOS_RESOURCE, save_limit, sha256)).encode('utf-8'))
     write_if_changed(player / 'runtime_feedback_config.h', f'#define RR_FEEDBACK_SYSTEM "gba"\n#define RR_FEEDBACK_IDENTITY "{sha256}"\n'.encode('ascii'))
     from .notices import notice_text
     # The submodule's own licence file at the pin, beside the page that quotes it (licenses/gbarecomp.md).

@@ -26,6 +26,7 @@
 #include "platform_io.h"
 #include "rr_driver.h"
 #include "runtime.h"
+#include "state_envelope.h"
 
 namespace {
 
@@ -288,59 +289,26 @@ bool state_location(wchar_t* path, size_t capacity, const char* folder, const ch
     return rr_game_data_file(path, capacity, folder, RR_GBA_NAME, RR_GBA_ROM_SHA1, suffix) != 0;
 }
 
-// The quick state file is the engine's own state inside an envelope of ours: `RRGS`, a version, the length of the engine's bytes and a hash of them (FNV-1a, 64 bits). The
-// engine's format checks its magic, its version, the cartridge's SHA-1 and the structure of its sections but has no checksum of the memory it holds, so a byte flipped in
-// the middle of the file was accepted. A file that was cut, grown or damaged anywhere is now refused before the engine sees it; a file of the engine's own format (no envelope,
-// written by an earlier build) is refused as well: quick states may break between releases.
-constexpr uint8_t kStateMagic[4] = {'R', 'R', 'G', 'S'};
-constexpr uint32_t kStateVersion = 1;
-constexpr size_t kStateHeader = 24;
+// The quick state file is the engine's own state inside the envelope the other machines share (state_envelope.h: a magic, a schema, a machine, the game's SHA-256, the length
+// of the body and its CRC-32). The engine's format checks its magic, its version, the cartridge's SHA-1 and the structure of its sections but has no checksum of the memory it
+// holds, so a byte flipped in the middle of the file was accepted. A file that was cut, grown or damaged anywhere, or that belongs to another game, is refused before the engine
+// sees it; a file of the engine's own format (no envelope, written by an earlier build) is refused as well: quick states may break between releases. The body is the engine's
+// bytes as they are: `g_state_blob` holds them on the way out and on the way in.
+std::vector<uint8_t> g_state_blob;
 
-uint64_t state_hash(const uint8_t* data, size_t size) {
-    uint64_t hash = 1469598103934665603ull;
-    for (size_t i = 0; i < size; ++i) hash = (hash ^ data[i]) * 1099511628211ull;
-    return hash;
+void gba_state_body(RetroStateIO* io) {
+    if (io->mode == RR_STATE_WRITE) {
+        rr_state_bytes(io, g_state_blob.data(), g_state_blob.size());
+    } else if (io->mode == RR_STATE_CHECK) {
+        io->pos = io->size;
+    } else {
+        g_state_blob.assign(io->data + io->pos, io->data + io->size);
+        io->pos = io->size;
+    }
 }
 
-void put_le(std::vector<uint8_t>& out, uint64_t value, int bytes) {
-    for (int i = 0; i < bytes; ++i) out.push_back(static_cast<uint8_t>(value >> (8 * i)));
-}
-
-uint64_t get_le(const uint8_t* at, int bytes) {
-    uint64_t value = 0;
-    for (int i = bytes - 1; i >= 0; --i) value = (value << 8) | at[i];
-    return value;
-}
-
-std::vector<uint8_t> wrap_state(const std::vector<uint8_t>& engine) {
-    std::vector<uint8_t> out(kStateMagic, kStateMagic + 4);
-    put_le(out, kStateVersion, 4);
-    put_le(out, engine.size(), 8);
-    put_le(out, state_hash(engine.data(), engine.size()), 8);
-    out.insert(out.end(), engine.begin(), engine.end());
-    return out;
-}
-
-// The engine's bytes of an envelope, or the reason it is refused.
-bool unwrap_state(const std::vector<uint8_t>& file, std::vector<uint8_t>& engine, std::string& error) {
-    if (file.size() < kStateHeader || memcmp(file.data(), kStateMagic, 4) != 0) {
-        error = "not a Retro-Recomp Game Boy Advance state (wrong or missing header)";
-        return false;
-    }
-    if (get_le(file.data() + 4, 4) != kStateVersion) {
-        error = "a state of another version of this player";
-        return false;
-    }
-    if (get_le(file.data() + 8, 8) != file.size() - kStateHeader) {
-        error = "the file was cut or grown";
-        return false;
-    }
-    if (get_le(file.data() + 16, 8) != state_hash(file.data() + kStateHeader, file.size() - kStateHeader)) {
-        error = "the file was damaged (its checksum differs)";
-        return false;
-    }
-    engine.assign(file.begin() + kStateHeader, file.end());
-    return true;
+RetroStateEnvelope gba_state_envelope() {
+    return RetroStateEnvelope{"RRGBAST" "\0", 1, 0, RR_GBA_ROM_SHA256, gba_state_body};
 }
 
 uint64_t picture_hash() {
@@ -413,8 +381,11 @@ bool rrgba_state_file(const wchar_t* path, bool load) {
         size_t got;
         while ((got = fread(chunk, 1, sizeof chunk, file)) > 0) bytes.insert(bytes.end(), chunk, chunk + got);
         fclose(file);
-        std::vector<uint8_t> engine;
-        const bool loaded = unwrap_state(bytes, engine, error) && g_api->load_state(engine, error);
+        const RetroStateEnvelope envelope = gba_state_envelope();
+        const int read = rr_state_envelope_read(&envelope, bytes.data(), bytes.size());
+        if (read == RR_STATE_INCOMPATIBLE) error = "a state of another game or of another version of this player";
+        else if (read != RR_STATE_OK) error = "not a state of this player, or cut, grown or damaged";
+        const bool loaded = read == RR_STATE_OK && g_api->load_state(g_state_blob, error);
         if (loaded) {
             g_head = g_tail = 0;       // the sound of the moment the state was taken is not played over the restored one
             g_sum = 0;
@@ -425,8 +396,13 @@ bool rrgba_state_file(const wchar_t* path, bool load) {
         }
         return loaded;
     }
-    std::vector<uint8_t> bytes;
-    return g_api->save_state(bytes, error) && write_atomically(path, wrap_state(bytes));
+    if (!g_api->save_state(g_state_blob, error)) return false;
+    const RetroStateEnvelope envelope = gba_state_envelope();
+    std::vector<uint8_t> file(RR_STATE_ENVELOPE_HEADER + g_state_blob.size());
+    size_t size = 0;
+    if (rr_state_envelope_write(&envelope, file.data(), file.size(), &size) != RR_STATE_OK) return false;
+    file.resize(size);
+    return write_atomically(path, file);
 }
 
 static void run_state_switch(void) {
