@@ -80,7 +80,8 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
-    if (slot == 0) rrhk_option_row(rows, SDL_SCANCODE_F5, "F5 Sprite flicker reduction: %s", rr_tr(extra_sprites ? "ON" : "OFF"));
+    if (slot == 0) rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
+                                        rr_tr(extra_sprites ? "ON" : "OFF"));
 }
 
 static void help_lines(int slot, const char **lines, int *count) {

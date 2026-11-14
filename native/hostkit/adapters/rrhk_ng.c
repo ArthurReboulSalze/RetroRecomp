@@ -36,9 +36,10 @@ static void settings_loaded(RrhkUi *ui) {
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
     if (slot == 0)
-        rrhk_option_row(rows, SDL_SCANCODE_F5, "%s", rr_tr(rr_ng_enhanced() ? "F5 Enhanced Neo Geo: ON" : "F5 Enhanced Neo Geo: OFF"));
+        rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "%s",
+                             rr_tr(rr_ng_enhanced() ? "F5 Enhanced Neo Geo: ON" : "F5 Enhanced Neo Geo: OFF"));
     else
-        rrhk_option_row(rows, SDL_SCANCODE_F11, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
+        rrhk_option_row_icon(rows, SDL_SCANCODE_F11, RR_ICON_ROW_COIN, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
             rr_tr("F11 AES: BIOS neo-epo.bin required") : rr_ng_aes() ? "F11 Console AES -> Arcade MVS (restart)" :
             "F11 Arcade MVS -> Console AES (restart)");
 }

@@ -199,7 +199,8 @@ static bool rr_gb_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
 
 static void rr_gb_option_rows(int slot, RrhkOptionRows *rows) {
     if (slot == 0 && !rr_gb_color_game())
-        rrhk_option_row(rows, SDL_SCANCODE_F5, "F5 Palette: %s", rr_tr(g_palette_idx == 1 ? "Monochrome" : "Classic green"));
+        rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_PALETTE, "F5 Palette: %s",
+                             rr_tr(g_palette_idx == 1 ? "Monochrome" : "Classic green"));
 }
 
 static void rr_gb_help_lines(int slot, const char **lines, int *count) {
