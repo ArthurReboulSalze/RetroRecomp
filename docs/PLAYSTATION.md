@@ -117,10 +117,12 @@ latency.
   the interpreter's own handler bodies. Not native, and not counted as such: the GPU, SPU, CD-ROM controller, MDEC, DMA and
   timers, which Beetle emulates (as vAmiga emulates the Amiga's chips), and the GTE's arithmetic, which a COP2 step calls in
   Beetle's GTE code. **Met:** on every final route of every panel disc, either no instruction runs on the interpreter, or each
-  one that does is listed in the report by address, with its count and its reason. The reasons are an interrupt pending at that
-  instruction (the interpreter takes it), a word beyond the four kept for one address, or code the observation did not hold.
-  None may be left unexplained. Today the report gives totals only (0.0003 % to 0.0165 % on the routes), so the list is the
-  work. Code past the routes runs on the counted interpreter, as on every machine: no whole-game claim.
+  one that does is listed in the report by address, with its count and its reason (`final_checks[].interpreted_by_address`).
+  The reasons are a word beyond the four kept for one address, code the observation did not hold, code outside main RAM and
+  the BIOS, or a word a step holds but was reached from the step of another word at the address before it. None may be left
+  unexplained: the game's own count must equal the sum of the list. An interrupt pending is not a reason: the fetch then runs
+  no instruction (it is counted apart), except a COP2 instruction, which Beetle runs before taking the interrupt and which a
+  step therefore holds too. Code past the routes runs on the counted interpreter, as on every machine: no whole-game claim.
 - **CPU fidelity, the reference (G4).** The reference is a fresh run of the same machine with every instruction on Beetle's
   interpreter: the observing build, which records the code it runs and does not change the machine. **Met:** on every frame of
   every final route of every panel disc, the delivered executable equals that reference in RAM, picture and sound, as today,

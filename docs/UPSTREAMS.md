@@ -472,6 +472,19 @@ To propose upstream (the maintainer posts): the call-stack fix, the save-bus
 fixes and the VRAM mirror, each as a small pull request to `mstan/gbarecomp` with the authored test ROM that shows it. The
 `arm-recomp-core` fixes go to its own repository (MIT). A bump of the pin re-checks the anchors before anything else.
 
+## PlayStation: a fix carried on Beetle PSX (1.7.6)
+
+The machine is prepared by anchored text replacements (`psx_beetle.REPLACEMENTS`, applied by `psx_beetle.adapt`; an anchor
+not found exactly once refuses the pinned tree). Most of them are the game's own seams (the BIOS from memory, the counters
+and the native steps' hook, the Analog button, the CPU state of the trace). One is a fix of the machine:
+
+| Fix | Measure | File of the machine | Anchors |
+|---|---|---|---|
+| Loading a quick state gave back five of the GTE's data registers (OTZ, the Z FIFO, register 23, LZCS and LZCR) from the GTE as it was before the load: `GTE_StateAction` restores them through the macros that read the live registers, not from the values just read from the state (the locals `_OTZ`, `Z_FIFO[i]`, `_Reg23`, `_LZCS`, `_LZCR`). Seen on 14 November 2026 by the CPU-state column of the per-frame trace: Ape Escape's F9 continuation differed in the CPU state on 37 of 600 frames, RAM, picture and sound equal | CPU fidelity (quick states) | `mednafen/psx/gte.c` | 4 |
+
+To propose upstream (the maintainer posts): this fix, as a small pull request to `libretro/beetle-psx-libretro`. A bump of the
+pin re-checks the anchors before anything else.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

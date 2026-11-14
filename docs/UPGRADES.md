@@ -86,6 +86,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+| [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
 
 ## Game Boy Advance: supported (1.7.6)
 
@@ -100,6 +101,30 @@ and every other machine's stamps equal main's.
 **Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
 there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
 schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
+## Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable (1.7.6)
+
+**What changes for a conversion.** The per-frame trace of every route carries a hash of the CPU state a game sees (the R3000A's 32
+registers, LO, HI, the PC, the pending load, SR, CAUSE, EPC and the GTE's 64 registers), so the published game is compared with the
+interpreter on it too, and so is the F9 continuation. Every instruction the interpreter runs on a route is listed by address in the
+report with its reason (`final_checks[].interpreted_by_address`). Two gaps of the native steps are closed: a step that reaches a word
+another step holds at the same address (code loaded over other code) hands it to that step, and a COP2 instruction, which Beetle runs
+with an interrupt pending, is held by a step too. Ape Escape, at the extended level: 0 interpreted instructions on its three routes
+(before: 6,527, 6,613 and 84,619).
+
+**A fix of the machine.** Loading a quick state left five of the GTE's registers as they were before the load (Beetle's
+`GTE_StateAction`; carried as our anchored fix, [UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)).
+
+**Memory card.** A card file the game cannot use (another size, a folder, unreadable) is moved aside whole as
+`<card>.mcr.unusable-N` and the game starts with an empty card; the window says so once. It used to be left in place, unread, and
+nothing was saved for that session. The card stays the raw 128 KiB other programs read. The move is the new shared helper
+`native/save_set_aside.c`, the PlayStation's alone for now.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `a87db1fe`, at its commit `559e7536`): the PlayStation's game
+stamp (`55f0e406d72d` to `523d46a67f00`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal
+main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
+refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
+back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
 
 ## Exports of 1.7.4 in 1.7.5
 
