@@ -86,7 +86,40 @@ stamps that section says move. Each section computed its stamps for its own chan
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## Commodore Amiga: its paths are shared, as the experimental tier of the base (1.7.5, G16)
+
+The Amiga joins `path_profiles.SHARED_SYSTEMS` as the X68000 did: schema 3 records only, qualified per engine revision, withdrawable in one line
+(`EXPERIMENTAL_SHARED`). `retrorecomp/amiga_knowledge.py` binds the common part (`m68k_media_knowledge`) to the Amiga's names.
+
+- **What a path is.** A run of instructions a fresh reference run observed in RAM, found as it is in the install's media (the slave, then the
+  files the slave may load by name, each padded to an even length): a row `[address, offset, length]`. A Kickstart instruction whose words are
+  the image's: a row of the player's 256 KiB Kickstart, valid only for an image of that SHA-256. Numbers only. Code a game unpacks or relocates
+  is not in the files: it stays private and is counted (`knowledge.promotion` in the report).
+- **What a conversion does with received paths.** It rebuilds the instructions from the player's own archive (and Kickstart), checks them like
+  an observation file, and makes them native next to its own; they are never added to the observations the library keeps. The routes then
+  validate the game as always. A failure with imported paths is converted again without them (the batch, as for every machine); one with the
+  player's own record is converted again without it, like the remembered observations. The quick check from shared paths is declined
+  (`quick_check_from_shared=False`): a first conversion runs its own routes.
+- **What it keeps.** The record of its fresh reference runs (never the player's F12 record, the remembered observations or the received
+  paths), merged with the install's earlier one, in `<library>/amiga/<archive SHA-256>/paths-record.json`; the report names it
+  (`knowledge.record_sha256`), which is what the sharing checks before sending it.
+- **Engine identity.** `amiga_knowledge.engine()` hashes the vAmiga pin, the native files that run the steps and `GENERATOR_REVISION` (1),
+  which tests/amiga_generator_pins.json ties to the generator's Python sources (`amiga_codegen`, `amiga_translate`, `amiga_vamiga`,
+  `m68k_observed`): editing one of them fails that test until the revision is raised.
+- **Schema.** In the Amiga's profile, its path sources become `install` and `kickstart` (256 KiB) and its windows gain the Kickstart's
+  ($FC0000-$FFFFFF). Its layout stays empty, as the Game Boy Advance's (no format number of its own): a branch of `path_profiles` for it would
+  move every machine's game stamp. `amiga_knowledge.RECORD_RULES` states the rest for the site's builder; the common part refuses a media of
+  an odd size.
+- **Stamps** (`compilation_inputs.role_stamps`, this change against `01d1d7d1`): **the game stamps of the Amiga and the X68000** (the X68000 for
+  `knowledge.received` in its report, below); no host or build stamp; no quick-state key.
+- **What the received paths gave: `knowledge.received`**, the same field on the three 68000 computers (the Amiga, the X68000 from this release, the
+  Atari ST when it shares): `offered` (instructions rebuilt from received paths), `reached` (those this conversion's own fresh reference runs ran
+  too, so validated on its routes) and `added` (made native only because a path named them: their guard checks them when a player reaches them).
+  Computed by the conversion (`m68k_media_knowledge.received_use`), no counter in the players. The common report carries it inside
+  `knowledge.record` as it carries `knowledge.use`; no window shows either. The X68000's records do not change: only its report gains the field.
 
 ## 68000 computers: the shared paths' common part cut out of the X68000's module (1.7.5)
 

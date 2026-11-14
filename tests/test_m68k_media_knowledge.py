@@ -133,6 +133,15 @@ def x68_outcomes():
     return json.dumps(out, sort_keys=True, separators=(',', ':'), default=list)
 
 
+class ReceivedUseTests(unittest.TestCase):
+    def test_received_paths_are_counted_as_offered_reached_by_the_routes_and_added_by_the_paths_alone(self):
+        from retrorecomp.m68k_media_knowledge import received_use
+        received = {(0x1000, '4e71'), (0x1002, '4e75'), ('firmware', 0xfc0100)}
+        own = {(0x1000, '4e71'), (0x2000, '4e71'), ('firmware', 0xfc0100)}
+        self.assertEqual(received_use(received, own), {'offered': 3, 'reached': 2, 'added': 1})
+        self.assertEqual(received_use((), own), {'offered': 0, 'reached': 0, 'added': 0})
+
+
 class X68000OutcomesTests(unittest.TestCase):
     def test_the_x68000_outcomes_are_those_of_the_module_before_the_cut(self):
         self.assertEqual(hashlib.sha256(x68_outcomes().encode('ascii')).hexdigest(), X68000_OUTCOMES)

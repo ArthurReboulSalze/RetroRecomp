@@ -93,6 +93,15 @@ def record_digest(record) -> str:
     return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
 
 
+def received_use(received, own) -> dict:
+    """The report's `knowledge.received`, the same on every 68000 computer: of the instructions rebuilt from received paths (`offered`), those this
+    conversion's own fresh reference runs observed too (`reached`: run and validated against the reference on its routes) and those made native
+    only because a path named them (`added`: the routes did not run them, so they are checked by their guard alone when a player reaches them).
+    `received` and `own` are sets of the same hashable form (the machine's `(pc, words)`, or its own key for firmware rows)."""
+    received, own = set(received), set(own)
+    return {'offered': len(received), 'reached': len(received & own), 'added': len(received - own)}
+
+
 def _find_even(image: bytes, needle: bytes) -> int:
     at = image.find(needle)
     while at != -1 and at & 1:
@@ -187,6 +196,9 @@ class MediaKnowledge:
         self.span_limit, self.firmware_limit, self.span_bytes, self.anchor_bytes = span_limit, firmware_limit, span_bytes, anchor_bytes
         self.span_path, self.firmware_path, self.format, self.formats = span_path, firmware_path, format, tuple(formats)
         self.words, self._engine, self._firmware_view, self._firmware_rows = words, engine, firmware_view, firmware_rows
+        # The record's layout: `{'format': n}` for a machine whose record carries its own format number (the X68000), `{}` for one whose
+        # `path_profiles` layout is empty (`format=None`, as the Game Boy Advance's): a later format then needs a layout of its own there.
+        self.layout = {'format': format} if format is not None else {}
 
     # --- The engine -----------------------------------------------------------------------------------------
 
@@ -227,7 +239,7 @@ class MediaKnowledge:
         span_rows = sorted({tuple(row) for row in span_rows})
         firmware_rows = sorted({tuple(row) for row in firmware_rows})
         return {'schema': pp.SCHEMA, 'game': f'{self.system}:{identity}',
-                'identity': {'system': self.system, 'sources': sources, 'layout': {'format': self.format}},
+                'identity': {'system': self.system, 'sources': sources, 'layout': dict(self.layout)},
                 'cpus': {'m68k': {'map': self.memory_map, 'core': core, 'paths': self._blocks(span_rows, firmware_rows)}},
                 'devices': {}}
 
@@ -242,7 +254,7 @@ class MediaKnowledge:
         """Strict numeric allowlist of one record (the schema 3 validator, then what is the machine's own), or ValueError (`UnknownFormat`
         for a format this converter cannot read)."""
         w = self.words
-        if (isinstance(record, dict) and isinstance(record.get('identity'), dict)
+        if (self.format is not None and isinstance(record, dict) and isinstance(record.get('identity'), dict)
                 and isinstance(record['identity'].get('layout'), dict)):
             version = record['identity']['layout'].get('format', 1)
             if type(version) is int and version not in self.formats and 1 <= version <= 255:
@@ -254,10 +266,13 @@ class MediaKnowledge:
             if identity is not None and record['game'] != f'{self.system}:{identity}':
                 raise ValueError(f'{w.machine} hints do not match their {w.media_set} identity.')
             sources = record['identity']['sources']
-            if record['identity']['layout'] != {'format': self.format} or self.media not in sources or not set(sources) <= {self.media, self.firmware}:
+            if record['identity']['layout'] != self.layout or self.media not in sources or not set(sources) <= {self.media, self.firmware}:
                 raise ValueError(f'Invalid {w.machine} layout.')
             if any('sha256' not in source for source in sources.values()):
                 raise ValueError(f'{w.an_machine} source states its SHA-256.')
+            # The media is made of whole words (each part padded to an even length, or disks of whole sectors).
+            if sources[self.media]['bytes'] & 1:
+                raise ValueError(f'{w.an_machine} {w.media_set} has an odd size.')
             if self.firmware in sources and sources[self.firmware]['bytes'] not in self.firmware_sizes:
                 raise ValueError(f'{w.an_machine} {w.firmware} has {w.firmware_size}.')
             if set(record['cpus']) != {'m68k'} or record['devices']:
@@ -495,11 +510,11 @@ class MediaKnowledge:
 
     # --- The player's library -------------------------------------------------------------------------------
 
-    def library_record(self, identity: str) -> dict | None:
+    def library_record(self, identity: str, name: str = 'compilation.json') -> dict | None:
         """This player's own record: the paths that fresh, verified conversions reached (the machine's conversion writes it into the game's
-        summary, `<library>/<system>/<game>/compilation.json`), or None."""
+        summary, `<library>/<system>/<game>/compilation.json`, or into the file `name` of that folder), or None."""
         from .library import library_root
-        path = library_root(self.system) / identity / 'compilation.json'
+        path = library_root(self.system) / identity / name
         try:
             with path.open('rb') as stream:
                 raw = stream.read(16 * 1024 * 1024 + 1)

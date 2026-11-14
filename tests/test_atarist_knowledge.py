@@ -1,7 +1,9 @@
 """Atari ST in the shared base: numeric records from fresh reference runs, rebuilt from the player's own disks and TOS.
 
-The Atari ST shares its paths as the experimental tier of the base (like the X68000): they are tied to the engine revision that validated them, carry their own format
-number and can be withdrawn with one line. Numbers only: no disk byte, no TOS byte, no RAM word, no code. No ROM, disk or TOS is involved: the images below are authored.
+The Atari ST shares its paths as the experimental tier of the base (like the X68000 and the Amiga, on the common `m68k_media_knowledge`): they are tied to the engine
+revision that validated them, carry their own format number and can be withdrawn with one line. Numbers only: no disk byte, no TOS byte, no RAM word, no code. No ROM,
+disk or TOS is involved: the images below are authored. What the common part does for every machine is tested in tests/test_m68k_media_knowledge.py; here is what is the
+Atari ST's: its TOS rows, the logical content of its disks, its engine, its profile and its library of one summary per TOS.
 """
 import hashlib
 import json
@@ -11,7 +13,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from retrorecomp import atarist_disk, atarist_knowledge as ak, knowledge, path_profiles as pp, x68_knowledge
+from retrorecomp import atarist_disk, atarist_knowledge as ak, knowledge, m68k_media_knowledge as media, path_profiles as pp
 from retrorecomp.systems import get_profile
 
 IDENTITY = '7' * 64
@@ -40,7 +42,7 @@ def tos_image(fill=b'\x4e\x71'):
     return bytes(data)
 
 
-def program_variants(base=LOAD):
+def program_observed(base=LOAD):
     out, pc = [], base
     for raw in (MOVE_W, NOP, MOVE_L, RTS):
         out.append((pc, raw.hex()))
@@ -48,18 +50,18 @@ def program_variants(base=LOAD):
     return out
 
 
-def tos_variants():
+def tos_observed():
     return [(ak.TOS_BASE + 0x100, MOVE_W.hex()), (ak.TOS_BASE + 0x104, RTS.hex())]
 
 
 def a_record():
-    record, _ = ak.promote(IDENTITY, disk(), tos_image(), program_variants() + tos_variants())
+    record, _ = ak.promote(IDENTITY, disk(), tos_image(), program_observed() + tos_observed())
     return record
 
 
 class RecordTests(unittest.TestCase):
     def test_a_conversion_makes_one_span_and_the_tos_rows_and_no_byte(self):
-        record, counts = ak.promote(IDENTITY, disk(), tos_image(), program_variants() + tos_variants())
+        record, counts = ak.promote(IDENTITY, disk(), tos_image(), program_observed() + tos_observed())
         spans, tos_rows = ak.rows(record)
         self.assertEqual(spans, [(LOAD, 0x400, len(PROGRAM))])
         self.assertEqual(tos_rows, [(ak.TOS_BASE + 0x100, 0x100, 4), (ak.TOS_BASE + 0x104, 0x104, 2)])
@@ -71,22 +73,17 @@ class RecordTests(unittest.TestCase):
             self.assertNotIn(raw.hex(), text)
         self.assertEqual(record['game'], KEY)
         self.assertEqual(set(record['identity']['sources']), {'disk', 'tos'})
-        self.assertEqual(record['identity']['layout'], {})
+        self.assertEqual(record['identity']['layout'], {})          # no format number: a layout key would move every console's game stamp
+        self.assertIsNone(ak.FORMAT)
 
     def test_what_is_not_in_the_images_stays_private_and_counted(self):
-        variants = program_variants() + [(0x8000, BSR), (0x8004, '6002'), (ak.TOS_BASE + 0x200, MOVE_W.hex()), (0xFA0030, NOP.hex()), (0x9001, NOP.hex()), (0x9000, '4e')]
-        spans, tos_rows, counts = ak.translate(disk(), tos_image(), variants)
-        self.assertEqual(spans, [(LOAD, 0x400, len(PROGRAM))])
-        self.assertEqual(tos_rows, [])
-        self.assertEqual(counts['tos'], {'observed': 1, 'tied': 0, 'private': 1})        # the bytes at that place of this TOS are not the observed ones
-        self.assertEqual(counts['cartridge_area']['private'], 1)                          # Hatari's own code of the desktop hook
+        observed = program_observed() + [(0x8000, BSR), (0x8004, '6002'), (ak.TOS_BASE + 0x200, MOVE_W.hex()), (0xFA0030, NOP.hex()), (0x9001, NOP.hex()), (0x9000, '4e')]
+        record, counts = ak.promote(IDENTITY, disk(), tos_image(), observed)
+        self.assertEqual(ak.rows(record)[0], [(LOAD, 0x400, len(PROGRAM))])
+        self.assertEqual(ak.rows(record)[1], [])
+        self.assertEqual(counts['tos'], {'observed': 2, 'tied': 0, 'private': 2})        # the bytes of this TOS at that place are not the observed ones; Hatari's cartridge code
         self.assertEqual(counts['malformed'], 2)                                          # an odd address, a half instruction
         self.assertGreaterEqual(counts['ram']['private'], 1)
-
-    def test_a_game_with_nothing_tied_has_no_record(self):
-        record, counts = ak.promote(IDENTITY, disk(), tos_image(), [(0x8000, BSR)])
-        self.assertIsNone(record)
-        self.assertEqual(counts['paths'], {'disk_spans': 0, 'tos': 0})
 
     def test_the_record_validates_and_refuses_what_is_not_the_machines(self):
         record = a_record()
@@ -98,21 +95,16 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ak.validate_record(wrong)
         future = json.loads(json.dumps(record))
-        future['identity']['layout'] = {'format': 2}            # the layout stays empty: the version travels with the engine revision
+        future['identity']['layout'] = {'format': 2}
         with self.assertRaises(ValueError):
             ak.validate_record(future)
         self.assertIsNone(ak.salvaged_record(IDENTITY, future))
         self.assertIs(ak.salvaged_record(IDENTITY, record), record)
 
-    def test_a_tos_row_must_be_at_its_place_of_the_tos(self):
-        moved = ak.make_record(IDENTITY, None, tos_image(), (), [(ak.TOS_BASE + 0x100, 0x200, 4)])
-        with self.assertRaises(ValueError):
-            ak.validate_record(moved)
-        outside = ak.make_record(IDENTITY, None, tos_image(), (), [(ak.TOS_BASE - 4, 0, 4)])
+    def test_a_tos_row_outside_the_tos_window_and_a_span_beyond_the_ram_are_refused(self):
+        outside = ak.make_record(IDENTITY, disk(), tos_image(), (), [(ak.TOS_BASE - 4, 0, 4)])
         with self.assertRaises(ValueError):
             ak.validate_record(outside)
-
-    def test_a_span_beyond_the_ram_is_refused(self):
         wide = ak.make_record(IDENTITY, disk(), None, [(ak.RAM_LIMIT - 4, 0x400, len(PROGRAM))], ())
         with self.assertRaises(ValueError):
             ak.validate_record(wide)
@@ -120,23 +112,23 @@ class RecordTests(unittest.TestCase):
     def test_the_paths_are_the_profile_ceilings_and_the_names_those_of_entry_set(self):
         profile = pp.PROFILES[('m68k', 'atarist')]
         self.assertEqual(ak.PATH_CAPS, {'atarist_span': profile.caps['span'], 'atarist_tos': profile.caps['insn']})
+        self.assertEqual(ak.KNOWLEDGE.path_caps, ak.PATH_CAPS)
         self.assertEqual({name for name, _ in ak.entry_set(a_record())}, set(ak.PATH_CAPS))
-        self.assertEqual(ak.entry_set(None), set())
 
-    def test_entry_set_and_rebuild_round_trip(self):
-        record = a_record()
-        again = ak.rebuild(record, ak.entry_set(record))
-        self.assertEqual(again, record)
-        spans_only = ak.rebuild(record, {item for item in ak.entry_set(record) if item[0] == 'atarist_span'})
-        self.assertEqual(set(spans_only['identity']['sources']), {'disk'})
+    def test_a_game_of_custom_tracks_only_still_has_a_source_for_its_tos_rows(self):
+        raw = b'IPFRAW' * 100
+        content = ak.disk_content([('stx', raw)])
+        self.assertEqual(content, raw)                                    # no standard sector: the images themselves
+        record, counts = ak.promote(IDENTITY, content, tos_image(), program_observed() + tos_observed())
+        self.assertEqual(ak.rows(record)[0], [])                         # nothing of the program is in the images
+        self.assertEqual(len(ak.rows(record)[1]), 2)                     # the TOS rows travel
 
 
 class ExpandTests(unittest.TestCase):
     def test_a_player_with_the_same_images_gets_the_same_instructions(self):
-        record = a_record()
-        out, left = ak.expanded_rows(record, disk(), tos_image())
+        out, left = ak.expanded_rows(a_record(), disk(), tos_image())
         self.assertEqual(left, {})
-        self.assertEqual(sorted(out), sorted([(pc, words) for pc, words in program_variants() + tos_variants()]))
+        self.assertEqual(sorted(out), sorted(program_observed() + tos_observed()))
 
     def test_other_disks_refuse_the_record_and_another_tos_leaves_its_rows_out(self):
         record = a_record()
@@ -144,51 +136,99 @@ class ExpandTests(unittest.TestCase):
             ak.expanded_rows(record, disk(b'\x00\x00'), tos_image())
         out, left = ak.expanded_rows(record, disk(), tos_image(b'\x4e\x75'))
         self.assertEqual(left, {'tos': 'another TOS'})
-        self.assertEqual(sorted(out), sorted(program_variants()))
-
-    def test_a_span_that_ends_inside_an_instruction_is_refused(self):
-        torn = ak.make_record(IDENTITY, disk(), None, [(LOAD, 0x400, 2)], ())
-        with self.assertRaises(ValueError):
-            ak.expanded_rows(torn, disk(), None)
+        self.assertEqual(sorted(out), sorted(program_observed()))
 
     def test_shared_rows_counts_each_source_and_says_what_it_ignored(self):
         record = a_record()
-        rows, info = ak.shared_rows(disk(), tos_image(), qualified=record, imported=record, library=record)
+        rows, info = ak.shared_rows(IDENTITY, disk(), tos_image(), qualified=record, imported=record, library=record)
         self.assertEqual((info['qualified'], info['library'], info['imported']), (6, 6, 6))
         self.assertEqual(len(rows), 18)
-        stale = ak.make_record(IDENTITY, disk(), tos_image(), [(LOAD, 0x400, len(PROGRAM))], (), core='0' * 40)
-        rows, info = ak.shared_rows(disk(), tos_image(), qualified=stale, imported=stale)
+        stale = ak.make_record(IDENTITY, disk(), None, [(LOAD, 0x400, len(PROGRAM))], (), core='0' * 40)
+        rows, info = ak.shared_rows(IDENTITY, disk(), tos_image(), qualified=stale, imported=stale)
         self.assertEqual(info['ignored'], {'qualified': 'another engine revision'})
         self.assertEqual(info['imported'], 4)                   # an imported path guides whatever its engine; the guard and the validation decide
-        other, info = ak.shared_rows(disk(b'\x00\x00'), tos_image(), qualified=record)
+        other, info = ak.shared_rows(IDENTITY, disk(b'\x00\x00'), tos_image(), qualified=record)
         self.assertEqual(other, [])
         self.assertIn('qualified', info['ignored'])
 
 
 class MergeTests(unittest.TestCase):
-    def test_two_records_of_one_game_unite_their_spans_and_their_tos_rows_for_one_tos(self):
-        first, _ = ak.promote(IDENTITY, disk(), tos_image(), program_variants())
-        second, _ = ak.promote(IDENTITY, disk(), tos_image(), tos_variants())
-        union = ak.merged(IDENTITY, first, second)
-        spans, tos_rows = ak.rows(union)
-        self.assertEqual((len(spans), len(tos_rows)), (1, 2))
-        self.assertEqual(ak.merged(IDENTITY, first, {}), first)
-        self.assertEqual(ak.merged(IDENTITY, {}, second), second)
+    def test_promote_keeps_the_previous_records_paths_for_the_same_images(self):
+        first, _ = ak.promote(IDENTITY, disk(), tos_image(), program_observed())
+        second, counts = ak.promote(IDENTITY, disk(), tos_image(), tos_observed(), previous=first)
+        self.assertEqual((len(ak.rows(second)[0]), len(ak.rows(second)[1])), (1, 2))
+        self.assertFalse(counts['truncated'])
 
     def test_another_tos_keeps_the_first_records_tos_rows_and_other_engines_never_mix(self):
         first = a_record()
-        other_tos, _ = ak.promote(IDENTITY, disk(), tos_image(b'\x4e\x75'), [(ak.TOS_BASE + 0x100, '4e75')] + program_variants())
+        other_tos, _ = ak.promote(IDENTITY, disk(), tos_image(b'\x4e\x75'), [(ak.TOS_BASE + 0x100, '4e75')] + program_observed())
         union = ak.merged(IDENTITY, first, other_tos)
         self.assertEqual(union['identity']['sources']['tos'], first['identity']['sources']['tos'])
         old = ak.make_record(IDENTITY, disk(), None, [(LOAD, 0x400, len(PROGRAM))], (), core='1' * 40)
         self.assertEqual(ak.merged(IDENTITY, old, first), first)       # the current engine's record is kept
         self.assertEqual(ak.merged(IDENTITY, first, old), first)
 
-    def test_promote_keeps_the_previous_records_paths_for_the_same_images(self):
-        first, _ = ak.promote(IDENTITY, disk(), tos_image(), program_variants())
-        second, counts = ak.promote(IDENTITY, disk(), tos_image(), tos_variants(), previous=first)
-        self.assertEqual((len(ak.rows(second)[0]), len(ak.rows(second)[1])), (1, 2))
-        self.assertFalse(counts['truncated'])
+    def test_entry_set_and_rebuild_round_trip(self):
+        record = a_record()
+        self.assertEqual(ak.rebuild(record, ak.entry_set(record)), record)
+
+
+class RecordRulesTests(unittest.TestCase):
+    def test_the_rules_the_site_reads_accept_and_refuse_the_records_validate_record_does(self):
+        """RECORD_RULES is what the site's builder reads, so it must say what the converter enforces: an interpreter of the rules and `validate_record` agree on records the schema
+        and the profile accept."""
+        rules = ak.RECORD_RULES
+
+        def accepted_by_rules(value) -> bool:
+            identity = value['identity']
+            sources = identity['sources']
+            if list(identity['layout']) != rules['layout'] or set(sources) - set(rules['sources']['only']) or set(rules['sources']['required']) - set(sources):
+                return False
+            if rules['sources']['hashed'] and not all('sha256' in source for source in sources.values()):
+                return False
+            for cpu, section in value['cpus'].items():
+                for kind, blocks in section['paths'].items():
+                    rule = rules['paths'][cpu][kind]
+                    for block in blocks:
+                        if block['src'] != rule['src'] or rule['requires'] not in sources:
+                            return False
+                        low, end = rule['window']
+                        if any(not low <= row[0] or row[0] + row[2] > end for row in pp.decode_table(block['table'], 3, 1 << 20)):
+                            return False
+            return True
+
+        def judged(value):
+            try:
+                pp.validate_game(value)
+            except ValueError:
+                return None                 # the schema and the profile refuse it: not a question for the rules
+            try:
+                ak.validate_record(value, IDENTITY)
+                return True
+            except ValueError:
+                return False
+
+        good = a_record()
+        cases = [good, ak.make_record(IDENTITY, disk(), None, [(LOAD, 0x400, len(PROGRAM))], ()),
+                 ak.make_record(IDENTITY, disk(), tos_image(), [(ak.TOS_BASE, 0x400, 4)], ()),                  # a span in the TOS window
+                 ak.make_record(IDENTITY, disk(), tos_image(), (), [(0x20000, 0x100, 4)]),                     # a TOS row in RAM
+                 ak.make_record(IDENTITY, disk(), tos_image(), [(ak.RAM_LIMIT - 4, 0x400, 4)], [(ak.TOS_BASE + ak.TOS_BYTES - 4, 0x2FFFC, 4)])]
+        no_hash = json.loads(json.dumps(good))
+        no_hash['identity']['sources']['tos'].pop('sha256')
+        no_tos = json.loads(json.dumps(good))
+        no_tos['identity']['sources'].pop('tos')
+        layout = json.loads(json.dumps(good))
+        layout['identity']['layout'] = {'format': 1}
+        cases += [no_hash, no_tos, layout]
+        seen = set()
+        for value in cases:
+            verdict = judged(value)
+            if verdict is None:
+                continue
+            seen.add(verdict)
+            self.assertEqual(accepted_by_rules(value), verdict, json.dumps(value)[:200])
+        self.assertEqual(seen, {True, False})
+        self.assertIsNone(rules['sources']['game'])          # the game id is the SHA-256 of the file the player gave, not a source's
 
 
 class EngineTests(unittest.TestCase):
@@ -206,14 +246,16 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(pins['sources'], found, 'a generator source changed: raise atarist_knowledge.GENERATOR_REVISION if a path could notice (the old paths must be '
                                                   'validated again), then update tests/atarist_generator_pins.json')
 
-    def test_the_word_counts_are_the_x68000s_table_a_second_user_not_a_copy(self):
-        self.assertIs(ak.word_count, x68_knowledge.word_count)
+    def test_the_word_counts_are_the_common_modules_table(self):
+        self.assertIs(ak.word_count, media.word_count)
 
 
 class ProfileTests(unittest.TestCase):
-    def test_the_profile_declares_the_experimental_tier_and_its_module(self):
-        shared = get_profile('atarist').shared_knowledge
+    def test_the_profile_declares_the_experimental_tier_its_module_and_the_common_stamp_group(self):
+        profile = get_profile('atarist')
+        shared = profile.shared_knowledge
         self.assertEqual((shared.tier, shared.withdrawable, shared.module, shared.quick_check_from_shared), ('experimental', True, 'atarist_knowledge', False))
+        self.assertIn('m68k_media_knowledge', profile.stamp_groups)
         self.assertIn('atarist', pp.EXPERIMENTAL_SHARED)
         self.assertIn('atarist', pp.SHARED_SYSTEMS)
         self.assertIs(knowledge.schema3_module('atarist'), ak)

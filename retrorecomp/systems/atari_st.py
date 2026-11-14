@@ -49,7 +49,7 @@ class AtariStProfile(SystemProfile):
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
-    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates')
+    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates', 'm68k_media_knowledge')
     path_spec = PathSpec(order=13, sections=(('m68k', 'atarist'),),
                          source_bounds=(('disk', (1, 1 << 30)), ('tos', (1, 1 << 20))),
                          shapes=(('m68k', 'atarist', dict(roles=('disk', 'tos'), caps={'insn': 65536, 'span': 16384},

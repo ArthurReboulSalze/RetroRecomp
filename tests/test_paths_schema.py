@@ -733,7 +733,7 @@ class GameModuleTests(unittest.TestCase):
         from retrorecomp import knowledge_build, knowledge_exchange, online
         self.assertEqual(knowledge_exchange.SYSTEMS, pp.SHARED_SYSTEMS)
         self.assertEqual(knowledge_exchange.SYSTEMS, (*knowledge_build.SYSTEMS, 'ng', *pp.EXPERIMENTAL_SHARED))
-        self.assertEqual(pp.SCHEMA3_ONLY, ('cps1', 'x68', 'cps2', 'pce', 'gba', 'atarist'))
+        self.assertEqual(pp.SCHEMA3_ONLY, ('cps1', 'x68', 'cps2', 'pce', 'gba', 'amiga', 'atarist'))
         digest = '0123456789abcdef' * 4
         for pattern in (online._ROM_KEY, knowledge_exchange._GAME_KEY):
             for system in pp.SHARED_SYSTEMS:

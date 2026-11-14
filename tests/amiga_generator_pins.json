@@ -1,0 +1,9 @@
+{
+ "revision": 1,
+ "sources": {
+  "retrorecomp/amiga_codegen.py": "fb11c5c6407b4a5cd83769c4c83e861cdffe9a822ee0dec397b180a1ddeeee78",
+  "retrorecomp/amiga_translate.py": "70c1b1a787555b574da91fe448aa91f6c7698a236381af56874874cfba090378",
+  "retrorecomp/amiga_vamiga.py": "2139ce72790b5cf5ef78a848057c13fb950b70169f77d077a0d7167f9b0197da",
+  "retrorecomp/m68k_observed.py": "fea2669cae49f6a42d81742b70b32b722cbbfd3f38c34cd6865600108c23becc"
+ }
+}
