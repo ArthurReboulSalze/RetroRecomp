@@ -262,10 +262,11 @@ latency are not claimed. Cassettes, the FM-PAC and the clock's battery memory ar
 The **MSX2+** profile (`msx2plus`) is experimental since 1.7.4 ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
 cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` with no other hint:
 [the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS
-pair and your own disk ROM. Its board is the MSX2's, with the V9958 in place of the V9938 (its YJK modes and horizontal scroll). On the disk panel of 13 November 2026 (eight games, extended level) every route ends at 0 interpreted instructions;
-six of the eight reach play on their long route, Golvellius II stays in its intro and Xak III stops on a request for its third disk; no game has
-been played through (gameplay validation: none), and hardware fidelity and latency are not claimed. MSX-MUSIC and the kanji ROM are not
-converted.
+pair and your own disk ROM. Its board is the MSX2's, with the V9958 in place of the V9938 (its YJK modes and horizontal scroll), MSX-MUSIC
+(the YM2413, from 1.7.6) and, as an option, your own kanji font. A game of several disks gets the next disk when it asks for one. On the panel
+of 14 November 2026 (four cartridges and five disk games, extended level) every route ends at 0 interpreted instructions; six of the nine reach
+play on their long route, Xak III answers its disk request and loads its third disk, Golvellius II stays in its intro and Pachipro Densetsu in
+its birth-date entry; no game has been played through (gameplay validation: none), and hardware fidelity and latency are not claimed.
 
 ## Local game regression set
 

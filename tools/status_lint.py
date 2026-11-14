@@ -60,8 +60,8 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.;!?])\s+")
 
 
 # A name followed by these is another machine: the CPS-1.5 tier or the CPS-2 board family, the Game Boy Color or
-# Advance, the MSX2+ after "MSX2"; they are not statements about this profile.
-_OTHER_MACHINE = r"(?!\.\d)(?!\s+(?:Advance|Color)\b)(?!\+)"
+# Advance, the MSX2+ after "MSX2", the Amiga 1200 after "Commodore Amiga"; they are not statements about this profile.
+_OTHER_MACHINE = r"(?!\.\d)(?!\s+(?:Advance|Color|1200)\b)(?!\+)"
 
 
 def alias_pattern(console_id: str) -> re.Pattern[str]:

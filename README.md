@@ -84,7 +84,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `░░░░░░░░░░` 3 % |
-| [MSX2+](docs/MSX.md) | experimental | `███████░░░` 67 % |
+| [MSX2+](docs/MSX.md) | experimental | `████████░░` 81 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
@@ -110,7 +110,7 @@ and its limits are on its page.
 
 No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
 
-Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native

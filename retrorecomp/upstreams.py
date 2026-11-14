@@ -211,9 +211,16 @@ MUPEN64PLUS_NEXT = Upstream(
     _py('retrorecomp/n64_core.py', 'CORE_REV'), checkout='mupen64plus-libretro-nx')
 CBIOS = Upstream(
     'C-BIOS', 'cbios/cbios', 'master', 'MSX BIOS booted by a game when the player gives no MSX BIOS of their own (SourceForge project)',
-    'BSD-2-Clause', 'the MSX1 and MSX2 main, logo and sub ROMs of the official release archive cbios-0.29a.zip (SourceForge), checked by size and '
+    'BSD-2-Clause', 'the MSX1, MSX2 and MSX2+ main, logo and sub ROMs and the MSX-MUSIC ROM of the official release archive cbios-0.29a.zip '
+    '(SourceForge), checked by size and '
     'SHA-256; embedded in a game that boots them, with their notice (licenses/cbios.md)',
     _py('retrorecomp/msx_cbios.py', 'VERSION'), tag='v{}', home='https://sourceforge.net/projects/cbios/')
+
+EMU2413 = Upstream(
+    'emu2413', 'digital-sound-antiques/emu2413', 'master', 'YM2413 (OPLL) sound chip: the MSX2+\'s MSX-MUSIC', 'MIT',
+    'emu2413.c and emu2413.h v1.5.9, vendored unmodified in native/msx_machine/emu2413/ (the commit and the files\' SHA-256 in '
+    'revision.json, the same files the NES engine vendors); compiled into an MSX2+ game, with its notice (licenses/emu2413.md)',
+    Pin('json', 'native/msx_machine/emu2413/revision.json', 'commit'))
 
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
@@ -308,7 +315,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The MSX runs on the banked Z80 chain of the Master System (smsggrecomp's generator on the MSX's own region map) and boots C-BIOS.
     'msx': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
     'msx2': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
-    'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
+    'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS, EMU2413),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}
