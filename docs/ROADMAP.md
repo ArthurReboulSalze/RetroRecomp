@@ -26,7 +26,7 @@ fallback stays counted and shown wherever it is used.
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
 | Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, the LDM/STM vectors, an independent emulator comparison |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
-| Atari ST | experimental (since 1.7.1; shares its paths since 1.7.5) | the owner's play of the checklist (G14) and his decision on the status, the Linux half of the sharing, more games played, the Linux play, the STE |
+| Atari ST | supported (since 1.7.5; shares its paths since 1.7.5) | the Linux half of the sharing, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
@@ -141,9 +141,8 @@ Next: Kickstart 1.2 and 3.x installs, then ADF images.
 
 ### Atari ST
 
-Experimental since 1.7.1 ([ATARI_ST.md](ATARI_ST.md)): ST, STF and Mega ST floppy games on Hatari, EmuTOS 1.4 by default or the player's own TOS,
-native steps for the 68000 code the reference run saw, the player's record and a sweep of memory. Next: more games through the same loop, the owner's play
-trials and a game played on Linux. The STE, TT, Falcon and hard disks are out of scope today.
+Supported since 1.7.5, on the owner's decision of 14 November 2026 (open as experimental in 1.7.1; [ATARI_ST.md](ATARI_ST.md)): ST, STF and Mega ST floppy games on Hatari, EmuTOS 1.4 by default or the player's own TOS,
+native steps for the 68000 code the reference run saw, the player's record and a sweep of memory. Next: more games through the same loop and a game played on Linux. The STE, TT, Falcon and hard disks are out of scope today.
 
 ### Nintendo 64
 

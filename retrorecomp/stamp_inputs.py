@@ -667,7 +667,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
     ),
-    # The Atari ST (experimental from 1.7.1): its converter modules, the machine session on Hatari (GPL-2.0 engine, patched at
+    # The Atari ST (supported since 1.7.5, open as experimental in 1.7.1): its converter modules, the machine session on Hatari (GPL-2.0 engine, patched at
     # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE
     # above). The profile module comes from the profile; the computer adapter and the gates it shares come from stamp_groups.
     ('atarist',): (

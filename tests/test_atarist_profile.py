@@ -42,7 +42,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_the_profile_says_what_it_is(self):
         profile = get_profile('atarist')
-        self.assertEqual((profile.name, profile.status, profile.linux), ('Atari ST', 'experimental', 'witnessed'))
+        self.assertEqual((profile.name, profile.status, profile.linux), ('Atari ST', 'supported', 'witnessed'))
         self.assertEqual([cpu.arch for cpu in profile.cpus], ['m68000'])
         self.assertEqual(profile.identify.path_order, 35)
 

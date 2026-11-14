@@ -1,6 +1,6 @@
 # Atari ST
 
-Experimental profile (`atarist`), added in 1.7.1: the converter offers it when the installation carries the Atari ST files, and since 1.7.5
+Supported profile (`atarist`) since 1.7.5, on the owner's decision of 14 November 2026 (it opened as experimental in 1.7.1): the converter offers it when the installation carries the Atari ST files, and
 its paths are shared as the experimental tier of the base (section 2, item 9). It converts an Atari ST, STF or Mega ST floppy game into a standalone Windows
 or Linux executable that runs the game on [Hatari](https://github.com/hatari/hatari), with native code for the 68000 instructions its
 reference runs observed and Hatari's interpreter, counted, for the others. Nothing here says that a game plays completely, that the hardware is reproduced
@@ -339,4 +339,18 @@ gameplay validation of any game, and it changes no gate.
 
 ## 7. Where it stands in the qualification
 
-The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (14 November 2026) is `Y` on G1 to G9, G12, G13 and G15 (G7 since 14 November: the save is shown on the delivered executable of The Lurking Horror), `P` on G10 and G11 (named behaviours measured against documentation and fixtures, not silicon) and on G16 (the paths are shared since 1.7.5 as the experimental tier of the base; shown on three panel games, no conversion pass saved, native code added beyond the receiver's own routes, the Linux half not run), `?` on G14 (the owner's own play, which no tool fills: its checklist is in [QUALIFICATION.md](QUALIFICATION.md#checklist-for-arthur-atari-st-play-test-g14)). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that each lists in `route_warnings` with its reason. A scratch run of the registry's checks with the profile set to `supported` (nothing committed) finds nothing more to do than the four texts that say `experimental` (README, COMPATIBILITY, the release notes, the interface strings). Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
+The Atari ST column of [QUALIFICATION.md](QUALIFICATION.md) (14 November 2026) is `Y` on G1 to G9, G12 to G15 (G7 since 14 November: the save is shown on the delivered executable of The Lurking Horror; G14 since the same day: the owner's play test), `P` on G10 and G11 (named behaviours measured against documentation and fixtures, not silicon) and on G16 (the paths are shared since 1.7.5 as the experimental tier of the base; shown on three panel games, no conversion pass saved, native code added beyond the receiver's own routes, the Linux half not run). G9 rests on six of the eight panel games reaching play or a match, the two others stopping on a protection that each lists in `route_warnings` with its reason. The status moved to `supported` on the maintainer's decision of 14 November 2026 (the exit record below); the registry's checks on the real profile (`tests/test_machine_registry.py`) find nothing missing and `tools/status_lint.py` finds no contradiction.
+
+### Exit record: supported since 1.7.5 (14 November 2026)
+
+Arthur played seven exports of the checklist (Bomb Jack, Turrican II with his TOS 1.04, Operation Stealth, The Lurking Horror, Kick Off 2, Lethal Xcess, Battle Probe; built on 14 November 2026 and
+delivered by the batch into `Export/Games/Atari ST`) and said: « Ok, donc Atari ça marche, nickel, j'ai testé les jeux. » Asked "Je sors l'Atari ST de l'expérimental ?", he answered: « Oui, sors-le ». The
+status moved in `retrorecomp/systems/atari_st.py`; the stamp move that follows is handled by the 1.7.5 update, as for the PC Engine, the MSX and the Amiga, and the exports are not converted again (his only
+remark, that the pad quick save and load rows were missing, is the interface merge those exports predate: the reconversion brings it).
+
+**Scope.** What is converted: ST, STF and Mega ST floppy games (IPF, STX, MSA, ST images, alone or in a ZIP of images), on Hatari with EmuTOS 1.4 or the player's own TOS 1.00 to 1.04, with Windows and Linux
+executables. What is not: the STE, the Mega STE, the TT and the Falcon, hard disks and the monochrome monitor. A track a game formats on an IPF disk is not kept (the WD1772's Write Track answers an error); a copy
+protection is never answered or skipped by a route (it is listed in `route_warnings`). The failures known today are in [KNOWN_FAILURES.md](KNOWN_FAILURES.md) (Turrican II on EmuTOS, Metro-Cross, Pharaoh III,
+Leader Board, The Pawn's save, Trinity). **The measures stay apart:** the share of native code differs from a game to another (Turrican II 0 interpreted instructions on its routes, The Lurking Horror about 99,000
+on its main route); the CPU is Hatari's, checked against an independent corpus, and the hardware against authored programs, not a real ST; the five measures of section 3 still say what is not claimed. This is a
+play test of seven games, not a coverage claim, and the latency is not measured. G10, G11 and G16 stay `P` (the Linux half of the sharing was not run).

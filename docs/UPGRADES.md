@@ -96,6 +96,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Every machine: a machine's own row on a player's gamepad page](#every-machine-a-machines-own-row-on-a-players-gamepad-page-175) | none | host of all 20 profiles | none |
 | [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
 | [Atari ST: a key held at F8 and let go before F9 no longer stays down](#atari-st-a-key-held-at-f8-and-let-go-before-f9-no-longer-stays-down-175-gate-g6) | the Atari ST (`atarist_hatari.py`) | the Atari ST (its adapter `rrhk_atarist.inc`) | none |
+| [Atari ST: supported](#atari-st-supported-175) | the Atari ST (`retrorecomp/systems/atari_st.py`, its status) | none | none |
 
 ## Commodore Amiga: the second joystick on port 1 (1.7.5)
 
@@ -242,6 +243,15 @@ The Atari ST joins `path_profiles.SHARED_SYSTEMS` (Arthur, 14 November 2026: «O
   `atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile and the group `shares:m68k_media_knowledge`); no other machine's game stamp, no host or build stamp, no native file, no
   quick-state key. An Atari ST export of 1.7.4 is converted once in full, with the same result on the routes; the seven games delivered for the owner's play were built one merge before the last
   (which added the function `exact` to `m68k_media_knowledge.py`, unused by the Atari ST): they carry the stamp before it.
+
+## Atari ST: supported (1.7.5)
+
+On the owner's decision of 14 November 2026 (the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance): « Oui, sors-le », after his play test of seven games), the Atari ST is
+supported from 1.7.5; it opened as experimental in 1.7.1. The status lives in `retrorecomp/systems/atari_st.py`, which is an input of the Atari ST's game stamp, so the change moves that stamp once more (with
+this release's other Atari ST changes); the 1.7.5 update handles it as for the PC Engine, the MSX and the Amiga, and the delivered exports are not converted again. The Options note loses "(experimental)" in
+the eight languages (`options_atarist_note`) and the credits no longer list the Atari ST among the experimental machines; nothing else of the converter changes.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `6e4d6d1d`): **the game stamp of the Atari ST only** (`b5cfd4de57c4` to `6116a5b0bb28`); no other machine, no host or build stamp, no quick-state key.
 
 ## Atari ST: a key held at F8 and let go before F9 no longer stays down (1.7.5, gate G6)
 

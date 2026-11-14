@@ -214,7 +214,7 @@ no list of compatible games: native code, CPU fidelity, hardware fidelity, gamep
 Native code and CPU fidelity are measured on a panel of eight installs, hardware fidelity is not claimed, gameplay rests on owner play trials, latency is
 not measured ([AMIGA.md](AMIGA.md#3-the-five-measures)). Kickstart 3.x installs, ADF disks and the Amiga 1200 are not converted.
 
-The **Atari ST** profile is experimental since 1.7.1 ([status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
+The **Atari ST** profile is supported since 1.7.5, on the owner's decision of 14 November 2026 (it opened in 1.7.1; [G14](QUALIFICATION.md#owner-acceptance), [status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
 images, or a ZIP holding only them) on Hatari, with EmuTOS 1.4 by default or your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of
 compatible games. The 68000 instructions its reference run saw become native code, Hatari's own instruction handlers compiled again per opcode and chained, and every other
 instruction runs on Hatari's interpreter and is counted per route; the video, sound and disk chips are Hatari's. CPU fidelity, hardware fidelity, gameplay
