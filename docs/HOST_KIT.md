@@ -458,6 +458,13 @@ X68000 too, without asking again**.
   row and F1-Fn keys; the Neo Geo: F5 and F11) reach fourteen rows with it, the window of the page: no machine scrolls. Its icon
   is a door with an arrow leaving it (`RR_ICON_ROW_EXIT`). Adventure (ScummVM) keeps its own menus.
 
+* <a id="d24"></a>**D24 — The machines' own rows and pages have their icons** (1.7.6, the lead's exception of 15 November 2026
+  for one-line calls in the adapters). Seven more row icons: palette, sprite, DIP switch, floppy, mouse, help, sliders. The
+  options rows of the machines name theirs with `rrhk_option_row_icon` (Game Boy F5 palette; NES, Master System and Game Gear
+  F5 sprite flicker; Neo Geo F5 enhanced, sprite, and F11 MVS/AES, a coin); the CPS-1 DIP page puts the DIP icon before each
+  switch; the computers' shortcut page (Ctrl+Alt+H, `rrhk_computer.inc`: X68000, Atari ST, MSX, Amiga) one per line, a floppy
+  for each of the machine's disk lines. The generic gem stays for the rows nothing names.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

@@ -147,6 +147,19 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Machines' own rows and pages: their icons (1.7.6)
+
+The rows and pages a machine draws or adds itself get their icons ([HOST_KIT.md](HOST_KIT.md#d24), D24).
+
+* **Stamps.** The host stamp of all 20 profiles moves (the seven icons are in `native/retro_menu.c` and `retro_menu.h`, and
+  `RRHK_ROW_KEYBOARD` moves to `hostkit/hostkit.h`); the adapters changed are `rrhk_gb.inc`, `rrhk_nes.c`, `rrhk_sms.c`,
+  `rrhk_ng.c`, `rrhk_cps1.c` and `rrhk_computer.inc` (host files of their machines). No game or build stamp, no quick-state key.
+* **What players see.** An icon instead of the generic gem on those rows; on the CPS-1 DIP page and the computers' shortcut page,
+  an icon before each line.
+* **Checks.** A quick conversion of one game per changed adapter (NES, Master System, Game Boy, Neo Geo, MSX for
+  `rrhk_computer.inc`; the CPS-1 adapter is built by `tools/hostkit_players_selftest.py`), the gallery of the five pages in
+  English and French, the suite.
+
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 
 The options page ends with a **Quit the game** row ([HOST_KIT.md](HOST_KIT.md#d23), D23) that asks the same "Quit? No / Yes"
