@@ -451,14 +451,6 @@ X68000 too, without asking again**.
   whose icon is a DB9 port seen face-on with the device plugged in now (`RR_ICON_ROW_PORT_MOUSE`, `RR_ICON_ROW_PORT_JOYSTICK`);
   the Atari ST can reuse it for its own port. Nothing changes on a machine that declares no row.
 
-* <a id="d23"></a>**D23 — A "Quit the game" tile in the F2 menu** (owner's request of 14 November 2026, 1.7.6), on every
-  machine on the kit. The last tile of the F2 menu (the one the pad's Start or Options button also opens) asks the same
-  "Quit? No / Yes" as Esc and the Quit combination (`rrhk_quit_ask`, No selected), for a player who knows neither, or whose
-  keyboard belongs to the computer; No and Esc come back to the tiles. It is a tile, not a page: Left and Right on the pages never
-  reach it. Past ten tiles (a four-player board) the tiles are 38 units wide, six to a row, so that they stay on two rows; up to
-  ten, five to a row of 44 as before. Its icon is a door with an arrow leaving it (`RR_ICON_QUIT`). Adventure (ScummVM) keeps its
-  own menus.
-
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

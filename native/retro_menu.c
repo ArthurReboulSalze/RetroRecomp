@@ -263,10 +263,6 @@ static const uint64_t icon_gamepad_small[9] = {
     0x54000054ull};
 static const uint64_t icon_options_small[9] = {
     0x3f00ull, 0x2aaaabf55ull, 0x3f00ull, 0x3f00000ull, 0x2abf55555ull, 0x3f00000ull, 0x3f000ull, 0x2aaabf555ull, 0x3f000ull};
-/* 1.7.6: the "Quit the game" tile of the F2 menu, a door with an arrow leaving it. */
-static const uint64_t icon_quit[18] = {
-    0x0ull, 0x15555540ull, 0x3c001aaaaa40ull, 0xfc001aaaaa40ull, 0x3fc001aaaaa40ull, 0xffc001aaaaa40ull, 0x3ffc001aaaaa40ull,
-    0xffffffffaaaa40ull, 0x3ffffffff6aaa40ull, 0xffffffff6aaa40ull, 0x3ffc001aaaaa40ull, 0xffc001aaaaa40ull, 0x3fc001aaaaa40ull, 0xfc001aaaaa40ull, 0x3c001aaaaa40ull, 0x1aaaaa40ull, 0x15555540ull, 0x0ull};
 /* <row icons> */
 /* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
  * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
@@ -311,7 +307,6 @@ static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
-    {icon_quit, 30, 18},
     /* <row table> */
     {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
     {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},

@@ -235,7 +235,6 @@ static const char *const rr_translations[][5] = {
     {"Quick state loaded","Partie chargee","Stato rapido caricato","Estado rapido cargado","Schnellstand geladen"},
     {"Quick state saved","Partie sauvegardee","Stato rapido salvato","Estado rapido guardado","Schnellstand gespeichert"},
     {"Quit","Quitter","Esci","Salir","Beenden"},
-    {"Quit the game","Quitter le jeu","Esci dal gioco","Salir del juego","Spiel beenden"},
     {"Quit: gamepad","Quitter : manette","Esci: controller","Salir: mando","Beenden: Controller"},
     {"Quit: keyboard","Quitter : clavier","Esci: tastiera","Salir: teclado","Beenden: Tastatur"},
     {"RAM code: compiled, not observed","Code en RAM : compile, non observe","Codice in RAM: compilato, non osservato","Codigo en RAM: compilado, no observado","RAM-Code: kompiliert, nicht beobachtet"},

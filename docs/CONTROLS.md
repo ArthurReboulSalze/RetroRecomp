@@ -32,7 +32,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)); the trigger of player 1's controller |
 | ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below); the trigger of player 1's controller |
 | M | Mute or unmute the sound |
-| Esc | Close a menu. In play: asks **Quit? No / Yes** (1.7.4) before the game closes. Since 1.7.6 the last tile of F2, **Quit the game**, asks the same question |
+| Esc | Close a menu. In play: asks **Quit? No / Yes** (1.7.4) before the game closes |
 
 On every console whose controller has a **Start** button (Game Gear, Game Boy,
 NES, Mega Drive, SNES, Neo Geo, CPS-1), the default keyboard layout is the
