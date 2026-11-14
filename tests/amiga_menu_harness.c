@@ -123,6 +123,8 @@ int main(int argc, char **argv) {
       snprintf(port1_config, sizeof port1_config, "%s", "amiga-menu-port1.cfg");
       remove(port1_config);
       check(machine->players() == 2, "F2 offers two players' pages: port 2's joystick and port 1's");
+      check(machine->pad_row_count == 1 && machine->pad_rows[0].player == 2 && !strcmp(machine->pad_rows[0].label, "Mouse port")
+            && machine->pad_rows[0].count == 3, "one row, Mouse port, on player 2's gamepad page, three values");
       a_port1_load();
       a_port1_shown = 0;
       check(a_port1_mode() == RR_AMIGA_PORT1_FOLLOW && harness_port1_mode == RR_AMIGA_PORT1_FOLLOW, "no saved choice: port 1 follows the device used");
@@ -140,6 +142,10 @@ int main(int argc, char **argv) {
       a_inputs();
       check(a_port1_device() == 0 && !strcmp(rrhk.status, "Mouse port: mouse"), "a mouse click plugs the mouse back, and the plate says so");
       harness_buttons = 0; a_inputs(); mouse_grab = false;
+      check(machine->pad_rows[0].icon() == RR_ICON_ROW_PORT_MOUSE, "the row's icon shows the mouse in the port");
+      machine->pad_rows[0].set(RR_AMIGA_PORT1_JOYSTICK);
+      check(machine->pad_rows[0].get() == RR_AMIGA_PORT1_JOYSTICK && machine->pad_rows[0].icon() == RR_ICON_ROW_PORT_JOYSTICK,
+            "the row chooses Pad 2: the joystick is in the port, and the icon shows it");
       a_set_port1_mode(RR_AMIGA_PORT1_MOUSE, true);
       ca.pad[1] = (uint16_t)A_BIT(A_RIGHT);
       a_inputs();

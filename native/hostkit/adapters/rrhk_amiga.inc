@@ -141,6 +141,13 @@ static void a_port1_notice(void) {
    if (ca.windowed) rrhk_notice(text[device][language], 3500);
 }
 
+/* The row "Mouse port" at the top of player 2's gamepad page (the shell's RrhkPadRow): its value is the player's choice, kept per game; its
+ * icon shows the device port 1 holds now (a mouse or a joystick plugged into the port). */
+static const char *const a_port1_values[3] = {"Auto (last used)", "Mouse", "Pad 2"};
+static void a_pad_port1_set(int value) { a_set_port1_mode(value, true); }
+static int a_pad_port1_icon(void) { return a_port1_device() ? RR_ICON_ROW_PORT_JOYSTICK : RR_ICON_ROW_PORT_MOUSE; }
+static const RrhkPadRow a_pad_rows[1] = {{2, "Mouse port", 3, a_port1_values, a_port1_mode, a_pad_port1_set, a_pad_port1_icon}};
+
 /* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. */
 static void a_inputs(void) {
    uint8_t held[128];
@@ -309,6 +316,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
+      machine.pad_rows = a_pad_rows; machine.pad_row_count = 1;      /* "Mouse port" on player 2's gamepad page */
    }
    return &machine;
 }
