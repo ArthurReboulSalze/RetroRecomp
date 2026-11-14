@@ -6,34 +6,39 @@ engine revision (`cores`) that validated it, and the whole sharing can be withdr
 What is shared. The banked Z80 chain translates every instruction position of the cartridge and of the BIOS ahead of time; what a conversion still
 learns is the code the program runs from RAM, as the Master System does: the four bytes at each address the interpreter ran (`msx_build.learn`,
 `native.patterns`), which the next generation emits as native bodies guarded by those four bytes. A record holds, for each such window whose
-bytes are found in the player's own cartridge, its **offset** in that cartridge (the `window4` shape the Master System already shares as
-`pattern_refs`); a player with the same cartridge reads the four bytes back from his own dump. A window runs native only where the bytes at the
-program counter equal it, so a received window can never change what a game does: where it does not fit, the interpreter runs, counted.
+bytes are found in the player's own cartridge, its **offset** in that cartridge: the `window4` shape the Master System shares as
+`pattern_refs`, turned into offsets and back by the same helpers (`knowledge_build.window_offsets`, `window_words`). A player with the same
+cartridge reads the four bytes back from his own dump. A window runs native only where the bytes at the program counter equal it, so a
+received window never changes what a game does: where it does not fit, the interpreter runs, counted.
 
 What stays private, counted and never shared: windows whose bytes are not in the cartridge (code the BIOS or the game builds in RAM), and the
 windows received from other players until this player's own conversion learns them (the Master System's rule, `knowledge_build._sega_offered`).
 A record is made only from the windows of a conversion that then passed every check (`msx_conversion`), never from the paths it received.
 
-The record names the cartridge and the BIOS it was found with (the profiles hash both); its windows point into the cartridge only, so they are
-used under any BIOS. One module serves both machines: every function takes the machine (`system`), and `msx2_knowledge` binds it for the MSX2.
+Only what is the MSX's is here: the record's identity (the cartridge, keyed by its SHA-256, and the BIOS it was found with), the engine pin, the
+machine's own rules (`RECORD_RULES`, `validate_record`), the private filter and the use of the windows in a conversion. Comparing, uniting,
+keeping and gathering records is `path_records`, the one copy every schema 3 machine can use. One module serves both machines: every function
+takes the machine (`system`), and `msx2_knowledge` binds it for the MSX2.
 """
 from __future__ import annotations
 
+from functools import lru_cache
 import hashlib
-import json
 
 from . import path_profiles as pp
+from .knowledge_build import window_offsets, window_words
+from .path_records import PathRecords, record_digest
 
 SYSTEMS = ('msx', 'msx2')
 CPU = 'z80'
 ROM = 'rom'
 BIOS = 'bios'
 SHAPE = 'window4'
+KIND = 'msx_window'
 # A path is qualified for the revision of the engine that consumed it. Raise this when our use of the windows changes in a way a path could notice.
 GENERATOR_REVISION = 1
 ROW_LIMIT = 4096                  # the windows a game learns at most (msx_glue.inc: `learned[4096]`; the profiles' cap)
-PATH_CAPS = {'msx_window': ROW_LIMIT}
-WORD = 4
+PATH_CAPS = {KIND: ROW_LIMIT}
 
 UnknownFormat = pp.UnknownFormat
 
@@ -60,21 +65,13 @@ def engine(system: str = 'msx') -> str:
     return hashlib.sha1(f'{_system(system)}:{GENERATOR_REVISION}:{ENGINE_REV}'.encode()).hexdigest()
 
 
-def record_engine(record) -> str:
-    """The `cores` string a record was built with ('' when it is not an MSX record)."""
-    try:
-        return record['cpus'][CPU]['core']
-    except (KeyError, TypeError):
-        return ''
-
-
 def source_facts(cartridge: bytes, bios: bytes) -> dict:
     return {ROM: {'bytes': len(cartridge), 'sha256': hashlib.sha256(cartridge).hexdigest()},
             BIOS: {'bytes': len(bios), 'sha256': hashlib.sha256(bios).hexdigest()}}
 
 
-def _assemble(system: str, identity: str, sources: dict, offsets, core: str) -> dict:
-    offsets = sorted(set(offsets))
+def _assemble(system: str, identity: str, sources: dict, hints, core: str) -> dict:
+    offsets = sorted({row[0] for name, row in hints if name == KIND})
     if len(offsets) > ROW_LIMIT:
         raise ValueError('An MSX record holds too many paths.')
     paths = {'windows': [pp._table_block(SHAPE, [[offset] for offset in offsets], 1, ROM)]} if offsets else {}
@@ -82,20 +79,15 @@ def _assemble(system: str, identity: str, sources: dict, offsets, core: str) -> 
             'cpus': {CPU: {'map': system, 'core': core, 'paths': paths}}, 'devices': {}}
 
 
-def make_record(identity: str, cartridge: bytes, bios: bytes, offsets=(), *, system: str = 'msx', core: str | None = None) -> dict:
-    """The schema 3 document of a cartridge: the sizes and hashes of the cartridge and the BIOS, the engine, and the offsets."""
-    return validate_record(_assemble(_system(system), identity, source_facts(cartridge, bios), offsets, core or engine(system)), identity,
-                           system=system)
-
-
 def rows(record) -> list[int]:
     """The offsets of a validated record."""
     section = record['cpus'][CPU]
     profile = pp.PROFILES[(CPU, section['map'])]
-    out = []
-    for block in section['paths'].get('windows', ()):
-        out += [offset for (offset,) in pp.decode_table(block['table'], 1, profile.caps[SHAPE])]
-    return out
+    return [offset for block in section['paths'].get('windows', ()) for (offset,) in pp.decode_table(block['table'], 1, profile.caps[SHAPE])]
+
+
+def _hints(record) -> set:
+    return {(KIND, (offset,)) for offset in rows(record)}
 
 
 def validate_record(record, identity: str | None = None, *, system: str = 'msx') -> dict:
@@ -125,62 +117,37 @@ def validate_record(record, identity: str | None = None, *, system: str = 'msx')
     return record
 
 
-def record_digest(record) -> str:
-    """SHA-256 of a record's canonical text: how a report names the record a conversion made."""
-    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
+@lru_cache(maxsize=None)
+def records(system: str = 'msx') -> PathRecords:
+    """The machine's records: the common handling (`path_records`) with the MSX's identity, engine, rules and rows."""
+    return PathRecords(system=_system(system), cpu=CPU, primary=ROM, engine=lambda: engine(system),
+                       validate_record=lambda record, identity=None: validate_record(record, identity, system=system),
+                       assemble=lambda identity, sources, hints, core: _assemble(system, identity, sources, hints, core), hints=_hints)
 
 
-def entry_set(record) -> set:
-    """Every path of a record as comparable tuples (what the base compares between players)."""
-    if not isinstance(record, dict):
-        return set()
-    try:
-        return {('msx_window', offset) for offset in rows(record)}
-    except (KeyError, TypeError, ValueError):
-        return set()
+def make_record(identity: str, cartridge: bytes, bios: bytes, offsets=(), *, system: str = 'msx', core: str | None = None) -> dict:
+    """The schema 3 document of a cartridge: the sizes and hashes of the cartridge and the BIOS, the engine, and the offsets."""
+    return validate_record(_assemble(_system(system), identity, source_facts(cartridge, bios), {(KIND, (offset,)) for offset in offsets},
+                                     core or engine(system)), identity, system=system)
 
 
-def same_images(first: dict, second: dict) -> bool:
-    """Two records point into the very same cartridge (the BIOS they were found with does not change a cartridge window)."""
-    return first['game'] == second['game'] and first['identity']['sources'].get(ROM) == second['identity']['sources'].get(ROM)
+# The common handling, bound to a machine (the names `knowledge.schema3_module` reads).
+def record_engine(record) -> str: return records('msx').record_engine(record)          # the same `cpus.z80.core` for both machines
+def entry_set(record) -> set: return records('msx').entry_set(record)
+def same_images(first: dict, second: dict) -> bool: return records('msx').same_images(first, second)
+def rebuild(skeleton: dict, hints, *, system: str = 'msx', core: str | None = None) -> dict: return records(system).rebuild(skeleton, hints, core=core)
+def merged(identity: str, first: dict, second: dict, *, system: str = 'msx') -> dict: return records(system).merged(identity, first, second)
+def salvaged_record(identity: str, record, *, system: str = 'msx') -> dict | None: return records(system).salvaged_record(identity, record)
+def library_record(identity: str, *, system: str = 'msx') -> dict | None: return records(system).library_record(identity)
 
 
-def rebuild(skeleton: dict, hints, *, system: str = 'msx', core: str | None = None) -> dict:
-    """A record of the skeleton's cartridge holding exactly `hints` (as `entry_set` names them)."""
-    return validate_record(_assemble(system, skeleton['game'].split(':', 1)[1], skeleton['identity']['sources'],
-                                     [offset for name, offset in hints if name == 'msx_window'], core or record_engine(skeleton)),
-                           system=system)
-
-
-def merged(identity: str, first: dict, second: dict, *, system: str = 'msx') -> dict:
-    """Union of two records of one cartridge. Records of another engine or another cartridge never mix: the one built by the current engine is
-    kept, else the first. ValueError when the union exceeds a bound."""
-    if not second:
-        return first
-    if not first:
-        return second
-    if not same_images(first, second) or record_engine(first) != record_engine(second):
-        current = engine(system)
-        return second if record_engine(second) == current and record_engine(first) != current else first
-    return validate_record(_assemble(system, identity, first['identity']['sources'], {*rows(first), *rows(second)}, record_engine(first)),
-                           identity, system=system)
-
-
-def salvaged_record(identity: str, record, *, system: str = 'msx') -> dict | None:
-    """A received record, or None: it is checked as a whole (its rows are numbers about a cartridge whose hash it states)."""
-    try:
-        return validate_record(record, identity, system=system)
-    except (ValueError, TypeError, KeyError, AttributeError):
-        return None
-
-
-# --- Windows to paths and back -------------------------------------------------------------------------------
+# --- Windows to paths and back: the MSX's private filter ------------------------------------------------------------
 
 def words(text: str) -> set[bytes]:
     """The windows of a `native.patterns` text (eight hex digits a line); other lines are ignored."""
     out = set()
     for line in text.split():
-        if len(line) == 2 * WORD:
+        if len(line) == 8:
             try:
                 out.add(bytes.fromhex(line))
             except ValueError:
@@ -193,83 +160,32 @@ def text_of(found) -> str:
 
 
 def promote(identity: str, cartridge: bytes, bios: bytes, own, *, system: str = 'msx', previous: dict | None = None) -> tuple[dict, dict]:
-    """(record, counts): the windows this player's own conversions learned (`own`, bytes of four), as offsets of their first place in the
-    cartridge, united with the player's previous record of the same cartridge and engine. Windows not in the cartridge stay private, counted."""
-    offsets, private = [], 0
-    for word in sorted(own):
-        at = cartridge.find(word)
-        if at < 0:
-            private += 1
-        else:
-            offsets.append(at)
-    truncated = max(0, len(set(offsets)) - ROW_LIMIT)
-    record = make_record(identity, cartridge, bios, sorted(set(offsets))[:ROW_LIMIT], system=system)
+    """(record, counts): the windows this player's own conversions learned (`own`), as offsets of their first place in the cartridge, united
+    with the player's previous record of the same cartridge and engine. Windows not in the cartridge stay private, counted."""
+    offsets, private = window_offsets(cartridge, own)
+    truncated = max(0, len(offsets) - ROW_LIMIT)
+    record = make_record(identity, cartridge, bios, offsets[:ROW_LIMIT], system=system)
     if previous:
         try:
             record = merged(identity, record, previous, system=system)
         except ValueError:
             pass                                    # the union is over the bound: this conversion's record alone
-    return record, {'own_windows': len(own), 'in_cartridge': len(set(offsets)), 'private_not_in_cartridge': private, 'truncated': truncated,
+    return record, {'own_windows': len(set(own)), 'in_cartridge': len(offsets), 'private_not_in_cartridge': private, 'truncated': truncated,
                     'paths': len(rows(record))}
 
 
-def received_words(record, cartridge: bytes) -> set[bytes]:
-    """The windows a record names, read back from this player's own cartridge. ValueError when it points past the cartridge."""
-    out = set()
-    for offset in rows(record):
-        if offset + WORD > len(cartridge):
-            raise ValueError('An MSX path points past the cartridge.')
-        out.add(bytes(cartridge[offset:offset + WORD]))
-    return out
-
-
 def shared_rows(identity: str, cartridge: bytes, *, system: str = 'msx', qualified=None, imported=None, library=None) -> tuple[set, dict]:
-    """(windows, info): the windows of the shared and library records for this cartridge, read from its bytes. Three sources, counted apart:
-    the qualified bank (used only for the engine that qualified it), the player's own library record and the imported bank (other players'
-    paths). A record of another cartridge, or one that does not validate, is ignored with its reason."""
-    found = set()
-    info = {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}}
-    current = engine(system)
-    for name, record in (('qualified', qualified), ('library', library), ('imported', imported)):
-        if not record:
-            continue
-        try:
-            record = validate_record(record, identity, system=system)
-            if name == 'qualified' and record_engine(record) != current:
-                info['ignored'][name] = 'another engine revision'
-                continue
-            if record['identity']['sources'][ROM]['bytes'] != len(cartridge):
-                raise ValueError('The record names a cartridge of another size.')
-            got = received_words(record, cartridge)
-        except ValueError as error:
-            info['ignored'][name] = str(error)[:120]
-            continue
-        info[name] = len(got)
-        found |= got
-    return found, info
+    """(windows, info): the windows of the qualified bank, the player's library record and the imported bank for this cartridge, read from its
+    bytes (`path_records.PathRecords.shared_rows`). A record for a cartridge of another size is ignored with its reason."""
+    def expand(record):
+        if record['identity']['sources'][ROM]['bytes'] != len(cartridge):
+            raise ValueError('The record names a cartridge of another size.')
+        return sorted(window_words(cartridge, rows(record)))
+    found, info = records(system).shared_rows(identity, expand, qualified=qualified, imported=imported, library=library)
+    return set(found), info
 
 
-# --- The player's library ------------------------------------------------------------------------------------
-
-def library_record(identity: str, *, system: str = 'msx') -> dict | None:
-    """This player's own record: the windows that verified conversions learned (`msx_conversion` writes it into the game's summary,
-    `<library>/<system>/<game>/compilation.json`), or None."""
-    from .library import library_root
-    path = library_root(_system(system)) / identity / 'compilation.json'
-    try:
-        with path.open('rb') as stream:
-            raw = stream.read(16 * 1024 * 1024 + 1)
-        if len(raw) > 16 * 1024 * 1024:
-            return None
-        data = json.loads(raw)
-        if data.get('system') != system or data.get('game') != identity or not data.get('fresh_reference_passed'):
-            return None
-        return validate_record(data['record'], identity, system=system)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError):
-        return None
-
-
-# --- A conversion's use of the sharing (msx_conversion) --------------------------------------------------------
+# --- A conversion's use of the sharing (msx_conversion) -----------------------------------------------------------
 
 PATTERNS = 'native.patterns'      # every window the next generation translates (msx_build.learn)
 RECEIVED = 'native.received'      # the windows of it that came from records, not from this player's own learning
@@ -282,9 +198,9 @@ def forget(work) -> None:
 
 
 def receive(system: str, identity: str, cartridge: bytes, work) -> dict:
-    """Before learning: the windows of the qualified bank, the player's library record and the imported bank are added to the work
-    folder's windows, so the first generation already translates them; the ones new to this build are noted as received. Returns
-    what each source gave (the report's `knowledge.use`). A machine out of the sharing receives nothing."""
+    """Before learning: the windows of the qualified bank, the player's library record and the imported bank are added to the work folder's
+    windows, so the first generation already translates them; the ones new to this build are noted as received. Returns what each source
+    gave (the report's `knowledge.use`). A machine out of the sharing receives nothing."""
     if system not in SYSTEMS or system not in pp.SHARED_SYSTEMS:
         return {'shared': False}
     from . import knowledge
@@ -316,13 +232,9 @@ def conclude(system: str, identity: str, cartridge: bytes, bios: bytes, work, us
     block = {'machine_status': get_profile(system).status, 'shared': system in pp.SHARED_SYSTEMS, 'use': dict(use)}
     if system not in SYSTEMS or system not in pp.SHARED_SYSTEMS:
         return block
-    from .library import atomic_json, library_root
     record, counts = promote(identity, cartridge, bios, own_windows(work), system=system, previous=library_record(identity, system=system))
-    summary = library_root(system) / identity / 'compilation.json'
-    summary.parent.mkdir(parents=True, exist_ok=True)
-    atomic_json(summary, {'schema': 1, 'title': title, 'system': system, 'game': identity, 'rom_sha256': identity,
-                          'private_development_only': True, 'fresh_reference_passed': True, 'record': record, 'cores': engine(system),
-                          'record_source': 'the windows this player\'s own conversions learned', 'record_counts': counts})
+    records(system).write_library_record(identity, record, title=title, record_source="the windows this player's own conversions learned",
+                                         record_counts=counts)
     return {**block, 'cores': engine(system), 'record_sha256': record_digest(record), 'paths': counts['paths'], 'promotion': counts,
-            'source': 'the windows this player\'s own conversions learned, once every check passed',
+            'source': "the windows this player's own conversions learned, once every check passed",
             'received_are_not_shared_until_learned': True, 'raw_bytes_stored': False, 'fresh_validation_required': True}

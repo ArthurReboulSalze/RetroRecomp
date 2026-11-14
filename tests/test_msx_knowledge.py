@@ -109,6 +109,40 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(msx2_knowledge.engine(), k.engine('msx2'))
 
 
+class CommonHandlingTests(unittest.TestCase):
+    """path_records (the one copy of the schema 3 handling) and the window helpers of knowledge_build, which the Master System's records use
+    too: the helpers give what the Master System's code computed inline before (14 November 2026)."""
+
+    def test_the_window_helpers_give_the_master_systems_old_results(self):
+        from retrorecomp.knowledge_build import window_offsets, window_words
+        data = cartridge(3, 0x4000)
+        windows = {data[n:n + 4] for n in (0, 7, 0x1234, 0x3FFC)} | {b'\x00\x01\x02\x03', b'\xFF\xFE\xFD\xFC'}
+        old = [data.find(raw) for raw in windows]                                   # knowledge_build.build_record before
+        offsets, missing = window_offsets(data, windows)
+        self.assertEqual(offsets, [offset for offset in sorted(set(old)) if offset >= 0])
+        self.assertEqual(missing, sum(offset < 0 for offset in old))
+        refs = [[offset] for offset in offsets]
+        self.assertEqual(window_words(data, (offset for (offset,) in refs)), {data[offset:offset + 4] for (offset,) in refs})
+
+    def test_the_common_handling_names_no_machine(self):
+        text = (Path(__file__).resolve().parents[1] / 'retrorecomp' / 'path_records.py').read_text(encoding='utf-8')
+        for name in ('msx', 'MSX', 'sms', 'pce', 'x68', 'gba', 'cps'):
+            self.assertNotIn(name, text.replace('Written for the MSX and the\nMSX2', ''))
+
+    def test_merging_keeps_the_current_engine_and_shared_rows_counts_each_source(self):
+        cart = cartridge(5)
+        sha = hashlib.sha256(cart).hexdigest()
+        records = k.records('msx')
+        one, _ = k.promote(sha, cart, BIOS, {cart[0x10:0x14]})
+        old = k.make_record(sha, cart, BIOS, [0x20], core='1' * 40)
+        self.assertEqual(records.merged(sha, old, one), one)                        # another engine: the current one is kept
+        self.assertEqual(records.merged(sha, one, old), one)
+        self.assertIsNone(records.salvaged_record(sha, dict(one, game='msx:' + '0' * 64)))
+        found, info = records.shared_rows(sha, lambda record: [('row', n) for n in k.rows(record)], library=one, imported=one, qualified=old)
+        self.assertEqual(found, [('row', 0x10)])                                    # each row once
+        self.assertEqual((info['library'], info['imported'], info['ignored'].get('qualified')), (1, 1, 'another engine revision'))
+
+
 class ConversionUseTests(unittest.TestCase):
     """receive (before learning) and conclude (after every check) on a work folder, with the banks and the library in a temporary folder."""
 

@@ -80,7 +80,7 @@ beside the game: loaded at start, written two seconds after the game last wrote 
 from the bank values the game writes (a bit above the bank number, which depends on the cartridge's wiring), so a game that selects its SRAM
 only later than its start, or a variant of another size (2 KiB or 32 KiB on ASCII 8, 8 KiB on ASCII 16), is not told apart: 8 KiB on ASCII 8
 and 2 KiB repeated over the page on ASCII 16. A file the game cannot use is moved aside (`.unusable-1`) and the game starts blank. Checked
-on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC's SRAM and the MSX2 clock's memory are not kept.
+on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC and its SRAM are not converted. The MSX2 clock's battery memory (the RP5C01's 26 nibbles, where the BIOS keeps its screen settings, a title and a password) is not kept between runs: no panel game is known to use it, and it can be added if a game needs it (the owner's decision, 14 November 2026).
 
 ## 5. Known C-BIOS failures
 

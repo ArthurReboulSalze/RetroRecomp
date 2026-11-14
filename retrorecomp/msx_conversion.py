@@ -7,8 +7,9 @@ the routes of the scan level (msx_routes: attract, play from a start chosen on t
 program and the reference on every route and refuse the conversion when any compared field differs (CPU, RAM, VRAM, picture
 of every frame, sound, PSG, banks, every frame's row); build the game with the host kit; replay the delivered (compressed)
 file on every route; check quick states in a fresh process; write the report (schema 2). The MSX2 adds the V9938 (with its
-command engine, timing approximated), the memory mapper and the clock (msx_setup_msx2). Not yet: shared paths. The
-five measures stay apart: native code and CPU agreement with the reference are measured on the route played;
+command engine, timing approximated), the memory mapper and the clock (msx_setup_msx2). Shared paths (MSX and MSX2):
+the RAM windows a conversion learned, as offsets in the cartridge (msx_knowledge), received before learning and recorded once every
+check passed. The five measures stay apart: native code and CPU agreement with the reference are measured on the route played;
 hardware fidelity, gameplay and latency are not.
 """
 from __future__ import annotations
