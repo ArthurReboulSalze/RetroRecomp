@@ -1,0 +1,7 @@
+{
+ "revision": 1,
+ "sources": {
+  "retrorecomp/atarist_codegen.py": "b87de7033cb199265c65641750201f3acde04eeefdda07ede19ff7ff015ba712",
+  "retrorecomp/atarist_hatari.py": "fab76934b58ff2c5efa01b9fda1beed7c10e24da20d06d19126f21552e7be46e"
+ }
+}

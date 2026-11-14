@@ -323,12 +323,12 @@ class ProfileContractTests(unittest.TestCase):
         self.assertEqual(get_profile('x68').shared_knowledge.tier, 'experimental')
 
     def test_the_x68000_the_pc_engine_and_the_gba_decline_the_quick_check_from_shared_paths(self):
-        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the PC Engine, whose record is made from all its routes, the Game Boy Advance, whose RAM code does not travel (a first conversion runs its own passes), and the X68000, whose
+        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the Atari ST (what its shared rows add is code no route ran), the PC Engine, whose record is made from all its routes, the Game Boy Advance, whose RAM code does not travel (a first conversion runs its own passes), and the X68000, whose
         # input routes (mouse, keyboard) are found by replaying them and are not carried by the shared paths.
         declined = {p.id for p in ALL_PROFILES if p.shared_knowledge and not p.shared_knowledge.quick_check_from_shared}
-        self.assertEqual(declined, {'x68', 'pce', 'gba'})
+        self.assertEqual(declined, {'x68', 'pce', 'gba', 'atarist'})
         for profile in ALL_PROFILES:
-            if profile.shared_knowledge and profile.id not in ('x68', 'pce', 'gba'):
+            if profile.shared_knowledge and profile.id not in ('x68', 'pce', 'gba', 'atarist'):
                 self.assertIs(profile.shared_knowledge.quick_check_from_shared, True, profile.id)
 
     def test_host_adapter_equals_the_host_kit_table(self):

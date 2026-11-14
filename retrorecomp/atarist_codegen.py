@@ -102,7 +102,7 @@ SEMANTICS = """#pragma once
 #include "m68000.h"
 #include "cycInt.h"
 #include "mfp.h"
-extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_shared_total, rr_st_swept_total;
 static inline __attribute__((always_inline)) int rr_st_quiet(void) {
     /* An interrupt level below the CPU's mask is the usual state of an ST (HBL pending): `do_specialties` then does nothing, as `time_for_interrupt` answers 0. */
     return !(regs.spcflags | regs.loop_mode | regs.memory_waitstate_cycles | MFP_UpdateNeeded) && regs.ipl[0] <= regs.intmask && regs.ipl[0] != 7 && regs.ce020extracycles < 16 &&
@@ -160,7 +160,7 @@ extern void exception2_fetch(uae_u32 opcode, int offset, int pcoffset) __attribu
 # has. A blitter at work (its own functions behind the pointers) and any other bank type go through Hatari's functions.
 BUS = """#include "step_semantics.h"
 #include "blitter.h"
-uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
+uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_shared_total, rr_st_swept_total;
 extern uae_u32 extra_cycle;
 static inline void cycles_add(int cycles) {
     currcycle += cycles + extra_cycle;
@@ -322,9 +322,10 @@ def _form_symbol(prefix: str, opcode: int) -> str:
 
 
 # Where an instruction of the native code comes from: the conversion's own runs, a player's own record (it ran there on the interpreter), a walk through a recorded window (it may never
-# have run there), or a sweep over images of memory taken at the routes' end (it was only reached from observed code). The last three are counted apart; no route proves them.
-OBSERVED, LEARNED, WALKED, SWEPT = 'observed', 'learned', 'walked', 'swept'
-_ORIGIN_COUNT = {OBSERVED: '', LEARNED: ' rr_st_learned_total++;', WALKED: ' rr_st_walked_total++;', SWEPT: ' rr_st_swept_total++;'}
+# have run there), an instruction a shared record declares (another player's verified conversion ran it; here it is rebuilt from this player's own disks or TOS), or a sweep over
+# images of memory taken at the routes' end (it was only reached from observed code). The last four are counted apart; no route proves them.
+OBSERVED, LEARNED, WALKED, SHARED, SWEPT = 'observed', 'learned', 'walked', 'shared', 'swept'
+_ORIGIN_COUNT = {OBSERVED: '', LEARNED: ' rr_st_learned_total++;', WALKED: ' rr_st_walked_total++;', SHARED: ' rr_st_shared_total++;', SWEPT: ' rr_st_swept_total++;'}
 
 
 def _instruction(prefix: str, pc: int, opcode: int, following: list, origin: str = OBSERVED) -> str:
@@ -345,7 +346,7 @@ def write_forms(project: Path, opcodes, *, observed) -> None:
     write_changed(steps / f'bus{observed.source_extension}', BUS)
 
 
-def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, learned: list = (), walked: list = (), swept: list = ()) -> dict:
+def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, learned: list = (), walked: list = (), shared: list = (), swept: list = ()) -> dict:
     """Decode the observed instructions, then write the forms (`steps/partNN.c`), the instructions in address order (`steps/chainNN.c`) and the index that finds one from a pc and an
     opcode (`steps/index.c`)."""
     prefix = observed.prefix
@@ -353,10 +354,11 @@ def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, le
     seen = {(pc, int(words[:4], 16)) for pc, words in samples}
     from_record = {(pc, int(words[:4], 16)) for pc, words in learned}
     from_walk = {(pc, int(words[:4], 16)) for pc, words in walked}
-    everything = sorted(set(samples) | set(learned) | set(walked) | set(swept))
+    from_shared = {(pc, int(words[:4], 16)) for pc, words in shared}
+    everything = sorted(set(samples) | set(learned) | set(walked) | set(shared) | set(swept))
 
     def origin(key):
-        return OBSERVED if key in seen else LEARNED if key in from_record else WALKED if key in from_walk else SWEPT
+        return OBSERVED if key in seen else LEARNED if key in from_record else WALKED if key in from_walk else SHARED if key in from_shared else SWEPT
     if everything:
         listing = project / 'snapshots.txt'
         listing.write_text(''.join(f'{pc:06x} {words}\n' for pc, words in everything), encoding='ascii')
@@ -428,7 +430,7 @@ def write_steps(project: Path, samples: list, *, observed, decode_tool: Path, le
     write_changed(steps / f'index{INDEX_EXTENSION}', ''.join(source))
     return {'samples': len(samples), 'instructions': len(words), 'native_instructions': len(instructions), 'forms': len({opcode for _, opcode in instructions}), 'pcs': len(groups),
             'learned_instructions': sum(origin(key) == LEARNED for key in instructions), 'walked_instructions': sum(origin(key) == WALKED for key in instructions),
-            'swept_instructions': sum(origin(key) == SWEPT for key in instructions)}
+            'shared_instructions': sum(origin(key) == SHARED for key in instructions), 'swept_instructions': sum(origin(key) == SWEPT for key in instructions)}
 
 
 STEPS_HEAD = '#include "step_semantics.h"\n'

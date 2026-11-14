@@ -13,7 +13,7 @@ from tests import test_x68_knowledge as x68_tests
 class PathCapsTests(unittest.TestCase):
     def test_every_schema_3_module_has_path_caps_of_the_same_form(self):
         modules = {system: knowledge.schema3_module(system) for system in pp.SCHEMA3_ONLY}
-        self.assertEqual(set(modules), {'cps1', 'cps2', 'x68', 'pce', 'gba'})
+        self.assertEqual(set(modules), {'cps1', 'cps2', 'x68', 'pce', 'gba', 'atarist'})
         for system, module in modules.items():
             with self.subTest(system):
                 caps = module.PATH_CAPS
@@ -27,7 +27,7 @@ class PathCapsTests(unittest.TestCase):
     def test_the_module_of_a_machine_is_declared_by_its_profile(self):
         from retrorecomp.systems import ALL_PROFILES
         declared = {p.id: p.shared_knowledge.module for p in ALL_PROFILES if p.shared_knowledge and p.shared_knowledge.module}
-        self.assertEqual(declared, {'cps1': 'cps1_knowledge', 'cps2': 'cps2_knowledge', 'x68': 'x68_knowledge', 'pce': 'pce_knowledge', 'gba': 'gba_knowledge'})
+        self.assertEqual(declared, {'cps1': 'cps1_knowledge', 'cps2': 'cps2_knowledge', 'x68': 'x68_knowledge', 'pce': 'pce_knowledge', 'gba': 'gba_knowledge', 'atarist': 'atarist_knowledge'})
         self.assertEqual(set(declared), set(pp.SCHEMA3_ONLY))
         self.assertIs(knowledge.schema3_module('cps1'), cps1_knowledge)
         self.assertIs(knowledge.schema3_module('cps2'), cps2_knowledge)

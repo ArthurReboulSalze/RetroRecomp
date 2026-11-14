@@ -12,7 +12,7 @@ the STE, the Mega STE, the TT and the Falcon, hard disks, the monochrome monitor
 from pathlib import Path
 
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 # Where the 68000 of an ST runs code: the ST RAM (up to 4 MiB), the cartridge area and the TOS ROM of a 192 KiB TOS.
 APERTURES = ((0, 0x400000, 0x400000), (0xFA0000, 0xFC0000, 0xFC0000), (0xFC0000, 0xFF0000, 0xFF0000))
@@ -56,6 +56,10 @@ class AtariStProfile(SystemProfile):
                                                           windows=tuple((low, last) for low, last, _ in APERTURES),
                                                           contained=True, length=(2, 16), length_align=2,
                                                           offset_align=2, address_align=2, span_max=262144)),))
+    # Shares its paths as the experimental tier of the shared base, like the X68000: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md). A path is a row into the
+    # player's own TOS or into the standard sectors of the player's own disks; what a loader relocates or unpacks, or a custom-format track holds, stays private.
+    # The quick check does not replace the scan level: what the shared rows add is declared code no route of this player ran, so the routes still run in full.
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='atarist_knowledge')
     # The instructions the game runs become guarded native steps that call Hatari's own handler of their opcode (C); the index that
     # lists them is C too (retrorecomp/atarist_codegen.py).
     observed_code = ObservedCode('atarist_codegen:hatari_bodies', 'rr_st_', 'RrStStep', APERTURES,

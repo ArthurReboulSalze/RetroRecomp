@@ -290,6 +290,17 @@ def record_windows(rows, tos: Path, observed) -> tuple[list, dict]:
     return kept, counts
 
 
+def knowledge_block(record, promotion, used, sharing: bool) -> dict:
+    """The report's `knowledge` section. `shared` says whether the Atari ST is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`), not that this conversion shared anything."""
+    from . import atarist_knowledge
+    block = {'machine_status': get_profile('atarist').status, 'shared': sharing, 'record_format': atarist_knowledge.FORMAT, 'cores': atarist_knowledge.engine(),
+             'source': 'fresh reference runs of this conversion', 'use': dict(used), 'raw_words_stored': False, 'fresh_validation_required': True}
+    if promotion:
+        block.update(record_sha256=atarist_knowledge.record_digest(record) if record else None, paths=promotion['paths'],
+                     promotion={key: promotion[key] for key in ('ram', 'tos', 'cartridge_area', 'malformed', 'truncated')})
+    return block
+
+
 def payload(project: Path, source, disks: list[Path], tos: Path, title: str, mouse_game: bool, sources: Path | None = None,
             autostart: str | None = None, timer_d: str = 'patched') -> dict:
     """The resources of the exported game: its disks and its TOS (as embedded files), the notices and the Windows metadata; with
@@ -399,9 +410,9 @@ def sweep_images(folders: list, tos: Path) -> list:
     return images
 
 
-def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None, images: list = ()) -> dict:
+def generate(project: Path, samples: list, table: Path, hatari_build: Path, windows: list = (), lengths: Path | None = None, images: list = (), shared: list = ()) -> dict:
     """The native code of these observations (`atarist_codegen`: an instruction per address and opcode, on Hatari's handlers), of the windows of a player's own record, and of what a
-    sweep over the images of memory at the routes' end reaches from them."""
+    sweep over the images of memory at the routes' end reaches from them, and the instructions a shared record declares (`shared`: rows rebuilt from the player's own disks and TOS, counted apart)."""
     from . import atarist_codegen, m68k_observed
     engine = ROOT / '.deps/segagenesisrecomp'
     observed = get_profile('atarist').observed_code
@@ -413,10 +424,11 @@ def generate(project: Path, samples: list, table: Path, hatari_build: Path, wind
     m68k_observed.write_step_semantics(project, bodies, observed.prefix, lambda text: text)
     usable = atarist_codegen.native_samples(samples)
     learned, walked = atarist_codegen.walk_records(windows, observed=observed, lengths=lengths.read_bytes()) if windows and lengths else ([], [])
-    swept, sweep_info = atarist_codegen.sweep(usable + learned, images, observed=observed, lengths=lengths.read_bytes(), known=walked) if images and lengths else ([], {})
-    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked, swept=swept)
+    declared = atarist_codegen.native_samples(sorted(shared))
+    swept, sweep_info = atarist_codegen.sweep(usable + learned, images, observed=observed, lengths=lengths.read_bytes(), known=list(walked) + declared) if images and lengths else ([], {})
+    steps = atarist_codegen.write_steps(project, usable, observed=observed, decode_tool=decode, learned=learned, walked=walked, shared=declared, swept=swept)
     return {'samples': len(samples), 'with_handler': len(usable), 'instructions': steps['instructions'], 'native_instructions': steps['native_instructions'],
-            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'], 'swept_instructions': steps['swept_instructions'], 'sweep': sweep_info,
+            'learned_instructions': steps['learned_instructions'], 'walked_instructions': steps['walked_instructions'], 'shared_instructions': steps['shared_instructions'], 'swept_instructions': steps['swept_instructions'], 'sweep': sweep_info,
             'forms': steps['forms'], 'pcs': steps['pcs'], 'opcode_table_sha256': file_sha256(table)}
 
 
@@ -655,6 +667,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for name, _, _ in routes:
             samples |= set(read_observations(checks / f'reference-{name}' / 'observations.txt'))
         fresh_samples = len(samples)
+        fresh_observed = sorted(samples)
         memory = game_entry(source, tos.key)
         remembered = memory / OBSERVATIONS
         if remembered.is_file():
@@ -672,6 +685,16 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             emit(f'Atari ST: {len(windows)} windows of the player\'s own record are used.')
         # The routes' end: images of memory for the sweep (read now, the files deleted: nothing of the game's memory is kept).
         images = sweep_images([checks / f'reference-{name}' for name, _, _ in routes], media / 'tos.img')
+        # The shared knowledge of this game: rows into the player's own TOS and the standard sectors of the player's own disks (`atarist_knowledge`), from the bank other players' paths
+        # reached, the library's own record and the imported bank. Build input only, declared code no route of this conversion ran: never added to the observations kept.
+        from . import atarist_knowledge, knowledge, path_profiles
+        tos_bytes = (media / 'tos.img').read_bytes()
+        disk_bytes = atarist_knowledge.disk_content([(disk.format, data) for disk, data in zip(source.disks, source.disk_data())])
+        sharing = 'atarist' in path_profiles.SHARED_SYSTEMS
+        shared, shared_info = atarist_knowledge.shared_rows(disk_bytes, tos_bytes, qualified=knowledge.qualified_game('atarist', source.game_key), imported=knowledge.imported_game('atarist', source.game_key),
+                                                            library=atarist_knowledge.library_record(source.game_key)) if sharing else ([], {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}})
+        if any(shared_info.get(name) for name in ('qualified', 'library', 'imported')):
+            emit(f"Atari ST: shared paths used as build input: {shared_info['qualified']} from the qualified bank, {shared_info['imported']} imported, {shared_info['library']} from this library.")
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -685,9 +708,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         for attempt in range(max(1, min(int(passes or 3), 10))):
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
-                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths, images=images)
+                generation = generate(project, sorted(samples), table, hatari_build, windows=windows, lengths=lengths, images=images, shared=shared)
             emit(f'Atari ST: {generation["native_instructions"]} instructions in {generation["forms"]} native forms ({generation["learned_instructions"] + generation["walked_instructions"]} from the player record, '
-                 f'{generation["swept_instructions"]} swept); compiling the game.')
+                 f'{generation["shared_instructions"]} shared, {generation["swept_instructions"]} swept); compiling the game.')
             if generation['sweep'].get('capped'):
                 emit(f'Atari ST: the sweep stopped at its limit of {generation["sweep"]["limit"]} instructions ({generation["sweep"]["left_at_cap"]} places left unvisited).')
             with timings.phase('compile'):
@@ -763,7 +786,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             interpreted = results[name]['interpreted']
             folder = checks / 'packed' / name
             rows.append({'route': name, 'frames': frames_, 'native_entries': native, 'interpreted_opcodes': interpreted, 'chain_entries': results[name].get('chain_entries'),
-                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'), 'native_swept': results[name].get('native_swept'),
+                         'native_learned': results[name].get('native_learned'), 'native_walked': results[name].get('native_walked'), 'native_shared': results[name].get('native_shared'), 'native_swept': results[name].get('native_swept'),
                          'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': True,
                          'packed_reference_match': True, 'reference_interpreted_opcodes': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
@@ -771,6 +794,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          **interpreted_sites(result),
                          **({'state_saved_at': state_frame, 'state_restart_match': resumed['matches']} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
+        record, promotion = atarist_knowledge.promote(source.game_key, disk_bytes, tos_bytes, fresh_observed, previous=atarist_knowledge.library_record(source.game_key)) if sharing else (None, None)
+        knowledge_report = knowledge_block(record, promotion, shared_info, sharing)
         report = {
             'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
             'system': {'id': 'atarist', 'name': 'Atari ST'}, 'status': get_profile('atarist').status, 'private_development_only': False,
@@ -809,6 +834,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                               'learned_means': "an instruction a player's own session ran on the interpreter: the same guard, no route proves it; on the routes the count is 0 by construction, as what a route runs is observed",
                               'walked_means': 'found by walking a 16-byte window a session noted: it may never have run there, and no route proves it (final_checks.native_walked is 0 on the routes by construction)',
                               'private': True, 'shared': False},
+            'shared_paths': {'shared_instructions': generation['shared_instructions'], 'used': shared_info,
+                             'shared_means': "declared by a shared record (another verified conversion ran it), rebuilt from this player's own disks or TOS: the same guard on the latched opcode; on the routes the count is 0 by construction, as what a route runs is observed (final_checks.native_shared); no route proves them"},
+            'knowledge': knowledge_report,
             'sweep': {**generation['sweep'], 'swept_instructions': generation['swept_instructions'], 'page_fill': False,
                       'swept_means': 'reached by a sweep over images of memory taken at the end of the routes, not seen running: the same guard on the latched opcode; on the routes the count is 0 by '
                                      'construction, as what a route runs is observed (final_checks.native_swept)',
@@ -849,6 +877,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             atomic_json(memory / 'compilation.json', {'schema': 1, 'title': title, 'system': 'atarist', 'game': source.game_key,
                                                       'rom_sha256': source.sha256, 'tos_sha256': tos.sha256, 'tos': tos.label(),
                                                       'guarded_variants': len(samples),
-                                                      'sdk': stamp, 'observations_sha256': file_sha256(remembered), 'private_development_only': True, 'fresh_reference_passed': True})
+                                                      'sdk': stamp, 'observations_sha256': file_sha256(remembered), 'private_development_only': True, 'fresh_reference_passed': True,
+                                                      **({'record': record, 'record_format': atarist_knowledge.FORMAT, 'cores': atarist_knowledge.engine(), 'record_source': 'fresh reference runs'} if record else {})})
         emit('Atari ST: validated standalone game ready.')
         return candidate
